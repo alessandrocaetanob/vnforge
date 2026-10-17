@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------
+# Arquivos de jogo: NUNCA versionar (direitos autorais do jogo)
+# ---------------------------------------------------------------
+*.ypf
+*.ybn
+*.ycg
+*.exe
+*.dll
+# Pastas de trabalho de um projeto de tradução
+.cache/
+build/
+backup/
+# Pastas locais com jogos ou projetos de teste
+games/
+jogos/
+sandbox/
+
+# ---------------------------------------------------------------
+# .NET / Visual Studio / Rider
+# ---------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rtifacts/
+publish/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+.vs/
+.idea/
+*.DotSettings.user
+TestResults/
+coverage*/
+*.coverage
+*.trx
+*.nupkg
+*.snupkg
+.nuget/
+
+# ---------------------------------------------------------------
+# Sistema operacional e editores
+# ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ---------------------------------------------------------------
+# Segredos
+# ---------------------------------------------------------------
+.env
+.env.*
+*.secret.json

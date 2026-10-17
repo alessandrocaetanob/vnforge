@@ -1,0 +1,38 @@
+# VNForge — documentos de planejamento
+
+Rascunho para o brainstorm antes de criar o repositório. Nada aqui é definitivo: cada documento termina com as decisões que ainda estão em aberto.
+
+| Documento | Conteúdo |
+|---|---|
+| [01-nome.md](01-nome.md) | Opções de nome e recomendação |
+| [02-arquitetura.md](02-arquitetura.md) | Solução .NET 10, camadas, formato do projeto de tradução, pipeline |
+| [03-cli.md](03-cli.md) | Comandos da CLI, exemplos e fluxo de uso |
+| [04-app-windows.md](04-app-windows.md) | Telas do aplicativo Windows e como ele funciona no dia a dia |
+| [05-epicos.md](05-epicos.md) | Épicos, histórias e marcos até o benchmark YU-RIS |
+| [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md) | O que já levantei sobre os formatos do YU-RIS (YPF, YBN, codificação) |
+
+Protótipo visual do app: [VNForge App Windows no Claude Design](https://claude.ai/artifact/36wMrNUfoMvXmhRNdJQhrn).
+
+## Decisões tomadas
+
+| Tema | Decisão |
+|---|---|
+| Nome | VNForge, CLI `vnf` |
+| Repositório | Privado no GitHub |
+| Runtime | .NET 10 |
+| IA | Só Claude na primeira versão, modelo selecionável; outros provedores depois |
+| Visual do app | Próprio, estilo Fluent do Windows 11 (sem design system externo) |
+
+## Visão em uma frase
+
+Uma ferramenta em C# (.NET 10), com CLI e aplicativo Windows, que extrai o texto de uma visual novel, ajuda a traduzir com IA, confere a tradução, reconstrói os arquivos do jogo e injeta o resultado, tratando direito espaçamento e acentuação do português.
+
+## Princípios
+
+1. **Núcleo único, duas interfaces.** CLI e app Windows chamam a mesma biblioteca. Qualquer coisa que a GUI faz, a CLI também faz (e vice-versa).
+2. **O jogo original nunca é alterado sem backup.** Toda injeção tem rollback.
+3. **Reconstrução mínima.** Só os bytes que mudaram são reescritos. O resto dos arquivos do jogo é copiado byte a byte.
+4. **Tradução é dado, não código.** O texto fica em arquivos JSON legíveis, versionáveis no git, um por script do jogo.
+5. **A IA sugere, o humano decide.** Toda linha tem status (não traduzida, traduzida por IA, revisada, aprovada).
+6. **Engines são plugins.** YU-RIS é o primeiro, mas o núcleo não sabe nada de YU-RIS.
+7. **Arquivos do jogo nunca entram no repositório.** Nem extraídos, nem traduzidos em formato binário.
