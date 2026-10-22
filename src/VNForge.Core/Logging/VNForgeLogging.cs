@@ -11,27 +11,29 @@ public static class VNForgeLogging
 
     /// <summary>Diretório de logs fora de qualquer projeto: <c>%LOCALAPPDATA%/VNForge/logs</c>.</summary>
     public static string GetUserLogDirectory() =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VNForge", "logs");
+        GetUserLogDirectory(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+
+    /// <summary>Como <see cref="GetUserLogDirectory()"/>, mas usa a pasta temporária se <paramref name="localApplicationData"/> vier vazia ou relativa, para nunca gravar relativo ao diretório atual.</summary>
+    public static string GetUserLogDirectory(string? localApplicationData)
+    {
+        var baseDirectory = !string.IsNullOrWhiteSpace(localApplicationData) && Path.IsPathRooted(localApplicationData)
+            ? localApplicationData
+            : Path.GetTempPath();
+        return Path.Combine(baseDirectory, "VNForge", "logs");
+    }
 
     /// <summary>
     /// Escolhe onde gravar o log sem criar <c>.cache</c> em pasta qualquer (pode ser a pasta do jogo).
-    /// Usa a pasta de <paramref name="project"/> quando ela existe, o diretório atual quando ele tem
-    /// <c>vnforge.json</c> e, nos demais casos, <paramref name="userLogDirectory"/>.
+    /// Usa <c>.cache/logs</c> da pasta de <paramref name="project"/>, ou do diretório atual sem <paramref name="project"/>,
+    /// só quando essa raiz tem <c>vnforge.json</c>; nos demais casos usa <paramref name="userLogDirectory"/>.
     /// </summary>
     public static string ResolveLogDirectory(string? project, string currentDirectory, string userLogDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(currentDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(userLogDirectory);
 
-        if (!string.IsNullOrWhiteSpace(project))
-        {
-            var projectRoot = Path.GetFullPath(project, currentDirectory);
-            return Directory.Exists(projectRoot) ? GetLogDirectory(projectRoot) : userLogDirectory;
-        }
-
-        return File.Exists(Path.Combine(currentDirectory, ProjectFolder.ConfigFileName))
-            ? GetLogDirectory(currentDirectory)
-            : userLogDirectory;
+        var root = string.IsNullOrWhiteSpace(project) ? currentDirectory : Path.GetFullPath(project, currentDirectory);
+        return File.Exists(Path.Combine(root, ProjectFolder.ConfigFileName)) ? GetLogDirectory(root) : userLogDirectory;
     }
 
     /// <summary>Indica se a última gravação de log em <paramref name="logDirectory"/> falhou (disco, permissão, caminho inválido).</summary>

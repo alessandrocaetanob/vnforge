@@ -9,14 +9,15 @@
 - Nada destrutivo sem confirmação; `--yes` pula a confirmação em scripts.
 - `--verbose` / `--quiet` controlam o log; o log completo vai para `.cache/logs/`.
 - Opções globais, válidas em qualquer posição da linha: `--project <pasta>`, `--json`, `--verbose`, `--quiet`, `--yes`. `--verbose` e `--quiet` não combinam. `--version` existe só na raiz; `--help` mostra a ajuda em português em qualquer comando.
-- Ctrl+C cancela o comando em andamento e sai com `3`.
-- Erro de uso (opção desconhecida, `--project` apontando para pasta que não existe) sai com `1` e a mensagem aponta `--help`.
+- Ctrl+C cancela o comando em andamento e sai com `3`. Um segundo Ctrl+C encerra o processo na hora, também com `3`, para o caso de um comando que não respeita o cancelamento.
+- Só conta como cancelamento a exceção de cancelamento com o token do Ctrl+C ativo. Um timeout de rede (`HttpClient`) é erro e sai com `1`.
+- Erro de uso (opção desconhecida, opção obrigatória ausente, valor inválido, `--project` apontando para pasta que não existe) sai com `1`, em português, e a mensagem aponta `--help`.
+- `--project` sem valor consome a opção seguinte como se fosse a pasta: `vnf --project --json` procura uma pasta chamada `--json` e sai com `1`.
 
 ### Onde vai o log
 
-- Com `--project <pasta>` e a pasta existindo: `<pasta>\.cache\logs\`.
-- Sem `--project`, com `vnforge.json` na pasta atual: `.cache\logs\` da pasta atual.
-- Sem `--project` e fora de um projeto: `%LOCALAPPDATA%\VNForge\logs\`. A CLI nunca cria `.cache` em pasta qualquer, que pode ser a pasta do jogo. A busca de `vnforge.json` olha só a pasta atual, não sobe diretórios.
+- A raiz é a pasta de `--project` ou, sem a opção, a pasta atual. Se a raiz tem `vnforge.json`, o log vai para `<raiz>\.cache\logs\`.
+- Sem `vnforge.json` na raiz (inclusive com `--project` apontando para uma pasta qualquer): `%LOCALAPPDATA%\VNForge\logs\`, ou a pasta temporária se `LocalApplicationData` vier vazio ou relativo. A CLI nunca cria `.cache` em pasta qualquer, que pode ser a pasta do jogo. A busca de `vnforge.json` olha só a raiz, não sobe diretórios.
 
 ### Formato do `--json`
 
@@ -28,6 +29,13 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 ```
 
 `error.kind` é `expected` (erro previsto, a mensagem está em português), `unexpected` (bug; `message` genérica e `logDirectory` aponta o log com o stack) ou `cancelled` (código `3`). O stack trace nunca aparece. Cada comando define o conteúdo de `data`.
+
+### Como escrever um comando
+
+- Registre o comando em `VnfCommands.Register` (`src/VNForge.Cli/VnfCommands.cs`), uma linha por comando.
+- Escreva o resultado em `parseResult.InvocationConfiguration.Output`, nunca em `Console.Out`, para a saída poder ser capturada nos testes.
+- Com `--json`, escreva `JsonEnvelope.Result(data, exitCode)` passando o mesmo `exitCode` que o comando devolve (por exemplo `2` no QA bloqueante).
+- Lance `VNForgeException` para erro previsto; use o `CancellationToken` da ação, que o Ctrl+C cancela.
 
 ## Comandos do pipeline
 

@@ -47,8 +47,14 @@ public sealed class VnfCli
 
     /// <param name="currentDirectory">Diretório atual; padrão: o do processo.</param>
     /// <param name="userLogDirectory">Onde o log vai fora de um projeto; padrão: <c>%LOCALAPPDATA%/VNForge/logs</c>.</param>
-    public static VnfCli Create(string? currentDirectory = null, string? userLogDirectory = null) =>
-        new(currentDirectory ?? Directory.GetCurrentDirectory(), userLogDirectory ?? VNForgeLogging.GetUserLogDirectory());
+    public static VnfCli Create(string? currentDirectory = null, string? userLogDirectory = null)
+    {
+        var cli = new VnfCli(
+            currentDirectory ?? Directory.GetCurrentDirectory(),
+            userLogDirectory ?? VNForgeLogging.GetUserLogDirectory());
+        VnfCommands.Register(cli);
+        return cli;
+    }
 
     /// <summary>
     /// Interpreta <paramref name="args"/>, executa o comando e devolve o código de saída. Os resultados vão para
@@ -88,7 +94,7 @@ public sealed class VnfCli
                 if (parseResult.Errors.Count > 0)
                 {
                     throw new UsageException(
-                        string.Join(" ", parseResult.Errors.Select(e => e.Message)) + " Use --help para ver as opções.");
+                        string.Join(" ", parseResult.Errors.Select(e => ParseErrorMessages.Translate(e.Message))) + " Use --help para ver as opções.");
                 }
 
                 ThrowIfProjectMissing(settings);

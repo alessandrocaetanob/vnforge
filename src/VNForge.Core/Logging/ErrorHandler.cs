@@ -34,7 +34,8 @@ public static class ErrorHandler
         ILogger logger,
         TextWriter error,
         string logDirectory,
-        TextWriter? jsonOutput = null)
+        TextWriter? jsonOutput = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(action);
 
@@ -44,7 +45,7 @@ public static class ErrorHandler
         }
         catch (Exception ex)
         {
-            return Handle(ex, logger, error, logDirectory, jsonOutput);
+            return Handle(ex, logger, error, logDirectory, jsonOutput, cancellationToken);
         }
     }
 
@@ -64,10 +65,14 @@ public static class ErrorHandler
         }
         catch (Exception ex)
         {
-            return Handle(ex, logger, error, logDirectory, jsonOutput);
+            return Handle(ex, logger, error, logDirectory, jsonOutput, cancellationToken);
         }
     }
 
+    /// <param name="cancellationToken">
+    /// Só conta como cancelamento (código 3) uma <see cref="OperationCanceledException"/> com este token cancelado;
+    /// sem isso é um timeout ou erro de rede e vira erro inesperado.
+    /// </param>
     /// <param name="jsonOutput">
     /// Quando informado (<c>--json</c>), o erro sai neste writer, uma linha de JSON, e nada vai para <paramref name="error"/>.
     /// </param>
@@ -76,7 +81,8 @@ public static class ErrorHandler
         ILogger logger,
         TextWriter error,
         string logDirectory,
-        TextWriter? jsonOutput = null)
+        TextWriter? jsonOutput = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(exception);
         ArgumentNullException.ThrowIfNull(logger);
@@ -102,7 +108,7 @@ public static class ErrorHandler
 
         switch (exception)
         {
-            case OperationCanceledException:
+            case OperationCanceledException when cancellationToken.IsCancellationRequested:
                 Report(JsonEnvelope.CancelledKind, "Operação cancelada.");
                 TryLog(() => logger.LogInformation("Operação cancelada pelo usuário"));
                 return CancelledExitCode;

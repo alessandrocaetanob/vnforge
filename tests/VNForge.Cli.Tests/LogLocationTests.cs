@@ -40,12 +40,27 @@ public sealed class LogLocationTests : IDisposable
     {
         var project = Path.Combine(_cli.Root, "projeto");
         Directory.CreateDirectory(project);
+        File.WriteAllText(Path.Combine(project, ProjectFolder.ConfigFileName), "{}");
         AddBug();
 
         await _cli.RunAsync(["--project", project, "bug"], TestContext.Current.CancellationToken);
 
         Assert.Single(Directory.GetFiles(Path.Combine(project, ".cache", "logs"), "*.log"));
         Assert.False(Directory.Exists(Path.Combine(_cli.WorkingDirectory, ".cache")));
+    }
+
+    [Fact]
+    public async Task Project_sem_vnforge_json_nao_cria_cache_na_pasta_e_loga_na_pasta_do_usuario()
+    {
+        var gameFolder = Path.Combine(_cli.Root, "pasta-do-jogo");
+        Directory.CreateDirectory(gameFolder);
+        AddBug();
+
+        var result = await _cli.RunAsync(["--project", gameFolder, "bug"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Empty(Directory.GetFileSystemEntries(gameFolder));
+        Assert.Single(Directory.GetFiles(_cli.UserLogDirectory, "*.log"));
     }
 
     [Fact]

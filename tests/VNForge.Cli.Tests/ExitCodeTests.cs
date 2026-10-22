@@ -60,11 +60,24 @@ public sealed class ExitCodeTests : IDisposable
     public async Task Cancelamento_lancado_pelo_comando_sai_com_3()
     {
         _cli.AddCommand("cancela", _ => throw new OperationCanceledException());
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
 
-        var result = await _cli.RunAsync(["cancela"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["cancela"], cts.Token);
 
         Assert.Equal(3, result.ExitCode);
         Assert.Equal("Operação cancelada." + Environment.NewLine, result.Error);
+    }
+
+    [Fact]
+    public async Task Timeout_de_rede_com_o_token_ativo_e_erro_e_nao_cancelamento()
+    {
+        _cli.AddCommand("rede", _ => throw new TaskCanceledException("HttpClient.Timeout"));
+
+        var result = await _cli.RunAsync(["rede"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.StartsWith("Erro inesperado.", result.Error);
     }
 
     [Fact]
@@ -115,10 +128,12 @@ public sealed class ExitCodeTests : IDisposable
         _cli.AddCommand("check", _ => ErrorHandler.QaBlockedExitCode);
         _cli.AddCommand("falha", _ => throw new InvalidFileException("a.ypf", "truncado"));
         _cli.AddCommand("cancela", _ => throw new OperationCanceledException());
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
 
         var qa = await _cli.RunAsync(["check", "--json"], TestContext.Current.CancellationToken);
         var erro = await _cli.RunAsync(["falha", "--json"], TestContext.Current.CancellationToken);
-        var cancelado = await _cli.RunAsync(["cancela", "--json"], TestContext.Current.CancellationToken);
+        var cancelado = await _cli.RunAsync(["cancela", "--json"], cts.Token);
 
         Assert.Equal(2, qa.ExitCode);
         Assert.Equal(1, erro.ExitCode);
@@ -144,5 +159,73 @@ public sealed class ExitCodeTests : IDisposable
         using var doc = JsonDocument.Parse(result.Output);
         Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
         Assert.Contains("--nao-existe", doc.RootElement.GetProperty("error").GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Opcao_obrigatoria_ausente_sai_em_portugues()
+    {
+        AddCommandWithParameters();
+
+        var result = await _cli.RunAsync(["importa", "a.po"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("A opção '--game' é obrigatória.", result.Error);
+        Assert.DoesNotContain("is required", result.Error);
+    }
+
+    [Fact]
+    public async Task Valor_invalido_sai_em_portugues()
+    {
+        AddCommandWithParameters();
+
+        var result = await _cli.RunAsync(
+            ["importa", "a.po", "--game", "g", "--limit", "abc"],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("O valor 'abc' não é válido para a opção '--limit'", result.Error);
+        Assert.DoesNotContain("Cannot parse", result.Error);
+    }
+
+    [Fact]
+    public async Task Argumento_ausente_e_opcao_sem_valor_saem_em_portugues()
+    {
+        AddCommandWithParameters();
+
+        var semArgumento = await _cli.RunAsync(["importa", "--game", "g"], TestContext.Current.CancellationToken);
+        var semValor = await _cli.RunAsync(["importa", "a.po", "--game"], TestContext.Current.CancellationToken);
+
+        Assert.Contains("argumento obrigatório", semArgumento.Error);
+        Assert.Contains("A opção '--game' precisa de um valor.", semValor.Error);
+    }
+
+    [Fact]
+    public async Task Comando_desconhecido_sai_em_portugues_e_com_json()
+    {
+        var result = await _cli.RunAsync(["nada", "--json"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        using var doc = JsonDocument.Parse(result.Output);
+        var message = doc.RootElement.GetProperty("error").GetProperty("message").GetString();
+        Assert.Contains("'nada' não é um comando", message);
+    }
+
+    [Fact]
+    public async Task Project_sem_valor_engole_a_opcao_seguinte_como_pasta()
+    {
+        var result = await _cli.RunAsync(["--project", "--json"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("--json", result.Error);
+    }
+
+    private void AddCommandWithParameters()
+    {
+        var command = new System.CommandLine.Command("importa", "Comando de teste.");
+        command.Arguments.Add(new System.CommandLine.Argument<string>("arquivo"));
+        command.Options.Add(new System.CommandLine.Option<string>("--game") { Required = true });
+        command.Options.Add(new System.CommandLine.Option<int>("--limit"));
+        command.SetAction(_ => 0);
+        _cli.Cli.Root.Subcommands.Add(command);
     }
 }

@@ -20,11 +20,20 @@ public sealed class ErrorHandlerTests : IDisposable
         return File.ReadAllText(file);
     }
 
-    private int Run(Func<int> action, StringWriter error)
+    private int Run(Func<int> action, StringWriter error) => RunWith(action, error, TestContext.Current.CancellationToken);
+
+    private int RunWith(Func<int> action, StringWriter error, CancellationToken cancellationToken)
     {
         using var factory = VNForgeLogging.CreateFactory(_root);
-        return ErrorHandler.Execute(action, factory.CreateLogger("Teste"), error, VNForgeLogging.GetLogDirectory(_root));
+        return ErrorHandler.Execute(
+            action,
+            factory.CreateLogger("Teste"),
+            error,
+            VNForgeLogging.GetLogDirectory(_root),
+            cancellationToken: cancellationToken);
     }
+
+    private static CancellationToken Cancelled() => new(canceled: true);
 
     [Fact]
     public void Excecao_do_Core_vira_mensagem_curta_em_portugues_sem_stack_trace()
@@ -133,7 +142,8 @@ public sealed class ErrorHandlerTests : IDisposable
             () => throw new InvalidFileException("a.ypf", "truncado"),
             new ThrowingLogger(),
             error,
-            VNForgeLogging.GetLogDirectory(_root));
+            VNForgeLogging.GetLogDirectory(_root),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         Assert.Equal("Erro: O arquivo 'a.ypf' é inválido: truncado" + Environment.NewLine, error.ToString());
@@ -148,7 +158,8 @@ public sealed class ErrorHandlerTests : IDisposable
             () => throw new InvalidOperationException("estado quebrado"),
             new ThrowingLogger(),
             error,
-            VNForgeLogging.GetLogDirectory(_root));
+            VNForgeLogging.GetLogDirectory(_root),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         var text = error.ToString();
@@ -161,7 +172,7 @@ public sealed class ErrorHandlerTests : IDisposable
     {
         var error = new StringWriter();
 
-        var code = Run(() => throw new OperationCanceledException(), error);
+        var code = RunWith(() => throw new OperationCanceledException(), error, Cancelled());
 
         Assert.Equal(ErrorHandler.CancelledExitCode, code);
         Assert.Equal(3, ErrorHandler.CancelledExitCode);
@@ -202,13 +213,16 @@ public sealed class ErrorHandlerTests : IDisposable
         Assert.Equal(3, ErrorHandler.CancelledExitCode);
     }
 
-    private (int Code, string Json, string Error) RunJson(Func<int> action)
+    private (int Code, string Json, string Error) RunJson(Func<int> action) =>
+        RunJsonWith(action, TestContext.Current.CancellationToken);
+
+    private (int Code, string Json, string Error) RunJsonWith(Func<int> action, CancellationToken cancellationToken)
     {
         var json = new StringWriter();
         var error = new StringWriter();
         using var factory = VNForgeLogging.CreateFactory(_root);
         var code = ErrorHandler.Execute(
-            action, factory.CreateLogger("Teste"), error, VNForgeLogging.GetLogDirectory(_root), json);
+            action, factory.CreateLogger("Teste"), error, VNForgeLogging.GetLogDirectory(_root), json, cancellationToken);
         return (code, json.ToString(), error.ToString());
     }
 
@@ -246,7 +260,7 @@ public sealed class ErrorHandlerTests : IDisposable
     [Fact]
     public void Json_de_cancelamento_usa_o_codigo_3()
     {
-        var (code, json, error) = RunJson(() => throw new OperationCanceledException());
+        var (code, json, error) = RunJsonWith(() => throw new OperationCanceledException(), Cancelled());
 
         Assert.Equal(ErrorHandler.CancelledExitCode, code);
         Assert.Equal(string.Empty, error);
@@ -254,6 +268,29 @@ public sealed class ErrorHandlerTests : IDisposable
         Assert.Equal(3, doc.RootElement.GetProperty("exitCode").GetInt32());
         Assert.Equal("cancelled", doc.RootElement.GetProperty("error").GetProperty("kind").GetString());
         Assert.Equal("Operação cancelada.", doc.RootElement.GetProperty("error").GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void Cancelamento_sem_o_token_cancelado_e_timeout_e_vira_erro_com_codigo_1()
+    {
+        var error = new StringWriter();
+
+        var code = Run(() => throw new TaskCanceledException("HttpClient.Timeout"), error);
+
+        Assert.Equal(ErrorHandler.ErrorExitCode, code);
+        Assert.StartsWith("Erro inesperado.", error.ToString());
+        Assert.DoesNotContain("Operação cancelada", error.ToString());
+        Assert.Contains("HttpClient.Timeout", ReadLog());
+    }
+
+    [Fact]
+    public void Json_de_cancelamento_sem_o_token_cancelado_e_erro_inesperado()
+    {
+        var (code, json, _) = RunJson(() => throw new OperationCanceledException());
+
+        Assert.Equal(ErrorHandler.ErrorExitCode, code);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        Assert.Equal("unexpected", doc.RootElement.GetProperty("error").GetProperty("kind").GetString());
     }
 
     private sealed class ThrowingLogger : Microsoft.Extensions.Logging.ILogger
