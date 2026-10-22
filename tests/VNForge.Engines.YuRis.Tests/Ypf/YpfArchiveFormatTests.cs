@@ -36,7 +36,8 @@ public partial class YpfArchiveFormatTests
     /// <summary>Confere o cabeçalho, os parâmetros detectados e cada campo de cada entrada contra o descritor do gerador.</summary>
     private static void AssertMatches(SyntheticYpf ypf, YpfArchive archive)
     {
-        Assert.Equal(new YpfHeader(ypf.Version, ypf.FileCount, ypf.HeaderSize), archive.Header);
+        Assert.Equal(new YpfHeader(ypf.Version, ypf.FileCount, ypf.HeaderSize, new byte[YpfHeader.PaddingSize]), archive.Header);
+        Assert.True(archive.Header.HasZeroPadding);
 
         var p = archive.Parameters;
         Assert.Equal(ypf.Version, p.Version);
@@ -48,6 +49,10 @@ public partial class YpfArchiveFormatTests
         Assert.Equal(ypf.NameKey, p.NameKey);
         Assert.Equal((int)ypf.DataStart, p.DataStart);
         Assert.Equal(ypf.HeaderSize, p.ExpectedHeaderSize);
+        Assert.True(p.DataHashVerified);
+        Assert.Equal(ypf.Bytes.Length, p.FileLength);
+        Assert.Empty(p.Gaps);
+        Assert.Equal(new YpfByteRange(ypf.Bytes.Length, 0), p.Trailer);
 
         Assert.Equal(ypf.Entries.Count, archive.Entries.Count);
         for (var i = 0; i < ypf.Entries.Count; i++)
@@ -70,7 +75,7 @@ public partial class YpfArchiveFormatTests
             Assert.Equal(Map(ypf.OffsetSize), actual.OffsetSize);
             Assert.Equal(expected.IndexPosition, actual.IndexPosition);
             Assert.Equal(expected.IndexEntrySize, actual.IndexEntrySize);
-            Assert.Equal(expected.NameBytes.Length, YpfSwapTables.DecodeNameSize(actual.SwapTable, actual.EncodedNameSize));
+            Assert.Equal(Map(ypf.SwapTable), actual.SwapTable);
         }
     }
 
@@ -157,12 +162,12 @@ public partial class YpfArchiveFormatTests
     [Fact]
     public void Open_NomeEmShiftJisEhDecodificado()
     {
-        var ypf = new SyntheticYpfBuilder(300).AddFile("ysbin\\第一章.ybn", [1]).Build();
+        var ypf = new SyntheticYpfBuilder(300).AddFile(@"ysbin\第一章\表.ybn", [1]).Build();
 
         using var archive = Open(ypf.Bytes);
 
         AssertMatches(ypf, archive);
-        Assert.Equal("ysbin/第一章.ybn", archive.Entries.Single().Path);
+        Assert.Equal("ysbin/第一章/表.ybn", archive.Entries.Single().Path);
     }
 
     [Fact]
@@ -292,11 +297,13 @@ public partial class YpfArchiveFormatTests
     [Fact]
     public void Open_ArquivoSoComEntradasVaziasUsaOHashDeDadosPadraoDaVersao()
     {
-        var ypf = new SyntheticYpfBuilder(300).AddFile(@"a\vazio.ybn", []).Build();
+        // Murmur e CRC32 de dados vazios valem 0: a amostra não separa os dois e vale o padrão da versão.
+        var ypf = new SyntheticYpfBuilder(500).AddFile(@"a\vazio.ybn", []).Build();
 
         using var archive = Open(ypf.Bytes);
 
-        AssertMatches(ypf, archive);
-        Assert.Equal(YpfHashAlgorithm.Adler32, archive.Parameters.DataHash);
+        Assert.Single(archive.Entries);
+        Assert.Equal(YpfHashAlgorithm.MurmurHash2, archive.Parameters.DataHash);
+        Assert.False(archive.Parameters.DataHashVerified);
     }
 }

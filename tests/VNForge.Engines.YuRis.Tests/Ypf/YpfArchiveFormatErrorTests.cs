@@ -37,7 +37,7 @@ public partial class YpfArchiveFormatTests
         Assert.Equal(expectedOffset, entry.Offset);
         Assert.Equal(expectedNameHash, entry.NameHash);
         Assert.Equal(expectedDataHash, entry.DataHash);
-        Assert.Equal(new YpfHeader(version, 1, headerSize), archive.Header);
+        Assert.Equal(new YpfHeader(version, 1, headerSize, new byte[YpfHeader.PaddingSize]), archive.Header);
         Assert.Equal(includesHeader, archive.Parameters.HeaderSizeIncludesHeader);
         Assert.Equal(nameHash, archive.Parameters.NameHash);
         Assert.Equal(dataHash, archive.Parameters.DataHash);
@@ -89,16 +89,42 @@ public partial class YpfArchiveFormatTests
     [Theory]
     [InlineData(100u)]
     [InlineData(199u)]
+    [InlineData(600u)]
     [InlineData(1000u)]
     [InlineData(9999u)]
-    public void Open_VersaoDesconhecidaLancaUnknownVersionException(uint version)
+    public void Open_VersaoForaDaFaixaConhecidaComIndiceLegivelAbreNormalmente(uint version)
     {
-        var ypf = new SyntheticYpfBuilder(version).AddFile("a.ybn", [1]).Build();
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
 
-        var ex = Assert.Throws<UnknownVersionException>(() => Open(ypf.Bytes));
+        using var archive = Open(ypf.Bytes);
 
-        Assert.Equal(version.ToString(System.Globalization.CultureInfo.InvariantCulture), ex.Version);
+        AssertMatches(ypf, archive);
+    }
+
+    [Theory]
+    [InlineData(100u)]
+    [InlineData(199u)]
+    [InlineData(600u)]
+    [InlineData(9999u)]
+    public void Open_VersaoDesconhecidaComIndiceIlegivelLancaUnknownVersionException(uint version)
+    {
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
+
+        var ex = Assert.Throws<UnknownVersionException>(() => Open(ypf.WithWrongNameHash(ypf.Entries[2].Name)));
+
+        Assert.StartsWith(version.ToString(System.Globalization.CultureInfo.InvariantCulture), ex.Version);
         Assert.Contains("Versão desconhecida", ex.Message);
+        Assert.Contains("fora das versões conhecidas", ex.Message);
+        Assert.Contains("nenhuma combinação", ex.Message);
+        Assert.IsType<InvalidFileException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void Open_VersaoConhecidaComIndiceIlegivelLancaInvalidFileException()
+    {
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+
+        Assert.Throws<InvalidFileException>(() => Open(ypf.WithWrongNameHash(ypf.Entries[2].Name)));
     }
 
     [Fact]
@@ -203,11 +229,16 @@ public partial class YpfArchiveFormatTests
     }
 
     [Fact]
-    public void Open_HashDosDadosErradoEmArquivoDeUmaEntradaLancaErro()
+    public void Open_HashDosDadosSemConfirmacaoUsaOPadraoDaVersaoENaoVerificado()
     {
-        var ypf = new SyntheticYpfBuilder(300).AddFile(@"a\um.ybn", [1, 2, 3, 4]).Build();
+        var ypf = new SyntheticYpfBuilder(500).AddFile(@"a\um.ybn", [1, 2, 3, 4]).Build();
+        var bytes = ypf.WithWrongDataHash(@"a\um.ybn");
 
-        AssertInvalid(ypf.WithWrongDataHash(@"a\um.ybn"), "hash dos dados", "Adler32", "a/um.ybn");
+        using var archive = Open(bytes);
+
+        Assert.False(archive.Parameters.DataHashVerified);
+        Assert.Equal(YpfHashAlgorithm.MurmurHash2, archive.Parameters.DataHash);
+        Assert.Equal(ypf.Entries[0].DataHash ^ 1, archive.Entries[0].DataHash);
     }
 
     [Fact]
@@ -218,6 +249,7 @@ public partial class YpfArchiveFormatTests
         using var wrongHash = Open(ypf.WithWrongDataHash(SyntheticYpfBuilderTests.Script1));
         using var corrupted = Open(ypf.WithCorruptedData(SyntheticYpfBuilderTests.Script1));
 
+        Assert.True(wrongHash.Parameters.DataHashVerified);
         Assert.Equal(YpfHashAlgorithm.Adler32, wrongHash.Parameters.DataHash);
         Assert.Equal(YpfHashAlgorithm.Adler32, corrupted.Parameters.DataHash);
         Assert.Equal(ypf.Entries.Count, corrupted.Entries.Count);

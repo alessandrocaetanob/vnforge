@@ -96,6 +96,7 @@ internal static class YpfIndexReader
         var offsetBytes = candidate.OffsetSize == YpfOffsetSize.Bits64 ? 8 : 4;
         var count = checked((int)header.FileCount);
         var entries = new List<YpfEntry>(Math.Min(count, index.Length / MinEntrySize));
+        var nameKeys = new HashSet<string>(StringComparer.Ordinal);
         var paths = new HashSet<string>(StringComparer.Ordinal);
         byte? lastXor = null;
         var position = 0;
@@ -163,7 +164,7 @@ internal static class YpfIndexReader
                 return attempt;
             }
 
-            if (!paths.Add(path))
+            if (!nameKeys.Add(NormalizedNameKey(plain)) || !paths.Add(path))
             {
                 attempt.Failure = $"o nome '{path}' aparece em mais de uma entrada; o caminho de cada entrada deve ser único.";
                 attempt.ParsedEntries = number;
@@ -200,6 +201,7 @@ internal static class YpfIndexReader
             return attempt;
         }
 
+        var (gaps, trailer) = FindUnreferencedRanges(entries, YpfHeader.Size + position, fileLength);
         var parameters = new YpfParameters(
             header.Version,
             candidate.NameHash,
@@ -208,7 +210,11 @@ internal static class YpfIndexReader
             includesHeader,
             candidate.SwapTable,
             MostCommonXor(entries, header.Version),
-            position);
+            position,
+            fileLength,
+            gaps,
+            trailer,
+            DataHashVerified: false);
         attempt.Result = new IndexResult(entries, parameters);
         return attempt;
     }
@@ -231,7 +237,7 @@ internal static class YpfIndexReader
     {
         for (var i = 0; i < entries.Count; i++)
         {
-            if (entries[i].Offset < (ulong)dataStart)
+            if (entries[i].SizeStored > 0 && entries[i].Offset < (ulong)dataStart)
             {
                 return $"a entrada {i + 1} de {entries.Count} ('{entries[i].Path}') aponta para o offset {entries[i].Offset}, "
                     + $"dentro do cabeçalho ou do índice; os dados começam no offset {dataStart}.";
@@ -239,6 +245,52 @@ internal static class YpfIndexReader
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Chave de comparação de nomes: os bytes do nome com <c>\</c> e <c>/</c> equivalentes. O byte 0x5C também
+    /// aparece como segundo byte de caracteres Shift-JIS de dois bytes, então os pares são pulados.
+    /// </summary>
+    private static string NormalizedNameKey(byte[] plain)
+    {
+        var normalized = new char[plain.Length];
+        for (var i = 0; i < plain.Length; i++)
+        {
+            var b = plain[i];
+            if (b is >= 0x81 and <= 0x9F or >= 0xE0 and <= 0xFC && i + 1 < plain.Length)
+            {
+                normalized[i] = (char)b;
+                normalized[i + 1] = (char)plain[i + 1];
+                i++;
+                continue;
+            }
+
+            normalized[i] = b == (byte)'\\' ? '/' : (char)b;
+        }
+
+        return new string(normalized);
+    }
+
+    /// <summary>Trechos da área de dados que nenhuma entrada com bytes armazenados cobre: lacunas e resto até o fim do arquivo.</summary>
+    private static (List<YpfByteRange> Gaps, YpfByteRange Trailer) FindUnreferencedRanges(
+        List<YpfEntry> entries,
+        long dataStart,
+        long fileLength)
+    {
+        var gaps = new List<YpfByteRange>();
+        var cursor = dataStart;
+        foreach (var entry in entries.Where(e => e.SizeStored > 0).OrderBy(e => e.Offset))
+        {
+            var start = (long)entry.Offset;
+            if (start > cursor)
+            {
+                gaps.Add(new YpfByteRange(cursor, start - cursor));
+            }
+
+            cursor = Math.Max(cursor, start + entry.SizeStored);
+        }
+
+        return (gaps, new YpfByteRange(cursor, Math.Max(0, fileLength - cursor)));
     }
 
     private static byte MostCommonXor(List<YpfEntry> entries, uint version) =>

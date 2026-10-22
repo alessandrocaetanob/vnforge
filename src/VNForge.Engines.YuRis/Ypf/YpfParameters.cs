@@ -9,6 +9,9 @@ public enum YpfOffsetSize
     Bits64,
 }
 
+/// <summary>Um trecho do arquivo, por offset absoluto e tamanho em bytes.</summary>
+public readonly record struct YpfByteRange(long Offset, long Length);
+
 /// <summary>
 /// O que o leitor detectou no arquivo. A gravação (#29) usa os mesmos parâmetros, para o arquivo reescrito
 /// ser lido do mesmo jeito pelo jogo.
@@ -29,6 +32,21 @@ public enum YpfOffsetSize
 /// é <c>~(byte ^ K)</c>) é <c>NameXor ^ 0xFF</c>; é a chave que a maioria das entradas usa.
 /// </param>
 /// <param name="IndexSize">Bytes ocupados pelo índice (a partir do offset 0x20).</param>
+/// <param name="FileLength">Tamanho do arquivo lido.</param>
+/// <param name="Gaps">
+/// Trechos da área de dados que nenhuma entrada referencia e que ficam antes do fim do último byte referenciado
+/// (do início dos dados até a primeira entrada, e entre entradas). Os escritores conhecidos não deixam lacunas, mas um
+/// YPF real pode ter; a gravação (#29) copia estes trechos do fluxo de origem, pelo offset e tamanho daqui.
+/// </param>
+/// <param name="Trailer">
+/// Bytes depois do último byte referenciado por uma entrada até o fim do arquivo (tamanho 0 quando não há resto).
+/// A gravação (#29) também os copia do fluxo de origem.
+/// </param>
+/// <param name="DataHashVerified">
+/// Verdadeiro quando o algoritmo de <paramref name="DataHash"/> foi confirmado contra os dados de ao menos uma
+/// entrada, e só por um algoritmo. Falso quando nenhuma entrada da amostra confere (ou a amostra não distingue os
+/// algoritmos): vale o padrão da versão e a conferência por entrada fica com <c>OpenEntry</c> (#28).
+/// </param>
 public sealed record YpfParameters(
     uint Version,
     YpfHashAlgorithm NameHash,
@@ -37,7 +55,11 @@ public sealed record YpfParameters(
     bool HeaderSizeIncludesHeader,
     YpfSwapTable SwapTable,
     byte NameXor,
-    int IndexSize)
+    int IndexSize,
+    long FileLength,
+    IReadOnlyList<YpfByteRange> Gaps,
+    YpfByteRange Trailer,
+    bool DataHashVerified)
 {
     /// <summary>Chave K do nome, no sentido do YPF-Manager (<c>~(byte ^ K)</c>).</summary>
     public byte NameKey => (byte)(NameXor ^ 0xFF);

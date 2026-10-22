@@ -8,11 +8,17 @@ namespace VNForge.Engines.YuRis.Ypf;
 /// </summary>
 public static class YpfVersionDefaults
 {
-    /// <summary>Menor versão aceita. Abaixo dela o arquivo é tratado como de versão desconhecida.</summary>
-    public const uint MinSupportedVersion = 200;
+    /// <summary>
+    /// Menor versão com evidência nas fontes do doc 06 (yuri.md trata as versões 2xx; o GARbro cita a 247).
+    /// Só decide a mensagem de erro: o leitor tenta ler qualquer versão.
+    /// </summary>
+    public const uint MinKnownVersion = 200;
 
-    /// <summary>Maior versão aceita. As versões reais conhecidas ficam em torno de 500.</summary>
-    public const uint MaxSupportedVersion = 999;
+    /// <summary>
+    /// Maior versão da faixa conhecida: as medidas chegam a 500 (YPF-Manager, GARbro#452); o resto é margem.
+    /// Só decide a mensagem de erro, como <see cref="MinKnownVersion"/>.
+    /// </summary>
+    public const uint MaxKnownVersion = 599;
 
     public const uint FirstCrc32Version = 265;
 
@@ -26,7 +32,7 @@ public static class YpfVersionDefaults
     public const uint V290 = 290;
     public const uint V500 = 500;
 
-    public static bool IsSupported(uint version) => version is >= MinSupportedVersion and <= MaxSupportedVersion;
+    public static bool IsKnownVersion(uint version) => version is >= MinKnownVersion and <= MaxKnownVersion;
 
     public static YpfHashAlgorithm NameHash(uint version) =>
         version < FirstCrc32Version ? YpfHashAlgorithm.Adler32

@@ -47,13 +47,13 @@ public sealed class YpfArchiveFormat : IArchiveFormat
     }
 
     /// <summary>
-    /// Lê o cabeçalho e o índice. O hash dos dados é detectado numa amostra das menores entradas; um hash de dados
-    /// errado numa entrada só aparece ao abri-la (#28), desde que outra entrada da amostra confirme o algoritmo.
+    /// Lê o cabeçalho e o índice de qualquer versão: o que vale é o que confere com o conteúdo. O hash dos dados é
+    /// detectado numa amostra das menores entradas; se a amostra não o confirma, vale o padrão da versão e
+    /// <see cref="YpfParameters.DataHashVerified"/> fica falso. A conferência por entrada é de <c>OpenEntry</c> (#28).
     /// </summary>
-    /// <exception cref="UnknownVersionException">A versão do cabeçalho está fora do intervalo conhecido.</exception>
+    /// <exception cref="UnknownVersionException">Nenhuma combinação leu o índice e a versão está fora das versões conhecidas.</exception>
     /// <exception cref="InvalidFileException">
-    /// Não é um YPF, o índice é inconsistente (hash do nome, <c>header_size</c>, offsets, nomes repetidos) ou o
-    /// hash dos dados não confere com nenhum algoritmo conhecido.
+    /// Não é um YPF ou o índice é inconsistente (hash do nome, <c>header_size</c>, offsets, nomes repetidos).
     /// </exception>
     public IArchive Open(Stream stream)
     {
@@ -91,21 +91,32 @@ public sealed class YpfArchiveFormat : IArchiveFormat
         }
 
         YpfHeader.TryParse(head, out var header);
-        if (!YpfVersionDefaults.IsSupported(header.Version))
+        try
         {
-            throw new UnknownVersionException(source, header.Version.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return ReadArchive(stream, header, length, source);
         }
+        catch (InvalidFileException ex) when (!YpfVersionDefaults.IsKnownVersion(header.Version))
+        {
+            throw new UnknownVersionException(
+                source,
+                $"{header.Version.ToString(System.Globalization.CultureInfo.InvariantCulture)}, fora das versões conhecidas "
+                + $"({YpfVersionDefaults.MinKnownVersion} a {YpfVersionDefaults.MaxKnownVersion}), e nenhuma combinação de offset, tabela e hash leu o índice",
+                ex);
+        }
+    }
 
+    private static YpfArchive ReadArchive(Stream stream, YpfHeader header, long length, string source)
+    {
         var available = length - YpfHeader.Size;
-        if ((long)header.FileCount * YpfIndexReader.MinEntrySize > available)
+        var minIndexBytes = (long)header.FileCount * YpfIndexReader.MinEntrySize;
+        if (minIndexBytes > available)
         {
             throw new InvalidFileException(
                 source,
                 $"o cabeçalho declara {header.FileCount} arquivos, que precisam de pelo menos "
-                + $"{(long)header.FileCount * YpfIndexReader.MinEntrySize} bytes de índice, mas o arquivo tem só {available} depois do cabeçalho.");
+                + $"{minIndexBytes} bytes de índice, mas o arquivo tem só {available} depois do cabeçalho.");
         }
 
-        var minIndexBytes = (long)header.FileCount * YpfIndexReader.MinEntrySize;
         if (minIndexBytes > MaxIndexBytes)
         {
             throw new InvalidFileException(
@@ -113,21 +124,57 @@ public sealed class YpfArchiveFormat : IArchiveFormat
                 $"o cabeçalho declara {header.FileCount} arquivos, e o índice passaria do limite de {MaxIndexBytes / (1024 * 1024)} MiB que o leitor aceita.");
         }
 
-        var indexBytes = (int)Math.Min(Math.Min(available, (long)header.FileCount * YpfIndexReader.MaxEntrySize), MaxIndexBytes);
-        var index = new byte[indexBytes];
-        stream.ReadExactly(index);
+        var wanted = Math.Min(available, (long)header.FileCount * YpfIndexReader.MaxEntrySize);
+        var capped = wanted > MaxIndexBytes;
+        var fallbackBytes = (int)Math.Min(wanted, MaxIndexBytes);
 
-        var result = YpfIndexReader.Read(header, index, length, source);
-        var dataHash = DetectDataHash(stream, result.Entries, header.Version, source);
-        var parameters = result.Parameters with { DataHash = dataHash };
+        // O header_size diz onde o índice acaba, nas duas semânticas (só o índice, ou o índice mais 32 bytes), então
+        // ele serve de tamanho de leitura. Se estiver errado, o índice é lido de novo com o teto pela contagem.
+        var hintedBytes = (int)Math.Min(header.HeaderSize, fallbackBytes);
+        YpfIndexReader.IndexResult? result = null;
+        if (hintedBytes < fallbackBytes)
+        {
+            try
+            {
+                result = ReadIndex(stream, header, hintedBytes, length, source);
+            }
+            catch (InvalidFileException)
+            {
+            }
+        }
+
+        try
+        {
+            result ??= ReadIndex(stream, header, fallbackBytes, length, source);
+        }
+        catch (InvalidFileException ex) when (capped)
+        {
+            throw new InvalidFileException(
+                source,
+                $"{ex.Reason} O leitor carrega no máximo {MaxIndexBytes / (1024 * 1024)} MiB do índice e o arquivo pede mais.",
+                ex);
+        }
+
+        var (dataHash, verified) = DetectDataHash(stream, result.Entries, header.Version);
+        var parameters = result.Parameters with { DataHash = dataHash, DataHashVerified = verified };
         return new YpfArchive(stream, header, parameters, result.Entries);
+    }
+
+    private static YpfIndexReader.IndexResult ReadIndex(Stream stream, YpfHeader header, int bytes, long length, string source)
+    {
+        var index = new byte[bytes];
+        stream.Seek(YpfHeader.Size, SeekOrigin.Begin);
+        stream.ReadExactly(index);
+        return YpfIndexReader.Read(header, index, length, source);
     }
 
     /// <summary>
     /// Compara o <c>data_hash</c> do índice com os três algoritmos, sobre os bytes armazenados das menores entradas.
-    /// Vence o algoritmo que confere em mais entradas; no empate (por exemplo, entradas vazias) vale o padrão da versão.
+    /// Vence o algoritmo que confere em mais entradas; no empate (por exemplo, entradas vazias) vale o primeiro na ordem
+    /// de preferência, com o padrão da versão na frente. Sem nenhuma entrada conferindo, vale o padrão da versão e o
+    /// resultado vem como não verificado; não é erro.
     /// </summary>
-    private static YpfHashAlgorithm DetectDataHash(Stream stream, IReadOnlyList<YpfEntry> entries, uint version, string source)
+    private static (YpfHashAlgorithm Algorithm, bool Verified) DetectDataHash(Stream stream, IReadOnlyList<YpfEntry> entries, uint version)
     {
         var preferred = YpfVersionDefaults.DataHash(version);
         var samples = new List<YpfEntry>();
@@ -149,7 +196,7 @@ public sealed class YpfArchiveFormat : IArchiveFormat
 
         if (samples.Count == 0)
         {
-            return preferred;
+            return (preferred, false);
         }
 
         var algorithms = YpfIndexReader.Ordered(
@@ -180,14 +227,9 @@ public sealed class YpfArchiveFormat : IArchiveFormat
             }
         }
 
-        if (matches[best] == 0)
-        {
-            throw new InvalidFileException(
-                source,
-                $"o hash dos dados de {samples.Count} entrada(s) lida(s) por amostragem (a primeira é '{samples[0].Path}') "
-                + "não confere com Adler32, CRC32 nem MurmurHash2; o índice ou os dados estão corrompidos.");
-        }
-
-        return algorithms[best];
+        // Sem nenhuma confirmação (ou com empate, como em entradas vazias), vale o padrão da versão: o detalhe
+        // por entrada fica com OpenEntry (#28), e um data_hash divergente não impede de abrir o resto do pacote.
+        var verified = matches[best] > 0 && matches.Count(m => m == matches[best]) == 1;
+        return (matches[best] > 0 ? algorithms[best] : preferred, verified);
     }
 }
