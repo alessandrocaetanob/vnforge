@@ -62,7 +62,7 @@ public interface IEngine
     string Id { get; }                                  // "yuris"
     EngineDetection Detect(string gameDir);             // "parece YU-RIS 5.x, ysbin.ypf v500"
     IReadOnlyList<IArchiveFormat> Archives { get; }     // YPF
-    // IReadOnlyList<IScriptFormat> Scripts { get; }    // YSTB: entra na E2.1
+    IReadOnlyList<IScriptFormat> Scripts { get; }       // YSTB
     IReadOnlyList<IGamePatch> Patches { get; }          // ex.: patch de codepage no .exe
 }
 
@@ -104,10 +104,16 @@ public static class GamePaths
 
 public interface IScriptFormat
 {
+    string Id { get; }                                  // "ystb"
+    IReadOnlyList<string> FileExtensions { get; }       // ".ybn"
     ScriptExtraction Extract(ScriptFile file, EngineContext ctx);          // bytes -> unidades de texto
     byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units,          // unidades -> bytes
                    ITextEncoder encoder, EngineContext ctx);
 }
+
+public sealed record ScriptFile(string Name, ReadOnlyMemory<byte> Content)   // Key e UnitId(n) montam os ids
+public sealed record ScriptExtraction(IReadOnlyList<TextUnit> Units)         // + Warnings (init, nunca nulo)
+public class EngineContext(string engineId)             // dados do jogo carregados pela engine (no YU-RIS, o YSCM); cada engine deriva
 ```
 
 Uma engine nova (KiriKiri, Ren'Py, SiglusEngine, Artemis...) é só outro projeto `VNForge.Engines.X` que implementa essas interfaces.
@@ -123,7 +129,12 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
 - `ArchiveEntry` não é selada: cada formato deriva dela (`YpfEntry`) para guardar os campos internos da reescrita. `Path` é único no pacote.
 - `OpenEntry` falha na hora quando o hash diverge. A verificação é do formato: o algoritmo de hash por versão está como não testado no doc 06, com ambiguidade nas versões 477 e 478.
 - `CanApply` devolve verdadeiro com o patch já aplicado, e `Apply` é idempotente.
-- `IScriptFormat` e `Scripts` entram na E2.1; até lá `IEngine` não tem `Scripts`.
+- `IScriptFormat` e `IEngine.Scripts` entraram na E2.1 (`namespace VNForge.Core.Engines`). Além do que o doc original listava, `IScriptFormat` ganhou `Id` e `FileExtensions`, como `IArchiveFormat`, para a CLI escolher o formato pela extensão.
+- `Extract` e `Rebuild` são puros: não gravam em disco, não guardam estado e não alteram `file` nem `units`. `Extract` devolve as unidades na ordem do arquivo, com status `untranslated`, tradução nula e `locator` preenchido. Formato inválido lança `InvalidDataException`, contexto de outra engine lança `ArgumentException`.
+- Regra de `Rebuild` por unidade: se `TextUnit.NeedsRewrite` é falso (sem tradução, status `untranslated`, tradução vazia ou igual ao `source`), o trecho original é copiado cru, byte a byte, sem decodificar nem recodificar. Só `NeedsRewrite` verdadeiro é codificado com o `ITextEncoder` e gravado. Unidade fora da lista também é copiada crua, então `units` pode ser um subconjunto. Sem nada a reescrever, o resultado é idêntico ao original (regra 3 do `CLAUDE.md`). Locator ausente ou que não bate com o script, numa unidade a reescrever, lança `InvalidDataException` e nada parcial é devolvido.
+- `EngineContext` guarda o que a engine carrega do jogo uma vez (no YU-RIS, a tabela de opcodes do YSCM) e é imutável. O Core só conhece a base com `EngineId`; cada engine deriva e confere se o contexto é o dela. Quem o cria a partir dos arquivos do jogo fica para as tarefas de cada engine.
+- `ITextEncoder` existe na E2.1 só com `Id` e `Encode(string)`, o mínimo que o `Rebuild` usa. A E2.2 completa o contrato (relatório de caracteres não representáveis, estratégia Shift-JIS).
+- `TextUnit`, `TextUnitKind`, `TranslationStatus` e `TranslationOrigin` ficam em `VNForge.Core.Text`. `TextUnitJson` define o formato dos `text/*.json`.
 - O teste `ArchitectureTests`, em `tests/VNForge.Core.Tests`, falha se o Core referenciar `VNForge.Engines.*` ou `VNForge.AI`.
 
 ### 2. Unidade de texto (`TextUnit`)
@@ -144,6 +155,15 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
   "locator": { "command": 812, "args": [0] }   // dado opaco da engine para reinjeção
 }
 ```
+
+Decisões do formato (E2.1, `TextUnitJson` define as opções):
+
+- Propriedades em camelCase, nesta ordem. `kind` e `status` são strings em minúsculas, com exatamente os valores acima; número ou valor desconhecido é recusado na leitura. O texto vai em Unicode sem escape (japonês legível em diff), indentado, e `origin.at` sempre em UTC com `Z`.
+- `speaker`, `translation`, `origin` e `locator` são nulos quando não há valor e continuam no arquivo como `null`, para o formato ter sempre a mesma forma. `notes` ausente vale `""` e `flags` ausente vale lista vazia. `provider` de `origin` é `"anthropic"` para a IA e `"manual"` para uma pessoa; `model` é nulo quando não há modelo.
+- `status` anda na ordem `untranslated`, `machine`, `translated`, `reviewed`, `approved`.
+- **`id`**: a engine o monta com `ScriptFile.UnitId(n)`: chave do script (nome do arquivo sem pasta e sem extensão, em minúsculas) e a posição `n` da unidade no script, com ao menos quatro dígitos (`yst00123:0042`). Só depende do conteúdo do script, então duas extrações do mesmo arquivo dão os mesmos ids. Se uma versão nova do jogo inserir texto no meio, as posições mudam; a E3.5 percebe porque compara o `source` salvo com o novo.
+- **`locator`** é um `JsonElement` opcional: JSON livre, definido por cada engine. Escolhido contra string ou base64 porque o `text/*.json` fica legível em diff, o valor é imutável e a engine não precisa de tipo no Core. O Core nunca interpreta o conteúdo, só o guarda e o devolve ao `Rebuild`. Depois de uma ida e volta o JSON é equivalente, não necessariamente idêntico em espaços. No YU-RIS guarda o índice da instrução e o dos argumentos.
+- **Tradução e reescrita**: `HasTranslation` é verdadeiro com status diferente de `untranslated` e `translation` não vazia. `NeedsRewrite` exige ainda `translation` diferente de `source` (comparação ordinal). Só nesse caso o `Rebuild` grava texto novo; nos demais copia o trecho original cru. A tradução vazia conta como não traduzida (a regra de QA de tradução vazia a sinaliza).
 
 Códigos de controle do jogo viram marcadores legíveis e estáveis: `\n` (quebra de linha), `\p` (nova página), `\c` (esperar clique), `{VAR:...}` (variáveis). A IA e o QA tratam esses marcadores como intocáveis.
 
