@@ -14,7 +14,7 @@
 | Hashes | `System.IO.Hashing` (CRC32) + Adler32 e MurmurHash2 próprios | Os índices YPF usam esses três, conforme a versão |
 | Codificação | `CodePagesEncodingProvider` (CP932 / Shift-JIS, CP1252) | O texto do jogo é Shift-JIS |
 | Testes | xUnit + arquivos sintéticos gerados no próprio teste | Não dá para commitar arquivos de jogo comercial |
-| Logs | `Microsoft.Extensions.Logging` | Mesmo log na CLI e no app |
+| Logs | `Microsoft.Extensions.Logging` + provedor de arquivo próprio (`VNForgeLogging`) | Mesmo log na CLI e no app, gravado em `.cache/logs/` do projeto. Erro esperado é `VNForgeException` (mensagem curta em português no console); o resto vai completo para o log |
 
 ## Estrutura da solução
 
@@ -189,7 +189,7 @@ minha-vn-ptbr/
 ├─ text/                   # UMA unidade de texto por linha, um arquivo por script
 │  ├─ yst00012.json
 │  └─ ...
-├─ .cache/                 # (gitignored) arquivos extraídos do jogo, cache de IA
+├─ .cache/                 # (gitignored) arquivos extraídos do jogo, cache de IA, logs (logs/)
 ├─ build/                  # (gitignored) arquivos reconstruídos (ysbin.ypf, .exe patchado)
 └─ backup/                 # (gitignored) cópia dos originais antes da injeção
 ```
