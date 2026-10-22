@@ -13,8 +13,8 @@ namespace VNForge.Core.Text;
 /// A gravação é estável: as unidades saem na ordem recebida, a indentação é de dois espaços, o fim de linha é <c>\n</c> e o texto termina
 /// com uma quebra de linha; o <see cref="TextUnitJson"/> define cada unidade (japonês sem escape, marcadores como <c>\n</c> e <c>\p</c> intactos,
 /// já que a barra invertida do marcador vira <c>\\</c> no JSON e volta igual). Gravar o mesmo conteúdo duas vezes gera o mesmo texto.
-/// Quem grava no disco (<see cref="Projects.ProjectFolder"/>) usa UTF-8 sem BOM. Caracteres fora do plano básico (como emoji) saem escapados
-/// em pares <c>\uXXXX</c>, que voltam ao mesmo texto; o japonês comum fica legível.
+/// Quem grava no disco (<see cref="Projects.ProjectFolder"/>) usa UTF-8 sem BOM. Caracteres fora do plano básico (como emoji) podem sair
+/// escapados em pares <c>\uXXXX</c>, conforme o codificador, e voltam ao mesmo texto; o japonês comum fica legível.
 /// </remarks>
 public static partial class TextFileSerializer
 {
