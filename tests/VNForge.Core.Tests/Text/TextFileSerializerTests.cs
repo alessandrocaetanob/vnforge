@@ -153,11 +153,67 @@ public class TextFileSerializerTests
     [Fact]
     public void Parse_recusa_campo_repetido_em_vez_de_descartar_unidades()
     {
-        var raiz = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"} ], \"units\": [] }";
-        var unidade = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"source\":\"y\",\"status\":\"untranslated\"} ] }";
+        var raiz = "{\n  \"version\": 1,\n  \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"} ],\n  \"units\": []\n}\n";
+        var unidade = "{\n  \"version\": 1,\n  \"units\": [\n    {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"source\":\"y\",\"status\":\"untranslated\"}\n  ]\n}\n";
 
-        Assert.Contains("campo repetido", Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(raiz, "a.json")).Message);
-        Assert.Contains("campo repetido", Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(unidade, "a.json")).Message);
+        var msgRaiz = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(raiz, "a.json")).Message;
+        var msgUnidade = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(unidade, "a.json")).Message;
+
+        Assert.Contains("campo repetido 'units'", msgRaiz);
+        Assert.Contains("linha 4", msgRaiz);
+        Assert.Contains("campo repetido 'source'", msgUnidade);
+        Assert.Contains("$.units[0]", msgUnidade);
+        Assert.Contains("linha 4", msgUnidade);
+        Assert.DoesNotContain("Duplicate", msgRaiz + msgUnidade);
+    }
+
+    [Theory]
+    [InlineData("\"id\":null,\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"", "$.units[0]")]
+    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":null,\"status\":\"untranslated\"", "$.units[0]")]
+    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"notes\":null", "$.units[0]")]
+    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"flags\":null", "$.units[0]")]
+    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"origin\":{\"provider\":null,\"at\":\"2026-10-17T18:00:00Z\"}", "$.units[0]")]
+    public void Parse_de_campo_nulo_onde_nao_cabe_falha_em_portugues(string campos, string caminho)
+    {
+        var json = $"{{ \"version\": 1, \"units\": [ {{{campos}}} ] }}";
+
+        var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, "a.json")).Message;
+
+        Assert.Contains("não aceita null", msg);
+        Assert.Contains(caminho, msg);
+        Assert.DoesNotContain("allow", msg);
+    }
+
+    [Fact]
+    public void Parse_de_status_invalido_e_tipo_errado_falha_em_portugues()
+    {
+        var status = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"quase\"} ] }";
+        var tipo = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":5,\"status\":\"untranslated\"} ] }";
+
+        foreach (var json in new[] { status, tipo })
+        {
+            var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, "a.json")).Message;
+            Assert.Contains("valor inválido", msg);
+            Assert.DoesNotContain("could not", msg);
+        }
+    }
+
+    [Fact]
+    public void Serialize_escapa_so_o_que_o_json_exige_e_deixa_o_resto_literal()
+    {
+        var ideografico = ((char)0x3000).ToString();
+        var literal = $"{ideografico}「こんにちは」{(char)0x00A0}😀{(char)0x2028}野家";
+        var texto = $"{literal} \"aspas\" \\ \t{(char)1}";
+
+        var json = TextFileSerializer.Serialize([Unidade(1, texto)]);
+        var outra = TextFileSerializer.Serialize(TextFileSerializer.Parse(json, "a.json"));
+
+        Assert.Contains(literal, json);
+        Assert.Contains("\\\"aspas\\\" \\\\ \\t\\u0001", json);
+        Assert.DoesNotContain("\\u3000", json);
+        Assert.Equal(json, outra);
+        Assert.Equal(texto, TextFileSerializer.Parse(json, "a.json")[0].Source);
+        Assert.Equal(json, TextFileSerializer.Serialize([Unidade(1, texto)]));
     }
 
     [Fact]

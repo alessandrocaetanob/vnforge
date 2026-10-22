@@ -13,8 +13,8 @@ namespace VNForge.Core.Text;
 /// A gravação é estável: as unidades saem na ordem recebida, a indentação é de dois espaços, o fim de linha é <c>\n</c> e o texto termina
 /// com uma quebra de linha; o <see cref="TextUnitJson"/> define cada unidade (japonês sem escape, marcadores como <c>\n</c> e <c>\p</c> intactos,
 /// já que a barra invertida do marcador vira <c>\\</c> no JSON e volta igual). Gravar o mesmo conteúdo duas vezes gera o mesmo texto.
-/// Quem grava no disco (<see cref="Projects.ProjectFolder"/>) usa UTF-8 sem BOM. Caracteres fora do plano básico (como emoji) podem sair
-/// escapados em pares <c>\uXXXX</c>, conforme o codificador, e voltam ao mesmo texto; o japonês comum fica legível.
+/// Quem grava no disco (<see cref="Projects.ProjectFolder"/>) usa UTF-8 sem BOM. Só aspas, barra invertida e U+0000 a U+001F são escapados
+/// (<see cref="MinimalJsonEncoder"/>); o espaço ideográfico U+3000, o japonês e o emoji ficam literais.
 /// </remarks>
 public static partial class TextFileSerializer
 {
@@ -59,7 +59,7 @@ public static partial class TextFileSerializer
         ArgumentNullException.ThrowIfNull(json);
         ArgumentNullException.ThrowIfNull(filePath);
 
-        CheckEnvelope(json, filePath);
+        var duplicate = CheckEnvelope(json, filePath);
 
         Envelope envelope;
         try
@@ -70,6 +70,12 @@ public static partial class TextFileSerializer
         catch (JsonException ex)
         {
             throw new TextFileException(filePath, DescribeInvalid(ex), ex);
+        }
+
+        if (duplicate is not null)
+        {
+            var name = DuplicateProperty().Match(duplicate.Message) is { Success: true } m ? $" '{m.Groups[1].Value}'" : string.Empty;
+            throw new TextFileException(filePath, $"campo repetido{name} no arquivo.", duplicate);
         }
 
         var units = new List<TextUnit>(envelope.Units.Count);
@@ -115,16 +121,21 @@ public static partial class TextFileSerializer
         }
     }
 
-    private static void CheckEnvelope(string json, string filePath)
+    /// <summary>Confere a raiz do arquivo. Devolve a exceção de campo repetido (sem posição no <c>JsonDocument</c>) para o chamador deixar o serializador apontar o campo; <c>null</c> se não há.</summary>
+    private static JsonException? CheckEnvelope(string json, string filePath)
     {
         JsonDocument document;
         try
         {
             document = JsonDocument.Parse(json, ReadOptions);
         }
+        catch (JsonException ex) when (ex.LineNumber is null || DuplicateProperty().IsMatch(ex.Message))
+        {
+            return ex;
+        }
         catch (JsonException ex)
         {
-            throw new TextFileException(filePath, $"JSON malformado ou com campo repetido ({Position(ex)}).", ex);
+            throw new TextFileException(filePath, $"JSON malformado ({Position(ex)}).", ex);
         }
 
         using (document)
@@ -168,6 +179,8 @@ public static partial class TextFileSerializer
                 throw new TextFileException(filePath, "campo obrigatório ausente: 'units'.");
             }
         }
+
+        return null;
     }
 
     private static void CheckVersion(JsonElement version, string filePath)
@@ -200,6 +213,10 @@ public static partial class TextFileSerializer
         {
             detail = $"campo desconhecido '{unmapped.Groups[1].Value}'.";
         }
+        else if (DuplicateProperty().Match(detail) is { Success: true } duplicate)
+        {
+            detail = $"campo repetido '{duplicate.Groups[1].Value}'.";
+        }
         else if (NullNotAllowed().IsMatch(detail))
         {
             detail = "o campo não aceita null.";
@@ -227,8 +244,11 @@ public static partial class TextFileSerializer
     [GeneratedRegex(@"The JSON property '([^']+)' could not be mapped", RegexOptions.CultureInvariant)]
     private static partial Regex UnmappedProperty();
 
-    [GeneratedRegex(@"doesn't allow getting null value", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"doesn't allow (?:setting |getting )?null value", RegexOptions.CultureInvariant)]
     private static partial Regex NullNotAllowed();
+
+    [GeneratedRegex(@"[Dd]uplicate property '(.+?)'", RegexOptions.CultureInvariant)]
+    private static partial Regex DuplicateProperty();
 
     [GeneratedRegex(@"could not be converted to", RegexOptions.CultureInvariant)]
     private static partial Regex NotConvertible();

@@ -75,7 +75,7 @@ public static partial class TextUnitJson
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            Encoder = new MinimalJsonEncoder(),
             RespectNullableAnnotations = true,
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
             ReadCommentHandling = JsonCommentHandling.Skip,
