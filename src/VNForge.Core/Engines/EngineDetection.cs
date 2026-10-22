@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace VNForge.Core.Engines;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace VNForge.Core.Engines;
 /// </summary>
 /// <param name="IsMatch">Verdadeiro quando a pasta parece ser de um jogo desta engine.</param>
 /// <param name="Summary">Resumo para o usuário, em português (ex.: "parece YU-RIS 5.x, ysbin.ypf v500"). Vazio quando não reconhece.</param>
-/// <param name="Details">Pares nome/valor do diagnóstico (versões, arquivos de pacote, chaves), em ordem estável.</param>
+/// <param name="Details">Pares nome/valor do diagnóstico (versões, arquivos de pacote, chaves).</param>
 public sealed record EngineDetection(
     bool IsMatch,
     string Summary,
@@ -13,9 +15,9 @@ public sealed record EngineDetection(
 {
     /// <summary>Resultado para uma pasta que a engine não reconhece.</summary>
     public static EngineDetection NotDetected { get; } =
-        new(false, string.Empty, new Dictionary<string, string>());
+        new(false, string.Empty, FrozenDictionary<string, string>.Empty);
 
     /// <summary>Cria o resultado de uma pasta reconhecida.</summary>
     public static EngineDetection Matched(string summary, IReadOnlyDictionary<string, string>? details = null) =>
-        new(true, summary, details ?? new Dictionary<string, string>());
+        new(true, summary, details ?? FrozenDictionary<string, string>.Empty);
 }

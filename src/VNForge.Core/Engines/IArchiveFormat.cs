@@ -13,17 +13,21 @@ public interface IArchiveFormat
     IReadOnlyList<string> FileExtensions { get; }
 
     /// <summary>
-    /// Confere, sem lançar exceção, se o conteúdo do fluxo parece ser deste formato.
+    /// Confere, sem lançar exceção, se o conteúdo do fluxo parece ser deste formato, lendo a partir do início.
     /// A posição do fluxo volta ao valor original.
     /// </summary>
     /// <param name="stream">Fluxo legível e com busca (seekable).</param>
     bool CanOpen(Stream stream);
 
     /// <summary>
-    /// Lê o cabeçalho e o índice do pacote.
+    /// Lê o cabeçalho e o índice do pacote, a partir do início do fluxo.
     /// O <see cref="IArchive"/> devolvido passa a ser o dono do fluxo: descartá-lo fecha o fluxo.
+    /// Se a chamada lançar exceção, o fluxo continua sendo de quem chamou.
     /// </summary>
     /// <param name="stream">Fluxo legível e com busca (seekable).</param>
-    /// <exception cref="InvalidDataException">O conteúdo não é do formato ou o índice é inconsistente; a mensagem, em português, diz o que falhou.</exception>
+    /// <exception cref="InvalidDataException">
+    /// O conteúdo não é do formato, o índice é inconsistente ou há dois <see cref="ArchiveEntry.Path"/> iguais;
+    /// a mensagem, em português, diz o que falhou.
+    /// </exception>
     IArchive Open(Stream stream);
 }

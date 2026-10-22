@@ -16,13 +16,15 @@ public interface IGamePatch
     string Description { get; }
 
     /// <summary>
-    /// Arquivos que <see cref="Apply"/> altera, relativos à pasta do jogo, sem caminho absoluto nem segmento <c>..</c>.
-    /// O fluxo de injeção valida os caminhos, recusa os que saem da pasta e faz o backup deles.
+    /// Arquivos que <see cref="Apply"/> altera, relativos à pasta do jogo. O fluxo de injeção resolve cada caminho
+    /// com <see cref="GamePaths.Resolve"/>, que recusa os que saem da pasta, e faz o backup deles.
+    /// Pode listar um arquivo que ainda não existe: o fluxo registra a ausência e a restauração o remove.
     /// </summary>
     IReadOnlyList<string> AffectedFiles { get; }
 
     /// <summary>
     /// Confere, só lendo, se o patch serve para este jogo (ex.: o hash do executável é o esperado).
+    /// Devolve verdadeiro também quando o patch já está aplicado.
     /// </summary>
     /// <param name="gameDir">Caminho da pasta do jogo.</param>
     /// <param name="reason">Quando devolve falso, o motivo em português; senão, nulo.</param>
@@ -30,6 +32,7 @@ public interface IGamePatch
 
     /// <summary>
     /// Aplica o patch. Chamar só depois do backup e de <see cref="CanApply"/> devolver verdadeiro.
+    /// É idempotente: aplicar de novo num jogo já alterado não muda nada.
     /// </summary>
     /// <param name="gameDir">Caminho da pasta do jogo.</param>
     void Apply(string gameDir);
