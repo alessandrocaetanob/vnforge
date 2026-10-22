@@ -169,6 +169,12 @@ Os leitores foram escritos só a partir das fontes acima e de arquivos sintétic
 
 ## Scripts YSTB (`yst*.ybn`), versão ≥ 300
 
+Fontes citadas como `arquivo:linha`, sobre as cópias lidas em 2026-10-22 (as linhas podem se mover nos repositórios):
+
+- `yuri.md` e `ystb.py`: [shimamura-sakura/yuri](https://github.com/shimamura-sakura/yuri), `yuri.md` e `yuri/fileformat/ystb.py`
+- `VNTextPatch Notes.txt` e `YurisScenarioScript.cs`: [arcusmaximus/VNTranslationTools](https://github.com/arcusmaximus/VNTranslationTools), `VNTextPatch.Shared/Scripts/Yuris/`
+- `GARbro`: [morkt/GARbro](https://github.com/morkt/GARbro), `ArcFormats/YuRis/ArcYPF.cs` (`DecryptYstb`)
+
 ```
 u8  magic[4] = "YSTB"
 u32 version
@@ -185,8 +191,11 @@ u8   resources[]
 u32  line_numbers[n]
 ```
 
-- Cada uma das 4 seções é XOR com uma chave de 4 bytes, recomeçando no início de cada seção.
-- **Descobrir a chave**: o primeiro argumento quase sempre tem `offset = 0`, então os bytes 8–11 da seção de argumentos, ainda cifrados, *são* a chave. Chaves conhecidas para validar: `0xD36FAC96` (≥ 290), `0x07B4024A` (versões 2xx). Jogos comerciais podem ter outra.
+Layout: `yuri.md:862-886`, `ystb.py:5,12,129-136`, `VNTextPatch Notes.txt:96-119`, `YurisScenarioScript.cs:51-70`. O `extra` é o `gosub_npar` do yuri (`yuri.md:876`); o `Notes.txt:108-109` o descreve como um byte desconhecido e um byte de padding.
+
+- Cada uma das 4 seções é XOR com uma chave de 4 bytes, recomeçando no início de cada seção (`yuri.md:803-832`, `ystb.py:141-144`, `YurisScenarioScript.cs:537-549`, `GARbro ArcYPF.cs:408-424`).
+- **Descobrir a chave**: o primeiro argumento quase sempre tem `offset = 0`, então os bytes 8–11 da seção de argumentos, ainda cifrados, *são* a chave (`YurisScenarioScript.cs:72-73` lê exatamente esses bytes). Chaves conhecidas para validar: `0xD36FAC96` (≥ 290), `0x07B4024A` (versões 2xx) (`ystb.py:9-10,113`). Jogos comerciais podem ter outra.
+- **Notação da chave**: o yuri escreve a chave em big-endian (`0xD36FAC96` cifra com os bytes `D3 6F AC 96` nessa ordem, `yuri.md:809-813`, `ystb.py:115`). O VNTextPatch e o GARbro leem os mesmos 4 bytes como `uint` little-endian (`0x96AC6FD3`, `YurisScenarioScript.cs:73`). Este projeto usa a notação do yuri.
 - **Opcodes não são fixos**: vêm de `ysc.ybn` (YSCM), que lista os comandos na ordem do id (leitor: seção acima). Procuramos `WORD` (texto), `_` (expressão), `RETURNCODE`, `GOSUB`, `CG`.
 - **Texto (`WORD`)**: 1 argumento, bytes crus em Shift-JIS, sem aspas. Linhas seguidas de `WORD` formam uma mensagem; dá para pôr a tradução inteira no primeiro e esvaziar os demais.
 - **Códigos de controle dentro do texto**: `EF F0` quebra de linha, `EF F2` nova página, `EF F3` esperar clique, `EF F5` desconhecido. Viram `\n`, `\p`, `\c`, `\u` no nosso JSON. Outro `EF xx` vira `{EF:xx}`. A varredura respeita os limites de caractere do CP932: um `EF` que é segundo byte de um caractere de dois bytes (ex.: `88 EF`) não é código de controle, assim como um segundo byte `5C` ou `7B` (ex.: `ソ` = `83 5C`) não vira barra ou chave. Byte que o Shift-JIS não decodifica, ou que decodifica para um par diferente na volta (o CP932 tem duplicatas, como `87 90` e `81 E0`), vira `{RAW:hex}`, para a ida e volta gerar os mesmos bytes. A implementação é `ControlMarkers`, em `VNForge.Engines.YuRis.Text`.
@@ -196,6 +205,30 @@ u32  line_numbers[n]
 - **Plano de reescrita**: anexar os textos novos no fim da seção de recursos e atualizar `size`/`offset` só dos argumentos alterados. Os outros argumentos (inclusive os de `RETURNCODE`, cujo offset nem sempre aponta para recursos) não são tocados.
 - `yst_list.ybn` (YSTL) dá o caminho original de cada script (ex.: `userscript\01_prologo.yst`), útil para nomes legíveis (leitor: seção acima).
 - Versões < 300 têm outro layout (instruções de tamanho variável). Só vamos tratar se o seu jogo precisar.
+
+### Como o leitor trabalha (#36)
+
+`src/VNForge.Engines.YuRis/Ystb/` (`YstbReader`, `YstbFile`). Recebe o `YscmFile` do mesmo jogo, porque o opcode só tem nome pelo YSCM.
+
+- **Versão**: abaixo de 300, `InvalidFileException` dizendo que o layout da versão não é suportado (`ystb.py:116` trata o layout antigo em outro ramo, que não implementamos). Fora de 200 a 599, `UnknownVersionException` (`ystb.py:112`, `common.py:8`).
+- **Cabeçalho**: exige `instructions_size == n * 4`, `line_numbers_size == n * 4`, `args_size % 12 == 0` (`ystb.py:130-131`) e que a soma `32 + as quatro seções` seja exatamente o tamanho do arquivo, como o VNTextPatch (`YurisScenarioScript.cs:57-58,69-70`) e o GARbro (`ArcYPF.cs:397-407`, que não decifra se não fecha). As contas são feitas em 64 bits e conferidas contra o tamanho do arquivo antes de qualquer alocação, então um cabeçalho corrompido não pede memória. O `ystb.py` não confere o fim do arquivo; o leitor confere. O arquivo inteiro vai para a memória, até 32 MiB (`YbnReader.MaxFileBytes`); as instruções criadas são proporcionais ao tamanho real do arquivo, nunca ao que o cabeçalho declara.
+- **Padding** (bytes 28 a 31): o `ystb.py:132` exige 0 e o VNTextPatch o ignora (`:63`). O leitor aceita qualquer valor e o guarda (`YstbFile.Padding`) para a gravação (E2.7) copiar.
+- **Chave**: tenta, nesta ordem, as conhecidas `0xD36FAC96` e `0x07B4024A` (`YstbKeyOrigin.Known`, ou `Derived` se coincidem com a derivada) e depois a derivada dos bytes 8 a 11 da seção de argumentos (`Derived`). As conhecidas vêm antes porque uma derivada errada, quando o primeiro `offset` muda só alguns bytes da chave (por exemplo só os bytes 2 e 3), decifra quase tudo e passa nas conferências se o script não tem argumento conferido que pegue o desvio, enquanto uma conhecida errada decifra lixo e não passa. Limite: se o jogo usa uma chave fora da lista e o primeiro argumento tem `offset` assim, a derivada vale mesmo errada quando passa nas conferências, e os campos que elas não conferem (`extra`, `type`, e o `assign_op` dentro de 0 a 8) podem sair trocados sem erro. Sem argumentos (`args_size == 0`) não há de onde derivar: tenta primeiro tudo em claro (chave 0, `None`, que é o que o VNTextPatch faz com `key == 0`, `:72-75,539-540`) e depois as conhecidas. Uma chave só vale se o script inteiro decifra de forma consistente. Se nenhuma serve, o erro lista as chaves tentadas e dá o problema da tentativa que foi mais longe. Descobrir uma chave nova por tentativa (os números de linha, `yuri.md:931-980`) fica fora do leitor.
+- **Consistência por chave**: o opcode de toda instrução existe no YSCM; a soma de `num_args` das instruções é exatamente o número de argumentos da seção; `assign_op` vai de 0 a 8 (o `AOp` do `ystb.py:13-26,46` recusa outro valor); e todo argumento confere `offset + size <= tamanho dos recursos`, como o `assert len(dat[off:off+siz]) == siz` do `ystb.py:43`, com as exceções abaixo.
+- **Offset e tamanho dos argumentos**: o `ystb.py` só lê o trecho dos recursos (`RArg.read` com `dat`, `ystb.py:39-46`) nos argumentos que passam `dat`; o leitor confere o mesmo conjunto (`YstbReader.RangeRules`). As exceções, onde `size` e `offset` não apontam para recursos: o único argumento do `RETURNCODE` (`ystb.py:78-80`; o `size` é o valor devolvido, `yuri.md:999`), o 2º e o 3º argumento de `IF` e `ELSE` com 3 argumentos (`ystb.py:86-87`; `size` é a posição de código do `ELSE` ou `LOOPEND` e `offset` o offset da expressão, `yuri.md:991-996`) e o 2º argumento de `LOOP` (`ystb.py:93`). Todo o resto cai no ramo padrão (`ystb.py:97`) e é conferido, `WORD` (`ystb.py:94-96`), `G_xxx` e `LET` inclusive: o `yuri.md:997` lista esses dois comandos, mas o item está vazio na fonte e não dá base a uma regra própria. `IF`, `ELSE` e `LOOP` são achados pelo nome no YSCM (`TryGetOpcode`). Tamanho 0 vale com qualquer `offset`, porque a fatia vazia do yuri tem tamanho 0. As conferências do `ELSE` sem 3 argumentos (`na == 0`, `ystb.py:89`), do `LOOP` (`na == 2`, `:92`) e do `WORD` (`na == 1`, `:95`) o leitor não repete. `YstbFile.GetResource(argumento)` aplica o mesmo critério e falha, com os limites na mensagem, se o trecho sai dos recursos. `type` é guardado cru (o yuri usa só os dois bits baixos, `ystb.py:46`).
+- **`extra`**: guardado sem interpretar, porque alguns jogos calculam o `gosub_npar` de outro jeito (`yuri.md:888-928`).
+- **O que a E2.7 recebe**: `YstbFile.Key` (a efetiva), `Padding`, `ArgumentBytes` e `Resources` (as seções em claro), `Instructions` com `FirstArgumentIndex` e os campos crus de cada argumento. A gravação recifra cada seção com a mesma chave e copia o que não mudou. Os números de linha vêm em cada instrução.
+- **Onde as fontes divergem**: (1) o limiar do layout novo: o yuri usa 300 (`ystb.py:116`, `yuri.md:796-799`); o GARbro só trata como layout novo as versões 300, 408, 410, 412, 451 e de 459 em diante (`ArcYPF.cs:386`: `0x12C`, `0x198`, `0x19A`, `0x19C`, `0x1C3` e `>= 0x1CB`), e o resto como o antigo; o leitor segue o yuri e, se um jogo de 301 a 458 não fechar o cabeçalho, o erro diz isso. (2) o padding: o `ystb.py` exige 0, o VNTextPatch ignora. (3) a chave: o yuri aceita a derivada ou uma informada (`ystb.py:113`), o VNTextPatch usa só a derivada (`:72-73`) e o GARbro usa uma chave por jogo guardada no esquema (`ArcYPF.cs:145,159`).
+
+### O que confirmar no jogo (#36)
+
+O leitor foi escrito a partir das fontes acima e de arquivos sintéticos (`tests/VNForge.Engines.YuRis.Tests/Ystb/Synthetic/`, com um vetor de ouro montado à mão em `YstbReaderTests`); nenhum `yst*.ybn` real foi lido.
+
+1. **Versão** dos `yst*.ybn` (igual à do `ysbin.ypf`?) e se ela é 300 ou mais; abaixo disso o leitor recusa.
+2. **Chave**: a efetiva do jogo e se ela coincide com a derivada dos bytes 8 a 11 (primeiro argumento com `offset = 0`).
+3. **Padding** do cabeçalho e **`extra`** das instruções `GOSUB` e `RETURN`: valores reais, e se o jogo usa o cálculo alternativo do `gosub_npar`.
+4. **`assign_op` de 0 a 8** em todos os argumentos, e **argumentos conferidos sempre dentro dos recursos**: se algum script real quebrar uma dessas duas conferências, a regra de consistência do leitor muda no mesmo PR.
+5. **Scripts sem argumentos** (por exemplo, só um `RETURN`): se estão cifrados e com qual chave.
 
 ## Acentuação: o problema central
 
