@@ -12,13 +12,13 @@ namespace VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 /// o que o leitor e o escritor fazem, sem usar arquivos de jogo (CLAUDE.md, regra 1).
 /// </summary>
 /// <remarks>
-/// Onde o doc 06 não define o campo, o gerador adota hipóteses a confirmar no jogo (#23): ver a seção
-/// "Hipóteses do YPF sintético" do doc.
+/// Todo padrão vem de uma fonte citada no doc 06 e quase todo é configurável, porque as implementações de
+/// referência divergem (versão do MurmurHash2, tabela de troca, chave do nome, header_size, ordem dos dados).
+/// Os pontos a confirmar no jogo estão na lista da #23 do doc.
 /// </remarks>
 public sealed class SyntheticYpfBuilder
 {
     private const int MaxNameBytes = 255;
-    private const byte DefaultNameKey = 0x40;
 
     // Sem fallback: um caractere fora do Shift-JIS viraria '?' e dois nomes diferentes colidiriam.
     private static readonly Encoding StrictShiftJis = Encoding.GetEncoding(
@@ -28,54 +28,96 @@ public sealed class SyntheticYpfBuilder
 
     private readonly uint _version;
     private readonly List<PendingFile> _files = [];
-    private byte _nameKey = DefaultNameKey;
+    private byte? _nameKey;
     private SyntheticYpfSwapTable? _swapTable;
     private SyntheticYpfHashAlgorithm? _nameHash;
     private SyntheticYpfHashAlgorithm? _dataHash;
     private SyntheticYpfOffsetSize? _offsetSize;
+    private bool? _headerSizeIncludesHeader;
+    private SyntheticYpfDataOrder _dataOrder = SyntheticYpfDataOrder.Index;
+    private bool _shareDuplicateData;
 
     public SyntheticYpfBuilder(uint version)
     {
         _version = version;
     }
 
-    /// <summary>Chave XOR aplicada a cada byte do nome no índice. Padrão 0x40.</summary>
+    /// <summary>
+    /// A chave K do nome, no sentido do YPF-Manager: cada byte do nome é gravado como <c>~(byte ^ K)</c>, então o XOR
+    /// efetivo é <c>K ^ 0xFF</c>. Padrão pela versão: 0x00, 0x40 na v290 e 0x36 na v500 (<see cref="SyntheticYpfDefaults.NameKey"/>).
+    /// </summary>
     public SyntheticYpfBuilder WithNameKey(byte key)
     {
         _nameKey = key;
         return this;
     }
 
-    /// <summary>Tabela de troca do tamanho do nome. Padrão: a da v500 só na versão 500, a padrão nas demais.</summary>
+    /// <summary>Tabela de troca do tamanho do nome. Padrão: a da v500 só na versão 500 exata, a padrão nas demais.</summary>
     public SyntheticYpfBuilder WithSwapTable(SyntheticYpfSwapTable table)
     {
         _swapTable = table;
         return this;
     }
 
-    /// <summary>Hash do nome. Padrão pela versão (Adler32 abaixo de 265, CRC32 até 478, MurmurHash2 a partir de 479).</summary>
+    /// <summary>Hash do nome (calculado sobre os bytes Shift-JIS em claro). Padrão pela versão (Adler32 abaixo de 265, CRC32 até 478, MurmurHash2 a partir de 479).</summary>
     public SyntheticYpfBuilder WithNameHash(SyntheticYpfHashAlgorithm algorithm)
     {
         _nameHash = algorithm;
         return this;
     }
 
-    /// <summary>Hash dos bytes armazenados. Padrão pela versão (Adler32 abaixo de 479, MurmurHash2 a partir dela).</summary>
+    /// <summary>Hash dos bytes armazenados. Padrão pela versão (Adler32 abaixo de 479, MurmurHash2 a partir dela). Independente do hash do nome e do tamanho do offset.</summary>
     public SyntheticYpfBuilder WithDataHash(SyntheticYpfHashAlgorithm algorithm)
     {
         _dataHash = algorithm;
         return this;
     }
 
-    /// <summary>Largura do offset. Padrão: 32 bits abaixo de 479 e 64 bits a partir dela.</summary>
+    /// <summary>Largura do offset. Padrão: 32 bits abaixo de 479 e 64 bits a partir dela. Independente dos hashes.</summary>
     public SyntheticYpfBuilder WithOffsetSize(SyntheticYpfOffsetSize size)
     {
         _offsetSize = size;
         return this;
     }
 
-    /// <summary>Adiciona um arquivo. O nome é gravado em Shift-JIS; com <paramref name="compress"/> os bytes armazenados são um fluxo zlib.</summary>
-    public SyntheticYpfBuilder AddFile(string name, byte[] content, SyntheticYpfFileType fileType = SyntheticYpfFileType.Ybn, bool compress = false)
+    /// <summary>
+    /// Se o <c>header_size</c> inclui os 32 bytes do cabeçalho fixo. <c>null</c> volta ao padrão pela versão:
+    /// inclui a partir da v300 (yuri.md:459-462); abaixo dela só o tamanho do índice.
+    /// </summary>
+    public SyntheticYpfBuilder WithHeaderSizeIncludesHeader(bool? includesHeader)
+    {
+        _headerSizeIncludesHeader = includesHeader;
+        return this;
+    }
+
+    /// <summary>Ordem dos bytes armazenados na área de dados. Padrão: a ordem do índice.</summary>
+    public SyntheticYpfBuilder WithDataOrder(SyntheticYpfDataOrder order)
+    {
+        _dataOrder = order;
+        return this;
+    }
+
+    /// <summary>
+    /// Entradas com os mesmos bytes armazenados, mesmo tamanho original e mesmo flag de compressão passam a apontar para o
+    /// mesmo offset, e a área de dados guarda uma cópia só (YPF-Manager, YPFArchive.cs:136-141).
+    /// </summary>
+    public SyntheticYpfBuilder WithSharedDuplicateData(bool shared = true)
+    {
+        _shareDuplicateData = shared;
+        return this;
+    }
+
+    /// <summary>
+    /// Adiciona um arquivo. O nome é gravado em Shift-JIS; com <paramref name="compress"/> os bytes armazenados são um fluxo
+    /// zlib, mas só se ficarem menores que o original (yuri.py:131, YPFArchive.cs:130). <paramref name="forceCompression"/>
+    /// grava o zlib mesmo quando ele não encolhe.
+    /// </summary>
+    public SyntheticYpfBuilder AddFile(
+        string name,
+        byte[] content,
+        SyntheticYpfFileType fileType = SyntheticYpfFileType.Ybn,
+        bool compress = false,
+        bool forceCompression = false)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(content);
@@ -100,22 +142,24 @@ public sealed class SyntheticYpfBuilder
             throw new ArgumentException($"Já existe um arquivo chamado '{name}'.", nameof(name));
         }
 
-        _files.Add(new PendingFile(name, nameBytes, content, fileType, compress));
+        _files.Add(new PendingFile(name, nameBytes, content, fileType, compress || forceCompression, forceCompression));
         return this;
     }
 
     public SyntheticYpf Build()
     {
+        var nameKey = _nameKey ?? SyntheticYpfDefaults.NameKey(_version);
         var swapTable = _swapTable ?? SyntheticYpfDefaults.SwapTable(_version);
         var nameHash = _nameHash ?? SyntheticYpfDefaults.NameHash(_version);
         var dataHash = _dataHash ?? SyntheticYpfDefaults.DataHash(_version);
         var offsetSize = _offsetSize ?? SyntheticYpfDefaults.OffsetSize(_version);
+        var includesHeader = _headerSizeIncludesHeader ?? SyntheticYpfDefaults.HeaderSizeIncludesHeader(_version);
         var offsetBytes = offsetSize == SyntheticYpfOffsetSize.Bits64 ? 8 : 4;
 
         var prepared = _files.Select(f => Prepare(f, nameHash, dataHash)).ToArray();
 
-        // Hipótese: o índice é ordenado pelo hash do nome (empate: ordem de inserção) e os dados
-        // seguem o índice na ordem de inserção, logo os offsets não são crescentes no índice.
+        // O índice é ordenado pelo hash do nome (GARbro ArcYPF.cs:271, YPF-Manager YPFArchive.cs:84);
+        // empate fica na ordem de inserção.
         var indexOrder = prepared
             .Select((file, insertion) => (file, insertion))
             .OrderBy(x => x.file.NameHash)
@@ -124,42 +168,79 @@ public sealed class SyntheticYpfBuilder
             .ToArray();
 
         var indexSize = indexOrder.Sum(f => EntrySize(f, offsetBytes));
-        var headerSize = checked((uint)(SyntheticYpf.FixedHeaderSize + indexSize));
+        var dataStart = checked((uint)(SyntheticYpf.FixedHeaderSize + indexSize));
+        var headerSize = includesHeader ? dataStart : (uint)indexSize;
 
-        var offsets = new Dictionary<Prepared, ulong>();
-        var nextOffset = (ulong)headerSize;
-        foreach (var file in prepared)
-        {
-            offsets[file] = nextOffset;
-            nextOffset += (ulong)file.Stored.Length;
-        }
+        var layout = LayOutData(_dataOrder == SyntheticYpfDataOrder.Index ? indexOrder : prepared, dataStart);
 
-        if (offsetSize == SyntheticYpfOffsetSize.Bits32 && nextOffset > uint.MaxValue)
+        if (offsetSize == SyntheticYpfOffsetSize.Bits32 && layout.End > uint.MaxValue)
         {
             throw new InvalidOperationException("Os dados passam de 4 GiB e não cabem num offset de 32 bits.");
         }
 
-        var bytes = new byte[nextOffset];
+        var bytes = new byte[layout.End];
         WriteHeader(bytes, headerSize, (uint)prepared.Length);
 
         var entries = new List<SyntheticYpfEntry>(prepared.Length);
         var position = SyntheticYpf.FixedHeaderSize;
         foreach (var file in indexOrder)
         {
-            var entry = WriteEntry(bytes, position, file, offsets[file], swapTable, offsetSize, offsetBytes);
+            var entry = WriteEntry(bytes, position, file, layout.Offsets[file], nameKey, swapTable, offsetSize, offsetBytes);
             entries.Add(entry);
             position += entry.IndexEntrySize;
-
-            file.Stored.CopyTo(bytes, (int)offsets[file]);
         }
 
-        return new SyntheticYpf(bytes, _version, headerSize, _nameKey, swapTable, nameHash, dataHash, offsetSize, entries);
+        foreach (var (file, offset) in layout.Written)
+        {
+            file.Stored.CopyTo(bytes, (int)offset);
+        }
+
+        return new SyntheticYpf(bytes, _version, headerSize, includesHeader, nameKey, swapTable, nameHash, dataHash, offsetSize, entries)
+        {
+            DataStart = dataStart,
+        };
+    }
+
+    private DataLayout LayOutData(IEnumerable<Prepared> order, uint dataStart)
+    {
+        var offsets = new Dictionary<Prepared, ulong>();
+        var written = new List<(Prepared File, ulong Offset)>();
+        var shared = new Dictionary<string, ulong>();
+        var next = (ulong)dataStart;
+
+        foreach (var file in order)
+        {
+            var key = $"{file.Source.Content.Length}:{file.IsCompressed}:{Convert.ToBase64String(file.Stored)}";
+            if (_shareDuplicateData && shared.TryGetValue(key, out var existing))
+            {
+                offsets[file] = existing;
+                continue;
+            }
+
+            offsets[file] = next;
+            written.Add((file, next));
+            shared[key] = next;
+            next += (ulong)file.Stored.Length;
+        }
+
+        return new DataLayout(offsets, written, next);
     }
 
     private static Prepared Prepare(PendingFile file, SyntheticYpfHashAlgorithm nameHash, SyntheticYpfHashAlgorithm dataHash)
     {
-        var stored = file.Compress ? CompressZlib(file.Content) : file.Content;
-        return new Prepared(file, stored, Hash(nameHash, file.NameBytes), Hash(dataHash, stored));
+        var stored = file.Content;
+        var isCompressed = false;
+        if (file.Compress)
+        {
+            var compressed = CompressZlib(file.Content);
+            if (file.ForceCompression || compressed.Length < file.Content.Length)
+            {
+                stored = compressed;
+                isCompressed = true;
+            }
+        }
+
+        return new Prepared(file, stored, isCompressed, Hash(nameHash, file.NameBytes), Hash(dataHash, stored));
     }
 
     private static int EntrySize(Prepared file, int offsetBytes) =>
@@ -174,11 +255,12 @@ public sealed class SyntheticYpfBuilder
         // Bytes 16 a 31: padding de zeros.
     }
 
-    private SyntheticYpfEntry WriteEntry(
+    private static SyntheticYpfEntry WriteEntry(
         byte[] bytes,
         int position,
         Prepared file,
         ulong offset,
+        byte nameKey,
         SyntheticYpfSwapTable swapTable,
         SyntheticYpfOffsetSize offsetSize,
         int offsetBytes)
@@ -192,12 +274,13 @@ public sealed class SyntheticYpfBuilder
         var encodedNameSize = (byte)~SyntheticYpfSwapTables.Swap(swapTable, (byte)source.NameBytes.Length);
         span[4] = encodedNameSize;
 
-        var obfuscated = source.NameBytes.Select(b => (byte)(b ^ _nameKey)).ToArray();
+        // Cada byte do nome vira ~(byte ^ K) (YPF-Manager YPFArchive.cs:219; yuri.py:42-44).
+        var obfuscated = source.NameBytes.Select(b => (byte)~(b ^ nameKey)).ToArray();
         obfuscated.CopyTo(span[5..]);
 
         var cursor = 5 + obfuscated.Length;
         span[cursor] = (byte)source.FileType;
-        span[cursor + 1] = source.Compress ? (byte)1 : (byte)0;
+        span[cursor + 1] = file.IsCompressed ? (byte)1 : (byte)0;
         BinaryPrimitives.WriteUInt32LittleEndian(span[(cursor + 2)..], checked((uint)source.Content.Length));
         BinaryPrimitives.WriteUInt32LittleEndian(span[(cursor + 6)..], checked((uint)file.Stored.Length));
 
@@ -208,7 +291,7 @@ public sealed class SyntheticYpfBuilder
         }
         else
         {
-            BinaryPrimitives.WriteUInt32LittleEndian(span[cursor..], (uint)offset);
+            BinaryPrimitives.WriteUInt32LittleEndian(span[cursor..], checked((uint)offset));
         }
 
         cursor += offsetBytes;
@@ -220,7 +303,7 @@ public sealed class SyntheticYpfBuilder
             obfuscated,
             encodedNameSize,
             source.FileType,
-            source.Compress,
+            file.IsCompressed,
             (uint)source.Content.Length,
             (uint)file.Stored.Length,
             offset,
@@ -251,13 +334,17 @@ public sealed class SyntheticYpfBuilder
         _ => throw new ArgumentOutOfRangeException(nameof(algorithm), algorithm, null),
     };
 
-    private sealed record PendingFile(string Name, byte[] NameBytes, byte[] Content, SyntheticYpfFileType FileType, bool Compress);
+    private sealed record DataLayout(Dictionary<Prepared, ulong> Offsets, List<(Prepared File, ulong Offset)> Written, ulong End);
 
-    private sealed class Prepared(PendingFile source, byte[] stored, uint nameHash, uint dataHash)
+    private sealed record PendingFile(string Name, byte[] NameBytes, byte[] Content, SyntheticYpfFileType FileType, bool Compress, bool ForceCompression);
+
+    private sealed class Prepared(PendingFile source, byte[] stored, bool isCompressed, uint nameHash, uint dataHash)
     {
         public PendingFile Source { get; } = source;
 
         public byte[] Stored { get; } = stored;
+
+        public bool IsCompressed { get; } = isCompressed;
 
         public uint NameHash { get; } = nameHash;
 
