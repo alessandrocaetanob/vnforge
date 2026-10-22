@@ -62,7 +62,7 @@ public interface IEngine
     string Id { get; }                                  // "yuris"
     EngineDetection Detect(string gameDir);             // "parece YU-RIS 5.x, ysbin.ypf v500"
     IReadOnlyList<IArchiveFormat> Archives { get; }     // YPF
-    // IReadOnlyList<IScriptFormat> Scripts { get; }    // YSTB: entra na E2.1
+    IReadOnlyList<IScriptFormat> Scripts { get; }       // YSTB
     IReadOnlyList<IGamePatch> Patches { get; }          // ex.: patch de codepage no .exe
 }
 
@@ -104,10 +104,16 @@ public static class GamePaths
 
 public interface IScriptFormat
 {
+    string Id { get; }                                  // "ystb"
+    IReadOnlyList<string> FileExtensions { get; }       // ".ybn"
     ScriptExtraction Extract(ScriptFile file, EngineContext ctx);          // bytes -> unidades de texto
     byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units,          // unidades -> bytes
                    ITextEncoder encoder, EngineContext ctx);
 }
+
+public sealed record ScriptFile(string Name, ReadOnlyMemory<byte> Content)   // Key e UnitId(n) montam os ids
+public sealed record ScriptExtraction(IReadOnlyList<TextUnit> Units)         // + Warnings (init, nunca nulo)
+public class EngineContext(string engineId)             // dados do jogo carregados pela engine (no YU-RIS, o YSCM); cada engine deriva
 ```
 
 Uma engine nova (KiriKiri, Ren'Py, SiglusEngine, Artemis...) é só outro projeto `VNForge.Engines.X` que implementa essas interfaces.
@@ -123,7 +129,14 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
 - `ArchiveEntry` não é selada: cada formato deriva dela (`YpfEntry`) para guardar os campos internos da reescrita. `Path` é único no pacote.
 - `OpenEntry` falha na hora quando o hash diverge. A verificação é do formato: o algoritmo de hash por versão está como não testado no doc 06, com ambiguidade nas versões 477 e 478.
 - `CanApply` devolve verdadeiro com o patch já aplicado, e `Apply` é idempotente.
-- `IScriptFormat` e `Scripts` entram na E2.1; até lá `IEngine` não tem `Scripts`.
+- `IScriptFormat` e `IEngine.Scripts` entraram na E2.1 (`namespace VNForge.Core.Engines`). Além do que o doc original listava, `IScriptFormat` ganhou `Id` e `FileExtensions`, como `IArchiveFormat`, para a CLI escolher o formato pela extensão.
+- `Extract` e `Rebuild` são puros: não gravam em disco, não guardam estado e não alteram `file` nem `units`. `Extract` devolve as unidades na ordem do arquivo, com status `untranslated`, tradução nula e `locator` preenchido. Formato inválido lança `InvalidDataException`, contexto de outra engine lança `ArgumentException`. O `locator` guarda o que o `Rebuild` precisa para reinjetar sem reinterpretar os comandos do script.
+- Validação do `Rebuild`, antes de gravar: unidade cujo `id` não começa com `file.Key + ":"` lança `ArgumentException`; `id` duplicado lança `ArgumentException` (`ScriptFile.ValidateUnits` faz as duas conferências); unidade a reescrever confere que o trecho apontado pelo `locator` ainda decodifica para o `source`, senão `InvalidDataException` (arquivo desatualizado). Nada parcial é devolvido, e as mensagens citam o `id`.
+- Regra de `Rebuild` por unidade: se `TextUnit.NeedsRewrite` é falso (sem tradução, status `untranslated` mesmo com `translation` preenchida, tradução vazia ou igual ao `source`), o trecho original é copiado cru, byte a byte, sem decodificar nem recodificar. Unidade fora da lista também é copiada crua, então `units` pode ser um subconjunto, em qualquer ordem. Com `NeedsRewrite` verdadeiro, a engine parte a tradução nos marcadores, codifica os trechos de texto com o `ITextEncoder` e concatena os bytes de controle. Se os bytes codificados forem iguais aos originais (por exemplo, o `fold` reduz a tradução ao mesmo texto), o argumento é copiado cru: a regra 3 do `CLAUDE.md` vale também aí. Sem nada a reescrever, o resultado é idêntico ao original.
+- `id` é opaco: o `Rebuild` localiza o trecho pelo `locator`, e o `id` serve à validação e às mensagens. A ordem das unidades na lista (e no `text/*.json`) é a da extração, a do arquivo.
+- `EngineContext` guarda o que a engine carrega do jogo uma vez (no YU-RIS, a tabela de opcodes do YSCM) e é imutável. O Core só conhece a base abstrata com `EngineId`; cada engine deriva e confere se o contexto é o dela. Quem o cria a partir dos arquivos do jogo fica para as tarefas de cada engine.
+- `ITextEncoder` existe na E2.1 só com `Id`, `Encode(string)` e `FindUnencodable`, o mínimo que o `Rebuild` e o QA usam. O contrato: `Encode` nunca substitui nem descarta caractere e lança `EncoderFallbackException` para o que não representa (o fallback padrão do .NET para o CP932 faz `ação` virar `acao` em silêncio, medido); `FindUnencodable(string)` devolve os índices que `Encode` recusaria, sem lançar e sem efeito colateral, para a regra de QA. O codificador recebe só texto exibível, sem marcadores: a engine parte a tradução nos marcadores, codifica os trechos e concatena os bytes de controle, porque no `cp1252` o `ï` (0xEF) colide com o prefixo de controle do YU-RIS (doc 06). `Rebuild` propaga a `EncoderFallbackException` sem resultado parcial, com o `id` na mensagem. A E2.2 acrescenta a estratégia Shift-JIS.
+- `TextUnit`, `TextUnitKind`, `TranslationStatus` e `TranslationOrigin` ficam em `VNForge.Core.Text`. `TextUnitJson` define o formato dos `text/*.json`.
 - O teste `ArchitectureTests`, em `tests/VNForge.Core.Tests`, falha se o Core referenciar `VNForge.Engines.*` ou `VNForge.AI`.
 
 ### 2. Unidade de texto (`TextUnit`)
@@ -145,7 +158,30 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
 }
 ```
 
-Códigos de controle do jogo viram marcadores legíveis e estáveis: `\n` (quebra de linha), `\p` (nova página), `\c` (esperar clique), `{VAR:...}` (variáveis). A IA e o QA tratam esses marcadores como intocáveis.
+Decisões do formato (E2.1, `TextUnitJson` define as opções):
+
+- Propriedades em camelCase, nesta ordem. `kind` e `status` são strings em minúsculas, com exatamente os valores acima; número ou valor desconhecido é recusado na leitura. O texto vai em Unicode sem escape (japonês legível em diff) e `origin.at` sempre em UTC com `Z`; na leitura, `at` sem `Z` nem deslocamento é recusado. `Provider` e `at` de `origin` são obrigatórios.
+- Uma unidade por linha, como diz a árvore de pastas: o arquivo é um array JSON com um objeto compacto por linha (`[`, os objetos separados por vírgula e quebra de linha, `]`), bom para diff e merge. Na leitura, campo desconhecido é erro (`"traslation": "Oi"` não pode apagar a tradução no próximo salvamento), e comentários e vírgula final são aceitos, como no `vnforge.json`. A #43 põe esse array dentro de um envelope com `version` no arquivo; `TextUnitJson` só cuida das unidades.
+- `speaker`, `translation`, `origin` e `locator` são nulos quando não há valor e continuam no arquivo como `null`, para o formato ter sempre a mesma forma. `notes` ausente vale `""` e `flags` ausente vale lista vazia; `notes` ou `flags` com `null` e `flags` com elemento nulo são recusados, assim como `null` como elemento da lista de unidades. `provider` de `origin` é `"anthropic"` para a IA e `"manual"` para uma pessoa; `model` é nulo quando não há modelo.
+- `id`, `kind`, `source` e `status` são obrigatórios na leitura (ausentes ou nulos geram `JsonException`). As opções são somente leitura.
+- `status` anda na ordem `untranslated`, `machine`, `translated`, `reviewed`, `approved`.
+- **`id`**: a engine o monta com `ScriptFile.UnitId(posição)`: chave do script (nome do arquivo sem pasta e sem extensão, em minúsculas) e uma posição estável e única no script, com ao menos seis dígitos (`yst00123:000042`). Só depende do conteúdo do script, então duas extrações do mesmo arquivo dão os mesmos ids. O id é opaco, ninguém o decodifica. Decisão sobre a posição: o Core aceita qualquer número estável e único; a ordem da unidade no arquivo desloca todas as seguintes se a heurística de extração mudar (por exemplo, juntar `WORD` de outro jeito), enquanto o índice da instrução do primeiro comando da unidade não se mexe, então a E2.6 deve preferir o índice da instrução e, quando duas unidades saírem da mesma instrução, desempatar sem reordenar as outras. Se uma versão nova do jogo inserir texto no meio, a E3.5 percebe porque compara o `source` salvo com o novo.
+- **`locator`** é um `JsonElement` opcional: JSON livre, definido por cada engine. Escolhido contra string ou base64 porque o `text/*.json` fica legível em diff, o valor é imutável e a engine não precisa de tipo no Core. O Core nunca interpreta o conteúdo, só o guarda e o devolve ao `Rebuild`. Depois de uma ida e volta o JSON é equivalente, não necessariamente idêntico em espaços. No YU-RIS guarda o índice da instrução e o dos argumentos; vale acrescentar o `size` e o `offset` originais de cada argumento (para a reconstrução conferir o que vai trocar) e uma versão do próprio formato do locator (para ler locators antigos).
+- **Tradução e reescrita**: `HasTranslation` é verdadeiro com status diferente de `untranslated` e `translation` não vazia. `NeedsRewrite` exige ainda `translation` diferente de `source` (comparação ordinal). Só nesse caso o `Rebuild` grava texto novo; nos demais copia o trecho original cru. A tradução vazia conta como não traduzida (a regra de QA de tradução vazia a sinaliza). Um rascunho em status `untranslated` com `translation` preenchida é ignorado no build; a regra de QA "tradução ignorada" avisa esse caso, para o texto não ficar parado sem ninguém notar.
+
+Códigos de controle do jogo viram marcadores legíveis e estáveis. A IA e o QA tratam esses marcadores como intocáveis. Gramática, igual para `source` e `translation`:
+
+| Marcador | Significado |
+|---|---|
+| `\n` | quebra de linha |
+| `\p` | nova página |
+| `\c` | esperar clique |
+| `\u` | código desconhecido (no YU-RIS, `EF F5`) |
+| `{NOME:valor}` | variável ou código genérico que preserva os bytes (`{VAR:...}`) |
+| `\\` | uma barra invertida literal |
+| `\{` | uma chave literal |
+
+Qualquer outra barra seguida de caractere é inválida: a engine recusa na reconstrução, citando o `id`. Na extração, uma barra ou chave que já existe nos bytes do jogo sai escapada (`\\`, `\{`), e a reconstrução desfaz o escape, então a conversão é reversível byte a byte. No JSON as barras dobram de novo (`\p` vira `"\\p"`).
 
 ### 3. Formatação (espaçamento)
 
@@ -179,6 +215,7 @@ O QA avisa qualquer caractere que a estratégia escolhida não consegue represen
 Regras automáticas, cada uma com severidade (erro bloqueia o build, aviso não):
 
 - linha não traduzida, tradução vazia
+- tradução ignorada: `translation` preenchida com status `untranslated` (o build a ignora)
 - marcador de controle diferente do original (`\p`, `\n`, variáveis)
 - caractere não codificável na estratégia atual
 - texto passa do limite de linhas da caixa depois da quebra
