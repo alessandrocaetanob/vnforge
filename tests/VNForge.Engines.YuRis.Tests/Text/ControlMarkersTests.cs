@@ -139,6 +139,17 @@ public class ControlMarkersTests
     }
 
     [Fact]
+    public void Nenhum_par_com_EF_na_abertura_e_caractere_valido_na_pagina_932()
+    {
+        var strict = Encoding.GetEncoding(932, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+
+        for (var trail = 0; trail < 256; trail++)
+        {
+            Assert.ThrowsAny<DecoderFallbackException>(() => strict.GetString([0xEF, (byte)trail]));
+        }
+    }
+
+    [Fact]
     public void Dois_caracteres_terminados_em_EF_seguidos_nao_geram_codigo()
     {
         var raw = Join(Bytes(0x88, 0xEF, 0x88, 0xEF), Sjis("あ"));
