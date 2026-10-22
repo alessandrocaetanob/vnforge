@@ -1,16 +1,15 @@
-using System.CommandLine;
-using VNForge.Core.Logging;
+using System.Text;
+using VNForge.Cli;
 
-var projectRoot = Directory.GetCurrentDirectory();
-var logDirectory = VNForgeLogging.GetLogDirectory(projectRoot);
-using var loggerFactory = VNForgeLogging.CreateFactory(projectRoot);
-var logger = loggerFactory.CreateLogger("vnf");
+Console.OutputEncoding = Encoding.UTF8;
 
-var rootCommand = new RootCommand("VNForge: ferramenta de tradução de visual novels.");
-var invocation = new InvocationConfiguration { EnableDefaultExceptionHandler = false };
+using var cancellation = new CancellationTokenSource();
 
-return await ErrorHandler.ExecuteAsync(
-    ct => rootCommand.Parse(args).InvokeAsync(invocation, ct),
-    logger,
-    Console.Error,
-    logDirectory);
+// Ctrl+C cancela o comando em andamento; o código de saída 3 sai do ErrorHandler.
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cancellation.Cancel();
+};
+
+return await VnfCli.Create().RunAsync(args, Console.Out, Console.Error, cancellation.Token);

@@ -8,6 +8,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/VNForge.AI.Tests/VNForge.AI.Tests.csproj" />
+    <Project Path="tests/VNForge.Cli.Tests/VNForge.Cli.Tests.csproj" />
     <Project Path="tests/VNForge.Core.Tests/VNForge.Core.Tests.csproj" />
     <Project Path="tests/VNForge.Engines.YuRis.Tests/VNForge.Engines.YuRis.Tests.csproj" />
   </Folder>

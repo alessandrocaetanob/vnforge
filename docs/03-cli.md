@@ -8,6 +8,26 @@
 - Códigos de saída: `0` ok, `1` erro, `2` QA encontrou erros bloqueantes, `3` cancelado.
 - Nada destrutivo sem confirmação; `--yes` pula a confirmação em scripts.
 - `--verbose` / `--quiet` controlam o log; o log completo vai para `.cache/logs/`.
+- Opções globais, válidas em qualquer posição da linha: `--project <pasta>`, `--json`, `--verbose`, `--quiet`, `--yes`. `--verbose` e `--quiet` não combinam. `--version` existe só na raiz; `--help` mostra a ajuda em português em qualquer comando.
+- Ctrl+C cancela o comando em andamento e sai com `3`.
+- Erro de uso (opção desconhecida, `--project` apontando para pasta que não existe) sai com `1` e a mensagem aponta `--help`.
+
+### Onde vai o log
+
+- Com `--project <pasta>` e a pasta existindo: `<pasta>\.cache\logs\`.
+- Sem `--project`, com `vnforge.json` na pasta atual: `.cache\logs\` da pasta atual.
+- Sem `--project` e fora de um projeto: `%LOCALAPPDATA%\VNForge\logs\`. A CLI nunca cria `.cache` em pasta qualquer, que pode ser a pasta do jogo. A busca de `vnforge.json` olha só a pasta atual, não sobe diretórios.
+
+### Formato do `--json`
+
+Uma linha de JSON por execução, sempre em stdout (nada vai para stderr). `exitCode` repete o código de saída do processo.
+
+```json
+{"ok":true,"exitCode":0,"data":{"name":"vnf","version":"0.1.0"}}
+{"ok":false,"exitCode":1,"error":{"kind":"expected","message":"O arquivo 'a.ypf' é inválido: truncado"}}
+```
+
+`error.kind` é `expected` (erro previsto, a mensagem está em português), `unexpected` (bug; `message` genérica e `logDirectory` aponta o log com o stack) ou `cancelled` (código `3`). O stack trace nunca aparece. Cada comando define o conteúdo de `data`.
 
 ## Comandos do pipeline
 
