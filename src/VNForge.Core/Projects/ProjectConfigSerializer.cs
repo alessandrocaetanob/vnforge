@@ -27,8 +27,10 @@ public static class ProjectConfigSerializer
         }
         catch (JsonException ex)
         {
-            var onde = ex.LineNumber is { } linha ? $"linha {linha + 1}" : "posição desconhecida";
-            throw new ProjectConfigException("$", $"JSON malformado ({onde}): {ex.Message}");
+            var onde = ex.LineNumber is { } linha && ex.BytePositionInLine is { } coluna
+                ? $"linha {linha + 1}, coluna {coluna + 1}"
+                : "posição desconhecida";
+            throw new ProjectConfigException("$", $"JSON malformado ({onde}).");
         }
 
         using (document)
@@ -204,7 +206,7 @@ public static class ProjectConfigSerializer
                 }
 
                 var path = PathOf(property.Name);
-                if (property.Name.Equals("apiKey", StringComparison.OrdinalIgnoreCase))
+                if (LooksLikeApiKey(property.Name))
                 {
                     throw new ProjectConfigException(
                         path,
@@ -214,6 +216,9 @@ public static class ProjectConfigSerializer
                 throw new ProjectConfigException(path, "campo desconhecido.");
             }
         }
+
+        private static bool LooksLikeApiKey(string name) =>
+            name.Replace("_", "").Replace("-", "").Contains("apikey", StringComparison.OrdinalIgnoreCase);
 
         private bool TryGet(string name, out JsonElement value)
         {

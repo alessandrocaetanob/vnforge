@@ -1,7 +1,6 @@
 namespace VNForge.Core.Projects;
 
-// Passa a derivar de VNForgeException quando a #20 entrar.
-public sealed class ProjectConfigException : Exception
+public sealed class ProjectConfigException : VNForgeException
 {
     public ProjectConfigException(string field, string reason)
         : base($"vnforge.json inválido em {field}: {reason}")

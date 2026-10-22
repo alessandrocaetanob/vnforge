@@ -8,7 +8,8 @@ internal static partial class ProjectConfigValidator
     public static readonly string[] Efforts = ["low", "medium", "high"];
     public static readonly string[] AnthropicModels = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"];
 
-    private const string AnthropicProvider = "anthropic";
+    public static readonly string[] Providers = ["anthropic"];
+
     private const int MaxBatchSize = 200;
 
     public static void Validate(ProjectConfig config)
@@ -27,7 +28,7 @@ internal static partial class ProjectConfigValidator
         if (config.Engine.ScriptKey is { } key && !ScriptKeyPattern().IsMatch(key))
         {
             throw new ProjectConfigException(
-                "$.engine.scriptKey", $"\"{key}\" não é uma chave válida; use 0x seguido de até 8 dígitos hexadecimais.");
+                "$.engine.scriptKey", "o valor não é uma chave válida; use 0x seguido de até 8 dígitos hexadecimais.");
         }
 
         NotBlank(config.Languages.Source, "$.languages.source");
@@ -36,11 +37,9 @@ internal static partial class ProjectConfigValidator
         OneOf(config.Encoding.Strategy, EncodingStrategies, "$.encoding.strategy");
 
         NotBlank(config.Ai.Provider, "$.ai.provider");
+        OneOf(config.Ai.Provider, Providers, "$.ai.provider");
         NotBlank(config.Ai.Model, "$.ai.model");
-        if (config.Ai.Provider == AnthropicProvider)
-        {
-            OneOf(config.Ai.Model, AnthropicModels, "$.ai.model");
-        }
+        OneOf(config.Ai.Model, AnthropicModels, "$.ai.model");
 
         OneOf(config.Ai.Effort, Efforts, "$.ai.effort");
         if (config.Ai.BatchSize is < 1 or > MaxBatchSize)
@@ -61,8 +60,7 @@ internal static partial class ProjectConfigValidator
     {
         if (!allowed.Contains(value))
         {
-            throw new ProjectConfigException(
-                field, $"\"{value}\" não é um valor aceito; use um destes: {string.Join(", ", allowed)}.");
+            throw new ProjectConfigException(field, $"valor não aceito; use um destes: {string.Join(", ", allowed)}.");
         }
     }
 

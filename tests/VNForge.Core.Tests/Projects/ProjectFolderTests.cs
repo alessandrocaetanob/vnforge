@@ -33,6 +33,29 @@ public class ProjectFolderTests
     }
 
     [Fact]
+    public void Create_grava_gitignore_com_as_pastas_de_trabalho()
+    {
+        using var temp = new TempFolder();
+
+        ProjectFolder.Create(temp.Path, NovaConfig());
+
+        var linhas = File.ReadAllLines(Path.Combine(temp.Path, ".gitignore"));
+        Assert.Equal([".cache/", "build/", "backup/"], linhas.Where(l => l.Length > 0 && !l.StartsWith('#')));
+    }
+
+    [Fact]
+    public void Create_nao_sobrescreve_gitignore_existente()
+    {
+        using var temp = new TempFolder();
+        var gitignore = Path.Combine(temp.Path, ".gitignore");
+        File.WriteAllText(gitignore, "meu\n");
+
+        ProjectFolder.Create(temp.Path, NovaConfig());
+
+        Assert.Equal("meu\n", File.ReadAllText(gitignore));
+    }
+
+    [Fact]
     public void Create_e_Open_devolvem_a_mesma_configuracao()
     {
         using var temp = new TempFolder();
@@ -102,7 +125,7 @@ public class ProjectFolderTests
         projeto.SaveConfig(nova);
 
         Assert.Equal(nova, projeto.LoadConfig());
-        Assert.Equal(["vnforge.json"], Directory.GetFiles(temp.Path).Select(Path.GetFileName));
+        Assert.Equal([".gitignore", "vnforge.json"], Directory.GetFiles(temp.Path).Select(Path.GetFileName).Order());
     }
 
     [Fact]

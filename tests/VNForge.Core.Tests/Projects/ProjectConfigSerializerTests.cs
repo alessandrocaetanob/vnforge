@@ -151,13 +151,57 @@ public class ProjectConfigSerializerTests
         Assert.DoesNotContain("sk-ant-x", erro.Message);
     }
 
+    [Theory]
+    [InlineData("api_key")]
+    [InlineData("API-KEY")]
+    [InlineData("anthropicApiKey")]
+    [InlineData("ApiKey")]
+    public void Parse_qualquer_variante_de_chave_de_api_e_recusada(string nome)
+    {
+        var json = ExemploDoDoc02.Replace("\"name\"", $"\"{nome}\": \"sk-ant-x\", \"name\"");
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Contains("ANTHROPIC_API_KEY", erro.Message);
+        Assert.DoesNotContain("sk-ant-x", erro.Message);
+    }
+
+    [Theory]
+    [InlineData("\"provider\": \"anthropic\"", "\"provider\": \"openai\"", "$.ai.provider")]
+    [InlineData("\"provider\": \"anthropic\"", "\"provider\": \"Anthropic\"", "$.ai.provider")]
+    [InlineData("\"strategy\": \"cp1252\"", "\"strategy\": \"sk-ant-segredo\"", "$.encoding.strategy")]
+    [InlineData("claude-opus-5-5", "sk-ant-segredo", "$.ai.model")]
+    public void Parse_valor_recusado_nao_e_ecoado_na_mensagem(string trecho, string troca, string campo)
+    {
+        var json = ExemploDoDoc02.Replace(trecho, troca);
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Equal(campo, erro.Field);
+        Assert.DoesNotContain("sk-ant-segredo", erro.Message);
+        Assert.DoesNotContain("openai", erro.Message);
+        Assert.DoesNotContain("Anthropic", erro.Message);
+    }
+
     [Fact]
-    public void Parse_json_malformado_aponta_a_linha()
+    public void Parse_provedor_desconhecido_lista_os_aceitos()
+    {
+        var json = ExemploDoDoc02.Replace("\"provider\": \"anthropic\"", "\"provider\": \"openai\"");
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Contains("anthropic", erro.Message);
+    }
+
+    [Fact]
+    public void Parse_json_malformado_aponta_linha_e_coluna_em_portugues()
     {
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse("{\n  \"name\": \n"));
 
         Assert.Equal("$", erro.Field);
-        Assert.Contains("linha", erro.Message);
+        Assert.Matches(@"linha \d+, coluna \d+", erro.Message);
+        Assert.DoesNotContain("LineNumber", erro.Message);
+        Assert.DoesNotContain("BytePositionInLine", erro.Message);
     }
 
     [Fact]

@@ -10,6 +10,8 @@ public sealed class ProjectFolder
     private static readonly UTF8Encoding Utf8SemBom = new(encoderShouldEmitUTF8Identifier: false);
     private static readonly UTF8Encoding Utf8Estrito = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
+    private const string GitIgnoreContent = "# Gerado pelo VNForge: arquivos do jogo e backups dos originais nunca vão para o git\n.cache/\nbuild/\nbackup/\n";
+
     private ProjectFolder(string root)
     {
         Root = Path.GetFullPath(root);
@@ -40,6 +42,7 @@ public sealed class ProjectFolder
         try
         {
             folder.WriteConfig(json, overwrite: false);
+            folder.WriteGitIgnoreIfMissing();
         }
         catch (IOException) when (File.Exists(folder.ConfigPath))
         {
@@ -72,7 +75,7 @@ public sealed class ProjectFolder
             throw new ProjectConfigException("$", "o arquivo não está em UTF-8 válido.");
         }
 
-        return ProjectConfigSerializer.Parse(json.TrimStart('﻿'));
+        return ProjectConfigSerializer.Parse(json.TrimStart((char)0xFEFF));
     }
 
     public void SaveConfig(ProjectConfig config) =>
@@ -84,6 +87,15 @@ public sealed class ProjectFolder
         Directory.CreateDirectory(CacheDirectory);
         Directory.CreateDirectory(BuildDirectory);
         Directory.CreateDirectory(BackupDirectory);
+    }
+
+    private void WriteGitIgnoreIfMissing()
+    {
+        var path = Path.Combine(Root, ".gitignore");
+        if (!File.Exists(path))
+        {
+            File.WriteAllText(path, GitIgnoreContent, Utf8SemBom);
+        }
     }
 
     private void WriteConfig(string json, bool overwrite)
