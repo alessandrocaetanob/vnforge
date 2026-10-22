@@ -52,6 +52,16 @@ public static class SyntheticYpfMutations
         return bytes;
     }
 
+    /// <summary>Troca o <c>size_stored</c> de uma entrada (o hash passa a divergir dos bytes que o índice delimita).</summary>
+    public static byte[] WithStoredSize(this SyntheticYpf ypf, string entryName, uint size)
+    {
+        var entry = Find(ypf, entryName);
+        var offsetBytes = ypf.OffsetSize == SyntheticYpfOffsetSize.Bits64 ? 8 : 4;
+        var bytes = (byte[])ypf.Bytes.Clone();
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(entry.IndexPosition + entry.IndexEntrySize - 4 - offsetBytes - 4), size);
+        return bytes;
+    }
+
     /// <summary>Troca o byte <c>compressed</c> de uma entrada.</summary>
     public static byte[] WithCompressedFlag(this SyntheticYpf ypf, string entryName, bool compressed)
     {

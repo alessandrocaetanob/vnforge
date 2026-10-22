@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO.Compression;
 using VNForge.Core.Engines;
 using VNForge.Engines.YuRis.Ypf.Hashing;
@@ -44,7 +45,7 @@ public sealed class YpfArchive : IArchive
     /// <remarks>
     /// O hash só é conferido quando <see cref="YpfParameters.DataHashVerified"/> é verdadeiro: sem ele o algoritmo do
     /// arquivo não foi confirmado, e comparar com o padrão da versão poderia recusar um dado íntegro. Nesse caso o
-    /// tamanho e o próprio zlib (que traz um Adler-32 no fim) ainda protegem as entradas comprimidas.
+    /// tamanho e o Adler-32 que fecha o fluxo zlib (conferido aqui, porque o ZLibStream não o exige) ainda protegem as entradas comprimidas.
     /// </remarks>
     /// <exception cref="ArgumentException">A entrada pertence a outro pacote.</exception>
     /// <exception cref="InvalidDataException">Tamanho, hash ou fluxo zlib divergente: nunca devolve dados corrompidos.</exception>
@@ -127,6 +128,13 @@ public sealed class YpfArchive : IArchive
         if (hasExtra)
         {
             throw Divergent(entry, $"o tamanho descomprimido é maior que os {entry.Size} bytes gravados no índice.");
+        }
+
+        // O ZLibStream do .NET aceita um fluxo sem o Adler-32 do fim (RFC 1950, seção 2.2), então a conferência é nossa.
+        var trailer = stored.Length >= 4 ? BinaryPrimitives.ReadUInt32BigEndian(stored.AsSpan(stored.Length - 4)) : (uint?)null;
+        if (trailer != YpfHash.Adler32(content))
+        {
+            throw Divergent(entry, "o fluxo zlib está truncado ou o Adler-32 do fim não confere com o conteúdo descomprimido.");
         }
 
         return content;

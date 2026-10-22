@@ -178,6 +178,21 @@ public partial class YpfArchiveFormatTests
         Assert.Contains("tamanho", ex.Message);
     }
 
+    [Theory]
+    [InlineData(1u)]
+    [InlineData(4u)]
+    public void OpenEntry_FluxoZlibTruncadoLancaMesmoSemHashConfirmado(uint missing)
+    {
+        var ypf = new SyntheticYpfBuilder(500)
+            .AddFile("a.ybn", SyntheticYpfBuilderTests.Repetitive, compress: true)
+            .Build();
+        var entry = ypf.Entries[0];
+        using var archive = Open(ypf.WithStoredSize("a.ybn", entry.SizeStored - missing));
+
+        Assert.False(archive.Parameters.DataHashVerified);
+        Assert.Throws<InvalidDataException>(() => archive.OpenEntry(archive.Entries[0]));
+    }
+
     [Fact]
     public void OpenEntry_EntradaMarcadaComoComprimidaSemSerLancaComOCaminho()
     {
