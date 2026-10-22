@@ -9,11 +9,14 @@ public class YscmReaderTests
 {
     private const string Source = "ysc.ybn";
 
-    // Montado à mão, fora do gerador: v500, "WORD" com o parâmetro "T" (tipo 2) e "_" sem parâmetros, sem tabela final.
-    private const string GoldenHex =
+    // Montado à mão, fora do gerador: v500, "WORD" com o parâmetro "T" (tipo 2) e "_" sem parâmetros, 37 mensagens
+    // de erro vazias (um byte 0 cada) e a tabela final de 256 bytes zerados.
+    private static readonly string GoldenHex =
         "5953434D" + "F4010000" + "02000000" + "00000000"
         + "574F524400" + "01" + "5400" + "02" + "00"
-        + "5F00" + "00";
+        + "5F00" + "00"
+        + new string('0', 2 * 37)
+        + new string('0', 2 * 256);
 
     private static YscmFile Read(byte[] bytes) => YscmReader.Read(bytes, Source);
 
@@ -25,7 +28,7 @@ public class YscmReaderTests
         var file = Read(Convert.FromHexString(GoldenHex));
 
         Assert.Equal(500u, file.Version);
-        Assert.Equal(0, file.TrailerSize);
+        Assert.Equal(37, file.ErrorMessageCount);
         Assert.Collection(
             file.Commands,
             word =>
@@ -58,7 +61,7 @@ public class YscmReaderTests
         }
 
         Assert.Equal(["LABEL", "PINT1", "PSTR2"], file.Commands[yscm.IdOf("GOSUB")].Arguments.Select(a => a.Name));
-        Assert.Equal(yscm.TrailerSize, file.TrailerSize);
+        Assert.Equal(yscm.ErrorMessageCount, file.ErrorMessageCount);
     }
 
     [Fact]
@@ -101,15 +104,32 @@ public class YscmReaderTests
     [Theory]
     [InlineData(37)]
     [InlineData(0x90)]
-    [InlineData(0)]
-    public void Read_NaoDependeDaQuantidadeDeMensagensDeErro(int errorMessages)
+    public void Read_AceitaAsDuasQuantidadesDeMensagensDeErro(int errorMessages)
     {
         var yscm = new SyntheticYscmBuilder().WithTextCommands().WithErrorMessageCount(errorMessages).Build();
 
         var file = Read(yscm.Bytes);
 
         Assert.Equal(yscm.Commands.Count, file.Commands.Count);
-        Assert.Equal(yscm.TrailerSize, file.TrailerSize);
+        Assert.Equal(errorMessages, file.ErrorMessageCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(36)]
+    [InlineData(38)]
+    [InlineData(0x8F)]
+    [InlineData(0x91)]
+    public void Read_OutraQuantidadeDeMensagensDeErro_ErroCitaAContagemEncontrada(int errorMessages)
+    {
+        var bytes = new SyntheticYscmBuilder().WithTextCommands().WithErrorMessageCount(errorMessages).Build().Bytes;
+
+        var error = ReadFails(bytes);
+
+        Assert.Contains($"{errorMessages} mensagens de erro", error.Reason);
+        Assert.Contains("37 ou 144", error.Reason);
+        Assert.Contains("pode estar errada", error.Reason);
     }
 
     [Fact]
@@ -310,8 +330,8 @@ public class YscmReaderTests
     [Fact]
     public void Read_ContagemMaiorQueOsComandosDoArquivo_ErroNomeiaOComandoQueFaltou()
     {
-        var yscm = new SyntheticYscmBuilder().AddCommand("WORD").AddCommand("CG").WithErrorMessageCount(0).WithTableSize(0).Build();
-        var bytes = (byte[])yscm.Bytes.Clone();
+        // Sem cauda, o terceiro comando declarado não existe.
+        var bytes = new SyntheticYscmBuilder().AddCommand("WORD").AddCommand("CG").Build().Bytes[..32];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), 3);
 
         var error = ReadFails(bytes);
@@ -322,7 +342,7 @@ public class YscmReaderTests
     [Fact]
     public void Read_TruncadoNoMeioDoNomeDoComando_Erro()
     {
-        var bytes = new SyntheticYscmBuilder().AddCommand("WORD", "TEXT").WithErrorMessageCount(0).WithTableSize(0).Build().Bytes;
+        var bytes = new SyntheticYscmBuilder().AddCommand("WORD", "TEXT").Build().Bytes;
 
         // 16 do cabeçalho + "WOR": falta o fim do nome e o byte 0.
         var error = ReadFails(bytes[..19]);
@@ -334,24 +354,81 @@ public class YscmReaderTests
     [Fact]
     public void Read_TruncadoNoMeioDeUmParametro_ErroNomeiaComandoEParametro()
     {
-        var bytes = new SyntheticYscmBuilder().AddCommand("WORD", "TEXT").WithErrorMessageCount(0).WithTableSize(0).Build().Bytes;
+        var bytes = new SyntheticYscmBuilder().AddCommand("WORD", "TEXT").Build().Bytes;
 
-        // Corta o byte de flags do único parâmetro.
-        var error = ReadFails(bytes[..^1]);
+        // 16 do cabeçalho, "WORD ", a contagem, "TEXT " e o tipo: falta o byte de flags do único parâmetro.
+        var error = ReadFails(bytes[..28]);
 
         Assert.Contains("parâmetro 0", error.Reason);
         Assert.Contains("'WORD'", error.Reason);
     }
 
     [Fact]
-    public void Read_TruncadoSemOsParametrosDeclarados_Erro()
+    public void Read_ContagemDeParametrosDaUltimaEntradaMaisUm_Erro()
     {
-        var bytes = new SyntheticYscmBuilder().AddCommand("WORD", "TEXT").WithErrorMessageCount(0).WithTableSize(0).Build().Bytes;
-        var argCountPosition = 16 + "WORD".Length + 1;
-        bytes[argCountPosition] = 5;
+        var bytes = new SyntheticYscmBuilder().AddCommand("CG", "FILE").Build().Bytes;
+        bytes[16 + "CG".Length + 1] = 2;
 
         var error = ReadFails(bytes);
 
-        Assert.Contains("parâmetro 1", error.Reason);
+        Assert.Contains("pode estar errada", error.Reason);
+    }
+
+    [Fact]
+    public void Read_ContagemDeParametrosDeUmComandoDoMeioMaisUm_Erro()
+    {
+        var bytes = new SyntheticYscmBuilder().AddCommand("WORD", "TEXT").AddCommand("CG", "FILE").Build().Bytes;
+        bytes[16 + "WORD".Length + 1] = 2;
+
+        ReadFails(bytes);
+    }
+
+    [Fact]
+    public void Read_ContagemDeComandosMaisUm_Erro()
+    {
+        var bytes = new SyntheticYscmBuilder().WithTextCommands().Build().Bytes;
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), 11);
+
+        ReadFails(bytes);
+    }
+
+    [Fact]
+    public void Read_ContagemDeComandosMenosUm_ErroNaCauda()
+    {
+        var bytes = new SyntheticYscmBuilder().WithTextCommands().Build().Bytes;
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), 9);
+
+        var error = ReadFails(bytes);
+
+        Assert.Contains("pode estar errada", error.Reason);
+    }
+
+    [Fact]
+    public void Read_SemATabelaFinalCompleta_Erro()
+    {
+        var bytes = new SyntheticYscmBuilder().WithTextCommands().Build().Bytes;
+
+        var error = ReadFails(bytes[..^1]);
+
+        Assert.Contains("256", error.Reason);
+        Assert.Contains("cauda não fecha", error.Reason);
+    }
+
+    [Fact]
+    public void Read_ByteSobrandoDepoisDaTabela_Erro()
+    {
+        var bytes = new SyntheticYscmBuilder().WithTextCommands().Build().Bytes.Append((byte)0).ToArray();
+
+        ReadFails(bytes);
+    }
+
+    [Fact]
+    public void Read_SemCauda_Erro()
+    {
+        var yscm = new SyntheticYscmBuilder().WithTextCommands().WithErrorMessageCount(0).WithTableSize(0).Build();
+
+        var error = ReadFails(yscm.Bytes);
+
+        Assert.Contains("cauda não fecha", error.Reason);
     }
 }

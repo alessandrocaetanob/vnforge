@@ -12,6 +12,15 @@ public static class YscmReader
     /// <summary>O YSTB guarda o opcode em um byte, então a lista tem no máximo 256 comandos.</summary>
     public const int MaxCommands = 256;
 
+    /// <summary>Mensagens de erro depois dos comandos segundo o yuri (<c>NErrStr</c>, <c>common.py:9</c>, <c>yuri.md:636</c>).</summary>
+    public const int ErrorMessageCountYuri = 37;
+
+    /// <summary>Mensagens de erro depois dos comandos segundo o VNTextPatch (<c>Notes.txt:16</c>).</summary>
+    public const int ErrorMessageCountVnTextPatch = 0x90;
+
+    /// <summary>Tamanho da tabela que fecha o arquivo (<c>yuri.md:637</c>, <c>Notes.txt:17</c>).</summary>
+    public const int TableSize = 256;
+
     private static ReadOnlySpan<byte> Magic => "YSCM"u8;
 
     /// <summary>Lê o YSCM de um arquivo no disco.</summary>
@@ -58,7 +67,37 @@ public static class YscmReader
             commands.Add(ReadCommand(reader, (byte)id));
         }
 
-        return new YscmFile(source, version, commands, reader.Remaining);
+        return new YscmFile(source, version, commands, ReadTrailer(reader, commands.Count));
+    }
+
+    /// <summary>
+    /// Valida a cauda e devolve a quantidade de mensagens de erro: strings terminadas em 0 até restarem exatamente
+    /// 256 bytes (a tabela final), com 37 ou 0x90 strings. Uma contagem de comandos ou de parâmetros errada faz o
+    /// leitor consumir as mensagens como comandos, e a cauda deixa de fechar.
+    /// </summary>
+    private static int ReadTrailer(YbnReader reader, int commandCount)
+    {
+        var messages = 0;
+        while (reader.Remaining > TableSize)
+        {
+            reader.ReadZeroTerminatedShiftJis($"a mensagem de erro {messages}");
+            messages++;
+        }
+
+        var hint = $"A contagem de comandos ({commandCount}) ou de parâmetros pode estar errada.";
+        if (reader.Remaining != TableSize)
+        {
+            throw reader.Error(
+                $"depois dos comandos a cauda não fecha: as mensagens de erro terminam com {reader.Remaining} bytes restantes e a tabela final tem {TableSize}. {hint}");
+        }
+
+        if (messages != ErrorMessageCountYuri && messages != ErrorMessageCountVnTextPatch)
+        {
+            throw reader.Error(
+                $"depois dos comandos há {messages} mensagens de erro, mas o formato tem {ErrorMessageCountYuri} ou {ErrorMessageCountVnTextPatch}. {hint}");
+        }
+
+        return messages;
     }
 
     private static YscmCommand ReadCommand(YbnReader reader, byte id)

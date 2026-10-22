@@ -10,7 +10,7 @@ public sealed record SyntheticYscmArgument(string Name, byte TypeCode = 0, byte 
 public sealed record SyntheticYscmCommand(byte Id, string Name, IReadOnlyList<SyntheticYscmArgument> Arguments);
 
 /// <summary>Resultado do <see cref="SyntheticYscmBuilder"/>: os bytes do <c>ysc.ybn</c> e o que foi escrito.</summary>
-public sealed record SyntheticYscm(byte[] Bytes, uint Version, IReadOnlyList<SyntheticYscmCommand> Commands, int TrailerSize)
+public sealed record SyntheticYscm(byte[] Bytes, uint Version, IReadOnlyList<SyntheticYscmCommand> Commands, int ErrorMessageCount)
 {
     public byte IdOf(string name) => Commands.Single(c => c.Name == name).Id;
 }
@@ -112,14 +112,13 @@ public sealed class SyntheticYscmBuilder
             }
         }
 
-        var trailerStart = stream.Length;
         for (var i = 0; i < _errorMessageCount; i++)
         {
             WriteZeroTerminated(stream, sjis.GetBytes($"エラー{i:D2}"));
         }
 
         stream.Write(new byte[_tableSize]);
-        return new SyntheticYscm(stream.ToArray(), _version, _commands.ToArray(), (int)(stream.Length - trailerStart));
+        return new SyntheticYscm(stream.ToArray(), _version, _commands.ToArray(), _errorMessageCount);
     }
 
     private static void WriteUInt32(Stream stream, uint value)

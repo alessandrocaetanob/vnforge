@@ -6,7 +6,7 @@ namespace VNForge.Engines.YuRis.Yscm;
 /// <summary>Um parâmetro de um comando do YSCM: o nome e os dois bytes que o yuri.md ainda não explica.</summary>
 /// <param name="Name">Nome do parâmetro, em Shift-JIS no arquivo.</param>
 /// <param name="TypeCode">
-/// Primeiro byte depois do nome. O yuri lê como <c>Typ</c> (<c>yscm.py:80</c>); o yuri.md o chama de desconhecido.
+/// Primeiro byte depois do nome. O yuri lê como <c>Typ</c> (<c>yscm.py:17-18</c>); o yuri.md o chama de desconhecido.
 /// </param>
 /// <param name="Flags">Segundo byte depois do nome, desconhecido nas duas fontes.</param>
 public readonly record struct YscmArgument(string Name, byte TypeCode, byte Flags);
@@ -38,12 +38,12 @@ public readonly record struct YuRisOpcodes(byte Word, byte Expression, byte Retu
 /// </summary>
 public sealed class YscmFile
 {
-    internal YscmFile(string source, uint version, IReadOnlyList<YscmCommand> commands, int trailerSize)
+    internal YscmFile(string source, uint version, IReadOnlyList<YscmCommand> commands, int errorMessageCount)
     {
         Source = source;
         Version = version;
         Commands = commands;
-        TrailerSize = trailerSize;
+        ErrorMessageCount = errorMessageCount;
     }
 
     /// <summary>Caminho do arquivo lido, usado nas mensagens de erro.</summary>
@@ -56,10 +56,10 @@ public sealed class YscmFile
     public IReadOnlyList<YscmCommand> Commands { get; }
 
     /// <summary>
-    /// Bytes depois do último comando (as mensagens de erro e a tabela de 256 bytes). O leitor não os interpreta,
-    /// porque as fontes divergem na quantidade de mensagens (docs/06).
+    /// Mensagens de erro entre o último comando e a tabela final de 256 bytes: 37 ou 0x90 (as fontes divergem, docs/06).
+    /// O leitor as lê como strings para conferir que a cauda fecha, mas não guarda o texto.
     /// </summary>
-    public int TrailerSize { get; }
+    public int ErrorMessageCount { get; }
 
     /// <summary>Procura o opcode de um comando pelo nome (comparação exata, com caixa).</summary>
     /// <returns>Falso se nenhum comando tem esse nome.</returns>

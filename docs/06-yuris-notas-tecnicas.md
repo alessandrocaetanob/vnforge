@@ -123,7 +123,7 @@ Layout: `yuri.md:624-638`, `yscm.py:4,14-18,26-30,45-58`, `VNTextPatch Notes.txt
 
 Onde as fontes divergem, e o que o leitor (`src/VNForge.Engines.YuRis/Yscm/`) faz:
 
-- **Mensagens de erro**: 37 no yuri (`NErrStr`, `common.py:9`, `yuri.md:636`) e `0x90` (144) no `Notes.txt:16`. O `YurisCommandList.cs` para de ler depois dos comandos (`:26-29`) e não resolve a dúvida. O leitor não interpreta o que vem depois do último comando e só guarda o tamanho (`YscmFile.TrailerSize`). O `ysc.ybn` do jogo diz qual é; ver "O que confirmar no jogo (#35)".
+- **Mensagens de erro**: 37 no yuri (`NErrStr`, `common.py:9`, `yuri.md:636`) e `0x90` (144) no `Notes.txt:16`. O `YurisCommandList.cs` para de ler depois dos comandos (`:26-29`) e não resolve a dúvida; o `yscm.py:52-54` lê as 37 strings, a tabela de 256 bytes e exige o fim do arquivo. O leitor valida a cauda: depois do último comando lê strings terminadas em 0 até restarem exatamente 256 bytes, exige que o arquivo termine ali e que a quantidade de strings seja 37 ou `0x90` (`YscmFile.ErrorMessageCount`). Qualquer outra contagem é erro, com o valor encontrado na mensagem, porque a causa provável é uma contagem de comandos ou de parâmetros errada, que faria o leitor tomar as mensagens por parâmetros. Se o jogo tiver outra quantidade, este trecho e o leitor mudam no mesmo PR.
 - **Padding**: o `yscm.py:50` exige 0; o VNTextPatch o ignora (`YurisCommandList.cs:25`). O leitor ignora.
 - **Quantidade de comandos**: o VNTextPatch converte para `byte` com `checked` (`YurisCommandList.cs:24`), então 256 comandos quebram; o id é `u8` (`yuri.md:849`), então 256 cabem. O leitor aceita até 256 e recusa acima disso, com a contagem na mensagem.
 - **Nome repetido**: o VNTextPatch falha na leitura (`Dictionary.Add`, `YurisCommandList.cs:51`) para comando repetido e guarda o primeiro parâmetro repetido (`TryAdd`, `:58`); o yuri guarda o último (`setattr`, `yscm.py:56-57`). O leitor guarda tudo e só falha ao procurar o opcode de um nome repetido (`YscmFile.TryGetOpcode`), com os ids na mensagem.
@@ -162,7 +162,7 @@ Onde as fontes divergem, e o que o leitor (`src/VNForge.Engines.YuRis/Ystl/`) fa
 Os leitores foram escritos só a partir das fontes acima e de arquivos sintéticos (`tests/VNForge.Engines.YuRis.Tests/Yscm/Synthetic/` e `Ystl/Synthetic/`); nenhum foi conferido contra o `ysc.ybn` ou o `yst_list.ybn` do jogo.
 
 1. **Versão** gravada em `ysc.ybn` e em `yst_list.ybn` (iguais à do `ysbin.ypf`?), e, se cair em 474 a 476, se os registros do YSTL têm o `txt_count`.
-2. **Cauda do YSCM**: quantos bytes sobram depois do último comando (`YscmFile.TrailerSize`). Se o jogo tiver 37 mensagens, a cauda é o texto delas mais a tabela de 256 bytes; com outra quantidade, a conta não fecha e o doc muda.
+2. **Cauda do YSCM**: o leitor exige 37 ou 0x90 mensagens de erro (`YscmFile.ErrorMessageCount`) seguidas da tabela de 256 bytes até o fim do arquivo. Conferir qual quantidade o `ysc.ybn` do jogo tem; outra quantidade, ou uma tabela de outro tamanho, é erro do leitor a corrigir.
 3. **Os cinco comandos**: se `WORD`, `_`, `RETURNCODE`, `GOSUB` e `CG` existem com esses nomes e uma vez só, e quais ids têm. O `GetOpcodes()` falha com o nome do que faltar.
 4. **Padding do YSCM** e o byte `type`/`flags` dos parâmetros: valores reais, para trocar os nomes `TypeCode` e `Flags` por algo com sentido.
 5. **YSTL**: se `index` é sempre sequencial, se o nome do YSTB tem cinco dígitos e quais scripts têm `var_count` negativo.

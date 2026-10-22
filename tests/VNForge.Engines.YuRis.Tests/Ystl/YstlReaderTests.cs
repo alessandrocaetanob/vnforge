@@ -315,6 +315,7 @@ public class YstlReaderTests
 
         Assert.Contains("posição 1", error.Reason);
         Assert.Contains("índice 7", error.Reason);
+        Assert.Contains("tentei os layouts com e sem o campo de contagem de textos", error.Reason);
     }
 
     [Fact]
