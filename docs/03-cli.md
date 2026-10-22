@@ -20,7 +20,7 @@
 
 ### Formato do `--json`
 
-Uma linha de JSON por execução, sempre em stdout (nada vai para stderr). `exitCode` repete o código de saída do processo.
+Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitCode` repete o código de saída do processo. Os erros saem no formato abaixo por conta da CLI; cada comando escreve o próprio resultado com `JsonEnvelope.Result` (Core), inclusive quando termina com `2`.
 
 ```json
 {"ok":true,"exitCode":0,"data":{"name":"vnf","version":"0.1.0"}}
