@@ -80,6 +80,7 @@ public static partial class TextUnitJson
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
+            AllowDuplicateProperties = false,
             Converters = { new UtcDateTimeOffsetConverter() },
         };
         opcoes.MakeReadOnly(populateMissingResolver: true);

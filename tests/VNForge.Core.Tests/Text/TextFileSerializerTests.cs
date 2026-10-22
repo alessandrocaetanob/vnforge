@@ -146,6 +146,28 @@ public class TextFileSerializerTests
         Assert.Contains("text/a.json", ex.Message);
         Assert.Contains("$.units[0].kind", ex.Message);
         Assert.Contains("linha 4", ex.Message);
+        Assert.Contains("valor inválido", ex.Message);
+        Assert.DoesNotContain("could not", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_recusa_campo_repetido_em_vez_de_descartar_unidades()
+    {
+        var raiz = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"} ], \"units\": [] }";
+        var unidade = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"source\":\"y\",\"status\":\"untranslated\"} ] }";
+
+        Assert.Contains("campo repetido", Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(raiz, "a.json")).Message);
+        Assert.Contains("campo repetido", Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(unidade, "a.json")).Message);
+    }
+
+    [Fact]
+    public void Ida_e_volta_preserva_emoji_e_caracteres_fora_do_plano_basico()
+    {
+        var original = new[] { Unidade(1, "😀 𠮷野家") };
+
+        var lidas = TextFileSerializer.Parse(TextFileSerializer.Serialize(original), "a.json");
+
+        Assert.Equal("😀 𠮷野家", lidas[0].Source);
     }
 
     [Fact]

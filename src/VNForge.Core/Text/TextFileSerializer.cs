@@ -21,6 +21,13 @@ public static partial class TextFileSerializer
     /// <summary>Versão do envelope que esta classe grava e lê.</summary>
     public const int CurrentVersion = 1;
 
+    private static readonly JsonDocumentOptions ReadOptions = new()
+    {
+        CommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        AllowDuplicateProperties = false,
+    };
+
     /// <summary>Serializa as unidades de um script, na ordem recebida.</summary>
     public static string Serialize(IReadOnlyList<TextUnit> units)
     {
@@ -113,11 +120,11 @@ public static partial class TextFileSerializer
         JsonDocument document;
         try
         {
-            document = JsonDocument.Parse(json, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            document = JsonDocument.Parse(json, ReadOptions);
         }
         catch (JsonException ex)
         {
-            throw new TextFileException(filePath, $"JSON malformado ({Position(ex)}).", ex);
+            throw new TextFileException(filePath, $"JSON malformado ou com campo repetido ({Position(ex)}).", ex);
         }
 
         using (document)
@@ -193,6 +200,14 @@ public static partial class TextFileSerializer
         {
             detail = $"campo desconhecido '{unmapped.Groups[1].Value}'.";
         }
+        else if (NullNotAllowed().IsMatch(detail))
+        {
+            detail = "o campo não aceita null.";
+        }
+        else if (NotConvertible().IsMatch(detail))
+        {
+            detail = "valor inválido ou de tipo errado para o campo.";
+        }
 
         var where = ex.Path is { Length: > 0 } path ? $"{path}, " : string.Empty;
         return $"{where}{Position(ex)}: {detail}";
@@ -211,6 +226,12 @@ public static partial class TextFileSerializer
 
     [GeneratedRegex(@"The JSON property '([^']+)' could not be mapped", RegexOptions.CultureInvariant)]
     private static partial Regex UnmappedProperty();
+
+    [GeneratedRegex(@"doesn't allow getting null value", RegexOptions.CultureInvariant)]
+    private static partial Regex NullNotAllowed();
+
+    [GeneratedRegex(@"could not be converted to", RegexOptions.CultureInvariant)]
+    private static partial Regex NotConvertible();
 
     private sealed record Envelope(
         [property: JsonRequired] int Version,
