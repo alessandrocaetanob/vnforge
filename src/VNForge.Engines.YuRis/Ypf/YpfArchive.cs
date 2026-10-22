@@ -226,8 +226,10 @@ public sealed class YpfArchive : IArchive
     /// </remarks>
     /// <exception cref="ArgumentException">
     /// Chave inexistente, conteúdo nulo, destino sem gravação ou busca, ou destino igual ao fluxo de origem
-    /// (o mesmo objeto, ou um <see cref="FileStream"/> no mesmo caminho). Lançada antes de gravar qualquer byte.
+    /// (o mesmo objeto, ou um <see cref="FileStream"/> no mesmo caminho; um hard link ou um symlink para o original não
+    /// é detectado, então o fluxo de injeção continua responsável pelo backup). Lançada antes de gravar qualquer byte.
     /// </exception>
+    /// <exception cref="InvalidDataException">O fluxo de origem mudou de tamanho depois de aberto. Lançada antes de gravar qualquer byte.</exception>
     /// <exception cref="NotSupportedException">
     /// Troca num pacote sem algoritmo de hash confirmado, com blocos de dados parcialmente sobrepostos, ou que
     /// passaria dos 4 GiB de um offset de 32 bits. Lançada antes de gravar qualquer byte.

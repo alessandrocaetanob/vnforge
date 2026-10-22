@@ -531,6 +531,21 @@ public partial class YpfArchiveFormatTests
     }
 
     [Fact]
+    public void WriteTo_OrigemQueMudouDeTamanhoDepoisDeAbertaLancaInvalidDataSemGravarNada()
+    {
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+        var source = new MemoryStream(ypf.Bytes.ToArray());
+        using var archive = (YpfArchive)Format.Open(source);
+        source.SetLength(source.Length - 3);
+        using var output = new MemoryStream();
+
+        var ex = Assert.Throws<InvalidDataException>(() => archive.WriteTo(output, Replace(SyntheticYpfBuilderTests.Image, NewImage)));
+
+        Assert.Contains("mudou depois de aberto", ex.Message);
+        Assert.Equal(0, output.Length);
+    }
+
+    [Fact]
     public void WriteTo_ArgumentosNulosEPacoteDescartado()
     {
         var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();

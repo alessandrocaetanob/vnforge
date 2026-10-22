@@ -34,6 +34,12 @@ internal sealed class YpfWriter(YpfArchive archive, Stream source)
 
     public void Write(Stream output, IReadOnlyDictionary<string, byte[]> replacements)
     {
+        if (source.Length != _parameters.FileLength)
+        {
+            throw new InvalidDataException(
+                $"O arquivo de origem tem {source.Length} bytes, mas o YPF foi aberto com {_parameters.FileLength}: ele mudou depois de aberto. Abra o pacote de novo.");
+        }
+
         var changes = ResolveChanges(replacements);
         var changedAny = changes.Any(c => c is not null);
 
