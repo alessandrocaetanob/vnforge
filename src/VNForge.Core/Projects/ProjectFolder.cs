@@ -119,7 +119,7 @@ public sealed class ProjectFolder
     {
         var path = TextPath(key);
         TextFileSerializer.ValidateIds(units, key, path);
-        var json = TextFileSerializer.Serialize(units);
+        var json = TextFileSerializer.Serialize(units, path);
         Directory.CreateDirectory(TextDirectory);
         WriteAtomically(path, json, overwrite: true);
     }

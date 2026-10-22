@@ -14,7 +14,7 @@ namespace VNForge.Core.Text;
 /// com uma quebra de linha; o <see cref="TextUnitJson"/> define cada unidade (japonês sem escape, marcadores como <c>\n</c> e <c>\p</c> intactos,
 /// já que a barra invertida do marcador vira <c>\\</c> no JSON e volta igual). Gravar o mesmo conteúdo duas vezes gera o mesmo texto.
 /// Quem grava no disco (<see cref="Projects.ProjectFolder"/>) usa UTF-8 sem BOM. Só aspas, barra invertida e U+0000 a U+001F são escapados
-/// (<see cref="MinimalJsonEncoder"/>); o espaço ideográfico U+3000, o japonês e o emoji ficam literais.
+/// (<see cref="MinimalStringConverter"/>); o espaço ideográfico U+3000, o japonês e o emoji ficam literais.
 /// </remarks>
 public static partial class TextFileSerializer
 {
@@ -29,7 +29,10 @@ public static partial class TextFileSerializer
     };
 
     /// <summary>Serializa as unidades de um script, na ordem recebida.</summary>
-    public static string Serialize(IReadOnlyList<TextUnit> units)
+    /// <param name="units">Unidades a gravar.</param>
+    /// <param name="filePath">Caminho do arquivo de destino, só para as mensagens de erro.</param>
+    /// <exception cref="TextFileException">Alguma unidade tem texto com UTF-16 inválido (surrogate solitário); a mensagem cita o id.</exception>
+    public static string Serialize(IReadOnlyList<TextUnit> units, string filePath = "(memória)")
     {
         ArgumentNullException.ThrowIfNull(units);
 
@@ -42,7 +45,7 @@ public static partial class TextFileSerializer
         sb.Append('\n');
         for (var i = 0; i < units.Count; i++)
         {
-            sb.Append("    ").Append(TextUnitJson.Serialize(units[i])).Append(i < units.Count - 1 ? ",\n" : "\n");
+            sb.Append("    ").Append(SerializeUnit(units[i], filePath)).Append(i < units.Count - 1 ? ",\n" : "\n");
         }
 
         return sb.Append("  ]\n}\n").ToString();
@@ -51,7 +54,7 @@ public static partial class TextFileSerializer
     /// <summary>Lê as unidades de um arquivo.</summary>
     /// <param name="json">Conteúdo do arquivo, sem BOM.</param>
     /// <param name="filePath">Caminho do arquivo, só para as mensagens de erro.</param>
-    /// <param name="key">Chave do script dono do arquivo; quando informada, todo id precisa começar com <c>key + ":"</c> e não se repetir.</param>
+    /// <param name="key">Chave do script dono do arquivo; quando informada, cada id precisa começar com <c>key + ":"</c> e não se repetir.</param>
     /// <exception cref="TextFileException">JSON malformado (com linha e coluna), envelope sem <c>version</c> ou <c>units</c>, versão desconhecida, campo
     /// desconhecido ou inválido (com o caminho do campo e a posição), unidade nula ou id fora da regra da <paramref name="key"/>.</exception>
     public static IReadOnlyList<TextUnit> Parse(string json, string filePath, string? key = null)
@@ -107,17 +110,29 @@ public static partial class TextFileSerializer
         ArgumentNullException.ThrowIfNull(units);
         var prefixo = key + ":";
         var vistos = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var unit in units)
+        foreach (var id in units.Select(u => u.Id))
         {
-            if (!unit.Id.StartsWith(prefixo, StringComparison.Ordinal))
+            if (!id.StartsWith(prefixo, StringComparison.Ordinal))
             {
-                throw new TextFileException(filePath, $"a unidade '{unit.Id}' não pertence ao script '{key}' (o id deveria começar com '{prefixo}').");
+                throw new TextFileException(filePath, $"a unidade '{id}' não pertence ao script '{key}' (o id deveria começar com '{prefixo}').");
             }
 
-            if (!vistos.Add(unit.Id))
+            if (!vistos.Add(id))
             {
-                throw new TextFileException(filePath, $"o id '{unit.Id}' aparece mais de uma vez no arquivo.");
+                throw new TextFileException(filePath, $"o id '{id}' aparece mais de uma vez no arquivo.");
             }
+        }
+    }
+
+    private static string SerializeUnit(TextUnit unit, string filePath)
+    {
+        try
+        {
+            return TextUnitJson.Serialize(unit);
+        }
+        catch (JsonException ex)
+        {
+            throw new TextFileException(filePath, $"a unidade '{unit.Id}' não pôde ser gravada: {DetailSuffix().Replace(ex.Message, string.Empty)}", ex);
         }
     }
 

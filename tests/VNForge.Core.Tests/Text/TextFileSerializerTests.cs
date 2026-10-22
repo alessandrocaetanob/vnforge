@@ -216,6 +216,67 @@ public class TextFileSerializerTests
         Assert.Equal(json, TextFileSerializer.Serialize([Unidade(1, texto)]));
     }
 
+    private static TextUnit UnidadeComTextoEmTodosOsCampos(string texto) =>
+        new("yst00123:000001", TextUnitKind.Dialogue, texto, texto, texto, TranslationStatus.Translated)
+        {
+            Origin = new TranslationOrigin(texto, texto, new DateTimeOffset(2026, 10, 17, 18, 0, 0, TimeSpan.Zero)),
+            Notes = texto,
+            Flags = [texto, texto],
+        };
+
+    [Fact]
+    public void Texto_especial_em_todos_os_campos_string_sai_literal_e_volta_igual()
+    {
+        var texto = $"{(char)0x3000}「野家」😀{(char)0x00A0}{(char)0x2028}\"\\\n";
+        var unidade = UnidadeComTextoEmTodosOsCampos(texto);
+
+        var json = TextFileSerializer.Serialize([unidade]);
+        var lida = TextFileSerializer.Parse(json, "a.json")[0];
+
+        Assert.DoesNotContain("\\u3000", json);
+        Assert.Equal(texto, lida.Speaker);
+        Assert.Equal(texto, lida.Source);
+        Assert.Equal(texto, lida.Translation);
+        Assert.Equal(texto, lida.Notes);
+        Assert.Equal([texto, texto], lida.Flags);
+        Assert.Equal(texto, lida.Origin!.Provider);
+        Assert.Equal(texto, lida.Origin.Model);
+        Assert.Equal(json, TextFileSerializer.Serialize([lida]));
+    }
+
+    [Fact]
+    public void Strings_nulas_sao_gravadas_como_null()
+    {
+        var json = TextFileSerializer.Serialize([Unidade(1) with { Speaker = null }]);
+
+        Assert.Contains("\"speaker\":null", json);
+        Assert.Contains("\"translation\":null", json);
+    }
+
+    [Fact]
+    public void Surrogate_solitario_em_qualquer_campo_vira_erro_em_portugues_com_o_id()
+    {
+        var invalido = "ok" + (char)0xD800 + "fim";
+        TextUnit[] unidades =
+        [
+            UnidadeComTextoEmTodosOsCampos("a") with { Id = "yst00123:000001", Source = invalido },
+            UnidadeComTextoEmTodosOsCampos("a") with { Translation = invalido },
+            UnidadeComTextoEmTodosOsCampos("a") with { Speaker = invalido },
+            UnidadeComTextoEmTodosOsCampos("a") with { Notes = invalido },
+            UnidadeComTextoEmTodosOsCampos("a") with { Flags = ["a", invalido] },
+            UnidadeComTextoEmTodosOsCampos("a") with { Origin = new TranslationOrigin("manual", invalido, DateTimeOffset.UnixEpoch) },
+        ];
+
+        foreach (var unidade in unidades)
+        {
+            var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Serialize([unidade], "text/a.json"));
+
+            Assert.Contains("yst00123:000001", ex.Message);
+            Assert.Contains("surrogate solitário", ex.Message);
+            Assert.Contains("text/a.json", ex.Message);
+        }
+    }
+
     [Fact]
     public void Ida_e_volta_preserva_emoji_e_caracteres_fora_do_plano_basico()
     {

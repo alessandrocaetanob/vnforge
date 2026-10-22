@@ -75,13 +75,13 @@ public static partial class TextUnitJson
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false,
-            Encoder = new MinimalJsonEncoder(),
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
             RespectNullableAnnotations = true,
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
             AllowDuplicateProperties = false,
-            Converters = { new UtcDateTimeOffsetConverter() },
+            Converters = { new MinimalStringConverter(), new UtcDateTimeOffsetConverter() },
         };
         opcoes.MakeReadOnly(populateMissingResolver: true);
         return opcoes;
