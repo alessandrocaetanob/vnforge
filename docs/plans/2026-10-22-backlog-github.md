@@ -82,7 +82,7 @@ O `02-arquitetura.md` cita `project.json` para o estado do pipeline e `vnforge.j
 
 Formato que o script lê: cada `##` com chave (`E0`, `E12a`) é um épico; cada `###` dentro dele é uma filha. As linhas `Marco`, `Rótulos` e `Depende de` logo abaixo do título viram metadados; o resto vira o corpo da issue. O título da filha é o texto depois de `·`, sem a chave.
 
-## E0 · Fundação
+## E0 · Fundação (#1)
 
 - Marco: M1
 - Rótulos: área: infra
@@ -91,7 +91,7 @@ Repositório pronto para trabalhar: solução .NET 10, CI e o esqueleto comum da
 
 Pronto quando: `dotnet build` e `dotnet test` passam no CI.
 
-### E0.1 · Solução .NET 10 com os projetos vazios
+### E0.1 · Solução .NET 10 com os projetos vazios (#18)
 
 - Marco: M1
 - Rótulos: área: infra
@@ -111,7 +111,7 @@ Pronto quando:
 - [ ] `dotnet build` e `dotnet test` passam no Windows
 - [ ] Um filtro de solução (`.slnf`) sem o app compila e testa no Linux
 
-### E0.2 · CI no GitHub Actions
+### E0.2 · CI no GitHub Actions (#19)
 
 - Marco: M1
 - Rótulos: área: infra
@@ -124,7 +124,7 @@ Pronto quando:
 - [ ] Um PR mostra os dois jobs verdes
 - [ ] Um teste que falha deixa o PR vermelho
 
-### E0.3 · Logging e erros comuns
+### E0.3 · Logging e erros comuns (#20)
 
 - Marco: M1
 - Rótulos: área: core
@@ -137,7 +137,7 @@ Pronto quando:
 - [ ] O log completo vai para `.cache/logs/` do projeto
 - [ ] Uma exceção do Core chega ao console como mensagem curta em português, sem stack trace
 
-### E0.4 · Esqueleto da CLI `vnf`
+### E0.4 · Esqueleto da CLI `vnf` (#21)
 
 - Marco: M1
 - Rótulos: área: cli
@@ -157,7 +157,7 @@ Pronto quando:
 - [ ] `vnf --help` em português
 - [ ] Testes cobrem os códigos de saída e o formato `--json` de `vnf --version`
 
-### E0.5 · Codificação Shift-JIS registrada uma vez
+### E0.5 · Codificação Shift-JIS registrada uma vez (#22)
 
 - Marco: M1
 - Rótulos: área: core
@@ -170,7 +170,7 @@ Pronto quando:
 - [ ] Teste converte texto japonês de e para Shift-JIS e confere os bytes
 - [ ] Nenhum outro ponto do código registra o provedor
 
-## E1 · YU-RIS: arquivos YPF
+## E1 · YU-RIS: arquivos YPF (#2)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -179,7 +179,7 @@ Ler e reescrever `ysbin.ypf` e os demais `.ypf` com reescrita mínima. Formato e
 
 Pronto quando: unpack + pack sem mudanças gera um arquivo idêntico ao `ysbin.ypf` original do jogo.
 
-### E1.1 · Conferir a versão do YPF no jogo
+### E1.1 · Conferir a versão do YPF no jogo (#23)
 
 - Marco: M1
 - Rótulos: área: yuris, no jogo
@@ -190,7 +190,7 @@ Pronto quando:
 
 - [ ] Versão do `ysbin.ypf` e dos outros `.ypf` do jogo registrada no doc 06
 
-### E1.2 · Contratos de engine e de arquivo no Core
+### E1.2 · Contratos de engine e de arquivo no Core (#24)
 
 - Marco: M1
 - Rótulos: área: core
@@ -203,7 +203,7 @@ Pronto quando:
 - [ ] As interfaces compilam no Core sem referência a YU-RIS
 - [ ] Um teste de arquitetura falha se o Core referenciar `VNForge.Engines.*` ou `VNForge.AI`
 
-### E1.3 · Hashes Adler32, CRC32 e MurmurHash2
+### E1.3 · Hashes Adler32, CRC32 e MurmurHash2 (#25)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -215,7 +215,7 @@ Pronto quando:
 
 - [ ] Testes com vetores conhecidos para os três algoritmos
 
-### E1.4 · Gerador de YPF sintético para testes
+### E1.4 · Gerador de YPF sintético para testes (#26)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -233,7 +233,7 @@ Pronto quando:
 
 - [ ] O gerador monta um YPF de cada variante com arquivos de conteúdo conhecido
 
-### E1.5 · Leitor do cabeçalho e do índice YPF
+### E1.5 · Leitor do cabeçalho e do índice YPF (#27)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -252,7 +252,7 @@ Pronto quando:
 - [ ] Testes leem o índice de cada variante do gerador sintético
 - [ ] Versão desconhecida ou índice inconsistente gera erro em português que diz o que falhou
 
-### E1.6 · Extração das entradas com zlib
+### E1.6 · Extração das entradas com zlib (#28)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -265,7 +265,7 @@ Pronto quando:
 - [ ] Testes extraem todas as entradas do YPF sintético e comparam com o conteúdo original
 - [ ] Hash de dados divergente gera erro, nunca um arquivo corrompido
 
-### E1.7 · Escritor YPF com reescrita mínima
+### E1.7 · Escritor YPF com reescrita mínima (#29)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -284,7 +284,7 @@ Pronto quando:
 - [ ] Ida e volta sem mudanças gera arquivo idêntico, para cada variante
 - [ ] Com uma entrada trocada, as outras saem idênticas e a trocada é lida de volta com o conteúdo novo
 
-### E1.8 · Comandos `vnf ypf info`, `unpack` e `pack`
+### E1.8 · Comandos `vnf ypf info`, `unpack` e `pack` (#30)
 
 - Marco: M1
 - Rótulos: área: cli
@@ -297,7 +297,7 @@ Pronto quando:
 - [ ] Os três comandos aceitam `--json`
 - [ ] `pack` sem mudanças na pasta gera arquivo idêntico ao original
 
-### E1.9 · Ida e volta do YPF do jogo
+### E1.9 · Ida e volta do YPF do jogo (#31)
 
 - Marco: M1
 - Rótulos: área: yuris, no jogo
@@ -311,7 +311,7 @@ Pronto quando:
 - [ ] Os outros `.ypf` do jogo passam pela mesma ida e volta
 - [ ] Variante encontrada registrada no doc 06
 
-## E2 · YU-RIS: scripts YSTB
+## E2 · YU-RIS: scripts YSTB (#3)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -320,7 +320,7 @@ Tirar e recolocar texto nos `.ybn`. Formato em `docs/06-yuris-notas-tecnicas.md`
 
 Pronto quando: extrair e reconstruir sem mudanças gera scripts idênticos em todo o jogo. Com as tarefas do E3 e do E8 marcadas para o M1, isso fecha o M1.
 
-### E2.1 · Contratos de script e `TextUnit` no Core
+### E2.1 · Contratos de script e `TextUnit` no Core (#32)
 
 - Marco: M1
 - Rótulos: área: core
@@ -333,7 +333,7 @@ Pronto quando:
 - [ ] Os tipos compilam no Core sem referência a YU-RIS
 - [ ] `kind` e `status` cobrem os valores listados no doc 02
 
-### E2.2 · `ITextEncoder` com a estratégia Shift-JIS pura
+### E2.2 · `ITextEncoder` com a estratégia Shift-JIS pura (#33)
 
 - Marco: M1
 - Rótulos: área: core
@@ -346,7 +346,7 @@ Pronto quando:
 - [ ] A interface informa os caracteres que a estratégia não consegue representar
 - [ ] Texto japonês sai byte a byte igual à conversão direta para a página 932
 
-### E2.3 · Marcadores de controle
+### E2.3 · Marcadores de controle (#34)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -360,7 +360,7 @@ Pronto quando:
 - [ ] Código `EF` desconhecido vira um marcador genérico que preserva o byte
 - [ ] Barra invertida que já existe no texto não vira marcador por engano
 
-### E2.4 · Leitores YSCM e YSTL
+### E2.4 · Leitores YSCM e YSTL (#35)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -373,7 +373,7 @@ Pronto quando:
 - [ ] Testes com YSCM e YSTL sintéticos
 - [ ] Falta de um comando esperado gera erro que nomeia o comando
 
-### E2.5 · Leitor YSTB a partir da versão 300
+### E2.5 · Leitor YSTB a partir da versão 300 (#36)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -391,7 +391,7 @@ Pronto quando:
 - [ ] Testes leem scripts sintéticos com cada chave conhecida e com uma chave fora da lista
 - [ ] Versão abaixo de 300 gera erro dizendo que esse layout não é suportado
 
-### E2.6 · Extração de texto dos scripts
+### E2.6 · Extração de texto dos scripts (#37)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -410,7 +410,7 @@ Pronto quando:
 - [ ] Teste com script sintético extrai cada tipo com o `kind` certo
 - [ ] Os ids das unidades são os mesmos em duas extrações do mesmo arquivo
 
-### E2.7 · Reconstrução dos scripts
+### E2.7 · Reconstrução dos scripts (#38)
 
 - Marco: M1
 - Rótulos: área: yuris
@@ -429,7 +429,7 @@ Pronto quando:
 - [ ] Reconstrução sem mudanças gera arquivo idêntico
 - [ ] Com uma linha trocada, os outros argumentos saem idênticos e a linha nova é lida de volta
 
-### E2.8 · Detecção YU-RIS e `vnf detect`
+### E2.8 · Detecção YU-RIS e `vnf detect` (#39)
 
 - Marco: M1
 - Rótulos: área: yuris, área: cli
@@ -442,7 +442,7 @@ Pronto quando:
 - [ ] Pasta sem YU-RIS gera a resposta "engine não reconhecida", sem exceção
 - [ ] Teste com uma pasta de jogo sintética
 
-### E2.9 · Comando `vnf ybn dump`
+### E2.9 · Comando `vnf ybn dump` (#40)
 
 - Marco: M1
 - Rótulos: área: cli
@@ -454,7 +454,7 @@ Pronto quando:
 
 - [ ] Saída em texto e em `--json`, testada com um script sintético
 
-### E2.10 · Ida e volta dos scripts do jogo
+### E2.10 · Ida e volta dos scripts do jogo (#41)
 
 - Marco: M1
 - Rótulos: área: yuris, no jogo
@@ -465,7 +465,7 @@ Pronto quando:
 - [ ] Extrair e reconstruir sem mudanças gera arquivos idênticos para todos os `yst*.ybn`
 - [ ] Versão do YSTB, chave XOR e contagem de unidades por `kind` registradas no doc 06
 
-## E3 · Modelo de projeto e formato de texto
+## E3 · Modelo de projeto e formato de texto (#4)
 
 - Marco: M2
 - Rótulos: área: core
@@ -474,7 +474,7 @@ Pasta de projeto e formato de texto de `docs/02-arquitetura.md`, seção "Projet
 
 Pronto quando: re-extrair preserva traduções, e `vnf status` e a exportação funcionam.
 
-### E3.1 · Pasta de projeto e `vnforge.json`
+### E3.1 · Pasta de projeto e `vnforge.json` (#42)
 
 - Marco: M1
 - Rótulos: área: core
@@ -491,7 +491,7 @@ Pronto quando:
 - [ ] `vnforge.json` inválido gera erro que aponta o campo
 - [ ] Doc 02 sem a ambiguidade entre `project.json` e `vnforge.json`
 
-### E3.2 · Arquivos `text/*.json`
+### E3.2 · Arquivos `text/*.json` (#43)
 
 - Marco: M1
 - Rótulos: área: core
@@ -510,7 +510,7 @@ Pronto quando:
 - [ ] Gravar duas vezes o mesmo conteúdo gera arquivos idênticos
 - [ ] Ida e volta de JSON para `TextUnit` e de volta para JSON sem perda
 
-### E3.3 · Comando `vnf init`
+### E3.3 · Comando `vnf init` (#44)
 
 - Marco: M1
 - Rótulos: área: cli
@@ -523,7 +523,7 @@ Pronto quando:
 - [ ] Pasta que já tem projeto gera erro, sem sobrescrever
 - [ ] Saída como no exemplo de `docs/03-cli.md`, seção "Fluxo típico"
 
-### E3.4 · Comando `vnf extract`
+### E3.4 · Comando `vnf extract` (#45)
 
 - Marco: M1
 - Rótulos: área: core, área: cli
@@ -536,7 +536,7 @@ Pronto quando:
 - [ ] A pasta do jogo não é alterada
 - [ ] Resumo com scripts e linhas por `kind`, como no doc 03
 
-### E3.5 · Re-extração que preserva traduções
+### E3.5 · Re-extração que preserva traduções (#46)
 
 - Marco: M2
 - Rótulos: área: core
@@ -549,7 +549,7 @@ Pronto quando:
 - [ ] Re-extração sem mudança no jogo não altera `text/*.json`
 - [ ] Original alterado fica marcado e a tradução antiga não se perde
 
-### E3.6 · Hashes dos originais e estado do pipeline
+### E3.6 · Hashes dos originais e estado do pipeline (#47)
 
 - Marco: M2
 - Rótulos: área: core
@@ -562,7 +562,7 @@ Pronto quando:
 - [ ] Hashes dos originais gravados no projeto na extração
 - [ ] Rodar uma etapa duas vezes sem mudança não altera nada
 
-### E3.7 · Glossário e personagens
+### E3.7 · Glossário e personagens (#48)
 
 - Marco: M2
 - Rótulos: área: core
@@ -575,7 +575,7 @@ Pronto quando:
 - [ ] Ida e volta dos dois arquivos sem perda
 - [ ] O `speaker` extraído encontra a entrada certa em `characters.json`
 
-### E3.8 · Comando `vnf status`
+### E3.8 · Comando `vnf status` (#49)
 
 - Marco: M2
 - Rótulos: área: cli
@@ -587,7 +587,7 @@ Pronto quando:
 
 - [ ] Os números batem com a contagem feita direto nos `text/*.json` num teste
 
-### E3.9 · Exportação e importação CSV
+### E3.9 · Exportação e importação CSV (#50)
 
 - Marco: M2
 - Rótulos: área: core, área: cli
@@ -600,7 +600,7 @@ Pronto quando:
 - [ ] Exportar e importar sem edição não altera `text/*.json`
 - [ ] Id desconhecido no arquivo importado aparece como erro, e nada é importado pela metade
 
-### D1 · Decisão: formatos de exportação para revisores
+### D1 · Decisão: formatos de exportação para revisores (#51)
 
 - Marco: M2
 - Rótulos: decisão, área: core
@@ -611,7 +611,7 @@ Pronto quando:
 
 - [ ] Decisão registrada no doc 02, seção "Em aberto"
 
-### E3.10 · Exportação e importação nos formatos decididos
+### E3.10 · Exportação e importação nos formatos decididos (#52)
 
 - Marco: M2
 - Rótulos: área: core, área: cli
@@ -623,7 +623,7 @@ Pronto quando:
 
 - [ ] Ida e volta sem edição não altera `text/*.json`, em cada formato
 
-## E4 · Formatação e espaçamento
+## E4 · Formatação e espaçamento (#5)
 
 - Marco: M2
 - Rótulos: área: core
@@ -632,7 +632,7 @@ Regras aplicadas no build, não no texto salvo, para mudar uma regra e reconstru
 
 Pronto quando: `vnf build` aplica o perfil e `vnf preview` mostra o resultado de cada linha.
 
-### E4.1 · Perfil `formatting.json` e pipeline de regras
+### E4.1 · Perfil `formatting.json` e pipeline de regras (#53)
 
 - Marco: M2
 - Rótulos: área: core
@@ -650,7 +650,7 @@ Pronto quando:
 - [ ] Perfil sem um campo usa o valor padrão
 - [ ] Nenhuma regra altera marcadores de controle (teste com todos os marcadores)
 
-### E4.2 · Regras de normalização e espaços
+### E4.2 · Regras de normalização e espaços (#54)
 
 - Marco: M2
 - Rótulos: área: core
@@ -663,7 +663,7 @@ Pronto quando:
 - [ ] Cada regra tem teste ligada e desligada
 - [ ] `Ei, você?!` e `Ah...` saem sem espaço a mais
 
-### E4.3 · Regras de tipografia e largura
+### E4.3 · Regras de tipografia e largura (#55)
 
 - Marco: M2
 - Rótulos: área: core
@@ -676,7 +676,7 @@ Pronto quando:
 - [ ] Cada regra tem teste ligada e desligada
 - [ ] Fala que abre com travessão sai com o caractere escolhido no perfil
 
-### E4.4 · Quebra de linha por palavra
+### E4.4 · Quebra de linha por palavra (#56)
 
 - Marco: M2
 - Rótulos: área: core
@@ -689,7 +689,7 @@ Pronto quando:
 - [ ] Palavra maior que a largura é quebrada no limite, sem laço infinito
 - [ ] Texto acima do limite de linhas é informado ao chamador, para o QA do E7
 
-### E4.5 · Substituições do usuário
+### E4.5 · Substituições do usuário (#57)
 
 - Marco: M2
 - Rótulos: área: core
@@ -702,7 +702,7 @@ Pronto quando:
 - [ ] Regex inválida gera erro que aponta a regra no `formatting.json`
 - [ ] Teste com uma substituição antes e outra depois das regras
 
-### E4.6 · Comando `vnf preview`
+### E4.6 · Comando `vnf preview` (#58)
 
 - Marco: M2
 - Rótulos: área: cli
@@ -714,7 +714,7 @@ Pronto quando:
 
 - [ ] Saída em texto e em `--json`
 
-### E4.7 · Largura e linhas da caixa de texto medidas no jogo
+### E4.7 · Largura e linhas da caixa de texto medidas no jogo (#59)
 
 - Marco: M2
 - Rótulos: área: core, no jogo
@@ -727,7 +727,7 @@ Pronto quando:
 - [ ] A fala de teste quebra no jogo onde `vnf preview` mostra
 - [ ] O jogo aceita o script e o YPF alterados
 
-## E5 · Acentuação e codificação PT-BR
+## E5 · Acentuação e codificação PT-BR (#6)
 
 - Marco: M2
 - Rótulos: área: core
@@ -736,7 +736,7 @@ Shift-JIS não tem as letras acentuadas do português. As estratégias `fold`, `
 
 Pronto quando: M2 atingido.
 
-### E5.1 · Escolha da estratégia e relatório de caracteres não codificáveis
+### E5.1 · Escolha da estratégia e relatório de caracteres não codificáveis (#60)
 
 - Marco: M2
 - Rótulos: área: core
@@ -751,7 +751,7 @@ Pronto quando:
 
 - [ ] Teste com `«`, `ª` e `ã` em cada estratégia disponível
 
-### E5.2 · Estratégia `fold`
+### E5.2 · Estratégia `fold` (#61)
 
 - Marco: M2
 - Rótulos: área: core
@@ -764,7 +764,7 @@ Pronto quando:
 - [ ] Teste com todas as letras acentuadas do português, maiúsculas e minúsculas
 - [ ] Nenhum caractere fora do Shift-JIS sobra depois do `fold`
 
-### E5.3 · Pesquisa: lead bytes e charset da fonte no executável
+### E5.3 · Pesquisa: lead bytes e charset da fonte no executável (#62)
 
 - Marco: M2
 - Rótulos: área: yuris, no jogo
@@ -781,7 +781,7 @@ Pronto quando:
 - [ ] Resultado no doc 06, com o endereço da tabela e o caminho escolhido para a fonte
 - [ ] Conclusão registrada: seguir com `cp1252` ou partir para `remap`
 
-### D2 · Decisão: estratégia de codificação padrão
+### D2 · Decisão: estratégia de codificação padrão (#63)
 
 - Marco: M2
 - Rótulos: decisão, área: core
@@ -793,7 +793,7 @@ Pronto quando:
 
 - [ ] Decisão registrada no doc 02, seção "Em aberto"
 
-### E5.4 · Estratégia `cp1252`
+### E5.4 · Estratégia `cp1252` (#64)
 
 - Marco: M2
 - Rótulos: área: core
@@ -806,7 +806,7 @@ Pronto quando:
 - [ ] Teste com todas as letras acentuadas do português
 - [ ] `ï` aparece no relatório de não codificáveis
 
-### E5.5 · Comando `vnf patch-exe` (experimental)
+### E5.5 · Comando `vnf patch-exe` (experimental) (#65)
 
 - Marco: M2
 - Rótulos: área: yuris, área: cli
@@ -819,7 +819,7 @@ Pronto quando:
 - [ ] Executável com hash diferente do esperado é recusado, sem patch
 - [ ] `vnf restore` devolve o executável original
 
-### E5.6 · Estratégia `remap` com fonte modificada
+### E5.6 · Estratégia `remap` com fonte modificada (#66)
 
 - Marco: M2
 - Rótulos: área: core
@@ -832,7 +832,7 @@ Pronto quando:
 - [ ] Teste de ida e volta do mapeamento
 - [ ] A fonte gerada mostra as letras acentuadas no jogo
 
-### E5.7 · Validação do M2 no jogo
+### E5.7 · Validação do M2 no jogo (#67)
 
 - Marco: M2
 - Rótulos: no jogo
@@ -846,7 +846,7 @@ Pronto quando:
 - [ ] Quebras de linha onde `vnf preview` mostra
 - [ ] `vnf restore` volta o jogo ao original
 
-## E6 · IA
+## E6 · IA (#7)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -855,7 +855,7 @@ Tradução com Claude pelo SDK oficial `Anthropic`, com toda chamada trocável p
 
 Pronto quando: `vnf translate` traduz um capítulo e `vnf review` gera sugestões.
 
-### E6.1 · `ITranslationProvider` e provedor falso
+### E6.1 · `ITranslationProvider` e provedor falso (#68)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -867,7 +867,7 @@ Pronto quando:
 
 - [ ] Os testes de `VNForge.AI` rodam sem rede e sem chave
 
-### E6.2 · Provedor Claude
+### E6.2 · Provedor Claude (#69)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -879,7 +879,7 @@ Pronto quando:
 
 - [ ] Teste de integração opcional, que só roda com `ANTHROPIC_API_KEY` definida
 
-### E6.3 · Recusa e prompt caching
+### E6.3 · Recusa e prompt caching (#70)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -892,7 +892,7 @@ Pronto quando:
 - [ ] Recusa simulada deixa a linha marcada sem derrubar o lote
 - [ ] Tokens lidos do cache aparecem na contagem
 
-### E6.4 · Montagem do prompt
+### E6.4 · Montagem do prompt (#71)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -904,7 +904,7 @@ Pronto quando:
 
 - [ ] Teste confere que só os termos do glossário presentes no lote entram no prompt
 
-### E6.5 · Validação da resposta e reenvio
+### E6.5 · Validação da resposta e reenvio (#72)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -916,7 +916,7 @@ Pronto quando:
 
 - [ ] Id ausente ou `\p` perdido gera reenvio só daquela linha
 
-### E6.6 · Lotes, concorrência, retry e cancelamento
+### E6.6 · Lotes, concorrência, retry e cancelamento (#73)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -928,7 +928,7 @@ Pronto quando:
 
 - [ ] Cancelar no meio não perde as linhas já traduzidas
 
-### E6.7 · Custo: estimativa, contagem e cache por hash
+### E6.7 · Custo: estimativa, contagem e cache por hash (#74)
 
 - Marco: M3
 - Rótulos: área: ia
@@ -940,7 +940,7 @@ Pronto quando:
 
 - [ ] A mesma tradução rodada duas vezes não chama a API na segunda
 
-### E6.8 · Chave de API e `vnf config ai`
+### E6.8 · Chave de API e `vnf config ai` (#75)
 
 - Marco: M3
 - Rótulos: área: ia, área: cli
@@ -952,7 +952,7 @@ Pronto quando:
 
 - [ ] Teste confere que nenhum arquivo do projeto recebe a chave
 
-### E6.9 · Comando `vnf translate`
+### E6.9 · Comando `vnf translate` (#76)
 
 - Marco: M3
 - Rótulos: área: cli
@@ -964,7 +964,7 @@ Pronto quando:
 
 - [ ] Progresso no console e resultado em `--json`
 
-### E6.10 · Comando `vnf review`
+### E6.10 · Comando `vnf review` (#77)
 
 - Marco: M3
 - Rótulos: área: cli, área: ia
@@ -976,7 +976,7 @@ Pronto quando:
 
 - [ ] Teste confere que `translation` e `status` não mudam
 
-## E7 · QA (conferência)
+## E7 · QA (conferência) (#8)
 
 - Marco: M3
 - Rótulos: área: core
@@ -985,7 +985,7 @@ Motor de regras com severidade: erro bloqueia o build, aviso não. Regras em `do
 
 Pronto quando: M3 atingido, junto com o E6.
 
-### E7.1 · Motor de regras e "marcar como ok"
+### E7.1 · Motor de regras e "marcar como ok" (#78)
 
 - Marco: M3
 - Rótulos: área: core
@@ -997,7 +997,7 @@ Pronto quando:
 
 - [ ] `vnf build` para em erro de QA, e com `--allow-warnings` só os avisos passam
 
-### E7.2 · Regras de completude e marcadores
+### E7.2 · Regras de completude e marcadores (#79)
 
 - Marco: M3
 - Rótulos: área: core
@@ -1009,7 +1009,7 @@ Pronto quando:
 
 - [ ] Cada regra tem teste com um caso que dispara e um que não dispara
 
-### E7.3 · Regras de codificação e de caixa
+### E7.3 · Regras de codificação e de caixa (#80)
 
 - Marco: M3
 - Rótulos: área: core
@@ -1021,7 +1021,7 @@ Pronto quando:
 
 - [ ] Cada regra tem teste com um caso que dispara e um que não dispara
 
-### E7.4 · Regras de texto
+### E7.4 · Regras de texto (#81)
 
 - Marco: M3
 - Rótulos: área: core
@@ -1033,7 +1033,7 @@ Pronto quando:
 
 - [ ] Cada regra tem teste com um caso que dispara e um que não dispara
 
-### E7.5 · Regras de consistência
+### E7.5 · Regras de consistência (#82)
 
 - Marco: M3
 - Rótulos: área: core
@@ -1045,7 +1045,7 @@ Pronto quando:
 
 - [ ] Cada regra tem teste com um caso que dispara e um que não dispara
 
-### E7.6 · Correção automática com `--fix`
+### E7.6 · Correção automática com `--fix` (#83)
 
 - Marco: M3
 - Rótulos: área: core
@@ -1057,7 +1057,7 @@ Pronto quando:
 
 - [ ] Rodar `--fix` duas vezes seguidas não muda nada na segunda
 
-### E7.7 · Comando `vnf check`
+### E7.7 · Comando `vnf check` (#84)
 
 - Marco: M3
 - Rótulos: área: cli
@@ -1069,7 +1069,7 @@ Pronto quando:
 
 - [ ] Teste confere o código de saída `2` com um erro e `0` só com avisos
 
-### E7.8 · Validação do M3
+### E7.8 · Validação do M3 (#85)
 
 - Marco: M3
 - Rótulos: no jogo
@@ -1081,7 +1081,7 @@ Pronto quando:
 
 - [ ] O capítulo roda no jogo sem erro de QA pendente
 
-## E8 · Build e injeção
+## E8 · Build e injeção (#9)
 
 - Marco: M3
 - Rótulos: área: core
@@ -1090,7 +1090,7 @@ Pronto quando:
 
 Pronto quando: build incremental, proteção contra jogo alterado e `vnf run` funcionam.
 
-### E8.1 · Comando `vnf build`
+### E8.1 · Comando `vnf build` (#86)
 
 - Marco: M1
 - Rótulos: área: core, área: cli
@@ -1103,7 +1103,7 @@ Pronto quando:
 - [ ] Build sem nenhuma tradução gera `build/ysbin.ypf` idêntico ao original
 - [ ] A pasta do jogo não é alterada
 
-### E8.2 · Comandos `vnf inject` e `vnf restore`
+### E8.2 · Comandos `vnf inject` e `vnf restore` (#87)
 
 - Marco: M1
 - Rótulos: área: core, área: cli
@@ -1117,7 +1117,7 @@ Pronto quando:
 - [ ] Confirmação antes de gravar, pulada com `--yes`
 - [ ] Testes com uma pasta de jogo sintética
 
-### E8.3 · Validação do M1 no jogo
+### E8.3 · Validação do M1 no jogo (#88)
 
 - Marco: M1
 - Rótulos: no jogo
@@ -1130,7 +1130,7 @@ Pronto quando:
 - [ ] O jogo abre e roda igual ao original
 - [ ] `vnf restore` deixa a pasta do jogo com os hashes originais
 
-### E8.4 · Build incremental e opções
+### E8.4 · Build incremental e opções (#89)
 
 - Marco: M3
 - Rótulos: área: core, área: cli
@@ -1142,7 +1142,7 @@ Pronto quando:
 
 - [ ] Build sem mudanças desde o anterior não reconstrói nenhum script
 
-### E8.5 · Proteção contra jogo alterado
+### E8.5 · Proteção contra jogo alterado (#90)
 
 - Marco: M3
 - Rótulos: área: core
@@ -1154,7 +1154,7 @@ Pronto quando:
 
 - [ ] Teste com um arquivo do jogo sintético alterado depois da extração
 
-### E8.6 · Comando `vnf run`
+### E8.6 · Comando `vnf run` (#91)
 
 - Marco: M3
 - Rótulos: área: cli
@@ -1166,7 +1166,7 @@ Pronto quando:
 
 - [ ] Executável ausente gera erro que mostra o caminho procurado
 
-## E9 · CLI completa
+## E9 · CLI completa (#10)
 
 - Marco: M4
 - Rótulos: área: cli
@@ -1175,7 +1175,7 @@ Todos os comandos de `docs/03-cli.md`, ajuda em português e `--json` em tudo. O
 
 Pronto quando: todos os comandos do doc 03 existem e a CLI é publicada pelo CI.
 
-### E9.1 · Comandos `vnf glossary` e `vnf chars`
+### E9.1 · Comandos `vnf glossary` e `vnf chars` (#92)
 
 - Marco: M3
 - Rótulos: área: cli
@@ -1187,7 +1187,7 @@ Pronto quando:
 
 - [ ] Os dois comandos aceitam `--json`
 
-### E9.2 · Ajuda, `--json` e confirmações em todos os comandos
+### E9.2 · Ajuda, `--json` e confirmações em todos os comandos (#93)
 
 - Marco: M4
 - Rótulos: área: cli
@@ -1198,7 +1198,7 @@ Pronto quando:
 
 - [ ] Teste percorre todos os comandos e confere ajuda e `--json`
 
-### D5 · Decisão: distribuição da CLI
+### D5 · Decisão: distribuição da CLI (#94)
 
 - Marco: M4
 - Rótulos: decisão, área: cli
@@ -1209,7 +1209,7 @@ Pronto quando:
 
 - [ ] Decisão registrada no doc 03, seção "Em aberto"
 
-### E9.3 · Publicação da CLI
+### E9.3 · Publicação da CLI (#95)
 
 - Marco: M4
 - Rótulos: área: infra
@@ -1221,7 +1221,7 @@ Pronto quando:
 
 - [ ] Uma tag de teste gera o pacote da CLI no CI
 
-## E10 · App Windows
+## E10 · App Windows (#11)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1230,7 +1230,7 @@ MVVM com CommunityToolkit.Mvvm e nenhuma regra de negócio nas telas. Telas em `
 
 Pronto quando: as quatro fases do doc 05 estão no app.
 
-### D3 · Decisão: WPF ou Avalonia
+### D3 · Decisão: WPF ou Avalonia (#96)
 
 - Marco: M3
 - Rótulos: decisão, área: app
@@ -1241,7 +1241,7 @@ Pronto quando:
 
 - [ ] Decisão registrada no doc 02 e, se mudar, no doc 04
 
-### D4 · Decisão: telas da primeira versão do app
+### D4 · Decisão: telas da primeira versão do app (#97)
 
 - Marco: M3
 - Rótulos: decisão, área: app
@@ -1252,7 +1252,7 @@ Pronto quando:
 
 - [ ] Decisão registrada no doc 04, seção "Em aberto"
 
-### E10.1 · Janela principal e tela Início
+### E10.1 · Janela principal e tela Início (#98)
 
 - Marco: M3
 - Rótulos: área: app
@@ -1264,7 +1264,7 @@ Pronto quando:
 
 - [ ] Abrir um projeto criado pela CLI mostra o nome e o progresso
 
-### E10.2 · Editor: scripts e grade de linhas
+### E10.2 · Editor: scripts e grade de linhas (#99)
 
 - Marco: M3
 - Rótulos: área: app
@@ -1276,7 +1276,7 @@ Pronto quando:
 
 - [ ] A grade rola sem travar com 50 mil linhas sintéticas
 
-### E10.3 · Editor: painel de detalhe e aprovação
+### E10.3 · Editor: painel de detalhe e aprovação (#100)
 
 - Marco: M3
 - Rótulos: área: app
@@ -1288,7 +1288,7 @@ Pronto quando:
 
 - [ ] Editar no app e rodar `vnf status` mostra a mudança
 
-### E10.4 · Tarefas em segundo plano
+### E10.4 · Tarefas em segundo plano (#101)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1300,7 +1300,7 @@ Pronto quando:
 
 - [ ] Dá para editar outro script enquanto uma tradução roda
 
-### E10.5 · Painel do projeto
+### E10.5 · Painel do projeto (#102)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1312,7 +1312,7 @@ Pronto quando:
 
 - [ ] Os números batem com `vnf status`
 
-### E10.6 · Tela Build e injeção
+### E10.6 · Tela Build e injeção (#103)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1324,7 +1324,7 @@ Pronto quando:
 
 - [ ] Build, injeção e restauração rodam pelo app numa pasta de jogo sintética
 
-### E10.7 · Prévia da caixa de texto
+### E10.7 · Prévia da caixa de texto (#104)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1336,7 +1336,7 @@ Pronto quando:
 
 - [ ] A prévia quebra nos mesmos pontos que `vnf preview`
 
-### D6 · Decisão: prévia com a fonte real do jogo
+### D6 · Decisão: prévia com a fonte real do jogo (#105)
 
 - Marco: M4
 - Rótulos: decisão, área: app
@@ -1347,7 +1347,7 @@ Pronto quando:
 
 - [ ] Decisão registrada no doc 04, seção "Em aberto"
 
-### E10.8 · Tela Conferência
+### E10.8 · Tela Conferência (#106)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1359,7 +1359,7 @@ Pronto quando:
 
 - [ ] A lista bate com `vnf check`
 
-### E10.9 · Sugestão da IA no editor
+### E10.9 · Sugestão da IA no editor (#107)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1371,7 +1371,7 @@ Pronto quando:
 
 - [ ] Funciona com o provedor falso, sem chave
 
-### E10.10 · Glossário e personagens
+### E10.10 · Glossário e personagens (#108)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1383,7 +1383,7 @@ Pronto quando:
 
 - [ ] Editar no app altera `glossary.json` e `characters.json`
 
-### E10.11 · Assistente de novo projeto
+### E10.11 · Assistente de novo projeto (#109)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1395,7 +1395,7 @@ Pronto quando:
 
 - [ ] O projeto criado pelo assistente é igual ao de `vnf init` com as mesmas escolhas
 
-### E10.12 · Configurações
+### E10.12 · Configurações (#110)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1407,7 +1407,7 @@ Pronto quando:
 
 - [ ] A chave salva pelo app não aparece em nenhum arquivo do projeto
 
-### E10.13 · Busca e substituição global
+### E10.13 · Busca e substituição global (#111)
 
 - Marco: M4
 - Rótulos: área: app
@@ -1419,7 +1419,7 @@ Pronto quando:
 
 - [ ] A prévia lista cada linha alterada antes de gravar
 
-## E11 · Benchmark: a VN YU-RIS completa
+## E11 · Benchmark: a VN YU-RIS completa (#12)
 
 - Marco: M4
 - Rótulos: no jogo
@@ -1428,7 +1428,7 @@ O jogo inteiro traduzido, revisado e jogável do início ao fim.
 
 Pronto quando: M4 atingido.
 
-### E11.1 · Traduzir e revisar o jogo inteiro
+### E11.1 · Traduzir e revisar o jogo inteiro (#112)
 
 - Marco: M4
 - Rótulos: no jogo
@@ -1440,7 +1440,7 @@ Pronto quando:
 
 - [ ] `vnf status` mostra todas as linhas aprovadas
 
-### E11.2 · Ajuste fino de formatação no jogo
+### E11.2 · Ajuste fino de formatação no jogo (#113)
 
 - Marco: M4
 - Rótulos: no jogo
@@ -1452,7 +1452,7 @@ Pronto quando:
 
 - [ ] Nenhuma fala estoura a caixa de texto
 
-### E11.3 · Levantar as imagens com texto
+### E11.3 · Levantar as imagens com texto (#114)
 
 - Marco: M4
 - Rótulos: no jogo
@@ -1463,7 +1463,7 @@ Pronto quando:
 
 - [ ] Lista de imagens com texto registrada no doc 06
 
-### E11.4 · Validação do M4: jogar do início ao fim
+### E11.4 · Validação do M4: jogar do início ao fim (#115)
 
 - Marco: M4
 - Rótulos: no jogo
@@ -1475,35 +1475,35 @@ Pronto quando:
 
 - [ ] O jogo foi jogado do início ao fim com a tradução
 
-## E12a · E12 · Outros provedores de IA
+## E12a · E12 · Outros provedores de IA (#13)
 
 - Marco: Pós
 - Rótulos: área: ia
 
 Cliente compatível com OpenAI (OpenAI, Gemini, OpenRouter, DeepSeek) e provedores locais (Ollama, LM Studio), com tela de escolha de provedor.
 
-## E12b · E12 · Outras engines
+## E12b · E12 · Outras engines (#14)
 
 - Marco: Pós
 - Rótulos: área: core
 
 KiriKiri/KAG, Ren'Py, SiglusEngine e Artemis, uma por vez, cada uma como um projeto `VNForge.Engines.X`.
 
-## E12c · E12 · Edição de imagens com texto
+## E12c · E12 · Edição de imagens com texto (#15)
 
 - Marco: Pós
 - Rótulos: área: core
 
 Traduzir menus, títulos e outras imagens levantadas na E11.3.
 
-## E12d · E12 · Memória de tradução entre projetos
+## E12d · E12 · Memória de tradução entre projetos (#16)
 
 - Marco: Pós
 - Rótulos: área: core
 
 Reaproveitar traduções aprovadas de um projeto em outro.
 
-## E12e · E12 · Distribuição do patch para jogadores
+## E12e · E12 · Distribuição do patch para jogadores (#17)
 
 - Marco: Pós
 - Rótulos: área: infra
