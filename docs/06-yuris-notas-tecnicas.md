@@ -62,6 +62,22 @@ Fontes da tabela: `yuri.md:500-513`, `ypf.py:54-62` e `:65-80`, `Xorboth YPFHead
 - **Plano de reescrita**: manter versão, chave, tabela e ordem do arquivo original; copiar entradas intactas sem tocar; só as alteradas são recomprimidas e ganham hash novo, com o algoritmo detectado no próprio arquivo. Como os nomes não mudam, os hashes de nome e a ordem continuam válidos.
 - Há relatos de executáveis que leem arquivos soltos fora do YPF ("免封包"), mas isso varia; o caminho seguro é reempacotar.
 
+### Como o leitor detecta os parâmetros (#27)
+
+`src/VNForge.Engines.YuRis/Ypf/` (`YpfArchiveFormat`, `YpfIndexReader`). Nada depende só da versão: a versão dá a primeira tentativa, e o que vale é o que confere com o índice.
+
+- **Versão**: o leitor tenta ler qualquer versão, porque a detecção é pelo conteúdo. `UnknownVersionException` só sai quando nenhuma combinação leu o índice e a versão está fora de 200 a 599 (`YpfVersionDefaults.MinKnownVersion` e `MaxKnownVersion`: o yuri.md trata as 2xx, o GARbro cita a 247 e as medidas chegam a 500; o resto é margem). Dentro dessa faixa o erro é `InvalidFileException`.
+- **Índice**: o leitor tenta as combinações de largura do offset (32 e 64 bits), tabela de troca (as quatro) e algoritmo do hash do nome (os três), a da versão primeiro, e aceita a que lê todas as entradas com o hash do nome conferindo, o `header_size` consistente e os dados dentro do arquivo. Se nenhuma serve, o erro descreve a tentativa que foi mais longe (entrada, posição, o que esperava e o que achou).
+- **Leitura do índice**: o `header_size` dá o tamanho a ler nas duas semânticas (só o índice, ou o índice mais 32). Se ele estiver errado, o índice é lido de novo com o teto pela contagem de arquivos (282 bytes por entrada). O índice vai inteiro para a memória, até 128 MiB; acima disso o leitor recusa o arquivo e a mensagem cita o limite.
+- **Chave do nome**, por entrada: a dedução do GARbro (byte `len-4` contra `.`), o XOR da entrada anterior, os XOR conhecidos (0xFF, 0xBF, 0xC9) e, por último, os 256 valores, sempre validando pelo hash do nome. Cada `YpfEntry` guarda o XOR que usou.
+- **Nomes repetidos**: detectados pelos bytes do nome com `\` e `/` equivalentes (o byte 0x5C como segundo byte de um caractere Shift-JIS não conta) e, depois, pelo caminho decodificado.
+- **`header_size`**: vale se for o tamanho do índice ou o tamanho do índice mais 32; a semântica fica em `YpfParameters.HeaderSizeIncludesHeader`. Qualquer outro valor é erro.
+- **Hash dos dados**: comparado com os três algoritmos sobre os bytes armazenados das menores entradas (até 16 entradas de até 4 MiB, 8 MiB no total). Vence o que confere em mais entradas. Se nenhuma confere, ou a amostra empata (por exemplo, só entradas vazias, cujo hash é 0 em CRC32 e MurmurHash2), vale o padrão da versão e `YpfParameters.DataHashVerified` fica falso; o leitor não rejeita o arquivo por isso. A conferência de cada `data_hash` e a mensagem de divergência (com o valor gravado e o calculado) são da `OpenEntry` (#28).
+- **Offset de entrada vazia**: o limite inferior (os dados começam depois do índice) não vale para entrada sem bytes armazenados.
+- **O que a gravação (#29) copia do original**: `YpfHeader.Padding` (os 16 bytes de 0x10 a 0x1F, normalmente zeros), `YpfParameters.Gaps` (trechos da área de dados que nenhuma entrada referencia, antes do fim do último dado) e `YpfParameters.Trailer` (bytes depois do último dado). Cada trecho vem com offset e tamanho no arquivo de origem; a #29 os copia do fluxo de origem, nas mesmas posições relativas, para a ida e volta ficar idêntica num YPF real que não seja o zerado dos escritores conhecidos.
+- **Tabela de troca ambígua**: se os nomes do arquivo não têm tamanho que separe duas tabelas, vale a primeira da ordem de tentativa. O `name_size` gravado é guardado cru em cada entrada, então a gravação não depende dessa escolha.
+- `YpfArchive.Parameters` guarda o que foi detectado (versão, algoritmos, largura do offset, tabela, XOR do nome, semântica do `header_size`) para a gravação (#29) usar os mesmos parâmetros; cada `YpfEntry` guarda os campos crus do índice.
+
 ### O que confirmar no jogo (#23)
 
 O gerador de testes (`tests/VNForge.Engines.YuRis.Tests/Ypf/Synthetic/SyntheticYpfBuilder.cs`, #26) segue as leituras acima; nenhuma foi conferida contra o `ysbin.ypf` do jogo. Se o jogo divergir, corrija o gerador e este trecho no mesmo PR.

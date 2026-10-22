@@ -8,14 +8,14 @@ namespace VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 
 public class SyntheticYpfBuilderTests
 {
-    private const string Script1 = @"ysbin\yst00001.ybn";
-    private const string Image = @"bg\fundo.png";
-    private const string Sound = @"se\porta.ogg";
-    private const string Script2 = @"ysbin\yst00002.ybn";
-    private const string Empty = @"ysbin\vazio.ybn";
+    internal const string Script1 = @"ysbin\yst00001.ybn";
+    internal const string Image = @"bg\fundo.png";
+    internal const string Sound = @"se\porta.ogg";
+    internal const string Script2 = @"ysbin\yst00002.ybn";
+    internal const string Empty = @"ysbin\vazio.ybn";
 
-    private static readonly byte[] SmallBinary = [0x10, 0x20, 0x30, 0x40, 0x50];
-    private static readonly byte[] Repetitive = Enumerable.Repeat((byte)'A', 4000).ToArray();
+    internal static readonly byte[] SmallBinary = [0x10, 0x20, 0x30, 0x40, 0x50];
+    internal static readonly byte[] Repetitive = Enumerable.Repeat((byte)'A', 4000).ToArray();
 
     private static readonly string[] InsertionOrder = [Script1, Image, Sound, Script2, Empty];
 
@@ -46,7 +46,7 @@ public class SyntheticYpfBuilderTests
         { 500, Off32, Mur, Mur },
     };
 
-    private static SyntheticYpfBuilder SampleBuilder(
+    internal static SyntheticYpfBuilder SampleBuilder(
         uint version,
         SyntheticYpfOffsetSize offsetSize,
         SyntheticYpfHashAlgorithm nameHash,
@@ -61,7 +61,7 @@ public class SyntheticYpfBuilderTests
             .AddFile(Script2, Repetitive, SyntheticYpfFileType.Ybn, compress: true)
             .AddFile(Empty, [], SyntheticYpfFileType.Ybn);
 
-    private static SyntheticYpfBuilder DefaultSample(uint version) =>
+    internal static SyntheticYpfBuilder DefaultSample(uint version) =>
         new SyntheticYpfBuilder(version)
             .AddFile(Script1, SmallBinary)
             .AddFile(Image, Repetitive, SyntheticYpfFileType.Png, compress: true)
@@ -760,17 +760,17 @@ public class SyntheticYpfBuilderTests
     //   0x00  "YPF\0" · versão · 1 arquivo · header_size · 16 bytes zero
     //   0x20  name_hash · name_size · nome · tipo · compressed · size · stored · offset · data_hash
     //   fim   "ABC"
-    private const string GoldenV200 =
+    internal const string GoldenV200 =
         "595046" + "00" + "c8000000" + "01000000" + "28000000" + "00000000000000000000000000000000" +
         "c705a736" + "e6" + "9d98a38c9c9a919aa0cfcfcfced18f9198" + "02" + "00" + "03000000" + "03000000" + "48000000" + "c7008d01" +
         "414243";
 
-    private const string GoldenV300 =
+    internal const string GoldenV300 =
         "595046" + "00" + "2c010000" + "01000000" + "48000000" + "00000000000000000000000000000000" +
         "d0ab82e5" + "e6" + "9d98a38c9c9a919aa0cfcfcfced18f9198" + "02" + "00" + "03000000" + "03000000" + "48000000" + "c7008d01" +
         "414243";
 
-    private const string GoldenV500 =
+    internal const string GoldenV500 =
         "595046" + "00" + "f4010000" + "01000000" + "4c000000" + "00000000000000000000000000000000" +
         "4bf899e0" + "e7" + "abae95baaaaca7ac96f9f9f9f8e7b9a7ae" + "02" + "00" + "03000000" + "03000000" + "4c00000000000000" + "ffa817fd" +
         "414243";

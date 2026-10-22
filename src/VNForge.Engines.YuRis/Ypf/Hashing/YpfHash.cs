@@ -2,11 +2,28 @@ using System.Buffers.Binary;
 
 namespace VNForge.Engines.YuRis.Ypf.Hashing;
 
+/// <summary>Algoritmos de hash de 32 bits que um índice YPF pode usar, no nome e nos dados.</summary>
+public enum YpfHashAlgorithm
+{
+    Adler32,
+    Crc32,
+    MurmurHash2,
+}
+
 /// <summary>
 /// Os três hashes de 32 bits que os índices YPF usam, conforme a versão do arquivo (docs/06-yuris-notas-tecnicas.md).
 /// </summary>
 public static class YpfHash
 {
+    /// <summary>Calcula o hash pelo algoritmo escolhido (MurmurHash2 com seed 0, como o YPF usa).</summary>
+    public static uint Compute(YpfHashAlgorithm algorithm, ReadOnlySpan<byte> data) => algorithm switch
+    {
+        YpfHashAlgorithm.Adler32 => Adler32(data),
+        YpfHashAlgorithm.Crc32 => Crc32(data),
+        YpfHashAlgorithm.MurmurHash2 => MurmurHash2(data),
+        _ => throw new ArgumentOutOfRangeException(nameof(algorithm), algorithm, null),
+    };
+
     private const uint AdlerModulus = 65521;
     // Maior n tal que 255*n*(n+1)/2 + (n+1)*(AdlerModulus-1) cabe em 32 bits (zlib, adler32.c).
     private const int AdlerBlockSize = 5552;

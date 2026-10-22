@@ -11,7 +11,7 @@ public interface IArchive : IDisposable
 {
     /// <summary>
     /// Entradas do pacote, na ordem em que estão no arquivo. <see cref="ArchiveEntry.Path"/> é único:
-    /// <see cref="IArchiveFormat.Open"/> lança <see cref="InvalidDataException"/> se houver duplicata.
+    /// <see cref="IArchiveFormat.Open"/> lança <see cref="InvalidFileException"/> se houver duplicata.
     /// </summary>
     IReadOnlyList<ArchiveEntry> Entries { get; }
 
