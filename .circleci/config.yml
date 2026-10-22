@@ -1,0 +1,69 @@
+version: 2.1
+
+orbs:
+  win: circleci/windows@5.1.1
+
+jobs:
+  linux:
+    docker:
+      - image: mcr.microsoft.com/dotnet/sdk:10.0
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
+            - nuget-linux-v1-
+      - run:
+          name: Build
+          command: dotnet build VNForge.NoApp.slnf --configuration Release
+      - save_cache:
+          key: nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
+          paths:
+            - ~/.nuget/packages
+      - run:
+          name: Testes
+          command: dotnet test --solution VNForge.NoApp.slnf --configuration Release --no-build
+
+  windows:
+    executor: win/server-2022
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - checkout
+      - run:
+          name: Instala o SDK do global.json
+          command: |
+            $ErrorActionPreference = 'Stop'
+            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
+            Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile dotnet-install.ps1
+            ./dotnet-install.ps1 -JsonFile global.json -InstallDir $dir
+            $env:DOTNET_ROOT = $dir
+            $env:PATH = "$dir;$env:PATH"
+            dotnet --info
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run:
+          name: Build
+          command: |
+            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
+            $env:DOTNET_ROOT = $dir
+            $env:PATH = "$dir;$env:PATH"
+            dotnet build VNForge.slnx --configuration Release
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run:
+          name: Testes
+          command: |
+            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
+            $env:DOTNET_ROOT = $dir
+            $env:PATH = "$dir;$env:PATH"
+            dotnet test --solution VNForge.slnx --configuration Release --no-build
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+workflows:
+  ci:
+    jobs:
+      - linux
+      - windows
