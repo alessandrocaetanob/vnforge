@@ -59,11 +59,37 @@ Os testes usam xUnit v3 (`xunit.v3.mtp-v2`) sobre o Microsoft.Testing.Platform. 
 ```csharp
 public interface IEngine
 {
-    string Id { get; }                         // "yuris"
-    EngineDetection Detect(string gameDir);    // "parece YU-RIS 5.x, ysbin.ypf v500"
-    IArchiveFormat[] Archives { get; }         // YPF
-    IScriptFormat[] Scripts { get; }           // YSTB
-    IEnumerable<IGamePatch> Patches { get; }   // ex.: patch de codepage no .exe
+    string Id { get; }                                  // "yuris"
+    EngineDetection Detect(string gameDir);             // "parece YU-RIS 5.x, ysbin.ypf v500"
+    IReadOnlyList<IArchiveFormat> Archives { get; }     // YPF
+    IReadOnlyList<IScriptFormat> Scripts { get; }       // YSTB (entra na E2.1)
+    IReadOnlyList<IGamePatch> Patches { get; }          // ex.: patch de codepage no .exe
+}
+
+public sealed record EngineDetection(bool IsMatch, string Summary, IReadOnlyDictionary<string, string> Details);
+
+public interface IArchiveFormat
+{
+    string Id { get; }                                  // "ypf"
+    IReadOnlyList<string> FileExtensions { get; }       // ".ypf"
+    bool CanOpen(Stream stream);
+    IArchive Open(Stream stream);
+}
+
+public interface IArchive : IDisposable
+{
+    IReadOnlyList<ArchiveEntry> Entries { get; }
+    Stream OpenEntry(ArchiveEntry entry);               // já descomprimido, com hash conferido
+    void WriteTo(Stream output, IReadOnlyDictionary<string, byte[]> replacements);   // reescrita mínima
+}
+
+public interface IGamePatch
+{
+    string Id { get; }
+    string Description { get; }
+    IReadOnlyList<string> AffectedFiles { get; }        // o fluxo de injeção faz o backup deles
+    bool CanApply(string gameDir, out string? reason);
+    void Apply(string gameDir);
 }
 
 public interface IScriptFormat
@@ -75,6 +101,16 @@ public interface IScriptFormat
 ```
 
 Uma engine nova (KiriKiri, Ren'Py, SiglusEngine, Artemis...) é só outro projeto `VNForge.Engines.X` que implementa essas interfaces.
+
+Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
+
+- As coleções são `IReadOnlyList<T>` em vez de array e `IEnumerable`, para o chamador poder indexar e contar sem enumerar duas vezes.
+- Os pacotes trabalham sobre `Stream` com busca, não sobre caminho: os testes usam `MemoryStream` sem tocar o disco, e a reescrita grava num fluxo de destino que o fluxo de injeção controla.
+- Tudo é síncrono. Os arquivos do jogo são locais e o gargalo não está na leitura; o `async` fica para a IA, que faz chamadas de rede.
+- O doc original só citava `IArchiveFormat`; ele passa a abrir um `IArchive` (índice, leitura de entrada, `WriteTo` com reescrita mínima), que é o que a regra 3 do `CLAUDE.md` exige do escritor.
+- `IGamePatch` não faz backup: declara `AffectedFiles` e o fluxo de injeção faz o backup antes de `Apply` (regra 2 do `CLAUDE.md`).
+- `IScriptFormat` e `Scripts` entram na E2.1; até lá `IEngine` não tem `Scripts`.
+- O teste `ArchitectureTests`, em `tests/VNForge.Core.Tests`, falha se o Core referenciar `VNForge.Engines.*` ou `VNForge.AI`.
 
 ### 2. Unidade de texto (`TextUnit`)
 
