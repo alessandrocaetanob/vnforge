@@ -41,6 +41,25 @@ Entry[file_count]   // ordenadas pelo hash do nome
 - Tabela de troca do tamanho do nome: pares `(3,72) (6,53) (9,11) (12,16) (13,19) (17,25) (21,27) (28,30) (32,35) (38,41) (44,47) (46,50)`. A v500 usa uma variante (`3↔10`, `17↔24`, `20↔46` no lugar de `3↔72`, `17↔25`, `46↔50`). Estratégia: tentar as tabelas conhecidas e validar com o hash do nome.
 - **Plano de reescrita**: manter versão, chave, tabela e ordem do arquivo original; copiar entradas intactas sem tocar; só as alteradas são recomprimidas e ganham hash novo, com o algoritmo detectado no próprio arquivo. Como os nomes não mudam, os hashes de nome e a ordem continuam válidos.
 - Há relatos de executáveis que leem arquivos soltos fora do YPF ("免封包"), mas isso varia; o caminho seguro é reempacotar.
+- **Ambiguidade na versão do MurmurHash2**: o YPF-Manager (Xorboth) e a tabela acima dizem que o MurmurHash2 começa na versão 479; o `yuri.md` (shimamura-sakura/yuri) diz 477. O gerador sintético deixa o algoritmo de hash do nome e dos dados configurável por arquivo, para os testes do leitor cobrirem as duas leituras. Decidir com o `ysbin.ypf` do jogo (#23); se a versão dele for 477 ou 478, o próprio arquivo resolve a dúvida.
+
+### Hipóteses do YPF sintético
+
+O gerador de testes (`tests/VNForge.Engines.YuRis.Tests/Ypf/Synthetic/SyntheticYpfBuilder.cs`, #26) precisou escolher valores onde este documento não define o campo. Todos são hipóteses a confirmar no jogo (#23); se o jogo divergir, corrija o gerador e este trecho no mesmo PR.
+
+| Ponto | Hipótese adotada |
+|---|---|
+| Cabeçalho fixo | 0x20 bytes: magic, versão, contagem, `header_size` e 16 bytes de padding zerados. O índice começa em 0x20. |
+| `header_size` | 0x20 mais o tamanho do índice, ou seja, o offset do primeiro byte de dados (como o diagrama acima descreve). Outros leitores tratam o campo como tamanho só do índice. |
+| Ordem das entradas | Índice ordenado pelo hash do nome, crescente; empate fica na ordem de inserção. |
+| Ordem dos dados | Logo após o índice, na ordem de inserção dos arquivos, sem padding. Por isso os offsets não são crescentes ao longo do índice. |
+| Hash do nome | Calculado sobre os bytes do nome em Shift-JIS antes do XOR, sem converter caixa nem separador de pasta. |
+| Hash dos dados | Calculado sobre os bytes armazenados (comprimidos, quando `compressed` = 1). |
+| `name_size` | Tamanho em bytes do nome em Shift-JIS. Gravação: passa pela tabela de troca e depois vira `~b` (o inverso da leitura: `~b`, depois troca). Os valores fora da tabela passam iguais. |
+| Chave XOR do nome | Um byte aplicado a todos os bytes do nome. Padrão do gerador: `0x40`; configurável. |
+| Tabela da v500 | Usada só na versão 500: pares padrão com `3↔10`, `17↔24` e `20↔46` no lugar de `3↔72`, `17↔25` e `46↔50`. Configurável. |
+| Offset em v479 ou mais | 64 bits por padrão; o gerador também produz 32 bits para as variantes de transição. |
+| zlib | Fluxo zlib completo (RFC 1950), nível padrão do .NET. |
 
 ## Scripts YSTB (`yst*.ybn`), versão ≥ 300
 
