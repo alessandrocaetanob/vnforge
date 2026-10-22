@@ -356,7 +356,7 @@ public class YscmReaderTests
     {
         var bytes = new SyntheticYscmBuilder().AddCommand("WORD", "TEXT").Build().Bytes;
 
-        // 16 do cabeçalho, "WORD ", a contagem, "TEXT " e o tipo: falta o byte de flags do único parâmetro.
+        // 16 do cabeçalho, o nome do comando com o zero final, a contagem, o nome do parâmetro com o zero final e o tipo: falta o byte de flags.
         var error = ReadFails(bytes[..28]);
 
         Assert.Contains("parâmetro 0", error.Reason);
