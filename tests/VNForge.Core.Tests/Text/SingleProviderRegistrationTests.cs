@@ -29,7 +29,7 @@ public class SingleProviderRegistrationTests
 
         string text = File.ReadAllText(file);
 
-        Assert.Equal(1, CountOccurrences(text, "RegisterProvider("));
+        Assert.Equal(1, CountOccurrences(text, "RegisterProvider"));
     }
 
     private static int CountOccurrences(string text, string value)
