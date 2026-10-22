@@ -66,7 +66,7 @@ Fontes da tabela: `yuri.md:500-513`, `ypf.py:54-62` e `:65-80`, `Xorboth YPFHead
 
 `src/VNForge.Engines.YuRis/Ypf/` (`YpfArchiveFormat`, `YpfIndexReader`). Nada depende só da versão: a versão dá a primeira tentativa, e o que vale é o que confere com o índice.
 
-- **Versão**: de 200 a 999; fora disso, `UnknownVersionException`.
+- **Versão**: de 200 a 999; fora disso, `UnknownVersionException`. O índice é lido inteiro para a memória, até 128 MiB; acima disso o leitor recusa o arquivo.
 - **Índice**: o leitor tenta as combinações de largura do offset (32 e 64 bits), tabela de troca (as quatro) e algoritmo do hash do nome (os três), a da versão primeiro, e aceita a que lê todas as entradas com o hash do nome conferindo, o `header_size` consistente e os dados dentro do arquivo. Se nenhuma serve, o erro descreve a tentativa que foi mais longe (entrada, posição, o que esperava e o que achou).
 - **Chave do nome**, por entrada: a dedução do GARbro (byte `len-4` contra `.`), o XOR da entrada anterior, os XOR conhecidos (0xFF, 0xBF, 0xC9) e, por último, os 256 valores, sempre validando pelo hash do nome.
 - **`header_size`**: vale se for o tamanho do índice ou o tamanho do índice mais 32; a semântica fica em `YpfParameters.HeaderSizeIncludesHeader`. Qualquer outro valor é erro.

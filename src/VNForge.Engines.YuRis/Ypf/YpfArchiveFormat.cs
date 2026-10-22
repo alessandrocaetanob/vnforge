@@ -7,6 +7,7 @@ namespace VNForge.Engines.YuRis.Ypf;
 /// <summary>O formato YPF (<c>ysbin.ypf</c> e similares) do YU-RIS: lê o cabeçalho e o índice.</summary>
 public sealed class YpfArchiveFormat : IArchiveFormat
 {
+    private const long MaxIndexBytes = 128 * 1024 * 1024;
     private const int MaxSampledEntries = 16;
     private const uint MaxSampledEntrySize = 4 * 1024 * 1024;
     private const long MaxSampledBytes = 8 * 1024 * 1024;
@@ -104,7 +105,15 @@ public sealed class YpfArchiveFormat : IArchiveFormat
                 + $"{(long)header.FileCount * YpfIndexReader.MinEntrySize} bytes de índice, mas o arquivo tem só {available} depois do cabeçalho.");
         }
 
-        var indexBytes = (int)Math.Min(available, (long)header.FileCount * YpfIndexReader.MaxEntrySize);
+        var minIndexBytes = (long)header.FileCount * YpfIndexReader.MinEntrySize;
+        if (minIndexBytes > MaxIndexBytes)
+        {
+            throw new InvalidFileException(
+                source,
+                $"o cabeçalho declara {header.FileCount} arquivos, e o índice passaria do limite de {MaxIndexBytes / (1024 * 1024)} MiB que o leitor aceita.");
+        }
+
+        var indexBytes = (int)Math.Min(Math.Min(available, (long)header.FileCount * YpfIndexReader.MaxEntrySize), MaxIndexBytes);
         var index = new byte[indexBytes];
         stream.ReadExactly(index);
 
