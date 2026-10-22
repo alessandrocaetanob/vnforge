@@ -5,7 +5,7 @@ namespace VNForge.Core.Text;
 /// <summary>
 /// Codificador de JSON que escapa só o que a gramática do JSON exige: aspas, barra invertida e U+0000 a U+001F.
 /// O resto sai literal em UTF-8, inclusive o espaço ideográfico U+3000, o U+00A0 e emoji, que o
-/// <see cref="JavaScriptEncoder.UnsafeRelaxedJsonEscaping"/> escaparia (e viram <c>　</c> ilegível no diff do <c>text/*.json</c>).
+/// <see cref="JavaScriptEncoder.UnsafeRelaxedJsonEscaping"/> escaparia (e viram <c>\u3000</c>, ilegível no diff do <c>text/*.json</c>).
 /// Não depende da tabela Unicode do runtime. Surrogates soltos nunca chegam aqui: o <c>Utf8JsonWriter</c> recusa UTF-16 inválido antes.
 /// </summary>
 internal sealed unsafe class MinimalJsonEncoder : JavaScriptEncoder
