@@ -19,7 +19,7 @@ Objetivo: repositório pronto para trabalhar.
 
 - Solução `.slnx`, `Directory.Build.props`, pacotes centralizados, .NET 10
 - `.gitignore` que bloqueia arquivos de jogo (`*.ypf`, `*.ybn`, `*.exe`, `.cache/`, `build/`, `backup/`)
-- CI no GitHub Actions: build + testes (Windows para o app, Linux para o resto)
+- CI no CircleCI: build + testes (Windows para o app, Linux para o resto)
 - Logging, tratamento de erros, `--json` comum na CLI
 
 Pronto quando: `dotnet build` e `dotnet test` passam no CI.

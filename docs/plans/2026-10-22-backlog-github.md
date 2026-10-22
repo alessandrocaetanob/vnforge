@@ -111,13 +111,13 @@ Pronto quando:
 - [ ] `dotnet build` e `dotnet test` passam no Windows
 - [ ] Um filtro de solução (`.slnf`) sem o app compila e testa no Linux
 
-### E0.2 · CI no GitHub Actions (#19)
+### E0.2 · CI no CircleCI (#19)
 
 - Marco: M1
 - Rótulos: área: infra
 - Depende de: E0.1
 
-Workflow em PR e em push no `main` com dois jobs: Linux (tudo menos o app) e Windows (a solução inteira), cada um com build e testes.
+Pipeline em PR e em push no `main` com dois jobs: Linux (tudo menos o app) e Windows (a solução inteira), cada um com build e testes.
 
 Pronto quando:
 
