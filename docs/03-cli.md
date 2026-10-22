@@ -102,5 +102,5 @@ $ vnf run
 
 ## Em aberto
 
-- [ ] Nome do executável (`vnf`?).
+- [x] Nome do executável: `vnf` (decidido em [01-nome.md](01-nome.md)).
 - [ ] Distribuição: executável único autocontido (`dotnet publish -p:PublishSingleFile=true`) ou `dotnet tool install -g`?
