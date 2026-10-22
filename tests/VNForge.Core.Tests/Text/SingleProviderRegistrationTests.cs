@@ -9,12 +9,17 @@ public class SingleProviderRegistrationTests
     {
         string src = Path.Combine(FindRepositoryRoot(), "src");
 
-        var offenders = Directory
+        var sources = Directory
             .EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
-            .Where(f => !IsBuildOutput(f))
-            .Where(f => Path.GetFileName(f) != AllowedFile)
-            .Where(f => File.ReadAllText(f).Contains("RegisterProvider", StringComparison.Ordinal))
             .Select(f => Path.GetRelativePath(src, f))
+            .Where(r => !IsBuildOutput(r))
+            .ToList();
+
+        Assert.Contains(sources, r => Path.GetFileName(r) == AllowedFile);
+
+        var offenders = sources
+            .Where(r => Path.GetFileName(r) != AllowedFile)
+            .Where(r => File.ReadAllText(Path.Combine(src, r)).Contains("RegisterProvider", StringComparison.Ordinal))
             .ToList();
 
         Assert.Empty(offenders);
@@ -43,9 +48,9 @@ public class SingleProviderRegistrationTests
         return count;
     }
 
-    private static bool IsBuildOutput(string path) =>
-        path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-        || path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+    private static bool IsBuildOutput(string relativePath) =>
+        relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Any(segment => segment is "bin" or "obj");
 
     private static string FindRepositoryRoot()
     {

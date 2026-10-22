@@ -41,8 +41,9 @@ public class GameEncodingsTests
     }
 
     [Fact]
-    public void AcessoConcorrente_DevolveSempreAMesmaInstancia()
+    public void AcessosRepetidos_DevolvemAMesmaInstancia()
     {
+        // Sanidade: a thread-safety do registro vem do construtor estático, não deste teste.
         var instancias = new System.Text.Encoding[16];
 
         Parallel.For(0, instancias.Length, i => instancias[i] = GameEncodings.ShiftJis);
