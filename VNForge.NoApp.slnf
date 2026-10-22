@@ -7,6 +7,7 @@
       "src\\VNForge.Core\\VNForge.Core.csproj",
       "src\\VNForge.Engines.YuRis\\VNForge.Engines.YuRis.csproj",
       "tests\\VNForge.AI.Tests\\VNForge.AI.Tests.csproj",
+      "tests\\VNForge.Cli.Tests\\VNForge.Cli.Tests.csproj",
       "tests\\VNForge.Core.Tests\\VNForge.Core.Tests.csproj",
       "tests\\VNForge.Engines.YuRis.Tests\\VNForge.Engines.YuRis.Tests.csproj"
     ]

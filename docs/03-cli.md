@@ -8,6 +8,34 @@
 - Códigos de saída: `0` ok, `1` erro, `2` QA encontrou erros bloqueantes, `3` cancelado.
 - Nada destrutivo sem confirmação; `--yes` pula a confirmação em scripts.
 - `--verbose` / `--quiet` controlam o log; o log completo vai para `.cache/logs/`.
+- Opções globais, válidas em qualquer posição da linha: `--project <pasta>`, `--json`, `--verbose`, `--quiet`, `--yes`. `--verbose` e `--quiet` não combinam. `--version` existe só na raiz; `--help` mostra a ajuda em português em qualquer comando.
+- Ctrl+C cancela o comando em andamento e sai com `3`. Um segundo Ctrl+C encerra o processo na hora, também com `3`, para o caso de um comando que não respeita o cancelamento.
+- Só conta como cancelamento a exceção de cancelamento com o token do Ctrl+C ativo. Um timeout de rede (`HttpClient`) é erro e sai com `1`.
+- Erro de uso (opção desconhecida, opção obrigatória ausente, valor inválido, `--project` apontando para pasta que não existe) sai com `1`, em português, e a mensagem aponta `--help`.
+- `--project` sem valor consome a opção seguinte como se fosse a pasta: `vnf --project --json` procura uma pasta chamada `--json` e sai com `1`.
+
+### Onde vai o log
+
+- A raiz é a pasta de `--project` ou, sem a opção, a pasta atual. Se a raiz tem `vnforge.json`, o log vai para `<raiz>\.cache\logs\`.
+- Sem `vnforge.json` na raiz (inclusive com `--project` apontando para uma pasta qualquer): `%LOCALAPPDATA%\VNForge\logs\`, ou a pasta temporária se `LocalApplicationData` vier vazio ou relativo. A CLI nunca cria `.cache` em pasta qualquer, que pode ser a pasta do jogo. A busca de `vnforge.json` olha só a raiz, não sobe diretórios.
+
+### Formato do `--json`
+
+Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitCode` repete o código de saída do processo. Os erros saem no formato abaixo por conta da CLI; cada comando escreve o próprio resultado com `JsonEnvelope.Result` (Core), inclusive quando termina com `2`.
+
+```json
+{"ok":true,"exitCode":0,"data":{"name":"vnf","version":"0.1.0"}}
+{"ok":false,"exitCode":1,"error":{"kind":"expected","message":"O arquivo 'a.ypf' é inválido: truncado"}}
+```
+
+`error.kind` é `expected` (erro previsto, a mensagem está em português), `unexpected` (bug; `message` genérica e `logDirectory` aponta o log com o stack) ou `cancelled` (código `3`). O stack trace nunca aparece. Cada comando define o conteúdo de `data`.
+
+### Como escrever um comando
+
+- Registre o comando em `VnfCommands.Register` (`src/VNForge.Cli/VnfCommands.cs`), uma linha por comando.
+- Escreva o resultado em `parseResult.InvocationConfiguration.Output`, nunca em `Console.Out`, para a saída poder ser capturada nos testes.
+- Com `--json`, escreva `JsonEnvelope.Result(data, exitCode)` passando o mesmo `exitCode` que o comando devolve (por exemplo `2` no QA bloqueante).
+- Lance `VNForgeException` para erro previsto; use o `CancellationToken` da ação, que o Ctrl+C cancela.
 
 ## Comandos do pipeline
 
