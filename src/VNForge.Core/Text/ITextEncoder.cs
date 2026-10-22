@@ -15,7 +15,7 @@ namespace VNForge.Core.Text;
 /// Nenhuma estratégia substitui um caractere em silêncio: o fallback padrão do .NET para o CP932 troca <c>ação</c> por <c>acao</c>
 /// sem avisar, e isso quebraria o QA. Quem implementa usa um fallback que lança exceção.
 /// </para>
-/// Esta é a superfície mínima da E2.1. A E2.2 acrescenta a estratégia Shift-JIS pura; <c>fold</c>, <c>remap</c> e <c>cp1252</c> entram no E5.
+/// A E2.2 traz a estratégia Shift-JIS pura (<see cref="ShiftJisTextEncoder"/>); <c>fold</c>, <c>remap</c> e <c>cp1252</c> entram no E5.
 /// </remarks>
 public interface ITextEncoder
 {

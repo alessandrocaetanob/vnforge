@@ -178,6 +178,8 @@ Códigos de controle do jogo viram marcadores legíveis e estáveis. A IA e o QA
 | `\c` | esperar clique |
 | `\u` | código desconhecido (no YU-RIS, `EF F5`) |
 | `{NOME:valor}` | variável ou código genérico que preserva os bytes (`{VAR:...}`) |
+| `{EF:xx}` | no YU-RIS, código `EF xx` sem atalho (`xx` em hexadecimal) |
+| `{RAW:hex}` | no YU-RIS, bytes crus que não viram texto (`EF` no fim dos bytes, byte inválido em Shift-JIS) |
 | `\\` | uma barra invertida literal |
 | `\{` | uma chave literal |
 
