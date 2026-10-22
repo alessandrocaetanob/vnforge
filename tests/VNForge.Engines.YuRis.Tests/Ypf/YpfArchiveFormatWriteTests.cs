@@ -611,6 +611,139 @@ public partial class YpfArchiveFormatTests
         Assert.Equal(0, output.Length);
     }
 
+    // ---- Destino reaproveitado, caminho com prefixo e dados compartilhados ----
+
+    [Fact]
+    public void WriteTo_DestinoMaisLongoQueOPacoteFicaSemACaudaVelha()
+    {
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+        using var archive = Open(ypf.Bytes);
+
+        foreach (var replacements in new[] { new Dictionary<string, byte[]>(), Replace(SyntheticYpfBuilderTests.Image, NewImage) })
+        {
+            var stale = new byte[100_000];
+            Array.Fill(stale, (byte)0xEE);
+            using var output = new MemoryStream();
+            output.Write(stale);
+            output.Position = 0;
+
+            archive.WriteTo(output, replacements);
+
+            Assert.Equal(output.Position, output.Length);
+            Assert.True(output.Length < stale.Length);
+            using var rewritten = Open(output.ToArray());
+            Assert.Equal(0, rewritten.Parameters.Trailer.Length);
+            Assert.Empty(rewritten.Parameters.Gaps);
+        }
+    }
+
+    [Fact]
+    public void WriteTo_ArquivoDeDestinoExistenteMaisLongoEhTruncado()
+    {
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+        using var archive = Open(ypf.Bytes);
+        var path = Path.Combine(Path.GetTempPath(), $"vnforge-ypf-{Guid.NewGuid():N}.ypf");
+        File.WriteAllBytes(path, new byte[50_000]);
+        try
+        {
+            using (var output = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            {
+                archive.WriteTo(output, new Dictionary<string, byte[]>());
+            }
+
+            Assert.Equal(ypf.Bytes, File.ReadAllBytes(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void WriteTo_DestinoNoMesmoCaminhoComPrefixoDoWindowsLancaArgumentException()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "O prefixo \\\\?\\ só existe no Windows.");
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+        var path = Path.Combine(Path.GetTempPath(), $"vnforge-ypf-{Guid.NewGuid():N}.ypf");
+        File.WriteAllBytes(path, ypf.Bytes);
+        try
+        {
+            using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var archive = (YpfArchive)Format.Open(source);
+            using var other = new FileStream(@"\\?\" + path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            Assert.StartsWith(@"\\?\", other.Name, StringComparison.Ordinal);
+
+            Assert.Throws<ArgumentException>(() => archive.WriteTo(other, new Dictionary<string, byte[]>()));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static SyntheticYpfBuilder SharedSample(SyntheticYpfDataOrder order, byte[]? script2) =>
+        new SyntheticYpfBuilder(300)
+            .WithDataOrder(order)
+            .WithSharedDuplicateData()
+            .AddFile(SyntheticYpfBuilderTests.Script1, SyntheticYpfBuilderTests.SmallBinary)
+            .AddFile(SyntheticYpfBuilderTests.Image, SyntheticYpfBuilderTests.Repetitive, SyntheticYpfFileType.Png, compress: true)
+            .AddFile(SyntheticYpfBuilderTests.Script2, script2 ?? SyntheticYpfBuilderTests.Repetitive, compress: true)
+            .AddFile(SyntheticYpfBuilderTests.Sound, [1, 2, 3, 4, 5, 6, 7, 8, 9], SyntheticYpfFileType.Ogg)
+            .AddFile(SyntheticYpfBuilderTests.Empty, []);
+
+    [Theory]
+    [InlineData(SyntheticYpfDataOrder.Index)]
+    [InlineData(SyntheticYpfDataOrder.Insertion)]
+    public void WriteTo_TrocarOSegundoDeDoisQueDividemOBlocoGeraOMesmoArquivoQueOGerador(SyntheticYpfDataOrder order)
+    {
+        // Imagem e Script2 são vizinhos na inserção e dividem o bloco: trocar o segundo deixa o bloco antigo e põe o novo logo depois.
+        var original = SharedSample(order, null).Build();
+        var image = original.Entries.Single(e => e.Name == SyntheticYpfBuilderTests.Image);
+        var script2 = original.Entries.Single(e => e.Name == SyntheticYpfBuilderTests.Script2);
+        Assert.Equal(image.Offset, script2.Offset);
+        using var archive = Open(original.Bytes);
+
+        var output = Write(archive, Replace(SyntheticYpfBuilderTests.Script2, NewScript2));
+
+        using var rewritten = Open(output);
+        using var imageStream = rewritten.OpenEntry(rewritten.Entries.Single(e => e.Path == Key(SyntheticYpfBuilderTests.Image)));
+        using var script2Stream = rewritten.OpenEntry(rewritten.Entries.Single(e => e.Path == Key(SyntheticYpfBuilderTests.Script2)));
+        Assert.Equal(SyntheticYpfBuilderTests.Repetitive, ReadAll(imageStream));
+        Assert.Equal(NewScript2, ReadAll(script2Stream));
+        if (order == SyntheticYpfDataOrder.Insertion)
+        {
+            Assert.Equal(SharedSample(order, NewScript2).Build().Bytes, output);
+        }
+    }
+
+    [Theory]
+    [InlineData(SyntheticYpfDataOrder.Index)]
+    [InlineData(SyntheticYpfDataOrder.Insertion)]
+    public void WriteTo_DadosCompartilhadosComLacunaETrailerPreservamTudoAoTrocarUmaEntrada(SyntheticYpfDataOrder order)
+    {
+        var ypf = SharedSample(order, null).Build();
+        var shared = ypf.Entries.Single(e => e.Name == SyntheticYpfBuilderTests.Image);
+        byte[] trailer = [1, 2, 3, 4, 5];
+        var bytes = WithGap(ypf, (long)shared.Offset, 3).Concat(trailer).ToArray();
+        using var archive = Open(bytes);
+        Assert.Equal(bytes, Write(archive));
+
+        var output = Write(archive, Replace(SyntheticYpfBuilderTests.Image, NewImage));
+
+        using var rewritten = Open(output);
+        var gap = Assert.Single(rewritten.Parameters.Gaps);
+        Assert.All(output[(int)gap.Offset..(int)(gap.Offset + gap.Length)], b => Assert.Equal(0xAA, b));
+        Assert.Equal(trailer, output[^trailer.Length..]);
+        foreach (var entry in rewritten.Entries)
+        {
+            var expected = entry.Path == Key(SyntheticYpfBuilderTests.Image)
+                ? NewImage
+                : ypf.Entries.Single(e => Key(e.Name) == entry.Path).Content;
+            using var stream = rewritten.OpenEntry(entry);
+            Assert.Equal(expected, ReadAll(stream));
+        }
+    }
+
     private sealed class NonSeekableStream : MemoryStream
     {
         public override bool CanSeek => false;

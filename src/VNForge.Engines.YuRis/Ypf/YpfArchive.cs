@@ -222,14 +222,21 @@ public sealed class YpfArchive : IArchive
     /// Uma troca com o mesmo conteúdo da entrada conta como não trocada (o zlib não reproduz os bytes do original).
     /// Quando <see cref="YpfParameters.DataHashVerified"/> é falso, o algoritmo do hash dos dados deste arquivo é
     /// desconhecido, e o escritor recusa qualquer troca em vez de gravar um hash do padrão da versão que pode estar
-    /// errado; o pacote sem trocas continua copiável. O destino é gravado a partir da posição atual.
+    /// errado; o pacote sem trocas continua copiável. O destino é gravado a partir da posição atual e truncado na
+    /// posição final, então bytes antigos depois do pacote novo não sobram como trailer falso. Se <see cref="WriteTo"/>
+    /// lançar depois de começar a gravar (erro de E/S, ou origem alterada durante a cópia), o destino fica parcial e
+    /// quem chamou deve descartá-lo.
     /// </remarks>
     /// <exception cref="ArgumentException">
     /// Chave inexistente, conteúdo nulo, destino sem gravação ou busca, ou destino igual ao fluxo de origem
-    /// (o mesmo objeto, ou um <see cref="FileStream"/> no mesmo caminho; um hard link ou um symlink para o original não
-    /// é detectado, então o fluxo de injeção continua responsável pelo backup). Lançada antes de gravar qualquer byte.
+    /// (o mesmo objeto, ou um <see cref="FileStream"/> no mesmo caminho, inclusive com o prefixo <c>\\?\</c> no Windows;
+    /// um hard link ou um symlink para o original não é detectado, então o fluxo de injeção continua responsável pelo
+    /// backup). Lançada antes de gravar qualquer byte.
     /// </exception>
-    /// <exception cref="InvalidDataException">O fluxo de origem mudou de tamanho depois de aberto. Lançada antes de gravar qualquer byte.</exception>
+    /// <exception cref="InvalidDataException">
+    /// O fluxo de origem mudou de tamanho depois de aberto (lançada antes de gravar qualquer byte), ou acabou antes do
+    /// esperado durante a cópia (lançada no meio da gravação, com o destino parcial).
+    /// </exception>
     /// <exception cref="NotSupportedException">
     /// Troca num pacote sem algoritmo de hash confirmado, com blocos de dados parcialmente sobrepostos, ou que
     /// passaria dos 4 GiB de um offset de 32 bits. Lançada antes de gravar qualquer byte.
@@ -252,6 +259,7 @@ public sealed class YpfArchive : IArchive
         }
 
         new YpfWriter(this, _stream).Write(output, replacements);
+        output.SetLength(output.Position);
     }
 
     private bool IsSourceStream(Stream output)
@@ -267,7 +275,25 @@ public sealed class YpfArchive : IArchive
         }
 
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return string.Equals(Path.GetFullPath(destination.Name), Path.GetFullPath(origin.Name), comparison);
+        return string.Equals(NormalizePath(destination.Name), NormalizePath(origin.Name), comparison);
+    }
+
+    /// <summary>Tira o prefixo <c>\\?\</c> (e <c>\\?\UNC\</c>) que o <see cref="FileStream.Name"/> devolve e o <see cref="Path.GetFullPath(string)"/> mantém.</summary>
+    private static string NormalizePath(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            {
+                path = @"\\" + path[@"\\?\UNC\".Length..];
+            }
+            else if (path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                path = path[@"\\?\".Length..];
+            }
+        }
+
+        return Path.GetFullPath(path);
     }
 
     public void Dispose()
