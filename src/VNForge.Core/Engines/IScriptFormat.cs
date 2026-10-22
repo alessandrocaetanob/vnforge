@@ -83,7 +83,8 @@ public sealed record ScriptFile
 
     /// <summary>
     /// Chave do script em <see cref="TextUnit.Id"/>: o nome do arquivo sem pasta e sem extensão, em minúsculas
-    /// (<c>"ybin/YST00123.ybn"</c> vira <c>"yst00123"</c>).
+    /// (<c>"ybin/YST00123.ybn"</c> vira <c>"yst00123"</c>). Precisa ser única no jogo: a engine garante que dois scripts não
+    /// tenham o mesmo nome-base (nas engines atuais os nomes são únicos, como <c>yst00123</c>).
     /// </summary>
     public string Key => Path.GetFileNameWithoutExtension(Name.Replace('\\', '/')).ToLowerInvariant();
 

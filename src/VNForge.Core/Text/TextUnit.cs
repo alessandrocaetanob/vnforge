@@ -22,12 +22,12 @@ namespace VNForge.Core.Text;
 /// <param name="Translation">Tradução, com os mesmos marcadores do original; nula enquanto não há tradução.</param>
 /// <param name="Status">Etapa do fluxo de tradução.</param>
 public sealed record TextUnit(
-    string Id,
-    TextUnitKind Kind,
+    [property: JsonRequired] string Id,
+    [property: JsonRequired] TextUnitKind Kind,
     string? Speaker,
-    string Source,
+    [property: JsonRequired] string Source,
     string? Translation,
-    TranslationStatus Status)
+    [property: JsonRequired] TranslationStatus Status)
 {
     /// <summary>Quem produziu a tradução; nulo quando não há tradução ou ela é anterior ao registro de origem.</summary>
     public TranslationOrigin? Origin { get; init; }
@@ -43,11 +43,11 @@ public sealed record TextUnit(
     /// (ex.: <c>{ "command": 812, "args": [0] }</c>). O Core nunca interpreta o conteúdo; só o preserva.
     /// </summary>
     /// <remarks>
-    /// É um <see cref="JsonElement"/> (qualquer JSON) porque o <c>text/*.json</c> fica legível em diff, o valor é imutável e
+    /// O valor atribuído é clonado, então não depende do <see cref="JsonDocument"/> de origem. É um <see cref="JsonElement"/> (qualquer JSON) porque o <c>text/*.json</c> fica legível em diff, o valor é imutável e
     /// independente do documento de origem, e cada engine escolhe o próprio formato sem criar tipos no Core. Uma string única ou base64
     /// esconderiam a estrutura no diff. A engine valida o que lê: locator ausente ou incompatível com o script vira <see cref="InvalidDataException"/> na reconstrução.
     /// </remarks>
-    public JsonElement? Locator { get; init; }
+    public JsonElement? Locator { get; init => field = value?.Clone(); }
 
     /// <summary>Verdadeiro quando há uma tradução utilizável: <see cref="Translation"/> não vazia e <see cref="Status"/> diferente de <see cref="TranslationStatus.Untranslated"/>.</summary>
     [JsonIgnore]

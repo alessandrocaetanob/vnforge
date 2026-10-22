@@ -154,6 +154,36 @@ public class TextUnitTests
         Assert.Null(denovo.Origin);
     }
 
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("""{ "id": "a:0001", "kind": "name", "status": "untranslated" }""")]
+    [InlineData("""{ "id": null, "kind": "name", "source": "x", "status": "untranslated" }""")]
+    public void Campo_obrigatorio_ausente_ou_nulo_falha(string json)
+    {
+        Assert.ThrowsAny<JsonException>(() => TextUnitJson.Deserialize(json));
+    }
+
+    [Fact]
+    public void Locator_nao_depende_do_documento_de_origem()
+    {
+        JsonElement raiz;
+        using (var doc = JsonDocument.Parse("""{ "command": 812 }"""))
+        {
+            raiz = doc.RootElement;
+            var unidade = Unidade() with { Locator = raiz };
+            Assert.NotNull(unidade.Locator);
+        }
+
+        var depois = Unidade() with { Locator = JsonSerializer.SerializeToElement(new { command = 1 }) };
+        Assert.Contains("command", TextUnitJson.Serialize(depois));
+    }
+
+    [Fact]
+    public void Opcoes_sao_somente_leitura()
+    {
+        Assert.True(TextUnitJson.Options.IsReadOnly);
+    }
+
     [Fact]
     public void Lista_de_unidades_faz_ida_e_volta()
     {

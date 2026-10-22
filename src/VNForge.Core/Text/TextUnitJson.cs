@@ -30,13 +30,19 @@ public static class TextUnitJson
     public static IReadOnlyList<TextUnit> DeserializeList(string json) =>
         JsonSerializer.Deserialize<List<TextUnit>>(json, Options) ?? throw new JsonException("A lista de unidades de texto é nula.");
 
-    private static JsonSerializerOptions CriarOpcoes() => new()
+    private static JsonSerializerOptions CriarOpcoes()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        Converters = { new UtcDateTimeOffsetConverter() },
-    };
+        var opcoes = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            RespectNullableAnnotations = true,
+            Converters = { new UtcDateTimeOffsetConverter() },
+        };
+        opcoes.MakeReadOnly(populateMissingResolver: true);
+        return opcoes;
+    }
 
     private sealed class UtcDateTimeOffsetConverter : JsonConverter<DateTimeOffset>
     {
