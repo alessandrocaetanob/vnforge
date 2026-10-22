@@ -49,7 +49,7 @@ public sealed class YpfArchiveFormat : IArchiveFormat
     /// <summary>
     /// Lê o cabeçalho e o índice de qualquer versão: o que vale é o que confere com o conteúdo. O hash dos dados é
     /// detectado numa amostra das menores entradas; se a amostra não o confirma, vale o padrão da versão e
-    /// <see cref="YpfParameters.DataHashVerified"/> fica falso. A conferência por entrada é de <c>OpenEntry</c> (#28).
+    /// <see cref="YpfParameters.DataHashVerified"/> fica falso. A conferência por entrada é de <c>OpenEntry</c>.
     /// </summary>
     /// <exception cref="UnknownVersionException">Nenhuma combinação leu o índice e a versão está fora das versões conhecidas.</exception>
     /// <exception cref="InvalidFileException">
@@ -228,7 +228,7 @@ public sealed class YpfArchiveFormat : IArchiveFormat
         }
 
         // Sem nenhuma confirmação (ou com empate, como em entradas vazias), vale o padrão da versão: o detalhe
-        // por entrada fica com OpenEntry (#28), e um data_hash divergente não impede de abrir o resto do pacote.
+        // por entrada fica com OpenEntry, e um data_hash divergente não impede de abrir o resto do pacote.
         var verified = matches[best] > 0 && matches.Count(m => m == matches[best]) == 1;
         return (matches[best] > 0 ? algorithms[best] : preferred, verified);
     }

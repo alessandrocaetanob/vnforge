@@ -72,7 +72,7 @@ Fontes da tabela: `yuri.md:500-513`, `ypf.py:54-62` e `:65-80`, `Xorboth YPFHead
 - **Chave do nome**, por entrada: a dedução do GARbro (byte `len-4` contra `.`), o XOR da entrada anterior, os XOR conhecidos (0xFF, 0xBF, 0xC9) e, por último, os 256 valores, sempre validando pelo hash do nome. Cada `YpfEntry` guarda o XOR que usou.
 - **Nomes repetidos**: detectados pelos bytes do nome com `\` e `/` equivalentes (o byte 0x5C como segundo byte de um caractere Shift-JIS não conta) e, depois, pelo caminho decodificado.
 - **`header_size`**: vale se for o tamanho do índice ou o tamanho do índice mais 32; a semântica fica em `YpfParameters.HeaderSizeIncludesHeader`. Qualquer outro valor é erro.
-- **Hash dos dados**: comparado com os três algoritmos sobre os bytes armazenados das menores entradas (até 16 entradas de até 4 MiB, 8 MiB no total). Vence o que confere em mais entradas. Se nenhuma confere, ou a amostra empata (por exemplo, só entradas vazias, cujo hash é 0 em CRC32 e MurmurHash2), vale o padrão da versão e `YpfParameters.DataHashVerified` fica falso; o leitor não rejeita o arquivo por isso. A conferência de cada `data_hash` e a mensagem de divergência (com o valor gravado e o calculado) são da `OpenEntry` (#28).
+- **Hash dos dados**: comparado com os três algoritmos sobre os bytes armazenados das menores entradas (até 16 entradas de até 4 MiB, 8 MiB no total). Vence o que confere em mais entradas. Se nenhuma confere, ou a amostra empata (por exemplo, só entradas vazias, cujo hash é 0 em CRC32 e MurmurHash2), vale o padrão da versão e `YpfParameters.DataHashVerified` fica falso; o leitor não rejeita o arquivo por isso. `OpenEntry` confere cada `data_hash` só quando `DataHashVerified` é verdadeiro (sem algoritmo confirmado, comparar com o padrão da versão recusaria dado íntegro) e lança `InvalidDataException`, com o valor gravado e o calculado, se divergir. Confere também o tamanho descomprimido contra `size_uncompressed`, nem a mais nem a menos. Bytes de preenchimento depois do fluxo zlib completo dentro de `size_stored` são tolerados, como no GARbro (`ArcYPF.cs:155-157`), no `ypf.py` (`zlib.decompress`) e no YPF-Manager (`Util.cs:42-59`); fluxo truncado e Adler-32 errado são erro.
 - **Offset de entrada vazia**: o limite inferior (os dados começam depois do índice) não vale para entrada sem bytes armazenados.
 - **O que a gravação (#29) copia do original**: `YpfHeader.Padding` (os 16 bytes de 0x10 a 0x1F, normalmente zeros), `YpfParameters.Gaps` (trechos da área de dados que nenhuma entrada referencia, antes do fim do último dado) e `YpfParameters.Trailer` (bytes depois do último dado). Cada trecho vem com offset e tamanho no arquivo de origem; a #29 os copia do fluxo de origem, nas mesmas posições relativas, para a ida e volta ficar idêntica num YPF real que não seja o zerado dos escritores conhecidos.
 - **Tabela de troca ambígua**: se os nomes do arquivo não têm tamanho que separe duas tabelas, vale a primeira da ordem de tentativa. O `name_size` gravado é guardado cru em cada entrada, então a gravação não depende dessa escolha.
@@ -92,6 +92,80 @@ O gerador de testes (`tests/VNForge.Engines.YuRis.Tests/Ypf/Synthetic/SyntheticY
 8. **Compressão e entradas de 0 byte**: quais tipos o jogo comprime, se existem entradas de 0 byte e se o zlib do original cabe no nosso nível.
 9. **`file_type` 8 e 9** (`ycg` e `psb`) e o resto da tabela de tipos: os valores usados na versão do jogo.
 10. **Tolerância do executável**: se o jogo aceita `header_size` ou hash inconsistentes (as mutações de `SyntheticYpfMutations` servem de teste).
+
+## Lista de comandos (YSCM) e lista de scripts (YSTL)
+
+Fontes citadas como `arquivo:linha`, sobre as cópias lidas em 2026-10-22 (as linhas podem se mover nos repositórios):
+
+- `yuri.md`, `yscm.py`, `ystl.py` e `common.py`: [shimamura-sakura/yuri](https://github.com/shimamura-sakura/yuri), `yuri.md` e `yuri/fileformat/`
+- `VNTextPatch Notes.txt` e `YurisCommandList.cs`: [arcusmaximus/VNTranslationTools](https://github.com/arcusmaximus/VNTranslationTools), `VNTextPatch.Shared/Scripts/Yuris/`
+- `RxYuris`: [ZQF-ReVN/RxYuris](https://github.com/ZQF-ReVN/RxYuris), só confirma que existem leitores de YSCM e YSTL nas versões 2.xx a 5.xx; o código não foi lido
+
+### `ysc.ybn` (YSCM)
+
+```
+u8  magic[4]   = "YSCM"
+u32 version
+u32 cmd_count
+u32 padding         // 0
+Command[cmd_count]  // o id do comando é a posição na lista, 0 em diante
+    sz  name        // Shift-JIS, terminado em 0
+    u8  param_count
+    Parameter[param_count]
+        sz name
+        u8 type     // yscm.py lê como Typ; o yuri.md chama de desconhecido
+        u8 flags    // desconhecido nas duas fontes
+sz  error_msg[37]   // ou 0x90, ver abaixo
+u8  table[256]
+```
+
+Layout: `yuri.md:624-638`, `yscm.py:4,14-18,26-30,45-58`, `VNTextPatch Notes.txt:2-17`, `YurisCommandList.cs:19-30,48-63`. O opcode que o YSTB grava em cada instrução é esse id (`yuri.md:849`, `YurisScenarioScript.cs:529-533` busca `WORD`, `_`, `RETURNCODE`, `GOSUB` e `CG` por nome).
+
+Onde as fontes divergem, e o que o leitor (`src/VNForge.Engines.YuRis/Yscm/`) faz:
+
+- **Mensagens de erro**: 37 no yuri (`NErrStr`, `common.py:9`, `yuri.md:636`) e `0x90` (144) no `Notes.txt:16`. O `YurisCommandList.cs` para de ler depois dos comandos (`:26-29`) e não resolve a dúvida; o `yscm.py:52-54` lê as 37 strings, a tabela de 256 bytes e exige o fim do arquivo. O leitor valida a cauda: depois do último comando lê strings terminadas em 0 até restarem exatamente 256 bytes, exige que o arquivo termine ali e que a quantidade de strings seja 37 ou `0x90` (`YscmFile.ErrorMessageCount`). Qualquer outra contagem é erro, com o valor encontrado na mensagem, porque a causa provável é uma contagem de comandos ou de parâmetros errada, que faria o leitor tomar as mensagens por parâmetros. Se o jogo tiver outra quantidade, este trecho e o leitor mudam no mesmo PR.
+- **Padding**: o `yscm.py:50` exige 0; o VNTextPatch o ignora (`YurisCommandList.cs:25`). O leitor ignora.
+- **Quantidade de comandos**: o VNTextPatch converte para `byte` com `checked` (`YurisCommandList.cs:24`), então 256 comandos quebram; o id é `u8` (`yuri.md:849`), então 256 cabem. O leitor aceita até 256 e recusa acima disso, com a contagem na mensagem.
+- **Nome repetido**: o VNTextPatch falha na leitura (`Dictionary.Add`, `YurisCommandList.cs:51`) para comando repetido e guarda o primeiro parâmetro repetido (`TryAdd`, `:58`); o yuri guarda o último (`setattr`, `yscm.py:56-57`). O leitor guarda tudo e só falha ao procurar o opcode de um nome repetido (`YscmFile.TryGetOpcode`), com os ids na mensagem.
+- **Versão**: o yuri aceita 200 a 599 (`common.py:8`). O leitor usa a mesma faixa (`UnknownVersionException` fora dela); o VNTextPatch lê a versão e não a usa (`YurisCommandList.cs:23`).
+
+`YscmFile.GetOpcodes()` devolve `WORD`, `_`, `RETURNCODE`, `GOSUB` e `CG`; se faltar algum, a `InvalidFileException` nomeia todos os que faltam. A comparação do nome é exata, com caixa.
+
+### `yst_list.ybn` (YSTL)
+
+```
+u8  magic[4]   = "YSTL"
+u32 version
+u32 scr_count
+Script[scr_count]
+    u32 index       // 0, 1, 2... sequencial
+    u32 path_size
+    u8  path[path_size]  // caminho original do .yst, Shift-JIS (ex.: userscript\01_prologo.yst)
+    u64 mod_time    // FILETIME do Windows
+    i32 var_count   // negativo = não há YSTB para este script
+    u32 lbl_count
+    u32 txt_count   // só a partir de certa versão, ver abaixo
+```
+
+Layout: `yuri.md:773-792`, `ystl.py:3-9,21-25,43-51`, `VNTextPatch Notes.txt:79-91`. O YSTB do script `index` é `ystNNNNN.ybn` (`yuri.md:423`); o leitor assume cinco dígitos (`yst00012.ybn`), o que o `yuri.md` não confirma além do `XXXXX`. `var_count` negativo marca o `global.yst` e scripts vazios, que o compilador pula (`yuri.md:789-792`).
+
+Onde as fontes divergem, e o que o leitor (`src/VNForge.Engines.YuRis/Ystl/`) faz:
+
+- **Limiar do `txt_count`**: o `ystl.py:8` troca na 474 (`VScrNew`); o `yuri.md:783` na 477; o `Notes.txt:91` não menciona versão e grava o campo sempre. Nenhuma das três mediu um jogo na faixa 474 a 476. O leitor tenta primeiro o layout da versão (com o campo a partir da 474, sem ele abaixo) e, se esse não consome o arquivo inteiro com índices sequenciais, tenta o outro. `YstlFile.HasTextCount` diz qual valeu. Se os dois falham, a mensagem é a da tentativa que foi mais longe.
+- **Sinal dos contadores**: o `ystl.py:6-7` lê `var_count`, `lbl_count` e `txt_count` como inteiros com sinal; o `yuri.md:781-784` só dá sinal a `var_count`. O leitor segue o `yuri.md`.
+- **Índice**: o `ystl.py:24` exige `index == posição`. O leitor também exige, e a mensagem dá a posição e o índice encontrado.
+- **Fim do arquivo**: o `ystl.py:50` exige que o arquivo acabe no último script. O leitor recusa bytes sobrando.
+- **Caminho**: o `ystl.py:25` decodifica em CP932, como o leitor. Os nomes reais usam barra invertida; `YstlScript.ReadableName` aceita `\` e `/` e tira a pasta e a extensão.
+
+### O que confirmar no jogo (#35)
+
+Os leitores foram escritos só a partir das fontes acima e de arquivos sintéticos (`tests/VNForge.Engines.YuRis.Tests/Yscm/Synthetic/` e `Ystl/Synthetic/`); nenhum foi conferido contra o `ysc.ybn` ou o `yst_list.ybn` do jogo.
+
+1. **Versão** gravada em `ysc.ybn` e em `yst_list.ybn` (iguais à do `ysbin.ypf`?), e, se cair em 474 a 476, se os registros do YSTL têm o `txt_count`.
+2. **Cauda do YSCM**: o leitor exige 37 ou 0x90 mensagens de erro (`YscmFile.ErrorMessageCount`) seguidas da tabela de 256 bytes até o fim do arquivo. Conferir qual quantidade o `ysc.ybn` do jogo tem; outra quantidade, ou uma tabela de outro tamanho, é erro do leitor a corrigir.
+3. **Os cinco comandos**: se `WORD`, `_`, `RETURNCODE`, `GOSUB` e `CG` existem com esses nomes e uma vez só, e quais ids têm. O `GetOpcodes()` falha com o nome do que faltar.
+4. **Padding do YSCM** e o byte `type`/`flags` dos parâmetros: valores reais, para trocar os nomes `TypeCode` e `Flags` por algo com sentido.
+5. **YSTL**: se `index` é sempre sequencial, se o nome do YSTB tem cinco dígitos e quais scripts têm `var_count` negativo.
 
 ## Scripts YSTB (`yst*.ybn`), versão ≥ 300
 
@@ -113,14 +187,14 @@ u32  line_numbers[n]
 
 - Cada uma das 4 seções é XOR com uma chave de 4 bytes, recomeçando no início de cada seção.
 - **Descobrir a chave**: o primeiro argumento quase sempre tem `offset = 0`, então os bytes 8–11 da seção de argumentos, ainda cifrados, *são* a chave. Chaves conhecidas para validar: `0xD36FAC96` (≥ 290), `0x07B4024A` (versões 2xx). Jogos comerciais podem ter outra.
-- **Opcodes não são fixos**: vêm de `ysc.ybn` (YSCM), que lista os comandos na ordem do id. Procuramos `WORD` (texto), `_` (expressão), `RETURNCODE`, `GOSUB`, `CG`.
+- **Opcodes não são fixos**: vêm de `ysc.ybn` (YSCM), que lista os comandos na ordem do id (leitor: seção acima). Procuramos `WORD` (texto), `_` (expressão), `RETURNCODE`, `GOSUB`, `CG`.
 - **Texto (`WORD`)**: 1 argumento, bytes crus em Shift-JIS, sem aspas. Linhas seguidas de `WORD` formam uma mensagem; dá para pôr a tradução inteira no primeiro e esvaziar os demais.
 - **Códigos de controle dentro do texto**: `EF F0` quebra de linha, `EF F2` nova página, `EF F3` esperar clique, `EF F5` desconhecido. Viram `\n`, `\p`, `\c`, `\u` no nosso JSON. Outro `EF xx` vira `{EF:xx}`. A varredura respeita os limites de caractere do CP932: um `EF` que é segundo byte de um caractere de dois bytes (ex.: `88 EF`) não é código de controle, assim como um segundo byte `5C` ou `7B` (ex.: `ソ` = `83 5C`) não vira barra ou chave. Byte que o Shift-JIS não decodifica, ou que decodifica para um par diferente na volta (o CP932 tem duplicatas, como `87 90` e `81 E0`), vira `{RAW:hex}`, para a ida e volta gerar os mesmos bytes. A implementação é `ControlMarkers`, em `VNForge.Engines.YuRis.Text`.
 - **Falante**: no E-ris costuma vir como `名前「fala」` dentro do próprio `WORD`.
 - **Escolhas e nomes**: chamadas `GOSUB` para `ES.SEL.SET` e `ES.CHAR.NAME`, com strings em expressão.
 - **Strings em expressão**: `4D <u16 len> "texto"`. O YU-RIS não tem escape de aspas, mas só confere se o primeiro e o último caractere são iguais, então dá para delimitar com crase: `` `texto com "aspas" e 'apóstrofo'` ``.
 - **Plano de reescrita**: anexar os textos novos no fim da seção de recursos e atualizar `size`/`offset` só dos argumentos alterados. Os outros argumentos (inclusive os de `RETURNCODE`, cujo offset nem sempre aponta para recursos) não são tocados.
-- `yst_list.ybn` (YSTL) dá o caminho original de cada script (ex.: `userscript\01_prologo.yst`), útil para nomes legíveis.
+- `yst_list.ybn` (YSTL) dá o caminho original de cada script (ex.: `userscript\01_prologo.yst`), útil para nomes legíveis (leitor: seção acima).
 - Versões < 300 têm outro layout (instruções de tamanho variável). Só vamos tratar se o seu jogo precisar.
 
 ## Acentuação: o problema central
