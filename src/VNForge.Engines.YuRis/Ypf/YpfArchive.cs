@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.IO.Compression;
 using VNForge.Core.Engines;
 using VNForge.Engines.YuRis.Ypf.Hashing;
@@ -11,6 +10,8 @@ namespace VNForge.Engines.YuRis.Ypf;
 /// </summary>
 public sealed class YpfArchive : IArchive
 {
+    private const int MaxDeflateRatio = 1032;
+
     private readonly Stream _stream;
     private readonly HashSet<ArchiveEntry> _members = new(ReferenceEqualityComparer.Instance);
     private bool _disposed;
@@ -45,7 +46,7 @@ public sealed class YpfArchive : IArchive
     /// <remarks>
     /// O hash só é conferido quando <see cref="YpfParameters.DataHashVerified"/> é verdadeiro: sem ele o algoritmo do
     /// arquivo não foi confirmado, e comparar com o padrão da versão poderia recusar um dado íntegro. Nesse caso o
-    /// tamanho e o Adler-32 que fecha o fluxo zlib (conferido aqui, porque o ZLibStream não o exige) ainda protegem as entradas comprimidas.
+    /// tamanho e o Adler-32 que fecha o fluxo zlib (conferido pelo ZLibStream; o truncamento é detectado aqui) ainda protegem as entradas comprimidas.
     /// </remarks>
     /// <exception cref="ArgumentException">A entrada pertence a outro pacote.</exception>
     /// <exception cref="InvalidDataException">Tamanho, hash ou fluxo zlib divergente: nunca devolve dados corrompidos.</exception>
@@ -88,13 +89,20 @@ public sealed class YpfArchive : IArchive
 
     private byte[] ReadStored(YpfEntry entry)
     {
+        // Confere contra o tamanho do arquivo antes de alocar: um índice corrompido não pode pedir gigabytes.
+        if (entry.Offset > (ulong)_stream.Length || entry.SizeStored > (ulong)_stream.Length - entry.Offset)
+        {
+            throw new InvalidDataException(
+                $"Os dados da entrada \"{entry.Path}\" ({entry.SizeStored} bytes no offset {entry.Offset}) passam do fim do arquivo.");
+        }
+
         var stored = new byte[entry.SizeStored];
         try
         {
-            _stream.Seek(checked((long)entry.Offset), SeekOrigin.Begin);
+            _stream.Seek((long)entry.Offset, SeekOrigin.Begin);
             _stream.ReadExactly(stored);
         }
-        catch (Exception ex) when (ex is EndOfStreamException or OverflowException)
+        catch (EndOfStreamException ex)
         {
             throw new InvalidDataException(
                 $"Os dados da entrada \"{entry.Path}\" ({entry.SizeStored} bytes no offset {entry.Offset}) passam do fim do arquivo.",
@@ -106,23 +114,31 @@ public sealed class YpfArchive : IArchive
 
     private static byte[] Inflate(YpfEntry entry, byte[] stored)
     {
+        if (entry.Size > (long)entry.SizeStored * MaxDeflateRatio)
+        {
+            throw Divergent(entry, $"tamanho descomprimido impossível para {entry.SizeStored} bytes comprimidos (o deflate não passa de {MaxDeflateRatio} para 1): o índice grava {entry.Size}.");
+        }
+
         var content = new byte[entry.Size];
+        var source = new EofTrackingStream(new MemoryStream(stored, writable: false));
         bool hasExtra;
         try
         {
-            using var zlib = new ZLibStream(new MemoryStream(stored, writable: false), CompressionMode.Decompress);
+            using var zlib = new ZLibStream(source, CompressionMode.Decompress);
             zlib.ReadExactly(content);
             hasExtra = zlib.ReadByte() != -1;
         }
         catch (EndOfStreamException ex)
         {
             throw new InvalidDataException(
-                $"A entrada \"{entry.Path}\" diverge: o tamanho descomprimido é menor que os {entry.Size} bytes gravados no índice.",
+                $"A entrada \"{entry.Path}\" diverge: o fluxo zlib termina antes dos {entry.Size} bytes esperados.",
                 ex);
         }
         catch (InvalidDataException ex)
         {
-            throw new InvalidDataException($"O fluxo zlib da entrada \"{entry.Path}\" é inválido: {ex.Message}", ex);
+            throw new InvalidDataException(
+                $"O fluxo zlib da entrada \"{entry.Path}\" está corrompido (cabeçalho, dados ou Adler-32 do fim inválido).",
+                ex);
         }
 
         if (hasExtra)
@@ -130,14 +146,67 @@ public sealed class YpfArchive : IArchive
             throw Divergent(entry, $"o tamanho descomprimido é maior que os {entry.Size} bytes gravados no índice.");
         }
 
-        // O ZLibStream do .NET aceita um fluxo sem o Adler-32 do fim (RFC 1950, seção 2.2), então a conferência é nossa.
-        var trailer = stored.Length >= 4 ? BinaryPrimitives.ReadUInt32BigEndian(stored.AsSpan(stored.Length - 4)) : (uint?)null;
-        if (trailer != YpfHash.Adler32(content))
+        // O ZLibStream do .NET devolve fim de fluxo, sem lançar, quando a entrada acaba no meio do trailer. Se o
+        // inflater pediu mais bytes e bateu no fim, o fluxo está truncado; bytes de preenchimento depois do trailer
+        // completo não são lidos e passam (GARbro ArcYPF.cs:155-157, ypf.py, Xorboth Util.cs:42-59 também toleram).
+        if (source.HitEof)
         {
-            throw Divergent(entry, "o fluxo zlib está truncado ou o Adler-32 do fim não confere com o conteúdo descomprimido.");
+            throw Divergent(entry, "o fluxo zlib está truncado: termina antes do Adler-32 do fim.");
         }
 
         return content;
+    }
+
+    private sealed class EofTrackingStream(Stream inner) : Stream
+    {
+        public bool HitEof { get; private set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            var read = inner.Read(buffer);
+            if (read == 0 && !buffer.IsEmpty)
+            {
+                HitEof = true;
+            }
+
+            return read;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                inner.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
     }
 
     private static InvalidDataException Divergent(YpfEntry entry, string reason) =>

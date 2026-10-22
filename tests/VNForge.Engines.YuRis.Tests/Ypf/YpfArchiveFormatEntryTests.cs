@@ -121,8 +121,10 @@ public partial class YpfArchiveFormatTests
         Assert.True(archive.Parameters.DataHashVerified);
         var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(entry));
 
+        var expected = ypf.Entries.Single(e => e.Name == SyntheticYpfBuilderTests.Script1);
         Assert.Contains("ysbin/yst00001.ybn", ex.Message);
-        Assert.Contains("hash", ex.Message);
+        Assert.Contains($"0x{expected.DataHash:X8}", ex.Message);
+        Assert.Contains($"0x{expected.DataHash ^ 1:X8}", ex.Message);
     }
 
     [Theory]
@@ -175,12 +177,13 @@ public partial class YpfArchiveFormatTests
 
         var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(target));
 
-        Assert.Contains("tamanho", ex.Message);
+        Assert.Contains(name.Replace('\\', '/'), ex.Message);
     }
 
     [Theory]
     [InlineData(1u)]
     [InlineData(4u)]
+    [InlineData(5u)]
     public void OpenEntry_FluxoZlibTruncadoLancaMesmoSemHashConfirmado(uint missing)
     {
         var ypf = new SyntheticYpfBuilder(500)
@@ -191,6 +194,89 @@ public partial class YpfArchiveFormatTests
 
         Assert.False(archive.Parameters.DataHashVerified);
         Assert.Throws<InvalidDataException>(() => archive.OpenEntry(archive.Entries[0]));
+    }
+
+    private static (SyntheticYpf Ypf, SyntheticYpfEntry Entry) SingleCompressed() =>
+        SingleCompressed(new SyntheticYpfBuilder(500));
+
+    private static (SyntheticYpf Ypf, SyntheticYpfEntry Entry) SingleCompressed(SyntheticYpfBuilder builder)
+    {
+        var ypf = builder.AddFile("a.ybn", SyntheticYpfBuilderTests.Repetitive, compress: true).Build();
+        return (ypf, ypf.Entries[0]);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void OpenEntry_BytesDePreenchimentoDepoisDoFluxoZlibSaoTolerados(int padding)
+    {
+        var (ypf, entry) = SingleCompressed();
+        var bytes = ypf.WithStoredSize("a.ybn", entry.SizeStored + (uint)padding).Concat(new byte[padding]).ToArray();
+        using var archive = Open(bytes);
+
+        Assert.False(archive.Parameters.DataHashVerified);
+        using var stream = archive.OpenEntry(archive.Entries[0]);
+
+        Assert.Equal(SyntheticYpfBuilderTests.Repetitive, ReadAll(stream));
+    }
+
+    [Fact]
+    public void OpenEntry_Adler32DoFimErradoComFluxoCompletoLanca()
+    {
+        var (ypf, entry) = SingleCompressed();
+        var bytes = (byte[])ypf.Bytes.Clone();
+        bytes[(int)entry.Offset + (int)entry.SizeStored - 1] ^= 0x01;
+        using var archive = Open(bytes);
+
+        var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(archive.Entries[0]));
+
+        Assert.Contains("a.ybn", ex.Message);
+        Assert.Contains("Adler-32", ex.Message);
+    }
+
+    [Fact]
+    public void OpenEntry_EntradaAlemDoFimDoArquivoLancaSemAlocar()
+    {
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+        var last = ypf.Entries.MaxBy(e => e.Offset + e.SizeStored)!;
+        var stream = new MemoryStream(ypf.Bytes);
+        using var archive = (YpfArchive)Format.Open(stream);
+        stream.SetLength(stream.Length - 1);
+        var target = archive.Entries.Single(e => e.Path == last.Name.Replace('\\', '/'));
+
+        var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(target));
+
+        Assert.Contains("passam do fim do arquivo", ex.Message);
+    }
+
+    [Fact]
+    public void OpenEntry_TamanhoDescomprimidoImpossivelParaOsBytesComprimidosLanca()
+    {
+        var (ypf, entry) = SingleCompressed();
+        using var archive = Open(ypf.WithUncompressedSize("a.ybn", (uint)((long)entry.SizeStored * 1032 + 1)));
+
+        var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(archive.Entries[0]));
+
+        Assert.Contains("impossível", ex.Message);
+    }
+
+    [Fact]
+    public void OpenEntry_TamanhoAcimaDe2GiBLancaNotSupported()
+    {
+        var (ypf, _) = SingleCompressed();
+        using var archive = Open(ypf.WithUncompressedSize("a.ybn", 0x9000_0000));
+
+        Assert.Throws<NotSupportedException>(() => archive.OpenEntry(archive.Entries[0]));
+    }
+
+    [Fact]
+    public void OpenEntry_EntradaVaziaMarcadaComoComprimidaLancaPorFaltarOFluxoZlib()
+    {
+        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+        using var archive = Open(ypf.WithCompressedFlag(SyntheticYpfBuilderTests.Empty, true));
+        var entry = archive.Entries.Single(e => e.Size == 0);
+
+        Assert.Throws<InvalidDataException>(() => archive.OpenEntry(entry));
     }
 
     [Fact]
