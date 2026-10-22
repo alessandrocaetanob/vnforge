@@ -25,9 +25,10 @@ public interface IArchiveFormat
     /// Se a chamada lançar exceção, o fluxo continua sendo de quem chamou.
     /// </summary>
     /// <param name="stream">Fluxo legível e com busca (seekable).</param>
-    /// <exception cref="InvalidDataException">
+    /// <exception cref="InvalidFileException">
     /// O conteúdo não é do formato, o índice é inconsistente ou há dois <see cref="ArchiveEntry.Path"/> iguais;
     /// a mensagem, em português, diz o que falhou.
     /// </exception>
+    /// <exception cref="UnknownVersionException">O arquivo é do formato, mas de uma versão que o VNForge não conhece.</exception>
     IArchive Open(Stream stream);
 }
