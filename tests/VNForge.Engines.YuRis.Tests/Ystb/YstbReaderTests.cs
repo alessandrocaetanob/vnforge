@@ -134,6 +134,23 @@ public class YstbReaderTests
     }
 
     [Fact]
+    public void Read_PrimeiroOffsetComSoOByteAltoDiferenteDeZero_NaoAceitaADerivadaQuaseCerta()
+    {
+        // A derivada erra só o último byte da chave, então ainda decifra opcodes e contagens; o assign_op sairia 1, não 0.
+        var script = NewBuilder()
+            .WithKey(0xD36FAC96)
+            .AddCommand("WAIT", 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x01000000))
+            .AddWord("テキスト", 2)
+            .Build();
+
+        var file = Read(script.Bytes);
+
+        Assert.Equal(YstbKeyOrigin.Known, file.KeyOrigin);
+        Assert.Equal(0xD36FAC96u, file.Key);
+        AssertMatchesScript(script, file);
+    }
+
+    [Fact]
     public void Read_ChaveForaDaListaEPrimeiroOffsetDiferenteDeZero_FalhaNomeandoAChave()
     {
         var script = NewBuilder()

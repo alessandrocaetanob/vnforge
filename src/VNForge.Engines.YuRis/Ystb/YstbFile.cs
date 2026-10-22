@@ -9,10 +9,13 @@ public enum YstbKeyOrigin
     /// <summary>Sem argumentos para derivar a chave e as seções já estavam em claro (chave 0).</summary>
     None,
 
-    /// <summary>Os bytes 8 a 11 da seção de argumentos, cifrados: valem como chave quando o primeiro argumento tem <c>offset = 0</c>.</summary>
+    /// <summary>
+    /// Os bytes 8 a 11 da seção de argumentos, cifrados: valem como chave quando o primeiro argumento tem <c>offset = 0</c>.
+    /// Também é a origem quando a derivada coincide com uma chave conhecida.
+    /// </summary>
     Derived,
 
-    /// <summary>Uma das chaves de <see cref="YstbReader.KnownKeys"/>, usada quando a derivada não decifrou o arquivo.</summary>
+    /// <summary>Uma das chaves de <see cref="YstbReader.KnownKeys"/> que decifrou o arquivo e difere da derivada.</summary>
     Known,
 }
 

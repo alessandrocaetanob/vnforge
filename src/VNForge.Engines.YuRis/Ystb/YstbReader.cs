@@ -7,9 +7,9 @@ namespace VNForge.Engines.YuRis.Ystb;
 
 /// <summary>
 /// Lê um <c>yst*.ybn</c> (YSTB) a partir da versão 300: cabeçalho de 32 bytes e quatro seções (instruções, argumentos,
-/// recursos e números de linha), cada uma cifrada com o mesmo XOR de 4 bytes. A chave sai dos bytes 8 a 11 da seção
-/// de argumentos; as chaves conhecidas entram como alternativa. Toda chave candidata só vale se o script inteiro
-/// decifrar de forma consistente (docs/06-yuris-notas-tecnicas.md).
+/// recursos e números de linha), cada uma cifrada com o mesmo XOR de 4 bytes. As chaves conhecidas são tentadas primeiro e
+/// a derivada dos bytes 8 a 11 da seção de argumentos depois; toda candidata só vale se o script inteiro decifrar de forma
+/// consistente (docs/06-yuris-notas-tecnicas.md).
 /// </summary>
 public static class YstbReader
 {
@@ -27,7 +27,7 @@ public static class YstbReader
     private static ReadOnlySpan<byte> Magic => "YSTB"u8;
 
     /// <summary>
-    /// Chaves de outros leitores, na notação do yuri.md, tentadas quando a derivada não decifra o arquivo:
+    /// Chaves de outros leitores, na notação do yuri.md, tentadas antes da derivada:
     /// <c>0xD36FAC96</c> (versão 290 ou mais) e <c>0x07B4024A</c> (versões 2xx).
     /// </summary>
     public static IReadOnlyList<uint> KnownKeys => KnownKeyValues;
@@ -148,22 +148,28 @@ public static class YstbReader
     private static List<Candidate> BuildCandidates(ReadOnlySpan<byte> data, Layout layout)
     {
         var candidates = new List<Candidate>();
-        if (layout.Arguments.Size >= KeyOffsetInArguments + 4)
-        {
-            var encrypted = data.Slice(layout.Arguments.Offset + KeyOffsetInArguments, 4);
-            candidates.Add(new Candidate(BinaryPrimitives.ReadUInt32BigEndian(encrypted), YstbKeyOrigin.Derived));
-        }
-        else
+        if (layout.Arguments.Size < KeyOffsetInArguments + 4)
         {
             candidates.Add(new Candidate(0, YstbKeyOrigin.None));
-        }
-
-        foreach (var key in KnownKeyValues)
-        {
-            if (candidates.TrueForAll(c => c.Key != key))
+            foreach (var key in KnownKeyValues)
             {
                 candidates.Add(new Candidate(key, YstbKeyOrigin.Known));
             }
+
+            return candidates;
+        }
+
+        // As conhecidas vêm antes da derivada: uma derivada errada (primeiro offset com só os bits altos diferentes de 0)
+        // erra poucos bits e decifra quase tudo, então passa nas conferências; uma conhecida errada decifra lixo e não passa.
+        var derived = BinaryPrimitives.ReadUInt32BigEndian(data.Slice(layout.Arguments.Offset + KeyOffsetInArguments, 4));
+        foreach (var key in KnownKeyValues)
+        {
+            candidates.Add(new Candidate(key, key == derived ? YstbKeyOrigin.Derived : YstbKeyOrigin.Known));
+        }
+
+        if (Array.IndexOf(KnownKeyValues, derived) < 0)
+        {
+            candidates.Add(new Candidate(derived, YstbKeyOrigin.Derived));
         }
 
         return candidates;
@@ -206,7 +212,7 @@ public static class YstbReader
                     $"a instrução {i} (posição {position}) declara {declared} argumentos, mas restam {argumentCount - nextArgument} na seção de argumentos.");
             }
 
-            var arguments = new YstbArgument[declared];
+            YstbArgument[] arguments = declared == 0 ? [] : new YstbArgument[declared];
             for (var j = 0; j < declared; j++)
             {
                 var argumentPosition = layout.Arguments.Offset + ((nextArgument + j) * ArgumentBytes);
