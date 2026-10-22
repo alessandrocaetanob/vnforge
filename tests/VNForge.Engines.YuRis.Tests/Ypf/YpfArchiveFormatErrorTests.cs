@@ -336,17 +336,6 @@ public partial class YpfArchiveFormatTests
     }
 
     [Fact]
-    public void WriteTo_AindaNaoImplementadoCitaAIssue29()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        using var archive = Open(ypf.Bytes);
-
-        var ex = Assert.Throws<NotSupportedException>(() => archive.WriteTo(new MemoryStream(), new Dictionary<string, byte[]>()));
-
-        Assert.Contains("#29", ex.Message);
-    }
-
-    [Fact]
     public void OpenEntry_DepoisDoDisposeLancaObjectDisposed()
     {
         var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();

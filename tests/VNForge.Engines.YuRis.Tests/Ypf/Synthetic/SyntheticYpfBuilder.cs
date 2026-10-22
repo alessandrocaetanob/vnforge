@@ -315,8 +315,16 @@ public sealed class SyntheticYpfBuilder
             file.Stored);
     }
 
+    // Zlib de zero bytes: o ZLibStream não grava nada quando nenhum byte passou por ele, e um fluxo vazio não é zlib.
+    private static readonly byte[] EmptyZlib = [0x78, 0x9C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01];
+
     private static byte[] CompressZlib(byte[] content)
     {
+        if (content.Length == 0)
+        {
+            return EmptyZlib;
+        }
+
         using var output = new MemoryStream();
         using (var zlib = new ZLibStream(output, CompressionLevel.Optimal, leaveOpen: true))
         {

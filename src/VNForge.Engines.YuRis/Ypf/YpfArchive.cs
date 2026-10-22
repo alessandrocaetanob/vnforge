@@ -6,7 +6,7 @@ namespace VNForge.Engines.YuRis.Ypf;
 
 /// <summary>
 /// Um YPF aberto: o cabeçalho, o índice, o que o leitor detectou no arquivo e o conteúdo das entradas
-/// (<see cref="OpenEntry"/>). A gravação (<see cref="WriteTo"/>, #29) ainda não existe.
+/// (<see cref="OpenEntry"/>) e a gravação com reescrita mínima (<see cref="WriteTo"/>).
 /// </summary>
 public sealed class YpfArchive : IArchive
 {
@@ -30,7 +30,7 @@ public sealed class YpfArchive : IArchive
 
     /// <summary>
     /// Versão, algoritmos de hash, largura do offset, tabela de troca, XOR do nome e semântica do <c>header_size</c>
-    /// detectados. A gravação (#29) reusa estes parâmetros.
+    /// detectados. A gravação reusa estes parâmetros.
     /// </summary>
     public YpfParameters Parameters { get; }
 
@@ -212,14 +212,88 @@ public sealed class YpfArchive : IArchive
     private static InvalidDataException Divergent(YpfEntry entry, string reason) =>
         new($"A entrada \"{entry.Path}\" diverge: {reason}");
 
-    /// <summary>Ainda não implementado: a gravação com reescrita mínima é a issue #29.</summary>
-    /// <exception cref="NotSupportedException">Sempre, depois de validar os argumentos.</exception>
+    /// <summary>
+    /// Grava um YPF novo com reescrita mínima: cabeçalho (inclusive o padding), índice, lacunas e trailer saem do
+    /// original; entradas não trocadas são copiadas cruas, na mesma ordem, sem recomprimir nem recalcular hash.
+    /// Só a entrada trocada é recomprimida (se o original era zlib) e tem o <c>data_hash</c> recalculado com o
+    /// algoritmo detectado em <see cref="YpfParameters.DataHash"/>. Offsets e tamanhos são recalculados.
+    /// </summary>
+    /// <remarks>
+    /// Uma troca com o mesmo conteúdo da entrada conta como não trocada (o zlib não reproduz os bytes do original).
+    /// Quando <see cref="YpfParameters.DataHashVerified"/> é falso, o algoritmo do hash dos dados deste arquivo é
+    /// desconhecido, e o escritor recusa qualquer troca em vez de gravar um hash do padrão da versão que pode estar
+    /// errado; o pacote sem trocas continua copiável. O destino é gravado a partir da posição atual e truncado na
+    /// posição final, então bytes antigos depois do pacote novo não sobram como trailer falso. Se <see cref="WriteTo"/>
+    /// lançar depois de começar a gravar (erro de E/S, ou origem alterada durante a cópia), o destino fica parcial e
+    /// quem chamou deve descartá-lo.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// Chave inexistente, conteúdo nulo, destino sem gravação ou busca, ou destino igual ao fluxo de origem
+    /// (o mesmo objeto, ou um <see cref="FileStream"/> no mesmo caminho, inclusive com o prefixo <c>\\?\</c> no Windows;
+    /// um hard link ou um symlink para o original não é detectado, então o fluxo de injeção continua responsável pelo
+    /// backup). Lançada antes de gravar qualquer byte.
+    /// </exception>
+    /// <exception cref="InvalidDataException">
+    /// O fluxo de origem mudou de tamanho depois de aberto (lançada antes de gravar qualquer byte), ou acabou antes do
+    /// esperado durante a cópia (lançada no meio da gravação, com o destino parcial).
+    /// </exception>
+    /// <exception cref="NotSupportedException">
+    /// Troca num pacote sem algoritmo de hash confirmado, com blocos de dados parcialmente sobrepostos, ou que
+    /// passaria dos 4 GiB de um offset de 32 bits. Lançada antes de gravar qualquer byte.
+    /// </exception>
     public void WriteTo(Stream output, IReadOnlyDictionary<string, byte[]> replacements)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(replacements);
-        throw new NotSupportedException("Gravar um YPF ainda não foi implementado (issue #29).");
+        if (!output.CanWrite || !output.CanSeek)
+        {
+            throw new ArgumentException("O destino precisa permitir gravação e busca (seekable).", nameof(output));
+        }
+
+        if (IsSourceStream(output))
+        {
+            throw new ArgumentException(
+                "O destino não pode ser o arquivo de origem do pacote: grave num arquivo novo e deixe o fluxo de injeção, com backup, trocar o original.",
+                nameof(output));
+        }
+
+        new YpfWriter(this, _stream).Write(output, replacements);
+        output.SetLength(output.Position);
+    }
+
+    private bool IsSourceStream(Stream output)
+    {
+        if (ReferenceEquals(output, _stream))
+        {
+            return true;
+        }
+
+        if (output is not FileStream destination || _stream is not FileStream origin)
+        {
+            return false;
+        }
+
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return string.Equals(NormalizePath(destination.Name), NormalizePath(origin.Name), comparison);
+    }
+
+    /// <summary>Tira o prefixo <c>\\?\</c> (e <c>\\?\UNC\</c>) que o <see cref="FileStream.Name"/> devolve e o <see cref="Path.GetFullPath(string)"/> mantém.</summary>
+    private static string NormalizePath(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            {
+                path = @"\\" + path[@"\\?\UNC\".Length..];
+            }
+            else if (path.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                path = path[@"\\?\".Length..];
+            }
+        }
+
+        return Path.GetFullPath(path);
     }
 
     public void Dispose()
