@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using VNForge.Core;
 using VNForge.Engines.YuRis.Yscm;
@@ -24,13 +25,15 @@ public static class YstbReader
 
     private static readonly uint[] KnownKeyValues = [0xD36FAC96, 0x07B4024A];
 
+    private static readonly ReadOnlyCollection<uint> KnownKeysView = Array.AsReadOnly(KnownKeyValues);
+
     private static ReadOnlySpan<byte> Magic => "YSTB"u8;
 
     /// <summary>
     /// Chaves de outros leitores, na notação do yuri.md, tentadas antes da derivada:
     /// <c>0xD36FAC96</c> (versão 290 ou mais) e <c>0x07B4024A</c> (versões 2xx).
     /// </summary>
-    public static IReadOnlyList<uint> KnownKeys => KnownKeyValues;
+    public static IReadOnlyList<uint> KnownKeys => KnownKeysView;
 
     /// <summary>Lê o YSTB de um arquivo no disco.</summary>
     /// <param name="path">Caminho do <c>yst*.ybn</c>.</param>
@@ -73,7 +76,7 @@ public static class YstbReader
         }
 
         var layout = ReadLayout(reader, data.Length);
-        var opcodes = commands.GetOpcodes();
+        var rules = RangeRules.From(commands);
         var candidates = BuildCandidates(data.Span, layout);
 
         Failure? furthest = null;
@@ -81,7 +84,7 @@ public static class YstbReader
         {
             try
             {
-                return Decode(data, source, version, layout, candidate, commands, opcodes.Word);
+                return Decode(data, source, version, layout, candidate, commands, rules);
             }
             catch (DecodeFailure failure)
             {
@@ -159,8 +162,9 @@ public static class YstbReader
             return candidates;
         }
 
-        // As conhecidas vêm antes da derivada: uma derivada errada (primeiro offset com só os bits altos diferentes de 0)
-        // erra poucos bits e decifra quase tudo, então passa nas conferências; uma conhecida errada decifra lixo e não passa.
+        // As conhecidas vêm antes da derivada: uma derivada errada (primeiro offset que muda só alguns bytes da chave, por
+        // exemplo os bytes 2 e 3) erra poucos bits e, sem argumento conferido que pegue o desvio, passa nas conferências;
+        // uma conhecida errada decifra lixo e não passa.
         var derived = BinaryPrimitives.ReadUInt32BigEndian(data.Slice(layout.Arguments.Offset + KeyOffsetInArguments, 4));
         foreach (var key in KnownKeyValues)
         {
@@ -182,7 +186,7 @@ public static class YstbReader
         Layout layout,
         Candidate candidate,
         YscmFile commands,
-        byte wordOpcode)
+        RangeRules rules)
     {
         var instructionBytes = Decrypt(data.Span, layout.Instructions, candidate.Key);
         var argumentBytes = Decrypt(data.Span, layout.Arguments, candidate.Key);
@@ -230,11 +234,11 @@ public static class YstbReader
                         $"o argumento {nextArgument + j} (posição {argumentPosition}) tem o operador de atribuição {argument.AssignOp}; só existem 0 a {MaxAssignOp}.");
                 }
 
-                if (opcode == wordOpcode && (long)argument.Offset + argument.Size > resources.Length)
+                if (!rules.IsExempt(opcode, j, declared) && argument.Size != 0 && (long)argument.Offset + argument.Size > resources.Length)
                 {
                     throw new DecodeFailure(
                         argumentPosition,
-                        $"o argumento {nextArgument + j} (posição {argumentPosition}) do WORD aponta para os bytes {Text(argument.Offset)} a {(long)argument.Offset + argument.Size} dos recursos, que têm {resources.Length} bytes.");
+                        $"o argumento {nextArgument + j} (posição {argumentPosition}) do comando {commands.Commands[opcode].Name} aponta para os bytes {Text(argument.Offset)} a {(long)argument.Offset + argument.Size} dos recursos, que têm {resources.Length} bytes.");
                 }
 
                 arguments[j] = argument;
@@ -273,6 +277,26 @@ public static class YstbReader
     }
 
     private static string Text(uint value) => value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Argumentos cujo <c>size</c> e <c>offset</c> não apontam para os recursos (<c>ystb.py:78-80,86-87,93</c>): o
+    /// <c>RETURNCODE</c>, o 2º e o 3º argumento de <c>IF</c>/<c>ELSE</c> com 3 argumentos e o 2º de <c>LOOP</c>.
+    /// </summary>
+    private readonly record struct RangeRules(byte ReturnCode, byte? If, byte? Else, byte? Loop)
+    {
+        public static RangeRules From(YscmFile commands)
+        {
+            var returnCode = commands.GetOpcodes().ReturnCode;
+            return new RangeRules(returnCode, Optional(commands, "IF"), Optional(commands, "ELSE"), Optional(commands, "LOOP"));
+        }
+
+        public bool IsExempt(byte opcode, int argumentIndex, int declared) =>
+            opcode == ReturnCode
+            || ((opcode == If || opcode == Else) && declared == 3 && argumentIndex >= 1)
+            || (opcode == Loop && argumentIndex == 1);
+
+        private static byte? Optional(YscmFile commands, string name) => commands.TryGetOpcode(name, out var opcode) ? opcode : null;
+    }
 
     private readonly record struct Section(int Offset, int Size);
 

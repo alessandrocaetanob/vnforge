@@ -25,7 +25,8 @@ public enum YstbKeyOrigin
 /// <param name="AssignOp">Operador de atribuição, 0 a 8: <c>=</c>, <c>+=</c>, <c>-=</c>, <c>*=</c>, <c>/=</c>, <c>%=</c>, <c>&amp;=</c>, <c>|=</c>, <c>^=</c>.</param>
 /// <param name="Size">
 /// Tamanho do trecho nos recursos. Em alguns comandos o campo tem outro sentido (valor devolvido do <c>RETURNCODE</c>,
-/// posição do <c>ELSE</c>), por isso o leitor não o confere, salvo no <c>WORD</c>.
+/// posição do <c>ELSE</c>), por isso o leitor não o confere neles; nos demais, o trecho precisa caber nos recursos
+/// (tamanho 0 vale com qualquer offset, como no yuri).
 /// </param>
 /// <param name="Offset">Posição do trecho nos recursos; mesma ressalva de <paramref name="Size"/>.</param>
 public readonly record struct YstbArgument(ushort Id, byte Type, byte AssignOp, uint Size, uint Offset);
@@ -110,6 +111,11 @@ public sealed class YstbFile
     /// <exception cref="InvalidFileException">O trecho passa do fim dos recursos: o argumento não é do tipo que aponta para recursos.</exception>
     public ReadOnlyMemory<byte> GetResource(YstbArgument argument)
     {
+        if (argument.Size == 0)
+        {
+            return ReadOnlyMemory<byte>.Empty;
+        }
+
         var end = (long)argument.Offset + argument.Size;
         if (end > Resources.Length)
         {

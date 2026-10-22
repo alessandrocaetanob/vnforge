@@ -134,20 +134,95 @@ public class YstbReaderTests
     }
 
     [Fact]
-    public void Read_PrimeiroOffsetComSoOByteAltoDiferenteDeZero_NaoAceitaADerivadaQuaseCerta()
+    public void Read_ChaveConhecidaEDerivadaQuaseCerta_PrefereAConhecida()
     {
-        // A derivada erra só o último byte da chave, então ainda decifra opcodes e contagens; o assign_op sairia 1, não 0.
+        // O offset 0x00010000 muda só o byte 2 da chave derivada (0xD36FAD96). Sem argumento conferido que pegue o desvio
+        // (RETURNCODE não é conferido), a derivada passaria; só a ordem "conhecidas antes" devolve a chave real.
         var script = NewBuilder()
             .WithKey(0xD36FAC96)
-            .AddCommand("WAIT", 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x01000000))
-            .AddWord("テキスト", 2)
+            .AddCommand("RETURNCODE", 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x00010000))
+            .AddReturnCode(4, 2)
             .Build();
 
         var file = Read(script.Bytes);
 
-        Assert.Equal(YstbKeyOrigin.Known, file.KeyOrigin);
         Assert.Equal(0xD36FAC96u, file.Key);
+        Assert.Equal(YstbKeyOrigin.Known, file.KeyOrigin);
         AssertMatchesScript(script, file);
+    }
+
+    [Fact]
+    public void Read_ArgumentoDeComandoComumForaDosRecursos_Erro()
+    {
+        var script = NewBuilder().AddCommand("_", 1, new SyntheticYstbArgument(0, 3, 0, 5, 0)).AddResource([1, 2, 3]).Build();
+
+        var error = ReadFails(script.Bytes);
+
+        Assert.Contains("do comando _", error.Reason);
+        Assert.Contains("recursos", error.Reason);
+    }
+
+    [Fact]
+    public void Read_ArgumentoDeTamanhoZero_AceitaQualquerOffset()
+    {
+        var script = NewBuilder().AddCommand("_", 1, new SyntheticYstbArgument(0, 3, 0, 0, 0xFFFFFFF0)).Build();
+
+        var file = Read(script.Bytes);
+
+        Assert.Empty(file.GetResource(file.Instructions[0].Arguments[0]).ToArray());
+    }
+
+    [Fact]
+    public void Read_IfElseComTresArgumentos_SoOPrimeiroEConferido()
+    {
+        var wild = new SyntheticYstbArgument(1, 0, 0, 9000, 77);
+        var script = NewBuilder()
+            .AddCommand("IF", 1, new SyntheticYstbArgument(0, 3, 0, 0, 0), wild, wild)
+            .AddCommand("ELSE", 2, new SyntheticYstbArgument(0, 3, 0, 0, 0), wild, wild)
+            .Build();
+
+        AssertMatchesScript(script, Read(script.Bytes));
+    }
+
+    [Theory]
+    [InlineData("IF")]
+    [InlineData("ELSE")]
+    public void Read_IfElseComTresArgumentos_PrimeiroForaDosRecursos_Erro(string name)
+    {
+        var script = NewBuilder().AddCommand(name, 1, new SyntheticYstbArgument(0, 3, 0, 4, 0), default, default).Build();
+
+        Assert.Contains($"do comando {name}", ReadFails(script.Bytes).Reason);
+    }
+
+    [Fact]
+    public void Read_IfComDoisArgumentos_ConferePeloPadrao()
+    {
+        var script = NewBuilder()
+            .AddCommand("IF", 1, new SyntheticYstbArgument(0, 3, 0, 0, 0), new SyntheticYstbArgument(1, 0, 0, 9000, 77))
+            .Build();
+
+        Assert.Contains("do comando IF", ReadFails(script.Bytes).Reason);
+    }
+
+    [Fact]
+    public void Read_Loop_SegundoArgumentoNaoEConferido()
+    {
+        var script = NewBuilder()
+            .AddCommand("LOOP", 1, new SyntheticYstbArgument(0, 3, 0, 0, 0), new SyntheticYstbArgument(1, 0, 0, 9000, 77))
+            .Build();
+        AssertMatchesScript(script, Read(script.Bytes));
+
+        var bad = NewBuilder().AddCommand("LOOP", 1, new SyntheticYstbArgument(0, 3, 0, 4, 0), default).Build();
+        Assert.Contains("do comando LOOP", ReadFails(bad.Bytes).Reason);
+    }
+
+    [Fact]
+    public void KnownKeys_NaoPodeSerAlteradaPorCast()
+    {
+        var keys = (IList<uint>)YstbReader.KnownKeys;
+
+        Assert.Throws<NotSupportedException>(() => keys[0] = 1);
+        Assert.Equal([0xD36FAC96u, 0x07B4024Au], YstbReader.KnownKeys);
     }
 
     [Fact]
@@ -232,7 +307,7 @@ public class YstbReaderTests
     public void Read_GuardaExtraENumerosDeLinha()
     {
         var script = NewBuilder()
-            .AddInstruction(Yscm.IdOf("GOSUB"), 0x4321, 123456, new SyntheticYstbArgument(0, 3, 0, 0, 0), new SyntheticYstbArgument(1, 1, 8, 9, 10))
+            .AddInstruction(Yscm.IdOf("GOSUB"), 0x4321, 123456, new SyntheticYstbArgument(0, 3, 0, 0, 0), new SyntheticYstbArgument(1, 1, 8, 0, 10))
             .AddReturnCode(0, 0xFFFFFFFF)
             .Build();
 
@@ -241,7 +316,7 @@ public class YstbReaderTests
         var gosub = file.Instructions[0];
         Assert.Equal((ushort)0x4321, gosub.Extra);
         Assert.Equal(123456u, gosub.LineNumber);
-        Assert.Equal(new YstbArgument(1, 1, 8, 9, 10), gosub.Arguments[1]);
+        Assert.Equal(new YstbArgument(1, 1, 8, 0, 10), gosub.Arguments[1]);
         Assert.Equal(0xFFFFFFFFu, file.Instructions[1].LineNumber);
         Assert.Equal(2, file.Instructions[1].FirstArgumentIndex);
     }
