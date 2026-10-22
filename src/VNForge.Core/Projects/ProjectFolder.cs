@@ -8,6 +8,7 @@ public sealed class ProjectFolder
     public const string ConfigFileName = "vnforge.json";
 
     private static readonly UTF8Encoding Utf8SemBom = new(encoderShouldEmitUTF8Identifier: false);
+    private static readonly UTF8Encoding Utf8Estrito = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private ProjectFolder(string root)
     {
@@ -36,7 +37,15 @@ public sealed class ProjectFolder
 
         var json = ProjectConfigSerializer.Serialize(config);
         folder.EnsureDirectories();
-        folder.WriteConfig(json);
+        try
+        {
+            folder.WriteConfig(json, overwrite: false);
+        }
+        catch (IOException) when (File.Exists(folder.ConfigPath))
+        {
+            throw new ProjectConfigException($"Já existe um {ConfigFileName} em '{folder.Root}'; o projeto não foi sobrescrito.");
+        }
+
         return folder;
     }
 
@@ -51,11 +60,23 @@ public sealed class ProjectFolder
         return folder;
     }
 
-    public ProjectConfig LoadConfig() =>
-        ProjectConfigSerializer.Parse(File.ReadAllText(ConfigPath, Encoding.UTF8));
+    public ProjectConfig LoadConfig()
+    {
+        string json;
+        try
+        {
+            json = Utf8Estrito.GetString(File.ReadAllBytes(ConfigPath));
+        }
+        catch (DecoderFallbackException)
+        {
+            throw new ProjectConfigException("$", "o arquivo não está em UTF-8 válido.");
+        }
+
+        return ProjectConfigSerializer.Parse(json.TrimStart('﻿'));
+    }
 
     public void SaveConfig(ProjectConfig config) =>
-        WriteConfig(ProjectConfigSerializer.Serialize(config));
+        WriteConfig(ProjectConfigSerializer.Serialize(config), overwrite: true);
 
     public void EnsureDirectories()
     {
@@ -65,13 +86,13 @@ public sealed class ProjectFolder
         Directory.CreateDirectory(BackupDirectory);
     }
 
-    private void WriteConfig(string json)
+    private void WriteConfig(string json, bool overwrite)
     {
         var temporary = Path.Combine(Root, $"{ConfigFileName}.{Guid.NewGuid():N}.tmp");
         try
         {
             File.WriteAllText(temporary, json, Utf8SemBom);
-            File.Move(temporary, ConfigPath, overwrite: true);
+            File.Move(temporary, ConfigPath, overwrite);
         }
         finally
         {

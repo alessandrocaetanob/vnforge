@@ -130,6 +130,16 @@ public class ProjectConfigSerializerTests
     }
 
     [Fact]
+    public void Parse_campo_desconhecido_com_ponto_no_nome_nao_vira_caminho_aninhado()
+    {
+        var json = ExemploDoDoc02.Replace("\"name\"", "\"custom.option\": 1, \"name\"");
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Equal("$['custom.option']", erro.Field);
+    }
+
+    [Fact]
     public void Parse_chave_de_api_no_arquivo_e_recusada_com_orientacao()
     {
         var json = ExemploDoDoc02.Replace("\"batchSize\": 30", "\"batchSize\": 30, \"apiKey\": \"sk-ant-x\"");

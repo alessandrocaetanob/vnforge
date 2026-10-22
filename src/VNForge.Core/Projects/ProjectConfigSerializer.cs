@@ -224,6 +224,7 @@ public static class ProjectConfigSerializer
         private ProjectConfigException Missing(string name) =>
             new(PathOf(name), "campo obrigatório ausente.");
 
-        private string PathOf(string name) => $"{_path}.{name}";
+        private string PathOf(string name) =>
+            name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_') ? $"{_path}.{name}" : $"{_path}['{name}']";
     }
 }

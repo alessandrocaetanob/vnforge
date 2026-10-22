@@ -106,6 +106,31 @@ public class ProjectFolderTests
     }
 
     [Fact]
+    public void LoadConfig_aceita_arquivo_com_BOM()
+    {
+        using var temp = new TempFolder();
+        var config = NovaConfig();
+        var projeto = ProjectFolder.Create(temp.Path, config);
+        File.WriteAllText(projeto.ConfigPath, ProjectConfigSerializer.Serialize(config), new System.Text.UTF8Encoding(true));
+
+        Assert.Equal(config, projeto.LoadConfig());
+    }
+
+    [Fact]
+    public void LoadConfig_recusa_bytes_que_nao_sao_UTF8()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjectFolder.Create(temp.Path, NovaConfig());
+        var bytes = File.ReadAllBytes(projeto.ConfigPath);
+        bytes[Array.IndexOf(bytes, (byte)'M')] = 0xFF;
+        File.WriteAllBytes(projeto.ConfigPath, bytes);
+
+        var erro = Assert.Throws<ProjectConfigException>(() => projeto.LoadConfig());
+
+        Assert.Contains("UTF-8", erro.Message);
+    }
+
+    [Fact]
     public void EnsureDirectories_recria_pastas_que_faltam()
     {
         using var temp = new TempFolder();
