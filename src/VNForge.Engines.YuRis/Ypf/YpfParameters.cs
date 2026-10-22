@@ -45,7 +45,7 @@ public readonly record struct YpfByteRange(long Offset, long Length);
 /// <param name="DataHashVerified">
 /// Verdadeiro quando o algoritmo de <paramref name="DataHash"/> foi confirmado contra os dados de ao menos uma
 /// entrada, e só por um algoritmo. Falso quando nenhuma entrada da amostra confere (ou a amostra não distingue os
-/// algoritmos): vale o padrão da versão e a conferência por entrada fica com <c>OpenEntry</c> (#28).
+/// algoritmos): vale o padrão da versão e a conferência por entrada fica com <c>OpenEntry</c>.
 /// </param>
 public sealed record YpfParameters(
     uint Version,

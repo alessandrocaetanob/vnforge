@@ -324,17 +324,6 @@ public partial class YpfArchiveFormatTests
     }
 
     [Fact]
-    public void OpenEntry_AindaNaoImplementadoCitaAIssue28()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        using var archive = Open(ypf.Bytes);
-
-        var ex = Assert.Throws<NotSupportedException>(() => archive.OpenEntry(archive.Entries[0]));
-
-        Assert.Contains("#28", ex.Message);
-    }
-
-    [Fact]
     public void OpenEntry_RejeitaEntradaDeOutroPacoteENula()
     {
         var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
