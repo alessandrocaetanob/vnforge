@@ -393,6 +393,14 @@ public class SyntheticYpfBuilderTests
     }
 
     [Fact]
+    public void AddFile_RejeitaCaractereForaDoShiftJis()
+    {
+        var builder = new SyntheticYpfBuilder(500);
+
+        Assert.Throws<ArgumentException>(() => builder.AddFile("foo😀.ybn", SmallBinary));
+    }
+
+    [Fact]
     public void AddFile_RejeitaNomeVazioOuMaiorQue255Bytes()
     {
         var builder = new SyntheticYpfBuilder(500);

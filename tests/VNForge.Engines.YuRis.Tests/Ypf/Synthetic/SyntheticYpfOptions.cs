@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 
 /// <summary>Algoritmos de hash que um índice YPF pode usar (docs/06-yuris-notas-tecnicas.md).</summary>
@@ -62,13 +64,13 @@ public static class SyntheticYpfDefaults
 /// <summary>Pares de troca do tamanho do nome (cada par vale nos dois sentidos).</summary>
 public static class SyntheticYpfSwapTables
 {
-    private static readonly (byte A, byte B)[] StandardPairs =
+    private static readonly ImmutableArray<(byte A, byte B)> StandardPairs =
     [
         (3, 72), (6, 53), (9, 11), (12, 16), (13, 19), (17, 25),
         (21, 27), (28, 30), (32, 35), (38, 41), (44, 47), (46, 50),
     ];
 
-    private static readonly (byte A, byte B)[] V500Pairs =
+    private static readonly ImmutableArray<(byte A, byte B)> V500Pairs =
     [
         (3, 10), (6, 53), (9, 11), (12, 16), (13, 19), (17, 24),
         (20, 46), (21, 27), (28, 30), (32, 35), (38, 41), (44, 47),

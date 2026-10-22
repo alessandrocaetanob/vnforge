@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
+using System.Text;
 using VNForge.Core.Text;
 using VNForge.Engines.YuRis.Ypf.Hashing;
 
@@ -18,6 +19,12 @@ public sealed class SyntheticYpfBuilder
 {
     private const int MaxNameBytes = 255;
     private const byte DefaultNameKey = 0x40;
+
+    // Sem fallback: um caractere fora do Shift-JIS viraria '?' e dois nomes diferentes colidiriam.
+    private static readonly Encoding StrictShiftJis = Encoding.GetEncoding(
+        GameEncodings.ShiftJis.CodePage,
+        EncoderFallback.ExceptionFallback,
+        DecoderFallback.ExceptionFallback);
 
     private readonly uint _version;
     private readonly List<PendingFile> _files = [];
@@ -73,7 +80,16 @@ public sealed class SyntheticYpfBuilder
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(content);
 
-        var nameBytes = GameEncodings.ShiftJis.GetBytes(name);
+        byte[] nameBytes;
+        try
+        {
+            nameBytes = StrictShiftJis.GetBytes(name);
+        }
+        catch (EncoderFallbackException ex)
+        {
+            throw new ArgumentException($"O nome '{name}' tem caractere que o Shift-JIS não representa.", nameof(name), ex);
+        }
+
         if (nameBytes.Length > MaxNameBytes)
         {
             throw new ArgumentException($"O nome tem {nameBytes.Length} bytes; o máximo é {MaxNameBytes}.", nameof(name));
