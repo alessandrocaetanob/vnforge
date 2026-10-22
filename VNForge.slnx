@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VNForge.AI/VNForge.AI.csproj" />
+    <Project Path="src/VNForge.App/VNForge.App.csproj" />
+    <Project Path="src/VNForge.Cli/VNForge.Cli.csproj" />
+    <Project Path="src/VNForge.Core/VNForge.Core.csproj" />
+    <Project Path="src/VNForge.Engines.YuRis/VNForge.Engines.YuRis.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/VNForge.AI.Tests/VNForge.AI.Tests.csproj" />
+    <Project Path="tests/VNForge.Core.Tests/VNForge.Core.Tests.csproj" />
+    <Project Path="tests/VNForge.Engines.YuRis.Tests/VNForge.Engines.YuRis.Tests.csproj" />
+  </Folder>
+</Solution>

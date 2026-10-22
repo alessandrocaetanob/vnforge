@@ -21,6 +21,8 @@
 ```
 vnforge/
 ├─ VNForge.slnx
+├─ VNForge.NoApp.slnf             # filtro de solução sem o app: compila e testa no Linux
+├─ global.json                    # SDK 10.0.x e runner de testes (Microsoft.Testing.Platform)
 ├─ Directory.Build.props          # net10.0, nullable, warnings as errors, versão
 ├─ Directory.Packages.props       # versões centralizadas de pacotes
 ├─ src/
@@ -45,6 +47,8 @@ VNForge.Cli ─┐
 VNForge.App ─┤                            ▲
              └─► VNForge.Engines.YuRis ───┘
 ```
+
+Os testes usam xUnit v3 (`xunit.v3.mtp-v2`) sobre o Microsoft.Testing.Platform. No SDK 10, o `dotnet test` precisa de `global.json` com `test.runner = Microsoft.Testing.Platform`, e a solução passa por `--solution` (`dotnet test --solution VNForge.NoApp.slnf`; sem argumento, ele acha a solução da pasta).
 
 `Core` não conhece nenhuma engine nem nenhum provedor de IA. As engines e a IA implementam interfaces do `Core`.
 

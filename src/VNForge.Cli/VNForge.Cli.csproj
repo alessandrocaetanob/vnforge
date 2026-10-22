@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>vnf</AssemblyName>
+    <RootNamespace>VNForge.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VNForge.AI\VNForge.AI.csproj" />
+    <ProjectReference Include="..\VNForge.Engines.YuRis\VNForge.Engines.YuRis.csproj" />
+  </ItemGroup>
+
+</Project>
