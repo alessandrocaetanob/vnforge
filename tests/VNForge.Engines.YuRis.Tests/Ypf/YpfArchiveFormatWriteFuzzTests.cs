@@ -8,7 +8,7 @@ public partial class YpfArchiveFormatTests
 {
     private const int FuzzCases = 500;
 
-    private static byte[] FuzzContent(Random random, int maxLength)
+    private static byte[] FuzzContent(SplitMix64 random, int maxLength)
     {
         var content = new byte[random.Next(1, maxLength)];
         if (random.Next(2) == 0)
@@ -23,7 +23,7 @@ public partial class YpfArchiveFormatTests
         return content;
     }
 
-    private static SyntheticYpf FuzzArchive(Random random, uint version, SyntheticYpfOffsetSize offsetSize)
+    private static SyntheticYpf FuzzArchive(SplitMix64 random, uint version, SyntheticYpfOffsetSize offsetSize)
     {
         var builder = new SyntheticYpfBuilder(version)
             .WithOffsetSize(offsetSize)
@@ -55,7 +55,7 @@ public partial class YpfArchiveFormatTests
         return builder.Build();
     }
 
-    private static Dictionary<string, byte[]> FuzzReplacements(Random random, SyntheticYpf ypf)
+    private static Dictionary<string, byte[]> FuzzReplacements(SplitMix64 random, SyntheticYpf ypf)
     {
         var replacements = new Dictionary<string, byte[]>();
         foreach (var entry in ypf.Entries.Where(_ => random.Next(2) == 0))
@@ -114,7 +114,7 @@ public partial class YpfArchiveFormatTests
     [Fact]
     public void WriteTo_FuzzDeterministicoMantemEntradasIndiceECompressao()
     {
-        var random = new Random(12345);
+        var random = new SplitMix64(12345);
         uint[] versions = [200, 300, 477, 479, 500];
         for (var iteration = 0; iteration < FuzzCases; iteration++)
         {
