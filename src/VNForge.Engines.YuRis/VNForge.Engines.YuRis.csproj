@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VNForge.Core\VNForge.Core.csproj" />
   </ItemGroup>
 
