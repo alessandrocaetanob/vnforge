@@ -4,9 +4,6 @@ namespace VNForge.Core.Engines;
 /// Uma engine de jogo suportada (YU-RIS, KiriKiri, Ren'Py...). Cada engine vive num projeto
 /// <c>VNForge.Engines.X</c> que implementa esta interface; o Core só conhece o contrato.
 /// </summary>
-/// <remarks>
-/// O acesso a scripts (<c>IScriptFormat</c>) entra na E2.1 como a propriedade <c>Scripts</c>.
-/// </remarks>
 public interface IEngine
 {
     /// <summary>Identificador estável e em minúsculas da engine, usado em arquivos de projeto e na CLI (ex.: <c>"yuris"</c>).</summary>
@@ -21,6 +18,9 @@ public interface IEngine
 
     /// <summary>Formatos de pacote de arquivos que a engine sabe abrir (ex.: YPF).</summary>
     IReadOnlyList<IArchiveFormat> Archives { get; }
+
+    /// <summary>Formatos de script que a engine sabe ler e reconstruir (ex.: YSTB).</summary>
+    IReadOnlyList<IScriptFormat> Scripts { get; }
 
     /// <summary>Alterações opcionais no jogo além dos scripts e pacotes (ex.: patch de codepage no executável).</summary>
     IReadOnlyList<IGamePatch> Patches { get; }

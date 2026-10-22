@@ -13,34 +13,69 @@ A versão define hash, tamanho de offset e tabela de nomes. Com ela já dá para
 
 ## Arquivo YPF
 
+Fontes citadas abaixo como `arquivo:linha`, sobre as cópias lidas em 2026-10-22 (as linhas podem se mover nos repositórios):
+
+- `yuri.md` e `ypf.py`: [shimamura-sakura/yuri](https://github.com/shimamura-sakura/yuri), `yuri.md` e `yuri/fileformat/ypf.py`
+- `GARbro`: [morkt/GARbro](https://github.com/morkt/GARbro), `ArcFormats/YuRis/ArcYPF.cs`
+- `Xorboth`: [Xorboth/YPF-Manager](https://github.com/Xorboth/YPF-Manager), `YPF/YPFHeader.cs` e `YPF/YPFArchive.cs`
+- `GARbro#452`: [issue 452 do GARbro](https://github.com/morkt/GARbro/issues/452), com versões de jogos reais
+
 ```
 u8  magic[4]   = "YPF\0"
 u32 version
 u32 file_count
-u32 header_size     // >= ~300: inclui o próprio cabeçalho (= offset do início dos dados)
+u32 header_size     // v300 ou mais: inclui o cabeçalho de 32 bytes; abaixo disso, só o índice
 u8  padding[16]
 
 Entry[file_count]   // ordenadas pelo hash do nome
     u32 name_hash
-    u8  name_size   // codificado: (~b) e depois troca por tabela
-    u8  name[]      // cada byte XOR com uma chave (dá para adivinhar: o '.' da extensão)
+    u8  name_size   // gravado como ~(troca(tamanho)); na leitura, ~b e depois a troca
+    u8  name[]      // cada byte gravado como ~(byte ^ K); K = 0 na maioria das versões
     u8  file_type   // 0 ybn, 1 bmp, 2 png, 3 jpg, 4 gif, 5 wav, 6 ogg, 7 psd, 8 ycg, 9 psb
     u8  compressed  // 1 = zlib
     u32 size_uncompressed
     u32 size_stored
-    u32/u64 offset  // 64 bits a partir da v479
+    u32/u64 offset  // 64 bits nas versões com MurmurHash2 (limiar em discussão, abaixo)
     u32 data_hash   // hash dos bytes armazenados (comprimidos)
 ```
+
+Layout geral: `yuri.md:440-457`, `ypf.py:31-37` e `:115-145`.
 
 | Versão | Hash do nome | Hash dos dados | Offset |
 |---|---|---|---|
 | < 265 | Adler32 | Adler32 | 32 bits |
-| 265–478 | CRC32 | Adler32 | 32 bits |
-| ≥ 479 | MurmurHash2 (seed 0) | MurmurHash2 | 64 bits |
+| 265 a 476 | CRC32 | Adler32 | 32 bits |
+| 477 ou 479 em diante | MurmurHash2 (seed 0) | MurmurHash2 | 64 bits |
 
-- Tabela de troca do tamanho do nome: pares `(3,72) (6,53) (9,11) (12,16) (13,19) (17,25) (21,27) (28,30) (32,35) (38,41) (44,47) (46,50)`. A v500 usa uma variante (`3↔10`, `17↔24`, `20↔46` no lugar de `3↔72`, `17↔25`, `46↔50`). Estratégia: tentar as tabelas conhecidas e validar com o hash do nome.
+Fontes da tabela: `yuri.md:500-513`, `ypf.py:54-62` e `:65-80`, `Xorboth YPFHeader.cs:128-140` e `YPFArchive.cs:78,228-235`.
+
+- **Ambiguidade do limiar do MurmurHash2 e do offset de 64 bits (a confirmar na #23)**: `Xorboth YPFHeader.cs:130` troca o algoritmo na versão 479 (`< 479` é CRC32 e Adler32); `yuri.md:511` e `ypf.py:55,69` trocam na 477, com o comentário `# real number ?` (o número real é desconhecido). `GARbro#452` mediu apenas: v474 com CRC32, Adler32 e offset de 32 bits; v479 e v490 com MurmurHash2 e offset de 64 bits. As versões 475 a 478 nunca foram medidas, e hash e offset podem mudar em versões diferentes. O gerador sintético trata hash do nome, hash dos dados e largura do offset como três opções independentes (por arquivo YPF), com padrão 479, para os testes do leitor cobrirem as duas leituras. Se o `ysbin.ypf` do jogo for 475 a 478, o próprio arquivo resolve a dúvida.
+- **Tabela de troca do tamanho do nome**: pares `(3,72) (6,53) (9,11) (12,16) (13,19) (17,25) (21,27) (28,30) (32,35) (38,41) (44,47) (46,50)` (`yuri.md:468-478`, `ypf.py:39-41`, `GARbro ArcYPF.cs:530-534`). A v500 usa uma variante (`3↔10`, `17↔24`, `20↔46` no lugar de `3↔72`, `17↔25`, `46↔50`; `ypf.py:41`, `Xorboth YPFHeader.cs:116-118`). Quando cada tabela vale diverge: `ypf.py:78` usa a variante só na versão 500 exata; `Xorboth YPFHeader.cs:116` usa em 500 ou mais; `GARbro ArcYPF.cs:361-375` usa uma tabela reduzida abaixo da v256 (`SwapTable04`, sem `3↔72` e `6↔53`, linhas 535-538), outra de v300 a v405 (`SwapTable10`, só 7 pares, linhas 539-541) e a padrão no resto. O gerador oferece as quatro (`Standard`, `V500`, `Garbro04`, `Garbro10`), com o padrão do `ypf.py` (`V500` só na versão 500 exata). Estratégia de leitura: tentar as tabelas conhecidas e validar com o hash do nome.
+- **Bytes do nome**: o gravado é `~(byte ^ K)`, com K = 0x00 por padrão, 0x40 na v290 e 0x36 na v500 (`ypf.py:42-44,79,141`; `Xorboth YPFArchive.cs:219`, `YPFHeader.cs:143-158`). O XOR efetivo de um byte gravado é `K ^ 0xFF`: 0xFF, 0xBF na v290 e 0xC9 na v500. `yuri.md:480-487` descreve só o XOR efetivo (padrão 0xFF); o GARbro grava XOR único com uma chave configurável (`ArcYPF.cs:254-255`) e a recupera lendo o byte na posição `len-4` contra `'.'` (`ArcYPF.cs:473`, supõe extensão de 3 letras). A API do gerador usa a leitura do YPF-Manager: `WithNameKey(K)` define o K, com o padrão por versão acima (v290 e v500 exatas, como em `ypf.py:79`; o YPF-Manager usa 500 ou mais, `YPFHeader.cs:150`).
+- **`header_size`**: abaixo da v300 o campo não inclui os 32 bytes do cabeçalho; a partir da v300 inclui (`yuri.md:459-462`, `ypf.py:91,137`). GARbro e YPF-Manager gravam sempre 0x20 mais o índice e só usam o campo como limite na leitura (`GARbro ArcYPF.cs:133-136,264,320`, `Xorboth YPFArchive.cs:78,198`). O gerador segue o `ypf.py` por padrão e aceita forçar a outra semântica (`WithHeaderSizeIncludesHeader`). O início dos dados é sempre 0x20 mais o índice.
+- **Hash do nome**: sobre os bytes do nome em claro, em Shift-JIS, sem converter caixa nem separador (`yuri.md:490`, `ypf.py:99`, `GARbro ArcYPF.cs:251`, `Xorboth YPFArchive.cs:71-74`). **Hash dos dados**: sobre os bytes armazenados, sem descomprimir (`yuri.md:491`, `ypf.py:105,134`, `Xorboth YPFArchive.cs:134,157`).
+- **Ordem do índice**: pelo hash do nome crescente (`GARbro ArcYPF.cs:271`, `Xorboth YPFArchive.cs:83-84`; o `ypf.py` não reordena e respeita a ordem da lista). **Ordem dos dados**: na ordem do índice (`GARbro ArcYPF.cs:271-285`, `Xorboth YPFArchive.cs:84,90,124`, `ypf.py:142-145`). O gerador usa a ordem do índice por padrão e aceita a ordem de inserção (`WithDataOrder`).
+- **Compressão**: só grava zlib quando o resultado é menor que o original (`ypf.py:131`, `Xorboth YPFArchive.cs:130`); o GARbro comprime todo arquivo `ybn` (`ArcYPF.cs:262,289`). O YPF-Manager não aceita arquivo de 0 byte (`YPFArchive.cs:113-115`). O nível é 9 em `ypf.py:19` e no GARbro (`ArcYPF.cs:293`). O gerador usa o zlib do .NET (nível Optimal), cujos bytes não servem de vetor de ouro.
+- **Dados duplicados**: o YPF-Manager aponta entradas com o mesmo hash e tamanho para um só offset (`YPFArchive.cs:136-141,159-163`). O gerador faz isso com `WithSharedDuplicateData`.
+- **Separador de pasta**: os nomes reais usam barra invertida (`yuri.md:616`, `split('\\')`). Os testes usam `\` e mantêm um caso com `/`.
+- **Tipos de arquivo**: o valor de `file_type` varia por versão (`GARbro ArcYPF.cs:340-342,481-483`: na v247 o `avi` é 5; `ycg` e `psb` aparecem na tabela da v500).
 - **Plano de reescrita**: manter versão, chave, tabela e ordem do arquivo original; copiar entradas intactas sem tocar; só as alteradas são recomprimidas e ganham hash novo, com o algoritmo detectado no próprio arquivo. Como os nomes não mudam, os hashes de nome e a ordem continuam válidos.
 - Há relatos de executáveis que leem arquivos soltos fora do YPF ("免封包"), mas isso varia; o caminho seguro é reempacotar.
+
+### O que confirmar no jogo (#23)
+
+O gerador de testes (`tests/VNForge.Engines.YuRis.Tests/Ypf/Synthetic/SyntheticYpfBuilder.cs`, #26) segue as leituras acima; nenhuma foi conferida contra o `ysbin.ypf` do jogo. Se o jogo divergir, corrija o gerador e este trecho no mesmo PR.
+
+1. **Versão e limiares**: a versão do `ysbin.ypf` e, se ela cair entre 475 e 478, qual hash e qual largura de offset o arquivo usa (a leitura de 477 contra a de 479).
+2. **Chave efetiva do nome**: o XOR efetivo de `ysbin.ypf` (0xFF, 0xBF ou 0xC9 nas fontes) e, daí, o K (0x00, 0x40 ou 0x36); conferir lendo o byte `len-4` contra `'.'`.
+3. **Tabela de troca**: qual das quatro tabelas valida o hash do nome do jogo, e se a variante da v500 vale na 500 exata ou de 500 em diante.
+4. **`header_size`**: o valor gravado no arquivo do jogo (com ou sem os 32 bytes) e se o executável aceita a outra semântica.
+5. **Ordem dos dados**: se os dados seguem a ordem do índice ou outra, e se há padding ou lacunas entre entradas.
+6. **Dados duplicados**: se o arquivo original compartilha offsets entre entradas idênticas, e se o executável aceita os dois jeitos.
+7. **Separador e caixa**: barra invertida contra normal, maiúsculas e minúsculas nos nomes, e se o hash do nome depende da caixa.
+8. **Compressão e entradas de 0 byte**: quais tipos o jogo comprime, se existem entradas de 0 byte e se o zlib do original cabe no nosso nível.
+9. **`file_type` 8 e 9** (`ycg` e `psb`) e o resto da tabela de tipos: os valores usados na versão do jogo.
+10. **Tolerância do executável**: se o jogo aceita `header_size` ou hash inconsistentes (as mutações de `SyntheticYpfMutations` servem de teste).
 
 ## Scripts YSTB (`yst*.ybn`), versão ≥ 300
 
