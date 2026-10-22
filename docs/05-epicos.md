@@ -11,6 +11,8 @@ Ordem pensada para chegar cedo a um ciclo completo (extrair → reinjetar sem tr
 | **M3 — Tradução assistida** | Um capítulo inteiro traduzido pela IA, conferido pelo QA e revisado no app |
 | **M4 — Benchmark completo** | A VN YU-RIS inteira traduzida, jogável do início ao fim |
 
+O M1 já usa `vnf extract`, `vnf build` e `vnf inject`, então as quatro primeiras tarefas do E3 e as três primeiras do E8 entram nele. A divisão em issues está em [plans/2026-10-22-backlog-github.md](plans/2026-10-22-backlog-github.md).
+
 ## E0 — Fundação
 
 Objetivo: repositório pronto para trabalhar.
