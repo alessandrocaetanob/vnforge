@@ -173,7 +173,7 @@ public interface ITranslationProvider
               └─ text/*.json ◄────────┘  (edição humana no app ou em qualquer editor)
 ```
 
-Cada etapa é idempotente e grava o estado em `project.json`, então a CLI e o app podem continuar de onde o outro parou.
+Cada etapa é idempotente e grava o estado em `.cache/state.json`, então a CLI e o app podem continuar de onde o outro parou. O `vnforge.json` guarda só a configuração, descrita em "Projeto de tradução no disco"; o estado fica em outro arquivo porque muda a cada execução, e o `vnforge.json` é escrito à mão e vai para o git.
 
 ## Projeto de tradução no disco
 
@@ -189,7 +189,7 @@ minha-vn-ptbr/
 ├─ text/                   # UMA unidade de texto por linha, um arquivo por script
 │  ├─ yst00012.json
 │  └─ ...
-├─ .cache/                 # (gitignored) arquivos extraídos do jogo, cache de IA
+├─ .cache/                 # (gitignored) arquivos extraídos do jogo, cache de IA, state.json (estado do pipeline)
 ├─ build/                  # (gitignored) arquivos reconstruídos (ysbin.ypf, .exe patchado)
 └─ backup/                 # (gitignored) cópia dos originais antes da injeção
 ```
@@ -206,6 +206,8 @@ minha-vn-ptbr/
   "ai": { "provider": "anthropic", "model": "claude-opus-5-5", "effort": "medium", "batchSize": 30 }
 }
 ```
+
+O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula final são aceitos. `name`, `game`, `engine`, `languages` e `encoding` são obrigatórios; `engine.version`, `engine.scriptKey` e o bloco `ai` são opcionais (o padrão de `ai` é o do exemplo). Campo desconhecido é erro, para pegar erro de digitação. Todo erro de validação cita o caminho do campo, por exemplo `vnforge.json inválido em $.encoding.strategy: "latin" não é um valor aceito; use um destes: fold, remap, cp1252.` Chave de API no arquivo é recusada (ver "Chaves de API" na seção de IA).
 
 ## Alternativas consideradas para a interface gráfica
 
