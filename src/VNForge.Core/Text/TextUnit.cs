@@ -13,8 +13,8 @@ namespace VNForge.Core.Text;
 /// </remarks>
 /// <param name="Id">
 /// Identificador único dentro do projeto e estável entre extrações do mesmo script: a engine o monta com
-/// <see cref="Engines.ScriptFile.UnitId"/> (chave do script mais a ordem da unidade no arquivo), nunca com dados que
-/// mudem entre execuções. A re-extração (E3.5) casa as traduções salvas pelo <c>Id</c> e confere se o <see cref="Source"/> continua o mesmo.
+/// <see cref="Engines.ScriptFile.UnitId"/> (chave do script mais uma posição estável e única no script), nunca com dados que
+/// mudem entre execuções. O id é opaco: ninguém o decodifica, o <see cref="Locator"/> é que localiza o trecho. A ordem das unidades na lista é a da extração (a do arquivo), não a dos ids. A re-extração (E3.5) casa as traduções salvas pelo <c>Id</c> e confere se o <see cref="Source"/> continua o mesmo.
 /// </param>
 /// <param name="Kind">Papel da linha no jogo.</param>
 /// <param name="Speaker">Nome do falante, separado do texto quando a engine consegue; nulo se não há falante ou se ele não pode ser separado.</param>
@@ -32,14 +32,14 @@ public sealed record TextUnit(
     /// <summary>Quem produziu a tradução; nulo quando não há tradução ou ela é anterior ao registro de origem.</summary>
     public TranslationOrigin? Origin { get; init; }
 
-    /// <summary>Observações livres do tradutor ou do revisor. Vazio quando não há.</summary>
+    /// <summary>Observações livres do tradutor ou do revisor. Vazio quando não há; <c>null</c> no JSON é recusado.</summary>
     public string Notes { get; init => field = value ?? string.Empty; } = string.Empty;
 
-    /// <summary>Avisos do QA que o revisor marcou como "ok" (ids de regra). Nunca nulo.</summary>
+    /// <summary>Avisos do QA que o revisor marcou como "ok" (ids de regra). Nunca nulo; <c>null</c> no JSON e elemento nulo na lista são recusados.</summary>
     public IReadOnlyList<string> Flags { get; init => field = value ?? []; } = [];
 
     /// <summary>
-    /// Dado opaco da engine, gravado na extração e devolvido sem alteração à reconstrução, para reinjetar sem reparsear o script
+    /// Dado opaco da engine, gravado na extração e devolvido sem alteração à reconstrução, para reinjetar sem reinterpretar os comandos do script
     /// (ex.: <c>{ "command": 812, "args": [0] }</c>). O Core nunca interpreta o conteúdo; só o preserva.
     /// </summary>
     /// <remarks>

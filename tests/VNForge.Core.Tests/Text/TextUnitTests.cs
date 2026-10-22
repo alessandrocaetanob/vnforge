@@ -9,7 +9,7 @@ public class TextUnitTests
         string source = "今日は、いい天気だね。\\p",
         string? translation = null,
         TranslationStatus status = TranslationStatus.Untranslated) =>
-        new("yst00123:0042", TextUnitKind.Dialogue, "美咲", source, translation, status);
+        new("yst00123:000042", TextUnitKind.Dialogue, "美咲", source, translation, status);
 
     [Fact]
     public void Kind_cobre_os_valores_do_doc_02_e_serializa_como_string()
@@ -73,7 +73,7 @@ public class TextUnitTests
     {
         var locator = JsonSerializer.SerializeToElement(new { command = 812, args = new[] { 0 } });
         var unidade = new TextUnit(
-            "yst00123:0042",
+            "yst00123:000042",
             TextUnitKind.Dialogue,
             "美咲",
             "今日は、いい天気だね。\\p",
@@ -179,6 +179,97 @@ public class TextUnitTests
     }
 
     [Fact]
+    public void Campo_desconhecido_falha_em_vez_de_ser_descartado()
+    {
+        var ex = Assert.ThrowsAny<JsonException>(() => TextUnitJson.Deserialize(
+            """{ "id": "a:000001", "kind": "name", "source": "x", "status": "untranslated", "traslation": "Oi" }"""));
+
+        Assert.Contains("traslation", ex.Message);
+    }
+
+    [Fact]
+    public void Leitura_aceita_comentarios_e_virgula_final()
+    {
+        var lidas = TextUnitJson.DeserializeList(
+            """
+            [
+              // primeira linha
+              { "id": "a:000001", "kind": "name", "source": "x", "status": "untranslated", },
+            ]
+            """);
+
+        Assert.Equal("a:000001", Assert.Single(lidas).Id);
+    }
+
+    [Fact]
+    public void Lista_tem_uma_unidade_compacta_por_linha()
+    {
+        TextUnit[] unidades =
+        [
+            Unidade() with { Locator = JsonSerializer.SerializeToElement(new { command = 1, args = new[] { 0 } }) },
+            Unidade(translation: "Oi", status: TranslationStatus.Translated) with { Id = "yst00123:000043" },
+        ];
+
+        var json = TextUnitJson.SerializeList(unidades);
+        var linhas = json.Split('\n');
+
+        Assert.Equal(4, linhas.Length);
+        Assert.Equal("[", linhas[0]);
+        Assert.EndsWith("},", linhas[1]);
+        Assert.StartsWith("{\"id\":\"yst00123:000042\"", linhas[1]);
+        Assert.EndsWith("}", linhas[2]);
+        Assert.Equal("]", linhas[3]);
+        Assert.Equal("[]", TextUnitJson.SerializeList([]));
+        Assert.Empty(TextUnitJson.DeserializeList("[]"));
+    }
+
+    [Fact]
+    public void Origem_exige_provider_e_at()
+    {
+        const string Base = """{ "id": "a:000001", "kind": "name", "source": "x", "status": "machine", "origin": {0} }""";
+
+        Assert.ThrowsAny<JsonException>(() => TextUnitJson.Deserialize(Base.Replace("{0}", """{ "at": "2026-10-17T18:00:00Z" }""")));
+        Assert.ThrowsAny<JsonException>(() => TextUnitJson.Deserialize(Base.Replace("{0}", """{ "provider": "anthropic" }""")));
+    }
+
+    [Theory]
+    [InlineData("2026-10-17T18:00:00", false)]
+    [InlineData("2026-10-17", false)]
+    [InlineData("2026-10-17T18:00:00Z", true)]
+    [InlineData("2026-10-17T15:00:00-03:00", true)]
+    [InlineData("2026-10-17T18:00:00.1234567Z", true)]
+    public void Origem_at_exige_Z_ou_deslocamento(string at, bool valido)
+    {
+        var json = $$"""{ "id": "a:000001", "kind": "name", "source": "x", "status": "machine", "origin": { "provider": "p", "at": "{{at}}" } }""";
+
+        if (valido)
+        {
+            Assert.Equal(DateTimeOffset.Parse(at, System.Globalization.CultureInfo.InvariantCulture).UtcDateTime, TextUnitJson.Deserialize(json).Origin!.At.UtcDateTime);
+        }
+        else
+        {
+            Assert.ThrowsAny<JsonException>(() => TextUnitJson.Deserialize(json));
+        }
+    }
+
+    [Theory]
+    [InlineData(""" "notes": null """)]
+    [InlineData(""" "flags": null """)]
+    [InlineData(""" "flags": [null] """)]
+    public void Notes_e_flags_nulos_sao_recusados(string campo)
+    {
+        var json = $$"""{ "id": "a:000001", "kind": "name", "source": "x", "status": "untranslated", {{campo}} }""";
+
+        Assert.ThrowsAny<JsonException>(() => TextUnitJson.Deserialize(json));
+    }
+
+    [Fact]
+    public void Elemento_nulo_na_lista_e_recusado()
+    {
+        Assert.ThrowsAny<JsonException>(() => TextUnitJson.DeserializeList("[null]"));
+    }
+
+    [Fact]
     public void Opcoes_sao_somente_leitura()
     {
         Assert.True(TextUnitJson.Options.IsReadOnly);
@@ -187,11 +278,11 @@ public class TextUnitTests
     [Fact]
     public void Lista_de_unidades_faz_ida_e_volta()
     {
-        TextUnit[] unidades = [Unidade(), Unidade(translation: "Oi", status: TranslationStatus.Translated) with { Id = "yst00123:0043" }];
+        TextUnit[] unidades = [Unidade(), Unidade(translation: "Oi", status: TranslationStatus.Translated) with { Id = "yst00123:000043" }];
 
         var lidas = TextUnitJson.DeserializeList(TextUnitJson.SerializeList(unidades));
 
-        Assert.Equal(["yst00123:0042", "yst00123:0043"], lidas.Select(u => u.Id));
+        Assert.Equal(["yst00123:000042", "yst00123:000043"], lidas.Select(u => u.Id));
         Assert.Equal(TranslationStatus.Translated, lidas[1].Status);
     }
 
