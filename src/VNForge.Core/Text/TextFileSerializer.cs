@@ -1,0 +1,218 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+
+namespace VNForge.Core.Text;
+
+/// <summary>
+/// Conteúdo de um arquivo <c>text/&lt;chave&gt;.json</c>: um envelope com <c>version</c> e a lista <c>units</c> das
+/// <see cref="TextUnit"/> de um script, uma por linha, para o diff e o merge do git mostrarem só o que mudou.
+/// </summary>
+/// <remarks>
+/// A gravação é estável: as unidades saem na ordem recebida, a indentação é de dois espaços, o fim de linha é <c>\n</c> e o texto termina
+/// com uma quebra de linha; o <see cref="TextUnitJson"/> define cada unidade (japonês sem escape, marcadores como <c>\n</c> e <c>\p</c> intactos,
+/// já que a barra invertida do marcador vira <c>\\</c> no JSON e volta igual). Gravar o mesmo conteúdo duas vezes gera o mesmo texto.
+/// Quem grava no disco (<see cref="Projects.ProjectFolder"/>) usa UTF-8 sem BOM. Caracteres fora do plano básico (como emoji) saem escapados
+/// em pares <c>\uXXXX</c>, que voltam ao mesmo texto; o japonês comum fica legível.
+/// </remarks>
+public static partial class TextFileSerializer
+{
+    /// <summary>Versão do envelope que esta classe grava e lê.</summary>
+    public const int CurrentVersion = 1;
+
+    /// <summary>Serializa as unidades de um script, na ordem recebida.</summary>
+    public static string Serialize(IReadOnlyList<TextUnit> units)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+
+        var sb = new StringBuilder("{\n  \"version\": ").Append(CurrentVersion).Append(",\n  \"units\": [");
+        if (units.Count == 0)
+        {
+            return sb.Append("]\n}\n").ToString();
+        }
+
+        sb.Append('\n');
+        for (var i = 0; i < units.Count; i++)
+        {
+            sb.Append("    ").Append(TextUnitJson.Serialize(units[i])).Append(i < units.Count - 1 ? ",\n" : "\n");
+        }
+
+        return sb.Append("  ]\n}\n").ToString();
+    }
+
+    /// <summary>Lê as unidades de um arquivo.</summary>
+    /// <param name="json">Conteúdo do arquivo, sem BOM.</param>
+    /// <param name="filePath">Caminho do arquivo, só para as mensagens de erro.</param>
+    /// <param name="key">Chave do script dono do arquivo; quando informada, todo id precisa começar com <c>key + ":"</c> e não se repetir.</param>
+    /// <exception cref="TextFileException">JSON malformado (com linha e coluna), envelope sem <c>version</c> ou <c>units</c>, versão desconhecida, campo
+    /// desconhecido ou inválido (com o caminho do campo e a posição), unidade nula ou id fora da regra da <paramref name="key"/>.</exception>
+    public static IReadOnlyList<TextUnit> Parse(string json, string filePath, string? key = null)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+        ArgumentNullException.ThrowIfNull(filePath);
+
+        CheckEnvelope(json, filePath);
+
+        Envelope envelope;
+        try
+        {
+            envelope = JsonSerializer.Deserialize<Envelope>(json, TextUnitJson.Options)
+                ?? throw new TextFileException(filePath, "o arquivo está vazio.");
+        }
+        catch (JsonException ex)
+        {
+            throw new TextFileException(filePath, DescribeInvalid(ex), ex);
+        }
+
+        var units = new List<TextUnit>(envelope.Units.Count);
+        for (var i = 0; i < envelope.Units.Count; i++)
+        {
+            var unit = envelope.Units[i] ?? throw new TextFileException(filePath, $"$.units[{i}]: a unidade é nula.");
+            try
+            {
+                units.Add(TextUnitJson.Validar(unit));
+            }
+            catch (JsonException ex)
+            {
+                throw new TextFileException(filePath, $"$.units[{i}]: {ex.Message}", ex);
+            }
+        }
+
+        if (key is not null)
+        {
+            ValidateIds(units, key, filePath);
+        }
+
+        return units;
+    }
+
+    /// <summary>Confere que cada id começa com <c>key + ":"</c> e que nenhum se repete.</summary>
+    /// <exception cref="TextFileException">Id de outro script ou repetido; a mensagem cita o id.</exception>
+    public static void ValidateIds(IReadOnlyList<TextUnit> units, string key, string filePath)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        var prefixo = key + ":";
+        var vistos = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var unit in units)
+        {
+            if (!unit.Id.StartsWith(prefixo, StringComparison.Ordinal))
+            {
+                throw new TextFileException(filePath, $"a unidade '{unit.Id}' não pertence ao script '{key}' (o id deveria começar com '{prefixo}').");
+            }
+
+            if (!vistos.Add(unit.Id))
+            {
+                throw new TextFileException(filePath, $"o id '{unit.Id}' aparece mais de uma vez no arquivo.");
+            }
+        }
+    }
+
+    private static void CheckEnvelope(string json, string filePath)
+    {
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(json, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+        }
+        catch (JsonException ex)
+        {
+            throw new TextFileException(filePath, $"JSON malformado ({Position(ex)}).", ex);
+        }
+
+        using (document)
+        {
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                throw new TextFileException(filePath, "a raiz deve ser um objeto JSON com 'version' e 'units'.");
+            }
+
+            var hasVersion = false;
+            var hasUnits = false;
+            foreach (var property in root.EnumerateObject())
+            {
+                switch (property.Name)
+                {
+                    case "version":
+                        hasVersion = true;
+                        CheckVersion(property.Value, filePath);
+                        break;
+                    case "units":
+                        hasUnits = true;
+                        if (property.Value.ValueKind != JsonValueKind.Array)
+                        {
+                            throw new TextFileException(filePath, "$.units: deve ser uma lista de unidades.");
+                        }
+
+                        break;
+                    default:
+                        throw new TextFileException(filePath, $"campo desconhecido '{property.Name}' na raiz do arquivo.");
+                }
+            }
+
+            if (!hasVersion)
+            {
+                throw new TextFileException(filePath, "campo obrigatório ausente: 'version'.");
+            }
+
+            if (!hasUnits)
+            {
+                throw new TextFileException(filePath, "campo obrigatório ausente: 'units'.");
+            }
+        }
+    }
+
+    private static void CheckVersion(JsonElement version, string filePath)
+    {
+        if (version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number))
+        {
+            throw new TextFileException(filePath, $"$.version: deve ser o número inteiro {CurrentVersion}.");
+        }
+
+        if (number > CurrentVersion)
+        {
+            throw new TextFileException(filePath, $"$.version: a versão {number} é mais nova que a {CurrentVersion}, a única que este VNForge lê; atualize o VNForge.");
+        }
+
+        if (number != CurrentVersion)
+        {
+            throw new TextFileException(filePath, $"$.version: a versão {number} não existe; o valor esperado é {CurrentVersion}.");
+        }
+    }
+
+    private static string DescribeInvalid(JsonException ex)
+    {
+        var detail = DetailSuffix().Replace(ex.Message, string.Empty);
+        var missing = MissingProperties().Match(detail);
+        if (missing.Success)
+        {
+            detail = $"campo obrigatório ausente: {missing.Groups[1].Value}.";
+        }
+        else if (UnmappedProperty().Match(detail) is { Success: true } unmapped)
+        {
+            detail = $"campo desconhecido '{unmapped.Groups[1].Value}'.";
+        }
+
+        var where = ex.Path is { Length: > 0 } path ? $"{path}, " : string.Empty;
+        return $"{where}{Position(ex)}: {detail}";
+    }
+
+    private static string Position(JsonException ex) =>
+        ex.LineNumber is { } line && ex.BytePositionInLine is { } column
+            ? $"linha {line + 1}, coluna {column + 1}"
+            : "posição desconhecida";
+
+    [GeneratedRegex(@"\s*Path:.*$", RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex DetailSuffix();
+
+    [GeneratedRegex(@"missing required properties[^:]*:\s*(.+?)\.?\s*$", RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex MissingProperties();
+
+    [GeneratedRegex(@"The JSON property '([^']+)' could not be mapped", RegexOptions.CultureInvariant)]
+    private static partial Regex UnmappedProperty();
+
+    private sealed record Envelope(
+        [property: JsonRequired] int Version,
+        [property: JsonRequired] List<TextUnit?> Units);
+}

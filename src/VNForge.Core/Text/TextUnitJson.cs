@@ -14,8 +14,8 @@ namespace VNForge.Core.Text;
 /// no próximo salvamento); comentários e vírgula final são aceitos, como no <c>vnforge.json</c>.
 /// </summary>
 /// <remarks>
-/// Estas funções leem e gravam só as unidades. A E3.1/E3.3 (#43) envolve a lista num envelope com <c>version</c> no arquivo;
-/// o envelope não faz parte deste tipo.
+/// Estas funções leem e gravam só as unidades. O arquivo <c>text/*.json</c> envolve a lista num envelope com <c>version</c>
+/// (<see cref="TextFileSerializer"/>); o envelope não faz parte deste tipo.
 /// </remarks>
 public static partial class TextUnitJson
 {
@@ -59,7 +59,7 @@ public static partial class TextUnitJson
         return lista.Select(u => Validar(u ?? throw new JsonException("A lista de unidades tem um elemento nulo."))).ToList();
     }
 
-    private static TextUnit Validar(TextUnit unit)
+    internal static TextUnit Validar(TextUnit unit)
     {
         if (unit.Flags.Any(f => f is null))
         {
