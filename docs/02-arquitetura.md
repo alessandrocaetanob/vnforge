@@ -126,6 +126,7 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
 - O doc original só citava `IArchiveFormat`; ele passa a abrir um `IArchive` (índice, leitura de entrada, `WriteTo` com reescrita mínima), que é o que a regra 3 do `CLAUDE.md` exige do escritor.
 - `IGamePatch` não faz backup: declara `AffectedFiles` e o fluxo de injeção faz o backup antes de `Apply` (regra 2 do `CLAUDE.md`). `GamePaths.Resolve` valida cada caminho (vazio, enraizado, `C:foo`, UNC, `:` e `..` são recusados; `\` vale como separador em qualquer plataforma).
 - `WriteTo` trata uma troca com conteúdo idêntico ao atual como entrada não trocada, porque o zlib não reproduz os bytes comprimidos do original; sem isso, um `pack` que passa todos os arquivos quebraria a regra 3.
+- `WriteTo` do YPF recusa o destino que é o fluxo de origem (o mesmo objeto, ou um `FileStream` no mesmo caminho) e valida chaves, conteúdo e destino antes de gravar o primeiro byte: o fluxo de injeção, com backup, é quem troca o original (regra 2 do `CLAUDE.md`). Troca num YPF sem algoritmo de hash confirmado é recusada com `NotSupportedException`; os detalhes estão no doc 06.
 - `ArchiveEntry` não é selada: cada formato deriva dela (`YpfEntry`) para guardar os campos internos da reescrita. `Path` é único no pacote.
 - `OpenEntry` falha na hora quando o hash diverge. A verificação é do formato: o algoritmo de hash por versão está como não testado no doc 06, com ambiguidade nas versões 477 e 478.
 - `CanApply` devolve verdadeiro com o patch já aplicado, e `Apply` é idempotente.
