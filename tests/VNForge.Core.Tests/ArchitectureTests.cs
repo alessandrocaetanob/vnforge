@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Xml.Linq;
 using VNForge.Core.Engines;
 
 namespace VNForge.Core.Tests;
@@ -21,6 +22,22 @@ public class ArchitectureTests
     }
 
     [Fact]
+    public void Csproj_do_Core_nao_tem_ProjectReference_para_engines_nem_ia()
+    {
+        var csproj = ProcurarCsprojDoCore();
+
+        var proibidas = XDocument.Load(csproj)
+            .Descendants("ProjectReference")
+            .Select(r => Path.GetFileNameWithoutExtension((string?)r.Attribute("Include") ?? string.Empty))
+            .Where(IsProibido)
+            .ToList();
+
+        Assert.True(
+            proibidas.Count == 0,
+            $"VNForge.Core.csproj não pode referenciar engine nem IA, mas tem: {string.Join(", ", proibidas)}");
+    }
+
+    [Fact]
     public void Core_nao_expoe_tipos_de_yuris()
     {
         var tipos = Core.GetTypes()
@@ -37,6 +54,7 @@ public class ArchitectureTests
     [InlineData("VNForge.Engines.YuRis", true)]
     [InlineData("VNForge.Engines.KiriKiri", true)]
     [InlineData("VNForge.AI", true)]
+    [InlineData("VNForge.AI.OpenAI", true)]
     [InlineData("VNForge.Core", false)]
     [InlineData("VNForge.AIExtras", false)]
     [InlineData("System.Runtime", false)]
@@ -48,5 +66,21 @@ public class ArchitectureTests
 
     private static bool IsProibido(string? nome) =>
         nome is not null
-        && (nome.StartsWith("VNForge.Engines.", StringComparison.Ordinal) || nome == "VNForge.AI");
+        && (nome.StartsWith("VNForge.Engines.", StringComparison.Ordinal)
+            || nome == "VNForge.AI"
+            || nome.StartsWith("VNForge.AI.", StringComparison.Ordinal));
+
+    private static string ProcurarCsprojDoCore()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidato = Path.Combine(dir.FullName, "src", "VNForge.Core", "VNForge.Core.csproj");
+            if (File.Exists(candidato))
+            {
+                return candidato;
+            }
+        }
+
+        throw new FileNotFoundException("src/VNForge.Core/VNForge.Core.csproj não encontrado acima de " + AppContext.BaseDirectory);
+    }
 }

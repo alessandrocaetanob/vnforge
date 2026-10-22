@@ -62,7 +62,7 @@ public interface IEngine
     string Id { get; }                                  // "yuris"
     EngineDetection Detect(string gameDir);             // "parece YU-RIS 5.x, ysbin.ypf v500"
     IReadOnlyList<IArchiveFormat> Archives { get; }     // YPF
-    IReadOnlyList<IScriptFormat> Scripts { get; }       // YSTB (entra na E2.1)
+    // IReadOnlyList<IScriptFormat> Scripts { get; }    // YSTB: entra na E2.1
     IReadOnlyList<IGamePatch> Patches { get; }          // ex.: patch de codepage no .exe
 }
 

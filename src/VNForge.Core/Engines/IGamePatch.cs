@@ -15,7 +15,10 @@ public interface IGamePatch
     /// <summary>Descrição curta, em português, do que o patch altera.</summary>
     string Description { get; }
 
-    /// <summary>Arquivos que <see cref="Apply"/> altera, relativos à pasta do jogo. O fluxo de injeção faz o backup deles.</summary>
+    /// <summary>
+    /// Arquivos que <see cref="Apply"/> altera, relativos à pasta do jogo, sem caminho absoluto nem segmento <c>..</c>.
+    /// O fluxo de injeção valida os caminhos, recusa os que saem da pasta e faz o backup deles.
+    /// </summary>
     IReadOnlyList<string> AffectedFiles { get; }
 
     /// <summary>
