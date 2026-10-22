@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,11 @@ internal sealed class FileLoggerProvider(string logDirectory) : ILoggerProvider
 {
     private static readonly UTF8Encoding Utf8SemBom = new(encoderShouldEmitUTF8Identifier: false);
 
+    private static readonly ConcurrentDictionary<string, bool> Failures = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly object _gate = new();
+
+    public static bool WriteFailed(string directory) => Failures.ContainsKey(directory);
 
     public ILogger CreateLogger(string categoryName) => new FileLogger(this, categoryName);
 
@@ -45,10 +50,15 @@ internal sealed class FileLoggerProvider(string logDirectory) : ILoggerProvider
                 stream.Write(bytes, 0, bytes.Length);
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception)
         {
             // O log é auxiliar: se o disco recusar, o comando segue sem ele.
+            // O ErrorHandler consulta WriteFailed para não apontar para um arquivo que não existe.
+            Failures[logDirectory] = true;
+            return;
         }
+
+        Failures.TryRemove(logDirectory, out _);
     }
 
     private sealed class FileLogger(FileLoggerProvider provider, string category) : ILogger

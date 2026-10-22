@@ -94,16 +94,117 @@ public sealed class ErrorHandlerTests : IDisposable
         using var factory = VNForgeLogging.CreateFactory(_root);
 
         var code = await ErrorHandler.ExecuteAsync(
-            async () =>
+            async _ =>
             {
                 await Task.Yield();
                 throw new UnknownVersionException("x.ybn", "7");
             },
             factory.CreateLogger("Teste"),
             error,
-            VNForgeLogging.GetLogDirectory(_root));
+            VNForgeLogging.GetLogDirectory(_root),
+            TestContext.Current.CancellationToken);
 
         Assert.Equal(ErrorHandler.ExpectedErrorExitCode, code);
         Assert.Equal("Erro: Versão desconhecida (7) no arquivo 'x.ybn'." + Environment.NewLine, error.ToString());
+    }
+
+    [Fact]
+    public void Log_que_nao_grava_nao_promete_o_arquivo_e_mostra_o_erro_inesperado_no_console()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(Path.Combine(_root, ".cache"), "arquivo no lugar da pasta");
+        var error = new StringWriter();
+
+        var code = Run(() => throw new InvalidOperationException("estado quebrado"), error);
+
+        Assert.Equal(ErrorHandler.UnexpectedErrorExitCode, code);
+        var text = error.ToString();
+        Assert.DoesNotContain("O log completo está em", text);
+        Assert.Contains("InvalidOperationException: estado quebrado", text);
+        Assert.Contains(nameof(Log_que_nao_grava_nao_promete_o_arquivo_e_mostra_o_erro_inesperado_no_console), text);
+    }
+
+    [Fact]
+    public void Log_que_lanca_excecao_nao_impede_a_mensagem_nem_perde_o_erro_original()
+    {
+        var error = new StringWriter();
+
+        var code = ErrorHandler.Execute(
+            () => throw new InvalidFileException("a.ypf", "truncado"),
+            new ThrowingLogger(),
+            error,
+            VNForgeLogging.GetLogDirectory(_root));
+
+        Assert.Equal(ErrorHandler.ExpectedErrorExitCode, code);
+        Assert.Equal("Erro: O arquivo 'a.ypf' é inválido: truncado" + Environment.NewLine, error.ToString());
+    }
+
+    [Fact]
+    public void Erro_inesperado_com_logger_que_lanca_mostra_o_erro_original_no_console()
+    {
+        var error = new StringWriter();
+
+        var code = ErrorHandler.Execute(
+            () => throw new InvalidOperationException("estado quebrado"),
+            new ThrowingLogger(),
+            error,
+            VNForgeLogging.GetLogDirectory(_root));
+
+        Assert.Equal(ErrorHandler.UnexpectedErrorExitCode, code);
+        var text = error.ToString();
+        Assert.DoesNotContain("O log completo está em", text);
+        Assert.Contains("InvalidOperationException: estado quebrado", text);
+    }
+
+    [Fact]
+    public void Cancelamento_vira_mensagem_curta_com_codigo_130_e_nao_e_erro_no_log()
+    {
+        var error = new StringWriter();
+
+        var code = Run(() => throw new OperationCanceledException(), error);
+
+        Assert.Equal(ErrorHandler.CancelledExitCode, code);
+        Assert.Equal(130, ErrorHandler.CancelledExitCode);
+        Assert.Equal("Operação cancelada." + Environment.NewLine, error.ToString());
+        var log = ReadLog();
+        Assert.DoesNotContain("[Error]", log);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_repassa_o_token_e_trata_o_cancelamento()
+    {
+        var error = new StringWriter();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        using var factory = VNForgeLogging.CreateFactory(_root);
+
+        var code = await ErrorHandler.ExecuteAsync(
+            async token =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                return 0;
+            },
+            factory.CreateLogger("Teste"),
+            error,
+            VNForgeLogging.GetLogDirectory(_root),
+            cts.Token);
+
+        Assert.Equal(ErrorHandler.CancelledExitCode, code);
+        Assert.Equal("Operação cancelada." + Environment.NewLine, error.ToString());
+    }
+
+    private sealed class ThrowingLogger : Microsoft.Extensions.Logging.ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            Microsoft.Extensions.Logging.LogLevel logLevel,
+            Microsoft.Extensions.Logging.EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) => throw new AggregateException("provedor quebrado");
     }
 }
