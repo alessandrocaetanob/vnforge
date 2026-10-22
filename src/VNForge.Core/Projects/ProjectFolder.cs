@@ -1,4 +1,5 @@
 using System.Text;
+using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
 
@@ -6,6 +7,8 @@ namespace VNForge.Core.Projects;
 public sealed class ProjectFolder
 {
     public const string ConfigFileName = "vnforge.json";
+
+    private const string TextFileExtension = ".json";
 
     private static readonly UTF8Encoding Utf8SemBom = new(encoderShouldEmitUTF8Identifier: false);
     private static readonly UTF8Encoding Utf8Estrito = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
@@ -98,13 +101,122 @@ public sealed class ProjectFolder
         }
     }
 
-    private void WriteConfig(string json, bool overwrite)
+    /// <summary>Caminho de <c>text/&lt;chave&gt;.json</c>, o arquivo das unidades do script de chave <paramref name="key"/>.</summary>
+    /// <exception cref="ArgumentException">Chave vazia, com maiúscula, separador de pasta, <c>:</c>, caractere inválido em nome de arquivo ou terminada em ponto.</exception>
+    public string TextPath(string key)
     {
-        var temporary = Path.Combine(Root, $"{ConfigFileName}.{Guid.NewGuid():N}.tmp");
+        ValidateKey(key);
+        return Path.Combine(TextDirectory, key + TextFileExtension);
+    }
+
+    /// <summary>
+    /// Grava as unidades do script de chave <paramref name="key"/> em <c>text/&lt;chave&gt;.json</c> (UTF-8 sem BOM, LF), na ordem recebida.
+    /// Gravar o mesmo conteúdo duas vezes gera arquivos idênticos. A gravação é atômica: o arquivo anterior só é trocado quando o novo está completo.
+    /// </summary>
+    /// <exception cref="ArgumentException">Chave inválida (ver <see cref="TextPath"/>).</exception>
+    /// <exception cref="TextFileException">Id que não começa com <c>chave:</c> ou repetido; nada é gravado.</exception>
+    public void SaveText(string key, IReadOnlyList<TextUnit> units)
+    {
+        var path = TextPath(key);
+        TextFileSerializer.ValidateIds(units, key, path);
+        var json = TextFileSerializer.Serialize(units, path);
+        Directory.CreateDirectory(TextDirectory);
+        WriteAtomically(path, json, overwrite: true);
+    }
+
+    /// <summary>Lê as unidades do script de chave <paramref name="key"/>.</summary>
+    /// <exception cref="ArgumentException">Chave inválida (ver <see cref="TextPath"/>).</exception>
+    /// <exception cref="TextFileException">Arquivo ausente, fora de UTF-8, fora do formato ou com ids de outro script.</exception>
+    public IReadOnlyList<TextUnit> LoadText(string key)
+    {
+        var path = TextPath(key);
+        return TextFileSerializer.Parse(ReadTextFile(path), path, key);
+    }
+
+    /// <summary>Lê todos os <c>text/*.json</c> da pasta, ordenados pela chave (nome do arquivo sem extensão, em minúsculas). Pasta <c>text/</c> ausente ou vazia dá um resultado vazio.</summary>
+    /// <exception cref="TextFileException">Algum arquivo inválido, ou dois arquivos com a mesma chave.</exception>
+    public IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> LoadAllText()
+    {
+        if (!Directory.Exists(TextDirectory))
+        {
+            return new Dictionary<string, IReadOnlyList<TextUnit>>();
+        }
+
+        return LoadTextFiles(Directory.EnumerateFiles(TextDirectory).Where(IsTextFile));
+    }
+
+    /// <summary>
+    /// Lê arquivos de texto pelo caminho, ordenados pela chave de cada um (nome sem extensão, em minúsculas). Dois arquivos com a mesma chave
+    /// (por exemplo <c>A.json</c> e <c>a.json</c> num sistema que diferencia maiúsculas) é erro, porque os ids de um colidiriam com os do outro.
+    /// </summary>
+    /// <exception cref="TextFileException">Chave repetida ou arquivo inválido.</exception>
+    public static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> LoadTextFiles(IEnumerable<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        var byKey = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var path in paths.Order(StringComparer.Ordinal))
+        {
+            var key = Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
+            if (!byKey.TryAdd(key, path))
+            {
+                throw new TextFileException(path, $"a chave '{key}' já vem de '{byKey[key]}'; dois scripts não podem ter a mesma chave.");
+            }
+        }
+
+        var result = new SortedDictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal);
+        foreach (var (key, path) in byKey)
+        {
+            result[key] = TextFileSerializer.Parse(ReadTextFile(path), path, key);
+        }
+
+        return result;
+    }
+
+    private static bool IsTextFile(string path) =>
+        string.Equals(Path.GetExtension(path), TextFileExtension, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadTextFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            throw new TextFileException(path, "arquivo não encontrado.");
+        }
+
         try
         {
-            File.WriteAllText(temporary, json, Utf8SemBom);
-            File.Move(temporary, ConfigPath, overwrite);
+            return Utf8Estrito.GetString(File.ReadAllBytes(path)).TrimStart((char)0xFEFF);
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new TextFileException(path, "o arquivo não está em UTF-8 válido.", ex);
+        }
+    }
+
+    private static void ValidateKey(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        if (key != key.Trim()
+            || key != key.ToLowerInvariant()
+            || key.EndsWith('.')
+            || key.Contains(':')
+            || key.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || key.IndexOfAny(['/', '\\']) >= 0)
+        {
+            throw new ArgumentException($"A chave de script '{key}' não serve de nome de arquivo: use minúsculas, sem pasta, sem ':' e sem ponto no fim.", nameof(key));
+        }
+    }
+
+    private void WriteConfig(string json, bool overwrite) =>
+        WriteAtomically(ConfigPath, json, overwrite);
+
+    private static void WriteAtomically(string path, string content, bool overwrite)
+    {
+        var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllText(temporary, content, Utf8SemBom);
+            File.Move(temporary, path, overwrite);
         }
         finally
         {
