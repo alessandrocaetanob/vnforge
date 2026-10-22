@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VNForge.Engines.YuRis\VNForge.Engines.YuRis.csproj" />
+  </ItemGroup>
+
+</Project>
