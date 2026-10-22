@@ -25,7 +25,7 @@ public sealed class LogLocationTests : IDisposable
     [Fact]
     public async Task Cwd_com_vnforge_json_recebe_o_log_em_cache_logs()
     {
-        File.WriteAllText(Path.Combine(_cli.WorkingDirectory, ProjectFolder.ConfigFileName), "{}");
+        await File.WriteAllTextAsync(Path.Combine(_cli.WorkingDirectory, ProjectFolder.ConfigFileName), "{}", TestContext.Current.CancellationToken);
         AddBug();
 
         await _cli.RunAsync(["bug"], TestContext.Current.CancellationToken);
@@ -40,7 +40,7 @@ public sealed class LogLocationTests : IDisposable
     {
         var project = Path.Combine(_cli.Root, "projeto");
         Directory.CreateDirectory(project);
-        File.WriteAllText(Path.Combine(project, ProjectFolder.ConfigFileName), "{}");
+        await File.WriteAllTextAsync(Path.Combine(project, ProjectFolder.ConfigFileName), "{}", TestContext.Current.CancellationToken);
         AddBug();
 
         await _cli.RunAsync(["--project", project, "bug"], TestContext.Current.CancellationToken);
