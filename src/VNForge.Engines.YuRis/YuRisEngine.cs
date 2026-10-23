@@ -8,6 +8,8 @@ public sealed class YuRisEngine : IEngine
 {
     public string Id => "yuris";
 
+    public string DisplayName => "YU-RIS";
+
     public IReadOnlyList<IArchiveFormat> Archives { get; } = [new YpfArchiveFormat()];
 
     public IReadOnlyList<IScriptFormat> Scripts { get; } = [];
