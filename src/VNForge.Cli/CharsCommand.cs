@@ -123,9 +123,18 @@ internal static class CharsCommand
         return ErrorHandler.OkExitCode;
     }
 
-    private static CharacterGender ParseGender(string text) =>
-        Enum.GetValues<CharacterGender>().Cast<CharacterGender?>().FirstOrDefault(g => string.Equals(GenderName(g!.Value), text.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new UsageException($"Gênero desconhecido: '{text}'. Use um de: {string.Join(", ", GenderNames)}.");
+    private static CharacterGender ParseGender(string text)
+    {
+        foreach (var gender in Enum.GetValues<CharacterGender>())
+        {
+            if (string.Equals(GenderName(gender), text.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return gender;
+            }
+        }
+
+        throw new UsageException($"Gênero desconhecido: '{text}'. Use um de: {string.Join(", ", GenderNames)}.");
+    }
 
     private static string GenderName(CharacterGender gender) => gender.ToString().ToLowerInvariant();
 
