@@ -32,6 +32,9 @@ public sealed class QaEngine
     public static QaEngine Default { get; } = new(
     [
         .. CompletenessQaRules.All,
+        new GlossaryTermRule(),
+        new CharacterNameRule(),
+        new InconsistentTranslationRule(),
     ]);
 
     /// <summary>Regras registradas, na ordem em que rodam.</summary>
