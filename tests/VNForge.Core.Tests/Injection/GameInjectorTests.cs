@@ -198,6 +198,73 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
+    public void Terceira_injecao_acha_o_original_num_backup_que_nao_e_o_mais_recente()
+    {
+        SeedGameAndBuild();
+        InjectAll(Injector());
+        _clock.Now = _clock.Now.AddMinutes(1);
+        Build("ysbin.ypf", "original-ysbin");
+        Build("bgm.ypf", "traduzido-bgm-v2");
+        File.Delete(Path.Combine(_project.BuildDirectory, "ysbin.ypf"));
+        InjectAll(Injector());
+        _clock.Now = _clock.Now.AddMinutes(1);
+        Build("ysbin.ypf", "traduzido-ysbin-v3");
+
+        var third = InjectAll(Injector());
+
+        Assert.Equal("original-ysbin", File.ReadAllText(Path.Combine(third.BackupDirectory!, "ysbin.ypf")));
+        RestoreLatest(Injector());
+        Assert.Equal("original-ysbin", ReadGame("ysbin.ypf"));
+    }
+
+    [Fact]
+    public void Restore_devolve_na_pasta_onde_a_injecao_ocorreu_mesmo_com_game_path_mudado()
+    {
+        SeedGameAndBuild();
+        InjectAll(Injector());
+        var outro = Path.Combine(_temp.Path, "outro");
+        Directory.CreateDirectory(outro);
+        File.WriteAllText(Path.Combine(outro, "ysbin.ypf"), "do-outro-jogo");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(outro, "jogo.exe") });
+
+        var result = RestoreLatest(Injector());
+
+        Assert.Equal(_game, result.GameDirectory);
+        AssertGameIsOriginal();
+        Assert.Equal("do-outro-jogo", File.ReadAllText(Path.Combine(outro, "ysbin.ypf")));
+    }
+
+    [Fact]
+    public void Restore_nao_apaga_arquivo_criado_pela_injecao_que_mudou_depois()
+    {
+        SeedGameAndBuild();
+        Build("novo.txt", "novo");
+        InjectAll(Injector());
+        Game("novo.txt", "editado-depois");
+
+        var result = RestoreLatest(Injector());
+
+        Assert.Equal(["novo.txt"], result.Kept);
+        Assert.Equal("editado-depois", ReadGame("novo.txt"));
+        AssertGameIsOriginal();
+    }
+
+    [Fact]
+    public void Arquivo_novo_que_aparece_entre_o_plano_e_a_injecao_aborta_sem_sobrescrever()
+    {
+        Build("novo.txt", "do-build");
+        var injector = Injector();
+        var plan = injector.Plan(_project);
+        Game("novo.txt", "criado-por-outro");
+
+        var erro = Assert.Throws<InjectionException>(() => injector.Inject(plan));
+
+        Assert.Contains("mudou depois da conferência", erro.Message);
+        Assert.Equal("criado-por-outro", ReadGame("novo.txt"));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
+    }
+
+    [Fact]
     public void Falha_no_meio_da_injecao_devolve_o_jogo_ao_estado_original()
     {
         SeedGameAndBuild();
@@ -251,8 +318,9 @@ public sealed class GameInjectorTests : IDisposable
 
         var erro = Assert.Throws<InjectionException>(() => injector.Inject(plan));
 
-        Assert.Contains("não confere", erro.Message);
+        Assert.Contains("mudou depois da conferência", erro.Message);
         Assert.Equal("atualizado-pelo-jogo", ReadGame("ysbin.ypf"));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
         Assert.Equal("original-bgm", ReadGame("bgm.ypf"));
     }
 

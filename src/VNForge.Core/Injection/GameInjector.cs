@@ -49,7 +49,7 @@ public sealed class GameInjector
             throw new InjectionException($"A pasta build/ está vazia em '{project.Root}'. Rode vnf build antes de injetar.");
         }
 
-        var previous = FindLatestBackup(project);
+        var history = new BackupHistory(ReadBackups(project));
         var files = new List<PlannedFile>();
         var unchanged = 0;
         foreach (var buildPath in buildFiles)
@@ -59,7 +59,7 @@ public sealed class GameInjector
             var buildHash = FileHash.Sha256(buildPath);
             if (!File.Exists(target))
             {
-                files.Add(new PlannedFile(relative, buildPath, target, buildHash, null, null));
+                files.Add(new PlannedFile(relative, buildPath, target, buildHash, null, null, null));
                 continue;
             }
 
@@ -70,7 +70,7 @@ public sealed class GameInjector
                 continue;
             }
 
-            files.Add(PlanReplacement(relative, buildPath, target, buildHash, targetHash, previous));
+            files.Add(PlanReplacement(relative, buildPath, target, buildHash, targetHash, history));
         }
 
         return new InjectionPlan(gameDirectory, project.BackupDirectory, files, unchanged);
@@ -133,9 +133,11 @@ public sealed class GameInjector
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        var gameDirectory = ResolveGameDirectory(project);
-        var latest = FindLatestBackup(project)
+        var latest = ReadBackups(project).FirstOrDefault()
             ?? throw new InjectionException($"Não há backup em '{project.BackupDirectory}'. Só dá para restaurar depois de um vnf inject.");
+        var gameDirectory = Directory.Exists(latest.Manifest.GameDirectory)
+            ? latest.Manifest.GameDirectory
+            : ResolveGameDirectory(project);
         return new RestorePlan(gameDirectory, latest.Directory, latest.Manifest);
     }
 
@@ -165,7 +167,7 @@ public sealed class GameInjector
                 $"Não foi possível restaurar tudo: {string.Join(" ", outcome.Failures)} O backup continua em '{plan.BackupDirectory}'; rode vnf restore de novo.");
         }
 
-        return new RestoreResult(plan.GameDirectory, plan.BackupDirectory, outcome.Restored, outcome.Removed);
+        return new RestoreResult(plan.GameDirectory, plan.BackupDirectory, outcome.Restored, outcome.Removed, outcome.Kept);
     }
 
     private static PlannedFile PlanReplacement(
@@ -174,22 +176,27 @@ public sealed class GameInjector
         string target,
         string buildHash,
         string targetHash,
-        (string Directory, BackupManifest Manifest)? previous)
+        BackupHistory history)
     {
-        var earlier = previous?.Manifest.Files.FirstOrDefault(e => string.Equals(e.Path, relative, StringComparison.Ordinal));
-        if (earlier is not null && earlier.InjectedSha256 == targetHash)
+        var earlier = history.FindLatestEntry(relative);
+        if (earlier is not null && earlier.Entry.InjectedSha256 == targetHash)
         {
-            // O jogo está com o build da injeção anterior: o original de verdade está no backup anterior.
-            return earlier.Existed
-                ? new PlannedFile(relative, buildPath, target, buildHash, earlier.OriginalSha256, ResolveInside(previous!.Value.Directory, relative))
-                : new PlannedFile(relative, buildPath, target, buildHash, null, null);
+            // O jogo está com o build de uma injeção anterior: o original de verdade está nesse backup.
+            return earlier.Entry.Existed
+                ? new PlannedFile(relative, buildPath, target, buildHash, earlier.Entry.OriginalSha256, ResolveInside(earlier.Directory, relative), targetHash)
+                : new PlannedFile(relative, buildPath, target, buildHash, null, null, targetHash);
         }
 
-        return new PlannedFile(relative, buildPath, target, buildHash, targetHash, target);
+        return new PlannedFile(relative, buildPath, target, buildHash, targetHash, target, targetHash);
     }
 
     private void BackUpOriginals(InjectionPlan plan, string backupDirectory)
     {
+        foreach (var file in plan.Files)
+        {
+            CheckTargetUnchanged(file);
+        }
+
         foreach (var file in plan.Files.Where(f => f.ReplacesExisting))
         {
             var copy = ResolveInside(backupDirectory, file.RelativePath);
@@ -203,6 +210,18 @@ public sealed class GameInjector
         }
     }
 
+    private static void CheckTargetUnchanged(PlannedFile file)
+    {
+        var unchanged = file.TargetSha256 is null
+            ? !File.Exists(file.TargetPath)
+            : File.Exists(file.TargetPath) && FileHash.Sha256(file.TargetPath) == file.TargetSha256;
+        if (!unchanged)
+        {
+            throw new InjectionException(
+                $"O arquivo '{file.RelativePath}' do jogo mudou depois da conferência (o jogo pode ter sido atualizado durante a operação). Nada foi gravado no jogo.");
+        }
+    }
+
     private InjectionException RollBack(
         string gameDirectory,
         string backupDirectory,
@@ -212,7 +231,7 @@ public sealed class GameInjector
         Exception cause)
     {
         var entries = manifest.Files.Where(e => attempted.Contains(e.Path)).ToList();
-        var outcome = RestoreEntries(gameDirectory, backupDirectory, entries);
+        var outcome = RestoreEntries(gameDirectory, backupDirectory, entries, removeModifiedCreations: true);
         if (outcome.Failures.Count == 0)
         {
             return new InjectionException(
@@ -226,13 +245,15 @@ public sealed class GameInjector
             cause);
     }
 
-    private (List<string> Restored, List<string> Removed, List<string> Failures) RestoreEntries(
+    private (List<string> Restored, List<string> Removed, List<string> Kept, List<string> Failures) RestoreEntries(
         string gameDirectory,
         string backupDirectory,
-        IEnumerable<BackupEntry> entries)
+        IEnumerable<BackupEntry> entries,
+        bool removeModifiedCreations = false)
     {
         var restored = new List<string>();
         var removed = new List<string>();
+        var kept = new List<string>();
         var failures = new List<string>();
         foreach (var entry in entries)
         {
@@ -246,8 +267,15 @@ public sealed class GameInjector
                 }
                 else if (File.Exists(target))
                 {
-                    _fileSystem.DeleteFile(target);
-                    removed.Add(entry.Path);
+                    if (removeModifiedCreations || FileHash.Sha256(target) == entry.InjectedSha256)
+                    {
+                        _fileSystem.DeleteFile(target);
+                        removed.Add(entry.Path);
+                    }
+                    else
+                    {
+                        kept.Add(entry.Path);
+                    }
                 }
             }
             catch (Exception ex) when (ex is InjectionException or IOException or UnauthorizedAccessException)
@@ -256,7 +284,7 @@ public sealed class GameInjector
             }
         }
 
-        return (restored, removed, failures);
+        return (restored, removed, kept, failures);
     }
 
     private void RestoreOne(string backupDirectory, BackupEntry entry, string target)
@@ -337,11 +365,11 @@ public sealed class GameInjector
         }
     }
 
-    private static (string Directory, BackupManifest Manifest)? FindLatestBackup(ProjectFolder project)
+    private static IEnumerable<BackupRecord> ReadBackups(ProjectFolder project)
     {
         if (!Directory.Exists(project.BackupDirectory))
         {
-            return null;
+            yield break;
         }
 
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal).Reverse())
@@ -352,18 +380,53 @@ public sealed class GameInjector
                 continue;
             }
 
+            BackupManifest manifest;
             try
             {
                 var json = new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(File.ReadAllBytes(manifestPath));
-                return (directory, BackupManifest.Parse(json.TrimStart((char)0xFEFF), manifestPath));
+                manifest = BackupManifest.Parse(json.TrimStart((char)0xFEFF), manifestPath);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException)
             {
                 throw new InjectionException($"O manifesto do backup não pôde ser lido: {manifestPath}", ex);
             }
-        }
 
-        return null;
+            yield return new BackupRecord(directory, manifest);
+        }
+    }
+
+    private sealed record BackupRecord(string Directory, BackupManifest Manifest);
+
+    private sealed record HistoryEntry(string Directory, BackupEntry Entry);
+
+    /// <summary>Backups do mais novo para o mais antigo, lidos sob demanda: só quem precisa de um backup velho paga para ler o manifesto dele.</summary>
+    private sealed class BackupHistory(IEnumerable<BackupRecord> backups)
+    {
+        private readonly List<BackupRecord> _read = [];
+        private readonly IEnumerator<BackupRecord> _pending = backups.GetEnumerator();
+
+        /// <summary>A entrada mais recente que mexeu em <paramref name="relative"/>, em qualquer backup.</summary>
+        public HistoryEntry? FindLatestEntry(string relative)
+        {
+            for (var i = 0; ; i++)
+            {
+                if (i == _read.Count)
+                {
+                    if (!_pending.MoveNext())
+                    {
+                        return null;
+                    }
+
+                    _read.Add(_pending.Current);
+                }
+
+                var entry = _read[i].Manifest.Files.FirstOrDefault(e => string.Equals(e.Path, relative, StringComparison.Ordinal));
+                if (entry is not null)
+                {
+                    return new HistoryEntry(_read[i].Directory, entry);
+                }
+            }
+        }
     }
 
     private static string ResolveGameDirectory(ProjectFolder project)

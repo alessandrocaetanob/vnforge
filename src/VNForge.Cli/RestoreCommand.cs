@@ -45,11 +45,17 @@ internal static class RestoreCommand
                 backupDirectory = result.BackupDirectory,
                 restored = result.Restored,
                 removed = result.Removed,
+                kept = result.Kept,
             }));
             return ErrorHandler.OkExitCode;
         }
 
         output.WriteLine($"Restaurado: {result.Restored.Count} arquivo(s); removido: {result.Removed.Count} arquivo(s) criado(s) pela injeção.");
+        foreach (var kept in result.Kept)
+        {
+            output.WriteLine($"Mantido: {kept} (criado pela injeção, mas alterado depois; apague à mão se quiser)");
+        }
+
         return ErrorHandler.OkExitCode;
     }
 }

@@ -11,6 +11,7 @@ public sealed record InjectionPlan(string GameDirectory, string BackupRoot, IRea
 /// <param name="TargetPath">Arquivo correspondente na pasta do jogo.</param>
 /// <param name="BuildSha256">SHA-256 do arquivo do build.</param>
 /// <param name="OriginalSha256">SHA-256 do original; nulo quando o jogo não tem o arquivo.</param>
+/// <param name="TargetSha256">SHA-256 do arquivo no jogo na hora do plano; nulo quando ele não existe. A injeção confere que não mudou antes de gravar.</param>
 /// <param name="OriginalSource">De onde sai a cópia do original: o próprio jogo, ou o backup anterior quando o jogo já está com o build de uma injeção passada. Nulo quando não há original.</param>
 public sealed record PlannedFile(
     string RelativePath,
@@ -18,7 +19,8 @@ public sealed record PlannedFile(
     string TargetPath,
     string BuildSha256,
     string? OriginalSha256,
-    string? OriginalSource)
+    string? OriginalSource,
+    string? TargetSha256)
 {
     public bool ReplacesExisting => OriginalSha256 is not null;
 }
@@ -29,4 +31,5 @@ public sealed record InjectionResult(string GameDirectory, string? BackupDirecto
 /// <summary>O que <see cref="GameInjector.Restore"/> vai devolver: o backup mais recente.</summary>
 public sealed record RestorePlan(string GameDirectory, string BackupDirectory, BackupManifest Manifest);
 
-public sealed record RestoreResult(string GameDirectory, string BackupDirectory, IReadOnlyList<string> Restored, IReadOnlyList<string> Removed);
+/// <param name="Kept">Arquivos criados pela injeção que mudaram depois dela: o restore os deixa em paz.</param>
+public sealed record RestoreResult(string GameDirectory, string BackupDirectory, IReadOnlyList<string> Restored, IReadOnlyList<string> Removed, IReadOnlyList<string> Kept);
