@@ -27,6 +27,7 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
         // Linhas repetidas no mesmo lote pagam uma vez só.
         ledger?.RecordCacheHits(hits + (batch.Lines.Count - hits - toSend.Count));
 
+        var refused = new HashSet<string>(StringComparer.Ordinal);
         if (toSend.Count > 0)
         {
             var request = new TranslationBatch([.. toSend.Select(i => batch.Lines[i])])
@@ -38,21 +39,27 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
             };
 
             var results = await inner.TranslateAsync(request, ct).ConfigureAwait(false);
-            var byId = new Dictionary<string, string>(StringComparer.Ordinal);
+            var byId = new Dictionary<string, TranslationResult>(StringComparer.Ordinal);
             foreach (var r in results)
-                byId[r.Id] = r.Translation;
+                byId[r.Id] = r;
             foreach (var i in toSend)
             {
-                if (!byId.TryGetValue(batch.Lines[i].Id, out var translation))
+                if (!byId.TryGetValue(batch.Lines[i].Id, out var result))
                     throw new InvalidOperationException($"O provedor não devolveu a linha '{batch.Lines[i].Id}'.");
-                cache.Set(keys[i], translation);
+
+                // Recusa não é tradução: guardá-la no cache faria a próxima execução devolver texto vazio sem tentar de novo.
+                if (result.Refused || string.IsNullOrEmpty(result.Translation))
+                    refused.Add(keys[i]);
+                else
+                    cache.Set(keys[i], result.Translation);
             }
         }
 
         return [.. batch.Lines.Select((u, i) =>
         {
-            cache.TryGet(keys[i], out var translation);
-            return new TranslationResult(u.Id, translation);
+            return cache.TryGet(keys[i], out var translation)
+                ? new TranslationResult(u.Id, translation)
+                : new TranslationResult(u.Id, string.Empty, Refused: refused.Contains(keys[i]));
         })];
     }
 }
