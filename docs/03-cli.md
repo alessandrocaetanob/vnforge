@@ -60,8 +60,8 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 |---|---|
 | `vnf export --format xlsx\|csv\|po` | Exporta o texto para revisão externa. Hoje só `csv` (UTF-8 com BOM, colunas `id,kind,speaker,source,translation,status,notes`), em `revisao.csv` ou no `--output`; não troca arquivo existente sem `--force`. XLSX e PO dependem da decisão #51 |
 | `vnf import <arquivo>` | Importa de volta, casando por `id`. Só `translation`, `status` e `notes` mudam; id desconhecido ou repetido e status inválido são erros e, com qualquer erro, nada é importado. Só regrava o `text/<chave>.json` que teve linha alterada |
-| `vnf glossary add "先輩" "veterano"` | Gerencia o glossário |
-| `vnf chars list\|set` | Gerencia nomes de personagens |
+| `vnf glossary add "先輩" "veterano" [--notes] [--force]`, `vnf glossary list` | Gerencia o glossário (`glossary.json`); termo repetido só é trocado com `--force`. Aceitam `--json` |
+| `vnf chars list`, `vnf chars set <original> <tradução> [--gender valor] [--tone texto]` | Gerencia os personagens (`characters.json`); `set` cria ou atualiza e mantém o que não foi informado. Gênero: `unknown`, `female`, `male` ou `other`. Aceitam `--json` |
 | `vnf config ai` | Configura modelo do Claude e chave (salva fora do projeto) |
 | `vnf ypf info\|unpack\|pack` | Ferramentas baixas de arquivo YPF, úteis para pesquisa |
 | `vnf ybn dump <arquivo> [--ysc <arquivo>]` | Despeja um script YSTB legível (comandos, argumentos, textos com marcadores), só leitura (E2.9) |
