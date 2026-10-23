@@ -96,14 +96,19 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         {
             sb.AppendLine().AppendLine("Glossário (use sempre estes termos):");
             foreach (var g in batch.Glossary)
-                sb.AppendLine($"- {g.Source} => {g.Target}");
+                sb.AppendLine(string.IsNullOrWhiteSpace(g.Notes) ? $"- {g.Source} => {g.Target}" : $"- {g.Source} => {g.Target} ({g.Notes})");
         }
 
         if (batch.Characters.Count > 0)
         {
             sb.AppendLine().AppendLine("Personagens:");
             foreach (var c in batch.Characters)
-                sb.AppendLine(c.Tone is null ? $"- {c.Source} => {c.Target}" : $"- {c.Source} => {c.Target} (tom: {c.Tone})");
+                {
+                var details = new List<string>();
+                if (c.Gender is not null) details.Add($"gênero: {c.Gender}");
+                if (c.Tone is not null) details.Add($"tom: {c.Tone}");
+                sb.AppendLine(details.Count == 0 ? $"- {c.Source} => {c.Target}" : $"- {c.Source} => {c.Target} ({string.Join("; ", details)})");
+            }
         }
 
         return sb.ToString();

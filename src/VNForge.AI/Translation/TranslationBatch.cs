@@ -3,10 +3,10 @@ using VNForge.Core.Text;
 namespace VNForge.AI.Translation;
 
 /// <summary>Um termo fixo do glossário: como o original deve ser traduzido.</summary>
-public sealed record GlossaryEntry(string Source, string Target);
+public sealed record GlossaryEntry(string Source, string Target, string? Notes = null);
 
 /// <summary>Um personagem presente no lote: nome original e traduzido, com o tom de fala quando definido.</summary>
-public sealed record CharacterInfo(string Source, string Target, string? Tone = null);
+public sealed record CharacterInfo(string Source, string Target, string? Tone = null, string? Gender = null);
 
 /// <summary>Um lote de linhas a traduzir, com o contexto que o provedor usa para manter o estilo e os termos.</summary>
 public sealed record TranslationBatch
