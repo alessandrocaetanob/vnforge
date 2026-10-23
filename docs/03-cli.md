@@ -49,7 +49,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | `vnf check` | Roda o QA e lista problemas |
 | `vnf review` | Revisão por IA: gera sugestões nas notas, não altera traduções |
 | `vnf preview <id>` | Mostra como a linha fica depois da formatação e quebra de linha |
-| `vnf build` | Aplica formatação e codificação, reconstrói scripts e arquivos YPF em `build/` |
+| `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1: Shift-JIS pura, sem formatação; detalhes abaixo) |
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
 | `vnf run` | Abre o jogo (atalho para testar depois do inject) |
@@ -88,12 +88,11 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
   --fix                   corrige o que é seguro corrigir (espaços duplos etc.)
 ```
 
-`vnf build`
+`vnf build` (E8.1; aceita `--json`)
 ```
-  --only-changed          reconstrói só scripts com tradução alterada (padrão)
-  --allow-warnings        builda mesmo com avisos (erros sempre bloqueiam)
-  --encoding <estratégia> sobrescreve a do projeto, útil para comparar
+  (sem opções próprias nesta versão)
 ```
+As opções `--only-changed`, `--allow-warnings` e `--encoding <estratégia>` chegam com o perfil de formatação e as estratégias de codificação do M2. Hoje o build já reconstrói só os scripts com tradução (`status` diferente de `untranslated`, `translation` não vazia e diferente do `source`) e usa Shift-JIS pura, qualquer que seja o `encoding.strategy` do projeto. Os detalhes estão em "`vnf build`" abaixo.
 
 `vnf ypf` (E1.8; os três aceitam `--json`)
 ```
@@ -160,6 +159,22 @@ Cada script vira `text/<chave>.json`, onde a chave é o nome do `.ybn` sem exten
 Um script ilegível aborta a extração com o nome do script na mensagem e nada é gravado em `text/`; se a gravação de `text/` falhar no meio, os arquivos já gravados são removidos. A re-extração que preserva traduções é a E3.5: com qualquer `text/*.json` na pasta, o `extract` recusa, sai com `1` e não altera nada, nem o `.cache/`. Para extrair do zero, mova ou apague a pasta `text/` (as traduções nela se perdem). `.cache/` dentro da pasta do jogo, também por link simbólico ou junção, é recusado antes de gravar, e um jogo sem nenhum script depois de descompactar é erro.
 
 No texto, a saída é uma linha por pacote descompactado e o resumo, com o tipo de cada linha na ordem diálogos, narração, escolhas, nomes, sistema e outros (tipos com zero ficam de fora), seguidos de até 10 avisos dos scripts. Com `--json`, `data` traz `gameDirectory`, `cacheDirectory`, `archives` (`path`, `directory`, `files`, `bytes`), `scripts` (quantidade), `lines`, `kinds` (`dialogue`, `narration`, `choice`, `name`, `system`, `other`, todos presentes), `texts` (`key`, `name`, `lines` por script) e `warnings`.
+
+`vnf build` (E8.1; aceita `--json`)
+
+Reabre o jogo descompactado em `.cache/game/` (o `vnf extract` precisa ter rodado), lê `text/*.json` e reconstrói cada script que tem tradução com a reescrita mínima do E2: só os argumentos traduzidos mudam, o resto do script sai byte a byte igual. Depois grava os pacotes em `build/`, com o mesmo caminho relativo à pasta do jogo (`build/ysbin.ypf`, `build/pac/x.ypf`), que é o que o `vnf inject` espera: cada arquivo de `build/` substitui o de mesmo caminho no jogo.
+
+- **Pacotes sem alteração**: saem em `build/` idênticos ao original (cópia byte a byte), e o `vnf inject` ignora o arquivo igual ao do jogo. Assim `build/` sempre tem todos os pacotes de scripts, e um build sem nenhuma tradução gera `build/ysbin.ypf` idêntico ao original. Pacotes que o `extract` não descompactou (imagens, áudio) não entram.
+- **Não altera o jogo nem o `.cache/`**: só lê a pasta do jogo e `.cache/game/`. O `build/` anterior é apagado por inteiro no fim, não em cada etapa: o novo é montado em `build.tmp/`, ao lado de `build/`, e só então toma o lugar do anterior.
+- **Aborta sem deixar `build/` pela metade**: caractere que o Shift-JIS não representa, marcador inválido na tradução, trecho que não é mais o do `source` (script de outra versão), `text/*.json` inválido ou jogo que mudou depois da extração saem com `1`, com a mensagem em português citando o script e o `id` da linha. O `build/` anterior continua como estava e o `build.tmp/` é removido.
+- **Avisos**: um `text/<chave>.json` sem script correspondente em `.cache/game/` é ignorado com aviso.
+- **Saída**: no texto, uma linha por pacote gravado (com a quantidade de scripts alterados, ou "sem alterações, idêntico ao original") e o resumo `Reconstruídos 1 script (2 linhas trocadas); 1 pacote gravado em build/`, seguidos de até 10 avisos. Com `--json`, `data` traz `gameDirectory`, `buildDirectory`, `archives` (`path`, `replacedFiles`), `scripts` (reconstruídos), `totalScripts` (lidos de `.cache/`), `lines` (unidades trocadas), `rebuilt` (`key`, `name`, `lines` por script) e `warnings`.
+
+```console
+$ vnf build
+Gravado: minha-vn-ptbr\build\ysbin.ypf (12 scripts alterados)
+Reconstruídos 12 scripts (1.204 linhas trocadas); 1 pacote gravado em build/
+```
 
 ## Fluxo típico
 

@@ -7,8 +7,8 @@ namespace VNForge.Engines.YuRis.Ystb;
 
 /// <summary>
 /// O YSTB (<c>.ybn</c>) como <see cref="IScriptFormat"/>. A extração lê o script com o <see cref="YuRisContext"/> e devolve as unidades
-/// de <see cref="YstbTextExtractor"/>. A reconstrução ainda não está ligada: o escritor de YSTB e o injetor de texto da E2.7 (#38)
-/// entram à parte, e <see cref="Rebuild"/> lança <see cref="NotSupportedException"/> até a E8.1 (<c>vnf build</c>) usá-los.
+/// de <see cref="YstbTextExtractor"/>. A reconstrução lê o script de novo e entrega as unidades ao
+/// <see cref="YstbTextInjector"/>, que grava só os argumentos com tradução pelo <see cref="YstbWriter"/>.
 /// </summary>
 public sealed class YstbScriptFormat : IScriptFormat
 {
@@ -34,14 +34,23 @@ public sealed class YstbScriptFormat : IScriptFormat
     }
 
     /// <inheritdoc />
-    /// <exception cref="NotSupportedException">Sempre: a reconstrução dos scripts ainda não está ligada ao formato.</exception>
     public byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext ctx)
     {
         ArgumentNullException.ThrowIfNull(file);
         ArgumentNullException.ThrowIfNull(units);
         ArgumentNullException.ThrowIfNull(encoder);
-        _ = Require(ctx);
-        throw new NotSupportedException("A reconstrução de scripts YSTB ainda não está ligada ao IScriptFormat; ela chega com o vnf build (E8.1).");
+        var context = Require(ctx);
+        file.ValidateUnits(units);
+
+        try
+        {
+            var script = YstbReader.Read(file.Content, file.Name, context.Commands);
+            return YstbTextInjector.Inject(file, script, units, encoder);
+        }
+        catch (VNForgeException ex)
+        {
+            throw new InvalidDataException(ex.Message, ex);
+        }
     }
 
     private static YuRisContext Require(EngineContext ctx)

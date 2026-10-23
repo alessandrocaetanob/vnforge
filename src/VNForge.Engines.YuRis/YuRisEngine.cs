@@ -5,7 +5,7 @@ using VNForge.Engines.YuRis.Ystb;
 namespace VNForge.Engines.YuRis;
 
 /// <summary>A engine YU-RIS: pacotes YPF e scripts YSTB.</summary>
-public sealed class YuRisEngine : IEngine, IGameUnpacker
+public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker
 {
     /// <summary>Valor de <see cref="Id"/>, também o <see cref="EngineContext.EngineId"/> do <see cref="YuRisContext"/>.</summary>
     public const string EngineId = "yuris";
@@ -59,5 +59,24 @@ public sealed class YuRisEngine : IEngine, IGameUnpacker
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unpackedDirectory);
         return YuRisUnpacker.Open(unpackedDirectory, _scriptFormat);
+    }
+
+    /// <summary>
+    /// Grava em <paramref name="outputDirectory"/> os pacotes que <see cref="Unpack"/> descompactou, com os scripts reconstruídos no lugar
+    /// dos originais e o resto byte a byte igual (<c>ysbin.ypf</c> vai para <c>&lt;destino&gt;/ysbin.ypf</c>). Pacote sem script alterado é
+    /// copiado idêntico; num alterado, cada script confere antes que a entrada do YPF ainda é a que foi extraída.
+    /// </summary>
+    public GameRepackResult Repack(
+        string gameDir,
+        string unpackedDirectory,
+        IReadOnlyList<RebuiltScript> rebuilt,
+        string outputDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unpackedDirectory);
+        ArgumentNullException.ThrowIfNull(rebuilt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
+        return YuRisRepacker.Repack(gameDir, unpackedDirectory, rebuilt, outputDirectory, cancellationToken);
     }
 }

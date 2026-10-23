@@ -1,0 +1,164 @@
+using System.Text;
+using VNForge.Core.Engines;
+using VNForge.Core.Text;
+
+namespace VNForge.Core.Projects;
+
+/// <summary>Um script que o build reconstruiu porque tinha tradução a gravar.</summary>
+/// <param name="Key">Chave do script (<c>yst00012</c>).</param>
+/// <param name="Name">Nome do arquivo (<c>yst00012.ybn</c>).</param>
+/// <param name="Lines">Unidades de texto trocadas.</param>
+public sealed record BuiltScript(string Key, string Name, int Lines);
+
+/// <summary>Resultado de <see cref="ProjectBuilder.Build"/>.</summary>
+/// <param name="GameDirectory">Pasta do jogo cujos pacotes serviram de base.</param>
+/// <param name="BuildDirectory">Pasta <c>build/</c> que recebeu os pacotes.</param>
+/// <param name="Archives">Pacotes gravados em <c>build/</c>.</param>
+/// <param name="ScriptCount">Scripts lidos de <c>.cache/game</c>, com ou sem tradução.</param>
+/// <param name="RebuiltScripts">Scripts reconstruídos, na ordem da chave. Os outros saem byte a byte iguais.</param>
+/// <param name="Warnings">Avisos da engine e dos arquivos de texto.</param>
+public sealed record BuildResult(
+    string GameDirectory,
+    string BuildDirectory,
+    IReadOnlyList<RepackedArchive> Archives,
+    int ScriptCount,
+    IReadOnlyList<BuiltScript> RebuiltScripts,
+    IReadOnlyList<string> Warnings)
+{
+    /// <summary>Total de unidades de texto trocadas.</summary>
+    public int TotalLines => RebuiltScripts.Sum(s => s.Lines);
+}
+
+/// <summary>
+/// O <c>vnf build</c>: reabre o jogo descompactado em <c>.cache/game</c>, reconstrói com <see cref="IScriptFormat.Rebuild"/> os scripts que têm
+/// tradução em <c>text/*.json</c> e pede à engine (<see cref="IGameRepacker"/>) os pacotes novos em <c>build/</c>, no mesmo caminho relativo
+/// do jogo, que é o que o <c>vnf inject</c> espera. Só lê a pasta do jogo e o <c>.cache/</c>.
+/// </summary>
+/// <remarks>
+/// Esta versão usa a codificação Shift-JIS pura (<see cref="ShiftJisTextEncoder"/>) e não formata o texto; o perfil de formatação e as outras
+/// estratégias de <c>encoding</c> do <c>vnforge.json</c> chegam depois. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
+/// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
+/// </remarks>
+public static class ProjectBuilder
+{
+    /// <summary>Reconstrói o jogo do <paramref name="project"/> em <c>build/</c>.</summary>
+    /// <param name="project">Projeto aberto, já extraído (<c>vnf extract</c>).</param>
+    /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
+    /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento não deixa <c>build/</c> pela metade.</param>
+    /// <exception cref="VNForgeException">
+    /// Engine desconhecida ou sem suporte ao build, jogo ou <c>.cache/game</c> inexistente, script ilegível, <c>text/*.json</c> inválido,
+    /// tradução que não grava (caractere fora do Shift-JIS, marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
+    /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
+    /// </exception>
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(engines);
+
+        var config = project.LoadConfig();
+        var engine = engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal))
+            ?? throw new VNForgeException($"A engine '{config.Engine.Id}' do {ProjectFolder.ConfigFileName} não é conhecida por esta versão do vnf.");
+        if (engine is not IGameUnpacker unpacker || engine is not IGameRepacker repacker)
+        {
+            throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta o build.");
+        }
+
+        var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
+        if (!Directory.Exists(gameDirectory))
+        {
+            throw new VNForgeException($"A pasta do jogo não existe: {gameDirectory}");
+        }
+
+        if (!Directory.Exists(project.GameCacheDirectory))
+        {
+            throw new VNForgeException($"A pasta '{project.GameCacheDirectory}' não existe. Rode vnf extract antes do build.");
+        }
+
+        var game = unpacker.Open(project.GameCacheDirectory);
+        if (game.Scripts.Count == 0)
+        {
+            throw new VNForgeException($"Nenhum script foi encontrado em '{project.GameCacheDirectory}'. Rode vnf extract.");
+        }
+
+        var texts = project.LoadAllText();
+        var warnings = new List<string>(game.Warnings);
+        var (rebuilt, built) = RebuildScripts(game, texts, new ShiftJisTextEncoder(), warnings, cancellationToken);
+
+        var staging = project.BuildDirectory + ".tmp";
+        DeleteIfExists(staging);
+        try
+        {
+            Directory.CreateDirectory(staging);
+            var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, cancellationToken);
+            warnings.AddRange(packed.Warnings);
+            cancellationToken.ThrowIfCancellationRequested();
+            DeleteIfExists(project.BuildDirectory);
+            Directory.Move(staging, project.BuildDirectory);
+            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings);
+        }
+        catch
+        {
+            DeleteIfExists(staging);
+            throw;
+        }
+    }
+
+    private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built) RebuildScripts(
+        UnpackedGame game,
+        IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
+        ITextEncoder encoder,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        var rebuilt = new List<RebuiltScript>();
+        var built = new List<BuiltScript>();
+        var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var script in game.Scripts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var original = File.ReadAllBytes(script.Path);
+            var file = new ScriptFile(script.Name, original);
+            if (!keys.TryAdd(file.Key, script.Path))
+            {
+                throw new VNForgeException(
+                    $"Os scripts '{keys[file.Key]}' e '{script.Path}' têm a mesma chave '{file.Key}'; dois scripts não podem usar o mesmo text/{file.Key}.json.");
+            }
+
+            if (!texts.TryGetValue(file.Key, out var units) || !units.Any(u => u.NeedsRewrite))
+            {
+                continue;
+            }
+
+            byte[] content;
+            try
+            {
+                content = script.Format.Rebuild(file, units, encoder, game.Context);
+            }
+            catch (Exception ex) when (ex is InvalidDataException or EncoderFallbackException or FormatException or ArgumentException or VNForgeException)
+            {
+                throw new VNForgeException($"Não foi possível reconstruir o script '{script.Name}' com o text/{file.Key}.json: {ex.Message}", ex);
+            }
+
+            if (content.AsSpan().SequenceEqual(original))
+            {
+                continue;
+            }
+
+            rebuilt.Add(new RebuiltScript(script.Path, original, content));
+            built.Add(new BuiltScript(file.Key, script.Name, units.Count(u => u.NeedsRewrite)));
+        }
+
+        var known = keys.Keys.ToHashSet(StringComparer.Ordinal);
+        warnings.AddRange(texts.Keys.Where(k => !known.Contains(k)).Select(k => $"text/{k}.json não corresponde a nenhum script do jogo descompactado; ignorado."));
+        built.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+        return (rebuilt, built);
+    }
+
+    private static void DeleteIfExists(string directory)
+    {
+        if (Directory.Exists(directory))
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+}

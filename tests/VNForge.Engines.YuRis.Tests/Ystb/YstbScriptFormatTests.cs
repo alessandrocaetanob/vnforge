@@ -1,3 +1,4 @@
+using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Text;
 using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
@@ -54,21 +55,58 @@ public class YstbScriptFormatTests
     }
 
     [Fact]
-    public void Rebuild_ainda_nao_esta_ligado()
+    public void Rebuild_sem_traducao_devolve_o_script_identico()
     {
-        var ex = Assert.Throws<NotSupportedException>(() => Format.Rebuild(new ScriptFile("yst00001.ybn", Script()), [], new UnusedEncoder(), Context));
+        var bytes = Script();
+        var file = new ScriptFile("yst00001.ybn", bytes);
+        var units = Format.Extract(file, Context).Units;
 
-        Assert.Contains("E8.1", ex.Message);
+        var rebuilt = Format.Rebuild(file, units, new ShiftJisTextEncoder(), Context);
+
+        Assert.Equal(bytes, rebuilt);
+    }
+
+    [Fact]
+    public void Rebuild_com_traducao_reextrai_com_o_texto_novo_e_mesmo_id()
+    {
+        var file = new ScriptFile("yst00001.ybn", Script());
+        var original = Format.Extract(file, Context).Units;
+        var translated = original.Select(u => u with { Translation = "Good morning", Status = TranslationStatus.Translated }).ToList();
+
+        var rebuilt = Format.Rebuild(file, translated, new ShiftJisTextEncoder(), Context);
+
+        var again = Format.Extract(new ScriptFile("yst00001.ybn", rebuilt), Context).Units;
+        var unit = Assert.Single(again);
+        Assert.Equal("Good morning", unit.Source);
+        Assert.Equal(original[0].Id, unit.Id);
+        Assert.Equal("美咲", unit.Speaker);
+    }
+
+    [Fact]
+    public void Rebuild_de_caractere_fora_do_shift_jis_cita_o_id()
+    {
+        var file = new ScriptFile("yst00001.ybn", Script());
+        var units = Format.Extract(file, Context).Units.Select(u => u with { Translation = "ação 😀", Status = TranslationStatus.Translated }).ToList();
+
+        var ex = Assert.Throws<EncoderFallbackException>(() => Format.Rebuild(file, units, new ShiftJisTextEncoder(), Context));
+
+        Assert.Contains("yst00001:000000", ex.Message);
+    }
+
+    [Fact]
+    public void Rebuild_com_id_de_outro_script_lanca_ArgumentException()
+    {
+        var file = new ScriptFile("yst00001.ybn", Script());
+        var units = Format.Extract(file, Context).Units.Select(u => u with { Id = "yst00002:000000", Translation = "x", Status = TranslationStatus.Translated }).ToList();
+
+        Assert.Throws<ArgumentException>(() => Format.Rebuild(file, units, new ShiftJisTextEncoder(), Context));
+    }
+
+    [Fact]
+    public void Rebuild_com_contexto_de_outra_engine_lanca_ArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => Format.Rebuild(new ScriptFile("yst00001.ybn", Script()), [], new ShiftJisTextEncoder(), new OtherContext()));
     }
 
     private sealed class OtherContext() : EngineContext("outra");
-
-    private sealed class UnusedEncoder : ITextEncoder
-    {
-        public string Id => "x";
-
-        public byte[] Encode(string text) => throw new NotSupportedException();
-
-        public IReadOnlyList<int> FindUnencodable(string text) => throw new NotSupportedException();
-    }
 }
