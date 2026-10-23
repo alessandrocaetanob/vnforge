@@ -52,12 +52,9 @@ public sealed class DoubleSpaceRule : UnitQaRule, IQaFixer
     public string Fix(string translation)
     {
         var fixedText = new System.Text.StringBuilder(translation);
-        foreach (var span in Find(translation).Reverse())
+        foreach (var span in Find(translation).Where(sp => sp.Text.All(c => c == ' ')).Reverse())
         {
-            if (span.Text.All(c => c == ' '))
-            {
-                fixedText.Remove(span.Start + 1, span.Length - 1);
-            }
+            fixedText.Remove(span.Start + 1, span.Length - 1);
         }
 
         return fixedText.ToString();

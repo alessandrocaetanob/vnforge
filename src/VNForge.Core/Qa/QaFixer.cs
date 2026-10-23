@@ -54,39 +54,35 @@ public static class QaFixer
         var changed = new Dictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal);
         foreach (var (key, units) in texts)
         {
-            var edited = new List<TextUnit>(units.Count);
-            var touched = false;
-            foreach (var unit in units)
-            {
-                var current = unit;
-                foreach (var fixer in fixers)
-                {
-                    if (!current.HasTranslation || current.Flags.Contains(fixer.Id, StringComparer.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    var fixedText = fixer.Fix(current.Translation);
-                    if (string.Equals(fixedText, current.Translation, StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    fixes.Add(new QaFix(fixer.Id, current.Id, key, current.Translation, fixedText));
-                    current = current with { Translation = fixedText };
-                    touched = true;
-                }
-
-                edited.Add(current);
-            }
-
-            if (touched)
+            var edited = units.Select(unit => FixUnit(unit, key, fixers, fixes)).ToList();
+            if (fixes.Exists(f => f.ScriptKey == key))
             {
                 changed[key] = edited;
             }
         }
 
         return new QaFixResult(fixes, changed);
+    }
+
+    private static TextUnit FixUnit(TextUnit unit, string key, List<IQaFixer> fixers, List<QaFix> fixes)
+    {
+        var current = unit;
+        foreach (var fixer in fixers)
+        {
+            if (!current.HasTranslation || current.Flags.Contains(fixer.Id, StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            var fixedText = fixer.Fix(current.Translation);
+            if (!string.Equals(fixedText, current.Translation, StringComparison.Ordinal))
+            {
+                fixes.Add(new QaFix(fixer.Id, current.Id, key, current.Translation, fixedText));
+                current = current with { Translation = fixedText };
+            }
+        }
+
+        return current;
     }
 
     /// <summary>Corrige o projeto: lê os textos, calcula e grava só os scripts que mudaram. Com <paramref name="dryRun"/> não grava.</summary>

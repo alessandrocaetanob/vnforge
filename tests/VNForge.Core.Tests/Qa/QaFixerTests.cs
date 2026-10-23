@@ -34,7 +34,7 @@ public sealed class QaFixerTests : IDisposable
     private static string Fixed(string translation)
     {
         var result = QaFixer.Plan(Texts(Unit("a:1", translation)), QaEngine.Default);
-        return result.Texts.TryGetValue("a", out var units) ? units[0].Translation! : translation;
+        return result.Texts.TryGetValue("a", out var units) ? units[0].Translation ?? translation : translation;
     }
 
     [Fact]
@@ -46,8 +46,8 @@ public sealed class QaFixerTests : IDisposable
     [Fact]
     public void Nao_mexe_em_nbsp_nem_em_espaco_ideografico()
     {
-        Assert.Equal("a  b", Fixed("a  b"));
-        Assert.Equal("a　　b", Fixed("a　　b"));
+        Assert.Equal("a\u00A0 b", Fixed("a\u00A0 b"));
+        Assert.Equal("a\u3000\u3000b", Fixed("a\u3000\u3000b"));
     }
 
     [Fact]
