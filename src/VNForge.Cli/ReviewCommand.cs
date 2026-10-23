@@ -94,12 +94,10 @@ internal static class ReviewCommand
     /// </summary>
     internal static string MergeNote(string existing, string suggestion)
     {
-        var kept = existing
-            .Split('\n')
-            .Select(l => l.TrimEnd('\r'))
-            .Where(l => !l.StartsWith(NotePrefix, StringComparison.Ordinal) && l.Length > 0);
+        var kept = string.Join('\n', existing.Split('\n').Where(l => !l.StartsWith(NotePrefix, StringComparison.Ordinal))).TrimEnd('\r', '\n');
         var oneLine = string.Join(' ', suggestion.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        return string.Join('\n', kept.Append(NotePrefix + oneLine));
+        var note = NotePrefix + oneLine;
+        return kept.Length == 0 ? note : kept + '\n' + note;
     }
 
     private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, CancellationToken token)

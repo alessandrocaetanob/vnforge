@@ -119,6 +119,17 @@ public sealed class ReviewCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Nota_humana_com_linhas_em_branco_volta_intacta()
+    {
+        var units = _project.LoadText("abc");
+        _project.SaveText("abc", [units[0] with { Notes = "a\n\nb\n[IA] velha" }]);
+
+        await Run("--files", "abc");
+
+        Assert.Equal("a\n\nb\n[IA] Conferir: tradução 1", Line("abc", 0).Notes);
+    }
+
+    [Fact]
     public async Task Linha_sem_ressalva_nao_grava_nota_nem_reescreve_o_arquivo()
     {
         _provider = new FakeReviewProvider(_ => string.Empty);
