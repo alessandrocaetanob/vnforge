@@ -45,6 +45,16 @@ public sealed class EncodingAndBoxRulesTests
         Assert.Empty(new UnencodableCharacterRule().Check(Context(Unit("Ação"), strategy: null)));
     }
 
+    [Fact]
+    public void Substituto_solto_e_emoji_sao_apontados_sem_lancar()
+    {
+        var issues = new UnencodableCharacterRule().Check(Context(Unit("a\uD83D b 😀"))).ToList();
+
+        Assert.Equal(2, issues.Count);
+        Assert.Contains("U+D83D", issues[0].Message, StringComparison.Ordinal);
+        Assert.Contains("U+1F600", issues[1].Message, StringComparison.Ordinal);
+    }
+
     // --- caixa-acima-do-limite ---
 
     [Fact]
