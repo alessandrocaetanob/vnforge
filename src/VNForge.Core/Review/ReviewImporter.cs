@@ -98,9 +98,25 @@ public static class ReviewImporter
         }
 
         var changedScripts = changes.Select(c => c.Key).Distinct().Order(StringComparer.Ordinal).ToList();
-        foreach (var key in changedScripts)
+        var originals = changedScripts.ToDictionary(k => k, k => File.ReadAllBytes(project.TextPath(k)));
+        var written = new List<string>();
+        try
         {
-            project.SaveText(key, scripts[key]);
+            foreach (var key in changedScripts)
+            {
+                project.SaveText(key, scripts[key]);
+                written.Add(key);
+            }
+        }
+        catch
+        {
+            // Falha de IO no meio: devolve os scripts já gravados para não deixar a importação pela metade.
+            foreach (var key in written)
+            {
+                File.WriteAllBytes(project.TextPath(key), originals[key]);
+            }
+
+            throw;
         }
 
         return new ReviewImportResult(rows.Count, changes.Count, changedScripts);

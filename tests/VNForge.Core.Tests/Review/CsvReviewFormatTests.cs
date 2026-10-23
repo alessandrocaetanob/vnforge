@@ -90,6 +90,53 @@ public class CsvReviewFormatTests
         Assert.Throws<ReviewImportException>(() => ReviewFormats.Csv.Read([0x69, 0x64, 0x2C, 0xFF, 0xFE], "x.csv"));
     }
 
+    [Theory]
+    [InlineData("=1+1")]
+    [InlineData("-Olá")]
+    [InlineData("@x")]
+    [InlineData("+1")]
+    [InlineData("'=x")]
+    [InlineData("''-x")]
+    [InlineData("'normal")]
+    public void Texto_que_o_excel_leria_como_formula_ganha_apostrofo_e_volta_igual(string texto)
+    {
+        var bytes = ReviewFormats.Csv.Write([Linha("a:1", texto)]);
+        var gravado = Encoding.UTF8.GetString(bytes);
+
+        if (texto is not "'normal")
+        {
+            Assert.Contains(",'" + texto + ",", gravado);
+        }
+
+        Assert.Equal(texto, ReviewFormats.Csv.Read(bytes, "x.csv").Single().Translation);
+    }
+
+    [Fact]
+    public void Aceita_ponto_e_virgula_do_excel_pt_br()
+    {
+        var csv = "id;translation;status;notes\r\na:1;\"um, dois\";translated;\r\n";
+
+        var linha = Assert.Single(ReviewFormats.Csv.Read(Encoding.UTF8.GetBytes(csv), "x.csv"));
+
+        Assert.Equal("um, dois", linha.Translation);
+    }
+
+    [Theory]
+    [InlineData("id,translation,status,notes\r\na:1,ab\"c,translated,\r\n")]
+    [InlineData("id,translation,status,notes\r\na:1,\"ab\"c,translated,\r\n")]
+    public void Aspas_fora_do_lugar_sao_erro(string csv)
+    {
+        Assert.Throws<ReviewImportException>(() => ReviewFormats.Csv.Read(Encoding.UTF8.GetBytes(csv), "x.csv"));
+    }
+
+    [Fact]
+    public void Aceita_cr_isolado_como_fim_de_linha()
+    {
+        var csv = "id,translation,status,notes\ra:1,t,translated,\r";
+
+        Assert.Single(ReviewFormats.Csv.Read(Encoding.UTF8.GetBytes(csv), "x.csv"));
+    }
+
     [Fact]
     public void Linhas_em_branco_sao_ignoradas()
     {

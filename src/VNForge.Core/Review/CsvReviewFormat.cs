@@ -3,7 +3,7 @@ using System.Text;
 namespace VNForge.Core.Review;
 
 /// <summary>
-/// CSV (RFC 4180) em UTF-8 com BOM, para o Excel abrir o japonês direito: colunas <c>id,kind,speaker,source,translation,status,notes</c>,
+/// CSV (RFC 4180) em UTF-8 com BOM, para o Excel abrir o japonês direito (na leitura, aceita também o `;` que o Excel pt-BR grava): colunas <c>id,kind,speaker,source,translation,status,notes</c>,
 /// campos com vírgula, aspas ou quebra de linha entre aspas e fim de linha CRLF. Na leitura aceita ou não o BOM, CRLF ou LF, colunas em
 /// qualquer ordem e colunas extras; só <c>id</c>, <c>translation</c>, <c>status</c> e <c>notes</c> são obrigatórias.
 /// </summary>
@@ -46,7 +46,8 @@ internal sealed class CsvReviewFormat : IReviewFormat
             throw new ReviewImportException($"'{path}' não está em UTF-8 válido; salve o CSV como \"CSV UTF-8\".");
         }
 
-        var records = Split(text, path);
+        var headerLine = text.Split('\n', 2)[0];
+        var records = Split(text, path, headerLine.Contains(';') && !headerLine.Contains(',') ? ';' : ',');
         if (records.Count == 0)
         {
             throw new ReviewImportException($"'{path}' está vazio: falta a linha de cabeçalho ({string.Join(",", Header)}).");
@@ -71,7 +72,7 @@ internal sealed class CsvReviewFormat : IReviewFormat
                 throw new ReviewImportException($"'{path}', linha {line}: {fields.Count} colunas, mas o cabeçalho tem {columns.Count}.");
             }
 
-            rows.Add(new ReviewRow(line, Cell(fields, id).Trim(), Cell(fields, kind), Cell(fields, speaker), Cell(fields, source), Cell(fields, translation), Cell(fields, status), Cell(fields, notes)));
+            rows.Add(new ReviewRow(line, Restore(Cell(fields, id).Trim()), Cell(fields, kind), Restore(Cell(fields, speaker)), Restore(Cell(fields, source)), Restore(Cell(fields, translation)), Cell(fields, status), Restore(Cell(fields, notes))));
         }
 
         return rows;
@@ -94,6 +95,7 @@ internal sealed class CsvReviewFormat : IReviewFormat
 
     private static void AppendField(StringBuilder sb, string value)
     {
+        value = Neutralize(value);
         if (value.AsSpan().IndexOfAny(",\"\r\n") < 0)
         {
             sb.Append(value);
@@ -103,8 +105,22 @@ internal sealed class CsvReviewFormat : IReviewFormat
         sb.Append('"').Append(value.Replace("\"", "\"\"")).Append('"');
     }
 
+    /// <summary>
+    /// Impede que o Excel trate a célula como fórmula (CSV injection): texto que começa com <c>= + - @</c>, tab ou CR ganha um apóstrofo na frente.
+    /// Texto que já começa com apóstrofos seguidos de um desses também ganha um, para <see cref="Restore"/> desfazer sem ambiguidade.
+    /// </summary>
+    private static string Neutralize(string value) => NeedsGuard(value) ? "'" + value : value;
+
+    private static string Restore(string value) => value.StartsWith('\'') && NeedsGuard(value[1..]) ? value[1..] : value;
+
+    private static bool NeedsGuard(string value)
+    {
+        var rest = value.TrimStart('\'');
+        return rest.Length > 0 && rest[0] is '=' or '+' or '-' or '@' or '\t' or '\r';
+    }
+
     /// <summary>Divide o texto em registros, guardando a linha onde cada um começa. Linhas em branco somem.</summary>
-    private static List<(int Line, List<string> Fields)> Split(string text, string path)
+    private static List<(int Line, List<string> Fields)> Split(string text, string path, char delimiter)
     {
         var records = new List<(int, List<string>)>();
         var fields = new List<string>();
@@ -164,7 +180,7 @@ internal sealed class CsvReviewFormat : IReviewFormat
                     break;
                 case '"':
                     throw new ReviewImportException($"'{path}', linha {line}: aspas no meio de um campo; um campo com aspas deve ir todo entre aspas.");
-                case ',':
+                case var d when d == delimiter:
                     fields.Add(field.ToString());
                     field.Clear();
                     wasQuoted = false;
