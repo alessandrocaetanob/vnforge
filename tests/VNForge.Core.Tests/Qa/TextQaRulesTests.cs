@@ -41,6 +41,13 @@ public sealed class TextQaRulesTests
         Assert.Equal(new QaSpan(4, 2, "  "), span);
     }
 
+    [Fact]
+    public void Espaco_duplo_conta_nbsp_e_espaco_ideografico()
+    {
+        Assert.Equal([new QaSpan(1, 2, "  ")], DoubleSpaceRule.Find("a  b"));
+        Assert.Equal([new QaSpan(1, 2, "　　")], DoubleSpaceRule.Find("a　　b"));
+    }
+
     // ---- espaco-antes-pontuacao
 
     [Fact]
@@ -149,6 +156,12 @@ public sealed class TextQaRulesTests
     }
 
     [Fact]
+    public void Japones_na_traducao_inclui_o_sinal_de_repeticao()
+    {
+        Assert.Equal([new QaSpan(0, 2, "人々")], LeftoverJapaneseRule.Find("人々"));
+    }
+
+    [Fact]
     public void Japones_na_traducao_nao_dispara_com_texto_latino_pontuacao_japonesa_ou_marcador()
     {
         Assert.Empty(Run(new LeftoverJapaneseRule(), Unit("Tudo certo, ação é já!")));
@@ -175,6 +188,6 @@ public sealed class TextQaRulesTests
     {
         var engine = new QaEngine(TextQaRules.All);
 
-        Assert.Equal(4, engine.Rules.Count);
+        Assert.Equal(["espaco-duplo", "espaco-antes-pontuacao", "aspas-desbalanceadas", "japones-na-traducao"], engine.Rules.Select(r => r.Id));
     }
 }

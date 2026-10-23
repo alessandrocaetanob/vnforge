@@ -2,7 +2,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Qa;
 
-/// <summary>Dois ou mais espaços seguidos na tradução. Um marcador entre os espaços os separa.</summary>
+/// <summary>Dois ou mais espaços seguidos (comum, NBSP ou ideográfico) na tradução. Um marcador entre os espaços os separa.</summary>
 public sealed class DoubleSpaceRule : UnitQaRule
 {
     /// <inheritdoc />
@@ -24,14 +24,14 @@ public sealed class DoubleSpaceRule : UnitQaRule
             var i = 0;
             while (i < text.Length)
             {
-                if (text[i] != ' ')
+                if (!IsSpace(text[i]))
                 {
                     i++;
                     continue;
                 }
 
                 var end = i;
-                while (end < text.Length && text[end] == ' ')
+                while (end < text.Length && IsSpace(text[end]))
                 {
                     end++;
                 }
@@ -47,6 +47,8 @@ public sealed class DoubleSpaceRule : UnitQaRule
 
         return spans;
     }
+
+    private static bool IsSpace(char c) => c is ' ' or ' ' or '　';
 
     /// <inheritdoc />
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)

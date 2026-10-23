@@ -63,7 +63,8 @@ public sealed class LeftoverJapaneseRule : UnitQaRule
 
     // Kanji fora do plano básico (CJK estendido B em diante) usa par substituto e fica de fora: é raro em texto de jogo.
     private static bool IsJapanese(char c) =>
-        c is (>= 'ぁ' and <= 'ゟ')
+        c is (>= '々' and <= '〇')
+            or (>= 'ぁ' and <= 'ゟ')
             or (>= 'ァ' and <= 'ヺ')
             or 'ー'
             or (>= '㐀' and <= '䶿')

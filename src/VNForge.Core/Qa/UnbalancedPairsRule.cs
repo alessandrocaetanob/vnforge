@@ -52,8 +52,14 @@ public sealed class UnbalancedPairsRule : UnitQaRule
             yield break;
         }
 
+        var unmatched = FindUnmatched(unit.Translation!).ToList();
+        if (unmatched.Count == 0)
+        {
+            yield break;
+        }
+
         var sourceBroken = FindUnmatched(unit.Source).Select(u => u.Group).ToHashSet();
-        foreach (var (index, group) in FindUnmatched(unit.Translation!).Where(u => !sourceBroken.Contains(u.Group)).OrderBy(u => u.Index))
+        foreach (var (index, group) in unmatched.Where(u => !sourceBroken.Contains(u.Group)).OrderBy(u => u.Index))
         {
             var kind = group == Group.Quotes ? "Aspas" : "Parêntese";
             yield return $"{kind} '{unit.Translation![index]}' sem par na posição {index}.";
