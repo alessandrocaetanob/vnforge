@@ -107,25 +107,7 @@ internal static class ReviewCommand
         {
             lock (gate)
             {
-                var lastKey = selection.ApplyAndSave(project, results, (result, unit) =>
-                {
-                    if (result.Refused)
-                    {
-                        summary.Refused.Add(result.Id);
-                        return null;
-                    }
-
-                    summary.Reviewed++;
-                    if (string.IsNullOrWhiteSpace(result.Translation))
-                    {
-                        summary.Clean++;
-                        return null;
-                    }
-
-                    summary.Suggestions++;
-                    // Só Notes muda: translation, status e origin ficam como estavam.
-                    return unit with { Notes = MergeNote(unit.Notes, result.Translation) };
-                });
+                var lastKey = selection.ApplyAndSave(project, results, (result, unit) => Annotate(summary, result, unit));
                 summary.Handled += results.Count;
                 if (!json)
                 {
@@ -155,6 +137,27 @@ internal static class ReviewCommand
         }
 
         return WriteResult(output, json, settings, pending.Count, summary);
+    }
+
+    /// <summary>Anota a sugestão na linha; devolve <c>null</c> quando não há o que gravar (recusa ou linha sem ressalva).</summary>
+    private static TextUnit? Annotate(RunSummary summary, TranslationResult result, TextUnit unit)
+    {
+        if (result.Refused)
+        {
+            summary.Refused.Add(result.Id);
+            return null;
+        }
+
+        summary.Reviewed++;
+        if (string.IsNullOrWhiteSpace(result.Translation))
+        {
+            summary.Clean++;
+            return null;
+        }
+
+        summary.Suggestions++;
+        // Só Notes muda: translation, status e origin ficam como estavam.
+        return unit with { Notes = MergeNote(unit.Notes, result.Translation) };
     }
 
     private static int WriteDryRun(TextWriter output, bool json, AiRunSettings settings, int fileCount, List<TextUnit> pending)

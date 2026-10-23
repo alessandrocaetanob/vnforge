@@ -18,7 +18,13 @@ public sealed class TranslateCommandTests : IDisposable
     public TranslateCommandTests()
     {
         _projectPath = Path.Combine(_cli.Root, "projeto");
-        _project = AiTestProject.Create(_cli.Root, _projectPath);
+        _project = ProjectFolder.Create(_projectPath, new ProjectConfig(
+            "Minha VN",
+            new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+            new EngineConfig("yuris", 500, "0xD36FAC96"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("fold"),
+            AiConfig.Default));
         _project.SaveText("yst00001",
         [
             Unit("yst00001", 1, TranslationStatus.Untranslated),
