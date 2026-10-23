@@ -46,24 +46,73 @@ jobs:
             dotnet --info
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run:
+          name: Sonar begin
+          command: |
+            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
+            $env:DOTNET_ROOT = $dir
+            $env:PATH = "$dir;$env:PATH"
+            if (-not $env:SONAR_TOKEN) {
+              Write-Host 'SONAR_TOKEN ausente (PR de fork): build e testes seguem sem análise do Sonar.'
+              exit 0
+            }
+            dotnet tool install --global dotnet-sonarscanner --version 11.3.0
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            dotnet tool install --global dotnet-coverage --version 18.11.2
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+            $sonarArgs = @(
+              '/k:alessandrocaetanob_vnforge',
+              '/o:alessandrocaetanob',
+              "/d:sonar.token=$env:SONAR_TOKEN",
+              '/d:sonar.host.url=https://sonarcloud.io',
+              '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml'
+            )
+            if ($env:CIRCLE_PULL_REQUEST) {
+              $sonarArgs += "/d:sonar.pullrequest.key=$(($env:CIRCLE_PULL_REQUEST -split '/')[-1])"
+              $sonarArgs += "/d:sonar.pullrequest.branch=$env:CIRCLE_BRANCH"
+              $sonarArgs += '/d:sonar.pullrequest.base=main'
+            } elseif ($env:CIRCLE_BRANCH -ne 'main') {
+              $sonarArgs += "/d:sonar.branch.name=$env:CIRCLE_BRANCH"
+            }
+            dotnet sonarscanner begin @sonarArgs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run:
           name: Build
           command: |
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
             $env:DOTNET_ROOT = $dir
             $env:PATH = "$dir;$env:PATH"
-            dotnet build VNForge.slnx --configuration Release
+            dotnet build VNForge.slnx --configuration Release --no-incremental
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run:
           name: Testes
           command: |
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
             $env:DOTNET_ROOT = $dir
-            $env:PATH = "$dir;$env:PATH"
-            dotnet test --solution VNForge.slnx --configuration Release --no-build
+            $env:PATH = "$dir;$env:USERPROFILE\.dotnet\tools;$env:PATH"
+            if ($env:SONAR_TOKEN) {
+              dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
+            } else {
+              dotnet test --solution VNForge.slnx --configuration Release --no-build
+            }
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run:
+          name: Sonar end
+          # when: always fecha a análise mesmo com teste vermelho; o Sonar ainda recebe as issues.
+          when: always
+          command: |
+            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
+            $env:DOTNET_ROOT = $dir
+            $env:PATH = "$dir;$env:USERPROFILE\.dotnet\tools;$env:PATH"
+            if (-not $env:SONAR_TOKEN) { exit 0 }
+            dotnet sonarscanner end "/d:sonar.token=$env:SONAR_TOKEN"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 workflows:
   ci:
     jobs:
       - linux
-      - windows
+      # O contexto guarda o SONAR_TOKEN. PRs de fork não o recebem ("Pass secrets to
+      # builds from forked pull requests" fica desligado): o job roda sem análise.
+      - windows:
+          context: sonarcloud
