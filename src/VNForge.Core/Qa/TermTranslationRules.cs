@@ -11,7 +11,7 @@ internal static class TermTranslation
 {
     public static IEnumerable<string> Mismatches<T>(TextUnit unit, IEnumerable<T> entries, Func<T, (string Source, string Target)> parts, string noun)
     {
-        if (!unit.HasTranslation)
+        if (!unit.HasTranslation || unit.Translation is not { } translation)
         {
             yield break;
         }
@@ -27,7 +27,7 @@ internal static class TermTranslation
             }
 
             if (unit.Source.Contains(source, StringComparison.Ordinal)
-                && !unit.Translation!.Contains(target, StringComparison.OrdinalIgnoreCase))
+                && !translation.Contains(target, StringComparison.OrdinalIgnoreCase))
             {
                 yield return $"{noun} '{source}' deveria ser traduzido como '{target}'";
             }

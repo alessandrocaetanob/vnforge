@@ -3,7 +3,9 @@ using System.CommandLine.Help;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using VNForge.AI.Claude;
 using VNForge.AI.Settings;
+using VNForge.AI.Translation;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Qa;
@@ -61,6 +63,12 @@ public sealed class VnfCli
 
     /// <summary>Cofre da chave de API do usuário.</summary>
     public IApiKeyStore ApiKeyStore { get; }
+
+    /// <summary>
+    /// Cria o provedor de tradução do <c>vnf translate</c> para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, ITranslationProvider>? TranslationProviderFactory { get; set; }
 
     /// <summary>Versão do <c>vnf</c> sem o hash do commit.</summary>
     public static string Version { get; } = ReadVersion();
