@@ -109,6 +109,12 @@ public class NormalizationAndSpacingTests
     }
 
     [Fact]
+    public void Espaco_antes_da_virgula_e_do_ponto_nao_e_tirado()
+    {
+        Assert.Equal("Ei , você .", Format("Ei , você .", AllNormalization, AllSpacing));
+    }
+
+    [Fact]
     public void Nbsp_antes_da_pontuacao_sai_junto_quando_as_duas_regras_estao_ligadas()
     {
         Assert.Equal("Ei?", Format("Ei ?", AllNormalization, AllSpacing));

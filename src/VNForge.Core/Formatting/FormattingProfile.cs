@@ -46,7 +46,7 @@ public sealed record SpacingRule(bool CollapseSpaces = false, bool SpaceBeforePu
 
 /// <summary>
 /// O perfil de formatação (<c>formatting.json</c>): quais linhas o pipeline formata e cada regra, com liga/desliga e valores. Um perfil
-/// sem um campo usa o valor de <see cref="Default"/>; as regras de E4.2, E4.3 e E4.5 entram aqui como novas propriedades com padrão.
+/// sem um campo usa o valor de <see cref="Default"/>; as regras de E4.3 e E4.5 entram aqui como novas propriedades com padrão.
 /// </summary>
 /// <param name="Kinds">Papéis de linha que o pipeline formata; as demais saem como estão.</param>
 /// <param name="Wrap">Quebra de linha por palavra.</param>
