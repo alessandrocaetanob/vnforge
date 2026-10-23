@@ -52,6 +52,8 @@ internal static class CheckCommand
         IReadOnlyList<QaFix> fixes = [];
         if (parseResult.GetValue(FixOption))
         {
+            // Projeto inválido tem de falhar antes de o --fix gravar qualquer coisa.
+            _ = QaContext.FromProject(project);
             // Com --rules, corrige só as regras pedidas que sabem corrigir; as outras só entram na conferência.
             var fixable = rules.Where(id => engine.Find(id) is IQaFixer).ToList();
             if (rules.Count == 0 || fixable.Count > 0)
@@ -96,7 +98,7 @@ internal static class CheckCommand
     private static List<string> ParseRules(string? text) =>
         [.. (text ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.Ordinal)];
 
-    private static QaSeverity ParseSeverity(string? text) => text switch
+    private static QaSeverity ParseSeverity(string? text) => text?.ToLowerInvariant() switch
     {
         null => QaSeverity.Warning,
         "warn" => QaSeverity.Warning,
