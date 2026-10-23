@@ -11,6 +11,7 @@ using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using static VNForge.Cli.AiCommandSupport;
 
 namespace VNForge.Cli;
 
@@ -23,10 +24,7 @@ internal static class TranslateCommand
     private const string ProviderName = "anthropic";
     private const string StyleGuideFileName = "style.md";
     private const string CacheFileName = "translations.json";
-    private const int ProgressBarWidth = 20;
     private const int PreviousLinesWindow = 30;
-
-    private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private static readonly Option<string?> FilesOption = new("--files")
     {
@@ -98,7 +96,13 @@ internal static class TranslateCommand
 
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var config = project.LoadConfig();
-        var settings = ReadSettings(cli, parseResult, config.Ai);
+        var settings = ReadSettings(
+            cli,
+            config.Ai,
+            parseResult.GetValue(ModelOption),
+            parseResult.GetValue(EffortOption),
+            parseResult.GetValue(BatchSizeOption),
+            parseResult.GetValue(ConcurrencyOption));
         var statuses = ParseStatuses(parseResult.GetValue(StatusOption));
         var filter = ParseFiles(parseResult.GetValue(FilesOption));
         var limit = parseResult.GetValue(LimitOption);
@@ -251,7 +255,7 @@ internal static class TranslateCommand
     private static int WriteDryRun(
         TextWriter output,
         bool json,
-        TranslateSettings settings,
+        AiRunSettings settings,
         int fileCount,
         List<TextUnit> pending,
         TranslationBatchBuilder builder,
@@ -289,7 +293,7 @@ internal static class TranslateCommand
         return ErrorHandler.OkExitCode;
     }
 
-    private static int WriteResult(TextWriter output, bool json, TranslateSettings settings, int selected, RunSummary summary)
+    private static int WriteResult(TextWriter output, bool json, AiRunSettings settings, int selected, RunSummary summary)
     {
         var failedLines = summary.Failed.Sum(f => f.LineIds.Count);
         var exitCode = summary.Failed.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
@@ -356,57 +360,10 @@ internal static class TranslateCommand
         return exitCode;
     }
 
-    private static ITranslationProvider CreateClaudeProvider(VnfCli cli, TranslateSettings settings)
+    private static ITranslationProvider CreateClaudeProvider(VnfCli cli, AiRunSettings settings)
     {
-        var key = ApiKeyResolver.Resolve(cli.ApiKeyStore).Key
-            ?? throw new UsageException(
-                $"Sem chave de API. Defina {ApiKeyResolver.EnvironmentVariable} ou rode 'vnf config ai --set-key'. Use --dry-run para só estimar o custo.");
+        var key = RequireApiKey(cli);
         return ClaudeProviderFactory.Create(key, new ClaudeOptions { Model = settings.Model, Effort = settings.Effort });
-    }
-
-    private static TranslateSettings ReadSettings(VnfCli cli, ParseResult parseResult, AiConfig ai)
-    {
-        var settingsFile = new AiUserSettingsFile(cli.UserConfigDirectory);
-        var model = parseResult.GetValue(ModelOption)
-            ?? (File.Exists(settingsFile.Path) ? settingsFile.Load().Model : null)
-            ?? (ClaudeModels.All.Contains(ai.Model) ? ai.Model : ClaudeModels.Opus);
-        if (!ClaudeModels.All.Contains(model))
-        {
-            throw new UsageException($"Modelo desconhecido: '{model}'. Use um de: {string.Join(", ", ClaudeModels.All)}.");
-        }
-
-        var effortText = parseResult.GetValue(EffortOption);
-        var effort = ParseEffort(effortText ?? ai.Effort, strict: effortText is not null);
-
-        var requestedBatchSize = parseResult.GetValue(BatchSizeOption);
-        var batchSize = requestedBatchSize ?? ai.BatchSize;
-        if (batchSize < TranslationRunOptions.MinBatchSize || batchSize > TranslationRunOptions.MaxBatchSize)
-        {
-            var origin = requestedBatchSize is null ? "ai.batchSize do vnforge.json" : "--batch-size";
-            throw new UsageException($"{origin} precisa ficar entre {TranslationRunOptions.MinBatchSize} e {TranslationRunOptions.MaxBatchSize} (recebeu {batchSize}).");
-        }
-
-        var concurrency = parseResult.GetValue(ConcurrencyOption) ?? 2;
-        if (concurrency < 1)
-        {
-            throw new UsageException("--concurrency precisa ser 1 ou maior.");
-        }
-
-        return new TranslateSettings(model, effort, batchSize, concurrency);
-    }
-
-    private static ClaudeEffort ParseEffort(string text, bool strict)
-    {
-        switch (text.Trim().ToLowerInvariant())
-        {
-            case "low": return ClaudeEffort.Low;
-            case "medium": return ClaudeEffort.Medium;
-            case "high": return ClaudeEffort.High;
-            default:
-                return strict
-                    ? throw new UsageException($"Esforço desconhecido: '{text}'. Use low, medium ou high.")
-                    : ClaudeEffort.Medium;
-        }
     }
 
     private static HashSet<TranslationStatus> ParseStatuses(string? text)
@@ -433,43 +390,6 @@ internal static class TranslateCommand
 
         return result.Count > 0 ? result : throw new UsageException("--status veio vazio. Use untranslated, machine ou all.");
     }
-
-    /// <summary>Glob sobre a chave do script (<c>*</c> e <c>?</c>), sem diferenciar maiúsculas; <c>.json</c> no fim do padrão é ignorado.</summary>
-    private static Regex? ParseFiles(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return null;
-        }
-
-        var alternatives = text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(p => p.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? p[..^5] : p)
-            .Select(p => Regex.Escape(p).Replace("\\*", ".*", StringComparison.Ordinal).Replace("\\?", ".", StringComparison.Ordinal));
-        return new Regex(
-            $"^(?:{string.Join('|', alternatives)})$",
-            RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-            TimeSpan.FromSeconds(1));
-    }
-
-    private static string ProgressLine(int done, int total, string key)
-    {
-        var fraction = total == 0 ? 1.0 : Math.Min(1.0, (double)done / total);
-        var filled = (int)Math.Floor(fraction * ProgressBarWidth);
-        var bar = new string('#', filled) + new string('-', ProgressBarWidth - filled);
-        return $"[{bar}] {(int)Math.Floor(fraction * 100)}%  {Number(done)}/{Number(total)}  {key}.json";
-    }
-
-    private static string Count(int value, string singular, string plural) => $"{Number(value)} {(value == 1 ? singular : plural)}";
-
-    private static string Number(long value) => value.ToString("N0", PortugueseBrazil);
-
-    private static string Tokens(long value) => value >= 1_000_000
-        ? string.Create(PortugueseBrazil, $"{value / 1_000_000.0:0.0} M tokens")
-        : $"{Number(value)} tokens";
-
-    private static string Dollars(decimal value) => string.Create(PortugueseBrazil, $"US$ {value:0.00}");
-
-    private sealed record TranslateSettings(string Model, ClaudeEffort Effort, int BatchSize, int Concurrency);
 
     private sealed class RunSummary
     {

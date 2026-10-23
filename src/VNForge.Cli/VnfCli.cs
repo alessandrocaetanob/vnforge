@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using VNForge.AI.Claude;
+using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Logging;
@@ -69,6 +70,12 @@ public sealed class VnfCli
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
     /// </summary>
     public Func<string, ClaudeEffort, ITranslationProvider>? TranslationProviderFactory { get; set; }
+
+    /// <summary>
+    /// Cria o provedor de revisão do <c>vnf review</c> para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
 
     /// <summary>Versão do <c>vnf</c> sem o hash do commit.</summary>
     public static string Version { get; } = ReadVersion();
