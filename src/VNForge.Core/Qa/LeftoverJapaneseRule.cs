@@ -50,15 +50,7 @@ public sealed class LeftoverJapaneseRule : UnitQaRule
     /// <inheritdoc />
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
     {
-        if (!unit.HasTranslation)
-        {
-            yield break;
-        }
-
-        foreach (var span in Find(unit.Translation!))
-        {
-            yield return $"Japonês na tradução: '{span.Text}' (posição {span.Start}).";
-        }
+        return unit.HasTranslation ? Find(unit.Translation!).Select(span => $"Japonês na tradução: '{span.Text}' (posição {span.Start}).") : [];
     }
 
     // Kanji fora do plano básico (CJK estendido B em diante) usa par substituto e fica de fora: é raro em texto de jogo.

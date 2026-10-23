@@ -46,14 +46,6 @@ public sealed class SpaceBeforePunctuationRule : UnitQaRule
     /// <inheritdoc />
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
     {
-        if (!unit.HasTranslation)
-        {
-            yield break;
-        }
-
-        foreach (var span in Find(unit.Translation!))
-        {
-            yield return $"Espaço antes de '{span.Text[^1]}' na posição {span.Start}.";
-        }
+        return unit.HasTranslation ? Find(unit.Translation!).Select(span => $"Espaço antes de '{span.Text[^1]}' na posição {span.Start}.") : [];
     }
 }

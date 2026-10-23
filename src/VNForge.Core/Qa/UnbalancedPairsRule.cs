@@ -49,68 +49,56 @@ public sealed class UnbalancedPairsRule : UnitQaRule
     {
         if (!unit.HasTranslation)
         {
-            yield break;
+            return [];
         }
 
-        var unmatched = FindUnmatched(unit.Translation!).ToList();
+        var unmatched = FindUnmatched(unit.Translation!);
         if (unmatched.Count == 0)
         {
-            yield break;
+            return [];
         }
 
         var sourceBroken = FindUnmatched(unit.Source).Select(u => u.Group).ToHashSet();
-        foreach (var (index, group) in unmatched.Where(u => !sourceBroken.Contains(u.Group)).OrderBy(u => u.Index))
-        {
-            var kind = group == Group.Quotes ? "Aspas" : "Parêntese";
-            yield return $"{kind} '{unit.Translation![index]}' sem par na posição {index}.";
-        }
+        return unmatched
+            .Where(u => !sourceBroken.Contains(u.Group))
+            .OrderBy(u => u.Index)
+            .Select(u => $"{(u.Group == Group.Quotes ? "Aspas" : "Parêntese")} '{unit.Translation![u.Index]}' sem par na posição {u.Index}.");
     }
 
-    private static IEnumerable<(int Index, Group Group)> FindUnmatched(string text)
+    private static List<(int Index, Group Group)> FindUnmatched(string text)
     {
-        var runs = TextQaRules.PlainRuns(text);
+        var chars = TextQaRules.PlainRuns(text)
+            .SelectMany(run => run.Text.Select((c, i) => (Index: run.Offset + i, Char: c)))
+            .ToList();
+        var unmatched = new List<(int, Group)>();
         foreach (var pair in Pairs)
         {
-            var straight = pair.Open == pair.Close;
-            var open = new Stack<int>();
-            foreach (var (offset, run) in runs)
-            {
-                for (var i = 0; i < run.Length; i++)
-                {
-                    var c = run[i];
-                    if (straight && c == pair.Open)
-                    {
-                        if (open.Count == 0)
-                        {
-                            open.Push(offset + i);
-                        }
-                        else
-                        {
-                            open.Pop();
-                        }
-                    }
-                    else if (!straight && c == pair.Open)
-                    {
-                        open.Push(offset + i);
-                    }
-                    else if (!straight && c == pair.Close)
-                    {
-                        if (open.Count > 0)
-                        {
-                            open.Pop();
-                        }
-                        else
-                        {
-                            yield return (offset + i, pair.Group);
-                        }
-                    }
-                }
-            }
+            unmatched.AddRange(FindUnmatched(chars, pair).Select(index => (index, pair.Group)));
+        }
 
-            foreach (var index in open)
+        return unmatched;
+    }
+
+    private static IEnumerable<int> FindUnmatched(List<(int Index, char Char)> chars, Pair pair)
+    {
+        var open = new Stack<int>();
+        var stray = new List<int>();
+        foreach (var (index, c) in chars)
+        {
+            if (c == pair.Open && (pair.Open != pair.Close || open.Count == 0))
             {
-                yield return (index, pair.Group);
+                open.Push(index);
+            }
+            else if (c == pair.Close && open.Count > 0)
+            {
+                open.Pop();
+            }
+            else if (c == pair.Close)
+            {
+                stray.Add(index);
             }
         }
+
+        return [.. stray, .. open];
     }
 }
