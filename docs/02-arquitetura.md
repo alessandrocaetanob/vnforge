@@ -214,7 +214,7 @@ O texto do YU-RIS é Shift-JIS (CP932), que **não tem** á, ã, ç, é, õ etc.
 
 | Estratégia | Como funciona | Qualidade | Risco |
 |---|---|---|---|
-| `fold` | Remove acentos (ação → acao) | Ruim, mas sempre funciona | Nenhum |
+| `fold` | Remove acentos (ação → acao) e troca por equivalentes os sinais que o Shift-JIS não tem (`«»` → `"`, `ª º` → `a o`, travessões → `-`, `¿ ¡` → `? !`); o que sobra fora do Shift-JIS é recusado e vai para o QA | Perde todos os acentos; funciona em qualquer jogo | Nenhum |
 | `remap` | Troca cada letra acentuada por um caractere Shift-JIS pouco usado (ex.: katakana de meia largura) e uma fonte modificada desenha a letra certa | Boa | Precisa editar/embutir fonte |
 | `cp1252` | Patch no executável para tratar o texto como Latin-1 (Windows-1252) + troca do charset da fonte | Ótima, acentos nativos | Patch binário no .exe, depende da versão |
 
