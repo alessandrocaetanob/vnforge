@@ -1,0 +1,128 @@
+using System.CommandLine;
+using System.Globalization;
+using VNForge.Core.Logging;
+using VNForge.Core.Output;
+using VNForge.Core.Projects;
+
+namespace VNForge.Cli;
+
+/// <summary><c>vnf init &lt;pasta&gt; --game &lt;dir&gt;</c>: cria o projeto, detecta a engine e grava engine, versão e chave no <c>vnforge.json</c>.</summary>
+internal static class InitCommand
+{
+    private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
+
+    public static Command Create(VnfCli cli)
+    {
+        var folder = new Argument<string>("pasta") { Description = "Pasta do novo projeto (criada se não existir)." };
+        var game = new Option<string>("--game")
+        {
+            Description = "Pasta do jogo a traduzir.",
+            HelpName = "dir",
+            Required = true,
+        };
+        var name = new Option<string?>("--name")
+        {
+            Description = "Nome do projeto (padrão: o nome da pasta).",
+            HelpName = "nome",
+        };
+        var exe = new Option<string?>("--exe")
+        {
+            Description = "Executável do jogo, relativo à pasta do jogo (padrão: o único .exe da pasta).",
+            HelpName = "arquivo",
+        };
+
+        var command = new Command("init", "Cria o projeto de tradução, detecta a engine e grava versão e chave no vnforge.json.");
+        command.Arguments.Add(folder);
+        command.Options.Add(game);
+        command.Options.Add(name);
+        command.Options.Add(exe);
+        command.SetAction(parseResult => Run(
+            cli,
+            parseResult,
+            parseResult.GetRequiredValue(folder),
+            parseResult.GetRequiredValue(game),
+            new ProjectInitOptions(parseResult.GetValue(name), parseResult.GetValue(exe))));
+        return command;
+    }
+
+    private static int Run(VnfCli cli, ParseResult parseResult, string folderArgument, string gameArgument, ProjectInitOptions options)
+    {
+        var result = ProjectInitializer.Initialize(
+            Path.GetFullPath(folderArgument, cli.CurrentDirectory),
+            Path.GetFullPath(gameArgument, cli.CurrentDirectory),
+            KnownEngines.All,
+            options);
+
+        var output = parseResult.InvocationConfiguration.Output;
+        var details = result.Detection.Details;
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new
+            {
+                folder = result.Folder.Root,
+                config = result.Folder.ConfigPath,
+                engine = result.Engine.Id,
+                version = result.Config.Engine.Version,
+                scriptKey = result.Config.Engine.ScriptKey,
+                summary = result.Detection.Summary,
+                warnings = details.GetValueOrDefault(ProjectInitializer.WarningsDetail),
+            }));
+            return ErrorHandler.OkExitCode;
+        }
+
+        output.WriteLine($"Engine detectada: {result.Engine.DisplayName}{Versions(details)}");
+        if (details.TryGetValue("scriptsArchive", out var archive))
+        {
+            output.WriteLine($"Arquivo de scripts: {archive}{ScriptCount(details)}");
+        }
+
+        if (details.TryGetValue(ProjectInitializer.ScriptKeyDetail, out var key))
+        {
+            output.WriteLine($"Chave XOR dos scripts: {key}{KeyOrigin(details)}");
+        }
+
+        if (details.TryGetValue(ProjectInitializer.WarningsDetail, out var warnings))
+        {
+            output.WriteLine($"Aviso: {warnings}");
+        }
+
+        output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static string Versions(IReadOnlyDictionary<string, string> details)
+    {
+        var parts = new List<string>();
+        if (details.TryGetValue(ProjectInitializer.VersionDetail, out var ypf))
+        {
+            parts.Add($"YPF v{ypf}");
+        }
+
+        if (details.TryGetValue("ystbVersion", out var ystb))
+        {
+            parts.Add($"YSTB v{ystb}");
+        }
+
+        return parts.Count == 0 ? string.Empty : $" ({string.Join(", ", parts)})";
+    }
+
+    private static string ScriptCount(IReadOnlyDictionary<string, string> details)
+    {
+        if (!details.TryGetValue("scripts", out var text) || !int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var count))
+        {
+            return string.Empty;
+        }
+
+        return $" ({count.ToString("N0", PortugueseBrazil)} {(count == 1 ? "script" : "scripts")})";
+    }
+
+    private static string KeyOrigin(IReadOnlyDictionary<string, string> details)
+    {
+        if (!details.TryGetValue("scriptKeyOrigin", out var origin))
+        {
+            return string.Empty;
+        }
+
+        return origin.StartsWith("chave padrão", StringComparison.Ordinal) ? " (padrão)" : $" ({origin})";
+    }
+}

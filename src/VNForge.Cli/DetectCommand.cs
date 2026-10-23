@@ -3,17 +3,13 @@ using System.CommandLine;
 using VNForge.Core.Engines;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
-using VNForge.Engines.YuRis;
 
 namespace VNForge.Cli;
 
 /// <summary><c>vnf detect [--game &lt;dir&gt;]</c>: diagnostica a engine do jogo, só lendo a pasta.</summary>
 internal static class DetectCommand
 {
-    /// <summary>Engines que o <c>vnf</c> sabe reconhecer, na ordem em que são tentadas.</summary>
     private const string PackagePrefix = "ypf:";
-
-    private static readonly IEngine[] Engines = [new YuRisEngine()];
 
     public static Command Create(VnfCli cli)
     {
@@ -40,7 +36,7 @@ internal static class DetectCommand
         string? engineId = null;
         EngineDetection? detection = null;
         IReadOnlyDictionary<string, string>? details = null;
-        foreach (var engine in Engines)
+        foreach (var engine in KnownEngines.All)
         {
             var result = engine.Detect(folder);
             if (result.IsMatch)
