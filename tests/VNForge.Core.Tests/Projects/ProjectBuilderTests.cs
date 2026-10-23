@@ -2,7 +2,6 @@ using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
-using VNForge.Core.Tests.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
@@ -106,6 +105,17 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Cp1252_recusa_o_i_trema_listando_a_linha()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        Translate("a001", (1, "maïs"));
+
+        var ex = Assert.Throws<EncodingReportException>(() => Build());
+
+        Assert.Contains("a001:000001 posição 2: 'ï' (U+00EF)", ex.Message);
+    }
+
+    [Fact]
     public void Lista_de_uma_vez_os_casos_de_varias_linhas_e_scripts()
     {
         Translate("a001", (0, "«Olá»"), (1, "Aña"));
@@ -130,13 +140,12 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
-    public void Estrategia_do_vnforge_json_escolhe_o_encoder_do_build()
+    public void Cp1252_do_vnforge_json_builda_com_os_tres_caracteres()
     {
         _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
-        var registry = new TextEncoderRegistry().Register("cp1252", () => new FakeCp1252());
         Translate("a001", (0, "«Olá» ª ã"));
 
-        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, registry);
+        var result = Build();
 
         Assert.Equal("cp1252", result.Encoding.Strategy);
         Assert.Empty(result.Encoding.Issues);
@@ -146,17 +155,16 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Fold_builda_e_o_resultado_traz_os_caracteres_trocados()
     {
         _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("fold") });
-        var registry = new TextEncoderRegistry().Register("fold", () => new FakeFold());
         Translate("a001", (0, "«ªã"));
 
-        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, registry);
+        var result = Build();
 
         Assert.Equal(["\"", "a", "a"], result.Encoding.Replaced.Select(i => i.Replacement));
         Assert.Equal("fold", result.Encoding.Strategy);
     }
 
     [Theory]
-    [InlineData("cp1252", "ainda não está disponível")]
+    [InlineData("remap", "ainda não está disponível")]
     public void Estrategia_sem_encoder_aborta_sem_cair_em_shift_jis(string strategy, string expected)
     {
         File.WriteAllText(_project.ConfigPath, File.ReadAllText(_project.ConfigPath).Replace("\"sjis\"", $"\"{strategy}\"", StringComparison.Ordinal));

@@ -423,12 +423,12 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Estrategia_sem_encoder_aborta_com_mensagem_clara()
     {
         await InitAndExtract();
-        UseStrategy("cp1252");
+        UseStrategy("remap");
 
         var result = await Build();
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("'cp1252' ainda não está disponível", result.Error);
+        Assert.Contains("'remap' ainda não está disponível", result.Error);
     }
 
     [Fact]

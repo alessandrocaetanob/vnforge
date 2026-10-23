@@ -26,17 +26,29 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Fold_troca_os_tres_e_informa_o_substituto_sem_bloquear()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªã")])), new FakeFold());
+        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªã")])), new FoldTextEncoder());
 
         Assert.False(report.HasBlocking);
         Assert.Equal(["\"", "a", "a"], report.Replaced.Select(i => i.Replacement));
+        Assert.Equal([0, 1, 2], report.Replaced.Select(i => i.Position));
         Assert.Equal("fold", report.Strategy);
     }
 
     [Fact]
-    public void Cp1252_representa_os_tres_como_estao_e_o_relatorio_fica_vazio()
+    public void Cp1252_representa_os_tres_como_estao_e_recusa_o_i_trema()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªã")])), new FakeCp1252());
+        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªãï")])), new Cp1252TextEncoder());
+
+        var issue = Assert.Single(report.Issues);
+        Assert.Equal("ï", issue.Character);
+        Assert.Equal(3, issue.Position);
+        Assert.Null(issue.Replacement);
+    }
+
+    [Fact]
+    public void Cp1252_com_os_tres_deixa_o_relatorio_vazio()
+    {
+        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªã")])), new Cp1252TextEncoder());
 
         Assert.Empty(report.Issues);
         Assert.False(report.HasBlocking);
@@ -93,7 +105,7 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Fold_separa_bloqueantes_de_trocados_na_mesma_linha()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«Ola ª ã 😀")])), new FakeFold());
+        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«Ola ª ã 😀")])), new FoldTextEncoder());
 
         Assert.Equal("😀", Assert.Single(report.Blocking).Character);
         Assert.Contains(report.Replaced, i => i.Character == "ã");

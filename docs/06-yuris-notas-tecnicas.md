@@ -285,6 +285,19 @@ A reconstrução foi escrita a partir das fontes acima e de scripts sintéticos 
 
 Detalhes devolvidos (chaves em inglês e camelCase, parte do contrato do `--json`): `ypf:<caminho>` (versão e contagem de cada pacote), `scriptsArchive`, `ypfVersion`, `scripts`, `ystbVersion`, `scriptKey`, `scriptKeyOrigin` e `warnings`. A codificação do texto ainda não é detectada. `vnf detect --game <dir>` mostra esse diagnóstico com rótulos em português (ou JSON com `--json`, que traz as chaves como estão).
 
+## Resultado no jogo de referência (M1, #88)
+
+Jogo YU-RIS testado em 2026-10-23 com `init`, `extract`, `build`, `inject` e `restore`:
+
+- **YPF** (#23): `ysbin.ypf` e os outros cinco pacotes na v485. Hash do nome e dos dados MurmurHash2, offset de 64 bits, tabela de troca `Standard`, chave do nome 0x00. `vnf ypf unpack` + `pack` do `ysbin.ypf` sem mudanças deu arquivo idêntico.
+- **Scripts**: 131 `yst*.ybn`, YSTB v485, chave 0xD36FAC96 (a padrão). A extração deu 6.855 unidades: 3.679 narração, 3.089 diálogos, 53 `other`, 30 nomes e 4 escolhas.
+- **Ida e volta**: build sem tradução idêntico ao original, jogo abrindo igual e `restore` devolvendo os hashes originais.
+- **Reescrita**: três narrações trocadas por texto ASCII aparecem no jogo, sem travar. O jogo aceita o texto novo no fim dos recursos.
+- **Acentos**: `ã` e `é` param o build com o id da linha, como previsto para a Shift-JIS pura do M1.
+- **Formatação**: cada letra latina ocupa uma célula fixa de meia largura e a fonte desenha o glifo estreito nela, então as letras ficam espaçadas (ver #62 e #105). O jogo quebra a linha pela largura, no meio da palavra (ver #56 e #59).
+
+Ainda não conferido: `WORD` com `size` 0 (nenhuma fala de várias partes foi trocada), escolhas, nomes e strings de expressão traduzidos.
+
 ## Acentuação: o problema central
 
 Shift-JIS não tem `á à â ã é ê í ó ô õ ú ç` (nem maiúsculas). Também faltam `« » ª º`. Já existem em Shift-JIS: `“ ” ‘ ’ … ― °` e todo o ASCII.

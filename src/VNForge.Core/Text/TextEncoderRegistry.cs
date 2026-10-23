@@ -13,7 +13,9 @@ public sealed class TextEncoderRegistry
 
     /// <summary>Registro com as estratégias que esta versão do vnf implementa.</summary>
     public static TextEncoderRegistry Default { get; } = new TextEncoderRegistry()
-        .Register("sjis", () => new ShiftJisTextEncoder());
+        .Register("sjis", () => new ShiftJisTextEncoder())
+        .Register("fold", () => new FoldTextEncoder())
+        .Register("cp1252", () => new Cp1252TextEncoder());
 
     /// <summary>Ids com encoder pronto, na ordem em que entraram.</summary>
     public IReadOnlyList<string> AvailableIds => _factories.Keys.ToList();

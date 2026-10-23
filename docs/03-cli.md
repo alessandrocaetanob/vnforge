@@ -92,7 +92,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 ```
   --report                 só lista os caracteres que a estratégia troca ou não representa; não reconstrói nada (sai com 2 se algum não for codificável)
 ```
-As opções `--only-changed` e `--allow-warnings` chegam com o perfil de formatação do M2. O build reconstrói só os scripts com tradução (`status` diferente de `untranslated`, `translation` não vazia e diferente do `source`) e codifica com a estratégia do `encoding.strategy` do `vnforge.json`. Hoje só `sjis` (Shift-JIS pura) tem encoder; `fold`, `remap` e `cp1252` dão erro claro até as issues do E5 entrarem. Os detalhes estão em "`vnf build`" abaixo.
+As opções `--only-changed` e `--allow-warnings` chegam com o perfil de formatação do M2. O build reconstrói só os scripts com tradução (`status` diferente de `untranslated`, `translation` não vazia e diferente do `source`) e codifica com a estratégia do `encoding.strategy` do `vnforge.json`. Estratégias com encoder: `sjis` (Shift-JIS pura), `fold` e `cp1252`; `remap` dá erro claro até a issue dele entrar. Os detalhes estão em "`vnf build`" abaixo.
 
 `vnf ypf` (E1.8; os três aceitam `--json`)
 ```
