@@ -5,6 +5,9 @@ namespace VNForge.Cli.Tests;
 
 public sealed class RunCommandTests : IDisposable
 {
+    private const string FakeContent = "sintetico";
+    private const string ExeName = "jogo.exe";
+
     private readonly CliHarness _cli = new();
     private readonly FakeStarter _starter = new();
     private readonly string _game;
@@ -19,7 +22,7 @@ public sealed class RunCommandTests : IDisposable
             Path.Combine(_cli.Root, "projeto"),
             new ProjectConfig(
                 "Teste",
-                new GameConfig(_game, "jogo.exe"),
+                new GameConfig(_game, ExeName),
                 new EngineConfig("yuris"),
                 new LanguagesConfig("ja", "pt-BR"),
                 new EncodingConfig("fold"),
@@ -28,7 +31,7 @@ public sealed class RunCommandTests : IDisposable
 
     public void Dispose() => _cli.Dispose();
 
-    private string Exe => Path.Combine(_game, "jogo.exe");
+    private string Exe => Path.Combine(_game, ExeName);
 
     private Task<RunResult> Run(params string[] args) =>
         _cli.RunAsync([.. args, "--project", _project.Root], TestContext.Current.CancellationToken);
@@ -36,7 +39,7 @@ public sealed class RunCommandTests : IDisposable
     [Fact]
     public async Task Run_abre_o_executavel_na_pasta_do_jogo()
     {
-        File.WriteAllText(Exe, "sintetico");
+        await File.WriteAllTextAsync(Exe, FakeContent, TestContext.Current.CancellationToken);
 
         var result = await Run("run");
 
@@ -48,7 +51,7 @@ public sealed class RunCommandTests : IDisposable
     [Fact]
     public async Task Run_com_json_devolve_o_caminho_do_executavel()
     {
-        File.WriteAllText(Exe, "sintetico");
+        await File.WriteAllTextAsync(Exe, FakeContent, TestContext.Current.CancellationToken);
 
         var result = await Run("run", "--json");
 
@@ -73,20 +76,20 @@ public sealed class RunCommandTests : IDisposable
         var relative = Path.Combine("..", "jogo-relativo");
         var folder = Path.GetFullPath(relative, _project.Root);
         Directory.CreateDirectory(folder);
-        File.WriteAllText(Path.Combine(folder, "jogo.exe"), "sintetico");
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(relative, "jogo.exe") });
+        await File.WriteAllTextAsync(Path.Combine(folder, ExeName), FakeContent, TestContext.Current.CancellationToken);
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(relative, ExeName) });
 
         var result = await Run("run");
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Equal(Path.Combine(folder, "jogo.exe"), Assert.Single(_starter.Started).Executable);
+        Assert.Equal(Path.Combine(folder, ExeName), Assert.Single(_starter.Started).Executable);
     }
 
     [Fact]
     public async Task Run_com_exe_em_subpasta_usa_a_pasta_do_jogo_como_diretorio_de_trabalho()
     {
         Directory.CreateDirectory(Path.Combine(_game, "bin"));
-        File.WriteAllText(Path.Combine(_game, "bin", "vn.exe"), "sintetico");
+        await File.WriteAllTextAsync(Path.Combine(_game, "bin", "vn.exe"), FakeContent, TestContext.Current.CancellationToken);
         _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(_game, Path.Combine("bin", "vn.exe")) });
 
         var result = await Run("run");
