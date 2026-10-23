@@ -204,8 +204,14 @@ public sealed class ProjectExtractorTests : IDisposable
 
         Assert.Equal(["a001", "a003"], project.LoadAllText().Keys.Order());
         Assert.Equal(new ReextractionSummary(Kept: 1, Outdated: 0, Added: 1, Removed: 2), result.Reextraction);
-        Assert.Equal(beforeA001, File.ReadAllBytes(Path.Combine(project.TextBackupDirectory, "a001.json")));
-        Assert.True(File.Exists(Path.Combine(project.TextBackupDirectory, "a002.json")));
+        var folder = Assert.Single(Directory.GetDirectories(project.TextBackupDirectory));
+        Assert.Equal(beforeA001, File.ReadAllBytes(Path.Combine(folder, "a001.json")));
+        Assert.True(File.Exists(Path.Combine(folder, "a002.json")));
+
+        WriteGame("a001.fake", "dialogue|Outra");
+        Thread.Sleep(5);
+        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+        Assert.Equal(2, Directory.GetDirectories(project.TextBackupDirectory).Length);
     }
 
     [Fact]

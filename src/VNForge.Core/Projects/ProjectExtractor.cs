@@ -1,3 +1,4 @@
+using System.Globalization;
 using VNForge.Core.Engines;
 using VNForge.Core.Injection;
 using VNForge.Core.Text;
@@ -95,7 +96,7 @@ public static class ProjectExtractor
         var plan = TextReextraction.Merge(
             existing,
             extracted.ToDictionary(e => e.Key, e => (IReadOnlyList<TextUnit>)e.Units, StringComparer.Ordinal));
-        var backups = BackUpReplacedText(project, plan);
+        var backups = BackUpReplacedText(project, plan, out var backupFolder);
         try
         {
             foreach (var key in plan.Changed)
@@ -117,6 +118,18 @@ public static class ProjectExtractor
         catch
         {
             RestoreText(project, plan, backups);
+            if (backupFolder is not null)
+            {
+                try
+                {
+                    Directory.Delete(backupFolder, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // A cópia que sobra é inofensiva.
+                }
+            }
+
             throw;
         }
 
@@ -194,10 +207,11 @@ public static class ProjectExtractor
 
     /// <summary>
     /// Guarda os bytes dos <c>text/*.json</c> que a re-extração vai trocar ou apagar: em <see cref="ProjectFolder.TextBackupDirectory"/>
-    /// (uma cópia que sobra para o usuário) e na memória (para desfazer se a gravação falhar). Sem nada a trocar, não cria a pasta.
+    /// (uma subpasta por re-extração, que sobra para o usuário) e na memória (para desfazer se a gravação falhar). Sem nada a trocar, não cria a pasta.
     /// </summary>
-    private static Dictionary<string, byte[]> BackUpReplacedText(ProjectFolder project, TextMergePlan plan)
+    private static Dictionary<string, byte[]> BackUpReplacedText(ProjectFolder project, TextMergePlan plan, out string? backupFolder)
     {
+        backupFolder = null;
         var backups = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         foreach (var key in plan.Changed.Concat(plan.Removed))
         {
@@ -207,18 +221,17 @@ public static class ProjectExtractor
             }
         }
 
-        if (Directory.Exists(project.TextBackupDirectory))
-        {
-            Directory.Delete(project.TextBackupDirectory, recursive: true);
-        }
-
         if (backups.Count > 0)
         {
-            Directory.CreateDirectory(project.TextBackupDirectory);
+            // Uma subpasta por re-extração: a cópia de uma rodada nunca apaga a da anterior.
+            var folder = Path.Combine(project.TextBackupDirectory, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture));
+            Directory.CreateDirectory(folder);
             foreach (var (key, bytes) in backups)
             {
-                File.WriteAllBytes(Path.Combine(project.TextBackupDirectory, Path.GetFileName(project.TextPath(key))), bytes);
+                File.WriteAllBytes(Path.Combine(folder, Path.GetFileName(project.TextPath(key))), bytes);
             }
+
+            backupFolder = folder;
         }
 
         return backups;
