@@ -69,13 +69,10 @@ public sealed class YscmFile
         ArgumentNullException.ThrowIfNull(name);
         byte? found = null;
         var count = 0;
-        foreach (var command in Commands)
+        foreach (var command in Commands.Where(c => string.Equals(c.Name, name, StringComparison.Ordinal)))
         {
-            if (string.Equals(command.Name, name, StringComparison.Ordinal))
-            {
-                found ??= command.Id;
-                count++;
-            }
+            found ??= command.Id;
+            count++;
         }
 
         if (count > 1)

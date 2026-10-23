@@ -31,7 +31,7 @@ public static class CharacterFolder
         ["ª"] = "a", ["º"] = "o",
         ["–"] = "-", ["—"] = "-", ["‑"] = "-", ["‒"] = "-",
         ["¿"] = "?", ["¡"] = "!",
-        [" "] = " ", [" "] = " ", [" "] = " ",
+        [" "] = " ", ["\u2009"] = " ", ["\u202F"] = " ",
         ["•"] = "*", ["·"] = ".",
         ["€"] = "EUR", ["©"] = "(c)", ["®"] = "(R)", ["™"] = "TM",
         ["½"] = "1/2", ["¼"] = "1/4", ["¾"] = "3/4",
@@ -52,7 +52,7 @@ public static class CharacterFolder
         int index = 0;
         while (index < text.Length)
         {
-            var status = Rune.DecodeFromUtf16(text.AsSpan(index), out Rune rune, out int consumed);
+            var status = Rune.DecodeFromUtf16(text.AsSpan(index), out Rune _, out int consumed);
             consumed = Math.Max(consumed, 1);
             string original = text.Substring(index, consumed);
 
@@ -89,12 +89,9 @@ public static class CharacterFolder
         var stripped = new StringBuilder();
         // Só as marcas latinas (U+0300 a U+036F): a dakuten U+3099 ou vogais árabes não podem sumir em silêncio.
         // FormKD também resolve ², ³, ¹ e ligaturas.
-        foreach (char c in original.Normalize(NormalizationForm.FormKD))
+        foreach (char c in original.Normalize(NormalizationForm.FormKD).Where(ch => ch is < '\u0300' or > '\u036F'))
         {
-            if (c is < '̀' or > 'ͯ')
-            {
-                stripped.Append(c);
-            }
+            stripped.Append(c);
         }
 
         substitute = stripped.ToString();

@@ -25,10 +25,10 @@ public sealed record EncodingIssue(string UnitId, string ScriptKey, int Position
 public sealed record EncodingReport(string Strategy, int CheckedLines, IReadOnlyList<EncodingIssue> Issues)
 {
     /// <summary>Ocorrências que impedem o build.</summary>
-    public IReadOnlyList<EncodingIssue> Blocking => Issues.Where(i => i.IsBlocking).ToList();
+    public IReadOnlyList<EncodingIssue> Blocking { get; } = Issues.Where(i => i.IsBlocking).ToList();
 
     /// <summary>Ocorrências que a estratégia troca por um substituto.</summary>
-    public IReadOnlyList<EncodingIssue> Replaced => Issues.Where(i => !i.IsBlocking).ToList();
+    public IReadOnlyList<EncodingIssue> Replaced { get; } = Issues.Where(i => !i.IsBlocking).ToList();
 
     /// <summary>Verdadeiro quando alguma linha não pode ser gravada.</summary>
     public bool HasBlocking => Issues.Any(i => i.IsBlocking);

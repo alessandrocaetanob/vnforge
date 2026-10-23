@@ -93,7 +93,6 @@ internal static class YpfIndexReader
     private static Attempt TryRead(Candidate candidate, YpfHeader header, byte[] index, long fileLength)
     {
         var attempt = new Attempt(candidate);
-        var offsetBytes = candidate.OffsetSize == YpfOffsetSize.Bits64 ? 8 : 4;
         var count = checked((int)header.FileCount);
         var entries = new List<YpfEntry>(Math.Min(count, index.Length / MinEntrySize));
         var nameKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -104,92 +103,23 @@ internal static class YpfIndexReader
         for (var i = 0; i < count; i++)
         {
             var number = i + 1;
-            if (index.Length - position < 5)
+            var entry = ReadEntry(candidate, index, position, (number, count), fileLength, lastXor, out var failureText);
+            if (entry is null)
             {
-                attempt.Failure = $"o índice acaba antes da entrada {number} de {count}.";
+                attempt.Failure = failureText;
                 return attempt;
             }
 
-            var span = index.AsSpan(position);
-            var nameHash = BinaryPrimitives.ReadUInt32LittleEndian(span);
-            var encodedNameSize = span[4];
-            var nameLength = YpfSwapTables.DecodeNameSize(candidate.SwapTable, encodedNameSize);
-            if (nameLength == 0)
+            if (!nameKeys.Add(NormalizedNameKey(entry.NameBytes.Span)) || !paths.Add(entry.Path))
             {
-                attempt.Failure = $"o tamanho do nome da entrada {number} de {count} decodifica para 0 (byte gravado 0x{encodedNameSize:X2}).";
-                return attempt;
-            }
-
-            var entrySize = 5 + nameLength + 1 + 1 + 4 + 4 + offsetBytes + 4;
-            if (index.Length - position < entrySize)
-            {
-                attempt.Failure = $"o índice acaba antes do fim da entrada {number} de {count}, que precisa de {entrySize} bytes.";
-                return attempt;
-            }
-
-            var obfuscated = span.Slice(5, nameLength);
-            if (!TryDecryptName(obfuscated, nameHash, candidate.NameHash, lastXor, out var xor, out var plain))
-            {
-                attempt.Failure =
-                    $"o hash do nome da entrada {number} de {count} (0x{nameHash:X8}, posição {YpfHeader.Size + position}) "
-                    + "não confere com o nome decifrado por nenhuma chave conhecida nem deduzida.";
-                return attempt;
-            }
-
-            lastXor = xor;
-            var cursor = 5 + nameLength;
-            var fileType = span[cursor];
-            var compressed = span[cursor + 1];
-            var sizeUncompressed = BinaryPrimitives.ReadUInt32LittleEndian(span[(cursor + 2)..]);
-            var sizeStored = BinaryPrimitives.ReadUInt32LittleEndian(span[(cursor + 6)..]);
-            cursor += 10;
-            var offset = candidate.OffsetSize == YpfOffsetSize.Bits64
-                ? BinaryPrimitives.ReadUInt64LittleEndian(span[cursor..])
-                : BinaryPrimitives.ReadUInt32LittleEndian(span[cursor..]);
-            cursor += offsetBytes;
-            var dataHash = BinaryPrimitives.ReadUInt32LittleEndian(span[cursor..]);
-
-            var path = GameEncodings.ShiftJis.GetString(plain).Replace('\\', '/');
-            if (compressed > 1)
-            {
-                attempt.Failure = $"a entrada {number} de {count} ('{path}') tem o campo compressed = {compressed}; o esperado é 0 ou 1.";
-                return attempt;
-            }
-
-            if (offset > (ulong)fileLength || sizeStored > (ulong)fileLength - offset)
-            {
-                attempt.Failure =
-                    $"a entrada {number} de {count} ('{path}') guarda {sizeStored} bytes a partir do offset {offset}, "
-                    + $"mas o arquivo tem só {fileLength} bytes (arquivo truncado ou offset de tamanho errado).";
-                return attempt;
-            }
-
-            if (!nameKeys.Add(NormalizedNameKey(plain)) || !paths.Add(path))
-            {
-                attempt.Failure = $"o nome '{path}' aparece em mais de uma entrada; o caminho de cada entrada deve ser único.";
+                attempt.Failure = $"o nome '{entry.Path}' aparece em mais de uma entrada; o caminho de cada entrada deve ser único.";
                 attempt.ParsedEntries = number;
                 return attempt;
             }
 
-            entries.Add(new YpfEntry(
-                path,
-                sizeUncompressed,
-                compressed == 1,
-                nameHash,
-                plain,
-                obfuscated.ToArray(),
-                encodedNameSize,
-                xor,
-                candidate.SwapTable,
-                fileType,
-                sizeStored,
-                offset,
-                dataHash,
-                candidate.OffsetSize,
-                YpfHeader.Size + position,
-                entrySize));
-
-            position += entrySize;
+            lastXor = entry.NameXor;
+            entries.Add(entry);
+            position += entry.IndexEntrySize;
             attempt.ParsedEntries = number;
         }
 
@@ -217,6 +147,96 @@ internal static class YpfIndexReader
             DataHashVerified: false);
         attempt.Result = new IndexResult(entries, parameters);
         return attempt;
+    }
+
+    private static YpfEntry? ReadEntry(
+        Candidate candidate,
+        byte[] index,
+        int position,
+        (int Number, int Count) ordinal,
+        long fileLength,
+        byte? lastXor,
+        out string? failure)
+    {
+        failure = null;
+        var (number, count) = ordinal;
+        var offsetBytes = candidate.OffsetSize == YpfOffsetSize.Bits64 ? 8 : 4;
+        if (index.Length - position < 5)
+        {
+            failure = $"o índice acaba antes da entrada {number} de {count}.";
+            return null;
+        }
+
+        var span = index.AsSpan(position);
+        var nameHash = BinaryPrimitives.ReadUInt32LittleEndian(span);
+        var encodedNameSize = span[4];
+        var nameLength = YpfSwapTables.DecodeNameSize(candidate.SwapTable, encodedNameSize);
+        if (nameLength == 0)
+        {
+            failure = $"o tamanho do nome da entrada {number} de {count} decodifica para 0 (byte gravado 0x{encodedNameSize:X2}).";
+            return null;
+        }
+
+        var entrySize = 5 + nameLength + 1 + 1 + 4 + 4 + offsetBytes + 4;
+        if (index.Length - position < entrySize)
+        {
+            failure = $"o índice acaba antes do fim da entrada {number} de {count}, que precisa de {entrySize} bytes.";
+            return null;
+        }
+
+        var obfuscated = span.Slice(5, nameLength);
+        if (!TryDecryptName(obfuscated, nameHash, candidate.NameHash, lastXor, out var xor, out var plain))
+        {
+            failure =
+                $"o hash do nome da entrada {number} de {count} (0x{nameHash:X8}, posição {YpfHeader.Size + position}) "
+                + "não confere com o nome decifrado por nenhuma chave conhecida nem deduzida.";
+            return null;
+        }
+
+        var cursor = 5 + nameLength;
+        var fileType = span[cursor];
+        var compressed = span[cursor + 1];
+        var sizeUncompressed = BinaryPrimitives.ReadUInt32LittleEndian(span[(cursor + 2)..]);
+        var sizeStored = BinaryPrimitives.ReadUInt32LittleEndian(span[(cursor + 6)..]);
+        cursor += 10;
+        var offset = candidate.OffsetSize == YpfOffsetSize.Bits64
+            ? BinaryPrimitives.ReadUInt64LittleEndian(span[cursor..])
+            : BinaryPrimitives.ReadUInt32LittleEndian(span[cursor..]);
+        cursor += offsetBytes;
+        var dataHash = BinaryPrimitives.ReadUInt32LittleEndian(span[cursor..]);
+
+        var path = GameEncodings.ShiftJis.GetString(plain).Replace('\\', '/');
+        if (compressed > 1)
+        {
+            failure = $"a entrada {number} de {count} ('{path}') tem o campo compressed = {compressed}; o esperado é 0 ou 1.";
+            return null;
+        }
+
+        if (offset > (ulong)fileLength || sizeStored > (ulong)fileLength - offset)
+        {
+            failure =
+                $"a entrada {number} de {count} ('{path}') guarda {sizeStored} bytes a partir do offset {offset}, "
+                + $"mas o arquivo tem só {fileLength} bytes (arquivo truncado ou offset de tamanho errado).";
+            return null;
+        }
+
+        return new YpfEntry(
+            path,
+            sizeUncompressed,
+            compressed == 1,
+            nameHash,
+            plain,
+            obfuscated.ToArray(),
+            encodedNameSize,
+            xor,
+            candidate.SwapTable,
+            fileType,
+            sizeStored,
+            offset,
+            dataHash,
+            candidate.OffsetSize,
+            YpfHeader.Size + position,
+            entrySize);
     }
 
     private static string? CheckHeaderSize(YpfHeader header, int indexSize, out bool includesHeader)
@@ -251,21 +271,23 @@ internal static class YpfIndexReader
     /// Chave de comparação de nomes: os bytes do nome com <c>\</c> e <c>/</c> equivalentes. O byte 0x5C também
     /// aparece como segundo byte de caracteres Shift-JIS de dois bytes, então os pares são pulados.
     /// </summary>
-    private static string NormalizedNameKey(byte[] plain)
+    private static string NormalizedNameKey(ReadOnlySpan<byte> plain)
     {
         var normalized = new char[plain.Length];
-        for (var i = 0; i < plain.Length; i++)
+        var i = 0;
+        while (i < plain.Length)
         {
             var b = plain[i];
             if (b is >= 0x81 and <= 0x9F or >= 0xE0 and <= 0xFC && i + 1 < plain.Length)
             {
                 normalized[i] = (char)b;
                 normalized[i + 1] = (char)plain[i + 1];
-                i++;
+                i += 2;
                 continue;
             }
 
             normalized[i] = b == (byte)'\\' ? '/' : (char)b;
+            i++;
         }
 
         return new string(normalized);
@@ -298,6 +320,43 @@ internal static class YpfIndexReader
             ? YpfVersionDefaults.NameXor(version)
             : entries.GroupBy(e => e.NameXor).OrderByDescending(g => g.Count()).First().Key;
 
+    private static int FindXor(
+        ReadOnlySpan<byte> obfuscated,
+        Span<byte> buffer,
+        Span<bool> tried,
+        YpfHashAlgorithm algorithm,
+        uint expectedHash,
+        byte? previousXor)
+    {
+        if (obfuscated.Length >= 4 && TryXor((byte)(obfuscated[^4] ^ '.'), obfuscated, buffer, tried, algorithm, expectedHash))
+        {
+            return obfuscated[^4] ^ '.';
+        }
+
+        if (previousXor is { } previous && TryXor(previous, obfuscated, buffer, tried, algorithm, expectedHash))
+        {
+            return previous;
+        }
+
+        foreach (var known in KnownNameXors)
+        {
+            if (TryXor(known, obfuscated, buffer, tried, algorithm, expectedHash))
+            {
+                return known;
+            }
+        }
+
+        for (var candidate = 0; candidate < 256; candidate++)
+        {
+            if (TryXor((byte)candidate, obfuscated, buffer, tried, algorithm, expectedHash))
+            {
+                return candidate;
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>
     /// Procura o XOR efetivo que faz o hash do nome conferir. Tenta, nesta ordem: a dedução do GARbro (o byte
     /// quatro posições antes do fim é o <c>.</c> da extensão), o XOR da entrada anterior, os XOR conhecidos
@@ -315,35 +374,7 @@ internal static class YpfIndexReader
         var buffer = scratch[..obfuscated.Length];
         Span<bool> tried = stackalloc bool[256];
 
-        var found = -1;
-        if (obfuscated.Length >= 4 && TryXor((byte)(obfuscated[^4] ^ '.'), obfuscated, buffer, tried, algorithm, expectedHash))
-        {
-            found = obfuscated[^4] ^ '.';
-        }
-        else if (previousXor is { } previous && TryXor(previous, obfuscated, buffer, tried, algorithm, expectedHash))
-        {
-            found = previous;
-        }
-        else
-        {
-            foreach (var known in KnownNameXors)
-            {
-                if (TryXor(known, obfuscated, buffer, tried, algorithm, expectedHash))
-                {
-                    found = known;
-                    break;
-                }
-            }
-        }
-
-        for (var candidate = 0; found < 0 && candidate < 256; candidate++)
-        {
-            if (TryXor((byte)candidate, obfuscated, buffer, tried, algorithm, expectedHash))
-            {
-                found = candidate;
-            }
-        }
-
+        var found = FindXor(obfuscated, buffer, tried, algorithm, expectedHash, previousXor);
         if (found < 0)
         {
             xor = 0;

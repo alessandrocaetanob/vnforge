@@ -35,7 +35,7 @@ public static class YbnCommand
         command.Options.Add(ysc);
         command.SetAction(parseResult =>
         {
-            var scriptPath = ExistingFile(cli, parseResult.GetValue(file)!);
+            var scriptPath = ExistingFile(cli, parseResult.GetRequiredValue(file));
             var yscPath = parseResult.GetValue(ysc) is { } given ? ExistingFile(cli, given) : FindYsc(scriptPath);
 
             var commands = Read(yscPath, YscmReader.ReadFile);
@@ -57,7 +57,7 @@ public static class YbnCommand
 
     private static string FindYsc(string scriptPath)
     {
-        var folder = Path.GetDirectoryName(scriptPath)!;
+        var folder = Path.GetDirectoryName(scriptPath) ?? ".";
         var candidates = new List<string> { Path.Combine(folder, YscName) };
         if (Path.GetDirectoryName(folder) is { } parent)
         {

@@ -195,67 +195,80 @@ internal sealed class YpfWriter(YpfArchive archive, Stream source)
 
     private (List<Piece> Pieces, ulong[] Offsets) LayOut(List<Segment> segments, Change?[] changes)
     {
-        var pieces = new List<Piece>();
-        var boundaries = new List<Boundary>();
-        var offsets = _entries.Select(e => e.Offset).ToArray();
-        var position = (long)_parameters.DataStart;
-
-        void AddNew(int entryIndex)
-        {
-            var stored = changes[entryIndex]!.Stored;
-            offsets[entryIndex] = (ulong)position;
-            pieces.Add(new Piece(-1, stored.Length, stored));
-            position += stored.Length;
-        }
-
+        var layout = new Layout((long)_parameters.DataStart, _entries.Select(e => e.Offset).ToArray(), changes);
         for (var s = 0; s < segments.Count - 1; s++)
         {
-            var segment = segments[s];
-            var segmentStart = position;
-            var kept = segment.Entries.Count == 0 || segment.Entries.Any(i => changes[i] is null);
-            if (kept)
-            {
-                foreach (var i in segment.Entries.Where(i => changes[i] is null))
-                {
-                    offsets[i] = (ulong)position;
-                }
-
-                pieces.Add(new Piece(segment.OldStart, segment.OldLength, null));
-                position += segment.OldLength;
-            }
-
-            foreach (var i in segment.Entries.Where(i => changes[i] is not null))
-            {
-                AddNew(i);
-            }
-
-            boundaries.Add(new Boundary(segment.OldStart, segment.OldLength, segmentStart, kept));
+            LaySegment(layout, segments[s], changes);
         }
 
-        for (var i = 0; i < _entries.Count; i++)
+        foreach (var i in EmptyEntries().Where(i => changes[i] is not null))
         {
-            if (changes[i] is not null && _entries[i].SizeStored == 0)
-            {
-                AddNew(i);
-            }
+            layout.AddNew(i);
         }
 
         var trailer = segments[^1];
-        boundaries.Add(new Boundary(trailer.OldStart, trailer.OldLength, position, Kept: true));
+        layout.Boundaries.Add(new Boundary(trailer.OldStart, trailer.OldLength, layout.Position, Kept: true));
         if (trailer.OldLength > 0)
         {
-            pieces.Add(new Piece(trailer.OldStart, trailer.OldLength, null));
+            layout.Pieces.Add(new Piece(trailer.OldStart, trailer.OldLength, null));
         }
 
-        for (var i = 0; i < _entries.Count; i++)
+        foreach (var i in EmptyEntries().Where(i => changes[i] is null))
         {
-            if (changes[i] is null && _entries[i].SizeStored == 0)
-            {
-                offsets[i] = MapOffset(_entries[i].Offset, boundaries);
-            }
+            layout.Offsets[i] = MapOffset(_entries[i].Offset, layout.Boundaries);
         }
 
-        return (pieces, offsets);
+        return (layout.Pieces, layout.Offsets);
+    }
+
+    private static void LaySegment(Layout layout, Segment segment, Change?[] changes)
+    {
+        var segmentStart = layout.Position;
+        var kept = segment.Entries.Count == 0 || segment.Entries.Any(i => changes[i] is null);
+        if (kept)
+        {
+            foreach (var i in segment.Entries.Where(i => changes[i] is null))
+            {
+                layout.Offsets[i] = (ulong)layout.Position;
+            }
+
+            layout.AddOriginal(segment.OldStart, segment.OldLength);
+        }
+
+        foreach (var i in segment.Entries.Where(i => changes[i] is not null))
+        {
+            layout.AddNew(i);
+        }
+
+        layout.Boundaries.Add(new Boundary(segment.OldStart, segment.OldLength, segmentStart, kept));
+    }
+
+    private IEnumerable<int> EmptyEntries() =>
+        Enumerable.Range(0, _entries.Count).Where(i => _entries[i].SizeStored == 0);
+
+    private sealed class Layout(long start, ulong[] offsets, Change?[] changes)
+    {
+        public List<Piece> Pieces { get; } = [];
+
+        public List<Boundary> Boundaries { get; } = [];
+
+        public ulong[] Offsets { get; } = offsets;
+
+        public long Position { get; private set; } = start;
+
+        public void AddOriginal(long oldStart, long oldLength)
+        {
+            Pieces.Add(new Piece(oldStart, oldLength, null));
+            Position += oldLength;
+        }
+
+        public void AddNew(int entryIndex)
+        {
+            var stored = changes[entryIndex]!.Stored;
+            Offsets[entryIndex] = (ulong)Position;
+            Pieces.Add(new Piece(-1, stored.Length, stored));
+            Position += stored.Length;
+        }
     }
 
     /// <summary>
@@ -297,20 +310,7 @@ internal sealed class YpfWriter(YpfArchive archive, Stream source)
 
             if (offsets[i] != entry.Offset)
             {
-                if (offsetBytes == 4 && offsets[i] > uint.MaxValue)
-                {
-                    throw new NotSupportedException(
-                        $"O arquivo novo passaria de 4 GiB e o offset da entrada \"{entry.Path}\" não cabe nos 32 bits que este YPF usa.");
-                }
-
-                if (offsetBytes == 8)
-                {
-                    BinaryPrimitives.WriteUInt64LittleEndian(index.AsSpan(offsetAt), offsets[i]);
-                }
-                else
-                {
-                    BinaryPrimitives.WriteUInt32LittleEndian(index.AsSpan(offsetAt), (uint)offsets[i]);
-                }
+                WriteOffset(index.AsSpan(offsetAt), entry, offsetBytes, offsets[i]);
             }
 
             if (changes[i] is { } change)
@@ -322,6 +322,23 @@ internal sealed class YpfWriter(YpfArchive archive, Stream source)
         }
 
         return index;
+    }
+
+    private static void WriteOffset(Span<byte> target, YpfEntry entry, int offsetBytes, ulong offset)
+    {
+        if (offsetBytes == 8)
+        {
+            BinaryPrimitives.WriteUInt64LittleEndian(target, offset);
+            return;
+        }
+
+        if (offset > uint.MaxValue)
+        {
+            throw new NotSupportedException(
+                $"O arquivo novo passaria de 4 GiB e o offset da entrada \"{entry.Path}\" não cabe nos 32 bits que este YPF usa.");
+        }
+
+        BinaryPrimitives.WriteUInt32LittleEndian(target, (uint)offset);
     }
 
     private byte[] BuildHeader()

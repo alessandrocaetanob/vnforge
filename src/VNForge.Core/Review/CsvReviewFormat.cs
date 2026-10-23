@@ -135,11 +135,12 @@ internal sealed class CsvReviewFormat : IReviewFormat
 
         public List<(int Line, List<string> Fields)> Run()
         {
-            for (var i = 0; i < text.Length; i++)
+            var i = 0;
+            while (i < text.Length)
             {
-                i = text[i] == '"' && _field.Length == 0 && !_wasQuoted
+                i = (text[i] == '"' && _field.Length == 0 && !_wasQuoted
                     ? ReadQuoted(i + 1)
-                    : ReadUnquoted(i);
+                    : ReadUnquoted(i)) + 1;
             }
 
             if (_field.Length > 0 || _fields.Count > 0 || _wasQuoted)
@@ -154,23 +155,25 @@ internal sealed class CsvReviewFormat : IReviewFormat
         private int ReadQuoted(int start)
         {
             _wasQuoted = true;
-            for (var i = start; i < text.Length; i++)
+            var i = start;
+            while (i < text.Length)
             {
                 var c = text[i];
                 if (c == '"' && i + 1 < text.Length && text[i + 1] == '"')
                 {
                     _field.Append('"');
-                    i++;
+                    i += 2;
+                    continue;
                 }
-                else if (c == '"')
+
+                if (c == '"')
                 {
                     return i;
                 }
-                else
-                {
-                    _line += c == '\n' ? 1 : 0;
-                    _field.Append(c);
-                }
+
+                _line += c == '\n' ? 1 : 0;
+                _field.Append(c);
+                i++;
             }
 
             throw new ReviewImportException($"'{path}': aspas abertas na linha {_recordLine} e nunca fechadas.");

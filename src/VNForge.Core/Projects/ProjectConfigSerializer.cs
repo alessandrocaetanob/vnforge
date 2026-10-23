@@ -198,23 +198,21 @@ public static class ProjectConfigSerializer
 
         public void EnsureNoUnknownProperties()
         {
-            foreach (var property in _element.EnumerateObject())
+            var name = _element.EnumerateObject().Select(property => property.Name).FirstOrDefault(n => !_read.Contains(n));
+            if (name is null)
             {
-                if (_read.Contains(property.Name))
-                {
-                    continue;
-                }
-
-                var path = PathOf(property.Name);
-                if (LooksLikeApiKey(property.Name))
-                {
-                    throw new ProjectConfigException(
-                        path,
-                        "a chave de API não pode ficar no projeto; use a variável de ambiente ANTHROPIC_API_KEY ou o cofre do usuário.");
-                }
-
-                throw new ProjectConfigException(path, "campo desconhecido.");
+                return;
             }
+
+            var path = PathOf(name);
+            if (LooksLikeApiKey(name))
+            {
+                throw new ProjectConfigException(
+                    path,
+                    "a chave de API não pode ficar no projeto; use a variável de ambiente ANTHROPIC_API_KEY ou o cofre do usuário.");
+            }
+
+            throw new ProjectConfigException(path, "campo desconhecido.");
         }
 
         private static bool LooksLikeApiKey(string name) =>

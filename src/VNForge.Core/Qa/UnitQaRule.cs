@@ -18,6 +18,11 @@ public abstract class UnitQaRule : IQaRule
     public IEnumerable<QaIssue> Check(QaContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        return CheckAll(context);
+    }
+
+    private IEnumerable<QaIssue> CheckAll(QaContext context)
+    {
         foreach (var (key, units) in context.Texts)
         {
             foreach (var unit in units)

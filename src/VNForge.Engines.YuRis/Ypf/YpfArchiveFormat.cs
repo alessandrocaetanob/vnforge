@@ -140,6 +140,7 @@ public sealed class YpfArchiveFormat : IArchiveFormat
             }
             catch (InvalidFileException)
             {
+                // O palpite do header_size falhou; o ReadIndex logo abaixo tenta de novo com o teto pela contagem.
             }
         }
 
@@ -177,6 +178,33 @@ public sealed class YpfArchiveFormat : IArchiveFormat
     private static (YpfHashAlgorithm Algorithm, bool Verified) DetectDataHash(Stream stream, IReadOnlyList<YpfEntry> entries, uint version)
     {
         var preferred = YpfVersionDefaults.DataHash(version);
+        var samples = PickSamples(entries);
+        if (samples.Count == 0)
+        {
+            return (preferred, false);
+        }
+
+        var algorithms = YpfIndexReader.Ordered(
+            preferred,
+            [YpfHashAlgorithm.Adler32, YpfHashAlgorithm.MurmurHash2, YpfHashAlgorithm.Crc32]);
+        var matches = CountMatches(stream, samples, algorithms);
+        var best = 0;
+        for (var i = 1; i < matches.Length; i++)
+        {
+            if (matches[i] > matches[best])
+            {
+                best = i;
+            }
+        }
+
+        // Sem nenhuma confirmação (ou com empate, como em entradas vazias), vale o padrão da versão: o detalhe
+        // por entrada fica com OpenEntry, e um data_hash divergente não impede de abrir o resto do pacote.
+        var verified = matches[best] > 0 && matches.Count(m => m == matches[best]) == 1;
+        return (matches[best] > 0 ? algorithms[best] : preferred, verified);
+    }
+
+    private static List<YpfEntry> PickSamples(IReadOnlyList<YpfEntry> entries)
+    {
         var samples = new List<YpfEntry>();
         var seen = new HashSet<(ulong, uint)>();
         long total = 0;
@@ -194,14 +222,11 @@ public sealed class YpfArchiveFormat : IArchiveFormat
             }
         }
 
-        if (samples.Count == 0)
-        {
-            return (preferred, false);
-        }
+        return samples;
+    }
 
-        var algorithms = YpfIndexReader.Ordered(
-            preferred,
-            [YpfHashAlgorithm.Adler32, YpfHashAlgorithm.MurmurHash2, YpfHashAlgorithm.Crc32]);
+    private static int[] CountMatches(Stream stream, List<YpfEntry> samples, List<YpfHashAlgorithm> algorithms)
+    {
         var matches = new int[algorithms.Count];
         var buffer = new byte[samples.Max(e => (int)e.SizeStored)];
         foreach (var entry in samples)
@@ -218,18 +243,6 @@ public sealed class YpfArchiveFormat : IArchiveFormat
             }
         }
 
-        var best = 0;
-        for (var i = 1; i < matches.Length; i++)
-        {
-            if (matches[i] > matches[best])
-            {
-                best = i;
-            }
-        }
-
-        // Sem nenhuma confirmação (ou com empate, como em entradas vazias), vale o padrão da versão: o detalhe
-        // por entrada fica com OpenEntry, e um data_hash divergente não impede de abrir o resto do pacote.
-        var verified = matches[best] > 0 && matches.Count(m => m == matches[best]) == 1;
-        return (matches[best] > 0 ? algorithms[best] : preferred, verified);
+        return matches;
     }
 }

@@ -5,6 +5,13 @@ namespace VNForge.Cli.Tests;
 
 public sealed class InjectRestoreCommandTests : IDisposable
 {
+    private const string YsbinYpf = "ysbin.ypf";
+    private const string Original = "original";
+    private const string Traduzido = "traduzido";
+    private const string Inject = "inject";
+    private const string YesOption = "--yes";
+    private const string Restore = "restore";
+
     private readonly CliHarness _cli = new();
     private readonly TextReader _originalIn = Console.In;
     private readonly string _game;
@@ -14,7 +21,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     {
         _game = Path.Combine(_cli.Root, "jogo");
         Directory.CreateDirectory(_game);
-        File.WriteAllText(Path.Combine(_game, "ysbin.ypf"), "original");
+        File.WriteAllText(Path.Combine(_game, YsbinYpf), Original);
         _project = ProjectFolder.Create(
             Path.Combine(_cli.Root, "projeto"),
             new ProjectConfig(
@@ -32,10 +39,10 @@ public sealed class InjectRestoreCommandTests : IDisposable
         _cli.Dispose();
     }
 
-    private string GameFile => Path.Combine(_game, "ysbin.ypf");
+    private string GameFile => Path.Combine(_game, YsbinYpf);
 
-    private void PutBuild(string content = "traduzido") =>
-        File.WriteAllText(Path.Combine(_project.BuildDirectory, "ysbin.ypf"), content);
+    private void PutBuild(string content = Traduzido) =>
+        File.WriteAllText(Path.Combine(_project.BuildDirectory, YsbinYpf), content);
 
     private Task<RunResult> Run(params string[] args) =>
         _cli.RunAsync([.. args, "--project", _project.Root], TestContext.Current.CancellationToken);
@@ -45,15 +52,15 @@ public sealed class InjectRestoreCommandTests : IDisposable
     {
         PutBuild();
 
-        var result = await Run("inject", "--yes");
+        var result = await Run(Inject, YesOption);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
         Assert.Contains("Backup:", result.Output);
         Assert.Contains("Injetado: 1 arquivo(s)", result.Output);
-        Assert.Equal("traduzido", File.ReadAllText(GameFile));
+        Assert.Equal(Traduzido, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
         var backup = Assert.Single(Directory.GetDirectories(_project.BackupDirectory));
-        Assert.Equal("original", File.ReadAllText(Path.Combine(backup, "ysbin.ypf")));
+        Assert.Equal(Original, await File.ReadAllTextAsync(Path.Combine(backup, YsbinYpf), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -61,7 +68,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     {
         PutBuild();
 
-        var result = await Run("inject", "--yes", "--json");
+        var result = await Run(Inject, YesOption, "--json");
 
         Assert.Equal(0, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
@@ -69,7 +76,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
         Assert.True(document.RootElement.GetProperty("ok").GetBoolean());
         Assert.Equal(_game, data.GetProperty("gameDirectory").GetString());
         Assert.StartsWith(_project.BackupDirectory, data.GetProperty("backupDirectory").GetString());
-        Assert.Equal("ysbin.ypf", data.GetProperty("written")[0].GetString());
+        Assert.Equal(YsbinYpf, data.GetProperty("written")[0].GetString());
         Assert.Equal(0, data.GetProperty("unchanged").GetInt32());
     }
 
@@ -79,11 +86,11 @@ public sealed class InjectRestoreCommandTests : IDisposable
         PutBuild();
         Console.SetIn(new StringReader("s\n"));
 
-        var result = await Run("inject");
+        var result = await Run(Inject);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Gravar 1 arquivo(s)", result.Error);
-        Assert.Equal("traduzido", File.ReadAllText(GameFile));
+        Assert.Equal(Traduzido, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -92,11 +99,11 @@ public sealed class InjectRestoreCommandTests : IDisposable
         PutBuild();
         Console.SetIn(new StringReader("n\n"));
 
-        var result = await Run("inject");
+        var result = await Run(Inject);
 
         Assert.Equal(3, result.ExitCode);
         Assert.Contains("Nada foi gravado", result.Output);
-        Assert.Equal("original", File.ReadAllText(GameFile));
+        Assert.Equal(Original, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
         Assert.Empty(Directory.GetDirectories(_project.BackupDirectory));
     }
 
@@ -106,11 +113,11 @@ public sealed class InjectRestoreCommandTests : IDisposable
         PutBuild();
         Console.SetIn(new StringReader(string.Empty));
 
-        var result = await Run("inject");
+        var result = await Run(Inject);
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--yes", result.Error);
-        Assert.Equal("original", File.ReadAllText(GameFile));
+        Assert.Contains(YesOption, result.Error);
+        Assert.Equal(Original, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -118,19 +125,19 @@ public sealed class InjectRestoreCommandTests : IDisposable
     {
         PutBuild();
 
-        var result = await Run("inject", "--json");
+        var result = await Run(Inject, "--json");
 
         Assert.Equal(1, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
         Assert.False(document.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Contains("--yes", document.RootElement.GetProperty("error").GetProperty("message").GetString());
-        Assert.Equal("original", File.ReadAllText(GameFile));
+        Assert.Contains(YesOption, document.RootElement.GetProperty("error").GetProperty("message").GetString());
+        Assert.Equal(Original, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Inject_sem_build_explica_em_portugues()
     {
-        var result = await Run("inject", "--yes");
+        var result = await Run(Inject, YesOption);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("build/ está vazia", result.Error);
@@ -140,7 +147,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     [Fact]
     public async Task Inject_fora_de_um_projeto_explica_em_portugues()
     {
-        var result = await _cli.RunAsync(["inject", "--yes"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Inject, YesOption], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("vnforge.json não encontrado", result.Error);
@@ -149,9 +156,9 @@ public sealed class InjectRestoreCommandTests : IDisposable
     [Fact]
     public async Task Inject_com_build_igual_ao_jogo_nao_faz_nada()
     {
-        PutBuild("original");
+        PutBuild(Original);
 
-        var result = await Run("inject");
+        var result = await Run(Inject);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Nada a injetar", result.Output);
@@ -162,27 +169,27 @@ public sealed class InjectRestoreCommandTests : IDisposable
     public async Task Restore_com_yes_devolve_o_original()
     {
         PutBuild();
-        await Run("inject", "--yes");
+        await Run(Inject, YesOption);
 
-        var result = await Run("restore", "--yes");
+        var result = await Run(Restore, YesOption);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Restaurado: 1 arquivo(s)", result.Output);
-        Assert.Equal("original", File.ReadAllText(GameFile));
+        Assert.Equal(Original, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Restore_com_json_lista_o_que_voltou()
     {
         PutBuild();
-        await Run("inject", "--yes");
+        await Run(Inject, YesOption);
 
-        var result = await Run("restore", "--yes", "--json");
+        var result = await Run(Restore, YesOption, "--json");
 
         Assert.Equal(0, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
         var data = document.RootElement.GetProperty("data");
-        Assert.Equal("ysbin.ypf", data.GetProperty("restored")[0].GetString());
+        Assert.Equal(YsbinYpf, data.GetProperty("restored")[0].GetString());
         Assert.Equal(0, data.GetProperty("removed").GetArrayLength());
     }
 
@@ -190,19 +197,19 @@ public sealed class InjectRestoreCommandTests : IDisposable
     public async Task Restore_sem_yes_e_resposta_nao_nao_grava()
     {
         PutBuild();
-        await Run("inject", "--yes");
+        await Run(Inject, YesOption);
         Console.SetIn(new StringReader("\n"));
 
-        var result = await Run("restore");
+        var result = await Run(Restore);
 
         Assert.Equal(3, result.ExitCode);
-        Assert.Equal("traduzido", File.ReadAllText(GameFile));
+        Assert.Equal(Traduzido, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Restore_sem_backup_explica_em_portugues()
     {
-        var result = await Run("restore", "--yes");
+        var result = await Run(Restore, YesOption);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Não há backup", result.Error);

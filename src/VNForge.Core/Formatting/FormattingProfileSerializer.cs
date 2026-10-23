@@ -220,7 +220,27 @@ public static class FormattingProfileSerializer
 
         var kinds = reader.OptionalKinds("kinds") ?? defaults.Kinds;
 
-        var wrap = defaults.Wrap;
+        var wrap = ReadWrap(reader, defaults.Wrap);
+
+        var normalization = ReadNormalization(reader, defaults.Normalization);
+
+        var spacing = ReadSpacing(reader, defaults.Spacing);
+
+        var replacements = ReadReplacements(reader, defaults.Replacements);
+
+        var typography = ReadTypography(reader, defaults.Typography);
+
+        var width = ReadWidth(reader, defaults.Width);
+
+        var byteLimits = reader.OptionalObject("byteLimits") is { } limitsReader ? limitsReader.ByteLimits() : defaults.ByteLimits;
+
+        reader.EnsureNoUnknownProperties();
+        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width, ByteLimits = byteLimits };
+    }
+
+    private static WrapRule ReadWrap(ObjectReader reader, WrapRule current)
+    {
+        var wrap = current;
         if (reader.OptionalObject("wrap") is { } wrapReader)
         {
             wrap = new WrapRule(
@@ -241,7 +261,12 @@ public static class FormattingProfileSerializer
             wrapReader.EnsureNoUnknownProperties();
         }
 
-        var normalization = defaults.Normalization;
+        return wrap;
+    }
+
+    private static NormalizationRule ReadNormalization(ObjectReader reader, NormalizationRule current)
+    {
+        var normalization = current;
         if (reader.OptionalObject("normalization") is { } normalizationReader)
         {
             normalization = new NormalizationRule(
@@ -251,7 +276,12 @@ public static class FormattingProfileSerializer
             normalizationReader.EnsureNoUnknownProperties();
         }
 
-        var spacing = defaults.Spacing;
+        return normalization;
+    }
+
+    private static SpacingRule ReadSpacing(ObjectReader reader, SpacingRule current)
+    {
+        var spacing = current;
         if (reader.OptionalObject("spacing") is { } spacingReader)
         {
             spacing = new SpacingRule(
@@ -261,7 +291,12 @@ public static class FormattingProfileSerializer
             spacingReader.EnsureNoUnknownProperties();
         }
 
-        var replacements = defaults.Replacements;
+        return spacing;
+    }
+
+    private static ReplacementRules ReadReplacements(ObjectReader reader, ReplacementRules current)
+    {
+        var replacements = current;
         if (reader.OptionalObject("replacements") is { } replacementsReader)
         {
             replacements = new ReplacementRules(
@@ -270,7 +305,12 @@ public static class FormattingProfileSerializer
             replacementsReader.EnsureNoUnknownProperties();
         }
 
-        var typography = defaults.Typography;
+        return replacements;
+    }
+
+    private static TypographyRule ReadTypography(ObjectReader reader, TypographyRule current)
+    {
+        var typography = current;
         if (reader.OptionalObject("typography") is { } typographyReader)
         {
             typography = new TypographyRule(
@@ -281,7 +321,12 @@ public static class FormattingProfileSerializer
             typographyReader.EnsureNoUnknownProperties();
         }
 
-        var width = defaults.Width;
+        return typography;
+    }
+
+    private static WidthRule ReadWidth(ObjectReader reader, WidthRule current)
+    {
+        var width = current;
         if (reader.OptionalObject("width") is { } widthReader)
         {
             width = new WidthRule(
@@ -290,14 +335,7 @@ public static class FormattingProfileSerializer
             widthReader.EnsureNoUnknownProperties();
         }
 
-        var byteLimits = defaults.ByteLimits;
-        if (reader.OptionalObject("byteLimits") is { } limitsReader)
-        {
-            byteLimits = limitsReader.ByteLimits();
-        }
-
-        reader.EnsureNoUnknownProperties();
-        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width, ByteLimits = byteLimits };
+        return width;
     }
 
     private static string KindName(TextUnitKind kind) => kind.ToString().ToLowerInvariant();
@@ -513,24 +551,21 @@ public static class FormattingProfileSerializer
 
         public void EnsureNoUnknownProperties()
         {
-            foreach (var property in _element.EnumerateObject())
+            var unknown = _element.EnumerateObject().Select(property => property.Name).FirstOrDefault(name => !_read.Contains(name));
+            if (unknown is not null)
             {
-                if (!_read.Contains(property.Name))
-                {
-                    throw new FormattingProfileException(PathOf(property.Name), "campo desconhecido.");
-                }
+                throw new FormattingProfileException(PathOf(unknown), "campo desconhecido.");
             }
         }
 
         private static bool TryParseKind(string text, out TextUnitKind kind)
         {
-            foreach (var candidate in Enum.GetValues<TextUnitKind>())
+            var kinds = Enum.GetValues<TextUnitKind>();
+            var index = Array.FindIndex(kinds, candidate => string.Equals(KindName(candidate), text, StringComparison.Ordinal));
+            if (index >= 0)
             {
-                if (string.Equals(KindName(candidate), text, StringComparison.Ordinal))
-                {
-                    kind = candidate;
-                    return true;
-                }
+                kind = kinds[index];
+                return true;
             }
 
             kind = default;

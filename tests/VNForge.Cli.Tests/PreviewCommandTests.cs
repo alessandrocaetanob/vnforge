@@ -6,6 +6,8 @@ namespace VNForge.Cli.Tests;
 
 public sealed class PreviewCommandTests : IDisposable
 {
+    private const string A001000001 = "a001:000001";
+
     private readonly CliHarness _cli = new();
     private readonly string _projectPath;
 
@@ -14,13 +16,13 @@ public sealed class PreviewCommandTests : IDisposable
         _projectPath = Path.Combine(_cli.Root, "projeto");
         var project = ProjectFolder.Create(_projectPath, new ProjectConfig(
             "Minha VN",
-            new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+            new GameConfig(Path.Combine(_cli.Root, "jogo"), "MinhaVN.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("fold"),
             AiConfig.Default));
         File.WriteAllText(project.FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 10, "maxLines": 2, "charWidth": "uniform" } }""");
-        project.SaveText("a001", [new("a001:000001", TextUnitKind.Dialogue, "美咲", "原文", "um dois tres quatro", TranslationStatus.Translated)]);
+        project.SaveText("a001", [new(A001000001, TextUnitKind.Dialogue, "美咲", "原文", "um dois tres quatro", TranslationStatus.Translated)]);
     }
 
     public void Dispose() => _cli.Dispose();
@@ -28,7 +30,7 @@ public sealed class PreviewCommandTests : IDisposable
     [Fact]
     public async Task Texto_mostra_linhas_quebradas_colunas_e_avisos()
     {
-        var result = await _cli.RunAsync(["preview", "a001:000001", "--project", _projectPath], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["preview", A001000001, "--project", _projectPath], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("um dois", result.Output);
@@ -40,12 +42,12 @@ public sealed class PreviewCommandTests : IDisposable
     [Fact]
     public async Task Json_traz_texto_caixas_colunas_e_avisos()
     {
-        var result = await _cli.RunAsync(["preview", "a001:000001", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["preview", A001000001, "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         using var doc = JsonDocument.Parse(result.Output);
         var data = doc.RootElement.GetProperty("data");
-        Assert.Equal("a001:000001", data.GetProperty("id").GetString());
+        Assert.Equal(A001000001, data.GetProperty("id").GetString());
         Assert.Equal("um dois\\ntres\\nquatro", data.GetProperty("text").GetString());
         Assert.Equal(3, data.GetProperty("lines").GetInt32());
         Assert.Equal(10, data.GetProperty("maxWidth").GetInt32());

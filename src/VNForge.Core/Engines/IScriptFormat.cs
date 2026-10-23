@@ -125,16 +125,16 @@ public sealed record ScriptFile
         ArgumentNullException.ThrowIfNull(units);
         var prefixo = Key + ":";
         var vistos = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var unit in units)
+        foreach (var id in units.Select(unit => unit.Id))
         {
-            if (!unit.Id.StartsWith(prefixo, StringComparison.Ordinal))
+            if (!id.StartsWith(prefixo, StringComparison.Ordinal))
             {
-                throw new ArgumentException($"A unidade '{unit.Id}' não pertence ao script '{Name}' (o id deveria começar com '{prefixo}').", nameof(units));
+                throw new ArgumentException($"A unidade '{id}' não pertence ao script '{Name}' (o id deveria começar com '{prefixo}').", nameof(units));
             }
 
-            if (!vistos.Add(unit.Id))
+            if (!vistos.Add(id))
             {
-                throw new ArgumentException($"O id '{unit.Id}' aparece mais de uma vez nas unidades do script '{Name}'.", nameof(units));
+                throw new ArgumentException($"O id '{id}' aparece mais de uma vez nas unidades do script '{Name}'.", nameof(units));
             }
         }
     }
