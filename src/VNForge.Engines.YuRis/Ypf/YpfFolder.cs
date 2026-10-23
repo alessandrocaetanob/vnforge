@@ -285,17 +285,21 @@ public static class YpfFolder
         }
     }
 
+    // Os nomes do YPF são caminhos do Windows: a validação é a mesma em qualquer sistema, para o mesmo YPF
+    // ser aceito ou recusado igual no Linux e no Windows.
+    private static readonly char[] InvalidNameChars = ['<', '>', ':', '"', '|', '?', '*', '\\'];
+
     private static bool IsSafeRelativePath(string path)
     {
-        var invalid = Path.GetInvalidFileNameChars();
-        foreach (var segment in path.Split('/'))
+        foreach (var segment in path.Replace('\\', '/').Split('/'))
         {
-            if (segment.Length == 0 || segment is "." or ".." || segment.AsSpan().IndexOfAny(invalid) >= 0)
-            {
-                return false;
-            }
-
-            if (OperatingSystem.IsWindows() && (segment[^1] == '.' || segment[^1] == ' ' || IsReservedDeviceName(segment)))
+            if (segment.Length == 0
+                || segment is "." or ".."
+                || segment.AsSpan().IndexOfAny(InvalidNameChars) >= 0
+                || segment.Any(char.IsControl)
+                || segment[^1] == '.'
+                || segment[^1] == ' '
+                || IsReservedDeviceName(segment))
             {
                 return false;
             }

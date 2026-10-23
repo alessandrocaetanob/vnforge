@@ -141,6 +141,11 @@ public sealed class YpfFolderTests : IDisposable
     [InlineData(@"C:\fora.txt")]
     [InlineData(@"\fora.txt")]
     [InlineData(@"a\\b.txt")]
+    [InlineData(@"dir\con.txt")]
+    [InlineData(@"a:b.txt")]
+    [InlineData(@"a*b.txt")]
+    [InlineData(@"fim.")]
+    [InlineData(@"dir\fim ")]
     public void Unpack_RecusaCaminhoQueSaiDaPastaSemGravarNada(string name)
     {
         var ypf = new SyntheticYpfBuilder(500)
@@ -161,7 +166,7 @@ public sealed class YpfFolderTests : IDisposable
     {
         var ypf = new SyntheticYpfBuilder(500)
             .AddFile("a", Small)
-            .AddFile(@"a", Small)
+            .AddFile(@"a\b", Small)
             .Build();
         using var archive = Open(ypf.Bytes);
 
