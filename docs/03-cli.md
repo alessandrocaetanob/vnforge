@@ -52,7 +52,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1, E5.1 e E4.1: estratégia do `encoding.strategy` e perfil `formatting.json`; detalhes abaixo) |
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
-| `vnf run` | Abre o jogo (atalho para testar depois do inject) |
+| `vnf run` | Abre o `game.exe` do `vnforge.json` (atalho para testar depois do inject). Se o executável não existe, o erro mostra o caminho procurado (E8.6) |
 
 ## Comandos de apoio
 
