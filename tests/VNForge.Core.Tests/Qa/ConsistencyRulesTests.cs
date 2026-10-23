@@ -14,13 +14,15 @@ public sealed class ConsistencyRulesTests
         new(units.GroupBy(u => u.Id.Split(':')[0]).ToDictionary(g => g.Key, g => (IReadOnlyList<TextUnit>)g.ToList()),
             glossary, characters, FormattingProfile.Default);
 
+    private const string MagicLine = "魔法を使う";
+
     private static readonly GlossaryTerm[] Terms = [new("魔法", "magia")];
     private static readonly CharacterEntry[] Cast = [new("春花", "Haruka")];
 
     [Fact]
     public void Glossario_dispara_quando_o_termo_nao_aparece_traduzido()
     {
-        var issues = new GlossaryTermRule().Check(Context(Terms, [], Unit("a:1", "魔法を使う", "Usa feitiço"))).ToList();
+        var issues = new GlossaryTermRule().Check(Context(Terms, [], Unit("a:1", MagicLine, "Usa feitiço"))).ToList();
 
         var issue = Assert.Single(issues);
         Assert.Equal(("glossario-diferente", QaSeverity.Warning, "a:1"), (issue.RuleId, issue.Severity, issue.UnitId));
@@ -32,9 +34,9 @@ public sealed class ConsistencyRulesTests
     {
         var rule = new GlossaryTermRule();
 
-        Assert.Empty(rule.Check(Context(Terms, [], Unit("a:1", "魔法を使う", "Usa Magia"))));
+        Assert.Empty(rule.Check(Context(Terms, [], Unit("a:1", MagicLine, "Usa Magia"))));
         Assert.Empty(rule.Check(Context(Terms, [], Unit("a:2", "こんにちは", "Olá"))));
-        Assert.Empty(rule.Check(Context(Terms, [], Unit("a:3", "魔法を使う", null, TranslationStatus.Untranslated))));
+        Assert.Empty(rule.Check(Context(Terms, [], Unit("a:3", MagicLine, null, TranslationStatus.Untranslated))));
     }
 
     [Fact]
@@ -98,7 +100,7 @@ public sealed class ConsistencyRulesTests
     public void Aviso_de_consistencia_some_quando_a_linha_esta_marcada_ok()
     {
         var engine = new QaEngine([new GlossaryTermRule()]);
-        var unit = Unit("a:1", "魔法を使う", "Usa feitiço") with { Flags = ["glossario-diferente"] };
+        var unit = Unit("a:1", MagicLine, "Usa feitiço") with { Flags = ["glossario-diferente"] };
 
         var report = engine.Run(Context(Terms, [], unit));
 
