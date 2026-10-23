@@ -6,6 +6,9 @@ namespace VNForge.Cli.Tests;
 
 public sealed class ExitCodeTests : IDisposable
 {
+    private const string FakeQaCommand = "fake-qa";
+    private const string JsonFlag = "--json";
+
     private readonly CliHarness _cli = new();
 
     public void Dispose() => _cli.Dispose();
@@ -49,9 +52,9 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task QA_bloqueante_devolvido_pelo_comando_sai_com_2()
     {
-        _cli.AddCommand("check", _ => ErrorHandler.QaBlockedExitCode);
+        _cli.AddCommand(FakeQaCommand, _ => ErrorHandler.QaBlockedExitCode);
 
-        var result = await _cli.RunAsync(["check"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([FakeQaCommand], TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.ExitCode);
     }
@@ -125,15 +128,15 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Json_nao_muda_o_codigo_de_saida_nem_escreve_no_stderr()
     {
-        _cli.AddCommand("check", _ => ErrorHandler.QaBlockedExitCode);
+        _cli.AddCommand(FakeQaCommand, _ => ErrorHandler.QaBlockedExitCode);
         _cli.AddCommand("falha", _ => throw new InvalidFileException("a.ypf", "truncado"));
         _cli.AddCommand("cancela", _ => throw new OperationCanceledException());
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        var qa = await _cli.RunAsync(["check", "--json"], TestContext.Current.CancellationToken);
-        var erro = await _cli.RunAsync(["falha", "--json"], TestContext.Current.CancellationToken);
-        var cancelado = await _cli.RunAsync(["cancela", "--json"], cts.Token);
+        var qa = await _cli.RunAsync([FakeQaCommand, JsonFlag], TestContext.Current.CancellationToken);
+        var erro = await _cli.RunAsync(["falha", JsonFlag], TestContext.Current.CancellationToken);
+        var cancelado = await _cli.RunAsync(["cancela", JsonFlag], cts.Token);
 
         Assert.Equal(2, qa.ExitCode);
         Assert.Equal(1, erro.ExitCode);
@@ -152,7 +155,7 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Erro_de_uso_com_json_sai_como_json()
     {
-        var result = await _cli.RunAsync(["--nao-existe", "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["--nao-existe", JsonFlag], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
@@ -202,7 +205,7 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Comando_desconhecido_sai_em_portugues_e_com_json()
     {
-        var result = await _cli.RunAsync(["nada", "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["nada", JsonFlag], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         using var doc = JsonDocument.Parse(result.Output);
@@ -213,10 +216,10 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Project_sem_valor_engole_a_opcao_seguinte_como_pasta()
     {
-        var result = await _cli.RunAsync(["--project", "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["--project", JsonFlag], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--json", result.Error);
+        Assert.Contains(JsonFlag, result.Error);
     }
 
     private void AddCommandWithParameters()

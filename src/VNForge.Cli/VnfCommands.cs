@@ -26,6 +26,7 @@ public static class VnfCommands
         cli.Root.Subcommands.Add(TranslateCommand.Create(cli));
         cli.Root.Subcommands.Add(GlossaryCommand.Create(cli));
         cli.Root.Subcommands.Add(CharsCommand.Create(cli));
+        cli.Root.Subcommands.Add(CheckCommand.Create(cli));
         cli.Root.Subcommands.Add(RunCommand.Create(cli));
     }
 }
