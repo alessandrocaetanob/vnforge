@@ -42,6 +42,9 @@ public sealed record FormattingProfile(IReadOnlyList<TextUnitKind> Kinds, WrapRu
 {
     /// <summary>Todas as regras desligadas e só diálogo e narração no alvo: o build não muda nenhum texto.</summary>
     public static FormattingProfile Default { get; } = new([TextUnitKind.Dialogue, TextUnitKind.Narration], new WrapRule());
+
+    /// <summary>Substituições do usuário, antes e depois das regras do perfil (E4.5). Padrão: nenhuma.</summary>
+    public ReplacementRules Replacements { get; init; } = ReplacementRules.None;
 }
 
 /// <summary><c>formatting.json</c> inválido.</summary>

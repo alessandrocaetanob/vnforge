@@ -35,6 +35,16 @@ public sealed class FormattingPipeline
         ArgumentNullException.ThrowIfNull(profile);
 
         var stages = new List<IFormattingStage>();
+        if (profile.Replacements.Before.Count > 0)
+        {
+            stages.Add(new ReplacementStage("replacements-before", FormattingPhase.UserRulesBefore, profile.Replacements.Before));
+        }
+
+        if (profile.Replacements.After.Count > 0)
+        {
+            stages.Add(new ReplacementStage("replacements-after", FormattingPhase.UserRulesAfter, profile.Replacements.After));
+        }
+
         if (profile.Wrap.Enabled)
         {
             stages.Add(new WrapStage(profile.Wrap));
