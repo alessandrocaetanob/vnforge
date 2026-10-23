@@ -12,7 +12,7 @@ internal readonly record struct SpeakerSplit(string Name, string Open, string Cl
 /// <summary>
 /// Separa o falante de uma mensagem do E-ris (<c>名前「fala」</c>), sobre o texto já com marcadores. É a regra do
 /// VNTextPatch (<c>YurisScenarioScript.cs:79</c>: nome, abertura <c>「</c> ou <c>『</c> e fechamento <c>」</c> ou <c>』</c>, ou
-/// o par <c>（ ）</c>), com um filtro a mais: o nome não pode ter pontuação de frase, colchete nem marcador, para que uma
+/// o par <c>（ ）</c>), com um filtro a mais: o nome não pode ter pontuação de frase (<c>！</c> e <c>？</c> só se o nome for feito só de sinais), colchete nem marcador, para que uma
 /// narração como <c>彼は言った。「やあ」</c> não vire falante.
 /// </summary>
 internal static class SpeakerSplitter
@@ -29,7 +29,12 @@ internal static class SpeakerSplitter
         {
             if (TryMatchAt(text, i, out split))
             {
-                return true;
+                if (IsPlausibleName(split.Name))
+                {
+                    return true;
+                }
+
+                break;
             }
 
             if (!IsNameChar(text[i]))
@@ -69,6 +74,10 @@ internal static class SpeakerSplitter
 
         return false;
     }
+
+    /// <summary>Exclamação ou interrogação só vale se o nome é feito só de sinais (<c>？？？</c> para um falante desconhecido).</summary>
+    private static bool IsPlausibleName(string name) =>
+        name.AsSpan().IndexOfAny("！？!?") < 0 || name.AsSpan().IndexOfAnyExcept("！？!?…・ 　") < 0;
 
     private static bool IsNameChar(char c) => c is not ('。' or '、' or '「' or '」' or '『' or '』' or '（' or '）' or '\\' or '{');
 }

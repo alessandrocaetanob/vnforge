@@ -160,6 +160,7 @@ public class YstbTextExtractorTests
     [Theory]
     [InlineData("彼は、「やあ」")]
     [InlineData("彼は言った。「やあ」")]
+    [InlineData("彼は叫んだ！「逃げろ」")]
     [InlineData("名前「閉じない")]
     [InlineData("「閉じない")]
     public void Extract_TextoQueNaoTemFormaDeFalaNaoGeraFalante(string text)
@@ -169,6 +170,15 @@ public class YstbTextExtractorTests
         Assert.Null(unit.Speaker);
         Assert.Equal(TextUnitKind.Narration, unit.Kind);
         Assert.Equal(text, unit.Source);
+    }
+
+    [Fact]
+    public void Extract_FalanteDesconhecidoFeitoSoDeInterrogacoesESeparado()
+    {
+        var unit = Assert.Single(Extract(NewBuilder().AddWord("？？？「誰だ」", 1)).Units);
+
+        Assert.Equal("？？？", unit.Speaker);
+        Assert.Equal("誰だ", unit.Source);
     }
 
     [Fact]
