@@ -28,8 +28,14 @@ public sealed class QaEngine
         }
     }
 
-    /// <summary>As regras do <c>vnf</c>. Vazio até as regras concretas do E7 entrarem.</summary>
-    public static QaEngine Default { get; } = new([new GlossaryTermRule(), new CharacterNameRule(), new InconsistentTranslationRule()]);
+    /// <summary>As regras do <c>vnf</c>. Uma linha por grupo de regras, para as issues do E7 entrarem sem conflito.</summary>
+    public static QaEngine Default { get; } = new(
+    [
+        .. CompletenessQaRules.All,
+        new GlossaryTermRule(),
+        new CharacterNameRule(),
+        new InconsistentTranslationRule(),
+    ]);
 
     /// <summary>Regras registradas, na ordem em que rodam.</summary>
     public IReadOnlyList<IQaRule> Rules => _rules;
