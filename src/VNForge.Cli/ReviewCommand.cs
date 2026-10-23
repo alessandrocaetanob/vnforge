@@ -25,11 +25,7 @@ internal static class ReviewCommand
     private const string StyleGuideFileName = "style.md";
     private const int OutputTokensPerLine = 40;
 
-    private static readonly Option<string?> FilesOption = new("--files")
-    {
-        Description = "Só alguns scripts, por glob sobre a chave (\"yst001*\"); aceita vários, separados por vírgula.",
-        HelpName = "padrão",
-    };
+    private static readonly AiOptions Common = new();
 
     private static readonly Option<string?> StatusOption = new("--status")
     {
@@ -37,52 +33,10 @@ internal static class ReviewCommand
         HelpName = "lista",
     };
 
-    private static readonly Option<string?> ModelOption = new("--model")
-    {
-        Description = $"Modelo Claude: {string.Join(", ", ClaudeModels.All)}. Padrão: o de 'vnf config ai' ou o do vnforge.json.",
-        HelpName = "id",
-    };
-
-    private static readonly Option<string?> EffortOption = new("--effort")
-    {
-        Description = "Esforço do modelo: low, medium ou high. Padrão: o do vnforge.json.",
-        HelpName = "nível",
-    };
-
-    private static readonly Option<int?> BatchSizeOption = new("--batch-size")
-    {
-        Description = $"Linhas por chamada, de {TranslationRunOptions.MinBatchSize} a {TranslationRunOptions.MaxBatchSize}. Padrão: o do vnforge.json (30).",
-        HelpName = "n",
-    };
-
-    private static readonly Option<int?> ConcurrencyOption = new("--concurrency")
-    {
-        Description = "Chamadas em paralelo (padrão 2).",
-        HelpName = "n",
-    };
-
-    private static readonly Option<bool> DryRunOption = new("--dry-run")
-    {
-        Description = "Só estima tokens e custo; não chama a API nem grava nada.",
-    };
-
-    private static readonly Option<int?> LimitOption = new("--limit")
-    {
-        Description = "Para depois de n linhas (bom para testar o prompt).",
-        HelpName = "n",
-    };
-
     public static Command Create(VnfCli cli)
     {
         var command = new Command("review", "Pede à IA uma revisão das linhas traduzidas e grava as sugestões em 'notes', sem alterar traduções.");
-        command.Options.Add(FilesOption);
-        command.Options.Add(StatusOption);
-        command.Options.Add(ModelOption);
-        command.Options.Add(EffortOption);
-        command.Options.Add(BatchSizeOption);
-        command.Options.Add(ConcurrencyOption);
-        command.Options.Add(DryRunOption);
-        command.Options.Add(LimitOption);
+        Common.AddTo(command, StatusOption);
         command.SetAction((parseResult, token) => RunAsync(cli, parseResult, token));
         return command;
     }
@@ -107,25 +61,13 @@ internal static class ReviewCommand
 
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var config = project.LoadConfig();
-        var settings = ReadSettings(
-            cli,
-            config.Ai,
-            parseResult.GetValue(ModelOption),
-            parseResult.GetValue(EffortOption),
-            parseResult.GetValue(BatchSizeOption),
-            parseResult.GetValue(ConcurrencyOption));
+        var settings = Common.ReadSettings(cli, parseResult, config.Ai);
         var statuses = ParseStatuses(parseResult.GetValue(StatusOption));
-        var filter = ParseFiles(parseResult.GetValue(FilesOption));
-        var limit = parseResult.GetValue(LimitOption);
-        if (limit < 0)
-        {
-            throw new UsageException("--limit precisa ser zero ou maior.");
-        }
+        var filter = ParseFiles(parseResult.GetValue(Common.Files));
+        var limit = Common.ReadLimit(parseResult);
 
         var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && u.HasTranslation);
         var files = selection.Files;
-        var keyById = selection.KeyById;
-        var indexById = selection.IndexById;
         var pending = selection.Pending;
 
         var builder = new TranslationBatchBuilder(
@@ -133,7 +75,7 @@ internal static class ReviewCommand
             new CharacterBook(project.LoadCharacters()),
             TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)));
 
-        if (parseResult.GetValue(DryRunOption))
+        if (parseResult.GetValue(Common.DryRun))
         {
             return WriteDryRun(output, json, settings, files.Count, pending);
         }
@@ -165,7 +107,26 @@ internal static class ReviewCommand
         {
             lock (gate)
             {
-                var lastKey = ApplyBatch(results, selection, project, summary);
+                var lastKey = selection.ApplyAndSave(project, results, (result, unit) =>
+                {
+                    if (result.Refused)
+                    {
+                        summary.Refused.Add(result.Id);
+                        return null;
+                    }
+
+                    summary.Reviewed++;
+                    if (string.IsNullOrWhiteSpace(result.Translation))
+                    {
+                        summary.Clean++;
+                        return null;
+                    }
+
+                    summary.Suggestions++;
+                    // Só Notes muda: translation, status e origin ficam como estavam.
+                    return unit with { Notes = MergeNote(unit.Notes, result.Translation) };
+                });
+                summary.Handled += results.Count;
                 if (!json)
                 {
                     error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
@@ -194,43 +155,6 @@ internal static class ReviewCommand
         }
 
         return WriteResult(output, json, settings, pending.Count, summary);
-    }
-
-    /// <summary>Grava as sugestões de um lote em <c>notes</c> e devolve a chave do último script tocado (ou do lote, se nenhum mudou).</summary>
-    private static string ApplyBatch(IReadOnlyList<TranslationResult> results, LineSelection selection, ProjectFolder project, RunSummary summary)
-    {
-        var touched = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var result in results)
-        {
-            if (result.Refused)
-            {
-                summary.Refused.Add(result.Id);
-                continue;
-            }
-
-            summary.Reviewed++;
-            if (string.IsNullOrWhiteSpace(result.Translation))
-            {
-                summary.Clean++;
-                continue;
-            }
-
-            var key = selection.KeyById[result.Id];
-            var list = selection.Files[key];
-            var index = selection.IndexById[result.Id];
-            // Só Notes muda: translation, status e origin ficam como estavam.
-            list[index] = list[index] with { Notes = MergeNote(list[index].Notes, result.Translation) };
-            touched.Add(key);
-            summary.Suggestions++;
-        }
-
-        foreach (var key in touched)
-        {
-            project.SaveText(key, selection.Files[key]);
-        }
-
-        summary.Handled += results.Count;
-        return touched.LastOrDefault() ?? selection.KeyById[results[0].Id];
     }
 
     private static int WriteDryRun(TextWriter output, bool json, AiRunSettings settings, int fileCount, List<TextUnit> pending)
@@ -273,9 +197,7 @@ internal static class ReviewCommand
     {
         var failedLines = summary.Failed.Sum(f => f.LineIds.Count);
         var exitCode = summary.Failed.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
-        var dollars = summary.Usage is { } u
-            ? ModelPricing.For(settings.Model).Cost(new TokenUsage(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens))
-            : (decimal?)null;
+        var dollars = DollarsFor(settings.Model, summary.Usage);
 
         if (json)
         {
@@ -293,9 +215,7 @@ internal static class ReviewCommand
                     clean = summary.Clean,
                     refused = summary.Refused.Order(StringComparer.Ordinal),
                     failed = summary.Failed.Select(f => new { lines = f.LineIds, error = f.Error.Message, attempts = f.Attempts }),
-                    usage = summary.Usage is { } usage
-                        ? new { input = usage.InputTokens, output = usage.OutputTokens, cacheRead = usage.CacheReadInputTokens, cacheWrite = usage.CacheCreationInputTokens }
-                        : null,
+                    usage = UsageJson(summary.Usage),
                     dollars,
                 },
                 exitCode));
@@ -316,20 +236,14 @@ internal static class ReviewCommand
             output.WriteLine($"{Count(summary.Refused.Count, "linha recusada", "linhas recusadas")} pelo modelo; seguem sem sugestão: {string.Join(", ", summary.Refused.Order(StringComparer.Ordinal).Take(10))}{(summary.Refused.Count > 10 ? ", ..." : string.Empty)}");
         }
 
-        foreach (var failure in summary.Failed)
-        {
-            output.WriteLine($"Lote com falha ({Count(failure.LineIds.Count, "linha", "linhas")}, {Count(failure.Attempts, "tentativa", "tentativas")}): {failure.Error.Message}");
-        }
+        WriteFailures(output, summary.Failed);
 
         if (failedLines > 0)
         {
             output.WriteLine($"{Count(failedLines, "linha segue", "linhas seguem")} sem revisão; rode 'vnf review' de novo.");
         }
 
-        if (summary.Usage is { } usageTotals)
-        {
-            output.WriteLine($"Tokens: {Tokens(usageTotals.InputTokens)} de entrada, {Tokens(usageTotals.OutputTokens)} de saída, {Tokens(usageTotals.CacheReadInputTokens)} lidos do cache de prompt; custo {Dollars(dollars ?? 0m)}.");
-        }
+        WriteUsage(output, summary.Usage, dollars);
 
         return exitCode;
     }

@@ -49,17 +49,9 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
 
         List<ReviewResult> results = [];
         foreach (var line in batch.Lines)
-            results.AddRange(await ReviewAsync(SingleLine(batch, line), ct).ConfigureAwait(false));
+            results.AddRange(await ReviewAsync(ClaudePromptParts.SingleLine(batch, line), ct).ConfigureAwait(false));
         return results;
     }
-
-    private static TranslationBatch SingleLine(TranslationBatch batch, TextUnit line) => new([line])
-    {
-        PreviousLines = batch.PreviousLines,
-        Glossary = batch.Glossary,
-        Characters = batch.Characters,
-        StyleGuide = batch.StyleGuide,
-    };
 
     private async Task<IReadOnlyList<ReviewResult>> ReviewOnceAsync(TranslationBatch batch, CancellationToken ct)
     {
@@ -85,52 +77,14 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
         sb.AppendLine("Para cada linha, confira sentido, naturalidade, tom do personagem, glossário e marcadores de controle.");
         sb.AppendLine("Devolva uma sugestão curta (uma ou duas frases, em português) por linha, com o mesmo id; se a tradução está boa, devolva a sugestão vazia.");
         sb.AppendLine("Não reescreva a tradução inteira nem altere os marcadores. Responda apenas com o JSON pedido.");
-
-        if (!string.IsNullOrWhiteSpace(batch.StyleGuide))
-            sb.AppendLine().AppendLine("Guia de estilo:").AppendLine(batch.StyleGuide.Trim());
-
-        AppendGlossary(sb, batch.Glossary);
-        AppendCharacters(sb, batch.Characters);
-
+        ClaudePromptParts.AppendContext(sb, batch, "Glossário (termos obrigatórios):");
         return sb.ToString();
-    }
-
-    private static void AppendGlossary(StringBuilder sb, IReadOnlyList<GlossaryEntry> glossary)
-    {
-        if (glossary.Count == 0)
-            return;
-
-        sb.AppendLine().AppendLine("Glossário (termos obrigatórios):");
-        foreach (var g in glossary)
-            sb.AppendLine(string.IsNullOrWhiteSpace(g.Notes) ? $"- {g.Source} => {g.Target}" : $"- {g.Source} => {g.Target} ({g.Notes})");
-    }
-
-    private static void AppendCharacters(StringBuilder sb, IReadOnlyList<CharacterInfo> characters)
-    {
-        if (characters.Count == 0)
-            return;
-
-        sb.AppendLine().AppendLine("Personagens:");
-        foreach (var c in characters)
-        {
-            var details = new List<string>();
-            if (c.Gender is not null) details.Add($"gênero: {c.Gender}");
-            if (c.Tone is not null) details.Add($"tom: {c.Tone}");
-            sb.AppendLine(details.Count == 0 ? $"- {c.Source} => {c.Target}" : $"- {c.Source} => {c.Target} ({string.Join("; ", details)})");
-        }
     }
 
     private static string BuildUser(TranslationBatch batch)
     {
         var sb = new StringBuilder();
-        if (batch.PreviousLines.Count > 0)
-        {
-            sb.AppendLine("Contexto anterior (não revisar):");
-            foreach (var u in batch.PreviousLines)
-                sb.AppendLine($"{(u.Speaker is null ? string.Empty : u.Speaker + ": ")}{u.Source}");
-            sb.AppendLine();
-        }
-
+        ClaudePromptParts.AppendPrevious(sb, batch, "Contexto anterior (não revisar):");
         sb.AppendLine("Revise estas linhas:");
         sb.AppendLine(JsonSerializer.Serialize(
             batch.Lines.Select(u => new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source, translation = u.Translation }),
@@ -140,28 +94,7 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
 
     private static IReadOnlyList<ReviewResult> Parse(string text, TranslationBatch batch)
     {
-        Dictionary<string, string> byId = new(StringComparer.Ordinal);
-        try
-        {
-            using var doc = JsonDocument.Parse(text);
-            foreach (var item in doc.RootElement.GetProperty("reviews").EnumerateArray())
-            {
-                var id = item.GetProperty("id").GetString() ?? throw new ClaudeResponseException("Resposta com id nulo.");
-                if (!byId.TryAdd(id, item.GetProperty("suggestion").GetString() ?? string.Empty))
-                    throw new ClaudeResponseException($"Resposta com id repetido: '{id}'.");
-            }
-        }
-        catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException)
-        {
-            throw new ClaudeResponseException("A resposta do Claude não é o JSON esperado.", e);
-        }
-
-        var expected = batch.Lines.Select(u => u.Id).ToHashSet(StringComparer.Ordinal);
-        var extra = byId.Keys.Where(k => !expected.Contains(k)).ToList();
-        var missing = expected.Where(k => !byId.ContainsKey(k)).ToList();
-        if (extra.Count > 0 || missing.Count > 0)
-            throw new ClaudeResponseException($"Ids da resposta não batem com o lote. Faltam: [{string.Join(", ", missing)}]; sobram: [{string.Join(", ", extra)}].");
-
-        return [.. batch.Lines.Select(u => new ReviewResult(u.Id, byId[u.Id].Trim()))];
+        var suggestions = ClaudePromptParts.ParseValues(text, "reviews", "suggestion", batch);
+        return [.. batch.Lines.Select((u, i) => new ReviewResult(u.Id, suggestions[i].Trim()))];
     }
 }

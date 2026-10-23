@@ -25,11 +25,7 @@ internal static class TranslateCommand
     private const string StyleGuideFileName = "style.md";
     private const string CacheFileName = "translations.json";
 
-    private static readonly Option<string?> FilesOption = new("--files")
-    {
-        Description = "Só alguns scripts, por glob sobre a chave (\"yst001*\"); aceita vários, separados por vírgula.",
-        HelpName = "padrão",
-    };
+    private static readonly AiOptions Common = new();
 
     private static readonly Option<string?> StatusOption = new("--status")
     {
@@ -37,52 +33,10 @@ internal static class TranslateCommand
         HelpName = "lista",
     };
 
-    private static readonly Option<string?> ModelOption = new("--model")
-    {
-        Description = $"Modelo Claude: {string.Join(", ", ClaudeModels.All)}. Padrão: o de 'vnf config ai' ou o do vnforge.json.",
-        HelpName = "id",
-    };
-
-    private static readonly Option<string?> EffortOption = new("--effort")
-    {
-        Description = "Esforço do modelo: low, medium ou high. Padrão: o do vnforge.json.",
-        HelpName = "nível",
-    };
-
-    private static readonly Option<int?> BatchSizeOption = new("--batch-size")
-    {
-        Description = $"Linhas por chamada, de {TranslationRunOptions.MinBatchSize} a {TranslationRunOptions.MaxBatchSize}. Padrão: o do vnforge.json (30).",
-        HelpName = "n",
-    };
-
-    private static readonly Option<int?> ConcurrencyOption = new("--concurrency")
-    {
-        Description = "Chamadas em paralelo (padrão 2).",
-        HelpName = "n",
-    };
-
-    private static readonly Option<bool> DryRunOption = new("--dry-run")
-    {
-        Description = "Só estima tokens e custo; não chama a API nem grava nada.",
-    };
-
-    private static readonly Option<int?> LimitOption = new("--limit")
-    {
-        Description = "Para depois de n linhas (bom para testar o prompt).",
-        HelpName = "n",
-    };
-
     public static Command Create(VnfCli cli)
     {
         var command = new Command("translate", "Traduz com IA as linhas pendentes de text/*.json e grava o resultado como 'machine'.");
-        command.Options.Add(FilesOption);
-        command.Options.Add(StatusOption);
-        command.Options.Add(ModelOption);
-        command.Options.Add(EffortOption);
-        command.Options.Add(BatchSizeOption);
-        command.Options.Add(ConcurrencyOption);
-        command.Options.Add(DryRunOption);
-        command.Options.Add(LimitOption);
+        Common.AddTo(command, StatusOption);
         command.SetAction((parseResult, token) => RunAsync(cli, parseResult, token));
         return command;
     }
@@ -95,25 +49,13 @@ internal static class TranslateCommand
 
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var config = project.LoadConfig();
-        var settings = ReadSettings(
-            cli,
-            config.Ai,
-            parseResult.GetValue(ModelOption),
-            parseResult.GetValue(EffortOption),
-            parseResult.GetValue(BatchSizeOption),
-            parseResult.GetValue(ConcurrencyOption));
+        var settings = Common.ReadSettings(cli, parseResult, config.Ai);
         var statuses = ParseStatuses(parseResult.GetValue(StatusOption));
-        var filter = ParseFiles(parseResult.GetValue(FilesOption));
-        var limit = parseResult.GetValue(LimitOption);
-        if (limit < 0)
-        {
-            throw new UsageException("--limit precisa ser zero ou maior.");
-        }
+        var filter = ParseFiles(parseResult.GetValue(Common.Files));
+        var limit = Common.ReadLimit(parseResult);
 
         var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source));
         var files = selection.Files;
-        var keyById = selection.KeyById;
-        var indexById = selection.IndexById;
         var pending = selection.Pending;
 
         var builder = new TranslationBatchBuilder(
@@ -123,7 +65,7 @@ internal static class TranslateCommand
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
 
-        if (parseResult.GetValue(DryRunOption))
+        if (parseResult.GetValue(Common.DryRun))
         {
             return WriteDryRun(output, json, settings, files.Count, pending, builder, cache);
         }
@@ -156,38 +98,27 @@ internal static class TranslateCommand
             lock (gate)
             {
                 var origin = new TranslationOrigin(ProviderName, settings.Model, DateTimeOffset.UtcNow);
-                var touched = new SortedSet<string>(StringComparer.Ordinal);
-                foreach (var result in results)
+                var lastKey = selection.ApplyAndSave(project, results, (result, unit) =>
                 {
                     if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
                     {
                         summary.Refused.Add(result.Id);
-                        continue;
+                        return null;
                     }
 
-                    var key = keyById[result.Id];
-                    var list = files[key];
-                    var index = indexById[result.Id];
-                    list[index] = list[index] with
+                    summary.Translated++;
+                    return unit with
                     {
                         Translation = result.Translation,
                         Status = TranslationStatus.Machine,
                         Origin = origin,
                         PreviousSource = null,
                     };
-                    touched.Add(key);
-                    summary.Translated++;
-                }
-
-                foreach (var key in touched)
-                {
-                    project.SaveText(key, files[key]);
-                }
-
+                });
                 summary.Handled += results.Count;
                 if (!json)
                 {
-                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, touched.LastOrDefault() ?? keyById[results[0].Id]));
+                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
                 }
             }
         }
@@ -272,9 +203,7 @@ internal static class TranslateCommand
     {
         var failedLines = summary.Failed.Sum(f => f.LineIds.Count);
         var exitCode = summary.Failed.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
-        var dollars = summary.Usage is { } u
-            ? ModelPricing.For(settings.Model).Cost(new TokenUsage(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens))
-            : (decimal?)null;
+        var dollars = DollarsFor(settings.Model, summary.Usage);
 
         if (json)
         {
@@ -291,9 +220,7 @@ internal static class TranslateCommand
                     cached = summary.Cached,
                     refused = summary.Refused.Order(StringComparer.Ordinal),
                     failed = summary.Failed.Select(f => new { lines = f.LineIds, error = f.Error.Message, attempts = f.Attempts }),
-                    usage = summary.Usage is { } usage
-                        ? new { input = usage.InputTokens, output = usage.OutputTokens, cacheRead = usage.CacheReadInputTokens, cacheWrite = usage.CacheCreationInputTokens }
-                        : null,
+                    usage = UsageJson(summary.Usage),
                     dollars,
                 },
                 exitCode));
@@ -317,20 +244,14 @@ internal static class TranslateCommand
             output.WriteLine($"{Count(summary.Refused.Count, "linha recusada", "linhas recusadas")} pelo modelo ou fora das regras de validação; seguem sem tradução: {string.Join(", ", summary.Refused.Order(StringComparer.Ordinal).Take(10))}{(summary.Refused.Count > 10 ? ", ..." : string.Empty)}");
         }
 
-        foreach (var failure in summary.Failed)
-        {
-            output.WriteLine($"Lote com falha ({Count(failure.LineIds.Count, "linha", "linhas")}, {Count(failure.Attempts, "tentativa", "tentativas")}): {failure.Error.Message}");
-        }
+        WriteFailures(output, summary.Failed);
 
         if (failedLines > 0)
         {
             output.WriteLine($"{Count(failedLines, "linha segue", "linhas seguem")} sem tradução; rode 'vnf translate' de novo para repetir só o que falta.");
         }
 
-        if (summary.Usage is { } usageTotals)
-        {
-            output.WriteLine($"Tokens: {Tokens(usageTotals.InputTokens)} de entrada, {Tokens(usageTotals.OutputTokens)} de saída, {Tokens(usageTotals.CacheReadInputTokens)} lidos do cache de prompt; custo {Dollars(dollars ?? 0m)}.");
-        }
+        WriteUsage(output, summary.Usage, dollars);
 
         return exitCode;
     }

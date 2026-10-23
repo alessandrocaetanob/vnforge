@@ -22,13 +22,7 @@ public sealed class ReviewCommandTests : IDisposable
     public ReviewCommandTests()
     {
         _projectPath = Path.Combine(_cli.Root, "projeto");
-        _project = ProjectFolder.Create(_projectPath, new ProjectConfig(
-            "Minha VN",
-            new GameConfig(Path.Combine(_cli.Root, "jogo"), "MinhaVN.exe"),
-            new EngineConfig("yuris", 500, "0xD36FAC96"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("fold"),
-            AiConfig.Default));
+        _project = AiTestProject.Create(_cli.Root, _projectPath);
         _project.SaveText(Script1,
         [
             Unit(Script1, 1, TranslationStatus.Untranslated),

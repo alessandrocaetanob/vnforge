@@ -1,6 +1,8 @@
+using System.CommandLine;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using VNForge.AI.Claude;
+using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Projects;
@@ -10,6 +12,74 @@ namespace VNForge.Cli;
 
 /// <summary>Modelo, esforço, lote e paralelismo de uma execução de IA (<c>vnf translate</c> e <c>vnf review</c>).</summary>
 internal sealed record AiRunSettings(string Model, ClaudeEffort Effort, int BatchSize, int Concurrency);
+
+/// <summary>As opções que <c>vnf translate</c> e <c>vnf review</c> dividem.</summary>
+internal sealed class AiOptions
+{
+    public Option<string?> Files { get; } = new("--files")
+    {
+        Description = "Só alguns scripts, por glob sobre a chave (\"yst001*\"); aceita vários, separados por vírgula.",
+        HelpName = "padrão",
+    };
+
+    public Option<string?> Model { get; } = new("--model")
+    {
+        Description = $"Modelo Claude: {string.Join(", ", ClaudeModels.All)}. Padrão: o de 'vnf config ai' ou o do vnforge.json.",
+        HelpName = "id",
+    };
+
+    public Option<string?> Effort { get; } = new("--effort")
+    {
+        Description = "Esforço do modelo: low, medium ou high. Padrão: o do vnforge.json.",
+        HelpName = "nível",
+    };
+
+    public Option<int?> BatchSize { get; } = new("--batch-size")
+    {
+        Description = $"Linhas por chamada, de {TranslationRunOptions.MinBatchSize} a {TranslationRunOptions.MaxBatchSize}. Padrão: o do vnforge.json (30).",
+        HelpName = "n",
+    };
+
+    public Option<int?> Concurrency { get; } = new("--concurrency")
+    {
+        Description = "Chamadas em paralelo (padrão 2).",
+        HelpName = "n",
+    };
+
+    public Option<bool> DryRun { get; } = new("--dry-run")
+    {
+        Description = "Só estima tokens e custo; não chama a API nem grava nada.",
+    };
+
+    public Option<int?> Limit { get; } = new("--limit")
+    {
+        Description = "Para depois de n linhas (bom para testar o prompt).",
+        HelpName = "n",
+    };
+
+    /// <summary>Acrescenta as opções ao comando, com <paramref name="status"/> logo depois de <c>--files</c>.</summary>
+    public void AddTo(Command command, Option<string?> status)
+    {
+        command.Options.Add(Files);
+        command.Options.Add(status);
+        command.Options.Add(Model);
+        command.Options.Add(Effort);
+        command.Options.Add(BatchSize);
+        command.Options.Add(Concurrency);
+        command.Options.Add(DryRun);
+        command.Options.Add(Limit);
+    }
+
+    public AiRunSettings ReadSettings(VnfCli cli, ParseResult parseResult, AiConfig ai) =>
+        AiCommandSupport.ReadSettings(cli, ai, parseResult.GetValue(Model), parseResult.GetValue(Effort), parseResult.GetValue(BatchSize), parseResult.GetValue(Concurrency));
+
+    /// <summary>O <c>--limit</c> pedido; recusa valor negativo.</summary>
+    public int? ReadLimit(ParseResult parseResult)
+    {
+        var limit = parseResult.GetValue(Limit);
+        return limit < 0 ? throw new UsageException("--limit precisa ser zero ou maior.") : limit;
+    }
+}
 
 /// <summary>Leitura de opções e formatação de mensagens que os comandos de IA dividem.</summary>
 internal static class AiCommandSupport
@@ -48,6 +118,30 @@ internal static class AiCommandSupport
 
         return new AiRunSettings(model, effort, batchSize, concurrency);
     }
+
+    public static void WriteFailures(TextWriter output, IReadOnlyList<TranslationBatchFailure> failures)
+    {
+        foreach (var failure in failures)
+        {
+            output.WriteLine($"Lote com falha ({Count(failure.LineIds.Count, "linha", "linhas")}, {Count(failure.Attempts, "tentativa", "tentativas")}): {failure.Error.Message}");
+        }
+    }
+
+    public static decimal? DollarsFor(string model, ClaudeUsage? usage) =>
+        usage is { } u
+            ? ModelPricing.For(model).Cost(new TokenUsage(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens))
+            : null;
+
+    public static void WriteUsage(TextWriter output, ClaudeUsage? usage, decimal? dollars)
+    {
+        if (usage is not null)
+        {
+            output.WriteLine($"Tokens: {Tokens(usage.InputTokens)} de entrada, {Tokens(usage.OutputTokens)} de saída, {Tokens(usage.CacheReadInputTokens)} lidos do cache de prompt; custo {Dollars(dollars ?? 0m)}.");
+        }
+    }
+
+    public static object? UsageJson(ClaudeUsage? usage) =>
+        usage is null ? null : new { input = usage.InputTokens, output = usage.OutputTokens, cacheRead = usage.CacheReadInputTokens, cacheWrite = usage.CacheCreationInputTokens };
 
     public static string RequireApiKey(VnfCli cli) =>
         ApiKeyResolver.Resolve(cli.ApiKeyStore).Key
@@ -151,6 +245,33 @@ internal sealed class LineSelection
         }
 
         return selection;
+    }
+
+    /// <summary>
+    /// Aplica <paramref name="update"/> a cada resultado (devolve a linha nova, ou <c>null</c> para deixá-la como está), grava só os
+    /// <c>text/*.json</c> que mudaram e devolve a chave do último script gravado (ou a do lote, se nenhum mudou), para o progresso.
+    /// </summary>
+    public string ApplyAndSave(ProjectFolder project, IReadOnlyList<TranslationResult> results, Func<TranslationResult, TextUnit, TextUnit?> update)
+    {
+        var touched = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var result in results)
+        {
+            var key = KeyById[result.Id];
+            var list = Files[key];
+            var index = IndexById[result.Id];
+            if (update(result, list[index]) is { } changed)
+            {
+                list[index] = changed;
+                touched.Add(key);
+            }
+        }
+
+        foreach (var key in touched)
+        {
+            project.SaveText(key, Files[key]);
+        }
+
+        return touched.LastOrDefault() ?? KeyById[results[0].Id];
     }
 
     /// <summary>Monta o lote com as linhas anteriores do script como contexto; chame sob o lock que protege <see cref="Files"/>.</summary>
