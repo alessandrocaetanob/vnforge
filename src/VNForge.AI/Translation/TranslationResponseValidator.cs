@@ -105,23 +105,25 @@ public static class TranslationResponseValidator
     }
 
     // Mesma gramática de ControlMarkers (Engines.YuRis, que o AI não referencia): "\x" é um marcador de um caractere
-    // (inclui "\\" e "\{", barra e chave literais) e "{...}" é um marcador genérico. Chave sem fechamento é texto.
+    // (inclui "\\" e "\{", barra e chave literais) e "{...}" é um marcador genérico. Chave sem fechamento e barra no fim contam como marcadores, porque ToBytes os recusa.
     private static IEnumerable<string> Markers(string text)
     {
         var i = 0;
         while (i < text.Length)
         {
             var c = text[i];
-            if (c == '\\' &&i + 1 < text.Length)
+            if (c == '\\')
             {
-                yield return text.Substring(i, 2);
-                i += 2;
+                var length = i + 1 < text.Length ? 2 : 1;
+                yield return text.Substring(i, length);
+                i += length;
             }
             else if (c == '{')
             {
                 var close = text.IndexOf('}', i + 1);
                 if (close < 0)
                 {
+                    yield return "{";
                     i++;
                     continue;
                 }

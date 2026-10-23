@@ -67,6 +67,16 @@ public class TranslationResponseValidatorTests
         Assert.Single(report.Problems);
     }
 
+    [Theory]
+    [InlineData(@"Hi\p {oops")]
+    [InlineData(@"Hi\p\")]
+    public void Chave_sem_fechar_ou_barra_final_sao_problemas(string translation)
+    {
+        var report = TranslationResponseValidator.Validate(Batch(("a", @"Oi\p")), [new("a", translation)]);
+
+        Assert.Single(report.Problems);
+    }
+
     [Fact]
     public void Id_duplicado_e_traducao_vazia_sao_problemas()
     {
