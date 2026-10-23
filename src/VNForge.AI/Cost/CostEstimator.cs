@@ -1,3 +1,4 @@
+using VNForge.AI.Translation;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Cost;
@@ -45,6 +46,23 @@ public static class CostEstimator
             input += SystemOverhead;
         var usage = new TokenUsage(input, (long)Math.Ceiling(sourceTokens * OutputPerSourceToken) + (long)pending * PerLineOutputOverhead);
         return new CostEstimate(pending, cached, usage, price.Cost(usage));
+    }
+
+    /// <summary>
+    /// Estima a partir dos lotes que a execução montaria, para que as chaves de cache usem o mesmo contexto (modelo,
+    /// estilo, glossário, personagens) do <see cref="CachingTranslationProvider"/> e o <c>--dry-run</c> não superestime.
+    /// </summary>
+    public static CostEstimate EstimateBatches(IEnumerable<TranslationBatch> batches, string model, TranslationCache? cache = null)
+    {
+        ArgumentNullException.ThrowIfNull(batches);
+        var total = new CostEstimate(0, 0, default, 0m);
+        foreach (var batch in batches)
+        {
+            var e = Estimate(batch.Lines, model, cache, TranslationCache.ContextFor(model, batch));
+            total = new CostEstimate(total.Lines + e.Lines, total.CachedLines + e.CachedLines, total.Usage + e.Usage, total.Dollars + e.Dollars);
+        }
+
+        return total;
     }
 
     private static long Tokens(string text)

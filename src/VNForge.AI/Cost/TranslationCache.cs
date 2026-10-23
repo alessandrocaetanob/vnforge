@@ -61,7 +61,7 @@ public sealed class TranslationCache
         {
             var entries = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path, Encoding.UTF8))
                 ?? throw new JsonException("Cache vazio.");
-            return new TranslationCache(new Dictionary<string, string>(entries, StringComparer.Ordinal));
+            return new TranslationCache(new Dictionary<string, string>(entries.Where(e => e.Value is not null), StringComparer.Ordinal));
         }
         catch (JsonException e)
         {

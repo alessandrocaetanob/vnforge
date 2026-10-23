@@ -38,9 +38,15 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
             };
 
             var results = await inner.TranslateAsync(request, ct).ConfigureAwait(false);
-            var byId = results.ToDictionary(r => r.Id, r => r.Translation, StringComparer.Ordinal);
+            var byId = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var r in results)
+                byId[r.Id] = r.Translation;
             foreach (var i in toSend)
-                cache.Set(keys[i], byId[batch.Lines[i].Id]);
+            {
+                if (!byId.TryGetValue(batch.Lines[i].Id, out var translation))
+                    throw new InvalidOperationException($"O provedor não devolveu a linha '{batch.Lines[i].Id}'.");
+                cache.Set(keys[i], translation);
+            }
         }
 
         return [.. batch.Lines.Select((u, i) =>

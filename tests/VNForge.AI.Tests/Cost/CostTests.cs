@@ -120,6 +120,35 @@ public class CostTests
     }
 
     [Fact]
+    public async Task Estimativa_por_lotes_reconhece_o_cache_gravado_pelo_provedor()
+    {
+        var cache = new TranslationCache();
+        var batch = new TranslationBatch([Unit("a", "はい")]) { StyleGuide = "informal" };
+        await new CachingTranslationProvider(new FakeTranslationProvider(), cache, ClaudeModels.Opus).TranslateAsync(batch, CancellationToken.None);
+
+        var estimate = CostEstimator.EstimateBatches([batch], ClaudeModels.Opus, cache);
+
+        Assert.Equal(0, estimate.Lines);
+        Assert.Equal(1, estimate.CachedLines);
+    }
+
+    [Fact]
+    public async Task Provedor_que_omite_uma_linha_falha_sem_gravar_no_cache()
+    {
+        var cache = new TranslationCache();
+        var provider = new CachingTranslationProvider(new OmittingProvider(), cache, ClaudeModels.Opus);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.TranslateAsync(new TranslationBatch([Unit("a", "はい")]), CancellationToken.None));
+        Assert.Equal(0, cache.Count);
+    }
+
+    private sealed class OmittingProvider : ITranslationProvider
+    {
+        public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<TranslationResult>>([]);
+    }
+
+    [Fact]
     public void Estimativa_sem_linhas_pendentes_custa_zero()
     {
         var estimate = CostEstimator.Estimate([], ClaudeModels.Opus);
