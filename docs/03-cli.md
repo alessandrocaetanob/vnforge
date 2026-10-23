@@ -48,7 +48,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | `vnf translate` | Traduz com IA as linhas pendentes |
 | `vnf check` | Roda o QA e lista problemas |
 | `vnf review` | Revisão por IA: gera sugestões nas notas, não altera traduções |
-| `vnf preview <id>` | Mostra como a linha fica depois da formatação e quebra de linha |
+| `vnf preview <id>` | Mostra a tradução da linha como o build a grava: passa pelo mesmo pipeline do `formatting.json` (`FormattingPipeline.Create` sobre o perfil do projeto) e lista, por caixa (`\p` abre outra), as linhas e as colunas de cada uma, medidas com o `wrap.charWidth` do perfil, mais os avisos do pipeline (caixa acima de `wrap.maxLines`). Só lê, não grava nada. Linha cujo papel não está em `kinds` aparece sem formatação, com um aviso. Id inexistente ou linha sem tradução saem com `1` e mensagem em português. Com `--json`, `data` traz `id`, `source`, `translation`, `text`, `formatted`, `lines`, `maxWidth`, `maxLines`, `wrapEnabled`, `boxes` (`lines`, `columns`) e `warnings` |
 | `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1, E5.1 e E4.1: estratégia do `encoding.strategy` e perfil `formatting.json`; detalhes abaixo) |
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
