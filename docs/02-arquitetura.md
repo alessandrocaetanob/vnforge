@@ -267,9 +267,9 @@ Regras automáticas, cada uma com severidade (erro bloqueia o build, aviso não)
 - texto passa do limite de linhas da caixa depois da quebra
 - espaço duplo, espaço antes de pontuação, aspas ou parênteses desbalanceados
 - japonês esquecido na tradução
-- termo do glossário ou nome de personagem traduzido diferente do definido
+- termo do glossário ou nome de personagem traduzido diferente do definido (`glossario-diferente`, `personagem-diferente`: aviso quando o original contém o termo e a tradução não contém o alvo, sem diferenciar maiúsculas)
 - tamanho em bytes acima do limite do campo (nomes, escolhas)
-- inconsistência: mesmo original traduzido de jeitos diferentes
+- inconsistência: mesmo original traduzido de jeitos diferentes (`traducao-inconsistente`, aviso entre scripts: a tradução mais usada é a referência e cada linha que foge dela é apontada)
 
 **Motor (E7.1, `VNForge.Core.Qa`)**: `IQaRule` tem `Id` (minúsculas e hífens, estável: é o que aparece na saída e em `flags`), `Description` e `Check(QaContext)`, que devolve `QaIssue` (regra, gravidade, id da linha, chave do script, mensagem). A regra vê o projeto inteiro pelo `QaContext` (textos de todos os scripts, glossário, personagens, perfil de formatação e encoder), então serve à regra entre linhas (inconsistência) tanto quanto à regra por linha; para esta última, derive de `UnitQaRule` e devolva só as mensagens de `CheckUnit`. A regra devolve toda ocorrência: quem filtra e silencia é o `QaEngine`, que valida ids únicos, aplica `QaOptions` (`Rules`: só estas regras; `MinimumSeverity`: `Warning` lista tudo, `Error` só os erros) e devolve um `QaReport` (`Issues` ativas, `Silenced`, `RulesRun`). As regras concretas entram em `QaEngine.Default`. **Regras de texto (E7.4)**: `espaco-duplo`, `espaco-antes-pontuacao` (`, ; : ? !`; reticências ficam fora), `aspas-desbalanceadas` (aspas retas, curvas, `«»`, `「」`, `『』` e parênteses; cala quando o original do mesmo grupo já está desbalanceado, pois a fala pode abrir numa linha e fechar na outra) e `japones-na-traducao` (hiragana, katakana e kanji; pontuação japonesa não conta). Todas são aviso, ignoram linha sem tradução utilizável e só olham texto fora dos marcadores. Cada uma expõe `Find(tradução)`, que devolve `QaSpan(Start, Length, Text)` com o trecho exato no índice da tradução inteira, para o `--fix`.
 
