@@ -214,6 +214,12 @@ O perfil (E4.1) é `FormattingProfile` em `VNForge.Core.Formatting`, lido por `F
 | Campo | Padrão | Efeito |
 |---|---|---|
 | `kinds` | `["dialogue", "narration"]` | Papéis de linha que o pipeline formata; as outras saem como estão |
+| `normalization.nfc` | `false` | Unicode NFC: letra e acento soltos viram o caractere composto |
+| `normalization.invisibleSpaces` | `false` | Remove U+200B, U+200C, U+200D, U+2060 e U+FEFF |
+| `normalization.nbsp` | `false` | U+00A0 e U+202F viram espaço comum |
+| `spacing.collapseSpaces` | `false` | Dois ou mais espaços viram um |
+| `spacing.spaceBeforePunctuation` | `false` | Tira o espaço antes de `? ! : ;` |
+| `spacing.spaceAfterPunctuation` | `false` | Põe espaço depois de `, ; ? !` colados a uma letra, de `.` e `:` entre letra e maiúscula, e depois de `...` antes de letra; números (`1,5`, `10:30`) e endereços (`site.com`) ficam como estão |
 | `wrap.enabled` | `false` | Liga a quebra de linha |
 | `wrap.maxWidth` | `54` | Colunas por linha |
 | `wrap.maxLines` | `3` (`null` não limita) | Linhas por caixa; acima disso o build avisa, não recusa |
