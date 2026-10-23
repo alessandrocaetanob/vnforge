@@ -88,6 +88,24 @@ public sealed class SyntheticYstbBuilder(SyntheticYscm yscm)
     public SyntheticYstbBuilder AddWord(string text, uint lineNumber) =>
         AddCommand("WORD", lineNumber, ResourceArgument(GameEncodings.ShiftJis.GetBytes(text)));
 
+    /// <summary>Instrução <c>WORD</c> com os bytes crus nos recursos (para os códigos de controle <c>EF xx</c>).</summary>
+    public SyntheticYstbBuilder AddWordBytes(byte[] bytes, uint lineNumber) =>
+        AddCommand("WORD", lineNumber, ResourceArgument(bytes));
+
+    /// <summary>
+    /// Argumento de expressão com uma string literal: <c>4D &lt;u16 tamanho&gt; aspas texto aspas</c>. O texto vai como está,
+    /// com os escapes que o YU-RIS lê (<c>\\</c>, <c>\n</c>, <c>\t</c>), em Shift-JIS.
+    /// </summary>
+    public SyntheticYstbArgument StringExpression(string text, char quote = '"', ushort id = 0)
+    {
+        var body = GameEncodings.ShiftJis.GetBytes(quote + text + quote);
+        var bytes = new byte[3 + body.Length];
+        bytes[0] = 0x4D;
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(1), checked((ushort)body.Length));
+        body.CopyTo(bytes, 3);
+        return ResourceArgument(bytes, id);
+    }
+
     /// <summary>Instrução <c>RETURNCODE</c>: o valor devolvido vai em <c>size</c> e o offset não aponta para recursos.</summary>
     public SyntheticYstbBuilder AddReturnCode(uint value, uint lineNumber, uint offset = 0) =>
         AddCommand("RETURNCODE", lineNumber, new SyntheticYstbArgument(0, 1, 0, value, offset));
