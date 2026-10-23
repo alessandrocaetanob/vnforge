@@ -58,6 +58,7 @@ public class TypographyWidthTests
         var profile = With(new TypographyRule(Dash: '―'));
 
         Assert.Equal("Ele ― e ela", Format(profile, "Ele — e ela"));
+        Assert.Equal("de 10–20", Format(profile, "de 10–20"));
         Assert.Equal("Ele — e ela", Format(FormattingProfile.Default, "Ele — e ela"));
     }
 
@@ -67,6 +68,7 @@ public class TypographyWidthTests
     [InlineData("― Olá", "― Olá")]
     [InlineData("- Olá", "― Olá")]
     [InlineData("—Olá", "―Olá")]
+    [InlineData("  — Olá", "  ― Olá")]
     public void Fala_que_abre_com_travessao_sai_com_o_caractere_do_perfil(string input, string expected)
     {
         Assert.Equal(expected, Format(With(new TypographyRule(DialogueDash: '―')), input));

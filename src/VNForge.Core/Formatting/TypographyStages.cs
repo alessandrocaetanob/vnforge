@@ -32,14 +32,14 @@ internal sealed class EllipsisStage(EllipsisStyle style) : TextRunStage
     };
 }
 
-/// <summary>Troca o travessão <c>—</c> e <c>–</c> pelo caractere do perfil, em qualquer posição (E4.3).</summary>
+/// <summary>Troca o travessão <c>—</c> (o <c>–</c> de intervalos fica) pelo caractere do perfil, em qualquer posição (E4.3).</summary>
 internal sealed class DashStage(char dash) : TextRunStage
 {
     public override string Id => "dash";
 
     public override FormattingPhase Phase => FormattingPhase.Typography;
 
-    protected override string ApplyToRun(string run, FormattingContext context) => run.Replace('—', dash).Replace('–', dash);
+    protected override string ApplyToRun(string run, FormattingContext context) => run.Replace('—', dash);
 }
 
 /// <summary>
@@ -72,9 +72,10 @@ internal sealed class DialogueDashStage(char dash) : IFormattingStage
                 continue;
             }
 
-            if (atLineStart && IsOpeningDash(run))
+            var lead = run.Length - run.TrimStart(' ').Length;
+            if (atLineStart && lead < run.Length && IsOpeningDash(run.AsSpan(lead)))
             {
-                result.Append(dash).Append(run, 1, run.Length - 1);
+                result.Append(run, 0, lead).Append(dash).Append(run, lead + 1, run.Length - lead - 1);
             }
             else
             {
@@ -87,7 +88,7 @@ internal sealed class DialogueDashStage(char dash) : IFormattingStage
         return result.ToString();
     }
 
-    private static bool IsOpeningDash(string run) =>
+    private static bool IsOpeningDash(ReadOnlySpan<char> run) =>
         run[0] is '—' or '–' or '―' || (run[0] == '-' && run.Length > 1 && run[1] == ' ');
 }
 

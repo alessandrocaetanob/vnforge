@@ -48,6 +48,8 @@ public class TypographyWidthProfileTests
     [InlineData("""{ "typography": { "dash": "--" } }""", "$.typography.dash")]
     [InlineData("""{ "typography": { "dialogueDash": "" } }""", "$.typography.dialogueDash")]
     [InlineData("""{ "typography": { "dialogueDash": 5 } }""", "$.typography.dialogueDash")]
+    [InlineData("""{ "typography": { "dash": "\\" } }""", "$.typography.dash")]
+    [InlineData("""{ "typography": { "dialogueDash": "{" } }""", "$.typography.dialogueDash")]
     [InlineData("""{ "typography": { "outro": 1 } }""", "$.typography.outro")]
     [InlineData("""{ "width": { "mode": "cheia" } }""", "$.width.mode")]
     [InlineData("""{ "width": { "spaces": "sim" } }""", "$.width.spaces")]
@@ -57,6 +59,16 @@ public class TypographyWidthProfileTests
         var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Parse(json));
 
         Assert.Equal(field, ex.Field);
+    }
+
+    [Fact]
+    public void Serializar_recusa_travessao_que_abre_marcador()
+    {
+        var profile = FormattingProfile.Default with { Typography = new TypographyRule(DialogueDash: '\\') };
+
+        var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Serialize(profile));
+
+        Assert.Equal("$.typography.dialogueDash", ex.Field);
     }
 
     [Fact]

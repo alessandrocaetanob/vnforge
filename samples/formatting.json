@@ -10,7 +10,7 @@
   "typography": {
     "quotes": "corner",       // "none", "ascii" (" e ') ou "corner" (“ ” viram 「 」)
     "ellipsis": "character",  // "none", "character" (... vira …) ou "dots" (… vira ...)
-    "dash": "―",              // troca — e – em qualquer posição; null não troca (― existe em Shift-JIS)
+    "dash": "―",              // troca — em qualquer posição; null não troca (― existe em Shift-JIS)
     "dialogueDash": "―"       // caractere da fala que abre com travessão; null não troca
   },
 

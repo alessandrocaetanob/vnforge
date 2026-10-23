@@ -220,7 +220,7 @@ O perfil (E4.1) é `FormattingProfile` em `VNForge.Core.Formatting`, lido por `F
 | `wrap.charWidth` | `"halfWidthLatin"` (ou `"uniform"`) | Tabela de largura por caractere |
 | `typography.quotes` | `"none"` (`"ascii"`, `"corner"`) | Aspas curvas: `“ ” ‘ ’` para `" '`, ou `“ ”` para `「 」` (a aspa simples fica, porque `’` também é apóstrofo) |
 | `typography.ellipsis` | `"none"` (`"character"`, `"dots"`) | `...` para `…` ou `…` para `...` |
-| `typography.dash` | `null` (um caractere, por exemplo `"―"`) | Troca `—` e `–` em qualquer posição; `―` (U+2015) existe em Shift-JIS, `—` não |
+| `typography.dash` | `null` (um caractere, por exemplo `"―"`) | Troca `—` em qualquer posição (o `–` de intervalos fica); não aceita `\`, `{`, `}` nem controle; `―` (U+2015) existe em Shift-JIS, `—` não |
 | `typography.dialogueDash` | `null` (um caractere) | Fala que abre com `—`, `–`, `―` ou `-` seguido de espaço sai com esse caractere. Começo de linha é o começo do texto e o que vem depois de `
 ` ou `\p`; vence `dash` ali |
 | `width.mode` | `"none"` (`"full"`, `"half"`) | ASCII `!` a `~` para largura cheia (`Hoje` vira `Ｈｏｊｅ`) ou de volta. `\`, `{` e `}` nunca mudam |

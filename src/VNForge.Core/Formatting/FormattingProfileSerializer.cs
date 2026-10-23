@@ -95,6 +95,9 @@ public static class FormattingProfileSerializer
         return System.Text.Encoding.UTF8.GetString(stream.ToArray()) + "\n";
     }
 
+    // Barra e chaves abririam um marcador; controle e substituto não são um caractere de travessão.
+    private static bool IsValidDash(char c) => !char.IsControl(c) && !char.IsSurrogate(c) && c is not ('\\' or '{' or '}');
+
     private static void WriteCharOrNull(Utf8JsonWriter writer, string name, char? value)
     {
         if (value is { } c)
@@ -125,6 +128,16 @@ public static class FormattingProfileSerializer
         if (profile.Wrap.MaxLines is < 1)
         {
             throw new FormattingProfileException("$.wrap.maxLines", "deve ser de ao menos 1 linha, ou null para não limitar.");
+        }
+
+        if (profile.Typography.Dash is { } dash && !IsValidDash(dash))
+        {
+            throw new FormattingProfileException("$.typography.dash", "deve ser um caractere visível, fora \\, { e }.");
+        }
+
+        if (profile.Typography.DialogueDash is { } dialogueDash && !IsValidDash(dialogueDash))
+        {
+            throw new FormattingProfileException("$.typography.dialogueDash", "deve ser um caractere visível, fora \\, { e }.");
         }
     }
 
@@ -287,7 +300,7 @@ public static class FormattingProfileSerializer
                 return null;
             }
 
-            return value.ValueKind == JsonValueKind.String && value.GetString() is { Length: 1 } text && !char.IsSurrogate(text[0])
+            return value.ValueKind == JsonValueKind.String && value.GetString() is { Length: 1 } text && IsValidDash(text[0])
                 ? text[0]
                 : throw new FormattingProfileException(PathOf(name), "deve ser um único caractere, ou null para não trocar.");
         }
