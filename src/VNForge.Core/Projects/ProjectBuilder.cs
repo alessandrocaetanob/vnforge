@@ -103,12 +103,6 @@ public static class ProjectBuilder
 
         var profile = project.LoadFormatting();
         var loaded = project.LoadAllText();
-        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded, project.LoadGlossary(), project.LoadCharacters(), profile, encoder));
-        if (qaReport.Blocks(allowWarnings))
-        {
-            throw new QaBlockedException(qaReport, allowWarnings);
-        }
-
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
         var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
@@ -116,6 +110,13 @@ public static class ProjectBuilder
         if (report.HasBlocking)
         {
             throw new EncodingReportException(report);
+        }
+
+        // Depois do relatório de codificação: o erro específico (com a posição) vem antes do QA genérico. O QA vê só os scripts do jogo, como o relatório; texto de script que não existe mais não é gravado.
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), project.LoadCharacters(), profile, encoder));
+        if (qaReport.Blocks(allowWarnings))
+        {
+            throw new QaBlockedException(qaReport, allowWarnings);
         }
 
         var (rebuilt, built) = RebuildScripts(game, texts, encoder, warnings, cancellationToken);
