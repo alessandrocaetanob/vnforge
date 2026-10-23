@@ -67,8 +67,16 @@ jobs:
               '/d:sonar.host.url=https://sonarcloud.io',
               '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml'
             )
-            if ($env:CIRCLE_PULL_REQUEST) {
-              $sonarArgs += "/d:sonar.pullrequest.key=$(($env:CIRCLE_PULL_REQUEST -split '/')[-1])"
+            # CIRCLE_PULL_REQUEST só existe se o PR já estava aberto ao disparar o build;
+            # sem ele, procura o PR aberto da branch na API pública do GitHub.
+            $prKey = if ($env:CIRCLE_PULL_REQUEST) { ($env:CIRCLE_PULL_REQUEST -split '/')[-1] } else {
+              try {
+                $uri = "https://api.github.com/repos/$env:CIRCLE_PROJECT_USERNAME/$env:CIRCLE_PROJECT_REPONAME/pulls?state=open&head=$env:CIRCLE_PROJECT_USERNAME`:$env:CIRCLE_BRANCH"
+                (Invoke-RestMethod -Uri $uri | Select-Object -First 1).number
+              } catch { $null }
+            }
+            if ($prKey) {
+              $sonarArgs += "/d:sonar.pullrequest.key=$prKey"
               $sonarArgs += "/d:sonar.pullrequest.branch=$env:CIRCLE_BRANCH"
               $sonarArgs += '/d:sonar.pullrequest.base=main'
             } elseif ($env:CIRCLE_BRANCH -ne 'main') {
@@ -76,6 +84,7 @@ jobs:
             }
             dotnet sonarscanner begin @sonarArgs
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            New-Item -ItemType File -Path .sonar-begun | Out-Null
       - run:
           name: Build
           command: |
@@ -98,13 +107,13 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run:
           name: Sonar end
-          # when: always fecha a análise mesmo com teste vermelho; o Sonar ainda recebe as issues.
+          # when: always fecha a análise mesmo com teste vermelho; só roda se o begin terminou.
           when: always
           command: |
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
             $env:DOTNET_ROOT = $dir
             $env:PATH = "$dir;$env:USERPROFILE\.dotnet\tools;$env:PATH"
-            if (-not $env:SONAR_TOKEN) { exit 0 }
+            if (-not (Test-Path .sonar-begun)) { exit 0 }
             dotnet sonarscanner end "/d:sonar.token=$env:SONAR_TOKEN"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
