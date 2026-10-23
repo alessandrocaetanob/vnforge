@@ -11,5 +11,6 @@ public static class VnfCommands
     {
         ArgumentNullException.ThrowIfNull(cli);
         cli.Root.Subcommands.Add(DetectCommand.Create(cli));
+        cli.Root.Subcommands.Add(YpfCommand.Create(cli));
     }
 }

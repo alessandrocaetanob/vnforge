@@ -4,4 +4,10 @@
     <ProjectReference Include="..\..\src\VNForge.Cli\VNForge.Cli.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\VNForge.Engines.YuRis.Tests\Ypf\Synthetic\*.cs"
+             Exclude="..\VNForge.Engines.YuRis.Tests\Ypf\Synthetic\SyntheticYpfBuilderTests.cs"
+             LinkBase="Synthetic" />
+  </ItemGroup>
+
 </Project>
