@@ -218,11 +218,18 @@ O perfil (E4.1) é `FormattingProfile` em `VNForge.Core.Formatting`, lido por `F
 | `wrap.maxWidth` | `54` | Colunas por linha |
 | `wrap.maxLines` | `3` (`null` não limita) | Linhas por caixa; acima disso o build avisa, não recusa |
 | `wrap.charWidth` | `"halfWidthLatin"` (ou `"uniform"`) | Tabela de largura por caractere |
+| `typography.quotes` | `"none"` (`"ascii"`, `"corner"`) | Aspas curvas: `“ ” ‘ ’` para `" '`, ou `“ ”` para `「 」` (a aspa simples fica, porque `’` também é apóstrofo) |
+| `typography.ellipsis` | `"none"` (`"character"`, `"dots"`) | `...` para `…` ou `…` para `...` |
+| `typography.dash` | `null` (um caractere, por exemplo `"―"`) | Troca `—` e `–` em qualquer posição; `―` (U+2015) existe em Shift-JIS, `—` não |
+| `typography.dialogueDash` | `null` (um caractere) | Fala que abre com `—`, `–`, `―` ou `-` seguido de espaço sai com esse caractere. Começo de linha é o começo do texto e o que vem depois de `
+` ou `\p`; vence `dash` ali |
+| `width.mode` | `"none"` (`"full"`, `"half"`) | ASCII `!` a `~` para largura cheia (`Hoje` vira `Ｈｏｊｅ`) ou de volta. `\`, `{` e `}` nunca mudam |
+| `width.spaces` | `false` | Troca também o espaço (`U+0020` e `U+3000`); desligado, a quebra de linha continua achando as palavras |
 
 `FormattingPipeline` aplica, na hora do build, as etapas (`IFormattingStage`) pela ordem de `FormattingPhase`: regras do usuário antes, normalização, espaços, tipografia, largura, quebra de linha e regras do usuário depois. O `ProjectBuilder` passa pelo pipeline a tradução de cada linha que será gravada e cujo papel está em `kinds`, antes de conferir a codificação, então o relatório de codificação (`vnf build --report` também) vale para o texto já formatado. O `text/*.json` em disco não muda. Aviso de uma etapa (caixa acima do limite de linhas) vai para os avisos do build com o id da linha.
 
 Os marcadores de controle ficam fora do alcance das regras. Depois de cada etapa o pipeline confere que os marcadores são os mesmos, na mesma ordem; só a etapa que declara `MayChangeLineBreaks` (a quebra) pode acrescentar `
-`. Uma etapa que violar isso lança `FormattingException` e o build para citando a linha. Regra de texto comum herda `TextRunStage`, que entrega a `ApplyToRun` só os trechos entre marcadores. Para acrescentar uma regra (E4.2, E4.3, E4.5): escreva a etapa, dê a ela a fase e registre-a em `FormattingPipeline.Create` a partir de uma nova propriedade do perfil. Um perfil de exemplo fica em `samples/formatting.json`.
+`. Uma etapa que violar isso lança `FormattingException` e o build para citando a linha. Regra de texto comum herda `TextRunStage`, que entrega a `ApplyToRun` só os trechos entre marcadores. Para acrescentar uma regra (E4.2, E4.5): escreva a etapa, dê a ela a fase e registre-a em `FormattingPipeline.Create` a partir de uma nova propriedade do perfil. Um perfil de exemplo fica em `samples/formatting.json`.
 
 ### 4. Codificação para português
 

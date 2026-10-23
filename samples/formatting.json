@@ -6,6 +6,20 @@
   // Papéis de linha que o pipeline formata: dialogue, narration, name, choice, system, other.
   "kinds": ["dialogue", "narration"],
 
+  // Tipografia (fase antes da largura). Tudo desligado por padrão.
+  "typography": {
+    "quotes": "corner",       // "none", "ascii" (" e ') ou "corner" (“ ” viram 「 」)
+    "ellipsis": "character",  // "none", "character" (... vira …) ou "dots" (… vira ...)
+    "dash": "―",              // troca — e – em qualquer posição; null não troca (― existe em Shift-JIS)
+    "dialogueDash": "―"       // caractere da fala que abre com travessão; null não troca
+  },
+
+  // Largura do ASCII. \, { e } nunca mudam, para não criar nem desfazer marcador.
+  "width": {
+    "mode": "none",   // "none", "full" (Hoje vira Ｈｏｊｅ) ou "half" (Ｈｏｊｅ vira Hoje)
+    "spaces": false   // true troca também o espaço; false mantém, para a quebra achar as palavras
+  },
+
   "wrap": {
     "enabled": true,
     "maxWidth": 54,      // colunas por linha

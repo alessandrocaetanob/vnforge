@@ -35,6 +35,32 @@ public sealed class FormattingPipeline
         ArgumentNullException.ThrowIfNull(profile);
 
         var stages = new List<IFormattingStage>();
+        var typography = profile.Typography;
+        if (typography.Quotes != QuoteStyle.None)
+        {
+            stages.Add(new QuotesStage(typography.Quotes));
+        }
+
+        if (typography.Ellipsis != EllipsisStyle.None)
+        {
+            stages.Add(new EllipsisStage(typography.Ellipsis));
+        }
+
+        if (typography.Dash is { } dash)
+        {
+            stages.Add(new DashStage(dash));
+        }
+
+        if (typography.DialogueDash is { } dialogueDash)
+        {
+            stages.Add(new DialogueDashStage(dialogueDash));
+        }
+
+        if (profile.Width.Mode != WidthMode.None)
+        {
+            stages.Add(new WidthStage(profile.Width));
+        }
+
         if (profile.Wrap.Enabled)
         {
             stages.Add(new WrapStage(profile.Wrap));
