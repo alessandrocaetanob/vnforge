@@ -97,6 +97,18 @@ public static class FormattingProfileSerializer
                 writer.WriteEndObject();
             }
 
+            writer.WriteStartObject("typography");
+            writer.WriteString("quotes", EnumName(profile.Typography.Quotes));
+            writer.WriteString("ellipsis", EnumName(profile.Typography.Ellipsis));
+            WriteCharOrNull(writer, "dash", profile.Typography.Dash);
+            WriteCharOrNull(writer, "dialogueDash", profile.Typography.DialogueDash);
+            writer.WriteEndObject();
+
+            writer.WriteStartObject("width");
+            writer.WriteString("mode", EnumName(profile.Width.Mode));
+            writer.WriteBoolean("spaces", profile.Width.Spaces);
+            writer.WriteEndObject();
+
             writer.WriteEndObject();
         }
 
@@ -133,6 +145,24 @@ public static class FormattingProfileSerializer
         }
     }
 
+    // Barra e chaves abririam um marcador; controle e substituto não são um caractere de travessão.
+    private static bool IsValidDash(char c) => !char.IsControl(c) && !char.IsSurrogate(c) && c is not ('\\' or '{' or '}');
+
+    private static void WriteCharOrNull(Utf8JsonWriter writer, string name, char? value)
+    {
+        if (value is { } c)
+        {
+            writer.WriteString(name, c.ToString());
+        }
+        else
+        {
+            writer.WriteNull(name);
+        }
+    }
+
+    private static string EnumName<T>(T value)
+        where T : struct, Enum => value.ToString().ToLowerInvariant();
+
     private static void Validate(FormattingProfile profile)
     {
         ValidateReplacements("before", profile.Replacements.Before);
@@ -151,6 +181,16 @@ public static class FormattingProfileSerializer
         if (profile.Wrap.MaxLines is < 1)
         {
             throw new FormattingProfileException("$.wrap.maxLines", "deve ser de ao menos 1 linha, ou null para não limitar.");
+        }
+
+        if (profile.Typography.Dash is { } dash && !IsValidDash(dash))
+        {
+            throw new FormattingProfileException("$.typography.dash", "deve ser um caractere visível, fora \\, { e }.");
+        }
+
+        if (profile.Typography.DialogueDash is { } dialogueDash && !IsValidDash(dialogueDash))
+        {
+            throw new FormattingProfileException("$.typography.dialogueDash", "deve ser um caractere visível, fora \\, { e }.");
         }
     }
 
@@ -211,8 +251,28 @@ public static class FormattingProfileSerializer
             replacementsReader.EnsureNoUnknownProperties();
         }
 
+        var typography = defaults.Typography;
+        if (reader.OptionalObject("typography") is { } typographyReader)
+        {
+            typography = new TypographyRule(
+                typographyReader.OptionalEnum<QuoteStyle>("quotes") ?? typography.Quotes,
+                typographyReader.OptionalEnum<EllipsisStyle>("ellipsis") ?? typography.Ellipsis,
+                typographyReader.HasProperty("dash") ? typographyReader.OptionalChar("dash") : typography.Dash,
+                typographyReader.HasProperty("dialogueDash") ? typographyReader.OptionalChar("dialogueDash") : typography.DialogueDash);
+            typographyReader.EnsureNoUnknownProperties();
+        }
+
+        var width = defaults.Width;
+        if (reader.OptionalObject("width") is { } widthReader)
+        {
+            width = new WidthRule(
+                widthReader.OptionalEnum<WidthMode>("mode") ?? width.Mode,
+                widthReader.OptionalBool("spaces") ?? width.Spaces);
+            widthReader.EnsureNoUnknownProperties();
+        }
+
         reader.EnsureNoUnknownProperties();
-        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements };
+        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width };
     }
 
     private static string KindName(TextUnitKind kind) => kind.ToString().ToLowerInvariant();
@@ -288,6 +348,43 @@ public static class FormattingProfileSerializer
                     _ => throw new FormattingProfileException(PathOf(name), "use \"halfWidthLatin\" ou \"uniform\"."),
                 }
                 : throw new FormattingProfileException(PathOf(name), "deve ser texto.");
+        }
+
+        /// <summary>Valor de um enum escrito pelo nome em minúsculas (<c>"ascii"</c>).</summary>
+        public T? OptionalEnum<T>(string name)
+            where T : struct, Enum
+        {
+            if (!TryGet(name, out var value))
+            {
+                return null;
+            }
+
+            var names = Enum.GetValues<T>().Select(v => v.ToString().ToLowerInvariant()).ToArray();
+            if (value.ValueKind == JsonValueKind.String)
+            {
+                foreach (var candidate in Enum.GetValues<T>())
+                {
+                    if (string.Equals(candidate.ToString().ToLowerInvariant(), value.GetString(), StringComparison.Ordinal))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            throw new FormattingProfileException(PathOf(name), $"use um destes: {string.Join(", ", names)}.");
+        }
+
+        /// <summary>Um caractere (texto de um <c>char</c>); <c>null</c> no JSON desliga a regra.</summary>
+        public char? OptionalChar(string name)
+        {
+            if (!TryGet(name, out var value) || value.ValueKind == JsonValueKind.Null)
+            {
+                return null;
+            }
+
+            return value.ValueKind == JsonValueKind.String && value.GetString() is { Length: 1 } text && IsValidDash(text[0])
+                ? text[0]
+                : throw new FormattingProfileException(PathOf(name), "deve ser um único caractere, ou null para não trocar.");
         }
 
         public IReadOnlyList<TextUnitKind>? OptionalKinds(string name)
