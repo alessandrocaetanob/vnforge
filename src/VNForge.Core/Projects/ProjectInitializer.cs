@@ -31,7 +31,8 @@ public static class ProjectInitializer
     // Idiomas e codificação iniciais, os do exemplo de docs/02-arquitetura.md; o usuário muda no vnforge.json.
     private const string DefaultSourceLanguage = "ja";
     private const string DefaultTargetLanguage = "pt-BR";
-    private const string DefaultEncoding = "cp1252";
+    // fold até o patch do executável (#65) ser validado: o jogo lê Shift-JIS e cp1252 vira lixo na tela (decisão #63).
+    private const string DefaultEncoding = "fold";
 
     /// <summary>Cria o projeto em <paramref name="projectDir"/> para o jogo de <paramref name="gameDir"/>.</summary>
     /// <exception cref="ProjectConfigException">A pasta já tem um <c>vnforge.json</c>; nada é sobrescrito.</exception>

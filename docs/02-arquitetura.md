@@ -236,7 +236,7 @@ O texto do YU-RIS é Shift-JIS (CP932), que **não tem** á, ã, ç, é, õ etc.
 
 `Cp1252TextEncoder` (`VNForge.Core.Text`, id `cp1252`) implementa o lado do Core da estratégia `cp1252`: grava em Windows-1252 com fallback de exceção, então nada é trocado ou descartado em silêncio. O byte `0xEF` (`ï`) colide com o prefixo dos códigos de controle, por isso `ï` é recusado: `FindUnencodable` o aponta e `Encode` lança `EncoderFallbackException`. O patch no executável não faz parte do encoder.
 
-O QA avisa qualquer caractere que a estratégia escolhida não consegue representar, e o `vnf build --report` lista cada um com a linha, a posição e o substituto (E5.1). A estratégia `sjis` (Shift-JIS pura, sem tratar acentos) existe como base e para texto sem acentos; o padrão do `vnf init` continua `cp1252`. Detalhes técnicos em [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md).
+O QA avisa qualquer caractere que a estratégia escolhida não consegue representar, e o `vnf build --report` lista cada um com a linha, a posição e o substituto (E5.1). A estratégia `sjis` (Shift-JIS pura, sem tratar acentos) existe como base e para texto sem acentos; o padrão do `vnf init` é `fold` (ver "Em aberto"). Detalhes técnicos em [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md).
 
 ### 5. QA (conferência)
 
@@ -317,7 +317,7 @@ minha-vn-ptbr/
   "game": { "path": "D:/Jogos/MinhaVN", "exe": "MinhaVN.exe" },
   "engine": { "id": "yuris", "version": 500, "scriptKey": "0xD36FAC96" },
   "languages": { "source": "ja", "target": "pt-BR" },
-  "encoding": { "strategy": "cp1252" },
+  "encoding": { "strategy": "fold" },
   "ai": { "provider": "anthropic", "model": "claude-opus-5-5", "effort": "medium", "batchSize": 30 }
 }
 ```
@@ -342,5 +342,5 @@ Como a lógica fica toda no Core e nos ViewModels, trocar WPF por Avalonia depoi
 
 - [ ] WPF (só Windows) ou Avalonia (multiplataforma)?
 - [x] Provedor de IA: Claude primeiro, modelo selecionável; outros provedores depois (E12).
-- [ ] Estratégia de codificação padrão: começar com `fold` (garantido) e evoluir para `cp1252`?
+- [x] Estratégia de codificação padrão: `fold` (#63, 2026-10-23). O jogo lê Shift-JIS, e `cp1252` só funciona com o patch do executável (#65), ainda não validado. Projetos passam para `cp1252` à mão depois disso.
 - [ ] Formato de exportação extra para revisores (planilha .xlsx? .po?).
