@@ -16,6 +16,8 @@ internal sealed class CliHarness : IDisposable
         UserConfigDirectory = Path.Combine(Root, "user-config");
         Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory, UserConfigDirectory, new StringReader(stdin ?? string.Empty),
             realVault ? null : new InMemoryApiKeyStore());
+        // Os testes de comando não dependem das regras reais de QA (testadas em Core.Tests).
+        Cli.Qa = new VNForge.Core.Qa.QaEngine([]);
     }
 
     public string Root { get; }
