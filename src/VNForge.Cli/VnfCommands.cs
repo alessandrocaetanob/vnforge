@@ -10,5 +10,7 @@ public static class VnfCommands
     public static void Register(VnfCli cli)
     {
         ArgumentNullException.ThrowIfNull(cli);
+        cli.Root.Subcommands.Add(DetectCommand.Create(cli));
+        cli.Root.Subcommands.Add(YpfCommand.Create(cli));
     }
 }
