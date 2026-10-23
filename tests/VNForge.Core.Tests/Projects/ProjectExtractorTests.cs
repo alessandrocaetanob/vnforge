@@ -308,7 +308,7 @@ public sealed class ProjectExtractorTests : IDisposable
     {
         if (OperatingSystem.IsWindows())
         {
-            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"")
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmd.exe"), $"/c mklink /J \"{link}\" \"{target}\"")
             {
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
