@@ -5,9 +5,14 @@ namespace VNForge.Core.Tests.Projects;
 
 public class ProjectFolderTextTests
 {
+    private const string ScriptId2 = "yst00002";
+    private const string ScriptId1 = "yst00001";
+    private const string ScriptId123 = "yst00123";
+    private const string GamePath = "D:/Jogos/MinhaVN";
+
     private static ProjectFolder NovoProjeto(string raiz) => ProjectFolder.Create(raiz, new ProjectConfig(
         "Minha VN",
-        new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+        new GameConfig(GamePath, "MinhaVN.exe"),
         new EngineConfig("yuris", 500, "0xD36FAC96"),
         new LanguagesConfig("ja", "pt-BR"),
         new EncodingConfig("fold"),
@@ -24,10 +29,10 @@ public class ProjectFolderTextTests
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
 
-        projeto.SaveText("yst00123", Unidades("yst00123"));
+        projeto.SaveText(ScriptId123, Unidades(ScriptId123));
 
         var caminho = Path.Combine(temp.Path, "text", "yst00123.json");
-        Assert.Equal(caminho, projeto.TextPath("yst00123"));
+        Assert.Equal(caminho, projeto.TextPath(ScriptId123));
         var bytes = File.ReadAllBytes(caminho);
         Assert.NotEqual(0xEF, bytes[0]);
         Assert.DoesNotContain((byte)'\r', bytes);
@@ -41,11 +46,11 @@ public class ProjectFolderTextTests
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
 
-        projeto.SaveText("yst00123", Unidades("yst00123"));
-        var primeiro = File.ReadAllBytes(projeto.TextPath("yst00123"));
-        projeto.SaveText("yst00123", Unidades("yst00123"));
+        projeto.SaveText(ScriptId123, Unidades(ScriptId123));
+        var primeiro = File.ReadAllBytes(projeto.TextPath(ScriptId123));
+        projeto.SaveText(ScriptId123, Unidades(ScriptId123));
 
-        Assert.Equal(primeiro, File.ReadAllBytes(projeto.TextPath("yst00123")));
+        Assert.Equal(primeiro, File.ReadAllBytes(projeto.TextPath(ScriptId123)));
         Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
     }
 
@@ -56,10 +61,10 @@ public class ProjectFolderTextTests
         var projeto = NovoProjeto(temp.Path);
         Directory.Delete(projeto.TextDirectory);
 
-        projeto.SaveText("yst00123", Unidades("yst00123", 3));
-        var lidas = projeto.LoadText("yst00123");
+        projeto.SaveText(ScriptId123, Unidades(ScriptId123, 3));
+        var lidas = projeto.LoadText(ScriptId123);
 
-        Assert.Equal(Unidades("yst00123", 3).Select(TextUnitJson.Serialize), lidas.Select(TextUnitJson.Serialize));
+        Assert.Equal(Unidades(ScriptId123, 3).Select(TextUnitJson.Serialize), lidas.Select(TextUnitJson.Serialize));
     }
 
     [Fact]
@@ -67,10 +72,10 @@ public class ProjectFolderTextTests
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
-        var json = TextFileSerializer.Serialize(Unidades("yst00123")).Replace("\n", "\r\n");
-        File.WriteAllText(projeto.TextPath("yst00123"), json, new System.Text.UTF8Encoding(true));
+        var json = TextFileSerializer.Serialize(Unidades(ScriptId123)).Replace("\n", "\r\n");
+        File.WriteAllText(projeto.TextPath(ScriptId123), json, new System.Text.UTF8Encoding(true));
 
-        Assert.Equal(2, projeto.LoadText("yst00123").Count);
+        Assert.Equal(2, projeto.LoadText(ScriptId123).Count);
     }
 
     [Fact]
@@ -78,13 +83,13 @@ public class ProjectFolderTextTests
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
-        var caminho = projeto.TextPath("yst00123");
+        var caminho = projeto.TextPath(ScriptId123);
 
-        var ausente = Assert.Throws<TextFileException>(() => projeto.LoadText("yst00123"));
+        var ausente = Assert.Throws<TextFileException>(() => projeto.LoadText(ScriptId123));
         File.WriteAllBytes(caminho, [0x7B, 0xFF, 0x7D]);
-        var encoding = Assert.Throws<TextFileException>(() => projeto.LoadText("yst00123"));
+        var encoding = Assert.Throws<TextFileException>(() => projeto.LoadText(ScriptId123));
         File.WriteAllText(caminho, "{ nope");
-        var invalido = Assert.Throws<TextFileException>(() => projeto.LoadText("yst00123"));
+        var invalido = Assert.Throws<TextFileException>(() => projeto.LoadText(ScriptId123));
 
         foreach (var ex in new[] { ausente, encoding, invalido })
         {
@@ -99,9 +104,9 @@ public class ProjectFolderTextTests
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
-        File.WriteAllText(projeto.TextPath("yst00123"), TextFileSerializer.Serialize(Unidades("yst00999")));
+        File.WriteAllText(projeto.TextPath(ScriptId123), TextFileSerializer.Serialize(Unidades("yst00999")));
 
-        var ex = Assert.Throws<TextFileException>(() => projeto.LoadText("yst00123"));
+        var ex = Assert.Throws<TextFileException>(() => projeto.LoadText(ScriptId123));
 
         Assert.Contains("yst00999:000001", ex.Message);
     }
@@ -112,10 +117,10 @@ public class ProjectFolderTextTests
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
 
-        var ex = Assert.Throws<TextFileException>(() => projeto.SaveText("yst00123", Unidades("yst00999")));
+        var ex = Assert.Throws<TextFileException>(() => projeto.SaveText(ScriptId123, Unidades("yst00999")));
 
         Assert.Contains("yst00999:000001", ex.Message);
-        Assert.False(File.Exists(projeto.TextPath("yst00123")));
+        Assert.False(File.Exists(projeto.TextPath(ScriptId123)));
     }
 
     [Theory]
@@ -142,14 +147,14 @@ public class ProjectFolderTextTests
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
-        projeto.SaveText("yst00002", Unidades("yst00002"));
-        projeto.SaveText("yst00001", Unidades("yst00001", 1));
+        projeto.SaveText(ScriptId2, Unidades(ScriptId2));
+        projeto.SaveText(ScriptId1, Unidades(ScriptId1, 1));
 
         var todos = projeto.LoadAllText();
 
-        Assert.Equal(["yst00001", "yst00002"], todos.Keys);
-        Assert.Single(todos["yst00001"]);
-        Assert.Equal(2, todos["yst00002"].Count);
+        Assert.Equal([ScriptId1, ScriptId2], todos.Keys);
+        Assert.Single(todos[ScriptId1]);
+        Assert.Equal(2, todos[ScriptId2].Count);
     }
 
     [Fact]
@@ -166,7 +171,7 @@ public class ProjectFolderTextTests
     public void LoadTextFiles_falha_quando_dois_arquivos_tem_a_mesma_chave()
     {
         using var temp = new TempFolder();
-        var json = TextFileSerializer.Serialize(Unidades("yst00123"));
+        var json = TextFileSerializer.Serialize(Unidades(ScriptId123));
         var a = Path.Combine(temp.Path, "a", "yst00123.json");
         var b = Path.Combine(temp.Path, "b", "YST00123.JSON");
         Directory.CreateDirectory(Path.GetDirectoryName(a)!);

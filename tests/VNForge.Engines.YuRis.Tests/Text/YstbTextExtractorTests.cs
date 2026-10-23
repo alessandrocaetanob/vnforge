@@ -11,6 +11,10 @@ namespace VNForge.Engines.YuRis.Tests.Text;
 
 public class YstbTextExtractorTests
 {
+    private const string PartsKey = "parts";
+    private const string SelSetCommand = "ES.SEL.SET";
+    private const string GosubCommand = "GOSUB";
+
     private const string ScriptName = "ybin/YST00001.ybn";
 
     private static readonly SyntheticYscm Yscm = new SyntheticYscmBuilder().WithTextCommands().Build();
@@ -46,9 +50,9 @@ public class YstbTextExtractorTests
         b.AddWord("彼は言った。「やあ」", 8);
         b.AddReturnCode(0, 9);
         b.AddWord("美咲（疲れたな）", 10);
-        b.AddCommand("GOSUB", 11, b.StringExpression("ES.SEL.SET"), b.StringExpression("はい"), b.StringExpression("いいえ"), b.StringExpression(string.Empty), b.StringExpression("無視"));
-        b.AddCommand("GOSUB", 12, b.StringExpression("es.char.name"), b.StringExpression("美咲"));
-        b.AddCommand("GOSUB", 13, b.StringExpression("ES.BT.GROUP.CHECK"), b.StringExpression("日本語"));
+        b.AddCommand(GosubCommand, 11, b.StringExpression(SelSetCommand), b.StringExpression("はい"), b.StringExpression("いいえ"), b.StringExpression(string.Empty), b.StringExpression("無視"));
+        b.AddCommand(GosubCommand, 12, b.StringExpression("es.char.name"), b.StringExpression("美咲"));
+        b.AddCommand(GosubCommand, 13, b.StringExpression("ES.BT.GROUP.CHECK"), b.StringExpression("日本語"));
         b.AddCommand("WAIT", 14, b.StringExpression("一行目\\n二行目"));
         b.AddCommand("WAIT", 15, b.StringExpression("OK"));
         b.AddCommand("_", 16, b.StringExpression("日本語"));
@@ -98,7 +102,7 @@ public class YstbTextExtractorTests
         var unit = Assert.Single(extraction.Units);
         Assert.Equal("一行目二行目三行目", unit.Source);
         Assert.Equal(Id(0), unit.Id);
-        Assert.Equal(3, Property(unit.Locator, "parts").GetArrayLength());
+        Assert.Equal(3, Property(unit.Locator, PartsKey).GetArrayLength());
     }
 
     [Theory]
@@ -131,7 +135,7 @@ public class YstbTextExtractorTests
         var unit = Assert.Single(extraction.Units);
         Assert.Equal("あい", unit.Source);
         Assert.Equal(Id(1), unit.Id);
-        Assert.Equal(2, Property(unit.Locator, "parts").GetArrayLength());
+        Assert.Equal(2, Property(unit.Locator, PartsKey).GetArrayLength());
     }
 
     [Fact]
@@ -149,12 +153,12 @@ public class YstbTextExtractorTests
     [Fact]
     public void Extract_FalanteDividoEmDoisWord_FechaOColcheteNoUltimo()
     {
-        var extraction = Extract(NewBuilder().AddWord("美咲『こんにちは", 1).AddWord("　世界』", 2));
+        var extraction = Extract(NewBuilder().AddWord("美咲『こんにちは", 1).AddWord("\u3000世界』", 2));
 
         var unit = Assert.Single(extraction.Units);
         Assert.Equal(TextUnitKind.Dialogue, unit.Kind);
         Assert.Equal("美咲", unit.Speaker);
-        Assert.Equal("こんにちは　世界", unit.Source);
+        Assert.Equal("こんにちは\u3000世界", unit.Source);
     }
 
     [Theory]
@@ -198,7 +202,7 @@ public class YstbTextExtractorTests
 
         Assert.Equal(1, Property(unit.Locator, "version").GetInt32());
         Assert.Equal("WORD", Property(unit.Locator, "command").GetString());
-        var parts = Property(unit.Locator, "parts").EnumerateArray().ToArray();
+        var parts = Property(unit.Locator, PartsKey).EnumerateArray().ToArray();
         Assert.Equal(2, parts.Length);
         for (var i = 0; i < parts.Length; i++)
         {
@@ -239,9 +243,9 @@ public class YstbTextExtractorTests
         var script = FullScript().Build();
         var unit = Extract(script.Bytes).Units[6];
 
-        Assert.Equal("GOSUB", Property(unit.Locator, "command").GetString());
-        Assert.Equal("ES.SEL.SET", Property(unit.Locator, "routine").GetString());
-        var part = Assert.Single(Property(unit.Locator, "parts").EnumerateArray());
+        Assert.Equal(GosubCommand, Property(unit.Locator, "command").GetString());
+        Assert.Equal(SelSetCommand, Property(unit.Locator, "routine").GetString());
+        var part = Assert.Single(Property(unit.Locator, PartsKey).EnumerateArray());
         var argument = script.Instructions[10].Arguments[2];
         Assert.Equal(10, part.GetProperty("instruction").GetInt32());
         Assert.Equal(2, part.GetProperty("argument").GetInt32());
@@ -256,7 +260,7 @@ public class YstbTextExtractorTests
 
         Assert.Equal("WAIT", Property(unit.Locator, "command").GetString());
         Assert.False(unit.Locator!.Value.TryGetProperty("routine", out _));
-        Assert.Equal(19, Assert.Single(Property(unit.Locator, "parts").EnumerateArray()).GetProperty("instruction").GetInt32());
+        Assert.Equal(19, Assert.Single(Property(unit.Locator, PartsKey).EnumerateArray()).GetProperty("instruction").GetInt32());
     }
 
     [Fact]
@@ -296,7 +300,7 @@ public class YstbTextExtractorTests
     public void Extract_EscolhasParamNoPrimeiroArgumentoVazio()
     {
         var b = NewBuilder();
-        b.AddCommand("GOSUB", 1, b.StringExpression("ES.SEL.SET"), b.StringExpression("一"), b.StringExpression(string.Empty), b.StringExpression("二"));
+        b.AddCommand(GosubCommand, 1, b.StringExpression(SelSetCommand), b.StringExpression("一"), b.StringExpression(string.Empty), b.StringExpression("二"));
 
         var unit = Assert.Single(Extract(b).Units);
 
@@ -308,9 +312,9 @@ public class YstbTextExtractorTests
     {
         var b = NewBuilder();
         b.AddCommand(
-            "GOSUB",
+            GosubCommand,
             1,
-            b.StringExpression("ES.SEL.SET"),
+            b.StringExpression(SelSetCommand),
             b.StringExpression("一"),
             b.ResourceArgument([0x48, 0x04, 0x00, 0x24, 0x01, 0x00, 0x00], 1, 3),
             b.StringExpression("二"));
@@ -324,8 +328,8 @@ public class YstbTextExtractorTests
     public void Extract_GosubSemArgumentosOuComRotinaQueNaoELiteral_NaoGeraUnidades()
     {
         var b = NewBuilder();
-        b.AddCommand("GOSUB", 1);
-        b.AddCommand("GOSUB", 2, b.ResourceArgument([0x48, 0x04, 0x00, 0x24, 0x01, 0x00, 0x00], 0, 3), b.StringExpression("日本語"));
+        b.AddCommand(GosubCommand, 1);
+        b.AddCommand(GosubCommand, 2, b.ResourceArgument([0x48, 0x04, 0x00, 0x24, 0x01, 0x00, 0x00], 0, 3), b.StringExpression("日本語"));
 
         Assert.Empty(Extract(b).Units);
     }
@@ -381,7 +385,7 @@ public class YstbTextExtractorTests
     {
         var b = NewBuilder();
         b.AddCommand("WAIT", 1, b.StringExpression("日本語\\q"));
-        b.AddCommand("GOSUB", 2, b.StringExpression("ES.SEL.SET"), b.StringExpression("選択\\"), b.StringExpression("次"));
+        b.AddCommand(GosubCommand, 2, b.StringExpression(SelSetCommand), b.StringExpression("選択\\"), b.StringExpression("次"));
 
         var extraction = Extract(b);
 
@@ -426,7 +430,7 @@ public class YstbTextExtractorTests
         var script = FullScript().Build();
         var unit = Extract(script.Bytes).Units[1];
 
-        var raw = Property(unit.Locator, "parts").EnumerateArray()
+        var raw = Property(unit.Locator, PartsKey).EnumerateArray()
             .SelectMany(p => script.PlainResources.AsSpan((int)p.GetProperty("offset").GetUInt32(), (int)p.GetProperty("size").GetUInt32()).ToArray())
             .ToArray();
 
@@ -454,6 +458,6 @@ public class YstbTextExtractorTests
 
         var ex = Assert.ThrowsAny<VNForge.Core.VNForgeException>(() => YstbTextExtractor.Extract(new ScriptFile(ScriptName, bytes), script, incomplete));
 
-        Assert.Contains("GOSUB", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(GosubCommand, ex.Message, StringComparison.Ordinal);
     }
 }

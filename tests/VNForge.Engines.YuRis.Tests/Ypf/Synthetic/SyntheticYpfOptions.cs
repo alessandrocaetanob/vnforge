@@ -70,10 +70,15 @@ public static class SyntheticYpfDefaults
     public const uint FirstHeaderSizeWithHeaderVersion = 300;
     public const uint V500 = 500;
 
-    public static SyntheticYpfHashAlgorithm NameHash(uint version) =>
-        version < FirstCrc32Version ? SyntheticYpfHashAlgorithm.Adler32
-        : version < FirstMurmurVersion ? SyntheticYpfHashAlgorithm.Crc32
-        : SyntheticYpfHashAlgorithm.MurmurHash2;
+    public static SyntheticYpfHashAlgorithm NameHash(uint version)
+    {
+        if (version < FirstCrc32Version)
+        {
+            return SyntheticYpfHashAlgorithm.Adler32;
+        }
+
+        return version < FirstMurmurVersion ? SyntheticYpfHashAlgorithm.Crc32 : SyntheticYpfHashAlgorithm.MurmurHash2;
+    }
 
     public static SyntheticYpfHashAlgorithm DataHash(uint version) =>
         version < FirstMurmurVersion ? SyntheticYpfHashAlgorithm.Adler32 : SyntheticYpfHashAlgorithm.MurmurHash2;

@@ -7,6 +7,18 @@ namespace VNForge.Engines.YuRis.Tests;
 
 public sealed class YuRisEngineTests : IDisposable
 {
+    private const string ScriptKeyHex = "0xD36FAC96";
+    private const string ScriptsArchiveKey = "scriptsArchive";
+    private const string YstbVersionKey = "ystbVersion";
+    private const string ScriptKeyDetail = "scriptKey";
+    private const string WarningsKey = "warnings";
+    private const string YscYbn = "ysc.ybn";
+    private const string Yst1Ybn = "yst00001.ybn";
+    private const string Yst2Ybn = "yst00002.ybn";
+    private const string YsbinYpf = "ysbin.ypf";
+    private const string BgmYpf = "bgm.ypf";
+    private const string BgmOgg = "bgm01.ogg";
+
     private static readonly SyntheticYscm Yscm = new SyntheticYscmBuilder().WithTextCommands().Build();
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-yuris-engine-" + Guid.NewGuid().ToString("N"));
@@ -37,7 +49,7 @@ public sealed class YuRisEngineTests : IDisposable
     }
 
     private static byte[] ScriptArchive(uint ypfVersion = 500, uint ystbVersion = 500, uint key = SyntheticYstbBuilder.KeyV290) =>
-        Archive(ypfVersion, ("ysc.ybn", Yscm.Bytes), ("yst00001.ybn", Script(ystbVersion, key)), ("yst00002.ybn", Script(ystbVersion, key)));
+        Archive(ypfVersion, (YscYbn, Yscm.Bytes), (Yst1Ybn, Script(ystbVersion, key)), (Yst2Ybn, Script(ystbVersion, key)));
 
     private void Write(string relative, byte[] content)
     {
@@ -84,7 +96,7 @@ public sealed class YuRisEngineTests : IDisposable
     [Fact]
     public void Arquivo_ypf_sem_assinatura_nao_e_reconhecido()
     {
-        Write("ysbin.ypf", [1, 2, 3, 4, 5, 6, 7, 8]);
+        Write(YsbinYpf, [1, 2, 3, 4, 5, 6, 7, 8]);
 
         Assert.False(_engine.Detect(_root).IsMatch);
     }
@@ -92,8 +104,8 @@ public sealed class YuRisEngineTests : IDisposable
     [Fact]
     public void Jogo_sintetico_informa_versoes_arquivos_e_chave()
     {
-        Write("ysbin.ypf", ScriptArchive());
-        Write("bgm.ypf", Archive(500, ("bgm01.ogg", [1, 2, 3])));
+        Write(YsbinYpf, ScriptArchive());
+        Write(BgmYpf, Archive(500, (BgmOgg, [1, 2, 3])));
         Write("jogo.exe", [0x4D, 0x5A]);
 
         var result = _engine.Detect(_root);
@@ -101,26 +113,26 @@ public sealed class YuRisEngineTests : IDisposable
         Assert.True(result.IsMatch);
         Assert.Contains("YU-RIS", result.Summary);
         Assert.Contains("ysbin.ypf v500", result.Summary);
-        Assert.Contains("0xD36FAC96", result.Summary);
-        Assert.Equal("ysbin.ypf", result.Details["scriptsArchive"]);
+        Assert.Contains(ScriptKeyHex, result.Summary);
+        Assert.Equal(YsbinYpf, result.Details[ScriptsArchiveKey]);
         Assert.Equal("500", result.Details["ypfVersion"]);
-        Assert.Equal("500", result.Details["ystbVersion"]);
-        Assert.Equal("0xD36FAC96", result.Details["scriptKey"]);
+        Assert.Equal("500", result.Details[YstbVersionKey]);
+        Assert.Equal(ScriptKeyHex, result.Details[ScriptKeyDetail]);
         Assert.Equal("2", result.Details["scripts"]);
         Assert.Equal("v500, 3 arquivos", result.Details["ypf:ysbin.ypf"]);
         Assert.Equal("v500, 1 arquivo", result.Details["ypf:bgm.ypf"]);
-        Assert.False(result.Details.ContainsKey("warnings"));
+        Assert.False(result.Details.ContainsKey(WarningsKey));
     }
 
     [Fact]
     public void Chave_propria_do_jogo_e_derivada_do_script()
     {
-        Write("ysbin.ypf", ScriptArchive(key: 0x12345678));
+        Write(YsbinYpf, ScriptArchive(key: 0x12345678));
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Equal("0x12345678", result.Details["scriptKey"]);
+        Assert.Equal("0x12345678", result.Details[ScriptKeyDetail]);
     }
 
     [Fact]
@@ -131,86 +143,86 @@ public sealed class YuRisEngineTests : IDisposable
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Equal("PAC/YSBIN.YPF", result.Details["scriptsArchive"]);
-        Assert.Equal("0xD36FAC96", result.Details["scriptKey"]);
+        Assert.Equal("PAC/YSBIN.YPF", result.Details[ScriptsArchiveKey]);
+        Assert.Equal(ScriptKeyHex, result.Details[ScriptKeyDetail]);
     }
 
     [Fact]
     public void Ypf_sem_scripts_e_reconhecido_sem_chave()
     {
-        Write("bgm.ypf", Archive(500, ("bgm01.ogg", [1, 2, 3])));
+        Write(BgmYpf, Archive(500, (BgmOgg, [1, 2, 3])));
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
-        Assert.False(result.Details.ContainsKey("scriptsArchive"));
-        Assert.Contains("bgm.ypf", result.Summary);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
+        Assert.False(result.Details.ContainsKey(ScriptsArchiveKey));
+        Assert.Contains(BgmYpf, result.Summary);
     }
 
     [Fact]
     public void Sem_ysc_ybn_informa_a_versao_do_ystb_mas_nao_a_chave()
     {
-        Write("ysbin.ypf", Archive(500, ("yst00001.ybn", Script())));
+        Write(YsbinYpf, Archive(500, (Yst1Ybn, Script())));
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Equal("500", result.Details["ystbVersion"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
-        Assert.Contains("ysc.ybn", result.Details["warnings"]);
+        Assert.Equal("500", result.Details[YstbVersionKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
+        Assert.Contains(YscYbn, result.Details[WarningsKey]);
     }
 
     [Fact]
     public void Pacote_so_com_ysc_ybn_nao_esconde_o_pacote_com_scripts()
     {
-        Write("a.ypf", Archive(500, ("ysc.ybn", Yscm.Bytes)));
-        Write("b.ypf", Archive(500, ("yst00001.ybn", Script())));
+        Write("a.ypf", Archive(500, (YscYbn, Yscm.Bytes)));
+        Write("b.ypf", Archive(500, (Yst1Ybn, Script())));
 
         var result = _engine.Detect(_root);
 
-        Assert.Equal("b.ypf", result.Details["scriptsArchive"]);
-        Assert.Equal("500", result.Details["ystbVersion"]);
+        Assert.Equal("b.ypf", result.Details[ScriptsArchiveKey]);
+        Assert.Equal("500", result.Details[YstbVersionKey]);
     }
 
     [Fact]
     public void Ystb_abaixo_da_300_informa_a_versao_e_avisa()
     {
-        Write("ysbin.ypf", ScriptArchive(ypfVersion: 290, ystbVersion: 290));
+        Write(YsbinYpf, ScriptArchive(ypfVersion: 290, ystbVersion: 290));
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Equal("290", result.Details["ystbVersion"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
-        Assert.True(result.Details.ContainsKey("warnings"));
+        Assert.Equal("290", result.Details[YstbVersionKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
+        Assert.True(result.Details.ContainsKey(WarningsKey));
     }
 
     [Fact]
     public void Ypf_com_assinatura_e_indice_quebrado_e_reconhecido_com_aviso()
     {
         var bytes = ScriptArchive();
-        Write("ysbin.ypf", bytes[..40]);
+        Write(YsbinYpf, bytes[..40]);
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Contains("ysbin.ypf", result.Details["warnings"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
+        Assert.Contains(YsbinYpf, result.Details[WarningsKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
     }
 
     [Fact]
     public void Size_acima_do_limite_vira_aviso_sem_ler_a_entrada()
     {
-        var ypf = new SyntheticYpfBuilder(500).AddFile("ysc.ybn", Yscm.Bytes).AddFile("yst00001.ybn", Script()).Build();
-        Write("ysbin.ypf", ypf.WithUncompressedSize("ysc.ybn", 0x7FFFFFFF));
+        var ypf = new SyntheticYpfBuilder(500).AddFile(YscYbn, Yscm.Bytes).AddFile(Yst1Ybn, Script()).Build();
+        Write(YsbinYpf, ypf.WithUncompressedSize(YscYbn, 0x7FFFFFFF));
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Contains("ysc.ybn: passa do limite", result.Details["warnings"]);
-        Assert.Equal("500", result.Details["ystbVersion"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
+        Assert.Contains("ysc.ybn: passa do limite", result.Details[WarningsKey]);
+        Assert.Equal("500", result.Details[YstbVersionKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
     }
 
     [Fact]
@@ -221,55 +233,55 @@ public sealed class YuRisEngineTests : IDisposable
         const int limit = 32 * 1024 * 1024;
         var content = new XorShift64(42).Bytes(limit);
         var ypf = new SyntheticYpfBuilder(500)
-            .AddFile("ysc.ybn", Yscm.Bytes)
-            .AddFile("yst00001.ybn", content, compress: true, forceCompression: true)
+            .AddFile(YscYbn, Yscm.Bytes)
+            .AddFile(Yst1Ybn, content, compress: true, forceCompression: true)
             .Build();
-        var entry = ypf.Entries.Single(e => e.Name == "yst00001.ybn");
+        var entry = ypf.Entries.Single(e => e.Name == Yst1Ybn);
         Assert.Equal((uint)limit, entry.SizeUncompressed);
         Assert.True(entry.SizeStored > limit);
-        Write("ysbin.ypf", ypf.Bytes);
+        Write(YsbinYpf, ypf.Bytes);
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Contains("yst00001.ybn: passa do limite", result.Details["warnings"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
+        Assert.Contains("yst00001.ybn: passa do limite", result.Details[WarningsKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
     }
 
     [Fact]
     public void Ysc_ybn_corrompido_mantem_a_versao_do_ystb_e_avisa()
     {
-        Write("ysbin.ypf", Archive(500, ("ysc.ybn", [1, 2, 3, 4, 5, 6, 7, 8, 9]), ("yst00001.ybn", Script())));
+        Write(YsbinYpf, Archive(500, (YscYbn, [1, 2, 3, 4, 5, 6, 7, 8, 9]), (Yst1Ybn, Script())));
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Equal("500", result.Details["ystbVersion"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
-        Assert.StartsWith("ysc.ybn:", result.Details["warnings"]);
+        Assert.Equal("500", result.Details[YstbVersionKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
+        Assert.StartsWith("ysc.ybn:", result.Details[WarningsKey]);
     }
 
     [Fact]
     public void Primeiro_script_sem_assinatura_nao_impede_ler_o_segundo()
     {
-        Write("ysbin.ypf", Archive(500, ("ysc.ybn", Yscm.Bytes), ("yst00001.ybn", [1, 2, 3]), ("yst00002.ybn", Script())));
+        Write(YsbinYpf, Archive(500, (YscYbn, Yscm.Bytes), (Yst1Ybn, [1, 2, 3]), (Yst2Ybn, Script())));
 
         var result = _engine.Detect(_root);
 
-        Assert.Equal("500", result.Details["ystbVersion"]);
-        Assert.Equal("0xD36FAC96", result.Details["scriptKey"]);
-        Assert.False(result.Details.ContainsKey("warnings"));
+        Assert.Equal("500", result.Details[YstbVersionKey]);
+        Assert.Equal(ScriptKeyHex, result.Details[ScriptKeyDetail]);
+        Assert.False(result.Details.ContainsKey(WarningsKey));
     }
 
     [Fact]
     public void Sem_ysc_ybn_a_versao_vem_do_primeiro_script_com_assinatura()
     {
-        Write("ysbin.ypf", Archive(500, ("yst00001.ybn", [1, 2, 3]), ("yst00002.ybn", Script())));
+        Write(YsbinYpf, Archive(500, (Yst1Ybn, [1, 2, 3]), (Yst2Ybn, Script())));
 
         var result = _engine.Detect(_root);
 
-        Assert.Equal("500", result.Details["ystbVersion"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
+        Assert.Equal("500", result.Details[YstbVersionKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
     }
 
     [Fact]
@@ -279,41 +291,41 @@ public sealed class YuRisEngineTests : IDisposable
         broken1[32] ^= 0xFF;
         var broken2 = Script();
         broken2[32] ^= 0xFF;
-        Write("ysbin.ypf", Archive(500, ("ysc.ybn", Yscm.Bytes), ("yst00001.ybn", broken1), ("yst00002.ybn", broken2)));
+        Write(YsbinYpf, Archive(500, (YscYbn, Yscm.Bytes), (Yst1Ybn, broken1), (Yst2Ybn, broken2)));
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Equal("500", result.Details["ystbVersion"]);
-        Assert.False(result.Details.ContainsKey("scriptKey"));
-        Assert.StartsWith("yst00001.ybn:", result.Details["warnings"]);
-        Assert.DoesNotContain("yst00002.ybn", result.Details["warnings"]);
+        Assert.Equal("500", result.Details[YstbVersionKey]);
+        Assert.False(result.Details.ContainsKey(ScriptKeyDetail));
+        Assert.StartsWith("yst00001.ybn:", result.Details[WarningsKey]);
+        Assert.DoesNotContain(Yst2Ybn, result.Details[WarningsKey]);
     }
 
     [Fact]
     public void Ypf_aberto_com_exclusividade_por_outro_processo_vira_aviso()
     {
-        Write("bgm.ypf", Archive(500, ("bgm01.ogg", [1, 2, 3])));
-        using var lockStream = new FileStream(Path.Combine(_root, "bgm.ypf"), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        Write(BgmYpf, Archive(500, (BgmOgg, [1, 2, 3])));
+        using var lockStream = new FileStream(Path.Combine(_root, BgmYpf), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
         var result = _engine.Detect(_root);
 
         Assert.False(result.IsMatch);
-        Assert.Contains("bgm.ypf: não foi possível abrir", result.Details["warnings"]);
+        Assert.Contains("bgm.ypf: não foi possível abrir", result.Details[WarningsKey]);
     }
 
     [Fact]
     public void Ypf_bloqueado_nao_impede_reconhecer_pelo_outro()
     {
-        Write("ysbin.ypf", ScriptArchive());
-        Write("bgm.ypf", Archive(500, ("bgm01.ogg", [1, 2, 3])));
-        using var lockStream = new FileStream(Path.Combine(_root, "bgm.ypf"), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        Write(YsbinYpf, ScriptArchive());
+        Write(BgmYpf, Archive(500, (BgmOgg, [1, 2, 3])));
+        using var lockStream = new FileStream(Path.Combine(_root, BgmYpf), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Equal("0xD36FAC96", result.Details["scriptKey"]);
-        Assert.Contains("bgm.ypf: não foi possível abrir", result.Details["warnings"]);
+        Assert.Equal(ScriptKeyHex, result.Details[ScriptKeyDetail]);
+        Assert.Contains("bgm.ypf: não foi possível abrir", result.Details[WarningsKey]);
     }
 
     [Fact]
@@ -328,7 +340,7 @@ public sealed class YuRisEngineTests : IDisposable
         var result = _engine.Detect(_root);
 
         Assert.True(result.IsMatch);
-        Assert.Contains("65 arquivos .ypf", result.Details["warnings"]);
+        Assert.Contains("65 arquivos .ypf", result.Details[WarningsKey]);
         Assert.Equal(64, result.Details.Keys.Count(k => k.StartsWith("ypf:", StringComparison.Ordinal)));
     }
 
@@ -354,7 +366,7 @@ public sealed class YuRisEngineTests : IDisposable
             var ysc = rng.Next(2) == 0 ? Flip(Yscm.Bytes, rng, 1 + rng.Next(3)) : rng.Bytes(rng.Next(200));
             var yst1 = rng.Next(2) == 0 ? Flip(Script(), rng, 1 + rng.Next(3)) : WithYstb(rng.Bytes(rng.Next(200)));
             var yst2 = Flip(Script(), rng, 1 + rng.Next(3));
-            Write("ysbin.ypf", Archive(500, ("ysc.ybn", ysc), ("yst00001.ybn", yst1), ("yst00002.ybn", yst2)));
+            Write(YsbinYpf, Archive(500, (YscYbn, ysc), (Yst1Ybn, yst1), (Yst2Ybn, yst2)));
             AssertDoesNotThrow(i, "ybn");
         }
     }
@@ -408,8 +420,8 @@ public sealed class YuRisEngineTests : IDisposable
     [Fact]
     public void Detect_nao_grava_nada_na_pasta()
     {
-        Write("ysbin.ypf", ScriptArchive());
-        Write("bgm.ypf", Archive(500, ("bgm01.ogg", [1, 2, 3])));
+        Write(YsbinYpf, ScriptArchive());
+        Write(BgmYpf, Archive(500, (BgmOgg, [1, 2, 3])));
         var before = Snapshot();
 
         _engine.Detect(_root);

@@ -49,7 +49,7 @@ public class SingleProviderRegistrationTests
     }
 
     private static bool IsBuildOutput(string relativePath) =>
-        relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+        relativePath.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar])
             .Any(segment => segment is "bin" or "obj");
 
     private static string FindRepositoryRoot()

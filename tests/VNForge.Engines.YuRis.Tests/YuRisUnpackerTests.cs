@@ -11,6 +11,10 @@ namespace VNForge.Engines.YuRis.Tests;
 
 public sealed class YuRisUnpackerTests : IDisposable
 {
+    private const string Yst1Ybn = "yst00001.ybn";
+    private const string YsbinYpf = "ysbin.ypf";
+    private const string YscYbn = "ysc.ybn";
+
     private static readonly SyntheticYscm Yscm = new SyntheticYscmBuilder().WithTextCommands().Build();
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-yuris-unpack-" + Guid.NewGuid().ToString("N"));
@@ -69,8 +73,8 @@ public sealed class YuRisUnpackerTests : IDisposable
     private void WriteStandardGame()
     {
         Write(
-            "ysbin.ypf",
-            Archive(("ysc.ybn", Yscm.Bytes), ("yst_list.ybn", Ystl()), ("ybin/yst00001.ybn", Script("おはよう")), ("ybin/yst00002.ybn", Script("こんにちは", "さようなら"))));
+            YsbinYpf,
+            Archive((YscYbn, Yscm.Bytes), ("yst_list.ybn", Ystl()), ("ybin/yst00001.ybn", Script("おはよう")), ("ybin/yst00002.ybn", Script("こんにちは", "さようなら"))));
         Write("bgm.ypf", Archive(("bgm01.ogg", [1, 2, 3])));
         Write("Jogo.exe", [0x4D, 0x5A]);
     }
@@ -87,23 +91,23 @@ public sealed class YuRisUnpackerTests : IDisposable
         var result = _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
 
         var archive = Assert.Single(result.Archives);
-        Assert.Equal("ysbin.ypf", archive.GamePath);
-        Assert.Equal("ysbin.ypf", archive.Directory);
+        Assert.Equal(YsbinYpf, archive.GamePath);
+        Assert.Equal(YsbinYpf, archive.Directory);
         Assert.Equal(4, archive.FileCount);
-        Assert.True(File.Exists(Path.Combine(_cache, "ysbin.ypf", "ysc.ybn")));
-        Assert.True(File.Exists(Path.Combine(_cache, "ysbin.ypf", "ybin", "yst00002.ybn")));
+        Assert.True(File.Exists(Path.Combine(_cache, YsbinYpf, YscYbn)));
+        Assert.True(File.Exists(Path.Combine(_cache, YsbinYpf, "ybin", "yst00002.ybn")));
         Assert.False(Directory.Exists(Path.Combine(_cache, "bgm.ypf")));
     }
 
     [Fact]
     public void Unpack_acha_o_pacote_na_subpasta_pac_e_usa_o_caminho_relativo()
     {
-        Write("pac/ysbin.ypf", Archive(("ysc.ybn", Yscm.Bytes), ("yst00001.ybn", Script("おはよう"))));
+        Write("pac/ysbin.ypf", Archive((YscYbn, Yscm.Bytes), (Yst1Ybn, Script("おはよう"))));
 
         var result = _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
 
         Assert.Equal("pac/ysbin.ypf", Assert.Single(result.Archives).Directory);
-        Assert.True(File.Exists(Path.Combine(_cache, "pac", "ysbin.ypf", "yst00001.ybn")));
+        Assert.True(File.Exists(Path.Combine(_cache, "pac", YsbinYpf, Yst1Ybn)));
     }
 
     [Fact]
@@ -156,7 +160,7 @@ public sealed class YuRisUnpackerTests : IDisposable
         var game = _engine.Open(_cache);
 
         Assert.IsType<YuRisContext>(game.Context);
-        Assert.Equal(["yst00001.ybn", "yst00002.ybn"], game.Scripts.Select(s => s.Name));
+        Assert.Equal([Yst1Ybn, "yst00002.ybn"], game.Scripts.Select(s => s.Name));
         Assert.Equal(["01_prologo", null], game.Scripts.Select(s => s.DisplayName));
         Assert.All(game.Scripts, s => Assert.Same(Assert.Single(_engine.Scripts), s.Format));
         Assert.Empty(game.Warnings);
@@ -165,7 +169,7 @@ public sealed class YuRisUnpackerTests : IDisposable
     [Fact]
     public void Open_sem_yst_list_deixa_os_scripts_sem_nome_legivel_e_sem_aviso()
     {
-        Write("ysbin.ypf", Archive(("ysc.ybn", Yscm.Bytes), ("yst00001.ybn", Script("おはよう"))));
+        Write(YsbinYpf, Archive((YscYbn, Yscm.Bytes), (Yst1Ybn, Script("おはよう"))));
         _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
 
         var game = _engine.Open(_cache);
@@ -177,7 +181,7 @@ public sealed class YuRisUnpackerTests : IDisposable
     [Fact]
     public void Open_com_yst_list_ilegivel_avisa_e_segue()
     {
-        Write("ysbin.ypf", Archive(("ysc.ybn", Yscm.Bytes), ("yst_list.ybn", [1, 2, 3, 4]), ("yst00001.ybn", Script("おはよう"))));
+        Write(YsbinYpf, Archive((YscYbn, Yscm.Bytes), ("yst_list.ybn", [1, 2, 3, 4]), (Yst1Ybn, Script("おはよう"))));
         _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
 
         var game = _engine.Open(_cache);

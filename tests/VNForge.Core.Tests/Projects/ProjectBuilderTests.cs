@@ -10,6 +10,10 @@ namespace VNForge.Core.Tests.Projects;
 
 public sealed class ProjectBuilderTests : IDisposable
 {
+    private const string A001Fake = "a001.fake";
+    private const string PreviousFile = "anterior.txt";
+    private const string PackageFake = "pacote.fake";
+
     private const string Hello = "Hello";
 
     private const string FirstUnit = "a001:000000";
@@ -25,7 +29,7 @@ public sealed class ProjectBuilderTests : IDisposable
     {
         _game = Path.Combine(_temp.Path, "jogo");
         Directory.CreateDirectory(_game);
-        File.WriteAllText(Path.Combine(_game, "a001.fake"), "dialogue|Olá\nname|Ana");
+        File.WriteAllText(Path.Combine(_game, A001Fake), "dialogue|Olá\nname|Ana");
         File.WriteAllText(Path.Combine(_game, "a002.fake"), "narration|Chovia.");
         _project = ProjectFolder.Create(
             Path.Combine(_temp.Path, "projeto"),
@@ -47,7 +51,7 @@ public sealed class ProjectBuilderTests : IDisposable
     {
         var units = _project.LoadAllText().TryGetValue(key, out var saved)
             ? saved
-            : _engine.Scripts[0].Extract(new ScriptFile(key + ".fake", File.ReadAllBytes(Path.Combine(_project.GameCacheDirectory, "pacote.fake", key + ".fake"))), new FakeContext()).Units;
+            : _engine.Scripts[0].Extract(new ScriptFile(key + ".fake", File.ReadAllBytes(Path.Combine(_project.GameCacheDirectory, PackageFake, key + ".fake"))), new FakeContext()).Units;
         var edited = units.Select((u, i) => changes.FirstOrDefault(c => c.Index == i) is { Text: not null } c
             ? u with { Translation = c.Text, Status = TranslationStatus.Translated }
             : u).ToList();
@@ -67,7 +71,7 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.Equal(0, archive.ReplacedFiles);
         Assert.Equal(
             "dialogue|Olá\nname|Ana" + "\u0001" + "narration|Chovia.",
-            File.ReadAllText(Path.Combine(_project.BuildDirectory, "pacote.fake")));
+            File.ReadAllText(Path.Combine(_project.BuildDirectory, PackageFake)));
     }
 
     [Fact]
@@ -78,10 +82,10 @@ public sealed class ProjectBuilderTests : IDisposable
         var result = Build();
 
         var built = Assert.Single(result.RebuiltScripts);
-        Assert.Equal(new BuiltScript("a001", "a001.fake", 1), built);
+        Assert.Equal(new BuiltScript("a001", A001Fake, 1), built);
         Assert.Equal(1, result.TotalLines);
         var script = Assert.Single(_engine.LastRebuilt);
-        Assert.Equal(Path.Combine(_project.GameCacheDirectory, "pacote.fake", "a001.fake"), script.Path);
+        Assert.Equal(Path.Combine(_project.GameCacheDirectory, PackageFake, A001Fake), script.Path);
         Assert.Equal("dialogue|Olá\nname|Ana", Encoding.UTF8.GetString(script.Original));
         Assert.Equal("dialogue|Hello\nname|Ana", Encoding.UTF8.GetString(script.Content));
         Assert.Equal(1, Assert.Single(result.Archives).ReplacedFiles);
@@ -214,7 +218,7 @@ public sealed class ProjectBuilderTests : IDisposable
 
     private void SaveProfile(string json) => File.WriteAllText(_project.FormattingPath, json);
 
-    private string BuiltContent() => File.ReadAllText(Path.Combine(_project.BuildDirectory, "pacote.fake"));
+    private string BuiltContent() => File.ReadAllText(Path.Combine(_project.BuildDirectory, PackageFake));
 
     [Fact]
     public void Sem_formatting_json_o_texto_vai_como_esta()
@@ -326,7 +330,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Traducao_igual_ao_original_ou_sem_status_nao_reconstroi()
     {
-        var units = _engine.Scripts[0].Extract(new ScriptFile("a001.fake", File.ReadAllBytes(Path.Combine(_project.GameCacheDirectory, "pacote.fake", "a001.fake"))), new FakeContext()).Units;
+        var units = _engine.Scripts[0].Extract(new ScriptFile(A001Fake, File.ReadAllBytes(Path.Combine(_project.GameCacheDirectory, PackageFake, A001Fake))), new FakeContext()).Units;
         _project.SaveText("a001", [units[0] with { Translation = "Olá", Status = TranslationStatus.Translated }, units[1] with { Translation = "Anna" }]);
 
         var result = Build();
@@ -437,7 +441,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Falha_do_repacker_preserva_o_build_anterior_e_remove_o_temporario()
     {
         Directory.CreateDirectory(_project.BuildDirectory);
-        var previous = Path.Combine(_project.BuildDirectory, "anterior.txt");
+        var previous = Path.Combine(_project.BuildDirectory, PreviousFile);
         File.WriteAllText(previous, "x");
         _engine.RepackFailure = new VNForgeException("pacote corrompido");
 
@@ -452,12 +456,12 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Build_anterior_e_trocado_so_no_fim()
     {
         Directory.CreateDirectory(_project.BuildDirectory);
-        File.WriteAllText(Path.Combine(_project.BuildDirectory, "anterior.txt"), "x");
+        File.WriteAllText(Path.Combine(_project.BuildDirectory, PreviousFile), "x");
 
         Build();
 
-        Assert.False(File.Exists(Path.Combine(_project.BuildDirectory, "anterior.txt")));
-        Assert.True(File.Exists(Path.Combine(_project.BuildDirectory, "pacote.fake")));
+        Assert.False(File.Exists(Path.Combine(_project.BuildDirectory, PreviousFile)));
+        Assert.True(File.Exists(Path.Combine(_project.BuildDirectory, PackageFake)));
         Assert.False(Directory.Exists(_project.BuildDirectory + ".tmp"));
         Assert.False(Directory.Exists(_project.BuildDirectory + ".old"));
     }
@@ -466,7 +470,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Cancelamento_mantem_o_build_anterior_e_nao_deixa_temporario()
     {
         Directory.CreateDirectory(_project.BuildDirectory);
-        var previous = Path.Combine(_project.BuildDirectory, "anterior.txt");
+        var previous = Path.Combine(_project.BuildDirectory, PreviousFile);
         File.WriteAllText(previous, "x");
         using var source = new CancellationTokenSource();
         source.Cancel();
@@ -481,13 +485,13 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Nao_altera_a_pasta_do_jogo_nem_o_cache()
     {
         Translate("a001", (0, Hello));
-        var gameBefore = File.ReadAllText(Path.Combine(_game, "a001.fake"));
-        var cacheBefore = File.ReadAllText(Path.Combine(_project.GameCacheDirectory, "pacote.fake", "a001.fake"));
+        var gameBefore = File.ReadAllText(Path.Combine(_game, A001Fake));
+        var cacheBefore = File.ReadAllText(Path.Combine(_project.GameCacheDirectory, PackageFake, A001Fake));
 
         Build();
 
-        Assert.Equal(gameBefore, File.ReadAllText(Path.Combine(_game, "a001.fake")));
-        Assert.Equal(cacheBefore, File.ReadAllText(Path.Combine(_project.GameCacheDirectory, "pacote.fake", "a001.fake")));
+        Assert.Equal(gameBefore, File.ReadAllText(Path.Combine(_game, A001Fake)));
+        Assert.Equal(cacheBefore, File.ReadAllText(Path.Combine(_project.GameCacheDirectory, PackageFake, A001Fake)));
     }
 
     [Fact]
@@ -677,14 +681,14 @@ public sealed class ProjectBuilderTests : IDisposable
 
         public GameUnpackResult Unpack(string gameDir, string destinationDirectory, CancellationToken cancellationToken = default)
         {
-            var archive = Path.Combine(destinationDirectory, "pacote.fake");
+            var archive = Path.Combine(destinationDirectory, PackageFake);
             Directory.CreateDirectory(archive);
             foreach (var file in Directory.EnumerateFiles(gameDir, "*.fake"))
             {
                 File.Copy(file, Path.Combine(archive, Path.GetFileName(file)), overwrite: true);
             }
 
-            return new GameUnpackResult([new UnpackedArchive("pacote.fake", "pacote.fake", 2, 0)]);
+            return new GameUnpackResult([new UnpackedArchive(PackageFake, PackageFake, 2, 0)]);
         }
 
         public UnpackedGame Open(string unpackedDirectory) =>
@@ -705,12 +709,12 @@ public sealed class ProjectBuilderTests : IDisposable
 
             RepackCalls++;
             LastRebuilt = rebuilt;
-            var contents = Directory.EnumerateFiles(Path.Combine(unpackedDirectory, "pacote.fake"))
+            var contents = Directory.EnumerateFiles(Path.Combine(unpackedDirectory, PackageFake))
                 .Order(StringComparer.Ordinal)
                 .Select(f => rebuilt.FirstOrDefault(r => r.Path == f)?.Content ?? File.ReadAllBytes(f))
                 .Select(Encoding.UTF8.GetString);
-            File.WriteAllText(Path.Combine(outputDirectory, "pacote.fake"), string.Join('\u0001', contents));
-            return new GameRepackResult([new RepackedArchive("pacote.fake", rebuilt.Count)]);
+            File.WriteAllText(Path.Combine(outputDirectory, PackageFake), string.Join('\u0001', contents));
+            return new GameRepackResult([new RepackedArchive(PackageFake, rebuilt.Count)]);
         }
     }
 

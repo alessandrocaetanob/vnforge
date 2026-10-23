@@ -6,6 +6,8 @@ namespace VNForge.Core.Tests.Logging;
 
 public sealed class LogDirectoryTests : IDisposable
 {
+    private const string ProjectName = "projeto";
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-tests-" + Guid.NewGuid().ToString("N"));
     private readonly string _user;
 
@@ -32,7 +34,7 @@ public sealed class LogDirectoryTests : IDisposable
     [Fact]
     public void Project_com_vnforge_json_leva_o_log_para_dentro_dele()
     {
-        var project = NewDir("projeto", withProjectFile: true);
+        var project = NewDir(ProjectName, withProjectFile: true);
         var cwd = NewDir("qualquer");
 
         var dir = VNForgeLogging.ResolveLogDirectory(project, cwd, _user);
@@ -44,17 +46,17 @@ public sealed class LogDirectoryTests : IDisposable
     public void Project_relativo_e_resolvido_a_partir_do_diretorio_atual()
     {
         var cwd = NewDir("base");
-        NewDir(Path.Combine("base", "projeto"), withProjectFile: true);
+        NewDir(Path.Combine("base", ProjectName), withProjectFile: true);
 
-        var dir = VNForgeLogging.ResolveLogDirectory("projeto", cwd, _user);
+        var dir = VNForgeLogging.ResolveLogDirectory(ProjectName, cwd, _user);
 
-        Assert.Equal(VNForgeLogging.GetLogDirectory(Path.Combine(cwd, "projeto")), dir);
+        Assert.Equal(VNForgeLogging.GetLogDirectory(Path.Combine(cwd, ProjectName)), dir);
     }
 
     [Fact]
     public void Sem_project_e_com_vnforge_json_no_diretorio_atual_usa_o_diretorio_atual()
     {
-        var cwd = NewDir("projeto");
+        var cwd = NewDir(ProjectName);
         File.WriteAllText(Path.Combine(cwd, "vnforge.json"), "{}");
 
         var dir = VNForgeLogging.ResolveLogDirectory(null, cwd, _user);

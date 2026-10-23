@@ -4,6 +4,11 @@ namespace VNForge.Core.Tests.Logging;
 
 public sealed class ErrorHandlerTests : IDisposable
 {
+    private const string ErrorLiteral = "error";
+    private const string TestMessage = "Teste";
+    private const string BrokenState = "estado quebrado";
+    private const string AYpf = "a.ypf";
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-tests-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -27,7 +32,7 @@ public sealed class ErrorHandlerTests : IDisposable
         using var factory = VNForgeLogging.CreateFactory(_root);
         return ErrorHandler.Execute(
             action,
-            factory.CreateLogger("Teste"),
+            factory.CreateLogger(TestMessage),
             error,
             VNForgeLogging.GetLogDirectory(_root),
             cancellationToken: cancellationToken);
@@ -63,13 +68,13 @@ public sealed class ErrorHandlerTests : IDisposable
     {
         var error = new StringWriter();
 
-        var code = Run(() => throw new InvalidOperationException("estado quebrado"), error);
+        var code = Run(() => throw new InvalidOperationException(BrokenState), error);
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         var text = error.ToString();
         Assert.Contains("Erro inesperado", text);
         Assert.Contains(VNForgeLogging.GetLogDirectory(_root), text);
-        Assert.DoesNotContain("estado quebrado", text);
+        Assert.DoesNotContain(BrokenState, text);
         Assert.DoesNotContain(" at ", text);
 
         var log = ReadLog();
@@ -80,9 +85,9 @@ public sealed class ErrorHandlerTests : IDisposable
     [Fact]
     public void Excecao_do_Core_tambem_fica_no_log()
     {
-        Run(() => throw new InvalidFileException("a.ypf", "truncado"), new StringWriter());
+        Run(() => throw new InvalidFileException(AYpf, "truncado"), new StringWriter());
 
-        Assert.Contains("a.ypf", ReadLog());
+        Assert.Contains(AYpf, ReadLog());
     }
 
     [Fact]
@@ -108,7 +113,7 @@ public sealed class ErrorHandlerTests : IDisposable
                 await Task.Yield();
                 throw new UnknownVersionException("x.ybn", "7");
             },
-            factory.CreateLogger("Teste"),
+            factory.CreateLogger(TestMessage),
             error,
             VNForgeLogging.GetLogDirectory(_root),
             TestContext.Current.CancellationToken);
@@ -124,7 +129,7 @@ public sealed class ErrorHandlerTests : IDisposable
         File.WriteAllText(Path.Combine(_root, ".cache"), "arquivo no lugar da pasta");
         var error = new StringWriter();
 
-        var code = Run(() => throw new InvalidOperationException("estado quebrado"), error);
+        var code = Run(() => throw new InvalidOperationException(BrokenState), error);
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         var text = error.ToString();
@@ -139,7 +144,7 @@ public sealed class ErrorHandlerTests : IDisposable
         var error = new StringWriter();
 
         var code = ErrorHandler.Execute(
-            () => throw new InvalidFileException("a.ypf", "truncado"),
+            () => throw new InvalidFileException(AYpf, "truncado"),
             new ThrowingLogger(),
             error,
             VNForgeLogging.GetLogDirectory(_root),
@@ -155,7 +160,7 @@ public sealed class ErrorHandlerTests : IDisposable
         var error = new StringWriter();
 
         var code = ErrorHandler.Execute(
-            () => throw new InvalidOperationException("estado quebrado"),
+            () => throw new InvalidOperationException(BrokenState),
             new ThrowingLogger(),
             error,
             VNForgeLogging.GetLogDirectory(_root),
@@ -195,7 +200,7 @@ public sealed class ErrorHandlerTests : IDisposable
                 await Task.Delay(Timeout.Infinite, token);
                 return 0;
             },
-            factory.CreateLogger("Teste"),
+            factory.CreateLogger(TestMessage),
             error,
             VNForgeLogging.GetLogDirectory(_root),
             cts.Token);
@@ -222,14 +227,14 @@ public sealed class ErrorHandlerTests : IDisposable
         var error = new StringWriter();
         using var factory = VNForgeLogging.CreateFactory(_root);
         var code = ErrorHandler.Execute(
-            action, factory.CreateLogger("Teste"), error, VNForgeLogging.GetLogDirectory(_root), json, cancellationToken);
+            action, factory.CreateLogger(TestMessage), error, VNForgeLogging.GetLogDirectory(_root), json, cancellationToken);
         return (code, json.ToString(), error.ToString());
     }
 
     [Fact]
     public void Json_de_excecao_do_Core_tem_formato_comum_e_nao_escreve_no_error()
     {
-        var (code, json, error) = RunJson(() => throw new InvalidFileException("a.ypf", "truncado"));
+        var (code, json, error) = RunJson(() => throw new InvalidFileException(AYpf, "truncado"));
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         Assert.Equal(string.Empty, error);
@@ -237,24 +242,24 @@ public sealed class ErrorHandlerTests : IDisposable
         var root = doc.RootElement;
         Assert.False(root.GetProperty("ok").GetBoolean());
         Assert.Equal(1, root.GetProperty("exitCode").GetInt32());
-        Assert.Equal("expected", root.GetProperty("error").GetProperty("kind").GetString());
-        Assert.Equal("O arquivo 'a.ypf' é inválido: truncado", root.GetProperty("error").GetProperty("message").GetString());
+        Assert.Equal("expected", root.GetProperty(ErrorLiteral).GetProperty("kind").GetString());
+        Assert.Equal("O arquivo 'a.ypf' é inválido: truncado", root.GetProperty(ErrorLiteral).GetProperty("message").GetString());
         Assert.DoesNotContain(" at ", json);
     }
 
     [Fact]
     public void Json_de_erro_inesperado_nao_vaza_mensagem_nem_stack_e_aponta_o_log()
     {
-        var (code, json, _) = RunJson(() => throw new InvalidOperationException("estado quebrado"));
+        var (code, json, _) = RunJson(() => throw new InvalidOperationException(BrokenState));
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
-        Assert.DoesNotContain("estado quebrado", json);
+        Assert.DoesNotContain(BrokenState, json);
         Assert.DoesNotContain(" at ", json);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
-        var err = doc.RootElement.GetProperty("error");
+        var err = doc.RootElement.GetProperty(ErrorLiteral);
         Assert.Equal("unexpected", err.GetProperty("kind").GetString());
         Assert.Equal(VNForgeLogging.GetLogDirectory(_root), err.GetProperty("logDirectory").GetString());
-        Assert.Contains("estado quebrado", ReadLog());
+        Assert.Contains(BrokenState, ReadLog());
     }
 
     [Fact]
@@ -266,8 +271,8 @@ public sealed class ErrorHandlerTests : IDisposable
         Assert.Equal(string.Empty, error);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         Assert.Equal(3, doc.RootElement.GetProperty("exitCode").GetInt32());
-        Assert.Equal("cancelled", doc.RootElement.GetProperty("error").GetProperty("kind").GetString());
-        Assert.Equal("Operação cancelada.", doc.RootElement.GetProperty("error").GetProperty("message").GetString());
+        Assert.Equal("cancelled", doc.RootElement.GetProperty(ErrorLiteral).GetProperty("kind").GetString());
+        Assert.Equal("Operação cancelada.", doc.RootElement.GetProperty(ErrorLiteral).GetProperty("message").GetString());
     }
 
     [Fact]
@@ -290,7 +295,7 @@ public sealed class ErrorHandlerTests : IDisposable
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
-        Assert.Equal("unexpected", doc.RootElement.GetProperty("error").GetProperty("kind").GetString());
+        Assert.Equal("unexpected", doc.RootElement.GetProperty(ErrorLiteral).GetProperty("kind").GetString());
     }
 
     private sealed class ThrowingLogger : Microsoft.Extensions.Logging.ILogger

@@ -295,7 +295,7 @@ public partial class YpfArchiveFormatTests
         var script1 = rewritten.Entries.Single(e => e.Path == Key(SyntheticYpfBuilderTests.Script1));
         var image = rewritten.Entries.Single(e => e.Path == Key(SyntheticYpfBuilderTests.Image));
         Assert.False(script1.IsCompressed);
-        Assert.Equal((uint)NewScript1.Length, ((YpfEntry)script1).SizeStored);
+        Assert.Equal((uint)NewScript1.Length, script1.SizeStored);
         Assert.True(image.IsCompressed);
         using var stream = rewritten.OpenEntry(image);
         Assert.Equal(new byte[] { 1, 2, 3 }, ReadAll(stream));

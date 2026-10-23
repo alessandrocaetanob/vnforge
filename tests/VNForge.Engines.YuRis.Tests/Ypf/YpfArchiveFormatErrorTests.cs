@@ -12,19 +12,20 @@ public partial class YpfArchiveFormatTests
     // ---- Vetores de ouro ----
 
     // Os três vetores do SyntheticYpfBuilderTests foram montados fora do gerador: uma entrada "bg\scene_0001.png", conteúdo "ABC".
-    private static void AssertGolden(
-        string hex,
-        uint version,
-        uint headerSize,
-        bool includesHeader,
-        YpfHashAlgorithm nameHash,
-        YpfHashAlgorithm dataHash,
-        YpfOffsetSize offsetSize,
-        YpfSwapTable swapTable,
-        byte nameXor,
-        uint expectedNameHash,
-        uint expectedDataHash,
-        ulong expectedOffset)
+    private readonly record struct GoldenVector(
+        uint Version,
+        uint HeaderSize,
+        bool IncludesHeader,
+        YpfHashAlgorithm NameHash,
+        YpfHashAlgorithm DataHash,
+        YpfOffsetSize OffsetSize,
+        YpfSwapTable SwapTable,
+        byte NameXor,
+        uint ExpectedNameHash,
+        uint ExpectedDataHash,
+        ulong ExpectedOffset);
+
+    private static void AssertGolden(string hex, GoldenVector golden)
     {
         using var archive = Open(Convert.FromHexString(hex));
 
@@ -34,56 +35,60 @@ public partial class YpfArchiveFormatTests
         Assert.False(entry.IsCompressed);
         Assert.Equal((byte)2, entry.FileType);
         Assert.Equal(3u, entry.SizeStored);
-        Assert.Equal(expectedOffset, entry.Offset);
-        Assert.Equal(expectedNameHash, entry.NameHash);
-        Assert.Equal(expectedDataHash, entry.DataHash);
-        Assert.Equal(new YpfHeader(version, 1, headerSize, new byte[YpfHeader.PaddingSize]), archive.Header);
-        Assert.Equal(includesHeader, archive.Parameters.HeaderSizeIncludesHeader);
-        Assert.Equal(nameHash, archive.Parameters.NameHash);
-        Assert.Equal(dataHash, archive.Parameters.DataHash);
-        Assert.Equal(offsetSize, archive.Parameters.OffsetSize);
-        Assert.Equal(nameXor, archive.Parameters.NameXor);
-        Assert.Equal(swapTable, entry.SwapTable);
+        Assert.Equal(golden.ExpectedOffset, entry.Offset);
+        Assert.Equal(golden.ExpectedNameHash, entry.NameHash);
+        Assert.Equal(golden.ExpectedDataHash, entry.DataHash);
+        Assert.Equal(new YpfHeader(golden.Version, 1, golden.HeaderSize, new byte[YpfHeader.PaddingSize]), archive.Header);
+        Assert.Equal(golden.IncludesHeader, archive.Parameters.HeaderSizeIncludesHeader);
+        Assert.Equal(golden.NameHash, archive.Parameters.NameHash);
+        Assert.Equal(golden.DataHash, archive.Parameters.DataHash);
+        Assert.Equal(golden.OffsetSize, archive.Parameters.OffsetSize);
+        Assert.Equal(golden.NameXor, archive.Parameters.NameXor);
+        Assert.Equal(golden.SwapTable, entry.SwapTable);
     }
 
     [Fact]
     public void Open_VetorDeOuroV200()
     {
         AssertGolden(
-            SyntheticYpfBuilderTests.GoldenV200, 200, 0x28, false,
-            YpfHashAlgorithm.Adler32, YpfHashAlgorithm.Adler32, YpfOffsetSize.Bits32, YpfSwapTable.Standard,
-            0xFF, 0x36A705C7, 0x018D00C7, 0x48);
+            SyntheticYpfBuilderTests.GoldenV200,
+            new GoldenVector(
+                200, 0x28, false,
+                YpfHashAlgorithm.Adler32, YpfHashAlgorithm.Adler32, YpfOffsetSize.Bits32, YpfSwapTable.Standard,
+                0xFF, 0x36A705C7, 0x018D00C7, 0x48));
     }
 
     [Fact]
     public void Open_VetorDeOuroV300()
     {
         AssertGolden(
-            SyntheticYpfBuilderTests.GoldenV300, 300, 0x48, true,
-            YpfHashAlgorithm.Crc32, YpfHashAlgorithm.Adler32, YpfOffsetSize.Bits32, YpfSwapTable.Standard,
-            0xFF, 0xE582ABD0, 0x018D00C7, 0x48);
+            SyntheticYpfBuilderTests.GoldenV300,
+            new GoldenVector(
+                300, 0x48, true,
+                YpfHashAlgorithm.Crc32, YpfHashAlgorithm.Adler32, YpfOffsetSize.Bits32, YpfSwapTable.Standard,
+                0xFF, 0xE582ABD0, 0x018D00C7, 0x48));
     }
 
     [Fact]
     public void Open_VetorDeOuroV500()
     {
         AssertGolden(
-            SyntheticYpfBuilderTests.GoldenV500, 500, 0x4C, true,
-            YpfHashAlgorithm.MurmurHash2, YpfHashAlgorithm.MurmurHash2, YpfOffsetSize.Bits64, YpfSwapTable.V500,
-            0xC9, 0xE099F84B, 0xFD17A8FF, 0x4C);
+            SyntheticYpfBuilderTests.GoldenV500,
+            new GoldenVector(
+                500, 0x4C, true,
+                YpfHashAlgorithm.MurmurHash2, YpfHashAlgorithm.MurmurHash2, YpfOffsetSize.Bits64, YpfSwapTable.V500,
+                0xC9, 0xE099F84B, 0xFD17A8FF, 0x4C));
     }
 
     // ---- Erros ----
 
-    private static InvalidFileException AssertInvalid(byte[] bytes, params string[] expectedFragments)
+    private static void AssertInvalid(byte[] bytes, params string[] expectedFragments)
     {
         var ex = Assert.Throws<InvalidFileException>(() => Open(bytes));
         foreach (var fragment in expectedFragments)
         {
             Assert.Contains(fragment, ex.Message);
         }
-
-        return ex;
     }
 
     [Theory]
@@ -318,7 +323,9 @@ public partial class YpfArchiveFormatTests
         var archive = Format.Open(stream);
 
         archive.Dispose();
+#pragma warning disable S3966 // o teste verifica justamente que um segundo Dispose é inofensivo
         archive.Dispose();
+#pragma warning restore S3966
 
         Assert.False(stream.CanRead);
     }

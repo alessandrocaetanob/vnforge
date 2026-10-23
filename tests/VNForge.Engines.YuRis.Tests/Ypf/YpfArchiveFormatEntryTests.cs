@@ -6,6 +6,8 @@ namespace VNForge.Engines.YuRis.Tests.Ypf;
 
 public partial class YpfArchiveFormatTests
 {
+    private const string AYbn = "a.ybn";
+
     private static byte[] ReadAll(Stream stream)
     {
         using var buffer = new MemoryStream();
@@ -58,7 +60,7 @@ public partial class YpfArchiveFormatTests
     public void OpenEntry_ExtraiEntradaComprimidaQueNaoEncolheuQuandoForcada()
     {
         byte[] content = [7, 8, 9];
-        var ypf = new SyntheticYpfBuilder(500).AddFile("a.ybn", content, forceCompression: true).Build();
+        var ypf = new SyntheticYpfBuilder(500).AddFile(AYbn, content, forceCompression: true).Build();
         using var archive = Open(ypf.Bytes);
 
         Assert.True(archive.Entries[0].IsCompressed);
@@ -187,10 +189,10 @@ public partial class YpfArchiveFormatTests
     public void OpenEntry_FluxoZlibTruncadoLancaMesmoSemHashConfirmado(uint missing)
     {
         var ypf = new SyntheticYpfBuilder(500)
-            .AddFile("a.ybn", SyntheticYpfBuilderTests.Repetitive, compress: true)
+            .AddFile(AYbn, SyntheticYpfBuilderTests.Repetitive, compress: true)
             .Build();
         var entry = ypf.Entries[0];
-        using var archive = Open(ypf.WithStoredSize("a.ybn", entry.SizeStored - missing));
+        using var archive = Open(ypf.WithStoredSize(AYbn, entry.SizeStored - missing));
 
         Assert.False(archive.Parameters.DataHashVerified);
         Assert.Throws<InvalidDataException>(() => archive.OpenEntry(archive.Entries[0]));
@@ -201,7 +203,7 @@ public partial class YpfArchiveFormatTests
 
     private static (SyntheticYpf Ypf, SyntheticYpfEntry Entry) SingleCompressed(SyntheticYpfBuilder builder)
     {
-        var ypf = builder.AddFile("a.ybn", SyntheticYpfBuilderTests.Repetitive, compress: true).Build();
+        var ypf = builder.AddFile(AYbn, SyntheticYpfBuilderTests.Repetitive, compress: true).Build();
         return (ypf, ypf.Entries[0]);
     }
 
@@ -211,7 +213,7 @@ public partial class YpfArchiveFormatTests
     public void OpenEntry_BytesDePreenchimentoDepoisDoFluxoZlibSaoTolerados(int padding)
     {
         var (ypf, entry) = SingleCompressed();
-        var bytes = ypf.WithStoredSize("a.ybn", entry.SizeStored + (uint)padding).Concat(new byte[padding]).ToArray();
+        var bytes = ypf.WithStoredSize(AYbn, entry.SizeStored + (uint)padding).Concat(new byte[padding]).ToArray();
         using var archive = Open(bytes);
 
         Assert.False(archive.Parameters.DataHashVerified);
@@ -230,7 +232,7 @@ public partial class YpfArchiveFormatTests
 
         var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(archive.Entries[0]));
 
-        Assert.Contains("a.ybn", ex.Message);
+        Assert.Contains(AYbn, ex.Message);
         Assert.Contains("Adler-32", ex.Message);
     }
 
@@ -253,7 +255,7 @@ public partial class YpfArchiveFormatTests
     public void OpenEntry_TamanhoDescomprimidoImpossivelParaOsBytesComprimidosLanca()
     {
         var (ypf, entry) = SingleCompressed();
-        using var archive = Open(ypf.WithUncompressedSize("a.ybn", (uint)((long)entry.SizeStored * 1032 + 1)));
+        using var archive = Open(ypf.WithUncompressedSize(AYbn, (uint)((long)entry.SizeStored * 1032 + 1)));
 
         var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(archive.Entries[0]));
 
@@ -264,7 +266,7 @@ public partial class YpfArchiveFormatTests
     public void OpenEntry_TamanhoAcimaDe2GiBLancaNotSupported()
     {
         var (ypf, _) = SingleCompressed();
-        using var archive = Open(ypf.WithUncompressedSize("a.ybn", 0x9000_0000));
+        using var archive = Open(ypf.WithUncompressedSize(AYbn, 0x9000_0000));
 
         Assert.Throws<NotSupportedException>(() => archive.OpenEntry(archive.Entries[0]));
     }

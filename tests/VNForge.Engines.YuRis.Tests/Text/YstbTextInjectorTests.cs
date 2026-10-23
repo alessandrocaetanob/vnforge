@@ -22,7 +22,7 @@ public class YstbTextInjectorTests
 
     private static SyntheticYstbBuilder NewBuilder() => new(Yscm);
 
-    private static string Id(int instruction, int argument = 0) => $"yst00001:{(instruction * 256) + argument:D6}";
+    private static string UnitId(int instruction, int argument = 0) => $"yst00001:{(instruction * 256) + argument:D6}";
 
     private sealed record Loaded(ScriptFile File, YstbFile Script, ScriptExtraction Extraction);
 
@@ -103,7 +103,7 @@ public class YstbTextInjectorTests
     public void Inject_UmaLinhaTrocada_OsOutrosArgumentosSaemIdenticosEALinhaNovaELidaDeVolta()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(5), "「ただいま、みんな」");
+        var unit = Translate(loaded, UnitId(5), "「ただいま、みんな」");
 
         var rewritten = Inject(loaded, unit);
         var reloaded = Load(rewritten);
@@ -120,11 +120,11 @@ public class YstbTextInjectorTests
     public void Inject_MensagemDeVariosWord_TraducaoInteiraNoPrimeiroEOsOutrosVazios()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(0), "A long line, now in one piece.");
+        var unit = Translate(loaded, UnitId(0), "A long line, now in one piece.");
 
         var reloaded = Load(Inject(loaded, unit));
 
-        var read = reloaded.Extraction.Units.Single(u => u.Id == Id(0));
+        var read = reloaded.Extraction.Units.Single(u => u.Id == UnitId(0));
         Assert.Equal("A long line, now in one piece.", read.Source);
         Assert.Equal(1, read.Locator!.Value.GetProperty("parts").GetArrayLength());
         Assert.Equal(
@@ -138,11 +138,11 @@ public class YstbTextInjectorTests
     public void Inject_Dialogo_VoltaOFalanteEAsAspasJaponesas()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(0), "Hello there.");
+        var unit = Translate(loaded, UnitId(0), "Hello there.");
 
         var reloaded = Load(Inject(loaded, unit));
 
-        var read = reloaded.Extraction.Units.Single(u => u.Id == Id(0));
+        var read = reloaded.Extraction.Units.Single(u => u.Id == UnitId(0));
         Assert.Equal(("美咲", "Hello there.", TextUnitKind.Dialogue), (read.Speaker, read.Source, read.Kind));
         var raw = reloaded.Script.GetResource(reloaded.Script.Instructions[0].Arguments[0]).ToArray();
         Assert.Equal(GameEncodings.ShiftJis.GetBytes("美咲「Hello there.」"), raw);
@@ -152,9 +152,9 @@ public class YstbTextInjectorTests
     public void Inject_FalanteComParenteses_MantemOsParentesesDaTraducao()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(7), "（Tired.）");
+        var unit = Translate(loaded, UnitId(7), "（Tired.）");
 
-        var read = Load(Inject(loaded, unit)).Extraction.Units.Single(u => u.Id == Id(7));
+        var read = Load(Inject(loaded, unit)).Extraction.Units.Single(u => u.Id == UnitId(7));
 
         Assert.Equal(("美咲", "（Tired.）"), (read.Speaker, read.Source));
     }
@@ -163,7 +163,7 @@ public class YstbTextInjectorTests
     public void Inject_FalanteTraduzidoNaUnidade_ValeOdaUnidade()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(0), "Hello.") with { Speaker = "Misaki" };
+        var unit = Translate(loaded, UnitId(0), "Hello.") with { Speaker = "Misaki" };
 
         var raw = Inject(loaded, unit);
         var reloaded = Load(raw);
@@ -178,11 +178,11 @@ public class YstbTextInjectorTests
     {
         var loaded = Load(FullScript());
         const string translation = "Wind blew.\\nStill.\\p{EF:F8}Next \\\\ \\{x}";
-        var unit = Translate(loaded, Id(3), translation);
+        var unit = Translate(loaded, UnitId(3), translation);
 
         var reloaded = Load(Inject(loaded, unit));
 
-        Assert.Equal(translation, reloaded.Extraction.Units.Single(u => u.Id == Id(3)).Source);
+        Assert.Equal(translation, reloaded.Extraction.Units.Single(u => u.Id == UnitId(3)).Source);
         var raw = reloaded.Script.GetResource(reloaded.Script.Instructions[3].Arguments[0]).ToArray();
         Assert.Equal(
             [.. "Wind blew."u8.ToArray(), 0xEF, 0xF0, .. "Still."u8.ToArray(), 0xEF, 0xF2, 0xEF, 0xF8, .. "Next \\ {x}"u8.ToArray()],
@@ -193,12 +193,12 @@ public class YstbTextInjectorTests
     public void Inject_StringDeExpressao_MantemODelimitadorEORotuloDoGosub()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(8, 1), "Yes");
+        var unit = Translate(loaded, UnitId(8, 1), "Yes");
 
         var reloaded = Load(Inject(loaded, unit));
 
-        Assert.Equal(TextUnitKind.Choice, reloaded.Extraction.Units.Single(u => u.Id == Id(8, 1)).Kind);
-        Assert.Equal("Yes", reloaded.Extraction.Units.Single(u => u.Id == Id(8, 1)).Source);
+        Assert.Equal(TextUnitKind.Choice, reloaded.Extraction.Units.Single(u => u.Id == UnitId(8, 1)).Kind);
+        Assert.Equal("Yes", reloaded.Extraction.Units.Single(u => u.Id == UnitId(8, 1)).Source);
         var expression = reloaded.Script.GetResource(reloaded.Script.Instructions[8].Arguments[1]).ToArray();
         Assert.Equal([0x4D, 5, 0, (byte)'"', (byte)'Y', (byte)'e', (byte)'s', (byte)'"'], expression);
         AssertOnlyArgumentsChanged(loaded.Script, reloaded.Script, loaded.Script.Instructions[8].FirstArgumentIndex + 1);
@@ -208,11 +208,11 @@ public class YstbTextInjectorTests
     public void Inject_StringComAspas_UsaCrase()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(10), "He said \"hi\" 訳");
+        var unit = Translate(loaded, UnitId(10), "He said \"hi\" 訳");
 
         var reloaded = Load(Inject(loaded, unit));
 
-        Assert.Equal("He said \"hi\" 訳", reloaded.Extraction.Units.Single(u => u.Id == Id(10)).Source);
+        Assert.Equal("He said \"hi\" 訳", reloaded.Extraction.Units.Single(u => u.Id == UnitId(10)).Source);
         var expression = reloaded.Script.GetResource(reloaded.Script.Instructions[10].Arguments[0]).ToArray();
         Assert.Equal(((byte)'`', (byte)'`'), (expression[3], expression[^1]));
     }
@@ -221,11 +221,11 @@ public class YstbTextInjectorTests
     public void Inject_ApostrofoNumaStringComAspasDuplas_TrocaODelimitadorPorCrase()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(12), "it's \"x\" 訳");
+        var unit = Translate(loaded, UnitId(12), "it's \"x\" 訳");
 
         var reloaded = Load(Inject(loaded, unit));
 
-        Assert.Equal("it's \"x\" 訳", reloaded.Extraction.Units.Single(u => u.Id == Id(12)).Source);
+        Assert.Equal("it's \"x\" 訳", reloaded.Extraction.Units.Single(u => u.Id == UnitId(12)).Source);
         var expression = reloaded.Script.GetResource(reloaded.Script.Instructions[12].Arguments[0]).ToArray();
         Assert.Equal((byte)'`', expression[3]);
     }
@@ -234,7 +234,7 @@ public class YstbTextInjectorTests
     public void Inject_ApostrofoNumaStringComAspasDuplas_MantemAsAspasQuandoCabe()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(12), "it's 訳");
+        var unit = Translate(loaded, UnitId(12), "it's 訳");
 
         var reloaded = Load(Inject(loaded, unit));
 
@@ -246,13 +246,13 @@ public class YstbTextInjectorTests
     public void Inject_QuebraDeLinhaBarraETabulacao_ViramEscapesDeExpressao()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(10), "A\\nB\\\\C\t訳");
+        var unit = Translate(loaded, UnitId(10), "A\\nB\\\\C\t訳");
 
         var reloaded = Load(Inject(loaded, unit));
 
         var expression = reloaded.Script.GetResource(reloaded.Script.Instructions[10].Arguments[0]).ToArray();
         Assert.Equal(GameEncodings.ShiftJis.GetBytes("\"A\\nB\\\\C\\t訳\""), expression[3..]);
-        Assert.Equal("A\\nB\\\\C\t訳", reloaded.Extraction.Units.Single(u => u.Id == Id(10)).Source);
+        Assert.Equal("A\\nB\\\\C\t訳", reloaded.Extraction.Units.Single(u => u.Id == UnitId(10)).Source);
     }
 
     [Fact]
@@ -262,9 +262,9 @@ public class YstbTextInjectorTests
         builder.AddCommand("WAIT", 1, builder.StringExpression("あ"));
         var loaded = Load(builder);
 
-        var reloaded = Load(Inject(loaded, Translate(loaded, Id(0), "ソース")));
+        var reloaded = Load(Inject(loaded, Translate(loaded, UnitId(0), "ソース")));
 
-        Assert.Equal("ソース", reloaded.Extraction.Units.Single(u => u.Id == Id(0)).Source);
+        Assert.Equal("ソース", reloaded.Extraction.Units.Single(u => u.Id == UnitId(0)).Source);
         var expression = reloaded.Script.GetResource(reloaded.Script.Instructions[0].Arguments[0]).ToArray();
         Assert.Equal(GameEncodings.ShiftJis.GetBytes("\"ソース\""), expression[3..]);
     }
@@ -273,18 +273,18 @@ public class YstbTextInjectorTests
     public void Inject_AspasDuplasCraseEApostrofoJuntos_FalhaSemTrocarNada()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(10), "a\"b`c'd");
+        var unit = Translate(loaded, UnitId(10), "a\"b`c'd");
 
         var error = Assert.Throws<ArgumentException>(() => Inject(loaded, unit));
 
-        Assert.Contains(Id(10), error.Message);
+        Assert.Contains(UnitId(10), error.Message);
     }
 
     [Fact]
     public void Inject_TraducaoQuePassaDoLimiteDeUmaStringDeExpressao_Falha()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(10), new string('あ', 40000));
+        var unit = Translate(loaded, UnitId(10), new string('あ', 40000));
 
         var error = Assert.Throws<ArgumentException>(() => Inject(loaded, unit));
 
@@ -295,12 +295,12 @@ public class YstbTextInjectorTests
     public void Inject_CaractereQueOShiftJisNaoRepresenta_FalhaCitandoAUnidade()
     {
         var loaded = Load(FullScript());
-        var ok = Translate(loaded, Id(5), "「ただいま、みんな」");
-        var bad = Translate(loaded, Id(3), "ação");
+        var ok = Translate(loaded, UnitId(5), "「ただいま、みんな」");
+        var bad = Translate(loaded, UnitId(3), "ação");
 
         var error = Assert.Throws<EncoderFallbackException>(() => Inject(loaded, ok, bad));
 
-        Assert.Contains(Id(3), error.Message);
+        Assert.Contains(UnitId(3), error.Message);
         Assert.NotNull(error.InnerException);
     }
 
@@ -308,11 +308,11 @@ public class YstbTextInjectorTests
     public void Inject_MarcadorInvalido_FalhaCitandoAUnidade()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(5), "oi \\x");
+        var unit = Translate(loaded, UnitId(5), "oi \\x");
 
         var error = Assert.Throws<FormatException>(() => Inject(loaded, unit));
 
-        Assert.Contains(Id(5), error.Message);
+        Assert.Contains(UnitId(5), error.Message);
     }
 
     [Fact]
@@ -320,7 +320,7 @@ public class YstbTextInjectorTests
     {
         var built = FullScript().Build();
         var loaded = Load(built.Bytes);
-        var unit = Translate(loaded, Id(5), "qualquer coisa");
+        var unit = Translate(loaded, UnitId(5), "qualquer coisa");
         var original = GameEncodings.ShiftJis.GetBytes("「ただいま」");
 
         var rewritten = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], new FixedEncoder(original));
@@ -337,7 +337,7 @@ public class YstbTextInjectorTests
         builder.AddCommand("GOSUB", 1, builder.StringExpression("ES.SEL.SET"), builder.ResourceArgument(expression));
         var built = builder.Build();
         var loaded = Load(built.Bytes);
-        var unit = Translate(loaded, Id(0, 1), "qualquer coisa");
+        var unit = Translate(loaded, UnitId(0, 1), "qualquer coisa");
 
         var rewritten = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], new FixedEncoder(inner));
 
@@ -348,9 +348,9 @@ public class YstbTextInjectorTests
     public void Inject_QualquerOrdemEUmSubconjunto_DaOMesmoResultado()
     {
         var loaded = Load(FullScript());
-        var a = Translate(loaded, Id(5), "「やあ」");
-        var b = Translate(loaded, Id(9, 1), "Name");
-        var c = Translate(loaded, Id(0), "Hi.");
+        var a = Translate(loaded, UnitId(5), "「やあ」");
+        var b = Translate(loaded, UnitId(9, 1), "Name");
+        var c = Translate(loaded, UnitId(0), "Hi.");
 
         Assert.Equal(Inject(loaded, a, b, c), Inject(loaded, c, a, b));
         Assert.NotEqual(Inject(loaded, a, b, c), Inject(loaded, a, b));
@@ -363,7 +363,7 @@ public class YstbTextInjectorTests
         var snapshot = built.Bytes.ToArray();
         var loaded = Load(built.Bytes);
 
-        _ = Inject(loaded, Translate(loaded, Id(5), "「やあ」"));
+        _ = Inject(loaded, Translate(loaded, UnitId(5), "「やあ」"));
 
         Assert.Equal(snapshot, built.Bytes);
         Assert.Equal(snapshot, loaded.File.Content.ToArray());
@@ -377,7 +377,7 @@ public class YstbTextInjectorTests
         builder.AddWord("あ", 2);
         var loaded = Load(builder);
 
-        var reloaded = Load(Inject(loaded, Translate(loaded, Id(1), "A")));
+        var reloaded = Load(Inject(loaded, Translate(loaded, UnitId(1), "A")));
 
         Assert.Equal(0x12345678u, reloaded.Script.Key);
         Assert.Equal("A", reloaded.Extraction.Units.Single().Source);
@@ -387,19 +387,19 @@ public class YstbTextInjectorTests
     public void Inject_UnidadeSemLocator_FalhaCitandoAUnidade()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(5), "x");
+        var unit = Translate(loaded, UnitId(5), "x");
         unit = unit with { Locator = null };
 
         var error = Assert.Throws<InvalidDataException>(() => Inject(loaded, unit));
 
-        Assert.Contains(Id(5), error.Message);
+        Assert.Contains(UnitId(5), error.Message);
     }
 
     [Fact]
     public void Inject_LocatorDeOutraVersao_Falha()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(5), "x");
+        var unit = Translate(loaded, UnitId(5), "x");
         unit = unit with { Locator = Json("""{ "version": 2, "command": "WORD", "parts": [] }""") };
 
         Assert.Throws<InvalidDataException>(() => Inject(loaded, unit));
@@ -415,11 +415,11 @@ public class YstbTextInjectorTests
     public void Inject_LocatorMalFormadoOuQueNaoCasaComOScript_Falha(string locator)
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(5), "x") with { Locator = Json(locator) };
+        var unit = Translate(loaded, UnitId(5), "x") with { Locator = Json(locator) };
 
         var error = Assert.Throws<InvalidDataException>(() => Inject(loaded, unit));
 
-        Assert.Contains(Id(5), error.Message);
+        Assert.Contains(UnitId(5), error.Message);
     }
 
     [Fact]
@@ -427,18 +427,18 @@ public class YstbTextInjectorTests
     {
         var loaded = Load(FullScript());
         var other = Load(NewBuilder().AddWord("あ", 1).AddWord("い", 2).AddReturnCode(0, 3).AddWord("「ただいま」", 4).AddWord("う", 5).AddWord("え", 6).AddWord("お", 7));
-        var unit = Translate(loaded, Id(5), "x");
+        var unit = Translate(loaded, UnitId(5), "x");
 
         var error = Assert.Throws<InvalidDataException>(() => YstbTextInjector.Inject(loaded.File, other.Script, [unit], Encoder));
 
-        Assert.Contains(Id(5), error.Message);
+        Assert.Contains(UnitId(5), error.Message);
     }
 
     [Fact]
     public void Inject_SourceDiferenteDoTextoDoScript_Falha()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(5), "x") with { Source = "「ちがう」" };
+        var unit = Translate(loaded, UnitId(5), "x") with { Source = "「ちがう」" };
 
         var error = Assert.Throws<InvalidDataException>(() => Inject(loaded, unit));
 
@@ -449,7 +449,7 @@ public class YstbTextInjectorTests
     public void Inject_SourceDeStringDeExpressaoDiferenteDoScript_Falha()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(10), "x") with { Source = "別の" };
+        var unit = Translate(loaded, UnitId(10), "x") with { Source = "別の" };
 
         Assert.Throws<InvalidDataException>(() => Inject(loaded, unit));
     }
@@ -468,7 +468,7 @@ public class YstbTextInjectorTests
     public void Inject_IdDeOutroScriptOuRepetido_Falha()
     {
         var loaded = Load(FullScript());
-        var unit = Translate(loaded, Id(5), "x");
+        var unit = Translate(loaded, UnitId(5), "x");
 
         Assert.Throws<ArgumentException>(() => Inject(loaded, unit with { Id = "yst99999:000001" }));
         Assert.Throws<ArgumentException>(() => Inject(loaded, unit, unit));
@@ -478,8 +478,8 @@ public class YstbTextInjectorTests
     public void Inject_DuasUnidadesNoMesmoArgumento_Falha()
     {
         var loaded = Load(FullScript());
-        var a = Translate(loaded, Id(5), "a");
-        var b = a with { Id = Id(5, 1) };
+        var a = Translate(loaded, UnitId(5), "a");
+        var b = a with { Id = UnitId(5, 1) };
 
         Assert.Throws<InvalidDataException>(() => Inject(loaded, a, b));
     }

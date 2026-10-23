@@ -7,9 +7,12 @@ namespace VNForge.Engines.YuRis.Tests.Ystl;
 
 public class YstlReaderTests
 {
+    private const string ChapterTwoPath = @"userscript\02_capitulo.yst";
+    private const string AYst = "a.yst";
+
     private const string Source = "yst_list.ybn";
 
-    // Montado à mão, fora do gerador: v500, um script "a.yst", FILETIME 1, 2 variáveis, 3 rótulos, 4 textos.
+    // Montado à mão, fora do gerador: v500, um script AYst, FILETIME 1, 2 variáveis, 3 rótulos, 4 textos.
     private const string GoldenHex =
         "5953544C" + "F4010000" + "01000000"
         + "00000000" + "05000000" + "612E797374" + "0100000000000000" + "02000000" + "03000000" + "04000000";
@@ -20,7 +23,7 @@ public class YstlReaderTests
 
     private static SyntheticYstlBuilder TwoScripts() => new SyntheticYstlBuilder()
         .AddScript(new SyntheticYstlScript(@"userscript\01_prologo.yst", VariableCount: 5, LabelCount: 7, TextCount: 120))
-        .AddScript(new SyntheticYstlScript(@"userscript\02_capitulo.yst", VariableCount: 1, LabelCount: 0, TextCount: 4));
+        .AddScript(new SyntheticYstlScript(ChapterTwoPath, VariableCount: 1, LabelCount: 0, TextCount: 4));
 
     [Fact]
     public void Read_VetorDeOuro()
@@ -30,7 +33,7 @@ public class YstlReaderTests
         Assert.Equal(500u, file.Version);
         Assert.True(file.HasTextCount);
         var script = Assert.Single(file.Scripts);
-        Assert.Equal(new YstlScript(0, "a.yst", 1, 2, 3, 4), script);
+        Assert.Equal(new YstlScript(0, AYst, 1, 2, 3, 4), script);
     }
 
     [Fact]
@@ -82,7 +85,7 @@ public class YstlReaderTests
     [Fact]
     public void ModifiedUtc_ConverteOFileTime()
     {
-        var ystl = new SyntheticYstlBuilder().AddScript("a.yst").Build();
+        var ystl = new SyntheticYstlBuilder().AddScript(AYst).Build();
 
         var script = Assert.Single(Read(ystl.Bytes).Scripts);
 
@@ -92,7 +95,7 @@ public class YstlReaderTests
     [Fact]
     public void ModifiedUtc_ForaDoIntervalo_ENulo()
     {
-        var script = new YstlScript(0, "a.yst", ulong.MaxValue, 0, 0, null);
+        var script = new YstlScript(0, AYst, ulong.MaxValue, 0, 0, null);
 
         Assert.Null(script.ModifiedUtc);
     }
@@ -115,9 +118,9 @@ public class YstlReaderTests
     [Fact]
     public void BinaryFileName_TemCincoDigitos()
     {
-        Assert.Equal("yst00000.ybn", new YstlScript(0, "a.yst", 0, 0, 0, null).BinaryFileName);
-        Assert.Equal("yst00123.ybn", new YstlScript(123, "a.yst", 0, 0, 0, null).BinaryFileName);
-        Assert.Equal("yst123456.ybn", new YstlScript(123456, "a.yst", 0, 0, 0, null).BinaryFileName);
+        Assert.Equal("yst00000.ybn", new YstlScript(0, AYst, 0, 0, 0, null).BinaryFileName);
+        Assert.Equal("yst00123.ybn", new YstlScript(123, AYst, 0, 0, 0, null).BinaryFileName);
+        Assert.Equal("yst123456.ybn", new YstlScript(123456, AYst, 0, 0, 0, null).BinaryFileName);
     }
 
     [Fact]
@@ -126,7 +129,7 @@ public class YstlReaderTests
         var file = Read(TwoScripts().Build().Bytes);
 
         Assert.True(file.TryGetByBinaryName("yst00001.ybn", out var script));
-        Assert.Equal(@"userscript\02_capitulo.yst", script.Path);
+        Assert.Equal(ChapterTwoPath, script.Path);
         Assert.True(file.TryGetByBinaryName("YST00000.YBN", out script));
         Assert.Equal("01_prologo", script.ReadableName);
         Assert.True(file.TryGetByBinaryName("yst1.ybn", out script));
@@ -234,7 +237,7 @@ public class YstlReaderTests
             Assert.Equal(writesTextCount, file.HasTextCount);
             Assert.Equal(writesTextCount ? 120u : null, file.Scripts[0].TextCount);
             Assert.Equal(7u, file.Scripts[0].LabelCount);
-            Assert.Equal(@"userscript\02_capitulo.yst", file.Scripts[1].Path);
+            Assert.Equal(ChapterTwoPath, file.Scripts[1].Path);
         }
     }
 
@@ -249,7 +252,7 @@ public class YstlReaderTests
 
         Assert.Equal(writesTextCount, file.HasTextCount);
         Assert.Equal(2, file.Scripts.Count);
-        Assert.Equal(@"userscript\02_capitulo.yst", file.Scripts[1].Path);
+        Assert.Equal(ChapterTwoPath, file.Scripts[1].Path);
     }
 
     // ---- Arquivo inválido ----
@@ -332,7 +335,7 @@ public class YstlReaderTests
     [Fact]
     public void Read_CaminhoMaiorQueOArquivo_Erro()
     {
-        var bytes = new SyntheticYstlBuilder().AddScript("a.yst").Build().Bytes;
+        var bytes = new SyntheticYstlBuilder().AddScript(AYst).Build().Bytes;
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), uint.MaxValue);
 
         var error = ReadFails(bytes);

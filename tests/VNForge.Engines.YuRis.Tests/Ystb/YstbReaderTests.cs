@@ -10,6 +10,9 @@ namespace VNForge.Engines.YuRis.Tests.Ystb;
 
 public class YstbReaderTests
 {
+    private const string ResourcesDir = "recursos";
+    private const string ReturnCodeCommand = "RETURNCODE";
+
     private const string Source = "yst00001.ybn";
 
     // Montado à mão, fora do gerador, sobre o YSCM de WithTextCommands (WORD = 6, RETURNCODE = 7), v500, chave 0xD36FAC96.
@@ -67,7 +70,7 @@ public class YstbReaderTests
             returnCode =>
             {
                 Assert.Equal((byte)7, returnCode.Opcode);
-                Assert.Equal("RETURNCODE", returnCode.CommandName);
+                Assert.Equal(ReturnCodeCommand, returnCode.CommandName);
                 Assert.Equal(2u, returnCode.LineNumber);
                 Assert.Equal(1, returnCode.FirstArgumentIndex);
                 Assert.Equal(new YstbArgument(0, 1, 0, 5, 0), Assert.Single(returnCode.Arguments));
@@ -122,7 +125,7 @@ public class YstbReaderTests
     {
         var script = NewBuilder()
             .WithKey(key)
-            .AddCommand("RETURNCODE", 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x01020304))
+            .AddCommand(ReturnCodeCommand, 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x01020304))
             .AddWord("テキスト", 2)
             .Build();
 
@@ -140,7 +143,7 @@ public class YstbReaderTests
         // (RETURNCODE não é conferido), a derivada passaria; só a ordem "conhecidas antes" devolve a chave real.
         var script = NewBuilder()
             .WithKey(0xD36FAC96)
-            .AddCommand("RETURNCODE", 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x00010000))
+            .AddCommand(ReturnCodeCommand, 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x00010000))
             .AddReturnCode(4, 2)
             .Build();
 
@@ -159,7 +162,7 @@ public class YstbReaderTests
         var error = ReadFails(script.Bytes);
 
         Assert.Contains("do comando _", error.Reason);
-        Assert.Contains("recursos", error.Reason);
+        Assert.Contains(ResourcesDir, error.Reason);
     }
 
     [Fact]
@@ -230,7 +233,7 @@ public class YstbReaderTests
     {
         var script = NewBuilder()
             .WithKey(0x5A17C3E9)
-            .AddCommand("RETURNCODE", 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x01020304))
+            .AddCommand(ReturnCodeCommand, 1, new SyntheticYstbArgument(0, 1, 0, 3, 0x01020304))
             .AddWord("テキスト", 2)
             .Build();
 
@@ -331,7 +334,7 @@ public class YstbReaderTests
         var returnCode = file.Instructions[1].Arguments[0];
         Assert.Equal(0xFFFFFF00u, returnCode.Offset);
         var error = Assert.Throws<InvalidFileException>(() => file.GetResource(returnCode));
-        Assert.Contains("recursos", error.Reason);
+        Assert.Contains(ResourcesDir, error.Reason);
     }
 
     [Fact]
@@ -532,7 +535,7 @@ public class YstbReaderTests
         var error = ReadFails(script.Bytes);
 
         Assert.Contains("WORD", error.Reason);
-        Assert.Contains("recursos", error.Reason);
+        Assert.Contains(ResourcesDir, error.Reason);
     }
 
     [Fact]
@@ -543,7 +546,7 @@ public class YstbReaderTests
             .AddResource([1, 2, 3])
             .Build();
 
-        Assert.Contains("recursos", ReadFails(script.Bytes).Reason);
+        Assert.Contains(ResourcesDir, ReadFails(script.Bytes).Reason);
     }
 
     [Fact]

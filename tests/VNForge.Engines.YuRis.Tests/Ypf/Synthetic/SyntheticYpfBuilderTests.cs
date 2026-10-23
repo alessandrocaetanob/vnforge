@@ -8,6 +8,10 @@ namespace VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 
 public class SyntheticYpfBuilderTests
 {
+    private const string AYbn = "a.ybn";
+    private const string SmallYbn = "pequeno.ybn";
+    private const string Hex03000000 = "03000000";
+
     internal const string Script1 = @"ysbin\yst00001.ybn";
     internal const string Image = @"bg\fundo.png";
     internal const string Sound = @"se\porta.ogg";
@@ -279,7 +283,7 @@ public class SyntheticYpfBuilderTests
         SyntheticYpfOffsetSize offsetSize,
         SyntheticYpfSwapTable swapTable)
     {
-        var ypf = new SyntheticYpfBuilder(version).AddFile("a.ybn", SmallBinary).Build();
+        var ypf = new SyntheticYpfBuilder(version).AddFile(AYbn, SmallBinary).Build();
 
         Assert.Equal(nameHash, ypf.NameHashAlgorithm);
         Assert.Equal(dataHash, ypf.DataHashAlgorithm);
@@ -306,7 +310,7 @@ public class SyntheticYpfBuilderTests
     [Fact]
     public void Hashes_SaoSobreOsBytesArmazenadosEntradaComprimida()
     {
-        var ypf = new SyntheticYpfBuilder(500).AddFile("a.ybn", Repetitive, compress: true).Build();
+        var ypf = new SyntheticYpfBuilder(500).AddFile(AYbn, Repetitive, compress: true).Build();
         var entry = ypf.Entries.Single();
 
         Assert.True(entry.IsCompressed);
@@ -541,21 +545,21 @@ public class SyntheticYpfBuilderTests
     public void Zlib_SoComprimeQuandoOResultadoFicaMenor()
     {
         var ypf = new SyntheticYpfBuilder(500)
-            .AddFile("pequeno.ybn", SmallBinary, compress: true)
+            .AddFile(SmallYbn, SmallBinary, compress: true)
             .AddFile("vazio.ybn", [], compress: true)
             .AddFile("grande.ybn", Repetitive, compress: true)
             .Build();
 
-        Assert.False(ypf.Entries.Single(e => e.Name == "pequeno.ybn").IsCompressed);
+        Assert.False(ypf.Entries.Single(e => e.Name == SmallYbn).IsCompressed);
         Assert.False(ypf.Entries.Single(e => e.Name == "vazio.ybn").IsCompressed);
         Assert.True(ypf.Entries.Single(e => e.Name == "grande.ybn").IsCompressed);
-        Assert.Equal(SmallBinary, ypf.Entries.Single(e => e.Name == "pequeno.ybn").StoredBytes);
+        Assert.Equal(SmallBinary, ypf.Entries.Single(e => e.Name == SmallYbn).StoredBytes);
     }
 
     [Fact]
     public void Zlib_ForceCompressionGravaOFluxoMesmoQuandoNaoEncolhe()
     {
-        var ypf = new SyntheticYpfBuilder(500).AddFile("pequeno.ybn", SmallBinary, forceCompression: true).Build();
+        var ypf = new SyntheticYpfBuilder(500).AddFile(SmallYbn, SmallBinary, forceCompression: true).Build();
         var entry = ypf.Entries.Single();
 
         Assert.True(entry.IsCompressed);
@@ -583,7 +587,7 @@ public class SyntheticYpfBuilderTests
     {
         var ypf = DuplicateSample().Build();
 
-        var a = ypf.Entries.Single(e => e.Name == "a.ybn");
+        var a = ypf.Entries.Single(e => e.Name == AYbn);
         var b = ypf.Entries.Single(e => e.Name == "b.ybn");
         Assert.NotEqual(a.Offset, b.Offset);
         Assert.Equal(ypf.DataStart + (uint)ypf.Entries.Sum(e => (long)e.SizeStored), (uint)ypf.Bytes.Length);
@@ -595,7 +599,7 @@ public class SyntheticYpfBuilderTests
         var separate = DuplicateSample().Build();
         var shared = DuplicateSample().WithSharedDuplicateData().Build();
 
-        var a = shared.Entries.Single(e => e.Name == "a.ybn");
+        var a = shared.Entries.Single(e => e.Name == AYbn);
         var b = shared.Entries.Single(e => e.Name == "b.ybn");
         var raw = shared.Entries.Single(e => e.Name == "c.ybn");
         var other = shared.Entries.Single(e => e.Name == "d.ybn");
@@ -612,7 +616,7 @@ public class SyntheticYpfBuilderTests
 
     private static SyntheticYpfBuilder DuplicateSample() =>
         new SyntheticYpfBuilder(500)
-            .AddFile("a.ybn", Repetitive, compress: true)
+            .AddFile(AYbn, Repetitive, compress: true)
             .AddFile("b.ybn", Repetitive, compress: true)
             .AddFile("c.ybn", Repetitive)
             .AddFile("d.ybn", SmallBinary);
@@ -670,9 +674,9 @@ public class SyntheticYpfBuilderTests
     [Fact]
     public void AddFile_RejeitaNomeDuplicado()
     {
-        var builder = new SyntheticYpfBuilder(500).AddFile("a.ybn", SmallBinary);
+        var builder = new SyntheticYpfBuilder(500).AddFile(AYbn, SmallBinary);
 
-        Assert.Throws<ArgumentException>(() => builder.AddFile("a.ybn", SmallBinary));
+        Assert.Throws<ArgumentException>(() => builder.AddFile(AYbn, SmallBinary));
     }
 
     [Fact]
@@ -762,17 +766,17 @@ public class SyntheticYpfBuilderTests
     //   fim   "ABC"
     internal const string GoldenV200 =
         "595046" + "00" + "c8000000" + "01000000" + "28000000" + "00000000000000000000000000000000" +
-        "c705a736" + "e6" + "9d98a38c9c9a919aa0cfcfcfced18f9198" + "02" + "00" + "03000000" + "03000000" + "48000000" + "c7008d01" +
+        "c705a736" + "e6" + "9d98a38c9c9a919aa0cfcfcfced18f9198" + "02" + "00" + Hex03000000 + Hex03000000 + "48000000" + "c7008d01" +
         "414243";
 
     internal const string GoldenV300 =
         "595046" + "00" + "2c010000" + "01000000" + "48000000" + "00000000000000000000000000000000" +
-        "d0ab82e5" + "e6" + "9d98a38c9c9a919aa0cfcfcfced18f9198" + "02" + "00" + "03000000" + "03000000" + "48000000" + "c7008d01" +
+        "d0ab82e5" + "e6" + "9d98a38c9c9a919aa0cfcfcfced18f9198" + "02" + "00" + Hex03000000 + Hex03000000 + "48000000" + "c7008d01" +
         "414243";
 
     internal const string GoldenV500 =
         "595046" + "00" + "f4010000" + "01000000" + "4c000000" + "00000000000000000000000000000000" +
-        "4bf899e0" + "e7" + "abae95baaaaca7ac96f9f9f9f8e7b9a7ae" + "02" + "00" + "03000000" + "03000000" + "4c00000000000000" + "ffa817fd" +
+        "4bf899e0" + "e7" + "abae95baaaaca7ac96f9f9f9f8e7b9a7ae" + "02" + "00" + Hex03000000 + Hex03000000 + "4c00000000000000" + "ffa817fd" +
         "414243";
 
     [Theory]

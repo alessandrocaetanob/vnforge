@@ -4,9 +4,12 @@ namespace VNForge.Core.Tests.Projects;
 
 public class ProjectFolderTests
 {
+    private const string ManifestFile = "vnforge.json";
+    private const string GamePath = "D:/Jogos/MinhaVN";
+
     private static ProjectConfig NovaConfig() => new(
         "Minha VN",
-        new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+        new GameConfig(GamePath, "MinhaVN.exe"),
         new EngineConfig("yuris", 500, "0xD36FAC96"),
         new LanguagesConfig("ja", "pt-BR"),
         new EncodingConfig("fold"),
@@ -20,7 +23,7 @@ public class ProjectFolderTests
 
         var projeto = ProjectFolder.Create(raiz, NovaConfig());
 
-        Assert.True(File.Exists(Path.Combine(raiz, "vnforge.json")));
+        Assert.True(File.Exists(Path.Combine(raiz, ManifestFile)));
         foreach (var pasta in new[] { "text", ".cache", "build", "backup" })
         {
             Assert.True(Directory.Exists(Path.Combine(raiz, pasta)), pasta);
@@ -75,7 +78,7 @@ public class ProjectFolderTests
 
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectFolder.Create(temp.Path, NovaConfig()));
 
-        Assert.Contains("vnforge.json", erro.Message);
+        Assert.Contains(ManifestFile, erro.Message);
     }
 
     [Fact]
@@ -98,7 +101,7 @@ public class ProjectFolderTests
 
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectFolder.Open(temp.Path));
 
-        Assert.Contains("vnforge.json", erro.Message);
+        Assert.Contains(ManifestFile, erro.Message);
         Assert.Contains(temp.Path, erro.Message);
     }
 
@@ -125,7 +128,7 @@ public class ProjectFolderTests
         projeto.SaveConfig(nova);
 
         Assert.Equal(nova, projeto.LoadConfig());
-        Assert.Equal([".gitignore", "vnforge.json"], Directory.GetFiles(temp.Path).Select(Path.GetFileName).Order());
+        Assert.Equal([".gitignore", ManifestFile], Directory.GetFiles(temp.Path).Select(Path.GetFileName).Order());
     }
 
     [Fact]
