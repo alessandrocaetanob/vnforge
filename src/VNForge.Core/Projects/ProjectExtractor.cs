@@ -1,4 +1,5 @@
 using VNForge.Core.Engines;
+using VNForge.Core.Injection;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -85,6 +86,7 @@ public static class ProjectExtractor
         var warnings = new List<string>(unpacked.Warnings);
         warnings.AddRange(game.Warnings);
         var extracted = ReadScripts(game, warnings, cancellationToken);
+        var originals = HashOriginals(gameDirectory, unpacked.Archives);
 
         var written = new List<string>();
         try
@@ -95,6 +97,11 @@ public static class ProjectExtractor
                 project.SaveText(script.Key, script.Units);
                 written.Add(project.TextPath(script.Key));
             }
+
+            // Dentro do try: se o estado não grava, o texto sai junto e a extração pode ser repetida.
+            project.SaveState(new PipelineState(
+                originals,
+                new Dictionary<string, StageState> { [ExtractStage] = new(StageStatus.Completed) }));
         }
         catch
         {
@@ -126,6 +133,26 @@ public static class ProjectExtractor
             extracted.Select(s => new ExtractedScript(s.Key, s.Name, s.Units.Count)).ToList(),
             byKind,
             warnings);
+    }
+
+    /// <summary>Nome da etapa no <c>state.json</c>.</summary>
+    public const string ExtractStage = "extract";
+
+    private static List<OriginalFile> HashOriginals(string gameDirectory, IReadOnlyList<UnpackedArchive> archives)
+    {
+        var result = new List<OriginalFile>(archives.Count);
+        foreach (var archive in archives)
+        {
+            var path = Path.Combine(gameDirectory, archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(path))
+            {
+                throw new VNForgeException($"O pacote '{archive.GamePath}' não está na pasta do jogo ('{gameDirectory}'); não dá para gravar o hash do original.");
+            }
+
+            result.Add(new OriginalFile(archive.GamePath, new FileInfo(path).Length, FileHash.Sha256(path)));
+        }
+
+        return result;
     }
 
     private sealed record Extracted(string Key, string? Name, IReadOnlyList<TextUnit> Units);

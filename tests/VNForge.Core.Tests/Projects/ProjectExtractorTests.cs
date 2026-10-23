@@ -114,6 +114,52 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Grava_o_hash_dos_pacotes_originais_e_marca_a_etapa_extract()
+    {
+        WriteGame("a001.fake", "dialogue|Olá");
+        var project = NewProject();
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+
+        var state = project.LoadState();
+        var original = Assert.Single(state.Originals);
+        var bytes = File.ReadAllBytes(Path.Combine(_game, "a001.fake"));
+        Assert.Equal("a001.fake", original.Path);
+        Assert.Equal(bytes.Length, original.Size);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(bytes)), original.Sha256);
+        Assert.Equal(StageStatus.Completed, state.Stages["extract"].Status);
+    }
+
+    [Fact]
+    public void Extrair_de_novo_sem_mudanca_deixa_o_state_json_identico()
+    {
+        WriteGame("a001.fake", "dialogue|Olá");
+        var project = NewProject();
+        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+        var before = File.ReadAllBytes(project.StatePath);
+        foreach (var file in Directory.EnumerateFiles(project.TextDirectory))
+        {
+            File.Delete(file);
+        }
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, File.ReadAllBytes(project.StatePath));
+    }
+
+    [Fact]
+    public void Extracao_que_falha_nao_grava_estado()
+    {
+        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame("a002.fake", "quebrado");
+        var project = NewProject();
+
+        Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
+
+        Assert.False(File.Exists(project.StatePath));
+    }
+
+    [Fact]
     public void Cache_antigo_e_apagado_antes_de_descompactar()
     {
         WriteGame("a001.fake", "dialogue|Olá");
