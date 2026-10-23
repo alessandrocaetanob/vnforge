@@ -9,6 +9,9 @@ namespace VNForge.Cli;
 /// <summary><c>vnf ypf info|unpack|pack</c>: ferramentas de baixo nível sobre um arquivo YPF.</summary>
 public static class YpfCommand
 {
+
+    private const string FileArgumentName = "arquivo";
+
     private static readonly YpfArchiveFormat Format = new();
 
     public static Command Create(VnfCli cli)
@@ -24,12 +27,12 @@ public static class YpfCommand
 
     private static Command CreateInfo(VnfCli cli)
     {
-        var file = new Argument<string>("arquivo") { Description = "Arquivo .ypf." };
+        var file = new Argument<string>(FileArgumentName) { Description = "Arquivo .ypf." };
         var command = new Command("info", "Mostra versão, variante, hashes e a lista de arquivos de um YPF.");
         command.Arguments.Add(file);
         command.SetAction(parseResult =>
         {
-            using var archive = OpenArchive(cli, parseResult.GetValue(file)!);
+            using var archive = OpenArchive(cli, parseResult.GetRequiredValue(file));
             Print(parseResult, cli, JsonData(archive), () => HumanInfo(archive));
             return 0;
         });
@@ -38,20 +41,20 @@ public static class YpfCommand
 
     private static Command CreateUnpack(VnfCli cli)
     {
-        var file = new Argument<string>("arquivo") { Description = "Arquivo .ypf." };
+        var file = new Argument<string>(FileArgumentName) { Description = "Arquivo .ypf." };
         var folder = new Argument<string>("pasta") { Description = "Pasta de destino." };
         var command = new Command("unpack", "Extrai todos os arquivos de um YPF para uma pasta, já descomprimidos.");
         command.Arguments.Add(file);
         command.Arguments.Add(folder);
         command.SetAction((parseResult, token) =>
         {
-            var target = Resolve(cli, parseResult.GetValue(folder)!);
+            var target = Resolve(cli, parseResult.GetRequiredValue(folder));
             if (!parseResult.GetValue(cli.Options.Yes) && HasEntries(target))
             {
                 throw new UsageException($"A pasta de destino não está vazia: {target}. Use --yes para sobrescrever os arquivos que coincidirem.");
             }
 
-            var source = Resolve(cli, parseResult.GetValue(file)!);
+            var source = Resolve(cli, parseResult.GetRequiredValue(file));
             using var archive = OpenArchive(cli, source);
             var result = YpfFolder.Unpack(archive, target, token);
             Print(
@@ -70,13 +73,13 @@ public static class YpfCommand
         var original = new Option<string>("--original")
         {
             Description = "YPF original: fornece versão, ordem e as entradas que não mudaram.",
-            HelpName = "arquivo",
+            HelpName = FileArgumentName,
             Required = true,
         };
         var output = new Option<string>("--output")
         {
             Description = "YPF novo a gravar. Nunca o original.",
-            HelpName = "arquivo",
+            HelpName = FileArgumentName,
             Required = true,
         };
         var command = new Command("pack", "Remonta um YPF a partir de uma pasta e do YPF original, com reescrita mínima.");
@@ -85,8 +88,8 @@ public static class YpfCommand
         command.Options.Add(output);
         command.SetAction((parseResult, token) =>
         {
-            var source = Resolve(cli, parseResult.GetValue(original)!);
-            var target = Resolve(cli, parseResult.GetValue(output)!);
+            var source = Resolve(cli, parseResult.GetRequiredValue(original));
+            var target = Resolve(cli, parseResult.GetRequiredValue(output));
             if (SamePath(source, target))
             {
                 throw new UsageException("O arquivo de saída não pode ser o YPF original: grave num arquivo novo.");
@@ -97,7 +100,7 @@ public static class YpfCommand
                 throw new UsageException($"O arquivo de saída já existe: {target}. Use --yes para sobrescrever.");
             }
 
-            var sourceFolder = Resolve(cli, parseResult.GetValue(folder)!);
+            var sourceFolder = Resolve(cli, parseResult.GetRequiredValue(folder));
             if (target.StartsWith(sourceFolder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, PathComparison))
             {
                 throw new UsageException("O arquivo de saída não pode ficar dentro da pasta que está sendo empacotada.");
@@ -142,7 +145,7 @@ public static class YpfCommand
         var temporary = $"{target}.{Guid.NewGuid():N}.tmp";
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(target) ?? ".");
             YpfPackResult result;
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
             {

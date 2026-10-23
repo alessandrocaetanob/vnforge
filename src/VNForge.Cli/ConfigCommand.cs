@@ -67,19 +67,7 @@ internal static class ConfigCommand
 
         if (setKey)
         {
-            if (!json)
-            {
-                parseResult.InvocationConfiguration.Error.Write("Chave de API: ");
-                parseResult.InvocationConfiguration.Error.Flush();
-            }
-
-            var key = cli.Input.ReadLine()?.Trim();
-            if (string.IsNullOrEmpty(key) || key.Any(char.IsWhiteSpace))
-            {
-                throw new UsageException("A chave de API veio vazia ou com espaços. Envie a chave na entrada padrão, em uma linha.");
-            }
-
-            store.Save(key);
+            ReadAndSaveKey(cli, parseResult, store, json);
             messages.Add("Chave guardada no cofre do Windows (DPAPI).");
         }
 
@@ -109,6 +97,23 @@ internal static class ConfigCommand
         output.WriteLine($"Modelo: {current.Model}");
         output.WriteLine($"Chave: {Describe(resolved.Source)}");
         return ErrorHandler.OkExitCode;
+    }
+
+    private static void ReadAndSaveKey(VnfCli cli, ParseResult parseResult, IApiKeyStore store, bool json)
+    {
+        if (!json)
+        {
+            parseResult.InvocationConfiguration.Error.Write("Chave de API: ");
+            parseResult.InvocationConfiguration.Error.Flush();
+        }
+
+        var key = cli.Input.ReadLine()?.Trim();
+        if (string.IsNullOrEmpty(key) || key.Any(char.IsWhiteSpace))
+        {
+            throw new UsageException("A chave de API veio vazia ou com espaços. Envie a chave na entrada padrão, em uma linha.");
+        }
+
+        store.Save(key);
     }
 
     private static string Describe(ApiKeySource source) => source switch
