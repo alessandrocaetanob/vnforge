@@ -1,6 +1,8 @@
 using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
+using VNForge.Core.Qa;
+using VNForge.Core.Tests.Qa;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -445,6 +447,79 @@ public sealed class ProjectBuilderTests : IDisposable
         public GameUnpackResult Unpack(string gameDir, string destinationDirectory, CancellationToken cancellationToken = default) => new([]);
 
         public UnpackedGame Open(string unpackedDirectory) => throw new NotSupportedException();
+    }
+
+    private BuildResult BuildWithQa(QaSeverity severity, bool allowWarnings = false) =>
+        ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([new QaEngineTests.FlagEmpty("traducao-vazia", severity)]), allowWarnings: allowWarnings);
+
+    private void MarkOk(string unitId)
+    {
+        var key = unitId.Split(':')[0];
+        _project.SaveText(key, [.. _project.LoadText(key).Select(u => u.Id == unitId ? u with { Flags = ["traducao-vazia"] } : u)]);
+    }
+
+    [Fact]
+    public void Erro_de_qa_para_o_build_sem_gravar_nada()
+    {
+        Translate("a001", (0, ""));
+
+        var ex = Assert.Throws<QaBlockedException>(() => BuildWithQa(QaSeverity.Error));
+
+        Assert.Contains("traducao-vazia", ex.Message);
+        Assert.Single(ex.Report.Errors);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
+        Assert.Equal(0, _engine.RebuildCalls);
+    }
+
+    [Fact]
+    public void Erro_de_qa_para_o_build_mesmo_com_allow_warnings()
+    {
+        Translate("a001", (0, ""));
+
+        Assert.Throws<QaBlockedException>(() => BuildWithQa(QaSeverity.Error, allowWarnings: true));
+    }
+
+    [Fact]
+    public void Aviso_de_qa_para_o_build_por_padrao()
+    {
+        Translate("a001", (0, ""));
+
+        var ex = Assert.Throws<QaBlockedException>(() => BuildWithQa(QaSeverity.Warning));
+
+        Assert.Single(ex.Report.Warnings);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
+    }
+
+    [Fact]
+    public void Com_allow_warnings_so_os_avisos_passam_e_vao_no_resultado()
+    {
+        Translate("a001", (0, ""));
+
+        var result = BuildWithQa(QaSeverity.Warning, allowWarnings: true);
+
+        Assert.Single(result.Qa.Warnings);
+        Assert.NotEmpty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
+    }
+
+    [Fact]
+    public void Aviso_marcado_como_ok_nao_para_o_build_e_conta_como_silenciado()
+    {
+        Translate("a001", (0, ""));
+        MarkOk("a001:000000");
+
+        var result = BuildWithQa(QaSeverity.Warning);
+
+        Assert.Empty(result.Qa.Issues);
+        Assert.Single(result.Qa.Silenced);
+    }
+
+    [Fact]
+    public void Erro_marcado_como_ok_continua_parando_o_build()
+    {
+        Translate("a001", (0, ""));
+        MarkOk("a001:000000");
+
+        Assert.Throws<QaBlockedException>(() => BuildWithQa(QaSeverity.Error));
     }
 
     private sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker
