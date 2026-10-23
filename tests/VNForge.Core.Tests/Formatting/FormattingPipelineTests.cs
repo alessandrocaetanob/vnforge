@@ -110,6 +110,8 @@ public class FormattingPipelineTests
 
         Assert.Equal(@"uma\nfrase", inserts.Format("uma frase").Text);
         Assert.Throws<FormattingException>(() => drops.Format(@"a\pb"));
+        var dropsBreak = new FormattingPipeline([new DelegateStage("quebra", FormattingPhase.LineBreak, (t, _) => t.Replace(@"\n", " ", StringComparison.Ordinal), mayChangeLineBreaks: true)]);
+        Assert.Throws<FormattingException>(() => dropsBreak.Format(@"a\nb"));
     }
 
     [Fact]

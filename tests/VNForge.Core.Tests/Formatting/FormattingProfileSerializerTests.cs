@@ -70,6 +70,7 @@ public class FormattingProfileSerializerTests
     [Theory]
     [InlineData("""{ "wrap": { "maxWidth": 0 } }""", "$.wrap.maxWidth")]
     [InlineData("""{ "wrap": { "maxWidth": "larga" } }""", "$.wrap.maxWidth")]
+    [InlineData("""{ "wrap": { "maxWidth": null } }""", "$.wrap.maxWidth")]
     [InlineData("""{ "wrap": { "maxLines": 0 } }""", "$.wrap.maxLines")]
     [InlineData("""{ "wrap": { "enabled": "sim" } }""", "$.wrap.enabled")]
     [InlineData("""{ "wrap": { "charWidth": "larga" } }""", "$.wrap.charWidth")]

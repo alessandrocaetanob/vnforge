@@ -76,6 +76,7 @@ public sealed class FormattingPipeline
 
         var same = stage.MayChangeLineBreaks
             ? Enumerable.SequenceEqual(WithoutLineBreaks(before), WithoutLineBreaks(markers), StringComparer.Ordinal)
+                && markers.Count - WithoutLineBreaks(markers).Count() >= before.Count - WithoutLineBreaks(before).Count()
             : Enumerable.SequenceEqual(before, markers, StringComparer.Ordinal);
         if (!same)
         {

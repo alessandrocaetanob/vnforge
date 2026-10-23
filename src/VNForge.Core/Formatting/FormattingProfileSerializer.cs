@@ -114,7 +114,7 @@ public static class FormattingProfileSerializer
             wrap = new WrapRule(
                 wrapReader.OptionalBool("enabled") ?? wrap.Enabled,
                 wrapReader.OptionalInt("maxWidth") ?? wrap.MaxWidth,
-                wrapReader.HasProperty("maxLines") ? wrapReader.OptionalInt("maxLines") : wrap.MaxLines,
+                wrapReader.HasProperty("maxLines") ? wrapReader.OptionalInt("maxLines", allowNull: true) :wrap.MaxLines,
                 wrapReader.OptionalCharWidth("charWidth") ?? wrap.CharWidth);
             if (wrap.MaxWidth < 1)
             {
@@ -176,9 +176,9 @@ public static class FormattingProfileSerializer
         }
 
         /// <summary>Número inteiro; <c>null</c> no JSON e campo ausente dão <c>null</c>.</summary>
-        public int? OptionalInt(string name)
+        public int? OptionalInt(string name, bool allowNull = false)
         {
-            if (!TryGet(name, out var value) || value.ValueKind == JsonValueKind.Null)
+            if (!TryGet(name, out var value) || (allowNull && value.ValueKind == JsonValueKind.Null))
             {
                 return null;
             }
