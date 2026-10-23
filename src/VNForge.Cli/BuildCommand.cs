@@ -3,6 +3,7 @@ using System.Globalization;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.Cli;
 
@@ -13,9 +14,15 @@ internal static class BuildCommand
 
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
+    private static readonly Option<bool> ReportOption = new("--report")
+    {
+        Description = "Só lista os caracteres que a estratégia de codificação troca ou não representa; não reconstrói nada. Sai com 2 se algum não for codificável.",
+    };
+
     public static Command Create(VnfCli cli)
     {
         var command = new Command("build", "Reconstrói os scripts com as traduções de text/ e grava os pacotes novos em build/ (não altera a pasta do jogo).");
+        command.Options.Add(ReportOption);
         command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, parseResult.InvocationConfiguration.Output, token)));
         return command;
     }
@@ -23,6 +30,11 @@ internal static class BuildCommand
     private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output, CancellationToken token)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        if (parseResult.GetValue(ReportOption))
+        {
+            return RunReport(parseResult.GetValue(cli.Options.Json), ProjectBuilder.ReportEncoding(project), output);
+        }
+
         var result = ProjectBuilder.Build(project, KnownEngines.All, token);
 
         if (parseResult.GetValue(cli.Options.Json))
@@ -37,6 +49,7 @@ internal static class BuildCommand
                 lines = result.TotalLines,
                 rebuilt = result.RebuiltScripts.Select(s => new { key = s.Key, name = s.Name, lines = s.Lines }),
                 warnings = result.Warnings,
+                encoding = EncodingData(result.Encoding),
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -51,6 +64,11 @@ internal static class BuildCommand
         }
 
         output.WriteLine(Summary(result));
+        if (result.Encoding.Replaced.Count > 0)
+        {
+            output.WriteLine($"Codificação '{result.Encoding.Strategy}': {Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}; vnf build --report lista cada um.");
+        }
+
         foreach (var warning in result.Warnings.Take(MaxWarningsShown))
         {
             output.WriteLine($"Aviso: {warning}");
@@ -63,6 +81,37 @@ internal static class BuildCommand
 
         return ErrorHandler.OkExitCode;
     }
+
+    private static int RunReport(bool json, EncodingReport report, TextWriter output)
+    {
+        var exitCode = report.HasBlocking ? ErrorHandler.QaBlockedExitCode : ErrorHandler.OkExitCode;
+        if (json)
+        {
+            output.WriteLine(JsonEnvelope.Result(EncodingData(report), exitCode));
+            return exitCode;
+        }
+
+        output.WriteLine($"Estratégia de codificação '{report.Strategy}': {Number(report.CheckedLines)} {Plural(report.CheckedLines, "linha conferida", "linhas conferidas")}.");
+        foreach (var issue in report.Issues)
+        {
+            var outcome = issue.Replacement is null ? "não codificável" : $"vira '{issue.Replacement}'";
+            output.WriteLine($"{issue.UnitId} posição {issue.Position}: '{issue.Character}' ({issue.CodePoint}) {outcome}");
+        }
+
+        var blocking = report.Blocking.Count;
+        var replaced = report.Replaced.Count;
+        output.WriteLine($"{Number(blocking)} {Plural(blocking, "caractere não codificável", "caracteres não codificáveis")}; {Number(replaced)} {Plural(replaced, "caractere trocado", "caracteres trocados")}.");
+        return exitCode;
+    }
+
+    private static object EncodingData(EncodingReport report) => new
+    {
+        strategy = report.Strategy,
+        checkedLines = report.CheckedLines,
+        unencodable = report.Blocking.Count,
+        replaced = report.Replaced.Count,
+        issues = report.Issues.Select(i => new { unit = i.UnitId, script = i.ScriptKey, position = i.Position, character = i.Character, codePoint = i.CodePoint, replacement = i.Replacement }),
+    };
 
     private static string Summary(BuildResult result)
     {

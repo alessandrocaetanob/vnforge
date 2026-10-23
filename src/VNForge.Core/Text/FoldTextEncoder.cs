@@ -8,7 +8,7 @@ namespace VNForge.Core.Text;
 /// equivalentes) e codifica em Shift-JIS. O que mesmo depois da troca não cabe na página 932 continua recusado: <see cref="Encode"/>
 /// lança exceção, como no <see cref="ShiftJisTextEncoder"/>.
 /// </summary>
-public sealed class FoldTextEncoder : ITextEncoder
+public sealed class FoldTextEncoder : IReplacingTextEncoder
 {
     private readonly ShiftJisTextEncoder _sjis = new();
 
@@ -25,6 +25,14 @@ public sealed class FoldTextEncoder : ITextEncoder
         }
 
         return _sjis.Encode(folded.Text);
+    }
+
+    public string? GetReplacement(string character)
+    {
+        ArgumentNullException.ThrowIfNull(character);
+
+        var replacements = CharacterFolder.Fold(character).Replacements;
+        return replacements.Count == 1 ? replacements[0].Substitute : null;
     }
 
     public IReadOnlyList<int> FindUnencodable(string text)

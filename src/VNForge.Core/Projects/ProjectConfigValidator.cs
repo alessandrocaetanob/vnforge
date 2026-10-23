@@ -4,7 +4,7 @@ namespace VNForge.Core.Projects;
 
 internal static partial class ProjectConfigValidator
 {
-    public static readonly string[] EncodingStrategies = ["fold", "remap", "cp1252"];
+    public static readonly string[] EncodingStrategies = ["sjis", "fold", "remap", "cp1252"];
     public static readonly string[] Efforts = ["low", "medium", "high"];
     public static readonly string[] AnthropicModels = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"];
 

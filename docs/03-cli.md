@@ -49,7 +49,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | `vnf check` | Roda o QA e lista problemas |
 | `vnf review` | Revisão por IA: gera sugestões nas notas, não altera traduções |
 | `vnf preview <id>` | Mostra como a linha fica depois da formatação e quebra de linha |
-| `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1: Shift-JIS pura, sem formatação; detalhes abaixo) |
+| `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1 e E5.1: estratégia do `encoding.strategy`, sem formatação; detalhes abaixo) |
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
 | `vnf run` | Abre o jogo (atalho para testar depois do inject) |
@@ -88,11 +88,11 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
   --fix                   corrige o que é seguro corrigir (espaços duplos etc.)
 ```
 
-`vnf build` (E8.1; aceita `--json`)
+`vnf build` (E8.1, E5.1; aceita `--json`)
 ```
-  (sem opções próprias nesta versão)
+  --report                 só lista os caracteres que a estratégia troca ou não representa; não reconstrói nada (sai com 2 se algum não for codificável)
 ```
-As opções `--only-changed`, `--allow-warnings` e `--encoding <estratégia>` chegam com o perfil de formatação e as estratégias de codificação do M2. Hoje o build já reconstrói só os scripts com tradução (`status` diferente de `untranslated`, `translation` não vazia e diferente do `source`) e usa Shift-JIS pura, qualquer que seja o `encoding.strategy` do projeto. Os detalhes estão em "`vnf build`" abaixo.
+As opções `--only-changed` e `--allow-warnings` chegam com o perfil de formatação do M2. O build reconstrói só os scripts com tradução (`status` diferente de `untranslated`, `translation` não vazia e diferente do `source`) e codifica com a estratégia do `encoding.strategy` do `vnforge.json`. Estratégias com encoder: `sjis` (Shift-JIS pura), `fold` e `cp1252`; `remap` dá erro claro até a issue dele entrar. Os detalhes estão em "`vnf build`" abaixo.
 
 `vnf ypf` (E1.8; os três aceitam `--json`)
 ```
@@ -166,9 +166,12 @@ Reabre o jogo descompactado em `.cache/game/` (o `vnf extract` precisa ter rodad
 
 - **Pacotes sem alteração**: saem em `build/` idênticos ao original (cópia byte a byte), e o `vnf inject` ignora o arquivo igual ao do jogo. Assim `build/` sempre tem todos os pacotes de scripts, e um build sem nenhuma tradução gera `build/ysbin.ypf` idêntico ao original. Pacotes que o `extract` não descompactou (imagens, áudio) não entram.
 - **Não altera o jogo nem o `.cache/`**: só lê a pasta do jogo e `.cache/game/`. O `build/` anterior é apagado por inteiro no fim, não em cada etapa: o novo é montado em `build.tmp/`, ao lado de `build/`, e só então toma o lugar do anterior. `build/` dentro da pasta do jogo é recusado, como o `.cache/` no `extract`.
-- **Aborta sem deixar `build/` pela metade**: caractere que o Shift-JIS não representa, marcador inválido na tradução, trecho que não é mais o do `source` (script de outra versão), `text/*.json` inválido ou jogo que mudou depois da extração saem com `1`, com a mensagem em português citando o script e o `id` da linha. O `build/` anterior continua como estava e o `build.tmp/` é removido.
+- **Estratégia de codificação (E5.1)**: o encoder vem do `encoding.strategy`. Estratégia sem encoder nesta versão sai com `1` e a mensagem diz quais existem; o build nunca cai em Shift-JIS em silêncio. Antes de reconstruir, o build confere todas as traduções a gravar e, se a estratégia não representa algum caractere, aborta com a lista completa (linha, posição e caractere com o código `U+`), não só o primeiro. Estratégia que troca caracteres (o `fold`) mostra o substituto no `--report`; a troca não impede o build.
+- **Aborta sem deixar `build/` pela metade**: caractere que a estratégia não representa, marcador inválido na tradução, trecho que não é mais o do `source` (script de outra versão), `text/*.json` inválido ou jogo que mudou depois da extração saem com `1`, com a mensagem em português citando o script e o `id` da linha. O `build/` anterior continua como estava e o `build.tmp/` é removido.
 - **Avisos**: um `text/<chave>.json` sem script correspondente em `.cache/game/` é ignorado com aviso.
-- **Saída**: no texto, uma linha por pacote gravado (com a quantidade de scripts alterados, ou "sem alterações, idêntico ao original") e o resumo `Reconstruídos 1 script (2 linhas trocadas); 1 pacote gravado em build/`, seguidos de até 10 avisos. Com `--json`, `data` traz `gameDirectory`, `buildDirectory`, `archives` (`path`, `replacedFiles`), `scripts` (reconstruídos), `totalScripts` (lidos de `.cache/`), `lines` (unidades trocadas), `rebuilt` (`key`, `name`, `lines` por script) e `warnings`.
+- **Saída**: no texto, uma linha por pacote gravado (com a quantidade de scripts alterados, ou "sem alterações, idêntico ao original") e o resumo `Reconstruídos 1 script (2 linhas trocadas); 1 pacote gravado em build/`, seguidos de até 10 avisos. Com `--json`, `data` traz `gameDirectory`, `buildDirectory`, `archives` (`path`, `replacedFiles`), `scripts` (reconstruídos), `totalScripts` (lidos de `.cache/`), `lines` (unidades trocadas), `rebuilt` (`key`, `name`, `lines` por script) e `warnings`, mais `encoding` (o relatório de codificação, igual ao `data` do `--report`).
+
+`vnf build --report` não toca em `.cache/`, em `build/` nem no jogo: lê o `vnforge.json` e os `text/*.json`. No texto, uma linha por ocorrência (`yst00012:000034 posição 4: '«' (U+00AB) não codificável`, ou `vira 'a'` quando a estratégia troca o caractere) e o resumo. Com `--json`, `data` traz `strategy`, `checkedLines`, `unencodable`, `replaced` e `issues` (`unit`, `script`, `position`, `character`, `codePoint`, `replacement`, ausente quando a estratégia não representa o caractere). Sai com `0` sem caractere bloqueante e com `2` com algum; o `exitCode` do envelope repete o código.
 
 ```console
 $ vnf build
