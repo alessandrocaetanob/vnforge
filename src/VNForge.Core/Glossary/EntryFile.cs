@@ -20,6 +20,14 @@ internal static class EntryFile
         AllowDuplicateProperties = false,
     };
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
+    private static readonly System.Text.RegularExpressions.Regex MissingRequired =
+        new(@"missing required properties[^:]*:\s*(.+?)\.?\s*$", System.Text.RegularExpressions.RegexOptions.CultureInvariant, RegexTimeout);
+
+    private static readonly System.Text.RegularExpressions.Regex UnmappedProperty =
+        new(@"The JSON property '([^']+)' could not be mapped", System.Text.RegularExpressions.RegexOptions.CultureInvariant, RegexTimeout);
+
     public static string Serialize<T>(IReadOnlyList<T> entries, string filePath)
         where T : IGlossaryEntry
     {
@@ -182,11 +190,11 @@ internal static class EntryFile
             detail = detail[..cut];
         }
 
-        if (System.Text.RegularExpressions.Regex.Match(detail, @"missing required properties[^:]*:\s*(.+?)\.?\s*$") is { Success: true } missing)
+        if (MissingRequired.Match(detail) is { Success: true } missing)
         {
             detail = $"campo obrigatório ausente: {missing.Groups[1].Value}.";
         }
-        else if (System.Text.RegularExpressions.Regex.Match(detail, @"The JSON property '([^']+)' could not be mapped") is { Success: true } unmapped)
+        else if (UnmappedProperty.Match(detail) is { Success: true } unmapped)
         {
             detail = $"campo desconhecido '{unmapped.Groups[1].Value}'.";
         }

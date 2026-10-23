@@ -294,6 +294,7 @@ public interface ITranslationProvider
   | Claude Fable 5.1 | `claude-fable-5-1` | Cenas difíceis, revisão fina | 10 / 50 |
 
   A interface `ITranslationProvider` já nasce pensada para vários provedores, mas a tela de configuração só mostra os outros (OpenAI, Gemini, Ollama/LM Studio) como "em breve" até o épico E12.
+- **Provedor Claude (E6.2)**: `ClaudeTranslationProvider` (`VNForge.AI/Claude`) monta o pedido e confere a resposta; o SDK fica atrás de `IClaudeMessageClient` (`AnthropicMessageClient` é a implementação real), então os testes usam um cliente falso. Recusa (`stop_reason: "refusal"`) vira `ClaudeRefusalException` e JSON fora do contrato vira `ClaudeResponseException`; o fallback, o retry e o reenvio de linhas ruins ficam para os próximos itens do E6. O teste de integração real só roda com `ANTHROPIC_API_KEY` definida.
 - **Detalhes da API do Claude a respeitar**: thinking adaptativo é o padrão e não pode ser desligado no Opus 5.5 (o controle é o `effort`; para tradução em lote, `low` ou `medium`); saída em JSON via `output_config.format`; tratar `stop_reason: "refusal"` (conteúdo adulto de VN pode disparar) com o fallback do servidor; usar prompt caching no prompt de sistema + glossário, que se repetem em todo lote.
 - **Chaves de API** nunca ficam no projeto: variável de ambiente ou cofre do Windows (DPAPI) nas configurações do usuário.
 - **Custo**: estimativa antes de rodar (`--dry-run`), contagem real de tokens depois, cache por hash da linha para não pagar duas vezes.
@@ -352,6 +353,10 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 | `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional) |
 
 `CharacterEntry.Source` é o nome exatamente como a engine o extrai em `TextUnit.Speaker`. `CharacterBook.Find(speaker)` acha a entrada por comparação ordinal, ignorando espaços nas pontas; falante nulo, vazio ou desconhecido (por exemplo `？？？`, quando não há entrada) devolve `null`. `ProjectFolder` lê e grava os dois arquivos (`LoadGlossary`, `SaveGlossary`, `LoadCharacters`, `SaveCharacters`). Os comandos `vnf glossary` e `vnf chars` ficam na E9.1.
+
+### Estado do pipeline (`.cache/state.json`)
+
+`ProjectFolder.LoadState` e `SaveState` leem e gravam o `state.json` (`PipelineState`): `originals` (caminho relativo ao jogo com `/`, tamanho e SHA-256 de cada pacote que a extração leu) e `stages` (o estado de cada etapa; hoje só `extract: completed`). O arquivo não leva data nem outro valor que mude a cada execução, as listas saem ordenadas e `SaveState` não toca no disco quando o conteúdo já é o mesmo, então repetir uma etapa sem mudança deixa o arquivo idêntico. O `vnf extract` grava o estado depois do texto; extração que falha não deixa `extract: completed`. Uma nova extração substitui os hashes e zera as etapas seguintes. Arquivo malformado ou de outra versão é erro que manda apagar o `.cache/`. A E8.5 compara os hashes de `originals` com o jogo antes de injetar. O executável do jogo ainda não entra na lista.
 
 ### Injeção e backup (`VNForge.Core.Injection`)
 
