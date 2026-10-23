@@ -1,3 +1,4 @@
+using System.Globalization;
 using VNForge.Core.Engines;
 using VNForge.Core.Injection;
 using VNForge.Core.Text;
@@ -17,6 +18,7 @@ public sealed record ExtractedScript(string Key, string? Name, int Lines);
 /// <param name="Scripts">Um item por script, na ordem da chave.</param>
 /// <param name="LinesByKind">Unidades por <see cref="TextUnitKind"/>; todo valor do enum aparece, inclusive com zero.</param>
 /// <param name="Warnings">Avisos da engine, cada um com o nome do script quando vem de um.</param>
+/// <remarks><see cref="Reextraction"/> é nulo na primeira extração (a pasta <c>text/</c> não tinha arquivos).</remarks>
 public sealed record ExtractionResult(
     string GameDirectory,
     string CacheDirectory,
@@ -25,14 +27,18 @@ public sealed record ExtractionResult(
     IReadOnlyDictionary<TextUnitKind, int> LinesByKind,
     IReadOnlyList<string> Warnings)
 {
+    /// <summary>O que aconteceu com as linhas que já estavam em <c>text/</c>; nulo quando não havia nenhuma.</summary>
+    public ReextractionSummary? Reextraction { get; init; }
+
     /// <summary>Total de unidades de texto em todos os scripts.</summary>
     public int TotalLines => Scripts.Sum(s => s.Lines);
 }
 
 /// <summary>
 /// A primeira extração de um projeto (<c>vnf extract</c>): descompacta os pacotes do jogo para <c>.cache/game/</c>, lê cada script com o
-/// <see cref="IScriptFormat"/> da engine e grava <c>text/&lt;chave&gt;.json</c>. Só lê a pasta do jogo. A re-extração que preserva
-/// traduções é a E3.5: com <c>text/*.json</c> já existente, esta etapa recusa e não toca em nada.
+/// <see cref="IScriptFormat"/> da engine e grava <c>text/&lt;chave&gt;.json</c>. Só lê a pasta do jogo. Com <c>text/*.json</c> já existente
+/// (E3.5), casa cada linha pelo id: igual no original, mantém a tradução; original diferente, marca para revisão e guarda a tradução antiga;
+/// linha ou script que sumiu do jogo sai de <c>text/</c> e o arquivo anterior fica em <see cref="ProjectFolder.TextBackupDirectory"/>.
 /// </summary>
 public static class ProjectExtractor
 {
@@ -41,8 +47,7 @@ public static class ProjectExtractor
     /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
     /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento antes da gravação do texto não deixa <c>text/</c> pela metade.</param>
     /// <exception cref="VNForgeException">
-    /// Engine desconhecida ou sem suporte à extração, pasta do jogo inexistente, <c>.cache/</c> dentro do jogo, <c>text/</c> que já tem
-    /// arquivos, script ilegível ou duas chaves iguais. A mensagem, em português, cita o script ou o arquivo.
+    /// Engine desconhecida ou sem suporte à extração, pasta do jogo inexistente, <c>.cache/</c> dentro do jogo, script ilegível ou duas chaves iguais. A mensagem, em português, cita o script ou o arquivo.
     /// </exception>
     public static ExtractionResult Extract(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default)
     {
@@ -69,7 +74,7 @@ public static class ProjectExtractor
                 $"O .cache do projeto ('{project.CacheDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
         }
 
-        ThrowIfTextExists(project);
+        var existing = project.LoadAllText();
 
         if (Directory.Exists(project.GameCacheDirectory))
         {
@@ -88,32 +93,40 @@ public static class ProjectExtractor
         var extracted = ReadScripts(game, warnings, cancellationToken);
         var originals = HashOriginals(gameDirectory, unpacked.Archives);
 
-        var written = new List<string>();
+        var plan = TextReextraction.Merge(
+            existing,
+            extracted.ToDictionary(e => e.Key, e => (IReadOnlyList<TextUnit>)e.Units, StringComparer.Ordinal));
+        var backups = BackUpReplacedText(project, plan, out var backupFolder);
         try
         {
-            foreach (var script in extracted)
+            foreach (var key in plan.Changed)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                project.SaveText(script.Key, script.Units);
-                written.Add(project.TextPath(script.Key));
+                project.SaveText(key, plan.Texts[key]);
             }
 
-            // Dentro do try: se o estado não grava, o texto sai junto e a extração pode ser repetida.
+            foreach (var key in plan.Removed)
+            {
+                File.Delete(project.TextPath(key));
+            }
+
+            // Dentro do try: se o estado não grava, o texto volta ao que era e a extração pode ser repetida.
             project.SaveState(new PipelineState(
                 originals,
                 new Dictionary<string, StageState> { [ExtractStage] = new(StageStatus.Completed) }));
         }
         catch
         {
-            foreach (var path in written)
+            RestoreText(project, plan, backups);
+            if (backupFolder is not null)
             {
                 try
                 {
-                    File.Delete(path);
+                    Directory.Delete(backupFolder, recursive: true);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    // O erro original é o que importa; o que não saiu segue para o próximo.
+                    // A cópia que sobra é inofensiva.
                 }
             }
 
@@ -132,7 +145,10 @@ public static class ProjectExtractor
             unpacked.Archives,
             extracted.Select(s => new ExtractedScript(s.Key, s.Name, s.Units.Count)).ToList(),
             byKind,
-            warnings);
+            warnings)
+        {
+            Reextraction = existing.Count > 0 ? plan.Summary : null,
+        };
     }
 
     /// <summary>Nome da etapa no <c>state.json</c>.</summary>
@@ -189,18 +205,57 @@ public static class ProjectExtractor
         return result;
     }
 
-    private static void ThrowIfTextExists(ProjectFolder project)
+    /// <summary>
+    /// Guarda os bytes dos <c>text/*.json</c> que a re-extração vai trocar ou apagar: em <see cref="ProjectFolder.TextBackupDirectory"/>
+    /// (uma subpasta por re-extração, que sobra para o usuário) e na memória (para desfazer se a gravação falhar). Sem nada a trocar, não cria a pasta.
+    /// </summary>
+    private static Dictionary<string, byte[]> BackUpReplacedText(ProjectFolder project, TextMergePlan plan, out string? backupFolder)
     {
-        if (!Directory.Exists(project.TextDirectory))
+        backupFolder = null;
+        var backups = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        foreach (var key in plan.Changed.Concat(plan.Removed))
         {
-            return;
+            if (File.Exists(project.TextPath(key)))
+            {
+                backups[key] = File.ReadAllBytes(project.TextPath(key));
+            }
         }
 
-        var existing = Directory.EnumerateFiles(project.TextDirectory, "*.json").Count();
-        if (existing > 0)
+        if (backups.Count > 0)
         {
-            throw new VNForgeException(
-                $"A pasta text/ já tem {existing} arquivo(s) de texto, e a re-extração que preserva as traduções ainda não existe (E3.5). Nada foi alterado. Para extrair do zero, mova ou apague a pasta text/ (as traduções nela se perdem).");
+            // Uma subpasta por re-extração: a cópia de uma rodada nunca apaga a da anterior.
+            var folder = Path.Combine(project.TextBackupDirectory, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture));
+            Directory.CreateDirectory(folder);
+            foreach (var (key, bytes) in backups)
+            {
+                File.WriteAllBytes(Path.Combine(folder, Path.GetFileName(project.TextPath(key))), bytes);
+            }
+
+            backupFolder = folder;
+        }
+
+        return backups;
+    }
+
+    private static void RestoreText(ProjectFolder project, TextMergePlan plan, Dictionary<string, byte[]> backups)
+    {
+        foreach (var key in plan.Changed.Concat(plan.Removed))
+        {
+            try
+            {
+                if (backups.TryGetValue(key, out var bytes))
+                {
+                    File.WriteAllBytes(project.TextPath(key), bytes);
+                }
+                else
+                {
+                    File.Delete(project.TextPath(key));
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // O erro original é o que importa; o que não voltou segue para o próximo.
+            }
         }
     }
 

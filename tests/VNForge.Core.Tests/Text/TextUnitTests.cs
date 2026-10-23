@@ -127,7 +127,7 @@ public class TextUnitTests
         var nomes = doc.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
 
         Assert.Equal(
-            ["id", "kind", "speaker", "source", "translation", "status", "origin", "notes", "flags", "locator"],
+            ["id", "kind", "speaker", "source", "translation", "status", "origin", "notes", "flags", "previousSource", "locator"],
             nomes);
         Assert.Equal("dialogue", doc.RootElement.GetProperty("kind").GetString());
         Assert.Equal("machine", doc.RootElement.GetProperty("status").GetString());

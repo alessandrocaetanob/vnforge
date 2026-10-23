@@ -39,6 +39,13 @@ public sealed record TextUnit(
     public IReadOnlyList<string> Flags { get; init => field = value ?? []; } = [];
 
     /// <summary>
+    /// Original anterior, gravado pela re-extração quando o <see cref="Source"/> da linha mudou no jogo e ela já tinha tradução. É a marca de "revisar":
+    /// a <see cref="Translation"/> antiga fica na linha, o <see cref="Status"/> volta para <see cref="TranslationStatus.Untranslated"/> (o build a ignora) e
+    /// este campo guarda o original que ela traduzia. A re-extração o apaga quando a linha sai de <see cref="TranslationStatus.Untranslated"/>. Nulo quando não há o que revisar.
+    /// </summary>
+    public string? PreviousSource { get; init; }
+
+    /// <summary>
     /// Dado opaco da engine, gravado na extração e devolvido sem alteração à reconstrução, para reinjetar sem reinterpretar os comandos do script
     /// (ex.: <c>{ "command": 812, "args": [0] }</c>). O Core nunca interpreta o conteúdo; só o preserva.
     /// </summary>

@@ -19,7 +19,7 @@ internal static class ExtractCommand
 
     public static Command Create(VnfCli cli)
     {
-        var command = new Command("extract", "Descompacta os arquivos do jogo para .cache/ e gera text/*.json (primeira extração; não altera a pasta do jogo).");
+        var command = new Command("extract", "Descompacta os arquivos do jogo para .cache/ e gera text/*.json (repetido, mantém as traduções; não altera a pasta do jogo).");
         command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, parseResult.InvocationConfiguration.Output, token)));
         return command;
     }
@@ -40,6 +40,7 @@ internal static class ExtractCommand
                 lines = result.TotalLines,
                 kinds = result.LinesByKind.ToDictionary(k => KindId(k.Key), k => k.Value),
                 texts = result.Scripts.Select(s => new { key = s.Key, name = s.Name, lines = s.Lines }),
+                reextraction = result.Reextraction is { } re ? new { kept = re.Kept, outdated = re.Outdated, added = re.Added, removed = re.Removed } : null,
                 warnings = result.Warnings,
             }));
             return ErrorHandler.OkExitCode;
@@ -51,6 +52,11 @@ internal static class ExtractCommand
         }
 
         output.WriteLine(Summary(result));
+        if (result.Reextraction is { } r)
+        {
+            output.WriteLine($"Re-extração: {Number(r.Kept)} mantidas, {Number(r.Outdated)} desatualizadas (original mudou; tradução antiga guardada), {Number(r.Added)} novas, {Number(r.Removed)} removidas.");
+        }
+
         foreach (var warning in result.Warnings.Take(MaxWarningsShown))
         {
             output.WriteLine($"Aviso: {warning}");
