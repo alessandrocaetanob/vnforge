@@ -11,7 +11,7 @@ namespace VNForge.AI.Claude;
 /// </summary>
 public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, ClaudeOptions? options = null) : ITranslationProvider
 {
-    private readonly ClaudeOptions _options = options ?? new ClaudeOptions();
+    private readonly ClaudeBatchCaller _caller = new(client, options ?? new ClaudeOptions());
 
     // Sem escape de não-ASCII: o japonês chega legível ao modelo e gasta menos tokens.
     private static readonly JsonSerializerOptions PromptJson = new(JsonSerializerDefaults.Web) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
@@ -20,13 +20,10 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         {"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"translation":{"type":"string"}},"required":["id","translation"],"additionalProperties":false}}},"required":["translations"],"additionalProperties":false}
         """;
 
-    private readonly Lock _usageLock = new();
-    private ClaudeUsage _usage = new(0, 0, 0, 0);
-
     /// <summary>Tokens acumulados de todas as chamadas deste provedor, recusas incluídas, com os lidos do cache.</summary>
     public ClaudeUsage Usage
     {
-        get { lock (_usageLock) return _usage; }
+        get => _caller.Usage;
     }
 
     /// <summary>
@@ -35,29 +32,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     /// </summary>
     public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(batch);
-        ct.ThrowIfCancellationRequested();
-        return ClaudePromptParts.WithRefusalFallback(
-            batch,
-            b => TranslateOnceAsync(b, ct),
-            line => new TranslationResult(line.Id, string.Empty, Refused: true));
-    }
-
-    private async Task<IReadOnlyList<TranslationResult>> TranslateOnceAsync(TranslationBatch batch, CancellationToken ct)
-    {
-        var request = new ClaudeRequest(_options.Model, _options.Effort, _options.MaxTokens, BuildSystem(batch), BuildUser(batch), Schema);
-        var reply = await client.CompleteAsync(request, ct).ConfigureAwait(false);
-
-        if (reply.Usage is { } usage)
-            lock (_usageLock)
-                _usage += usage;
-
-        if (reply.StopReason == "refusal")
-            throw new ClaudeRefusalException("O modelo recusou traduzir este lote (stop_reason: refusal).");
-        if (reply.StopReason == "max_tokens")
-            throw new ClaudeResponseException("A resposta foi cortada por limite de tokens; reduza o lote.");
-
-        return Parse(reply.Text, batch);
+        return _caller.RunAsync(batch, ct, Schema, "traduzir", BuildSystem, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true));
     }
 
     private static string BuildSystem(TranslationBatch batch)

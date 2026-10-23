@@ -172,6 +172,37 @@ internal static class AiCommandSupport
             ? ModelPricing.For(model).Cost(new TokenUsage(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens))
             : null;
 
+    /// <summary>
+    /// Fecha o texto do resultado: linhas recusadas, lotes que falharam, quantas linhas seguem pendentes e os tokens.
+    /// </summary>
+    /// <param name="refusedSuffix">Depois de "linha recusada", até os dois-pontos que antecedem os ids.</param>
+    /// <param name="pendingSuffix">Depois de "linhas seguem", o que falta e como repetir.</param>
+    public static void WriteOutcome(
+        TextWriter output, IReadOnlyCollection<string> refused, string refusedSuffix, IReadOnlyList<TranslationBatchFailure> failed, string pendingSuffix, ClaudeUsage? usage, decimal? dollars)
+    {
+        if (refused.Count > 0)
+        {
+            output.WriteLine($"{Count(refused.Count, "linha recusada", "linhas recusadas")} {refusedSuffix}: {string.Join(", ", refused.Order(StringComparer.Ordinal).Take(10))}{(refused.Count > 10 ? ", ..." : string.Empty)}");
+        }
+
+        WriteFailures(output, failed);
+
+        var failedLines = failed.Sum(f => f.LineIds.Count);
+        if (failedLines > 0)
+        {
+            output.WriteLine($"{Count(failedLines, "linha segue", "linhas seguem")} {pendingSuffix}");
+        }
+
+        WriteUsage(output, usage, dollars);
+    }
+
+    /// <summary>As duas últimas linhas da estimativa do <c>--dry-run</c>.</summary>
+    public static void WriteEstimateTail(TextWriter output, TokenUsage usage, decimal dollars, string command)
+    {
+        output.WriteLine($"~{Tokens(usage.Input)} de entrada, ~{Tokens(usage.Output)} de saída; custo estimado {Dollars(dollars)}.");
+        output.WriteLine($"É uma ordem de grandeza: o custo real aparece ao fim de '{command}'.");
+    }
+
     public static void WriteUsage(TextWriter output, ClaudeUsage? usage, decimal? dollars)
     {
         if (usage is not null)

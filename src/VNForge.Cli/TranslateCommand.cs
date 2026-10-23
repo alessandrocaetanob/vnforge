@@ -179,8 +179,7 @@ internal static class TranslateCommand
         }
 
         output.WriteLine($"Estimativa ({settings.Model}): {Count(estimate.Lines, "linha", "linhas")} para a API, {Number(estimate.CachedLines)} já no cache.");
-        output.WriteLine($"~{Tokens(estimate.Usage.Input)} de entrada, ~{Tokens(estimate.Usage.Output)} de saída; custo estimado {Dollars(estimate.Dollars)}.");
-        output.WriteLine("É uma ordem de grandeza: o custo real aparece ao fim de 'vnf translate'.");
+        WriteEstimateTail(output, estimate.Usage, estimate.Dollars, "vnf translate");
         return ErrorHandler.OkExitCode;
     }
 
@@ -211,19 +210,14 @@ internal static class TranslateCommand
             output.WriteLine($"{Count(summary.Cached, "linha veio", "linhas vieram")} do cache, sem custo.");
         }
 
-        if (summary.Refused.Count > 0)
-        {
-            output.WriteLine($"{Count(summary.Refused.Count, "linha recusada", "linhas recusadas")} pelo modelo ou fora das regras de validação; seguem sem tradução: {string.Join(", ", summary.Refused.Order(StringComparer.Ordinal).Take(10))}{(summary.Refused.Count > 10 ? ", ..." : string.Empty)}");
-        }
-
-        WriteFailures(output, summary.Failed);
-
-        if (failedLines > 0)
-        {
-            output.WriteLine($"{Count(failedLines, "linha segue", "linhas seguem")} sem tradução; rode 'vnf translate' de novo para repetir só o que falta.");
-        }
-
-        WriteUsage(output, summary.Usage, dollars);
+        WriteOutcome(
+            output,
+            summary.Refused,
+            "pelo modelo ou fora das regras de validação; seguem sem tradução",
+            summary.Failed,
+            "sem tradução; rode 'vnf translate' de novo para repetir só o que falta.",
+            summary.Usage,
+            dollars);
 
         return exitCode;
     }

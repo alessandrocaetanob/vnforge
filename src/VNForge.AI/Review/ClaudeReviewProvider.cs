@@ -12,7 +12,7 @@ namespace VNForge.AI.Review;
 /// </summary>
 public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOptions? options = null) : IReviewProvider
 {
-    private readonly ClaudeOptions _options = options ?? new ClaudeOptions();
+    private readonly ClaudeBatchCaller _caller = new(client, options ?? new ClaudeOptions());
 
     private static readonly JsonSerializerOptions PromptJson = new(JsonSerializerDefaults.Web) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
@@ -20,41 +20,16 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
         {"type":"object","properties":{"reviews":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"suggestion":{"type":"string"}},"required":["id","suggestion"],"additionalProperties":false}}},"required":["reviews"],"additionalProperties":false}
         """;
 
-    private readonly Lock _usageLock = new();
-    private ClaudeUsage _usage = new(0, 0, 0, 0);
-
     /// <summary>Tokens acumulados de todas as chamadas deste provedor, recusas incluídas.</summary>
     public ClaudeUsage Usage
     {
-        get { lock (_usageLock) return _usage; }
+        get => _caller.Usage;
     }
 
     /// <summary>Revisa o lote. Uma recusa refaz o lote linha a linha, e só as linhas recusadas voltam com <see cref="ReviewResult.Refused"/>.</summary>
     public Task<IReadOnlyList<ReviewResult>> ReviewAsync(TranslationBatch batch, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(batch);
-        ct.ThrowIfCancellationRequested();
-        return ClaudePromptParts.WithRefusalFallback(
-            batch,
-            b => ReviewOnceAsync(b, ct),
-            line => new ReviewResult(line.Id, string.Empty, Refused: true));
-    }
-
-    private async Task<IReadOnlyList<ReviewResult>> ReviewOnceAsync(TranslationBatch batch, CancellationToken ct)
-    {
-        var request = new ClaudeRequest(_options.Model, _options.Effort, _options.MaxTokens, BuildSystem(batch), BuildUser(batch), Schema);
-        var reply = await client.CompleteAsync(request, ct).ConfigureAwait(false);
-
-        if (reply.Usage is { } usage)
-            lock (_usageLock)
-                _usage += usage;
-
-        if (reply.StopReason == "refusal")
-            throw new ClaudeRefusalException("O modelo recusou revisar este lote (stop_reason: refusal).");
-        if (reply.StopReason == "max_tokens")
-            throw new ClaudeResponseException("A resposta foi cortada por limite de tokens; reduza o lote.");
-
-        return Parse(reply.Text, batch);
+        return _caller.RunAsync(batch, ct, Schema, "revisar", BuildSystem, BuildUser, Parse, line => new ReviewResult(line.Id, string.Empty, Refused: true));
     }
 
     private static string BuildSystem(TranslationBatch batch)

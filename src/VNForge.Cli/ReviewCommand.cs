@@ -170,8 +170,7 @@ internal static class ReviewCommand
         }
 
         output.WriteLine($"Estimativa ({settings.Model}): {Count(pending.Count, "linha", "linhas")} para a API.");
-        output.WriteLine($"~{Tokens(usage.Input)} de entrada, ~{Tokens(usage.Output)} de saída; custo estimado {Dollars(dollars)}.");
-        output.WriteLine("É uma ordem de grandeza: o custo real aparece ao fim de 'vnf review'.");
+        WriteEstimateTail(output, usage, dollars, "vnf review");
         return ErrorHandler.OkExitCode;
     }
 
@@ -200,19 +199,14 @@ internal static class ReviewCommand
         output.WriteLine($"{Count(summary.Reviewed, "linha revisada", "linhas revisadas")} de {Number(selected)}, modelo {settings.Model}: {Count(summary.Suggestions, "sugestão gravada", "sugestões gravadas")} em 'notes', {Count(summary.Clean, "linha sem ressalva", "linhas sem ressalva")}.");
         output.WriteLine("As traduções e os status não foram alterados.");
 
-        if (summary.Refused.Count > 0)
-        {
-            output.WriteLine($"{Count(summary.Refused.Count, "linha recusada", "linhas recusadas")} pelo modelo; seguem sem sugestão: {string.Join(", ", summary.Refused.Order(StringComparer.Ordinal).Take(10))}{(summary.Refused.Count > 10 ? ", ..." : string.Empty)}");
-        }
-
-        WriteFailures(output, summary.Failed);
-
-        if (failedLines > 0)
-        {
-            output.WriteLine($"{Count(failedLines, "linha segue", "linhas seguem")} sem revisão; rode 'vnf review' de novo.");
-        }
-
-        WriteUsage(output, summary.Usage, dollars);
+        WriteOutcome(
+            output,
+            summary.Refused,
+            "pelo modelo; seguem sem sugestão",
+            summary.Failed,
+            "sem revisão; rode 'vnf review' de novo.",
+            summary.Usage,
+            dollars);
 
         return exitCode;
     }
