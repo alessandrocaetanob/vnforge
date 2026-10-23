@@ -41,6 +41,9 @@ public sealed class ProjectFolder
     /// <summary><c>.cache/game</c>: os pacotes do jogo descompactados pelo <c>vnf extract</c>, uma subpasta por pacote.</summary>
     public string GameCacheDirectory => Path.Combine(CacheDirectory, "game");
 
+    /// <summary>Cópia dos <c>text/*.json</c> que a re-extração trocou ou removeu (<c>.cache/text-anterior/</c>); só a da última re-extração que mudou algo.</summary>
+    public string TextBackupDirectory => Path.Combine(CacheDirectory, "text-anterior");
+
     public string BuildDirectory => Path.Combine(Root, "build");
 
     public string BackupDirectory => Path.Combine(Root, "backup");

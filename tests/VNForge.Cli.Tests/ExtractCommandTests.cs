@@ -144,7 +144,7 @@ public sealed class ExtractCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Extrair_de_novo_com_text_existente_e_recusado_sem_tocar_nas_traducoes()
+    public async Task Extrair_de_novo_mantem_as_traducoes_e_resume_a_re_extracao()
     {
         await InitProject();
         await Extract();
@@ -155,24 +155,28 @@ public sealed class ExtractCommandTests : IDisposable
 
         var result = await Extract();
 
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("A pasta text/ já tem 2 arquivo(s)", result.Error);
-        Assert.Contains("E3.5", result.Error);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Re-extração: 5 mantidas, 0 desatualizadas", result.Output);
         Assert.Equal(before, HashTree(project.TextDirectory));
+        Assert.Equal("Bom dia", project.LoadText("yst00001")[0].Translation);
     }
 
     [Fact]
-    public async Task Extrair_de_novo_com_text_existente_em_json_sai_com_erro_no_envelope()
+    public async Task Extrair_de_novo_em_json_traz_a_contagem_da_re_extracao()
     {
         await InitProject();
-        await Extract();
+        var first = await Extract("--json");
+        using var firstDocument = JsonDocument.Parse(first.Output);
+        Assert.False(firstDocument.RootElement.GetProperty("data").TryGetProperty("reextraction", out var none) && none.ValueKind != JsonValueKind.Null);
 
         var result = await Extract("--json");
 
-        Assert.Equal(1, result.ExitCode);
+        Assert.Equal(0, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
-        Assert.False(document.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Contains("text/ já tem", document.RootElement.GetProperty("error").GetProperty("message").GetString());
+        var reextraction = document.RootElement.GetProperty("data").GetProperty("reextraction");
+        Assert.Equal(0, reextraction.GetProperty("outdated").GetInt32());
+        Assert.Equal(0, reextraction.GetProperty("removed").GetInt32());
+        Assert.True(reextraction.GetProperty("kept").GetInt32() > 0);
     }
 
     [Fact]
