@@ -115,6 +115,43 @@ public sealed class ProjectFolder
     public void SaveFormatting(FormattingProfile profile) =>
         WriteAtomically(FormattingPath, FormattingProfileSerializer.Serialize(profile), overwrite: true);
 
+    /// <summary><c>.cache/state.json</c>: hashes dos originais do jogo e estado de cada etapa. Apagar o <c>.cache/</c> zera o estado.</summary>
+    public string StatePath => Path.Combine(CacheDirectory, "state.json");
+
+    /// <summary>Lê o <c>state.json</c>; sem o arquivo, devolve <see cref="PipelineState.Empty"/>.</summary>
+    /// <exception cref="VNForgeException">Arquivo fora de UTF-8, malformado ou de uma versão que esta não conhece.</exception>
+    public PipelineState LoadState()
+    {
+        if (!File.Exists(StatePath))
+        {
+            return PipelineState.Empty;
+        }
+
+        try
+        {
+            return PipelineState.Parse(Utf8Estrito.GetString(File.ReadAllBytes(StatePath)).TrimStart((char)0xFEFF), StatePath);
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new VNForgeException($"O estado do pipeline não está em UTF-8 válido: {StatePath}. Apague o .cache/ para recomeçar.", ex);
+        }
+    }
+
+    /// <summary>Grava o <c>state.json</c> (UTF-8 sem BOM, LF). Com o mesmo conteúdo já no disco, não toca no arquivo.</summary>
+    public void SaveState(PipelineState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var json = state.Serialize();
+        if (File.Exists(StatePath) && File.ReadAllBytes(StatePath).AsSpan().SequenceEqual(Utf8SemBom.GetBytes(json)))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(CacheDirectory);
+        WriteAtomically(StatePath, json, overwrite: true);
+    }
+
     public void EnsureDirectories()
     {
         Directory.CreateDirectory(TextDirectory);
