@@ -26,7 +26,7 @@ internal sealed record BuildState(
     List<BuildStateArchive> Archives,
     List<string> Warnings)
 {
-    private const int CurrentVersion = 1;
+    internal const int CurrentVersion = 1;
 
     private const string StateFileName = "build-state.json";
 
@@ -58,6 +58,7 @@ internal sealed record BuildState(
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(original);
         Append(hash, encoderId);
+        Append(hash, typeof(BuildState).Assembly.GetName().Version?.ToString());
         foreach (var unit in units.Where(u => u.NeedsRewrite))
         {
             Append(hash, unit.Id);
@@ -100,6 +101,19 @@ internal sealed record BuildState(
             return file.Exists && file.Length == a.Length;
         });
 
+    /// <summary>Como <see cref="Save"/>, mas uma falha de disco não derruba um build já gravado: o próximo build só reconstrói mais.</summary>
+    public void TrySave(ProjectFolder project)
+    {
+        try
+        {
+            Save(project);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Sem estado o próximo build reconstrói tudo; o build/ já gravado continua válido.
+        }
+    }
+
     /// <summary>Grava o estado e apaga os arquivos de script que ele não cita mais.</summary>
     public void Save(ProjectFolder project)
     {
@@ -124,7 +138,8 @@ internal sealed record BuildState(
 
     private static void Append(IncrementalHash hash, string? value)
     {
-        hash.AppendData(Encoding.UTF8.GetBytes(value ?? "\u0000"));
-        hash.AppendData([0x1F]);
+        var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+        hash.AppendData(BitConverter.GetBytes(value is null ? -1 : bytes.Length));
+        hash.AppendData(bytes);
     }
 }

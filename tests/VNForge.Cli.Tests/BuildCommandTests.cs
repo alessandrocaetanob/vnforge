@@ -347,6 +347,17 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Report_com_encoding_usa_a_estrategia_pedida()
+    {
+        await InitAndExtract();
+
+        var result = await Build("--report", "--encoding", "fold");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("'fold'", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Sem_traducao_o_resumo_diz_que_o_pacote_saiu_identico()
     {
         await InitAndExtract();

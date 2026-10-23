@@ -145,7 +145,7 @@ public static class ProjectBuilder
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            new BuildState(1, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings]).Save(project);
+            new BuildState(BuildState.CurrentVersion, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings]).TrySave(project);
             return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
         }
         catch
