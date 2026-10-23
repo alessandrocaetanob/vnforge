@@ -205,9 +205,24 @@ Pipeline configurável aplicado **na hora do build**, não no texto salvo. Assim
 | Quebra de linha | quebra por palavra respeitando largura máxima em colunas e máximo de linhas por caixa | largura, linhas, largura por caractere |
 | Regras do usuário | lista de substituições literais ou regex, antes e depois | sim |
 
-A quebra de linha (E4.4) é `WordWrapper.Wrap(texto, WrapOptions)` em `VNForge.Core.Formatting`, uma função pura sobre a tradução com marcadores. A largura máxima (`MaxWidth`), o limite de linhas por caixa (`MaxLines`) e a largura por caractere (`CharWidth`, um delegate injetável) vêm de `WrapOptions`; o padrão `CharWidths.HalfWidthLatin` conta letra latina como 1 coluna e japonês como 2. Marcadores (`\c`, `\u`, `{...}`) não ocupam coluna e nunca são partidos; `\\` e `\{` contam como o caractere que representam; os `\n` já presentes ficam onde estão; `\p` zera a contagem de linhas da caixa. Espaços na posição da quebra são descartados, e palavra maior que a linha é cortada no limite (um caractere mais largo que a linha ocupa uma linha sozinho, sem laço). `WrapResult` devolve o texto, as linhas de cada caixa (`LinesPerBox`) e `ExceedsLineLimit`/`OverflowingBoxes`, que o QA do E7 usa. Marcador inválido lança `ArgumentException`. Ainda não está ligada ao `vnf build` nem ao `formatting.json`.
+A quebra de linha (E4.4) é `WordWrapper.Wrap(texto, WrapOptions)` em `VNForge.Core.Formatting`, uma função pura sobre a tradução com marcadores. A largura máxima (`MaxWidth`), o limite de linhas por caixa (`MaxLines`) e a largura por caractere (`CharWidth`, um delegate injetável) vêm de `WrapOptions`; o padrão `CharWidths.HalfWidthLatin` conta letra latina como 1 coluna e japonês como 2. Marcadores (`\c`, `\u`, `{...}`) não ocupam coluna e nunca são partidos; `\\` e `\{` contam como o caractere que representam; os `\n` já presentes ficam onde estão; `\p` zera a contagem de linhas da caixa. Espaços na posição da quebra são descartados, e palavra maior que a linha é cortada no limite (um caractere mais largo que a linha ocupa uma linha sozinho, sem laço). `WrapResult` devolve o texto, as linhas de cada caixa (`LinesPerBox`) e `ExceedsLineLimit`/`OverflowingBoxes`, que o QA do E7 usa. Marcador inválido lança `ArgumentException`. O `vnf build` a liga pelo `wrap` do `formatting.json`.
 
-As regras ficam num **perfil de formatação** (`formatting.json`) dentro do projeto. O app mostra uma prévia da caixa de texto do jogo com o resultado.
+As regras ficam num **perfil de formatação** (`formatting.json`) na raiz do projeto. O app mostra uma prévia da caixa de texto do jogo com o resultado.
+
+O perfil (E4.1) é `FormattingProfile` em `VNForge.Core.Formatting`, lido por `FormattingProfileSerializer` (JSON com comentários e vírgula final aceitos). Todo campo é opcional e o que falta usa o padrão de `FormattingProfile.Default`; campo desconhecido ou valor inválido é erro que cita o caminho (`formatting.json inválido em $.wrap.maxWidth: ...`). Sem o arquivo, vale o padrão, que não liga nenhuma regra e deixa o texto como está. Campos de hoje:
+
+| Campo | Padrão | Efeito |
+|---|---|---|
+| `kinds` | `["dialogue", "narration"]` | Papéis de linha que o pipeline formata; as outras saem como estão |
+| `wrap.enabled` | `false` | Liga a quebra de linha |
+| `wrap.maxWidth` | `54` | Colunas por linha |
+| `wrap.maxLines` | `3` (`null` não limita) | Linhas por caixa; acima disso o build avisa, não recusa |
+| `wrap.charWidth` | `"halfWidthLatin"` (ou `"uniform"`) | Tabela de largura por caractere |
+
+`FormattingPipeline` aplica, na hora do build, as etapas (`IFormattingStage`) pela ordem de `FormattingPhase`: regras do usuário antes, normalização, espaços, tipografia, largura, quebra de linha e regras do usuário depois. O `ProjectBuilder` passa pelo pipeline a tradução de cada linha que será gravada e cujo papel está em `kinds`, antes de conferir a codificação, então o relatório de codificação (`vnf build --report` também) vale para o texto já formatado. O `text/*.json` em disco não muda. Aviso de uma etapa (caixa acima do limite de linhas) vai para os avisos do build com o id da linha.
+
+Os marcadores de controle ficam fora do alcance das regras. Depois de cada etapa o pipeline confere que os marcadores são os mesmos, na mesma ordem; só a etapa que declara `MayChangeLineBreaks` (a quebra) pode acrescentar `
+`. Uma etapa que violar isso lança `FormattingException` e o build para citando a linha. Regra de texto comum herda `TextRunStage`, que entrega a `ApplyToRun` só os trechos entre marcadores. Para acrescentar uma regra (E4.2, E4.3, E4.5): escreva a etapa, dê a ela a fase e registre-a em `FormattingPipeline.Create` a partir de uma nova propriedade do perfil. Um perfil de exemplo fica em `samples/formatting.json`.
 
 ### 4. Codificação para português
 
@@ -221,7 +236,7 @@ O texto do YU-RIS é Shift-JIS (CP932), que **não tem** á, ã, ç, é, õ etc.
 
 `Cp1252TextEncoder` (`VNForge.Core.Text`, id `cp1252`) implementa o lado do Core da estratégia `cp1252`: grava em Windows-1252 com fallback de exceção, então nada é trocado ou descartado em silêncio. O byte `0xEF` (`ï`) colide com o prefixo dos códigos de controle, por isso `ï` é recusado: `FindUnencodable` o aponta e `Encode` lança `EncoderFallbackException`. O patch no executável não faz parte do encoder.
 
-O QA avisa qualquer caractere que a estratégia escolhida não consegue representar, e o `vnf build --report` lista cada um com a linha, a posição e o substituto (E5.1). A estratégia `sjis` (Shift-JIS pura, sem tratar acentos) existe como base e para texto sem acentos; o padrão do `vnf init` continua `cp1252`. Detalhes técnicos em [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md).
+O QA avisa qualquer caractere que a estratégia escolhida não consegue representar, e o `vnf build --report` lista cada um com a linha, a posição e o substituto (E5.1). A estratégia `sjis` (Shift-JIS pura, sem tratar acentos) existe como base e para texto sem acentos; o padrão do `vnf init` é `fold` (ver "Em aberto"). Detalhes técnicos em [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md).
 
 ### 5. QA (conferência)
 
@@ -248,6 +263,8 @@ public interface ITranslationProvider
     Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct);
 }
 ```
+
+`TranslationBatch` traz as linhas (`TextUnit`) e o contexto: `PreviousLines`, `Glossary`, `Characters` e `StyleGuide`. `TranslationResult` é o par `Id` e `Translation`. Os tipos ficam em `VNForge.AI.Translation`, junto do `FakeTranslationProvider`, o provedor determinístico dos testes e do app sem chave (traduz `X` como `[PT] X`, registra os lotes e pode falhar numa chamada escolhida).
 
 - **Lotes** de 20–50 linhas por chamada, com contexto: linhas anteriores já traduzidas, personagens presentes, glossário filtrado para o lote, guia de estilo do projeto (registro, tratamento, honoríficos).
 - **Entrada e saída em JSON** com `id` por linha. Resposta validada: mesmos ids, mesmos marcadores de controle. Se falhar, reenvia só as linhas com problema.
@@ -302,7 +319,7 @@ minha-vn-ptbr/
   "game": { "path": "D:/Jogos/MinhaVN", "exe": "MinhaVN.exe" },
   "engine": { "id": "yuris", "version": 500, "scriptKey": "0xD36FAC96" },
   "languages": { "source": "ja", "target": "pt-BR" },
-  "encoding": { "strategy": "cp1252" },
+  "encoding": { "strategy": "fold" },
   "ai": { "provider": "anthropic", "model": "claude-opus-5-5", "effort": "medium", "batchSize": 30 }
 }
 ```
@@ -327,5 +344,5 @@ Como a lógica fica toda no Core e nos ViewModels, trocar WPF por Avalonia depoi
 
 - [ ] WPF (só Windows) ou Avalonia (multiplataforma)?
 - [x] Provedor de IA: Claude primeiro, modelo selecionável; outros provedores depois (E12).
-- [ ] Estratégia de codificação padrão: começar com `fold` (garantido) e evoluir para `cp1252`?
+- [x] Estratégia de codificação padrão: `fold` (#63, 2026-10-23). O jogo lê Shift-JIS, e `cp1252` só funciona com o patch do executável (#65), ainda não validado. Projetos passam para `cp1252` à mão depois disso.
 - [ ] Formato de exportação extra para revisores (planilha .xlsx? .po?).

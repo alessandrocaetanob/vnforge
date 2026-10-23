@@ -1,4 +1,5 @@
 using System.Text;
+using VNForge.Core.Formatting;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -7,6 +8,8 @@ namespace VNForge.Core.Projects;
 public sealed class ProjectFolder
 {
     public const string ConfigFileName = "vnforge.json";
+
+    public const string FormattingFileName = "formatting.json";
 
     private const string TextFileExtension = ".json";
 
@@ -86,6 +89,31 @@ public sealed class ProjectFolder
 
     public void SaveConfig(ProjectConfig config) =>
         WriteConfig(ProjectConfigSerializer.Serialize(config), overwrite: true);
+
+    /// <summary><c>formatting.json</c>, o perfil de formatação aplicado no build. É opcional.</summary>
+    public string FormattingPath => Path.Combine(Root, FormattingFileName);
+
+    /// <summary>Lê o <c>formatting.json</c>; sem o arquivo, devolve <see cref="FormattingProfile.Default"/> (nenhuma regra ligada).</summary>
+    /// <exception cref="FormattingProfileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public FormattingProfile LoadFormatting()
+    {
+        if (!File.Exists(FormattingPath))
+        {
+            return FormattingProfile.Default;
+        }
+
+        try
+        {
+            return FormattingProfileSerializer.Parse(Utf8Estrito.GetString(File.ReadAllBytes(FormattingPath)).TrimStart((char)0xFEFF));
+        }
+        catch (DecoderFallbackException)
+        {
+            throw new FormattingProfileException("$", "o arquivo não está em UTF-8 válido.");
+        }
+    }
+
+    public void SaveFormatting(FormattingProfile profile) =>
+        WriteAtomically(FormattingPath, FormattingProfileSerializer.Serialize(profile), overwrite: true);
 
     public void EnsureDirectories()
     {

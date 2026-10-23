@@ -36,6 +36,7 @@ public sealed class ProjectInitializerTests : IDisposable
         Assert.Equal("Jogo.exe", saved.Game.Exe);
         Assert.Equal(_game.Replace(Path.DirectorySeparatorChar, '/'), saved.Game.Path);
         Assert.Equal(new LanguagesConfig("ja", "pt-BR"), saved.Languages);
+        Assert.Equal(new EncodingConfig("fold"), saved.Encoding);
     }
 
     [Fact]
