@@ -261,18 +261,10 @@ public static class YstbReader
         return new YstbFile(source, version, layout.Padding, candidate.Key, candidate.Origin, instructions, argumentBytes, resources);
     }
 
-    /// <summary>XOR cíclico com a chave em ordem big-endian, recomeçando no início de cada seção.</summary>
     private static byte[] Decrypt(ReadOnlySpan<byte> data, Section section, uint key)
     {
-        Span<byte> keyBytes = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(keyBytes, key);
-        var source = data.Slice(section.Offset, section.Size);
         var result = new byte[section.Size];
-        for (var i = 0; i < result.Length; i++)
-        {
-            result[i] = (byte)(source[i] ^ keyBytes[i & 3]);
-        }
-
+        YstbCipher.Apply(data.Slice(section.Offset, section.Size), key, result);
         return result;
     }
 
