@@ -20,14 +20,14 @@ internal static class ExtractCommand
     public static Command Create(VnfCli cli)
     {
         var command = new Command("extract", "Descompacta os arquivos do jogo para .cache/ e gera text/*.json (primeira extração; não altera a pasta do jogo).");
-        command.SetAction(parseResult => Run(cli, parseResult, parseResult.InvocationConfiguration.Output));
+        command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, parseResult.InvocationConfiguration.Output, token)));
         return command;
     }
 
-    private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output)
+    private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output, CancellationToken token)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-        var result = ProjectExtractor.Extract(project, KnownEngines.All);
+        var result = ProjectExtractor.Extract(project, KnownEngines.All, token);
 
         if (parseResult.GetValue(cli.Options.Json))
         {

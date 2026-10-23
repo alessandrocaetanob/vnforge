@@ -264,8 +264,63 @@ public sealed class ProjectExtractorTests : IDisposable
 
         var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
 
-        Assert.Contains("dentro da pasta do jogo", ex.Message);
+        Assert.Contains("fica dentro da pasta do jogo", ex.Message);
         Assert.Equal(before, HashTree(_game));
+    }
+
+    [Fact]
+    public void Cache_que_e_uma_juncao_para_dentro_do_jogo_e_recusado_sem_gravar_nada()
+    {
+        WriteGame("a001.fake", "dialogue|Olá");
+        var inside = Path.Combine(_game, "destino");
+        Directory.CreateDirectory(inside);
+        var project = NewProject();
+        Directory.Delete(project.CacheDirectory);
+        CreateDirectoryLink(project.CacheDirectory, inside);
+        var before = HashTree(_game);
+
+        try
+        {
+            var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
+
+            Assert.Contains("fica dentro da pasta do jogo", ex.Message);
+            Assert.Equal(before, HashTree(_game));
+        }
+        finally
+        {
+            Directory.Delete(project.CacheDirectory);
+        }
+    }
+
+    [Fact]
+    public void Jogo_sem_nenhum_script_depois_de_descompactar_e_erro()
+    {
+        WriteGame("Jogo.exe", "MZ");
+        var project = NewProject();
+
+        var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
+
+        Assert.Contains("Nenhum script foi encontrado", ex.Message);
+        Assert.Empty(Directory.EnumerateFiles(project.TextDirectory));
+    }
+
+    private static void CreateDirectoryLink(string link, string target)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"")
+            {
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+            })!;
+            process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            Assert.Equal(0, process.ExitCode);
+        }
+        else
+        {
+            Directory.CreateSymbolicLink(link, target);
+        }
     }
 
     private sealed class NoUnpackEngine : IEngine

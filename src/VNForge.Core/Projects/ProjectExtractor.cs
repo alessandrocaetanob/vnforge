@@ -62,10 +62,10 @@ public static class ProjectExtractor
             throw new VNForgeException($"A pasta do jogo não existe: {gameDirectory}");
         }
 
-        if (IsInside(gameDirectory, project.CacheDirectory))
+        if (IsInside(ResolveLinks(gameDirectory), ResolveLinks(project.GameCacheDirectory)))
         {
             throw new VNForgeException(
-                $"A pasta do projeto ('{project.Root}') está dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
+                $"O .cache do projeto ('{project.CacheDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
         }
 
         ThrowIfTextExists(project);
@@ -77,6 +77,10 @@ public static class ProjectExtractor
 
         var unpacked = unpacker.Unpack(gameDirectory, project.GameCacheDirectory, cancellationToken);
         var game = unpacker.Open(project.GameCacheDirectory);
+        if (game.Scripts.Count == 0)
+        {
+            throw new VNForgeException($"Nenhum script foi encontrado em '{project.GameCacheDirectory}' depois de descompactar o jogo; nada foi gravado em text/.");
+        }
 
         var warnings = new List<string>(unpacked.Warnings);
         warnings.AddRange(game.Warnings);
@@ -96,7 +100,14 @@ public static class ProjectExtractor
         {
             foreach (var path in written)
             {
-                File.Delete(path);
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // O erro original é o que importa; o que não saiu segue para o próximo.
+                }
             }
 
             throw;
@@ -164,6 +175,25 @@ public static class ProjectExtractor
             throw new VNForgeException(
                 $"A pasta text/ já tem {existing} arquivo(s) de texto, e a re-extração que preserva as traduções ainda não existe (E3.5). Nada foi alterado. Para extrair do zero, mova ou apague a pasta text/ (as traduções nela se perdem).");
         }
+    }
+
+    /// <summary>Segue os links simbólicos e junções do caminho, para um <c>.cache</c> que aponta para dentro do jogo não passar.</summary>
+    private static string ResolveLinks(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(full) ?? string.Empty;
+        var current = root;
+        foreach (var part in full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, part);
+            var info = new DirectoryInfo(current);
+            if (info.Exists && info.LinkTarget is not null && info.ResolveLinkTarget(returnFinalTarget: true) is { } target)
+            {
+                current = target.FullName;
+            }
+        }
+
+        return current;
     }
 
     private static bool IsInside(string folder, string path)
