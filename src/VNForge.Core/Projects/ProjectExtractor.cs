@@ -97,6 +97,11 @@ public static class ProjectExtractor
                 project.SaveText(script.Key, script.Units);
                 written.Add(project.TextPath(script.Key));
             }
+
+            // Dentro do try: se o estado não grava, o texto sai junto e a extração pode ser repetida.
+            project.SaveState(new PipelineState(
+                originals,
+                new Dictionary<string, StageState> { [ExtractStage] = new(StageStatus.Completed) }));
         }
         catch
         {
@@ -114,11 +119,6 @@ public static class ProjectExtractor
 
             throw;
         }
-
-        // Só depois do texto gravado: uma extração que falhou não deixa estado dizendo que a etapa terminou.
-        project.SaveState(new PipelineState(
-            originals,
-            new Dictionary<string, StageState> { [ExtractStage] = new(StageStatus.Completed) }));
 
         var byKind = Enum.GetValues<TextUnitKind>().ToDictionary(kind => kind, _ => 0);
         foreach (var unit in extracted.SelectMany(s => s.Units))
