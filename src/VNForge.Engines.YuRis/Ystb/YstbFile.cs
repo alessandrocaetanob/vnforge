@@ -62,8 +62,7 @@ public sealed class YstbFile
         string source,
         uint version,
         uint padding,
-        uint key,
-        YstbKeyOrigin keyOrigin,
+        (uint Key, YstbKeyOrigin Origin) effectiveKey,
         IReadOnlyList<YstbInstruction> instructions,
         ReadOnlyMemory<byte> argumentBytes,
         ReadOnlyMemory<byte> resources)
@@ -71,8 +70,8 @@ public sealed class YstbFile
         Source = source;
         Version = version;
         Padding = padding;
-        Key = key;
-        KeyOrigin = keyOrigin;
+        Key = effectiveKey.Key;
+        KeyOrigin = effectiveKey.Origin;
         Instructions = instructions;
         ArgumentBytes = argumentBytes;
         Resources = resources;

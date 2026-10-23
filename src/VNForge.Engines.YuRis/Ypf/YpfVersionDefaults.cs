@@ -34,10 +34,15 @@ public static class YpfVersionDefaults
 
     public static bool IsKnownVersion(uint version) => version is >= MinKnownVersion and <= MaxKnownVersion;
 
-    public static YpfHashAlgorithm NameHash(uint version) =>
-        version < FirstCrc32Version ? YpfHashAlgorithm.Adler32
-        : version < FirstMurmurVersion ? YpfHashAlgorithm.Crc32
-        : YpfHashAlgorithm.MurmurHash2;
+    public static YpfHashAlgorithm NameHash(uint version)
+    {
+        if (version < FirstCrc32Version)
+        {
+            return YpfHashAlgorithm.Adler32;
+        }
+
+        return version < FirstMurmurVersion ? YpfHashAlgorithm.Crc32 : YpfHashAlgorithm.MurmurHash2;
+    }
 
     public static YpfHashAlgorithm DataHash(uint version) =>
         version < FirstMurmurVersion ? YpfHashAlgorithm.Adler32 : YpfHashAlgorithm.MurmurHash2;

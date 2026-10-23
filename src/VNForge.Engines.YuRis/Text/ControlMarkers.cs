@@ -68,18 +68,7 @@ public static class ControlMarkers
             var slice = raw.Slice(i, length);
             if (TryDecode(slice, out var ch))
             {
-                switch (ch)
-                {
-                    case '\\':
-                        sb.Append("\\\\");
-                        break;
-                    case '{':
-                        sb.Append("\\{");
-                        break;
-                    default:
-                        sb.Append(ch);
-                        break;
-                }
+                AppendEscaped(sb, ch);
             }
             else
             {
@@ -103,82 +92,100 @@ public static class ControlMarkers
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(encoder);
 
-        var output = new List<byte>(text.Length * 2);
-        var pending = new StringBuilder();
-
-        void Flush()
-        {
-            if (pending.Length == 0)
-            {
-                return;
-            }
-
-            output.AddRange(encoder.Encode(pending.ToString()));
-            pending.Clear();
-        }
-
+        var builder = new BytesBuilder(text.Length * 2, encoder);
         var i = 0;
         while (i < text.Length)
         {
             var c = text[i];
             if (c == '\\')
             {
-                if (i + 1 >= text.Length)
-                {
-                    throw Invalid(i, "barra invertida no fim do texto; use \\\\ para uma barra literal");
-                }
-
-                var next = text[i + 1];
-                switch (next)
-                {
-                    case '\\':
-                    case '{':
-                        pending.Append(next);
-                        break;
-                    case 'n':
-                        Flush();
-                        output.AddRange([ControlPrefix, LineBreakCode]);
-                        break;
-                    case 'p':
-                        Flush();
-                        output.AddRange([ControlPrefix, PageCode]);
-                        break;
-                    case 'c':
-                        Flush();
-                        output.AddRange([ControlPrefix, ClickCode]);
-                        break;
-                    case 'u':
-                        Flush();
-                        output.AddRange([ControlPrefix, UnknownCode]);
-                        break;
-                    default:
-                        throw Invalid(i, $"marcador \"\\{next}\" desconhecido; use \\\\ para uma barra literal");
-                }
-
-                i += 2;
+                i = ReadEscape(text, i, builder);
             }
             else if (c == '{')
             {
-                var close = text.IndexOf('}', i + 1);
-                if (close < 0)
-                {
-                    throw Invalid(i, "chave sem fechamento; use \\{ para uma chave literal");
-                }
-
-                Flush();
-                output.AddRange(ParseGeneric(text.AsSpan(i + 1, close - i - 1), i));
-                i = close + 1;
+                i = ReadBraced(text, i, builder);
             }
             else
             {
-                pending.Append(c);
+                builder.AppendText(c);
                 i++;
             }
         }
 
-        Flush();
-        return output.ToArray();
+        return builder.ToArray();
     }
+
+    private static int ReadEscape(string text, int i, BytesBuilder builder)
+    {
+        if (i + 1 >= text.Length)
+        {
+            throw Invalid(i, "barra invertida no fim do texto; use \\\\ para uma barra literal");
+        }
+
+        var next = text[i + 1];
+        if (next is '\\' or '{')
+        {
+            builder.AppendText(next);
+        }
+        else
+        {
+            var code = ControlCodeOf(next, i);
+            builder.Flush();
+            builder.AddBytes([ControlPrefix, code]);
+        }
+
+        return i + 2;
+    }
+
+    private static int ReadBraced(string text, int i, BytesBuilder builder)
+    {
+        var close = text.IndexOf('}', i + 1);
+        if (close < 0)
+        {
+            throw Invalid(i, "chave sem fechamento; use \\{ para uma chave literal");
+        }
+
+        builder.Flush();
+        builder.AddBytes(ParseGeneric(text.AsSpan(i + 1, close - i - 1), i));
+        return close + 1;
+    }
+
+    /// <summary>Junta texto (que só passa pelo codificador ao fechar o trecho) e bytes de controle, na ordem.</summary>
+    private sealed class BytesBuilder(int capacity, ITextEncoder encoder)
+    {
+        private readonly List<byte> _output = new(capacity);
+        private readonly StringBuilder _pending = new();
+
+        public void AppendText(char c) => _pending.Append(c);
+
+        public void AddBytes(IEnumerable<byte> bytes) => _output.AddRange(bytes);
+
+        public void Flush()
+        {
+            if (_pending.Length == 0)
+            {
+                return;
+            }
+
+            _output.AddRange(encoder.Encode(_pending.ToString()));
+            _pending.Clear();
+        }
+
+        public byte[] ToArray()
+        {
+            Flush();
+            return _output.ToArray();
+        }
+    }
+
+    private static byte ControlCodeOf(char marker, int position) => marker switch
+    {
+        'n' => LineBreakCode,
+        'p' => PageCode,
+        'c' => ClickCode,
+        'u' => UnknownCode,
+        _ => throw Invalid(position, $"marcador \"\\{marker}\" desconhecido; use \\\\ para uma barra literal"),
+    };
 
     private static void AppendControl(StringBuilder sb, byte code)
     {
@@ -198,6 +205,22 @@ public static class ControlMarkers
                 break;
             default:
                 sb.Append("{EF:").Append(code.ToString("X2", CultureInfo.InvariantCulture)).Append('}');
+                break;
+        }
+    }
+
+    private static void AppendEscaped(StringBuilder sb, char ch)
+    {
+        switch (ch)
+        {
+            case '\\':
+                sb.Append("\\\\");
+                break;
+            case '{':
+                sb.Append("\\{");
+                break;
+            default:
+                sb.Append(ch);
                 break;
         }
     }

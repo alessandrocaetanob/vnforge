@@ -16,7 +16,7 @@ public sealed record ExtractedScript(string Key, string? Name, int Lines);
 /// <param name="CacheDirectory">Pasta com os pacotes descompactados (<see cref="ProjectFolder.GameCacheDirectory"/>).</param>
 /// <param name="Archives">Pacotes descompactados.</param>
 /// <param name="Scripts">Um item por script, na ordem da chave.</param>
-/// <param name="LinesByKind">Unidades por <see cref="TextUnitKind"/>; todo valor do enum aparece, inclusive com zero.</param>
+/// <param name="LinesByKind">Unidades por <see cref="TextUnitKind"/>; cada valor do enum aparece, inclusive com zero.</param>
 /// <param name="Warnings">Avisos da engine, cada um com o nome do script quando vem de um.</param>
 /// <remarks><see cref="Reextraction"/> é nulo na primeira extração (a pasta <c>text/</c> não tinha arquivos).</remarks>
 public sealed record ExtractionResult(
@@ -55,24 +55,8 @@ public static class ProjectExtractor
         ArgumentNullException.ThrowIfNull(engines);
 
         var config = project.LoadConfig();
-        var engine = engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal))
-            ?? throw new VNForgeException($"A engine '{config.Engine.Id}' do {ProjectFolder.ConfigFileName} não é conhecida por esta versão do vnf.");
-        if (engine is not IGameUnpacker unpacker)
-        {
-            throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta a extração.");
-        }
-
-        var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
-        if (!Directory.Exists(gameDirectory))
-        {
-            throw new VNForgeException($"A pasta do jogo não existe: {gameDirectory}");
-        }
-
-        if (IsInside(ResolveLinks(gameDirectory), ResolveLinks(project.GameCacheDirectory)))
-        {
-            throw new VNForgeException(
-                $"O .cache do projeto ('{project.CacheDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
-        }
+        var unpacker = ResolveUnpacker(engines, config);
+        var gameDirectory = ResolveGameDirectory(project, config);
 
         var existing = project.LoadAllText();
 
@@ -95,7 +79,7 @@ public static class ProjectExtractor
 
         var plan = TextReextraction.Merge(
             existing,
-            extracted.ToDictionary(e => e.Key, e => (IReadOnlyList<TextUnit>)e.Units, StringComparer.Ordinal));
+            extracted.ToDictionary(e => e.Key, e => e.Units, StringComparer.Ordinal));
         var backups = BackUpReplacedText(project, plan, out var backupFolder);
         try
         {
@@ -154,18 +138,47 @@ public static class ProjectExtractor
     /// <summary>Nome da etapa no <c>state.json</c>.</summary>
     public const string ExtractStage = "extract";
 
+    private static IGameUnpacker ResolveUnpacker(IReadOnlyList<IEngine> engines, ProjectConfig config)
+    {
+        var engine = engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal))
+            ?? throw new VNForgeException($"A engine '{config.Engine.Id}' do {ProjectFolder.ConfigFileName} não é conhecida por esta versão do vnf.");
+        if (engine is not IGameUnpacker unpacker)
+        {
+            throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta a extração.");
+        }
+
+        return unpacker;
+    }
+
+    private static string ResolveGameDirectory(ProjectFolder project, ProjectConfig config)
+    {
+        var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
+        if (!Directory.Exists(gameDirectory))
+        {
+            throw new VNForgeException($"A pasta do jogo não existe: {gameDirectory}");
+        }
+
+        if (IsInside(ResolveLinks(gameDirectory), ResolveLinks(project.GameCacheDirectory)))
+        {
+            throw new VNForgeException(
+                $"O .cache do projeto ('{project.CacheDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
+        }
+
+        return gameDirectory;
+    }
+
     private static List<OriginalFile> HashOriginals(string gameDirectory, IReadOnlyList<UnpackedArchive> archives)
     {
         var result = new List<OriginalFile>(archives.Count);
-        foreach (var archive in archives)
+        foreach (var gamePath in archives.Select(archive => archive.GamePath))
         {
-            var path = Path.Combine(gameDirectory, archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
+            var path = Path.Combine(gameDirectory, gamePath.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(path))
             {
-                throw new VNForgeException($"O pacote '{archive.GamePath}' não está na pasta do jogo ('{gameDirectory}'); não dá para gravar o hash do original.");
+                throw new VNForgeException($"O pacote '{gamePath}' não está na pasta do jogo ('{gameDirectory}'); não dá para gravar o hash do original.");
             }
 
-            result.Add(new OriginalFile(archive.GamePath, new FileInfo(path).Length, FileHash.Sha256(path)));
+            result.Add(new OriginalFile(gamePath, new FileInfo(path).Length, FileHash.Sha256(path)));
         }
 
         return result;
@@ -213,12 +226,9 @@ public static class ProjectExtractor
     {
         backupFolder = null;
         var backups = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        foreach (var key in plan.Changed.Concat(plan.Removed))
+        foreach (var key in plan.Changed.Concat(plan.Removed).Where(key => File.Exists(project.TextPath(key))))
         {
-            if (File.Exists(project.TextPath(key)))
-            {
-                backups[key] = File.ReadAllBytes(project.TextPath(key));
-            }
+            backups[key] = File.ReadAllBytes(project.TextPath(key));
         }
 
         if (backups.Count > 0)

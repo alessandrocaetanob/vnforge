@@ -165,12 +165,12 @@ public static class YstbTextExtractor
             TextUnit unit;
             if (SpeakerSplitter.TrySplit(text, out var split))
             {
-                unit = NewUnit(parts[0], TextUnitKind.Dialogue, split.Name, split.Body, "WORD", null, parts, split);
+                unit = NewUnit(parts[0], TextUnitKind.Dialogue, split.Name, split.Body, BuildLocator("WORD", null, parts, split));
             }
             else
             {
                 var kind = SpeakerSplitter.IsQuoted(text) ? TextUnitKind.Dialogue : TextUnitKind.Narration;
-                unit = NewUnit(parts[0], kind, null, text, "WORD", null, parts, null);
+                unit = NewUnit(parts[0], kind, null, text, BuildLocator("WORD", null, parts, null));
             }
 
             _units.Add(unit);
@@ -193,7 +193,7 @@ public static class YstbTextExtractor
                 }
 
                 var part = new Part(instruction.Index, i, instruction.Arguments[i].Size, instruction.Arguments[i].Offset);
-                _units.Add(NewUnit(part, kind, null, ControlMarkers.ToMarkers(text), "GOSUB", routineName, [part], null));
+                _units.Add(NewUnit(part, kind, null, ControlMarkers.ToMarkers(text), BuildLocator("GOSUB", routineName, [part], null)));
             }
         }
 
@@ -210,7 +210,7 @@ public static class YstbTextExtractor
                 if (ContainsJapanese(markers))
                 {
                     var part = new Part(instruction.Index, i, instruction.Arguments[i].Size, instruction.Arguments[i].Offset);
-                    _units.Add(NewUnit(part, TextUnitKind.Other, null, markers, instruction.CommandName, null, [part], null));
+                    _units.Add(NewUnit(part, TextUnitKind.Other, null, markers, BuildLocator(instruction.CommandName, null, [part], null)));
                 }
             }
         }
@@ -255,67 +255,59 @@ public static class YstbTextExtractor
             return false;
         }
 
-        private TextUnit NewUnit(Part first, TextUnitKind kind, string? speaker, string source, string command, string? routine, List<Part> parts, SpeakerSplit? split) =>
+        private TextUnit NewUnit(Part first, TextUnitKind kind, string? speaker, string source, JsonElement locator) =>
             new(_file.UnitId(checked((first.Instruction * ArgumentsPerInstruction) + first.Argument)), kind, speaker, source, null, TranslationStatus.Untranslated)
             {
-                Locator = BuildLocator(command, routine, parts, split),
+                Locator = locator,
             };
-    }
 
-    private static JsonElement BuildLocator(string command, string? routine, List<Part> parts, SpeakerSplit? split)
-    {
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
+        private static JsonElement BuildLocator(string command, string? routine, List<Part> parts, SpeakerSplit? split)
         {
-            writer.WriteStartObject();
-            writer.WriteNumber("version", LocatorVersion);
-            writer.WriteString("command", command);
-            if (routine is not null)
-            {
-                writer.WriteString("routine", routine);
-            }
-
-            writer.WriteStartArray("parts");
-            foreach (var part in parts)
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
             {
                 writer.WriteStartObject();
-                writer.WriteNumber("instruction", part.Instruction);
-                writer.WriteNumber("argument", part.Argument);
-                writer.WriteNumber("size", part.Size);
-                writer.WriteNumber("offset", part.Offset);
+                writer.WriteNumber("version", LocatorVersion);
+                writer.WriteString("command", command);
+                if (routine is not null)
+                {
+                    writer.WriteString("routine", routine);
+                }
+
+                writer.WriteStartArray("parts");
+                foreach (var part in parts)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteNumber("instruction", part.Instruction);
+                    writer.WriteNumber("argument", part.Argument);
+                    writer.WriteNumber("size", part.Size);
+                    writer.WriteNumber("offset", part.Offset);
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndArray();
+                if (split is { } s)
+                {
+                    writer.WriteStartObject("speaker");
+                    writer.WriteString("name", s.Name);
+                    writer.WriteString("open", s.Open);
+                    writer.WriteString("close", s.Close);
+                    writer.WriteEndObject();
+                }
+
                 writer.WriteEndObject();
             }
 
-            writer.WriteEndArray();
-            if (split is { } s)
-            {
-                writer.WriteStartObject("speaker");
-                writer.WriteString("name", s.Name);
-                writer.WriteString("open", s.Open);
-                writer.WriteString("close", s.Close);
-                writer.WriteEndObject();
-            }
-
-            writer.WriteEndObject();
+            using var document = JsonDocument.Parse(stream.ToArray());
+            return document.RootElement.Clone();
         }
 
-        using var document = JsonDocument.Parse(stream.ToArray());
-        return document.RootElement.Clone();
-    }
-
-    /// <summary>Hiragana, katakana (inclusive meia largura), ideogramas CJK e a extensão A.</summary>
-    private static bool ContainsJapanese(string text)
-    {
-        foreach (var c in text)
+        /// <summary>Hiragana, katakana (inclusive meia largura), ideogramas CJK e a extensão A.</summary>
+        private static bool ContainsJapanese(string text)
         {
-            if (c is (>= '぀' and <= 'ヿ') or (>= '㐀' and <= '䶿') or (>= '一' and <= '鿿') or (>= 'ｦ' and <= 'ﾟ'))
-            {
-                return true;
-            }
+            return text.Any(c => c is (>= '぀' and <= 'ヿ') or (>= '㐀' and <= '䶿') or (>= '一' and <= '鿿') or (>= 'ｦ' and <= 'ﾟ'));
         }
 
-        return false;
+        private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
     }
-
-    private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
 }

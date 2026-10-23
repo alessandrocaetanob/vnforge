@@ -223,8 +223,9 @@ internal static class YuRisDetector
 
         foreach (var package in packages)
         {
+            var noun = package.Count == 1 ? "arquivo" : "arquivos";
             details[$"ypf:{package.Path}"] = package.Version is { } v
-                ? $"v{v.ToString(inv)}, {package.Count.ToString(inv)} {(package.Count == 1 ? "arquivo" : "arquivos")}"
+                ? $"v{v.ToString(inv)}, {package.Count.ToString(inv)} {noun}"
                 : "assinatura YPF, índice ilegível";
         }
 
@@ -278,12 +279,10 @@ internal static class YuRisDetector
         CollectYpf(root, files, warnings);
         try
         {
-            foreach (var directory in Directory.EnumerateDirectories(root))
+            foreach (var directory in Directory.EnumerateDirectories(root)
+                .Where(d => string.Equals(Path.GetFileName(d), PackedFolder, StringComparison.OrdinalIgnoreCase)))
             {
-                if (string.Equals(Path.GetFileName(directory), PackedFolder, StringComparison.OrdinalIgnoreCase))
-                {
-                    CollectYpf(directory, files, warnings);
-                }
+                CollectYpf(directory, files, warnings);
             }
         }
         catch (Exception ex) when (IsReadFailure(ex))
