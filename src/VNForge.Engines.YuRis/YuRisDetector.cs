@@ -272,7 +272,7 @@ internal static class YuRisDetector
         _ => "derivada do primeiro argumento do script",
     };
 
-    private static List<string> FindYpfFiles(string root, List<string> warnings)
+    internal static List<string> FindYpfFiles(string root, List<string> warnings)
     {
         var files = new List<string>();
         CollectYpf(root, files, warnings);
@@ -317,21 +317,21 @@ internal static class YuRisDetector
         }
     }
 
-    private static string FileNameOf(ArchiveEntry entry) => entry.Path[(entry.Path.LastIndexOf('/') + 1)..];
+    internal static string FileNameOf(ArchiveEntry entry) => entry.Path[(entry.Path.LastIndexOf('/') + 1)..];
 
-    private static bool IsNamed(ArchiveEntry entry, string name) =>
+    internal static bool IsNamed(ArchiveEntry entry, string name) =>
         string.Equals(FileNameOf(entry), name, StringComparison.OrdinalIgnoreCase);
 
     /// <summary><c>yst</c> + dígitos + <c>.ybn</c>; o <c>yst_list.ybn</c> não é um script.</summary>
-    private static bool IsScriptName(string name) =>
+    internal static bool IsScriptName(string name) =>
         name.Length > 7
         && name.StartsWith("yst", StringComparison.OrdinalIgnoreCase)
         && name.EndsWith(".ybn", StringComparison.OrdinalIgnoreCase)
         && name.AsSpan(3, name.Length - 7).IndexOfAnyExceptInRange('0', '9') < 0;
 
-    private static string ReasonOf(Exception ex) => ex is InvalidFileException invalid ? invalid.Reason : ex.Message;
+    internal static string ReasonOf(Exception ex) => ex is InvalidFileException invalid ? invalid.Reason : ex.Message;
 
-    private static bool IsReadFailure(Exception ex) =>
+    internal static bool IsReadFailure(Exception ex) =>
         ex is VNForgeException or IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException;
 
     private sealed record PackageInfo(string Path, uint? Version, int Count);

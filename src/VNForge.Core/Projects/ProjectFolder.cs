@@ -28,6 +28,9 @@ public sealed class ProjectFolder
 
     public string CacheDirectory => Path.Combine(Root, ".cache");
 
+    /// <summary><c>.cache/game</c>: os pacotes do jogo descompactados pelo <c>vnf extract</c>, uma subpasta por pacote.</summary>
+    public string GameCacheDirectory => Path.Combine(CacheDirectory, "game");
+
     public string BuildDirectory => Path.Combine(Root, "build");
 
     public string BackupDirectory => Path.Combine(Root, "backup");
