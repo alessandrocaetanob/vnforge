@@ -198,10 +198,10 @@ public class ClaudeTranslationProviderTests
     public async Task Integracao_real_so_roda_com_ANTHROPIC_API_KEY()
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")))
-            return; // teste opcional: sem chave, não faz nada
+            return; // teste opcional: sem chave, não faz nada. O modelo vem de VNFORGE_TEST_MODEL (padrão Haiku).
 
         var provider = new ClaudeTranslationProvider(
-            new AnthropicMessageClient(), new ClaudeOptions { Model = ClaudeModels.Haiku, Effort = ClaudeEffort.Low });
+            new AnthropicMessageClient(), new ClaudeOptions { Model = RealApiModel.FromEnvironment(), Effort = ClaudeEffort.Low });
 
         var results = await provider.TranslateAsync(
             new TranslationBatch([Unit("a", "おはよう")]), CancellationToken.None);
