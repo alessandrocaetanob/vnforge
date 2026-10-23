@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <PackageReference Include="Anthropic" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
 
   <ItemGroup>
