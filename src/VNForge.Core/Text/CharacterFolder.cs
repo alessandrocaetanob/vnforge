@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 
 namespace VNForge.Core.Text;
@@ -28,10 +27,9 @@ public static class CharacterFolder
         ["«"] = "\"", ["»"] = "\"",
         ["‹"] = "'", ["›"] = "'",
         ["„"] = "\"", ["‚"] = "'",
-        ["‘"] = "'", ["’"] = "'", ["‛"] = "'",
-        ["“"] = "\"", ["”"] = "\"", ["‟"] = "\"",
+        ["‛"] = "'", ["‟"] = "\"",
         ["ª"] = "a", ["º"] = "o",
-        ["–"] = "-", ["—"] = "-", ["―"] = "-", ["‐"] = "-", ["‑"] = "-", ["‒"] = "-", ["−"] = "-",
+        ["–"] = "-", ["—"] = "-", ["‑"] = "-", ["‒"] = "-",
         ["¿"] = "?", ["¡"] = "!",
         [" "] = " ", [" "] = " ", [" "] = " ",
         ["•"] = "*", ["·"] = ".",
@@ -89,9 +87,11 @@ public static class CharacterFolder
 
         // Letra com acento: decompõe e descarta as marcas. Marca combinante solta (texto já decomposto) também some.
         var stripped = new StringBuilder();
-        foreach (char c in original.Normalize(NormalizationForm.FormD))
+        // Só as marcas latinas (U+0300 a U+036F): a dakuten U+3099 ou vogais árabes não podem sumir em silêncio.
+        // FormKD também resolve ², ³, ¹ e ligaturas.
+        foreach (char c in original.Normalize(NormalizationForm.FormKD))
         {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            if (c is < '̀' or > 'ͯ')
             {
                 stripped.Append(c);
             }

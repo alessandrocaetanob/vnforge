@@ -101,6 +101,22 @@ public class FoldTextEncoderTests
     }
 
     [Fact]
+    public void Fold_ExpoeSobrescritosELigaturas()
+    {
+        Assert.Equal("m2 3 1 fi", CharacterFolder.Fold("m² ³ ¹ ﬁ").Text);
+    }
+
+    [Fact]
+    public void Fold_MarcaNaoLatina_NaoSomeEmSilencio()
+    {
+        FoldResult result = CharacterFolder.Fold("が");
+
+        Assert.Equal([1], result.Unresolved);
+        Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("が"));
+        Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("ゔ"));
+    }
+
+    [Fact]
     public void Fold_CaractereSemEquivalente_ContinuaNaoResolvido()
     {
         FoldResult result = CharacterFolder.Fold("a😀bà\ud83d");
