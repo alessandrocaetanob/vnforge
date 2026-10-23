@@ -17,6 +17,22 @@ namespace VNForge.Cli.Tests;
 
 public sealed class BuildCommandTests : IDisposable
 {
+    private const string Hello = "Hello";
+
+    private const string ForbiddenWord = "palavra-proibida";
+
+    private const string AllowWarningsFlag = "--allow-warnings";
+
+    private const string EncodingFlag = "--encoding";
+
+    private const string JsonFlag = "--json";
+
+    private const string Yst2 = "yst00002";
+
+    private const string Yst1 = "yst00001";
+
+    private const string ReportFlag = "--report";
+
     private static readonly SyntheticYscm Yscm = new SyntheticYscmBuilder().WithTextCommands().Build();
 
     private readonly CliHarness _cli = new();
@@ -157,8 +173,8 @@ public sealed class BuildCommandTests : IDisposable
     private async Task<RunResult> BuildWithRule(QaSeverity severity, params string[] args)
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Hello" : "Mika");
-        _cli.Cli.Qa = new QaEngine([new TranslationIs("palavra-proibida", severity, "Hello")]);
+        Translate(Yst1, i => i == 0 ? Hello : "Mika");
+        _cli.Cli.Qa = new QaEngine([new TranslationIs(ForbiddenWord, severity, Hello)]);
         return await Build(args);
     }
 
@@ -177,7 +193,7 @@ public sealed class BuildCommandTests : IDisposable
     [Fact]
     public async Task Erro_de_qa_continua_parando_com_allow_warnings()
     {
-        var result = await BuildWithRule(QaSeverity.Error, "--allow-warnings");
+        var result = await BuildWithRule(QaSeverity.Error, AllowWarningsFlag);
 
         Assert.Equal(2, result.ExitCode);
         Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
@@ -190,14 +206,14 @@ public sealed class BuildCommandTests : IDisposable
 
         Assert.Equal(2, result.ExitCode);
         Assert.Contains("AVISO yst00001:", result.Output);
-        Assert.Contains("--allow-warnings", result.Output);
+        Assert.Contains(AllowWarningsFlag, result.Output);
         Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
     }
 
     [Fact]
     public async Task Allow_warnings_deixa_so_os_avisos_passar_e_os_lista()
     {
-        var result = await BuildWithRule(QaSeverity.Warning, "--allow-warnings");
+        var result = await BuildWithRule(QaSeverity.Warning, AllowWarningsFlag);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("AVISO yst00001:", result.Output);
@@ -208,10 +224,10 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Aviso_marcado_como_ok_nao_para_o_build()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Hello" : "Mika");
-        var engine = new QaEngine([new TranslationIs("palavra-proibida", QaSeverity.Warning, "Hello")]);
-        var first = ProjectFolder.Open(ProjectPath).LoadText("yst00001")[0];
-        QaFlags.MarkOk(ProjectFolder.Open(ProjectPath), engine, first.Id, "palavra-proibida");
+        Translate(Yst1, i => i == 0 ? Hello : "Mika");
+        var engine = new QaEngine([new TranslationIs(ForbiddenWord, QaSeverity.Warning, Hello)]);
+        var first = ProjectFolder.Open(ProjectPath).LoadText(Yst1)[0];
+        QaFlags.MarkOk(ProjectFolder.Open(ProjectPath), engine, first.Id, ForbiddenWord);
         _cli.Cli.Qa = engine;
 
         var result = await Build();
@@ -223,7 +239,7 @@ public sealed class BuildCommandTests : IDisposable
     [Fact]
     public async Task Json_de_qa_bloqueado_repete_o_codigo_2_e_traz_as_ocorrencias()
     {
-        var result = await BuildWithRule(QaSeverity.Error, "--json");
+        var result = await BuildWithRule(QaSeverity.Error, JsonFlag);
 
         Assert.Equal(2, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
@@ -231,14 +247,14 @@ public sealed class BuildCommandTests : IDisposable
         var data = document.RootElement.GetProperty("data");
         Assert.Equal(1, data.GetProperty("errors").GetInt32());
         var issue = data.GetProperty("issues")[0];
-        Assert.Equal("palavra-proibida", issue.GetProperty("rule").GetString());
+        Assert.Equal(ForbiddenWord, issue.GetProperty("rule").GetString());
         Assert.Equal("error", issue.GetProperty("severity").GetString());
     }
 
     [Fact]
     public async Task Json_do_build_com_aviso_liberado_traz_o_qa()
     {
-        var result = await BuildWithRule(QaSeverity.Warning, "--json", "--allow-warnings");
+        var result = await BuildWithRule(QaSeverity.Warning, JsonFlag, AllowWarningsFlag);
 
         Assert.Equal(0, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
@@ -251,7 +267,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Resumo_conta_scripts_linhas_e_pacotes()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
 
         var result = await Build();
 
@@ -265,7 +281,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Build_sem_mudanca_desde_o_anterior_nao_reconstroi_nenhum_script_e_mantem_o_build()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
         await Build();
         var before = HashTree(Path.Combine(ProjectPath, "build"));
 
@@ -281,11 +297,11 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Build_incremental_so_reconstroi_o_script_que_mudou()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
         await Build();
-        Translate("yst00002", _ => "Rain");
+        Translate(Yst2, _ => "Rain");
 
-        var result = await Build("--json");
+        var result = await Build(JsonFlag);
 
         using var document = JsonDocument.Parse(result.Output);
         var data = document.RootElement.GetProperty("data");
@@ -300,7 +316,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Only_changed_false_reconstroi_tudo_mesmo_sem_mudanca()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
         await Build();
 
         var result = await Build("--only-changed", "false");
@@ -313,9 +329,9 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Encoding_vale_so_para_o_build_e_nao_altera_o_vnforge_json()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
 
-        var result = await Build("--encoding", "fold", "--json");
+        var result = await Build(EncodingFlag, "fold", JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
@@ -328,7 +344,7 @@ public sealed class BuildCommandTests : IDisposable
     {
         await InitAndExtract();
 
-        var result = await Build("--encoding", "latin9");
+        var result = await Build(EncodingFlag, "latin9");
 
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("latin9", result.Error, StringComparison.Ordinal);
@@ -338,10 +354,10 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Mudar_o_encoding_reconstroi_o_script_mesmo_sem_mudar_a_traducao()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
         await Build();
 
-        var result = await Build("--encoding", "fold");
+        var result = await Build(EncodingFlag, "fold");
 
         Assert.StartsWith("Reconstruídos 1 script", result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[^1], StringComparison.Ordinal);
     }
@@ -351,7 +367,7 @@ public sealed class BuildCommandTests : IDisposable
     {
         await InitAndExtract();
 
-        var result = await Build("--report", "--encoding", "fold");
+        var result = await Build(ReportFlag, EncodingFlag, "fold");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("'fold'", result.Output, StringComparison.Ordinal);
@@ -374,8 +390,8 @@ public sealed class BuildCommandTests : IDisposable
         var before = HashTree(_game);
         var entriesBefore = Directory.EnumerateFileSystemEntries(_game, "*", SearchOption.AllDirectories).Order().ToArray();
         await InitAndExtract();
-        Translate("yst00001", _ => "Hello");
-        Translate("yst00002", _ => "Rain");
+        Translate(Yst1, _ => Hello);
+        Translate(Yst2, _ => "Rain");
 
         var result = await Build();
 
@@ -388,7 +404,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Nao_altera_o_cache_descompactado()
     {
         await InitAndExtract();
-        Translate("yst00001", _ => "Hello");
+        Translate(Yst1, _ => Hello);
         var cache = HashTree(Path.Combine(ProjectPath, ".cache", "game"));
 
         await Build();
@@ -400,7 +416,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Linha_traduzida_em_ascii_reabre_no_ypf_e_reextrai_com_a_traducao()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
 
         var result = await Build();
 
@@ -424,7 +440,7 @@ public sealed class BuildCommandTests : IDisposable
         await InitAndExtract(withExtraArchive: true);
         Translate("yst00003", _ => "Night fell.");
 
-        var result = await Build("--json");
+        var result = await Build(JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
         var build = Path.Combine(ProjectPath, "build");
@@ -440,9 +456,9 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Json_traz_o_resumo_no_envelope()
     {
         await InitAndExtract();
-        Translate("yst00002", _ => "Rain");
+        Translate(Yst2, _ => "Rain");
 
-        var result = await Build("--json");
+        var result = await Build(JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
@@ -455,7 +471,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Equal(2, data.GetProperty("totalScripts").GetInt32());
         Assert.Equal(3, data.GetProperty("lines").GetInt32());
         var rebuilt = Assert.Single(data.GetProperty("rebuilt").EnumerateArray());
-        Assert.Equal("yst00002", rebuilt.GetProperty("key").GetString());
+        Assert.Equal(Yst2, rebuilt.GetProperty("key").GetString());
         Assert.Equal("yst00002.ybn", rebuilt.GetProperty("name").GetString());
         var archive = Assert.Single(data.GetProperty("archives").EnumerateArray());
         Assert.Equal("ysbin.ypf", archive.GetProperty("path").GetString());
@@ -471,7 +487,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Equal(0, first.ExitCode);
         var build = Path.Combine(ProjectPath, "build");
         var before = HashTree(build);
-        Translate("yst00001", i => i == 0 ? "Bom dia 😀" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Bom dia 😀" : "Mika");
 
         var result = await Build();
 
@@ -485,7 +501,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Marcador_invalido_aborta_citando_o_id_sem_criar_o_build()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Bom {XYZ:1} dia" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Bom {XYZ:1} dia" : "Mika");
 
         var result = await Build();
 
@@ -500,8 +516,8 @@ public sealed class BuildCommandTests : IDisposable
     {
         await InitAndExtract();
         var project = ProjectFolder.Open(ProjectPath);
-        var units = project.LoadText("yst00001").Select((u, i) => i == 0 ? u with { Source = "outra coisa", Translation = "Hi", Status = TranslationStatus.Translated } : u).ToList();
-        project.SaveText("yst00001", units);
+        var units = project.LoadText(Yst1).Select((u, i) => i == 0 ? u with { Source = "outra coisa", Translation = "Hi", Status = TranslationStatus.Translated } : u).ToList();
+        project.SaveText(Yst1, units);
 
         var result = await Build();
 
@@ -514,9 +530,9 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Erro_em_json_sai_no_envelope()
     {
         await InitAndExtract();
-        Translate("yst00001", _ => "😀");
+        Translate(Yst1, _ => "😀");
 
-        var result = await Build("--json");
+        var result = await Build(JsonFlag);
 
         Assert.Equal(1, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
@@ -528,7 +544,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Jogo_que_mudou_depois_da_extracao_e_recusado()
     {
         await InitAndExtract();
-        Translate("yst00001", _ => "Hello");
+        Translate(Yst1, _ => Hello);
         var changed = NewScript().WithVersion(500).WithKey(SyntheticYstbBuilder.KeyV290);
         changed.AddWord("まったく違う", 1).AddReturnCode(0, 2);
         File.WriteAllBytes(
@@ -595,7 +611,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Inject_grava_o_build_no_jogo_e_restore_devolve_o_original()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
         await Build();
         var gameYpf = Path.Combine(_game, "ysbin.ypf");
 
@@ -615,7 +631,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Aborto_por_caractere_nao_codificavel_lista_todas_as_linhas_de_uma_vez()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "«ªã»" : "Mika ã");
+        Translate(Yst1, i => i == 0 ? "«ªã»" : "Mika ã");
 
         var result = await Build();
 
@@ -642,9 +658,9 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Report_lista_cada_caractere_com_posicao_e_nao_reconstroi_nada()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "«ªã" : "Mika");
+        Translate(Yst1, i => i == 0 ? "«ªã" : "Mika");
 
-        var result = await Build("--report");
+        var result = await Build(ReportFlag);
 
         Assert.Equal(2, result.ExitCode);
         Assert.Contains("Estratégia de codificação 'sjis': 2 linhas conferidas.", result.Output);
@@ -657,9 +673,9 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Report_sem_problemas_sai_com_zero()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
 
-        var result = await Build("--report");
+        var result = await Build(ReportFlag);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("0 caracteres não codificáveis; 0 caracteres trocados.", result.Output);
@@ -669,9 +685,9 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Report_em_json_traz_caractere_ponto_de_codigo_posicao_e_substituto()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "a«" : "Mika");
+        Translate(Yst1, i => i == 0 ? "a«" : "Mika");
 
-        var result = await Build("--report", "--json");
+        var result = await Build(ReportFlag, JsonFlag);
 
         Assert.Equal(2, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
@@ -693,9 +709,9 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Json_do_build_traz_o_bloco_encoding()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
 
-        var result = await Build("--json");
+        var result = await Build(JsonFlag);
 
         using var document = JsonDocument.Parse(result.Output);
         var encoding = document.RootElement.GetProperty("data").GetProperty("encoding");

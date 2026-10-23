@@ -12,6 +12,11 @@ namespace VNForge.Core.Projects;
 /// <param name="Lines">Unidades de texto trocadas.</param>
 public sealed record BuiltScript(string Key, string Name, int Lines);
 
+/// <summary>Opções do build que não são injeção de dependência (<see cref="ProjectBuilder.Build"/>).</summary>
+/// <param name="OnlyChanged">Build incremental (<c>--only-changed</c>): reaproveita o resultado do build anterior dos scripts cujas entradas não mudaram (<see cref="BuildState"/>) e, se nenhum mudou e <c>build/</c> está como o anterior o deixou, nem regrava os pacotes. <c>false</c> reconstrói tudo.</param>
+/// <param name="EncodingStrategy">Estratégia de codificação só deste build (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>, que não é alterado.</param>
+public sealed record BuildOptions(bool OnlyChanged = false, string? EncodingStrategy = null);
+
 /// <summary>Resultado de <see cref="ProjectBuilder.Build"/>.</summary>
 /// <param name="GameDirectory">Pasta do jogo cujos pacotes serviram de base.</param>
 /// <param name="BuildDirectory">Pasta <c>build/</c> que recebeu os pacotes.</param>
@@ -47,7 +52,7 @@ public sealed record BuildResult(
 /// O <see cref="ITextEncoder"/> vem do <c>encoding.strategy</c> do <c>vnforge.json</c> (<see cref="TextEncoderRegistry"/>). Antes de reconstruir, o
 /// build roda o QA (<see cref="QaEngine"/>) e recusa com <see cref="QaBlockedException"/> se achar erro, ou aviso sem <c>allowWarnings</c>; os avisos que a linha marcou como "ok" não contam. Depois confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
 /// (<see cref="EncodingReportException"/>). Antes disso o texto passa pelo pipeline do <c>formatting.json</c> (<see cref="FormattingPipeline"/>), então
-/// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
+/// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Cada pacote descompactado
 /// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
 /// </remarks>
 public static class ProjectBuilder
@@ -59,11 +64,7 @@ public static class ProjectBuilder
     /// <param name="encoders">Estratégias disponíveis; o padrão é <see cref="TextEncoderRegistry.Default"/>.</param>
     /// <param name="qa">Regras de QA que rodam antes de reconstruir; o padrão é <see cref="QaEngine.Default"/>.</param>
     /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre.</param>
-    /// <param name="onlyChanged">
-    /// Build incremental (<c>--only-changed</c>, o padrão do CLI): reaproveita o resultado do build anterior de cada script cujas entradas não mudaram
-    /// (<see cref="BuildState"/>) e, se nenhum script mudou e <c>build/</c> está como o anterior o deixou, nem regrava os pacotes. <c>false</c> reconstrói tudo.
-    /// </param>
-    /// <param name="encodingStrategy">Estratégia de codificação só deste build (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>, que não é alterado.</param>
+    /// <param name="options">Build incremental e estratégia de codificação só deste build; <c>null</c> reconstrói tudo com a estratégia do <c>vnforge.json</c>.</param>
     /// <exception cref="QaBlockedException">O QA achou erro, ou aviso sem <paramref name="allowWarnings"/>; nada é gravado.</exception>
     /// <exception cref="VNForgeException">
     /// Engine desconhecida ou sem suporte ao build, estratégia de codificação desconhecida ou sem encoder, jogo ou <c>.cache/game</c> inexistente,
@@ -71,7 +72,7 @@ public static class ProjectBuilder
     /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, bool onlyChanged = false, string? encodingStrategy = null)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -84,7 +85,7 @@ public static class ProjectBuilder
             throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta o build.");
         }
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? config.Encoding.Strategy);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(options?.EncodingStrategy ?? config.Encoding.Strategy);
 
         var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
         if (!Directory.Exists(gameDirectory))
@@ -127,7 +128,7 @@ public static class ProjectBuilder
             throw new QaBlockedException(qaReport, allowWarnings);
         }
 
-        var previous = onlyChanged ? BuildState.Load(project) : null;
+        var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;
         var (rebuilt, built, state, reused) = RebuildScripts(project, game, texts, encoder, previous, warnings, cancellationToken);
 
         if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
@@ -207,7 +208,7 @@ public static class ProjectBuilder
 
         try
         {
-            var result = pipeline.Format(unit.Translation!);
+            var result = pipeline.Format(unit.Translation ?? string.Empty);
             warnings.AddRange(result.Warnings.Select(w => $"{unit.Id}: {w}"));
             return unit with { Translation = result.Text };
         }
@@ -248,22 +249,16 @@ public static class ProjectBuilder
             }
 
             var hash = BuildState.HashInputs(original, encoder.Id, units);
-            if (previous is not null && previous.Scripts.TryGetValue(file.Key, out var saved) && saved.Hash == hash)
+            if (TryReuse(project, previous, file.Key, hash) is { } reuse)
             {
-                if (saved.Identical)
+                state[file.Key] = reuse.Entry;
+                if (reuse.Content is not null)
                 {
-                    state[file.Key] = saved;
-                    reused++;
-                    continue;
+                    rebuilt.Add(new RebuiltScript(script.Path, original, reuse.Content));
                 }
 
-                if (BuildState.ReadScript(project, file.Key, saved) is { } cached)
-                {
-                    rebuilt.Add(new RebuiltScript(script.Path, original, cached));
-                    state[file.Key] = saved;
-                    reused++;
-                    continue;
-                }
+                reused++;
+                continue;
             }
 
             byte[] content;
@@ -292,6 +287,22 @@ public static class ProjectBuilder
         warnings.AddRange(texts.Keys.Where(k => !known.Contains(k)).Select(k => $"text/{k}.json não corresponde a nenhum script do jogo descompactado; ignorado."));
         built.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
         return (rebuilt, built, state, reused);
+    }
+
+    /// <summary>O resultado do build anterior para o script, se as entradas (<paramref name="hash"/>) são as mesmas e os bytes guardados ainda conferem; <c>Content</c> nulo quando o script saiu idêntico ao original.</summary>
+    private static (BuildStateScript Entry, byte[]? Content)? TryReuse(ProjectFolder project, BuildState? previous, string key, string hash)
+    {
+        if (previous is null || !previous.Scripts.TryGetValue(key, out var saved) || saved.Hash != hash)
+        {
+            return null;
+        }
+
+        if (saved.Identical)
+        {
+            return (saved, null);
+        }
+
+        return BuildState.ReadScript(project, key, saved) is { } cached ? (saved, cached) : null;
     }
 
     private static bool SameScripts(BuildState previous, Dictionary<string, BuildStateScript> current) =>

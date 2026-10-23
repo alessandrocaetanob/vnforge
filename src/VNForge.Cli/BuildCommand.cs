@@ -62,7 +62,7 @@ internal static class BuildCommand
         BuildResult result;
         try
         {
-            result = ProjectBuilder.Build(project, KnownEngines.All, token, qa: cli.Qa, allowWarnings: allowWarnings, onlyChanged: parseResult.GetValue(OnlyChangedOption), encodingStrategy: parseResult.GetValue(EncodingOption));
+            result = ProjectBuilder.Build(project, KnownEngines.All, token, qa: cli.Qa, allowWarnings: allowWarnings, options: new BuildOptions(parseResult.GetValue(OnlyChangedOption), parseResult.GetValue(EncodingOption)));
         }
         catch (QaBlockedException blocked)
         {

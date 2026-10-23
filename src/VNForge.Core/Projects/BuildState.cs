@@ -88,7 +88,7 @@ internal sealed record BuildState(
     public static void WriteScript(ProjectFolder project, string key, string hash, byte[] content)
     {
         var path = ScriptPath(project, key, hash);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        Directory.CreateDirectory(Path.Combine(project.CacheDirectory, ScriptsDirectoryName));
         File.WriteAllBytes(path, content);
     }
 

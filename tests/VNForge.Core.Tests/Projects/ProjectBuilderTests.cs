@@ -10,6 +10,12 @@ namespace VNForge.Core.Tests.Projects;
 
 public sealed class ProjectBuilderTests : IDisposable
 {
+    private const string Hello = "Hello";
+
+    private const string FirstUnit = "a001:000000";
+
+    private const string ThreeWords = "aaa bbb ccc";
+
     private readonly TempFolder _temp = new();
     private readonly string _game;
     private readonly ProjectFolder _project;
@@ -67,7 +73,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Entrega_ao_repacker_so_o_script_com_traducao_e_o_conteudo_original()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
 
         var result = Build();
 
@@ -82,12 +88,12 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     private BuildResult BuildIncremental(string? encoding = null) =>
-        ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), onlyChanged: true, encodingStrategy: encoding);
+        ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(OnlyChanged: true, EncodingStrategy: encoding));
 
     [Fact]
     public void Incremental_sem_mudanca_desde_o_build_anterior_nao_reconstroi_nenhum_script()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
         BuildIncremental();
         var rebuildCalls = _engine.RebuildCalls;
         var repackCalls = _engine.RepackCalls;
@@ -106,7 +112,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Incremental_reconstroi_so_o_script_cuja_traducao_mudou_e_mantem_o_outro()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
         Translate("a002", (0, "It rained."));
         BuildIncremental();
         var calls = _engine.RebuildCalls;
@@ -124,7 +130,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Incremental_com_outra_estrategia_de_codificacao_reconstroi()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
         BuildIncremental();
         var calls = _engine.RebuildCalls;
 
@@ -138,7 +144,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Incremental_sem_build_anterior_reconstroi_tudo()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
 
         var result = BuildIncremental();
 
@@ -149,7 +155,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Incremental_com_build_apagado_refaz_os_pacotes_sem_reconstruir_o_script()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
         BuildIncremental();
         var calls = _engine.RebuildCalls;
         Directory.Delete(_project.BuildDirectory, recursive: true);
@@ -164,7 +170,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Incremental_com_estado_corrompido_reconstroi()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
         BuildIncremental();
         File.WriteAllText(Path.Combine(_project.CacheDirectory, "build-state.json"), "{ não é json");
 
@@ -176,7 +182,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Build_completo_ignora_o_estado_anterior()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
         BuildIncremental();
         var calls = _engine.RebuildCalls;
 
@@ -189,9 +195,9 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Estrategia_pedida_vale_so_para_este_build_e_nao_muda_o_vnforge_json()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
 
-        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), encodingStrategy: "fold");
+        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(EncodingStrategy: "fold"));
 
         Assert.Equal("fold", result.Encoding.Strategy);
         Assert.Equal("sjis", _project.LoadConfig().Encoding.Strategy);
@@ -201,7 +207,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Estrategia_desconhecida_no_build_e_recusada_em_portugues()
     {
         var ex = Assert.Throws<VNForgeException>(() =>
-            ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), encodingStrategy: "latin9"));
+            ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(EncodingStrategy: "latin9")));
 
         Assert.Contains("latin9", ex.Message, StringComparison.Ordinal);
     }
@@ -236,8 +242,8 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Quebra_so_vale_para_os_papeis_do_perfil()
     {
         SaveProfile("""{ "kinds": ["narration"], "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
-        Translate("a001", (0, "aaa bbb ccc"), (1, "Ana Maria Souza"));
-        Translate("a002", (0, "aaa bbb ccc"));
+        Translate("a001", (0, ThreeWords), (1, "Ana Maria Souza"));
+        Translate("a002", (0, ThreeWords));
 
         Build();
 
@@ -250,7 +256,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Formatacao_nao_altera_o_text_json_em_disco()
     {
         SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
-        Translate("a001", (0, "aaa bbb ccc"));
+        Translate("a001", (0, ThreeWords));
         var before = File.ReadAllText(_project.TextPath("a001"));
 
         Build();
@@ -262,7 +268,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Caixa_acima_do_limite_de_linhas_vira_aviso_com_o_id_da_linha()
     {
         SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
-        Translate("a001", (0, "aaa bbb ccc"));
+        Translate("a001", (0, ThreeWords));
 
         var result = Build();
 
@@ -300,7 +306,7 @@ public sealed class ProjectBuilderTests : IDisposable
 
         var ex = Assert.Throws<VNForgeException>(() => Build());
 
-        Assert.Contains("a001:000000", ex.Message);
+        Assert.Contains(FirstUnit, ex.Message);
         Assert.Contains("formatting.json", ex.Message);
         Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
     }
@@ -309,7 +315,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Formatting_json_invalido_aborta_apontando_o_campo()
     {
         SaveProfile("""{ "wrap": { "maxWidth": 0 } }""");
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
 
         var ex = Assert.Throws<FormattingProfileException>(() => Build());
 
@@ -362,7 +368,7 @@ public sealed class ProjectBuilderTests : IDisposable
 
         var ex = Assert.Throws<EncodingReportException>(() => Build());
 
-        Assert.Equal(["a001:000000", "a001:000000", "a001:000000", "a001:000001", "a002:000000"], ex.Report.Blocking.Select(i => i.UnitId));
+        Assert.Equal([FirstUnit, FirstUnit, FirstUnit, "a001:000001", "a002:000000"], ex.Report.Blocking.Select(i => i.UnitId));
         Assert.Contains("a002:000000 posição 7: 'ª' (U+00AA)", ex.Message);
     }
 
@@ -474,7 +480,7 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Nao_altera_a_pasta_do_jogo_nem_o_cache()
     {
-        Translate("a001", (0, "Hello"));
+        Translate("a001", (0, Hello));
         var gameBefore = File.ReadAllText(Path.Combine(_game, "a001.fake"));
         var cacheBefore = File.ReadAllText(Path.Combine(_project.GameCacheDirectory, "pacote.fake", "a001.fake"));
 
@@ -630,7 +636,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Aviso_marcado_como_ok_nao_para_o_build_e_conta_como_silenciado()
     {
         Translate("a001", (0, ""));
-        MarkOk("a001:000000");
+        MarkOk(FirstUnit);
 
         var result = BuildWithQa(QaSeverity.Warning);
 
@@ -642,7 +648,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Erro_marcado_como_ok_continua_parando_o_build()
     {
         Translate("a001", (0, ""));
-        MarkOk("a001:000000");
+        MarkOk(FirstUnit);
 
         Assert.Throws<QaBlockedException>(() => BuildWithQa(QaSeverity.Error));
     }
