@@ -7,7 +7,7 @@ public sealed class ConfigCommandTests : IDisposable
 {
     private const string Key = "sk-ant-teste-0123456789abcdef";
 
-    private readonly CliHarness _cli = new(Key + Environment.NewLine);
+    private readonly CliHarness _cli = new(Key + Environment.NewLine, realVault: OperatingSystem.IsWindows());
 
     public void Dispose() => _cli.Dispose();
 
@@ -45,6 +45,7 @@ public sealed class ConfigCommandTests : IDisposable
     [Fact]
     public async Task Chave_fica_cifrada_no_cofre_do_usuario_e_modelo_em_texto()
     {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "O cofre DPAPI só existe no Windows.");
         var result = await _cli.RunAsync(["config", "ai", "--set-key", "--model", "claude-haiku-5-5"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
@@ -78,6 +79,7 @@ public sealed class ConfigCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.False(File.Exists(Path.Combine(_cli.UserConfigDirectory, "apikey.dat")));
+        Assert.Equal(VNForge.AI.Settings.ApiKeySource.None, VNForge.AI.Settings.ApiKeyResolver.Resolve(_cli.Cli.ApiKeyStore, _ => null).Source);
     }
 
     [Fact]

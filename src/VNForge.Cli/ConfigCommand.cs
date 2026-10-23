@@ -56,7 +56,7 @@ internal static class ConfigCommand
         }
 
         var settingsFile = new AiUserSettingsFile(cli.UserConfigDirectory);
-        var store = new DpapiApiKeyStore(cli.UserConfigDirectory);
+        var store = cli.ApiKeyStore;
         var messages = new List<string>();
 
         if (modelId is not null)
