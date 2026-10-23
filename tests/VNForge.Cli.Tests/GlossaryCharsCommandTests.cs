@@ -152,4 +152,13 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         using var doc = JsonDocument.Parse(result.Output);
         Assert.Empty(doc.RootElement.GetProperty("data").GetProperty("characters").EnumerateArray());
     }
+
+    [Fact]
+    public async Task Traducao_vazia_falha_nos_dois_comandos()
+    {
+        Assert.Equal(1, (await Run("glossary", "add", "先輩", " ")).ExitCode);
+        Assert.Equal(1, (await Run("chars", "set", "美咲", "")).ExitCode);
+        Assert.Empty(_project.LoadGlossary());
+        Assert.Empty(_project.LoadCharacters());
+    }
 }

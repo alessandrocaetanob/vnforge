@@ -9,7 +9,7 @@ namespace VNForge.Cli;
 /// <summary><c>vnf chars list|set</c>: os personagens de <c>characters.json</c>.</summary>
 internal static class CharsCommand
 {
-    private static readonly string[] GenderNames = ["unknown", "female", "male", "other"];
+    private static readonly string[] GenderNames = [.. Enum.GetValues<CharacterGender>().Select(GenderName)];
 
     public static Command Create(VnfCli cli)
     {
@@ -53,6 +53,11 @@ internal static class CharsCommand
         if (original.Length == 0)
         {
             throw new UsageException("O nome original não pode ser vazio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            throw new UsageException("A tradução do nome não pode ser vazia.");
         }
 
         var gender = genderText is null ? (CharacterGender?)null : ParseGender(genderText);
@@ -119,11 +124,10 @@ internal static class CharsCommand
     }
 
     private static CharacterGender ParseGender(string text) =>
-        Array.FindIndex(GenderNames, n => string.Equals(n, text.Trim(), StringComparison.OrdinalIgnoreCase)) is >= 0 and var i
-            ? (CharacterGender)i
-            : throw new UsageException($"Gênero desconhecido: '{text}'. Use um de: {string.Join(", ", GenderNames)}.");
+        Enum.GetValues<CharacterGender>().Cast<CharacterGender?>().FirstOrDefault(g => string.Equals(GenderName(g!.Value), text.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new UsageException($"Gênero desconhecido: '{text}'. Use um de: {string.Join(", ", GenderNames)}.");
 
-    private static string GenderName(CharacterGender gender) => GenderNames[(int)gender];
+    private static string GenderName(CharacterGender gender) => gender.ToString().ToLowerInvariant();
 
     private static ProjectFolder Open(VnfCli cli, ParseResult parseResult) =>
         ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));

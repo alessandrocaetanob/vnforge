@@ -50,6 +50,11 @@ internal static class GlossaryCommand
             throw new UsageException("O termo original não pode ser vazio.");
         }
 
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            throw new UsageException("A tradução do termo não pode ser vazia.");
+        }
+
         var terms = project.LoadGlossary().ToList();
         var index = terms.FindIndex(t => string.Equals(t.Source.Trim(), original, StringComparison.Ordinal));
         if (index >= 0 && !force)
