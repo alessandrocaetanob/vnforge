@@ -13,6 +13,8 @@ internal static class BuildCommand
 {
     private const int MaxWarningsShown = 10;
 
+    private const int MaxQaIssuesShown = 50;
+
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private static readonly Option<bool> ReportOption = new("--report")
@@ -119,9 +121,19 @@ internal static class BuildCommand
             return exitCode;
         }
 
-        foreach (var issue in blocked.Report.Issues)
+        foreach (var issue in blocked.Report.Issues.Take(MaxQaIssuesShown))
         {
             output.WriteLine(QaLine(issue));
+        }
+
+        if (blocked.Report.Issues.Count > MaxQaIssuesShown)
+        {
+            output.WriteLine($"... e mais {Number(blocked.Report.Issues.Count - MaxQaIssuesShown)} ocorrência(s); use --json para ver todas.");
+        }
+
+        if (blocked.Report.Silenced.Count > 0)
+        {
+            output.WriteLine($"QA: {Number(blocked.Report.Silenced.Count)} {Plural(blocked.Report.Silenced.Count, "aviso marcado como ok", "avisos marcados como ok")}.");
         }
 
         output.WriteLine($"{QaBlockedException.Describe(blocked.Report)}. O build não gravou nada; corrija, marque o aviso como ok na linha ou use --allow-warnings para liberar só os avisos.");
