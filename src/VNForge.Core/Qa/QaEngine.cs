@@ -14,16 +14,16 @@ public sealed class QaEngine
         ArgumentNullException.ThrowIfNull(rules);
         _rules = [.. rules];
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var rule in _rules)
+        foreach (var id in _rules.Select(rule => rule.Id))
         {
-            if (!IsValidId(rule.Id))
+            if (!IsValidId(id))
             {
-                throw new ArgumentException($"O id de regra '{rule.Id}' é inválido: use minúsculas, dígitos e hífens (marcador-diferente).", nameof(rules));
+                throw new ArgumentException($"O id de regra '{id}' é inválido: use minúsculas, dígitos e hífens (marcador-diferente).", nameof(rules));
             }
 
-            if (!seen.Add(rule.Id))
+            if (!seen.Add(id))
             {
-                throw new ArgumentException($"Duas regras de QA usam o id '{rule.Id}'.", nameof(rules));
+                throw new ArgumentException($"Duas regras de QA usam o id '{id}'.", nameof(rules));
             }
         }
     }
