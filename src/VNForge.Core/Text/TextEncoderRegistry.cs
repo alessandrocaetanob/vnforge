@@ -18,7 +18,7 @@ public sealed class TextEncoderRegistry
         .Register("cp1252", () => new Cp1252TextEncoder());
 
     /// <summary>Ids com encoder pronto, na ordem em que entraram.</summary>
-    public IReadOnlyList<string> AvailableIds => _factories.Keys.ToList();
+    public IReadOnlyCollection<string> AvailableIds => _factories.Keys;
 
     /// <summary>Acrescenta (ou troca) o encoder do <paramref name="id"/>.</summary>
     public TextEncoderRegistry Register(string id, Func<ITextEncoder> factory)

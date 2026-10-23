@@ -24,6 +24,6 @@ public static class CharWidths
         return 2;
     };
 
-    /// <summary>Todo caractere ocupa 1 coluna. Útil para fontes monoespaçadas e para testes.</summary>
+    /// <summary>Cada caractere ocupa 1 coluna. Útil para fontes monoespaçadas e para testes.</summary>
     public static CharWidth Uniform { get; } = static _ => 1;
 }

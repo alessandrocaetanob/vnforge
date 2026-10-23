@@ -69,55 +69,51 @@ public static class LineMeasure
         var i = 0;
         while (i < text.Length)
         {
-            var c = text[i];
-            if (c == '\\')
+            if (text[i] == '\\')
             {
-                if (i + 1 >= text.Length)
-                {
-                    throw new ArgumentException("Barra invertida no fim do texto, sem caractere de marcador.", nameof(text));
-                }
-
-                var next = text[i + 1];
-                i += 2;
-                switch (next)
-                {
-                    case 'n':
-                        yield return ('n', 0);
-                        break;
-                    case 'p':
-                        yield return ('p', 0);
-                        break;
-                    case 'c':
-                    case 'u':
-                        yield return ('m', 0);
-                        break;
-                    case '\\':
-                    case '{':
-                        yield return ('g', width(new Rune(next)));
-                        break;
-                    default:
-                        throw new ArgumentException($"Marcador inválido '\\{next}' no texto.", nameof(text));
-                }
-
-                continue;
+                yield return ReadEscape(text, ref i, width);
             }
-
-            if (c == '{')
+            else if (text[i] == '{')
             {
-                var close = text.IndexOf('}', i);
-                if (close < 0)
-                {
-                    throw new ArgumentException("Chave '{' sem fechamento no texto.", nameof(text));
-                }
-
-                yield return ('m', 0);
-                i = close + 1;
-                continue;
+                yield return ReadBraced(text, ref i);
             }
-
-            var rune = Rune.GetRuneAt(text, i);
-            i += rune.Utf16SequenceLength;
-            yield return (rune.Value == ' ' ? 's' : 'g', width(rune));
+            else
+            {
+                var rune = Rune.GetRuneAt(text, i);
+                i += rune.Utf16SequenceLength;
+                yield return (rune.Value == ' ' ? 's' : 'g', width(rune));
+            }
         }
+    }
+
+    private static (char Kind, int Width) ReadEscape(string text, ref int i, CharWidth width)
+    {
+        if (i + 1 >= text.Length)
+        {
+            throw new ArgumentException("Barra invertida no fim do texto, sem caractere de marcador.", nameof(text));
+        }
+
+        var next = text[i + 1];
+        i += 2;
+        return next switch
+        {
+            'n' => ('n', 0),
+            'p' => ('p', 0),
+            'c' or 'u' => ('m', 0),
+            '\\' or '{' => ('g', width(new Rune(next))),
+            _ => throw new ArgumentException($"Marcador inválido '\\{next}' no texto.", nameof(text)),
+        };
+    }
+
+    private static (char Kind, int Width) ReadBraced(string text, ref int i)
+    {
+        var close = text.IndexOf('}', i);
+        if (close < 0)
+        {
+            throw new ArgumentException("Chave '{' sem fechamento no texto.", nameof(text));
+        }
+
+        i = close + 1;
+        return ('m', 0);
     }
 }

@@ -63,58 +63,55 @@ public static class WordWrapper
         int i = 0;
         while (i < text.Length)
         {
-            char c = text[i];
-            if (c == '\\')
+            if (text[i] == '\\')
             {
-                if (i + 1 >= text.Length)
-                {
-                    throw new ArgumentException("Barra invertida no fim do texto, sem caractere de marcador.", nameof(text));
-                }
-
-                char next = text[i + 1];
-                string raw = text.Substring(i, 2);
-                i += 2;
-                switch (next)
-                {
-                    case 'n':
-                        yield return new Token(raw, 0, Kind.Newline);
-                        break;
-                    case 'p':
-                        yield return new Token(raw, 0, Kind.Page);
-                        break;
-                    case 'c':
-                    case 'u':
-                        yield return new Token(raw, 0, Kind.Marker);
-                        break;
-                    case '\\':
-                    case '{':
-                        yield return new Token(raw, widthOf(new Rune(next)), Kind.Glyph);
-                        break;
-                    default:
-                        throw new ArgumentException($"Marcador inválido '{raw}' no texto.", nameof(text));
-                }
-
-                continue;
+                yield return ReadEscape(text, ref i, widthOf);
             }
-
-            if (c == '{')
+            else if (text[i] == '{')
             {
-                int close = text.IndexOf('}', i);
-                if (close < 0)
-                {
-                    throw new ArgumentException("Chave '{' sem fechamento no texto.", nameof(text));
-                }
-
-                yield return new Token(text[i..(close + 1)], 0, Kind.Marker);
-                i = close + 1;
-                continue;
+                yield return ReadBraced(text, ref i);
             }
-
-            Rune rune = Rune.GetRuneAt(text, i);
-            string glyph = text.Substring(i, rune.Utf16SequenceLength);
-            i += rune.Utf16SequenceLength;
-            yield return new Token(glyph, widthOf(rune), rune.Value == ' ' ? Kind.Space : Kind.Glyph);
+            else
+            {
+                Rune rune = Rune.GetRuneAt(text, i);
+                string glyph = text.Substring(i, rune.Utf16SequenceLength);
+                i += rune.Utf16SequenceLength;
+                yield return new Token(glyph, widthOf(rune), rune.Value == ' ' ? Kind.Space : Kind.Glyph);
+            }
         }
+    }
+
+    private static Token ReadEscape(string text, ref int i, CharWidth widthOf)
+    {
+        if (i + 1 >= text.Length)
+        {
+            throw new ArgumentException("Barra invertida no fim do texto, sem caractere de marcador.", nameof(text));
+        }
+
+        char next = text[i + 1];
+        string raw = text.Substring(i, 2);
+        i += 2;
+        return next switch
+        {
+            'n' => new Token(raw, 0, Kind.Newline),
+            'p' => new Token(raw, 0, Kind.Page),
+            'c' or 'u' => new Token(raw, 0, Kind.Marker),
+            '\\' or '{' => new Token(raw, widthOf(new Rune(next)), Kind.Glyph),
+            _ => throw new ArgumentException($"Marcador inválido '{raw}' no texto.", nameof(text)),
+        };
+    }
+
+    private static Token ReadBraced(string text, ref int i)
+    {
+        int close = text.IndexOf('}', i);
+        if (close < 0)
+        {
+            throw new ArgumentException("Chave '{' sem fechamento no texto.", nameof(text));
+        }
+
+        var token = new Token(text[i..(close + 1)], 0, Kind.Marker);
+        i = close + 1;
+        return token;
     }
 
     private sealed class State(WrapOptions options)

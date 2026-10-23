@@ -77,7 +77,7 @@ internal static class SpeakerSplitter
 
     /// <summary>Exclamação ou interrogação só vale se o nome é feito só de sinais (<c>？？？</c> para um falante desconhecido).</summary>
     private static bool IsPlausibleName(string name) =>
-        name.AsSpan().IndexOfAny("！？!?") < 0 || name.AsSpan().IndexOfAnyExcept("！？!?…・ 　") < 0;
+        name.AsSpan().IndexOfAny("！？!?") < 0 || name.AsSpan().IndexOfAnyExcept("！？!?…・ \u3000") < 0;
 
     private static bool IsNameChar(char c) => c is not ('。' or '、' or '「' or '」' or '『' or '』' or '（' or '）' or '\\' or '{');
 }

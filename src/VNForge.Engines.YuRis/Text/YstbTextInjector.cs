@@ -78,10 +78,7 @@ public static class YstbTextInjector
             ? ReadWordOriginal(script, locator, targets, unit)
             : ReadExpressionOriginal(script, targets, unit);
 
-        var text = locator.Speaker is { } speaker
-            ? (string.IsNullOrEmpty(unit.Speaker) ? speaker.Name : unit.Speaker) + speaker.Open + unit.Translation + speaker.Close
-            : unit.Translation!;
-        var encoded = Encode(unit, text, encoder);
+        var encoded = Encode(unit, ComposeText(locator, unit), encoder);
 
         var rewritten = locator.Command == WordCommand ? encoded : BuildExpression(unit, encoded, original);
         if (rewritten.AsSpan().SequenceEqual(original))
@@ -96,6 +93,17 @@ public static class YstbTextInjector
                 throw Fail(unit, $"o argumento {Number(targets[i].Argument)} da instrução {Number(targets[i].Instruction)} também é de outra unidade.");
             }
         }
+    }
+
+    private static string ComposeText(Locator locator, TextUnit unit)
+    {
+        if (locator.Speaker is not { } speaker)
+        {
+            return unit.Translation!;
+        }
+
+        var name = string.IsNullOrEmpty(unit.Speaker) ? speaker.Name : unit.Speaker;
+        return name + speaker.Open + unit.Translation + speaker.Close;
     }
 
     private static byte[] Encode(TextUnit unit, string text, ITextEncoder encoder)
@@ -158,6 +166,40 @@ public static class YstbTextInjector
         var originalQuote = original[3];
         var inner = new List<byte>(content.Length + 8);
         var present = new HashSet<byte>();
+        EscapeExpressionContent(content, inner, present);
+
+        if (original.Length == inner.Count + 5 && original.AsSpan(4, inner.Count).SequenceEqual(CollectionsMarshal.AsSpan(inner)))
+        {
+            return original;
+        }
+
+        var quote = ChooseQuote(originalQuote, present);
+        if (quote is null)
+        {
+            throw new ArgumentException(
+                $"A tradução da unidade '{unit.Id}' tem aspas duplas, crase e apóstrofo ao mesmo tempo, e o YU-RIS não tem escape de aspas para delimitar a string; tire um dos três.",
+                nameof(unit));
+        }
+
+        var length = inner.Count + 2;
+        if (length > MaxExpressionLength)
+        {
+            throw new ArgumentException(
+                $"A tradução da unidade '{unit.Id}' ocupa {Number(length)} bytes na string de expressão, acima do limite de {Number(MaxExpressionLength)}.",
+                nameof(unit));
+        }
+
+        var result = new byte[3 + length];
+        result[0] = 0x4D;
+        BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(1), (ushort)length);
+        result[3] = quote.Value;
+        inner.CopyTo(result, 4);
+        result[^1] = quote.Value;
+        return result;
+    }
+
+    private static void EscapeExpressionContent(byte[] content, List<byte> inner, HashSet<byte> present)
+    {
         var i = 0;
         while (i < content.Length)
         {
@@ -192,35 +234,6 @@ public static class YstbTextInjector
                 i++;
             }
         }
-
-        if (original.Length == inner.Count + 5 && original.AsSpan(4, inner.Count).SequenceEqual(CollectionsMarshal.AsSpan(inner)))
-        {
-            return original;
-        }
-
-        var quote = ChooseQuote(originalQuote, present);
-        if (quote is null)
-        {
-            throw new ArgumentException(
-                $"A tradução da unidade '{unit.Id}' tem aspas duplas, crase e apóstrofo ao mesmo tempo, e o YU-RIS não tem escape de aspas para delimitar a string; tire um dos três.",
-                nameof(unit));
-        }
-
-        var length = inner.Count + 2;
-        if (length > MaxExpressionLength)
-        {
-            throw new ArgumentException(
-                $"A tradução da unidade '{unit.Id}' ocupa {Number(length)} bytes na string de expressão, acima do limite de {Number(MaxExpressionLength)}.",
-                nameof(unit));
-        }
-
-        var result = new byte[3 + length];
-        result[0] = 0x4D;
-        BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(1), (ushort)length);
-        result[3] = quote.Value;
-        inner.CopyTo(result, 4);
-        result[^1] = quote.Value;
-        return result;
     }
 
     private static byte? ChooseQuote(byte original, HashSet<byte> present)
@@ -271,6 +284,14 @@ public static class YstbTextInjector
                 throw Fail(unit, "o locator não tem command e parts.");
             }
 
+            var parts = ParseParts(unit, partsElement);
+            var speaker = ParseSpeaker(unit, root);
+
+            return new Locator(command.GetString()!, parts, speaker);
+        }
+
+        private static List<(int, int, uint, uint)> ParseParts(TextUnit unit, JsonElement partsElement)
+        {
             var parts = new List<(int, int, uint, uint)>();
             foreach (var part in partsElement.EnumerateArray())
             {
@@ -286,21 +307,25 @@ public static class YstbTextInjector
                 parts.Add(((int)instructionIndex, (int)argumentIndex, (uint)sizeValue, (uint)offsetValue));
             }
 
-            Speaker? speaker = null;
-            if (root.TryGetProperty("speaker", out var speakerElement))
-            {
-                if (speakerElement.ValueKind != JsonValueKind.Object
-                    || !TryGetString(speakerElement, "name", out var name)
-                    || !TryGetString(speakerElement, "open", out var open)
-                    || !TryGetString(speakerElement, "close", out var close))
-                {
-                    throw Fail(unit, "o falante do locator não tem name, open e close.");
-                }
+            return parts;
+        }
 
-                speaker = new Speaker(name, open, close);
+        private static Speaker? ParseSpeaker(TextUnit unit, JsonElement root)
+        {
+            if (!root.TryGetProperty("speaker", out var speakerElement))
+            {
+                return null;
             }
 
-            return new Locator(command.GetString()!, parts, speaker);
+            if (speakerElement.ValueKind != JsonValueKind.Object
+                || !TryGetString(speakerElement, "name", out var name)
+                || !TryGetString(speakerElement, "open", out var open)
+                || !TryGetString(speakerElement, "close", out var close))
+            {
+                throw Fail(unit, "o falante do locator não tem name, open e close.");
+            }
+
+            return new Speaker(name, open, close);
         }
 
         /// <summary>Acha cada parte no script e confere que o argumento ainda tem o <c>size</c> e o <c>offset</c> da extração.</summary>

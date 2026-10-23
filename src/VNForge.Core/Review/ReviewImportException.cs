@@ -2,7 +2,7 @@ using System.Text;
 
 namespace VNForge.Core.Review;
 
-/// <summary>Um problema do arquivo de revisão. <see cref="Line"/> é 0 quando o problema é do arquivo todo.</summary>
+/// <summary>Um problema do arquivo de revisão. <see cref="Line"/> é 0 quando o problema é do arquivo inteiro.</summary>
 public sealed record ReviewImportError(int Line, string Message);
 
 /// <summary>O arquivo de revisão não pôde ser lido ou tem linhas inválidas. Nada foi alterado no projeto.</summary>

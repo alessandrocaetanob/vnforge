@@ -79,18 +79,20 @@ public static class YpfHash
             data = data[4..];
         }
 
-        switch (data.Length)
+        if (data.Length == 3)
         {
-            case 3:
-                hash ^= (uint)data[2] << 16;
-                goto case 2;
-            case 2:
-                hash ^= (uint)data[1] << 8;
-                goto case 1;
-            case 1:
-                hash ^= data[0];
-                hash *= MurmurM;
-                break;
+            hash ^= (uint)data[2] << 16;
+        }
+
+        if (data.Length >= 2)
+        {
+            hash ^= (uint)data[1] << 8;
+        }
+
+        if (data.Length >= 1)
+        {
+            hash ^= data[0];
+            hash *= MurmurM;
         }
 
         hash ^= hash >> 13;

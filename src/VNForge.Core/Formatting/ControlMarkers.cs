@@ -33,30 +33,7 @@ public static class ControlMarkers
                 continue;
             }
 
-            string marker;
-            if (c == '\\')
-            {
-                if (i + 1 >= text.Length)
-                {
-                    throw new ArgumentException("Barra invertida no fim do texto, sem caractere de marcador.", nameof(text));
-                }
-
-                marker = text.Substring(i, 2);
-                if (marker[1] is not ('n' or 'p' or 'c' or 'u' or '\\' or '{'))
-                {
-                    throw new ArgumentException($"Marcador inválido '{marker}' no texto.", nameof(text));
-                }
-            }
-            else
-            {
-                var close = text.IndexOf('}', i);
-                if (close < 0)
-                {
-                    throw new ArgumentException("Chave '{' sem fechamento no texto.", nameof(text));
-                }
-
-                marker = text[i..(close + 1)];
-            }
+            var marker = ReadMarker(text, i);
 
             if (plain.Length > 0)
             {
@@ -74,6 +51,33 @@ public static class ControlMarkers
         }
 
         return segments;
+    }
+
+    private static string ReadMarker(string text, int i)
+    {
+        if (text[i] == '{')
+        {
+            var close = text.IndexOf('}', i);
+            if (close < 0)
+            {
+                throw new ArgumentException("Chave '{' sem fechamento no texto.", nameof(text));
+            }
+
+            return text[i..(close + 1)];
+        }
+
+        if (i + 1 >= text.Length)
+        {
+            throw new ArgumentException("Barra invertida no fim do texto, sem caractere de marcador.", nameof(text));
+        }
+
+        var marker = text.Substring(i, 2);
+        if (marker[1] is not ('n' or 'p' or 'c' or 'u' or '\\' or '{'))
+        {
+            throw new ArgumentException($"Marcador inválido '{marker}' no texto.", nameof(text));
+        }
+
+        return marker;
     }
 
     /// <summary>Os marcadores de <paramref name="text"/>, na ordem em que aparecem.</summary>

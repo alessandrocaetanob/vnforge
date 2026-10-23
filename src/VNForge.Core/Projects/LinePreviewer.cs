@@ -47,7 +47,7 @@ public static class LinePreviewer
         }
 
         var profile = project.LoadFormatting();
-        var translation = unit.Translation!;
+        var translation = unit.Translation;
         var formatted = unit.NeedsRewrite && profile.Kinds.Contains(unit.Kind);
         try
         {

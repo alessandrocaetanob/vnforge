@@ -77,13 +77,15 @@ public static class YpfFolder
         }
 
         var known = new Dictionary<string, string>(PathComparer);
-        foreach (var entry in archive.Entries)
+        foreach (var path in archive.Entries.Select(entry => entry.Path))
         {
-            if (!known.TryAdd(entry.Path, entry.Path))
+            if (known.TryAdd(path, path))
             {
-                throw new VNForgeException(
-                    $"O YPF tem as entradas \"{known[entry.Path]}\" e \"{entry.Path}\", que só diferem na caixa; neste sistema de arquivos elas são o mesmo arquivo e não dá para empacotar.");
+                continue;
             }
+
+            throw new VNForgeException(
+                $"O YPF tem as entradas \"{known[path]}\" e \"{path}\", que só diferem na caixa; neste sistema de arquivos elas são o mesmo arquivo e não dá para empacotar.");
         }
 
         var files = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -225,34 +227,9 @@ public static class YpfFolder
         var targets = new string[archive.Entries.Count];
         for (var i = 0; i < targets.Length; i++)
         {
-            var entryPath = archive.Entries[i].Path;
-            if (archive.Entries[i].Size > Array.MaxLength || archive.Entries[i].SizeStored > Array.MaxLength)
-            {
-                throw new VNForgeException(
-                    $"A entrada \"{entryPath}\" é grande demais para extrair ({archive.Entries[i].Size} bytes); nada foi extraído.");
-            }
-
-            if (!IsSafeRelativePath(entryPath))
-            {
-                throw new VNForgeException(
-                    $"A entrada \"{entryPath}\" tem um caminho inválido ou que sai da pasta de destino; nada foi extraído.");
-            }
-
-            var target = Path.GetFullPath(Path.Combine(root, entryPath.Replace('/', Path.DirectorySeparatorChar)));
-            if (!target.StartsWith(prefix, comparison))
-            {
-                throw new VNForgeException(
-                    $"A entrada \"{entryPath}\" tem um caminho que sai da pasta de destino; nada foi extraído.");
-            }
-
-            if (seen.TryGetValue(target, out var other))
-            {
-                throw new VNForgeException(
-                    $"As entradas \"{other}\" e \"{entryPath}\" gravariam o mesmo arquivo neste sistema de arquivos; nada foi extraído.");
-            }
-
-            ThrowIfLinked(target, prefix, entryPath);
-            seen[target] = entryPath;
+            var entry = archive.Entries[i];
+            var target = ResolveTarget(entry, root, prefix, comparison, seen);
+            seen[target] = entry.Path;
             targets[i] = target;
             for (var parent = Path.GetDirectoryName(target); parent is not null && parent.Length >= prefix.Length; parent = Path.GetDirectoryName(parent))
             {
@@ -270,6 +247,38 @@ public static class YpfFolder
         }
 
         return targets;
+    }
+
+    private static string ResolveTarget(YpfEntry entry, string root, string prefix, StringComparison comparison, Dictionary<string, string> seen)
+    {
+        var entryPath = entry.Path;
+        if (entry.Size > Array.MaxLength || entry.SizeStored > Array.MaxLength)
+        {
+            throw new VNForgeException(
+                $"A entrada \"{entryPath}\" é grande demais para extrair ({entry.Size} bytes); nada foi extraído.");
+        }
+
+        if (!IsSafeRelativePath(entryPath))
+        {
+            throw new VNForgeException(
+                $"A entrada \"{entryPath}\" tem um caminho inválido ou que sai da pasta de destino; nada foi extraído.");
+        }
+
+        var target = Path.GetFullPath(Path.Combine(root, entryPath.Replace('/', Path.DirectorySeparatorChar)));
+        if (!target.StartsWith(prefix, comparison))
+        {
+            throw new VNForgeException(
+                $"A entrada \"{entryPath}\" tem um caminho que sai da pasta de destino; nada foi extraído.");
+        }
+
+        if (seen.TryGetValue(target, out var other))
+        {
+            throw new VNForgeException(
+                $"As entradas \"{other}\" e \"{entryPath}\" gravariam o mesmo arquivo neste sistema de arquivos; nada foi extraído.");
+        }
+
+        ThrowIfLinked(target, prefix, entryPath);
+        return target;
     }
 
     private static void ThrowIfLinked(string target, string prefix, string entryPath)

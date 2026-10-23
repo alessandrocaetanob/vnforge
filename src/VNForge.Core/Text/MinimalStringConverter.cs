@@ -22,12 +22,14 @@ internal sealed class MinimalStringConverter : JsonConverter<string>
     internal static string Quote(string value)
     {
         var sb = new StringBuilder(value.Length + 2).Append('"');
-        for (var i = 0; i < value.Length; i++)
+        var i = 0;
+        while (i < value.Length)
         {
             var c = value[i];
             if (char.IsHighSurrogate(c) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]))
             {
-                sb.Append(c).Append(value[++i]);
+                sb.Append(c).Append(value[i + 1]);
+                i += 2;
                 continue;
             }
 
@@ -37,6 +39,7 @@ internal sealed class MinimalStringConverter : JsonConverter<string>
             }
 
             Append(sb, c);
+            i++;
         }
 
         return sb.Append('"').ToString();

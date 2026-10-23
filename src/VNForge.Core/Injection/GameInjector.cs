@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using VNForge.Core.Engines;
@@ -14,7 +15,7 @@ namespace VNForge.Core.Injection;
 /// grava o <see cref="BackupManifest"/> e só então escreve no jogo, conferindo o hash de cada arquivo gravado. Se uma gravação falha,
 /// os arquivos já trocados são devolvidos na hora; se nem isso é possível, o manifesto já existe e <c>vnf restore</c> termina o serviço.
 /// Quando o jogo ainda está com o build de uma injeção anterior (sem restore no meio), o original vem do backup anterior,
-/// para que todo backup guarde sempre os arquivos originais e nunca uma versão já traduzida.
+/// para que cada backup guarde sempre os arquivos originais e nunca uma versão já traduzida.
 /// </remarks>
 public sealed class GameInjector
 {
@@ -34,6 +35,7 @@ public sealed class GameInjector
 
     /// <summary>Compara <c>build/</c> com a pasta do jogo e diz o que seria gravado. Não escreve nada.</summary>
     /// <exception cref="InjectionException"><c>build/</c> ausente ou vazia, pasta do jogo inexistente, ou backup anterior ilegível.</exception>
+    [SuppressMessage("Major Code Smell", "S2325:Methods and properties that don't access instance data should be static", Justification = "API pública de instância, simétrica a Inject; chamadores e testes usam a instância.")]
     public InjectionPlan Plan(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -138,6 +140,7 @@ public sealed class GameInjector
 
     /// <summary>Acha o backup mais recente do projeto, sem escrever nada.</summary>
     /// <exception cref="InjectionException">Não há backup, ou o manifesto está ilegível.</exception>
+    [SuppressMessage("Major Code Smell", "S2325:Methods and properties that don't access instance data should be static", Justification = "API pública de instância, simétrica a Restore; chamadores e testes usam a instância.")]
     public RestorePlan PlanRestore(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -381,24 +384,26 @@ public sealed class GameInjector
     private string CreateBackupDirectory(string backupRoot)
     {
         var stamp = _timeProvider.GetLocalNow().ToString(StampFormat, CultureInfo.InvariantCulture);
-        for (var attempt = 1; ; attempt++)
+        var attempt = 1;
+        string path;
+        do
         {
             var name = attempt == 1 ? stamp : $"{stamp}-{attempt:D2}";
-            var path = Path.Combine(backupRoot, name);
-            if (!Directory.Exists(path))
-            {
-                try
-                {
-                    Directory.CreateDirectory(path);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    throw new InjectionException($"Não foi possível criar a pasta de backup '{path}': {ex.Message}", ex);
-                }
-
-                return path;
-            }
+            path = Path.Combine(backupRoot, name);
+            attempt++;
         }
+        while (Directory.Exists(path));
+
+        try
+        {
+            Directory.CreateDirectory(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new InjectionException($"Não foi possível criar a pasta de backup '{path}': {ex.Message}", ex);
+        }
+
+        return path;
     }
 
     private static void WriteManifest(string backupDirectory, BackupManifest manifest)
@@ -459,7 +464,8 @@ public sealed class GameInjector
         /// <summary>A entrada mais recente que mexeu em <paramref name="relative"/>, em qualquer backup.</summary>
         public HistoryEntry? FindLatestEntry(string relative)
         {
-            for (var i = 0; ; i++)
+            var i = 0;
+            while (true)
             {
                 if (i == _read.Count)
                 {
@@ -476,6 +482,8 @@ public sealed class GameInjector
                 {
                     return new HistoryEntry(_read[i].Directory, entry);
                 }
+
+                i++;
             }
         }
     }

@@ -8,7 +8,7 @@ public enum CharWidthMode
     /// <summary>Letra latina ocupa 1 coluna e japonês 2 (<see cref="CharWidths.HalfWidthLatin"/>).</summary>
     HalfWidthLatin,
 
-    /// <summary>Todo caractere ocupa 1 coluna (<see cref="CharWidths.Uniform"/>).</summary>
+    /// <summary>Cada caractere ocupa 1 coluna (<see cref="CharWidths.Uniform"/>).</summary>
     Uniform,
 }
 

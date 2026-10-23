@@ -86,7 +86,7 @@ public static class YstbReader
             {
                 return Decode(data, source, version, layout, candidate, commands, rules);
             }
-            catch (DecodeFailure failure)
+            catch (DecodeFailureException failure)
             {
                 if (furthest is null || failure.Position > furthest.Position)
                 {
@@ -193,6 +193,7 @@ public static class YstbReader
         var resources = Decrypt(data.Span, layout.Resources, candidate.Key);
         var lineNumbers = Decrypt(data.Span, layout.LineNumbers, candidate.Key);
 
+        var context = new DecodeContext(layout, argumentBytes, resources, commands, rules);
         var argumentCount = argumentBytes.Length / ArgumentBytes;
         var instructions = new List<YstbInstruction>(layout.Count);
         var nextArgument = 0;
@@ -204,45 +205,19 @@ public static class YstbReader
             var declared = span[1];
             if (opcode >= commands.Commands.Count)
             {
-                throw new DecodeFailure(
+                throw new DecodeFailureException(
                     position,
                     $"a instrução {i} (posição {position}) tem o opcode {opcode}, que não está na lista do YSCM ({commands.Commands.Count} comandos).");
             }
 
             if (declared > argumentCount - nextArgument)
             {
-                throw new DecodeFailure(
+                throw new DecodeFailureException(
                     position,
                     $"a instrução {i} (posição {position}) declara {declared} argumentos, mas restam {argumentCount - nextArgument} na seção de argumentos.");
             }
 
-            YstbArgument[] arguments = declared == 0 ? [] : new YstbArgument[declared];
-            for (var j = 0; j < declared; j++)
-            {
-                var argumentPosition = layout.Arguments.Offset + ((nextArgument + j) * ArgumentBytes);
-                var raw = argumentBytes.AsSpan((nextArgument + j) * ArgumentBytes, ArgumentBytes);
-                var argument = new YstbArgument(
-                    BinaryPrimitives.ReadUInt16LittleEndian(raw),
-                    raw[2],
-                    raw[3],
-                    BinaryPrimitives.ReadUInt32LittleEndian(raw[4..]),
-                    BinaryPrimitives.ReadUInt32LittleEndian(raw[8..]));
-                if (argument.AssignOp > MaxAssignOp)
-                {
-                    throw new DecodeFailure(
-                        argumentPosition,
-                        $"o argumento {nextArgument + j} (posição {argumentPosition}) tem o operador de atribuição {argument.AssignOp}; só existem 0 a {MaxAssignOp}.");
-                }
-
-                if (!rules.IsExempt(opcode, j, declared) && argument.Size != 0 && (long)argument.Offset + argument.Size > resources.Length)
-                {
-                    throw new DecodeFailure(
-                        argumentPosition,
-                        $"o argumento {nextArgument + j} (posição {argumentPosition}) do comando {commands.Commands[opcode].Name} aponta para os bytes {Text(argument.Offset)} a {(long)argument.Offset + argument.Size} dos recursos, que têm {resources.Length} bytes.");
-                }
-
-                arguments[j] = argument;
-            }
+            var arguments = ReadArguments(context, opcode, declared, nextArgument);
 
             var extra = BinaryPrimitives.ReadUInt16LittleEndian(span[2..]);
             var lineNumber = BinaryPrimitives.ReadUInt32LittleEndian(lineNumbers.AsSpan(i * InstructionBytes, InstructionBytes));
@@ -253,12 +228,45 @@ public static class YstbReader
         if (nextArgument != argumentCount)
         {
             var position = layout.Arguments.Offset + (nextArgument * ArgumentBytes);
-            throw new DecodeFailure(
+            throw new DecodeFailureException(
                 position,
                 $"sobram {argumentCount - nextArgument} argumentos sem instrução (a partir da posição {position}); as instruções usam {nextArgument} dos {argumentCount}.");
         }
 
-        return new YstbFile(source, version, layout.Padding, candidate.Key, candidate.Origin, instructions, argumentBytes, resources);
+        return new YstbFile(source, version, layout.Padding, (candidate.Key, candidate.Origin), instructions, argumentBytes, resources);
+    }
+
+    private static YstbArgument[] ReadArguments(DecodeContext context, byte opcode, int declared, int nextArgument)
+    {
+        var arguments = declared == 0 ? [] : new YstbArgument[declared];
+        for (var j = 0; j < declared; j++)
+        {
+            var argumentPosition = context.Sections.Arguments.Offset + ((nextArgument + j) * ArgumentBytes);
+            var raw = context.ArgumentData.AsSpan((nextArgument + j) * ArgumentBytes, ArgumentBytes);
+            var argument = new YstbArgument(
+                BinaryPrimitives.ReadUInt16LittleEndian(raw),
+                raw[2],
+                raw[3],
+                BinaryPrimitives.ReadUInt32LittleEndian(raw[4..]),
+                BinaryPrimitives.ReadUInt32LittleEndian(raw[8..]));
+            if (argument.AssignOp > MaxAssignOp)
+            {
+                throw new DecodeFailureException(
+                    argumentPosition,
+                    $"o argumento {nextArgument + j} (posição {argumentPosition}) tem o operador de atribuição {argument.AssignOp}; só existem 0 a {MaxAssignOp}.");
+            }
+
+            if (!context.Rules.IsExempt(opcode, j, declared) && argument.Size != 0 && (long)argument.Offset + argument.Size > context.Resources.Length)
+            {
+                throw new DecodeFailureException(
+                    argumentPosition,
+                    $"o argumento {nextArgument + j} (posição {argumentPosition}) do comando {context.Commands.Commands[opcode].Name} aponta para os bytes {Text(argument.Offset)} a {(long)argument.Offset + argument.Size} dos recursos, que têm {context.Resources.Length} bytes.");
+            }
+
+            arguments[j] = argument;
+        }
+
+        return arguments;
     }
 
     private static byte[] Decrypt(ReadOnlySpan<byte> data, Section section, uint key)
@@ -298,7 +306,10 @@ public static class YstbReader
 
     private sealed record Failure(int Position, string Reason, uint Key);
 
-    private sealed class DecodeFailure(int position, string reason) : Exception(reason)
+    private sealed record DecodeContext(Layout Sections, byte[] ArgumentData, byte[] Resources, YscmFile Commands, RangeRules Rules);
+
+    /// <summary>Falha de uma tentativa de chave; nunca sai de <see cref="YstbReader"/>: <c>Read</c> a converte em <see cref="InvalidFileException"/>.</summary>
+    public sealed class DecodeFailureException(int position, string reason) : Exception(reason)
     {
         public int Position { get; } = position;
 

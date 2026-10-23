@@ -11,15 +11,14 @@ public static class GameEncodings
     private const int ShiftJisCodePage = 932;
     private const int Windows1252CodePage = 1252;
 
-    private static readonly Encoding ShiftJisEncoding;
-    private static readonly Encoding Windows1252Encoding;
+    private static readonly Encoding ShiftJisEncoding = Create(ShiftJisCodePage);
+    private static readonly Encoding Windows1252Encoding = Create(Windows1252CodePage);
 
-    static GameEncodings()
+    // Registrar o provedor mais de uma vez é inofensivo; os inicializadores estáticos rodam uma única vez e o runtime os protege contra concorrência.
+    private static Encoding Create(int codePage)
     {
-        // O construtor estático roda uma única vez e o runtime o protege contra concorrência.
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        ShiftJisEncoding = Encoding.GetEncoding(ShiftJisCodePage);
-        Windows1252Encoding = Encoding.GetEncoding(Windows1252CodePage);
+        return Encoding.GetEncoding(codePage);
     }
 
     /// <summary>Shift-JIS (página 932), a codificação do texto e dos nomes do YU-RIS.</summary>
