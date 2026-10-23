@@ -41,7 +41,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 
 | Comando | O que faz |
 |---|---|
-| `vnf init <pasta> --game <dir>` | Cria o projeto, detecta a engine e a versão, sugere configurações |
+| `vnf init <pasta> --game <dir> [--name <nome>] [--exe <arquivo>]` | Cria o projeto, detecta a engine e grava engine, versão do pacote e chave XOR no `vnforge.json`. Idiomas (`ja` para `pt-BR`), codificação (`cp1252`) e IA começam com os padrões do exemplo de `02-arquitetura.md`. O nome padrão é o da pasta; o executável padrão é o único `.exe` da pasta do jogo, sem os `unins*.exe` (`--exe` resolve zero ou vários). Pasta que já tem `vnforge.json`, engine não reconhecida, jogo inexistente e projeto dentro da pasta do jogo saem com `1`, sem criar nem sobrescrever nada. Não grava nada na pasta do jogo. Com `--json`, `data` traz `folder`, `config`, `engine`, `version`, `scriptKey`, `summary` e `warnings` |
 | `vnf detect [--game <dir>]` | Só diagnostica, sem gravar: engine, versão, arquivos YPF, versão do YSTB, chave XOR (a codificação ainda não é detectada). Com `--json`, `data.details` usa chaves em inglês: `ypf:<caminho>` (um por pacote), `scriptsArchive`, `ypfVersion`, `scripts`, `ystbVersion`, `scriptKey`, `scriptKeyOrigin` e `warnings`; as que não se aplicam ao jogo não aparecem. Sem `--game` usa a pasta atual; pasta sem engine conhecida responde "Engine não reconhecida" e sai com 0 |
 | `vnf extract` | Descompacta os arquivos do jogo para `.cache/` e gera `text/*.json`. Re-extrair preserva traduções existentes |
 | `vnf status` | Progresso: linhas por status, por arquivo, por personagem |
@@ -118,8 +118,8 @@ Se uma gravação falha no meio, o `inject` devolve na hora os arquivos já troc
 
 ```console
 $ vnf init minha-vn-ptbr --game "D:\Jogos\MinhaVN"
-Engine detectada: YU-RIS (YPF v500, YSTB v4xx)
-Arquivo de scripts: ysbin.ypf (1.284 arquivos)
+Engine detectada: YU-RIS (YPF v500, YSTB v480)
+Arquivo de scripts: ysbin.ypf (312 scripts)
 Chave XOR dos scripts: 0xD36FAC96 (padrão)
 Projeto criado em minha-vn-ptbr\
 

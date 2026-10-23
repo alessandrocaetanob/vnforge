@@ -9,6 +9,9 @@ public interface IEngine
     /// <summary>Identificador estável e em minúsculas da engine, usado em arquivos de projeto e na CLI (ex.: <c>"yuris"</c>).</summary>
     string Id { get; }
 
+    /// <summary>Nome para mostrar ao usuário (ex.: <c>"YU-RIS"</c>); por padrão o próprio <see cref="Id"/>.</summary>
+    string DisplayName => Id;
+
     /// <summary>
     /// Examina a pasta de um jogo, só lendo, e diz se a engine a reconhece.
     /// Nunca grava nada na pasta e não lança exceção para uma pasta de outra engine.
