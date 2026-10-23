@@ -177,7 +177,7 @@ public static class YbnCommand
         var head = $"    [{Number(argument.Index)}] {name} ({KindText(argument.Kind)})";
         return argument.Kind switch
         {
-            YstbArgumentKind.Empty => head,
+            YstbArgumentKind.Empty => argument.AssignOp == 0 ? head : $"{head} {argument.AssignOperator}",
             YstbArgumentKind.Value => $"{head} {argument.AssignOperator} tamanho {Number(argument.Size)}, offset {Number(argument.Offset)}",
             _ => $"{head} {argument.AssignOperator} {argument.Value}",
         };
