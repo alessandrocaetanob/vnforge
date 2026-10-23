@@ -233,6 +233,12 @@ O leitor foi escrito a partir das fontes acima e de arquivos sintéticos (`tests
 4. **`assign_op` de 0 a 8** em todos os argumentos, e **argumentos conferidos sempre dentro dos recursos**: se algum script real quebrar uma dessas duas conferências, a regra de consistência do leitor muda no mesmo PR.
 5. **Scripts sem argumentos** (por exemplo, só um `RETURN`): se estão cifrados e com qual chave.
 
+## Detecção da pasta do jogo (E2.8)
+
+`YuRisEngine.Detect` (`src/VNForge.Engines.YuRis/YuRisDetector.cs`) só lê. Procura `*.ypf` na pasta do jogo e na subpasta `pac` (sem diferenciar maiúsculas) e reconhece o jogo quando algum arquivo abre com a assinatura `YPF\0`. No pacote de scripts (`ysbin.ypf` primeiro; vale o primeiro que tenha algum `yst<dígitos>.ybn`, o `ysc.ybn` sozinho não basta) lê o `ysc.ybn` e, entre os 8 primeiros `yst<dígitos>.ybn`, o primeiro que o `YstbReader` decifra: dele saem a versão do YSTB e a chave XOR. O que não der para ler (índice corrompido, `ysc.ybn` ausente, YSTB abaixo da 300, entrada de mais de 32 MiB) não derruba a detecção: vira o detalhe `warnings`, e a versão do YSTB sai do cabeçalho do primeiro script que tenha a assinatura. Pasta inexistente, vazia ou sem YPF devolve `EngineDetection.NotDetected`; se houve falha ao listar a pasta ou ao abrir um `.ypf` (por exemplo, bloqueado por outro programa), o resultado não reconhecido traz só o detalhe `warnings`. Passando de 64 arquivos `.ypf`, só os 64 primeiros são examinados e um aviso diz isso.
+
+Detalhes devolvidos (chaves em inglês e camelCase, parte do contrato do `--json`): `ypf:<caminho>` (versão e contagem de cada pacote), `scriptsArchive`, `ypfVersion`, `scripts`, `ystbVersion`, `scriptKey`, `scriptKeyOrigin` e `warnings`. A codificação do texto ainda não é detectada. `vnf detect --game <dir>` mostra esse diagnóstico com rótulos em português (ou JSON com `--json`, que traz as chaves como estão).
+
 ## Acentuação: o problema central
 
 Shift-JIS não tem `á à â ã é ê í ó ô õ ú ç` (nem maiúsculas). Também faltam `« » ª º`. Já existem em Shift-JIS: `“ ” ‘ ’ … ― °` e todo o ASCII.

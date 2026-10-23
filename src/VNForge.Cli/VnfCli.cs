@@ -42,7 +42,7 @@ public sealed class VnfCli
 
     public GlobalOptions Options { get; }
 
-    /// <summary>Pasta contra a qual os caminhos relativos dos comandos são resolvidos.</summary>
+    /// <summary>Diretório atual da invocação, base dos caminhos relativos.</summary>
     public string CurrentDirectory => _currentDirectory;
 
     /// <summary>Versão do <c>vnf</c> sem o hash do commit.</summary>
