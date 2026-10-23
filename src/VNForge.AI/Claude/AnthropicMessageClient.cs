@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Anthropic;
+using Anthropic.Core;
 using Anthropic.Models.Messages;
 
 namespace VNForge.AI.Claude;
@@ -38,8 +39,21 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
         }, cancellationToken: ct).ConfigureAwait(false);
 
         var text = string.Concat(response.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text));
-        return new ClaudeReply(response.StopReason?.ToString(), text);
+        return new ClaudeReply(ToWire(response.StopReason), text);
     }
+
+    // ApiEnum.ToString() não garante o valor do fio; o provedor compara com "refusal" e "max_tokens".
+    private static string? ToWire(ApiEnum<string, StopReason>? stopReason) => stopReason?.Value() switch
+    {
+        StopReason.Refusal => "refusal",
+        StopReason.MaxTokens => "max_tokens",
+        StopReason.EndTurn => "end_turn",
+        StopReason.StopSequence => "stop_sequence",
+        StopReason.ToolUse => "tool_use",
+        StopReason.PauseTurn => "pause_turn",
+        StopReason.ModelContextWindowExceeded => "model_context_window_exceeded",
+        _ => null,
+    };
 
     private static Effort ToSdk(ClaudeEffort effort) => effort switch
     {
