@@ -18,7 +18,9 @@ internal static class TermTranslation
 
         foreach (var entry in entries)
         {
-            var (source, target) = parts(entry);
+            var (rawSource, rawTarget) = parts(entry);
+            var source = rawSource.Trim();
+            var target = rawTarget.Trim();
             if (source.Length == 0 || target.Length == 0)
             {
                 continue;

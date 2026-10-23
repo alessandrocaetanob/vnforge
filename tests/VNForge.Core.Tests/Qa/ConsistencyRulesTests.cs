@@ -79,6 +79,34 @@ public sealed class ConsistencyRulesTests
     }
 
     [Fact]
+    public void Personagem_com_espaco_ideografico_no_source_ainda_casa()
+    {
+        CharacterEntry[] cast = [new("春花　", "Haruka")];
+
+        Assert.Single(new CharacterNameRule().Check(Context([], cast, Unit("a:1", "春花が来た", "Haru chegou"))));
+    }
+
+    [Fact]
+    public void Inconsistencia_no_empate_toma_a_primeira_como_referencia()
+    {
+        var issue = Assert.Single(new InconsistentTranslationRule().Check(Context([], [], Unit("a:1", "はい", "Sim"), Unit("a:2", "はい", "Isso"))));
+
+        Assert.Equal("a:2", issue.UnitId);
+    }
+
+    [Fact]
+    public void Aviso_de_consistencia_some_quando_a_linha_esta_marcada_ok()
+    {
+        var engine = new QaEngine([new GlossaryTermRule()]);
+        var unit = Unit("a:1", "魔法を使う", "Usa feitiço") with { Flags = ["glossario-diferente"] };
+
+        var report = engine.Run(Context(Terms, [], unit));
+
+        Assert.Empty(report.Issues);
+        Assert.Single(report.Silenced);
+    }
+
+    [Fact]
     public void Default_registra_as_tres_regras()
     {
         Assert.NotNull(QaEngine.Default.Find("glossario-diferente"));
