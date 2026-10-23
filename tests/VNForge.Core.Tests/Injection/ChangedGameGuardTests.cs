@@ -8,6 +8,10 @@ namespace VNForge.Core.Tests.Injection;
 
 public sealed class ChangedGameGuardTests : IDisposable
 {
+    private const string Ysbin = "ysbin.ypf";
+    private const string Bgm = "bgm.ypf";
+    private const string OriginalYsbin = "original-ysbin";
+
     private readonly TempFolder _temp = new();
     private readonly string _game;
     private readonly ProjectFolder _project;
@@ -39,7 +43,7 @@ public sealed class ChangedGameGuardTests : IDisposable
     private static void Write(string root, string relative, string content)
     {
         var path = Path.Combine(root, relative);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? root);
         File.WriteAllText(path, content);
     }
 
@@ -54,10 +58,10 @@ public sealed class ChangedGameGuardTests : IDisposable
 
     private void SeedExtractedGame()
     {
-        Game("ysbin.ypf", "original-ysbin");
-        Game("bgm.ypf", "original-bgm");
-        Build("ysbin.ypf", "traduzido-ysbin");
-        RecordExtraction(Original("ysbin.ypf", "original-ysbin"), Original("bgm.ypf", "original-bgm"));
+        Game(Ysbin, OriginalYsbin);
+        Game(Bgm, "original-bgm");
+        Build(Ysbin, "traduzido-ysbin");
+        RecordExtraction(Original(Ysbin, OriginalYsbin), Original(Bgm, "original-bgm"));
     }
 
     [Fact]
@@ -67,19 +71,19 @@ public sealed class ChangedGameGuardTests : IDisposable
 
         var plan = Injector().Plan(_project);
 
-        Assert.Equal(["ysbin.ypf"], plan.Files.Select(f => f.RelativePath));
+        Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
     }
 
     [Fact]
     public void Plan_recusa_arquivo_do_jogo_alterado_depois_da_extracao_e_diz_qual()
     {
         SeedExtractedGame();
-        Game("bgm.ypf", "atualizado-pelo-patch");
+        Game(Bgm, "atualizado-pelo-patch");
 
         var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
 
-        Assert.Contains("bgm.ypf", erro.Message);
-        Assert.DoesNotContain("ysbin.ypf", erro.Message);
+        Assert.Contains(Bgm, erro.Message);
+        Assert.DoesNotContain(Ysbin, erro.Message);
         Assert.Contains("extra", erro.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -87,13 +91,13 @@ public sealed class ChangedGameGuardTests : IDisposable
     public void Plan_lista_todos_os_arquivos_alterados_e_os_ausentes()
     {
         SeedExtractedGame();
-        Game("ysbin.ypf", "versao-nova");
-        File.Delete(Path.Combine(_game, "bgm.ypf"));
+        Game(Ysbin, "versao-nova");
+        File.Delete(Path.Combine(_game, Bgm));
 
         var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
 
-        Assert.Contains("ysbin.ypf", erro.Message);
-        Assert.Contains("bgm.ypf", erro.Message);
+        Assert.Contains(Ysbin, erro.Message);
+        Assert.Contains(Bgm, erro.Message);
         Assert.Contains("ausente", erro.Message);
     }
 
@@ -101,12 +105,12 @@ public sealed class ChangedGameGuardTests : IDisposable
     public void Recusa_nao_cria_backup_nem_toca_no_jogo()
     {
         SeedExtractedGame();
-        Game("bgm.ypf", "atualizado-pelo-patch");
+        Game(Bgm, "atualizado-pelo-patch");
 
         Assert.Throws<InjectionException>(() => Injector().Plan(_project));
 
         Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
-        Assert.Equal("original-ysbin", File.ReadAllText(Path.Combine(_game, "ysbin.ypf")));
+        Assert.Equal(OriginalYsbin, File.ReadAllText(Path.Combine(_game, Ysbin)));
     }
 
     [Fact]
@@ -115,12 +119,12 @@ public sealed class ChangedGameGuardTests : IDisposable
         SeedExtractedGame();
         var injector = Injector();
         injector.Inject(injector.Plan(_project));
-        Build("ysbin.ypf", "traduzido-v2");
+        Build(Ysbin, "traduzido-v2");
         _clock.Now = _clock.Now.AddMinutes(5);
 
         var plan = injector.Plan(_project);
 
-        Assert.Equal(["ysbin.ypf"], plan.Files.Select(f => f.RelativePath));
+        Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
     }
 
     [Fact]
@@ -133,14 +137,14 @@ public sealed class ChangedGameGuardTests : IDisposable
 
         var plan = injector.Plan(_project);
 
-        Assert.Equal(["ysbin.ypf"], plan.Files.Select(f => f.RelativePath));
+        Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
     }
 
     [Fact]
     public void Jogo_sem_estado_de_extracao_nao_e_verificado()
     {
-        Game("ysbin.ypf", "original-ysbin");
-        Build("ysbin.ypf", "traduzido-ysbin");
+        Game(Ysbin, OriginalYsbin);
+        Build(Ysbin, "traduzido-ysbin");
 
         var plan = Injector().Plan(_project);
 
