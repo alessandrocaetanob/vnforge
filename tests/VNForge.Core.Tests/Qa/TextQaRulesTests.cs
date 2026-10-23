@@ -44,8 +44,8 @@ public sealed class TextQaRulesTests
     [Fact]
     public void Espaco_duplo_conta_nbsp_e_espaco_ideografico()
     {
-        Assert.Equal([new QaSpan(1, 2, "  ")], DoubleSpaceRule.Find("a  b"));
-        Assert.Equal([new QaSpan(1, 2, "　　")], DoubleSpaceRule.Find("a　　b"));
+        Assert.Equal([new QaSpan(1, 2, "\u00A0 ")], DoubleSpaceRule.Find("a\u00A0 b"));
+        Assert.Equal([new QaSpan(1, 2, "\u3000\u3000")], DoubleSpaceRule.Find("a\u3000\u3000b"));
     }
 
     // ---- espaco-antes-pontuacao
