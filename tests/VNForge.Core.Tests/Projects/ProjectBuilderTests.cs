@@ -1,5 +1,6 @@
 using System.Text;
 using VNForge.Core.Engines;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -76,6 +77,117 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.Equal("dialogue|Olá\nname|Ana", Encoding.UTF8.GetString(script.Original));
         Assert.Equal("dialogue|Hello\nname|Ana", Encoding.UTF8.GetString(script.Content));
         Assert.Equal(1, Assert.Single(result.Archives).ReplacedFiles);
+    }
+
+    private void SaveProfile(string json) => File.WriteAllText(_project.FormattingPath, json);
+
+    private string BuiltContent() => File.ReadAllText(Path.Combine(_project.BuildDirectory, "pacote.fake"));
+
+    [Fact]
+    public void Sem_formatting_json_o_texto_vai_como_esta()
+    {
+        Translate("a001", (0, "uma frase bem longa para uma caixa curta"));
+
+        Build();
+
+        Assert.StartsWith("dialogue|uma frase bem longa para uma caixa curta\nname|Ana", BuiltContent());
+    }
+
+    [Fact]
+    public void Perfil_com_quebra_ligada_quebra_a_traducao_antes_de_gravar()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 12, "maxLines": null, "charWidth": "uniform" } }""");
+        Translate("a001", (0, @"uma frase\c bem longa"));
+
+        var result = Build();
+
+        Assert.StartsWith(@"dialogue|uma frase\c\nbem longa" + "\nname|Ana", BuiltContent());
+        Assert.Equal(1, result.TotalLines);
+    }
+
+    [Fact]
+    public void Quebra_so_vale_para_os_papeis_do_perfil()
+    {
+        SaveProfile("""{ "kinds": ["narration"], "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
+        Translate("a001", (0, "aaa bbb ccc"), (1, "Ana Maria Souza"));
+        Translate("a002", (0, "aaa bbb ccc"));
+
+        Build();
+
+        var content = BuiltContent();
+        Assert.Contains("dialogue|aaa bbb ccc\nname|Ana Maria Souza", content);
+        Assert.Contains(@"narration|aaa\nbbb\nccc", content);
+    }
+
+    [Fact]
+    public void Formatacao_nao_altera_o_text_json_em_disco()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
+        Translate("a001", (0, "aaa bbb ccc"));
+        var before = File.ReadAllText(_project.TextPath("a001"));
+
+        Build();
+
+        Assert.Equal(before, File.ReadAllText(_project.TextPath("a001")));
+    }
+
+    [Fact]
+    public void Caixa_acima_do_limite_de_linhas_vira_aviso_com_o_id_da_linha()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
+        Translate("a001", (0, "aaa bbb ccc"));
+
+        var result = Build();
+
+        Assert.Contains(result.Warnings, w => w.StartsWith("a001:000000: caixa 1 com 3 linhas (máximo 2)", StringComparison.Ordinal));
+        Assert.StartsWith(@"dialogue|aaa\nbbb\nccc", BuiltContent());
+    }
+
+    [Fact]
+    public void A_codificacao_confere_o_texto_ja_formatado()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
+        Translate("a001", (0, "aaa bbb cãc"));
+
+        var ex = Assert.Throws<EncodingReportException>(() => Build());
+
+        Assert.Equal(11,Assert.Single(ex.Report.Blocking).Position);
+    }
+
+    [Fact]
+    public void ReportEncoding_tambem_usa_o_texto_formatado()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
+        Translate("a001", (0, "aaa bbb cãc"));
+
+        var report = ProjectBuilder.ReportEncoding(_project);
+
+        Assert.Equal(11, Assert.Single(report.Blocking).Position);
+    }
+
+    [Fact]
+    public void Marcador_invalido_aborta_citando_a_linha_e_o_perfil()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true } }""");
+        Translate("a001", (0, @"oi \x"));
+
+        var ex = Assert.Throws<VNForgeException>(() => Build());
+
+        Assert.Contains("a001:000000", ex.Message);
+        Assert.Contains("formatting.json", ex.Message);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
+    }
+
+    [Fact]
+    public void Formatting_json_invalido_aborta_apontando_o_campo()
+    {
+        SaveProfile("""{ "wrap": { "maxWidth": 0 } }""");
+        Translate("a001", (0, "Hello"));
+
+        var ex = Assert.Throws<FormattingProfileException>(() => Build());
+
+        Assert.Equal("$.wrap.maxWidth", ex.Field);
+        Assert.Equal(0, _engine.RebuildCalls);
     }
 
     [Fact]

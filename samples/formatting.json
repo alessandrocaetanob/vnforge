@@ -1,0 +1,15 @@
+{
+  // Perfil de formatação do VNForge (doc 02, seção "Formatação"). Todo campo é opcional:
+  // o que faltar usa o valor padrão. Copie para a raiz do projeto como formatting.json.
+  // Largura e linhas abaixo são provisórias; o E4.7 grava aqui o que cabe na caixa do jogo.
+
+  // Papéis de linha que o pipeline formata: dialogue, narration, name, choice, system, other.
+  "kinds": ["dialogue", "narration"],
+
+  "wrap": {
+    "enabled": true,
+    "maxWidth": 54,      // colunas por linha
+    "maxLines": 3,       // linhas por caixa; null não limita
+    "charWidth": "halfWidthLatin"  // ou "uniform" (todo caractere vale 1 coluna)
+  }
+}

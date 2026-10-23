@@ -1,5 +1,6 @@
 using System.Text;
 using VNForge.Core.Engines;
+using VNForge.Core.Formatting;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -39,7 +40,8 @@ public sealed record BuildResult(
 /// <remarks>
 /// O <see cref="ITextEncoder"/> vem do <c>encoding.strategy</c> do <c>vnforge.json</c> (<see cref="TextEncoderRegistry"/>). Antes de reconstruir, o
 /// build confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
-/// (<see cref="EncodingReportException"/>). O build não formata o texto; o perfil de formatação chega depois. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
+/// (<see cref="EncodingReportException"/>). Antes disso o texto passa pelo pipeline do <c>formatting.json</c> (<see cref="FormattingPipeline"/>), então
+/// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
 /// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
 /// </remarks>
 public static class ProjectBuilder
@@ -93,15 +95,17 @@ public static class ProjectBuilder
             throw new VNForgeException($"Nenhum script foi encontrado em '{project.GameCacheDirectory}'. Rode vnf extract.");
         }
 
-        var texts = project.LoadAllText();
+        var profile = project.LoadFormatting();
+        var loaded = project.LoadAllText();
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
+        var warnings = new List<string>(game.Warnings);
+        var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
         var report = EncodingReporter.Create(texts.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), encoder);
         if (report.HasBlocking)
         {
             throw new EncodingReportException(report);
         }
 
-        var warnings = new List<string>(game.Warnings);
         var (rebuilt, built) = RebuildScripts(game, texts, encoder, warnings, cancellationToken);
 
         var staging = project.BuildDirectory + ".tmp";
@@ -132,7 +136,55 @@ public static class ProjectBuilder
         ArgumentNullException.ThrowIfNull(project);
 
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
-        return EncodingReporter.Create(project.LoadAllText(), encoder);
+        return EncodingReporter.Create(ApplyFormatting(project.LoadFormatting(), project.LoadAllText(), null, []), encoder);
+    }
+
+    /// <summary>
+    /// Passa pelo pipeline do perfil a tradução de cada unidade que o build gravaria (<see cref="TextUnit.NeedsRewrite"/>) e cujo papel está em
+    /// <see cref="FormattingProfile.Kinds"/>; as outras unidades seguem iguais. O <c>text/*.json</c> em disco não muda. Os avisos das etapas vão para
+    /// <paramref name="warnings"/> com o id da linha.
+    /// </summary>
+    /// <param name="keys">Só os scripts com essas chaves são formatados; <c>null</c> formata todos.</param>
+    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> ApplyFormatting(
+        FormattingProfile profile,
+        IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
+        ISet<string>? keys,
+        List<string> warnings)
+    {
+        var pipeline = FormattingPipeline.Create(profile);
+        if (pipeline.Stages.Count == 0)
+        {
+            return texts;
+        }
+
+        var formatted = new SortedDictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal);
+        foreach (var (key, units) in texts)
+        {
+            formatted[key] = keys is not null && !keys.Contains(key)
+                ? units
+                : [.. units.Select(unit => FormatUnit(pipeline, profile, unit, warnings))];
+        }
+
+        return formatted;
+    }
+
+    private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings)
+    {
+        if (!unit.NeedsRewrite || !profile.Kinds.Contains(unit.Kind))
+        {
+            return unit;
+        }
+
+        try
+        {
+            var result = pipeline.Format(unit.Translation!);
+            warnings.AddRange(result.Warnings.Select(w => $"{unit.Id}: {w}"));
+            return unit with { Translation = result.Text };
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormattingException)
+        {
+            throw new VNForgeException($"Não foi possível formatar a linha {unit.Id} com o {ProjectFolder.FormattingFileName}: {ex.Message}", ex);
+        }
     }
 
     private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built) RebuildScripts(
