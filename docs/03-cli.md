@@ -64,7 +64,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | `vnf chars list\|set` | Gerencia nomes de personagens |
 | `vnf config ai` | Configura modelo do Claude e chave (salva fora do projeto) |
 | `vnf ypf info\|unpack\|pack` | Ferramentas baixas de arquivo YPF, úteis para pesquisa |
-| `vnf ybn dump <arquivo>` | Despeja um script YSTB legível (comandos, argumentos, textos) |
+| `vnf ybn dump <arquivo> [--ysc <arquivo>]` | Despeja um script YSTB legível (comandos, argumentos, textos com marcadores), só leitura (E2.9) |
 | `vnf patch-exe --encoding cp1252` | Aplica o patch de codepage no executável (experimental) |
 
 ## Opções principais
@@ -103,6 +103,41 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
                                        remonta com reescrita mínima; só o arquivo que difere do original vira troca
 ```
 O `pack` nunca grava sobre o original e pede `--yes` para sobrescrever a saída. Ele não acrescenta entradas: um arquivo da pasta que o original não tem é recusado. Entrada sem arquivo na pasta é mantida do original. Sem mudanças na pasta, a saída é idêntica ao original; o `--json` informa isso em `identical`. O `unpack` recusa, antes de gravar, nome interno que sai da pasta (`..`, caminho absoluto, nome reservado do Windows) ou que colide com outro neste sistema de arquivos. Também recusa, antes de gravar, o caminho que passa por link simbólico ou junção já existente no destino (a própria pasta de destino pode ser um link) e a entrada cujo tamanho no índice passa do que cabe num array. Um erro no meio da extração, como hash divergente ou disco cheio, deixa a extração parcial: os arquivos já gravados ficam na pasta. No Windows o `pack` compara os caminhos sem diferenciar caixa e recusa o original que tem duas entradas só com a caixa diferente. Arquivo da pasta que o original não tem, como `Thumbs.db` ou `desktop.ini`, é recusado com o nome citado; remova-o da pasta.
+
+`vnf ybn dump` (E2.9; aceita `--json`)
+```
+  dump <arquivo> [--ysc <arquivo>]     comandos, argumentos e textos de um yst*.ybn
+  --ysc <arquivo>                      ysc.ybn do mesmo jogo; sem a opção, procura ysc.ybn na pasta do script e na pasta acima
+```
+O comando só lê: não grava nada, nem no script nem no `ysc.ybn`. O `ysc.ybn` é obrigatório porque o opcode de cada instrução só ganha nome com ele; para um script extraído com `vnf ypf unpack`, o `ysc.ybn` fica na mesma pasta ou na de cima e a opção não é necessária. Se o YSCM não for achado, o erro pede a `--ysc`. Cada instrução sai com o índice, a linha do `.yst` original e o comando; cada argumento, com o nome do parâmetro no YSCM, o operador de atribuição e o valor conforme o tipo (`kind`):
+
+| `kind` | Texto | O que mostra |
+|---|---|---|
+| `text` | `texto` | Argumento do `WORD`, decodificado em Shift-JIS (página 932) com os códigos de controle como marcadores (`\n`, `\p`, `\c`, `\u`, `{EF:xx}`, `{RAW:hex}`), os mesmos de `ControlMarkers` |
+| `string` | `string` | Expressão que é só uma string literal, sem as aspas e com os escapes desfeitos, também com marcadores |
+| `expression` | `expressão` | Qualquer outra expressão, em bytes hexadecimais |
+| `value` | `valor` | Argumento cujo `size` e `offset` não apontam para os recursos (`RETURNCODE`, 2º e 3º de `IF`/`ELSE` com 3 argumentos, 2º de `LOOP`); mostra só `size` e `offset` |
+| `empty` | `vazio` | Argumento sem bytes nos recursos |
+
+```console
+$ vnf ybn dump yst00001.ybn
+Arquivo: D:\jogo\ysbin\yst00001.ybn
+YSCM: D:\jogo\ysc.ybn
+Versão: 500
+Chave: 0xD36FAC96 (derivada do arquivo)
+Instruções: 3
+Argumentos: 3
+
+#0000  linha 1  WORD
+    [0] TEXT (texto) = 美咲「やあ\nまたね」\p
+
+#0001  linha 2  RETURNCODE
+    [0] CODE (valor) = tamanho 0, offset 0
+
+#0002  linha 3  GOSUB
+    [0] LABEL (string) = ES.SEL.SET
+```
+Com `--json`, `data` traz `file`, `ysc`, `version`, `key`, `keyOrigin` (`none`, `derived` ou `known`), `instructionCount`, `argumentCount` e `instructions`. Cada instrução tem `index`, `line`, `opcode`, `command`, `extra` e `arguments`; cada argumento tem `index`, `id`, `name` (ausente se o `id` passa da lista do comando), `type`, `assignOp`, `assignOperator`, `size`, `offset`, `kind` e `value` (ausente em `value` e `empty`). O despejo é para pesquisa e depuração: o texto para traduzir sai de `vnf extract`.
 
 `vnf inject` e `vnf restore` (E8.2; ambos aceitam `--json`, `--project` e `--yes`)
 ```
