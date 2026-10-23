@@ -82,9 +82,9 @@ public sealed class Cp1252TextEncoder : ITextEncoder
         string shown = char.IsHighSurrogate(text[first]) && first + 1 < text.Length && char.IsLowSurrogate(text[first + 1])
             ? char.ConvertToUtf32(text[first], text[first + 1]).ToString("X4", CultureInfo.InvariantCulture)
             : ((int)text[first]).ToString("X4", CultureInfo.InvariantCulture);
-        string reason = text[first] == ControlPrefixLetter
-            ? " (ï vira o byte 0xEF, o prefixo dos códigos de controle)"
+        string reason = invalid.Any(i => text[i] == ControlPrefixLetter)
+            ? " O ï vira o byte 0xEF, o prefixo dos códigos de controle."
             : string.Empty;
-        return $"O texto tem {invalid.Count} caractere(s) que a estratégia cp1252 não grava; o primeiro está na posição {first} (U+{shown}){reason}.";
+        return $"O texto tem {invalid.Count} caractere(s) que a estratégia cp1252 não grava; o primeiro está na posição {first} (U+{shown}).{reason}";
     }
 }

@@ -93,21 +93,25 @@ public class Cp1252TextEncoderTests
     [Fact]
     public void FindUnencodable_ConcordaComEncode()
     {
-        foreach (string texto in new[] { "ação", "ï", "日本語", "😀", "a\ud83dx", "€", "" })
+        foreach (string texto in new[] { "ï", "日本語", "😀", "a\ud83dx", "日naïve" })
         {
-            bool recusa = _encoder.FindUnencodable(texto).Count > 0;
-            bool lanca = false;
-            try
-            {
-                _encoder.Encode(texto);
-            }
-            catch (EncoderFallbackException)
-            {
-                lanca = true;
-            }
-
-            Assert.Equal(recusa, lanca);
+            Assert.NotEmpty(_encoder.FindUnencodable(texto));
+            Assert.Throws<EncoderFallbackException>(() => _encoder.Encode(texto));
         }
+
+        foreach (string texto in new[] { "ação", "€", "" })
+        {
+            Assert.Empty(_encoder.FindUnencodable(texto));
+            Assert.Equal(GameEncodings.Windows1252.GetBytes(texto), _encoder.Encode(texto));
+        }
+    }
+
+    [Fact]
+    public void Encode_MensagemCitaOIMesmoQuandoNaoEOPrimeiroRecusado()
+    {
+        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("日naïve"));
+
+        Assert.Contains("0xEF", ex.Message);
     }
 
     [Fact]
