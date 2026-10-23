@@ -58,8 +58,8 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 
 | Comando | O que faz |
 |---|---|
-| `vnf export --format xlsx\|csv\|po` | Exporta o texto para revisão externa |
-| `vnf import <arquivo>` | Importa de volta, casando por `id` |
+| `vnf export --format xlsx\|csv\|po` | Exporta o texto para revisão externa. Hoje só `csv` (UTF-8 com BOM, colunas `id,kind,speaker,source,translation,status,notes`), em `revisao.csv` ou no `--output`; não troca arquivo existente sem `--force`. XLSX e PO dependem da decisão #51 |
+| `vnf import <arquivo>` | Importa de volta, casando por `id`. Só `translation`, `status` e `notes` mudam; id desconhecido ou repetido e status inválido são erros e, com qualquer erro, nada é importado. Só regrava o `text/<chave>.json` que teve linha alterada |
 | `vnf glossary add "先輩" "veterano"` | Gerencia o glossário |
 | `vnf chars list\|set` | Gerencia nomes de personagens |
 | `vnf config ai` | Configura modelo do Claude e chave (salva fora do projeto) |
