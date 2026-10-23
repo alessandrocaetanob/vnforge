@@ -111,7 +111,7 @@ public class ProjectConfigSerializerTests
     [InlineData("\"version\": 500", "\"version\": -1", "$.engine.version", "positivo")]
     [InlineData("0xD36FAC96", "D36FAC96", "$.engine.scriptKey", "0x")]
     [InlineData("\"engine\": { \"id\": \"yuris\", \"version\": 500, \"scriptKey\": \"0xD36FAC96\" }", "\"engine\": []", "$.engine", "objeto")]
-    [InlineData("\"strategy\": \"cp1252\"", "\"strategy\": \"latin\"", "$.encoding.strategy", "fold, remap, cp1252")]
+    [InlineData("\"strategy\": \"cp1252\"", "\"strategy\": \"latin\"", "$.encoding.strategy", "sjis, fold, remap, cp1252")]
     [InlineData("\"effort\": \"medium\"", "\"effort\": \"extreme\"", "$.ai.effort", "low, medium, high")]
     [InlineData("claude-opus-5-5", "claude-opus-9", "$.ai.model", "claude-opus-5-5")]
     [InlineData("\"batchSize\": 30", "\"batchSize\": 0", "$.ai.batchSize", "entre 1 e 200")]

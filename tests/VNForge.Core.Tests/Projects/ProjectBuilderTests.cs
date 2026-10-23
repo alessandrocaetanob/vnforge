@@ -2,6 +2,7 @@ using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using VNForge.Core.Tests.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
@@ -25,7 +26,7 @@ public sealed class ProjectBuilderTests : IDisposable
                 new GameConfig(_game.Replace(Path.DirectorySeparatorChar, '/'), "Jogo.exe"),
                 new EngineConfig("fake"),
                 new LanguagesConfig("ja", "pt-BR"),
-                new EncodingConfig("cp1252"),
+                new EncodingConfig("sjis"),
                 AiConfig.Default));
         _engine.Unpack(_game, _project.GameCacheDirectory, TestContext.Current.CancellationToken);
     }
@@ -91,15 +92,92 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
-    public void Texto_que_o_shift_jis_nao_codifica_aborta_citando_o_script_e_o_id()
+    public void Texto_que_o_shift_jis_nao_codifica_aborta_listando_o_id_e_nao_grava_nada()
     {
         Translate("a001", (1, "Aña 😀"));
 
+        var ex = Assert.Throws<EncodingReportException>(() => Build());
+
+        Assert.Contains("a001:000001", ex.Message);
+        Assert.Contains("'sjis'", ex.Message);
+        Assert.Equal(["ñ", "😀"], ex.Report.Blocking.Select(i => i.Character));
+        Assert.Equal(0, _engine.RebuildCalls);
+        Assert.False(Directory.Exists(_project.BuildDirectory + ".tmp"));
+    }
+
+    [Fact]
+    public void Lista_de_uma_vez_os_casos_de_varias_linhas_e_scripts()
+    {
+        Translate("a001", (0, "«Olá»"), (1, "Aña"));
+        Translate("a002", (0, "Chovia ª vez"));
+
+        var ex = Assert.Throws<EncodingReportException>(() => Build());
+
+        Assert.Equal(["a001:000000", "a001:000000", "a001:000000", "a001:000001", "a002:000000"], ex.Report.Blocking.Select(i => i.UnitId));
+        Assert.Contains("a002:000000 posição 7: 'ª' (U+00AA)", ex.Message);
+    }
+
+    [Fact]
+    public void Mensagem_limita_a_lista_e_aponta_o_report()
+    {
+        Translate("a001", (0, new string('ã', 30)));
+
+        var ex = Assert.Throws<EncodingReportException>(() => Build());
+
+        Assert.Equal(30, ex.Report.Blocking.Count);
+        Assert.Contains("e mais 10", ex.Message);
+        Assert.Contains("vnf build --report", ex.Message);
+    }
+
+    [Fact]
+    public void Estrategia_do_vnforge_json_escolhe_o_encoder_do_build()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        var registry = new TextEncoderRegistry().Register("cp1252", () => new FakeCp1252());
+        Translate("a001", (0, "«Olá» ª ã"));
+
+        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, registry);
+
+        Assert.Equal("cp1252", result.Encoding.Strategy);
+        Assert.Empty(result.Encoding.Issues);
+    }
+
+    [Fact]
+    public void Fold_builda_e_o_resultado_traz_os_caracteres_trocados()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("fold") });
+        var registry = new TextEncoderRegistry().Register("fold", () => new FakeFold());
+        Translate("a001", (0, "«ªã"));
+
+        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, registry);
+
+        Assert.Equal(["\"", "a", "a"], result.Encoding.Replaced.Select(i => i.Replacement));
+        Assert.Equal("fold", result.Encoding.Strategy);
+    }
+
+    [Theory]
+    [InlineData("cp1252", "ainda não está disponível")]
+    public void Estrategia_sem_encoder_aborta_sem_cair_em_shift_jis(string strategy, string expected)
+    {
+        File.WriteAllText(_project.ConfigPath, File.ReadAllText(_project.ConfigPath).Replace("\"sjis\"", $"\"{strategy}\"", StringComparison.Ordinal));
+
         var ex = Assert.Throws<VNForgeException>(() => Build());
 
-        Assert.Contains("a001.fake", ex.Message);
-        Assert.Contains("a001:000001", ex.Message);
-        Assert.False(Directory.Exists(_project.BuildDirectory + ".tmp"));
+        Assert.Contains($"'{strategy}'", ex.Message);
+        Assert.Contains(expected, ex.Message);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
+    }
+
+    [Fact]
+    public void ReportEncoding_confere_sem_tocar_em_build_nem_no_cache()
+    {
+        Translate("a001", (0, "ã"));
+        Directory.Delete(_project.GameCacheDirectory, recursive: true);
+
+        var report = ProjectBuilder.ReportEncoding(_project);
+
+        Assert.Equal("ã", Assert.Single(report.Blocking).Character);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
     }
 
     [Fact]
@@ -199,7 +277,7 @@ public sealed class ProjectBuilderTests : IDisposable
                 new GameConfig(_game.Replace(Path.DirectorySeparatorChar, '/'), "Jogo.exe"),
                 new EngineConfig("fake"),
                 new LanguagesConfig("ja", "pt-BR"),
-                new EncodingConfig("cp1252"),
+                new EncodingConfig("sjis"),
                 AiConfig.Default));
         _engine.Unpack(_game, inside.GameCacheDirectory, TestContext.Current.CancellationToken);
 

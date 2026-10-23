@@ -17,13 +17,15 @@ public sealed record BuiltScript(string Key, string Name, int Lines);
 /// <param name="ScriptCount">Scripts lidos de <c>.cache/game</c>, com ou sem tradução.</param>
 /// <param name="RebuiltScripts">Scripts reconstruídos, na ordem da chave. Os outros saem byte a byte iguais.</param>
 /// <param name="Warnings">Avisos da engine e dos arquivos de texto.</param>
+/// <param name="Encoding">Caracteres que a estratégia de codificação trocou por um substituto (nenhum bloqueante: esses abortam o build).</param>
 public sealed record BuildResult(
     string GameDirectory,
     string BuildDirectory,
     IReadOnlyList<RepackedArchive> Archives,
     int ScriptCount,
     IReadOnlyList<BuiltScript> RebuiltScripts,
-    IReadOnlyList<string> Warnings)
+    IReadOnlyList<string> Warnings,
+    EncodingReport Encoding)
 {
     /// <summary>Total de unidades de texto trocadas.</summary>
     public int TotalLines => RebuiltScripts.Sum(s => s.Lines);
@@ -35,8 +37,9 @@ public sealed record BuildResult(
 /// do jogo, que é o que o <c>vnf inject</c> espera. Só lê a pasta do jogo e o <c>.cache/</c>.
 /// </summary>
 /// <remarks>
-/// Esta versão usa a codificação Shift-JIS pura (<see cref="ShiftJisTextEncoder"/>) e não formata o texto; o perfil de formatação e as outras
-/// estratégias de <c>encoding</c> do <c>vnforge.json</c> chegam depois. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
+/// O <see cref="ITextEncoder"/> vem do <c>encoding.strategy</c> do <c>vnforge.json</c> (<see cref="TextEncoderRegistry"/>). Antes de reconstruir, o
+/// build confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
+/// (<see cref="EncodingReportException"/>). O build não formata o texto; o perfil de formatação chega depois. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
 /// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
 /// </remarks>
 public static class ProjectBuilder
@@ -45,12 +48,14 @@ public static class ProjectBuilder
     /// <param name="project">Projeto aberto, já extraído (<c>vnf extract</c>).</param>
     /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
     /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento não deixa <c>build/</c> pela metade.</param>
+    /// <param name="encoders">Estratégias disponíveis; o padrão é <see cref="TextEncoderRegistry.Default"/>.</param>
     /// <exception cref="VNForgeException">
-    /// Engine desconhecida ou sem suporte ao build, jogo ou <c>.cache/game</c> inexistente, script ilegível, <c>text/*.json</c> inválido,
-    /// tradução que não grava (caractere fora do Shift-JIS, marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
+    /// Engine desconhecida ou sem suporte ao build, estratégia de codificação desconhecida ou sem encoder, jogo ou <c>.cache/game</c> inexistente,
+    /// script ilegível, <c>text/*.json</c> inválido, tradução que não grava (caractere que a estratégia não representa, que lança
+    /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -62,6 +67,8 @@ public static class ProjectBuilder
         {
             throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta o build.");
         }
+
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy);
 
         var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
         if (!Directory.Exists(gameDirectory))
@@ -87,8 +94,14 @@ public static class ProjectBuilder
         }
 
         var texts = project.LoadAllText();
+        var report = EncodingReporter.Create(texts, encoder);
+        if (report.HasBlocking)
+        {
+            throw new EncodingReportException(report);
+        }
+
         var warnings = new List<string>(game.Warnings);
-        var (rebuilt, built) = RebuildScripts(game, texts, new ShiftJisTextEncoder(), warnings, cancellationToken);
+        var (rebuilt, built) = RebuildScripts(game, texts, encoder, warnings, cancellationToken);
 
         var staging = project.BuildDirectory + ".tmp";
         DeleteIfExists(staging);
@@ -99,13 +112,26 @@ public static class ProjectBuilder
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings);
+            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report);
         }
         catch
         {
             DeleteIfExists(staging);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Só o relatório de codificação (<c>vnf build --report</c>): confere as traduções do <paramref name="project"/> com a estratégia do
+    /// <c>vnforge.json</c> sem tocar em <c>.cache/</c>, <c>build/</c> nem no jogo.
+    /// </summary>
+    /// <exception cref="VNForgeException">Estratégia desconhecida ou sem encoder, ou <c>text/*.json</c> inválido.</exception>
+    public static EncodingReport ReportEncoding(ProjectFolder project, TextEncoderRegistry? encoders = null)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
+        return EncodingReporter.Create(project.LoadAllText(), encoder);
     }
 
     private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built) RebuildScripts(

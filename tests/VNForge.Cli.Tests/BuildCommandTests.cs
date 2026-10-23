@@ -76,8 +76,15 @@ public sealed class BuildCommandTests : IDisposable
 
         var init = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", _game], TestContext.Current.CancellationToken);
         Assert.Equal(0, init.ExitCode);
+        UseStrategy("sjis");
         var extract = await _cli.RunAsync(["extract", "--project", ProjectPath], TestContext.Current.CancellationToken);
         Assert.Equal(0, extract.ExitCode);
+    }
+
+    private void UseStrategy(string strategy)
+    {
+        var project = ProjectFolder.Open(ProjectPath);
+        project.SaveConfig(project.LoadConfig() with { Encoding = new EncodingConfig(strategy) });
     }
 
     private Task<RunResult> Build(params string[] args) =>
@@ -262,7 +269,6 @@ public sealed class BuildCommandTests : IDisposable
         var result = await Build();
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("yst00001.ybn", result.Error);
         Assert.Contains("yst00001:000000", result.Error);
         Assert.Equal(before, HashTree(build));
         Assert.False(Directory.Exists(build + ".tmp"));
@@ -348,6 +354,7 @@ public sealed class BuildCommandTests : IDisposable
     {
         var init = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", _game], TestContext.Current.CancellationToken);
         Assert.Equal(0, init.ExitCode);
+        UseStrategy("sjis");
 
         var result = await Build();
 
@@ -395,5 +402,97 @@ public sealed class BuildCommandTests : IDisposable
 
         Assert.Equal(0, restore.ExitCode);
         Assert.Equal(_scriptsYpf, File.ReadAllBytes(gameYpf));
+    }
+
+    [Fact]
+    public async Task Aborto_por_caractere_nao_codificavel_lista_todas_as_linhas_de_uma_vez()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "«ªã" : "Mika ã");
+
+        var result = await Build();
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("yst00001:000000 posição 0: '«' (U+00AB)", result.Error);
+        Assert.Contains("yst00001:000000 posição 2: 'ã' (U+00E3)", result.Error);
+        Assert.Contains("yst00001:000513 posição 5: 'ã' (U+00E3)", result.Error);
+        Assert.False(File.Exists(Path.Combine(ProjectPath, "build", "ysbin.ypf")));
+    }
+
+    [Fact]
+    public async Task Estrategia_sem_encoder_aborta_com_mensagem_clara()
+    {
+        await InitAndExtract();
+        UseStrategy("cp1252");
+
+        var result = await Build();
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("'cp1252' ainda não está disponível", result.Error);
+    }
+
+    [Fact]
+    public async Task Report_lista_cada_caractere_com_posicao_e_nao_reconstroi_nada()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "«ªã" : "Mika");
+
+        var result = await Build("--report");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("Estratégia de codificação 'sjis': 2 linhas conferidas.", result.Output);
+        Assert.Contains("yst00001:000000 posição 1: 'ª' (U+00AA) não codificável", result.Output);
+        Assert.Contains("3 caracteres não codificáveis; 0 caracteres trocados.", result.Output);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+    }
+
+    [Fact]
+    public async Task Report_sem_problemas_sai_com_zero()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+
+        var result = await Build("--report");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("0 caracteres não codificáveis; 0 caracteres trocados.", result.Output);
+    }
+
+    [Fact]
+    public async Task Report_em_json_traz_caractere_ponto_de_codigo_posicao_e_substituto()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "a«" : "Mika");
+
+        var result = await Build("--report", "--json");
+
+        Assert.Equal(2, result.ExitCode);
+        using var document = JsonDocument.Parse(result.Output);
+        var root = document.RootElement;
+        Assert.True(root.GetProperty("ok").GetBoolean());
+        Assert.Equal(2, root.GetProperty("exitCode").GetInt32());
+        var data = root.GetProperty("data");
+        Assert.Equal("sjis", data.GetProperty("strategy").GetString());
+        Assert.Equal(1, data.GetProperty("unencodable").GetInt32());
+        var issue = Assert.Single(data.GetProperty("issues").EnumerateArray());
+        Assert.Equal("yst00001:000000", issue.GetProperty("unit").GetString());
+        Assert.Equal("«", issue.GetProperty("character").GetString());
+        Assert.Equal("U+00AB", issue.GetProperty("codePoint").GetString());
+        Assert.Equal(1, issue.GetProperty("position").GetInt32());
+        Assert.False(issue.TryGetProperty("replacement", out _));
+    }
+
+    [Fact]
+    public async Task Json_do_build_traz_o_bloco_encoding()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+
+        var result = await Build("--json");
+
+        using var document = JsonDocument.Parse(result.Output);
+        var encoding = document.RootElement.GetProperty("data").GetProperty("encoding");
+        Assert.Equal("sjis", encoding.GetProperty("strategy").GetString());
+        Assert.Equal(0, encoding.GetProperty("replaced").GetInt32());
     }
 }
