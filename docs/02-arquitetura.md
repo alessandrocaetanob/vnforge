@@ -294,6 +294,7 @@ public interface ITranslationProvider
   | Claude Fable 5.1 | `claude-fable-5-1` | Cenas difíceis, revisão fina | 10 / 50 |
 
   A interface `ITranslationProvider` já nasce pensada para vários provedores, mas a tela de configuração só mostra os outros (OpenAI, Gemini, Ollama/LM Studio) como "em breve" até o épico E12.
+- **Provedor Claude (E6.2)**: `ClaudeTranslationProvider` (`VNForge.AI/Claude`) monta o pedido e confere a resposta; o SDK fica atrás de `IClaudeMessageClient` (`AnthropicMessageClient` é a implementação real), então os testes usam um cliente falso. Recusa (`stop_reason: "refusal"`) vira `ClaudeRefusalException` e JSON fora do contrato vira `ClaudeResponseException`; o fallback, o retry e o reenvio de linhas ruins ficam para os próximos itens do E6. O teste de integração real só roda com `ANTHROPIC_API_KEY` definida.
 - **Detalhes da API do Claude a respeitar**: thinking adaptativo é o padrão e não pode ser desligado no Opus 5.5 (o controle é o `effort`; para tradução em lote, `low` ou `medium`); saída em JSON via `output_config.format`; tratar `stop_reason: "refusal"` (conteúdo adulto de VN pode disparar) com o fallback do servidor; usar prompt caching no prompt de sistema + glossário, que se repetem em todo lote.
 - **Chaves de API** nunca ficam no projeto: variável de ambiente ou cofre do Windows (DPAPI) nas configurações do usuário.
 - **Custo**: estimativa antes de rodar (`--dry-run`), contagem real de tokens depois, cache por hash da linha para não pagar duas vezes.
