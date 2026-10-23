@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using VNForge.Core.Engines;
 using VNForge.Core.Projects;
+using VNForge.Core.Qa;
 using VNForge.Core.Text;
 using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
@@ -134,6 +135,116 @@ public sealed class BuildCommandTests : IDisposable
         var built = Path.Combine(ProjectPath, "build", "ysbin.ypf");
         Assert.Equal(_scriptsYpf, File.ReadAllBytes(built));
         Assert.Equal(["ysbin.ypf"], Directory.EnumerateFiles(Path.Combine(ProjectPath, "build"), "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(Path.Combine(ProjectPath, "build"), f)));
+    }
+
+    private sealed class TranslationIs(string id, QaSeverity severity, string text) : UnitQaRule
+    {
+        public override string Id => id;
+
+        public override string Description => "Teste.";
+
+        public override QaSeverity Severity => severity;
+
+        protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
+        {
+            if (unit.Translation == text)
+            {
+                yield return $"tradução '{text}' recusada";
+            }
+        }
+    }
+
+    private async Task<RunResult> BuildWithRule(QaSeverity severity, params string[] args)
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Hello" : "Mika");
+        _cli.Cli.Qa = new QaEngine([new TranslationIs("palavra-proibida", severity, "Hello")]);
+        return await Build(args);
+    }
+
+    [Fact]
+    public async Task Erro_de_qa_sai_com_2_lista_a_linha_e_nao_grava_build()
+    {
+        var result = await BuildWithRule(QaSeverity.Error);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("ERRO  yst00001:", result.Output);
+        Assert.Contains("[palavra-proibida] tradução 'Hello' recusada", result.Output);
+        Assert.Contains("1 erro, 0 avisos", result.Output);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+    }
+
+    [Fact]
+    public async Task Erro_de_qa_continua_parando_com_allow_warnings()
+    {
+        var result = await BuildWithRule(QaSeverity.Error, "--allow-warnings");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+    }
+
+    [Fact]
+    public async Task Aviso_de_qa_para_o_build_sem_allow_warnings()
+    {
+        var result = await BuildWithRule(QaSeverity.Warning);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("AVISO yst00001:", result.Output);
+        Assert.Contains("--allow-warnings", result.Output);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+    }
+
+    [Fact]
+    public async Task Allow_warnings_deixa_so_os_avisos_passar_e_os_lista()
+    {
+        var result = await BuildWithRule(QaSeverity.Warning, "--allow-warnings");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("AVISO yst00001:", result.Output);
+        Assert.True(File.Exists(Path.Combine(ProjectPath, "build", "ysbin.ypf")));
+    }
+
+    [Fact]
+    public async Task Aviso_marcado_como_ok_nao_para_o_build()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Hello" : "Mika");
+        var engine = new QaEngine([new TranslationIs("palavra-proibida", QaSeverity.Warning, "Hello")]);
+        var first = ProjectFolder.Open(ProjectPath).LoadText("yst00001")[0];
+        QaFlags.MarkOk(ProjectFolder.Open(ProjectPath), engine, first.Id, "palavra-proibida");
+        _cli.Cli.Qa = engine;
+
+        var result = await Build();
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("1 aviso marcado como ok", result.Output);
+    }
+
+    [Fact]
+    public async Task Json_de_qa_bloqueado_repete_o_codigo_2_e_traz_as_ocorrencias()
+    {
+        var result = await BuildWithRule(QaSeverity.Error, "--json");
+
+        Assert.Equal(2, result.ExitCode);
+        using var document = JsonDocument.Parse(result.Output);
+        Assert.Equal(2, document.RootElement.GetProperty("exitCode").GetInt32());
+        var data = document.RootElement.GetProperty("data");
+        Assert.Equal(1, data.GetProperty("errors").GetInt32());
+        var issue = data.GetProperty("issues")[0];
+        Assert.Equal("palavra-proibida", issue.GetProperty("rule").GetString());
+        Assert.Equal("error", issue.GetProperty("severity").GetString());
+    }
+
+    [Fact]
+    public async Task Json_do_build_com_aviso_liberado_traz_o_qa()
+    {
+        var result = await BuildWithRule(QaSeverity.Warning, "--json", "--allow-warnings");
+
+        Assert.Equal(0, result.ExitCode);
+        using var document = JsonDocument.Parse(result.Output);
+        var qa = document.RootElement.GetProperty("data").GetProperty("qa");
+        Assert.Equal(1, qa.GetProperty("warnings").GetInt32());
+        Assert.Equal(0, qa.GetProperty("errors").GetInt32());
     }
 
     [Fact]

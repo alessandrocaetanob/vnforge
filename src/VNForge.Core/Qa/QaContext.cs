@@ -1,0 +1,36 @@
+using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
+using VNForge.Core.Projects;
+using VNForge.Core.Text;
+
+namespace VNForge.Core.Qa;
+
+/// <summary>
+/// Tudo que uma regra pode consultar: as traduções do projeto inteiro (para regras entre linhas, como a inconsistência), o glossário,
+/// os personagens, o perfil de formatação e o encoder da estratégia atual. Só leitura.
+/// </summary>
+/// <param name="Texts">Unidades por chave de script, como <see cref="ProjectFolder.LoadAllText"/> devolve.</param>
+/// <param name="Glossary">Termos de <c>glossary.json</c>.</param>
+/// <param name="Characters">Personagens de <c>characters.json</c>.</param>
+/// <param name="Formatting">Perfil de <c>formatting.json</c>.</param>
+/// <param name="Encoder">Encoder da <c>encoding.strategy</c>; nulo quando o contexto não vem de um projeto (testes de regra).</param>
+public sealed record QaContext(
+    IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts,
+    IReadOnlyList<GlossaryTerm> Glossary,
+    IReadOnlyList<CharacterEntry> Characters,
+    FormattingProfile Formatting,
+    ITextEncoder? Encoder = null)
+{
+    /// <summary>Contexto só com textos, para regras que não precisam do resto.</summary>
+    public static QaContext ForTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts) =>
+        new(texts, [], [], FormattingProfile.Default);
+
+    /// <summary>Lê do <paramref name="project"/> os textos, o glossário, os personagens, o perfil e o encoder.</summary>
+    /// <exception cref="VNForgeException">Arquivo do projeto inválido ou estratégia de codificação desconhecida.</exception>
+    public static QaContext FromProject(ProjectFolder project, TextEncoderRegistry? encoders = null)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
+        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder);
+    }
+}

@@ -271,6 +271,12 @@ Regras automáticas, cada uma com severidade (erro bloqueia o build, aviso não)
 - tamanho em bytes acima do limite do campo (nomes, escolhas)
 - inconsistência: mesmo original traduzido de jeitos diferentes
 
+**Motor (E7.1, `VNForge.Core.Qa`)**: `IQaRule` tem `Id` (minúsculas e hífens, estável: é o que aparece na saída e em `flags`), `Description` e `Check(QaContext)`, que devolve `QaIssue` (regra, gravidade, id da linha, chave do script, mensagem). A regra vê o projeto inteiro pelo `QaContext` (textos de todos os scripts, glossário, personagens, perfil de formatação e encoder), então serve à regra entre linhas (inconsistência) tanto quanto à regra por linha; para esta última, derive de `UnitQaRule` e devolva só as mensagens de `CheckUnit`. A regra devolve toda ocorrência: quem filtra e silencia é o `QaEngine`, que valida ids únicos, aplica `QaOptions` (`Rules`: só estas regras; `MinimumSeverity`: `Warning` lista tudo, `Error` só os erros) e devolve um `QaReport` (`Issues` ativas, `Silenced`, `RulesRun`). As regras concretas entram em `QaEngine.Default` (vazio até as issues E7.2 a E7.5).
+
+**Marcar como ok**: `QaFlags.MarkOk(projeto, engine, idDaLinha, idDaRegra)` grava o id da regra em `flags` da linha no `text/<chave>.json` (idempotente, só regrava se mudou, recusa regra desconhecida e linha inexistente); `Unmark` tira. O `QaEngine` move para `Silenced` o **aviso** cuja regra está em `flags` da linha. **Erro não se silencia**: marcado ou não, continua bloqueando. A re-extração (E3.5) mantém `flags` quando o original não mudou, então a marca vale até o original mudar.
+
+**No build**: `ProjectBuilder.Build` roda o QA antes de qualquer outra conferência e lança `QaBlockedException` (com o `QaReport` completo; a CLI a converte em saída `2`) se houver erro, ou aviso sem `allowWarnings`. Ou seja, por padrão o build para em erro **e** em aviso ainda ativo; `--allow-warnings` libera só os avisos, e o jeito de silenciar um aviso para sempre é marcá-lo como ok na linha. Nada é gravado em `build/` quando o QA bloqueia. Os avisos liberados e a contagem de silenciados vão em `BuildResult.Qa`. Pontos em aberto para as regras concretas: o QA confere todas as linhas do projeto, não só as que o build grava (uma regra de "não traduzida" como erro bloquearia um build parcial; a E7.2 decide o escopo), e a marca de ok não expira quando a tradução muda.
+
 Além das regras, um passo opcional de **revisão por IA** gera sugestões (não altera nada sozinho).
 
 ### 6. IA

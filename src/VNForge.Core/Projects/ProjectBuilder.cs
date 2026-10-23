@@ -1,6 +1,7 @@
 using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
+using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -19,6 +20,7 @@ public sealed record BuiltScript(string Key, string Name, int Lines);
 /// <param name="RebuiltScripts">Scripts reconstruídos, na ordem da chave. Os outros saem byte a byte iguais.</param>
 /// <param name="Warnings">Avisos da engine e dos arquivos de texto.</param>
 /// <param name="Encoding">Caracteres que a estratégia de codificação trocou por um substituto (nenhum bloqueante: esses abortam o build).</param>
+/// <param name="Qa">O QA que rodou antes do build: sem erro, e só com avisos quando o build rodou com <c>allowWarnings</c>; mais os avisos silenciados.</param>
 public sealed record BuildResult(
     string GameDirectory,
     string BuildDirectory,
@@ -26,7 +28,8 @@ public sealed record BuildResult(
     int ScriptCount,
     IReadOnlyList<BuiltScript> RebuiltScripts,
     IReadOnlyList<string> Warnings,
-    EncodingReport Encoding)
+    EncodingReport Encoding,
+    QaReport Qa)
 {
     /// <summary>Total de unidades de texto trocadas.</summary>
     public int TotalLines => RebuiltScripts.Sum(s => s.Lines);
@@ -39,7 +42,7 @@ public sealed record BuildResult(
 /// </summary>
 /// <remarks>
 /// O <see cref="ITextEncoder"/> vem do <c>encoding.strategy</c> do <c>vnforge.json</c> (<see cref="TextEncoderRegistry"/>). Antes de reconstruir, o
-/// build confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
+/// build roda o QA (<see cref="QaEngine"/>) e recusa com <see cref="QaBlockedException"/> se achar erro, ou aviso sem <c>allowWarnings</c>; os avisos que a linha marcou como "ok" não contam. Depois confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
 /// (<see cref="EncodingReportException"/>). Antes disso o texto passa pelo pipeline do <c>formatting.json</c> (<see cref="FormattingPipeline"/>), então
 /// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
 /// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
@@ -51,13 +54,16 @@ public static class ProjectBuilder
     /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
     /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento não deixa <c>build/</c> pela metade.</param>
     /// <param name="encoders">Estratégias disponíveis; o padrão é <see cref="TextEncoderRegistry.Default"/>.</param>
+    /// <param name="qa">Regras de QA que rodam antes de reconstruir; o padrão é <see cref="QaEngine.Default"/>.</param>
+    /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre.</param>
+    /// <exception cref="QaBlockedException">O QA achou erro, ou aviso sem <paramref name="allowWarnings"/>; nada é gravado.</exception>
     /// <exception cref="VNForgeException">
     /// Engine desconhecida ou sem suporte ao build, estratégia de codificação desconhecida ou sem encoder, jogo ou <c>.cache/game</c> inexistente,
     /// script ilegível, <c>text/*.json</c> inválido, tradução que não grava (caractere que a estratégia não representa, que lança
     /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -97,6 +103,12 @@ public static class ProjectBuilder
 
         var profile = project.LoadFormatting();
         var loaded = project.LoadAllText();
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded, project.LoadGlossary(), project.LoadCharacters(), profile, encoder));
+        if (qaReport.Blocks(allowWarnings))
+        {
+            throw new QaBlockedException(qaReport, allowWarnings);
+        }
+
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
         var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
@@ -117,7 +129,7 @@ public static class ProjectBuilder
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report);
+            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport);
         }
         catch
         {

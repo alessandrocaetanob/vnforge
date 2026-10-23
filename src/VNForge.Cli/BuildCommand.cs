@@ -3,6 +3,7 @@ using System.Globalization;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
+using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
 namespace VNForge.Cli;
@@ -12,6 +13,8 @@ internal static class BuildCommand
 {
     private const int MaxWarningsShown = 10;
 
+    private const int MaxQaIssuesShown = 50;
+
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private static readonly Option<bool> ReportOption = new("--report")
@@ -19,10 +22,16 @@ internal static class BuildCommand
         Description = "Só lista os caracteres que a estratégia de codificação troca ou não representa; não reconstrói nada. Sai com 2 se algum não for codificável.",
     };
 
+    private static readonly Option<bool> AllowWarningsOption = new("--allow-warnings")
+    {
+        Description = "Deixa o build seguir com avisos de QA (os não marcados como ok); erros de QA continuam bloqueando e saem com 2.",
+    };
+
     public static Command Create(VnfCli cli)
     {
         var command = new Command("build", "Reconstrói os scripts com as traduções de text/ e grava os pacotes novos em build/ (não altera a pasta do jogo).");
         command.Options.Add(ReportOption);
+        command.Options.Add(AllowWarningsOption);
         command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, parseResult.InvocationConfiguration.Output, token)));
         return command;
     }
@@ -35,9 +44,19 @@ internal static class BuildCommand
             return RunReport(parseResult.GetValue(cli.Options.Json), ProjectBuilder.ReportEncoding(project), output);
         }
 
-        var result = ProjectBuilder.Build(project, KnownEngines.All, token);
+        var json = parseResult.GetValue(cli.Options.Json);
+        var allowWarnings = parseResult.GetValue(AllowWarningsOption);
+        BuildResult result;
+        try
+        {
+            result = ProjectBuilder.Build(project, KnownEngines.All, token, qa: cli.Qa, allowWarnings: allowWarnings);
+        }
+        catch (QaBlockedException blocked)
+        {
+            return RunQaBlocked(json, blocked, output);
+        }
 
-        if (parseResult.GetValue(cli.Options.Json))
+        if (json)
         {
             output.WriteLine(JsonEnvelope.Result(new
             {
@@ -50,6 +69,7 @@ internal static class BuildCommand
                 rebuilt = result.RebuiltScripts.Select(s => new { key = s.Key, name = s.Name, lines = s.Lines }),
                 warnings = result.Warnings,
                 encoding = EncodingData(result.Encoding),
+                qa = QaData(result.Qa),
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -69,6 +89,16 @@ internal static class BuildCommand
             output.WriteLine($"Codificação '{result.Encoding.Strategy}': {Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}; vnf build --report lista cada um.");
         }
 
+        foreach (var issue in result.Qa.Issues)
+        {
+            output.WriteLine(QaLine(issue));
+        }
+
+        if (result.Qa.Silenced.Count > 0)
+        {
+            output.WriteLine($"QA: {Number(result.Qa.Silenced.Count)} {Plural(result.Qa.Silenced.Count, "aviso marcado como ok", "avisos marcados como ok")}.");
+        }
+
         foreach (var warning in result.Warnings.Take(MaxWarningsShown))
         {
             output.WriteLine($"Aviso: {warning}");
@@ -81,6 +111,45 @@ internal static class BuildCommand
 
         return ErrorHandler.OkExitCode;
     }
+
+    private static int RunQaBlocked(bool json, QaBlockedException blocked, TextWriter output)
+    {
+        var exitCode = ErrorHandler.QaBlockedExitCode;
+        if (json)
+        {
+            output.WriteLine(JsonEnvelope.Result(QaData(blocked.Report), exitCode));
+            return exitCode;
+        }
+
+        foreach (var issue in blocked.Report.Issues.Take(MaxQaIssuesShown))
+        {
+            output.WriteLine(QaLine(issue));
+        }
+
+        if (blocked.Report.Issues.Count > MaxQaIssuesShown)
+        {
+            output.WriteLine($"... e mais {Number(blocked.Report.Issues.Count - MaxQaIssuesShown)} ocorrência(s); use --json para ver todas.");
+        }
+
+        if (blocked.Report.Silenced.Count > 0)
+        {
+            output.WriteLine($"QA: {Number(blocked.Report.Silenced.Count)} {Plural(blocked.Report.Silenced.Count, "aviso marcado como ok", "avisos marcados como ok")}.");
+        }
+
+        output.WriteLine($"{QaBlockedException.Describe(blocked.Report)}. O build não gravou nada; corrija, marque o aviso como ok na linha ou use --allow-warnings para liberar só os avisos.");
+        return exitCode;
+    }
+
+    private static string QaLine(QaIssue issue) =>
+        $"{QaBlockedException.Label(issue.Severity)} {issue.UnitId}  [{issue.RuleId}] {issue.Message}";
+
+    private static object QaData(QaReport report) => new
+    {
+        errors = report.Errors.Count,
+        warnings = report.Warnings.Count,
+        silenced = report.Silenced.Count,
+        issues = report.Issues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
+    };
 
     private static int RunReport(bool json, EncodingReport report, TextWriter output)
     {

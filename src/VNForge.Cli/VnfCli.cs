@@ -5,6 +5,7 @@ using System.Reflection;
 using Microsoft.Extensions.Logging;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
+using VNForge.Core.Qa;
 
 namespace VNForge.Cli;
 
@@ -41,6 +42,9 @@ public sealed class VnfCli
     public RootCommand Root { get; }
 
     public GlobalOptions Options { get; }
+
+    /// <summary>Regras de QA que o <c>vnf build</c> roda; os testes trocam por regras próprias.</summary>
+    public QaEngine Qa { get; set; } = QaEngine.Default;
 
     /// <summary>Diretório atual da invocação, base dos caminhos relativos.</summary>
     public string CurrentDirectory => _currentDirectory;
