@@ -4,6 +4,9 @@ namespace VNForge.Core.Tests.Text;
 
 public sealed class EncodingReporterTests
 {
+    private const string TextId0 = "a:000000";
+    private const string TextId1 = "a:000001";
+
     private static TextUnit Unit(string id, string translation, TranslationStatus status = TranslationStatus.Translated) =>
         new(id, TextUnitKind.Dialogue, null, "原文", translation, status);
 
@@ -13,7 +16,7 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Shift_jis_recusa_os_tres_caracteres_sem_substituto()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªã")])), new ShiftJisTextEncoder());
+        var report = EncodingReporter.Create(Texts(("a", [Unit(TextId0, "«ªã")])), new ShiftJisTextEncoder());
 
         Assert.True(report.HasBlocking);
         Assert.Equal(["«", "ª", "ã"], report.Issues.Select(i => i.Character));
@@ -26,7 +29,7 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Fold_troca_os_tres_e_informa_o_substituto_sem_bloquear()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªã")])), new FoldTextEncoder());
+        var report = EncodingReporter.Create(Texts(("a", [Unit(TextId0, "«ªã")])), new FoldTextEncoder());
 
         Assert.False(report.HasBlocking);
         Assert.Equal(["\"", "a", "a"], report.Replaced.Select(i => i.Replacement));
@@ -37,7 +40,7 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Cp1252_representa_os_tres_como_estao_e_recusa_o_i_trema()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªãï")])), new Cp1252TextEncoder());
+        var report = EncodingReporter.Create(Texts(("a", [Unit(TextId0, "«ªãï")])), new Cp1252TextEncoder());
 
         var issue = Assert.Single(report.Issues);
         Assert.Equal("ï", issue.Character);
@@ -48,7 +51,7 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Cp1252_com_os_tres_deixa_o_relatorio_vazio()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«ªã")])), new Cp1252TextEncoder());
+        var report = EncodingReporter.Create(Texts(("a", [Unit(TextId0, "«ªã")])), new Cp1252TextEncoder());
 
         Assert.Empty(report.Issues);
         Assert.False(report.HasBlocking);
@@ -60,11 +63,11 @@ public sealed class EncodingReporterTests
     {
         var texts = Texts(
             ("b", [Unit("b:000000", "ã")]),
-            ("a", [Unit("a:000000", "ok"), Unit("a:000001", "xã«")]));
+            ("a", [Unit(TextId0, "ok"), Unit(TextId1, "xã«")]));
 
         var report = EncodingReporter.Create(texts, new ShiftJisTextEncoder());
 
-        Assert.Equal(["a:000001", "a:000001", "b:000000"], report.Issues.Select(i => i.UnitId));
+        Assert.Equal([TextId1, TextId1, "b:000000"], report.Issues.Select(i => i.UnitId));
         Assert.Equal([1, 2, 0], report.Issues.Select(i => i.Position));
         Assert.Equal(["a", "a", "b"], report.Issues.Select(i => i.ScriptKey));
         Assert.Equal(3, report.CheckedLines);
@@ -74,8 +77,8 @@ public sealed class EncodingReporterTests
     public void Ignora_unidade_sem_traducao_a_gravar()
     {
         var texts = Texts(("a", [
-            Unit("a:000000", "ã", TranslationStatus.Untranslated),
-            Unit("a:000001", "原文"),
+            Unit(TextId0, "ã", TranslationStatus.Untranslated),
+            Unit(TextId1, "原文"),
             Unit("a:000002", string.Empty)]));
 
         var report = EncodingReporter.Create(texts, new ShiftJisTextEncoder());
@@ -87,7 +90,7 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Par_substituto_conta_uma_vez_com_o_ponto_de_codigo_inteiro()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "x😀")])), new ShiftJisTextEncoder());
+        var report = EncodingReporter.Create(Texts(("a", [Unit(TextId0, "x😀")])), new ShiftJisTextEncoder());
 
         var issue = Assert.Single(report.Issues);
         Assert.Equal("😀", issue.Character);
@@ -105,7 +108,7 @@ public sealed class EncodingReporterTests
     [Fact]
     public void Fold_separa_bloqueantes_de_trocados_na_mesma_linha()
     {
-        var report = EncodingReporter.Create(Texts(("a", [Unit("a:000000", "«Ola ª ã 😀")])), new FoldTextEncoder());
+        var report = EncodingReporter.Create(Texts(("a", [Unit(TextId0, "«Ola ª ã 😀")])), new FoldTextEncoder());
 
         Assert.Equal("😀", Assert.Single(report.Blocking).Character);
         Assert.Contains(report.Replaced, i => i.Character == "ã");

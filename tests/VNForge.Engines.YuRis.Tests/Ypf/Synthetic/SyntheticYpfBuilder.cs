@@ -12,7 +12,7 @@ namespace VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 /// o que o leitor e o escritor fazem, sem usar arquivos de jogo (CLAUDE.md, regra 1).
 /// </summary>
 /// <remarks>
-/// Todo padrão vem de uma fonte citada no doc 06 e quase todo é configurável, porque as implementações de
+/// Cada padrão vem de uma fonte citada no doc 06 e quase todos são configuráveis, porque as implementações de
 /// referência divergem (versão do MurmurHash2, tabela de troca, chave do nome, header_size, ordem dos dados).
 /// Os pontos a confirmar no jogo estão na lista da #23 do doc.
 /// </remarks>
@@ -185,7 +185,7 @@ public sealed class SyntheticYpfBuilder
         var position = SyntheticYpf.FixedHeaderSize;
         foreach (var file in indexOrder)
         {
-            var entry = WriteEntry(bytes, position, file, layout.Offsets[file], nameKey, swapTable, offsetSize, offsetBytes);
+            var entry = WriteEntry(bytes, position, file, layout.Offsets[file], nameKey, swapTable, offsetSize);
             entries.Add(entry);
             position += entry.IndexEntrySize;
         }
@@ -262,9 +262,9 @@ public sealed class SyntheticYpfBuilder
         ulong offset,
         byte nameKey,
         SyntheticYpfSwapTable swapTable,
-        SyntheticYpfOffsetSize offsetSize,
-        int offsetBytes)
+        SyntheticYpfOffsetSize offsetSize)
     {
+        var offsetBytes = offsetSize == SyntheticYpfOffsetSize.Bits64 ? 8 : 4;
         var source = file.Source;
         var span = bytes.AsSpan(position);
 

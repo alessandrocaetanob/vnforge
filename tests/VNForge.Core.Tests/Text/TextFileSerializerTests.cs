@@ -6,6 +6,11 @@ namespace VNForge.Core.Tests.Text;
 
 public class TextFileSerializerTests
 {
+    private const string TextAJson = "text/a.json";
+    private const string AJson = "a.json";
+    private const string TextId1 = "yst00123:000001";
+    private const string TextYst123Json = "text/yst00123.json";
+
     private static TextUnit Unidade(int posicao, string source = "今日は、いい天気だね。\\p", string? translation = null, TranslationStatus status = TranslationStatus.Untranslated) =>
         new($"yst00123:{posicao:D6}", TextUnitKind.Dialogue, "美咲", source, translation, status);
 
@@ -74,7 +79,7 @@ public class TextFileSerializerTests
     {
         var original = Exemplo();
 
-        var lidas = TextFileSerializer.Parse(TextFileSerializer.Serialize(original), "text/yst00123.json");
+        var lidas = TextFileSerializer.Parse(TextFileSerializer.Serialize(original), TextYst123Json);
 
         Assert.Equal(Json(original), Json(lidas));
         Assert.Equal("「おはよう」\\n{VAR:name}\\c3\\p", lidas[0].Source);
@@ -102,12 +107,12 @@ public class TextFileSerializerTests
     [Fact]
     public void Parse_de_json_malformado_cita_arquivo_e_posicao()
     {
-        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse("{\n  \"version\": 1,\n  \"units\": [ ]]\n}", "text/yst00123.json"));
+        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse("{\n  \"version\": 1,\n  \"units\": [ ]]\n}", TextYst123Json));
 
-        Assert.Contains("text/yst00123.json", ex.Message);
+        Assert.Contains(TextYst123Json, ex.Message);
         Assert.Contains("linha 3", ex.Message);
         Assert.Contains("coluna", ex.Message);
-        Assert.Equal("text/yst00123.json", ex.FilePath);
+        Assert.Equal(TextYst123Json, ex.FilePath);
     }
 
     [Theory]
@@ -118,9 +123,9 @@ public class TextFileSerializerTests
     [InlineData("null", "objeto")]
     public void Parse_de_envelope_invalido_falha_em_portugues_citando_o_arquivo(string json, string trecho)
     {
-        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, "text/a.json"));
+        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, TextAJson));
 
-        Assert.Contains("text/a.json", ex.Message);
+        Assert.Contains(TextAJson, ex.Message);
         Assert.Contains(trecho, ex.Message);
     }
 
@@ -131,7 +136,7 @@ public class TextFileSerializerTests
     [InlineData("1.5")]
     public void Parse_de_version_nao_suportada_falha(string version)
     {
-        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse($"{{ \"version\": {version}, \"units\": [] }}", "text/a.json"));
+        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse($"{{ \"version\": {version}, \"units\": [] }}", TextAJson));
 
         Assert.Contains("version", ex.Message);
     }
@@ -141,9 +146,9 @@ public class TextFileSerializerTests
     {
         const string Json = "{\n  \"version\": 1,\n  \"units\": [\n    {\"id\":\"a:000001\",\"kind\":\"grito\",\"source\":\"x\",\"status\":\"untranslated\"}\n  ]\n}\n";
 
-        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(Json, "text/a.json"));
+        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(Json, TextAJson));
 
-        Assert.Contains("text/a.json", ex.Message);
+        Assert.Contains(TextAJson, ex.Message);
         Assert.Contains("$.units[0].kind", ex.Message);
         Assert.Contains("linha 4", ex.Message);
         Assert.Contains("valor inválido", ex.Message);
@@ -156,8 +161,8 @@ public class TextFileSerializerTests
         var raiz = "{\n  \"version\": 1,\n  \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"} ],\n  \"units\": []\n}\n";
         var unidade = "{\n  \"version\": 1,\n  \"units\": [\n    {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"source\":\"y\",\"status\":\"untranslated\"}\n  ]\n}\n";
 
-        var msgRaiz = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(raiz, "a.json")).Message;
-        var msgUnidade = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(unidade, "a.json")).Message;
+        var msgRaiz = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(raiz, AJson)).Message;
+        var msgUnidade = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(unidade, AJson)).Message;
 
         Assert.Contains("campo repetido 'units'", msgRaiz);
         Assert.Contains("linha 4", msgRaiz);
@@ -177,7 +182,7 @@ public class TextFileSerializerTests
     {
         var json = $"{{ \"version\": 1, \"units\": [ {{{campos}}} ] }}";
 
-        var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, "a.json")).Message;
+        var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, AJson)).Message;
 
         Assert.Contains("não aceita null", msg);
         Assert.Contains(caminho, msg);
@@ -192,7 +197,7 @@ public class TextFileSerializerTests
 
         foreach (var json in new[] { status, tipo })
         {
-            var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, "a.json")).Message;
+            var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, AJson)).Message;
             Assert.Contains("valor inválido", msg);
             Assert.DoesNotContain("could not", msg);
         }
@@ -206,18 +211,18 @@ public class TextFileSerializerTests
         var texto = $"{literal} \"aspas\" \\ \t{(char)1}";
 
         var json = TextFileSerializer.Serialize([Unidade(1, texto)]);
-        var outra = TextFileSerializer.Serialize(TextFileSerializer.Parse(json, "a.json"));
+        var outra = TextFileSerializer.Serialize(TextFileSerializer.Parse(json, AJson));
 
         Assert.Contains(literal, json);
         Assert.Contains("\\\"aspas\\\" \\\\ \\t\\u0001", json);
         Assert.DoesNotContain("\\u3000", json);
         Assert.Equal(json, outra);
-        Assert.Equal(texto, TextFileSerializer.Parse(json, "a.json")[0].Source);
+        Assert.Equal(texto, TextFileSerializer.Parse(json, AJson)[0].Source);
         Assert.Equal(json, TextFileSerializer.Serialize([Unidade(1, texto)]));
     }
 
     private static TextUnit UnidadeComTextoEmTodosOsCampos(string texto) =>
-        new("yst00123:000001", TextUnitKind.Dialogue, texto, texto, texto, TranslationStatus.Translated)
+        new(TextId1, TextUnitKind.Dialogue, texto, texto, texto, TranslationStatus.Translated)
         {
             Origin = new TranslationOrigin(texto, texto, new DateTimeOffset(2026, 10, 17, 18, 0, 0, TimeSpan.Zero)),
             Notes = texto,
@@ -231,7 +236,7 @@ public class TextFileSerializerTests
         var unidade = UnidadeComTextoEmTodosOsCampos(texto);
 
         var json = TextFileSerializer.Serialize([unidade]);
-        var lida = TextFileSerializer.Parse(json, "a.json")[0];
+        var lida = TextFileSerializer.Parse(json, AJson)[0];
 
         Assert.DoesNotContain("\\u3000", json);
         Assert.Equal(texto, lida.Speaker);
@@ -259,7 +264,7 @@ public class TextFileSerializerTests
         var invalido = "ok" + (char)0xD800 + "fim";
         TextUnit[] unidades =
         [
-            UnidadeComTextoEmTodosOsCampos("a") with { Id = "yst00123:000001", Source = invalido },
+            UnidadeComTextoEmTodosOsCampos("a") with { Id = TextId1, Source = invalido },
             UnidadeComTextoEmTodosOsCampos("a") with { Translation = invalido },
             UnidadeComTextoEmTodosOsCampos("a") with { Speaker = invalido },
             UnidadeComTextoEmTodosOsCampos("a") with { Notes = invalido },
@@ -269,11 +274,11 @@ public class TextFileSerializerTests
 
         foreach (var unidade in unidades)
         {
-            var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Serialize([unidade], "text/a.json"));
+            var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Serialize([unidade], TextAJson));
 
-            Assert.Contains("yst00123:000001", ex.Message);
+            Assert.Contains(TextId1, ex.Message);
             Assert.Contains("surrogate solitário", ex.Message);
-            Assert.Contains("text/a.json", ex.Message);
+            Assert.Contains(TextAJson, ex.Message);
         }
     }
 
@@ -282,7 +287,7 @@ public class TextFileSerializerTests
     {
         var original = new[] { Unidade(1, "😀 𠮷野家") };
 
-        var lidas = TextFileSerializer.Parse(TextFileSerializer.Serialize(original), "a.json");
+        var lidas = TextFileSerializer.Parse(TextFileSerializer.Serialize(original), AJson);
 
         Assert.Equal("😀 𠮷野家", lidas[0].Source);
     }
@@ -293,20 +298,20 @@ public class TextFileSerializerTests
         var faltando = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"status\":\"untranslated\"} ] }";
         var desconhecido = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"traslation\":\"y\"} ] }";
 
-        var msgFaltando = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(faltando, "a.json")).Message;
-        var msgDesconhecido = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(desconhecido, "a.json")).Message;
+        var msgFaltando = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(faltando, AJson)).Message;
+        var msgDesconhecido = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(desconhecido, AJson)).Message;
 
         Assert.Contains("campo obrigatório ausente: 'source'", msgFaltando);
         Assert.Contains("campo desconhecido 'traslation'", msgDesconhecido);
-        Assert.Contains("a.json", msgDesconhecido);
+        Assert.Contains(AJson, msgDesconhecido);
     }
 
     [Fact]
     public void Parse_de_unidade_nula_ou_flags_com_elemento_nulo_falha()
     {
-        Assert.Throws<TextFileException>(() => TextFileSerializer.Parse("{ \"version\": 1, \"units\": [ null ] }", "a.json"));
+        Assert.Throws<TextFileException>(() => TextFileSerializer.Parse("{ \"version\": 1, \"units\": [ null ] }", AJson));
         var flagsNulo = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"flags\":[null]} ] }";
-        Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(flagsNulo, "a.json"));
+        Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(flagsNulo, AJson));
     }
 
     [Fact]
@@ -315,12 +320,12 @@ public class TextFileSerializerTests
         var outro = TextFileSerializer.Serialize([new TextUnit("outro:000001", TextUnitKind.Other, null, "x", null, TranslationStatus.Untranslated)]);
         var repetido = TextFileSerializer.Serialize([Unidade(1), Unidade(1)]);
 
-        var ex1 = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(outro, "text/yst00123.json", "yst00123"));
-        var ex2 = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(repetido, "text/yst00123.json", "yst00123"));
+        var ex1 = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(outro, TextYst123Json, "yst00123"));
+        var ex2 = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(repetido, TextYst123Json, "yst00123"));
 
         Assert.Contains("outro:000001", ex1.Message);
         Assert.Contains("yst00123:", ex1.Message);
-        Assert.Contains("yst00123:000001", ex2.Message);
+        Assert.Contains(TextId1, ex2.Message);
         Assert.Contains("mais de uma vez", ex2.Message);
     }
 

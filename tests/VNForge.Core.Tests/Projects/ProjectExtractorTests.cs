@@ -8,6 +8,15 @@ namespace VNForge.Core.Tests.Projects;
 
 public sealed class ProjectExtractorTests : IDisposable
 {
+    private const string GameExe = "Jogo.exe";
+    private const string A001Fake = "a001.fake";
+    private const string A002Fake = "a002.fake";
+    private const string DialogueHi = "dialogue|Oi";
+    private const string FirstUnitId = "a001:000000";
+    private const string HelloText = "Hello";
+    private const string DialogueHello = "dialogue|Olá";
+    private const string PackageFake = "pacote.fake";
+
     private readonly TempFolder _temp = new();
     private readonly string _game;
     private readonly string _projectDir;
@@ -28,7 +37,7 @@ public sealed class ProjectExtractorTests : IDisposable
             _projectDir,
             new ProjectConfig(
                 "Teste",
-                new GameConfig(gamePath ?? _game.Replace(Path.DirectorySeparatorChar, '/'), "Jogo.exe"),
+                new GameConfig(gamePath ?? _game.Replace(Path.DirectorySeparatorChar, '/'), GameExe),
                 new EngineConfig(engineId),
                 new LanguagesConfig("ja", "pt-BR"),
                 new EncodingConfig("cp1252"),
@@ -43,8 +52,8 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Grava_um_text_json_por_script_e_conta_as_linhas_por_kind()
     {
-        WriteGame("a001.fake", "dialogue|Olá\ndialogue|Tudo bem?\nname|Ana");
-        WriteGame("a002.fake", "choice|Sim\nnarration|Chovia.\nother|x");
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem?\nname|Ana");
+        WriteGame(A002Fake, "choice|Sim\nnarration|Chovia.\nother|x");
         var project = NewProject();
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
@@ -60,7 +69,7 @@ public sealed class ProjectExtractorTests : IDisposable
         Assert.Equal(1, result.LinesByKind[TextUnitKind.Other]);
 
         var units = project.LoadText("a001");
-        Assert.Equal(["a001:000000", "a001:000001", "a001:000002"], units.Select(u => u.Id));
+        Assert.Equal([FirstUnitId, "a001:000001", "a001:000002"], units.Select(u => u.Id));
         Assert.Equal(["Olá", "Tudo bem?", "Ana"], units.Select(u => u.Source));
         Assert.All(units, u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
         Assert.Equal(["a001", "a002"], project.LoadAllText().Keys);
@@ -69,23 +78,23 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Descompacta_para_o_cache_do_projeto_em_game()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.Combine(project.Root, ".cache", "game"), project.GameCacheDirectory);
         Assert.Equal(project.GameCacheDirectory, result.CacheDirectory);
-        Assert.True(File.Exists(Path.Combine(project.GameCacheDirectory, "pacote.fake", "a001.fake")));
-        Assert.Equal(new UnpackedArchive("a001.fake", "pacote.fake", 1, 13), Assert.Single(result.Archives));
+        Assert.True(File.Exists(Path.Combine(project.GameCacheDirectory, PackageFake, A001Fake)));
+        Assert.Equal(new UnpackedArchive(A001Fake, PackageFake, 1, 13), Assert.Single(result.Archives));
     }
 
     [Fact]
     public void Nao_altera_a_pasta_do_jogo()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
-        WriteGame("a002.fake", "name|Ana");
-        WriteGame("Jogo.exe", "MZ");
+        WriteGame(A001Fake, DialogueHello);
+        WriteGame(A002Fake, "name|Ana");
+        WriteGame(GameExe, "MZ");
         Directory.CreateDirectory(Path.Combine(_game, "sub"));
         File.WriteAllText(Path.Combine(_game, "sub", "x.dat"), "dados");
         var before = HashTree(_game);
@@ -102,11 +111,11 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Reextrair_sem_mudanca_no_jogo_nao_altera_o_text_json()
     {
-        WriteGame("a001.fake", "dialogue|Olá\ndialogue|Tudo bem?");
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem?");
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
         var units = project.LoadText("a001");
-        project.SaveText("a001", [units[0] with { Translation = "Hello", Status = TranslationStatus.Approved }, units[1]]);
+        project.SaveText("a001", [units[0] with { Translation = HelloText, Status = TranslationStatus.Approved }, units[1]]);
         var before = HashTree(project.TextDirectory);
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
@@ -118,16 +127,16 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Reextrair_marca_a_linha_de_original_alterado_e_guarda_a_traducao_antiga()
     {
-        WriteGame("a001.fake", "dialogue|Olá\ndialogue|Tudo bem?");
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem?");
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
-        project.SaveText("a001", [Translated("a001:000000", "Olá", "Hello"), Translated("a001:000001", "Tudo bem?", "All good?", TranslationStatus.Reviewed)]);
-        WriteGame("a001.fake", "dialogue|Olá\ndialogue|Tudo bem mesmo?");
+        project.SaveText("a001", [Translated(FirstUnitId, "Olá", HelloText), Translated("a001:000001", "Tudo bem?", "All good?", TranslationStatus.Reviewed)]);
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem mesmo?");
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
 
         var units = project.LoadText("a001");
-        Assert.Equal("Hello", units[0].Translation);
+        Assert.Equal(HelloText, units[0].Translation);
         Assert.Equal(TranslationStatus.Translated, units[0].Status);
         Assert.Null(units[0].PreviousSource);
         Assert.Equal("Tudo bem mesmo?", units[1].Source);
@@ -142,30 +151,30 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Reextrair_de_novo_com_a_marca_pendente_mantem_o_original_antigo()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
-        project.SaveText("a001", [Translated("a001:000000", "Olá", "Hello")]);
-        WriteGame("a001.fake", "dialogue|Oi");
+        project.SaveText("a001", [Translated(FirstUnitId, "Olá", HelloText)]);
+        WriteGame(A001Fake, DialogueHi);
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
-        WriteGame("a001.fake", "dialogue|Oie");
+        WriteGame(A001Fake, "dialogue|Oie");
 
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
 
         var unit = Assert.Single(project.LoadText("a001"));
         Assert.Equal("Oie", unit.Source);
-        Assert.Equal("Hello", unit.Translation);
+        Assert.Equal(HelloText, unit.Translation);
         Assert.Equal("Olá", unit.PreviousSource);
     }
 
     [Fact]
     public void Reextrair_limpa_a_marca_depois_que_a_linha_foi_tratada()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
-        project.SaveText("a001", [Translated("a001:000000", "Oi", "Hi") with { PreviousSource = "Olá antigo" }]);
-        WriteGame("a001.fake", "dialogue|Oi");
+        project.SaveText("a001", [Translated(FirstUnitId, "Oi", "Hi") with { PreviousSource = "Olá antigo" }]);
+        WriteGame(A001Fake, DialogueHi);
 
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
 
@@ -175,11 +184,11 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Reextrair_usa_o_locator_e_o_kind_da_nova_extracao()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
-        project.SaveText("a001", [Translated("a001:000000", "Olá", "Hello") with { Kind = TextUnitKind.System }]);
-        WriteGame("a001.fake", "dialogue|Olá");
+        project.SaveText("a001", [Translated(FirstUnitId, "Olá", HelloText) with { Kind = TextUnitKind.System }]);
+        WriteGame(A001Fake, DialogueHello);
 
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
 
@@ -189,15 +198,15 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Reextrair_acrescenta_linhas_novas_e_guarda_o_texto_anterior_quando_algo_sai()
     {
-        WriteGame("a001.fake", "dialogue|Olá\ndialogue|Tchau");
-        WriteGame("a002.fake", "dialogue|Um");
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tchau");
+        WriteGame(A002Fake, "dialogue|Um");
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
-        project.SaveText("a001", [Translated("a001:000000", "Olá", "Hello"), Translated("a001:000001", "Tchau", "Bye")]);
+        project.SaveText("a001", [Translated(FirstUnitId, "Olá", HelloText), Translated("a001:000001", "Tchau", "Bye")]);
         project.SaveText("a002", [Translated("a002:000000", "Um", "One")]);
         var beforeA001 = File.ReadAllBytes(project.TextPath("a001"));
-        File.Delete(Path.Combine(_game, "a002.fake"));
-        WriteGame("a001.fake", "dialogue|Olá");
+        File.Delete(Path.Combine(_game, A002Fake));
+        WriteGame(A001Fake, DialogueHello);
         WriteGame("a003.fake", "dialogue|Novo");
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
@@ -208,7 +217,7 @@ public sealed class ProjectExtractorTests : IDisposable
         Assert.Equal(beforeA001, File.ReadAllBytes(Path.Combine(folder, "a001.json")));
         Assert.True(File.Exists(Path.Combine(folder, "a002.json")));
 
-        WriteGame("a001.fake", "dialogue|Outra");
+        WriteGame(A001Fake, "dialogue|Outra");
         Thread.Sleep(5);
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
         Assert.Equal(2, Directory.GetDirectories(project.TextBackupDirectory).Length);
@@ -217,7 +226,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Reextrair_sem_perdas_nao_cria_a_copia_do_texto_anterior()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
 
@@ -229,15 +238,15 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Grava_o_hash_dos_pacotes_originais_e_marca_a_etapa_extract()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
 
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
 
         var state = project.LoadState();
         var original = Assert.Single(state.Originals);
-        var bytes = File.ReadAllBytes(Path.Combine(_game, "a001.fake"));
-        Assert.Equal("a001.fake", original.Path);
+        var bytes = File.ReadAllBytes(Path.Combine(_game, A001Fake));
+        Assert.Equal(A001Fake, original.Path);
         Assert.Equal(bytes.Length, original.Size);
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(bytes)), original.Sha256);
         Assert.Equal(StageStatus.Completed, state.Stages["extract"].Status);
@@ -246,7 +255,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Extrair_de_novo_sem_mudanca_deixa_o_state_json_identico()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
         var before = File.ReadAllBytes(project.StatePath);
@@ -263,8 +272,8 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Extracao_que_falha_nao_grava_estado()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
-        WriteGame("a002.fake", "quebrado");
+        WriteGame(A001Fake, DialogueHello);
+        WriteGame(A002Fake, "quebrado");
         var project = NewProject();
 
         Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
@@ -275,7 +284,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Cache_antigo_e_apagado_antes_de_descompactar()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
         var stale = Path.Combine(project.GameCacheDirectory, "velho.fake", "sobra.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
@@ -289,13 +298,13 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Script_ilegivel_aborta_citando_o_script_e_nao_grava_texto()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
-        WriteGame("a002.fake", "quebrado");
+        WriteGame(A001Fake, DialogueHello);
+        WriteGame(A002Fake, "quebrado");
         var project = NewProject();
 
         var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
 
-        Assert.Contains("a002.fake", ex.Message);
+        Assert.Contains(A002Fake, ex.Message);
         Assert.Contains("linha sem '|'", ex.Message);
         Assert.Empty(Directory.EnumerateFiles(project.TextDirectory));
     }
@@ -303,7 +312,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Avisos_da_engine_saem_com_o_nome_do_script()
     {
-        WriteGame("a001.fake", "dialogue|Olá\n#aviso");
+        WriteGame(A001Fake, "dialogue|Olá\n#aviso");
         var project = NewProject();
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
@@ -316,7 +325,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Nome_legivel_do_script_vai_para_o_resultado()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
@@ -327,8 +336,8 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Duas_chaves_iguais_abortam_citando_os_dois_arquivos()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
-        WriteGame("A001.other", "dialogue|Oi");
+        WriteGame(A001Fake, DialogueHello);
+        WriteGame("A001.other", DialogueHi);
         var project = NewProject();
 
         var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
@@ -340,8 +349,8 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Falha_ao_gravar_o_texto_remove_o_que_ja_foi_gravado()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
-        WriteGame("a002.fake", "dialogue|Oi");
+        WriteGame(A001Fake, DialogueHello);
+        WriteGame(A002Fake, DialogueHi);
         var project = NewProject();
         // Um diretório no lugar do arquivo de a002 faz a troca atômica do segundo script falhar.
         Directory.CreateDirectory(project.TextPath("a002"));
@@ -354,7 +363,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Cancelamento_antes_da_gravacao_nao_deixa_text_pela_metade()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
         using var source = new CancellationTokenSource();
         source.Cancel();
@@ -397,7 +406,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Game_path_relativo_vale_a_partir_da_pasta_do_projeto()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var project = NewProject(gamePath: "../jogo");
 
         var result = ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
@@ -413,12 +422,12 @@ public sealed class ProjectExtractorTests : IDisposable
             inside,
             new ProjectConfig(
                 "Teste",
-                new GameConfig(_game.Replace(Path.DirectorySeparatorChar, '/'), "Jogo.exe"),
+                new GameConfig(_game.Replace(Path.DirectorySeparatorChar, '/'), GameExe),
                 new EngineConfig("fake"),
                 new LanguagesConfig("ja", "pt-BR"),
                 new EncodingConfig("cp1252"),
                 AiConfig.Default));
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var before = HashTree(_game);
 
         var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
@@ -430,7 +439,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Cache_que_e_uma_juncao_para_dentro_do_jogo_e_recusado_sem_gravar_nada()
     {
-        WriteGame("a001.fake", "dialogue|Olá");
+        WriteGame(A001Fake, DialogueHello);
         var inside = Path.Combine(_game, "destino");
         Directory.CreateDirectory(inside);
         var project = NewProject();
@@ -454,7 +463,7 @@ public sealed class ProjectExtractorTests : IDisposable
     [Fact]
     public void Jogo_sem_nenhum_script_depois_de_descompactar_e_erro()
     {
-        WriteGame("Jogo.exe", "MZ");
+        WriteGame(GameExe, "MZ");
         var project = NewProject();
 
         var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken));
@@ -511,7 +520,7 @@ public sealed class ProjectExtractorTests : IDisposable
 
         public GameUnpackResult Unpack(string gameDir, string destinationDirectory, CancellationToken cancellationToken = default)
         {
-            var archive = Path.Combine(destinationDirectory, "pacote.fake");
+            var archive = Path.Combine(destinationDirectory, PackageFake);
             Directory.CreateDirectory(archive);
             var count = 0;
             long bytes = 0;
@@ -523,7 +532,7 @@ public sealed class ProjectExtractorTests : IDisposable
                 bytes += content.Length;
             }
 
-            return new GameUnpackResult([new UnpackedArchive("a001.fake", "pacote.fake", count, bytes)]) { Warnings = ["aviso do unpack"] };
+            return new GameUnpackResult([new UnpackedArchive(A001Fake, PackageFake, count, bytes)]) { Warnings = ["aviso do unpack"] };
         }
 
         public UnpackedGame Open(string unpackedDirectory) =>

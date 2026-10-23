@@ -252,8 +252,6 @@ public partial class YpfArchiveFormatTests
     /// <summary>Fluxo só de leitura que devolve o cabeçalho dado e zeros até o tamanho informado, sem alocar o arquivo.</summary>
     private sealed class ZeroTailStream(byte[] head, long length) : Stream
     {
-        private long _position;
-
         public override bool CanRead => true;
 
         public override bool CanSeek => true;
@@ -262,36 +260,32 @@ public partial class YpfArchiveFormatTests
 
         public override long Length => length;
 
-        public override long Position
-        {
-            get => _position;
-            set => _position = value;
-        }
+        public override long Position { get; set; }
 
         public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
 
         public override int Read(Span<byte> buffer)
         {
-            var count = (int)Math.Min(buffer.Length, Math.Max(0, length - _position));
+            var count = (int)Math.Min(buffer.Length, Math.Max(0, length - Position));
             for (var i = 0; i < count; i++)
             {
-                var p = _position + i;
+                var p = Position + i;
                 buffer[i] = p < head.Length ? head[p] : (byte)0;
             }
 
-            _position += count;
+            Position += count;
             return count;
         }
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            _position = origin switch
+            Position = origin switch
             {
                 SeekOrigin.Begin => offset,
-                SeekOrigin.Current => _position + offset,
+                SeekOrigin.Current => Position + offset,
                 _ => length + offset,
             };
-            return _position;
+            return Position;
         }
 
         public override void Flush()
@@ -300,6 +294,8 @@ public partial class YpfArchiveFormatTests
 
         public override void SetLength(long value) => throw new NotSupportedException();
 
+#pragma warning disable S3218 // Stream.Write fixa o nome; o auxiliar Write da classe externa e inevitavel aqui
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+#pragma warning restore S3218
     }
 }

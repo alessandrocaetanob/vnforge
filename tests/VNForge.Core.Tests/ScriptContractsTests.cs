@@ -7,6 +7,8 @@ namespace VNForge.Core.Tests;
 
 public class ScriptContractsTests
 {
+    private const string Fake001Txt = "fake001.txt";
+
     [Theory]
     [InlineData("yst00123.ybn", 42, "yst00123:000042")]
     [InlineData("YST00123.YBN", 0, "yst00123:000000")]
@@ -36,7 +38,7 @@ public class ScriptContractsTests
     [Fact]
     public void ValidateUnits_aceita_ids_do_script_e_lista_vazia()
     {
-        var script = new ScriptFile("fake001.txt", ReadOnlyMemory<byte>.Empty);
+        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
 
         script.ValidateUnits([]);
         script.ValidateUnits([Unidade(script.UnitId(0)), Unidade(script.UnitId(1))]);
@@ -45,7 +47,7 @@ public class ScriptContractsTests
     [Fact]
     public void ValidateUnits_recusa_id_de_outro_script()
     {
-        var script = new ScriptFile("fake001.txt", ReadOnlyMemory<byte>.Empty);
+        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
 
         var ex = Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade("outro:000000")]));
 
@@ -55,7 +57,7 @@ public class ScriptContractsTests
     [Fact]
     public void ValidateUnits_recusa_prefixo_parecido_sem_dois_pontos()
     {
-        var script = new ScriptFile("fake001.txt", ReadOnlyMemory<byte>.Empty);
+        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
 
         Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade("fake0010:000000")]));
     }
@@ -63,7 +65,7 @@ public class ScriptContractsTests
     [Fact]
     public void ValidateUnits_recusa_id_duplicado()
     {
-        var script = new ScriptFile("fake001.txt", ReadOnlyMemory<byte>.Empty);
+        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
 
         var ex = Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade(script.UnitId(1)), Unidade(script.UnitId(1))]));
 
@@ -91,7 +93,7 @@ public class ScriptContractsTests
     {
         IEngine engine = new FakeEngine();
         var formato = Assert.Single(engine.Scripts);
-        var arquivo = new ScriptFile("fake001.txt", Encoding.UTF8.GetBytes("um\ndois"));
+        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ndois"));
         var ctx = new FakeContext();
 
         var extracao = formato.Extract(arquivo, ctx);
@@ -112,7 +114,7 @@ public class ScriptContractsTests
     public void Rebuild_com_caractere_nao_representavel_lanca_citando_o_id_sem_resultado_parcial()
     {
         var formato = new FakeScriptFormat();
-        var arquivo = new ScriptFile("fake001.txt", Encoding.UTF8.GetBytes("um\ndois"));
+        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ndois"));
         var ctx = new FakeContext();
         var unidades = formato.Extract(arquivo, ctx).Units
             .Select(u => u.Id.EndsWith("000001", StringComparison.Ordinal)
@@ -129,7 +131,7 @@ public class ScriptContractsTests
     public void Rebuild_recusa_unidade_de_outro_script()
     {
         var formato = new FakeScriptFormat();
-        var arquivo = new ScriptFile("fake001.txt", Encoding.UTF8.GetBytes("um"));
+        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um"));
 
         Assert.Throws<ArgumentException>(() =>
             formato.Rebuild(arquivo, [Unidade("outro:000000")], new FakeEncoder(), new FakeContext()));
@@ -139,12 +141,12 @@ public class ScriptContractsTests
     public void Rebuild_recusa_arquivo_desatualizado_quando_o_trecho_nao_bate_com_o_source()
     {
         var formato = new FakeScriptFormat();
-        var original = new ScriptFile("fake001.txt", Encoding.UTF8.GetBytes("um\ndois"));
+        var original = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ndois"));
         var ctx = new FakeContext();
         var unidades = formato.Extract(original, ctx).Units
             .Select(u => u with { Translation = "x", Status = TranslationStatus.Translated })
             .ToList();
-        var outraVersao = new ScriptFile("fake001.txt", Encoding.UTF8.GetBytes("um\ntres"));
+        var outraVersao = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ntres"));
 
         Assert.Throws<InvalidDataException>(() => formato.Rebuild(outraVersao, unidades, new FakeEncoder(), ctx));
     }

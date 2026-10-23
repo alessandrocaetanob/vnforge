@@ -7,6 +7,9 @@ namespace VNForge.Engines.YuRis.Tests.Yscm;
 
 public class YscmReaderTests
 {
+    private const string ReturnCodeCommand = "RETURNCODE";
+    private const string GosubCommand = "GOSUB";
+
     private const string Source = "ysc.ybn";
 
     // Montado à mão, fora do gerador: v500, "WORD" com o parâmetro "T" (tipo 2) e "_" sem parâmetros, 37 mensagens
@@ -60,7 +63,7 @@ public class YscmReaderTests
             Assert.Equal(yscm.Commands[i].Arguments.Select(a => a.Name), file.Commands[i].Arguments.Select(a => a.Name));
         }
 
-        Assert.Equal(["LABEL", "PINT1", "PSTR2"], file.Commands[yscm.IdOf("GOSUB")].Arguments.Select(a => a.Name));
+        Assert.Equal(["LABEL", "PINT1", "PSTR2"], file.Commands[yscm.IdOf(GosubCommand)].Arguments.Select(a => a.Name));
         Assert.Equal(yscm.ErrorMessageCount, file.ErrorMessageCount);
     }
 
@@ -164,7 +167,7 @@ public class YscmReaderTests
             var file = YscmReader.ReadFile(path);
 
             Assert.Equal(path, file.Source);
-            var error = Assert.Throws<InvalidFileException>(() => file.GetOpcode("RETURNCODE"));
+            var error = Assert.Throws<InvalidFileException>(() => file.GetOpcode(ReturnCodeCommand));
             Assert.Contains(path, error.Message);
         }
         finally
@@ -186,8 +189,8 @@ public class YscmReaderTests
             new YuRisOpcodes(
                 Word: yscm.IdOf("WORD"),
                 Expression: yscm.IdOf("_"),
-                ReturnCode: yscm.IdOf("RETURNCODE"),
-                Gosub: yscm.IdOf("GOSUB"),
+                ReturnCode: yscm.IdOf(ReturnCodeCommand),
+                Gosub: yscm.IdOf(GosubCommand),
                 Cg: yscm.IdOf("CG")),
             opcodes);
         Assert.Equal(
@@ -200,8 +203,8 @@ public class YscmReaderTests
     {
         var yscm = new SyntheticYscmBuilder()
             .AddCommand("CG")
-            .AddCommand("RETURNCODE")
-            .AddCommand("GOSUB")
+            .AddCommand(ReturnCodeCommand)
+            .AddCommand(GosubCommand)
             .AddCommand("_")
             .AddCommand("WORD")
             .Build();
@@ -214,13 +217,13 @@ public class YscmReaderTests
     [Theory]
     [InlineData("WORD")]
     [InlineData("_")]
-    [InlineData("RETURNCODE")]
-    [InlineData("GOSUB")]
+    [InlineData(ReturnCodeCommand)]
+    [InlineData(GosubCommand)]
     [InlineData("CG")]
     public void GetOpcodes_ComandoAusente_ErroNomeiaOComando(string missing)
     {
         var builder = new SyntheticYscmBuilder();
-        foreach (var name in new[] { "WORD", "_", "RETURNCODE", "GOSUB", "CG" }.Where(n => n != missing))
+        foreach (var name in new[] { "WORD", "_", ReturnCodeCommand, GosubCommand, "CG" }.Where(n => n != missing))
         {
             builder.AddCommand(name);
         }
@@ -235,7 +238,7 @@ public class YscmReaderTests
     [Fact]
     public void GetOpcodes_VariosAusentes_ErroNomeiaTodos()
     {
-        var file = Read(new SyntheticYscmBuilder().AddCommand("WORD").AddCommand("GOSUB").Build().Bytes);
+        var file = Read(new SyntheticYscmBuilder().AddCommand("WORD").AddCommand(GosubCommand).Build().Bytes);
 
         var error = Assert.Throws<InvalidFileException>(() => file.GetOpcodes());
 

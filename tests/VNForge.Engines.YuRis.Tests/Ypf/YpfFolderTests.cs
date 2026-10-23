@@ -6,6 +6,8 @@ namespace VNForge.Engines.YuRis.Tests.Ypf;
 
 public sealed class YpfFolderTests : IDisposable
 {
+    private const string BackgroundPng = "fundo.png";
+
     private static readonly YpfArchiveFormat Format = new();
     private static readonly byte[] Repetitive = Enumerable.Repeat((byte)'A', 4000).ToArray();
     private static readonly byte[] Small = [0x10, 0x20, 0x30, 0x40, 0x50];
@@ -47,7 +49,7 @@ public sealed class YpfFolderTests : IDisposable
         Assert.Equal(4, result.FileCount);
         Assert.Equal(Small.Length + Repetitive.Length + 9, result.ByteCount);
         Assert.Equal(Small, File.ReadAllBytes(Path.Combine(Dir("out"), "ysbin", "yst00001.ybn")));
-        Assert.Equal(Repetitive, File.ReadAllBytes(Path.Combine(Dir("out"), "bg", "fundo.png")));
+        Assert.Equal(Repetitive, File.ReadAllBytes(Path.Combine(Dir("out"), "bg", BackgroundPng)));
         Assert.Empty(File.ReadAllBytes(Path.Combine(Dir("out"), "ysbin", "vazio.ybn")));
     }
 
@@ -74,7 +76,7 @@ public sealed class YpfFolderTests : IDisposable
         using var archive = Open(ypf.Bytes);
         YpfFolder.Unpack(archive, Dir("out"), TestContext.Current.CancellationToken);
         var changed = Enumerable.Repeat((byte)'Z', 6000).ToArray();
-        File.WriteAllBytes(Path.Combine(Dir("out"), "bg", "fundo.png"), changed);
+        File.WriteAllBytes(Path.Combine(Dir("out"), "bg", BackgroundPng), changed);
 
         var packed = PackToBytes(archive, Dir("out"), out var result);
 
@@ -216,12 +218,12 @@ public sealed class YpfFolderTests : IDisposable
     [Fact]
     public void Unpack_PastaNoLugarDeUmArquivoViraErroEmPortugues()
     {
-        Directory.CreateDirectory(Path.Combine(Dir("out"), "bg", "fundo.png"));
+        Directory.CreateDirectory(Path.Combine(Dir("out"), "bg", BackgroundPng));
         using var archive = Open(Sample(500).Bytes);
 
         var ex = Assert.Throws<VNForgeException>(() => YpfFolder.Unpack(archive, Dir("out"), TestContext.Current.CancellationToken));
 
-        Assert.Contains("fundo.png", ex.Message);
+        Assert.Contains(BackgroundPng, ex.Message);
     }
 
     [Fact]

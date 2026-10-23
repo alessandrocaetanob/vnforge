@@ -5,6 +5,8 @@ namespace VNForge.Core.Tests.Projects;
 
 public sealed class ProjectInitializerTests : IDisposable
 {
+    private const string GameExe = "Jogo.exe";
+
     private readonly TempFolder _temp = new();
     private readonly string _game;
 
@@ -12,7 +14,7 @@ public sealed class ProjectInitializerTests : IDisposable
     {
         _game = Path.Combine(_temp.Path, "jogo");
         Directory.CreateDirectory(_game);
-        File.WriteAllText(Path.Combine(_game, "Jogo.exe"), "MZ");
+        File.WriteAllText(Path.Combine(_game, GameExe), "MZ");
     }
 
     public void Dispose() => _temp.Dispose();
@@ -33,7 +35,7 @@ public sealed class ProjectInitializerTests : IDisposable
         Assert.Equal(new EngineConfig("fake", 500, "0xD36FAC96"), saved.Engine);
         Assert.Equal(saved, result.Config);
         Assert.Equal("projeto", saved.Name);
-        Assert.Equal("Jogo.exe", saved.Game.Exe);
+        Assert.Equal(GameExe, saved.Game.Exe);
         Assert.Equal(_game.Replace(Path.DirectorySeparatorChar, '/'), saved.Game.Path);
         Assert.Equal(new LanguagesConfig("ja", "pt-BR"), saved.Languages);
         Assert.Equal(new EncodingConfig("fold"), saved.Encoding);
@@ -56,7 +58,7 @@ public sealed class ProjectInitializerTests : IDisposable
         var folder = ProjectFolder.Open(ProjectDir());
         Assert.True(Directory.Exists(folder.TextDirectory));
         Assert.True(Directory.Exists(folder.CacheDirectory));
-        Assert.Equal(["Jogo.exe"], Directory.EnumerateFileSystemEntries(_game).Select(Path.GetFileName).ToArray());
+        Assert.Equal([GameExe], Directory.EnumerateFileSystemEntries(_game).Select(Path.GetFileName).ToArray());
     }
 
     [Fact]
@@ -123,7 +125,7 @@ public sealed class ProjectInitializerTests : IDisposable
         var error = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Initialize(project, _game, [Matching()]));
 
         Assert.Contains("não pode ficar dentro da pasta do jogo", error.Message);
-        Assert.Equal(["Jogo.exe"], Directory.EnumerateFileSystemEntries(_game).Select(Path.GetFileName).ToArray());
+        Assert.Equal([GameExe], Directory.EnumerateFileSystemEntries(_game).Select(Path.GetFileName).ToArray());
     }
 
     [Fact]
@@ -147,7 +149,7 @@ public sealed class ProjectInitializerTests : IDisposable
     [Fact]
     public void Executavel_unico_ignora_desinstalador_e_maiusculas_da_extensao()
     {
-        File.Delete(Path.Combine(_game, "Jogo.exe"));
+        File.Delete(Path.Combine(_game, GameExe));
         File.WriteAllText(Path.Combine(_game, "Vn.EXE"), "MZ");
         File.WriteAllText(Path.Combine(_game, "unins000.exe"), "MZ");
 
@@ -159,7 +161,7 @@ public sealed class ProjectInitializerTests : IDisposable
     [Fact]
     public void Sem_executavel_pede_a_opcao_exe_e_nao_cria_o_projeto()
     {
-        File.Delete(Path.Combine(_game, "Jogo.exe"));
+        File.Delete(Path.Combine(_game, GameExe));
 
         var error = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()]));
 

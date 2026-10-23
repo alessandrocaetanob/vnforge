@@ -6,6 +6,15 @@ namespace VNForge.Core.Tests.Injection;
 
 public sealed class GameInjectorTests : IDisposable
 {
+    private const string NewFile = "novo.txt";
+    private const string GameExe = "jogo.exe";
+    private const string OriginalYsbinDir = "original-ysbin";
+    private const string YsbinYpf = "ysbin.ypf";
+    private const string BgmYpf = "bgm.ypf";
+    private const string OriginalBgmDir = "original-bgm";
+    private const string TranslatedYsbinDir = "traduzido-ysbin";
+    private const string TranslatedBgmDir = "traduzido-bgm";
+
     private readonly TempFolder _temp = new();
     private readonly string _game;
     private readonly ProjectFolder _project;
@@ -19,7 +28,7 @@ public sealed class GameInjectorTests : IDisposable
             Path.Combine(_temp.Path, "projeto"),
             new ProjectConfig(
                 "Teste",
-                new GameConfig(_game, "jogo.exe"),
+                new GameConfig(_game, GameExe),
                 new EngineConfig("yuris"),
                 new LanguagesConfig("ja", "pt-BR"),
                 new EncodingConfig("fold"),
@@ -49,18 +58,18 @@ public sealed class GameInjectorTests : IDisposable
 
     private void SeedGameAndBuild()
     {
-        Game("ysbin.ypf", "original-ysbin");
-        Game("bgm.ypf", "original-bgm");
-        Game("jogo.exe", "original-exe");
-        Build("ysbin.ypf", "traduzido-ysbin");
-        Build("bgm.ypf", "traduzido-bgm");
+        Game(YsbinYpf, OriginalYsbinDir);
+        Game(BgmYpf, OriginalBgmDir);
+        Game(GameExe, "original-exe");
+        Build(YsbinYpf, TranslatedYsbinDir);
+        Build(BgmYpf, TranslatedBgmDir);
     }
 
     private void AssertGameIsOriginal()
     {
-        Assert.Equal("original-ysbin", ReadGame("ysbin.ypf"));
-        Assert.Equal("original-bgm", ReadGame("bgm.ypf"));
-        Assert.Equal("original-exe", ReadGame("jogo.exe"));
+        Assert.Equal(OriginalYsbinDir, ReadGame(YsbinYpf));
+        Assert.Equal(OriginalBgmDir, ReadGame(BgmYpf));
+        Assert.Equal("original-exe", ReadGame(GameExe));
     }
 
     [Fact]
@@ -85,7 +94,7 @@ public sealed class GameInjectorTests : IDisposable
     [Fact]
     public void Plan_com_pasta_do_jogo_inexistente_diz_qual()
     {
-        Build("ysbin.ypf", "x");
+        Build(YsbinYpf, "x");
         Directory.Delete(_game);
 
         var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
@@ -96,9 +105,9 @@ public sealed class GameInjectorTests : IDisposable
     [Fact]
     public void Plan_aceita_game_path_relativo_a_pasta_do_projeto()
     {
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../jogo", "jogo.exe") });
-        Game("ysbin.ypf", "original-ysbin");
-        Build("ysbin.ypf", "traduzido-ysbin");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../jogo", GameExe) });
+        Game(YsbinYpf, OriginalYsbinDir);
+        Build(YsbinYpf, TranslatedYsbinDir);
 
         var plan = Injector().Plan(_project);
 
@@ -126,14 +135,14 @@ public sealed class GameInjectorTests : IDisposable
 
         var backup = Path.Combine(_project.BackupDirectory, "2026-10-23_1020");
         Assert.Equal(backup, result.BackupDirectory);
-        Assert.Equal(["bgm.ypf", "ysbin.ypf"], result.Written);
-        Assert.Equal("original-ysbin", File.ReadAllText(Path.Combine(backup, "ysbin.ypf")));
-        Assert.Equal("original-bgm", File.ReadAllText(Path.Combine(backup, "bgm.ypf")));
-        Assert.False(File.Exists(Path.Combine(backup, "jogo.exe")));
+        Assert.Equal([BgmYpf, YsbinYpf], result.Written);
+        Assert.Equal(OriginalYsbinDir, File.ReadAllText(Path.Combine(backup, YsbinYpf)));
+        Assert.Equal(OriginalBgmDir, File.ReadAllText(Path.Combine(backup, BgmYpf)));
+        Assert.False(File.Exists(Path.Combine(backup, GameExe)));
         Assert.True(File.Exists(Path.Combine(backup, BackupManifest.FileName)));
-        Assert.Equal("traduzido-ysbin", ReadGame("ysbin.ypf"));
-        Assert.Equal("traduzido-bgm", ReadGame("bgm.ypf"));
-        Assert.Equal("original-exe", ReadGame("jogo.exe"));
+        Assert.Equal(TranslatedYsbinDir, ReadGame(YsbinYpf));
+        Assert.Equal(TranslatedBgmDir, ReadGame(BgmYpf));
+        Assert.Equal("original-exe", ReadGame(GameExe));
         Assert.Empty(Directory.EnumerateFiles(_game, "*.tmp", SearchOption.AllDirectories));
     }
 
@@ -148,14 +157,14 @@ public sealed class GameInjectorTests : IDisposable
 
         Assert.Equal("traduzido-cg", ReadGame("data/cg.ypf"));
         Assert.Equal("novo", ReadGame("data/novo.txt"));
-        Assert.False(File.Exists(Path.Combine(result.BackupDirectory!, "data", "novo.txt")));
+        Assert.False(File.Exists(Path.Combine(result.BackupDirectory!, "data", NewFile)));
     }
 
     [Fact]
     public void Inject_ignora_arquivo_do_build_identico_ao_do_jogo_e_nao_cria_backup_sem_mudanca()
     {
-        Game("ysbin.ypf", "igual");
-        Build("ysbin.ypf", "igual");
+        Game(YsbinYpf, "igual");
+        Build(YsbinYpf, "igual");
 
         var plan = Injector().Plan(_project);
         var result = Injector().Inject(plan);
@@ -171,7 +180,7 @@ public sealed class GameInjectorTests : IDisposable
     {
         SeedGameAndBuild();
         var first = InjectAll(Injector());
-        Build("ysbin.ypf", "traduzido-ysbin-v2");
+        Build(YsbinYpf, "traduzido-ysbin-v2");
 
         var second = InjectAll(Injector());
 
@@ -185,16 +194,16 @@ public sealed class GameInjectorTests : IDisposable
         SeedGameAndBuild();
         InjectAll(Injector());
         _clock.Now = _clock.Now.AddMinutes(5);
-        Build("ysbin.ypf", "traduzido-ysbin-v2");
+        Build(YsbinYpf, "traduzido-ysbin-v2");
 
         var second = InjectAll(Injector());
 
-        Assert.Equal("original-ysbin", File.ReadAllText(Path.Combine(second.BackupDirectory!, "ysbin.ypf")));
-        Assert.Equal("traduzido-ysbin-v2", ReadGame("ysbin.ypf"));
+        Assert.Equal(OriginalYsbinDir, File.ReadAllText(Path.Combine(second.BackupDirectory!, YsbinYpf)));
+        Assert.Equal("traduzido-ysbin-v2", ReadGame(YsbinYpf));
 
         RestoreLatest(Injector());
 
-        Assert.Equal("original-ysbin", ReadGame("ysbin.ypf"));
+        Assert.Equal(OriginalYsbinDir, ReadGame(YsbinYpf));
     }
 
     [Fact]
@@ -213,18 +222,18 @@ public sealed class GameInjectorTests : IDisposable
         SeedGameAndBuild();
         InjectAll(Injector());
         _clock.Now = _clock.Now.AddMinutes(1);
-        Build("ysbin.ypf", "original-ysbin");
-        Build("bgm.ypf", "traduzido-bgm-v2");
-        File.Delete(Path.Combine(_project.BuildDirectory, "ysbin.ypf"));
+        Build(YsbinYpf, OriginalYsbinDir);
+        Build(BgmYpf, "traduzido-bgm-v2");
+        File.Delete(Path.Combine(_project.BuildDirectory, YsbinYpf));
         InjectAll(Injector());
         _clock.Now = _clock.Now.AddMinutes(1);
-        Build("ysbin.ypf", "traduzido-ysbin-v3");
+        Build(YsbinYpf, "traduzido-ysbin-v3");
 
         var third = InjectAll(Injector());
 
-        Assert.Equal("original-ysbin", File.ReadAllText(Path.Combine(third.BackupDirectory!, "ysbin.ypf")));
+        Assert.Equal(OriginalYsbinDir, File.ReadAllText(Path.Combine(third.BackupDirectory!, YsbinYpf)));
         RestoreLatest(Injector());
-        Assert.Equal("original-ysbin", ReadGame("ysbin.ypf"));
+        Assert.Equal(OriginalYsbinDir, ReadGame(YsbinYpf));
     }
 
     [Fact]
@@ -234,43 +243,43 @@ public sealed class GameInjectorTests : IDisposable
         InjectAll(Injector());
         var outro = Path.Combine(_temp.Path, "outro");
         Directory.CreateDirectory(outro);
-        File.WriteAllText(Path.Combine(outro, "ysbin.ypf"), "do-outro-jogo");
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(outro, "jogo.exe") });
+        File.WriteAllText(Path.Combine(outro, YsbinYpf), "do-outro-jogo");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(outro, GameExe) });
 
         var result = RestoreLatest(Injector());
 
         Assert.Equal(_game, result.GameDirectory);
         AssertGameIsOriginal();
-        Assert.Equal("do-outro-jogo", File.ReadAllText(Path.Combine(outro, "ysbin.ypf")));
+        Assert.Equal("do-outro-jogo", File.ReadAllText(Path.Combine(outro, YsbinYpf)));
     }
 
     [Fact]
     public void Restore_nao_apaga_arquivo_criado_pela_injecao_que_mudou_depois()
     {
         SeedGameAndBuild();
-        Build("novo.txt", "novo");
+        Build(NewFile, "novo");
         InjectAll(Injector());
-        Game("novo.txt", "editado-depois");
+        Game(NewFile, "editado-depois");
 
         var result = RestoreLatest(Injector());
 
-        Assert.Equal(["novo.txt"], result.Kept);
-        Assert.Equal("editado-depois", ReadGame("novo.txt"));
+        Assert.Equal([NewFile], result.Kept);
+        Assert.Equal("editado-depois", ReadGame(NewFile));
         AssertGameIsOriginal();
     }
 
     [Fact]
     public void Arquivo_novo_que_aparece_entre_o_plano_e_a_injecao_aborta_sem_sobrescrever()
     {
-        Build("novo.txt", "do-build");
+        Build(NewFile, "do-build");
         var injector = Injector();
         var plan = injector.Plan(_project);
-        Game("novo.txt", "criado-por-outro");
+        Game(NewFile, "criado-por-outro");
 
         var erro = Assert.Throws<InjectionException>(() => injector.Inject(plan));
 
         Assert.Contains("mudou depois da conferência", erro.Message);
-        Assert.Equal("criado-por-outro", ReadGame("novo.txt"));
+        Assert.Equal("criado-por-outro", ReadGame(NewFile));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
     }
 
@@ -297,11 +306,11 @@ public sealed class GameInjectorTests : IDisposable
         var erro = Assert.Throws<InjectionException>(() => InjectAll(Injector(disco)));
 
         Assert.Contains("vnf restore", erro.Message);
-        Assert.Equal("traduzido-bgm", ReadGame("bgm.ypf"));
+        Assert.Equal(TranslatedBgmDir, ReadGame(BgmYpf));
 
         var restored = RestoreLatest(Injector());
 
-        Assert.Contains("bgm.ypf", restored.Restored);
+        Assert.Contains(BgmYpf, restored.Restored);
         AssertGameIsOriginal();
     }
 
@@ -324,29 +333,29 @@ public sealed class GameInjectorTests : IDisposable
         SeedGameAndBuild();
         var injector = Injector();
         var plan = injector.Plan(_project);
-        Game("ysbin.ypf", "atualizado-pelo-jogo");
+        Game(YsbinYpf, "atualizado-pelo-jogo");
 
         var erro = Assert.Throws<InjectionException>(() => injector.Inject(plan));
 
         Assert.Contains("mudou depois da conferência", erro.Message);
-        Assert.Equal("atualizado-pelo-jogo", ReadGame("ysbin.ypf"));
+        Assert.Equal("atualizado-pelo-jogo", ReadGame(YsbinYpf));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
-        Assert.Equal("original-bgm", ReadGame("bgm.ypf"));
+        Assert.Equal(OriginalBgmDir, ReadGame(BgmYpf));
     }
 
     [Fact]
     public void Restore_devolve_os_originais_e_apaga_o_que_a_injecao_criou()
     {
         SeedGameAndBuild();
-        Build("novo.txt", "novo");
+        Build(NewFile, "novo");
         InjectAll(Injector());
 
         var result = RestoreLatest(Injector());
 
         AssertGameIsOriginal();
-        Assert.False(File.Exists(Path.Combine(_game, "novo.txt")));
-        Assert.Equal(["bgm.ypf", "ysbin.ypf"], result.Restored);
-        Assert.Equal(["novo.txt"], result.Removed);
+        Assert.False(File.Exists(Path.Combine(_game, NewFile)));
+        Assert.Equal([BgmYpf, YsbinYpf], result.Restored);
+        Assert.Equal([NewFile], result.Removed);
     }
 
     [Fact]
@@ -386,13 +395,13 @@ public sealed class GameInjectorTests : IDisposable
     {
         SeedGameAndBuild();
         var result = InjectAll(Injector());
-        File.WriteAllText(Path.Combine(result.BackupDirectory!, "bgm.ypf"), "adulterado");
+        File.WriteAllText(Path.Combine(result.BackupDirectory!, BgmYpf), "adulterado");
 
         var erro = Assert.Throws<InjectionException>(() => RestoreLatest(Injector()));
 
         Assert.Contains("nada foi gravado", erro.Message);
-        Assert.Equal("traduzido-ysbin", ReadGame("ysbin.ypf"));
-        Assert.Equal("traduzido-bgm", ReadGame("bgm.ypf"));
+        Assert.Equal(TranslatedYsbinDir, ReadGame(YsbinYpf));
+        Assert.Equal(TranslatedBgmDir, ReadGame(BgmYpf));
     }
 
     [Fact]
