@@ -7,6 +7,7 @@ namespace VNForge.Cli.Tests;
 public sealed class ExitCodeTests : IDisposable
 {
     private const string FakeQaCommand = "fake-qa";
+    private const string JsonFlag = "--json";
 
     private readonly CliHarness _cli = new();
 
@@ -133,9 +134,9 @@ public sealed class ExitCodeTests : IDisposable
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        var qa = await _cli.RunAsync([FakeQaCommand, "--json"], TestContext.Current.CancellationToken);
-        var erro = await _cli.RunAsync(["falha", "--json"], TestContext.Current.CancellationToken);
-        var cancelado = await _cli.RunAsync(["cancela", "--json"], cts.Token);
+        var qa = await _cli.RunAsync([FakeQaCommand, JsonFlag], TestContext.Current.CancellationToken);
+        var erro = await _cli.RunAsync(["falha", JsonFlag], TestContext.Current.CancellationToken);
+        var cancelado = await _cli.RunAsync(["cancela", JsonFlag], cts.Token);
 
         Assert.Equal(2, qa.ExitCode);
         Assert.Equal(1, erro.ExitCode);
@@ -154,7 +155,7 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Erro_de_uso_com_json_sai_como_json()
     {
-        var result = await _cli.RunAsync(["--nao-existe", "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["--nao-existe", JsonFlag], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
@@ -204,7 +205,7 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Comando_desconhecido_sai_em_portugues_e_com_json()
     {
-        var result = await _cli.RunAsync(["nada", "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["nada", JsonFlag], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         using var doc = JsonDocument.Parse(result.Output);
@@ -215,10 +216,10 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Project_sem_valor_engole_a_opcao_seguinte_como_pasta()
     {
-        var result = await _cli.RunAsync(["--project", "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["--project", JsonFlag], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--json", result.Error);
+        Assert.Contains(JsonFlag, result.Error);
     }
 
     private void AddCommandWithParameters()
