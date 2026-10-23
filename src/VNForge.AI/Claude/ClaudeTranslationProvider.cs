@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using VNForge.AI.Translation;
+using VNForge.Core.Text;
 
 namespace VNForge.AI.Claude;
 
@@ -19,6 +20,19 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         {"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"translation":{"type":"string"}},"required":["id","translation"],"additionalProperties":false}}},"required":["translations"],"additionalProperties":false}
         """;
 
+    private readonly Lock _usageLock = new();
+    private ClaudeUsage _usage = new(0, 0, 0, 0);
+
+    /// <summary>Tokens acumulados de todas as chamadas deste provedor, recusas incluídas, com os lidos do cache.</summary>
+    public ClaudeUsage Usage
+    {
+        get { lock (_usageLock) return _usage; }
+    }
+
+    /// <summary>
+    /// Traduz o lote. Uma recusa que sobrevive ao fallback do servidor não derruba o lote: ele é refeito linha a linha
+    /// e só as linhas recusadas voltam com <see cref="TranslationResult.Refused"/>.
+    /// </summary>
     public async Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
@@ -26,8 +40,39 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         if (batch.Lines.Count == 0)
             return [];
 
+        try
+        {
+            return await TranslateOnceAsync(batch, ct).ConfigureAwait(false);
+        }
+        catch (ClaudeRefusalException)
+        {
+            if (batch.Lines.Count == 1)
+                return [new TranslationResult(batch.Lines[0].Id, string.Empty, Refused: true)];
+        }
+
+        // O lote tem um gatilho de recusa; isolar por linha mantém as demais traduções.
+        List<TranslationResult> results = [];
+        foreach (var line in batch.Lines)
+            results.AddRange(await TranslateAsync(SingleLine(batch, line), ct).ConfigureAwait(false));
+        return results;
+    }
+
+    private static TranslationBatch SingleLine(TranslationBatch batch, TextUnit line) => new([line])
+    {
+        PreviousLines = batch.PreviousLines,
+        Glossary = batch.Glossary,
+        Characters = batch.Characters,
+        StyleGuide = batch.StyleGuide,
+    };
+
+    private async Task<IReadOnlyList<TranslationResult>> TranslateOnceAsync(TranslationBatch batch, CancellationToken ct)
+    {
         var request = new ClaudeRequest(_options.Model, _options.Effort, _options.MaxTokens, BuildSystem(batch), BuildUser(batch), Schema);
         var reply = await client.CompleteAsync(request, ct).ConfigureAwait(false);
+
+        if (reply.Usage is { } usage)
+            lock (_usageLock)
+                _usage += usage;
 
         if (reply.StopReason == "refusal")
             throw new ClaudeRefusalException("O modelo recusou traduzir este lote (stop_reason: refusal).");

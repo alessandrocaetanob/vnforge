@@ -35,4 +35,5 @@ public sealed record TranslationBatch
 /// <summary>A tradução de uma linha do lote.</summary>
 /// <param name="Id">Id da <see cref="TextUnit"/> traduzida.</param>
 /// <param name="Translation">Texto traduzido, com os mesmos marcadores de controle do original.</param>
-public sealed record TranslationResult(string Id, string Translation);
+/// <param name="Refused">O modelo recusou esta linha mesmo após o fallback; <paramref name="Translation"/> fica vazia e a linha precisa de revisão.</param>
+public sealed record TranslationResult(string Id, string Translation, bool Refused = false);

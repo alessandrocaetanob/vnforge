@@ -9,8 +9,18 @@ public sealed record ClaudeRequest(
     string User,
     string JsonSchema);
 
-/// <summary>Resposta reduzida ao que o provedor usa: o <c>stop_reason</c> e o texto concatenado.</summary>
-public sealed record ClaudeReply(string? StopReason, string Text);
+/// <summary>Tokens de uma chamada; <see cref="CacheReadInputTokens"/> são os lidos do cache de prompt (cobrados mais barato).</summary>
+public sealed record ClaudeUsage(long InputTokens, long OutputTokens, long CacheReadInputTokens, long CacheCreationInputTokens)
+{
+    public static ClaudeUsage operator +(ClaudeUsage a, ClaudeUsage b) => new(
+        a.InputTokens + b.InputTokens,
+        a.OutputTokens + b.OutputTokens,
+        a.CacheReadInputTokens + b.CacheReadInputTokens,
+        a.CacheCreationInputTokens + b.CacheCreationInputTokens);
+}
+
+/// <summary>Resposta reduzida ao que o provedor usa: o <c>stop_reason</c>, o texto concatenado e o uso de tokens.</summary>
+public sealed record ClaudeReply(string? StopReason, string Text, ClaudeUsage? Usage = null);
 
 /// <summary>Fronteira com o SDK. Os testes a trocam por um cliente falso.</summary>
 public interface IClaudeMessageClient
