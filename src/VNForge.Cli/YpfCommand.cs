@@ -128,10 +128,11 @@ public static class YpfCommand
 
     private static YpfPackResult PackTo(YpfArchive archive, string folder, string target, bool overwrite, CancellationToken token)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        YpfFolder.ValidatePackFolder(archive, folder);
         var temporary = $"{target}.{Guid.NewGuid():N}.tmp";
         try
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             YpfPackResult result;
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
             {
@@ -141,9 +142,20 @@ public static class YpfCommand
             File.Move(temporary, target, overwrite);
             return result;
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new VNForgeException($"Não foi possível gravar \"{target}\": {ex.Message}", ex);
+        }
         finally
         {
-            File.Delete(temporary);
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // O temporário fica para trás, mas a falha original não pode ser mascarada.
+            }
         }
     }
 
@@ -155,7 +167,16 @@ public static class YpfCommand
             throw new VNForgeException($"O arquivo não existe: {full}");
         }
 
-        var stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read);
+        FileStream stream;
+        try
+        {
+            stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new VNForgeException($"Não foi possível abrir \"{full}\": {ex.Message}", ex);
+        }
+
         try
         {
             return (YpfArchive)Format.Open(stream);

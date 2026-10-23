@@ -22,9 +22,13 @@ public static class YpfFolder
 {
     /// <summary>
     /// Grava cada entrada, já descomprimida, em <paramref name="directory"/>, com o caminho interno como caminho relativo.
-    /// Confere todos os caminhos antes de gravar o primeiro byte; arquivos que já existem são sobrescritos.
+    /// Confere os caminhos e os tamanhos pelo índice antes de gravar o primeiro byte; arquivos que já existem são sobrescritos.
+    /// Um erro de conteúdo ou de gravação no meio da extração (hash divergente, disco cheio) deixa a extração parcial.
     /// </summary>
-    /// <exception cref="VNForgeException">Um caminho interno sai da pasta, é inválido, ou colide com outro neste sistema de arquivos.</exception>
+    /// <exception cref="VNForgeException">
+    /// Um caminho interno sai da pasta, é inválido, colide com outro, passa por link simbólico ou junção, uma entrada é
+    /// grande demais, o conteúdo de uma entrada está corrompido, ou a gravação falhou.
+    /// </exception>
     public static YpfUnpackResult Unpack(YpfArchive archive, string directory, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(archive);
@@ -38,10 +42,18 @@ public static class YpfFolder
         {
             cancellationToken.ThrowIfCancellationRequested();
             var entry = archive.Entries[i];
-            Directory.CreateDirectory(Path.GetDirectoryName(targets[i])!);
-            using var content = archive.OpenEntry(entry);
-            using var file = new FileStream(targets[i], FileMode.Create, FileAccess.Write, FileShare.None);
-            content.CopyTo(file);
+            using var content = OpenEntry(archive, entry);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(targets[i])!);
+                using var file = new FileStream(targets[i], FileMode.Create, FileAccess.Write, FileShare.None);
+                content.CopyTo(file);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new VNForgeException($"Não foi possível gravar \"{targets[i]}\" (entrada \"{entry.Path}\"): {ex.Message}", ex);
+            }
+
             bytes += entry.Size;
         }
 
@@ -49,16 +61,14 @@ public static class YpfFolder
     }
 
     /// <summary>
-    /// Grava em <paramref name="output"/> o pacote reconstruído a partir de <paramref name="directory"/>. Arquivos
-    /// iguais ao conteúdo do original não viram troca; entradas sem arquivo na pasta são mantidas. O pack não
-    /// acrescenta entradas: um arquivo da pasta que o original não tem é recusado antes de gravar qualquer byte.
+    /// Confere, sem gravar nada, se <paramref name="directory"/> pode ser empacotada: a pasta existe e não tem arquivo
+    /// que o original não contém. Devolve o arquivo da pasta de cada entrada, pelo caminho da entrada.
     /// </summary>
-    /// <exception cref="VNForgeException">A pasta não existe, tem arquivo fora do pacote, ou o pacote não aceita trocas.</exception>
-    public static YpfPackResult Pack(YpfArchive archive, string directory, Stream output, CancellationToken cancellationToken = default)
+    /// <exception cref="VNForgeException">A pasta não existe, tem arquivo fora do pacote, ou o original tem duas entradas que só diferem na caixa.</exception>
+    public static IReadOnlyDictionary<string, string> ValidatePackFolder(YpfArchive archive, string directory)
     {
         ArgumentNullException.ThrowIfNull(archive);
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-        ArgumentNullException.ThrowIfNull(output);
 
         var root = Path.GetFullPath(directory);
         if (!Directory.Exists(root))
@@ -66,30 +76,66 @@ public static class YpfFolder
             throw new VNForgeException($"A pasta não existe: {root}");
         }
 
-        var known = archive.Entries.Select(e => e.Path).ToHashSet(StringComparer.Ordinal);
+        var known = new Dictionary<string, string>(PathComparer);
+        foreach (var entry in archive.Entries)
+        {
+            if (!known.TryAdd(entry.Path, entry.Path))
+            {
+                throw new VNForgeException(
+                    $"O YPF tem as entradas \"{known[entry.Path]}\" e \"{entry.Path}\", que só diferem na caixa; neste sistema de arquivos elas são o mesmo arquivo e não dá para empacotar.");
+            }
+        }
+
         var files = new Dictionary<string, string>(StringComparer.Ordinal);
         var unknown = new List<string>();
-        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        try
         {
-            var relative = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
-            if (known.Contains(relative))
+            foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
             {
-                files[relative] = file;
+                var relative = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
+                if (known.TryGetValue(relative, out var entryPath))
+                {
+                    files[entryPath] = file;
+                }
+                else
+                {
+                    unknown.Add(relative);
+                }
             }
-            else
-            {
-                unknown.Add(relative);
-            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new VNForgeException($"Não foi possível ler a pasta \"{root}\": {ex.Message}", ex);
         }
 
         if (unknown.Count > 0)
         {
             unknown.Sort(StringComparer.Ordinal);
-            var shown = string.Join(", ", unknown.Take(5));
+            var shown = string.Join(", ", unknown.Take(5).Select(u => $"\"{u}\""));
             var rest = unknown.Count > 5 ? $" e mais {unknown.Count - 5}" : string.Empty;
             throw new VNForgeException(
-                $"A pasta tem arquivos que o YPF original não contém: {shown}{rest}. O pack não acrescenta entradas.");
+                $"A pasta tem arquivos que o YPF original não contém: {shown}{rest}. O pack não acrescenta entradas: remova esses arquivos da pasta (por exemplo Thumbs.db ou desktop.ini) e tente de novo.");
         }
+
+        return files;
+    }
+
+    /// <summary>
+    /// Grava em <paramref name="output"/> o pacote reconstruído a partir de <paramref name="directory"/>. Arquivos
+    /// iguais ao conteúdo do original não viram troca; entradas sem arquivo na pasta são mantidas. O pack não
+    /// acrescenta entradas: um arquivo da pasta que o original não tem é recusado antes de gravar qualquer byte.
+    /// No Windows os caminhos são comparados sem diferenciar caixa.
+    /// </summary>
+    /// <exception cref="VNForgeException">
+    /// A pasta é inválida (ver <see cref="ValidatePackFolder"/>), o conteúdo do original está corrompido, a leitura
+    /// ou a gravação falhou, ou o pacote não aceita trocas.
+    /// </exception>
+    public static YpfPackResult Pack(YpfArchive archive, string directory, Stream output, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        ArgumentNullException.ThrowIfNull(output);
+
+        var files = ValidatePackFolder(archive, directory);
 
         var replacements = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         var replaced = new List<string>();
@@ -103,7 +149,16 @@ public static class YpfFolder
                 continue;
             }
 
-            var bytes = File.ReadAllBytes(file);
+            byte[] bytes;
+            try
+            {
+                bytes = File.ReadAllBytes(file);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new VNForgeException($"Não foi possível ler \"{file}\": {ex.Message}", ex);
+            }
+
             if (!MatchesEntry(archive, entry, bytes))
             {
                 replacements[entry.Path] = bytes;
@@ -115,12 +170,28 @@ public static class YpfFolder
         {
             archive.WriteTo(output, replacements);
         }
-        catch (NotSupportedException ex)
+        catch (Exception ex) when (ex is NotSupportedException or InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            throw new VNForgeException(ex.Message, ex);
+            throw new VNForgeException(
+                ex is NotSupportedException ? ex.Message : $"Não foi possível gravar o YPF novo: {ex.Message}",
+                ex);
         }
 
         return new YpfPackResult(archive.Entries.Count, replaced, missing);
+    }
+
+    private static StringComparer PathComparer => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    private static Stream OpenEntry(YpfArchive archive, YpfEntry entry)
+    {
+        try
+        {
+            return archive.OpenEntry(entry);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or NotSupportedException or IOException)
+        {
+            throw new VNForgeException($"Não foi possível ler a entrada \"{entry.Path}\" do YPF: {ex.Message}", ex);
+        }
     }
 
     private static bool MatchesEntry(YpfArchive archive, YpfEntry entry, byte[] bytes)
@@ -130,9 +201,17 @@ public static class YpfFolder
             return false;
         }
 
-        using var content = archive.OpenEntry(entry);
+        using var content = OpenEntry(archive, entry);
         var current = new byte[bytes.Length];
-        content.ReadExactly(current);
+        try
+        {
+            content.ReadExactly(current);
+        }
+        catch (EndOfStreamException ex)
+        {
+            throw new VNForgeException($"A entrada \"{entry.Path}\" do YPF termina antes do tamanho que o índice indica.", ex);
+        }
+
         return current.AsSpan().SequenceEqual(bytes);
     }
 
@@ -147,6 +226,12 @@ public static class YpfFolder
         for (var i = 0; i < targets.Length; i++)
         {
             var entryPath = archive.Entries[i].Path;
+            if (archive.Entries[i].Size > Array.MaxLength || archive.Entries[i].SizeStored > Array.MaxLength)
+            {
+                throw new VNForgeException(
+                    $"A entrada \"{entryPath}\" é grande demais para extrair ({archive.Entries[i].Size} bytes); nada foi extraído.");
+            }
+
             if (!IsSafeRelativePath(entryPath))
             {
                 throw new VNForgeException(
@@ -166,6 +251,7 @@ public static class YpfFolder
                     $"As entradas \"{other}\" e \"{entryPath}\" gravariam o mesmo arquivo neste sistema de arquivos; nada foi extraído.");
             }
 
+            ThrowIfLinked(target, prefix, entryPath);
             seen[target] = entryPath;
             targets[i] = target;
             for (var parent = Path.GetDirectoryName(target); parent is not null && parent.Length >= prefix.Length; parent = Path.GetDirectoryName(parent))
@@ -184,6 +270,19 @@ public static class YpfFolder
         }
 
         return targets;
+    }
+
+    private static void ThrowIfLinked(string target, string prefix, string entryPath)
+    {
+        for (var current = target; current is not null && current.Length >= prefix.Length; current = Path.GetDirectoryName(current))
+        {
+            var attributes = new FileInfo(current).Attributes;
+            if ((int)attributes != -1 && attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                throw new VNForgeException(
+                    $"O caminho \"{current}\", usado pela entrada \"{entryPath}\", é um link simbólico ou junção; o unpack não segue links. Nada foi extraído.");
+            }
+        }
     }
 
     private static bool IsSafeRelativePath(string path)

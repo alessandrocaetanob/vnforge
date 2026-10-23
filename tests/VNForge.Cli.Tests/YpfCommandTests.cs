@@ -248,6 +248,44 @@ public sealed class YpfCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Unpack_de_hash_adulterado_sai_como_erro_esperado()
+    {
+        File.WriteAllBytes(At("ruim.ypf"), Sample().WithWrongDataHash(@"se\porta.ogg"));
+
+        var result = await _cli.RunAsync(["ypf", "unpack", At("ruim.ypf"), At("out")], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("se/porta.ogg", result.Error);
+        Assert.DoesNotContain("inesperado", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Unpack_com_destino_que_e_arquivo_sai_como_erro_esperado()
+    {
+        var ypf = WriteSample();
+        File.WriteAllText(At("destino"), "x");
+
+        var result = await _cli.RunAsync(["ypf", "unpack", ypf, At("destino")], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("Não foi possível gravar", result.Error);
+    }
+
+    [Fact]
+    public async Task Pack_com_pasta_invalida_nao_cria_a_pasta_de_saida()
+    {
+        var ypf = WriteSample();
+        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
+        File.WriteAllBytes(Path.Combine(At("out"), "Thumbs.db"), [1]);
+
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), "--original", ypf, "--output", Path.Combine(At("novo"), "x.ypf")], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("Thumbs.db", result.Error);
+        Assert.False(Directory.Exists(At("novo")));
+    }
+
+    [Fact]
     public async Task Pack_exige_original_e_output()
     {
         var result = await _cli.RunAsync(["ypf", "pack", At("out")], Token);
