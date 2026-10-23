@@ -23,7 +23,7 @@ public static class ReviewExporter
         var data = format.Write(rows);
 
         var fullPath = Path.GetFullPath(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath) ?? fullPath);
         var temporary = $"{fullPath}.{Guid.NewGuid():N}.tmp";
         try
         {

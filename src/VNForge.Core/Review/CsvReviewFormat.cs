@@ -54,9 +54,10 @@ internal sealed class CsvReviewFormat : IReviewFormat
         }
 
         var columns = records[0].Fields.Select(h => h.Trim().ToLowerInvariant()).ToList();
-        foreach (var name in Required.Where(r => !columns.Contains(r)))
+        var missing = Required.FirstOrDefault(r => !columns.Contains(r));
+        if (missing is not null)
         {
-            throw new ReviewImportException($"'{path}': falta a coluna '{name}' no cabeçalho.");
+            throw new ReviewImportException($"'{path}': falta a coluna '{missing}' no cabeçalho.");
         }
 
         int Index(string name) => columns.IndexOf(name);
@@ -120,99 +121,108 @@ internal sealed class CsvReviewFormat : IReviewFormat
     }
 
     /// <summary>Divide o texto em registros, guardando a linha onde cada um começa. Linhas em branco somem.</summary>
-    private static List<(int Line, List<string> Fields)> Split(string text, string path, char delimiter)
-    {
-        var records = new List<(int, List<string>)>();
-        var fields = new List<string>();
-        var field = new StringBuilder();
-        var line = 1;
-        var recordLine = 1;
-        var quoted = false;
-        var wasQuoted = false;
+    private static List<(int Line, List<string> Fields)> Split(string text, string path, char delimiter) =>
+        new RecordSplitter(text, path, delimiter).Run();
 
-        void EndRecord()
+    private sealed class RecordSplitter(string text, string path, char delimiter)
+    {
+        private readonly List<(int, List<string>)> _records = [];
+        private readonly StringBuilder _field = new();
+        private List<string> _fields = [];
+        private int _line = 1;
+        private int _recordLine = 1;
+        private bool _wasQuoted;
+
+        public List<(int Line, List<string> Fields)> Run()
         {
-            fields.Add(field.ToString());
-            field.Clear();
-            if (!(fields.Count == 1 && fields[0].Length == 0 && !wasQuoted))
+            for (var i = 0; i < text.Length; i++)
             {
-                records.Add((recordLine, fields));
+                i = text[i] == '"' && _field.Length == 0 && !_wasQuoted
+                    ? ReadQuoted(i + 1)
+                    : ReadUnquoted(i);
             }
 
-            fields = [];
-            wasQuoted = false;
+            if (_field.Length > 0 || _fields.Count > 0 || _wasQuoted)
+            {
+                EndRecord();
+            }
+
+            return _records;
         }
 
-        for (var i = 0; i < text.Length; i++)
+        /// <summary>Lê um campo entre aspas a partir de <paramref name="start"/>; devolve o índice da aspa que fecha.</summary>
+        private int ReadQuoted(int start)
         {
-            var c = text[i];
-            if (quoted)
+            _wasQuoted = true;
+            for (var i = start; i < text.Length; i++)
             {
-                if (c == '"')
+                var c = text[i];
+                if (c == '"' && i + 1 < text.Length && text[i + 1] == '"')
                 {
-                    if (i + 1 < text.Length && text[i + 1] == '"')
-                    {
-                        field.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        quoted = false;
-                    }
+                    _field.Append('"');
+                    i++;
+                }
+                else if (c == '"')
+                {
+                    return i;
                 }
                 else
                 {
-                    if (c == '\n')
-                    {
-                        line++;
-                    }
-
-                    field.Append(c);
+                    _line += c == '\n' ? 1 : 0;
+                    _field.Append(c);
                 }
-
-                continue;
             }
 
-            switch (c)
+            throw new ReviewImportException($"'{path}': aspas abertas na linha {_recordLine} e nunca fechadas.");
+        }
+
+        private int ReadUnquoted(int i)
+        {
+            var c = text[i];
+            if (c == '"')
             {
-                case '"' when field.Length == 0 && !wasQuoted:
-                    quoted = wasQuoted = true;
-                    break;
-                case '"':
-                    throw new ReviewImportException($"'{path}', linha {line}: aspas no meio de um campo; um campo com aspas deve ir todo entre aspas.");
-                case var d when d == delimiter:
-                    fields.Add(field.ToString());
-                    field.Clear();
-                    wasQuoted = false;
-                    break;
-                case '\r' when i + 1 < text.Length && text[i + 1] == '\n':
-                    break;
-                case '\r' or '\n':
-                    EndRecord();
-                    line++;
-                    recordLine = line;
-                    break;
-                default:
-                    if (wasQuoted)
-                    {
-                        throw new ReviewImportException($"'{path}', linha {line}: texto depois das aspas que fecham o campo.");
-                    }
-
-                    field.Append(c);
-                    break;
+                throw new ReviewImportException($"'{path}', linha {_line}: aspas no meio de um campo; um campo com aspas deve ir todo entre aspas.");
             }
+
+            if (c == delimiter)
+            {
+                _fields.Add(_field.ToString());
+                _field.Clear();
+                _wasQuoted = false;
+            }
+            else if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+            {
+                // O \n seguinte encerra o registro.
+            }
+            else if (c is '\r' or '\n')
+            {
+                EndRecord();
+                _line++;
+                _recordLine = _line;
+            }
+            else if (_wasQuoted)
+            {
+                throw new ReviewImportException($"'{path}', linha {_line}: texto depois das aspas que fecham o campo.");
+            }
+            else
+            {
+                _field.Append(c);
+            }
+
+            return i;
         }
 
-        if (quoted)
+        private void EndRecord()
         {
-            throw new ReviewImportException($"'{path}': aspas abertas na linha {recordLine} e nunca fechadas.");
-        }
+            _fields.Add(_field.ToString());
+            _field.Clear();
+            if (!(_fields.Count == 1 && _fields[0].Length == 0 && !_wasQuoted))
+            {
+                _records.Add((_recordLine, _fields));
+            }
 
-        if (field.Length > 0 || fields.Count > 0 || wasQuoted)
-        {
-            EndRecord();
+            _fields = [];
+            _wasQuoted = false;
         }
-
-        return records;
     }
 }

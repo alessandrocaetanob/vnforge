@@ -39,70 +39,95 @@ public static class ReviewImporter
         var rows = format.Read(File.ReadAllBytes(fullPath), fullPath);
 
         var scripts = project.LoadAllText().ToDictionary(s => s.Key, s => s.Value.ToList());
-        var where = new Dictionary<string, (string Key, int Index)>(StringComparer.Ordinal);
-        foreach (var (key, units) in scripts)
-        {
-            for (var i = 0; i < units.Count; i++)
-            {
-                where[units[i].Id] = (key, i);
-            }
-        }
-
-        var errors = new List<ReviewImportError>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var changes = new List<(string Key, int Index, TextUnit Unit)>();
-        foreach (var row in rows)
-        {
-            if (!seen.Add(row.Id))
-            {
-                errors.Add(new ReviewImportError(row.Line, $"o id '{row.Id}' está repetido no arquivo."));
-                continue;
-            }
-
-            if (!where.TryGetValue(row.Id, out var at))
-            {
-                errors.Add(new ReviewImportError(row.Line, $"id desconhecido '{row.Id}': não existe no projeto."));
-                continue;
-            }
-
-            if (!TryParseStatus(row.Status, out var status))
-            {
-                errors.Add(new ReviewImportError(row.Line, $"status inválido '{row.Status}' em '{row.Id}'; use {string.Join(", ", Enum.GetValues<TranslationStatus>().Select(ReviewExporter.EnumName))}."));
-                continue;
-            }
-
-            var current = scripts[at.Key][at.Index];
-            if (string.Equals(current.Translation ?? string.Empty, row.Translation, StringComparison.Ordinal)
-                && current.Status == status
-                && string.Equals(current.Notes, row.Notes, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            changes.Add((at.Key, at.Index, current with
-            {
-                Translation = row.Translation.Length == 0 ? null : row.Translation,
-                Status = status,
-                Notes = row.Notes,
-            }));
-        }
-
-        if (errors.Count > 0)
-        {
-            throw new ReviewImportException(errors);
-        }
-
+        var changes = Collect(rows, scripts);
         foreach (var (key, index, unit) in changes)
         {
             scripts[key][index] = unit;
         }
 
         var changedScripts = changes.Select(c => c.Key).Distinct().Order(StringComparer.Ordinal).ToList();
-        var originals = changedScripts.ToDictionary(k => k, k => File.ReadAllBytes(project.TextPath(k)));
+        SaveAll(project, scripts, changedScripts);
+        return new ReviewImportResult(rows.Count, changes.Count, changedScripts);
+    }
+
+    private static Dictionary<string, (string Key, int Index)> IndexById(Dictionary<string, List<TextUnit>> scripts)
+    {
+        var index = new Dictionary<string, (string Key, int Index)>(StringComparer.Ordinal);
+        foreach (var (key, units) in scripts)
+        {
+            for (var i = 0; i < units.Count; i++)
+            {
+                index[units[i].Id] = (key, i);
+            }
+        }
+
+        return index;
+    }
+
+    /// <summary>Confere todas as linhas e devolve as unidades que mudam; qualquer erro vira uma só <see cref="ReviewImportException"/>.</summary>
+    private static List<(string Key, int Index, TextUnit Unit)> Collect(IReadOnlyList<ReviewRow> rows, Dictionary<string, List<TextUnit>> scripts)
+    {
+        var where = IndexById(scripts);
+        var errors = new List<ReviewImportError>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var changes = new List<(string Key, int Index, TextUnit Unit)>();
+        foreach (var row in rows)
+        {
+            var error = Check(row, seen, where, out var status, out var at);
+            if (error is not null)
+            {
+                errors.Add(new ReviewImportError(row.Line, error));
+                continue;
+            }
+
+            var current = scripts[at.Key][at.Index];
+            if (!string.Equals(current.Translation ?? string.Empty, row.Translation, StringComparison.Ordinal)
+                || current.Status != status
+                || !string.Equals(current.Notes, row.Notes, StringComparison.Ordinal))
+            {
+                changes.Add((at.Key, at.Index, current with
+                {
+                    Translation = row.Translation.Length == 0 ? null : row.Translation,
+                    Status = status,
+                    Notes = row.Notes,
+                }));
+            }
+        }
+
+        return errors.Count > 0 ? throw new ReviewImportException(errors) : changes;
+    }
+
+    private static string? Check(
+        ReviewRow row,
+        HashSet<string> seen,
+        Dictionary<string, (string Key, int Index)> where,
+        out TranslationStatus status,
+        out (string Key, int Index) at)
+    {
+        status = default;
+        at = default;
+        if (!seen.Add(row.Id))
+        {
+            return $"o id '{row.Id}' está repetido no arquivo.";
+        }
+
+        if (!where.TryGetValue(row.Id, out at))
+        {
+            return $"id desconhecido '{row.Id}': não existe no projeto.";
+        }
+
+        return TryParseStatus(row.Status, out status)
+            ? null
+            : $"status inválido '{row.Status}' em '{row.Id}'; use {string.Join(", ", Enum.GetValues<TranslationStatus>().Select(ReviewExporter.EnumName))}.";
+    }
+
+    private static void SaveAll(ProjectFolder project, Dictionary<string, List<TextUnit>> scripts, List<string> keys)
+    {
+        var originals = keys.ToDictionary(k => k, k => File.ReadAllBytes(project.TextPath(k)));
         var written = new List<string>();
         try
         {
-            foreach (var key in changedScripts)
+            foreach (var key in keys)
             {
                 project.SaveText(key, scripts[key]);
                 written.Add(key);
@@ -118,8 +143,6 @@ public static class ReviewImporter
 
             throw;
         }
-
-        return new ReviewImportResult(rows.Count, changes.Count, changedScripts);
     }
 
     private static bool TryParseStatus(string text, out TranslationStatus status)

@@ -45,10 +45,19 @@ internal static class ImportCommand
             return ErrorHandler.OkExitCode;
         }
 
-        var changed = result.ChangedUnits;
-        writer.WriteLine(changed == 0
-            ? $"Nenhuma alteração: as {result.Rows.ToString("N0", PortugueseBrazil)} linhas do arquivo já estão iguais ao projeto."
-            : $"Importadas {changed.ToString("N0", PortugueseBrazil)} {(changed == 1 ? "linha alterada" : "linhas alteradas")} em {result.ChangedScripts.Count.ToString("N0", PortugueseBrazil)} {(result.ChangedScripts.Count == 1 ? "script" : "scripts")} (de {result.Rows.ToString("N0", PortugueseBrazil)} no arquivo).");
+        writer.WriteLine(result.ChangedUnits == 0 ? NoChange(result) : Summary(result));
         return ErrorHandler.OkExitCode;
     }
+
+    private static string NoChange(ReviewImportResult result) =>
+        $"Nenhuma alteração: as {Number(result.Rows)} linhas do arquivo já estão iguais ao projeto.";
+
+    private static string Summary(ReviewImportResult result)
+    {
+        var lines = result.ChangedUnits == 1 ? "linha alterada" : "linhas alteradas";
+        var scripts = result.ChangedScripts.Count == 1 ? "script" : "scripts";
+        return $"Importadas {Number(result.ChangedUnits)} {lines} em {Number(result.ChangedScripts.Count)} {scripts} (de {Number(result.Rows)} no arquivo).";
+    }
+
+    private static string Number(int value) => value.ToString("N0", PortugueseBrazil);
 }
