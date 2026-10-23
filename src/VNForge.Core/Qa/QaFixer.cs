@@ -38,6 +38,12 @@ public static class QaFixer
             {
                 throw new VNForgeException($"Regra de QA desconhecida: {string.Join(", ", unknown)}.");
             }
+
+            var notFixable = rules.Where(id => engine.Find(id) is not IQaFixer).Distinct(StringComparer.Ordinal).ToList();
+            if (notFixable.Count > 0)
+            {
+                throw new VNForgeException($"A regra não tem correção automática: {string.Join(", ", notFixable)}.");
+            }
         }
 
         var fixers = engine.Rules.OfType<IQaFixer>()

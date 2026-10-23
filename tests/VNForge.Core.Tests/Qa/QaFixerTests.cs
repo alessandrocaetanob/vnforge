@@ -124,6 +124,12 @@ public sealed class QaFixerTests : IDisposable
     }
 
     [Fact]
+    public void Filtro_com_regra_sem_correcao_falha()
+    {
+        Assert.Throws<VNForgeException>(() => QaFixer.Plan(Texts(Unit("a:1", "x")), QaEngine.Default, ["marcador-diferente"]));
+    }
+
+    [Fact]
     public void Apply_grava_so_o_script_que_mudou_e_a_segunda_chamada_nao_regrava()
     {
         _project.SaveText("a", [Unit("a:1", "Olá,  mundo")]);
