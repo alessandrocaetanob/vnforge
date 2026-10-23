@@ -31,7 +31,7 @@ public sealed class QaEngineTests
     [Fact]
     public void Sem_regras_o_relatorio_e_vazio()
     {
-        var report = QaEngine.Default.Run(Context(Unit("a:1", "")));
+        var report = new QaEngine([]).Run(Context(Unit("a:1", "")));
 
         Assert.Empty(report.Issues);
         Assert.False(report.Blocks(allowWarnings: false));
