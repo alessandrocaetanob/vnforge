@@ -343,6 +343,17 @@ minha-vn-ptbr/
 
 O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula final são aceitos. `name`, `game`, `engine`, `languages` e `encoding` são obrigatórios; `engine.version`, `engine.scriptKey` e o bloco `ai` são opcionais (o padrão de `ai` é o do exemplo). Campo desconhecido é erro, para pegar erro de digitação. Todo erro de validação cita o caminho do campo e os valores aceitos, sem repetir o valor recebido (ele pode ser um segredo colado no campo errado), por exemplo `vnforge.json inválido em $.encoding.strategy: valor não aceito; use um destes: fold, remap, cp1252.` Chave de API no arquivo é recusada (ver "Chaves de API" na seção de IA). Salvar o `vnforge.json` pelo Core regrava o arquivo inteiro e descarta os comentários. O `Create` grava um `.gitignore` na pasta do projeto com `.cache/`, `build/` e `backup/`, para um commit em massa não levar os originais do jogo para o repositório. Apagar `.cache/` zera o estado do pipeline (`state.json`), e as etapas rodam de novo.
 
+### Glossário e personagens (`VNForge.Core.Glossary`)
+
+`glossary.json` e `characters.json` usam o mesmo envelope: `{ "version": 1, "entries": [...] }`, uma entrada por linha, UTF-8 sem BOM e LF, como o `text/*.json`. Arquivo ausente vale lista vazia; campo desconhecido, campo obrigatório ausente, versão desconhecida, texto original vazio ou repetido (comparação ordinal) são erros (`GlossaryFileException`).
+
+| Arquivo | Entrada | Campos |
+|---|---|---|
+| `glossary.json` | `GlossaryTerm` | `source`, `target`, `notes` (opcional) |
+| `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional) |
+
+`CharacterEntry.Source` é o nome exatamente como a engine o extrai em `TextUnit.Speaker`. `CharacterBook.Find(speaker)` acha a entrada por comparação ordinal, ignorando espaços nas pontas; falante nulo, vazio ou desconhecido (por exemplo `？？？`, quando não há entrada) devolve `null`. `ProjectFolder` lê e grava os dois arquivos (`LoadGlossary`, `SaveGlossary`, `LoadCharacters`, `SaveCharacters`). Os comandos `vnf glossary` e `vnf chars` ficam na E9.1.
+
 ### Estado do pipeline (`.cache/state.json`)
 
 `ProjectFolder.LoadState` e `SaveState` leem e gravam o `state.json` (`PipelineState`): `originals` (caminho relativo ao jogo com `/`, tamanho e SHA-256 de cada pacote que a extração leu) e `stages` (o estado de cada etapa; hoje só `extract: completed`). O arquivo não leva data nem outro valor que mude a cada execução, as listas saem ordenadas e `SaveState` não toca no disco quando o conteúdo já é o mesmo, então repetir uma etapa sem mudança deixa o arquivo idêntico. O `vnf extract` grava o estado depois do texto; extração que falha não deixa `extract: completed`. Uma nova extração substitui os hashes e zera as etapas seguintes. Arquivo malformado ou de outra versão é erro que manda apagar o `.cache/`. A E8.5 compara os hashes de `originals` com o jogo antes de injetar. O executável do jogo ainda não entra na lista.
