@@ -140,5 +140,6 @@ public class ProjectStatusReporterTests
         Assert.Equal(4, counts.Total);
         Assert.Equal(3, counts.Done);
         Assert.Equal(75, counts.Percent);
+        Assert.Equal(99.9, new StatusCounts(1, 0, 0, 0, 2999).Percent);
     }
 }

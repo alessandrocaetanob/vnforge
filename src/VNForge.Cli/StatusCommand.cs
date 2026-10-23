@@ -71,7 +71,7 @@ internal static class StatusCommand
         data["translated"] = counts.Translated;
         data["reviewed"] = counts.Reviewed;
         data["approved"] = counts.Approved;
-        data["percent"] = Math.Round(counts.Percent, 1);
+        data["percent"] = counts.Percent;
         return data;
     }
 
