@@ -304,6 +304,20 @@ public sealed class TranslateCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Glossario_e_guia_de_estilo_do_projeto_chegam_ao_lote_e_files_aceita_lista()
+    {
+        _project.SaveGlossary([new VNForge.Core.Glossary.GlossaryTerm("原文1", "texto 1", null)]);
+        File.WriteAllText(Path.Combine(_projectPath, "style.md"), "Tom informal.");
+
+        await Run("--files", "abc,yst00002");
+
+        Assert.All(_provider.ReceivedBatches, b => Assert.Equal("Tom informal.", b.StyleGuide));
+        Assert.All(_provider.ReceivedBatches, b => Assert.Equal("texto 1", Assert.Single(b.Glossary).Target));
+        Assert.Equal("[PT] 原文1", Line("yst00002", 0).Translation);
+        Assert.Null(Line("yst00001", 0).Translation);
+    }
+
+    [Fact]
     public async Task Pasta_que_nao_e_projeto_sai_com_1()
     {
         var result = await _cli.RunAsync(["translate", "--project", _cli.WorkingDirectory], TestContext.Current.CancellationToken);

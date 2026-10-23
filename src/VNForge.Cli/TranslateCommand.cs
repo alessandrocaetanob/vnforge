@@ -161,7 +161,6 @@ internal static class TranslateCommand
 
         var gate = new object();
         var summary = new RunSummary();
-        var origin = new TranslationOrigin(ProviderName, settings.Model, DateTimeOffset.UtcNow);
 
         TranslationBatch BuildBatch(IReadOnlyList<TextUnit> lines)
         {
@@ -177,6 +176,7 @@ internal static class TranslateCommand
         {
             lock (gate)
             {
+                var origin = new TranslationOrigin(ProviderName, settings.Model, DateTimeOffset.UtcNow);
                 var touched = new SortedSet<string>(StringComparer.Ordinal);
                 foreach (var result in results)
                 {
@@ -378,10 +378,12 @@ internal static class TranslateCommand
         var effortText = parseResult.GetValue(EffortOption);
         var effort = ParseEffort(effortText ?? ai.Effort, strict: effortText is not null);
 
-        var batchSize = parseResult.GetValue(BatchSizeOption) ?? ai.BatchSize;
+        var requestedBatchSize = parseResult.GetValue(BatchSizeOption);
+        var batchSize = requestedBatchSize ?? ai.BatchSize;
         if (batchSize < TranslationRunOptions.MinBatchSize || batchSize > TranslationRunOptions.MaxBatchSize)
         {
-            throw new UsageException($"--batch-size precisa ficar entre {TranslationRunOptions.MinBatchSize} e {TranslationRunOptions.MaxBatchSize}.");
+            var origin = requestedBatchSize is null ? "ai.batchSize do vnforge.json" : "--batch-size";
+            throw new UsageException($"{origin} precisa ficar entre {TranslationRunOptions.MinBatchSize} e {TranslationRunOptions.MaxBatchSize} (recebeu {batchSize}).");
         }
 
         var concurrency = parseResult.GetValue(ConcurrencyOption) ?? 2;
