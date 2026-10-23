@@ -49,9 +49,9 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task QA_bloqueante_devolvido_pelo_comando_sai_com_2()
     {
-        _cli.AddCommand("check", _ => ErrorHandler.QaBlockedExitCode);
+        _cli.AddCommand("fake-qa", _ => ErrorHandler.QaBlockedExitCode);
 
-        var result = await _cli.RunAsync(["check"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["fake-qa"], TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.ExitCode);
     }
@@ -125,13 +125,13 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Json_nao_muda_o_codigo_de_saida_nem_escreve_no_stderr()
     {
-        _cli.AddCommand("check", _ => ErrorHandler.QaBlockedExitCode);
+        _cli.AddCommand("fake-qa", _ => ErrorHandler.QaBlockedExitCode);
         _cli.AddCommand("falha", _ => throw new InvalidFileException("a.ypf", "truncado"));
         _cli.AddCommand("cancela", _ => throw new OperationCanceledException());
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        var qa = await _cli.RunAsync(["check", "--json"], TestContext.Current.CancellationToken);
+        var qa = await _cli.RunAsync(["fake-qa", "--json"], TestContext.Current.CancellationToken);
         var erro = await _cli.RunAsync(["falha", "--json"], TestContext.Current.CancellationToken);
         var cancelado = await _cli.RunAsync(["cancela", "--json"], cts.Token);
 
