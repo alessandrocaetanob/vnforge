@@ -214,6 +214,12 @@ O perfil (E4.1) é `FormattingProfile` em `VNForge.Core.Formatting`, lido por `F
 | Campo | Padrão | Efeito |
 |---|---|---|
 | `kinds` | `["dialogue", "narration"]` | Papéis de linha que o pipeline formata; as outras saem como estão |
+| `normalization.nfc` | `false` | Unicode NFC: letra e acento soltos viram o caractere composto |
+| `normalization.invisibleSpaces` | `false` | Remove U+200B, U+200C, U+200D, U+2060 e U+FEFF (inclui ZWJ e ZWNJ, que ligam emojis e certas escritas) |
+| `normalization.nbsp` | `false` | U+00A0 e U+202F viram espaço comum |
+| `spacing.collapseSpaces` | `false` | Dois ou mais espaços viram um |
+| `spacing.spaceBeforePunctuation` | `false` | Tira o espaço antes de `? ! : ;` |
+| `spacing.spaceAfterPunctuation` | `false` | Põe espaço depois de `, ; ? !` colados a uma letra (só dentro de um trecho: a pontuação colada a um marcador fica como está), de `.` e `:` entre letra e maiúscula, e depois de `...` antes de letra; números (`1,5`, `10:30`) e endereços (`site.com`) ficam como estão |
 | `wrap.enabled` | `false` | Liga a quebra de linha |
 | `wrap.maxWidth` | `54` | Colunas por linha |
 | `wrap.maxLines` | `3` (`null` não limita) | Linhas por caixa; acima disso o build avisa, não recusa |
@@ -226,7 +232,7 @@ Cada item de `replacements.before` e `replacements.after` é `{ "pattern": "..."
 `FormattingPipeline` aplica, na hora do build, as etapas (`IFormattingStage`) pela ordem de `FormattingPhase`: regras do usuário antes, normalização, espaços, tipografia, largura, quebra de linha e regras do usuário depois. O `ProjectBuilder` passa pelo pipeline a tradução de cada linha que será gravada e cujo papel está em `kinds`, antes de conferir a codificação, então o relatório de codificação (`vnf build --report` também) vale para o texto já formatado. O `text/*.json` em disco não muda. Aviso de uma etapa (caixa acima do limite de linhas) vai para os avisos do build com o id da linha.
 
 Os marcadores de controle ficam fora do alcance das regras. Depois de cada etapa o pipeline confere que os marcadores são os mesmos, na mesma ordem; só a etapa que declara `MayChangeLineBreaks` (a quebra) pode acrescentar `
-`. Uma etapa que violar isso lança `FormattingException` e o build para citando a linha. Regra de texto comum herda `TextRunStage`, que entrega a `ApplyToRun` só os trechos entre marcadores. Para acrescentar uma regra (E4.2, E4.3, E4.5): escreva a etapa, dê a ela a fase e registre-a em `FormattingPipeline.Create` a partir de uma nova propriedade do perfil. Um perfil de exemplo fica em `samples/formatting.json`.
+`. Uma etapa que violar isso lança `FormattingException` e o build para citando a linha. Regra de texto comum herda `TextRunStage`, que entrega a `ApplyToRun` só os trechos entre marcadores. Para acrescentar uma regra (E4.3, E4.5): escreva a etapa, dê a ela a fase e registre-a em `FormattingPipeline.Create` a partir de uma nova propriedade do perfil. Um perfil de exemplo fica em `samples/formatting.json`.
 
 ### 4. Codificação para português
 

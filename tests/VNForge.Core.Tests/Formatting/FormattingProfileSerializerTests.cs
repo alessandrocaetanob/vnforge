@@ -109,8 +109,33 @@ public class FormattingProfileSerializerTests
         Assert.Equal(FormattingProfileSerializer.Serialize(profile), FormattingProfileSerializer.Serialize(FormattingProfileSerializer.Parse(File.ReadAllText(path))));
     }
 
+    [Fact]
+    public void Le_e_grava_normalizacao_e_espacos()
+    {
+        var profile = FormattingProfileSerializer.Parse("""
+            { "normalization": { "nfc": true, "nbsp": true }, "spacing": { "spaceBeforePunctuation": true } }
+            """);
+
+        Assert.Equal(new NormalizationRule(Nfc: true, Nbsp: true), profile.Normalization);
+        Assert.Equal(new SpacingRule(SpaceBeforePunctuation: true), profile.Spacing);
+
+        var back = FormattingProfileSerializer.Parse(FormattingProfileSerializer.Serialize(profile));
+        Assert.Equal(profile.Normalization, back.Normalization);
+        Assert.Equal(profile.Spacing, back.Spacing);
+    }
+
+    [Fact]
+    public void Campo_desconhecido_em_spacing_cita_o_caminho()
+    {
+        var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Parse("""{ "spacing": { "x": true } }"""));
+
+        Assert.Equal("$.spacing.x", ex.Field);
+    }
+
     private static void AssertDefault(FormattingProfile profile)
     {
+        Assert.Equal(FormattingProfile.Default.Normalization, profile.Normalization);
+        Assert.Equal(FormattingProfile.Default.Spacing, profile.Spacing);
         Assert.Equal(FormattingProfile.Default.Kinds, profile.Kinds);
         Assert.Equal(FormattingProfile.Default.Wrap, profile.Wrap);
     }

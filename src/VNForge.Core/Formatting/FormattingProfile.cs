@@ -32,9 +32,21 @@ public sealed record WrapRule(
         new(MaxWidth, MaxLines, CharWidth == CharWidthMode.Uniform ? CharWidths.Uniform : CharWidths.HalfWidthLatin);
 }
 
+/// <summary>Normalização do texto (E4.2). Todas desligadas por padrão.</summary>
+/// <param name="Nfc">Compõe letra e acento soltos (Unicode NFC).</param>
+/// <param name="InvisibleSpaces">Remove espaços de largura zero (U+200B, U+200C, U+200D, U+2060, U+FEFF).</param>
+/// <param name="Nbsp">Troca espaço sem quebra (U+00A0, U+202F) por espaço comum.</param>
+public sealed record NormalizationRule(bool Nfc = false, bool InvisibleSpaces = false, bool Nbsp = false);
+
+/// <summary>Espaços e pontuação (E4.2). Todas desligadas por padrão.</summary>
+/// <param name="CollapseSpaces">Colapsa espaços duplos em um.</param>
+/// <param name="SpaceBeforePunctuation">Tira o espaço antes de <c>? ! : ;</c>.</param>
+/// <param name="SpaceAfterPunctuation">Insere espaço depois da pontuação colada à palavra seguinte.</param>
+public sealed record SpacingRule(bool CollapseSpaces = false, bool SpaceBeforePunctuation = false, bool SpaceAfterPunctuation = false);
+
 /// <summary>
 /// O perfil de formatação (<c>formatting.json</c>): quais linhas o pipeline formata e cada regra, com liga/desliga e valores. Um perfil
-/// sem um campo usa o valor de <see cref="Default"/>; as regras de E4.2, E4.3 e E4.5 entram aqui como novas propriedades com padrão.
+/// sem um campo usa o valor de <see cref="Default"/>; as regras de E4.3 e E4.5 entram aqui como novas propriedades com padrão.
 /// </summary>
 /// <param name="Kinds">Papéis de linha que o pipeline formata; as demais saem como estão.</param>
 /// <param name="Wrap">Quebra de linha por palavra.</param>
@@ -45,6 +57,12 @@ public sealed record FormattingProfile(IReadOnlyList<TextUnitKind> Kinds, WrapRu
 
     /// <summary>Substituições do usuário, antes e depois das regras do perfil (E4.5). Padrão: nenhuma.</summary>
     public ReplacementRules Replacements { get; init; } = ReplacementRules.None;
+
+    /// <summary>Unicode NFC, espaços invisíveis e NBSP (E4.2).</summary>
+    public NormalizationRule Normalization { get; init; } = new();
+
+    /// <summary>Espaços duplos e espaço em volta da pontuação (E4.2).</summary>
+    public SpacingRule Spacing { get; init; } = new();
 }
 
 /// <summary><c>formatting.json</c> inválido.</summary>

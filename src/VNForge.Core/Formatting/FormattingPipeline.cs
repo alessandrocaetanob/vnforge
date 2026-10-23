@@ -35,6 +35,38 @@ public sealed class FormattingPipeline
         ArgumentNullException.ThrowIfNull(profile);
 
         var stages = new List<IFormattingStage>();
+        var normalization = profile.Normalization;
+        if (normalization.Nfc)
+        {
+            stages.Add(new NfcStage());
+        }
+
+        if (normalization.InvisibleSpaces)
+        {
+            stages.Add(new InvisibleSpacesStage());
+        }
+
+        if (normalization.Nbsp)
+        {
+            stages.Add(new NbspStage());
+        }
+
+        var spacing = profile.Spacing;
+        if (spacing.CollapseSpaces)
+        {
+            stages.Add(new CollapseSpacesStage());
+        }
+
+        if (spacing.SpaceBeforePunctuation)
+        {
+            stages.Add(new SpaceBeforePunctuationStage());
+        }
+
+        if (spacing.SpaceAfterPunctuation)
+        {
+            stages.Add(new SpaceAfterPunctuationStage());
+        }
+
         if (profile.Replacements.Before.Count > 0)
         {
             stages.Add(new ReplacementStage("replacements-before", FormattingPhase.UserRulesBefore, profile.Replacements.Before));
