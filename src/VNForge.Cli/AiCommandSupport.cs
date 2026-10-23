@@ -81,6 +81,24 @@ internal sealed class AiOptions
     }
 }
 
+/// <summary>Tudo que <c>vnf translate</c> e <c>vnf review</c> leem antes de escolher as linhas.</summary>
+internal sealed record AiCommandContext(
+    TextWriter Output, TextWriter Error, bool Json, ProjectFolder Project, AiRunSettings Settings, Regex? Filter, int? Limit)
+{
+    public static AiCommandContext Open(VnfCli cli, ParseResult parseResult, AiOptions common)
+    {
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        return new AiCommandContext(
+            parseResult.InvocationConfiguration.Output,
+            parseResult.InvocationConfiguration.Error,
+            parseResult.GetValue(cli.Options.Json),
+            project,
+            common.ReadSettings(cli, parseResult, project.LoadConfig().Ai),
+            AiCommandSupport.ParseFiles(parseResult.GetValue(common.Files)),
+            common.ReadLimit(parseResult));
+    }
+}
+
 /// <summary>Leitura de opções e formatação de mensagens que os comandos de IA dividem.</summary>
 internal static class AiCommandSupport
 {
@@ -117,6 +135,28 @@ internal static class AiCommandSupport
         }
 
         return new AiRunSettings(model, effort, batchSize, concurrency);
+    }
+
+    /// <summary>Campos que o <c>--json</c> de <c>translate</c> e <c>review</c> repartem; cada comando acrescenta os seus.</summary>
+    public static Dictionary<string, object?> JsonBase(AiRunSettings settings, bool dryRun, int lines) => new()
+    {
+        ["dryRun"] = dryRun,
+        ["model"] = settings.Model,
+        ["effort"] = settings.Effort.ToString().ToLowerInvariant(),
+        ["batchSize"] = settings.BatchSize,
+        ["concurrency"] = settings.Concurrency,
+        ["lines"] = lines,
+    };
+
+    /// <summary>Acrescenta ao <c>--json</c> o que sobrou da execução: recusas, lotes que falharam, tokens e custo.</summary>
+    public static Dictionary<string, object?> WithOutcome(
+        Dictionary<string, object?> data, IEnumerable<string> refused, IReadOnlyList<TranslationBatchFailure> failed, ClaudeUsage? usage, decimal? dollars)
+    {
+        data["refused"] = refused.Order(StringComparer.Ordinal);
+        data["failed"] = failed.Select(f => new { lines = f.LineIds, error = f.Error.Message, attempts = f.Attempts });
+        data["usage"] = UsageJson(usage);
+        data["dollars"] = dollars;
+        return data;
     }
 
     public static void WriteFailures(TextWriter output, IReadOnlyList<TranslationBatchFailure> failures)

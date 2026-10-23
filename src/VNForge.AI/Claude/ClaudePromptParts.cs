@@ -81,6 +81,33 @@ internal static class ClaudePromptParts
         return [.. batch.Lines.Select(u => byId[u.Id])];
     }
 
+    /// <summary>
+    /// Roda <paramref name="once"/> no lote. Uma recusa não derruba o lote: ele é refeito linha a linha e só a linha recusada
+    /// volta como <paramref name="refused"/>.
+    /// </summary>
+    public static async Task<IReadOnlyList<T>> WithRefusalFallback<T>(
+        TranslationBatch batch, Func<TranslationBatch, Task<IReadOnlyList<T>>> once, Func<TextUnit, T> refused)
+    {
+        if (batch.Lines.Count == 0)
+            return [];
+
+        try
+        {
+            return await once(batch).ConfigureAwait(false);
+        }
+        catch (ClaudeRefusalException)
+        {
+            if (batch.Lines.Count == 1)
+                return [refused(batch.Lines[0])];
+        }
+
+        // O lote tem um gatilho de recusa; isolar por linha mantém as demais.
+        List<T> results = [];
+        foreach (var line in batch.Lines)
+            results.AddRange(await WithRefusalFallback(SingleLine(batch, line), once, refused).ConfigureAwait(false));
+        return results;
+    }
+
     private static string CharacterLine(CharacterInfo c)
     {
         var details = new List<string>();

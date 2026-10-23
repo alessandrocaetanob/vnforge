@@ -33,28 +33,14 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     /// Traduz o lote. Uma recusa que sobrevive ao fallback do servidor não derruba o lote: ele é refeito linha a linha
     /// e só as linhas recusadas voltam com <see cref="TranslationResult.Refused"/>.
     /// </summary>
-    public async Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
+    public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ct.ThrowIfCancellationRequested();
-        if (batch.Lines.Count == 0)
-            return [];
-
-        try
-        {
-            return await TranslateOnceAsync(batch, ct).ConfigureAwait(false);
-        }
-        catch (ClaudeRefusalException)
-        {
-            if (batch.Lines.Count == 1)
-                return [new TranslationResult(batch.Lines[0].Id, string.Empty, Refused: true)];
-        }
-
-        // O lote tem um gatilho de recusa; isolar por linha mantém as demais traduções.
-        List<TranslationResult> results = [];
-        foreach (var line in batch.Lines)
-            results.AddRange(await TranslateAsync(ClaudePromptParts.SingleLine(batch, line), ct).ConfigureAwait(false));
-        return results;
+        return ClaudePromptParts.WithRefusalFallback(
+            batch,
+            b => TranslateOnceAsync(b, ct),
+            line => new TranslationResult(line.Id, string.Empty, Refused: true));
     }
 
     private async Task<IReadOnlyList<TranslationResult>> TranslateOnceAsync(TranslationBatch batch, CancellationToken ct)

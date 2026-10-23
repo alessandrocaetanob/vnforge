@@ -55,16 +55,8 @@ internal static class ReviewCommand
 
     private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, CancellationToken token)
     {
-        var output = parseResult.InvocationConfiguration.Output;
-        var error = parseResult.InvocationConfiguration.Error;
-        var json = parseResult.GetValue(cli.Options.Json);
-
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-        var config = project.LoadConfig();
-        var settings = Common.ReadSettings(cli, parseResult, config.Ai);
+        var (output, error, json, project, settings, filter, limit) = AiCommandContext.Open(cli, parseResult, Common);
         var statuses = ParseStatuses(parseResult.GetValue(StatusOption));
-        var filter = ParseFiles(parseResult.GetValue(Common.Files));
-        var limit = Common.ReadLimit(parseResult);
 
         var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && u.HasTranslation);
         var files = selection.Files;
@@ -170,23 +162,10 @@ internal static class ReviewCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new
-            {
-                dryRun = true,
-                model = settings.Model,
-                effort = settings.Effort.ToString().ToLowerInvariant(),
-                batchSize = settings.BatchSize,
-                concurrency = settings.Concurrency,
-                files = fileCount,
-                lines = pending.Count,
-                estimate = new
-                {
-                    lines = pending.Count,
-                    inputTokens = usage.Input,
-                    outputTokens = usage.Output,
-                    dollars,
-                },
-            }));
+            var data = JsonBase(settings, dryRun: true, pending.Count);
+            data["files"] = fileCount;
+            data["estimate"] = new { lines = pending.Count, inputTokens = usage.Input, outputTokens = usage.Output, dollars };
+            output.WriteLine(JsonEnvelope.Result(data));
             return ErrorHandler.OkExitCode;
         }
 
@@ -204,24 +183,11 @@ internal static class ReviewCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
-                new
-                {
-                    dryRun = false,
-                    model = settings.Model,
-                    effort = settings.Effort.ToString().ToLowerInvariant(),
-                    batchSize = settings.BatchSize,
-                    concurrency = settings.Concurrency,
-                    lines = selected,
-                    reviewed = summary.Reviewed,
-                    suggestions = summary.Suggestions,
-                    clean = summary.Clean,
-                    refused = summary.Refused.Order(StringComparer.Ordinal),
-                    failed = summary.Failed.Select(f => new { lines = f.LineIds, error = f.Error.Message, attempts = f.Attempts }),
-                    usage = UsageJson(summary.Usage),
-                    dollars,
-                },
-                exitCode));
+            var data = JsonBase(settings, dryRun: false, selected);
+            data["reviewed"] = summary.Reviewed;
+            data["suggestions"] = summary.Suggestions;
+            data["clean"] = summary.Clean;
+            output.WriteLine(JsonEnvelope.Result(WithOutcome(data, summary.Refused, summary.Failed, summary.Usage, dollars), exitCode));
             return exitCode;
         }
 

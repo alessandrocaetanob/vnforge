@@ -30,27 +30,14 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
     }
 
     /// <summary>Revisa o lote. Uma recusa refaz o lote linha a linha, e só as linhas recusadas voltam com <see cref="ReviewResult.Refused"/>.</summary>
-    public async Task<IReadOnlyList<ReviewResult>> ReviewAsync(TranslationBatch batch, CancellationToken ct)
+    public Task<IReadOnlyList<ReviewResult>> ReviewAsync(TranslationBatch batch, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ct.ThrowIfCancellationRequested();
-        if (batch.Lines.Count == 0)
-            return [];
-
-        try
-        {
-            return await ReviewOnceAsync(batch, ct).ConfigureAwait(false);
-        }
-        catch (ClaudeRefusalException)
-        {
-            if (batch.Lines.Count == 1)
-                return [new ReviewResult(batch.Lines[0].Id, string.Empty, Refused: true)];
-        }
-
-        List<ReviewResult> results = [];
-        foreach (var line in batch.Lines)
-            results.AddRange(await ReviewAsync(ClaudePromptParts.SingleLine(batch, line), ct).ConfigureAwait(false));
-        return results;
+        return ClaudePromptParts.WithRefusalFallback(
+            batch,
+            b => ReviewOnceAsync(b, ct),
+            line => new ReviewResult(line.Id, string.Empty, Refused: true));
     }
 
     private async Task<IReadOnlyList<ReviewResult>> ReviewOnceAsync(TranslationBatch batch, CancellationToken ct)

@@ -43,16 +43,8 @@ internal static class TranslateCommand
 
     private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, CancellationToken token)
     {
-        var output = parseResult.InvocationConfiguration.Output;
-        var error = parseResult.InvocationConfiguration.Error;
-        var json = parseResult.GetValue(cli.Options.Json);
-
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-        var config = project.LoadConfig();
-        var settings = Common.ReadSettings(cli, parseResult, config.Ai);
+        var (output, error, json, project, settings, filter, limit) = AiCommandContext.Open(cli, parseResult, Common);
         var statuses = ParseStatuses(parseResult.GetValue(StatusOption));
-        var filter = ParseFiles(parseResult.GetValue(Common.Files));
-        var limit = Common.ReadLimit(parseResult);
 
         var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source));
         var files = selection.Files;
@@ -172,24 +164,17 @@ internal static class TranslateCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            var data = JsonBase(settings, dryRun: true, pending.Count);
+            data["files"] = fileCount;
+            data["estimate"] = new
             {
-                dryRun = true,
-                model = settings.Model,
-                effort = settings.Effort.ToString().ToLowerInvariant(),
-                batchSize = settings.BatchSize,
-                concurrency = settings.Concurrency,
-                files = fileCount,
-                lines = pending.Count,
-                estimate = new
-                {
-                    lines = estimate.Lines,
-                    cachedLines = estimate.CachedLines,
-                    inputTokens = estimate.Usage.Input,
-                    outputTokens = estimate.Usage.Output,
-                    dollars = estimate.Dollars,
-                },
-            }));
+                lines = estimate.Lines,
+                cachedLines = estimate.CachedLines,
+                inputTokens = estimate.Usage.Input,
+                outputTokens = estimate.Usage.Output,
+                dollars = estimate.Dollars,
+            };
+            output.WriteLine(JsonEnvelope.Result(data));
             return ErrorHandler.OkExitCode;
         }
 
@@ -207,23 +192,10 @@ internal static class TranslateCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
-                new
-                {
-                    dryRun = false,
-                    model = settings.Model,
-                    effort = settings.Effort.ToString().ToLowerInvariant(),
-                    batchSize = settings.BatchSize,
-                    concurrency = settings.Concurrency,
-                    lines = selected,
-                    translated = summary.Translated,
-                    cached = summary.Cached,
-                    refused = summary.Refused.Order(StringComparer.Ordinal),
-                    failed = summary.Failed.Select(f => new { lines = f.LineIds, error = f.Error.Message, attempts = f.Attempts }),
-                    usage = UsageJson(summary.Usage),
-                    dollars,
-                },
-                exitCode));
+            var data = JsonBase(settings, dryRun: false, selected);
+            data["translated"] = summary.Translated;
+            data["cached"] = summary.Cached;
+            output.WriteLine(JsonEnvelope.Result(WithOutcome(data, summary.Refused, summary.Failed, summary.Usage, dollars), exitCode));
             return exitCode;
         }
 
