@@ -27,11 +27,24 @@ internal static class BuildCommand
         Description = "Deixa o build seguir com avisos de QA (os não marcados como ok); erros de QA continuam bloqueando e saem com 2.",
     };
 
+    private static readonly Option<bool> OnlyChangedOption = new("--only-changed")
+    {
+        Description = "Reaproveita os scripts cuja tradução não mudou desde o build anterior (padrão); --only-changed false reconstrói tudo.",
+        DefaultValueFactory = _ => true,
+    };
+
+    private static readonly Option<string?> EncodingOption = new("--encoding")
+    {
+        Description = "Estratégia de codificação só deste build (sjis, fold, cp1252); sem a opção vale o encoding.strategy do vnforge.json, que não é alterado.",
+    };
+
     public static Command Create(VnfCli cli)
     {
         var command = new Command("build", "Reconstrói os scripts com as traduções de text/ e grava os pacotes novos em build/ (não altera a pasta do jogo).");
         command.Options.Add(ReportOption);
         command.Options.Add(AllowWarningsOption);
+        command.Options.Add(OnlyChangedOption);
+        command.Options.Add(EncodingOption);
         command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, parseResult.InvocationConfiguration.Output, token)));
         return command;
     }
@@ -41,7 +54,7 @@ internal static class BuildCommand
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         if (parseResult.GetValue(ReportOption))
         {
-            return RunReport(parseResult.GetValue(cli.Options.Json), ProjectBuilder.ReportEncoding(project), output);
+            return RunReport(parseResult.GetValue(cli.Options.Json), ProjectBuilder.ReportEncoding(project, encodingStrategy: parseResult.GetValue(EncodingOption)), output);
         }
 
         var json = parseResult.GetValue(cli.Options.Json);
@@ -49,7 +62,7 @@ internal static class BuildCommand
         BuildResult result;
         try
         {
-            result = ProjectBuilder.Build(project, KnownEngines.All, token, qa: cli.Qa, allowWarnings: allowWarnings);
+            result = ProjectBuilder.Build(project, KnownEngines.All, token, qa: cli.Qa, allowWarnings: allowWarnings, options: new BuildOptions(parseResult.GetValue(OnlyChangedOption), parseResult.GetValue(EncodingOption)));
         }
         catch (QaBlockedException blocked)
         {
@@ -64,6 +77,7 @@ internal static class BuildCommand
                 buildDirectory = result.BuildDirectory,
                 archives = result.Archives.Select(a => new { path = a.GamePath, replacedFiles = a.ReplacedFiles }),
                 scripts = result.RebuiltScripts.Count,
+                reusedScripts = result.ReusedScripts,
                 totalScripts = result.ScriptCount,
                 lines = result.TotalLines,
                 rebuilt = result.RebuiltScripts.Select(s => new { key = s.Key, name = s.Name, lines = s.Lines }),
@@ -187,7 +201,13 @@ internal static class BuildCommand
         var scripts = result.RebuiltScripts.Count;
         var lines = result.TotalLines;
         var packages = result.Archives.Count;
-        return $"Reconstruídos {Number(scripts)} {Plural(scripts, "script", "scripts")} ({Number(lines)} {Plural(lines, "linha trocada", "linhas trocadas")}); "
+        if (scripts == 0 && result.ReusedScripts > 0)
+        {
+            return $"Nada mudou desde o build anterior: {Number(result.ReusedScripts)} {Plural(result.ReusedScripts, "script reaproveitado", "scripts reaproveitados")}, nenhum reconstruído.";
+        }
+
+        var reused = result.ReusedScripts > 0 ? $", {Number(result.ReusedScripts)} {Plural(result.ReusedScripts, "reaproveitado", "reaproveitados")}" : string.Empty;
+        return $"Reconstruídos {Number(scripts)} {Plural(scripts, "script", "scripts")} ({Number(lines)} {Plural(lines, "linha trocada", "linhas trocadas")}{reused}); "
             + $"{Number(packages)} {Plural(packages, "pacote gravado", "pacotes gravados")} em build/";
     }
 
