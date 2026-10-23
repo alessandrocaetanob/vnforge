@@ -94,7 +94,8 @@ public static class ProjectBuilder
         }
 
         var texts = project.LoadAllText();
-        var report = EncodingReporter.Create(texts, encoder);
+        var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
+        var report = EncodingReporter.Create(texts.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), encoder);
         if (report.HasBlocking)
         {
             throw new EncodingReportException(report);

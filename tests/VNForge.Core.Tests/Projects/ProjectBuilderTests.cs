@@ -238,6 +238,16 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Texto_sem_script_com_caractere_nao_codificavel_nao_bloqueia_o_build()
+    {
+        _project.SaveText("zzz", [new TextUnit("zzz:000000", TextUnitKind.Dialogue, null, "x", "ã", TranslationStatus.Translated)]);
+
+        var result = Build();
+
+        Assert.Contains(result.Warnings, w => w.Contains("text/zzz.json"));
+    }
+
+    [Fact]
     public void Texto_sem_script_vira_aviso()
     {
         _project.SaveText("zzz", [new TextUnit("zzz:000000", TextUnitKind.Dialogue, null, "x", "y", TranslationStatus.Translated)]);
