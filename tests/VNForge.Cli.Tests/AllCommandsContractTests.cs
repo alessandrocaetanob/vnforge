@@ -76,14 +76,13 @@ public sealed partial class AllCommandsContractTests : IDisposable
     [MemberData(nameof(CommandPaths))]
     public async Task Json_sempre_devolve_um_envelope_em_uma_linha(string path)
     {
-        var command = Find(path);
-        if (command.Subcommands.Count > 0)
+        if (path.Length == 0)
         {
-            return; // Grupos só mostram a ajuda; as folhas são cobertas aqui.
+            return; // `vnf` sem comando mostra a ajuda; --version --json é coberto em RootCommandTests.
         }
 
         // Sem projeto e sem argumentos: cada comando precisa falhar de forma controlada e no formato comum.
-        var result = await _cli.RunAsync([.. path.Split(' '), "--json", "--yes"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([.. path.Split(' ', StringSplitOptions.RemoveEmptyEntries), "--json", "--yes"], TestContext.Current.CancellationToken);
 
         Assert.Equal(string.Empty, result.Error);
         var line = Assert.Single(result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
@@ -102,6 +101,20 @@ public sealed partial class AllCommandsContractTests : IDisposable
             Assert.False(string.IsNullOrWhiteSpace(error.GetProperty("message").GetString()));
             Assert.DoesNotContain("   at ", line);
         }
+    }
+
+    [Fact]
+    public async Task Json_de_sucesso_segue_o_formato_comum()
+    {
+        var result = await _cli.RunAsync(["config", "ai", "--json"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(string.Empty, result.Error);
+        var line = Assert.Single(result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        using var doc = JsonDocument.Parse(line);
+        Assert.True(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal(0, doc.RootElement.GetProperty("exitCode").GetInt32());
+        Assert.False(doc.RootElement.TryGetProperty("error", out _));
     }
 
     private Command Find(string path)
@@ -128,6 +141,6 @@ public sealed partial class AllCommandsContractTests : IDisposable
     }
 
     // Linhas de descrição que começam com verbo inglês comum denunciam texto sem tradução.
-    [GeneratedRegex(@"^\s{2}\S.*\s{2}(Show|Display|Print|Create|Delete|Run|Set|Get)\b", RegexOptions.Multiline)]
+    [GeneratedRegex(@"^\s{2}\S.*\s{2}(Show|Display|Print|Create|Delete|Run|Set|Get|Lists?|Reads?|Writes?|Creates|Shows|Gets)\b", RegexOptions.Multiline)]
     private static partial Regex EnglishDescription();
 }
