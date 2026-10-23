@@ -125,12 +125,9 @@ internal static class CharsCommand
 
     private static CharacterGender ParseGender(string text)
     {
-        foreach (var gender in Enum.GetValues<CharacterGender>())
+        foreach (var gender in Enum.GetValues<CharacterGender>().Where(g => string.Equals(GenderName(g), text.Trim(), StringComparison.OrdinalIgnoreCase)))
         {
-            if (string.Equals(GenderName(gender), text.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                return gender;
-            }
+            return gender;
         }
 
         throw new UsageException($"Gênero desconhecido: '{text}'. Use um de: {string.Join(", ", GenderNames)}.");
