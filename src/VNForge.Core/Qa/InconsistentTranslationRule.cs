@@ -14,14 +14,18 @@ public sealed class InconsistentTranslationRule : IQaRule
     public IEnumerable<QaIssue> Check(QaContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        return CheckCore(context);
+    }
 
+    private IEnumerable<QaIssue> CheckCore(QaContext context)
+    {
         var groups = new Dictionary<string, List<(string UnitId, string Key, string Translation)>>(StringComparer.Ordinal);
         foreach (var (key, units) in context.Texts)
         {
             foreach (var unit in units)
             {
                 var source = unit.Source.Trim();
-                if (source.Length == 0 || !unit.HasTranslation)
+                if (source.Length == 0 || !unit.HasTranslation || unit.Translation is not { } translation)
                 {
                     continue;
                 }
@@ -31,7 +35,7 @@ public sealed class InconsistentTranslationRule : IQaRule
                     groups[source] = list = [];
                 }
 
-                list.Add((unit.Id, key, unit.Translation!.Trim()));
+                list.Add((unit.Id, key, translation.Trim()));
             }
         }
 
