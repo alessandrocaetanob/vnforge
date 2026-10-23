@@ -300,6 +300,10 @@ minha-vn-ptbr/
 
 O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula final são aceitos. `name`, `game`, `engine`, `languages` e `encoding` são obrigatórios; `engine.version`, `engine.scriptKey` e o bloco `ai` são opcionais (o padrão de `ai` é o do exemplo). Campo desconhecido é erro, para pegar erro de digitação. Todo erro de validação cita o caminho do campo e os valores aceitos, sem repetir o valor recebido (ele pode ser um segredo colado no campo errado), por exemplo `vnforge.json inválido em $.encoding.strategy: valor não aceito; use um destes: fold, remap, cp1252.` Chave de API no arquivo é recusada (ver "Chaves de API" na seção de IA). Salvar o `vnforge.json` pelo Core regrava o arquivo inteiro e descarta os comentários. O `Create` grava um `.gitignore` na pasta do projeto com `.cache/`, `build/` e `backup/`, para um commit em massa não levar os originais do jogo para o repositório. Apagar `.cache/` zera o estado do pipeline (`state.json`), e as etapas rodam de novo.
 
+### Injeção e backup (`VNForge.Core.Injection`)
+
+`GameInjector` injeta o `build/` na pasta do jogo (`game.path`, relativo à pasta do projeto quando não é absoluto) e devolve os originais. `Plan` compara os hashes e diz o que seria gravado, sem escrever. `Inject` copia os originais que serão trocados para `backup/AAAA-MM-DD_HHmm/`, confere o SHA-256 das cópias, grava `vnforge-backup.json` (`BackupManifest`: caminho, se o arquivo existia, hash original e hash injetado) e só então escreve no jogo, conferindo o hash de cada arquivo. A gravação passa por `IInjectionFileSystem` (cópia atômica por temporário e `File.Move`), que os testes trocam para simular uma falha no meio. Falha na gravação desfaz o que foi trocado; se o desfazer também falha, o manifesto já gravado permite `vnf restore`. `PlanRestore` e `Restore` usam o backup mais recente que tenha manifesto.
+
 ## Alternativas consideradas para a interface gráfica
 
 | Opção | Por que não (por enquanto) |
