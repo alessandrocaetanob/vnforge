@@ -18,6 +18,11 @@ public static class WordWrapper
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(options);
+        if (options.MaxLines is < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "O limite de linhas deve ser de ao menos 1.");
+        }
+
         if (options.MaxWidth < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(options), "A largura máxima deve ser de ao menos 1 coluna.");
@@ -120,7 +125,7 @@ public static class WordWrapper
         private int _pendingWidth;
         private int _column;
         private int _line;
-        private bool _boxHasContent;
+        private bool _lineHasContent;
 
         private int Max => options.MaxWidth;
 
@@ -178,7 +183,7 @@ public static class WordWrapper
         public WrapResult Finish()
         {
             Flush();
-            if (_boxHasContent || _boxes.Count == 0)
+            if (_line > 0 || _lineHasContent || _boxes.Count == 0)
             {
                 CloseBox();
             }
@@ -195,7 +200,7 @@ public static class WordWrapper
 
             _out.Append(_pending);
             _column += _pendingWidth;
-            _boxHasContent = true;
+            _lineHasContent = true;
             DropPending();
         }
 
@@ -213,7 +218,7 @@ public static class WordWrapper
                 _column += t.Width;
             }
 
-            _boxHasContent = true;
+            _lineHasContent = true;
         }
 
         // Palavra maior que a linha: corta no limite. Um caractere sozinho sempre é colocado, mesmo mais
@@ -231,7 +236,7 @@ public static class WordWrapper
                 _column += t.Width;
             }
 
-            _boxHasContent = true;
+            _lineHasContent = true;
         }
 
         private void AutoNewline()
@@ -244,15 +249,15 @@ public static class WordWrapper
         {
             _line++;
             _column = 0;
-            _boxHasContent = true;
+            _lineHasContent = false;
         }
 
         private void CloseBox()
         {
-            _boxes.Add(_boxHasContent ? _line + 1 : 0);
+            _boxes.Add(_line + (_lineHasContent ? 1 : 0));
             _line = 0;
             _column = 0;
-            _boxHasContent = false;
+            _lineHasContent = false;
         }
     }
 }

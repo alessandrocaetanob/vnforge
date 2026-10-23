@@ -13,5 +13,5 @@ public sealed record WrapResult(string Text, IReadOnlyList<int> LinesPerBox, int
             : [];
 
     /// <summary>Verdadeiro se alguma caixa passou do limite de linhas; o QA do E7 usa isto.</summary>
-    public bool ExceedsLineLimit => OverflowingBoxes.Count > 0;
+    public bool ExceedsLineLimit => MaxLines is { } max && LinesPerBox.Any(l => l > max);
 }

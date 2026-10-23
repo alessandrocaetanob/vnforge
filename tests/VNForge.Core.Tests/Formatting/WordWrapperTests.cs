@@ -138,4 +138,18 @@ public class WordWrapperTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Wrap("a", 0));
     }
+
+    [Fact]
+    public void Quebra_final_nao_conta_linha_vazia()
+    {
+        WrapResult r = Wrap(@"ola\n", 10, lines: 1);
+        Assert.Equal([1], r.LinesPerBox);
+        Assert.False(r.ExceedsLineLimit);
+    }
+
+    [Fact]
+    public void Limite_de_linhas_invalido_e_recusado()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Wrap("a", 10, lines: 0));
+    }
 }
