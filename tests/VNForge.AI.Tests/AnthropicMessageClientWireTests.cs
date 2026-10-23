@@ -19,10 +19,10 @@ public sealed class AnthropicMessageClientWireTests
         public string? Body { get; private set; }
         public HttpRequestMessage? Request { get; private set; }
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Request = request;
-            Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
+            Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(Ok, Encoding.UTF8, "application/json"),
@@ -30,7 +30,7 @@ public sealed class AnthropicMessageClientWireTests
         }
     }
 
-    private static async Task<(JsonElement Body, HttpRequestMessage Request)> SendAsync(string model)
+    private static async Task<(JsonElement Body, HttpRequestMessage Request)> CaptureAsync(string model)
     {
         var handler = new CapturingHandler();
         var sdk = new AnthropicClient
@@ -43,7 +43,9 @@ public sealed class AnthropicMessageClientWireTests
 
         await new AnthropicMessageClient(sdk).CompleteAsync(request, CancellationToken.None);
 
-        return (JsonDocument.Parse(handler.Body!).RootElement.Clone(), handler.Request!);
+        var body = handler.Body ?? throw new InvalidOperationException("O SDK não enviou corpo.");
+        var sent = handler.Request ?? throw new InvalidOperationException("O SDK não enviou pedido.");
+        return (JsonDocument.Parse(body).RootElement.Clone(), sent);
     }
 
     private static bool HasBeta(HttpRequestMessage request) =>
@@ -53,7 +55,7 @@ public sealed class AnthropicMessageClientWireTests
     [Fact]
     public async Task Haiku_nao_manda_fallbacks_nem_header_beta_de_fallback()
     {
-        var (body, request) = await SendAsync(ClaudeModels.Haiku);
+        var (body, request) = await CaptureAsync(ClaudeModels.Haiku);
 
         Assert.False(body.TryGetProperty("fallbacks", out _), body.ToString());
         Assert.False(HasBeta(request));
@@ -64,7 +66,7 @@ public sealed class AnthropicMessageClientWireTests
     [InlineData(ClaudeModels.Fable)]
     public async Task Modelos_com_fallback_mandam_a_lista_e_o_header_beta(string model)
     {
-        var (body, request) = await SendAsync(model);
+        var (body, request) = await CaptureAsync(model);
 
         var fallbacks = body.GetProperty("fallbacks");
         Assert.Equal("claude-opus-4-8", Assert.Single(fallbacks.EnumerateArray()).GetProperty("model").GetString());
