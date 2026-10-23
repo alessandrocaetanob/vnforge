@@ -9,6 +9,7 @@ using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
+using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 
 namespace VNForge.Cli;
@@ -76,6 +77,9 @@ public sealed class VnfCli
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
+
+    /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
+    public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();
 
     /// <summary>Versão do <c>vnf</c> sem o hash do commit.</summary>
     public static string Version { get; } = ReadVersion();
