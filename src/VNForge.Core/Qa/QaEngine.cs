@@ -36,6 +36,9 @@ public sealed class QaEngine
         new CharacterNameRule(),
         new InconsistentTranslationRule(),
         .. TextQaRules.All,
+        new UnencodableCharacterRule(),
+        new BoxLineLimitRule(),
+        new FieldByteLimitRule(),
     ]);
 
     /// <summary>Regras registradas, na ordem em que rodam.</summary>
