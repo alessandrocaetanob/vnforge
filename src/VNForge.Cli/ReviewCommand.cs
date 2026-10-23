@@ -176,7 +176,6 @@ internal static class ReviewCommand
 
     private static int WriteResult(TextWriter output, bool json, AiRunSettings settings, int selected, RunSummary summary)
     {
-        var failedLines = summary.Failed.Sum(f => f.LineIds.Count);
         var exitCode = summary.Failed.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         var dollars = DollarsFor(settings.Model, summary.Usage);
 

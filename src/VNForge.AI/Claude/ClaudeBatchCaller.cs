@@ -18,34 +18,16 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
         get { lock (_usageLock) return _usage; }
     }
 
-    /// <param name="verb">O que o modelo recusa fazer, no infinitivo ("traduzir"); entra na mensagem de recusa.</param>
-    /// <param name="parse">Lê a resposta e confere os ids do lote.</param>
-    /// <param name="refused">O resultado de uma linha que o modelo recusou sozinha.</param>
-    public Task<IReadOnlyList<T>> RunAsync<T>(
-        TranslationBatch batch,
-        CancellationToken ct,
-        string schema,
-        string verb,
-        Func<TranslationBatch, string> buildSystem,
-        Func<TranslationBatch, string> buildUser,
-        Func<string, TranslationBatch, IReadOnlyList<T>> parse,
-        Func<TextUnit, T> refused)
+    public Task<IReadOnlyList<T>> RunAsync<T>(TranslationBatch batch, CancellationToken ct, ClaudeBatchSpec<T> spec)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ct.ThrowIfCancellationRequested();
-        return ClaudePromptParts.WithRefusalFallback(batch, b => OnceAsync(b, ct, schema, verb, buildSystem, buildUser, parse), refused);
+        return ClaudePromptParts.WithRefusalFallback(batch, b => OnceAsync(b, ct, spec), spec.Refused);
     }
 
-    private async Task<IReadOnlyList<T>> OnceAsync<T>(
-        TranslationBatch batch,
-        CancellationToken ct,
-        string schema,
-        string verb,
-        Func<TranslationBatch, string> buildSystem,
-        Func<TranslationBatch, string> buildUser,
-        Func<string, TranslationBatch, IReadOnlyList<T>> parse)
+    private async Task<IReadOnlyList<T>> OnceAsync<T>(TranslationBatch batch, CancellationToken ct, ClaudeBatchSpec<T> spec)
     {
-        var request = new ClaudeRequest(options.Model, options.Effort, options.MaxTokens, buildSystem(batch), buildUser(batch), schema);
+        var request = new ClaudeRequest(options.Model, options.Effort, options.MaxTokens, spec.BuildSystem(batch), spec.BuildUser(batch), spec.Schema);
         var reply = await client.CompleteAsync(request, ct).ConfigureAwait(false);
 
         if (reply.Usage is { } usage)
@@ -53,10 +35,22 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
                 _usage += usage;
 
         if (reply.StopReason == "refusal")
-            throw new ClaudeRefusalException($"O modelo recusou {verb} este lote (stop_reason: refusal).");
+            throw new ClaudeRefusalException($"O modelo recusou {spec.Verb} este lote (stop_reason: refusal).");
         if (reply.StopReason == "max_tokens")
             throw new ClaudeResponseException("A resposta foi cortada por limite de tokens; reduza o lote.");
 
-        return parse(reply.Text, batch);
+        return spec.Parse(reply.Text, batch);
     }
 }
+
+/// <summary>O que muda de um provedor para outro: prompt, schema, leitura da resposta e o resultado de uma linha recusada.</summary>
+/// <param name="Verb">O que o modelo recusa fazer, no infinitivo ("traduzir"); entra na mensagem de recusa.</param>
+/// <param name="Parse">Lê a resposta e confere os ids do lote.</param>
+/// <param name="Refused">O resultado de uma linha que o modelo recusou sozinha.</param>
+internal sealed record ClaudeBatchSpec<T>(
+    string Schema,
+    string Verb,
+    Func<TranslationBatch, string> BuildSystem,
+    Func<TranslationBatch, string> BuildUser,
+    Func<string, TranslationBatch, IReadOnlyList<T>> Parse,
+    Func<TextUnit, T> Refused);

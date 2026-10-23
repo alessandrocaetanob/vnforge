@@ -29,7 +29,7 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
     /// <summary>Revisa o lote. Uma recusa refaz o lote linha a linha, e só as linhas recusadas voltam com <see cref="ReviewResult.Refused"/>.</summary>
     public Task<IReadOnlyList<ReviewResult>> ReviewAsync(TranslationBatch batch, CancellationToken ct)
     {
-        return _caller.RunAsync(batch, ct, Schema, "revisar", BuildSystem, BuildUser, Parse, line => new ReviewResult(line.Id, string.Empty, Refused: true));
+        return _caller.RunAsync(batch, ct, new ClaudeBatchSpec<ReviewResult>(Schema, "revisar", BuildSystem, BuildUser, Parse, line => new ReviewResult(line.Id, string.Empty, Refused: true)));
     }
 
     private static string BuildSystem(TranslationBatch batch)
