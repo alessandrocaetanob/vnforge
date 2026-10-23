@@ -27,11 +27,12 @@ public sealed class FakeTranslationProvider : ITranslationProvider
     public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
-        ct.ThrowIfCancellationRequested();
+        if (ct.IsCancellationRequested)
+            return Task.FromCanceled<IReadOnlyList<TranslationResult>>(ct);
 
         _received.Enqueue(batch);
         if (Interlocked.Increment(ref _calls) == FailOnCall)
-            throw new InvalidOperationException($"Falha simulada na chamada {FailOnCall}.");
+            return Task.FromException<IReadOnlyList<TranslationResult>>(new InvalidOperationException($"Falha simulada na chamada {FailOnCall}."));
 
         IReadOnlyList<TranslationResult> results = [.. batch.Lines.Select(u => new TranslationResult(u.Id, _translate(u)))];
         return Task.FromResult(results);

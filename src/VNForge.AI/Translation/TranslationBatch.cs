@@ -13,7 +13,7 @@ public sealed record TranslationBatch
 {
     public TranslationBatch(IReadOnlyList<TextUnit> lines)
     {
-        Lines = lines ?? throw new ArgumentNullException(nameof(lines));
+        Lines = [.. lines ?? throw new ArgumentNullException(nameof(lines))];
     }
 
     /// <summary>Linhas a traduzir; só <see cref="TextUnit.Id"/>, <see cref="TextUnit.Kind"/>, <see cref="TextUnit.Speaker"/> e <see cref="TextUnit.Source"/> contam.</summary>
