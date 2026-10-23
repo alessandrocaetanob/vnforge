@@ -178,7 +178,7 @@ public static class ProjectExtractor
     }
 
     /// <summary>Segue os links simbólicos e junções do caminho, para um <c>.cache</c> que aponta para dentro do jogo não passar.</summary>
-    private static string ResolveLinks(string path)
+    internal static string ResolveLinks(string path)
     {
         var full = Path.GetFullPath(path);
         var root = Path.GetPathRoot(full) ?? string.Empty;
@@ -196,7 +196,7 @@ public static class ProjectExtractor
         return current;
     }
 
-    private static bool IsInside(string folder, string path)
+    internal static bool IsInside(string folder, string path)
     {
         var relative = Path.GetRelativePath(folder, path);
         return !Path.IsPathRooted(relative)

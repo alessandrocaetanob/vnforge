@@ -128,6 +128,7 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_project.BuildDirectory, "anterior.txt")));
         Assert.True(File.Exists(Path.Combine(_project.BuildDirectory, "pacote.fake")));
         Assert.False(Directory.Exists(_project.BuildDirectory + ".tmp"));
+        Assert.False(Directory.Exists(_project.BuildDirectory + ".old"));
     }
 
     [Fact]
@@ -186,6 +187,27 @@ public sealed class ProjectBuilderTests : IDisposable
 
         Assert.Contains("engine 'fake'", unknown.Message);
         Assert.Contains("ainda não suporta o build", unsupported.Message);
+    }
+
+    [Fact]
+    public void Projeto_dentro_da_pasta_do_jogo_e_recusado_sem_gravar_nada()
+    {
+        var inside = ProjectFolder.Create(
+            Path.Combine(_game, "projeto"),
+            new ProjectConfig(
+                "Teste",
+                new GameConfig(_game.Replace(Path.DirectorySeparatorChar, '/'), "Jogo.exe"),
+                new EngineConfig("fake"),
+                new LanguagesConfig("ja", "pt-BR"),
+                new EncodingConfig("cp1252"),
+                AiConfig.Default));
+        _engine.Unpack(_game, inside.GameCacheDirectory, TestContext.Current.CancellationToken);
+
+        var ex = Assert.Throws<VNForgeException>(() => ProjectBuilder.Build(inside, [_engine], TestContext.Current.CancellationToken));
+
+        Assert.Contains("fica dentro da pasta do jogo", ex.Message);
+        Assert.Empty(Directory.EnumerateFiles(inside.BuildDirectory, "*", SearchOption.AllDirectories));
+        Assert.False(Directory.Exists(inside.BuildDirectory + ".tmp"));
     }
 
     [Fact]

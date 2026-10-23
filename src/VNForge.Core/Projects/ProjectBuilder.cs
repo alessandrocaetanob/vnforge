@@ -69,6 +69,12 @@ public static class ProjectBuilder
             throw new VNForgeException($"A pasta do jogo não existe: {gameDirectory}");
         }
 
+        if (ProjectExtractor.IsInside(ProjectExtractor.ResolveLinks(gameDirectory), ProjectExtractor.ResolveLinks(project.BuildDirectory)))
+        {
+            throw new VNForgeException(
+                $"O build/ do projeto ('{project.BuildDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
+        }
+
         if (!Directory.Exists(project.GameCacheDirectory))
         {
             throw new VNForgeException($"A pasta '{project.GameCacheDirectory}' não existe. Rode vnf extract antes do build.");
@@ -92,8 +98,7 @@ public static class ProjectBuilder
             var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, cancellationToken);
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
-            DeleteIfExists(project.BuildDirectory);
-            Directory.Move(staging, project.BuildDirectory);
+            Swap(staging, project.BuildDirectory);
             return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings);
         }
         catch
@@ -152,6 +157,34 @@ public static class ProjectBuilder
         warnings.AddRange(texts.Keys.Where(k => !known.Contains(k)).Select(k => $"text/{k}.json não corresponde a nenhum script do jogo descompactado; ignorado."));
         built.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
         return (rebuilt, built);
+    }
+
+    /// <summary>Põe <paramref name="staging"/> no lugar de <paramref name="target"/>; se a troca falhar, devolve o anterior.</summary>
+    private static void Swap(string staging, string target)
+    {
+        var previous = target + ".old";
+        DeleteIfExists(previous);
+        var hadPrevious = Directory.Exists(target);
+        if (hadPrevious)
+        {
+            Directory.Move(target, previous);
+        }
+
+        try
+        {
+            Directory.Move(staging, target);
+        }
+        catch
+        {
+            if (hadPrevious && !Directory.Exists(target))
+            {
+                Directory.Move(previous, target);
+            }
+
+            throw;
+        }
+
+        DeleteIfExists(previous);
     }
 
     private static void DeleteIfExists(string directory)
