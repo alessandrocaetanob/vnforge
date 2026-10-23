@@ -171,4 +171,16 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         Assert.Empty(_project.LoadGlossary());
         Assert.Empty(_project.LoadCharacters());
     }
+
+    [Theory]
+    [InlineData("MALE", CharacterGender.Male)]
+    [InlineData(" other ", CharacterGender.Other)]
+    [InlineData("Unknown", CharacterGender.Unknown)]
+    public async Task Chars_set_aceita_genero_sem_distinguir_caixa(string text, CharacterGender expected)
+    {
+        var result = await Run(CharsVerb, "set", "健", "Ken", GenderOption, text);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(expected, Assert.Single(_project.LoadCharacters()).Gender);
+    }
 }

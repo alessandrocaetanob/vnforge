@@ -9,6 +9,9 @@ namespace VNForge.Cli;
 /// <summary><c>vnf chars list|set</c>: os personagens de <c>characters.json</c>.</summary>
 internal static class CharsCommand
 {
+    private static readonly Dictionary<string, CharacterGender> GendersByName =
+        Enum.GetValues<CharacterGender>().ToDictionary(GenderName, StringComparer.OrdinalIgnoreCase);
+
     private static readonly string[] GenderNames = [.. Enum.GetValues<CharacterGender>().Select(GenderName)];
 
     public static Command Create(VnfCli cli)
@@ -123,15 +126,10 @@ internal static class CharsCommand
         return ErrorHandler.OkExitCode;
     }
 
-    private static CharacterGender ParseGender(string text)
-    {
-        foreach (var gender in Enum.GetValues<CharacterGender>().Where(g => string.Equals(GenderName(g), text.Trim(), StringComparison.OrdinalIgnoreCase)))
-        {
-            return gender;
-        }
-
-        throw new UsageException($"Gênero desconhecido: '{text}'. Use um de: {string.Join(", ", GenderNames)}.");
-    }
+    private static CharacterGender ParseGender(string text) =>
+        GendersByName.TryGetValue(text.Trim(), out var gender)
+            ? gender
+            : throw new UsageException($"Gênero desconhecido: '{text}'. Use um de: {string.Join(", ", GenderNames)}.");
 
     private static string GenderName(CharacterGender gender) => gender.ToString().ToLowerInvariant();
 
