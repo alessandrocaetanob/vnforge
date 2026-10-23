@@ -35,11 +35,13 @@ public sealed record TranslationProgress(int CompletedLines, int TotalLines);
 public sealed record TranslationBatchFailure(IReadOnlyList<string> LineIds, Exception Error, int Attempts);
 
 /// <summary>Resultado de uma execução: o que voltou, o que falhou e se foi cancelada.</summary>
+/// <param name="CallbackError">Erro lançado por <c>onBatchTranslated</c> ou pelo progresso; a execução para ali, e <paramref name="Results"/> mantém o que já voltou.</param>
 /// <param name="Results">Traduções recebidas, na ordem das linhas de entrada; inclui as dos lotes concluídos antes de um cancelamento.</param>
 public sealed record TranslationRunResult(
     IReadOnlyList<TranslationResult> Results,
     IReadOnlyList<TranslationBatchFailure> Failures,
-    bool Canceled);
+    bool Canceled,
+    Exception? CallbackError = null);
 
 /// <summary>
 /// Traduz uma lista de linhas em lotes, com chamadas em paralelo e retry com backoff exponencial. Cancelar não lança: a execução
@@ -81,15 +83,28 @@ public sealed class TranslationRunner
         var failed = new ConcurrentDictionary<int, TranslationBatchFailure>();
         var gate = new object();
         var completedLines = 0;
+        Exception? callbackError = null;
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         try
         {
             await Parallel.ForEachAsync(
                 chunks,
-                new ParallelOptions { MaxDegreeOfParallelism = _options.MaxConcurrency, CancellationToken = ct },
+                new ParallelOptions { MaxDegreeOfParallelism = _options.MaxConcurrency, CancellationToken = stop.Token },
                 async (chunk, token) =>
                 {
-                    var outcome = await TranslateWithRetryAsync(buildBatch(chunk.Lines), token).ConfigureAwait(false);
+                    TranslationBatch batch;
+                    try
+                    {
+                        batch = buildBatch(chunk.Lines);
+                    }
+                    catch (Exception ex)
+                    {
+                        failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], ex, 0);
+                        return;
+                    }
+
+                    var outcome = await TranslateWithRetryAsync(batch, token).ConfigureAwait(false);
                     if (outcome.Error is not null)
                     {
                         failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], outcome.Error, outcome.Attempts);
@@ -101,20 +116,29 @@ public sealed class TranslationRunner
                     done[chunk.Index] = outcome.Results;
                     lock (gate)
                     {
-                        completedLines += outcome.Results.Count;
-                        onBatchTranslated?.Invoke(outcome.Results);
-                        progress?.Report(new TranslationProgress(completedLines, lines.Count));
+                        try
+                        {
+                            completedLines += outcome.Results.Count;
+                            onBatchTranslated?.Invoke(outcome.Results);
+                            progress?.Report(new TranslationProgress(completedLines, lines.Count));
+                        }
+                        catch (Exception ex)
+                        {
+                            callbackError ??= ex;
+                            stop.Cancel();
+                        }
                     }
                 }).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
         }
 
         return new TranslationRunResult(
             [.. done.OrderBy(p => p.Key).SelectMany(p => p.Value)],
             [.. failed.OrderBy(p => p.Key).Select(p => p.Value)],
-            ct.IsCancellationRequested);
+            ct.IsCancellationRequested,
+            callbackError);
     }
 
     private async Task<(IReadOnlyList<TranslationResult>? Results, Exception? Error, int Attempts)> TranslateWithRetryAsync(TranslationBatch batch, CancellationToken ct)

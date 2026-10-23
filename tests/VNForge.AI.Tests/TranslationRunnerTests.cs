@@ -213,6 +213,20 @@ public class TranslationRunnerTests
     }
 
     [Fact]
+    public async Task Erro_ao_gravar_um_lote_para_a_execucao_sem_perder_o_que_voltou()
+    {
+        var runner = new TranslationRunner(new FakeTranslationProvider(), NoWait(batchSize: 20, concurrency: 1));
+
+        var run = await runner.RunAsync(Units(100), Build,
+            onBatchTranslated: _ => throw new IOException("disco cheio"),
+            ct: CancellationToken.None);
+
+        Assert.IsType<IOException>(run.CallbackError);
+        Assert.False(run.Canceled);
+        Assert.Equal(20, run.Results.Count);
+    }
+
+    [Fact]
     public async Task Lista_vazia_nao_chama_o_provedor()
     {
         var provider = new FakeTranslationProvider();
