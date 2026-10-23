@@ -269,11 +269,11 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Fold_builda_e_o_resultado_traz_os_caracteres_trocados()
     {
         _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("fold") });
-        Translate("a001", (0, "«ªã"));
+        Translate("a001", (0, "«ªã»"));
 
         var result = Build();
 
-        Assert.Equal(["\"", "a", "a"], result.Encoding.Replaced.Select(i => i.Replacement));
+        Assert.Equal(["\"", "a", "a", "\""], result.Encoding.Replaced.Select(i => i.Replacement));
         Assert.Equal("fold", result.Encoding.Strategy);
     }
 
