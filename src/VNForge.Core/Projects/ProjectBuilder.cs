@@ -12,6 +12,11 @@ namespace VNForge.Core.Projects;
 /// <param name="Lines">Unidades de texto trocadas.</param>
 public sealed record BuiltScript(string Key, string Name, int Lines);
 
+/// <summary>Opções do build que não são injeção de dependência (<see cref="ProjectBuilder.Build"/>).</summary>
+/// <param name="OnlyChanged">Build incremental (<c>--only-changed</c>): reaproveita o resultado do build anterior dos scripts cujas entradas não mudaram (<see cref="BuildState"/>) e, se nenhum mudou e <c>build/</c> está como o anterior o deixou, nem regrava os pacotes. <c>false</c> reconstrói tudo.</param>
+/// <param name="EncodingStrategy">Estratégia de codificação só deste build (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>, que não é alterado.</param>
+public sealed record BuildOptions(bool OnlyChanged = false, string? EncodingStrategy = null);
+
 /// <summary>Resultado de <see cref="ProjectBuilder.Build"/>.</summary>
 /// <param name="GameDirectory">Pasta do jogo cujos pacotes serviram de base.</param>
 /// <param name="BuildDirectory">Pasta <c>build/</c> que recebeu os pacotes.</param>
@@ -31,6 +36,9 @@ public sealed record BuildResult(
     EncodingReport Encoding,
     QaReport Qa)
 {
+    /// <summary>Scripts com tradução cujo resultado do build anterior foi reaproveitado, sem chamar <see cref="IScriptFormat.Rebuild"/> (só no build incremental).</summary>
+    public int ReusedScripts { get; init; }
+
     /// <summary>Total de unidades de texto trocadas.</summary>
     public int TotalLines => RebuiltScripts.Sum(s => s.Lines);
 }
@@ -44,7 +52,7 @@ public sealed record BuildResult(
 /// O <see cref="ITextEncoder"/> vem do <c>encoding.strategy</c> do <c>vnforge.json</c> (<see cref="TextEncoderRegistry"/>). Antes de reconstruir, o
 /// build roda o QA (<see cref="QaEngine"/>) e recusa com <see cref="QaBlockedException"/> se achar erro, ou aviso sem <c>allowWarnings</c>; os avisos que a linha marcou como "ok" não contam. Depois confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
 /// (<see cref="EncodingReportException"/>). Antes disso o texto passa pelo pipeline do <c>formatting.json</c> (<see cref="FormattingPipeline"/>), então
-/// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Todo pacote descompactado
+/// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Cada pacote descompactado
 /// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
 /// </remarks>
 public static class ProjectBuilder
@@ -56,6 +64,7 @@ public static class ProjectBuilder
     /// <param name="encoders">Estratégias disponíveis; o padrão é <see cref="TextEncoderRegistry.Default"/>.</param>
     /// <param name="qa">Regras de QA que rodam antes de reconstruir; o padrão é <see cref="QaEngine.Default"/>.</param>
     /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre.</param>
+    /// <param name="options">Build incremental e estratégia de codificação só deste build; <c>null</c> reconstrói tudo com a estratégia do <c>vnforge.json</c>.</param>
     /// <exception cref="QaBlockedException">O QA achou erro, ou aviso sem <paramref name="allowWarnings"/>; nada é gravado.</exception>
     /// <exception cref="VNForgeException">
     /// Engine desconhecida ou sem suporte ao build, estratégia de codificação desconhecida ou sem encoder, jogo ou <c>.cache/game</c> inexistente,
@@ -63,7 +72,7 @@ public static class ProjectBuilder
     /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -76,7 +85,7 @@ public static class ProjectBuilder
             throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta o build.");
         }
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(options?.EncodingStrategy ?? config.Encoding.Strategy);
 
         var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
         if (!Directory.Exists(gameDirectory))
@@ -119,7 +128,14 @@ public static class ProjectBuilder
             throw new QaBlockedException(qaReport, allowWarnings);
         }
 
-        var (rebuilt, built) = RebuildScripts(game, texts, encoder, warnings, cancellationToken);
+        var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;
+        var (rebuilt, built, state, reused) = RebuildScripts(project, game, texts, encoder, previous, warnings, cancellationToken);
+
+        if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
+        {
+            warnings.AddRange(previous.Warnings);
+            return new BuildResult(gameDirectory, project.BuildDirectory, [.. previous.Archives.Select(a => new RepackedArchive(a.GamePath, a.ReplacedFiles))], game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
+        }
 
         var staging = project.BuildDirectory + ".tmp";
         DeleteIfExists(staging);
@@ -130,7 +146,8 @@ public static class ProjectBuilder
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport);
+            new BuildState(BuildState.CurrentVersion, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings]).TrySave(project);
+            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
         }
         catch
         {
@@ -143,12 +160,13 @@ public static class ProjectBuilder
     /// Só o relatório de codificação (<c>vnf build --report</c>): confere as traduções do <paramref name="project"/> com a estratégia do
     /// <c>vnforge.json</c> sem tocar em <c>.cache/</c>, <c>build/</c> nem no jogo.
     /// </summary>
+    /// <param name="encodingStrategy">Estratégia só deste relatório (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>.</param>
     /// <exception cref="VNForgeException">Estratégia desconhecida ou sem encoder, ou <c>text/*.json</c> inválido.</exception>
-    public static EncodingReport ReportEncoding(ProjectFolder project, TextEncoderRegistry? encoders = null)
+    public static EncodingReport ReportEncoding(ProjectFolder project, TextEncoderRegistry? encoders = null, string? encodingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? project.LoadConfig().Encoding.Strategy);
         return EncodingReporter.Create(ApplyFormatting(project.LoadFormatting(), project.LoadAllText(), null, []), encoder);
     }
 
@@ -190,7 +208,7 @@ public static class ProjectBuilder
 
         try
         {
-            var result = pipeline.Format(unit.Translation!);
+            var result = pipeline.Format(unit.Translation ?? string.Empty);
             warnings.AddRange(result.Warnings.Select(w => $"{unit.Id}: {w}"));
             return unit with { Translation = result.Text };
         }
@@ -200,15 +218,19 @@ public static class ProjectBuilder
         }
     }
 
-    private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built) RebuildScripts(
+    private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built, Dictionary<string, BuildStateScript> State, int Reused) RebuildScripts(
+        ProjectFolder project,
         UnpackedGame game,
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         ITextEncoder encoder,
+        BuildState? previous,
         List<string> warnings,
         CancellationToken cancellationToken)
     {
         var rebuilt = new List<RebuiltScript>();
         var built = new List<BuiltScript>();
+        var state = new Dictionary<string, BuildStateScript>(StringComparer.Ordinal);
+        var reused = 0;
         var keys = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var script in game.Scripts)
         {
@@ -226,21 +248,29 @@ public static class ProjectBuilder
                 continue;
             }
 
-            byte[] content;
-            try
+            var hash = BuildState.HashInputs(original, encoder.Id, units);
+            if (TryReuse(project, previous, file.Key, hash) is { } reuse)
             {
-                content = script.Format.Rebuild(file, units, encoder, game.Context);
-            }
-            catch (Exception ex) when (ex is InvalidDataException or EncoderFallbackException or FormatException or ArgumentException or VNForgeException)
-            {
-                throw new VNForgeException($"Não foi possível reconstruir o script '{script.Name}' com o text/{file.Key}.json: {ex.Message}", ex);
-            }
+                state[file.Key] = reuse.Entry;
+                if (reuse.Content is not null)
+                {
+                    rebuilt.Add(new RebuiltScript(script.Path, original, reuse.Content));
+                }
 
-            if (content.AsSpan().SequenceEqual(original))
-            {
+                reused++;
                 continue;
             }
 
+            var content = RebuildScript(script, file, units, encoder, game.Context);
+
+            if (content.AsSpan().SequenceEqual(original))
+            {
+                state[file.Key] = new BuildStateScript(hash, Identical: true, 0);
+                continue;
+            }
+
+            BuildState.WriteScript(project, file.Key, hash, content);
+            state[file.Key] = new BuildStateScript(hash, Identical: false, content.Length);
             rebuilt.Add(new RebuiltScript(script.Path, original, content));
             built.Add(new BuiltScript(file.Key, script.Name, units.Count(u => u.NeedsRewrite)));
         }
@@ -248,8 +278,42 @@ public static class ProjectBuilder
         var known = keys.Keys.ToHashSet(StringComparer.Ordinal);
         warnings.AddRange(texts.Keys.Where(k => !known.Contains(k)).Select(k => $"text/{k}.json não corresponde a nenhum script do jogo descompactado; ignorado."));
         built.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
-        return (rebuilt, built);
+        return (rebuilt, built, state, reused);
     }
+
+    private static byte[] RebuildScript(UnpackedScript script, ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext context)
+    {
+        try
+        {
+            return script.Format.Rebuild(file, units, encoder, context);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or EncoderFallbackException or FormatException or ArgumentException or VNForgeException)
+        {
+            throw new VNForgeException($"Não foi possível reconstruir o script '{script.Name}' com o text/{file.Key}.json: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>O resultado do build anterior para o script, se as entradas (<paramref name="hash"/>) são as mesmas e os bytes guardados ainda conferem; <c>Content</c> nulo quando o script saiu idêntico ao original.</summary>
+    private static (BuildStateScript Entry, byte[]? Content)? TryReuse(ProjectFolder project, BuildState? previous, string key, string hash)
+    {
+        if (previous is null || !previous.Scripts.TryGetValue(key, out var saved) || saved.Hash != hash)
+        {
+            return null;
+        }
+
+        if (saved.Identical)
+        {
+            return (saved, null);
+        }
+
+        return BuildState.ReadScript(project, key, saved) is { } cached ? (saved, cached) : null;
+    }
+
+    private static bool SameScripts(BuildState previous, Dictionary<string, BuildStateScript> current) =>
+        previous.Scripts.Count == current.Count && previous.Scripts.All(p => current.TryGetValue(p.Key, out var c) && c == p.Value);
+
+    private static long ArchiveLength(ProjectFolder project, string gamePath) =>
+        new FileInfo(Path.Combine(project.BuildDirectory, gamePath.Replace('/', Path.DirectorySeparatorChar))).Length;
 
     /// <summary>Põe <paramref name="staging"/> no lugar de <paramref name="target"/>; se a troca falhar, devolve o anterior.</summary>
     private static void Swap(string staging, string target)

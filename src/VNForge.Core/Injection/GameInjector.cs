@@ -53,6 +53,7 @@ public sealed class GameInjector
         }
 
         var history = new BackupHistory(ReadBackups(project));
+        EnsureGameUnchangedSinceExtraction(project, gameDirectory, history);
         var files = new List<PlannedFile>();
         var unchanged = 0;
         foreach (var buildPath in buildFiles)
@@ -176,6 +177,48 @@ public sealed class GameInjector
         }
 
         return new RestoreResult(plan.GameDirectory, plan.BackupDirectory, outcome.Restored, outcome.Removed, outcome.Kept);
+    }
+
+    /// <summary>
+    /// Recusa o plano quando um arquivo que a extração leu não tem mais o hash gravado em <c>.cache/state.json</c> (o jogo foi atualizado).
+    /// O build de uma injeção anterior nossa não conta como mudança. Sem estado de extração, não há o que comparar.
+    /// </summary>
+    private static void EnsureGameUnchangedSinceExtraction(ProjectFolder project, string gameDirectory, BackupHistory history)
+    {
+        var changed = new List<string>();
+        foreach (var original in project.LoadState().Originals.OrderBy(o => o.Path, StringComparer.Ordinal))
+        {
+            var path = ResolveInside(gameDirectory, original.Path);
+            if (!File.Exists(path))
+            {
+                changed.Add($"{original.Path} (ausente)");
+                continue;
+            }
+
+            string current;
+            try
+            {
+                current = FileHash.Sha256(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InjectionException($"Não foi possível ler '{original.Path}' para conferir o jogo (o jogo está aberto?): {ex.Message}", ex);
+            }
+
+            if (current == original.Sha256 || history.FindLatestEntry(original.Path)?.Entry.InjectedSha256 == current)
+            {
+                continue;
+            }
+
+            changed.Add(original.Path);
+        }
+
+        if (changed.Count > 0)
+        {
+            throw new InjectionException(
+                $"O jogo mudou desde a extração (uma atualização, talvez), então a injeção foi recusada e nada foi gravado. Arquivos alterados: {string.Join(", ", changed)}. "
+                + "Rode vnf extract de novo para o projeto acompanhar a nova versão do jogo.");
+        }
     }
 
     private static PlannedFile PlanReplacement(
