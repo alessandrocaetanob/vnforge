@@ -101,20 +101,20 @@ public sealed class MarkerMismatchQaRule : UnitQaRule
         }
 
         IReadOnlyList<string> actual;
-        string? invalid = null;
+        var translationValid = true;
         try
         {
             actual = ControlMarkers.Markers(unit.Translation);
         }
-        catch (ArgumentException ex)
+        catch (ArgumentException)
         {
-            invalid = ex.Message.Split(" (Parameter", StringSplitOptions.None)[0];
+            translationValid = false;
             actual = [];
         }
 
-        if (invalid is not null)
+        if (!translationValid)
         {
-            yield return $"marcador inválido na tradução: {invalid}";
+            yield return "marcador inválido na tradução (barra solta, marcador desconhecido ou chave sem fechamento)";
             yield break;
         }
 
