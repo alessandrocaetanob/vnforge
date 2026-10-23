@@ -42,7 +42,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | Comando | O que faz |
 |---|---|
 | `vnf init <pasta> --game <dir>` | Cria o projeto, detecta a engine e a versão, sugere configurações |
-| `vnf detect [--game <dir>]` | Só diagnostica: engine, versão, arquivos YPF, chave XOR, codificação |
+| `vnf detect [--game <dir>]` | Só diagnostica, sem gravar: engine, versão, arquivos YPF, versão do YSTB, chave XOR (a codificação ainda não é detectada). Sem `--game` usa a pasta atual; pasta sem engine conhecida responde "Engine não reconhecida" e sai com 0 |
 | `vnf extract` | Descompacta os arquivos do jogo para `.cache/` e gera `text/*.json`. Re-extrair preserva traduções existentes |
 | `vnf status` | Progresso: linhas por status, por arquivo, por personagem |
 | `vnf translate` | Traduz com IA as linhas pendentes |
