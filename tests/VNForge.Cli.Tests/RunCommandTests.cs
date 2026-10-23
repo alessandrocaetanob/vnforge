@@ -82,6 +82,19 @@ public sealed class RunCommandTests : IDisposable
         Assert.Equal(Path.Combine(folder, "jogo.exe"), Assert.Single(_starter.Started).Executable);
     }
 
+    [Fact]
+    public async Task Run_com_exe_em_subpasta_usa_a_pasta_do_jogo_como_diretorio_de_trabalho()
+    {
+        Directory.CreateDirectory(Path.Combine(_game, "bin"));
+        File.WriteAllText(Path.Combine(_game, "bin", "vn.exe"), "sintetico");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(_game, Path.Combine("bin", "vn.exe")) });
+
+        var result = await Run("run");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal((Path.Combine(_game, "bin", "vn.exe"), _game), Assert.Single(_starter.Started));
+    }
+
     private sealed class FakeStarter : IGameProcessStarter
     {
         public List<(string Executable, string WorkingDirectory)> Started { get; } = [];

@@ -15,11 +15,18 @@ public sealed class ShellGameProcessStarter : IGameProcessStarter
 {
     public void Start(string executablePath, string workingDirectory)
     {
-        using var process = Process.Start(new ProcessStartInfo(executablePath)
+        try
         {
-            WorkingDirectory = workingDirectory,
-            UseShellExecute = true,
-        });
+            using var process = Process.Start(new ProcessStartInfo(executablePath)
+            {
+                WorkingDirectory = workingDirectory,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            throw new VNForgeException($"Não foi possível abrir o jogo: {executablePath}\n{ex.Message}");
+        }
     }
 }
 
@@ -38,6 +45,8 @@ public sealed class GameExecutableNotFoundException : VNForgeException
 /// <summary>Resolve e abre o executável do jogo registrado no <c>vnforge.json</c>.</summary>
 public sealed class GameLauncher(IGameProcessStarter starter)
 {
+    private readonly IGameProcessStarter _starter = starter ?? throw new ArgumentNullException(nameof(starter));
+
     /// <summary>Caminho completo de <c>game.exe</c>; <c>game.path</c> é relativo à pasta do projeto quando não é absoluto.</summary>
     public static string ResolveExecutable(ProjectFolder project)
     {
@@ -56,7 +65,7 @@ public sealed class GameLauncher(IGameProcessStarter starter)
             throw new GameExecutableNotFoundException(executable);
         }
 
-        starter.Start(executable, Path.GetDirectoryName(executable)!);
+        _starter.Start(executable, Path.GetFullPath(project.LoadConfig().Game.Path, project.Root));
         return executable;
     }
 }
