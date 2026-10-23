@@ -6,6 +6,20 @@
   // Papéis de linha que o pipeline formata: dialogue, narration, name, choice, system, other.
   "kinds": ["dialogue", "narration"],
 
+  // Normalização (E4.2): todas desligadas por padrão.
+  "normalization": {
+    "nfc": true,              // letra + acento soltos viram o caractere composto
+    "invisibleSpaces": true,  // remove U+200B, U+200C, U+200D, U+2060 e U+FEFF
+    "nbsp": true              // U+00A0 e U+202F viram espaço comum
+  },
+
+  // Espaços (E4.2): todas desligadas por padrão.
+  "spacing": {
+    "collapseSpaces": true,          // dois ou mais espaços viram um
+    "spaceBeforePunctuation": true,  // "Ei ?" vira "Ei?" (vale para ? ! : ;)
+    "spaceAfterPunctuation": true    // "Ei,você" vira "Ei, você"
+  },
+
   // Tipografia (fase antes da largura). Tudo desligado por padrão.
   "typography": {
     "quotes": "corner",       // "none", "ascii" (" e ') ou "corner" (“ ” viram 「 」)
@@ -25,5 +39,18 @@
     "maxWidth": 54,      // colunas por linha
     "maxLines": 3,       // linhas por caixa; null não limita
     "charWidth": "halfWidthLatin"  // ou "uniform" (todo caractere vale 1 coluna)
+  },
+
+  // Substituições do usuário, na ordem escrita. "before" roda antes das regras acima, "after" depois.
+  // Só o texto comum é tocado: \n, \c e {...} ficam como estão. Com "regex": true o padrão é
+  // regex do .NET e "with" aceita $1. Regex inválida para o build apontando a regra.
+  "replacements": {
+    "before": [
+      { "pattern": "Tokyo", "with": "Tóquio" },
+      { "pattern": "(\\w+)-san", "with": "Sr. $1", "regex": true }
+    ],
+    "after": [
+      { "pattern": "\\s+$", "with": "", "regex": true }  // tira espaços no fim do trecho
+    ]
   }
 }

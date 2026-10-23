@@ -214,6 +214,12 @@ O perfil (E4.1) é `FormattingProfile` em `VNForge.Core.Formatting`, lido por `F
 | Campo | Padrão | Efeito |
 |---|---|---|
 | `kinds` | `["dialogue", "narration"]` | Papéis de linha que o pipeline formata; as outras saem como estão |
+| `normalization.nfc` | `false` | Unicode NFC: letra e acento soltos viram o caractere composto |
+| `normalization.invisibleSpaces` | `false` | Remove U+200B, U+200C, U+200D, U+2060 e U+FEFF (inclui ZWJ e ZWNJ, que ligam emojis e certas escritas) |
+| `normalization.nbsp` | `false` | U+00A0 e U+202F viram espaço comum |
+| `spacing.collapseSpaces` | `false` | Dois ou mais espaços viram um |
+| `spacing.spaceBeforePunctuation` | `false` | Tira o espaço antes de `? ! : ;` |
+| `spacing.spaceAfterPunctuation` | `false` | Põe espaço depois de `, ; ? !` colados a uma letra (só dentro de um trecho: a pontuação colada a um marcador fica como está), de `.` e `:` entre letra e maiúscula, e depois de `...` antes de letra; números (`1,5`, `10:30`) e endereços (`site.com`) ficam como estão |
 | `wrap.enabled` | `false` | Liga a quebra de linha |
 | `wrap.maxWidth` | `54` | Colunas por linha |
 | `wrap.maxLines` | `3` (`null` não limita) | Linhas por caixa; acima disso o build avisa, não recusa |
@@ -225,11 +231,15 @@ O perfil (E4.1) é `FormattingProfile` em `VNForge.Core.Formatting`, lido por `F
 ` ou `\p`; vence `dash` ali |
 | `width.mode` | `"none"` (`"full"`, `"half"`) | ASCII `!` a `~` para largura cheia (`Hoje` vira `Ｈｏｊｅ`) ou de volta. `\`, `{` e `}` nunca mudam |
 | `width.spaces` | `false` | Troca também o espaço (`U+0020` e `U+3000`); desligado, a quebra de linha continua achando as palavras |
+| `replacements.before` | `[]` | Substituições do usuário que rodam antes das regras do perfil (E4.5) |
+| `replacements.after` | `[]` | Substituições do usuário que rodam depois das regras do perfil |
+
+Cada item de `replacements.before` e `replacements.after` é `{ "pattern": "...", "with": "...", "regex": false }`: `pattern` (obrigatório, não vazio) e `with` (obrigatório, pode ser `""`) são texto; `regex` (padrão `false`) trata o `pattern` como expressão regular do .NET, e então `with` aceita `$1` e `${nome}`. A lista roda na ordem escrita, e cada substituição vê o resultado da anterior. As etapas (`ReplacementStage`, ids `replacements-before` e `replacements-after`) herdam `TextRunStage`: só veem o texto entre marcadores, então nunca alteram `\n`, `\c` ou `{...}`, e um padrão não casa através de um marcador (as âncoras `^` e `$` valem para cada trecho entre marcadores, não para a linha inteira); uma substituição que escreva um marcador (por exemplo `with` igual a `\n`) é recusada pelo pipeline. Regex inválida ou padrão vazio é erro de perfil que cita a regra (`formatting.json inválido em $.replacements.before[2].pattern: expressão regular inválida (...)`), no `Parse` e no `Serialize`. Cada casamento tem teto de 1 s (`ReplacementStage.RegexTimeout`); passar disso para o build com erro citando a regra, em vez de travá-lo.
 
 `FormattingPipeline` aplica, na hora do build, as etapas (`IFormattingStage`) pela ordem de `FormattingPhase`: regras do usuário antes, normalização, espaços, tipografia, largura, quebra de linha e regras do usuário depois. O `ProjectBuilder` passa pelo pipeline a tradução de cada linha que será gravada e cujo papel está em `kinds`, antes de conferir a codificação, então o relatório de codificação (`vnf build --report` também) vale para o texto já formatado. O `text/*.json` em disco não muda. Aviso de uma etapa (caixa acima do limite de linhas) vai para os avisos do build com o id da linha.
 
 Os marcadores de controle ficam fora do alcance das regras. Depois de cada etapa o pipeline confere que os marcadores são os mesmos, na mesma ordem; só a etapa que declara `MayChangeLineBreaks` (a quebra) pode acrescentar `
-`. Uma etapa que violar isso lança `FormattingException` e o build para citando a linha. Regra de texto comum herda `TextRunStage`, que entrega a `ApplyToRun` só os trechos entre marcadores. Para acrescentar uma regra (E4.2, E4.5): escreva a etapa, dê a ela a fase e registre-a em `FormattingPipeline.Create` a partir de uma nova propriedade do perfil. Um perfil de exemplo fica em `samples/formatting.json`.
+`. Uma etapa que violar isso lança `FormattingException` e o build para citando a linha. Regra de texto comum herda `TextRunStage`, que entrega a `ApplyToRun` só os trechos entre marcadores. Para acrescentar uma regra: escreva a etapa, dê a ela a fase e registre-a em `FormattingPipeline.Create` a partir de uma nova propriedade do perfil. Um perfil de exemplo fica em `samples/formatting.json`.
 
 ### 4. Codificação para português
 

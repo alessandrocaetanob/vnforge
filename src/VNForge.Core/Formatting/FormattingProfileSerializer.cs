@@ -77,6 +77,26 @@ public static class FormattingProfileSerializer
             writer.WriteString("charWidth", CharWidthName(profile.Wrap.CharWidth));
             writer.WriteEndObject();
 
+            writer.WriteStartObject("normalization");
+            writer.WriteBoolean("nfc", profile.Normalization.Nfc);
+            writer.WriteBoolean("invisibleSpaces", profile.Normalization.InvisibleSpaces);
+            writer.WriteBoolean("nbsp", profile.Normalization.Nbsp);
+            writer.WriteEndObject();
+
+            writer.WriteStartObject("spacing");
+            writer.WriteBoolean("collapseSpaces", profile.Spacing.CollapseSpaces);
+            writer.WriteBoolean("spaceBeforePunctuation", profile.Spacing.SpaceBeforePunctuation);
+            writer.WriteBoolean("spaceAfterPunctuation", profile.Spacing.SpaceAfterPunctuation);
+            writer.WriteEndObject();
+
+            if (!profile.Replacements.IsEmpty)
+            {
+                writer.WriteStartObject("replacements");
+                WriteReplacements(writer, "before", profile.Replacements.Before);
+                WriteReplacements(writer, "after", profile.Replacements.After);
+                writer.WriteEndObject();
+            }
+
             writer.WriteStartObject("typography");
             writer.WriteString("quotes", EnumName(profile.Typography.Quotes));
             writer.WriteString("ellipsis", EnumName(profile.Typography.Ellipsis));
@@ -93,6 +113,36 @@ public static class FormattingProfileSerializer
         }
 
         return System.Text.Encoding.UTF8.GetString(stream.ToArray()) + "\n";
+    }
+
+    private static void WriteReplacements(Utf8JsonWriter writer, string name, IReadOnlyList<Replacement> replacements)
+    {
+        writer.WriteStartArray(name);
+        foreach (var replacement in replacements)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("pattern", replacement.Pattern);
+            writer.WriteString("with", replacement.With);
+            if (replacement.Regex)
+            {
+                writer.WriteBoolean("regex", true);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+    }
+
+    private static void ValidateReplacements(string name, IReadOnlyList<Replacement> replacements)
+    {
+        for (var i = 0; i < replacements.Count; i++)
+        {
+            if (ReplacementStage.Validate(replacements[i]) is { } error)
+            {
+                throw new FormattingProfileException($"$.replacements.{name}[{i}].pattern", error);
+            }
+        }
     }
 
     // Barra e chaves abririam um marcador; controle e substituto não são um caractere de travessão.
@@ -115,6 +165,9 @@ public static class FormattingProfileSerializer
 
     private static void Validate(FormattingProfile profile)
     {
+        ValidateReplacements("before", profile.Replacements.Before);
+        ValidateReplacements("after", profile.Replacements.After);
+
         if (profile.Kinds.Count == 0)
         {
             throw new FormattingProfileException("$.kinds", "informe ao menos um papel de linha.");
@@ -169,6 +222,35 @@ public static class FormattingProfileSerializer
             wrapReader.EnsureNoUnknownProperties();
         }
 
+        var normalization = defaults.Normalization;
+        if (reader.OptionalObject("normalization") is { } normalizationReader)
+        {
+            normalization = new NormalizationRule(
+                normalizationReader.OptionalBool("nfc") ?? normalization.Nfc,
+                normalizationReader.OptionalBool("invisibleSpaces") ?? normalization.InvisibleSpaces,
+                normalizationReader.OptionalBool("nbsp") ?? normalization.Nbsp);
+            normalizationReader.EnsureNoUnknownProperties();
+        }
+
+        var spacing = defaults.Spacing;
+        if (reader.OptionalObject("spacing") is { } spacingReader)
+        {
+            spacing = new SpacingRule(
+                spacingReader.OptionalBool("collapseSpaces") ?? spacing.CollapseSpaces,
+                spacingReader.OptionalBool("spaceBeforePunctuation") ?? spacing.SpaceBeforePunctuation,
+                spacingReader.OptionalBool("spaceAfterPunctuation") ?? spacing.SpaceAfterPunctuation);
+            spacingReader.EnsureNoUnknownProperties();
+        }
+
+        var replacements = defaults.Replacements;
+        if (reader.OptionalObject("replacements") is { } replacementsReader)
+        {
+            replacements = new ReplacementRules(
+                replacementsReader.OptionalReplacements("before") ?? [],
+                replacementsReader.OptionalReplacements("after") ?? []);
+            replacementsReader.EnsureNoUnknownProperties();
+        }
+
         var typography = defaults.Typography;
         if (reader.OptionalObject("typography") is { } typographyReader)
         {
@@ -190,7 +272,7 @@ public static class FormattingProfileSerializer
         }
 
         reader.EnsureNoUnknownProperties();
-        return new FormattingProfile(kinds, wrap) { Typography = typography, Width = width };
+        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width };
     }
 
     private static string KindName(TextUnitKind kind) => kind.ToString().ToLowerInvariant();
@@ -334,6 +416,50 @@ public static class FormattingProfileSerializer
                 : kinds;
         }
 
+        public string RequiredString(string name)
+        {
+            if (!TryGet(name, out var value))
+            {
+                throw new FormattingProfileException(PathOf(name), "campo obrigatório.");
+            }
+
+            return value.ValueKind == JsonValueKind.String
+                ? value.GetString()!
+                : throw new FormattingProfileException(PathOf(name), "deve ser texto.");
+        }
+
+        public IReadOnlyList<Replacement>? OptionalReplacements(string name)
+        {
+            if (!TryGet(name, out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                throw new FormattingProfileException(PathOf(name), "deve ser uma lista de substituições.");
+            }
+
+            var replacements = new List<Replacement>();
+            foreach (var item in value.EnumerateArray())
+            {
+                var itemReader = new ObjectReader(item, $"{PathOf(name)}[{replacements.Count}]");
+                var replacement = new Replacement(
+                    itemReader.RequiredString("pattern"),
+                    itemReader.RequiredString("with"),
+                    itemReader.OptionalBool("regex") ?? false);
+                itemReader.EnsureNoUnknownProperties();
+                if (ReplacementStage.Validate(replacement) is { } error)
+                {
+                    throw new FormattingProfileException(itemReader.PathOf("pattern"), error);
+                }
+
+                replacements.Add(replacement);
+            }
+
+            return replacements;
+        }
+
         public ObjectReader? OptionalObject(string name) =>
             TryGet(name, out var value) ? new ObjectReader(value, PathOf(name)) : null;
 
@@ -369,7 +495,7 @@ public static class FormattingProfileSerializer
             return _element.TryGetProperty(name, out value);
         }
 
-        private string PathOf(string name) =>
+        public string PathOf(string name) =>
             name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_') ? $"{_path}.{name}" : $"{_path}['{name}']";
     }
 }
