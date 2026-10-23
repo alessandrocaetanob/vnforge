@@ -142,6 +142,25 @@ public class CostTests
         Assert.Equal(0, cache.Count);
     }
 
+    [Fact]
+    public async Task Linha_recusada_nao_vai_para_o_cache_e_continua_marcada_como_recusada()
+    {
+        var cache = new TranslationCache();
+        var provider = new CachingTranslationProvider(new RefusingProvider(), cache, ClaudeModels.Opus);
+
+        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "はい")]), CancellationToken.None);
+
+        Assert.True(results[0].Refused);
+        Assert.Equal(string.Empty, results[0].Translation);
+        Assert.Equal(0, cache.Count);
+    }
+
+    private sealed class RefusingProvider : ITranslationProvider
+    {
+        public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<TranslationResult>>([.. batch.Lines.Select(l => new TranslationResult(l.Id, string.Empty, Refused: true))]);
+    }
+
     private sealed class OmittingProvider : ITranslationProvider
     {
         public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
