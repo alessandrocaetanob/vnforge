@@ -3,7 +3,7 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Qa;
 
 /// <summary>Dois ou mais espaços seguidos (comum, NBSP ou ideográfico) na tradução. Um marcador entre os espaços os separa.</summary>
-public sealed class DoubleSpaceRule : UnitQaRule
+public sealed class DoubleSpaceRule : UnitQaRule, IQaFixer
 {
     /// <inheritdoc />
     public override string Id => "espaco-duplo";
@@ -46,6 +46,21 @@ public sealed class DoubleSpaceRule : UnitQaRule
         }
 
         return spans;
+    }
+
+    /// <summary>Reduz a um espaço comum cada sequência só de espaços comuns. NBSP e espaço ideográfico ficam: podem ser deliberados.</summary>
+    public string Fix(string translation)
+    {
+        var fixedText = new System.Text.StringBuilder(translation);
+        foreach (var span in Find(translation).Reverse())
+        {
+            if (span.Text.All(c => c == ' '))
+            {
+                fixedText.Remove(span.Start + 1, span.Length - 1);
+            }
+        }
+
+        return fixedText.ToString();
     }
 
     private static bool IsSpace(char c) => c is ' ' or ' ' or '　';

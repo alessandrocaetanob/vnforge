@@ -3,7 +3,7 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Qa;
 
 /// <summary>Espaço antes de <c>, ; : ? !</c>. Reticências (<c>...</c>) ficam fora: abrir uma fala com elas depois de um espaço é correto.</summary>
-public sealed class SpaceBeforePunctuationRule : UnitQaRule
+public sealed class SpaceBeforePunctuationRule : UnitQaRule, IQaFixer
 {
     private const string Punctuation = ",;:?!";
 
@@ -41,6 +41,18 @@ public sealed class SpaceBeforePunctuationRule : UnitQaRule
         }
 
         return spans;
+    }
+
+    /// <summary>Tira os espaços que antecedem cada sinal.</summary>
+    public string Fix(string translation)
+    {
+        var fixedText = new System.Text.StringBuilder(translation);
+        foreach (var span in Find(translation).Reverse())
+        {
+            fixedText.Remove(span.Start, span.Length - 1);
+        }
+
+        return fixedText.ToString();
     }
 
     /// <inheritdoc />
