@@ -77,6 +77,18 @@ public static class FormattingProfileSerializer
             writer.WriteString("charWidth", CharWidthName(profile.Wrap.CharWidth));
             writer.WriteEndObject();
 
+            writer.WriteStartObject("normalization");
+            writer.WriteBoolean("nfc", profile.Normalization.Nfc);
+            writer.WriteBoolean("invisibleSpaces", profile.Normalization.InvisibleSpaces);
+            writer.WriteBoolean("nbsp", profile.Normalization.Nbsp);
+            writer.WriteEndObject();
+
+            writer.WriteStartObject("spacing");
+            writer.WriteBoolean("collapseSpaces", profile.Spacing.CollapseSpaces);
+            writer.WriteBoolean("spaceBeforePunctuation", profile.Spacing.SpaceBeforePunctuation);
+            writer.WriteBoolean("spaceAfterPunctuation", profile.Spacing.SpaceAfterPunctuation);
+            writer.WriteEndObject();
+
             writer.WriteEndObject();
         }
 
@@ -129,8 +141,28 @@ public static class FormattingProfileSerializer
             wrapReader.EnsureNoUnknownProperties();
         }
 
+        var normalization = defaults.Normalization;
+        if (reader.OptionalObject("normalization") is { } normalizationReader)
+        {
+            normalization = new NormalizationRule(
+                normalizationReader.OptionalBool("nfc") ?? normalization.Nfc,
+                normalizationReader.OptionalBool("invisibleSpaces") ?? normalization.InvisibleSpaces,
+                normalizationReader.OptionalBool("nbsp") ?? normalization.Nbsp);
+            normalizationReader.EnsureNoUnknownProperties();
+        }
+
+        var spacing = defaults.Spacing;
+        if (reader.OptionalObject("spacing") is { } spacingReader)
+        {
+            spacing = new SpacingRule(
+                spacingReader.OptionalBool("collapseSpaces") ?? spacing.CollapseSpaces,
+                spacingReader.OptionalBool("spaceBeforePunctuation") ?? spacing.SpaceBeforePunctuation,
+                spacingReader.OptionalBool("spaceAfterPunctuation") ?? spacing.SpaceAfterPunctuation);
+            spacingReader.EnsureNoUnknownProperties();
+        }
+
         reader.EnsureNoUnknownProperties();
-        return new FormattingProfile(kinds, wrap);
+        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing };
     }
 
     private static string KindName(TextUnitKind kind) => kind.ToString().ToLowerInvariant();

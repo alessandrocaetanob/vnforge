@@ -6,6 +6,20 @@
   // Papéis de linha que o pipeline formata: dialogue, narration, name, choice, system, other.
   "kinds": ["dialogue", "narration"],
 
+  // Normalização (E4.2): todas desligadas por padrão.
+  "normalization": {
+    "nfc": true,              // letra + acento soltos viram o caractere composto
+    "invisibleSpaces": true,  // remove U+200B, U+200C, U+200D, U+2060 e U+FEFF
+    "nbsp": true              // U+00A0 e U+202F viram espaço comum
+  },
+
+  // Espaços (E4.2): todas desligadas por padrão.
+  "spacing": {
+    "collapseSpaces": true,          // dois ou mais espaços viram um
+    "spaceBeforePunctuation": true,  // "Ei ?" vira "Ei?" (vale para ? ! : ;)
+    "spaceAfterPunctuation": true    // "Ei,você" vira "Ei, você"
+  },
+
   "wrap": {
     "enabled": true,
     "maxWidth": 54,      // colunas por linha
