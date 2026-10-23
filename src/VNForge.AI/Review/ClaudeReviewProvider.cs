@@ -89,26 +89,35 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
         if (!string.IsNullOrWhiteSpace(batch.StyleGuide))
             sb.AppendLine().AppendLine("Guia de estilo:").AppendLine(batch.StyleGuide.Trim());
 
-        if (batch.Glossary.Count > 0)
-        {
-            sb.AppendLine().AppendLine("Glossário (termos obrigatórios):");
-            foreach (var g in batch.Glossary)
-                sb.AppendLine(string.IsNullOrWhiteSpace(g.Notes) ? $"- {g.Source} => {g.Target}" : $"- {g.Source} => {g.Target} ({g.Notes})");
-        }
-
-        if (batch.Characters.Count > 0)
-        {
-            sb.AppendLine().AppendLine("Personagens:");
-            foreach (var c in batch.Characters)
-            {
-                var details = new List<string>();
-                if (c.Gender is not null) details.Add($"gênero: {c.Gender}");
-                if (c.Tone is not null) details.Add($"tom: {c.Tone}");
-                sb.AppendLine(details.Count == 0 ? $"- {c.Source} => {c.Target}" : $"- {c.Source} => {c.Target} ({string.Join("; ", details)})");
-            }
-        }
+        AppendGlossary(sb, batch.Glossary);
+        AppendCharacters(sb, batch.Characters);
 
         return sb.ToString();
+    }
+
+    private static void AppendGlossary(StringBuilder sb, IReadOnlyList<GlossaryEntry> glossary)
+    {
+        if (glossary.Count == 0)
+            return;
+
+        sb.AppendLine().AppendLine("Glossário (termos obrigatórios):");
+        foreach (var g in glossary)
+            sb.AppendLine(string.IsNullOrWhiteSpace(g.Notes) ? $"- {g.Source} => {g.Target}" : $"- {g.Source} => {g.Target} ({g.Notes})");
+    }
+
+    private static void AppendCharacters(StringBuilder sb, IReadOnlyList<CharacterInfo> characters)
+    {
+        if (characters.Count == 0)
+            return;
+
+        sb.AppendLine().AppendLine("Personagens:");
+        foreach (var c in characters)
+        {
+            var details = new List<string>();
+            if (c.Gender is not null) details.Add($"gênero: {c.Gender}");
+            if (c.Tone is not null) details.Add($"tom: {c.Tone}");
+            sb.AppendLine(details.Count == 0 ? $"- {c.Source} => {c.Target}" : $"- {c.Source} => {c.Target} ({string.Join("; ", details)})");
+        }
     }
 
     private static string BuildUser(TranslationBatch batch)

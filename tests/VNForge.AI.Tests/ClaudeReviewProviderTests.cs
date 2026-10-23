@@ -62,11 +62,16 @@ public class ClaudeReviewProviderTests
     [Fact]
     public async Task Recusa_isola_a_linha_e_mantem_as_demais()
     {
-        var client = new StubClient(request => request.User.Contains("proibida", StringComparison.Ordinal)
-            ? new ClaudeReply("refusal", string.Empty)
-            : request.User.Contains("\"id\":\"b\"", StringComparison.Ordinal)
-                ? Ok("""{"reviews":[{"id":"b","suggestion":"ok"}]}""")
-                : Ok("""{"reviews":[{"id":"a","suggestion":"ok"},{"id":"b","suggestion":"ok"}]}"""));
+        ClaudeReply Reply(ClaudeRequest request)
+        {
+            if (request.User.Contains("proibida", StringComparison.Ordinal))
+                return new ClaudeReply("refusal", string.Empty);
+            if (request.User.Contains("\"id\":\"b\"", StringComparison.Ordinal) && !request.User.Contains("\"id\":\"a\"", StringComparison.Ordinal))
+                return Ok("""{"reviews":[{"id":"b","suggestion":"ok"}]}""");
+            return Ok("""{"reviews":[{"id":"a","suggestion":"ok"},{"id":"b","suggestion":"ok"}]}""");
+        }
+
+        var client = new StubClient(Reply);
         var provider = new ClaudeReviewProvider(client);
 
         var results = await provider.ReviewAsync(new TranslationBatch([Unit("a", "proibida", "x"), Unit("b", "やあ", "Oi")]), CancellationToken.None);

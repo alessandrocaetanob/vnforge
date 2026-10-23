@@ -23,7 +23,6 @@ internal static class ReviewCommand
     internal const string NotePrefix = "[IA] ";
 
     private const string StyleGuideFileName = "style.md";
-    private const int PreviousLinesWindow = 30;
     private const int OutputTokensPerLine = 40;
 
     private static readonly Option<string?> FilesOption = new("--files")
@@ -123,33 +122,11 @@ internal static class ReviewCommand
             throw new UsageException("--limit precisa ser zero ou maior.");
         }
 
-        var texts = project.LoadAllText();
-        var files = new Dictionary<string, List<TextUnit>>(StringComparer.Ordinal);
-        var keyById = new Dictionary<string, string>(StringComparer.Ordinal);
-        var indexById = new Dictionary<string, int>(StringComparer.Ordinal);
-        var pending = new List<TextUnit>();
-        foreach (var (key, units) in texts)
-        {
-            if (filter is not null && !filter.IsMatch(key))
-            {
-                continue;
-            }
-
-            var selected = units.Where(u => statuses.Contains(u.Status) && u.HasTranslation).ToList();
-            if (selected.Count == 0 || (limit is { } max && pending.Count >= max))
-            {
-                continue;
-            }
-
-            files[key] = [.. units];
-            for (var i = 0; i < units.Count; i++)
-            {
-                keyById[units[i].Id] = key;
-                indexById[units[i].Id] = i;
-            }
-
-            pending.AddRange(limit is { } cap ? selected.Take(cap - pending.Count) : selected);
-        }
+        var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && u.HasTranslation);
+        var files = selection.Files;
+        var keyById = selection.KeyById;
+        var indexById = selection.IndexById;
+        var pending = selection.Pending;
 
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
@@ -180,9 +157,7 @@ internal static class ReviewCommand
         {
             lock (gate)
             {
-                var first = lines[0].Id;
-                var previous = files[keyById[first]].Take(indexById[first]).TakeLast(PreviousLinesWindow).ToList();
-                return builder.Build(lines, previous);
+                return selection.BuildBatch(builder, lines);
             }
         }
 
@@ -190,40 +165,10 @@ internal static class ReviewCommand
         {
             lock (gate)
             {
-                var touched = new SortedSet<string>(StringComparer.Ordinal);
-                foreach (var result in results)
-                {
-                    if (result.Refused)
-                    {
-                        summary.Refused.Add(result.Id);
-                        continue;
-                    }
-
-                    summary.Reviewed++;
-                    if (string.IsNullOrWhiteSpace(result.Translation))
-                    {
-                        summary.Clean++;
-                        continue;
-                    }
-
-                    var key = keyById[result.Id];
-                    var list = files[key];
-                    var index = indexById[result.Id];
-                    // Só Notes muda: translation, status e origin ficam como estavam.
-                    list[index] = list[index] with { Notes = MergeNote(list[index].Notes, result.Translation) };
-                    touched.Add(key);
-                    summary.Suggestions++;
-                }
-
-                foreach (var key in touched)
-                {
-                    project.SaveText(key, files[key]);
-                }
-
-                summary.Handled += results.Count;
+                var lastKey = ApplyBatch(results, selection, project, summary);
                 if (!json)
                 {
-                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, touched.LastOrDefault() ?? keyById[results[0].Id]));
+                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
                 }
             }
         }
@@ -242,13 +187,50 @@ internal static class ReviewCommand
         {
             if (!json)
             {
-                error.WriteLine($"Cancelado: {Count(summary.Suggestions, "sugestão gravada", "sugestões gravadas")} antes de parar.");
+                await error.WriteLineAsync($"Cancelado: {Count(summary.Suggestions, "sugestão gravada", "sugestões gravadas")} antes de parar.");
             }
 
             token.ThrowIfCancellationRequested();
         }
 
         return WriteResult(output, json, settings, pending.Count, summary);
+    }
+
+    /// <summary>Grava as sugestões de um lote em <c>notes</c> e devolve a chave do último script tocado (ou do lote, se nenhum mudou).</summary>
+    private static string ApplyBatch(IReadOnlyList<TranslationResult> results, LineSelection selection, ProjectFolder project, RunSummary summary)
+    {
+        var touched = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var result in results)
+        {
+            if (result.Refused)
+            {
+                summary.Refused.Add(result.Id);
+                continue;
+            }
+
+            summary.Reviewed++;
+            if (string.IsNullOrWhiteSpace(result.Translation))
+            {
+                summary.Clean++;
+                continue;
+            }
+
+            var key = selection.KeyById[result.Id];
+            var list = selection.Files[key];
+            var index = selection.IndexById[result.Id];
+            // Só Notes muda: translation, status e origin ficam como estavam.
+            list[index] = list[index] with { Notes = MergeNote(list[index].Notes, result.Translation) };
+            touched.Add(key);
+            summary.Suggestions++;
+        }
+
+        foreach (var key in touched)
+        {
+            project.SaveText(key, selection.Files[key]);
+        }
+
+        summary.Handled += results.Count;
+        return touched.LastOrDefault() ?? selection.KeyById[results[0].Id];
     }
 
     private static int WriteDryRun(TextWriter output, bool json, AiRunSettings settings, int fileCount, List<TextUnit> pending)

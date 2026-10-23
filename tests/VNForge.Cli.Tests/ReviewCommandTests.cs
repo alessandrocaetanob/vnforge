@@ -9,6 +9,10 @@ namespace VNForge.Cli.Tests;
 
 public sealed class ReviewCommandTests : IDisposable
 {
+    private const string Script1 = "yst00001";
+    private const string JsonFlag = "--json";
+    private const string FilesFlag = "--files";
+
     private readonly CliHarness _cli = new();
     private readonly string _projectPath;
     private readonly ProjectFolder _project;
@@ -20,18 +24,18 @@ public sealed class ReviewCommandTests : IDisposable
         _projectPath = Path.Combine(_cli.Root, "projeto");
         _project = ProjectFolder.Create(_projectPath, new ProjectConfig(
             "Minha VN",
-            new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+            new GameConfig(Path.Combine(_cli.Root, "jogo"), "MinhaVN.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("fold"),
             AiConfig.Default));
-        _project.SaveText("yst00001",
+        _project.SaveText(Script1,
         [
-            Unit("yst00001", 1, TranslationStatus.Untranslated),
-            Unit("yst00001", 2, TranslationStatus.Machine),
-            Unit("yst00001", 3, TranslationStatus.Reviewed),
-            Unit("yst00001", 4, TranslationStatus.Machine),
-            Unit("yst00001", 5, TranslationStatus.Translated),
+            Unit(Script1, 1, TranslationStatus.Untranslated),
+            Unit(Script1, 2, TranslationStatus.Machine),
+            Unit(Script1, 3, TranslationStatus.Reviewed),
+            Unit(Script1, 4, TranslationStatus.Machine),
+            Unit(Script1, 5, TranslationStatus.Translated),
         ]);
         _project.SaveText("yst00002", [Unit("yst00002", 1, TranslationStatus.Machine)]);
         _project.SaveText("abc", [Unit("abc", 1, TranslationStatus.Machine)]);
@@ -79,9 +83,9 @@ public sealed class ReviewCommandTests : IDisposable
             }
         }
 
-        Assert.Equal("[IA] Conferir: tradução 2", Line("yst00001", 1).Notes);
-        Assert.Equal("[IA] Conferir: tradução 5", Line("yst00001", 4).Notes);
-        Assert.Equal(string.Empty, Line("yst00001", 0).Notes);
+        Assert.Equal("[IA] Conferir: tradução 2", Line(Script1, 1).Notes);
+        Assert.Equal("[IA] Conferir: tradução 5", Line(Script1, 4).Notes);
+        Assert.Equal(string.Empty, Line(Script1, 0).Notes);
     }
 
     [Fact]
@@ -89,18 +93,18 @@ public sealed class ReviewCommandTests : IDisposable
     {
         await Run();
 
-        Assert.Equal("[IA] Conferir: tradução 2", Line("yst00001", 1).Notes);
-        Assert.Equal("[IA] Conferir: tradução 4", Line("yst00001", 3).Notes);
+        Assert.Equal("[IA] Conferir: tradução 2", Line(Script1, 1).Notes);
+        Assert.Equal("[IA] Conferir: tradução 4", Line(Script1, 3).Notes);
         Assert.Equal("[IA] Conferir: tradução 1", Line("abc", 0).Notes);
-        Assert.Equal(string.Empty, Line("yst00001", 2).Notes);
-        Assert.Equal(string.Empty, Line("yst00001", 4).Notes);
-        Assert.Equal(string.Empty, Line("yst00001", 0).Notes);
+        Assert.Equal(string.Empty, Line(Script1, 2).Notes);
+        Assert.Equal(string.Empty, Line(Script1, 4).Notes);
+        Assert.Equal(string.Empty, Line(Script1, 0).Notes);
     }
 
     [Fact]
     public async Task O_lote_leva_a_traducao_para_o_provedor()
     {
-        await Run("--files", "abc");
+        await Run(FilesFlag, "abc");
 
         var line = Assert.Single(Assert.Single(_provider.ReceivedBatches).Lines);
         Assert.Equal("tradução 1", line.Translation);
@@ -113,7 +117,7 @@ public sealed class ReviewCommandTests : IDisposable
         var units = _project.LoadText("abc");
         _project.SaveText("abc", [units[0] with { Notes = "Falar com o diretor\n[IA] nota antiga" }]);
 
-        await Run("--files", "abc");
+        await Run(FilesFlag, "abc");
 
         Assert.Equal("Falar com o diretor\n[IA] Conferir: tradução 1", Line("abc", 0).Notes);
     }
@@ -124,7 +128,7 @@ public sealed class ReviewCommandTests : IDisposable
         var units = _project.LoadText("abc");
         _project.SaveText("abc", [units[0] with { Notes = "a\n\nb\n[IA] velha" }]);
 
-        await Run("--files", "abc");
+        await Run(FilesFlag, "abc");
 
         Assert.Equal("a\n\nb\n[IA] Conferir: tradução 1", Line("abc", 0).Notes);
     }
@@ -135,7 +139,7 @@ public sealed class ReviewCommandTests : IDisposable
         _provider = new FakeReviewProvider(_ => string.Empty);
         var before = AllTextJson();
 
-        var result = await Run("--json");
+        var result = await Run(JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(before, AllTextJson());
@@ -148,7 +152,7 @@ public sealed class ReviewCommandTests : IDisposable
     [Fact]
     public async Task Files_e_limit_filtram_as_linhas()
     {
-        var result = await Run("--files", "yst0000*", "--limit", "2", "--json");
+        var result = await Run(FilesFlag, "yst0000*", "--limit", "2", JsonFlag);
 
         using var doc = JsonDocument.Parse(result.Output);
         Assert.Equal(2, doc.RootElement.GetProperty("data").GetProperty("suggestions").GetInt32());
@@ -161,7 +165,7 @@ public sealed class ReviewCommandTests : IDisposable
     {
         var before = AllTextJson();
 
-        var result = await Run("--dry-run", "--json");
+        var result = await Run("--dry-run", JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Empty(_provider.ReceivedBatches);
@@ -199,7 +203,7 @@ public sealed class ReviewCommandTests : IDisposable
     {
         _cli.Cli.ReviewProviderFactory = (_, _) => new FailingProvider();
 
-        var result = await Run("--files", "abc", "--json");
+        var result = await Run(FilesFlag, "abc", JsonFlag);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Equal(string.Empty, Line("abc", 0).Notes);
@@ -212,7 +216,7 @@ public sealed class ReviewCommandTests : IDisposable
     {
         _cli.Cli.ReviewProviderFactory = (_, _) => new RefusingProvider();
 
-        var result = await Run("--files", "abc", "--json");
+        var result = await Run(FilesFlag, "abc", JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(string.Empty, Line("abc", 0).Notes);
@@ -245,9 +249,9 @@ public sealed class ReviewCommandTests : IDisposable
     public async Task Glossario_e_guia_de_estilo_chegam_ao_lote()
     {
         _project.SaveGlossary([new VNForge.Core.Glossary.GlossaryTerm("原文1", "texto 1", null)]);
-        File.WriteAllText(Path.Combine(_projectPath, "style.md"), "Tom informal.");
+        await File.WriteAllTextAsync(Path.Combine(_projectPath, "style.md"), "Tom informal.", TestContext.Current.CancellationToken);
 
-        await Run("--files", "abc");
+        await Run(FilesFlag, "abc");
 
         var batch = Assert.Single(_provider.ReceivedBatches);
         Assert.Equal("Tom informal.", batch.StyleGuide);

@@ -24,7 +24,6 @@ internal static class TranslateCommand
     private const string ProviderName = "anthropic";
     private const string StyleGuideFileName = "style.md";
     private const string CacheFileName = "translations.json";
-    private const int PreviousLinesWindow = 30;
 
     private static readonly Option<string?> FilesOption = new("--files")
     {
@@ -111,33 +110,11 @@ internal static class TranslateCommand
             throw new UsageException("--limit precisa ser zero ou maior.");
         }
 
-        var texts = project.LoadAllText();
-        var files = new Dictionary<string, List<TextUnit>>(StringComparer.Ordinal);
-        var keyById = new Dictionary<string, string>(StringComparer.Ordinal);
-        var indexById = new Dictionary<string, int>(StringComparer.Ordinal);
-        var pending = new List<TextUnit>();
-        foreach (var (key, units) in texts)
-        {
-            if (filter is not null && !filter.IsMatch(key))
-            {
-                continue;
-            }
-
-            var selected = units.Where(u => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source)).ToList();
-            if (selected.Count == 0 || (limit is { } max && pending.Count >= max))
-            {
-                continue;
-            }
-
-            files[key] = [.. units];
-            for (var i = 0; i < units.Count; i++)
-            {
-                keyById[units[i].Id] = key;
-                indexById[units[i].Id] = i;
-            }
-
-            pending.AddRange(limit is { } cap ? selected.Take(cap - pending.Count) : selected);
-        }
+        var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source));
+        var files = selection.Files;
+        var keyById = selection.KeyById;
+        var indexById = selection.IndexById;
+        var pending = selection.Pending;
 
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
@@ -170,9 +147,7 @@ internal static class TranslateCommand
         {
             lock (gate)
             {
-                var first = lines[0].Id;
-                var previous = files[keyById[first]].Take(indexById[first]).TakeLast(PreviousLinesWindow).ToList();
-                return builder.Build(lines, previous);
+                return selection.BuildBatch(builder, lines);
             }
         }
 
@@ -243,7 +218,7 @@ internal static class TranslateCommand
         {
             if (!json)
             {
-                error.WriteLine($"Cancelado: {Count(summary.Translated, "linha gravada", "linhas gravadas")} antes de parar.");
+                await error.WriteLineAsync($"Cancelado: {Count(summary.Translated, "linha gravada", "linhas gravadas")} antes de parar.");
             }
 
             token.ThrowIfCancellationRequested();

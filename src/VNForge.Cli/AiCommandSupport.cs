@@ -4,6 +4,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.Cli;
 
@@ -100,5 +101,63 @@ internal static class AiCommandSupport
                     ? throw new UsageException($"Esforço desconhecido: '{text}'. Use low, medium ou high.")
                     : ClaudeEffort.Medium;
         }
+    }
+}
+
+/// <summary>
+/// As linhas que um comando de IA vai processar e o mapa para gravá-las de volta: o conteúdo de cada <c>text/*.json</c> tocado
+/// e, por id, a chave do arquivo e o índice da linha.
+/// </summary>
+internal sealed class LineSelection
+{
+    private const int PreviousLinesWindow = 30;
+
+    public Dictionary<string, List<TextUnit>> Files { get; } = new(StringComparer.Ordinal);
+
+    public Dictionary<string, string> KeyById { get; } = new(StringComparer.Ordinal);
+
+    public Dictionary<string, int> IndexById { get; } = new(StringComparer.Ordinal);
+
+    public List<TextUnit> Pending { get; } = [];
+
+    /// <param name="filter">Glob sobre a chave do script; <c>null</c> aceita todas.</param>
+    /// <param name="limit">Máximo de linhas; <c>null</c> sem limite.</param>
+    /// <param name="wanted">Quais linhas de um script entram.</param>
+    public static LineSelection Build(
+        IEnumerable<KeyValuePair<string, IReadOnlyList<TextUnit>>> texts, Regex? filter, int? limit, Func<TextUnit, bool> wanted)
+    {
+        var selection = new LineSelection();
+        foreach (var (key, units) in texts)
+        {
+            if (filter is not null && !filter.IsMatch(key))
+            {
+                continue;
+            }
+
+            var selected = units.Where(wanted).ToList();
+            if (selected.Count == 0 || (limit is { } max && selection.Pending.Count >= max))
+            {
+                continue;
+            }
+
+            selection.Files[key] = [.. units];
+            for (var i = 0; i < units.Count; i++)
+            {
+                selection.KeyById[units[i].Id] = key;
+                selection.IndexById[units[i].Id] = i;
+            }
+
+            selection.Pending.AddRange(limit is { } cap ? selected.Take(cap - selection.Pending.Count) : selected);
+        }
+
+        return selection;
+    }
+
+    /// <summary>Monta o lote com as linhas anteriores do script como contexto; chame sob o lock que protege <see cref="Files"/>.</summary>
+    public TranslationBatch BuildBatch(TranslationBatchBuilder builder, IReadOnlyList<TextUnit> lines)
+    {
+        var first = lines[0].Id;
+        var previous = Files[KeyById[first]].Take(IndexById[first]).TakeLast(PreviousLinesWindow).ToList();
+        return builder.Build(lines, previous);
     }
 }
