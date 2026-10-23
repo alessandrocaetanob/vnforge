@@ -95,6 +95,15 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
   --encoding <estratégia> sobrescreve a do projeto, útil para comparar
 ```
 
+`vnf ypf` (E1.8; os três aceitam `--json`)
+```
+  info <arquivo>                       versão, variante (hashes, offset, tabela de troca, chave do nome) e a lista de arquivos com tamanhos e hashes
+  unpack <arquivo> <pasta>             extrai tudo, já descomprimido; pasta com arquivos pede --yes
+  pack <pasta> --original <arquivo> --output <arquivo>
+                                       remonta com reescrita mínima; só o arquivo que difere do original vira troca
+```
+O `pack` nunca grava sobre o original e pede `--yes` para sobrescrever a saída. Ele não acrescenta entradas: um arquivo da pasta que o original não tem é recusado. Entrada sem arquivo na pasta é mantida do original. Sem mudanças na pasta, a saída é idêntica ao original; o `--json` informa isso em `identical`. O `unpack` recusa, antes de gravar, nome interno que sai da pasta (`..`, caminho absoluto, nome reservado do Windows) ou que colide com outro neste sistema de arquivos.
+
 ## Fluxo típico
 
 ```console
