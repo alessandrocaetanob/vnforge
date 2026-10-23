@@ -22,5 +22,6 @@ public static class VnfCommands
         cli.Root.Subcommands.Add(ImportCommand.Create(cli));
         cli.Root.Subcommands.Add(StatusCommand.Create(cli));
         cli.Root.Subcommands.Add(PreviewCommand.Create(cli));
+        cli.Root.Subcommands.Add(ConfigCommand.Create(cli));
     }
 }

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using VNForge.AI.Settings;
 using VNForge.Cli;
 
 namespace VNForge.Cli.Tests;
@@ -6,13 +7,15 @@ namespace VNForge.Cli.Tests;
 /// <summary>Roda o <see cref="VnfCli"/> em processo, com cwd e pasta de log próprios e saída capturada.</summary>
 internal sealed class CliHarness : IDisposable
 {
-    public CliHarness()
+    public CliHarness(string? stdin = null, bool realVault = false)
     {
         Root = Path.Combine(Path.GetTempPath(), "vnforge-cli-tests-" + Guid.NewGuid().ToString("N"));
         WorkingDirectory = Path.Combine(Root, "cwd");
         UserLogDirectory = Path.Combine(Root, "user-logs");
         Directory.CreateDirectory(WorkingDirectory);
-        Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory);
+        UserConfigDirectory = Path.Combine(Root, "user-config");
+        Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory, UserConfigDirectory, new StringReader(stdin ?? string.Empty),
+            realVault ? null : new InMemoryApiKeyStore());
     }
 
     public string Root { get; }
@@ -20,6 +23,8 @@ internal sealed class CliHarness : IDisposable
     public string WorkingDirectory { get; }
 
     public string UserLogDirectory { get; }
+
+    public string UserConfigDirectory { get; }
 
     public VnfCli Cli { get; }
 
@@ -47,6 +52,22 @@ internal sealed class CliHarness : IDisposable
         {
             Directory.Delete(Root, recursive: true);
         }
+    }
+}
+
+internal sealed class InMemoryApiKeyStore : IApiKeyStore
+{
+    private string? _key;
+
+    public string? Load() => _key;
+
+    public void Save(string apiKey) => _key = apiKey;
+
+    public bool Delete()
+    {
+        var had = _key is not null;
+        _key = null;
+        return had;
     }
 }
 

@@ -3,6 +3,7 @@ using System.CommandLine.Help;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using VNForge.AI.Settings;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Qa;
@@ -21,10 +22,13 @@ public sealed class VnfCli
     private readonly string _userLogDirectory;
     private readonly Option<bool> _versionOption;
 
-    private VnfCli(string currentDirectory, string userLogDirectory)
+    private VnfCli(string currentDirectory, string userLogDirectory, string userConfigDirectory, TextReader input, IApiKeyStore apiKeyStore)
     {
         _currentDirectory = currentDirectory;
         _userLogDirectory = userLogDirectory;
+        UserConfigDirectory = userConfigDirectory;
+        Input = input;
+        ApiKeyStore = apiKeyStore;
 
         Options = new GlobalOptions();
         _versionOption = new Option<bool>("--version") { Description = "Mostra a versão do vnf." };
@@ -49,16 +53,37 @@ public sealed class VnfCli
     /// <summary>Diretório atual da invocação, base dos caminhos relativos.</summary>
     public string CurrentDirectory => _currentDirectory;
 
+    /// <summary>Pasta das configurações do usuário (modelo e chave de IA), sempre fora do projeto.</summary>
+    public string UserConfigDirectory { get; }
+
+    /// <summary>Entrada padrão da invocação, de onde vêm respostas e segredos que não devem ir na linha de comando.</summary>
+    public TextReader Input { get; }
+
+    /// <summary>Cofre da chave de API do usuário.</summary>
+    public IApiKeyStore ApiKeyStore { get; }
+
     /// <summary>Versão do <c>vnf</c> sem o hash do commit.</summary>
     public static string Version { get; } = ReadVersion();
 
     /// <param name="currentDirectory">Diretório atual; padrão: o do processo.</param>
     /// <param name="userLogDirectory">Onde o log vai fora de um projeto; padrão: <c>%LOCALAPPDATA%/VNForge/logs</c>.</param>
-    public static VnfCli Create(string? currentDirectory = null, string? userLogDirectory = null)
+    /// <param name="userConfigDirectory">Configurações do usuário; padrão: <c>%APPDATA%/VNForge</c>.</param>
+    /// <param name="input">Entrada padrão; padrão: <see cref="Console.In"/>.</param>
+    /// <param name="apiKeyStore">Cofre da chave; padrão: DPAPI em <paramref name="userConfigDirectory"/>.</param>
+    public static VnfCli Create(
+        string? currentDirectory = null,
+        string? userLogDirectory = null,
+        string? userConfigDirectory = null,
+        TextReader? input = null,
+        IApiKeyStore? apiKeyStore = null)
     {
+        var configDirectory = userConfigDirectory ?? AiUserSettingsFile.DefaultDirectory();
         var cli = new VnfCli(
             currentDirectory ?? Directory.GetCurrentDirectory(),
-            userLogDirectory ?? VNForgeLogging.GetUserLogDirectory());
+            userLogDirectory ?? VNForgeLogging.GetUserLogDirectory(),
+            configDirectory,
+            input ?? Console.In,
+            apiKeyStore ?? new DpapiApiKeyStore(configDirectory));
         VnfCommands.Register(cli);
         return cli;
     }
