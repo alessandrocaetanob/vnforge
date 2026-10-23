@@ -17,6 +17,8 @@ namespace VNForge.Cli.Tests;
 
 public sealed class BuildCommandTests : IDisposable
 {
+    private const string GoodMorning = "Good morning";
+
     private const string Hello = "Hello";
 
     private const string ForbiddenWord = "palavra-proibida";
@@ -267,7 +269,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Resumo_conta_scripts_linhas_e_pacotes()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
 
         var result = await Build();
 
@@ -281,7 +283,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Build_sem_mudanca_desde_o_anterior_nao_reconstroi_nenhum_script_e_mantem_o_build()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
         var before = HashTree(Path.Combine(ProjectPath, "build"));
 
@@ -297,7 +299,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Build_incremental_so_reconstroi_o_script_que_mudou()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
         Translate(Yst2, _ => "Rain");
 
@@ -316,7 +318,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Only_changed_false_reconstroi_tudo_mesmo_sem_mudanca()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
 
         var result = await Build("--only-changed", "false");
@@ -329,7 +331,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Encoding_vale_so_para_o_build_e_nao_altera_o_vnforge_json()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
 
         var result = await Build(EncodingFlag, "fold", JsonFlag);
 
@@ -354,7 +356,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Mudar_o_encoding_reconstroi_o_script_mesmo_sem_mudar_a_traducao()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
 
         var result = await Build(EncodingFlag, "fold");
@@ -416,7 +418,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Linha_traduzida_em_ascii_reabre_no_ypf_e_reextrai_com_a_traducao()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
 
         var result = await Build();
 
@@ -425,7 +427,7 @@ public sealed class BuildCommandTests : IDisposable
         var built = ReadEntries(Path.Combine(ProjectPath, "build", "ysbin.ypf"));
         Assert.Equal(original.Keys.Order(), built.Keys.Order());
         var units = Reextract("yst00001.ybn", built["yst00001.ybn"]);
-        Assert.Equal(["Good morning", "Mika"], units.Select(u => u.Source));
+        Assert.Equal([GoodMorning, "Mika"], units.Select(u => u.Source));
         Assert.Equal(Reextract("yst00001.ybn", original["yst00001.ybn"]).Select(u => u.Id), units.Select(u => u.Id));
         Assert.NotEqual(original["yst00001.ybn"], built["yst00001.ybn"]);
         foreach (var other in original.Keys.Where(k => k != "yst00001.ybn"))
@@ -611,7 +613,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Inject_grava_o_build_no_jogo_e_restore_devolve_o_original()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
         var gameYpf = Path.Combine(_game, "ysbin.ypf");
 
@@ -673,7 +675,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Report_sem_problemas_sai_com_zero()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
 
         var result = await Build(ReportFlag);
 
@@ -709,7 +711,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Json_do_build_traz_o_bloco_encoding()
     {
         await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "Good morning" : "Mika");
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
 
         var result = await Build(JsonFlag);
 

@@ -261,15 +261,7 @@ public static class ProjectBuilder
                 continue;
             }
 
-            byte[] content;
-            try
-            {
-                content = script.Format.Rebuild(file, units, encoder, game.Context);
-            }
-            catch (Exception ex) when (ex is InvalidDataException or EncoderFallbackException or FormatException or ArgumentException or VNForgeException)
-            {
-                throw new VNForgeException($"Não foi possível reconstruir o script '{script.Name}' com o text/{file.Key}.json: {ex.Message}", ex);
-            }
+            var content = RebuildScript(script, file, units, encoder, game.Context);
 
             if (content.AsSpan().SequenceEqual(original))
             {
@@ -287,6 +279,18 @@ public static class ProjectBuilder
         warnings.AddRange(texts.Keys.Where(k => !known.Contains(k)).Select(k => $"text/{k}.json não corresponde a nenhum script do jogo descompactado; ignorado."));
         built.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
         return (rebuilt, built, state, reused);
+    }
+
+    private static byte[] RebuildScript(UnpackedScript script, ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext context)
+    {
+        try
+        {
+            return script.Format.Rebuild(file, units, encoder, context);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or EncoderFallbackException or FormatException or ArgumentException or VNForgeException)
+        {
+            throw new VNForgeException($"Não foi possível reconstruir o script '{script.Name}' com o text/{file.Key}.json: {ex.Message}", ex);
+        }
     }
 
     /// <summary>O resultado do build anterior para o script, se as entradas (<paramref name="hash"/>) são as mesmas e os bytes guardados ainda conferem; <c>Content</c> nulo quando o script saiu idêntico ao original.</summary>
