@@ -249,6 +249,8 @@ public interface ITranslationProvider
 }
 ```
 
+`TranslationBatch` traz as linhas (`TextUnit`) e o contexto: `PreviousLines`, `Glossary`, `Characters` e `StyleGuide`. `TranslationResult` é o par `Id` e `Translation`. Os tipos ficam em `VNForge.AI.Translation`, junto do `FakeTranslationProvider`, o provedor determinístico dos testes e do app sem chave (traduz `X` como `[PT] X`, registra os lotes e pode falhar numa chamada escolhida).
+
 - **Lotes** de 20–50 linhas por chamada, com contexto: linhas anteriores já traduzidas, personagens presentes, glossário filtrado para o lote, guia de estilo do projeto (registro, tratamento, honoríficos).
 - **Entrada e saída em JSON** com `id` por linha. Resposta validada: mesmos ids, mesmos marcadores de controle. Se falhar, reenvia só as linhas com problema.
 - **Provedor na primeira versão: só Claude**, pelo SDK oficial, com o modelo selecionável pelo usuário:
