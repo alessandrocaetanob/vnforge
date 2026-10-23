@@ -1,5 +1,6 @@
 using System.Text;
 using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -10,6 +11,10 @@ public sealed class ProjectFolder
     public const string ConfigFileName = "vnforge.json";
 
     public const string FormattingFileName = "formatting.json";
+
+    public const string GlossaryFileName = "glossary.json";
+
+    public const string CharactersFileName = "characters.json";
 
     private const string TextFileExtension = ".json";
 
@@ -114,6 +119,44 @@ public sealed class ProjectFolder
 
     public void SaveFormatting(FormattingProfile profile) =>
         WriteAtomically(FormattingPath, FormattingProfileSerializer.Serialize(profile), overwrite: true);
+
+    /// <summary><c>glossary.json</c>, os termos fixos do projeto. É opcional.</summary>
+    public string GlossaryPath => Path.Combine(Root, GlossaryFileName);
+
+    /// <summary><c>characters.json</c>, os personagens do projeto. É opcional.</summary>
+    public string CharactersPath => Path.Combine(Root, CharactersFileName);
+
+    /// <summary>Lê o <c>glossary.json</c>; sem o arquivo, devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<GlossaryTerm> LoadGlossary() =>
+        File.Exists(GlossaryPath) ? GlossarySerializer.Parse(ReadGlossaryFile(GlossaryPath), GlossaryPath) : [];
+
+    /// <summary>Grava o <c>glossary.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Termo original vazio ou repetido; nada é gravado.</exception>
+    public void SaveGlossary(IReadOnlyList<GlossaryTerm> terms) =>
+        WriteAtomically(GlossaryPath, GlossarySerializer.Serialize(terms, GlossaryPath), overwrite: true);
+
+    /// <summary>Lê o <c>characters.json</c>; sem o arquivo, devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<CharacterEntry> LoadCharacters() =>
+        File.Exists(CharactersPath) ? CharacterSerializer.Parse(ReadGlossaryFile(CharactersPath), CharactersPath) : [];
+
+    /// <summary>Grava o <c>characters.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Nome original vazio ou repetido; nada é gravado.</exception>
+    public void SaveCharacters(IReadOnlyList<CharacterEntry> characters) =>
+        WriteAtomically(CharactersPath, CharacterSerializer.Serialize(characters, CharactersPath), overwrite: true);
+
+    private static string ReadGlossaryFile(string path)
+    {
+        try
+        {
+            return Utf8Estrito.GetString(File.ReadAllBytes(path)).TrimStart((char)0xFEFF);
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new GlossaryFileException(path, "o arquivo não está em UTF-8 válido.", ex);
+        }
+    }
 
     public void EnsureDirectories()
     {
