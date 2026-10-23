@@ -83,7 +83,7 @@ public sealed class ConsistencyRulesTests
     [Fact]
     public void Personagem_com_espaco_ideografico_no_source_ainda_casa()
     {
-        CharacterEntry[] cast = [new("春花　", "Haruka")];
+        CharacterEntry[] cast = [new("春花" + char.ConvertFromUtf32(0x3000), "Haruka")];
 
         Assert.Single(new CharacterNameRule().Check(Context([], cast, Unit("a:1", "春花が来た", "Haru chegou"))));
     }
