@@ -35,7 +35,7 @@ public sealed class ProjectBuilderTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
-    private BuildResult Build() => ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken);
+    private BuildResult Build() => ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]));
 
     private void Translate(string key, params (int Index, string Text)[] changes)
     {
