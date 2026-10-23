@@ -262,6 +262,91 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Build_sem_mudanca_desde_o_anterior_nao_reconstroi_nenhum_script_e_mantem_o_build()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        await Build();
+        var before = HashTree(Path.Combine(ProjectPath, "build"));
+
+        var result = await Build();
+
+        Assert.Equal(0, result.ExitCode);
+        var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.Equal("Nada mudou desde o build anterior: 1 script reaproveitado, nenhum reconstruído.", lines[^1]);
+        Assert.Equal(before, HashTree(Path.Combine(ProjectPath, "build")));
+    }
+
+    [Fact]
+    public async Task Build_incremental_so_reconstroi_o_script_que_mudou()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        await Build();
+        Translate("yst00002", _ => "Rain");
+
+        var result = await Build("--json");
+
+        using var document = JsonDocument.Parse(result.Output);
+        var data = document.RootElement.GetProperty("data");
+        Assert.Equal(1, data.GetProperty("scripts").GetInt32());
+        Assert.Equal(1, data.GetProperty("reusedScripts").GetInt32());
+        var entries = ReadEntries(Path.Combine(ProjectPath, "build", "ysbin.ypf"));
+        Assert.Equal(2, entries.Count(e => e.Key.StartsWith("yst0000", StringComparison.Ordinal)));
+        Assert.Equal(2, Assert.Single(data.GetProperty("archives").EnumerateArray()).GetProperty("replacedFiles").GetInt32());
+    }
+
+    [Fact]
+    public async Task Only_changed_false_reconstroi_tudo_mesmo_sem_mudanca()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        await Build();
+
+        var result = await Build("--only-changed", "false");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.StartsWith("Reconstruídos 1 script", result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Encoding_vale_so_para_o_build_e_nao_altera_o_vnforge_json()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+
+        var result = await Build("--encoding", "fold", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        using var document = JsonDocument.Parse(result.Output);
+        Assert.Equal("fold", document.RootElement.GetProperty("data").GetProperty("encoding").GetProperty("strategy").GetString());
+        Assert.Equal("sjis", ProjectFolder.Open(ProjectPath).LoadConfig().Encoding.Strategy);
+    }
+
+    [Fact]
+    public async Task Encoding_desconhecido_sai_com_erro_em_portugues()
+    {
+        await InitAndExtract();
+
+        var result = await Build("--encoding", "latin9");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("latin9", result.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Mudar_o_encoding_reconstroi_o_script_mesmo_sem_mudar_a_traducao()
+    {
+        await InitAndExtract();
+        Translate("yst00001", i => i == 0 ? "Good morning" : "Mika");
+        await Build();
+
+        var result = await Build("--encoding", "fold");
+
+        Assert.StartsWith("Reconstruídos 1 script", result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Sem_traducao_o_resumo_diz_que_o_pacote_saiu_identico()
     {
         await InitAndExtract();

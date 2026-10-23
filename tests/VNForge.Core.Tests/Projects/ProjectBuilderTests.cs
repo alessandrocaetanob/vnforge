@@ -81,6 +81,131 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.Equal(1, Assert.Single(result.Archives).ReplacedFiles);
     }
 
+    private BuildResult BuildIncremental(string? encoding = null) =>
+        ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), onlyChanged: true, encodingStrategy: encoding);
+
+    [Fact]
+    public void Incremental_sem_mudanca_desde_o_build_anterior_nao_reconstroi_nenhum_script()
+    {
+        Translate("a001", (0, "Hello"));
+        BuildIncremental();
+        var rebuildCalls = _engine.RebuildCalls;
+        var repackCalls = _engine.RepackCalls;
+        var content = BuiltContent();
+
+        var result = BuildIncremental();
+
+        Assert.Equal(rebuildCalls, _engine.RebuildCalls);
+        Assert.Equal(repackCalls, _engine.RepackCalls);
+        Assert.Empty(result.RebuiltScripts);
+        Assert.Equal(1, result.ReusedScripts);
+        Assert.Equal(content, BuiltContent());
+        Assert.Equal(1, Assert.Single(result.Archives).ReplacedFiles);
+    }
+
+    [Fact]
+    public void Incremental_reconstroi_so_o_script_cuja_traducao_mudou_e_mantem_o_outro()
+    {
+        Translate("a001", (0, "Hello"));
+        Translate("a002", (0, "It rained."));
+        BuildIncremental();
+        var calls = _engine.RebuildCalls;
+        Translate("a002", (0, "It was raining."));
+
+        var result = BuildIncremental();
+
+        Assert.Equal(calls + 1, _engine.RebuildCalls);
+        Assert.Equal("a002", Assert.Single(result.RebuiltScripts).Key);
+        Assert.Equal(1, result.ReusedScripts);
+        Assert.Equal(2, Assert.Single(result.Archives).ReplacedFiles);
+        Assert.Equal("dialogue|Hello\nname|Ana" + "\u0001" + "narration|It was raining.", BuiltContent());
+    }
+
+    [Fact]
+    public void Incremental_com_outra_estrategia_de_codificacao_reconstroi()
+    {
+        Translate("a001", (0, "Hello"));
+        BuildIncremental();
+        var calls = _engine.RebuildCalls;
+
+        var result = BuildIncremental("fold");
+
+        Assert.Equal(calls + 1, _engine.RebuildCalls);
+        Assert.Equal("fold", result.Encoding.Strategy);
+        Assert.Equal("a001", Assert.Single(result.RebuiltScripts).Key);
+    }
+
+    [Fact]
+    public void Incremental_sem_build_anterior_reconstroi_tudo()
+    {
+        Translate("a001", (0, "Hello"));
+
+        var result = BuildIncremental();
+
+        Assert.Equal("a001", Assert.Single(result.RebuiltScripts).Key);
+        Assert.Equal(0, result.ReusedScripts);
+    }
+
+    [Fact]
+    public void Incremental_com_build_apagado_refaz_os_pacotes_sem_reconstruir_o_script()
+    {
+        Translate("a001", (0, "Hello"));
+        BuildIncremental();
+        var calls = _engine.RebuildCalls;
+        Directory.Delete(_project.BuildDirectory, recursive: true);
+
+        var result = BuildIncremental();
+
+        Assert.Equal(calls, _engine.RebuildCalls);
+        Assert.Equal(1, result.ReusedScripts);
+        Assert.Equal("dialogue|Hello\nname|Ana" + "\u0001" + "narration|Chovia.", BuiltContent());
+    }
+
+    [Fact]
+    public void Incremental_com_estado_corrompido_reconstroi()
+    {
+        Translate("a001", (0, "Hello"));
+        BuildIncremental();
+        File.WriteAllText(Path.Combine(_project.CacheDirectory, "build-state.json"), "{ não é json");
+
+        var result = BuildIncremental();
+
+        Assert.Equal("a001", Assert.Single(result.RebuiltScripts).Key);
+    }
+
+    [Fact]
+    public void Build_completo_ignora_o_estado_anterior()
+    {
+        Translate("a001", (0, "Hello"));
+        BuildIncremental();
+        var calls = _engine.RebuildCalls;
+
+        var result = Build();
+
+        Assert.Equal(calls + 1, _engine.RebuildCalls);
+        Assert.Equal("a001", Assert.Single(result.RebuiltScripts).Key);
+    }
+
+    [Fact]
+    public void Estrategia_pedida_vale_so_para_este_build_e_nao_muda_o_vnforge_json()
+    {
+        Translate("a001", (0, "Hello"));
+
+        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), encodingStrategy: "fold");
+
+        Assert.Equal("fold", result.Encoding.Strategy);
+        Assert.Equal("sjis", _project.LoadConfig().Encoding.Strategy);
+    }
+
+    [Fact]
+    public void Estrategia_desconhecida_no_build_e_recusada_em_portugues()
+    {
+        var ex = Assert.Throws<VNForgeException>(() =>
+            ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), encodingStrategy: "latin9"));
+
+        Assert.Contains("latin9", ex.Message, StringComparison.Ordinal);
+    }
+
     private void SaveProfile(string json) => File.WriteAllText(_project.FormattingPath, json);
 
     private string BuiltContent() => File.ReadAllText(Path.Combine(_project.BuildDirectory, "pacote.fake"));
@@ -540,6 +665,8 @@ public sealed class ProjectBuilderTests : IDisposable
 
         public IReadOnlyList<RebuiltScript> LastRebuilt { get; private set; } = [];
 
+        public int RepackCalls { get; private set; }
+
         public VNForgeException? RepackFailure { get; set; }
 
         public GameUnpackResult Unpack(string gameDir, string destinationDirectory, CancellationToken cancellationToken = default)
@@ -570,6 +697,7 @@ public sealed class ProjectBuilderTests : IDisposable
                 throw RepackFailure;
             }
 
+            RepackCalls++;
             LastRebuilt = rebuilt;
             var contents = Directory.EnumerateFiles(Path.Combine(unpackedDirectory, "pacote.fake"))
                 .Order(StringComparer.Ordinal)

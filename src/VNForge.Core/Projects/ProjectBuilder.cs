@@ -31,6 +31,9 @@ public sealed record BuildResult(
     EncodingReport Encoding,
     QaReport Qa)
 {
+    /// <summary>Scripts com tradução cujo resultado do build anterior foi reaproveitado, sem chamar <see cref="IScriptFormat.Rebuild"/> (só no build incremental).</summary>
+    public int ReusedScripts { get; init; }
+
     /// <summary>Total de unidades de texto trocadas.</summary>
     public int TotalLines => RebuiltScripts.Sum(s => s.Lines);
 }
@@ -56,6 +59,11 @@ public static class ProjectBuilder
     /// <param name="encoders">Estratégias disponíveis; o padrão é <see cref="TextEncoderRegistry.Default"/>.</param>
     /// <param name="qa">Regras de QA que rodam antes de reconstruir; o padrão é <see cref="QaEngine.Default"/>.</param>
     /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre.</param>
+    /// <param name="onlyChanged">
+    /// Build incremental (<c>--only-changed</c>, o padrão do CLI): reaproveita o resultado do build anterior de cada script cujas entradas não mudaram
+    /// (<see cref="BuildState"/>) e, se nenhum script mudou e <c>build/</c> está como o anterior o deixou, nem regrava os pacotes. <c>false</c> reconstrói tudo.
+    /// </param>
+    /// <param name="encodingStrategy">Estratégia de codificação só deste build (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>, que não é alterado.</param>
     /// <exception cref="QaBlockedException">O QA achou erro, ou aviso sem <paramref name="allowWarnings"/>; nada é gravado.</exception>
     /// <exception cref="VNForgeException">
     /// Engine desconhecida ou sem suporte ao build, estratégia de codificação desconhecida ou sem encoder, jogo ou <c>.cache/game</c> inexistente,
@@ -63,7 +71,7 @@ public static class ProjectBuilder
     /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, bool onlyChanged = false, string? encodingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -76,7 +84,7 @@ public static class ProjectBuilder
             throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta o build.");
         }
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? config.Encoding.Strategy);
 
         var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
         if (!Directory.Exists(gameDirectory))
@@ -119,7 +127,14 @@ public static class ProjectBuilder
             throw new QaBlockedException(qaReport, allowWarnings);
         }
 
-        var (rebuilt, built) = RebuildScripts(game, texts, encoder, warnings, cancellationToken);
+        var previous = onlyChanged ? BuildState.Load(project) : null;
+        var (rebuilt, built, state, reused) = RebuildScripts(project, game, texts, encoder, previous, warnings, cancellationToken);
+
+        if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
+        {
+            warnings.AddRange(previous.Warnings);
+            return new BuildResult(gameDirectory, project.BuildDirectory, [.. previous.Archives.Select(a => new RepackedArchive(a.GamePath, a.ReplacedFiles))], game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
+        }
 
         var staging = project.BuildDirectory + ".tmp";
         DeleteIfExists(staging);
@@ -130,7 +145,8 @@ public static class ProjectBuilder
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport);
+            new BuildState(1, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings]).Save(project);
+            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
         }
         catch
         {
@@ -143,12 +159,13 @@ public static class ProjectBuilder
     /// Só o relatório de codificação (<c>vnf build --report</c>): confere as traduções do <paramref name="project"/> com a estratégia do
     /// <c>vnforge.json</c> sem tocar em <c>.cache/</c>, <c>build/</c> nem no jogo.
     /// </summary>
+    /// <param name="encodingStrategy">Estratégia só deste relatório (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>.</param>
     /// <exception cref="VNForgeException">Estratégia desconhecida ou sem encoder, ou <c>text/*.json</c> inválido.</exception>
-    public static EncodingReport ReportEncoding(ProjectFolder project, TextEncoderRegistry? encoders = null)
+    public static EncodingReport ReportEncoding(ProjectFolder project, TextEncoderRegistry? encoders = null, string? encodingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? project.LoadConfig().Encoding.Strategy);
         return EncodingReporter.Create(ApplyFormatting(project.LoadFormatting(), project.LoadAllText(), null, []), encoder);
     }
 
@@ -200,15 +217,19 @@ public static class ProjectBuilder
         }
     }
 
-    private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built) RebuildScripts(
+    private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built, Dictionary<string, BuildStateScript> State, int Reused) RebuildScripts(
+        ProjectFolder project,
         UnpackedGame game,
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         ITextEncoder encoder,
+        BuildState? previous,
         List<string> warnings,
         CancellationToken cancellationToken)
     {
         var rebuilt = new List<RebuiltScript>();
         var built = new List<BuiltScript>();
+        var state = new Dictionary<string, BuildStateScript>(StringComparer.Ordinal);
+        var reused = 0;
         var keys = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var script in game.Scripts)
         {
@@ -226,6 +247,25 @@ public static class ProjectBuilder
                 continue;
             }
 
+            var hash = BuildState.HashInputs(original, encoder.Id, units);
+            if (previous is not null && previous.Scripts.TryGetValue(file.Key, out var saved) && saved.Hash == hash)
+            {
+                if (saved.Identical)
+                {
+                    state[file.Key] = saved;
+                    reused++;
+                    continue;
+                }
+
+                if (BuildState.ReadScript(project, file.Key, saved) is { } cached)
+                {
+                    rebuilt.Add(new RebuiltScript(script.Path, original, cached));
+                    state[file.Key] = saved;
+                    reused++;
+                    continue;
+                }
+            }
+
             byte[] content;
             try
             {
@@ -238,9 +278,12 @@ public static class ProjectBuilder
 
             if (content.AsSpan().SequenceEqual(original))
             {
+                state[file.Key] = new BuildStateScript(hash, Identical: true, 0);
                 continue;
             }
 
+            BuildState.WriteScript(project, file.Key, hash, content);
+            state[file.Key] = new BuildStateScript(hash, Identical: false, content.Length);
             rebuilt.Add(new RebuiltScript(script.Path, original, content));
             built.Add(new BuiltScript(file.Key, script.Name, units.Count(u => u.NeedsRewrite)));
         }
@@ -248,8 +291,14 @@ public static class ProjectBuilder
         var known = keys.Keys.ToHashSet(StringComparer.Ordinal);
         warnings.AddRange(texts.Keys.Where(k => !known.Contains(k)).Select(k => $"text/{k}.json não corresponde a nenhum script do jogo descompactado; ignorado."));
         built.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
-        return (rebuilt, built);
+        return (rebuilt, built, state, reused);
     }
+
+    private static bool SameScripts(BuildState previous, Dictionary<string, BuildStateScript> current) =>
+        previous.Scripts.Count == current.Count && previous.Scripts.All(p => current.TryGetValue(p.Key, out var c) && c == p.Value);
+
+    private static long ArchiveLength(ProjectFolder project, string gamePath) =>
+        new FileInfo(Path.Combine(project.BuildDirectory, gamePath.Replace('/', Path.DirectorySeparatorChar))).Length;
 
     /// <summary>Põe <paramref name="staging"/> no lugar de <paramref name="target"/>; se a troca falhar, devolve o anterior.</summary>
     private static void Swap(string staging, string target)
