@@ -9,7 +9,6 @@ namespace VNForge.Cli;
 /// <summary><c>vnf ypf info|unpack|pack</c>: ferramentas de baixo nível sobre um arquivo YPF.</summary>
 public static class YpfCommand
 {
-
     private const string FileArgumentName = "arquivo";
 
     private static readonly YpfArchiveFormat Format = new();
