@@ -96,6 +96,18 @@ public sealed class LinePreviewerTests : IDisposable
     }
 
     [Fact]
+    public void Traducao_igual_ao_original_nao_e_formatada_como_no_build()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 3, "charWidth": "uniform" } }""");
+        Save(new TextUnit("a001:000001", TextUnitKind.Dialogue, null, "aaa bbb", "aaa bbb", TranslationStatus.Translated));
+
+        var preview = LinePreviewer.Create(_project, "a001:000001");
+
+        Assert.False(preview.Formatted);
+        Assert.Equal("aaa bbb", preview.Text);
+    }
+
+    [Fact]
     public void Id_inexistente_e_linha_sem_traducao_lancam_erro_em_portugues()
     {
         Save(Unit("a001:000001", null));

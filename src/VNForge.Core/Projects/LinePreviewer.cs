@@ -8,7 +8,7 @@ namespace VNForge.Core.Projects;
 /// <param name="Source">Texto original.</param>
 /// <param name="Translation">Tradução salva em <c>text/*.json</c>, antes da formatação.</param>
 /// <param name="Text">Tradução depois do pipeline de formatação (igual à <paramref name="Translation"/> se o papel da linha não é formatado).</param>
-/// <param name="Formatted">Falso quando o papel da linha não está em <see cref="FormattingProfile.Kinds"/>: o build grava a tradução como está.</param>
+/// <param name="Formatted">Falso quando o build não formata a linha (papel fora de <see cref="FormattingProfile.Kinds"/> ou tradução igual ao original): ela é gravada como está.</param>
 /// <param name="Columns">Colunas de cada linha, por caixa, medidas com o <c>wrap.charWidth</c> do perfil.</param>
 /// <param name="MaxWidth">Largura máxima do perfil (<c>wrap.maxWidth</c>); só vale com a quebra ligada.</param>
 /// <param name="MaxLines">Limite de linhas por caixa (<c>wrap.maxLines</c>); nulo sem limite.</param>
@@ -48,7 +48,7 @@ public static class LinePreviewer
 
         var profile = project.LoadFormatting();
         var translation = unit.Translation!;
-        var formatted = profile.Kinds.Contains(unit.Kind);
+        var formatted = unit.NeedsRewrite && profile.Kinds.Contains(unit.Kind);
         try
         {
             var result = formatted ? FormattingPipeline.Create(profile).Format(translation) : new FormattedText(translation, []);

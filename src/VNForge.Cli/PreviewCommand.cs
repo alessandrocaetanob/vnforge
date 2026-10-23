@@ -51,7 +51,7 @@ internal static class PreviewCommand
         output.WriteLine($"Linha {preview.Id}");
         if (!preview.Formatted)
         {
-            output.WriteLine("O papel desta linha não está em kinds do formatting.json; o build grava a tradução como está.");
+            output.WriteLine("O build não formata esta linha (papel fora de kinds do formatting.json ou tradução igual ao original); ela é gravada como está.");
         }
 
         for (var b = 0; b < preview.Columns.Count; b++)
