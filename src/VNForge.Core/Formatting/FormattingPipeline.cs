@@ -67,6 +67,16 @@ public sealed class FormattingPipeline
             stages.Add(new SpaceAfterPunctuationStage());
         }
 
+        if (profile.Replacements.Before.Count > 0)
+        {
+            stages.Add(new ReplacementStage("replacements-before", FormattingPhase.UserRulesBefore, profile.Replacements.Before));
+        }
+
+        if (profile.Replacements.After.Count > 0)
+        {
+            stages.Add(new ReplacementStage("replacements-after", FormattingPhase.UserRulesAfter, profile.Replacements.After));
+        }
+
         if (profile.Wrap.Enabled)
         {
             stages.Add(new WrapStage(profile.Wrap));

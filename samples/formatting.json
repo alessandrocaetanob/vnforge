@@ -25,5 +25,18 @@
     "maxWidth": 54,      // colunas por linha
     "maxLines": 3,       // linhas por caixa; null não limita
     "charWidth": "halfWidthLatin"  // ou "uniform" (todo caractere vale 1 coluna)
+  },
+
+  // Substituições do usuário, na ordem escrita. "before" roda antes das regras acima, "after" depois.
+  // Só o texto comum é tocado: \n, \c e {...} ficam como estão. Com "regex": true o padrão é
+  // regex do .NET e "with" aceita $1. Regex inválida para o build apontando a regra.
+  "replacements": {
+    "before": [
+      { "pattern": "Tokyo", "with": "Tóquio" },
+      { "pattern": "(\\w+)-san", "with": "Sr. $1", "regex": true }
+    ],
+    "after": [
+      { "pattern": "\\s+$", "with": "", "regex": true }  // tira espaços no fim do trecho
+    ]
   }
 }
