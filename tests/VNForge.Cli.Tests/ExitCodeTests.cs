@@ -6,6 +6,8 @@ namespace VNForge.Cli.Tests;
 
 public sealed class ExitCodeTests : IDisposable
 {
+    private const string FakeQaCommand = "fake-qa";
+
     private readonly CliHarness _cli = new();
 
     public void Dispose() => _cli.Dispose();
@@ -49,9 +51,9 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task QA_bloqueante_devolvido_pelo_comando_sai_com_2()
     {
-        _cli.AddCommand("fake-qa", _ => ErrorHandler.QaBlockedExitCode);
+        _cli.AddCommand(FakeQaCommand, _ => ErrorHandler.QaBlockedExitCode);
 
-        var result = await _cli.RunAsync(["fake-qa"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([FakeQaCommand], TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.ExitCode);
     }
@@ -125,13 +127,13 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Json_nao_muda_o_codigo_de_saida_nem_escreve_no_stderr()
     {
-        _cli.AddCommand("fake-qa", _ => ErrorHandler.QaBlockedExitCode);
+        _cli.AddCommand(FakeQaCommand, _ => ErrorHandler.QaBlockedExitCode);
         _cli.AddCommand("falha", _ => throw new InvalidFileException("a.ypf", "truncado"));
         _cli.AddCommand("cancela", _ => throw new OperationCanceledException());
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        var qa = await _cli.RunAsync(["fake-qa", "--json"], TestContext.Current.CancellationToken);
+        var qa = await _cli.RunAsync([FakeQaCommand, "--json"], TestContext.Current.CancellationToken);
         var erro = await _cli.RunAsync(["falha", "--json"], TestContext.Current.CancellationToken);
         var cancelado = await _cli.RunAsync(["cancela", "--json"], cts.Token);
 

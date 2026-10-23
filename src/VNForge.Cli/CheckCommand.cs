@@ -41,26 +41,10 @@ internal static class CheckCommand
         var rules = ParseRules(parseResult.GetValue(RulesOption));
         var severity = ParseSeverity(parseResult.GetValue(SeverityOption));
         var engine = cli.Qa;
-        var unknown = rules.Where(id => engine.Find(id) is null).ToList();
-        if (unknown.Count > 0)
-        {
-            throw new UsageException($"Regra de QA desconhecida: {string.Join(", ", unknown)}. Regras: {string.Join(", ", engine.Rules.Select(r => r.Id))}.");
-        }
+        EnsureKnown(engine, rules);
 
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-
-        IReadOnlyList<QaFix> fixes = [];
-        if (parseResult.GetValue(FixOption))
-        {
-            // Projeto inválido tem de falhar antes de o --fix gravar qualquer coisa.
-            _ = QaContext.FromProject(project);
-            // Com --rules, corrige só as regras pedidas que sabem corrigir; as outras só entram na conferência.
-            var fixable = rules.Where(id => engine.Find(id) is IQaFixer).ToList();
-            if (rules.Count == 0 || fixable.Count > 0)
-            {
-                fixes = QaFixer.Apply(project, engine, rules.Count == 0 ? null : fixable).Fixes;
-            }
-        }
+        var fixes = parseResult.GetValue(FixOption) ? ApplyFixes(project, engine, rules) : [];
 
         var report = engine.Run(QaContext.FromProject(project), new QaOptions(rules.Count == 0 ? null : rules, severity));
         var exitCode = report.HasErrors ? ErrorHandler.QaBlockedExitCode : ErrorHandler.OkExitCode;
@@ -71,6 +55,36 @@ internal static class CheckCommand
             return exitCode;
         }
 
+        WriteText(output, report, fixes);
+        return exitCode;
+    }
+
+    private static void EnsureKnown(QaEngine engine, List<string> rules)
+    {
+        var unknown = rules.Where(id => engine.Find(id) is null).ToList();
+        if (unknown.Count > 0)
+        {
+            throw new UsageException($"Regra de QA desconhecida: {string.Join(", ", unknown)}. Regras: {string.Join(", ", engine.Rules.Select(r => r.Id))}.");
+        }
+    }
+
+    private static IReadOnlyList<QaFix> ApplyFixes(ProjectFolder project, QaEngine engine, List<string> rules)
+    {
+        // Projeto inválido tem de falhar antes de o --fix gravar qualquer coisa.
+        _ = QaContext.FromProject(project);
+
+        // Com --rules, corrige só as regras pedidas que sabem corrigir; as outras só entram na conferência.
+        if (rules.Count == 0)
+        {
+            return QaFixer.Apply(project, engine).Fixes;
+        }
+
+        var fixable = rules.Where(id => engine.Find(id) is IQaFixer).ToList();
+        return fixable.Count == 0 ? [] : QaFixer.Apply(project, engine, fixable).Fixes;
+    }
+
+    private static void WriteText(TextWriter output, QaReport report, IReadOnlyList<QaFix> fixes)
+    {
         foreach (var fix in fixes)
         {
             output.WriteLine($"CORRIGIDO {fix.UnitId}  [{fix.RuleId}]");
@@ -92,7 +106,6 @@ internal static class CheckCommand
             output.WriteLine($"{report.Silenced.Count} {(report.Silenced.Count == 1 ? "aviso marcado como ok" : "avisos marcados como ok")}.");
         }
 
-        return exitCode;
     }
 
     private static List<string> ParseRules(string? text) =>
