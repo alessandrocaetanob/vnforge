@@ -244,9 +244,9 @@ public static class ControlMarkers
         return Convert.FromHexString(digits, bytes, out _, out _) == OperationStatus.Done;
     }
 
-    private static bool IsLeadByte(byte b) => b is (>= 0x81 and <= 0x9F) or (>= 0xE0 and <= 0xFC);
+    internal static bool IsLeadByte(byte b) => b is (>= 0x81 and <= 0x9F) or (>= 0xE0 and <= 0xFC);
 
-    private static bool IsTrailByte(byte b) => b is (>= 0x40 and <= 0x7E) or (>= 0x80 and <= 0xFC);
+    internal static bool IsTrailByte(byte b) => b is (>= 0x40 and <= 0x7E) or (>= 0x80 and <= 0xFC);
 
     private static bool TryDecode(ReadOnlySpan<byte> bytes, out char ch)
     {
