@@ -12,4 +12,12 @@ public static class ClaudeProviderFactory
         ArgumentNullException.ThrowIfNull(options);
         return new ClaudeTranslationProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
     }
+
+    /// <summary>Monta o provedor Claude da revisão (<c>vnf review</c>); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Review.ClaudeReviewProvider CreateReview(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Review.ClaudeReviewProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
+    }
 }
