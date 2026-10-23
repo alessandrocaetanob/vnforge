@@ -83,13 +83,77 @@ public class ClaudeTranslationProviderTests
     }
 
     [Fact]
-    public async Task Recusa_do_modelo_vira_ClaudeRefusalException()
+    public async Task Recusa_de_uma_linha_marca_a_linha_sem_derrubar_o_lote()
     {
-        var client = new StubClient(_ => new ClaudeReply("refusal", string.Empty));
+        // O lote inteiro é recusado; a linha "b" continua recusada sozinha, as outras passam.
+        var client = new StubClient(r => r.User.Contains("\"id\":\"b\"") ? new ClaudeReply("refusal", string.Empty)
+            : r.User.Contains("\"id\":\"a\"") && r.User.Contains("\"id\":\"c\"") ? new ClaudeReply("refusal", string.Empty)
+            : r.User.Contains("\"id\":\"a\"") ? Ok("""{"translations":[{"id":"a","translation":"A"}]}""")
+            : Ok("""{"translations":[{"id":"c","translation":"C"}]}"""));
         var provider = new ClaudeTranslationProvider(client);
 
-        await Assert.ThrowsAsync<ClaudeRefusalException>(() =>
-            provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None));
+        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "x"), Unit("b", "y"), Unit("c", "z")]), CancellationToken.None);
+
+        Assert.Equal(["a", "b", "c"], results.Select(r => r.Id));
+        Assert.Equal(["A", string.Empty, "C"], results.Select(r => r.Translation));
+        Assert.Equal([false, true, false], results.Select(r => r.Refused));
+    }
+
+    [Fact]
+    public async Task Recusa_so_do_lote_e_resolvida_linha_a_linha()
+    {
+        var client = new StubClient(r => r.User.Contains("\"id\":\"a\"") && r.User.Contains("\"id\":\"b\"")
+            ? new ClaudeReply("refusal", string.Empty)
+            : r.User.Contains("\"id\":\"a\"") ? Ok("""{"translations":[{"id":"a","translation":"A"}]}""")
+            : Ok("""{"translations":[{"id":"b","translation":"B"}]}"""));
+        var provider = new ClaudeTranslationProvider(client);
+
+        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "x"), Unit("b", "y")]), CancellationToken.None);
+
+        Assert.Equal([new TranslationResult("a", "A"), new TranslationResult("b", "B")], results);
+        Assert.All(results, r => Assert.False(r.Refused));
+    }
+
+    [Fact]
+    public async Task Recusa_de_lote_de_uma_linha_marca_a_linha()
+    {
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("refusal", string.Empty)));
+
+        var result = Assert.Single(await provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None));
+
+        Assert.True(result.Refused);
+        Assert.Equal(string.Empty, result.Translation);
+    }
+
+    [Fact]
+    public async Task Tokens_lidos_do_cache_entram_na_contagem()
+    {
+        var reply = new ClaudeReply("end_turn", """{"translations":[{"id":"a","translation":"Oi"}]}""", new ClaudeUsage(100, 20, 800, 50));
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => reply));
+        var batch = new TranslationBatch([Unit("a", "x")]);
+
+        await provider.TranslateAsync(batch, CancellationToken.None);
+        await provider.TranslateAsync(batch, CancellationToken.None);
+
+        Assert.Equal(new ClaudeUsage(200, 40, 1600, 100), provider.Usage);
+    }
+
+    [Fact]
+    public async Task Uso_da_recusa_tambem_e_contado()
+    {
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(10, 0, 5, 0))));
+
+        await provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None);
+
+        Assert.Equal(5, provider.Usage.CacheReadInputTokens);
+    }
+
+    [Fact]
+    public void Fallback_de_recusa_so_existe_onde_o_servidor_oferece()
+    {
+        Assert.True(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Opus));
+        Assert.True(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Fable));
+        Assert.False(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Haiku));
     }
 
     [Theory]
