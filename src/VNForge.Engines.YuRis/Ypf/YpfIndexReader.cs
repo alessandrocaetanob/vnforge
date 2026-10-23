@@ -103,7 +103,7 @@ internal static class YpfIndexReader
         for (var i = 0; i < count; i++)
         {
             var number = i + 1;
-            var entry = ReadEntry(candidate, index, position, number, count, fileLength, lastXor, out var failureText);
+            var entry = ReadEntry(candidate, index, position, (number, count), fileLength, lastXor, out var failureText);
             if (entry is null)
             {
                 attempt.Failure = failureText;
@@ -153,13 +153,13 @@ internal static class YpfIndexReader
         Candidate candidate,
         byte[] index,
         int position,
-        int number,
-        int count,
+        (int Number, int Count) ordinal,
         long fileLength,
         byte? lastXor,
         out string? failure)
     {
         failure = null;
+        var (number, count) = ordinal;
         var offsetBytes = candidate.OffsetSize == YpfOffsetSize.Bits64 ? 8 : 4;
         if (index.Length - position < 5)
         {
