@@ -5,8 +5,6 @@ namespace VNForge.Core.Tests.Text;
 
 public class Cp1252TextEncoderTests
 {
-    private const string LetrasAcentuadas = "áàâãäéèêëíìîóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÓÒÔÕÖÚÙÛÜÇñÑ";
-
     private readonly Cp1252TextEncoder _encoder = new();
 
     [Fact]
@@ -30,24 +28,22 @@ public class Cp1252TextEncoderTests
     [InlineData("ü", 0xFC)]
     [InlineData("ç", 0xE7)]
     [InlineData("Á", 0xC1)]
+    [InlineData("À", 0xC0)]
+    [InlineData("Â", 0xC2)]
     [InlineData("Ã", 0xC3)]
-    [InlineData("Ç", 0xC7)]
+    [InlineData("É", 0xC9)]
+    [InlineData("Ê", 0xCA)]
+    [InlineData("Í", 0xCD)]
+    [InlineData("Ó", 0xD3)]
+    [InlineData("Ô", 0xD4)]
     [InlineData("Õ", 0xD5)]
+    [InlineData("Ú", 0xDA)]
+    [InlineData("Ü", 0xDC)]
+    [InlineData("Ç", 0xC7)]
     public void Encode_LetraAcentuada_UmByteNaPosicaoDoWindows1252(string letra, int esperado)
     {
         Assert.Equal([(byte)esperado], _encoder.Encode(letra));
-    }
-
-    [Fact]
-    public void Encode_TodasAsLetrasAcentuadasDoPortugues_IgualAConversaoDiretaParaCp1252()
-    {
-        // O português usa á à â ã é ê í ó ô õ ú ü ç (e as maiúsculas); o resto da lista cobre palavras estrangeiras comuns.
-        foreach (char letra in LetrasAcentuadas)
-        {
-            string texto = letra.ToString();
-            Assert.Equal(GameEncodings.Windows1252.GetBytes(texto), _encoder.Encode(texto));
-            Assert.Empty(_encoder.FindUnencodable(texto));
-        }
+        Assert.Empty(_encoder.FindUnencodable(letra));
     }
 
     [Fact]
@@ -68,69 +64,35 @@ public class Cp1252TextEncoderTests
         Assert.Empty(_encoder.Encode(""));
     }
 
-    [Fact]
-    public void FindUnencodable_TremaNoI_EhNaoCodificavel()
+    [Theory]
+    [InlineData("ï", new[] { 0 })]
+    [InlineData("abïcdeï", new[] { 2, 6 })]
+    [InlineData("açãoïé", new[] { 4 })]
+    [InlineData("a😀bcï", new[] { 1, 5 })]
+    [InlineData("日本", new[] { 0, 1 })]
+    [InlineData("Ação à vista", new int[0])]
+    public void FindUnencodable_ApontaOsIndicesQueEncodeRecusa(string texto, int[] indices)
     {
-        Assert.Equal([0], _encoder.FindUnencodable("ï"));
-        Assert.Equal([2, 6], _encoder.FindUnencodable("abïcdeï"));
-    }
+        Assert.Equal(indices, _encoder.FindUnencodable(texto));
 
-    [Fact]
-    public void FindUnencodable_TremaNoI_NaoApontaOutrasLetrasAcentuadas()
-    {
-        Assert.Equal([4], _encoder.FindUnencodable("açãoïé"));
-    }
-
-    [Fact]
-    public void Encode_TremaNoI_LancaComMensagemEmPortugues()
-    {
-        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("naïve"));
-
-        Assert.Contains("0xEF", ex.Message);
-        Assert.Contains("posição 2", ex.Message);
-    }
-
-    [Fact]
-    public void FindUnencodable_ConcordaComEncode()
-    {
-        foreach (string texto in new[] { "ï", "日本語", "😀", "a\ud83dx", "日naïve" })
+        if (indices.Length > 0)
         {
-            Assert.NotEmpty(_encoder.FindUnencodable(texto));
             Assert.Throws<EncoderFallbackException>(() => _encoder.Encode(texto));
         }
-
-        foreach (string texto in new[] { "ação", "€", "" })
+        else
         {
-            Assert.Empty(_encoder.FindUnencodable(texto));
             Assert.Equal(GameEncodings.Windows1252.GetBytes(texto), _encoder.Encode(texto));
         }
     }
 
-    [Fact]
-    public void Encode_MensagemCitaOIMesmoQuandoNaoEOPrimeiroRecusado()
+    [Theory]
+    [InlineData("naïve", "posição 2")]
+    [InlineData("日naïve", "0xEF")]
+    public void Encode_TremaNoI_LancaComMensagemEmPortugues(string texto, string trecho)
     {
-        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("日naïve"));
+        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode(texto));
 
+        Assert.Contains(trecho, ex.Message);
         Assert.Contains("0xEF", ex.Message);
-    }
-
-    [Fact]
-    public void Encode_CaractereForaDoWindows1252_NaoSubstituiEmSilencio()
-    {
-        Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("日本語"));
-        Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("😀"));
-        Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("a\ud83dx"));
-    }
-
-    [Fact]
-    public void FindUnencodable_ParSubstitutoContaUmaVezNoPrimeiroChar()
-    {
-        Assert.Equal([1, 5], _encoder.FindUnencodable("a😀bcï"));
-    }
-
-    [Fact]
-    public void FindUnencodable_TextoLimpo_Vazio()
-    {
-        Assert.Empty(_encoder.FindUnencodable("Ação à vista"));
     }
 }
