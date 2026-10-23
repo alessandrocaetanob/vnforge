@@ -50,8 +50,8 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | `vnf review` | Revisão por IA: gera sugestões nas notas, não altera traduções |
 | `vnf preview <id>` | Mostra como a linha fica depois da formatação e quebra de linha |
 | `vnf build` | Aplica formatação e codificação, reconstrói scripts e arquivos YPF em `build/` |
-| `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo |
-| `vnf restore` | Volta os arquivos originais do backup |
+| `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
+| `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
 | `vnf run` | Abre o jogo (atalho para testar depois do inject) |
 
 ## Comandos de apoio
@@ -103,6 +103,16 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
                                        remonta com reescrita mínima; só o arquivo que difere do original vira troca
 ```
 O `pack` nunca grava sobre o original e pede `--yes` para sobrescrever a saída. Ele não acrescenta entradas: um arquivo da pasta que o original não tem é recusado. Entrada sem arquivo na pasta é mantida do original. Sem mudanças na pasta, a saída é idêntica ao original; o `--json` informa isso em `identical`. O `unpack` recusa, antes de gravar, nome interno que sai da pasta (`..`, caminho absoluto, nome reservado do Windows) ou que colide com outro neste sistema de arquivos. Também recusa, antes de gravar, o caminho que passa por link simbólico ou junção já existente no destino (a própria pasta de destino pode ser um link) e a entrada cujo tamanho no índice passa do que cabe num array. Um erro no meio da extração, como hash divergente ou disco cheio, deixa a extração parcial: os arquivos já gravados ficam na pasta. No Windows o `pack` compara os caminhos sem diferenciar caixa e recusa o original que tem duas entradas só com a caixa diferente. Arquivo da pasta que o original não tem, como `Thumbs.db` ou `desktop.ini`, é recusado com o nome citado; remova-o da pasta.
+
+`vnf inject` e `vnf restore` (E8.2; ambos aceitam `--json`, `--project` e `--yes`)
+```
+  inject                   cada arquivo de build/ substitui o de mesmo caminho na pasta do jogo (game.path do vnforge.json)
+  restore                  devolve os originais do backup mais recente
+  --yes                    pula a confirmação "Gravar N arquivo(s)?" (obrigatório com --json)
+```
+O `inject` lista o que vai gravar e pede confirmação antes de tocar no jogo. Recusar sai com código 3 e não grava nada. Sem `--yes` e sem entrada (script, `--json`), o comando pede o `--yes` em vez de seguir. A ordem é: copia para `backup/AAAA-MM-DD_HHmm/` só os originais que o build substitui, confere o SHA-256 de cada cópia, grava `vnforge-backup.json` na pasta do backup e só então escreve no jogo, conferindo o SHA-256 de cada arquivo gravado. Arquivo do build igual ao do jogo é ignorado; sem nada a mudar não há backup. Dois backups no mesmo minuto ganham o sufixo `-02`, `-03`.
+
+Se uma gravação falha no meio, o `inject` devolve na hora os arquivos já trocados e diz que o jogo voltou ao estado original. Se nem isso for possível, a mensagem manda rodar `vnf restore`, que lê o manifesto (já gravado antes da primeira escrita no jogo) e termina o serviço. Se o jogo ainda está com o build de um `inject` anterior, o original vem do backup anterior, então todo backup guarda os arquivos originais e nunca uma versão já traduzida. O `restore` confere o hash de todas as cópias do backup antes de escrever, apaga os arquivos que a injeção criou e pode ser repetido. `build/` ausente ou vazia, pasta do jogo inexistente e backup inexistente são erros em português. Com `--json`, o `inject` devolve `gameDirectory`, `backupDirectory` (nulo sem mudanças), `written` e `unchanged`; o `restore` devolve `gameDirectory`, `backupDirectory`, `restored` e `removed`.
 
 ## Fluxo típico
 
