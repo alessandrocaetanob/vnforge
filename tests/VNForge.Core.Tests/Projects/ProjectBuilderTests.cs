@@ -35,7 +35,7 @@ public sealed class ProjectBuilderTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
-    private BuildResult Build(bool allowWarnings = false) => ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, allowWarnings: allowWarnings);
+    private BuildResult Build() => ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]));
 
     private void Translate(string key, params (int Index, string Text)[] changes)
     {
@@ -139,7 +139,7 @@ public sealed class ProjectBuilderTests : IDisposable
         SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
         Translate("a001", (0, "aaa bbb ccc"));
 
-        var result = Build(allowWarnings: true);
+        var result = Build();
 
         Assert.Contains(result.Warnings, w => w.StartsWith("a001:000000: caixa 1 com 3 linhas (máximo 2)", StringComparison.Ordinal));
         Assert.StartsWith(@"dialogue|aaa\nbbb\nccc", BuiltContent());

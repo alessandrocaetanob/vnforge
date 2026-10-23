@@ -28,8 +28,10 @@ public sealed class QaEngine
         }
     }
 
-    /// <summary>As regras do <c>vnf</c>, na ordem em que rodam.</summary>
-    public static QaEngine Default { get; } = new([
+    /// <summary>As regras do <c>vnf</c>. Uma linha por grupo de regras, para as issues do E7 entrarem sem conflito.</summary>
+    public static QaEngine Default { get; } = new(
+    [
+        .. CompletenessQaRules.All,
         new GlossaryTermRule(),
         new CharacterNameRule(),
         new InconsistentTranslationRule(),
