@@ -46,9 +46,7 @@ public static class YpfCommand
         command.SetAction((parseResult, token) =>
         {
             var target = Resolve(cli, parseResult.GetValue(folder)!);
-            if (Directory.Exists(target)
-                && Directory.EnumerateFileSystemEntries(target).Any()
-                && !parseResult.GetValue(cli.Options.Yes))
+            if (!parseResult.GetValue(cli.Options.Yes) && HasEntries(target))
             {
                 throw new UsageException($"A pasta de destino não está vazia: {target}. Use --yes para sobrescrever os arquivos que coincidirem.");
             }
@@ -124,6 +122,18 @@ public static class YpfCommand
             return Task.FromResult(0);
         });
         return command;
+    }
+
+    private static bool HasEntries(string directory)
+    {
+        try
+        {
+            return Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new VNForgeException($"Não foi possível ler a pasta \"{directory}\": {ex.Message}", ex);
+        }
     }
 
     private static YpfPackResult PackTo(YpfArchive archive, string folder, string target, bool overwrite, CancellationToken token)
