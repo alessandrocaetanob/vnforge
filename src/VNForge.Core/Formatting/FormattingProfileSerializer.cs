@@ -109,6 +109,17 @@ public static class FormattingProfileSerializer
             writer.WriteBoolean("spaces", profile.Width.Spaces);
             writer.WriteEndObject();
 
+            if (profile.ByteLimits.Count > 0)
+            {
+                writer.WriteStartObject("byteLimits");
+                foreach (var (kind, limit) in profile.ByteLimits.OrderBy(l => l.Key))
+                {
+                    writer.WriteNumber(KindName(kind), limit);
+                }
+
+                writer.WriteEndObject();
+            }
+
             writer.WriteEndObject();
         }
 
@@ -181,6 +192,14 @@ public static class FormattingProfileSerializer
         if (profile.Wrap.MaxLines is < 1)
         {
             throw new FormattingProfileException("$.wrap.maxLines", "deve ser de ao menos 1 linha, ou null para não limitar.");
+        }
+
+        foreach (var (kind, limit) in profile.ByteLimits)
+        {
+            if (limit < 1)
+            {
+                throw new FormattingProfileException($"$.byteLimits.{KindName(kind)}", "deve ser de ao menos 1 byte.");
+            }
         }
 
         if (profile.Typography.Dash is { } dash && !IsValidDash(dash))
@@ -271,8 +290,14 @@ public static class FormattingProfileSerializer
             widthReader.EnsureNoUnknownProperties();
         }
 
+        var byteLimits = defaults.ByteLimits;
+        if (reader.OptionalObject("byteLimits") is { } limitsReader)
+        {
+            byteLimits = limitsReader.ByteLimits();
+        }
+
         reader.EnsureNoUnknownProperties();
-        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width };
+        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width, ByteLimits = byteLimits };
     }
 
     private static string KindName(TextUnitKind kind) => kind.ToString().ToLowerInvariant();
@@ -414,6 +439,29 @@ public static class FormattingProfileSerializer
             return kinds.Count == 0
                 ? throw new FormattingProfileException(PathOf(name), "informe ao menos um papel de linha.")
                 : kinds;
+        }
+
+        /// <summary>Objeto <c>{ "name": 16 }</c>: papel de linha e limite de bytes, de ao menos 1.</summary>
+        public IReadOnlyDictionary<TextUnitKind, int> ByteLimits()
+        {
+            var limits = new Dictionary<TextUnitKind, int>();
+            foreach (var property in _element.EnumerateObject())
+            {
+                _read.Add(property.Name);
+                if (!TryParseKind(property.Name, out var kind))
+                {
+                    throw new FormattingProfileException(PathOf(property.Name), $"use um destes papéis: {string.Join(", ", Enum.GetValues<TextUnitKind>().Select(KindName))}.");
+                }
+
+                if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out var limit) || limit < 1)
+                {
+                    throw new FormattingProfileException(PathOf(property.Name), "deve ser um número inteiro de ao menos 1 byte.");
+                }
+
+                limits[kind] = limit;
+            }
+
+            return limits;
         }
 
         public string RequiredString(string name)

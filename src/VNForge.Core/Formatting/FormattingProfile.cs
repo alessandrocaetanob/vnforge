@@ -124,6 +124,9 @@ public sealed record FormattingProfile(IReadOnlyList<TextUnitKind> Kinds, WrapRu
 
     /// <summary>Espaços duplos e espaço em volta da pontuação (E4.2).</summary>
     public SpacingRule Spacing { get; init; } = new();
+
+    /// <summary>Limite de bytes (já codificados) da tradução por papel de linha, para campos de tamanho fixo no jogo, como nomes e escolhas (E7.3). Papel ausente não tem limite.</summary>
+    public IReadOnlyDictionary<TextUnitKind, int> ByteLimits { get; init; } = new Dictionary<TextUnitKind, int>();
 }
 
 /// <summary><c>formatting.json</c> inválido.</summary>
