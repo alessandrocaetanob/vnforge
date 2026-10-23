@@ -6,6 +6,8 @@ namespace VNForge.Cli.Tests;
 
 public sealed class StatusCommandTests : IDisposable
 {
+    private const string Yst00001 = "yst00001";
+
     private readonly CliHarness _cli = new();
     private readonly string _projectPath;
 
@@ -14,16 +16,16 @@ public sealed class StatusCommandTests : IDisposable
         _projectPath = Path.Combine(_cli.Root, "projeto");
         var project = ProjectFolder.Create(_projectPath, new ProjectConfig(
             "Minha VN",
-            new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+            new GameConfig(Path.Combine(_cli.Root, "jogo"), "MinhaVN.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("fold"),
             AiConfig.Default));
-        project.SaveText("yst00001",
+        project.SaveText(Yst00001,
         [
-            Unit("yst00001", 1, "美咲", TranslationStatus.Approved),
-            Unit("yst00001", 2, "美咲", TranslationStatus.Untranslated),
-            Unit("yst00001", 3, null, TranslationStatus.Machine),
+            Unit(Yst00001, 1, "美咲", TranslationStatus.Approved),
+            Unit(Yst00001, 2, "美咲", TranslationStatus.Untranslated),
+            Unit(Yst00001, 3, null, TranslationStatus.Machine),
         ]);
         project.SaveText("yst00002", [Unit("yst00002", 1, "健", TranslationStatus.Reviewed)]);
     }
@@ -53,7 +55,7 @@ public sealed class StatusCommandTests : IDisposable
         Assert.Equal(75, total.GetProperty("percent").GetDouble());
 
         var files = data.GetProperty("files").EnumerateArray().ToList();
-        Assert.Equal(["yst00001", "yst00002"], files.Select(f => f.GetProperty("key").GetString()));
+        Assert.Equal([Yst00001, "yst00002"], files.Select(f => f.GetProperty("key").GetString()));
         Assert.Equal([3, 1], files.Select(f => f.GetProperty("lines").GetInt32()));
 
         var characters = data.GetProperty("characters").EnumerateArray().ToList();
@@ -69,7 +71,7 @@ public sealed class StatusCommandTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("4 linhas", result.Output);
         Assert.Contains("Por arquivo", result.Output);
-        Assert.Contains("yst00001", result.Output);
+        Assert.Contains(Yst00001, result.Output);
         Assert.Contains("Por personagem", result.Output);
         Assert.Contains("美咲", result.Output);
         Assert.Contains("(sem falante)", result.Output);

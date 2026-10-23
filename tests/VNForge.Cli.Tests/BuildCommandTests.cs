@@ -17,6 +17,12 @@ namespace VNForge.Cli.Tests;
 
 public sealed class BuildCommandTests : IDisposable
 {
+    private const string YsbinYpf = "ysbin.ypf";
+    private const string Yst00001Ybn = "yst00001.ybn";
+    private const string ProjectOption = "--project";
+    private const string BuildVerb = "build";
+    private const string Yst00001000000 = "yst00001:000000";
+
     private const string GoodMorning = "Good morning";
 
     private const string Hello = "Hello";
@@ -49,7 +55,7 @@ public sealed class BuildCommandTests : IDisposable
         File.WriteAllText(Path.Combine(_game, "MinhaVN.exe"), "MZ");
         _scriptsYpf = ScriptArchive();
         _extraYpf = ExtraArchive();
-        File.WriteAllBytes(Path.Combine(_game, "ysbin.ypf"), _scriptsYpf);
+        File.WriteAllBytes(Path.Combine(_game, YsbinYpf), _scriptsYpf);
         File.WriteAllBytes(Path.Combine(_game, "bgm.ypf"), new SyntheticYpfBuilder(500).AddFile("bgm01.ogg", [1, 2, 3]).Build().Bytes);
     }
 
@@ -73,7 +79,7 @@ public sealed class BuildCommandTests : IDisposable
         return new SyntheticYpfBuilder(500)
             .AddFile("ysc.ybn", Yscm.Bytes)
             .AddFile("yst_list.ybn", list.Bytes)
-            .AddFile("yst00001.ybn", first.Build().Bytes)
+            .AddFile(Yst00001Ybn, first.Build().Bytes)
             .AddFile("yst00002.ybn", second.Build().Bytes)
             .Build().Bytes;
     }
@@ -90,13 +96,13 @@ public sealed class BuildCommandTests : IDisposable
         if (withExtraArchive)
         {
             Directory.CreateDirectory(Path.Combine(_game, "pac"));
-            File.WriteAllBytes(Path.Combine(_game, "pac", "extra.ypf"), _extraYpf);
+            await File.WriteAllBytesAsync(Path.Combine(_game, "pac", "extra.ypf"), _extraYpf, TestContext.Current.CancellationToken);
         }
 
         var init = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", _game], TestContext.Current.CancellationToken);
         Assert.Equal(0, init.ExitCode);
         UseStrategy("sjis");
-        var extract = await _cli.RunAsync(["extract", "--project", ProjectPath], TestContext.Current.CancellationToken);
+        var extract = await _cli.RunAsync(["extract", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
         Assert.Equal(0, extract.ExitCode);
     }
 
@@ -107,7 +113,7 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     private Task<RunResult> Build(params string[] args) =>
-        _cli.RunAsync(["build", .. args, "--project", ProjectPath], TestContext.Current.CancellationToken);
+        _cli.RunAsync([BuildVerb, .. args, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
 
     private void Translate(string key, Func<int, string> translation)
     {
@@ -150,9 +156,9 @@ public sealed class BuildCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
-        var built = Path.Combine(ProjectPath, "build", "ysbin.ypf");
-        Assert.Equal(_scriptsYpf, File.ReadAllBytes(built));
-        Assert.Equal(["ysbin.ypf"], Directory.EnumerateFiles(Path.Combine(ProjectPath, "build"), "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(Path.Combine(ProjectPath, "build"), f)));
+        var built = Path.Combine(ProjectPath, BuildVerb, YsbinYpf);
+        Assert.Equal(_scriptsYpf, await File.ReadAllBytesAsync(built, TestContext.Current.CancellationToken));
+        Assert.Equal([YsbinYpf], Directory.EnumerateFiles(Path.Combine(ProjectPath, BuildVerb), "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(Path.Combine(ProjectPath, BuildVerb), f)));
     }
 
     private sealed class TranslationIs(string id, QaSeverity severity, string text) : UnitQaRule
@@ -189,7 +195,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Contains("ERRO  yst00001:", result.Output);
         Assert.Contains("[palavra-proibida] tradução 'Hello' recusada", result.Output);
         Assert.Contains("1 erro, 0 avisos", result.Output);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, BuildVerb)));
     }
 
     [Fact]
@@ -198,7 +204,7 @@ public sealed class BuildCommandTests : IDisposable
         var result = await BuildWithRule(QaSeverity.Error, AllowWarningsFlag);
 
         Assert.Equal(2, result.ExitCode);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, BuildVerb)));
     }
 
     [Fact]
@@ -209,7 +215,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Equal(2, result.ExitCode);
         Assert.Contains("AVISO yst00001:", result.Output);
         Assert.Contains(AllowWarningsFlag, result.Output);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, BuildVerb)));
     }
 
     [Fact]
@@ -219,7 +225,7 @@ public sealed class BuildCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("AVISO yst00001:", result.Output);
-        Assert.True(File.Exists(Path.Combine(ProjectPath, "build", "ysbin.ypf")));
+        Assert.True(File.Exists(Path.Combine(ProjectPath, BuildVerb, YsbinYpf)));
     }
 
     [Fact]
@@ -285,14 +291,14 @@ public sealed class BuildCommandTests : IDisposable
         await InitAndExtract();
         Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
-        var before = HashTree(Path.Combine(ProjectPath, "build"));
+        var before = HashTree(Path.Combine(ProjectPath, BuildVerb));
 
         var result = await Build();
 
         Assert.Equal(0, result.ExitCode);
         var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         Assert.Equal("Nada mudou desde o build anterior: 1 script reaproveitado, nenhum reconstruído.", lines[^1]);
-        Assert.Equal(before, HashTree(Path.Combine(ProjectPath, "build")));
+        Assert.Equal(before, HashTree(Path.Combine(ProjectPath, BuildVerb)));
     }
 
     [Fact]
@@ -309,7 +315,7 @@ public sealed class BuildCommandTests : IDisposable
         var data = document.RootElement.GetProperty("data");
         Assert.Equal(1, data.GetProperty("scripts").GetInt32());
         Assert.Equal(1, data.GetProperty("reusedScripts").GetInt32());
-        var entries = ReadEntries(Path.Combine(ProjectPath, "build", "ysbin.ypf"));
+        var entries = ReadEntries(Path.Combine(ProjectPath, BuildVerb, YsbinYpf));
         Assert.Equal(2, entries.Count(e => e.Key.StartsWith("yst0000", StringComparison.Ordinal)));
         Assert.Equal(2, Assert.Single(data.GetProperty("archives").EnumerateArray()).GetProperty("replacedFiles").GetInt32());
     }
@@ -423,14 +429,14 @@ public sealed class BuildCommandTests : IDisposable
         var result = await Build();
 
         Assert.Equal(0, result.ExitCode);
-        var original = ReadEntries(Path.Combine(_game, "ysbin.ypf"));
-        var built = ReadEntries(Path.Combine(ProjectPath, "build", "ysbin.ypf"));
+        var original = ReadEntries(Path.Combine(_game, YsbinYpf));
+        var built = ReadEntries(Path.Combine(ProjectPath, BuildVerb, YsbinYpf));
         Assert.Equal(original.Keys.Order(), built.Keys.Order());
-        var units = Reextract("yst00001.ybn", built["yst00001.ybn"]);
+        var units = Reextract(Yst00001Ybn, built[Yst00001Ybn]);
         Assert.Equal([GoodMorning, "Mika"], units.Select(u => u.Source));
-        Assert.Equal(Reextract("yst00001.ybn", original["yst00001.ybn"]).Select(u => u.Id), units.Select(u => u.Id));
-        Assert.NotEqual(original["yst00001.ybn"], built["yst00001.ybn"]);
-        foreach (var other in original.Keys.Where(k => k != "yst00001.ybn"))
+        Assert.Equal(Reextract(Yst00001Ybn, original[Yst00001Ybn]).Select(u => u.Id), units.Select(u => u.Id));
+        Assert.NotEqual(original[Yst00001Ybn], built[Yst00001Ybn]);
+        foreach (var other in original.Keys.Where(k => k != Yst00001Ybn))
         {
             Assert.Equal(original[other], built[other]);
         }
@@ -445,13 +451,13 @@ public sealed class BuildCommandTests : IDisposable
         var result = await Build(JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
-        var build = Path.Combine(ProjectPath, "build");
-        Assert.Equal(_scriptsYpf, File.ReadAllBytes(Path.Combine(build, "ysbin.ypf")));
+        var build = Path.Combine(ProjectPath, BuildVerb);
+        Assert.Equal(_scriptsYpf, await File.ReadAllBytesAsync(Path.Combine(build, YsbinYpf), TestContext.Current.CancellationToken));
         var extra = ReadEntries(Path.Combine(build, "pac", "extra.ypf"));
         Assert.Equal("Night fell.", Assert.Single(Reextract("yst00003.ybn", extra["yst00003.ybn"])).Source);
         using var document = JsonDocument.Parse(result.Output);
         var archives = document.RootElement.GetProperty("data").GetProperty("archives");
-        Assert.Equal(["pac/extra.ypf", "ysbin.ypf"], archives.EnumerateArray().Select(a => a.GetProperty("path").GetString()!).Order(StringComparer.Ordinal));
+        Assert.Equal(["pac/extra.ypf", YsbinYpf], archives.EnumerateArray().Select(a => a.GetProperty("path").GetString()).Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -476,7 +482,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Equal(Yst2, rebuilt.GetProperty("key").GetString());
         Assert.Equal("yst00002.ybn", rebuilt.GetProperty("name").GetString());
         var archive = Assert.Single(data.GetProperty("archives").EnumerateArray());
-        Assert.Equal("ysbin.ypf", archive.GetProperty("path").GetString());
+        Assert.Equal(YsbinYpf, archive.GetProperty("path").GetString());
         Assert.Equal(1, archive.GetProperty("replacedFiles").GetInt32());
         Assert.Equal(0, data.GetProperty("warnings").GetArrayLength());
     }
@@ -487,14 +493,14 @@ public sealed class BuildCommandTests : IDisposable
         await InitAndExtract();
         var first = await Build();
         Assert.Equal(0, first.ExitCode);
-        var build = Path.Combine(ProjectPath, "build");
+        var build = Path.Combine(ProjectPath, BuildVerb);
         var before = HashTree(build);
         Translate(Yst1, i => i == 0 ? "Bom dia 😀" : "Mika");
 
         var result = await Build();
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("yst00001:000000", result.Error);
+        Assert.Contains(Yst00001000000, result.Error);
         Assert.Equal(before, HashTree(build));
         Assert.False(Directory.Exists(build + ".tmp"));
     }
@@ -508,8 +514,8 @@ public sealed class BuildCommandTests : IDisposable
         var result = await Build();
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("yst00001:000000", result.Error);
-        Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, "build"), "*", SearchOption.AllDirectories));
+        Assert.Contains(Yst00001000000, result.Error);
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, BuildVerb), "*", SearchOption.AllDirectories));
         Assert.False(Directory.Exists(Path.Combine(ProjectPath, "build.tmp")));
     }
 
@@ -524,8 +530,8 @@ public sealed class BuildCommandTests : IDisposable
         var result = await Build();
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("yst00001:000000", result.Error);
-        Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, "build"), "*", SearchOption.AllDirectories));
+        Assert.Contains(Yst00001000000, result.Error);
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, BuildVerb), "*", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -539,7 +545,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
         Assert.False(document.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Contains("yst00001:000000", document.RootElement.GetProperty("error").GetProperty("message").GetString());
+        Assert.Contains(Yst00001000000, document.RootElement.GetProperty("error").GetProperty("message").GetString());
     }
 
     [Fact]
@@ -550,23 +556,23 @@ public sealed class BuildCommandTests : IDisposable
         var changed = NewScript().WithVersion(500).WithKey(SyntheticYstbBuilder.KeyV290);
         changed.AddWord("まったく違う", 1).AddReturnCode(0, 2);
         File.WriteAllBytes(
-            Path.Combine(_game, "ysbin.ypf"),
-            new SyntheticYpfBuilder(500).AddFile("ysc.ybn", Yscm.Bytes).AddFile("yst00001.ybn", changed.Build().Bytes).Build().Bytes);
+            Path.Combine(_game, YsbinYpf),
+            new SyntheticYpfBuilder(500).AddFile("ysc.ybn", Yscm.Bytes).AddFile(Yst00001Ybn, changed.Build().Bytes).Build().Bytes);
 
         var result = await Build();
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("o jogo mudou depois da extração", result.Error);
-        Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, "build"), "*", SearchOption.AllDirectories));
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, BuildVerb), "*", SearchOption.AllDirectories));
     }
 
     [Fact]
     public async Task Build_anterior_e_substituido_por_inteiro()
     {
         await InitAndExtract();
-        var stale = Path.Combine(ProjectPath, "build", "sobra.txt");
-        Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
-        File.WriteAllText(stale, "x");
+        var stale = Path.Combine(ProjectPath, BuildVerb, "sobra.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(stale) ?? ".");
+        await File.WriteAllTextAsync(stale, "x", TestContext.Current.CancellationToken);
 
         var result = await Build();
 
@@ -603,7 +609,7 @@ public sealed class BuildCommandTests : IDisposable
     [Fact]
     public async Task Pasta_que_nao_e_projeto_gera_erro_em_portugues()
     {
-        var result = await _cli.RunAsync(["build", "--project", _cli.WorkingDirectory], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([BuildVerb, ProjectOption, _cli.WorkingDirectory], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("vnforge.json não encontrado", result.Error);
@@ -615,18 +621,18 @@ public sealed class BuildCommandTests : IDisposable
         await InitAndExtract();
         Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
-        var gameYpf = Path.Combine(_game, "ysbin.ypf");
+        var gameYpf = Path.Combine(_game, YsbinYpf);
 
-        var inject = await _cli.RunAsync(["inject", "--yes", "--project", ProjectPath], TestContext.Current.CancellationToken);
+        var inject = await _cli.RunAsync(["inject", "--yes", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, inject.ExitCode);
-        Assert.Equal(File.ReadAllBytes(Path.Combine(ProjectPath, "build", "ysbin.ypf")), File.ReadAllBytes(gameYpf));
-        Assert.NotEqual(_scriptsYpf, File.ReadAllBytes(gameYpf));
+        Assert.Equal(await File.ReadAllBytesAsync(Path.Combine(ProjectPath, BuildVerb, YsbinYpf), TestContext.Current.CancellationToken), await File.ReadAllBytesAsync(gameYpf, TestContext.Current.CancellationToken));
+        Assert.NotEqual(_scriptsYpf, await File.ReadAllBytesAsync(gameYpf, TestContext.Current.CancellationToken));
 
-        var restore = await _cli.RunAsync(["restore", "--yes", "--project", ProjectPath], TestContext.Current.CancellationToken);
+        var restore = await _cli.RunAsync(["restore", "--yes", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, restore.ExitCode);
-        Assert.Equal(_scriptsYpf, File.ReadAllBytes(gameYpf));
+        Assert.Equal(_scriptsYpf, await File.ReadAllBytesAsync(gameYpf, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -641,7 +647,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Contains("yst00001:000000 posição 0: '«' (U+00AB)", result.Error);
         Assert.Contains("yst00001:000000 posição 2: 'ã' (U+00E3)", result.Error);
         Assert.Contains("yst00001:000513 posição 5: 'ã' (U+00E3)", result.Error);
-        Assert.False(File.Exists(Path.Combine(ProjectPath, "build", "ysbin.ypf")));
+        Assert.False(File.Exists(Path.Combine(ProjectPath, BuildVerb, YsbinYpf)));
     }
 
     [Fact]
@@ -668,7 +674,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Contains("Estratégia de codificação 'sjis': 2 linhas conferidas.", result.Output);
         Assert.Contains("yst00001:000000 posição 1: 'ª' (U+00AA) não codificável", result.Output);
         Assert.Contains("3 caracteres não codificáveis; 0 caracteres trocados.", result.Output);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, "build")));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, BuildVerb)));
     }
 
     [Fact]
@@ -700,7 +706,7 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Equal("sjis", data.GetProperty("strategy").GetString());
         Assert.Equal(1, data.GetProperty("unencodable").GetInt32());
         var issue = Assert.Single(data.GetProperty("issues").EnumerateArray());
-        Assert.Equal("yst00001:000000", issue.GetProperty("unit").GetString());
+        Assert.Equal(Yst00001000000, issue.GetProperty("unit").GetString());
         Assert.Equal("«", issue.GetProperty("character").GetString());
         Assert.Equal("U+00AB", issue.GetProperty("codePoint").GetString());
         Assert.Equal(1, issue.GetProperty("position").GetInt32());

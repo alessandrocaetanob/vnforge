@@ -7,13 +7,20 @@ namespace VNForge.Cli.Tests;
 
 public sealed class YbnCommandTests : IDisposable
 {
+    private const string YscYbn = "ysc.ybn";
+    private const string YscOption = "--ysc";
+    private const string Yst00001Ybn = "yst00001.ybn";
+    private const string JsonOption = "--json";
+    private const string Arguments = "arguments";
+    private const string Value = "value";
+
     private static readonly SyntheticYscm Yscm = new SyntheticYscmBuilder().WithTextCommands().Build();
 
     private readonly CliHarness _cli = new();
 
     public void Dispose() => _cli.Dispose();
 
-    private CancellationToken Token => TestContext.Current.CancellationToken;
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     private string At(params string[] parts) => Path.Combine([_cli.WorkingDirectory, .. parts]);
 
@@ -30,15 +37,15 @@ public sealed class YbnCommandTests : IDisposable
     private string WriteScript(string path)
     {
         var full = At(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(full) ?? ".");
         File.WriteAllBytes(full, Script().Bytes);
         return full;
     }
 
-    private string WriteYsc(string path = "ysc.ybn")
+    private string WriteYsc(string path = YscYbn)
     {
         var full = At(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(full) ?? ".");
         File.WriteAllBytes(full, Yscm.Bytes);
         return full;
     }
@@ -65,16 +72,16 @@ public sealed class YbnCommandTests : IDisposable
         var result = await _cli.RunAsync(["ybn", "dump", "--help"], Token);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("--ysc", result.Output);
+        Assert.Contains(YscOption, result.Output);
     }
 
     [Fact]
     public async Task Dump_em_texto_mostra_comandos_argumentos_e_textos_com_marcadores()
     {
-        WriteScript("yst00001.ybn");
+        WriteScript(Yst00001Ybn);
         WriteYsc();
 
-        var result = await _cli.RunAsync(["ybn", "dump", "yst00001.ybn", "--ysc", "ysc.ybn"], Token);
+        var result = await _cli.RunAsync(["ybn", "dump", Yst00001Ybn, YscOption, YscYbn], Token);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Versão: 500", result.Output);
@@ -92,15 +99,15 @@ public sealed class YbnCommandTests : IDisposable
     public async Task Dump_json_traz_o_envelope_com_instrucoes_e_argumentos()
     {
         var script = Script();
-        WriteScript("yst00001.ybn");
+        WriteScript(Yst00001Ybn);
         WriteYsc();
 
-        var result = await _cli.RunAsync(["ybn", "dump", "yst00001.ybn", "--ysc", "ysc.ybn", "--json"], Token);
+        var result = await _cli.RunAsync(["ybn", "dump", Yst00001Ybn, YscOption, YscYbn, JsonOption], Token);
 
         Assert.Equal(0, result.ExitCode);
         var data = Data(result);
-        Assert.Equal(At("yst00001.ybn"), data.GetProperty("file").GetString());
-        Assert.Equal(At("ysc.ybn"), data.GetProperty("ysc").GetString());
+        Assert.Equal(At(Yst00001Ybn), data.GetProperty("file").GetString());
+        Assert.Equal(At(YscYbn), data.GetProperty("ysc").GetString());
         Assert.Equal(500, data.GetProperty("version").GetInt32());
         Assert.Equal("0xD36FAC96", data.GetProperty("key").GetString());
         Assert.Equal("derived", data.GetProperty("keyOrigin").GetString());
@@ -112,71 +119,71 @@ public sealed class YbnCommandTests : IDisposable
         var word = instructions[0];
         Assert.Equal("WORD", word.GetProperty("command").GetString());
         Assert.Equal(1, word.GetProperty("line").GetInt32());
-        var text = word.GetProperty("arguments")[0];
+        var text = word.GetProperty(Arguments)[0];
         Assert.Equal("text", text.GetProperty("kind").GetString());
         Assert.Equal("TEXT", text.GetProperty("name").GetString());
-        Assert.Equal("美咲「やあ\\nまたね」\\p", text.GetProperty("value").GetString());
+        Assert.Equal("美咲「やあ\\nまたね」\\p", text.GetProperty(Value).GetString());
 
-        var code = instructions[1].GetProperty("arguments")[0];
-        Assert.Equal("value", code.GetProperty("kind").GetString());
-        Assert.False(code.TryGetProperty("value", out _));
+        var code = instructions[1].GetProperty(Arguments)[0];
+        Assert.Equal(Value, code.GetProperty("kind").GetString());
+        Assert.False(code.TryGetProperty(Value, out _));
 
-        Assert.Equal("string", instructions[2].GetProperty("arguments")[1].GetProperty("kind").GetString());
-        var expression = instructions[3].GetProperty("arguments")[0];
+        Assert.Equal("string", instructions[2].GetProperty(Arguments)[1].GetProperty("kind").GetString());
+        var expression = instructions[3].GetProperty(Arguments)[0];
         Assert.Equal("expression", expression.GetProperty("kind").GetString());
-        Assert.Equal("4D010022", expression.GetProperty("value").GetString());
+        Assert.Equal("4D010022", expression.GetProperty(Value).GetString());
         Assert.Equal("+=", expression.GetProperty("assignOperator").GetString());
     }
 
     [Fact]
     public async Task Dump_acha_o_ysc_na_pasta_do_script()
     {
-        WriteScript("yst00001.ybn");
+        WriteScript(Yst00001Ybn);
         WriteYsc();
 
-        var result = await _cli.RunAsync(["ybn", "dump", "yst00001.ybn", "--json"], Token);
+        var result = await _cli.RunAsync(["ybn", "dump", Yst00001Ybn, JsonOption], Token);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Equal(At("ysc.ybn"), Data(result).GetProperty("ysc").GetString());
+        Assert.Equal(At(YscYbn), Data(result).GetProperty("ysc").GetString());
     }
 
     [Fact]
     public async Task Dump_acha_o_ysc_na_pasta_acima_do_script()
     {
-        WriteScript(Path.Combine("ysbin", "yst00001.ybn"));
+        WriteScript(Path.Combine("ysbin", Yst00001Ybn));
         WriteYsc();
 
-        var result = await _cli.RunAsync(["ybn", "dump", Path.Combine("ysbin", "yst00001.ybn"), "--json"], Token);
+        var result = await _cli.RunAsync(["ybn", "dump", Path.Combine("ysbin", Yst00001Ybn), JsonOption], Token);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Equal(At("ysc.ybn"), Data(result).GetProperty("ysc").GetString());
+        Assert.Equal(At(YscYbn), Data(result).GetProperty("ysc").GetString());
     }
 
     [Fact]
     public async Task Dump_nao_altera_o_arquivo_de_entrada()
     {
-        var script = WriteScript("yst00001.ybn");
+        var script = WriteScript(Yst00001Ybn);
         var ysc = WriteYsc();
-        var scriptBefore = File.ReadAllBytes(script);
-        var yscBefore = File.ReadAllBytes(ysc);
+        var scriptBefore = await File.ReadAllBytesAsync(script, TestContext.Current.CancellationToken);
+        var yscBefore = await File.ReadAllBytesAsync(ysc, TestContext.Current.CancellationToken);
 
-        await _cli.RunAsync(["ybn", "dump", "yst00001.ybn"], Token);
+        await _cli.RunAsync(["ybn", "dump", Yst00001Ybn], Token);
 
-        Assert.Equal(scriptBefore, File.ReadAllBytes(script));
-        Assert.Equal(yscBefore, File.ReadAllBytes(ysc));
-        Assert.Equal(["ysc.ybn", "yst00001.ybn"], Directory.GetFiles(_cli.WorkingDirectory).Select(Path.GetFileName).Order().ToArray());
+        Assert.Equal(scriptBefore, await File.ReadAllBytesAsync(script, TestContext.Current.CancellationToken));
+        Assert.Equal(yscBefore, await File.ReadAllBytesAsync(ysc, TestContext.Current.CancellationToken));
+        Assert.Equal([YscYbn, Yst00001Ybn], Directory.GetFiles(_cli.WorkingDirectory).Select(Path.GetFileName).Order().ToArray());
     }
 
     [Fact]
     public async Task Dump_sem_ysc_pede_a_opcao_em_portugues()
     {
-        WriteScript("yst00001.ybn");
+        WriteScript(Yst00001Ybn);
 
-        var result = await _cli.RunAsync(["ybn", "dump", "yst00001.ybn"], Token);
+        var result = await _cli.RunAsync(["ybn", "dump", Yst00001Ybn], Token);
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("ysc.ybn", result.Error);
-        Assert.Contains("--ysc", result.Error);
+        Assert.Contains(YscYbn, result.Error);
+        Assert.Contains(YscOption, result.Error);
     }
 
     [Fact]
@@ -193,9 +200,9 @@ public sealed class YbnCommandTests : IDisposable
     [Fact]
     public async Task Dump_de_ysc_inexistente_sai_com_erro()
     {
-        WriteScript("yst00001.ybn");
+        WriteScript(Yst00001Ybn);
 
-        var result = await _cli.RunAsync(["ybn", "dump", "yst00001.ybn", "--ysc", "outro.ybn"], Token);
+        var result = await _cli.RunAsync(["ybn", "dump", Yst00001Ybn, YscOption, "outro.ybn"], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("O arquivo não existe", result.Error);
@@ -205,9 +212,9 @@ public sealed class YbnCommandTests : IDisposable
     public async Task Dump_de_arquivo_que_nao_e_ystb_sai_com_erro_em_json()
     {
         WriteYsc();
-        File.WriteAllBytes(At("lixo.ybn"), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        await File.WriteAllBytesAsync(At("lixo.ybn"), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["ybn", "dump", "lixo.ybn", "--json"], Token);
+        var result = await _cli.RunAsync(["ybn", "dump", "lixo.ybn", JsonOption], Token);
 
         Assert.Equal(1, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);

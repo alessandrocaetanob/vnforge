@@ -11,6 +11,10 @@ namespace VNForge.Cli.Tests;
 
 public sealed class ExtractCommandTests : IDisposable
 {
+    private const string YsbinYpf = "ysbin.ypf";
+    private const string ExtractVerb = "extract";
+    private const string Yst00001 = "yst00001";
+
     private static readonly SyntheticYscm Yscm = new SyntheticYscmBuilder().WithTextCommands().Build();
 
     private readonly CliHarness _cli = new();
@@ -21,7 +25,7 @@ public sealed class ExtractCommandTests : IDisposable
         _game = Path.Combine(_cli.Root, "jogo");
         Directory.CreateDirectory(_game);
         File.WriteAllText(Path.Combine(_game, "MinhaVN.exe"), "MZ");
-        File.WriteAllBytes(Path.Combine(_game, "ysbin.ypf"), ScriptArchive());
+        File.WriteAllBytes(Path.Combine(_game, YsbinYpf), ScriptArchive());
         File.WriteAllBytes(Path.Combine(_game, "bgm.ypf"), new SyntheticYpfBuilder(500).AddFile("bgm01.ogg", [1, 2, 3]).Build().Bytes);
     }
 
@@ -57,7 +61,7 @@ public sealed class ExtractCommandTests : IDisposable
     }
 
     private Task<RunResult> Extract(params string[] args) =>
-        _cli.RunAsync(["extract", .. args, "--project", ProjectPath], TestContext.Current.CancellationToken);
+        _cli.RunAsync([ExtractVerb, .. args, "--project", ProjectPath], TestContext.Current.CancellationToken);
 
     private static Dictionary<string, string> HashTree(string directory) =>
         Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
@@ -86,12 +90,12 @@ public sealed class ExtractCommandTests : IDisposable
         await Extract();
 
         var project = ProjectFolder.Open(ProjectPath);
-        Assert.Equal(["yst00001", "yst00002"], project.LoadAllText().Keys);
-        Assert.Equal(["美咲", "おはよう"], [project.LoadText("yst00001")[0].Speaker, project.LoadText("yst00001")[0].Source]);
+        Assert.Equal([Yst00001, "yst00002"], project.LoadAllText().Keys);
+        Assert.Equal(["美咲", "おはよう"], [project.LoadText(Yst00001)[0].Speaker, project.LoadText(Yst00001)[0].Source]);
         Assert.Equal(
             [TextUnitKind.Narration, TextUnitKind.Choice, TextUnitKind.Choice],
             project.LoadText("yst00002").Select(u => u.Kind));
-        Assert.True(File.Exists(Path.Combine(ProjectPath, ".cache", "game", "ysbin.ypf", "yst00001.ybn")));
+        Assert.True(File.Exists(Path.Combine(ProjectPath, ".cache", "game", YsbinYpf, "yst00001.ybn")));
         Assert.False(Directory.Exists(Path.Combine(ProjectPath, ".cache", "game", "bgm.ypf")));
     }
 
@@ -133,12 +137,12 @@ public sealed class ExtractCommandTests : IDisposable
         Assert.Equal(0, kinds.GetProperty("system").GetInt32());
         Assert.Equal(0, kinds.GetProperty("other").GetInt32());
         var texts = data.GetProperty("texts");
-        Assert.Equal("yst00001", texts[0].GetProperty("key").GetString());
+        Assert.Equal(Yst00001, texts[0].GetProperty("key").GetString());
         Assert.Equal("01_prologo", texts[0].GetProperty("name").GetString());
         Assert.Equal(2, texts[0].GetProperty("lines").GetInt32());
         Assert.False(texts[1].TryGetProperty("name", out _));
         var archive = data.GetProperty("archives")[0];
-        Assert.Equal("ysbin.ypf", archive.GetProperty("path").GetString());
+        Assert.Equal(YsbinYpf, archive.GetProperty("path").GetString());
         Assert.Equal(4, archive.GetProperty("files").GetInt32());
         Assert.Equal(0, data.GetProperty("warnings").GetArrayLength());
     }
@@ -149,8 +153,8 @@ public sealed class ExtractCommandTests : IDisposable
         await InitProject();
         await Extract();
         var project = ProjectFolder.Open(ProjectPath);
-        var edited = project.LoadText("yst00001").Select(u => u with { Translation = "Bom dia", Status = TranslationStatus.Translated }).ToList();
-        project.SaveText("yst00001", edited);
+        var edited = project.LoadText(Yst00001).Select(u => u with { Translation = "Bom dia", Status = TranslationStatus.Translated }).ToList();
+        project.SaveText(Yst00001, edited);
         var before = HashTree(project.TextDirectory);
 
         var result = await Extract();
@@ -158,7 +162,7 @@ public sealed class ExtractCommandTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Re-extração: 5 mantidas, 0 desatualizadas", result.Output);
         Assert.Equal(before, HashTree(project.TextDirectory));
-        Assert.Equal("Bom dia", project.LoadText("yst00001")[0].Translation);
+        Assert.Equal("Bom dia", project.LoadText(Yst00001)[0].Translation);
     }
 
     [Fact]
@@ -185,7 +189,7 @@ public sealed class ExtractCommandTests : IDisposable
         var init = await _cli.RunAsync(["init", ".", "--game", _game], TestContext.Current.CancellationToken);
         Assert.Equal(0, init.ExitCode);
 
-        var result = await _cli.RunAsync(["extract"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([ExtractVerb], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Extraídos 2 scripts", result.Output);
@@ -195,7 +199,7 @@ public sealed class ExtractCommandTests : IDisposable
     [Fact]
     public async Task Pasta_que_nao_e_projeto_gera_erro_em_portugues()
     {
-        var result = await _cli.RunAsync(["extract", "--project", _cli.WorkingDirectory], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([ExtractVerb, "--project", _cli.WorkingDirectory], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("vnforge.json não encontrado", result.Error);
@@ -205,7 +209,7 @@ public sealed class ExtractCommandTests : IDisposable
     public async Task Jogo_sem_pacote_de_scripts_gera_erro_em_portugues_e_nao_cria_text()
     {
         await InitProject();
-        File.Delete(Path.Combine(_game, "ysbin.ypf"));
+        File.Delete(Path.Combine(_game, YsbinYpf));
 
         var result = await Extract();
 
@@ -217,7 +221,7 @@ public sealed class ExtractCommandTests : IDisposable
     [Fact]
     public async Task Help_do_extract_esta_em_portugues()
     {
-        var result = await _cli.RunAsync(["extract", "--help"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([ExtractVerb, "--help"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("vnf extract", result.Output);

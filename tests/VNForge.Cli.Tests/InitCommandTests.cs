@@ -8,6 +8,9 @@ namespace VNForge.Cli.Tests;
 
 public sealed class InitCommandTests : IDisposable
 {
+    private const string MinhaVnPtbr = "minha-vn-ptbr";
+    private const string GameOption = "--game";
+
     private static readonly SyntheticYscm Yscm = new SyntheticYscmBuilder().WithTextCommands().Build();
 
     private readonly CliHarness _cli = new();
@@ -34,20 +37,20 @@ public sealed class InitCommandTests : IDisposable
         return dir;
     }
 
-    private string ProjectPath(string name = "minha-vn-ptbr") => Path.Combine(_cli.WorkingDirectory, name);
+    private string ProjectPath(string name = MinhaVnPtbr) => Path.Combine(_cli.WorkingDirectory, name);
 
     [Fact]
     public async Task Cria_o_projeto_com_engine_versao_e_chave_da_deteccao()
     {
         var game = NewGameDir();
 
-        var result = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", game], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
         var config = ProjectFolder.Open(ProjectPath()).LoadConfig();
         Assert.Equal(new EngineConfig("yuris", 500, "0xD36FAC96"), config.Engine);
-        Assert.Equal("minha-vn-ptbr", config.Name);
+        Assert.Equal(MinhaVnPtbr, config.Name);
         Assert.Equal("MinhaVN.exe", config.Game.Exe);
         Assert.Equal(game.Replace(Path.DirectorySeparatorChar, '/'), config.Game.Path);
     }
@@ -57,7 +60,7 @@ public sealed class InitCommandTests : IDisposable
     {
         var game = NewGameDir();
 
-        var result = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", game], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
 
         var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         Assert.Equal(
@@ -74,14 +77,14 @@ public sealed class InitCommandTests : IDisposable
     public async Task Pasta_que_ja_tem_projeto_da_erro_sem_sobrescrever()
     {
         var game = NewGameDir();
-        await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", game, "--name", "Original"], TestContext.Current.CancellationToken);
-        var before = File.ReadAllText(Path.Combine(ProjectPath(), "vnforge.json"));
+        await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--name", "Original"], TestContext.Current.CancellationToken);
+        var before = await File.ReadAllTextAsync(Path.Combine(ProjectPath(), "vnforge.json"), TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", game, "--name", "Outro"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--name", "Outro"], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Já existe um vnforge.json", result.Error);
-        Assert.Equal(before, File.ReadAllText(Path.Combine(ProjectPath(), "vnforge.json")));
+        Assert.Equal(before, await File.ReadAllTextAsync(Path.Combine(ProjectPath(), "vnforge.json"), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -89,7 +92,7 @@ public sealed class InitCommandTests : IDisposable
     {
         var game = NewGameDir(withScripts: false);
 
-        var result = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", game], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Engine não reconhecida", result.Error);
@@ -102,13 +105,13 @@ public sealed class InitCommandTests : IDisposable
         var game = NewGameDir();
         var before = Directory.EnumerateFiles(game).Order().Select(f => (f, File.ReadAllBytes(f))).ToList();
 
-        await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", game], TestContext.Current.CancellationToken);
+        await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
 
         var after = Directory.EnumerateFileSystemEntries(game).Order().ToList();
         Assert.Equal(before.Select(b => b.f), after);
         foreach (var (path, bytes) in before)
         {
-            Assert.Equal(bytes, File.ReadAllBytes(path));
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
         }
     }
 
@@ -117,7 +120,7 @@ public sealed class InitCommandTests : IDisposable
     {
         var game = NewGameDir();
 
-        var result = await _cli.RunAsync(["init", Path.Combine(game, "traducao"), "--game", game], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", Path.Combine(game, "traducao"), GameOption, game], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("não pode ficar dentro da pasta do jogo", result.Error);
@@ -130,7 +133,7 @@ public sealed class InitCommandTests : IDisposable
         var game = NewGameDir();
         Directory.Move(game,Path.Combine(_cli.WorkingDirectory, "jogo"));
 
-        var result = await _cli.RunAsync(["init", "proj", "--game", "jogo"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", "proj", GameOption, "jogo"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.True(File.Exists(Path.Combine(ProjectPath("proj"), "vnforge.json")));
@@ -141,7 +144,7 @@ public sealed class InitCommandTests : IDisposable
     {
         var game = NewGameDir();
 
-        var result = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", game, "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--json"], TestContext.Current.CancellationToken);
 
         using var document = JsonDocument.Parse(result.Output);
         var data = document.RootElement.GetProperty("data");
@@ -154,7 +157,7 @@ public sealed class InitCommandTests : IDisposable
     [Fact]
     public async Task Sem_a_opcao_game_o_erro_de_uso_esta_em_portugues()
     {
-        var result = await _cli.RunAsync(["init", "minha-vn-ptbr"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("A opção '--game' é obrigatória.", result.Error);

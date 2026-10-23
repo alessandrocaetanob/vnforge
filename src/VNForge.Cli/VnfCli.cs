@@ -127,7 +127,7 @@ public sealed class VnfCli
         var settings = Options.Read(parseResult);
 
         var logDirectory = VNForgeLogging.ResolveLogDirectory(settings.Project, _currentDirectory, _userLogDirectory);
-        var level = settings.Verbose ? LogLevel.Debug : settings.Quiet ? LogLevel.Warning : LogLevel.Information;
+        var level = LogLevelFor(settings);
         using var loggerFactory = VNForgeLogging.CreateFactoryForDirectory(logDirectory, level);
         var logger = loggerFactory.CreateLogger("vnf");
 
@@ -200,6 +200,16 @@ public sealed class VnfCli
         }
 
         return ErrorHandler.OkExitCode;
+    }
+
+    private static LogLevel LogLevelFor(GlobalSettings settings)
+    {
+        if (settings.Verbose)
+        {
+            return LogLevel.Debug;
+        }
+
+        return settings.Quiet ? LogLevel.Warning : LogLevel.Information;
     }
 
     private static string ReadVersion()

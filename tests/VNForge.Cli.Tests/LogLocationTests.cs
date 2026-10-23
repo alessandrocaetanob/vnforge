@@ -4,6 +4,9 @@ namespace VNForge.Cli.Tests;
 
 public sealed class LogLocationTests : IDisposable
 {
+    private const string Cache = ".cache";
+    private const string Log = "*.log";
+
     private readonly CliHarness _cli = new();
 
     public void Dispose() => _cli.Dispose();
@@ -17,8 +20,8 @@ public sealed class LogLocationTests : IDisposable
 
         await _cli.RunAsync(["bug"], TestContext.Current.CancellationToken);
 
-        Assert.False(Directory.Exists(Path.Combine(_cli.WorkingDirectory, ".cache")));
-        var log = Assert.Single(Directory.GetFiles(_cli.UserLogDirectory, "*.log"));
+        Assert.False(Directory.Exists(Path.Combine(_cli.WorkingDirectory, Cache)));
+        var log = Assert.Single(Directory.GetFiles(_cli.UserLogDirectory, Log));
         Assert.Contains("estado quebrado", File.ReadAllText(log));
     }
 
@@ -30,8 +33,8 @@ public sealed class LogLocationTests : IDisposable
 
         await _cli.RunAsync(["bug"], TestContext.Current.CancellationToken);
 
-        var logs = Path.Combine(_cli.WorkingDirectory, ".cache", "logs");
-        Assert.Single(Directory.GetFiles(logs, "*.log"));
+        var logs = Path.Combine(_cli.WorkingDirectory, Cache, "logs");
+        Assert.Single(Directory.GetFiles(logs, Log));
         Assert.False(Directory.Exists(_cli.UserLogDirectory));
     }
 
@@ -45,8 +48,8 @@ public sealed class LogLocationTests : IDisposable
 
         await _cli.RunAsync(["--project", project, "bug"], TestContext.Current.CancellationToken);
 
-        Assert.Single(Directory.GetFiles(Path.Combine(project, ".cache", "logs"), "*.log"));
-        Assert.False(Directory.Exists(Path.Combine(_cli.WorkingDirectory, ".cache")));
+        Assert.Single(Directory.GetFiles(Path.Combine(project, Cache, "logs"), Log));
+        Assert.False(Directory.Exists(Path.Combine(_cli.WorkingDirectory, Cache)));
     }
 
     [Fact]
@@ -60,7 +63,7 @@ public sealed class LogLocationTests : IDisposable
 
         Assert.Equal(1, result.ExitCode);
         Assert.Empty(Directory.GetFileSystemEntries(gameFolder));
-        Assert.Single(Directory.GetFiles(_cli.UserLogDirectory, "*.log"));
+        Assert.Single(Directory.GetFiles(_cli.UserLogDirectory, Log));
     }
 
     [Fact]
@@ -82,7 +85,7 @@ public sealed class LogLocationTests : IDisposable
         _cli.AddCommand("ok", _ => 0);
 
         await _cli.RunAsync(["ok", "--verbose"], TestContext.Current.CancellationToken);
-        var verboseLog = File.ReadAllText(Assert.Single(Directory.GetFiles(_cli.UserLogDirectory, "*.log")));
+        var verboseLog = File.ReadAllText(Assert.Single(Directory.GetFiles(_cli.UserLogDirectory, Log)));
         Assert.Contains("Executando: ok --verbose", verboseLog);
 
         Directory.Delete(_cli.UserLogDirectory, recursive: true);

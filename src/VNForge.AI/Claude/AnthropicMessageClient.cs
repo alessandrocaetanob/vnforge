@@ -22,7 +22,7 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
         using var schema = JsonDocument.Parse(request.JsonSchema);
         var schemaDict = schema.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Clone());
 
-        var response = await _client.Beta.Messages.Create(new MessageCreateParams
+        var parameters = new MessageCreateParams
         {
             Model = request.Model,
             MaxTokens = request.MaxTokens,
@@ -31,9 +31,6 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
             {
                 new() { Text = request.System, CacheControl = new BetaCacheControlEphemeral() },
             },
-            // Recusa de classificador: o servidor refaz o pedido no modelo de fallback na mesma chamada.
-            Betas = SupportsServerFallback(request.Model) ? [AnthropicBeta.ServerSideFallback2026_06_01] : null,
-            Fallbacks = SupportsServerFallback(request.Model) ? new BetaFallbacksParam(new List<BetaFallbackParam> { new(Model.ClaudeOpus4_8) }) : null,
             Thinking = new BetaThinkingConfigAdaptive(),
             OutputConfig = new BetaOutputConfig
             {
@@ -41,7 +38,21 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
                 Format = new BetaJsonOutputFormat { Schema = schemaDict },
             },
             Messages = [new BetaMessageParam(new BetaUserMessageParam { Content = request.User })],
-        }, cancellationToken: ct).ConfigureAwait(false);
+        };
+
+        // Recusa de classificador: o servidor refaz o pedido no modelo de fallback na mesma chamada. Os campos só entram
+        // quando o modelo suporta: o SDK serializa uma propriedade atribuída a null como "fallbacks": null, e a API
+        // responde 400 ("Extra inputs are not permitted") a modelos sem o recurso.
+        if (SupportsServerFallback(request.Model))
+        {
+            parameters = parameters with
+            {
+                Betas = [AnthropicBeta.ServerSideFallback2026_06_01],
+                Fallbacks = new BetaFallbacksParam(new List<BetaFallbackParam> { new(Model.ClaudeOpus4_8) }),
+            };
+        }
+
+        var response = await _client.Beta.Messages.Create(parameters, cancellationToken: ct).ConfigureAwait(false);
 
         var text = string.Concat(response.Content.Select(b => b.Value).OfType<BetaTextBlock>().Select(t => t.Text));
         var usage = new ClaudeUsage(
