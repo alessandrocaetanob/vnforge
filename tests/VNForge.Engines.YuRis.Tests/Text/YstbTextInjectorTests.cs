@@ -329,6 +329,22 @@ public class YstbTextInjectorTests
     }
 
     [Fact]
+    public void Inject_ExpressaoOriginalComODelimitadorNoMeio_ComOsMesmosBytes_FicaIntacta()
+    {
+        var inner = GameEncodings.ShiftJis.GetBytes("あ\"い");
+        byte[] expression = [0x4D, (byte)(inner.Length + 2), 0, (byte)'"', .. inner, (byte)'"'];
+        var builder = NewBuilder();
+        builder.AddCommand("GOSUB", 1, builder.StringExpression("ES.SEL.SET"), builder.ResourceArgument(expression));
+        var built = builder.Build();
+        var loaded = Load(built.Bytes);
+        var unit = Translate(loaded, Id(0, 1), "qualquer coisa");
+
+        var rewritten = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], new FixedEncoder(inner));
+
+        Assert.Equal(built.Bytes, rewritten);
+    }
+
+    [Fact]
     public void Inject_QualquerOrdemEUmSubconjunto_DaOMesmoResultado()
     {
         var loaded = Load(FullScript());

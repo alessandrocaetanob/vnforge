@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using VNForge.Core.Engines;
@@ -82,8 +83,8 @@ public static class YstbTextInjector
             : unit.Translation!;
         var encoded = Encode(unit, text, encoder);
 
-        var rewritten = locator.Command == WordCommand ? encoded : BuildExpression(unit, encoded, original.Quote);
-        if (rewritten.AsSpan().SequenceEqual(original.Bytes))
+        var rewritten = locator.Command == WordCommand ? encoded : BuildExpression(unit, encoded, original);
+        if (rewritten.AsSpan().SequenceEqual(original))
         {
             return;
         }
@@ -114,7 +115,7 @@ public static class YstbTextInjector
     }
 
     /// <summary>Confere que as partes ainda decodificam para o <see cref="TextUnit.Source"/> e devolve os bytes juntos.</summary>
-    private static Original ReadWordOriginal(YstbFile script, Locator locator, IReadOnlyList<Target> targets, TextUnit unit)
+    private static byte[] ReadWordOriginal(YstbFile script, Locator locator, IReadOnlyList<Target> targets, TextUnit unit)
     {
         var markers = new StringBuilder();
         var bytes = new List<byte>();
@@ -131,10 +132,10 @@ public static class YstbTextInjector
             throw Fail(unit, "o texto do script não é mais o do original (o script é de outra versão ou o locator está desatualizado).");
         }
 
-        return new Original([.. bytes], 0);
+        return [.. bytes];
     }
 
-    private static Original ReadExpressionOriginal(YstbFile script, IReadOnlyList<Target> targets, TextUnit unit)
+    private static byte[] ReadExpressionOriginal(YstbFile script, IReadOnlyList<Target> targets, TextUnit unit)
     {
         if (targets.Count != 1)
         {
@@ -148,12 +149,13 @@ public static class YstbTextInjector
             throw Fail(unit, "o trecho do script não é mais a string do original (o script é de outra versão ou o locator está desatualizado).");
         }
 
-        return new Original(raw.ToArray(), raw[3]);
+        return raw.ToArray();
     }
 
     /// <summary>Refaz <c>4D &lt;u16 tamanho&gt; aspas texto aspas</c> a partir dos bytes do jogo já codificados.</summary>
-    private static byte[] BuildExpression(TextUnit unit, byte[] content, byte originalQuote)
+    private static byte[] BuildExpression(TextUnit unit, byte[] content, byte[] original)
     {
+        var originalQuote = original[3];
         var inner = new List<byte>(content.Length + 8);
         var present = new HashSet<byte>();
         var i = 0;
@@ -189,6 +191,11 @@ public static class YstbTextInjector
 
                 i++;
             }
+        }
+
+        if (original.Length == inner.Count + 5 && original.AsSpan(4, inner.Count).SequenceEqual(CollectionsMarshal.AsSpan(inner)))
+        {
+            return original;
         }
 
         var quote = ChooseQuote(originalQuote, present);
@@ -238,8 +245,6 @@ public static class YstbTextInjector
         new($"A unidade '{unit.Id}' não pode ser reescrita: {reason}");
 
     private static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);
-
-    private readonly record struct Original(byte[] Bytes, byte Quote);
 
     private readonly record struct Speaker(string Name, string Open, string Close);
 
