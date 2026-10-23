@@ -27,7 +27,7 @@ internal static class PreviewCommand
     private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-        var preview = LinePreviewer.Create(project, parseResult.GetValue(IdArgument)!);
+        var preview = LinePreviewer.Create(project, parseResult.GetRequiredValue(IdArgument));
 
         if (parseResult.GetValue(cli.Options.Json))
         {

@@ -5,13 +5,21 @@ namespace VNForge.Cli.Tests;
 
 public sealed class YpfCommandTests : IDisposable
 {
+    private const string Unpack = "unpack";
+    private const string JsonOption = "--json";
+    private const string PortaOgg = "porta.ogg";
+    private const string YesOption = "--yes";
+    private const string OriginalOption = "--original";
+    private const string OutputOption = "--output";
+    private const string NovoYpf = "novo.ypf";
+
     private static readonly byte[] Repetitive = Enumerable.Repeat((byte)'A', 4000).ToArray();
 
     private readonly CliHarness _cli = new();
 
     public void Dispose() => _cli.Dispose();
 
-    private CancellationToken Token => TestContext.Current.CancellationToken;
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     private string At(string name) => Path.Combine(_cli.WorkingDirectory, name);
 
@@ -42,7 +50,7 @@ public sealed class YpfCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("info", result.Output);
-        Assert.Contains("unpack", result.Output);
+        Assert.Contains(Unpack, result.Output);
         Assert.Contains("pack", result.Output);
     }
 
@@ -67,7 +75,7 @@ public sealed class YpfCommandTests : IDisposable
         var sample = Sample();
         var ypf = WriteSample();
 
-        var result = await _cli.RunAsync(["ypf", "info", ypf, "--json"], Token);
+        var result = await _cli.RunAsync(["ypf", "info", ypf, JsonOption], Token);
 
         Assert.Equal(0, result.ExitCode);
         var data = Data(result);
@@ -89,7 +97,7 @@ public sealed class YpfCommandTests : IDisposable
     [Fact]
     public async Task Info_de_arquivo_inexistente_falha_em_portugues()
     {
-        var result = await _cli.RunAsync(["ypf", "info", At("nada.ypf"), "--json"], Token);
+        var result = await _cli.RunAsync(["ypf", "info", At("nada.ypf"), JsonOption], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("O arquivo não existe", result.Output);
@@ -99,7 +107,7 @@ public sealed class YpfCommandTests : IDisposable
     [Fact]
     public async Task Info_de_arquivo_que_nao_e_ypf_falha()
     {
-        File.WriteAllBytes(At("lixo.ypf"), new byte[64]);
+        await File.WriteAllBytesAsync(At("lixo.ypf"), new byte[64], TestContext.Current.CancellationToken);
 
         var result = await _cli.RunAsync(["ypf", "info", At("lixo.ypf")], Token);
 
@@ -112,13 +120,13 @@ public sealed class YpfCommandTests : IDisposable
     {
         var ypf = WriteSample();
 
-        var result = await _cli.RunAsync(["ypf", "unpack", ypf, At("out"), "--json"], Token);
+        var result = await _cli.RunAsync(["ypf", Unpack, ypf, At("out"), JsonOption], Token);
 
         Assert.Equal(0, result.ExitCode);
         var data = Data(result);
         Assert.Equal(3, data.GetProperty("fileCount").GetInt32());
         Assert.Equal(3 + 4000 + 5, data.GetProperty("byteCount").GetInt64());
-        Assert.Equal(Repetitive, File.ReadAllBytes(Path.Combine(At("out"), "bg", "fundo.png")));
+        Assert.Equal(Repetitive, await File.ReadAllBytesAsync(Path.Combine(At("out"), "bg", "fundo.png"), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -126,11 +134,11 @@ public sealed class YpfCommandTests : IDisposable
     {
         WriteSample();
 
-        var result = await _cli.RunAsync(["ypf", "unpack", "ysbin.ypf", "saida"], Token);
+        var result = await _cli.RunAsync(["ypf", Unpack, "ysbin.ypf", "saida"], Token);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Extraídos 3 arquivos", result.Output);
-        Assert.True(File.Exists(Path.Combine(At("saida"), "se", "porta.ogg")));
+        Assert.True(File.Exists(Path.Combine(At("saida"), "se", PortaOgg)));
     }
 
     [Fact]
@@ -138,29 +146,29 @@ public sealed class YpfCommandTests : IDisposable
     {
         var ypf = WriteSample();
         Directory.CreateDirectory(At("out"));
-        File.WriteAllText(Path.Combine(At("out"), "antigo.txt"), "x");
+        await File.WriteAllTextAsync(Path.Combine(At("out"), "antigo.txt"), "x", TestContext.Current.CancellationToken);
 
-        var refused = await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
+        var refused = await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
         Assert.Equal(1, refused.ExitCode);
-        Assert.Contains("--yes", refused.Error);
-        Assert.False(File.Exists(Path.Combine(At("out"), "se", "porta.ogg")));
+        Assert.Contains(YesOption, refused.Error);
+        Assert.False(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
 
-        var accepted = await _cli.RunAsync(["ypf", "unpack", ypf, At("out"), "--yes"], Token);
+        var accepted = await _cli.RunAsync(["ypf", Unpack, ypf, At("out"), YesOption], Token);
         Assert.Equal(0, accepted.ExitCode);
-        Assert.True(File.Exists(Path.Combine(At("out"), "se", "porta.ogg")));
+        Assert.True(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
     }
 
     [Fact]
     public async Task Pack_sem_mudancas_gera_arquivo_identico_ao_original()
     {
         var ypf = WriteSample();
-        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
 
         var result = await _cli.RunAsync(
-            ["ypf", "pack", At("out"), "--original", ypf, "--output", At("novo.ypf"), "--json"], Token);
+            ["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf), JsonOption], Token);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Equal(File.ReadAllBytes(ypf), File.ReadAllBytes(At("novo.ypf")));
+        Assert.Equal(await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken), await File.ReadAllBytesAsync(At(NovoYpf), TestContext.Current.CancellationToken));
         var data = Data(result);
         Assert.Equal(3, data.GetProperty("entryCount").GetInt32());
         Assert.Equal(0, data.GetProperty("replaced").GetArrayLength());
@@ -172,51 +180,51 @@ public sealed class YpfCommandTests : IDisposable
     public async Task Pack_com_arquivo_alterado_lista_a_troca_e_nao_mexe_no_original()
     {
         var ypf = WriteSample();
-        var before = File.ReadAllBytes(ypf);
-        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
-        File.WriteAllBytes(Path.Combine(At("out"), "se", "porta.ogg"), [9, 9]);
+        var before = await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken);
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllBytesAsync(Path.Combine(At("out"), "se", PortaOgg), [9, 9], TestContext.Current.CancellationToken);
 
         var result = await _cli.RunAsync(
-            ["ypf", "pack", At("out"), "--original", ypf, "--output", At("novo.ypf")], Token);
+            ["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Trocados 1", result.Output);
         Assert.Contains("se/porta.ogg", result.Output);
-        Assert.Equal(before, File.ReadAllBytes(ypf));
-        Assert.NotEqual(before, File.ReadAllBytes(At("novo.ypf")));
-        var reunpack = await _cli.RunAsync(["ypf", "unpack", At("novo.ypf"), At("out2")], Token);
+        Assert.Equal(before, await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken));
+        Assert.NotEqual(before, await File.ReadAllBytesAsync(At(NovoYpf), TestContext.Current.CancellationToken));
+        var reunpack = await _cli.RunAsync(["ypf", Unpack, At(NovoYpf), At("out2")], Token);
         Assert.Equal(0, reunpack.ExitCode);
-        Assert.Equal(new byte[] { 9, 9 }, File.ReadAllBytes(Path.Combine(At("out2"), "se", "porta.ogg")));
+        Assert.Equal(new byte[] { 9, 9 }, await File.ReadAllBytesAsync(Path.Combine(At("out2"), "se", PortaOgg), TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Pack_recusa_gravar_sobre_o_original()
     {
         var ypf = WriteSample();
-        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
-        var before = File.ReadAllBytes(ypf);
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        var before = await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["ypf", "pack", At("out"), "--original", ypf, "--output", ypf, "--yes"], Token);
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, ypf, YesOption], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("original", result.Error);
-        Assert.Equal(before, File.ReadAllBytes(ypf));
+        Assert.Equal(before, await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Pack_pede_yes_para_sobrescrever_a_saida_e_nao_deixa_temporario()
     {
         var ypf = WriteSample();
-        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
-        File.WriteAllText(At("novo.ypf"), "antigo");
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllTextAsync(At(NovoYpf), "antigo", TestContext.Current.CancellationToken);
 
-        var refused = await _cli.RunAsync(["ypf", "pack", At("out"), "--original", ypf, "--output", At("novo.ypf")], Token);
+        var refused = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
         Assert.Equal(1, refused.ExitCode);
-        Assert.Equal("antigo", File.ReadAllText(At("novo.ypf")));
+        Assert.Equal("antigo", await File.ReadAllTextAsync(At(NovoYpf), TestContext.Current.CancellationToken));
 
-        var accepted = await _cli.RunAsync(["ypf", "pack", At("out"), "--original", ypf, "--output", At("novo.ypf"), "--yes"], Token);
+        var accepted = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf), YesOption], Token);
         Assert.Equal(0, accepted.ExitCode);
-        Assert.Equal(File.ReadAllBytes(ypf), File.ReadAllBytes(At("novo.ypf")));
+        Assert.Equal(await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken), await File.ReadAllBytesAsync(At(NovoYpf), TestContext.Current.CancellationToken));
         Assert.Empty(Directory.GetFiles(_cli.WorkingDirectory, "*.tmp"));
     }
 
@@ -224,14 +232,14 @@ public sealed class YpfCommandTests : IDisposable
     public async Task Pack_com_arquivo_novo_na_pasta_falha_e_nao_cria_a_saida()
     {
         var ypf = WriteSample();
-        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
-        File.WriteAllBytes(Path.Combine(At("out"), "extra.bin"), [1]);
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllBytesAsync(Path.Combine(At("out"), "extra.bin"), [1], TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["ypf", "pack", At("out"), "--original", ypf, "--output", At("novo.ypf")], Token);
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("extra.bin", result.Error);
-        Assert.False(File.Exists(At("novo.ypf")));
+        Assert.False(File.Exists(At(NovoYpf)));
         Assert.Empty(Directory.GetFiles(_cli.WorkingDirectory, "*.tmp"));
     }
 
@@ -239,9 +247,9 @@ public sealed class YpfCommandTests : IDisposable
     public async Task Pack_recusa_saida_dentro_da_pasta_empacotada()
     {
         var ypf = WriteSample();
-        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
 
-        var result = await _cli.RunAsync(["ypf", "pack", At("out"), "--original", ypf, "--output", Path.Combine(At("out"), "novo.ypf")], Token);
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, Path.Combine(At("out"), NovoYpf)], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("dentro da pasta", result.Error);
@@ -252,7 +260,7 @@ public sealed class YpfCommandTests : IDisposable
     {
         File.WriteAllBytes(At("ruim.ypf"), Sample().WithWrongDataHash(@"se\porta.ogg"));
 
-        var result = await _cli.RunAsync(["ypf", "unpack", At("ruim.ypf"), At("out")], Token);
+        var result = await _cli.RunAsync(["ypf", Unpack, At("ruim.ypf"), At("out")], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("se/porta.ogg", result.Error);
@@ -263,9 +271,9 @@ public sealed class YpfCommandTests : IDisposable
     public async Task Unpack_com_destino_que_e_arquivo_sai_como_erro_esperado()
     {
         var ypf = WriteSample();
-        File.WriteAllText(At("destino"), "x");
+        await File.WriteAllTextAsync(At("destino"), "x", TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["ypf", "unpack", ypf, At("destino")], Token);
+        var result = await _cli.RunAsync(["ypf", Unpack, ypf, At("destino")], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Não foi possível gravar", result.Error);
@@ -275,10 +283,10 @@ public sealed class YpfCommandTests : IDisposable
     public async Task Pack_com_pasta_invalida_nao_cria_a_pasta_de_saida()
     {
         var ypf = WriteSample();
-        await _cli.RunAsync(["ypf", "unpack", ypf, At("out")], Token);
-        File.WriteAllBytes(Path.Combine(At("out"), "Thumbs.db"), [1]);
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllBytesAsync(Path.Combine(At("out"), "Thumbs.db"), [1], TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["ypf", "pack", At("out"), "--original", ypf, "--output", Path.Combine(At("novo"), "x.ypf")], Token);
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, Path.Combine(At("novo"), "x.ypf")], Token);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Thumbs.db", result.Error);
@@ -291,6 +299,6 @@ public sealed class YpfCommandTests : IDisposable
         var result = await _cli.RunAsync(["ypf", "pack", At("out")], Token);
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--original", result.Error);
+        Assert.Contains(OriginalOption, result.Error);
     }
 }

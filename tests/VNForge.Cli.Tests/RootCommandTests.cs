@@ -4,6 +4,9 @@ namespace VNForge.Cli.Tests;
 
 public sealed class RootCommandTests : IDisposable
 {
+    private const string JsonOption = "--json";
+    private const string Teste = "teste";
+
     private readonly CliHarness _cli = new();
 
     public void Dispose() => _cli.Dispose();
@@ -18,7 +21,7 @@ public sealed class RootCommandTests : IDisposable
         Assert.Contains("Uso:", result.Output);
         Assert.Contains("Opções:", result.Output);
         Assert.Contains("--project <pasta>", result.Output);
-        Assert.Contains("--json", result.Output);
+        Assert.Contains(JsonOption, result.Output);
         Assert.Contains("--verbose", result.Output);
         Assert.Contains("--quiet", result.Output);
         Assert.Contains("--yes", result.Output);
@@ -41,16 +44,16 @@ public sealed class RootCommandTests : IDisposable
     [Fact]
     public async Task Help_de_subcomando_lista_comandos_e_opcoes_globais()
     {
-        _cli.AddCommand("teste", _ => 0);
+        _cli.AddCommand(Teste, _ => 0);
 
         var root = await _cli.RunAsync(["--help"], TestContext.Current.CancellationToken);
-        var sub = await _cli.RunAsync(["teste", "--help"], TestContext.Current.CancellationToken);
+        var sub = await _cli.RunAsync([Teste, "--help"], TestContext.Current.CancellationToken);
 
         Assert.Contains("Comandos:", root.Output);
-        Assert.Contains("teste", root.Output);
+        Assert.Contains(Teste, root.Output);
         Assert.Contains("Uso:", sub.Output);
         Assert.Contains("vnf teste", sub.Output);
-        Assert.Contains("--json", sub.Output);
+        Assert.Contains(JsonOption, sub.Output);
     }
 
     [Fact]
@@ -66,7 +69,7 @@ public sealed class RootCommandTests : IDisposable
     [Fact]
     public async Task Version_com_json_segue_o_formato_comum()
     {
-        var result = await _cli.RunAsync(["--version", "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync(["--version", JsonOption], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
@@ -92,14 +95,14 @@ public sealed class RootCommandTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(_cli.WorkingDirectory, "meu-projeto"));
         GlobalSettings? seen = null;
-        _cli.AddCommand("teste", parseResult =>
+        _cli.AddCommand(Teste, parseResult =>
         {
             seen = _cli.Cli.Options.Read(parseResult);
             return 0;
         });
 
         var result = await _cli.RunAsync(
-            ["--project", "meu-projeto", "teste", "--json", "--verbose", "--yes"],
+            ["--project", "meu-projeto", Teste, JsonOption, "--verbose", "--yes"],
             TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
@@ -110,13 +113,13 @@ public sealed class RootCommandTests : IDisposable
     public async Task Opcoes_globais_ficam_desligadas_por_padrao()
     {
         GlobalSettings? seen = null;
-        _cli.AddCommand("teste", parseResult =>
+        _cli.AddCommand(Teste, parseResult =>
         {
             seen = _cli.Cli.Options.Read(parseResult);
             return 0;
         });
 
-        await _cli.RunAsync(["teste"], TestContext.Current.CancellationToken);
+        await _cli.RunAsync([Teste], TestContext.Current.CancellationToken);
 
         Assert.Equal(new GlobalSettings(null, Json: false, Verbose: false, Quiet: false, Yes: false), seen);
     }

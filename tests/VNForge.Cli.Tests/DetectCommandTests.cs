@@ -4,6 +4,10 @@ namespace VNForge.Cli.Tests;
 
 public sealed class DetectCommandTests : IDisposable
 {
+    private const string Detect = "detect";
+    private const string GameOption = "--game";
+    private const string BgmYpf = "bgm.ypf";
+
     // YPF v500 vazio: assinatura, versão, 0 arquivos, header_size = 32 e 16 bytes de padding.
     private static readonly byte[] EmptyYpf = Convert.FromHexString(
         "59504600" + "F4010000" + "00000000" + "20000000" + "00000000000000000000000000000000");
@@ -23,9 +27,9 @@ public sealed class DetectCommandTests : IDisposable
     public async Task Pasta_sem_yuris_diz_que_a_engine_nao_foi_reconhecida()
     {
         var dir = NewGameDir();
-        File.WriteAllText(Path.Combine(dir, "jogo.exe"), "MZ");
+        await File.WriteAllTextAsync(Path.Combine(dir, "jogo.exe"), "MZ", TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["detect", "--game", dir], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, GameOption, dir], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine não reconhecida", result.Output);
@@ -36,9 +40,9 @@ public sealed class DetectCommandTests : IDisposable
     public async Task Pasta_com_ypf_mostra_a_engine_e_os_detalhes()
     {
         var dir = NewGameDir();
-        File.WriteAllBytes(Path.Combine(dir, "bgm.ypf"), EmptyYpf);
+        await File.WriteAllBytesAsync(Path.Combine(dir, BgmYpf), EmptyYpf, TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["detect", "--game", dir], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, GameOption, dir], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine detectada: yuris", result.Output);
@@ -53,9 +57,9 @@ public sealed class DetectCommandTests : IDisposable
         var dir = NewGameDir();
         var broken = (byte[])EmptyYpf.Clone();
         broken[8] = 1;
-        File.WriteAllBytes(Path.Combine(dir, "bgm.ypf"), broken);
+        await File.WriteAllBytesAsync(Path.Combine(dir, BgmYpf), broken, TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["detect", "--game", dir], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, GameOption, dir], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine detectada: yuris", result.Output);
@@ -67,11 +71,11 @@ public sealed class DetectCommandTests : IDisposable
     public async Task Ypf_bloqueado_sem_outra_pista_mostra_o_aviso_e_nao_reconhece()
     {
         var dir = NewGameDir();
-        var path = Path.Combine(dir, "bgm.ypf");
-        File.WriteAllBytes(path, EmptyYpf);
+        var path = Path.Combine(dir, BgmYpf);
+        await File.WriteAllBytesAsync(path, EmptyYpf, TestContext.Current.CancellationToken);
         using var lockStream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
-        var result = await _cli.RunAsync(["detect", "--game", dir], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, GameOption, dir], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine não reconhecida", result.Output);
@@ -81,9 +85,9 @@ public sealed class DetectCommandTests : IDisposable
     [Fact]
     public async Task Sem_game_usa_a_pasta_atual()
     {
-        File.WriteAllBytes(Path.Combine(_cli.WorkingDirectory, "bgm.ypf"), EmptyYpf);
+        await File.WriteAllBytesAsync(Path.Combine(_cli.WorkingDirectory, BgmYpf), EmptyYpf, TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["detect"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine detectada: yuris", result.Output);
@@ -93,9 +97,9 @@ public sealed class DetectCommandTests : IDisposable
     public async Task Json_traz_o_resultado_da_deteccao()
     {
         var dir = NewGameDir();
-        File.WriteAllBytes(Path.Combine(dir, "bgm.ypf"), EmptyYpf);
+        await File.WriteAllBytesAsync(Path.Combine(dir, BgmYpf), EmptyYpf, TestContext.Current.CancellationToken);
 
-        var result = await _cli.RunAsync(["detect", "--game", dir, "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, GameOption, dir, "--json"], TestContext.Current.CancellationToken);
 
         using var document = JsonDocument.Parse(result.Output);
         var root = document.RootElement;
@@ -111,7 +115,7 @@ public sealed class DetectCommandTests : IDisposable
     {
         var dir = NewGameDir();
 
-        var result = await _cli.RunAsync(["detect", "--game", dir, "--json"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, GameOption, dir, "--json"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         using var document = JsonDocument.Parse(result.Output);
@@ -123,7 +127,7 @@ public sealed class DetectCommandTests : IDisposable
     [Fact]
     public async Task Pasta_inexistente_e_erro_de_uso_em_portugues()
     {
-        var result = await _cli.RunAsync(["detect", "--game", Path.Combine(_cli.Root, "nao-existe")], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, GameOption, Path.Combine(_cli.Root, "nao-existe")], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("A pasta do jogo não existe", result.Error);
@@ -133,18 +137,18 @@ public sealed class DetectCommandTests : IDisposable
     public async Task Detect_nao_grava_nada_na_pasta_do_jogo()
     {
         var dir = NewGameDir();
-        File.WriteAllBytes(Path.Combine(dir, "bgm.ypf"), EmptyYpf);
+        await File.WriteAllBytesAsync(Path.Combine(dir, BgmYpf), EmptyYpf, TestContext.Current.CancellationToken);
 
-        await _cli.RunAsync(["detect", "--game", dir], TestContext.Current.CancellationToken);
+        await _cli.RunAsync([Detect, GameOption, dir], TestContext.Current.CancellationToken);
 
-        Assert.Equal(["bgm.ypf"], Directory.EnumerateFileSystemEntries(dir).Select(Path.GetFileName).ToArray());
-        Assert.Equal(EmptyYpf, File.ReadAllBytes(Path.Combine(dir, "bgm.ypf")));
+        Assert.Equal([BgmYpf], Directory.EnumerateFileSystemEntries(dir).Select(Path.GetFileName).ToArray());
+        Assert.Equal(EmptyYpf, await File.ReadAllBytesAsync(Path.Combine(dir, BgmYpf), TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Help_do_detect_esta_em_portugues()
     {
-        var result = await _cli.RunAsync(["detect", "--help"], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Detect, "--help"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("vnf detect", result.Output);
