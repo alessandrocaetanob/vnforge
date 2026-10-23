@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.CommandLine;
 using VNForge.Core.Engines;
 using VNForge.Core.Logging;
@@ -10,6 +11,8 @@ namespace VNForge.Cli;
 internal static class DetectCommand
 {
     /// <summary>Engines que o <c>vnf</c> sabe reconhecer, na ordem em que são tentadas.</summary>
+    private const string PackagePrefix = "ypf:";
+
     private static readonly IEngine[] Engines = [new YuRisEngine()];
 
     public static Command Create(VnfCli cli)
@@ -36,6 +39,7 @@ internal static class DetectCommand
 
         string? engineId = null;
         EngineDetection? detection = null;
+        IReadOnlyDictionary<string, string>? details = null;
         foreach (var engine in Engines)
         {
             var result = engine.Detect(folder);
@@ -43,7 +47,13 @@ internal static class DetectCommand
             {
                 engineId = engine.Id;
                 detection = result;
+                details = result.Details;
                 break;
+            }
+
+            if (details is null && result.Details.Count > 0)
+            {
+                details = result.Details;
             }
         }
 
@@ -56,7 +66,7 @@ internal static class DetectCommand
                 folder,
                 engine = engineId,
                 summary = detection?.Summary,
-                details = detection?.Details,
+                details,
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -64,16 +74,38 @@ internal static class DetectCommand
         if (detection is null)
         {
             output.WriteLine($"Engine não reconhecida na pasta {folder}.");
-            return ErrorHandler.OkExitCode;
+        }
+        else
+        {
+            output.WriteLine($"Engine detectada: {engineId}");
+            output.WriteLine(detection.Summary);
         }
 
-        output.WriteLine($"Engine detectada: {engineId}");
-        output.WriteLine(detection.Summary);
-        foreach (var (name, value) in detection.Details)
+        foreach (var (name, value) in details ?? FrozenDictionary<string, string>.Empty)
         {
-            output.WriteLine($"  {name}: {value}");
+            output.WriteLine($"  {LabelOf(name)}: {value}");
         }
 
         return ErrorHandler.OkExitCode;
+    }
+
+    private static string LabelOf(string key)
+    {
+        if (key.StartsWith(PackagePrefix, StringComparison.Ordinal))
+        {
+            return "Pacote " + key[PackagePrefix.Length..];
+        }
+
+        return key switch
+        {
+            "scriptsArchive" => "Pacote de scripts",
+            "ypfVersion" => "Versão do YPF",
+            "scripts" => "Scripts",
+            "ystbVersion" => "Versão do YSTB",
+            "scriptKey" => "Chave XOR",
+            "scriptKeyOrigin" => "Origem da chave",
+            "warnings" => "Avisos",
+            _ => key,
+        };
     }
 }

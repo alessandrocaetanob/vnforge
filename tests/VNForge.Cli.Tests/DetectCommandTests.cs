@@ -43,8 +43,39 @@ public sealed class DetectCommandTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine detectada: yuris", result.Output);
         Assert.Contains("parece YU-RIS", result.Output);
-        Assert.Contains("ypf:bgm.ypf", result.Output);
+        Assert.Contains("Pacote bgm.ypf: v500", result.Output);
         Assert.Contains("v500", result.Output);
+    }
+
+    [Fact]
+    public async Task Ypf_com_indice_ilegivel_mostra_os_avisos_com_rotulo_em_portugues()
+    {
+        var dir = NewGameDir();
+        var broken = (byte[])EmptyYpf.Clone();
+        broken[8] = 1;
+        File.WriteAllBytes(Path.Combine(dir, "bgm.ypf"), broken);
+
+        var result = await _cli.RunAsync(["detect", "--game", dir], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Engine detectada: yuris", result.Output);
+        Assert.Contains("Pacote bgm.ypf: assinatura YPF, índice ilegível", result.Output);
+        Assert.Contains("Avisos: bgm.ypf:", result.Output);
+    }
+
+    [Fact]
+    public async Task Ypf_bloqueado_sem_outra_pista_mostra_o_aviso_e_nao_reconhece()
+    {
+        var dir = NewGameDir();
+        var path = Path.Combine(dir, "bgm.ypf");
+        File.WriteAllBytes(path, EmptyYpf);
+        using var lockStream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var result = await _cli.RunAsync(["detect", "--game", dir], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Engine não reconhecida", result.Output);
+        Assert.Contains("Avisos: bgm.ypf: não foi possível abrir", result.Output);
     }
 
     [Fact]

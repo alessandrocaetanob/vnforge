@@ -16,9 +16,9 @@ public sealed class YuRisEngine : IEngine
 
     /// <summary>
     /// Procura pacotes <c>.ypf</c> na pasta do jogo e na subpasta <c>pac</c>, só lendo. Reconhece a pasta quando algum
-    /// arquivo começa com a assinatura YPF; no pacote de scripts (<c>ysbin.ypf</c> ou o que tiver <c>ysc.ybn</c> e
+    /// arquivo começa com a assinatura YPF; no pacote de scripts (<c>ysbin.ypf</c> primeiro; vale o primeiro com
     /// <c>yst*.ybn</c>) informa a versão do YPF, a do YSTB e a chave XOR. Pasta inexistente, vazia ou de outra engine volta
-    /// como não reconhecida, e arquivo ilegível vira aviso nos detalhes, nunca exceção.
+    /// como não reconhecida. Arquivo ou pasta ilegível vira o detalhe <c>warnings</c>, também quando nada é reconhecido, nunca exceção.
     /// </summary>
     /// <param name="gameDir">Caminho da pasta do jogo.</param>
     public EngineDetection Detect(string gameDir)

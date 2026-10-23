@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Globalization;
-using System.Security;
 using VNForge.Core;
 using VNForge.Core.Engines;
 using VNForge.Engines.YuRis.Yscm;
@@ -21,6 +20,9 @@ internal static class YuRisDetector
     private const string CommandsEntry = "ysc.ybn";
     private const string PackedFolder = "pac";
 
+    /// <summary>Chave de <see cref="EngineDetection.Details"/> com os avisos; também aparece quando a pasta não é reconhecida.</summary>
+    private const string WarningsKey = "warnings";
+
     private static readonly YpfArchiveFormat Format = new();
 
     public static EngineDetection Detect(string gameDir)
@@ -34,7 +36,7 @@ internal static class YuRisDetector
                 return EngineDetection.NotDetected;
             }
         }
-        catch (Exception ex) when (IsReadFailure(ex))
+        catch (Exception ex) when (IsReadFailure(ex) || ex is ArgumentException)
         {
             return EngineDetection.NotDetected;
         }
@@ -43,7 +45,7 @@ internal static class YuRisDetector
         var packages = new List<PackageInfo>();
         ScriptInfo? scripts = null;
 
-        foreach (var file in FindYpfFiles(root))
+        foreach (var file in FindYpfFiles(root, warnings))
         {
             var package = Inspect(root, file, warnings, ref scripts);
             if (package is not null)
@@ -52,7 +54,14 @@ internal static class YuRisDetector
             }
         }
 
-        return packages.Count == 0 ? EngineDetection.NotDetected : Report(packages, scripts, warnings);
+        if (packages.Count > 0)
+        {
+            return Report(packages, scripts, warnings);
+        }
+
+        return warnings.Count == 0
+            ? EngineDetection.NotDetected
+            : new EngineDetection(false, string.Empty, new Dictionary<string, string> { [WarningsKey] = string.Join("; ", warnings) });
     }
 
     private static PackageInfo? Inspect(string root, string file, List<string> warnings, ref ScriptInfo? scripts)
@@ -61,7 +70,7 @@ internal static class YuRisDetector
         FileStream stream;
         try
         {
-            stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
@@ -110,27 +119,7 @@ internal static class YuRisDetector
             .OrderBy(FileNameOf, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        YscmFile? commands = null;
-        var commandsEntry = archive.Entries.FirstOrDefault(e => IsNamed(e, CommandsEntry));
-        if (commandsEntry is null)
-        {
-            warnings.Add($"{CommandsEntry} não está em {relative}; sem ele não dá para ler a chave dos scripts.");
-        }
-        else
-        {
-            var data = ReadEntry(archive, commandsEntry, warnings);
-            if (data is not null)
-            {
-                try
-                {
-                    commands = YscmReader.Read(data, CommandsEntry);
-                }
-                catch (Exception ex) when (IsReadFailure(ex))
-                {
-                    warnings.Add($"{CommandsEntry}: {ReasonOf(ex)}");
-                }
-            }
-        }
+        var commands = ReadCommands(archive, relative, warnings);
 
         uint? ystbVersion = null;
         YstbFile? read = null;
@@ -171,6 +160,32 @@ internal static class YuRisDetector
         }
 
         return new ScriptInfo(relative, archive.Parameters.Version, scriptEntries.Count, read?.Version ?? ystbVersion, read);
+    }
+
+    private static YscmFile? ReadCommands(YpfArchive archive, string relative, List<string> warnings)
+    {
+        var entry = archive.Entries.FirstOrDefault(e => IsNamed(e, CommandsEntry));
+        if (entry is null)
+        {
+            warnings.Add($"{CommandsEntry} não está em {relative}; sem ele não dá para ler a chave dos scripts.");
+            return null;
+        }
+
+        var data = ReadEntry(archive, entry, warnings);
+        if (data is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return YscmReader.Read(data, CommandsEntry);
+        }
+        catch (Exception ex) when (IsReadFailure(ex))
+        {
+            warnings.Add($"{CommandsEntry}: {ReasonOf(ex)}");
+            return null;
+        }
     }
 
     private static byte[]? ReadEntry(YpfArchive archive, ArchiveEntry entry, List<string> warnings)
@@ -219,29 +234,29 @@ internal static class YuRisDetector
         }
         else
         {
-            details["ypfScripts"] = scripts.Path;
-            details["ypfVersao"] = scripts.YpfVersion.ToString(inv);
+            details["scriptsArchive"] = scripts.Path;
+            details["ypfVersion"] = scripts.YpfVersion.ToString(inv);
             details["scripts"] = scripts.Count.ToString(inv);
             summary.Add($"{scripts.Path} v{scripts.YpfVersion.ToString(inv)}");
 
             if (scripts.YstbVersion is { } ystb)
             {
-                details["ystbVersao"] = ystb.ToString(inv);
+                details["ystbVersion"] = ystb.ToString(inv);
                 summary.Add($"YSTB v{ystb.ToString(inv)}");
             }
 
             if (scripts.File is { } file)
             {
                 var key = $"0x{file.Key:X8}";
-                details["chaveXor"] = key;
-                details["chaveXorOrigem"] = KeyOrigin(file);
+                details["scriptKey"] = key;
+                details["scriptKeyOrigin"] = KeyOrigin(file);
                 summary.Add($"chave XOR {key}");
             }
         }
 
         if (warnings.Count > 0)
         {
-            details["avisos"] = string.Join("; ", warnings);
+            details[WarningsKey] = string.Join("; ", warnings);
         }
 
         return EngineDetection.Matched("parece YU-RIS, " + string.Join(", ", summary), details);
@@ -257,31 +272,39 @@ internal static class YuRisDetector
         _ => "derivada do primeiro argumento do script",
     };
 
-    private static IEnumerable<string> FindYpfFiles(string root)
+    private static List<string> FindYpfFiles(string root, List<string> warnings)
     {
         var files = new List<string>();
-        CollectYpf(root, files);
+        CollectYpf(root, files, warnings);
         try
         {
             foreach (var directory in Directory.EnumerateDirectories(root))
             {
                 if (string.Equals(Path.GetFileName(directory), PackedFolder, StringComparison.OrdinalIgnoreCase))
                 {
-                    CollectYpf(directory, files);
+                    CollectYpf(directory, files, warnings);
                 }
             }
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
+            warnings.Add($"não foi possível listar as subpastas ({ex.Message})");
         }
 
-        return files
+        var ordered = files
             .OrderBy(f => string.Equals(Path.GetFileName(f), ScriptArchiveName, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
             .ThenBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .Take(MaxYpfFiles);
+            .ToList();
+        if (ordered.Count > MaxYpfFiles)
+        {
+            warnings.Add($"a pasta tem {ordered.Count} arquivos .ypf; só os primeiros {MaxYpfFiles} foram examinados.");
+            ordered.RemoveRange(MaxYpfFiles, ordered.Count - MaxYpfFiles);
+        }
+
+        return ordered;
     }
 
-    private static void CollectYpf(string directory, List<string> files)
+    private static void CollectYpf(string directory, List<string> files, List<string> warnings)
     {
         try
         {
@@ -290,6 +313,7 @@ internal static class YuRisDetector
         }
         catch (Exception ex) when (IsReadFailure(ex))
         {
+            warnings.Add($"não foi possível listar a pasta {directory} ({ex.Message})");
         }
     }
 
@@ -308,8 +332,7 @@ internal static class YuRisDetector
     private static string ReasonOf(Exception ex) => ex is InvalidFileException invalid ? invalid.Reason : ex.Message;
 
     private static bool IsReadFailure(Exception ex) =>
-        ex is VNForgeException or IOException or UnauthorizedAccessException or SecurityException or InvalidDataException
-            or NotSupportedException or ArgumentException or EndOfStreamException;
+        ex is VNForgeException or IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException;
 
     private sealed record PackageInfo(string Path, uint? Version, int Count);
 
