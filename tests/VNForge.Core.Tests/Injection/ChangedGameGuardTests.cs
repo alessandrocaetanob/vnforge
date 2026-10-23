@@ -124,6 +124,19 @@ public sealed class ChangedGameGuardTests : IDisposable
     }
 
     [Fact]
+    public void Plan_depois_do_restore_aceita_o_jogo_original()
+    {
+        SeedExtractedGame();
+        var injector = Injector();
+        injector.Inject(injector.Plan(_project));
+        injector.Restore(injector.PlanRestore(_project));
+
+        var plan = injector.Plan(_project);
+
+        Assert.Equal(["ysbin.ypf"], plan.Files.Select(f => f.RelativePath));
+    }
+
+    [Fact]
     public void Jogo_sem_estado_de_extracao_nao_e_verificado()
     {
         Game("ysbin.ypf", "original-ysbin");

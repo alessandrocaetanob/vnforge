@@ -195,7 +195,16 @@ public sealed class GameInjector
                 continue;
             }
 
-            var current = FileHash.Sha256(path);
+            string current;
+            try
+            {
+                current = FileHash.Sha256(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InjectionException($"Não foi possível ler '{original.Path}' para conferir o jogo (o jogo está aberto?): {ex.Message}", ex);
+            }
+
             if (current == original.Sha256 || history.FindLatestEntry(original.Path)?.Entry.InjectedSha256 == current)
             {
                 continue;
