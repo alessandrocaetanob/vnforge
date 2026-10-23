@@ -198,6 +198,16 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
+    public void Plan_recusa_arquivo_do_build_com_o_nome_do_manifesto()
+    {
+        Build(BackupManifest.FileName, "{}");
+
+        var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+
+        Assert.Contains("reservado", erro.Message);
+    }
+
+    [Fact]
     public void Terceira_injecao_acha_o_original_num_backup_que_nao_e_o_mais_recente()
     {
         SeedGameAndBuild();

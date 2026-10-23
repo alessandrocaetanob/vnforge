@@ -18,6 +18,9 @@ namespace VNForge.Core.Injection;
 /// </remarks>
 public sealed class GameInjector
 {
+    private static readonly StringComparison PathComparison =
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
     private const string StampFormat = "yyyy-MM-dd_HHmm";
 
     private readonly TimeProvider _timeProvider;
@@ -55,6 +58,11 @@ public sealed class GameInjector
         foreach (var buildPath in buildFiles)
         {
             var relative = Path.GetRelativePath(project.BuildDirectory, buildPath).Replace('\\', '/');
+            if (string.Equals(relative, BackupManifest.FileName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InjectionException($"O nome '{BackupManifest.FileName}' é reservado ao manifesto do backup; renomeie o arquivo em build/.");
+            }
+
             var target = ResolveInside(gameDirectory, relative);
             var buildHash = FileHash.Sha256(buildPath);
             if (!File.Exists(target))
@@ -420,7 +428,7 @@ public sealed class GameInjector
                     _read.Add(_pending.Current);
                 }
 
-                var entry = _read[i].Manifest.Files.FirstOrDefault(e => string.Equals(e.Path, relative, StringComparison.Ordinal));
+                var entry = _read[i].Manifest.Files.FirstOrDefault(e => string.Equals(e.Path, relative, PathComparison));
                 if (entry is not null)
                 {
                     return new HistoryEntry(_read[i].Directory, entry);
