@@ -35,6 +35,7 @@ public sealed class QaEngine
         new GlossaryTermRule(),
         new CharacterNameRule(),
         new InconsistentTranslationRule(),
+        .. TextQaRules.All,
         new UnencodableCharacterRule(),
         new BoxLineLimitRule(),
         new FieldByteLimitRule(),

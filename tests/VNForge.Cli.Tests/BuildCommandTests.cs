@@ -519,7 +519,7 @@ public sealed class BuildCommandTests : IDisposable
     public async Task Aborto_por_caractere_nao_codificavel_lista_todas_as_linhas_de_uma_vez()
     {
         await InitAndExtract();
-        Translate("yst00001", i => i == 0 ? "«ªã" : "Mika ã");
+        Translate("yst00001", i => i == 0 ? "«ªã»" : "Mika ã");
 
         var result = await Build();
 

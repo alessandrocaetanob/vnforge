@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -58,6 +59,7 @@ public sealed record TextUnit(
 
     /// <summary>Verdadeiro quando há uma tradução utilizável: <see cref="Translation"/> não vazia e <see cref="Status"/> diferente de <see cref="TranslationStatus.Untranslated"/>.</summary>
     [JsonIgnore]
+    [MemberNotNullWhen(true, nameof(Translation))]
     public bool HasTranslation => Status != TranslationStatus.Untranslated && !string.IsNullOrEmpty(Translation);
 
     /// <summary>
