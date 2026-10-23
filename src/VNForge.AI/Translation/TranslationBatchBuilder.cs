@@ -26,15 +26,15 @@ public sealed class TranslationBatchBuilder(
         ArgumentNullException.ThrowIfNull(lines);
 
         var glossary = _glossary
-            .Where(t => t.Source.Length > 0 && lines.Any(l => l.Source.Contains(t.Source, StringComparison.Ordinal)))
-            .Select(t => new GlossaryEntry(t.Source, t.Target))
+            .Where(t => t.Source.Trim().Length > 0 && lines.Any(l => l.Source.Contains(t.Source.Trim(), StringComparison.Ordinal)))
+            .Select(t => new GlossaryEntry(t.Source.Trim(), t.Target, t.Notes))
             .ToList();
 
         var characters = lines
             .Select(l => _characters.Find(l.Speaker))
             .OfType<CharacterEntry>()
             .DistinctBy(c => c.Source, StringComparer.Ordinal)
-            .Select(c => new CharacterInfo(c.Source, c.Target, c.Tone))
+            .Select(c => new CharacterInfo(c.Source, c.Target, c.Tone, c.Gender == CharacterGender.Unknown ? null : c.Gender.ToString().ToLowerInvariant()))
             .ToList();
 
         var context = (previous ?? [])
