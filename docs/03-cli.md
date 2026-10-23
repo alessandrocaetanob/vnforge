@@ -43,13 +43,13 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 |---|---|
 | `vnf init <pasta> --game <dir> [--name <nome>] [--exe <arquivo>]` | Cria o projeto, detecta a engine e grava engine, versão do pacote e chave XOR no `vnforge.json`. Idiomas (`ja` para `pt-BR`), codificação (`cp1252`) e IA começam com os padrões do exemplo de `02-arquitetura.md`. O nome padrão é o da pasta; o executável padrão é o único `.exe` da pasta do jogo, sem os `unins*.exe` (`--exe` resolve zero ou vários). Pasta que já tem `vnforge.json`, engine não reconhecida, jogo inexistente e projeto dentro da pasta do jogo saem com `1`, sem criar nem sobrescrever nada. Não grava nada na pasta do jogo. Com `--json`, `data` traz `folder`, `config`, `engine`, `version`, `scriptKey`, `summary` e `warnings` |
 | `vnf detect [--game <dir>]` | Só diagnostica, sem gravar: engine, versão, arquivos YPF, versão do YSTB, chave XOR (a codificação ainda não é detectada). Com `--json`, `data.details` usa chaves em inglês: `ypf:<caminho>` (um por pacote), `scriptsArchive`, `ypfVersion`, `scripts`, `ystbVersion`, `scriptKey`, `scriptKeyOrigin` e `warnings`; as que não se aplicam ao jogo não aparecem. Sem `--game` usa a pasta atual; pasta sem engine conhecida responde "Engine não reconhecida" e sai com 0 |
-| `vnf extract` | Descompacta os arquivos do jogo para `.cache/` e gera `text/*.json`. Re-extrair preserva traduções existentes |
+| `vnf extract` | Descompacta os pacotes do jogo para `.cache/game/` e gera `text/*.json` (E3.4: só a primeira extração; detalhes abaixo). Re-extrair preservando traduções é a E3.5 |
 | `vnf status` | Progresso: linhas por status, por arquivo, por personagem |
 | `vnf translate` | Traduz com IA as linhas pendentes |
 | `vnf check` | Roda o QA e lista problemas |
 | `vnf review` | Revisão por IA: gera sugestões nas notas, não altera traduções |
 | `vnf preview <id>` | Mostra como a linha fica depois da formatação e quebra de linha |
-| `vnf build` | Aplica formatação e codificação, reconstrói scripts e arquivos YPF em `build/` |
+| `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1: Shift-JIS pura, sem formatação; detalhes abaixo) |
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
 | `vnf run` | Abre o jogo (atalho para testar depois do inject) |
@@ -88,12 +88,11 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
   --fix                   corrige o que é seguro corrigir (espaços duplos etc.)
 ```
 
-`vnf build`
+`vnf build` (E8.1; aceita `--json`)
 ```
-  --only-changed          reconstrói só scripts com tradução alterada (padrão)
-  --allow-warnings        builda mesmo com avisos (erros sempre bloqueiam)
-  --encoding <estratégia> sobrescreve a do projeto, útil para comparar
+  (sem opções próprias nesta versão)
 ```
+As opções `--only-changed`, `--allow-warnings` e `--encoding <estratégia>` chegam com o perfil de formatação e as estratégias de codificação do M2. Hoje o build já reconstrói só os scripts com tradução (`status` diferente de `untranslated`, `translation` não vazia e diferente do `source`) e usa Shift-JIS pura, qualquer que seja o `encoding.strategy` do projeto. Os detalhes estão em "`vnf build`" abaixo.
 
 `vnf ypf` (E1.8; os três aceitam `--json`)
 ```
@@ -149,6 +148,34 @@ O `inject` lista o que vai gravar e pede confirmação antes de tocar no jogo. R
 
 Se uma gravação falha no meio, o `inject` devolve na hora os arquivos já trocados e diz que o jogo voltou ao estado original. Se nem isso for possível, a mensagem manda rodar `vnf restore`, que lê o manifesto (já gravado antes da primeira escrita no jogo) e termina o serviço. Antes de copiar, o `inject` confere de novo que cada arquivo do jogo continua como no plano; se o jogo mudou nesse intervalo, aborta sem gravar. Se o jogo ainda está com o build de um `inject` anterior, o original vem do backup mais recente que mexeu naquele arquivo, então todo backup guarda os arquivos originais e nunca uma versão já traduzida. O `restore` grava na pasta do jogo registrada no manifesto (a do `inject`, mesmo que o `game.path` tenha mudado; se ela não existe mais, usa o `game.path` atual), confere o hash de todas as cópias do backup antes de escrever, apaga os arquivos que a injeção criou (os que mudaram depois dela ficam, listados como mantidos) e pode ser repetido. `build/` ausente ou vazia, pasta do jogo inexistente e backup inexistente são erros em português. Com `--json`, o `inject` devolve `gameDirectory`, `backupDirectory` (nulo sem mudanças), `written` e `unchanged`; o `restore` devolve `gameDirectory`, `backupDirectory`, `restored`, `removed` e `kept`. O `restore` não segue links simbólicos além do que o sistema de arquivos já faz: não aponte subpastas do jogo para fora dele.
 
+`vnf extract` (E3.4; aceita `--json` e `--project`)
+```
+  extract                  descompacta os pacotes com scripts para .cache/game/ e grava um text/<chave>.json por script
+```
+O comando só lê a pasta do jogo (`game.path` do `vnforge.json`, relativo à pasta do projeto quando não é absoluto); um teste compara o hash de todos os arquivos do jogo antes e depois. No YU-RIS ele descompacta só os pacotes `.ypf` que têm scripts (`yst*.ybn`), o `ysc.ybn` ou o `yst_list.ybn`, cada um para `.cache/game/<caminho do pacote no jogo>/` com os caminhos internos (`.cache/game/ysbin.ypf/ysc.ybn`, `.cache/game/pac/ysbin.ypf/...`). Pacotes de imagem e áudio não são tocados (pesam gigabytes e não têm texto); use `vnf ypf unpack` se precisar de um deles. Cada rodada apaga `.cache/game/` antes de descompactar, então sobras de uma extração anterior não ficam.
+
+Cada script vira `text/<chave>.json`, onde a chave é o nome do `.ybn` sem extensão, em minúsculas (`yst00012.ybn` vira `text/yst00012.json`), mesmo quando o script não tem texto (o arquivo traz `units` vazio). Os ids são os de `ScriptFile.UnitId`. O nome legível do `yst_list.ybn` (`01_prologo`) aparece só no `--json` (`texts[].name`), porque o arquivo de texto não tem campo para ele.
+
+Um script ilegível aborta a extração com o nome do script na mensagem e nada é gravado em `text/`; se a gravação de `text/` falhar no meio, os arquivos já gravados são removidos. A re-extração que preserva traduções é a E3.5: com qualquer `text/*.json` na pasta, o `extract` recusa, sai com `1` e não altera nada, nem o `.cache/`. Para extrair do zero, mova ou apague a pasta `text/` (as traduções nela se perdem). `.cache/` dentro da pasta do jogo, também por link simbólico ou junção, é recusado antes de gravar, e um jogo sem nenhum script depois de descompactar é erro.
+
+No texto, a saída é uma linha por pacote descompactado e o resumo, com o tipo de cada linha na ordem diálogos, narração, escolhas, nomes, sistema e outros (tipos com zero ficam de fora), seguidos de até 10 avisos dos scripts. Com `--json`, `data` traz `gameDirectory`, `cacheDirectory`, `archives` (`path`, `directory`, `files`, `bytes`), `scripts` (quantidade), `lines`, `kinds` (`dialogue`, `narration`, `choice`, `name`, `system`, `other`, todos presentes), `texts` (`key`, `name`, `lines` por script) e `warnings`.
+
+`vnf build` (E8.1; aceita `--json`)
+
+Reabre o jogo descompactado em `.cache/game/` (o `vnf extract` precisa ter rodado), lê `text/*.json` e reconstrói cada script que tem tradução com a reescrita mínima do E2: só os argumentos traduzidos mudam, o resto do script sai byte a byte igual. Depois grava os pacotes em `build/`, com o mesmo caminho relativo à pasta do jogo (`build/ysbin.ypf`, `build/pac/x.ypf`), que é o que o `vnf inject` espera: cada arquivo de `build/` substitui o de mesmo caminho no jogo.
+
+- **Pacotes sem alteração**: saem em `build/` idênticos ao original (cópia byte a byte), e o `vnf inject` ignora o arquivo igual ao do jogo. Assim `build/` sempre tem todos os pacotes de scripts, e um build sem nenhuma tradução gera `build/ysbin.ypf` idêntico ao original. Pacotes que o `extract` não descompactou (imagens, áudio) não entram.
+- **Não altera o jogo nem o `.cache/`**: só lê a pasta do jogo e `.cache/game/`. O `build/` anterior é apagado por inteiro no fim, não em cada etapa: o novo é montado em `build.tmp/`, ao lado de `build/`, e só então toma o lugar do anterior. `build/` dentro da pasta do jogo é recusado, como o `.cache/` no `extract`.
+- **Aborta sem deixar `build/` pela metade**: caractere que o Shift-JIS não representa, marcador inválido na tradução, trecho que não é mais o do `source` (script de outra versão), `text/*.json` inválido ou jogo que mudou depois da extração saem com `1`, com a mensagem em português citando o script e o `id` da linha. O `build/` anterior continua como estava e o `build.tmp/` é removido.
+- **Avisos**: um `text/<chave>.json` sem script correspondente em `.cache/game/` é ignorado com aviso.
+- **Saída**: no texto, uma linha por pacote gravado (com a quantidade de scripts alterados, ou "sem alterações, idêntico ao original") e o resumo `Reconstruídos 1 script (2 linhas trocadas); 1 pacote gravado em build/`, seguidos de até 10 avisos. Com `--json`, `data` traz `gameDirectory`, `buildDirectory`, `archives` (`path`, `replacedFiles`), `scripts` (reconstruídos), `totalScripts` (lidos de `.cache/`), `lines` (unidades trocadas), `rebuilt` (`key`, `name`, `lines` por script) e `warnings`.
+
+```console
+$ vnf build
+Gravado: minha-vn-ptbr\build\ysbin.ypf (12 scripts alterados)
+Reconstruídos 12 scripts (1.204 linhas trocadas); 1 pacote gravado em build/
+```
+
 ## Fluxo típico
 
 ```console
@@ -160,6 +187,7 @@ Projeto criado em minha-vn-ptbr\
 
 $ cd minha-vn-ptbr
 $ vnf extract
+Descompactado: ysbin.ypf (314 arquivos) em .cache\game\ysbin.ypf
 Extraídos 312 scripts, 48.211 linhas (41.977 diálogos, 5.902 narração, 211 escolhas, 121 nomes)
 
 $ vnf translate --limit 50          # testa o prompt antes de gastar
