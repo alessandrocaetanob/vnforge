@@ -28,8 +28,15 @@ public sealed class QaEngine
         }
     }
 
-    /// <summary>As regras do <c>vnf</c>. Vazio até as regras concretas do E7 entrarem.</summary>
-    public static QaEngine Default { get; } = new([new UnencodableCharacterRule(), new BoxLineLimitRule(), new FieldByteLimitRule()]);
+    /// <summary>As regras do <c>vnf</c>, na ordem em que rodam.</summary>
+    public static QaEngine Default { get; } = new([
+        new GlossaryTermRule(),
+        new CharacterNameRule(),
+        new InconsistentTranslationRule(),
+        new UnencodableCharacterRule(),
+        new BoxLineLimitRule(),
+        new FieldByteLimitRule(),
+    ]);
 
     /// <summary>Regras registradas, na ordem em que rodam.</summary>
     public IReadOnlyList<IQaRule> Rules => _rules;
