@@ -1,0 +1,57 @@
+using VNForge.Core.Glossary;
+using VNForge.Core.Text;
+
+namespace VNForge.AI.Translation;
+
+/// <summary>
+/// Monta o <see cref="TranslationBatch"/> de um trecho do jogo: só entram no prompt os termos do glossário que aparecem nas linhas
+/// do lote e os personagens que falam nele, para não gastar tokens (nem diluir a atenção do modelo) com o resto.
+/// </summary>
+public sealed class TranslationBatchBuilder(
+    IReadOnlyList<GlossaryTerm> glossary,
+    CharacterBook characters,
+    string? styleGuide = null,
+    int maxPreviousLines = 5)
+{
+    private readonly IReadOnlyList<GlossaryTerm> _glossary = glossary ?? throw new ArgumentNullException(nameof(glossary));
+    private readonly CharacterBook _characters = characters ?? throw new ArgumentNullException(nameof(characters));
+    private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
+
+    /// <summary>
+    /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
+    /// só as que já têm tradução, no máximo as últimas <c>maxPreviousLines</c>.
+    /// </summary>
+    public TranslationBatch Build(IReadOnlyList<TextUnit> lines, IReadOnlyList<TextUnit>? previous = null)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        var glossary = _glossary
+            .Where(t => t.Source.Length > 0 && lines.Any(l => l.Source.Contains(t.Source, StringComparison.Ordinal)))
+            .Select(t => new GlossaryEntry(t.Source, t.Target))
+            .ToList();
+
+        var characters = lines
+            .Select(l => _characters.Find(l.Speaker))
+            .OfType<CharacterEntry>()
+            .DistinctBy(c => c.Source, StringComparer.Ordinal)
+            .Select(c => new CharacterInfo(c.Source, c.Target, c.Tone))
+            .ToList();
+
+        var context = (previous ?? [])
+            .Where(u => u.HasTranslation)
+            .TakeLast(Math.Max(0, maxPreviousLines))
+            .ToList();
+
+        return new TranslationBatch(lines)
+        {
+            Glossary = glossary,
+            Characters = characters,
+            PreviousLines = context,
+            StyleGuide = _styleGuide,
+        };
+    }
+
+    /// <summary>Lê o <c>style.md</c> do projeto; devolve vazio quando o arquivo não existe.</summary>
+    public static string ReadStyleGuide(string path) =>
+        File.Exists(path) ? File.ReadAllText(path).Trim() : string.Empty;
+}
