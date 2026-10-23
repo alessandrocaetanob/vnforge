@@ -53,6 +53,6 @@ public sealed class DoubleSpaceRule : UnitQaRule
     /// <inheritdoc />
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
     {
-        return unit.HasTranslation ? Find(unit.Translation!).Select(span => $"{span.Length} espaços seguidos na posição {span.Start}.") : [];
+        return unit.HasTranslation ? Find(unit.Translation).Select(span => $"{span.Length} espaços seguidos na posição {span.Start}.") : [];
     }
 }

@@ -52,7 +52,7 @@ public sealed class UnbalancedPairsRule : UnitQaRule
             return [];
         }
 
-        var unmatched = FindUnmatched(unit.Translation!);
+        var unmatched = FindUnmatched(unit.Translation);
         if (unmatched.Count == 0)
         {
             return [];
@@ -62,7 +62,7 @@ public sealed class UnbalancedPairsRule : UnitQaRule
         return unmatched
             .Where(u => !sourceBroken.Contains(u.Group))
             .OrderBy(u => u.Index)
-            .Select(u => $"{(u.Group == Group.Quotes ? "Aspas" : "Parêntese")} '{unit.Translation![u.Index]}' sem par na posição {u.Index}.");
+            .Select(u => $"{(u.Group == Group.Quotes ? "Aspas" : "Parêntese")} '{unit.Translation[u.Index]}' sem par na posição {u.Index}.");
     }
 
     private static List<(int Index, Group Group)> FindUnmatched(string text)
