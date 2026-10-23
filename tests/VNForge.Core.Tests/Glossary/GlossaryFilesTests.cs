@@ -120,6 +120,31 @@ public class GlossaryFilesTests : IDisposable
     }
 
     [Fact]
+    public void Serialize_recusa_origem_vazia_repetida_ou_so_diferente_por_espacos_e_entrada_nula()
+    {
+        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new(" ", "x")]));
+        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new("a", "x"), new("a", "y")]));
+        Assert.Throws<GlossaryFileException>(() => CharacterSerializer.Serialize([new("美咲", "Misaki"), new("美咲 ", "Misaki")]));
+        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([null!]));
+    }
+
+    [Fact]
+    public void Serialize_recusa_surrogate_solitario()
+    {
+        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new("a\uD800", "x")]));
+    }
+
+    [Fact]
+    public void Mensagem_de_erro_do_json_vem_em_portugues()
+    {
+        var ex = Assert.Throws<GlossaryFileException>(() =>
+            CharacterSerializer.Parse("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "gender": "robot" } ] }""", "c.json"));
+
+        Assert.Contains("valor inválido", ex.Reason);
+        Assert.DoesNotContain("could not", ex.Reason);
+    }
+
+    [Fact]
     public void Speaker_extraido_encontra_a_entrada_certa()
     {
         var livro = new CharacterBook(Personagens());

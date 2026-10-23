@@ -86,15 +86,16 @@ internal static class EntryFile
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < entries.Count; i++)
         {
-            var source = entries[i].Source;
+            var source = (entries[i]?.Source) ?? throw new GlossaryFileException(filePath, $"$.entries[{i}]: a entrada é nula.");
             if (string.IsNullOrWhiteSpace(source))
             {
                 throw new GlossaryFileException(filePath, $"$.entries[{i}].source: o texto original não pode ser vazio.");
             }
 
-            if (!seen.Add(source))
+            // CharacterBook ignora espaços nas pontas; duas entradas que só diferem por eles colidiriam em silêncio.
+            if (!seen.Add(source.Trim()))
             {
-                throw new GlossaryFileException(filePath, $"'{source}' aparece mais de uma vez no arquivo.");
+                throw new GlossaryFileException(filePath, $"'{source.Trim()}' aparece mais de uma vez no arquivo.");
             }
         }
     }
@@ -179,6 +180,23 @@ internal static class EntryFile
         if (cut >= 0)
         {
             detail = detail[..cut];
+        }
+
+        if (System.Text.RegularExpressions.Regex.Match(detail, @"missing required properties[^:]*:\s*(.+?)\.?\s*$") is { Success: true } missing)
+        {
+            detail = $"campo obrigatório ausente: {missing.Groups[1].Value}.";
+        }
+        else if (System.Text.RegularExpressions.Regex.Match(detail, @"The JSON property '([^']+)' could not be mapped") is { Success: true } unmapped)
+        {
+            detail = $"campo desconhecido '{unmapped.Groups[1].Value}'.";
+        }
+        else if (detail.Contains("null value", StringComparison.Ordinal))
+        {
+            detail = "o campo não aceita null.";
+        }
+        else
+        {
+            detail = "valor inválido ou de tipo errado para o campo.";
         }
 
         var where = ex.Path is { Length: > 0 } path ? $"{path}, " : string.Empty;
