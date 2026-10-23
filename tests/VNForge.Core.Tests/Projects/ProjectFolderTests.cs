@@ -5,7 +5,7 @@ namespace VNForge.Core.Tests.Projects;
 public class ProjectFolderTests
 {
     private const string ManifestFile = "vnforge.json";
-    private const string GamePath = "D:/Jogos/MinhaVN";
+    private static readonly string GamePath = Path.Combine(Path.GetTempPath(), "Jogos", "MinhaVN");
 
     private static ProjectConfig NovaConfig() => new(
         "Minha VN",

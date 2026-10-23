@@ -8,7 +8,7 @@ public class ProjectFolderTextTests
     private const string ScriptId2 = "yst00002";
     private const string ScriptId1 = "yst00001";
     private const string ScriptId123 = "yst00123";
-    private const string GamePath = "D:/Jogos/MinhaVN";
+    private static readonly string GamePath = Path.Combine(Path.GetTempPath(), "Jogos", "MinhaVN");
 
     private static ProjectFolder NovoProjeto(string raiz) => ProjectFolder.Create(raiz, new ProjectConfig(
         "Minha VN",
