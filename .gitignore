@@ -50,6 +50,8 @@ desktop.ini
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
+# Logs e capturas do Playwright MCP
+.playwright-mcp/
 
 # ---------------------------------------------------------------
 # Segredos
