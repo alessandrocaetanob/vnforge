@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Threading;
@@ -51,6 +52,13 @@ public sealed partial class LineDetailView : UserControl
         }
 
         Dispatcher.UIThread.Post(() => TranslationEditor.Focus(), DispatcherPriority.Input);
+    }
+
+    /// <summary>Sair do Editor ou fechar a janela tira o painel da tela antes do debounce; grava o que estiver pendente.</summary>
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        current?.Flush();
+        base.OnDetachedFromVisualTree(e);
     }
 
     private void OnEditorTextChanged(object? sender, EventArgs e)
