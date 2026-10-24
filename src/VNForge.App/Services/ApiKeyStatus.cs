@@ -20,16 +20,17 @@ public static class ApiKeyStatus
     public static ResolvedApiKey Resolve(string configDirectory) =>
         Resolve(() => new DpapiApiKeyStore(configDirectory));
 
-    public static ResolvedApiKey Resolve(Func<IApiKeyStore> openVault)
+    public static ResolvedApiKey Resolve(Func<IApiKeyStore> openVault, Func<string, string?>? readEnvironment = null)
     {
         ArgumentNullException.ThrowIfNull(openVault);
+        var read = readEnvironment ?? Environment.GetEnvironmentVariable;
         try
         {
-            return ApiKeyResolver.Resolve(openVault());
+            return ApiKeyResolver.Resolve(openVault(), read);
         }
-        catch (Exception e) when (e is PlatformNotSupportedException or System.Security.Cryptography.CryptographicException or IOException)
+        catch (Exception e) when (e is PlatformNotSupportedException or System.Security.Cryptography.CryptographicException or IOException or AiSettingsException)
         {
-            var fromEnvironment = Environment.GetEnvironmentVariable(ApiKeyResolver.EnvironmentVariable);
+            var fromEnvironment = read(ApiKeyResolver.EnvironmentVariable);
             return string.IsNullOrWhiteSpace(fromEnvironment)
                 ? new ResolvedApiKey(null, ApiKeySource.None)
                 : new ResolvedApiKey(fromEnvironment.Trim(), ApiKeySource.Environment);

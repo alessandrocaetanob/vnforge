@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
@@ -22,8 +23,9 @@ public sealed class App : Application
             var configDirectory = RecentProjectsFile.DefaultDirectory();
             var window = new MainWindow();
             var start = new StartViewModel(new RecentProjectsFile(configDirectory), new AvaloniaFolderPicker(window), TimeProvider.System);
+            var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), new AppSettingsFile(configDirectory));
             window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory),
-                new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a)));
+                new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a)), settings);
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();
         }

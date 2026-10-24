@@ -10,6 +10,7 @@ public enum NavKey
 {
     Start,
     Editor,
+    Settings,
     Glossary,
 }
 
@@ -33,15 +34,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null)
     {
         Start = start;
+        Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
+        Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
         Tasks = new TaskBarViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
-        ApiKeyStatus = Services.ApiKeyStatus.Describe(key);
-        ApiKeyConfigured = key.Source != ApiKeySource.None;
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem];
+        ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
         start.ProjectOpened += (_, summary) => SetProject(summary);
@@ -61,6 +63,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public EditorViewModel Editor { get; } = new();
 
+    public SettingsViewModel Settings { get; }
+
     public GlossaryViewModel Glossary { get; } = new();
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
@@ -73,9 +77,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public partial ProjectSummary? CurrentProject { get; private set; }
 
     /// <summary>Texto da barra de status sobre a chave da Anthropic; nunca contém a chave.</summary>
-    public string ApiKeyStatus { get; }
+    [ObservableProperty]
+    public partial string ApiKeyStatus { get; private set; } = string.Empty;
 
-    public bool ApiKeyConfigured { get; }
+    [ObservableProperty]
+    public partial bool ApiKeyConfigured { get; private set; }
 
     public string ProjectTitle => CurrentProject?.Name ?? "Nenhum projeto aberto";
 
@@ -96,6 +102,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 CurrentPage = value.Key switch
                 {
                     NavKey.Editor => Editor,
+                    NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
                     _ => Start,
                 };
@@ -107,6 +114,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         CurrentProject = summary;
         Editor.Project = summary;
+        Settings.Load(summary);
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
         if (!Glossary.IsDirty || Glossary.Project?.Root != summary.Root)
         {
@@ -115,5 +123,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         editorItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
+    }
+
+    private void ShowKeyStatus(ResolvedApiKey key, string text)
+    {
+        ApiKeyStatus = text;
+        ApiKeyConfigured = key.Source != ApiKeySource.None;
     }
 }

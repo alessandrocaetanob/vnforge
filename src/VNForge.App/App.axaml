@@ -22,6 +22,9 @@
     <DataTemplate DataType="vm:EditorViewModel">
       <views:EditorView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:SettingsViewModel">
+      <views:SettingsView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:GlossaryViewModel">
       <views:GlossaryView/>
     </DataTemplate>
