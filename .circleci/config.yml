@@ -57,6 +57,11 @@ jobs:
               Write-Host 'SONAR_TOKEN ausente (PR de fork): build e testes seguem sem análise do Sonar.'
               exit 0
             }
+            # Build de tag não tem CIRCLE_BRANCH: o Sonar não tem a que ligar a análise.
+            if ($env:CIRCLE_TAG) {
+              Write-Host 'Build de tag: sem análise do Sonar.'
+              exit 0
+            }
             dotnet tool install --global dotnet-sonarscanner --version 11.3.0
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             dotnet tool install --global dotnet-coverage --version 18.11.2
@@ -101,7 +106,7 @@ jobs:
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
             $env:DOTNET_ROOT = $dir
             $env:PATH = "$dir;$env:USERPROFILE\.dotnet\tools;$env:PATH"
-            if ($env:SONAR_TOKEN) {
+            if (Test-Path .sonar-begun) {
               dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
             } else {
               dotnet test --solution VNForge.slnx --configuration Release --no-build
