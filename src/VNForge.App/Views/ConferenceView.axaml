@@ -1,0 +1,135 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.ConferenceView"
+             x:DataType="vm:ConferenceViewModel">
+
+  <UserControl.Styles>
+    <!-- Mesmos chips do Editor: o selecionado ganha accent-soft e borda accent. -->
+    <Style Selector="Button.chip">
+      <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    </Style>
+    <Style Selector="Button.chip.selected /template/ ContentPresenter#PART_ContentPresenter, Button.chip.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.chip.selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
+
+    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+      <StackPanel Spacing="4">
+        <TextBlock Classes="title-lg" Text="Conferência"/>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                   Text="Os mesmos problemas de vnf check, agrupados por regra. Corrija, marque o aviso como ok ou abra a linha no Editor."/>
+      </StackPanel>
+      <Button Grid.Column="1" VerticalAlignment="Top" Command="{Binding RefreshCommand}" AutomationProperties.Name="Conferir de novo">
+        <TextBlock Text="Conferir de novo"/>
+      </Button>
+      <Button Grid.Column="2" Classes="accent" VerticalAlignment="Top" Command="{Binding FixAllCommand}"
+              AutomationProperties.Name="Corrigir automaticamente tudo o que é seguro">
+        <TextBlock Text="Corrigir automaticamente" FontWeight="SemiBold"/>
+      </Button>
+    </Grid>
+
+    <Border Grid.Row="1" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+      </Grid>
+    </Border>
+    <Border Grid.Row="2" Classes="infobar success" IsVisible="{Binding NoticeMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Check}"/>
+        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding NoticeMessage}"/>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="16">
+      <ItemsControl ItemsSource="{Binding SeverityFilters}" VerticalAlignment="Center" AutomationProperties.Name="Filtro de gravidade">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="6"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SeverityChipViewModel">
+            <Button Classes="chip" Classes.selected="{Binding IsSelected}"
+                    Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).SelectSeverityCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Label}"/>
+                <TextBlock Classes="secondary" FontWeight="SemiBold" Text="{Binding CountLabel}"/>
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Center">
+        <TextBlock Classes="caption secondary" Text="{Binding SilencedSummary}"/>
+        <TextBlock Classes="caption secondary" Text="{Binding Summary}"/>
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="4" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
+      <Panel>
+        <ListBox Classes="projects" ItemsSource="{Binding Rows}" SelectionMode="Single" AutomationProperties.Name="Problemas por regra">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel/>
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.DataTemplates>
+            <DataTemplate DataType="vm:ConferenceGroupRowViewModel">
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="16,0" Height="48">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Classes="mono" FontWeight="SemiBold" Text="{Binding RuleId}"/>
+                  <TextBlock Classes="body-sm secondary" Text="{Binding Description}" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding CountLabel}" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Classes="sm" VerticalAlignment="Center" IsVisible="{Binding CanFix}"
+                        Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).FixRuleCommand}"
+                        CommandParameter="{Binding}" AutomationProperties.Name="Corrigir automaticamente esta regra">
+                  <TextBlock Text="Corrigir esta regra"/>
+                </Button>
+              </Grid>
+            </DataTemplate>
+            <DataTemplate DataType="vm:ConferenceIssueRowViewModel">
+              <Grid ColumnDefinitions="Auto,170,*,Auto,Auto" ColumnSpacing="12" Margin="16,0" Height="{DynamicResource Vnf.RowHeight}"
+                    Background="Transparent" DoubleTapped="OnIssueDoubleTapped">
+                <Panel Grid.Column="0" Width="16" VerticalAlignment="Center">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                            IsVisible="{Binding IsError}" AutomationProperties.Name="Erro"/>
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"
+                            IsVisible="{Binding !IsError}" AutomationProperties.Name="Aviso"/>
+                </Panel>
+                <TextBlock Grid.Column="1" Classes="mono secondary" Text="{Binding UnitId}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="2" Classes="body-sm" Text="{Binding Message}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxLines="1"
+                           ToolTip.Tip="{Binding Message}"/>
+                <Button Grid.Column="3" Classes="sm subtle" VerticalAlignment="Center"
+                        Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).OpenLineCommand}"
+                        CommandParameter="{Binding}" AutomationProperties.Name="Abrir a linha no Editor">
+                  <TextBlock Text="Abrir linha"/>
+                </Button>
+                <Button Grid.Column="4" Classes="sm subtle" VerticalAlignment="Center" IsVisible="{Binding CanMarkOk}"
+                        Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).MarkOkCommand}"
+                        CommandParameter="{Binding}" AutomationProperties.Name="Marcar o aviso como ok">
+                  <TextBlock Text="Marcar como ok"/>
+                </Button>
+              </Grid>
+            </DataTemplate>
+          </ListBox.DataTemplates>
+        </ListBox>
+
+        <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                   TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding IsEmpty}" Text="{Binding EmptyMessage}"/>
+      </Panel>
+    </Border>
+  </Grid>
+</UserControl>
