@@ -1,0 +1,26 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Estado vazio: selo 訳 em marca d'água (Brand.Seal), uma frase e uma ação. A marca é decoração: fica fora da árvore de acessibilidade. -->
+  <Style Selector="c|EmptyState">
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Margin="24">
+          <Viewbox Width="168" Height="168" Opacity="0.07" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw">
+            <Path Data="{StaticResource Brand.Seal}" Fill="{DynamicResource Vnf.TextPrimary}"/>
+          </Viewbox>
+          <StackPanel Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380">
+            <TextBlock Name="PART_Message" Classes="body" TextWrapping="Wrap" TextAlignment="Center" Text="{TemplateBinding Message}"/>
+            <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="Center"/>
+            <Button Name="PART_Action" Classes="accent" HorizontalAlignment="Center" Content="{TemplateBinding ActionText}"
+                    Command="{TemplateBinding ActionCommand}"
+                    IsVisible="{TemplateBinding ActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

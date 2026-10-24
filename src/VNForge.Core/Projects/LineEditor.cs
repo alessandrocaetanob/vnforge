@@ -63,6 +63,28 @@ public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
             return unit.Status == TranslationStatus.Approved ? unit : unit with { Status = TranslationStatus.Approved };
         });
 
+    /// <summary>
+    /// Devolve a linha ao estado que ela tinha (tradução, status e origem), p. ex. para desfazer uma gravação. Só desfaz se o arquivo ainda guarda o que
+    /// <paramref name="saved"/> gravou; as notas, os avisos marcados e o original a revisar são os de agora, não os do instantâneo.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">O script não tem uma linha com o id de <paramref name="previous"/>.</exception>
+    /// <exception cref="VNForgeException">A linha mudou depois da gravação desfeita.</exception>
+    public TextUnit Restore(string scriptKey, TextUnit previous, TextUnit saved)
+    {
+        ArgumentNullException.ThrowIfNull(previous);
+        ArgumentNullException.ThrowIfNull(saved);
+        return Update(scriptKey, previous.Id, unit =>
+        {
+            if (!string.Equals(unit.Translation, saved.Translation, StringComparison.Ordinal) || unit.Status != saved.Status)
+            {
+                throw new VNForgeException("A linha mudou depois deste aviso; nada foi desfeito.");
+            }
+
+            var restored = unit with { Translation = previous.Translation, Status = previous.Status, Origin = previous.Origin };
+            return restored == unit ? unit : restored;
+        });
+    }
+
     private TextUnit Update(string scriptKey, string id, Func<TextUnit, TextUnit> change)
     {
         ArgumentNullException.ThrowIfNull(id);

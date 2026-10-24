@@ -8,6 +8,7 @@ using Avalonia.Skia;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
+using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
@@ -21,7 +22,15 @@ public static class HeadlessEntry
 {
     // O Skia pede ao sistema uma fonte padrão; um contêiner Linux sem fontes não tem nenhuma e o FontManager lança.
     // Apontar para a fonte embutida deixa o resultado igual em qualquer máquina.
-    public static AppBuilder BuildAvaloniaApp() =>
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        // O relógio das animações não anda no headless: sem isto uma página recém-trocada ficaria parada no primeiro quadro (opacidade 0).
+        // Os testes de movimento ligam de novo com MotionPreferences.Force(true).
+        _ = MotionPreferences.Force(false);
+        return Configure();
+    }
+
+    private static AppBuilder Configure() =>
         AppBuilder.Configure<App>()
             .With(new FontManagerOptions { DefaultFamilyName = "avares://VNForge.App/Assets/Fonts#Noto Sans" })
             .UseSkia()

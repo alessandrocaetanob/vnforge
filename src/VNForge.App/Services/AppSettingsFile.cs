@@ -2,9 +2,18 @@ using System.Text.Json;
 
 namespace VNForge.App.Services;
 
+/// <summary>Tema do app: segue o Windows (padrão), claro ou escuro.</summary>
+public enum ThemeChoice
+{
+    System,
+    Light,
+    Dark,
+}
+
 /// <summary>Ajustes do app que valem para o usuário e não para um projeto. Nunca contêm a chave de API.</summary>
 /// <param name="Concurrency">Chamadas à IA ao mesmo tempo, de <see cref="MinConcurrency"/> a <see cref="MaxConcurrency"/>.</param>
-public sealed record AppSettings(int Concurrency)
+/// <param name="Theme">Tema escolhido nos Ajustes; <see cref="ThemeChoice.System"/> segue o Windows.</param>
+public sealed record AppSettings(int Concurrency, ThemeChoice Theme = ThemeChoice.System)
 {
     public const int MinConcurrency = 1;
     public const int MaxConcurrency = 8;
@@ -35,12 +44,25 @@ public sealed class AppSettingsFile(string directory)
         {
             using var document = JsonDocument.Parse(File.ReadAllText(Path));
             var root = document.RootElement;
-            return root.ValueKind == JsonValueKind.Object
-                && root.TryGetProperty("concurrency", out var value)
-                && value.TryGetInt32(out var concurrency)
-                && concurrency is >= AppSettings.MinConcurrency and <= AppSettings.MaxConcurrency
-                    ? new AppSettings(concurrency)
-                    : AppSettings.Default;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return AppSettings.Default;
+            }
+
+            // Cada campo vale sozinho: um tema ilegível não derruba a concorrência salva, e vice-versa.
+            var concurrency = root.TryGetProperty("concurrency", out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var parsed)
+                && parsed is >= AppSettings.MinConcurrency and <= AppSettings.MaxConcurrency
+                    ? parsed
+                    : AppSettings.Default.Concurrency;
+            var theme = root.TryGetProperty("theme", out var themeValue)
+                && themeValue.ValueKind == JsonValueKind.String
+                && Enum.TryParse<ThemeChoice>(themeValue.GetString(), ignoreCase: true, out var chosen)
+                && Enum.IsDefined(chosen)
+                    ? chosen
+                    : ThemeChoice.System;
+            return new AppSettings(concurrency, theme);
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -52,6 +74,6 @@ public sealed class AppSettingsFile(string directory)
     {
         ArgumentNullException.ThrowIfNull(settings);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        File.WriteAllText(Path, JsonSerializer.Serialize(new Dictionary<string, int> { ["concurrency"] = settings.Concurrency }, Json));
+        File.WriteAllText(Path, JsonSerializer.Serialize(new Dictionary<string, object> { ["concurrency"] = settings.Concurrency, ["theme"] = settings.Theme.ToString().ToLowerInvariant() }, Json));
     }
 }

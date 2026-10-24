@@ -1,0 +1,43 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls"
+        xmlns:sv="using:VNForge.App.Services">
+
+  <!-- Avisos curtos no canto inferior direito, acima da barra de status: cartão com ícone da severidade, a frase, "Desfazer" quando houver e fechar. -->
+  <Style Selector="c|ToastHost">
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="VerticalAlignment" Value="Bottom"/>
+    <Setter Property="Margin" Value="0,0,24,40"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="8"/>
+      </ItemsPanelTemplate>
+    </Setter>
+    <Setter Property="ItemTemplate">
+      <DataTemplate x:DataType="sv:ToastItem">
+        <Border Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+                CornerRadius="{DynamicResource Vnf.RadiusMd}" BoxShadow="{DynamicResource Vnf.ShadowFlyout}" Padding="12,8,8,8"
+                MinWidth="260" MaxWidth="460" AutomationProperties.LiveSetting="Polite">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+            <Panel VerticalAlignment="Center">
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsSuccess}"/>
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}" Data="{StaticResource Icon.Warning}" IsVisible="{Binding IsWarning}"/>
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsError}"/>
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.AccentText}" Data="{StaticResource Icon.Info}" IsVisible="{Binding IsInfo}"/>
+            </Panel>
+            <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+            <Button Grid.Column="2" Classes="subtle sm" Content="{Binding UndoLabel}" Command="{Binding UndoCommand}" IsVisible="{Binding CanUndo}"/>
+            <Button Grid.Column="3" Classes="subtle sm" Command="{Binding DismissCommand}" AutomationProperties.Name="Fechar o aviso">
+              <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Dismiss}"/>
+            </Button>
+          </Grid>
+        </Border>
+      </DataTemplate>
+    </Setter>
+  </Style>
+</Styles>

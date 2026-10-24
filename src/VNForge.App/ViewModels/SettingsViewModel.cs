@@ -143,6 +143,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             new("Gemini", false),
             new("Ollama / LM Studio", false),
         ];
+        Themes = [new(ThemeChoice.System, "Sistema"), new(ThemeChoice.Light, "Claro"), new(ThemeChoice.Dark, "Escuro")];
         Models = [.. ClaudeModels.All.Select(Describe)];
         Efforts = [new("low", "Baixo"), new("medium", "Médio"), new("high", "Alto")];
         Encodings =
@@ -178,7 +179,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         loading = true;
-        Concurrency = appSettings.Load().Concurrency;
+        var saved = appSettings.Load();
+        Concurrency = saved.Concurrency;
+        SelectedTheme = Themes.Single(t => t.Value == saved.Theme);
         SelectedModel = Models[0];
         SelectedEffort = Efforts[1];
         SelectedEncoding = Encodings[0];
@@ -213,6 +216,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public int MaxBatchSize => TranslationRunOptions.MaxBatchSize;
 
+    /// <summary>Sistema, Claro e Escuro; o padrão segue o Windows.</summary>
+    public ReadOnlyCollection<ChoiceItem<ThemeChoice>> Themes { get; }
+
+    /// <summary>Disparado quando o usuário troca o tema; o <c>App</c> aplica o <c>RequestedThemeVariant</c>.</summary>
+    public event EventHandler<ThemeChoice>? ThemeChanged;
+
     public int MinConcurrency => AppSettings.MinConcurrency;
 
     public int MaxConcurrency => AppSettings.MaxConcurrency;
@@ -236,6 +245,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Linhas ainda sem tradução, base da estimativa dos cartões.</summary>
     [ObservableProperty]
     public partial int PendingLines { get; private set; }
+
+    [ObservableProperty]
+    public partial ChoiceItem<ThemeChoice>? SelectedTheme { get; set; }
 
     [ObservableProperty]
     public partial ModelOption? SelectedModel { get; set; }
@@ -540,6 +552,25 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnWrapMaxLinesChanged(int value) => WrapMaxLines = Math.Clamp(value, 1, 20);
 
+    partial void OnSelectedThemeChanged(ChoiceItem<ThemeChoice>? value)
+    {
+        if (value is null || loading)
+        {
+            return;
+        }
+
+        try
+        {
+            appSettings.Save(new AppSettings(Concurrency, value.Value));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"Não foi possível salvar o tema: {e.Message}";
+        }
+
+        ThemeChanged?.Invoke(this, value.Value);
+    }
+
     partial void OnConcurrencyChanged(int value)
     {
         var clamped = Math.Clamp(value, MinConcurrency, MaxConcurrency);
@@ -556,7 +587,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         try
         {
-            appSettings.Save(new AppSettings(clamped));
+            appSettings.Save(new AppSettings(clamped, SelectedTheme?.Value ?? ThemeChoice.System));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

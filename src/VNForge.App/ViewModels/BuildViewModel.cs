@@ -40,6 +40,15 @@ public enum BuildResultTone
 /// <summary>Uma linha da lista "o que muda no jogo": o caminho relativo à pasta do jogo e se o arquivo substitui um original ou é novo.</summary>
 public sealed record PlannedChange(string Path, string Kind);
 
+public enum BuildNoticeKind
+{
+    Built,
+    Injected,
+}
+
+/// <summary>Uma operação terminou bem: o aviso curto "Build pronto" ou "Injetado no jogo".</summary>
+public sealed record BuildNotice(BuildNoticeKind Kind, string Message);
+
 /// <summary>
 /// Página Build e injeção: roda o build, injeta o <c>build/</c> na pasta do jogo e restaura os originais com os mesmos serviços do
 /// <c>vnf build</c>, <c>vnf inject</c> e <c>vnf restore</c>. Cada operação é uma tarefa da barra inferior; o jogo só é escrito pelo
@@ -64,6 +73,7 @@ public sealed partial class BuildViewModel : ObservableObject
     private RestorePlan? confirmedRestore;
     private int refreshVersion;
     private int epoch;
+    private BuildNotice? notice;
     private string? restoredFrom;
 
     public BuildViewModel(BackgroundTaskService tasks, IReadOnlyList<IEngine>? engines = null, IGameProcessStarter? starter = null, QaEngine? qa = null, TimeProvider? clock = null)
@@ -77,6 +87,9 @@ public sealed partial class BuildViewModel : ObservableObject
         Facts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFacts));
         Backups.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasBackups));
     }
+
+    /// <summary>Disparado quando um build ou uma injeção termina bem e a tela já foi atualizada.</summary>
+    public event EventHandler<BuildNotice>? NoticeRaised;
 
     /// <summary>O que o build, a injeção e a restauração fizeram, em ordem; a tela mostra como um log.</summary>
     public ObservableCollection<BuildLogLine> Log { get; } = [];
@@ -217,6 +230,7 @@ public sealed partial class BuildViewModel : ObservableObject
     partial void OnProjectChanged(ProjectSummary? value)
     {
         epoch++;
+        notice = null;
         Log.Clear();
         Facts.Clear();
         LogSummary = string.Empty;
@@ -281,6 +295,7 @@ public sealed partial class BuildViewModel : ObservableObject
             if (run.Value is { } result)
             {
                 DescribeBuild(project, result, elapsed);
+                notice = new BuildNotice(BuildNoticeKind.Built, "Build pronto: " + BuildSummaryLine(result));
             }
             else if (run.Failure is QaBlockedException blocked)
             {
@@ -312,6 +327,18 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         await RefreshAsync();
+        if (mine == epoch)
+        {
+            RaiseNotice();
+        }
+    }
+
+    private void RaiseNotice()
+    {
+        if (Interlocked.Exchange(ref notice, null) is { } raised)
+        {
+            NoticeRaised?.Invoke(this, raised);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanInject))]
@@ -383,6 +410,10 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         await RefreshAsync();
+        if (mine == epoch)
+        {
+            RaiseNotice();
+        }
     }
 
     [RelayCommand]
@@ -446,6 +477,7 @@ public sealed partial class BuildViewModel : ObservableObject
             }
 
             AppendLog($"Injetado: {ProjectLabels.Number(result.Written.Count)} arquivo(s) em {result.GameDirectory} (hashes conferidos)");
+            notice = new BuildNotice(BuildNoticeKind.Injected, $"Injetado no jogo: {ProjectLabels.Number(result.Written.Count)} arquivo(s), com backup.");
         }
         else if (run.Failure is not null)
         {

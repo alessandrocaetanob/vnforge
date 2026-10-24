@@ -9,6 +9,12 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
+/// <summary>Uma gravação de linha que mudou a tradução ou o status: a unidade de antes e a de depois, para o aviso "Desfazer".</summary>
+public sealed record LineSavedEventArgs(string? ProjectRoot, string ScriptKey, int Number, TextUnit Previous, TextUnit Saved)
+{
+    public bool IsApproval => Saved.Status == TranslationStatus.Approved && Previous.Status != TranslationStatus.Approved;
+}
+
 /// <summary>Uma opção do seletor de personagem. <see cref="Value"/> é o <see cref="LineFilter.Speaker"/>: nulo para todos, <see cref="LineFilter.Narration"/> para a narração.</summary>
 public sealed record SpeakerOption(string Label, string? Value);
 
@@ -91,13 +97,16 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>A carga das linhas em andamento (ou a última); os testes a aguardam.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
 
+    /// <summary>Disparado a cada gravação que mudou a tradução ou o status de uma linha (o aviso "Linha 12 gravada").</summary>
+    public event EventHandler<LineSavedEventArgs>? LineSaved;
+
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(ShowEmptyState))]
     public partial bool IsLoading { get; set; }
 
     /// <summary>Falha ao ler as linhas: o fato e a consequência, em português.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(ShowEmptyState))]
     public partial string? ErrorMessage { get; set; }
 
     public ObservableCollection<ScriptItemViewModel> Scripts { get; } = [];
@@ -131,7 +140,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>As linhas visíveis. É trocada por inteiro a cada filtro ou script; nunca recebe <c>Add</c> nem <c>Remove</c>.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(ShowEmptyState))]
     [NotifyPropertyChangedFor(nameof(LinesSummary))]
     public partial IReadOnlyList<LineViewModel> Lines { get; private set; } = [];
 
@@ -184,6 +193,14 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     public bool IsEmpty => Lines.Count == 0;
+
+    /// <summary>A grade está vazia de verdade (não está lendo): o estado vazio aparece; lendo, é o esqueleto.</summary>
+    public bool ShowEmptyState => IsEmpty && !IsLoading;
+
+    /// <summary>Há um filtro de status ativo; "Ver todas as linhas" tira o filtro quando ele esvazia a grade.</summary>
+    public bool HasStatusFilter => statusFilter != LineStatusFilter.All;
+
+    public string? EmptyActionText => HasStatusFilter ? "Ver todas as linhas" : null;
 
     public string EmptyMessage =>
         IsLoading ? "Lendo as linhas do projeto..."
@@ -457,6 +474,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     [RelayCommand]
+    private void ShowAll() => SelectFilter(chips[0]);
+
+    [RelayCommand]
     private void SelectFilter(FilterChipViewModel? chip)
     {
         if (chip is null)
@@ -472,6 +492,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         statusFilter = chip.Filter;
+        OnPropertyChanged(nameof(HasStatusFilter));
+        OnPropertyChanged(nameof(EmptyActionText));
         foreach (var other in chips)
         {
             other.IsSelected = other == chip;
@@ -555,6 +577,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// </summary>
     private void OnUnitSaved(LineViewModel line, TextUnit saved)
     {
+        var previous = line.Entry.Unit;
         var updated = line.Entry.WithUnit(saved);
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
@@ -570,6 +593,40 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             entries[index] = updated;
             UpdateCounts();
         }
+
+        if (previous.Translation != saved.Translation || previous.Status != saved.Status)
+        {
+            LineSaved?.Invoke(this, new LineSavedEventArgs(Project?.Root, line.Entry.ScriptKey, line.Number, previous, saved));
+        }
+    }
+
+    /// <summary>Desfaz uma gravação: devolve a linha ao que ela era no arquivo e relê o Editor. Falso (com <see cref="ErrorMessage"/>) quando não deu para gravar.</summary>
+    public bool Undo(LineSavedEventArgs saved)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        if (lineEditor is null || Project?.Root != saved.ProjectRoot)
+        {
+            ErrorMessage = $"Não foi possível desfazer a gravação da linha {saved.Number}: o projeto aberto mudou.";
+            return false;
+        }
+
+        if (!FlushPendingEdits())
+        {
+            return false;
+        }
+
+        try
+        {
+            lineEditor.Restore(saved.ScriptKey, saved.Previous, saved.Saved);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException)
+        {
+            ErrorMessage = $"Não foi possível desfazer a gravação da linha {saved.Number}: {e.Message}";
+            return false;
+        }
+
+        Reload();
+        return true;
     }
 
     /// <summary>
@@ -634,6 +691,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         OnPropertyChanged(nameof(ScriptsCount));
         OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(VisibleScripts));
         BuildScript();
     }

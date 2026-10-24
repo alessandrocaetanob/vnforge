@@ -54,12 +54,9 @@
         </StackPanel>
       </c:PageHeader>
 
-      <Border Classes="infobar" IsVisible="{Binding !HasProject}">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="Abra um projeto no Início para ver o painel."/>
-        </Grid>
-      </Border>
+      <!-- Sem projeto (ou projeto sem texto): o selo 訳, uma frase e a ação. -->
+      <c:EmptyState IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
+                    ActionText="{Binding EmptyActionText}" ActionCommand="{Binding OpenStartCommand}"/>
 
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -122,6 +119,7 @@
                 <TextBlock Grid.Column="4" Classes="overline" TextAlignment="Right" Text="%"/>
               </Grid>
             </Border>
+            <c:Skeleton Grid.Row="2" Margin="16,12" Rows="6" IsVisible="{Binding ShowFilesSkeleton}" AutomationProperties.Name="Carregando o progresso por script"/>
             <ItemsControl Grid.Row="2" ItemsSource="{Binding Scripts}" AutomationProperties.Name="Progresso por script" VerticalAlignment="Top">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ScriptRowViewModel">
@@ -161,6 +159,7 @@
                 <TextBlock Grid.Column="3" Classes="overline" TextAlignment="Right" Text="%"/>
               </Grid>
             </Border>
+            <c:Skeleton Grid.Row="2" Margin="16,12" Rows="6" IsVisible="{Binding ShowCharactersSkeleton}" AutomationProperties.Name="Carregando o progresso por personagem"/>
             <ItemsControl Grid.Row="2" ItemsSource="{Binding Characters}" AutomationProperties.Name="Progresso por personagem" VerticalAlignment="Top">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:CharacterRowViewModel">

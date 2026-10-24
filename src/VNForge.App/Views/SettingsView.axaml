@@ -298,7 +298,15 @@
           </StackPanel>
         </TabItem>
 
-        <!-- A seção "Aparência" (tema Sistema, Claro ou Escuro, issue de "além do canvas") entra aqui como mais um TabItem no merge. -->
+        <!-- Aparência: vale para o app todo e fica nas preferências do usuário, não no projeto. -->
+        <TabItem Header="Aparência">
+          <StackPanel Margin="0,16,0,0" Spacing="8">
+            <TextBlock Classes="overline" Text="TEMA"/>
+            <ListBox Classes="seg" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}"
+                     DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tema"/>
+            <TextBlock Classes="caption secondary" Text="Sistema segue o tema do Windows."/>
+          </StackPanel>
+        </TabItem>
       </TabControl>
     </StackPanel>
   </ScrollViewer>

@@ -86,7 +86,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand))]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
@@ -100,7 +100,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     /// <summary>Falha ao ler ou corrigir o projeto: o fato e a consequência, em português.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsClear), nameof(ShowEmptyText))]
     public partial string? ErrorMessage { get; private set; }
 
     /// <summary>Resultado da última correção ("2 correções aplicadas.").</summary>
@@ -156,6 +156,12 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial int? IssueCount { get; private set; }
 
     public bool IsEmpty => Rows.Count == 0;
+
+    /// <summary>A frase de <see cref="EmptyMessage"/> aparece quando a lista está vazia e o estado vazio do <see cref="IsClear"/> não a substitui.</summary>
+    public bool ShowEmptyText => IsEmpty && !IsClear;
+
+    /// <summary>A conferência rodou e não achou nada: a página mostra o estado vazio com o selo 訳.</summary>
+    public bool IsClear => checkedAt is not null && Project is not null && !IsLoading && ErrorMessage is null && all.Count == 0;
 
     public string EmptyMessage
     {
@@ -563,6 +569,8 @@ public sealed partial class ConferenceViewModel : ObservableObject
                 ? $"Última conferência {RelativeTime.Format(at, clock.GetLocalNow())} · {Plural(lineCount, "linha", "linhas")} · {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")}"
                 : "Ainda não conferido";
         OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(IsClear));
+        OnPropertyChanged(nameof(ShowEmptyText));
     }
 
     private static string Plural(int n, string one, string many) => $"{ProjectLabels.Number(n)} {(n == 1 ? one : many)}";

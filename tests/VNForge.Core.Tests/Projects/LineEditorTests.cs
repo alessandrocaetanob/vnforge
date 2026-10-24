@@ -34,6 +34,68 @@ public class LineEditorTests
         projeto.LoadText("yst00001").Single(u => u.Id == $"yst00001:{n:D6}");
 
     [Fact]
+    public void Restore_devolve_a_linha_ao_estado_anterior()
+    {
+        using var pasta = new TempFolder();
+        var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
+        var (projeto, editor) = Preparar(pasta.Path, antes, Linha(2, TranslationStatus.Untranslated));
+        var gravada = editor.Approve("yst00001", antes.Id);
+
+        var restaurada = editor.Restore("yst00001", antes, gravada);
+
+        Assert.Equal(antes.Status, restaurada.Status);
+        var lida = Gravada(projeto, 1);
+        Assert.Equal((antes.Translation, antes.Status, antes.Origin, antes.Notes), (lida.Translation, lida.Status, lida.Origin, lida.Notes));
+        Assert.Equal(TranslationStatus.Untranslated, Gravada(projeto, 2).Status);
+    }
+
+    [Fact]
+    public void Restore_de_linha_que_nao_existe_falha()
+    {
+        using var pasta = new TempFolder();
+        var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated));
+
+        Assert.Throws<KeyNotFoundException>(() =>
+        {
+            var inexistente = Linha(9, TranslationStatus.Translated, "x");
+            editor.Restore("yst00001", inexistente, inexistente);
+        });
+    }
+
+    [Fact]
+    public void Restore_recusa_quando_a_linha_mudou_depois_da_gravacao()
+    {
+        using var pasta = new TempFolder();
+        var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
+        var (projeto, editor) = Preparar(pasta.Path, antes);
+        var gravada = editor.Approve("yst00001", antes.Id);
+        var outra = editor.SetTranslation("yst00001", antes.Id, "Outro texto.");
+
+        var erro = Assert.Throws<VNForgeException>(() => editor.Restore("yst00001", antes, gravada));
+
+        Assert.Equal("A linha mudou depois deste aviso; nada foi desfeito.", erro.Message);
+        var lida = Gravada(projeto, 1);
+        Assert.Equal((outra.Translation, outra.Status, outra.Origin), (lida.Translation, lida.Status, lida.Origin));
+    }
+
+    [Fact]
+    public void Restore_mantem_flags_e_original_a_revisar_do_arquivo_atual()
+    {
+        using var pasta = new TempFolder();
+        var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
+        var (projeto, editor) = Preparar(pasta.Path, antes);
+        var gravada = editor.Approve("yst00001", antes.Id);
+        projeto.SaveText("yst00001", [gravada with { Flags = ["glossary"], PreviousSource = "旧原文" }]);
+
+        editor.Restore("yst00001", antes, gravada);
+
+        var lida = Gravada(projeto, 1);
+        Assert.Equal(TranslationStatus.Translated, lida.Status);
+        Assert.Equal(["glossary"], lida.Flags);
+        Assert.Equal("旧原文", lida.PreviousSource);
+    }
+
+    [Fact]
     public void Traducao_nova_grava_translated_com_origem_manual()
     {
         using var pasta = new TempFolder();

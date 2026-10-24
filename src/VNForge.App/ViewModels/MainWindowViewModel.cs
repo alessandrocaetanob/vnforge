@@ -60,13 +60,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly FormattingProfileCache profiles = new();
     private bool editorCountIsNewer;
     private NavItemViewModel? selectedNav;
+    private EditorViewModel editor = new();
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, Action<string>? openFolder = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
+        Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
@@ -86,6 +88,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Conference.TextsChanged += (_, _) => editorStale = true;
+        AttachEditor(editor);
+        Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);
         Conference.LineRequested += (_, request) =>
         {
             SelectedNav = editorItem;
@@ -100,6 +104,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             PipelineStageKey.Build or PipelineStageKey.Inject => buildItem,
             _ => editorItem,
         };
+        Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         start.EditorRequested += (_, summary) =>
         {
@@ -124,6 +129,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public StartViewModel Start { get; }
 
+    /// <summary>Avisos curtos de gravação, build pronto e injeção.</summary>
+    public ToastService Toasts { get; }
+
+    /// <summary>O mapa de atalhos (tecla <c>?</c>) está aberto.</summary>
+    [ObservableProperty]
+    public partial bool IsShortcutMapOpen { get; private set; }
+
     /// <summary>Onde as telas iniciam extrair, traduzir, build e injetar sem travar a edição.</summary>
     public BackgroundTaskService TaskService { get; }
 
@@ -133,17 +145,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public EditorViewModel Editor
     {
-        get;
+        get => editor;
         init
         {
-            // O app troca o Editor no inicializador de objeto, depois do construtor: a escuta do contador e da gravação passa para o novo.
-            field.PropertyChanged -= OnEditorChanged;
-            field.CheckRequested -= OnEditorCheckRequested;
-            field = value;
-            field.PropertyChanged += OnEditorChanged;
-            field.CheckRequested += OnEditorCheckRequested;
+            // O app troca o Editor no inicializador de objeto, depois do construtor: as escutas passam para o novo.
+            DetachEditor(editor);
+            editor.PropertyChanged -= OnEditorChanged;
+            editor.CheckRequested -= OnEditorCheckRequested;
+            editor = value;
+            AttachEditor(editor);
+            editor.PropertyChanged += OnEditorChanged;
+            editor.CheckRequested += OnEditorCheckRequested;
         }
-    } = new();
+    }
 
     public SettingsViewModel Settings { get; }
 
@@ -307,6 +321,55 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return target != NavKey.Conference || Editor.Detail?.Flush() != false;
     }
 
+    private void AttachEditor(EditorViewModel value) => value.LineSaved += OnLineSaved;
+
+    private void DetachEditor(EditorViewModel value) => value.LineSaved -= OnLineSaved;
+
+    private void OnLineSaved(object? sender, LineSavedEventArgs saved) => ShowLineSaved(saved);
+
+    [RelayCommand]
+    private void ToggleShortcutMap() => IsShortcutMapOpen = !IsShortcutMapOpen;
+
+    [RelayCommand]
+    private void CloseShortcutMap() => IsShortcutMapOpen = false;
+
+    private void ShowLineSaved(LineSavedEventArgs saved)
+    {
+        var text = saved.IsApproval ? $"Linha {saved.Number} aprovada." : $"Linha {saved.Number} gravada.";
+        Toasts.Show(text, ToastKind.Success, key: "line-save", undo: () => UndoLineSave(saved));
+    }
+
+    private void UndoLineSave(LineSavedEventArgs saved)
+    {
+        if (!Editor.Undo(saved))
+        {
+            Toasts.Show(Editor.ErrorMessage ?? $"Não foi possível desfazer a gravação da linha {saved.Number}.", ToastKind.Error, key: "line-undo");
+        }
+    }
+
+    public void ShowBuildNotice(BuildNotice notice)
+    {
+        if (notice.Kind == BuildNoticeKind.Injected)
+        {
+            // Desfazer a injeção é restaurar os originais, e a restauração pede confirmação na página Build, como sempre.
+            Toasts.Show(notice.Message, ToastKind.Success, key: "build", undo: () =>
+            {
+                SelectedNav = buildItem;
+                if (Build.RestoreCommand.CanExecute(null))
+                {
+                    Build.RestoreCommand.Execute(null);
+                }
+                else
+                {
+                    Toasts.Show("Não dá para restaurar os originais agora. Espere a operação em andamento terminar e use Restaurar na página Build.", ToastKind.Warning, key: "build-restore");
+                }
+            });
+            return;
+        }
+
+        Toasts.Show(notice.Message, ToastKind.Success, key: "build");
+    }
+
     /// <summary>"Continuar em": abre o script em que o usuário parou, quando ele ainda existe na lista do Editor.</summary>
     private async Task ShowScriptAsync(string scriptKey)
     {
@@ -416,6 +479,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void SetProject(ProjectSummary summary)
     {
+        if (CurrentProject?.Root != summary.Root)
+        {
+            Toasts.Clear();
+        }
+
         CurrentProject = summary;
         Dashboard.Project = summary;
         Editor.Project = summary;

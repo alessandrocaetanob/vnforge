@@ -95,17 +95,12 @@
                 </ListBox.ItemTemplate>
               </ListBox>
 
-              <!-- Tela vazia: as duas ações da tela viram botões grandes. -->
-              <StackPanel Grid.Row="1" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
-                          IsVisible="{Binding !HasRecents}">
-                <TextBlock Classes="title-md" Text="Nenhum projeto recente" HorizontalAlignment="Center"/>
-                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
-                           Text="Abra uma pasta criada com `vnf init` ou crie um projeto novo a partir da pasta do jogo. Ele aparece aqui na próxima vez."/>
-                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                  <Button Classes="accent lg" Command="{Binding OpenFolderCommand}" Content="Abrir projeto"/>
-                  <Button Classes="lg" Command="{Binding NewProjectCommand}" Content="Novo projeto"/>
-                </StackPanel>
-              </StackPanel>
+              <!-- Tela vazia: o selo 訳, uma frase e as duas ações da tela. -->
+              <c:EmptyState Grid.Row="1" IsVisible="{Binding !HasRecents}"
+                            Message="Nenhum projeto recente. Abra uma pasta criada com vnf init ou crie um projeto novo a partir da pasta do jogo; ele aparece aqui na próxima vez."
+                            ActionText="Abrir projeto" ActionCommand="{Binding OpenFolderCommand}">
+                <Button Classes="lg" Command="{Binding NewProjectCommand}" Content="Novo projeto" HorizontalAlignment="Center"/>
+              </c:EmptyState>
 
               <Border Grid.Row="2" Classes="divider-top" Padding="16,0">
                 <TextBlock Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding RecentsSummary}"/>

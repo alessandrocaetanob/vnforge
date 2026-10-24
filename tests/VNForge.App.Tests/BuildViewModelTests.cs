@@ -134,6 +134,27 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Injecao_de_um_projeto_que_ja_foi_trocado_nao_avisa_no_projeto_novo()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        var avisos = new List<BuildNotice>();
+        vm.NoticeRaised += (_, notice) => avisos.Add(notice);
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BuildViewModel.IsBusy) && !vm.IsBusy)
+            {
+                vm.Project = null;
+            }
+        };
+        vm.InjectCommand.Execute(null);
+
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.Empty(avisos);
+    }
+
+    [Fact]
     public async Task Cancelar_a_confirmacao_nao_grava_nada()
     {
         PutBuild();
