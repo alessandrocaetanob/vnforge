@@ -21,7 +21,6 @@ public class BackgroundTaskTests
 
         Assert.Equal(BackgroundTaskState.Completed, item.State);
         Assert.Equal(100, item.Percent);
-        Assert.Equal("metade", item.Message);
         Assert.Equal("US$ 1,35", item.CostText);
         Assert.Equal("Concluída", item.StateText);
         Assert.False(item.IsRunning);
@@ -62,26 +61,45 @@ public class BackgroundTaskTests
     }
 
     [Fact]
-    public async Task Progresso_nulo_deixa_a_barra_indeterminada_e_o_valor_e_limitado()
+    public async Task Progresso_nulo_e_indeterminado_e_o_valor_e_limitado_a_0_e_1()
     {
         var service = new BackgroundTaskService();
-        var gate = new TaskCompletionSource();
+        var reported = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
         var item = service.Start("Extrair", async (reporter, _) =>
         {
-            reporter.Report(7);
-            await gate.Task;
-        });
-        gate.SetResult();
-        await item.Completion;
-        Assert.Equal(100, item.Percent);
-
-        var other = service.Start("Injetar", (reporter, _) =>
-        {
             reporter.Report(null);
-            return Task.CompletedTask;
+            Assert.True(service.Tasks[0].IsIndeterminate);
+            reporter.Report(7);
+            Assert.Equal(100, service.Tasks[0].Percent);
+            reporter.Report(-3);
+            Assert.Equal(0, service.Tasks[0].Percent);
+            reported.SetResult();
+            await release.Task;
         });
-        await other.Completion;
-        Assert.Equal(BackgroundTaskState.Completed, other.State);
+        await reported.Task;
+        release.SetResult();
+        await item.Completion;
+    }
+
+    [Fact]
+    public async Task Report_depois_do_fim_nao_altera_a_tarefa_e_a_falha_vai_para_a_mensagem()
+    {
+        var service = new BackgroundTaskService();
+        IBackgroundTaskReporter? late = null;
+        var item = service.Start("Build", (reporter, _) =>
+        {
+            late = reporter;
+            reporter.Report(0.5, "montando");
+            throw new InvalidOperationException("sem espaço");
+        });
+        await item.Completion;
+
+        late!.Report(0.1, "tarde");
+        late.AddCost(5);
+
+        Assert.Equal("sem espaço", item.Message);
+        Assert.Equal(0, item.Cost);
     }
 
     [Fact]

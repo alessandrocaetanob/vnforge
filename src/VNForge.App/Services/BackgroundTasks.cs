@@ -105,7 +105,7 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null)
 
     public ObservableCollection<BackgroundTaskItem> Tasks { get; } = [];
 
-    /// <summary>Inicia a tarefa e volta na hora; use <see cref="BackgroundTaskItem.Completion"/> para esperar o fim.</summary>
+    /// <summary>Inicia a tarefa e volta na hora; chame da thread da interface, que é dona de <see cref="Tasks"/>. use <see cref="BackgroundTaskItem.Completion"/> para esperar o fim.</summary>
     public BackgroundTaskItem Start(string title, Func<IBackgroundTaskReporter, CancellationToken, Task> work)
     {
         var cts = new CancellationTokenSource();
@@ -115,7 +115,7 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null)
         return item;
     }
 
-    /// <summary>Tira da lista as tarefas que já terminaram.</summary>
+    /// <summary>Tira da lista as tarefas que já terminaram. Chame da thread da interface.</summary>
     public void ClearFinished()
     {
         foreach (var item in Tasks.Where(t => !t.IsRunning).ToList())
@@ -149,6 +149,7 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null)
         post(() =>
         {
             item.Error = error;
+            item.Message = error ?? "";
             if (state == BackgroundTaskState.Completed)
             {
                 item.Progress = 1;
@@ -168,6 +169,11 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null)
             var clamped = fraction is { } f ? Math.Clamp(f, 0, 1) : (double?)null;
             service.post(() =>
             {
+                if (!item.IsRunning)
+                {
+                    return;
+                }
+
                 item.Progress = clamped;
                 if (message is not null)
                 {
@@ -185,7 +191,13 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null)
                 total = cost;
             }
 
-            service.post(() => item.Cost = total);
+            service.post(() =>
+            {
+                if (item.IsRunning)
+                {
+                    item.Cost = total;
+                }
+            });
         }
     }
 }

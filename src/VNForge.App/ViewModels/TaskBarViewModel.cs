@@ -20,17 +20,17 @@ public sealed partial class TaskBarViewModel : ObservableObject
 
     /// <summary>A tarefa mais recente ainda rodando; sem nenhuma rodando, a última da lista.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasTasks), nameof(OthersRunningText), nameof(HasOthersRunning))]
+    [NotifyPropertyChangedFor(nameof(HasTasks))]
     public partial BackgroundTaskItem? Current { get; private set; }
 
     public bool HasTasks => Current is not null;
 
-    public int RunningCount => Service.Tasks.Count(t => t.IsRunning);
+    public int RunningCount { get; private set; }
 
-    public bool HasOthersRunning => OthersRunningText.Length > 0;
+    public bool HasOthersRunning => RunningCount > 1;
 
     /// <summary>"+2 em andamento" quando há mais de uma tarefa rodando ao mesmo tempo.</summary>
-    public string OthersRunningText => RunningCount > 1 ? $"+{RunningCount - 1} em andamento" : "";
+    public string OthersRunningText => HasOthersRunning ? $"+{RunningCount - 1} em andamento" : "";
 
     [RelayCommand]
     private void ClearFinished() => Service.ClearFinished();
@@ -67,6 +67,7 @@ public sealed partial class TaskBarViewModel : ObservableObject
     private void Refresh()
     {
         var tasks = Service.Tasks;
+        RunningCount = tasks.Count(t => t.IsRunning);
         Current = tasks.LastOrDefault(t => t.IsRunning) ?? tasks.LastOrDefault();
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(OthersRunningText));
