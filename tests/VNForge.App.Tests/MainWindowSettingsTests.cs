@@ -15,7 +15,7 @@ public class MainWindowSettingsTests
         var config = temp.SubFolder("config");
         var settings = new SettingsViewModel(vault ?? new MemoryApiKeyStore(), new AppSettingsFile(config), _ => null);
         var start = new StartViewModel(new RecentProjectsFile(config), new FakeFolderPicker(pickerAnswer), new FixedClock(Now));
-        return new MainWindowViewModel(start, new ResolvedApiKey(null, ApiKeySource.None), settings);
+        return new MainWindowViewModel(start, new ResolvedApiKey(null, ApiKeySource.None), settings: settings);
     }
 
     [Fact]
