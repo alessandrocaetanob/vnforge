@@ -32,11 +32,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private NavItemViewModel? selectedNav;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, SettingsViewModel? settings = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null)
     {
         Start = start;
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
+        TaskService = taskService ?? new BackgroundTaskService();
+        Tasks = new TaskBarViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
@@ -51,6 +53,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     public StartViewModel Start { get; }
+
+    /// <summary>Onde as telas iniciam extrair, traduzir, build e injetar sem travar a edição.</summary>
+    public BackgroundTaskService TaskService { get; }
+
+    public TaskBarViewModel Tasks { get; }
 
     public EditorViewModel Editor { get; } = new();
 

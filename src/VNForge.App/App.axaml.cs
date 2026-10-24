@@ -24,7 +24,8 @@ public sealed class App : Application
             var window = new MainWindow();
             var start = new StartViewModel(new RecentProjectsFile(configDirectory), new AvaloniaFolderPicker(window), TimeProvider.System);
             var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), new AppSettingsFile(configDirectory));
-            window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), settings);
+            window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory),
+                new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a)), settings);
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();
         }
