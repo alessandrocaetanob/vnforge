@@ -1,4 +1,5 @@
 using VNForge.AI.Claude;
+using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
@@ -12,8 +13,15 @@ public class SettingsViewModelTests
 {
     private const string SecretKey = "sk-ant-segredo-do-teste-1234567890";
 
-    private static SettingsViewModel Create(TempFolder temp, IApiKeyStore? vault = null, string? environmentKey = null) =>
-        new(vault ?? new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), name => name == ApiKeyResolver.EnvironmentVariable ? environmentKey : null);
+    private static SettingsViewModel Create(TempFolder temp, IApiKeyStore? vault = null, string? environmentKey = null, Func<string, IClaudeMessageClient>? client = null) =>
+        new(vault ?? new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), name => name == ApiKeyResolver.EnvironmentVariable ? environmentKey : null, client);
+
+    /// <summary>Abre o projeto e espera a estimativa, que lê <c>text/*.json</c> em segundo plano: sem isso a pasta temporária some com o arquivo ainda aberto.</summary>
+    private static async Task LoadAsync(SettingsViewModel vm, ProjectSummary summary)
+    {
+        vm.Load(summary);
+        await vm.EstimateLoading;
+    }
 
     private static ProjectSummary OpenProject(TempFolder temp, string name = "Minha VN")
     {
@@ -28,8 +36,9 @@ public class SettingsViewModelTests
         var vm = Create(temp);
 
         Assert.Equal(ClaudeModels.All, vm.Models.Select(m => m.Id));
-        Assert.All(vm.Models, m => Assert.Matches(@"^US\$ \d+,\d{2} / US\$ \d+,\d{2} por milhão de tokens$", m.Price));
-        Assert.Equal("US$ 4,00 / US$ 20,00 por milhão de tokens", vm.Models[0].Price);
+        Assert.Equal(["US$ 4 / 20 / M tokens", "US$ 2 / 10 / M tokens", "US$ 0,10 / 0,50 / M tokens", "US$ 10 / 50 / M tokens"], vm.Models.Select(m => m.Price));
+        Assert.Equal(["Claude Opus 5.5", "Claude Sonnet 5.5", "Claude Haiku 5.5", "Claude Fable 5.1"], vm.Models.Select(m => m.Name));
+        Assert.All(vm.Models, m => Assert.False(string.IsNullOrWhiteSpace(m.Use)));
 
         var claude = Assert.Single(vm.Providers, p => p.IsAvailable);
         Assert.Equal("Claude (Anthropic)", claude.Name);
@@ -44,12 +53,11 @@ public class SettingsViewModelTests
         var vm = Create(temp);
 
         Assert.False(vm.HasProject);
-        Assert.False(vm.SaveProjectCommand.CanExecute(null));
         Assert.Equal(2, vm.Concurrency);
     }
 
     [Fact]
-    public void Abrir_projeto_carrega_modelo_esforco_lote_acentuacao_formatacao_e_guia_de_estilo()
+    public async Task Abrir_projeto_carrega_modelo_esforco_lote_acentuacao_formatacao_e_guia_de_estilo()
     {
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
@@ -63,7 +71,7 @@ public class SettingsViewModelTests
         File.WriteAllText(Path.Combine(summary.Root, "style.md"), "Tom informal.");
         var vm = Create(temp);
 
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
 
         Assert.True(vm.HasProject);
         Assert.Equal(ClaudeModels.Sonnet, vm.SelectedModel?.Id);
@@ -77,19 +85,18 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void Salvar_grava_so_no_projeto_e_preserva_o_resto_do_vnforge_json()
+    public async Task Cada_mudanca_e_gravada_na_hora_so_no_projeto_e_preserva_o_resto_do_vnforge_json()
     {
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
         var vm = Create(temp);
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
 
         vm.SelectedModel = vm.Models.Single(m => m.Id == ClaudeModels.Haiku);
         vm.SelectedEffort = vm.Efforts.Single(e => e.Id == "low");
         vm.BatchSize = 25;
         vm.SelectedEncoding = vm.Encodings.Single(e => e.Id == "cp1252");
         vm.StyleGuide = "Trate por você.";
-        vm.SaveProjectCommand.Execute(null);
 
         var folder = ProjectFolder.Open(summary.Root);
         var config = folder.LoadConfig();
@@ -97,21 +104,190 @@ public class SettingsViewModelTests
         Assert.Equal("cp1252", config.Encoding.Strategy);
         Assert.Equal("Minha VN", config.Name);
         Assert.Equal("Trate por você.", File.ReadAllText(Path.Combine(summary.Root, "style.md")));
-        Assert.Equal("Ajustes do projeto salvos.", vm.StatusMessage);
+        Assert.Null(vm.ErrorMessage);
     }
 
     [Fact]
-    public void Guia_de_estilo_vazio_remove_o_style_md()
+    public async Task Gravar_avisa_a_janela_a_cada_mudanca_e_nao_avisa_ao_abrir_o_projeto_nem_sem_projeto()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var vm = Create(temp);
+        var avisos = 0;
+        vm.ProjectSaved += (_, _) => avisos++;
+
+        vm.SelectedEffort = vm.Efforts.Single(e => e.Id == "low");
+        await LoadAsync(vm, summary);
+        Assert.Equal(0, avisos);
+
+        vm.SelectedEffort = vm.Efforts.Single(e => e.Id == "high");
+        vm.Nfc = true;
+        vm.StyleGuide = "Tom informal.";
+
+        Assert.Equal(3, avisos);
+        Assert.Equal("Alterações salvas automaticamente em vnforge.json", SettingsViewModel.AutosaveNote);
+    }
+
+    [Fact]
+    public async Task Mudar_o_modelo_nao_regrava_o_formatting_json_nem_o_guia_de_estilo()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var vm = Create(temp);
+        await LoadAsync(vm, summary);
+
+        vm.SelectedModel = vm.Models.Single(m => m.Id == ClaudeModels.Sonnet);
+
+        Assert.False(File.Exists(Path.Combine(summary.Root, ProjectFolder.FormattingFileName)));
+        Assert.False(File.Exists(Path.Combine(summary.Root, "style.md")));
+        Assert.Equal(ClaudeModels.Sonnet, ProjectFolder.Open(summary.Root).LoadConfig().Ai.Model);
+    }
+
+    [Fact]
+    public async Task Falha_ao_gravar_vira_erro_em_portugues_e_nao_derruba_a_tela()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var vm = Create(temp);
+        await LoadAsync(vm, summary);
+        var avisos = 0;
+        vm.ProjectSaved += (_, _) => avisos++;
+        var config = Path.Combine(summary.Root, ProjectFolder.ConfigFileName);
+        File.Delete(config);
+        Directory.CreateDirectory(config);
+
+        vm.SelectedEffort = vm.Efforts.Single(e => e.Id == "high");
+
+        Assert.StartsWith("Não foi possível salvar os ajustes do projeto", vm.ErrorMessage);
+        Assert.Equal(0, avisos);
+    }
+
+    [Fact]
+    public void Escolher_o_cartao_do_modelo_ou_da_acentuacao_muda_a_selecao_e_o_contrario()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
+        vm.Models[2].IsSelected = true;
+        vm.Encodings.Single(e => e.Id == "cp1252").IsSelected = true;
+
+        Assert.Equal(ClaudeModels.Haiku, vm.SelectedModel?.Id);
+        Assert.Equal("cp1252", vm.SelectedEncoding?.Id);
+        Assert.Single(vm.Models, m => m.IsSelected);
+        Assert.Single(vm.Encodings, e => e.IsSelected);
+
+        vm.SelectedModel = vm.Models[3];
+
+        Assert.True(vm.Models[3].IsSelected);
+        Assert.False(vm.Models[2].IsSelected);
+    }
+
+    [Fact]
+    public void A_aba_IA_vem_aberta()
+    {
+        using var temp = new TempFolder();
+
+        Assert.Equal(0, Create(temp).SelectedTab);
+    }
+
+    [Fact]
+    public void Acentuacao_tem_quatro_cartoes_com_exemplo_e_o_aviso_do_cp1252_so_aparece_com_ele()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
+        Assert.Equal(["fold", "remap", "cp1252", "sjis"], vm.Encodings.Select(e => e.Id));
+        Assert.Equal("ação → acao", vm.Encodings[0].Sample);
+        Assert.All(vm.Encodings, e => Assert.False(string.IsNullOrWhiteSpace(e.Description)));
+        Assert.False(vm.ShowCp1252Warning);
+
+        vm.SelectedEncoding = vm.Encodings.Single(e => e.Id == "cp1252");
+
+        Assert.True(vm.ShowCp1252Warning);
+    }
+
+    [Fact]
+    public async Task Estimativa_por_modelo_usa_as_linhas_pendentes_do_projeto_e_o_preco_de_cada_modelo()
+    {
+        using var temp = new TempFolder();
+        var statuses = Enumerable.Repeat(TranslationStatus.Untranslated, 2000).Concat([TranslationStatus.Approved, TranslationStatus.Machine]).ToArray();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", statuses);
+        var pending = ProjectFolder.Open(root).LoadAllText().Values.SelectMany(u => u).Where(u => u.Status == TranslationStatus.Untranslated).ToList();
+        var expected = CostEstimator.EstimateForModels(pending, ClaudeModels.All);
+        var vm = Create(temp);
+
+        vm.Load(ProjectSummaryReader.Read(root));
+        await vm.EstimateLoading;
+
+        Assert.Equal(2000, vm.PendingLines);
+        foreach (var model in vm.Models)
+        {
+            var dollars = expected[model.Id].Dollars;
+            var text = $"US$ {Math.Round(dollars, 2, MidpointRounding.AwayFromZero).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',')}";
+            Assert.Equal(text, model.Estimate);
+            Assert.Equal($"{model.Use} · estimativa para as 2.000 pendentes: {text}", model.Detail);
+        }
+    }
+
+    [Fact]
+    public async Task Sem_linhas_pendentes_o_cartao_diz_isso_e_sem_projeto_mostra_so_o_uso()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        Assert.All(vm.Models, m => Assert.Equal(m.Use, m.Detail));
+
+        vm.Load(OpenProject(temp));
+        await vm.EstimateLoading;
+
+        Assert.Equal(0, vm.PendingLines);
+        Assert.All(vm.Models, m => Assert.Equal($"{m.Use} · nenhuma linha pendente", m.Detail));
+
+        vm.Load(null);
+        await vm.EstimateLoading;
+
+        Assert.All(vm.Models, m => Assert.Equal(m.Use, m.Detail));
+    }
+
+    [Fact]
+    public async Task Valor_abaixo_de_um_centavo_aparece_como_menos_de_um_centavo()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Pequeno", TranslationStatus.Untranslated);
+        var vm = Create(temp);
+
+        vm.Load(ProjectSummaryReader.Read(root));
+        await vm.EstimateLoading;
+
+        Assert.Equal("menos de US$ 0,01", vm.Models.Single(m => m.Id == ClaudeModels.Haiku).Estimate);
+    }
+
+    [Fact]
+    public async Task Abrir_outro_projeto_antes_da_estimativa_acabar_nao_deixa_o_numero_do_anterior()
+    {
+        using var temp = new TempFolder();
+        var big = SampleProjects.Create(temp.SubFolder("grande"), "Grande", Enumerable.Repeat(TranslationStatus.Untranslated, 500).ToArray());
+        var small = SampleProjects.Create(temp.SubFolder("pequeno"), "Pequeno", TranslationStatus.Untranslated);
+        var vm = Create(temp);
+
+        vm.Load(ProjectSummaryReader.Read(big));
+        vm.Load(ProjectSummaryReader.Read(small));
+        await vm.EstimateLoading;
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, vm.PendingLines);
+    }
+
+    [Fact]
+    public async Task Guia_de_estilo_vazio_remove_o_style_md()
     {
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
         var style = Path.Combine(summary.Root, "style.md");
         File.WriteAllText(style, "Antigo.");
         var vm = Create(temp);
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
 
         vm.StyleGuide = "   ";
-        vm.SaveProjectCommand.Execute(null);
 
         Assert.False(File.Exists(style));
     }
@@ -144,12 +320,14 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void Previa_aplica_as_regras_ligadas_na_hora_e_o_texto_do_projeto_nao_muda()
+    public async Task Previa_aplica_as_regras_ligadas_na_hora_e_o_texto_do_projeto_nao_muda()
     {
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
         var vm = Create(temp);
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
+        var textFile = Path.Combine(summary.Root, "text", "yst00001.json");
+        var textBefore = File.ReadAllBytes(textFile);
         vm.PreviewBefore = "Espera...  “Sim” ;";
         Assert.Equal("Espera...  “Sim” ;", vm.PreviewAfter);
 
@@ -162,7 +340,7 @@ public class SettingsViewModelTests
         vm.SelectedEllipsis = vm.EllipsisStyles.Single(e => e.Value == EllipsisStyle.Character);
         vm.SelectedQuotes = vm.QuoteStyles.Single(q => q.Value == QuoteStyle.Ascii);
         Assert.Equal("Espera… \"Sim\";", vm.PreviewAfter);
-        Assert.False(File.Exists(Path.Combine(summary.Root, ProjectFolder.FormattingFileName)));
+        Assert.Equal(textBefore, File.ReadAllBytes(textFile));
     }
 
     [Fact]
@@ -181,18 +359,17 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void Salvar_grava_o_formatting_json_e_mantem_as_regras_que_a_tela_nao_edita()
+    public async Task Salvar_grava_o_formatting_json_e_mantem_as_regras_que_a_tela_nao_edita()
     {
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
         var folder = ProjectFolder.Open(summary.Root);
         folder.SaveFormatting(FormattingProfile.Default with { Kinds = [TextUnitKind.Dialogue], Typography = new TypographyRule(Dash: '―') });
         var vm = Create(temp);
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
 
         vm.Nfc = true;
         vm.SpaceAfterPunctuation = true;
-        vm.SaveProjectCommand.Execute(null);
 
         var saved = folder.LoadFormatting();
         Assert.True(saved.Normalization.Nfc);
@@ -202,30 +379,33 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void Formatting_json_invalido_aparece_como_erro_em_portugues_e_nao_derruba_a_tela()
+    public async Task Formatting_json_invalido_aparece_como_erro_em_portugues_e_nao_derruba_a_tela()
     {
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
         File.WriteAllText(Path.Combine(summary.Root, ProjectFolder.FormattingFileName), "{ não é json");
         var vm = Create(temp);
 
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
 
         Assert.StartsWith("Não foi possível ler os ajustes do projeto", vm.ErrorMessage);
-        Assert.False(vm.SaveProjectCommand.CanExecute(null));
+        Assert.False(vm.HasProject);
+
+        vm.Nfc = true;
+
+        Assert.Equal("{ não é json", File.ReadAllText(Path.Combine(summary.Root, ProjectFolder.FormattingFileName)));
     }
 
     [Fact]
-    public void Salvar_chave_guarda_no_cofre_limpa_o_campo_e_nao_deixa_rastro_no_projeto()
+    public async Task Salvar_chave_guarda_no_cofre_limpa_o_campo_e_nao_deixa_rastro_no_projeto()
     {
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
         var vault = new MemoryApiKeyStore();
         var vm = Create(temp, vault);
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
         vm.SelectedModel = vm.Models[1];
         vm.StyleGuide = "Guia.";
-        vm.SaveProjectCommand.Execute(null);
 
         vm.NewApiKey = $"  {SecretKey}  ";
         vm.SaveKeyCommand.Execute(null);
@@ -234,12 +414,12 @@ public class SettingsViewModelTests
         Assert.Equal(string.Empty, vm.NewApiKey);
         Assert.Equal("Chave do Claude no Cofre do Windows", vm.KeyStatus);
         Assert.True(vm.KeyConfigured);
-        Assert.DoesNotContain(SecretKey, vm.KeyStatus + vm.StatusMessage + vm.ErrorMessage + vm.KeyMessage);
+        Assert.DoesNotContain(SecretKey, vm.KeyStatus + vm.KeyDetail + vm.ErrorMessage + vm.KeyMessage);
         AssertNoFileContains(temp.Path, SecretKey);
     }
 
     [Fact]
-    public void Chave_pelo_cofre_dpapi_real_tambem_nao_aparece_no_projeto()
+    public async Task Chave_pelo_cofre_dpapi_real_tambem_nao_aparece_no_projeto()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -249,11 +429,11 @@ public class SettingsViewModelTests
         using var temp = new TempFolder();
         var summary = OpenProject(temp);
         var vm = new SettingsViewModel(new DpapiApiKeyStore(temp.SubFolder("config")), new AppSettingsFile(temp.SubFolder("config")), _ => null);
-        vm.Load(summary);
+        await LoadAsync(vm, summary);
 
         vm.NewApiKey = SecretKey;
         vm.SaveKeyCommand.Execute(null);
-        vm.SaveProjectCommand.Execute(null);
+        vm.StyleGuide = "Guia.";
 
         Assert.Equal(SecretKey, new DpapiApiKeyStore(temp.SubFolder("config")).Load());
         AssertNoFileContains(summary.Root, SecretKey);
@@ -329,6 +509,164 @@ public class SettingsViewModelTests
 
         Assert.Equal("Não foi possível guardar a chave: o cofre não está disponível.", vm.KeyMessage);
         Assert.DoesNotContain(SecretKey, vm.KeyMessage);
+    }
+
+    [Fact]
+    public void Cartao_da_chave_diz_de_onde_ela_vem_sem_mostrar_o_valor()
+    {
+        using var temp = new TempFolder();
+        var vault = new MemoryApiKeyStore();
+        var vm = Create(temp, vault);
+        Assert.Equal("Não configurada · use Adicionar chave para guardá-la no Cofre do Windows", vm.KeyDetail);
+        Assert.Equal("Adicionar chave", vm.ChangeKeyLabel);
+
+        vault.Save(SecretKey);
+        vm = Create(temp, vault);
+        Assert.Equal("Configurada · guardada no Cofre do Windows (DPAPI), fora do projeto", vm.KeyDetail);
+        Assert.Equal("Trocar chave", vm.ChangeKeyLabel);
+
+        vm = Create(temp, vault, environmentKey: SecretKey);
+        Assert.Equal("Configurada · variável de ambiente ANTHROPIC_API_KEY, que vale mais que o cofre", vm.KeyDetail);
+        Assert.DoesNotContain(SecretKey, vm.KeyDetail);
+    }
+
+    [Fact]
+    public void Trocar_chave_abre_o_campo_cancelar_fecha_e_guardar_fecha_e_limpa()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        Assert.False(vm.IsChangingKey);
+
+        vm.ChangeKeyCommand.Execute(null);
+        Assert.True(vm.IsChangingKey);
+        vm.NewApiKey = SecretKey;
+        vm.CancelChangeKeyCommand.Execute(null);
+        Assert.False(vm.IsChangingKey);
+        Assert.Equal(string.Empty, vm.NewApiKey);
+
+        vm.ChangeKeyCommand.Execute(null);
+        vm.NewApiKey = SecretKey;
+        vm.SaveKeyCommand.Execute(null);
+
+        Assert.False(vm.IsChangingKey);
+        Assert.Equal("Configurada · guardada no Cofre do Windows (DPAPI), fora do projeto", vm.KeyDetail);
+    }
+
+    [Fact]
+    public void Apagar_a_chave_tambem_fecha_o_campo()
+    {
+        using var temp = new TempFolder();
+        var vault = new MemoryApiKeyStore();
+        vault.Save(SecretKey);
+        var vm = Create(temp, vault);
+        vm.ChangeKeyCommand.Execute(null);
+
+        vm.ClearKeyCommand.Execute(null);
+
+        Assert.False(vm.IsChangingKey);
+        Assert.Equal("Adicionar chave", vm.ChangeKeyLabel);
+    }
+
+    private sealed class StubClient(Func<ClaudeRequest, Task<ClaudeReply>> reply) : IClaudeMessageClient
+    {
+        public List<ClaudeRequest> Requests { get; } = [];
+
+        public Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct)
+        {
+            Requests.Add(request);
+            return reply(request);
+        }
+    }
+
+    [Fact]
+    public async Task Testar_conexao_usa_a_chave_resolvida_o_provedor_falso_e_avisa_que_deu_certo()
+    {
+        using var temp = new TempFolder();
+        var client = new StubClient(_ => Task.FromResult(new ClaudeReply("end_turn", "{\"ok\":true}")));
+        string? keyUsed = null;
+        var vm = Create(temp, environmentKey: SecretKey, client: key =>
+        {
+            keyUsed = key;
+            return client;
+        });
+
+        await vm.TestConnectionCommand.ExecuteAsync(null);
+
+        Assert.Equal(SecretKey, keyUsed);
+        Assert.True(vm.ConnectionOk);
+        Assert.StartsWith("Conexão funcionando", vm.ConnectionMessage);
+        Assert.Single(client.Requests);
+        Assert.False(vm.IsTestingConnection);
+        Assert.DoesNotContain(SecretKey, vm.ConnectionMessage);
+    }
+
+    [Fact]
+    public async Task Testar_conexao_sem_chave_nao_chama_a_api_e_manda_configurar()
+    {
+        using var temp = new TempFolder();
+        var chamadas = 0;
+        var vm = Create(temp, client: _ =>
+        {
+            chamadas++;
+            return new StubClient(_ => Task.FromResult(new ClaudeReply("end_turn", string.Empty)));
+        });
+
+        Assert.False(vm.TestConnectionCommand.CanExecute(null));
+        await vm.TestConnectionCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, chamadas);
+        Assert.False(vm.ConnectionOk);
+        Assert.Equal("Configure a chave da API antes de testar a conexão.", vm.ConnectionMessage);
+    }
+
+    [Fact]
+    public async Task Testar_conexao_com_falha_mostra_a_frase_em_portugues_sem_a_chave()
+    {
+        using var temp = new TempFolder();
+        var client = new StubClient(_ => throw new HttpRequestException($"falhou com {SecretKey}"));
+        var vm = Create(temp, environmentKey: SecretKey, client: _ => client);
+
+        await vm.TestConnectionCommand.ExecuteAsync(null);
+
+        Assert.False(vm.ConnectionOk);
+        Assert.Contains("rede", vm.ConnectionMessage);
+        Assert.DoesNotContain(SecretKey, vm.ConnectionMessage);
+    }
+
+    [Fact]
+    public async Task Testar_conexao_trava_o_botao_enquanto_espera_e_nao_dispara_duas_vezes()
+    {
+        using var temp = new TempFolder();
+        var gate = new TaskCompletionSource<ClaudeReply>();
+        var client = new StubClient(_ => gate.Task);
+        var vm = Create(temp, environmentKey: SecretKey, client: _ => client);
+
+        var running = vm.TestConnectionCommand.ExecuteAsync(null);
+        Assert.True(vm.IsTestingConnection);
+        Assert.False(vm.TestConnectionCommand.CanExecute(null));
+        Assert.Null(vm.ConnectionMessage);
+
+        gate.SetResult(new ClaudeReply("end_turn", string.Empty));
+        await running;
+
+        Assert.False(vm.IsTestingConnection);
+        Assert.True(vm.TestConnectionCommand.CanExecute(null));
+        Assert.Single(client.Requests);
+    }
+
+    [Fact]
+    public async Task Trocar_ou_apagar_a_chave_limpa_o_resultado_do_teste_anterior()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp, client: _ => new StubClient(_ => Task.FromResult(new ClaudeReply("end_turn", string.Empty))));
+        vm.NewApiKey = SecretKey;
+        vm.SaveKeyCommand.Execute(null);
+        await vm.TestConnectionCommand.ExecuteAsync(null);
+        Assert.NotNull(vm.ConnectionMessage);
+
+        vm.ClearKeyCommand.Execute(null);
+
+        Assert.Null(vm.ConnectionMessage);
     }
 
     private static void AssertNoFileContains(string root, string secret)
