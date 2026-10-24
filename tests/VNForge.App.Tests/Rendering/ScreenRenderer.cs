@@ -17,14 +17,12 @@ internal static class ScreenRenderer
     public const int Width = 1440;
     public const int Height = 1000;
 
-    public static readonly ThemeVariant[] Themes = [ThemeVariant.Dark, ThemeVariant.Light];
-
     /// <summary>Nome do arquivo no formato <c>tela-escuro.png</c>.</summary>
     public static string FileName(string screen, ThemeVariant theme) =>
         $"{screen}-{(theme == ThemeVariant.Light ? "claro" : "escuro")}.png";
 
     /// <summary>Monta a janela, deixa o layout assentar e devolve o quadro renderizado. Chamar na thread da sessão headless.</summary>
-    public static void Render(Control content, ThemeVariant theme, string path, int width = Width, int height = Height)
+    public static void Render(Control content, ThemeVariant theme, string path, int width = Width, int height = Height, Action<Window>? inspect = null)
     {
         var window = new Window
         {
@@ -33,14 +31,13 @@ internal static class ScreenRenderer
             RequestedThemeVariant = theme,
             Content = content,
         };
-        window.Bind(
-            TemplatedControl_BackgroundProperty,
-            window.GetResourceObservable("Vnf.BgLayer"));
+        window.Bind(Window.BackgroundProperty, window.GetResourceObservable("Vnf.BgLayer"));
         try
         {
             window.Show();
             Settle(window);
             Save(window, path);
+            inspect?.Invoke(window);
         }
         finally
         {
@@ -64,6 +61,4 @@ internal static class ScreenRenderer
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
     }
-
-    private static readonly AvaloniaProperty<IBrush?> TemplatedControl_BackgroundProperty = Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty;
 }

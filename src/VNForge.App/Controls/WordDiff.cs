@@ -76,6 +76,6 @@ public static partial class WordDiff
     [GeneratedRegex(@"\\[pcu]")]
     private static partial Regex Pauses();
 
-    [GeneratedRegex(" +")]
+    [GeneratedRegex(@"\s+")]
     private static partial Regex Spaces();
 }

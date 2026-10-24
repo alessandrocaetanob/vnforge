@@ -54,4 +54,12 @@ public class WordDiffTests
         Assert.All(diff, s => Assert.Equal(DiffKind.Delete, s.Kind));
         Assert.Equal(2, diff.Count);
     }
+
+    [Fact]
+    public void Quebra_de_linha_real_separa_palavras_como_o_espaco()
+    {
+        var diff = WordDiff.Compute("Tem certeza?\nVocê vai", "Tem certeza? Você vai");
+
+        Assert.All(diff, s => Assert.Equal(DiffKind.Equal, s.Kind));
+    }
 }

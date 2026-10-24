@@ -11,6 +11,7 @@
           <Grid RowDefinitions="Auto,*,Auto">
             <StackPanel Spacing="8" Margin="16,16,16,0">
               <TextBlock Classes="overline" Text="{TemplateBinding Title}"/>
+              <!-- O Padding inferior evita o corte dos descendentes: a altura de linha de 32 é menor que a métrica da Zen Kaku em 28. -->
               <TextBlock Name="PART_Value" Text="{TemplateBinding Value}" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="28" LineHeight="32" Padding="0,0,0,3"
                         FontWeight="Bold"/>
               <TextBlock Classes="body-sm secondary" Text="{TemplateBinding Description}" TextWrapping="Wrap"
