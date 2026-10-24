@@ -336,15 +336,12 @@ public class EditorViewModelTests
     }
 
     [Fact]
-    public async Task Detail_comeca_nulo_e_aceita_o_ViewModel_do_painel()
+    public async Task Detail_fica_nulo_quando_a_pasta_do_projeto_nao_abre()
     {
         var vm = await Carregado();
+
+        Assert.NotNull(vm.SelectedLine);
         Assert.Null(vm.Detail);
-
-        var painel = new object();
-        vm.Detail = painel;
-
-        Assert.Same(painel, vm.Detail);
     }
 
     [Fact]

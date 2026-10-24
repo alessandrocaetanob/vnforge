@@ -1,0 +1,28 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- MarkerChip (docs/design/components/MarkerChip): bloco atômico para \n, \p, \c, \u e {VARIÁVEL}.
+       O Border não tem borda tracejada, então o contorno é um Rectangle: tracejado para controle, contínuo para variável. -->
+  <Style Selector="Border.marker">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Margin" Value="1,0"/>
+  </Style>
+  <Style Selector="Border.marker TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontMono}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    <Setter Property="Margin" Value="6,1"/>
+  </Style>
+  <Style Selector="Border.marker Rectangle.outline">
+    <Setter Property="Fill" Value="Transparent"/>
+    <Setter Property="Stroke" Value="{DynamicResource Vnf.AccentText}"/>
+    <Setter Property="StrokeThickness" Value="1"/>
+    <Setter Property="RadiusX" Value="4"/>
+    <Setter Property="RadiusY" Value="4"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+  </Style>
+  <Style Selector="Border.marker.control Rectangle.outline">
+    <Setter Property="StrokeDashArray" Value="3,2"/>
+  </Style>
+</Styles>

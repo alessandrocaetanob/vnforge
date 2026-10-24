@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:ae="using:AvaloniaEdit"
+             x:Class="VNForge.App.Views.LineDetailView"
+             x:DataType="vm:LineDetailViewModel">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/MarkerChip.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/LineDetail.axaml"/>
+  </UserControl.Styles>
+
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="Ctrl+Enter" Command="{Binding ApproveAndNextCommand}"/>
+    <KeyBinding Gesture="Alt+Up" Command="{Binding PreviousCommand}"/>
+    <KeyBinding Gesture="Alt+Down" Command="{Binding NextCommand}"/>
+  </UserControl.KeyBindings>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="16" Spacing="12">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="overline" Text="ORIGINAL"/>
+          <TextBlock Classes="mono secondary" Text="{Binding Id}" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" Text="{Binding StatusText}" AutomationProperties.Name="Status da linha"/>
+      </Grid>
+
+      <TextBlock Classes="body-strong" Text="{Binding Speaker}" IsVisible="{Binding Speaker, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      <TextBlock x:Name="SourceText" Classes="jp-body" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+
+      <TextBlock Classes="overline" Text="TRADUÇÃO"/>
+      <Border Classes="field">
+        <ae:TextEditor x:Name="TranslationEditor" Classes="translation" AutomationProperties.Name="Tradução"/>
+      </Border>
+
+      <Border Classes="infobar warning" IsVisible="{Binding HasMissingMarkers}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding MissingMarkersText}"/>
+        </Grid>
+      </Border>
+      <Border Classes="infobar warning" IsVisible="{Binding MarkerProblem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding MarkerProblem}"/>
+        </Grid>
+      </Border>
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Grid>
+      </Border>
+
+      <TextBlock Classes="overline" Text="NOTAS"/>
+      <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Notas da linha"/>
+
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+        <Button Classes="icon" Command="{Binding PreviousCommand}" AutomationProperties.Name="Linha anterior" ToolTip.Tip="Linha anterior (Alt+↑)">
+          <TextBlock Text="↑"/>
+        </Button>
+        <Button Grid.Column="1" Classes="icon" Command="{Binding NextCommand}" AutomationProperties.Name="Próxima linha" ToolTip.Tip="Próxima linha (Alt+↓)">
+          <TextBlock Text="↓"/>
+        </Button>
+        <Button Grid.Column="2" HorizontalAlignment="Right" Command="{Binding ApproveCommand}" ToolTip.Tip="Aprova a linha e fica nela">
+          <TextBlock Text="Aprovar"/>
+        </Button>
+        <Button Grid.Column="3" Classes="accent" Command="{Binding ApproveAndNextCommand}" ToolTip.Tip="Aprova e vai para a próxima linha (Ctrl+Enter)">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
+            <TextBlock Text="Aprovar e avançar" FontWeight="SemiBold"/>
+          </StackPanel>
+        </Button>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

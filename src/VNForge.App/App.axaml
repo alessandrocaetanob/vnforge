@@ -25,6 +25,9 @@
     <DataTemplate DataType="vm:EditorViewModel">
       <views:EditorView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:LineDetailViewModel">
+      <views:LineDetailView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:SettingsViewModel">
       <views:SettingsView/>
     </DataTemplate>
