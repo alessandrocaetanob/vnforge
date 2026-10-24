@@ -100,7 +100,7 @@ public class MainWindowFrameHeadlessTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.Contains("Ctrl+K", texts);
                     Assert.Contains("Minha VN", texts);
                     Assert.Contains("Conferir", texts);
-                    Assert.Contains("1", texts);
+                    Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "1" && t.DataContext is NavItemViewModel { Key: NavKey.Conference });
                     Assert.Contains("Glossário", texts);
                     Assert.Contains("Ajustes", texts);
                     Assert.DoesNotContain("Busca", texts);

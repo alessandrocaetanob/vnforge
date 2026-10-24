@@ -64,6 +64,26 @@ public class MainWindowRailTests
     }
 
     [Fact]
+    public async Task Contador_acompanha_o_Editor_trocado_no_inicializador()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        var units = folder.LoadText("yst00001").ToList();
+        units[0] = units[0] with { Translation = "duas  palavras" };
+        folder.SaveText("yst00001", units);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)))
+        {
+            Editor = new EditorViewModel(),
+        };
+
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+
+        Assert.Equal(1, vm.Nav.Single(n => n.Key == NavKey.Conference).Badge);
+    }
+
+    [Fact]
     public async Task Contador_passa_a_valer_o_da_ultima_conferencia()
     {
         using var temp = new TempFolder();

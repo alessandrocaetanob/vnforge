@@ -121,7 +121,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public DashboardViewModel Dashboard { get; } = new();
 
-    public EditorViewModel Editor { get; init; } = new();
+    public EditorViewModel Editor
+    {
+        get;
+        init
+        {
+            // O app troca o Editor no inicializador de objeto, depois do construtor: a escuta do contador e da gravação passa para o novo.
+            field.PropertyChanged -= OnEditorChanged;
+            field = value;
+            field.PropertyChanged += OnEditorChanged;
+        }
+    } = new();
 
     public SettingsViewModel Settings { get; }
 
