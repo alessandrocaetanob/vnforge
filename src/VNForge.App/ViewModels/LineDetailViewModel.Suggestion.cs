@@ -51,7 +51,7 @@ public sealed partial class LineDetailViewModel
         try
         {
             var result = await suggester.SuggestAsync(unit, cancellation.Token);
-            if (!cancellation.IsCancellationRequested && !disposed)
+            if (!cancellation.IsCancellationRequested)
             {
                 Suggestion = result.Text;
                 SuggestionSource = result.FromFakeProvider
@@ -63,7 +63,7 @@ public sealed partial class LineDetailViewModel
         {
             // O provedor pode lançar de tudo (rede, SDK, recusa); um pedido cancelado por Dispose não mostra erro.
             // Cancelamento sem Dispose é tempo esgotado e entra no mapeamento.
-            if (!cancellation.IsCancellationRequested && !disposed)
+            if (!cancellation.IsCancellationRequested)
             {
                 var reason = e is LineSuggestionException ? e.Message : ClaudeErrorMessages.Describe(e);
                 SuggestionError = $"Não foi possível pedir a sugestão: {reason} A tradução da linha não mudou.";

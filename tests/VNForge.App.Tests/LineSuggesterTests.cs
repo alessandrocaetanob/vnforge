@@ -6,7 +6,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
-public class LineSuggesterTests : IDisposable
+public sealed class LineSuggesterTests : IDisposable
 {
     private static readonly TextUnit Linha = new("yst00001:000000", TextUnitKind.Dialogue, null, "原文", null, TranslationStatus.Untranslated);
 

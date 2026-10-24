@@ -7,7 +7,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
-public class LineSuggestionTests : IDisposable
+public sealed class LineSuggestionTests : IDisposable
 {
     private readonly TempFolder pasta = new();
     private readonly FakeTimeProvider relogio = new(new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero));
