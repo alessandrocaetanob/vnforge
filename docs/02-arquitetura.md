@@ -54,6 +54,8 @@ Os testes usam xUnit v3 (`xunit.v3.mtp-v2`) sobre o Microsoft.Testing.Platform. 
 
 O `SONAR_TOKEN` fica no contexto `sonarcloud` do CircleCI, usado só pelo job `windows`. PR de fork não recebe o contexto ("Pass secrets to builds from forked pull requests" fica desligado): o job detecta a falta do token, pula o Sonar e roda só build e testes. Nenhum segredo entra no repositório.
 
+**Publicação da CLI (E9.3).** Uma tag `vX.Y.Z` (ou `vX.Y.Z-rc1`) dispara o job `publicar`, que só roda depois de `linux` e `windows` verdes. Os dois também levam `filters: tags` no workflow: sem isso o CircleCI não os dispara por tag e o `publicar` nunca começa. O job publica `src/VNForge.Cli` como executável único autocontido para `win-x64` e `linux-x64` (sem trimming; ver doc 03, "Em aberto"), com `-p:Version` tirado da tag, empacota em `.zip` e `.tar.gz`, confere que o `vnf` do Linux responde `vnf <versão>` e guarda `dist/` com `store_artifacts`. Em seguida cria o release do GitHub com `curl`, mas só se a variável `GITHUB_TOKEN` existir nas variáveis de ambiente do projeto no CircleCI (token com permissão de escrever em releases); sem ela o job termina verde e o pacote fica só nos artefatos.
+
 **Armadilha: análise automática.** A "Automatic Analysis" do SonarCloud não passa pelo build, então não enxerga o `Nullable` do `Directory.Build.props` e acusa a S8970 em todo operador `!`. Ela também ignora `sonar-project.properties`, e desativar uma regra exige perfil de qualidade personalizado, que é pago. Por isso a análise automática fica desligada no projeto (as duas não rodam juntas); ligá-la de novo traz a S8970 de volta e conflita com a análise do CI.
 
 `Core` não conhece nenhuma engine nem nenhum provedor de IA. As engines e a IA implementam interfaces do `Core`.

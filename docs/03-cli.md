@@ -236,4 +236,8 @@ $ vnf run
 ## Em aberto
 
 - [x] Nome do executável: `vnf` (decidido em [01-nome.md](01-nome.md)).
-- [ ] Distribuição: executável único autocontido (`dotnet publish -p:PublishSingleFile=true`) ou `dotnet tool install -g`?
+- [x] Distribuição (D5, decidido em 24/10/2026): **executável único autocontido**, gerado com `dotnet publish -p:PublishSingleFile=true --self-contained`. Quem traduz baixa o `vnf` e roda, sem instalar o SDK nem o runtime do .NET; `dotnet tool install -g` exigiria o SDK. Detalhes:
+  - **RIDs**: `win-x64` (público principal, o app e os jogos são Windows) e `linux-x64` (custo zero: o mesmo `dotnet publish` roda no job do CI). `win-arm64`, `osx-*` e `linux-arm64` ficam de fora até alguém pedir.
+  - **Sem trimming** (`PublishTrimmed` desligado). O `System.CommandLine` e o SDK `Anthropic` usam reflexão e serialização por reflexão; o trimming exigiria anotar e testar os dois, e o ganho é só de tamanho. O pacote sai com compressão do single-file (`EnableCompressionInSingleFile`), cerca de 41 MB no `win-x64`.
+  - **Pacote**: `vnf-<versão>-win-x64.zip` e `vnf-<versão>-linux-x64.tar.gz`, cada um com o executável e o `README.md`, mais `SHA256SUMS.txt`. A versão vem da tag (`v1.2.3` vira `1.2.3`) e aparece em `vnf --version`.
+  - **Publicação (E9.3)**: a cada tag `vX.Y.Z` (ou `vX.Y.Z-rc1`), o job `publicar` do CircleCI gera o pacote e o guarda como artefato; se o projeto tiver `GITHUB_TOKEN`, também cria o release do GitHub. Ver "CI" em [02-arquitetura.md](02-arquitetura.md).

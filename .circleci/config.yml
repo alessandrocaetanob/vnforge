@@ -41,8 +41,10 @@ jobs:
           command: |
             $ErrorActionPreference = 'Stop'
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile dotnet-install.ps1
-            ./dotnet-install.ps1 -JsonFile global.json -InstallDir $dir
+            # O script fica fora do checkout: dentro dele o Sonar o analisaria como código do projeto.
+            $installer = Join-Path $env:TEMP 'dotnet-install.ps1'
+            Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installer
+            & $installer -JsonFile global.json -InstallDir $dir
             $env:DOTNET_ROOT = $dir
             $env:PATH = "$dir;$env:PATH"
             dotnet --info
@@ -55,6 +57,11 @@ jobs:
             $env:PATH = "$dir;$env:PATH"
             if (-not $env:SONAR_TOKEN) {
               Write-Host 'SONAR_TOKEN ausente (PR de fork): build e testes seguem sem análise do Sonar.'
+              exit 0
+            }
+            # Build de tag não tem CIRCLE_BRANCH: o Sonar não tem a que ligar a análise.
+            if ($env:CIRCLE_TAG) {
+              Write-Host 'Build de tag: sem análise do Sonar.'
               exit 0
             }
             dotnet tool install --global dotnet-sonarscanner --version 11.3.0
@@ -101,7 +108,7 @@ jobs:
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
             $env:DOTNET_ROOT = $dir
             $env:PATH = "$dir;$env:USERPROFILE\.dotnet\tools;$env:PATH"
-            if ($env:SONAR_TOKEN) {
+            if (Test-Path .sonar-begun) {
               dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
             } else {
               dotnet test --solution VNForge.slnx --configuration Release --no-build
@@ -119,11 +126,89 @@ jobs:
             dotnet sonarscanner end "/d:sonar.token=$env:SONAR_TOKEN"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+  publicar:
+    docker:
+      - image: mcr.microsoft.com/dotnet/sdk:10.0
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - checkout
+      - run:
+          name: Empacota a CLI (win-x64 e linux-x64)
+          command: |
+            set -euo pipefail
+            apt-get update -qq && apt-get install -y -qq zip
+            # v1.2.3 vira 1.2.3; o --version do vnf passa a mostrar a versão da tag.
+            version="${CIRCLE_TAG#v}"
+            mkdir -p dist
+            for rid in win-x64 linux-x64; do
+              dotnet publish src/VNForge.Cli --configuration Release --runtime "$rid" --self-contained \
+                -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
+                -p:DebugType=None -p:Version="$version" --output "publish/$rid"
+              name="vnf-$version-$rid"
+              mkdir -p "pack/$name"
+              cp publish/$rid/vnf* "pack/$name/"
+              cp README.md "pack/$name/"
+              if [ "$rid" = win-x64 ]; then
+                (cd pack && zip -qr "../dist/$name.zip" "$name")
+              else
+                chmod +x "pack/$name/vnf"
+                tar -C pack -czf "dist/$name.tar.gz" "$name"
+              fi
+            done
+            (cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - run:
+          name: Executa o vnf do Linux
+          command: |
+            version="${CIRCLE_TAG#v}"
+            dir="$(mktemp -d)"; tar -xzf "dist/vnf-$version-linux-x64.tar.gz" -C "$dir" --strip-components=1
+            test "$("$dir/vnf" --version)" = "vnf $version"
+      - store_artifacts:
+          path: dist
+      - run:
+          name: Release do GitHub
+          command: |
+            set -euo pipefail
+            # Sem GITHUB_TOKEN no projeto do CircleCI, o pacote fica só como artefato do job.
+            if [ -z "${GITHUB_TOKEN:-}" ]; then
+              echo "GITHUB_TOKEN ausente: sem release do GitHub, o pacote está nos artefatos do job."
+              exit 0
+            fi
+            api="https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+            auth="Authorization: Bearer $GITHUB_TOKEN"
+            response="$(curl -fsS -X POST -H "$auth" "$api/releases" \
+              -d "{\"tag_name\":\"$CIRCLE_TAG\",\"name\":\"$CIRCLE_TAG\",\"generate_release_notes\":true}")"
+            upload="$(echo "$response" | sed -n 's/.*"upload_url": *"\([^{"]*\).*/\1/p' | head -n1)"
+            for f in dist/*; do
+              curl -fsS -X POST -H "$auth" -H "Content-Type: application/octet-stream" \
+                --data-binary "@$f" "$upload?name=$(basename "$f")" >/dev/null
+              echo "Enviado: $(basename "$f")"
+            done
+
 workflows:
   ci:
     jobs:
-      - linux
+      # Os jobs de que o publicar depende também precisam do filtro de tags: o CircleCI
+      # não dispara por tag um job sem `filters: tags`, e o requires ficaria sem pai.
+      - linux:
+          filters:
+            tags:
+              only: /.*/
       # O contexto guarda o SONAR_TOKEN. PRs de fork não o recebem ("Pass secrets to
       # builds from forked pull requests" fica desligado): o job roda sem análise.
       - windows:
           context: sonarcloud
+          filters:
+            tags:
+              only: /.*/
+      # Só tag de versão (v1.2.3 ou v1.2.3-rc1) e só depois de linux e windows verdes.
+      - publicar:
+          requires:
+            - linux
+            - windows
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/
+            branches:
+              ignore: /.*/
