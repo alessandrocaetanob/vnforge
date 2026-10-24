@@ -709,6 +709,30 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Linha_nao_traduzida_nao_bloqueia_o_build_e_vai_contada_no_resultado()
+    {
+        Translate("a001", (0, "Olá"));
+
+        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([new UntranslatedQaRule()]));
+
+        Assert.True(result.Qa.UntranslatedCount > 0);
+        Assert.Empty(result.Qa.OtherIssues);
+        Assert.NotEmpty(Directory.EnumerateFileSystemEntries(_project.BuildDirectory));
+    }
+
+    [Fact]
+    public void Outro_aviso_junto_da_nao_traduzida_continua_bloqueando_sem_allow_warnings()
+    {
+        Translate("a001", (0, ""));
+        var qa = new QaEngine([new UntranslatedQaRule(), new QaEngineTests.FlagEmpty("traducao-vazia", QaSeverity.Warning)]);
+
+        var ex = Assert.Throws<QaBlockedException>(() => ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: qa));
+
+        Assert.DoesNotContain("nao-traduzida", ex.Message);
+        Assert.Contains("traducao-vazia", ex.Message);
+    }
+
+    [Fact]
     public void Aviso_marcado_como_ok_nao_para_o_build_e_conta_como_silenciado()
     {
         Translate("a001", (0, ""));

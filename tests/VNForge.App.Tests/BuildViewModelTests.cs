@@ -1,6 +1,9 @@
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
+using System.Text;
+using VNForge.Core.Engines;
 using VNForge.Core.Projects;
+using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
@@ -400,6 +403,119 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.Empty(vm.Log);
         Assert.Null(vm.ErrorMessage);
         Assert.False(vm.IsConfirming);
+    }
+
+    private BuildViewModel BuildableVm(QaEngine qa)
+    {
+        var scripts = Path.Combine(folder.GameCacheDirectory, "pkg");
+        Directory.CreateDirectory(scripts);
+        File.WriteAllText(Path.Combine(scripts, "a001.fake"), "x");
+        folder.SaveText("a001",
+        [
+            new TextUnit("a001:000000", TextUnitKind.Dialogue, null, "こんにちは", "Olá", TranslationStatus.Translated),
+            new TextUnit("a001:000001", TextUnitKind.Dialogue, null, "さようなら", null, TranslationStatus.Untranslated),
+            new TextUnit("a001:000002", TextUnitKind.Dialogue, null, "また", null, TranslationStatus.Untranslated),
+        ]);
+        return new BuildViewModel(new BackgroundTaskService(), [new BuildableEngine()], starter, qa)
+        {
+            Project = ProjectSummaryReader.Read(folder.Root),
+        };
+    }
+
+    [Fact]
+    public async Task Build_de_projeto_parcial_grava_sem_permitir_avisos_e_mostra_a_contagem_no_resumo()
+    {
+        var vm = BuildableVm(new QaEngine([new UntranslatedQaRule()]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.False(vm.AllowWarnings);
+        Assert.Null(vm.ErrorMessage);
+        Assert.True(File.Exists(Path.Combine(folder.BuildDirectory, Ysbin)));
+        Assert.Contains("QA: 2 linhas sem tradução; o build copiou o original nelas.", vm.Summary);
+        Assert.DoesNotContain(vm.Log, l => l.Contains("[nao-traduzida]", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Outro_aviso_do_qa_continua_bloqueando_e_a_mensagem_nao_conta_as_linhas_sem_traducao()
+    {
+        var vm = BuildableVm(new QaEngine([new UntranslatedQaRule(), new BadTranslationRule()]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.False(File.Exists(Path.Combine(folder.BuildDirectory, Ysbin)));
+        Assert.Contains("1 aviso", vm.ErrorMessage);
+        Assert.Contains(vm.Log, l => l.Contains("[traducao-ruim]", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Contains("2 linhas sem tradução", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Outro_aviso_do_qa_liberado_aparece_no_resumo_junto_da_contagem()
+    {
+        var vm = BuildableVm(new QaEngine([new UntranslatedQaRule(), new BadTranslationRule()]));
+        vm.AllowWarnings = true;
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.Contains(vm.Summary, l => l.Contains("liberados por 'Permitir avisos do QA'", StringComparison.Ordinal));
+        Assert.Contains(vm.Summary, l => l.Contains("2 linhas sem tradução", StringComparison.Ordinal));
+    }
+
+    private sealed class BadTranslationRule : UnitQaRule
+    {
+        public override string Id => "traducao-ruim";
+
+        public override string Description => "Teste.";
+
+        public override QaSeverity Severity => QaSeverity.Warning;
+
+        protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
+        {
+            if (unit.Translation == "Olá")
+            {
+                yield return "recusada";
+            }
+        }
+    }
+
+    private sealed class BuildableEngine : IEngine, IGameUnpacker, IGameRepacker
+    {
+        private readonly BuildableFormat format = new();
+
+        public string Id => "yuris";
+
+        public EngineDetection Detect(string gameDir) => EngineDetection.NotDetected;
+
+        public IReadOnlyList<IArchiveFormat> Archives => [];
+
+        public IReadOnlyList<IScriptFormat> Scripts => [format];
+
+        public IReadOnlyList<IGamePatch> Patches => [];
+
+        public GameUnpackResult Unpack(string gameDir, string destinationDirectory, CancellationToken cancellationToken = default) => new([]);
+
+        public UnpackedGame Open(string unpackedDirectory) =>
+            new(new BuildableContext(), [.. Directory.EnumerateFiles(unpackedDirectory, "*", SearchOption.AllDirectories).Select(f => new UnpackedScript(Path.GetFileName(f), f, format, null))]);
+
+        public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, CancellationToken cancellationToken = default)
+        {
+            File.WriteAllText(Path.Combine(outputDirectory, Ysbin), "reconstruido");
+            return new GameRepackResult([new RepackedArchive(Ysbin, rebuilt.Count)]);
+        }
+    }
+
+    private sealed class BuildableContext() : EngineContext("yuris");
+
+    private sealed class BuildableFormat : IScriptFormat
+    {
+        public string Id => "fake";
+
+        public IReadOnlyList<string> FileExtensions => [".fake"];
+
+        public ScriptExtraction Extract(ScriptFile file, EngineContext ctx) => new([]);
+
+        public byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext ctx) => Encoding.UTF8.GetBytes("x");
     }
 
     private sealed class BlockingStarter : IGameProcessStarter

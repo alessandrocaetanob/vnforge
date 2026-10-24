@@ -50,7 +50,7 @@ public sealed record BuildResult(
 /// </summary>
 /// <remarks>
 /// O <see cref="ITextEncoder"/> vem do <c>encoding.strategy</c> do <c>vnforge.json</c> (<see cref="TextEncoderRegistry"/>). Antes de reconstruir, o
-/// build roda o QA (<see cref="QaEngine"/>) e recusa com <see cref="QaBlockedException"/> se achar erro, ou aviso sem <c>allowWarnings</c>; os avisos que a linha marcou como "ok" não contam. Depois confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
+/// build roda o QA (<see cref="QaEngine"/>) e recusa com <see cref="QaBlockedException"/> se achar erro, ou aviso (exceto linha sem tradução) sem <c>allowWarnings</c>; os avisos que a linha marcou como "ok" não contam. Depois confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
 /// (<see cref="EncodingReportException"/>). Antes disso o texto passa pelo pipeline do <c>formatting.json</c> (<see cref="FormattingPipeline"/>), então
 /// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Cada pacote descompactado
 /// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
@@ -63,7 +63,7 @@ public static class ProjectBuilder
     /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento não deixa <c>build/</c> pela metade.</param>
     /// <param name="encoders">Estratégias disponíveis; o padrão é <see cref="TextEncoderRegistry.Default"/>.</param>
     /// <param name="qa">Regras de QA que rodam antes de reconstruir; o padrão é <see cref="QaEngine.Default"/>.</param>
-    /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre.</param>
+    /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre, e aviso de linha sem tradução (<see cref="UntranslatedQaRule"/>) nunca bloqueia.</param>
     /// <param name="options">Build incremental e estratégia de codificação só deste build; <c>null</c> reconstrói tudo com a estratégia do <c>vnforge.json</c>.</param>
     /// <exception cref="QaBlockedException">O QA achou erro, ou aviso sem <paramref name="allowWarnings"/>; nada é gravado.</exception>
     /// <exception cref="VNForgeException">

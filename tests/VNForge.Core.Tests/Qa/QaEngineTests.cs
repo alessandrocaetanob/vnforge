@@ -126,6 +126,38 @@ public sealed class QaEngineTests
         Assert.False(report.Blocks(allowWarnings: true));
     }
 
+    [Fact]
+    public void Linha_nao_traduzida_nunca_bloqueia_mas_e_contada()
+    {
+        var report = new QaEngine([new UntranslatedQaRule()]).Run(Context(new TextUnit("a:1", TextUnitKind.Dialogue, null, "こんにちは", null, TranslationStatus.Untranslated)));
+
+        Assert.False(report.Blocks(allowWarnings: false));
+        Assert.Equal(1, report.UntranslatedCount);
+        Assert.Empty(report.OtherIssues);
+    }
+
+    [Fact]
+    public void Nao_traduzida_junto_de_outro_aviso_deixa_o_outro_bloquear()
+    {
+        var engine = new QaEngine([new UntranslatedQaRule(), new FlagEmpty("aviso-x", QaSeverity.Warning)]);
+        var report = engine.Run(Context(Unit("a:1", ""), new TextUnit("a:2", TextUnitKind.Dialogue, null, "こんにちは", null, TranslationStatus.Untranslated)));
+
+        Assert.True(report.Blocks(allowWarnings: false));
+        Assert.False(report.Blocks(allowWarnings: true));
+        Assert.Equal(1, report.UntranslatedCount);
+    }
+
+    [Fact]
+    public void DescribeUntranslated_usa_singular_plural_e_fica_vazio_sem_linhas()
+    {
+        static QaReport Report(int n) => new QaEngine([new UntranslatedQaRule()]).Run(Context(
+            [.. Enumerable.Range(1, n).Select(i => new TextUnit($"a:{i}", TextUnitKind.Dialogue, null, "こんにちは", null, TranslationStatus.Untranslated))]));
+
+        Assert.Equal(string.Empty, QaBlockedException.DescribeUntranslated(Report(0)));
+        Assert.Equal("QA: 1 linha sem tradução; o build copiou o original nela.", QaBlockedException.DescribeUntranslated(Report(1)));
+        Assert.Equal("QA: 1.254 linhas sem tradução; o build copiou o original nelas.", QaBlockedException.DescribeUntranslated(Report(1254)));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("Maiuscula")]
