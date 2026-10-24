@@ -96,7 +96,7 @@
             </Border>
             <Grid Grid.Row="1" Margin="16" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="14">
               <Border Classes="infobar" Classes.success="{Binding IsResultSuccess}" Classes.warning="{Binding IsResultWarning}"
-                      Classes.error="{Binding IsResultError}" AutomationProperties.Name="Estado do build">
+                      AutomationProperties.Name="Estado do build">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                   <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
                             Data="{Binding ResultIconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
@@ -186,6 +186,8 @@
             </Border>
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,0,16,12" Text="{Binding BackupMessage}"
                        IsVisible="{Binding !HasBackups}"/>
+            <TextBlock DockPanel.Dock="Bottom" Classes="caption secondary" TextWrapping="Wrap" Margin="16,8,16,12" Text="{Binding BackupMessage}"
+                       IsVisible="{Binding HasRestoreProblem}" AutomationProperties.Name="Por que não dá para restaurar"/>
             <ItemsControl ItemsSource="{Binding Backups}" IsVisible="{Binding HasBackups}" AutomationProperties.Name="Lista de backups">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:BackupRow">

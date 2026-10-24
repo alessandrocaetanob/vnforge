@@ -35,7 +35,6 @@ public enum BuildResultTone
     Info,
     Success,
     Warning,
-    Error,
 }
 
 /// <summary>Uma linha da lista "o que muda no jogo": o caminho relativo à pasta do jogo e se o arquivo substitui um original ou é novo.</summary>
@@ -139,6 +138,10 @@ public sealed partial class BuildViewModel : ObservableObject
     [ObservableProperty]
     public partial string LogSummary { get; private set; } = string.Empty;
 
+    /// <summary>Há backups na pasta mas a restauração não pôde ser planejada: <see cref="BackupMessage"/> diz por quê.</summary>
+    [ObservableProperty]
+    public partial bool HasRestoreProblem { get; private set; }
+
     /// <summary>Rodapé da lista de backups: a pasta, a garantia de que fica fora do git e quantos há.</summary>
     [ObservableProperty]
     public partial string BackupFooter { get; private set; } = string.Empty;
@@ -183,15 +186,12 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         BuildResultTone.Success => "Icon.Check",
         BuildResultTone.Warning => "Icon.Warning",
-        BuildResultTone.Error => "Icon.Error",
         _ => "Icon.Info",
     };
 
     public bool IsResultSuccess => ResultTone == BuildResultTone.Success;
 
     public bool IsResultWarning => ResultTone == BuildResultTone.Warning;
-
-    public bool IsResultError => ResultTone == BuildResultTone.Error;
 
     /// <summary>A linha de apoio de "Permitir avisos do QA": erros sempre bloqueiam, e quantos avisos há hoje.</summary>
     public string AllowWarningsDescription => QaWarningCount switch
@@ -212,7 +212,6 @@ public sealed partial class BuildViewModel : ObservableObject
         OnPropertyChanged(nameof(ResultIconKey));
         OnPropertyChanged(nameof(IsResultSuccess));
         OnPropertyChanged(nameof(IsResultWarning));
-        OnPropertyChanged(nameof(IsResultError));
     }
 
     partial void OnProjectChanged(ProjectSummary? value)
@@ -878,11 +877,16 @@ public sealed partial class BuildViewModel : ObservableObject
             Backups.Add(new BackupRow(BackupRelative(backup.Name), FormatSize(backup.SizeBytes), DescribeBackup(backup)));
         }
 
+        HasRestoreProblem = Backups.Count > 0 && restorePlan is null;
         var separator = Path.DirectorySeparatorChar;
         var count = Backups.Count;
-        BackupFooter = count == 0
-            ? $"Pasta backup{separator} do projeto · fora do git"
-            : $"Pasta backup{separator} do projeto · fora do git · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
+        var footer = $"Pasta backup{separator} do projeto";
+        if (state?.BackupIgnored == true)
+        {
+            footer += " · fora do git";
+        }
+
+        BackupFooter = count == 0 ? footer : $"{footer} · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
     }
 
     private static string BackupRelative(string name) => $"backup{Path.DirectorySeparatorChar}{name}";
@@ -1044,7 +1048,21 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         var (qaErrors, qaWarnings) = CountQaIssues(project, engine);
-        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), qaErrors, qaWarnings);
+        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaErrors, qaWarnings);
+    }
+
+    /// <summary>O <c>.gitignore</c> do projeto lista <c>backup/</c>: só então o rodapé garante que os originais ficam fora do git.</summary>
+    private static bool IsBackupIgnored(ProjectFolder project)
+    {
+        try
+        {
+            var path = Path.Combine(project.Root, ".gitignore");
+            return File.Exists(path) && File.ReadAllLines(path).Any(l => l.Trim() is "backup/" or "/backup/" or "backup");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -1058,7 +1076,7 @@ public sealed partial class BuildViewModel : ObservableObject
             var report = engine.Run(QaContext.FromProject(project));
             return (report.Errors.Count, report.OtherIssues.Count(i => i.Severity == QaSeverity.Warning));
         }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             return (0, 0);
         }
@@ -1095,11 +1113,12 @@ public sealed partial class BuildViewModel : ObservableObject
         string BackupLocation,
         string BackupMessage,
         IReadOnlyList<BackupInfo> Backups,
+        bool BackupIgnored,
         int QaErrors,
         int QaWarnings)
     {
         public static ProjectState Unreadable(string message) =>
-            new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], 0, 0);
+            new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], false, 0, 0);
     }
 
     /// <summary>

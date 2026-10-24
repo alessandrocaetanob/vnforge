@@ -719,6 +719,33 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Backup_ilegivel_sem_outra_fonte_explica_por_que_nao_da_para_restaurar()
+    {
+        var broken = Path.Combine(folder.BackupDirectory, "2020-01-02_0304");
+        Directory.CreateDirectory(broken);
+        File.WriteAllText(Path.Combine(broken, "vnforge-backup.json"), "{ ilegível");
+        var vm = Open();
+        await vm.ReloadAsync();
+
+        Assert.True(vm.HasRestoreProblem);
+        Assert.NotEmpty(vm.BackupMessage);
+        Assert.False(vm.RestoreCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task O_rodape_so_diz_fora_do_git_quando_o_gitignore_lista_o_backup()
+    {
+        var vm = Open();
+        await vm.ReloadAsync();
+        Assert.Contains("fora do git", vm.BackupFooter);
+
+        File.WriteAllText(Path.Combine(folder.Root, ".gitignore"), "build/\n");
+        await vm.ReloadAsync();
+
+        Assert.DoesNotContain("fora do git", vm.BackupFooter);
+    }
+
+    [Fact]
     public async Task Backup_restaurado_diz_que_foi_restaurado()
     {
         PutBuild();
