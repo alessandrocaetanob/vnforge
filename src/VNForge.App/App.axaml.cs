@@ -28,7 +28,10 @@ public sealed class App : Application
             var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), new AppSettingsFile(configDirectory));
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
             window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
-                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks));
+                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
+            {
+                Editor = new EditorViewModel(suggester: LineSuggester.ForUser(configDirectory)),
+            };
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();
         }
