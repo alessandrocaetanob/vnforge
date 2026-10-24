@@ -74,6 +74,78 @@ public sealed class ProjectBuilderTests : IDisposable
             File.ReadAllText(Path.Combine(_project.BuildDirectory, PackageFake)));
     }
 
+    private bool PainelConcluiu(PipelineStageKey etapa) => ProjectDashboard.Read(_project).Stages.Single(s => s.Key == etapa).IsComplete;
+
+    [Fact]
+    public void Painel_da_Build_como_pendente_ate_o_primeiro_build_e_concluido_depois()
+    {
+        Translate("a001", (0, Hello));
+        Assert.False(PainelConcluiu(PipelineStageKey.Build));
+
+        Build();
+
+        Assert.True(PainelConcluiu(PipelineStageKey.Build));
+    }
+
+    [Fact]
+    public void Painel_da_Build_ignora_data_de_gravacao_e_mudanca_so_de_status()
+    {
+        Translate("a001", (0, Hello));
+        Build();
+
+        var units = _project.LoadText("a001").Select(u => u with { Status = TranslationStatus.Approved }).ToList();
+        _project.SaveText("a001", units);
+        File.SetLastWriteTimeUtc(_project.TextPath("a001"), DateTime.UtcNow.AddMinutes(5));
+        Assert.True(PainelConcluiu(PipelineStageKey.Build));
+
+        Build();
+        Assert.True(PainelConcluiu(PipelineStageKey.Build));
+    }
+
+    [Fact]
+    public void Painel_da_Build_volta_a_pendente_quando_a_traducao_muda_e_conclui_no_build_seguinte()
+    {
+        Translate("a001", (0, Hello));
+        Build();
+
+        Translate("a001", (0, "Oi"));
+        Assert.False(PainelConcluiu(PipelineStageKey.Build));
+
+        Build();
+        Assert.True(PainelConcluiu(PipelineStageKey.Build));
+    }
+
+    [Fact]
+    public void Painel_da_Build_volta_a_pendente_quando_a_formatacao_muda()
+    {
+        Translate("a001", (0, Hello));
+        Build();
+
+        File.WriteAllText(_project.FormattingPath, "{ \"mudou\": true }");
+
+        Assert.False(PainelConcluiu(PipelineStageKey.Build));
+    }
+
+    [Fact]
+    public void Painel_da_Injetar_so_conclui_enquanto_o_jogo_tem_os_arquivos_do_build()
+    {
+        Translate("a001", (0, Hello));
+        Build();
+        Assert.False(PainelConcluiu(PipelineStageKey.Inject));
+
+        var backup = Directory.CreateDirectory(Path.Combine(_project.BackupDirectory, "2026-10-24_1200")).FullName;
+        var gameDirectory = _game.Replace("\\", "/");
+        File.WriteAllText(
+            Path.Combine(backup, "vnforge-backup.json"),
+            $$"""{"version":1,"createdAt":"2026-10-24T12:00:00+00:00","gameDirectory":"{{gameDirectory}}","files":[{"path":"{{PackageFake}}","existed":true,"originalSha256":"aa","injectedSha256":"bb"}]}""");
+        File.Copy(Path.Combine(_project.BuildDirectory, PackageFake), Path.Combine(_game, PackageFake), overwrite: true);
+        Assert.True(PainelConcluiu(PipelineStageKey.Inject));
+
+        File.WriteAllText(Path.Combine(_game, PackageFake), "original");
+
+        Assert.False(PainelConcluiu(PipelineStageKey.Inject));
+    }
+
     [Fact]
     public void Entrega_ao_repacker_so_o_script_com_traducao_e_o_conteudo_original()
     {
