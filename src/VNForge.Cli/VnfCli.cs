@@ -160,28 +160,36 @@ public sealed class VnfCli
             ProcessTerminationTimeout = null,
         };
 
-        return await ErrorHandler.ExecuteAsync(
-            async token =>
-            {
-                if (parseResult.Errors.Count > 0)
+        try
+        {
+            return await ErrorHandler.ExecuteAsync(
+                async token =>
                 {
-                    throw new UsageException(
-                        string.Join(" ", parseResult.Errors.Select(e => ParseErrorMessages.Translate(e.Message))) + " Use --help para ver as opções.");
-                }
+                    if (parseResult.Errors.Count > 0)
+                    {
+                        throw new UsageException(
+                            string.Join(" ", parseResult.Errors.Select(e => ParseErrorMessages.Translate(e.Message))) + " Use --help para ver as opções.");
+                    }
 
-                ThrowIfProjectMissing(settings);
-                if (logger.IsEnabled(LogLevel.Debug))
-                {
-                    logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
-                }
+                    ThrowIfProjectMissing(settings);
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
+                    }
 
-                return await parseResult.InvokeAsync(invocation, token).ConfigureAwait(false);
-            },
-            logger,
-            error,
-            logDirectory,
-            settings.Json ? output : null,
-            cancellationToken).ConfigureAwait(false);
+                    return await parseResult.InvokeAsync(invocation, token).ConfigureAwait(false);
+                },
+                logger,
+                error,
+                logDirectory,
+                settings.Json ? output : null,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Ansi = CliConsole.Create(TextWriter.Null, new GlobalSettings(null, false, false, false, false), CliTerminal.Plain());
+            RichOutput = false;
+        }
     }
 
     private void ThrowIfProjectMissing(GlobalSettings settings)

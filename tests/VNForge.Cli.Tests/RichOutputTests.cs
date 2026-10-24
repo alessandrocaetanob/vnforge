@@ -130,15 +130,17 @@ public sealed class RichOutputTests : IDisposable
     public async Task Terminal_interativo_colore_a_saida_do_comando()
     {
         using var rich = new CliHarness(terminal: CliTerminal.TrueColor(100));
+        var duringRun = false;
         rich.AddCommand(Saida, _ =>
         {
+            duringRun = rich.Cli.RichOutput;
             rich.Cli.Ansi.MarkupLine("[#5FBF7F]feito[/]");
             return 0;
         });
 
         var result = await rich.RunAsync([Saida], TestContext.Current.CancellationToken);
 
-        Assert.True(rich.Cli.RichOutput);
+        Assert.True(duringRun);
         Assert.Contains(Escape + ApprovedTrueColor + "m", result.Output);
     }
 
@@ -149,15 +151,17 @@ public sealed class RichOutputTests : IDisposable
     public async Task Opcao_global_tira_a_cor_mesmo_em_terminal_interativo(string option)
     {
         using var rich = new CliHarness(terminal: CliTerminal.TrueColor(100));
+        var duringRun = true;
         rich.AddCommand(Saida, _ =>
         {
+            duringRun = rich.Cli.RichOutput;
             rich.Cli.Ansi.MarkupLine("[#5FBF7F]feito[/]");
             return 0;
         });
 
         var result = await rich.RunAsync([Saida, option], TestContext.Current.CancellationToken);
 
-        Assert.False(rich.Cli.RichOutput);
+        Assert.False(duringRun);
         Assert.DoesNotContain(Escape, result.Output);
         Assert.Contains("feito", result.Output);
     }
@@ -183,6 +187,31 @@ public sealed class RichOutputTests : IDisposable
         var terminal = CliTerminal.ForWriter(new StringWriter(), name => name == "NO_COLOR" ? value : null);
 
         Assert.Equal(expected, terminal.NoColorEnvironment);
+    }
+
+    [Fact]
+    public void Texto_simples_sem_largura_nao_quebra_linha_longa()
+    {
+        var harness = ConsoleHarness.Plain(width: null);
+        var longLine = new string('x', 200);
+
+        harness.Console.MarkupLine(longLine);
+
+        Assert.Equal(longLine, harness.Lines[0]);
+        Assert.Single(harness.Lines);
+    }
+
+    [Fact]
+    public async Task Console_volta_a_descartar_depois_da_invocacao()
+    {
+        using var rich = new CliHarness(terminal: CliTerminal.TrueColor(100));
+        rich.AddCommand(Saida, _ => 0);
+
+        var result = await rich.RunAsync([Saida], TestContext.Current.CancellationToken);
+        rich.Cli.Ansi.MarkupLine("depois");
+
+        Assert.False(rich.Cli.RichOutput);
+        Assert.DoesNotContain("depois", result.Output);
     }
 
     [Fact]

@@ -25,7 +25,7 @@ internal sealed class ConsoleHarness
     public string[] Lines => Output.TrimEnd('\r', '\n').Split(["\r\n", "\n"], StringSplitOptions.None);
 
     /// <summary>Console de texto simples (o que sai redirecionado, com <c>--json</c>, <c>--quiet</c> ou <c>NO_COLOR</c>).</summary>
-    public static ConsoleHarness Plain(int width = 80) => new(CliTerminal.Plain(width));
+    public static ConsoleHarness Plain(int? width = 80) => new(CliTerminal.Plain(width));
 
     /// <summary>Console como o de um terminal interativo, com ANSI de 24 bits.</summary>
     public static ConsoleHarness Rich(int width = 80) => new(CliTerminal.TrueColor(width));

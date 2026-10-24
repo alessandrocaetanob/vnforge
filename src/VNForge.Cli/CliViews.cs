@@ -37,6 +37,7 @@ public static class CliViews
         {
             Header = new PanelHeader($"[{CliPalette.Hex(CliPalette.Accent)}]{Escape(title)}[/]"),
             Border = BoxBorder.Rounded,
+            Expand = false,
             BorderStyle = new Style(CliPalette.Accent),
             Padding = new Padding(1, 0),
         };
