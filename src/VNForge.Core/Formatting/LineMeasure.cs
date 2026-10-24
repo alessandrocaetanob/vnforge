@@ -55,7 +55,7 @@ public static class LineMeasure
             }
         }
 
-        if (state.HasContent || state.Lines.Count > 0 || state.Boxes.Count == 0)
+        if (state.HasContent || state.OpenBox.Count > 0 || state.Boxes.Count == 0)
         {
             state.EndBox();
         }
@@ -68,7 +68,7 @@ public static class LineMeasure
     {
         public List<IReadOnlyList<MeasuredLine>> Boxes { get; } = [];
 
-        public List<MeasuredLine> Lines { get; private set; } = [];
+        public List<MeasuredLine> OpenBox { get; private set; } = [];
 
         public StringBuilder Text { get; } = new();
 
@@ -80,7 +80,7 @@ public static class LineMeasure
 
         public void EndLine()
         {
-            Lines.Add(new MeasuredLine(Text.ToString(), Column, [.. Segments]));
+            OpenBox.Add(new MeasuredLine(Text.ToString(), Column, [.. Segments]));
             Text.Clear();
             Segments.Clear();
             Column = 0;
@@ -94,8 +94,8 @@ public static class LineMeasure
                 EndLine();
             }
 
-            Boxes.Add(Lines);
-            Lines = [];
+            Boxes.Add(OpenBox);
+            OpenBox = [];
         }
     }
 

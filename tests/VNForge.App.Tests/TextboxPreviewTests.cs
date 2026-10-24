@@ -18,7 +18,11 @@ public class TextboxPreviewTests : IDisposable
     public TextboxPreviewTests() =>
         raiz = SampleProjects.Create(pasta.Path, "Teste", TranslationStatus.Translated, TranslationStatus.Untranslated);
 
-    public void Dispose() => pasta.Dispose();
+    public void Dispose()
+    {
+        pasta.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private static TextUnit Unidade(string? falante = null) =>
         new("yst00001:000000", TextUnitKind.Dialogue, falante, "原文", "x", TranslationStatus.Translated);

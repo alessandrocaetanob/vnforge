@@ -18,7 +18,11 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
 {
     private readonly TempFolder pasta = new();
 
-    public void Dispose() => pasta.Dispose();
+    public void Dispose()
+    {
+        pasta.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public async Task Painel_desenha_a_caixa_e_acompanha_a_edicao_da_traducao()

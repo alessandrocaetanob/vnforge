@@ -143,26 +143,30 @@ public sealed class TextboxPreview : Control
                 continue;
             }
 
-            var x = origin.X + (segment.Column * columnWidth);
+            var at = new Point(origin.X + (segment.Column * columnWidth), origin.Y);
             if (segment.IsMarker)
             {
                 using var _ = context.PushOpacity(MarkerOpacity);
-                context.DrawText(Format(segment.Text, typeface, ink, FontSize * MarkerScale), new Point(x, origin.Y));
-                continue;
-            }
-
-            var glyph = Format(segment.Text, typeface, ink);
-            var target = segment.Width * columnWidth;
-            if (target > 0 && glyph.Width > target + 0.5)
-            {
-                using var _ = context.PushTransform(Matrix.CreateScale(target / glyph.Width, 1) * Matrix.CreateTranslation(x, origin.Y));
-                context.DrawText(glyph, default);
+                context.DrawText(Format(segment.Text, typeface, ink, FontSize * MarkerScale), at);
             }
             else
             {
-                context.DrawText(glyph, new Point(x, origin.Y));
+                DrawGlyph(context, Format(segment.Text, typeface, ink), segment.Width * columnWidth, at);
             }
         }
+    }
+
+    /// <summary>Desenha o glifo em <paramref name="at"/>, encolhido na horizontal quando a fonte o faz mais largo que as colunas da tabela.</summary>
+    private static void DrawGlyph(DrawingContext context, FormattedText glyph, double target, Point at)
+    {
+        if (target <= 0 || glyph.Width <= target + 0.5)
+        {
+            context.DrawText(glyph, at);
+            return;
+        }
+
+        using var _ = context.PushTransform(Matrix.CreateScale(target / glyph.Width, 1) * Matrix.CreateTranslation(at.X, at.Y));
+        context.DrawText(glyph, default);
     }
 
     private double DrawPlate(DrawingContext context, string speaker, Typeface typeface, IBrush ink, double y, double lineHeight)
