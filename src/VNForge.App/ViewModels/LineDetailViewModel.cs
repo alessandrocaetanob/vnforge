@@ -137,10 +137,19 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>A caixa de texto da linha com o perfil de formatação, refeita a cada edição da tradução; nulo até <see cref="AttachPreview"/> ou sem perfil legível.</summary>
-    public TextboxPreviewViewModel? Preview { get; private set; }
+    [ObservableProperty]
+    public partial TextboxPreviewViewModel? Preview { get; private set; }
 
-    /// <summary>Liga a prévia da caixa de texto, já com a tradução que está no campo.</summary>
-    public void AttachPreview(FormattingProfile profile) => Preview = new TextboxPreviewViewModel(unit, profile, Translation);
+    /// <summary>Liga a prévia da caixa de texto com a tradução que está no campo; sem perfil (nulo), tira a prévia. O mesmo perfil não refaz nada.</summary>
+    public void AttachPreview(FormattingProfile? profile)
+    {
+        if (Preview is not null && ReferenceEquals(Preview.Profile, profile))
+        {
+            return;
+        }
+
+        Preview = profile is null ? null : new TextboxPreviewViewModel(unit, profile, Translation);
+    }
 
     /// <summary>Grava o que estiver pendente. Devolve falso (e preenche <see cref="ErrorMessage"/>) quando a gravação falha; a edição continua pendente.</summary>
     public bool Flush()

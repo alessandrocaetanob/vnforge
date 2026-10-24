@@ -25,6 +25,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private readonly TimeProvider clock;
     private readonly Action<Action>? postToUi;
     private readonly Dictionary<string, TextUnit> savedUnits = new(StringComparer.Ordinal);
+    private readonly FormattingProfileCache profiles = new();
     private LineEditor? lineEditor;
     private ProjectLines? data;
     private IReadOnlyList<LineEntry> entries = [];
@@ -244,26 +245,18 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var detail = postToUi is null
             ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock)
             : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi);
-        if (TryLoadProfile() is { } profile)
-        {
-            detail.AttachPreview(profile);
-        }
-
+        detail.AttachPreview(CurrentProfile());
         return detail;
     }
 
-    /// <summary>Lê o perfil a cada linha aberta, para a prévia refletir o que a tela Ajustes acabou de gravar. Sem perfil legível, o painel fica sem prévia.</summary>
-    private FormattingProfile? TryLoadProfile()
-    {
-        try
-        {
-            return Project is { } project ? ProjectFolder.Open(project.Root).LoadFormatting() : null;
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
+    /// <summary>
+    /// Refaz a prévia da linha aberta com o <c>formatting.json</c> de agora. A página do Editor chama ao voltar à tela, depois de Ajustes ter gravado o perfil;
+    /// sem mudança no arquivo, a prévia fica como está.
+    /// </summary>
+    public void RefreshPreview() => Detail?.AttachPreview(CurrentProfile());
+
+    /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
+    private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;
 
     private LineEditor? TryCreateEditor(string root)
     {

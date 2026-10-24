@@ -26,11 +26,18 @@ public sealed record LinePreview(
     bool WrapEnabled,
     IReadOnlyList<string> Warnings)
 {
+    /// <summary>O que <c>vnf preview</c> e o app dizem quando o build não formata a linha.</summary>
+    public const string NotFormattedNotice =
+        "O build não formata esta linha (papel fora de kinds do formatting.json ou tradução igual ao original); ela é gravada como está.";
+
     /// <summary>Colunas de cada linha, por caixa.</summary>
-    public IReadOnlyList<IReadOnlyList<int>> Columns => [.. Boxes.Select(box => (IReadOnlyList<int>)[.. box.Select(line => line.Columns)])];
+    public IReadOnlyList<IReadOnlyList<int>> Columns { get; } = [.. Boxes.Select(box => (IReadOnlyList<int>)[.. box.Select(line => line.Columns)])];
 
     /// <summary>Total de linhas de todas as caixas.</summary>
-    public int LineCount => Boxes.Sum(box => box.Count);
+    public int LineCount { get; } = Boxes.Sum(box => box.Count);
+
+    /// <summary><see cref="NotFormattedNotice"/> quando o build grava a linha como está; nulo quando ela é formatada.</summary>
+    public string? Notice => Formatted ? null : NotFormattedNotice;
 }
 
 /// <summary><c>vnf preview</c>: aplica à tradução de uma linha o mesmo pipeline do build e mede o resultado. Só lê; não grava nada.</summary>

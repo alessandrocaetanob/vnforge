@@ -65,6 +65,7 @@
                               AutomationProperties.Name="Prévia da caixa de texto"/>
           </ScrollViewer>
           <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
           <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="x:String">

@@ -120,6 +120,33 @@ public sealed class LinePreviewerTests : IDisposable
     }
 
     [Fact]
+    public void Segmentos_posicionam_cada_trecho_na_coluna_em_que_o_marcador_nao_avanca()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 40, "charWidth": "halfWidthLatin" } }""");
+        Save(Unit("a001:000001", "Oi {VAR:x}日本\\c\\\\!"));
+
+        var line = LinePreviewer.Create(_project, "a001:000001").Boxes[0][0];
+
+        Assert.Equal(
+            [("O", 0, 1, false), ("i", 1, 1, false), (" ", 2, 1, false), ("{VAR:x}", 3, 0, true), ("日", 3, 2, false), ("本", 5, 2, false), ("\\c", 7, 0, true), ("\\", 7, 1, false), ("!", 8, 1, false)],
+            line.Segments.Select(s => (s.Text, s.Column, s.Width, s.IsMarker)));
+        Assert.Equal(9, line.Columns);
+        Assert.Equal(line.Columns, line.Segments.Sum(s => s.Width));
+    }
+
+    [Fact]
+    public void Linha_fora_dos_kinds_traz_o_aviso_que_o_vnf_preview_mostra()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 3, "charWidth": "uniform" } }""");
+        Save(Unit("a001:000001", "aaa bbb", TextUnitKind.Choice));
+
+        var preview = LinePreviewer.Create(_project, "a001:000001");
+
+        Assert.Equal(LinePreview.NotFormattedNotice, preview.Notice);
+        Assert.Null(LinePreviewer.Create(_project.LoadFormatting(), Unit("a001:000001", null), "aaa bbb").Notice);
+    }
+
+    [Fact]
     public void Texto_em_edicao_quebra_nos_mesmos_pontos_que_a_linha_gravada()
     {
         const string Profile = """{ "wrap": { "enabled": true, "maxWidth": 12, "maxLines": 2, "charWidth": "uniform" }, "typography": { "ellipsis": "dots" } }""";

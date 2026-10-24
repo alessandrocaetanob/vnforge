@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
@@ -121,6 +122,76 @@ public class TextboxPreviewTests : IDisposable
 
         Assert.NotNull(vm.Layout);
         Assert.Null(vm.Problem);
+    }
+
+    [Fact]
+    public void Linha_que_o_build_nao_formata_mostra_o_aviso_do_vnf_preview_e_nao_marca_excesso()
+    {
+        var escolha = new TextUnit("yst00001:000000", TextUnitKind.Choice, null, "原文", "x", TranslationStatus.Translated);
+
+        var vm = new TextboxPreviewViewModel(escolha, Parse(Perfil), "um dois tres quatro cinco seis");
+
+        Assert.Equal(LinePreview.NotFormattedNotice, vm.Notice);
+        Assert.All(vm.Layout!.Boxes.SelectMany(b => b.Lines), l => Assert.False(l.Overflow));
+        Assert.Null(new TextboxPreviewViewModel(Unidade(), Parse(Perfil), "um dois").Notice);
+    }
+
+    [Fact]
+    public void Linhas_levam_os_segmentos_da_regua_de_colunas()
+    {
+        var vm = new TextboxPreviewViewModel(Unidade(), Parse(Perfil), "a{VAR:x}日");
+
+        var segmentos = vm.Layout!.Boxes[0].Lines[0].Segments;
+
+        Assert.Equal([("a", 0, false), ("{VAR:x}", 1, true), ("日", 1, false)], segmentos.Select(s => (s.Text, s.Column, s.IsMarker)));
+        Assert.Equal(2, vm.Layout.Boxes[0].Lines[0].Columns);
+    }
+
+    [Fact]
+    public void Cache_reaproveita_o_perfil_ate_o_arquivo_mudar()
+    {
+        GravarPerfil(Perfil);
+        var arquivo = ProjectFolder.Open(raiz).FormattingPath;
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 0, 0, DateTimeKind.Utc));
+        var cache = new FormattingProfileCache();
+
+        var primeiro = cache.Get(raiz);
+
+        Assert.Same(primeiro, cache.Get(raiz));
+        GravarPerfil("""{ "wrap": { "enabled": true, "maxWidth": 20, "charWidth": "uniform" } }""");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 5, 0, DateTimeKind.Utc));
+        var segundo = cache.Get(raiz);
+        Assert.NotSame(primeiro, segundo);
+        Assert.Equal(20, segundo!.Wrap.MaxWidth);
+        GravarPerfil("{ isto nao e json");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 6, 0, DateTimeKind.Utc));
+        Assert.Null(cache.Get(raiz));
+        File.Delete(arquivo);
+        Assert.Same(FormattingProfile.Default, cache.Get(raiz));
+    }
+
+    [Fact]
+    public async Task Voltar_ao_editor_com_o_perfil_mudado_refaz_a_previa_da_mesma_linha()
+    {
+        GravarPerfil(Perfil);
+        var arquivo = ProjectFolder.Open(raiz).FormattingPath;
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 0, 0, DateTimeKind.Utc));
+        var vm = await Abrir();
+        var painel = vm.Detail!;
+        painel.Translation = "um dois tres";
+        Assert.Equal(["um dois", "tres"], painel.Preview!.Layout!.Boxes[0].Lines.Select(l => l.Text));
+
+        GravarPerfil("""{ "wrap": { "enabled": true, "maxWidth": 20, "maxLines": 2, "charWidth": "uniform" } }""");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 5, 0, DateTimeKind.Utc));
+        vm.RefreshPreview();
+
+        Assert.Same(painel, vm.Detail);
+        Assert.Equal(["um dois tres"], painel.Preview!.Layout!.Boxes[0].Lines.Select(l => l.Text));
+
+        GravarPerfil("{ isto nao e json");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 6, 0, DateTimeKind.Utc));
+        vm.RefreshPreview();
+        Assert.Null(painel.Preview);
     }
 
     [Fact]

@@ -2,8 +2,15 @@ using System.Text;
 
 namespace VNForge.Core.Formatting;
 
-/// <summary>Uma linha de uma caixa: o texto como está (com marcadores como <c>\c</c> e <c>{VAR:x}</c>) e as colunas que ocupa.</summary>
-public readonly record struct MeasuredLine(string Text, int Columns);
+/// <summary>Um trecho da linha na régua de colunas: um glifo (com a largura da tabela) ou um marcador, que não ocupa coluna.</summary>
+/// <param name="Text">O que desenhar: o glifo, ou o marcador como está (<c>\c</c>, <c>{VAR:x}</c>). <c>\\</c> e <c>\{</c> viram <c>\</c> e <c>{</c>.</param>
+/// <param name="Column">Coluna em que o trecho começa.</param>
+/// <param name="Width">Colunas que ocupa; 0 para marcador.</param>
+/// <param name="IsMarker">Verdadeiro para marcador de controle ou variável.</param>
+public readonly record struct LineSegment(string Text, int Column, int Width, bool IsMarker);
+
+/// <summary>Uma linha de uma caixa: o texto como está (com marcadores como <c>\c</c> e <c>{VAR:x}</c>), as colunas que ocupa e os trechos dela na régua de colunas.</summary>
+public readonly record struct MeasuredLine(string Text, int Columns, IReadOnlyList<LineSegment> Segments);
 
 /// <summary>
 /// Mede um texto já formatado: as colunas de cada linha de cada caixa. Usa a mesma tabela de larguras e o mesmo tratamento de marcadores
@@ -39,9 +46,11 @@ public static class LineMeasure
                     state.EndBox();
                     break;
                 default:
+                    var raw = text.Substring(start, end - start);
+                    state.Segments.Add(new LineSegment(kind == 'g' && raw[0] == '\\' ? raw[1..] : raw, state.Column, w, kind == 'm'));
                     state.Column += w;
                     state.HasContent |= kind != 's';
-                    state.Text.Append(text, start, end - start);
+                    state.Text.Append(raw);
                     break;
             }
         }
@@ -63,14 +72,17 @@ public static class LineMeasure
 
         public StringBuilder Text { get; } = new();
 
+        public List<LineSegment> Segments { get; } = [];
+
         public int Column { get; set; }
 
         public bool HasContent { get; set; }
 
         public void EndLine()
         {
-            Lines.Add(new MeasuredLine(Text.ToString(), Column));
+            Lines.Add(new MeasuredLine(Text.ToString(), Column, [.. Segments]));
             Text.Clear();
+            Segments.Clear();
             Column = 0;
             HasContent = false;
         }

@@ -7,8 +7,8 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>Uma linha da caixa: o texto como o build o gravaria, as colunas que ocupa e se passa do limite de linhas do perfil.</summary>
-public sealed record TextboxLine(string Text, int Columns, bool Overflow);
+/// <summary>Uma linha da caixa: o texto como o build o gravaria, as colunas que ocupa, os trechos dela na régua de colunas e se passa do limite de linhas do perfil.</summary>
+public sealed record TextboxLine(string Text, int Columns, bool Overflow, IReadOnlyList<LineSegment> Segments);
 
 /// <summary>Uma caixa de texto do jogo (o texto entre dois <c>\p</c>).</summary>
 public sealed record TextboxBox(IReadOnlyList<TextboxLine> Lines);
@@ -29,14 +29,22 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly TextUnit unit;
-    private readonly FormattingProfile profile;
-
     public TextboxPreviewViewModel(TextUnit unit, FormattingProfile profile, string translation)
     {
         this.unit = unit ?? throw new ArgumentNullException(nameof(unit));
-        this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
+        Profile = profile ?? throw new ArgumentNullException(nameof(profile));
         Update(translation);
     }
+
+    /// <summary>O perfil com que a prévia foi montada.</summary>
+    public FormattingProfile Profile { get; }
+
+    /// <summary>Por que a caixa não mostra o que o build faria, quando o build grava a linha como está (o mesmo texto do <c>vnf preview</c>); nulo caso contrário.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNotice))]
+    public partial string? Notice { get; private set; }
+
+    public bool HasNotice => Notice is not null;
 
     /// <summary>A caixa para desenhar; nula sem tradução ou quando o texto tem um marcador que o pipeline recusa (veja <see cref="Problem"/>).</summary>
     [ObservableProperty]
@@ -67,36 +75,37 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(translation))
         {
-            Show(null, "Escreva a tradução para ver a caixa de texto.", [], null);
+            Show(null, "Escreva a tradução para ver a caixa de texto.", [], null, null);
             return;
         }
 
         LinePreview preview;
         try
         {
-            preview = LinePreviewer.Create(profile, unit, translation);
+            preview = LinePreviewer.Create(Profile, unit, translation);
         }
         catch (VNForgeException e)
         {
-            Show(null, string.Empty, [], e.Message);
+            Show(null, string.Empty, [], e.Message, null);
             return;
         }
 
         var longest = preview.Boxes.SelectMany(box => box).Select(line => line.Columns).DefaultIfEmpty().Max();
         var columns = Math.Max(1, preview.WrapEnabled ? Math.Max(preview.MaxWidth, longest) : longest);
         var boxes = preview.Boxes
-            .Select(box => new TextboxBox([.. box.Select((line, n) => new TextboxLine(line.Text, line.Columns, preview.MaxLines is { } max && n >= max))]))
+            .Select(box => new TextboxBox([.. box.Select((line, n) => new TextboxLine(line.Text, line.Columns, preview.Formatted && preview.MaxLines is { } max && n >= max, line.Segments))]))
             .ToArray();
         var speaker = string.IsNullOrEmpty(unit.Speaker) ? null : unit.Speaker;
-        Show(new TextboxLayout(speaker, columns, preview.MaxLines, boxes), Describe(preview, columns), preview.Warnings, null);
+        Show(new TextboxLayout(speaker, columns, preview.Formatted ? preview.MaxLines : null, boxes), Describe(preview, columns), preview.Warnings, null, preview.Notice);
     }
 
-    private void Show(TextboxLayout? layout, string summary, IReadOnlyList<string> warnings, string? problem)
+    private void Show(TextboxLayout? layout, string summary, IReadOnlyList<string> warnings, string? problem, string? notice)
     {
         Layout = layout;
         Summary = summary;
         Warnings = warnings;
         Problem = problem;
+        Notice = notice;
     }
 
     private static string Describe(LinePreview preview, int longest)

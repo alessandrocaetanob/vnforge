@@ -20,6 +20,8 @@ public sealed class TextboxPreview : Control
     private const double BoxGap = 10;
     private const double PlateGap = 4;
     private const double PlatePadding = 8;
+    private const double MarkerScale = 0.6;
+    private const double MarkerOpacity = 0.55;
 
     public static readonly StyledProperty<TextboxLayout?> LayoutProperty =
         AvaloniaProperty.Register<TextboxPreview, TextboxLayout?>(nameof(Layout));
@@ -107,10 +109,7 @@ public sealed class TextboxPreview : Control
             for (var n = 0; n < box.Lines.Count; n++)
             {
                 var line = box.Lines[n];
-                if (line.Text.Length > 0)
-                {
-                    context.DrawText(Format(line.Text, typeface, line.Overflow ? overflow : ink), new Point(Padding, y + Padding + (n * lineHeight)));
-                }
+                DrawLine(context, line, typeface, line.Overflow ? overflow : ink, columnWidth, new Point(Padding, y + Padding + (n * lineHeight)));
             }
 
             if (layout.MaxLines is { } max && box.Lines.Count > max)
@@ -123,11 +122,47 @@ public sealed class TextboxPreview : Control
         }
     }
 
-    /// <summary>Largura de uma coluna e altura de uma linha. Com a fonte real do jogo (D6), a largura passa a vir da medida em pixels do perfil.</summary>
+    /// <summary>
+    /// Largura de uma coluna e altura de uma linha. A altura é a maior entre o latino e um glifo japonês, que vem de uma fonte de fallback mais alta.
+    /// Com a fonte real do jogo (D6), a largura passa a vir da medida em pixels do perfil.
+    /// </summary>
     private (double ColumnWidth, double LineHeight) Metrics()
     {
-        var sample = Format("0", new Typeface(FontFamily), Brushes.Black);
-        return (sample.Width, sample.Height);
+        var typeface = new Typeface(FontFamily);
+        var latin = Format("0", typeface, Brushes.Black);
+        return (latin.Width, Math.Max(latin.Height, Format("あ", typeface, Brushes.Black).Height));
+    }
+
+    /// <summary>Cada trecho vai para a coluna dele na régua do perfil, não para onde a fonte o poria: glifo largo ocupa as colunas da tabela (encolhido se a fonte o fizer maior) e marcador não avança a coluna.</summary>
+    private void DrawLine(DrawingContext context, TextboxLine line, Typeface typeface, IBrush ink, double columnWidth, Point origin)
+    {
+        foreach (var segment in line.Segments)
+        {
+            if (string.IsNullOrWhiteSpace(segment.Text))
+            {
+                continue;
+            }
+
+            var x = origin.X + (segment.Column * columnWidth);
+            if (segment.IsMarker)
+            {
+                using var _ = context.PushOpacity(MarkerOpacity);
+                context.DrawText(Format(segment.Text, typeface, ink, FontSize * MarkerScale), new Point(x, origin.Y));
+                continue;
+            }
+
+            var glyph = Format(segment.Text, typeface, ink);
+            var target = segment.Width * columnWidth;
+            if (target > 0 && glyph.Width > target + 0.5)
+            {
+                using var _ = context.PushTransform(Matrix.CreateScale(target / glyph.Width, 1) * Matrix.CreateTranslation(x, origin.Y));
+                context.DrawText(glyph, default);
+            }
+            else
+            {
+                context.DrawText(glyph, new Point(x, origin.Y));
+            }
+        }
     }
 
     private double DrawPlate(DrawingContext context, string speaker, Typeface typeface, IBrush ink, double y, double lineHeight)
@@ -145,8 +180,8 @@ public sealed class TextboxPreview : Control
     private static double BoxHeight(TextboxLayout layout, TextboxBox box, double lineHeight) =>
         (Math.Max(box.Lines.Count, layout.MaxLines ?? 1) * lineHeight) + (Padding * 2);
 
-    private FormattedText Format(string text, Typeface typeface, IBrush brush) =>
-        new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, typeface, FontSize, brush);
+    private FormattedText Format(string text, Typeface typeface, IBrush brush, double? size = null) =>
+        new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, typeface, size ?? FontSize, brush);
 
     private IBrush Brush(string key, IBrush fallback) =>
         this.TryFindResource(key, ActualThemeVariant, out var found) && found is IBrush brush ? brush : fallback;
