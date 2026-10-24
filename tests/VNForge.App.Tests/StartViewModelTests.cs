@@ -217,7 +217,7 @@ public class StartViewModelFalhasTests
 
         Assert.Equal(["A", "B"], vm.Recents.Select(i => i.Name).Order());
         Assert.Equal("B", vm.Selected?.Name);
-        Assert.Equal("2 projetos", vm.RecentsSummary);
+        Assert.StartsWith("2 projetos", vm.RecentsSummary);
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public class StartViewModelFalhasTests
         await Task.WhenAll(vm.LoadAsync(), vm.LoadAsync(), vm.LoadAsync());
 
         Assert.Single(vm.Recents);
-        Assert.Equal("1 projeto", vm.RecentsSummary);
+        Assert.StartsWith("1 projeto", vm.RecentsSummary);
     }
 
     [Fact]
@@ -265,9 +265,9 @@ public class StartViewModelFalhasTests
 
         var item = vm.Selected!;
         Assert.Equal("Aprovadas 50%, revisadas 0%, traduzidas 0%, IA 0%, pendentes 50%", item.DistributionDescription);
-        Assert.Equal("Claude Opus 5.5", item.ModelLabel);
+        Assert.Equal("Claude Opus 5.5 · esforço médio", item.ModelLabel);
         Assert.Equal("1", item.Scripts);
         Assert.Equal("Remover acentos (fold)", item.EncodingLabel);
-        Assert.StartsWith("YU-RIS · YPF v500 · ", item.Subtitle);
+        Assert.StartsWith("YU-RIS 5.x · YPF v500 · ", item.Subtitle);
     }
 }

@@ -119,7 +119,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
 
             SelectedNav = editorItem;
+            if (summary.LastEditedScript is { } script)
+            {
+                LineNavigation = ShowScriptAsync(script);
+            }
         };
+        start.DashboardRequested += (_, _) => SelectedNav = dashboardItem;
     }
 
     public StartViewModel Start { get; }
@@ -363,6 +368,26 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         Toasts.Show(notice.Message, ToastKind.Success, key: "build");
+    }
+
+    /// <summary>"Continuar em": abre o script em que o usuário parou, quando ele ainda existe na lista do Editor.</summary>
+    private async Task ShowScriptAsync(string scriptKey)
+    {
+        try
+        {
+            await Editor.Loading;
+        }
+        catch (Exception e)
+        {
+            // O Editor já mostra o erro de carga; sem ele não há script a selecionar.
+            Debug.WriteLine(e);
+            return;
+        }
+
+        if (Editor.Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal)) is { } script)
+        {
+            Editor.SelectedScript = script;
+        }
     }
 
     /// <summary>Um botão do Painel: troca de página e, no Editor, abre o script pedido.</summary>

@@ -5,6 +5,9 @@ namespace VNForge.Core.Projects;
 /// <summary>Um projeto aberto recentemente e quando foi aberto.</summary>
 public sealed record RecentProject(string Path, DateTimeOffset OpenedAt);
 
+/// <summary>Os recentes lidos de <c>recent.json</c>; <see cref="Problem"/> diz por que a lista veio vazia quando o arquivo existe e não foi lido.</summary>
+public sealed record RecentProjectsList(IReadOnlyList<RecentProject> Projects, string? Problem = null);
+
 /// <summary>
 /// Lista de projetos recentes em <c>recent.json</c>, na pasta de configuração do usuário (<c>%APPDATA%/VNForge</c>), fora de qualquer projeto.
 /// É uma conveniência: um arquivo ilegível vale como lista vazia e o próximo <see cref="Add"/> o substitui.
@@ -29,25 +32,37 @@ public sealed class RecentProjectsFile(string directory, int capacity = RecentPr
         return System.IO.Path.Combine(baseDirectory, "VNForge");
     }
 
-    /// <summary>Os projetos recentes, o mais recente primeiro.</summary>
-    public IReadOnlyList<RecentProject> Load()
+    /// <summary>Os projetos recentes, o mais recente primeiro. Arquivo ilegível vale como lista vazia; <see cref="Read"/> diz por quê.</summary>
+    public IReadOnlyList<RecentProject> Load() => Read().Projects;
+
+    /// <summary>Como <see cref="Load"/>, e com o <see cref="RecentProjectsList.Problem"/> (com o caminho do arquivo) quando <c>recent.json</c> existe e não pôde ser lido.</summary>
+    public RecentProjectsList Read()
     {
         if (!File.Exists(Path))
         {
-            return [];
+            return new RecentProjectsList([]);
         }
 
         try
         {
             var items = JsonSerializer.Deserialize<List<RecentProject>>(File.ReadAllText(Path));
-            return items?
+            if (items is null)
+            {
+                return new RecentProjectsList([], $"O arquivo '{Path}' não tem uma lista de projetos.");
+            }
+
+            return new RecentProjectsList(items
                 .Where(r => !string.IsNullOrWhiteSpace(r?.Path))
                 .OrderByDescending(r => r.OpenedAt)
-                .ToList() ?? [];
+                .ToList());
         }
-        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
+        catch (JsonException)
         {
-            return [];
+            return new RecentProjectsList([], $"O arquivo '{Path}' não está no formato esperado.");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return new RecentProjectsList([], $"O arquivo '{Path}' não pôde ser lido: {e.Message}");
         }
     }
 
