@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -25,6 +26,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private readonly Action<Action>? postToUi;
     private readonly ILineSuggester suggester;
     private readonly Dictionary<string, TextUnit> savedUnits = new(StringComparer.Ordinal);
+    private readonly FormattingProfileCache profiles = new();
     private LineEditor? lineEditor;
     private ProjectLines? data;
     private IReadOnlyList<LineEntry> entries = [];
@@ -243,10 +245,21 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
-        return postToUi is null
+        var detail = postToUi is null
             ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester }
             : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester };
+        detail.AttachPreview(CurrentProfile());
+        return detail;
     }
+
+    /// <summary>
+    /// Refaz a prévia da linha aberta com o <c>formatting.json</c> de agora. A página do Editor chama ao voltar à tela, depois de Ajustes ter gravado o perfil;
+    /// sem mudança no arquivo, a prévia fica como está.
+    /// </summary>
+    public void RefreshPreview() => Detail?.AttachPreview(CurrentProfile());
+
+    /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
+    private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;
 
     private LineEditor? TryCreateEditor(string root)
     {
