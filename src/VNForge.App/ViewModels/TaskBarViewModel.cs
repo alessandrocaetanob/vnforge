@@ -32,6 +32,9 @@ public sealed partial class TaskBarViewModel : ObservableObject
     /// <summary>"+2 em andamento" quando há mais de uma tarefa rodando ao mesmo tempo.</summary>
     public string OthersRunningText => HasOthersRunning ? $"+{RunningCount - 1} em andamento" : "";
 
+    /// <summary>"Tarefas (2)": quantas tarefas a lista guarda, em andamento ou terminadas.</summary>
+    public string TasksLabel => $"Tarefas ({Service.Tasks.Count})";
+
     [RelayCommand]
     private void ClearFinished() => Service.ClearFinished();
 
@@ -69,6 +72,7 @@ public sealed partial class TaskBarViewModel : ObservableObject
         var tasks = Service.Tasks;
         RunningCount = tasks.Count(t => t.IsRunning);
         Current = tasks.LastOrDefault(t => t.IsRunning) ?? tasks.LastOrDefault();
+        OnPropertyChanged(nameof(TasksLabel));
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(OthersRunningText));
         OnPropertyChanged(nameof(HasOthersRunning));

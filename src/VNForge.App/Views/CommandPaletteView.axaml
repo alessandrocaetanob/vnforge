@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.CommandPaletteView"
+             x:DataType="vm:CommandPaletteViewModel"
+             IsVisible="{Binding IsOpen}">
+
+  <UserControl.Styles>
+    <Style Selector="ListBox.palette-list > ListBoxItem">
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    </Style>
+    <Style Selector="ListBox.palette-list > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.palette-list > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.palette-list > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    </Style>
+    <!-- O campo da paleta não tem moldura própria: o cartão já a dá. -->
+    <Style Selector="TextBox.palette-input /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Camada sobre a janela: a tela escurecida fecha a paleta ao clique; o cartão fica no alto, como no design. -->
+  <Panel>
+    <Border Name="Scrim" Background="#80000000"/>
+
+    <Border Width="620" MaxHeight="520" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,72,0,0"
+            Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+            CornerRadius="12" BoxShadow="{DynamicResource Vnf.ShadowFlyout}">
+      <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <Grid ColumnDefinitions="Auto,*" Margin="16,12">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}" Foreground="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"/>
+          <TextBox Name="Input" Classes="palette-input" Grid.Column="1" Margin="8,0,0,0" BorderThickness="0" Background="Transparent"
+                   Text="{Binding Query}" PlaceholderText="Buscar linhas, scripts e comandos"
+                   AutomationProperties.Name="Buscar linhas, scripts e comandos"/>
+        </Grid>
+        <Border Grid.Row="1" Height="1" Background="{DynamicResource Vnf.StrokeSubtle}"/>
+
+        <ListBox Name="Results" Grid.Row="2" Classes="palette-list" Margin="8" Background="Transparent"
+                 ItemsSource="{Binding Results}" SelectedIndex="{Binding SelectedIndex}"
+                 IsVisible="{Binding HasResults}" AutomationProperties.Name="Resultados">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:PaletteEntry">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="overline secondary" Text="{Binding GroupLabel}" IsVisible="{Binding ShowGroup}" Margin="0,4,0,2"/>
+                <TextBlock Classes="body" Text="{Binding Title}" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                <TextBlock Classes="caption secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Grid.Row="2" Classes="body-sm secondary" Margin="20,16" Text="{Binding EmptyMessage}" IsVisible="{Binding !HasResults}"/>
+
+        <Border Grid.Row="3" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0" Padding="16,8">
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Border Classes="kbd"><TextBlock Text="↑ ↓"/></Border>
+              <TextBlock Classes="caption secondary" Text="navegar" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Border Classes="kbd"><TextBlock Text="Enter"/></Border>
+              <TextBlock Classes="caption secondary" Text="abrir" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Border Classes="kbd"><TextBlock Text="Esc"/></Border>
+              <TextBlock Classes="caption secondary" Text="fechar" VerticalAlignment="Center"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+  </Panel>
+</UserControl>

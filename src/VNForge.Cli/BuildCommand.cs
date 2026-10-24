@@ -28,23 +28,23 @@ internal static class BuildCommand
         Description = "Deixa o build seguir com avisos de QA (os não marcados como ok); erros de QA continuam bloqueando e saem com 2.",
     };
 
-    private static readonly Option<bool> OnlyChangedOption = new("--only-changed")
+    private static readonly Option<bool> FullOption = new("--full")
     {
-        Description = "Reaproveita os scripts cuja tradução não mudou desde o build anterior (padrão); --only-changed false reconstrói tudo.",
-        DefaultValueFactory = _ => true,
+        Description = "Reconstrói todos os scripts; sem a opção o build reaproveita os que não mudaram desde o build anterior.",
     };
 
     private static readonly Option<string?> EncodingOption = new("--encoding")
     {
         Description = "Estratégia de codificação só deste build (sjis, fold, cp1252); sem a opção vale o encoding.strategy do vnforge.json, que não é alterado.",
+        HelpName = "estratégia",
     };
 
     public static Command Create(VnfCli cli)
     {
-        var command = new Command("build", "Reconstrói os scripts com as traduções de text/ e grava os pacotes novos em build/ (não altera a pasta do jogo).");
+        var command = new Command("build", "Reconstrói os scripts com as traduções de text/ e grava os pacotes em build/, sem tocar no jogo.");
         command.Options.Add(ReportOption);
         command.Options.Add(AllowWarningsOption);
-        command.Options.Add(OnlyChangedOption);
+        command.Options.Add(FullOption);
         command.Options.Add(EncodingOption);
         command.SetAction((parseResult, token) => RunAsync(cli, parseResult, parseResult.InvocationConfiguration.Output, token));
         return command;
@@ -60,7 +60,7 @@ internal static class BuildCommand
 
         var json = parseResult.GetValue(cli.Options.Json);
         var allowWarnings = parseResult.GetValue(AllowWarningsOption);
-        var options = new BuildOptions(parseResult.GetValue(OnlyChangedOption), parseResult.GetValue(EncodingOption));
+        var options = new BuildOptions(OnlyChanged: !parseResult.GetValue(FullOption), parseResult.GetValue(EncodingOption));
         var clock = Stopwatch.StartNew();
         BuildResult result;
         try

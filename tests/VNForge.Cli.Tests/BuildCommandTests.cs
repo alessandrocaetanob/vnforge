@@ -417,16 +417,46 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Only_changed_false_reconstroi_tudo_mesmo_sem_mudanca()
+    public async Task Full_reconstroi_tudo_mesmo_sem_mudanca()
     {
         await InitAndExtract();
         Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
         await Build();
 
-        var result = await Build("--only-changed", "false");
+        var result = await Build("--full", JsonFlag);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.StartsWith("Reconstruídos 1 script", result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[^1], StringComparison.Ordinal);
+        using var document = JsonDocument.Parse(result.Output);
+        var data = document.RootElement.GetProperty("data");
+        Assert.Equal(1, data.GetProperty("scripts").GetInt32());
+        Assert.Equal(0, data.GetProperty("reusedScripts").GetInt32());
+    }
+
+    [Fact]
+    public async Task Sem_full_o_build_reaproveita_os_scripts_que_nao_mudaram()
+    {
+        await InitAndExtract();
+        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
+        await Build();
+
+        var result = await Build(JsonFlag);
+
+        using var document = JsonDocument.Parse(result.Output);
+        Assert.Equal(1, document.RootElement.GetProperty("data").GetProperty("reusedScripts").GetInt32());
+    }
+
+    [Fact]
+    public async Task Only_changed_deixou_de_existir_e_a_ajuda_aponta_o_full()
+    {
+        await InitAndExtract();
+
+        var result = await Build("--only-changed", "false");
+        var help = await _cli.RunAsync(["build", "--help"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("--only-changed", result.Error);
+        Assert.Contains("--full", help.Output);
+        Assert.DoesNotContain("--only-changed", help.Output);
     }
 
     [Fact]

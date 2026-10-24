@@ -21,7 +21,7 @@ internal static class ConfigCommand
         var model = new Option<string?>("--model")
         {
             Description = $"Modelo Claude padrão: {string.Join(", ", ClaudeModels.All)}.",
-            HelpName = "id",
+            HelpName = "modelo",
         };
         var setKey = new Option<bool>("--set-key")
         {

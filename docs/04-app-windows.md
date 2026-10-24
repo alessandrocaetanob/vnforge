@@ -12,6 +12,15 @@ O app é uma "mesa de tradução": abre um projeto VNForge, mostra o pipeline co
 - Salvamento automático a cada edição (arquivo `text/*.json` do script atual).
 - Atalhos de teclado para o fluxo de revisão: `Ctrl+Enter` aprova e vai para a próxima, `Ctrl+Espaço` pede sugestão da IA, `Alt+↑/↓` navega.
 
+## Moldura
+
+A janela principal (#241) segue o canvas v2:
+
+- **Barra de título**: selo 訳 em `brand-shu`, nome do app, migalha do projeto (o nome, como "Minha VN — PT-BR") e a busca central "Buscar linhas, scripts e comandos" com `Ctrl+K`. Os botões de janela são os do sistema.
+- **Paleta de comandos** (`Ctrl+K` ou clique na busca): sem texto lista comandos e telas; com texto acha comandos ("Traduzir pendentes", "Novo build", "Abrir pasta do projeto"), telas, scripts por id e linhas pelo texto do original ou da tradução. Setas navegam, `Enter` executa, `Esc` fecha. "Traduzir pendentes" leva ao Editor com o filtro Pendentes; a tradução em lote pela IA entra com o cabeçalho do Editor. A página Busca saiu do trilho: a paleta a substitui.
+- **Trilho**: Início, Painel, Editor, Conferir (com o contador de problemas do QA) e Build no alto, Ajustes no pé. O Glossário só aparece com projeto aberto. O contador vem da última conferência; antes da primeira, e depois de o Editor contar de novo (uma edição gravada ou uma releitura), vem das ocorrências do Editor, que é o número mais recente.
+- **Barra de status**: à esquerda a tarefa em andamento (nome, barra, contagem, custo) e "Tarefas (n)", que abre a lista; à direita a hora da última gravação do Editor (zerada ao abrir outro projeto), a acentuação do projeto e os limites da caixa (colunas e linhas do `formatting.json`); salvar os Ajustes do projeto atualiza os dois últimos.
+
 ## Telas
 
 ### 1. Início
@@ -83,7 +92,7 @@ O custo de IA é o total de `.cache/ai-usage.json` (tokens e dólares), que `vnf
 
 - Grade virtualizada (aguenta dezenas de milhares de linhas).
 - Cores por status; ícone de aviso do QA ao lado da linha.
-- Busca e substituição em todo o projeto, com regex e prévia. Fica na página **Busca** do trilho (serviço `ProjectSearch` no Core). A busca procura na tradução ou no original; a substituição só altera a tradução. A prévia lista cada linha com o antes e o depois e não grava nada; **Aplicar** grava exatamente a prévia mostrada, e mudar qualquer campo a descarta. Ocorrência que encosta num marcador de controle (`\n`, `\p`, `{...}`) não conta, nem na busca nem na troca, e a linha cuja troca deixaria um marcador malformado (ou que já tem um) não é alterada: a prévia lista essas linhas com o motivo. "Palavra inteira" trata o marcador vizinho como separador e só vale na tradução (no original em japonês kana e kanji são todos letras). Cada busca tem limite de 2 s por linha, para uma regex catastrófica dar erro em vez de travar, e o botão Cancelar interrompe busca e prévia. Um padrão que só casa texto vazio (`^`, `$`) é avisado e ignorado. A linha gravada vira `translated` com origem `manual`, como uma edição no Editor; a prévia diz quantas linhas aprovadas ou revisadas perdem o status.
+- Buscar e substituir (regex, prévia, serviço `ProjectSearch` do Core) sai do trilho e passa a viver num painel dentro do Editor (#234), que reaproveita o `SearchReplaceViewModel`. Até lá, a busca por texto vive na paleta de comandos (`Ctrl+K`), que acha linhas e leva à linha no Editor.
 - Painel da direita: original, tradução editável, sugestão da IA lado a lado, notas, histórico.
 - **Prévia da caixa de texto**: renderiza com a fonte, a largura em colunas e o limite de linhas do perfil de formatação. É aqui que ajustes de espaçamento ficam visíveis antes do build.
 - Marcadores de controle (`\p`, `\n`) aparecem como "chips" não editáveis por engano.

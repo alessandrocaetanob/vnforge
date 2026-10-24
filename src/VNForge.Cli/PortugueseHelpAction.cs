@@ -7,6 +7,7 @@ namespace VNForge.Cli;
 /// <summary>
 /// Ajuda do <c>vnf</c> em português. O <c>HelpAction</c> do System.CommandLine 2.0 não deixa trocar os
 /// títulos fixos ("Description:", "[options]"), por isso a ajuda é montada aqui a partir da árvore de comandos.
+/// A raiz agrupa os comandos nas seções de <see cref="VnfCommands.Sections"/> e cada comando mostra os exemplos de <see cref="CommandExamples"/>.
 /// </summary>
 public sealed class PortugueseHelpAction : SynchronousCommandLineAction
 {
@@ -41,8 +42,15 @@ public sealed class PortugueseHelpAction : SynchronousCommandLineAction
         var arguments = command.Arguments.Where(a => !a.Hidden).Select(a => (ArgumentLabel(a), a.Description)).ToList();
         Section(text, "Argumentos:", arguments);
 
-        var subcommands = command.Subcommands.Where(c => !c.Hidden).Select(c => (c.Name, c.Description)).ToList();
-        Section(text, "Comandos:", subcommands);
+        var subcommands = command.Subcommands.Where(c => !c.Hidden).ToList();
+        if (command is RootCommand)
+        {
+            RootSections(text, subcommands);
+        }
+        else
+        {
+            Section(text, "Comandos:", subcommands.Select(c => (c.Name, c.Description)).ToList());
+        }
 
         var options = chain
             .SelectMany(c => c.Options.Where(o => c == command || o.Recursive))
@@ -51,7 +59,60 @@ public sealed class PortugueseHelpAction : SynchronousCommandLineAction
             .ToList();
         Section(text, "Opções:", options);
 
+        var examples = CommandExamples.For(string.Join(' ', chain.Skip(1).Select(c => c.Name)));
+        if (examples.Count > 0)
+        {
+            text.AppendLine("Exemplos:");
+            foreach (var example in examples)
+            {
+                text.AppendLine($"  {example}");
+            }
+
+            text.AppendLine();
+        }
+
         return text.ToString();
+    }
+
+    /// <summary>Caminho do comando como se digita: <c>vnf</c> para a raiz, <c>vnf ypf info</c> para um subcomando.</summary>
+    public static string CommandPath(Command command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var names = new List<string>();
+        for (Command? current = command; current is not null; current = current.Parents.OfType<Command>().FirstOrDefault())
+        {
+            names.Insert(0, current is RootCommand ? "vnf" : current.Name);
+        }
+
+        return string.Join(' ', names);
+    }
+
+    private static void RootSections(StringBuilder text, List<Command> subcommands)
+    {
+        var placed = new HashSet<Command>();
+        var sections = new List<(string Title, List<(string Label, string? Description)> Rows)>();
+        foreach (var section in VnfCommands.Sections)
+        {
+            var rows = new List<(string Label, string? Description)>();
+            foreach (var name in section.Commands)
+            {
+                if (subcommands.FirstOrDefault(c => c.Name == name) is { } found && placed.Add(found))
+                {
+                    rows.Add((found.Name, found.Description));
+                }
+            }
+
+            sections.Add(($"{section.Title}:", rows));
+        }
+
+        sections.Add(("Outros comandos:", [.. subcommands.Where(c => !placed.Contains(c)).Select(c => (c.Name, c.Description))]));
+
+        var width = sections.SelectMany(s => s.Rows).Select(r => r.Label.Length).DefaultIfEmpty(0).Max();
+        foreach (var (title, rows) in sections)
+        {
+            Section(text, title, rows, width);
+        }
     }
 
     private static string Usage(Command command, List<Command> chain)
@@ -84,14 +145,14 @@ public sealed class PortugueseHelpAction : SynchronousCommandLineAction
         return option.ValueType == typeof(bool) || option is System.CommandLine.Help.HelpOption ? label : $"{label} <{option.HelpName ?? "valor"}>";
     }
 
-    private static void Section(StringBuilder text, string title, List<(string Label, string? Description)> rows)
+    private static void Section(StringBuilder text, string title, List<(string Label, string? Description)> rows, int? labelWidth = null)
     {
         if (rows.Count == 0)
         {
             return;
         }
 
-        var width = rows.Max(r => r.Label.Length);
+        var width = labelWidth ?? rows.Max(r => r.Label.Length);
         text.AppendLine(title);
         foreach (var (label, description) in rows)
         {

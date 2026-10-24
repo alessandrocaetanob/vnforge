@@ -2,7 +2,7 @@ using System.CommandLine;
 
 namespace VNForge.Cli;
 
-/// <summary>Confirmação antes de gravar na pasta do jogo: pulada com <c>--yes</c>, nunca interativa com <c>--json</c> nem sem terminal.</summary>
+/// <summary>Confirmação antes de gravar por cima de algo: pulada com <c>--yes</c>, nunca interativa com <c>--json</c> nem sem entrada. A resposta vem de <see cref="VnfCli.Input"/>.</summary>
 internal static class ConfirmationPrompt
 {
     /// <returns>Verdadeiro se pode seguir; falso se o usuário recusou.</returns>
@@ -22,7 +22,7 @@ internal static class ConfirmationPrompt
         var error = parseResult.InvocationConfiguration.Error;
         error.Write($"{question} [s/N] ");
         error.Flush();
-        var answer = Console.In.ReadLine();
+        var answer = cli.Input.ReadLine();
         if (answer is null)
         {
             throw new UsageException("Não há como pedir a confirmação (entrada encerrada). Use --yes para seguir sem perguntar.");

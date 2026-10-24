@@ -95,6 +95,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>A chave foi guardada ou apagada: a janela atualiza a barra de status.</summary>
     public event EventHandler? KeyChanged;
 
+    /// <summary>Disparado depois de gravar com sucesso <c>vnforge.json</c> e <c>formatting.json</c> do projeto, para a janela principal reler o que mostra deles.</summary>
+    public event EventHandler? ProjectSaved;
+
     public ReadOnlyCollection<ProviderOption> Providers { get; }
 
     public ReadOnlyCollection<ModelOption> Models { get; }
@@ -269,6 +272,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             baseProfile = profile;
             ErrorMessage = null;
             StatusMessage = "Ajustes do projeto salvos.";
+            ProjectSaved?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
