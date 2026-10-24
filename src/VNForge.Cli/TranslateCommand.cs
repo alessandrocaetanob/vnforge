@@ -221,7 +221,7 @@ internal static class TranslateCommand
         return exitCode;
     }
 
-    private static ITranslationProvider CreateClaudeProvider(VnfCli cli, AiRunSettings settings)
+    private static ClaudeTranslationProvider CreateClaudeProvider(VnfCli cli, AiRunSettings settings)
     {
         var key = RequireApiKey(cli);
         return ClaudeProviderFactory.Create(key, new ClaudeOptions { Model = settings.Model, Effort = settings.Effort });

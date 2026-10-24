@@ -28,7 +28,7 @@ public sealed class QaFixerTests : IDisposable
     private static TextUnit Unit(string id, string? translation, TranslationStatus status = TranslationStatus.Translated, params string[] flags) =>
         new(id, TextUnitKind.Dialogue, null, "原文", translation, status) { Flags = flags };
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts(params TextUnit[] units) =>
+    private static Dictionary<string, IReadOnlyList<TextUnit>> Texts(params TextUnit[] units) =>
         new Dictionary<string, IReadOnlyList<TextUnit>> { ["a"] = units };
 
     private static string Fixed(string translation)

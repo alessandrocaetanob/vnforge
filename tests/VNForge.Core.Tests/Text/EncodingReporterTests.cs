@@ -10,7 +10,7 @@ public sealed class EncodingReporterTests
     private static TextUnit Unit(string id, string translation, TranslationStatus status = TranslationStatus.Translated) =>
         new(id, TextUnitKind.Dialogue, null, "原文", translation, status);
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts(params (string Key, TextUnit[] Units)[] scripts) =>
+    private static Dictionary<string, IReadOnlyList<TextUnit>> Texts(params (string Key, TextUnit[] Units)[] scripts) =>
         scripts.ToDictionary(s => s.Key, s => (IReadOnlyList<TextUnit>)s.Units);
 
     [Fact]

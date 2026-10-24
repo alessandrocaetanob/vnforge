@@ -56,10 +56,10 @@ public sealed class TranslationRunner
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _options = options ?? new TranslationRunOptions();
-        ArgumentOutOfRangeException.ThrowIfLessThan(_options.BatchSize, TranslationRunOptions.MinBatchSize, nameof(options));
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(_options.BatchSize, TranslationRunOptions.MaxBatchSize, nameof(options));
-        ArgumentOutOfRangeException.ThrowIfLessThan(_options.MaxConcurrency, 1, nameof(options));
-        ArgumentOutOfRangeException.ThrowIfNegative(_options.MaxRetries, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThan(_options.BatchSize, TranslationRunOptions.MinBatchSize);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(_options.BatchSize, TranslationRunOptions.MaxBatchSize);
+        ArgumentOutOfRangeException.ThrowIfLessThan(_options.MaxConcurrency, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(_options.MaxRetries);
     }
 
     /// <param name="lines">Linhas a traduzir, na ordem do script.</param>
@@ -132,6 +132,7 @@ public sealed class TranslationRunner
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
+            // Parada pedida por erro no callback ou por falha de lote: o resultado parcial é devolvido abaixo.
         }
 
         return new TranslationRunResult(

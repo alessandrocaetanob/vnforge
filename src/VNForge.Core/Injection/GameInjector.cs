@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using VNForge.Core.Engines;
@@ -35,8 +34,7 @@ public sealed class GameInjector
 
     /// <summary>Compara <c>build/</c> com a pasta do jogo e diz o que seria gravado. Não escreve nada.</summary>
     /// <exception cref="InjectionException"><c>build/</c> ausente ou vazia, pasta do jogo inexistente, ou backup anterior ilegível.</exception>
-    [SuppressMessage("Major Code Smell", "S2325:Methods and properties that don't access instance data should be static", Justification = "API pública de instância, simétrica a Inject; chamadores e testes usam a instância.")]
-    public InjectionPlan Plan(ProjectFolder project)
+    public static InjectionPlan Plan(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
 
@@ -140,8 +138,7 @@ public sealed class GameInjector
 
     /// <summary>Acha o backup mais recente do projeto, sem escrever nada.</summary>
     /// <exception cref="InjectionException">Não há backup, ou o manifesto está ilegível.</exception>
-    [SuppressMessage("Major Code Smell", "S2325:Methods and properties that don't access instance data should be static", Justification = "API pública de instância, simétrica a Restore; chamadores e testes usam a instância.")]
-    public RestorePlan PlanRestore(ProjectFolder project)
+    public static RestorePlan PlanRestore(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
 

@@ -1,3 +1,4 @@
+using System.Buffers;
 using VNForge.Core;
 
 namespace VNForge.Engines.YuRis.Ypf;
@@ -296,7 +297,7 @@ public static class YpfFolder
 
     // Os nomes do YPF são caminhos do Windows: a validação é a mesma em qualquer sistema, para o mesmo YPF
     // ser aceito ou recusado igual no Linux e no Windows.
-    private static readonly char[] InvalidNameChars = ['<', '>', ':', '"', '|', '?', '*', '\\'];
+    private static readonly SearchValues<char> InvalidNameChars = SearchValues.Create("<>:\"|?*\\");
 
     private static bool IsSafeRelativePath(string path)
     {

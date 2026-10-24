@@ -171,7 +171,7 @@ public sealed class CompletenessRulesTests
         var report = QaEngine.Default.Run(QaContext.ForTexts(new Dictionary<string, IReadOnlyList<TextUnit>> { ["a"] = [warn, error] }));
 
         Assert.Single(report.Silenced);
-        Assert.Single(report.Issues);
-        Assert.Equal("traducao-vazia", report.Issues[0].RuleId);
+        var issue = Assert.Single(report.Issues);
+        Assert.Equal("traducao-vazia", issue.RuleId);
     }
 }

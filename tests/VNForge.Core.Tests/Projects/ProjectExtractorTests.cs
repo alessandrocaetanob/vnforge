@@ -218,7 +218,8 @@ public sealed class ProjectExtractorTests : IDisposable
         Assert.True(File.Exists(Path.Combine(folder, "a002.json")));
 
         WriteGame(A001Fake, "dialogue|Outra");
-        Thread.Sleep(5);
+        // O nome da pasta é o instante em ms: tira a primeira do caminho em vez de esperar o relógio andar.
+        Directory.Move(folder, Path.Combine(project.TextBackupDirectory, "20000101-000000-000"));
         ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
         Assert.Equal(2, Directory.GetDirectories(project.TextBackupDirectory).Length);
     }

@@ -32,7 +32,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     /// </summary>
     public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
-        return _caller.RunAsync(batch, ct, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)));
+        return _caller.RunAsync(batch, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)), ct);
     }
 
     private static string BuildSystem(TranslationBatch batch)

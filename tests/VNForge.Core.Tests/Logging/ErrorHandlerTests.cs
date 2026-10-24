@@ -60,7 +60,7 @@ public sealed class ErrorHandlerTests : IDisposable
         var ex = new UnknownVersionException("ysbin.ypf", "999");
 
         Assert.Equal("Versão desconhecida (999) no arquivo 'ysbin.ypf'.", ex.Message);
-        Assert.IsAssignableFrom<VNForgeException>(ex);
+        Assert.IsType<VNForgeException>(ex, exactMatch: false);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class ErrorHandlerTests : IDisposable
             factory.CreateLogger(TestMessage),
             error,
             VNForgeLogging.GetLogDirectory(_root),
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         Assert.Equal("Erro: Versão desconhecida (7) no arquivo 'x.ybn'." + Environment.NewLine, error.ToString());
@@ -203,7 +203,7 @@ public sealed class ErrorHandlerTests : IDisposable
             factory.CreateLogger(TestMessage),
             error,
             VNForgeLogging.GetLogDirectory(_root),
-            cts.Token);
+            cancellationToken: cts.Token);
 
         Assert.Equal(ErrorHandler.CancelledExitCode, code);
         Assert.Equal("Operação cancelada." + Environment.NewLine, error.ToString());

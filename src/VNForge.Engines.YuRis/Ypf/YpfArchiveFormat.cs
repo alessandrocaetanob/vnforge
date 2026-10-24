@@ -81,7 +81,7 @@ public sealed class YpfArchiveFormat : IArchiveFormat
 
         var head = new byte[YpfHeader.Size];
         var read = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
-        if (read < head.Length || !YpfHeader.HasMagic(head))
+        if (read < head.Length || !YpfHeader.TryParse(head, out var header))
         {
             throw new InvalidFileException(
                 source,
@@ -90,7 +90,6 @@ public sealed class YpfArchiveFormat : IArchiveFormat
                     : "não começa com a assinatura \"YPF\\0\"; não é um arquivo YPF.");
         }
 
-        YpfHeader.TryParse(head, out var header);
         try
         {
             return ReadArchive(stream, header, length, source);

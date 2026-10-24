@@ -7,6 +7,8 @@ namespace VNForge.Cli.Tests;
 /// <summary>Percorre a árvore real de comandos: ajuda em português e <c>--json</c> no formato comum (E9.2).</summary>
 public sealed partial class AllCommandsContractTests : IDisposable
 {
+    private static readonly string[] ErrorKinds = ["expected", "unexpected", "cancelled"];
+
     private static readonly string[] EnglishMarkers =
     [
         "Description:", "Usage:", "Options:", "Commands:", "Arguments:", "[options]", "Show help", "Show version",
@@ -31,7 +33,7 @@ public sealed partial class AllCommandsContractTests : IDisposable
     [Fact]
     public void Arvore_de_comandos_nao_esta_vazia()
     {
-        Assert.True(CommandPaths().Count() > 10);
+        Assert.True(CommandPaths().Count > 10);
     }
 
     [Theory]
@@ -97,7 +99,7 @@ public sealed partial class AllCommandsContractTests : IDisposable
         else
         {
             var error = root.GetProperty("error");
-            Assert.Contains(error.GetProperty("kind").GetString(), new[] { "expected", "unexpected", "cancelled" });
+            Assert.Contains(error.GetProperty("kind").GetString(), ErrorKinds);
             Assert.False(string.IsNullOrWhiteSpace(error.GetProperty("message").GetString()));
             Assert.DoesNotContain("   at ", line);
         }

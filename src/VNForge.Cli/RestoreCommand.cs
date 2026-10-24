@@ -20,7 +20,7 @@ internal static class RestoreCommand
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var injector = new GameInjector();
-        var plan = injector.PlanRestore(project);
+        var plan = GameInjector.PlanRestore(project);
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
 

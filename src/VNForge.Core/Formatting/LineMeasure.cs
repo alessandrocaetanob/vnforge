@@ -15,52 +15,61 @@ public static class LineMeasure
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(width);
 
-        var boxes = new List<IReadOnlyList<int>>();
-        var lines = new List<int>();
-        var column = 0;
-        var hasContent = false;
-
-        void EndLine()
-        {
-            lines.Add(column);
-            column = 0;
-            hasContent = false;
-        }
-
-        void EndBox()
-        {
-            if (hasContent)
-            {
-                EndLine();
-            }
-
-            boxes.Add(lines);
-            lines = [];
-        }
+        var state = new Measurement();
 
         foreach (var (kind, w) in Tokens(text, width))
         {
             switch (kind)
             {
                 case 'n':
-                    EndLine();
+                    state.EndLine();
                     break;
                 case 'p':
-                    EndBox();
+                    state.EndBox();
                     break;
                 default:
-                    column += w;
-                    hasContent |= kind != 's';
+                    state.Column += w;
+                    state.HasContent |= kind != 's';
                     break;
             }
         }
 
-        if (hasContent || lines.Count > 0 || boxes.Count == 0)
+        if (state.HasContent || state.Lines.Count > 0 || state.Boxes.Count == 0)
         {
-            EndBox();
+            state.EndBox();
         }
 
-        return boxes;
+        return state.Boxes;
+    }
+
+    /// <summary>O que a leitura acumulou: a coluna da linha aberta, as linhas da caixa aberta e as caixas fechadas.</summary>
+    private sealed class Measurement
+    {
+        public List<IReadOnlyList<int>> Boxes { get; } = [];
+
+        public List<int> Lines { get; private set; } = [];
+
+        public int Column { get; set; }
+
+        public bool HasContent { get; set; }
+
+        public void EndLine()
+        {
+            Lines.Add(Column);
+            Column = 0;
+            HasContent = false;
+        }
+
+        public void EndBox()
+        {
+            if (HasContent)
+            {
+                EndLine();
+            }
+
+            Boxes.Add(Lines);
+            Lines = [];
+        }
     }
 
     // 'n' = \n, 'p' = \p, 's' = espaço, 'g' = glifo, 'm' = marcador sem largura.

@@ -313,7 +313,7 @@ public sealed class ProjectFolder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         if (key != key.Trim()
-            || key != key.ToLowerInvariant()
+            || !string.Equals(key, key.ToLowerInvariant(), StringComparison.Ordinal)
             || key.EndsWith('.')
             || key.Contains(':')
             || key.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0

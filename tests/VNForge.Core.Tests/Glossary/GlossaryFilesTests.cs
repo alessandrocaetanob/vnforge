@@ -10,7 +10,11 @@ public class GlossaryFilesTests : IDisposable
 
     public GlossaryFilesTests() => Directory.CreateDirectory(_root);
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose()
+    {
+        Directory.Delete(_root, recursive: true);
+        GC.SuppressFinalize(this);
+    }
 
     private ProjectFolder NovoProjeto() => ProjectFolder.Create(_root, new ProjectConfig(
         "Minha VN",
