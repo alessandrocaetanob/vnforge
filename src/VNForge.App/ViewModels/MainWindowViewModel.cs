@@ -67,7 +67,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         };
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
-        Dashboard.StageRequested += (_, _) => SelectedNav = editorItem;
+        Dashboard.StageRequested += (_, stage) => SelectedNav = stage switch
+        {
+            PipelineStageKey.Review => conferenceItem,
+            PipelineStageKey.Build or PipelineStageKey.Inject => buildItem,
+            _ => editorItem,
+        };
         start.EditorRequested += (_, summary) =>
         {
             SetProject(summary);
