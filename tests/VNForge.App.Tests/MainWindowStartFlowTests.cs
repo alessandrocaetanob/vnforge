@@ -29,6 +29,8 @@ public class MainWindowStartFlowTests
         Assert.Same(vm.Start, vm.CurrentPage);
 
         await vm.Start.OpenSelectedCommand.ExecuteAsync(null);
+        await vm.Dashboard.ReloadAsync();
+        await vm.Editor.Loading;
 
         Assert.Equal(NavKey.Dashboard, vm.SelectedNav?.Key);
         Assert.Same(vm.Dashboard, vm.CurrentPage);

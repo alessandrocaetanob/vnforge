@@ -20,6 +20,23 @@ public enum BuildConfirmation
     Restore,
 }
 
+/// <summary>Uma linha do log: o horário (<c>HH:mm:ss</c>, em mono na tela) e o que aconteceu.</summary>
+public sealed record BuildLogLine(string Time, string Message);
+
+/// <summary>Uma linha do cartão Resultado: o nome do fato (<c>Scripts</c>, <c>ysbin.ypf</c>, <c>Acentuação</c>) e o valor.</summary>
+public sealed record ResultFact(string Label, string Value);
+
+/// <summary>Uma linha da lista de backups: a pasta, quanto ocupa e o que guarda.</summary>
+public sealed record BackupRow(string Name, string SizeText, string Note);
+
+/// <summary>A severidade do InfoBar do cartão Resultado.</summary>
+public enum BuildResultTone
+{
+    Info,
+    Success,
+    Warning,
+}
+
 /// <summary>Uma linha da lista "o que muda no jogo": o caminho relativo à pasta do jogo e se o arquivo substitui um original ou é novo.</summary>
 public sealed record PlannedChange(string Path, string Kind);
 
@@ -32,6 +49,7 @@ public sealed partial class BuildViewModel : ObservableObject
 {
     private const int MaxWarningsLogged = 10;
     private const int MaxQaIssuesLogged = 50;
+    private const int MaxScriptsLogged = 5;
 
     private static readonly NumberFormatInfo PtBr = new() { NumberGroupSeparator = ".", NumberDecimalSeparator = "," };
 
@@ -39,31 +57,38 @@ public sealed partial class BuildViewModel : ObservableObject
     private readonly IReadOnlyList<IEngine> engines;
     private readonly IGameProcessStarter starter;
     private readonly QaEngine? qa;
+    private readonly TimeProvider clock;
     private InjectionPlan? injectionPlan;
     private RestorePlan? restorePlan;
     private InjectionPlan? confirmedInject;
     private RestorePlan? confirmedRestore;
     private int refreshVersion;
     private int epoch;
+    private string? restoredFrom;
 
-    public BuildViewModel(BackgroundTaskService tasks, IReadOnlyList<IEngine>? engines = null, IGameProcessStarter? starter = null, QaEngine? qa = null)
+    public BuildViewModel(BackgroundTaskService tasks, IReadOnlyList<IEngine>? engines = null, IGameProcessStarter? starter = null, QaEngine? qa = null, TimeProvider? clock = null)
     {
         this.tasks = tasks;
         this.engines = engines ?? [new YuRisEngine()];
         this.starter = starter ?? new ShellGameProcessStarter();
         this.qa = qa;
+        this.clock = clock ?? TimeProvider.System;
         Log.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasLog));
-        Summary.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSummary));
+        Facts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFacts));
+        Backups.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasBackups));
     }
 
     /// <summary>O que o build, a injeção e a restauração fizeram, em ordem; a tela mostra como um log.</summary>
-    public ObservableCollection<string> Log { get; } = [];
+    public ObservableCollection<BuildLogLine> Log { get; } = [];
 
     /// <summary>Os arquivos de <c>build/</c> que a injeção gravaria agora no jogo.</summary>
     public ObservableCollection<PlannedChange> Changes { get; } = [];
 
-    /// <summary>Resumo do último build deste projeto, uma linha por fato.</summary>
-    public ObservableCollection<string> Summary { get; } = [];
+    /// <summary>Os números do último build desta sessão, um fato por linha do cartão Resultado.</summary>
+    public ObservableCollection<ResultFact> Facts { get; } = [];
+
+    /// <summary>Os backups da pasta <c>backup/</c> do projeto, do mais novo para o mais antigo.</summary>
+    public ObservableCollection<BackupRow> Backups { get; } = [];
 
     /// <summary>Termina quando a última leitura pedida por <see cref="ReloadAsync"/> acaba.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
@@ -79,6 +104,47 @@ public sealed partial class BuildViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string GameFolder { get; private set; } = string.Empty;
+
+    /// <summary>O executável do jogo (<c>game.exe</c> dentro da pasta do jogo), que o cabeçalho mostra em mono.</summary>
+    [ObservableProperty]
+    public partial string GameExecutable { get; private set; } = string.Empty;
+
+    /// <summary>Erros do QA agora: com algum, o <c>vnf build</c> recusa, então a faixa de aviso acende e "Novo build" trava.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasQaErrors))]
+    public partial int QaErrorCount { get; private set; }
+
+    /// <summary>Avisos do QA abertos (sem as linhas sem tradução, que nunca bloqueiam).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AllowWarningsDescription))]
+    public partial int QaWarningCount { get; private set; }
+
+    [ObservableProperty]
+    public partial string QaBannerTitle { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string QaBannerDetail { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial BuildResultTone ResultTone { get; private set; }
+
+    [ObservableProperty]
+    public partial string ResultTitle { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ResultText { get; private set; } = string.Empty;
+
+    /// <summary>Quando e quanto durou a última operação: <c>24/10/2026 00:41 · 6,8 s</c>.</summary>
+    [ObservableProperty]
+    public partial string LogSummary { get; private set; } = string.Empty;
+
+    /// <summary>Há backups na pasta mas a restauração não pôde ser planejada: <see cref="BackupMessage"/> diz por quê.</summary>
+    [ObservableProperty]
+    public partial bool HasRestoreProblem { get; private set; }
+
+    /// <summary>Rodapé da lista de backups: a pasta, a garantia de que fica fora do git e quantos há.</summary>
+    [ObservableProperty]
+    public partial string BackupFooter { get; private set; } = string.Empty;
 
     [ObservableProperty]
     public partial string PlanMessage { get; private set; } = string.Empty;
@@ -107,15 +173,54 @@ public sealed partial class BuildViewModel : ObservableObject
 
     public bool IsConfirming => Pending != BuildConfirmation.None;
 
-    public bool HasSummary => Summary.Count > 0;
+    public bool HasFacts => Facts.Count > 0;
 
     public bool HasLog => Log.Count > 0;
+
+    public bool HasBackups => Backups.Count > 0;
+
+    public bool HasQaErrors => QaErrorCount > 0;
+
+    /// <summary>A chave do ícone do InfoBar do Resultado, para o <c>IconKeyConverter</c>.</summary>
+    public string ResultIconKey => ResultTone switch
+    {
+        BuildResultTone.Success => "Icon.Check",
+        BuildResultTone.Warning => "Icon.Warning",
+        _ => "Icon.Info",
+    };
+
+    public bool IsResultSuccess => ResultTone == BuildResultTone.Success;
+
+    public bool IsResultWarning => ResultTone == BuildResultTone.Warning;
+
+    /// <summary>A linha de apoio de "Permitir avisos do QA": erros sempre bloqueiam, e quantos avisos há hoje.</summary>
+    public string AllowWarningsDescription => QaWarningCount switch
+    {
+        0 => "Erros sempre bloqueiam. Não há avisos abertos.",
+        1 => "Erros sempre bloqueiam. Hoje há 1 aviso aberto.",
+        var n => $"Erros sempre bloqueiam. Hoje há {ProjectLabels.Number(n)} avisos abertos.",
+    };
+
+    /// <summary>"Ver erros" da faixa de aviso: a janela troca para a Conferência.</summary>
+    public event EventHandler? ErrorsRequested;
+
+    [RelayCommand]
+    private void ShowErrors() => ErrorsRequested?.Invoke(this, EventArgs.Empty);
+
+    partial void OnResultToneChanged(BuildResultTone value)
+    {
+        OnPropertyChanged(nameof(ResultIconKey));
+        OnPropertyChanged(nameof(IsResultSuccess));
+        OnPropertyChanged(nameof(IsResultWarning));
+    }
 
     partial void OnProjectChanged(ProjectSummary? value)
     {
         epoch++;
         Log.Clear();
-        Summary.Clear();
+        Facts.Clear();
+        LogSummary = string.Empty;
+        restoredFrom = null;
         ErrorMessage = null;
         ClearConfirmation();
         refreshVersion++;
@@ -135,7 +240,7 @@ public sealed partial class BuildViewModel : ObservableObject
         ConfirmCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanBuild() => Project is not null && !IsBusy;
+    private bool CanBuild() => Project is not null && !IsBusy && !HasQaErrors;
 
     private bool CanInject() => !IsBusy && injectionPlan is { Files.Count: > 0 };
 
@@ -155,24 +260,27 @@ public sealed partial class BuildViewModel : ObservableObject
 
         ClearConfirmation();
         ErrorMessage = null;
+        restoredFrom = null;
         var mine = epoch;
         IsBusy = true;
+        var timer = StartTimer();
         try
         {
             var project = ProjectFolder.Open(summary.Root);
             var options = new BuildOptions(OnlyChanged);
             var allowWarnings = AllowWarnings;
             AppendLog("Iniciando o build: conferindo a tradução e reconstruindo os scripts.");
-            var run = await RunAsync("Build de " + summary.Name, "Reconstruindo os scripts com as traduções", ct =>
-                ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: allowWarnings, options: options, cancellationToken: ct));
+            var run = await RunAsync("Build de " + summary.Name, "Reconstruindo os scripts com as traduções", (reporter, ct) =>
+                ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: allowWarnings, options: options, progress: new TaskProgress(reporter), cancellationToken: ct));
             if (mine != epoch)
             {
                 return;
             }
 
+            var elapsed = timer.Stop();
             if (run.Value is { } result)
             {
-                DescribeBuild(project, result);
+                DescribeBuild(project, result, elapsed);
             }
             else if (run.Failure is QaBlockedException blocked)
             {
@@ -197,6 +305,10 @@ public sealed partial class BuildViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            if (mine == epoch)
+            {
+                LogSummary = timer.Summary;
+            }
         }
 
         await RefreshAsync();
@@ -241,6 +353,7 @@ public sealed partial class BuildViewModel : ObservableObject
         ErrorMessage = null;
         var mine = epoch;
         IsBusy = true;
+        var timer = StartTimer();
         try
         {
             switch (action)
@@ -263,6 +376,10 @@ public sealed partial class BuildViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            if (mine == epoch)
+            {
+                LogSummary = timer.Summary;
+            }
         }
 
         await RefreshAsync();
@@ -310,7 +427,8 @@ public sealed partial class BuildViewModel : ObservableObject
     private async Task InjectAsync(InjectionPlan plan, int mine)
     {
         AppendLog($"Injetando {ProjectLabels.Number(plan.Files.Count)} arquivo(s) em {plan.GameDirectory}");
-        var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", _ =>
+        restoredFrom = null;
+        var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", (_, _) =>
         {
             EnsureBuildMatchesPlan(plan);
             return new GameInjector().Inject(plan);
@@ -343,7 +461,7 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         var root = Project!.Root;
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
-        var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", _ =>
+        var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", (_, _) =>
         {
             EnsureBackupsMatchPlan(root, plan);
             return new GameInjector().Restore(plan);
@@ -355,6 +473,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
         if (run.Value is { } result)
         {
+            restoredFrom = result.BackupDirectory;
             AppendLog($"Restaurado: {ProjectLabels.Number(result.Restored.Count)} arquivo(s); removido: {ProjectLabels.Number(result.Removed.Count)} arquivo(s) criado(s) pela injeção.");
             foreach (var kept in result.Kept)
             {
@@ -414,7 +533,7 @@ public sealed partial class BuildViewModel : ObservableObject
     /// Roda o trabalho como tarefa da barra inferior e devolve o resultado ou a falha esperada, capturados dentro do trabalho:
     /// o estado da tarefa só muda quando o <c>Dispatcher</c> processa o <c>post</c>, depois de <see cref="BackgroundTaskItem.Completion"/>.
     /// </summary>
-    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<CancellationToken, T> work)
+    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<IBackgroundTaskReporter, CancellationToken, T> work)
     {
         T? value = default;
         Exception? failure = null;
@@ -423,7 +542,7 @@ public sealed partial class BuildViewModel : ObservableObject
             reporter.Report(null, message);
             try
             {
-                value = work(ct);
+                value = work(reporter, ct);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
@@ -435,7 +554,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var mine = epoch;
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && !string.IsNullOrEmpty(item.Message))
+            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && item.Progress is null && !string.IsNullOrEmpty(item.Message))
             {
                 AppendLog(item.Message);
             }
@@ -454,41 +573,31 @@ public sealed partial class BuildViewModel : ObservableObject
         return new TaskRun<T>(value, failure);
     }
 
-    private void DescribeBuild(ProjectFolder project, BuildResult result)
+    private void DescribeBuild(ProjectFolder project, BuildResult result, TimeSpan elapsed)
     {
         foreach (var archive in result.Archives)
         {
-            var built = Path.Combine(result.BuildDirectory, archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
+            var built = Path.Combine("build", archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
             var detail = archive.ReplacedFiles == 0
                 ? "sem alterações, idêntico ao original"
                 : $"{ProjectLabels.Number(archive.ReplacedFiles)} {Plural(archive.ReplacedFiles, "script alterado", "scripts alterados")}";
             AppendLog($"Gravado: {built} ({detail})");
         }
 
-        var summary = new List<string> { BuildSummaryLine(result) };
-        foreach (var archive in result.Archives)
+        foreach (var script in result.RebuiltScripts.Take(MaxScriptsLogged))
         {
-            summary.Add($"{archive.GamePath}: {SizeText(project, result, archive)}");
+            AppendLog($"{script.Name} reconstruído · {ProjectLabels.Number(script.Lines)} {Plural(script.Lines, "texto", "textos")}");
+        }
+
+        if (result.RebuiltScripts.Count > MaxScriptsLogged)
+        {
+            var more = result.RebuiltScripts.Count - MaxScriptsLogged;
+            AppendLog($"… e mais {ProjectLabels.Number(more)} {Plural(more, "script reconstruído", "scripts reconstruídos")}");
         }
 
         if (result.Encoding.Replaced.Count > 0)
         {
-            summary.Add($"Codificação '{result.Encoding.Strategy}': {ProjectLabels.Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}.");
-        }
-
-        if (result.Qa.OtherIssues.Count > 0)
-        {
-            summary.Add($"QA: {QaBlockedException.DescribeBlocking(result.Qa)}, liberados por 'Permitir avisos do QA'.");
-        }
-
-        if (result.Qa.UntranslatedCount > 0)
-        {
-            summary.Add(QaBlockedException.DescribeUntranslated(result.Qa));
-        }
-
-        if (result.Qa.Silenced.Count > 0)
-        {
-            summary.Add($"QA: {ProjectLabels.Number(result.Qa.Silenced.Count)} {Plural(result.Qa.Silenced.Count, "aviso marcado como ok", "avisos marcados como ok")}.");
+            AppendLog($"Acentuação {EncodingName(result.Encoding.Strategy)}: {ProjectLabels.Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}");
         }
 
         foreach (var issue in result.Qa.OtherIssues)
@@ -506,12 +615,74 @@ public sealed partial class BuildViewModel : ObservableObject
             AppendLog($"... e mais {ProjectLabels.Number(result.Warnings.Count - MaxWarningsLogged)} aviso(s).");
         }
 
-        AppendLog(summary[0]);
-        Summary.Clear();
-        foreach (var line in summary)
+        AppendLog(BuildSummaryLine(result));
+        AppendLog($"Build concluído em {FormatDuration(elapsed)} → build{Path.DirectorySeparatorChar}");
+        ShowFacts(project, result);
+    }
+
+    /// <summary>Preenche o cartão Resultado com os números do build: scripts, o tamanho de cada pacote, a acentuação e o que o QA deixou passar.</summary>
+    private void ShowFacts(ProjectFolder project, BuildResult result)
+    {
+        var facts = new List<ResultFact> { new("Scripts", ScriptsFact(result)) };
+        foreach (var archive in result.Archives)
         {
-            Summary.Add(line);
+            facts.Add(new ResultFact(archive.GamePath, SizeText(project, result, archive)));
         }
+
+        var replaced = result.Encoding.Replaced.Count;
+        facts.Add(new ResultFact(
+            "Acentuação",
+            replaced == 0
+                ? $"{EncodingName(result.Encoding.Strategy)} · nenhum caractere substituído"
+                : $"{EncodingName(result.Encoding.Strategy)} · {ProjectLabels.Number(replaced)} {Plural(replaced, "caractere substituído", "caracteres substituídos")}"));
+
+        if (result.Qa.OtherIssues.Count > 0)
+        {
+            facts.Add(new ResultFact("QA", $"{QaBlockedException.DescribeBlocking(result.Qa)}, liberados por 'Permitir avisos do QA'."));
+        }
+
+        if (result.Qa.UntranslatedCount > 0)
+        {
+            facts.Add(new ResultFact("QA", WithoutQaPrefix(QaBlockedException.DescribeUntranslated(result.Qa))));
+        }
+
+        if (result.Qa.Silenced.Count > 0)
+        {
+            facts.Add(new ResultFact("QA", $"{ProjectLabels.Number(result.Qa.Silenced.Count)} {Plural(result.Qa.Silenced.Count, "aviso marcado como ok", "avisos marcados como ok")}."));
+        }
+
+        Facts.Clear();
+        foreach (var fact in facts)
+        {
+            Facts.Add(fact);
+        }
+    }
+
+    private static string WithoutQaPrefix(string text) => text.StartsWith("QA: ", StringComparison.Ordinal) ? text[4..] : text;
+
+    private static string ScriptsFact(BuildResult result)
+    {
+        var rebuilt = result.RebuiltScripts.Count;
+        var total = ProjectLabels.Number(result.ScriptCount);
+        var reused = result.ReusedScripts > 0 ? $" · {ProjectLabels.Number(result.ReusedScripts)} {Plural(result.ReusedScripts, "reaproveitado", "reaproveitados")}" : string.Empty;
+        return rebuilt == 0
+            ? $"nenhum reconstruído de {total}{reused}"
+            : $"{ProjectLabels.Number(rebuilt)} {Plural(rebuilt, "reconstruído", "reconstruídos")} de {total}{reused}";
+    }
+
+    /// <summary>A estratégia como o artboard a escreve: <c>cp1252</c> vira <c>CP1252</c>.</summary>
+    private static string EncodingName(string strategy) => strategy.ToUpperInvariant();
+
+    /// <summary>"6,8 s" até um minuto; depois "1 min 12 s".</summary>
+    public static string FormatDuration(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            var tenths = (long)(elapsed.TotalMilliseconds / 100);
+            return $"{tenths / 10},{tenths % 10} s";
+        }
+
+        return $"{(int)elapsed.TotalMinutes} min {elapsed.Seconds} s";
     }
 
     private void DescribeQaBlocked(QaBlockedException blocked)
@@ -589,12 +760,26 @@ public sealed partial class BuildViewModel : ObservableObject
 
     private void AppendLog(string line)
     {
-        if (Log.Count > 0 && Log[^1] == line)
+        if (Log.Count > 0 && Log[^1].Message == line)
         {
             return;
         }
 
-        Log.Add(line);
+        Log.Add(new BuildLogLine(clock.GetLocalNow().ToString("HH:mm:ss", CultureInfo.InvariantCulture), line));
+    }
+
+    private RunTimer StartTimer() => new(clock);
+
+    /// <summary>Marca o início de uma operação e mede quanto ela levou; o cabeçalho do log mostra o início e a duração.</summary>
+    private sealed class RunTimer(TimeProvider clock)
+    {
+        private readonly DateTimeOffset started = clock.GetLocalNow();
+        private readonly long startStamp = clock.GetTimestamp();
+        private TimeSpan? elapsed;
+
+        public TimeSpan Stop() => elapsed ??= clock.GetElapsedTime(startStamp);
+
+        public string Summary => $"{started.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)} · {FormatDuration(Stop())}";
     }
 
     private void ClearConfirmation()
@@ -629,7 +814,7 @@ public sealed partial class BuildViewModel : ObservableObject
         {
             try
             {
-                state = await Task.Run(() => ReadState(root));
+                state = await Task.Run(() => ReadState(root, qa ?? QaEngine.Default));
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
@@ -651,6 +836,7 @@ public sealed partial class BuildViewModel : ObservableObject
         restorePlan = state?.Restore;
         DropStaleConfirmation();
         GameFolder = state?.GameFolder ?? string.Empty;
+        GameExecutable = state?.GameExecutable ?? string.Empty;
         PlanMessage = state?.PlanMessage ?? string.Empty;
         BackupLocation = state?.BackupLocation ?? string.Empty;
         BackupMessage = state?.BackupMessage ?? string.Empty;
@@ -660,7 +846,143 @@ public sealed partial class BuildViewModel : ObservableObject
             Changes.Add(new PlannedChange(file.RelativePath, file.ReplacesExisting ? "Substitui o original" : "Arquivo novo"));
         }
 
+        QaWarningCount = state?.QaWarnings ?? 0;
+        QaErrorCount = state?.QaErrors ?? 0;
+        ShowQaBanner(state);
+        ShowBackups(state);
+        ShowResult(state);
         UpdateCommands();
+    }
+
+    private void ShowQaBanner(ProjectState? state)
+    {
+        if (QaErrorCount == 0)
+        {
+            QaBannerTitle = string.Empty;
+            QaBannerDetail = string.Empty;
+            return;
+        }
+
+        QaBannerTitle = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro novo impede", "erros novos impedem")} um build novo.";
+        QaBannerDetail = state?.LastBuildAt is { } built
+            ? $"O build abaixo é de {built.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)} e continua válido para injetar."
+            : "Corrija os erros na Conferência para poder fazer o build.";
+    }
+
+    private void ShowBackups(ProjectState? state)
+    {
+        Backups.Clear();
+        foreach (var backup in state?.Backups ?? [])
+        {
+            Backups.Add(new BackupRow(BackupRelative(backup.Name), FormatSize(backup.SizeBytes), DescribeBackup(backup)));
+        }
+
+        HasRestoreProblem = Backups.Count > 0 && restorePlan is null;
+        var separator = Path.DirectorySeparatorChar;
+        var count = Backups.Count;
+        var footer = $"Pasta backup{separator} do projeto";
+        if (state?.BackupIgnored == true)
+        {
+            footer += " · fora do git";
+        }
+
+        BackupFooter = count == 0 ? footer : $"{footer} · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
+    }
+
+    private static string BackupRelative(string name) => $"backup{Path.DirectorySeparatorChar}{name}";
+
+    private static string DescribeBackup(BackupInfo backup)
+    {
+        if (backup.Problem is not null)
+        {
+            return backup.Problem;
+        }
+
+        var parts = new List<string>();
+        var originals = backup.OriginalFiles;
+        switch (originals.Count)
+        {
+            case 0:
+                break;
+            case 1:
+                parts.Add($"{originals[0]} original");
+                break;
+            case 2:
+                parts.Add($"{originals[0]} e {originals[1]} originais");
+                break;
+            default:
+                parts.Add($"{ProjectLabels.Number(originals.Count)} arquivos originais");
+                break;
+        }
+
+        var created = backup.CreatedFiles.Count;
+        if (created > 0)
+        {
+            parts.Add($"{ProjectLabels.Number(created)} {Plural(created, "arquivo criado", "arquivos criados")}");
+        }
+
+        var manifest = backup.Manifest!;
+        parts.Add($"injeção de {manifest.CreatedAt.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}");
+        if (manifest.RestoredAt is { } restored)
+        {
+            parts.Add($"restaurado em {restored.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>
+    /// O InfoBar do Resultado diz em que pé o jogo está. A restauração que acabou de acontecer só existe na sessão (o backup devolvido some
+    /// da lista de pendentes); o resto sai do disco: sem build, build por injetar, ou build já igual ao jogo com um backup que o restaura.
+    /// </summary>
+    private void ShowResult(ProjectState? state)
+    {
+        if (state is null)
+        {
+            SetResult(BuildResultTone.Info, string.Empty, string.Empty);
+            return;
+        }
+
+        if (restoredFrom is not null)
+        {
+            SetResult(
+                BuildResultTone.Warning,
+                "Originais restaurados.",
+                $"O jogo voltou aos arquivos de {BackupRelative(Path.GetFileName(restoredFrom))}. O build continua disponível para injetar.");
+        }
+        else if (!state.HasBuild)
+        {
+            SetResult(BuildResultTone.Info, "Ainda não há build.", state.PlanMessage);
+        }
+        else if (state.Plan is null)
+        {
+            SetResult(BuildResultTone.Warning, "Não foi possível comparar o build com o jogo.", state.PlanMessage);
+        }
+        else if (state.Plan.Files.Count > 0)
+        {
+            SetResult(
+                BuildResultTone.Info,
+                "Build pronto, ainda não injetado.",
+                state.Restore is null ? "O jogo continua com os arquivos originais." : state.PlanMessage);
+        }
+        else if (state.Restore is { } restore)
+        {
+            SetResult(
+                BuildResultTone.Success,
+                "Injetado no jogo.",
+                $"Originais copiados para {BackupRelative(Path.GetFileName(restore.BackupDirectory))} antes da cópia.");
+        }
+        else
+        {
+            SetResult(BuildResultTone.Info, "O build já é igual ao jogo.", state.PlanMessage);
+        }
+    }
+
+    private void SetResult(BuildResultTone tone, string title, string text)
+    {
+        ResultTone = tone;
+        ResultTitle = title;
+        ResultText = text;
     }
 
     /// <summary>O plano lido de novo substituiu o que o usuário viu: a confirmação pendente é de outro plano e cai, para ele conferir de novo.</summary>
@@ -679,12 +1001,17 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    private static ProjectState ReadState(string root)
+    private static ProjectState ReadState(string root, QaEngine engine)
     {
         var project = ProjectFolder.Open(root);
-        var gameFolder = Path.GetFullPath(project.LoadConfig().Game.Path, project.Root);
-        var hasBuild = Directory.Exists(project.BuildDirectory)
-            && Directory.EnumerateFiles(project.BuildDirectory, "*", SearchOption.AllDirectories).Any();
+        var config = project.LoadConfig();
+        var gameFolder = Path.GetFullPath(config.Game.Path, project.Root);
+        var gameExecutable = Path.GetFullPath(Path.Combine(gameFolder, config.Game.Exe));
+        var buildFiles = Directory.Exists(project.BuildDirectory)
+            ? Directory.EnumerateFiles(project.BuildDirectory, "*", SearchOption.AllDirectories).ToList()
+            : [];
+        var hasBuild = buildFiles.Count > 0;
+        DateTimeOffset? lastBuildAt = hasBuild ? buildFiles.Max(f => new DateTimeOffset(File.GetLastWriteTimeUtc(f), TimeSpan.Zero)) : null;
 
         InjectionPlan? plan = null;
         string planMessage;
@@ -720,7 +1047,39 @@ public sealed partial class BuildViewModel : ObservableObject
             backupMessage = hasBackups ? e.Message : "Nenhum backup ainda. O primeiro Injetar cria um nesta pasta.";
         }
 
-        return new ProjectState(gameFolder, plan, planMessage, restore, backupLocation, backupMessage);
+        var (qaErrors, qaWarnings) = CountQaIssues(project, engine);
+        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaErrors, qaWarnings);
+    }
+
+    /// <summary>O <c>.gitignore</c> do projeto lista <c>backup/</c>: só então o rodapé garante que os originais ficam fora do git.</summary>
+    private static bool IsBackupIgnored(ProjectFolder project)
+    {
+        try
+        {
+            var path = Path.Combine(project.Root, ".gitignore");
+            return File.Exists(path) && File.ReadAllLines(path).Any(l => l.Trim() is "backup/" or "/backup/" or "backup");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Os erros e avisos que o QA acha agora, os mesmos que a Conferência lista e que o <c>vnf build</c> usa para recusar. Um QA que não roda
+    /// (texto ilegível, regra que lança) não trava o build aqui: o Core recusa com a mensagem certa se for o caso.
+    /// </summary>
+    private static (int Errors, int Warnings) CountQaIssues(ProjectFolder project, QaEngine engine)
+    {
+        try
+        {
+            var report = engine.Run(QaContext.FromProject(project));
+            return (report.Errors.Count, report.OtherIssues.Count(i => i.Severity == QaSeverity.Warning));
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return (0, 0);
+        }
     }
 
     private static string DescribePlan(InjectionPlan plan)
@@ -743,9 +1102,45 @@ public sealed partial class BuildViewModel : ObservableObject
     private static bool IsExpected(Exception e) =>
         e is VNForgeException or IOException or UnauthorizedAccessException or OperationCanceledException;
 
-    private sealed record ProjectState(string GameFolder, InjectionPlan? Plan, string PlanMessage, RestorePlan? Restore, string BackupLocation, string BackupMessage)
+    private sealed record ProjectState(
+        string GameFolder,
+        string GameExecutable,
+        bool HasBuild,
+        DateTimeOffset? LastBuildAt,
+        InjectionPlan? Plan,
+        string PlanMessage,
+        RestorePlan? Restore,
+        string BackupLocation,
+        string BackupMessage,
+        IReadOnlyList<BackupInfo> Backups,
+        bool BackupIgnored,
+        int QaErrors,
+        int QaWarnings)
     {
-        public static ProjectState Unreadable(string message) => new(string.Empty, null, message, null, string.Empty, string.Empty);
+        public static ProjectState Unreadable(string message) =>
+            new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], false, 0, 0);
+    }
+
+    /// <summary>
+    /// O progresso por script do Core vira o andamento da tarefa da barra inferior (fração e nome do script). Fica fora do log: um build de
+    /// centenas de scripts não vira centenas de linhas, e o log mostra só o que o build fez.
+    /// </summary>
+    private sealed class TaskProgress(IBackgroundTaskReporter reporter) : IProgress<ScriptWorkProgress>
+    {
+        public void Report(ScriptWorkProgress value)
+        {
+            if (value.Total <= 0)
+            {
+                return;
+            }
+
+            var fraction = (double)value.Done / value.Total;
+            reporter.Report(
+                fraction,
+                value.Name.Length == 0
+                    ? $"Reconstruindo os scripts ({ProjectLabels.Number(value.Total)} de {ProjectLabels.Number(value.Total)})"
+                    : $"Reconstruindo {value.Name} ({ProjectLabels.Number(value.Done + 1)} de {ProjectLabels.Number(value.Total)})");
+        }
     }
 
     private readonly record struct TaskRun<T>(T? Value, Exception? Failure);

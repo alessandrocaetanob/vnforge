@@ -1,5 +1,6 @@
 using System.Globalization;
 using VNForge.Core.Engines;
+using VNForge.Core.Glossary;
 using VNForge.Core.Injection;
 using VNForge.Core.Text;
 
@@ -95,6 +96,8 @@ public static class ProjectExtractor
                 File.Delete(project.TextPath(key));
             }
 
+            SaveScriptNames(project, extracted);
+
             // Dentro do try: se o estado não grava, o texto volta ao que era e a extração pode ser repetida.
             project.SaveState(new PipelineState(
                 originals,
@@ -135,6 +138,27 @@ public static class ProjectExtractor
         {
             Reextraction = existing.Count > 0 ? plan.Summary : null,
         };
+    }
+
+    /// <summary>Grava no <c>scripts.json</c> os nomes que a engine leu do jogo, sem tocar nos que o usuário deu. Sem nome nenhum e sem arquivo antes, não cria o arquivo.</summary>
+    private static void SaveScriptNames(ProjectFolder project, IReadOnlyList<Extracted> extracted)
+    {
+        ScriptNames current;
+        try
+        {
+            current = project.LoadScriptNames();
+        }
+        catch (GlossaryFileException)
+        {
+            // Um scripts.json que o usuário quebrou à mão não bloqueia a extração; fica como está, para ele consertar sem perder os nomes.
+            return;
+        }
+
+        var updated = current.WithDetected(extracted.ToDictionary(e => e.Key, e => e.Name, StringComparer.Ordinal));
+        if (updated.Entries.Count > 0 || File.Exists(project.ScriptNamesPath))
+        {
+            project.SaveScriptNames(updated);
+        }
     }
 
     /// <summary>Nome da etapa no <c>state.json</c>.</summary>

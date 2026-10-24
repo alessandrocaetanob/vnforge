@@ -83,10 +83,10 @@ public sealed class BuildScreenTests : IDisposable
         await vm.BuildCommand.ExecuteAsync(null);
 
         Assert.Null(vm.ErrorMessage);
-        Assert.True(vm.HasSummary);
-        Assert.Contains(vm.Summary, l => l.StartsWith("Reconstruídos 1 script de 1", StringComparison.Ordinal));
-        Assert.Contains(vm.Summary, l => l.StartsWith(Ysbin + ": ", StringComparison.Ordinal) && l.Contains("original", StringComparison.Ordinal));
-        Assert.Contains(vm.Log, l => l.StartsWith("Gravado: ", StringComparison.Ordinal));
+        Assert.True(vm.HasFacts);
+        Assert.Contains(vm.Facts, f => f.Label == "Scripts" && f.Value.StartsWith("1 reconstruído de 1", StringComparison.Ordinal));
+        Assert.Contains(vm.Facts, f => f.Label == Ysbin && f.Value.Contains("original", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("Gravado: ", StringComparison.Ordinal));
         Assert.NotEqual(_originalHash, Hash(Path.Combine(_projectPath, "build", Ysbin)));
         Assert.Equal(_originalHash, Hash(Path.Combine(_game, Ysbin)));
         var change = Assert.Single(vm.Changes);
@@ -106,7 +106,7 @@ public sealed class BuildScreenTests : IDisposable
 
         Assert.Null(vm.ErrorMessage);
         Assert.Equal(_originalHash, Hash(Path.Combine(_game, Ysbin)));
-        Assert.Contains(vm.Log, l => l.StartsWith("Restaurado: 1 arquivo(s)", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("Restaurado: 1 arquivo(s)", StringComparison.Ordinal));
 
         await vm.LaunchCommand.ExecuteAsync(null);
         Assert.Equal(Path.Combine(_game, "MinhaVN.exe"), _launcher.Executable);

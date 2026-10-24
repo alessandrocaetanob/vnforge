@@ -90,6 +90,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             SelectedNav = editorItem;
             LineNavigation = ShowLineAsync(request);
         };
+        Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         Dashboard.StageRequested += (_, stage) => SelectedNav = stage switch
@@ -98,6 +99,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             PipelineStageKey.Build or PipelineStageKey.Inject => buildItem,
             _ => editorItem,
         };
+        Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         start.EditorRequested += (_, summary) =>
         {
             try
@@ -313,6 +315,21 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         if (Editor.Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal)) is { } script)
+        {
+            Editor.SelectedScript = script;
+        }
+    }
+
+    /// <summary>Um botão do Painel: troca de página e, no Editor, abre o script pedido.</summary>
+    private void OpenFromDashboard(DashboardNavigation request)
+    {
+        if (Nav.FirstOrDefault(n => n.Key == request.Target) is not { IsEnabled: true } item)
+        {
+            return;
+        }
+
+        SelectedNav = item;
+        if (request.ScriptKey is { } key && Editor.Scripts.FirstOrDefault(script => script.Key == key) is { } script)
         {
             Editor.SelectedScript = script;
         }

@@ -24,13 +24,11 @@ public class DashboardViewModelTests
         Assert.Equal(4, status.Total.Total);
         Assert.Equal("4", vm.LinesLabel);
         Assert.Equal("75% com tradução", vm.ProgressLabel);
-        var file = Assert.Single(vm.Files);
-        Assert.Equal("yst00001", file.Name);
-        Assert.Equal("4 linhas", file.LinesLabel);
-        Assert.Equal("75%", file.PercentLabel);
-        Assert.Equal(
-            ["Aprovadas 25% · 1", "Revisadas 25% · 1", "Traduzidas 0% · 0", "IA 25% · 1", "Pendentes 25% · 1"],
-            vm.Legend);
+        var file = Assert.Single(vm.Scripts);
+        Assert.Equal("yst00001", file.Key);
+        Assert.Equal("4", file.LinesLabel);
+        Assert.Equal("50%", file.PercentLabel);
+        Assert.Equal(new StatusDistribution(25, 25, 0, 25, 25), vm.Distribution);
     }
 
     [Fact]
@@ -45,6 +43,7 @@ public class DashboardViewModelTests
         Assert.Equal([1, 2, 3, 4, 5], vm.Stages.Select(s => s.Number));
         Assert.Equal("2 pendentes", vm.Stages.Single(s => s.Key == PipelineStageKey.Translate).StatusText);
         Assert.Equal("1 pendente", vm.Stages.Single(s => s.Key == PipelineStageKey.Review).StatusText);
+        Assert.Equal("50% · 2 pendentes", vm.Stages.Single(s => s.Key == PipelineStageKey.Translate).Subtitle);
         Assert.Equal("Pendente", vm.Stages.Single(s => s.Key == PipelineStageKey.Build).StatusText);
     }
 
@@ -57,34 +56,25 @@ public class DashboardViewModelTests
         await vm.ReloadAsync();
 
         var row = Assert.Single(vm.Characters);
-        Assert.Equal("(sem falante)", row.Name);
-        Assert.Equal("2 linhas", row.LinesLabel);
+        Assert.Equal("Narração", row.Name);
+        Assert.True(row.IsNarration);
+        Assert.Equal("2", row.LinesLabel);
     }
 
     [Fact]
-    public async Task Custo_de_IA_vem_do_registro_do_projeto()
+    public async Task Gasto_de_IA_vem_do_registro_do_projeto()
     {
         using var temp = new TempFolder();
         var vm = Open(temp, TranslationStatus.Machine);
-        Assert.StartsWith("Nenhuma chamada", await ReloadAndGetCost(vm));
+        await vm.ReloadAsync();
+        Assert.Equal("US$ 0,00", vm.AiValue);
+        Assert.Equal("Nenhuma chamada de IA registrada · Claude Opus 5.5", vm.AiDescription);
 
         AiUsageLog.TryRecord(ProjectFolder.Open(vm.Project!.Root), new AiUsageTotals(1_500_000, 600_000, 0, 0, 2.1m, 1));
-
-        Assert.Equal("US$ 2,10 · 2,1 M tokens em 1 execução", await ReloadAndGetCost(vm));
-    }
-
-    private static async Task<string> ReloadAndGetCost(DashboardViewModel vm)
-    {
         await vm.ReloadAsync();
-        return vm.CostLabel;
-    }
 
-    [Fact]
-    public void Custo_sem_preco_nao_vira_zero()
-    {
-        Assert.Equal("Custo desconhecido (modelo sem preço na tabela) · 15 tokens em 1 execução", DashboardViewModel.DescribeCost(new AiUsageTotals(10, 5, 0, 0, 0m, 1, UnpricedRuns: 1)));
-        Assert.Equal("US$ 1,00 (parcial: 1 execução sem preço) · 30 tokens em 2 execuções", DashboardViewModel.DescribeCost(new AiUsageTotals(20, 10, 0, 0, 1m, 2, UnpricedRuns: 1)));
-        Assert.Equal("US$ 1,00 · 30 tokens em 2 execuções", DashboardViewModel.DescribeCost(new AiUsageTotals(20, 10, 0, 0, 1m, 2)));
+        Assert.Equal("US$ 2,10", vm.AiValue);
+        Assert.Equal("1,5 M tokens de entrada · 600 mil de saída · Claude Opus 5.5", vm.AiDescription);
     }
 
     [Fact]
@@ -93,13 +83,16 @@ public class DashboardViewModelTests
         using var temp = new TempFolder();
         var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Untranslated);
         await vm.ReloadAsync();
-        Assert.NotEmpty(vm.Files);
+        Assert.NotEmpty(vm.Scripts);
 
         vm.Project = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Approved));
 
-        Assert.Empty(vm.Files);
+        Assert.Empty(vm.Scripts);
         Assert.Empty(vm.Stages);
+        Assert.Empty(vm.Steps);
         Assert.Equal(string.Empty, vm.LinesLabel);
+        Assert.Equal(string.Empty, vm.ContinueLabel);
+        Assert.False(vm.CanContinue);
     }
 
     [Theory]
@@ -125,7 +118,7 @@ public class DashboardViewModelTests
         await vm.ReloadAsync();
 
         Assert.StartsWith("Não foi possível ler o projeto", vm.ErrorMessage);
-        Assert.Empty(vm.Files);
+        Assert.Empty(vm.Scripts);
         Assert.Empty(vm.Stages);
     }
 
@@ -138,7 +131,7 @@ public class DashboardViewModelTests
 
         Assert.False(vm.HasProject);
         Assert.Empty(vm.Stages);
-        Assert.Equal(string.Empty, vm.CostLabel);
+        Assert.Equal(string.Empty, vm.AiValue);
     }
 
     [Fact]
@@ -160,12 +153,12 @@ public class DashboardViewModelTests
     }
 
     [Fact]
-    public void Build_e_Injetar_concluidos_nao_sao_acionaveis()
+    public void Build_e_Injetar_levam_a_tela_delas_mesmo_concluidos()
     {
         var done = new PipelineStageViewModel(4, new PipelineStage(PipelineStageKey.Build, true, 0));
         var pending = new PipelineStageViewModel(5, new PipelineStage(PipelineStageKey.Inject, false, 1));
 
-        Assert.False(done.IsActionable);
+        Assert.True(done.IsActionable);
         Assert.True(pending.IsActionable);
         Assert.Equal("Pendente", pending.StatusText);
     }
