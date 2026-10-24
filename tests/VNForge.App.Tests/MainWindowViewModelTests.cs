@@ -106,8 +106,8 @@ public class MainWindowViewModelTests
         await wizard.NextCommand.ExecuteAsync(null);
 
         wizard.FinishCommand.Execute(null);
-        // O handler de Completed abre o projeto em segundo plano; espera o Início registrar.
-        for (var i = 0; i < 100 && vm.CurrentProject is null; i++)
+        // O handler de Completed abre o projeto em segundo plano; espera o projeto terminar de abrir (a última etapa habilita o Glossário).
+        for (var i = 0; i < 100 && vm.Nav.Single(n => n.Key == NavKey.Glossary).IsEnabled is false; i++)
         {
             await Task.Delay(50, TestContext.Current.CancellationToken);
         }

@@ -24,11 +24,12 @@ internal sealed record BuildState(
     int Version,
     Dictionary<string, BuildStateScript> Scripts,
     List<BuildStateArchive> Archives,
-    List<string> Warnings)
+    List<string> Warnings,
+    string? TextFingerprint = null)
 {
     internal const int CurrentVersion = 1;
 
-    private const string StateFileName = "build-state.json";
+    internal const string StateFileName = "build-state.json";
 
     private const string ScriptsDirectoryName = "build-scripts";
 
@@ -51,6 +52,32 @@ internal sealed record BuildState(
 
     public static string ScriptPath(ProjectFolder project, string key, string hash) =>
         Path.Combine(project.CacheDirectory, ScriptsDirectoryName, $"{key}-{hash}.bin");
+
+    /// <summary>
+    /// Impressão digital do que o build lê de <c>text/*.json</c> e do perfil de formatação: a estratégia, o <c>formatting.json</c> e, de cada unidade
+    /// que o build grava, o que entra nos bytes. Mudar status, notas ou origem não a altera, e copiar o projeto sem preservar datas também não.
+    /// O Painel a compara com a gravada no último build para saber se o <c>build/</c> ainda vale.
+    /// </summary>
+    public static string FingerprintTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, string encoderId, string formattingPath)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, encoderId);
+        Append(hash, File.Exists(formattingPath) ? Convert.ToBase64String(File.ReadAllBytes(formattingPath)) : null);
+        foreach (var (key, units) in texts.OrderBy(t => t.Key, StringComparer.Ordinal))
+        {
+            foreach (var unit in units.Where(u => u.NeedsRewrite))
+            {
+                Append(hash, key);
+                Append(hash, unit.Id);
+                Append(hash, unit.Kind.ToString());
+                Append(hash, unit.Source);
+                Append(hash, unit.Translation);
+                Append(hash, unit.Locator?.GetRawText());
+            }
+        }
+
+        return Convert.ToHexString(hash.GetHashAndReset())[..32].ToLowerInvariant();
+    }
 
     /// <summary>Hash do que determina os bytes de um script reconstruído: o original, a estratégia e cada unidade que o build grava.</summary>
     public static string HashInputs(byte[] original, string encoderId, IEnumerable<TextUnit> units)
