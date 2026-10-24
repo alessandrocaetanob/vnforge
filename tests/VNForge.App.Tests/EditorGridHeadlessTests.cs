@@ -37,7 +37,8 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
 {
     private const int LineCount = 50_000;
     private const int MaxRealized = 100;
-    private static readonly TimeSpan Limit = TimeSpan.FromSeconds(2);
+    // A VM Windows da nuvem levou 2,3 s para abrir; sem virtualização seriam dezenas de segundos.
+    private static readonly TimeSpan Limit = TimeSpan.FromSeconds(5);
 
     private static async Task<EditorViewModel> Carregado(int count)
     {
