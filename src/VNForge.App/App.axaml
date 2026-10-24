@@ -22,6 +22,9 @@
     <DataTemplate DataType="vm:NewProjectWizardViewModel">
       <views:NewProjectWizardView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:DashboardViewModel">
+      <views:DashboardView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:EditorViewModel">
       <views:EditorView/>
     </DataTemplate>

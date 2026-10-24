@@ -1,0 +1,156 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="1180" Margin="24,32,24,40" Spacing="16" HorizontalAlignment="Stretch">
+
+      <StackPanel Spacing="4">
+        <TextBlock Classes="title-lg" Text="Painel"/>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                   Text="Etapas do pipeline, progresso da tradução e custo de IA. Os números são os mesmos do vnf status."/>
+      </StackPanel>
+
+      <Border Classes="infobar" IsVisible="{Binding !HasProject}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="Abra um projeto no Início para ver o painel."/>
+        </Grid>
+      </Border>
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Grid>
+      </Border>
+
+      <!-- Etapas: cada uma é um botão; o texto mostra as pendências. -->
+      <ItemsControl ItemsSource="{Binding Stages}" AutomationProperties.Name="Etapas do pipeline">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Rows="1"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PipelineStageViewModel">
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,8,0" Padding="14,10"
+                    IsEnabled="{Binding IsActionable}"
+                    Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).OpenStageCommand}"
+                    CommandParameter="{Binding}"
+                    AutomationProperties.Name="{Binding Label, StringFormat='Etapa {0}'}">
+              <StackPanel Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Classes="overline" Text="{Binding Number}"/>
+                  <TextBlock Classes="body-strong" Text="{Binding Label}"/>
+                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.StatusApprovedFg}"
+                            Data="{StaticResource Icon.Check}" IsVisible="{Binding IsComplete}"/>
+                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.SignalWarningFg}"
+                            Data="{StaticResource Icon.Warning}" IsVisible="{Binding HasPending}"/>
+                </StackPanel>
+                <TextBlock Classes="caption secondary" Text="{Binding StatusText}"/>
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Progresso geral -->
+      <Border Classes="panel" Padding="16">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="overline" Text="LINHAS" VerticalAlignment="Center"/>
+              <TextBlock Classes="title-md" Text="{Binding LinesLabel}"/>
+            </StackPanel>
+            <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="{Binding ProgressLabel}" VerticalAlignment="Center"/>
+          </Grid>
+          <c:DistributionBar Height="8" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
+          <ItemsControl ItemsSource="{Binding Legend}" AutomationProperties.Name="Linhas por status">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <TextBlock Classes="caption secondary" Margin="0,0,16,0" Text="{Binding}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+        <Border Classes="panel" ClipToBounds="True">
+          <StackPanel>
+            <Border Classes="divider-bottom" Padding="16,8">
+              <TextBlock Classes="overline" Text="POR ARQUIVO"/>
+            </Border>
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Files}" Margin="0,4" AutomationProperties.Name="Progresso por arquivo">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ProgressRowViewModel">
+                    <StackPanel Spacing="6" Margin="16,8">
+                      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                        <TextBlock Classes="mono" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding LinesLabel}"/>
+                        <TextBlock Grid.Column="2" Classes="caption secondary" MinWidth="44" TextAlignment="Right" Text="{Binding PercentLabel}"/>
+                      </Grid>
+                      <c:DistributionBar Height="4" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Classes="panel" ClipToBounds="True">
+          <StackPanel>
+            <Border Classes="divider-bottom" Padding="16,8">
+              <TextBlock Classes="overline" Text="POR PERSONAGEM"/>
+            </Border>
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Characters}" Margin="0,4" AutomationProperties.Name="Progresso por personagem">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ProgressRowViewModel">
+                    <StackPanel Spacing="6" Margin="16,8">
+                      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                        <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding LinesLabel}"/>
+                        <TextBlock Grid.Column="2" Classes="caption secondary" MinWidth="44" TextAlignment="Right" Text="{Binding PercentLabel}"/>
+                      </Grid>
+                      <c:DistributionBar Height="4" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Classes="panel" Padding="16">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="overline" Text="CUSTO DE IA ATÉ AGORA"/>
+          <TextBlock Classes="body" Text="{Binding CostLabel}" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

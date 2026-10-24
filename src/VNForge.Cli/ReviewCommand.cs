@@ -112,6 +112,7 @@ internal static class ReviewCommand
 
         summary.Failed = [.. run.Failures];
         summary.Usage = (provider as ClaudeReviewProvider)?.Usage;
+        RecordUsage(project, settings.Model, summary.Usage);
 
         if (run.CallbackError is { } callbackError)
         {
