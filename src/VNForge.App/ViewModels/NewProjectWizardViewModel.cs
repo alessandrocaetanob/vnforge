@@ -143,7 +143,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public partial string? ErrorMessage { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(NextCommand), nameof(BackCommand), nameof(ExtractCommand))]
+    [NotifyCanExecuteChangedFor(nameof(NextCommand), nameof(BackCommand), nameof(ExtractCommand), nameof(BrowseGameCommand), nameof(BrowseProjectCommand))]
     public partial bool IsBusy { get; private set; }
 
     /// <summary>O projeto criado; vale a partir do passo final.</summary>
@@ -391,11 +391,13 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     {
         DetectionLines.Clear();
         var details = found.Detection.Details;
-        var version = details.TryGetValue(ProjectInitializer.VersionDetail, out var ypf) && int.TryParse(ypf, out var v) ? v : (int?)null;
+        var version = details.TryGetValue(ProjectInitializer.VersionDetail, out var ypf) && int.TryParse(ypf, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : (int?)null;
         DetectionLines.Add($"Engine: {ProjectLabels.Engine(found.Engine.Id, version)}");
         if (details.TryGetValue("scriptsArchive", out var archive))
         {
-            var count = details.TryGetValue("scripts", out var n) ? $" ({n} scripts)" : string.Empty;
+            var count = details.TryGetValue("scripts", out var n) && int.TryParse(n, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var total)
+                ? $" ({ProjectLabels.Number(total)} {(total == 1 ? "script" : "scripts")})"
+                : string.Empty;
             DetectionLines.Add($"Arquivo de scripts: {archive}{count}");
         }
 
