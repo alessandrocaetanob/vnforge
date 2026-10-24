@@ -56,11 +56,13 @@ jobs:
               echo 'Build de tag: sem análise do Sonar.'
               exit 0
             fi
-            # tool update instala ou atualiza: no runner o container é reaproveitado entre jobs,
-            # e tool install falharia com a ferramenta já instalada.
-            dotnet tool update --global dotnet-sonarscanner --version 11.3.0
-            dotnet tool update --global dotnet-coverage --version 18.11.2
-            export PATH="$HOME/.dotnet/tools:$PATH"
+            # Pasta nova a cada job: o runner é reaproveitado, e um binário deixado em
+            # ~/.dotnet/tools por outro job receberia o SONAR_TOKEN.
+            tools="$(mktemp -d)"
+            dotnet tool install --tool-path "$tools" dotnet-sonarscanner --version 11.3.0
+            dotnet tool install --tool-path "$tools" dotnet-coverage --version 18.11.2
+            echo "export PATH=\"$tools:\$PATH\"" >> "$BASH_ENV"
+            export PATH="$tools:$PATH"
             sonar_args=(
               '/k:alessandrocaetanob_vnforge'
               '/o:alessandrocaetanob'
@@ -108,7 +110,6 @@ jobs:
           name: Testes
           command: |
             set -euo pipefail
-            export PATH="$HOME/.dotnet/tools:$PATH"
             if [ -f .sonar-begun ]; then
               dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
             else
@@ -120,7 +121,6 @@ jobs:
           when: always
           command: |
             set -euo pipefail
-            export PATH="$HOME/.dotnet/tools:$PATH"
             if [ ! -f .sonar-begun ]; then exit 0; fi
             dotnet sonarscanner end "/d:sonar.token=$SONAR_TOKEN"
 
