@@ -375,6 +375,19 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Scripts_json_quebrado_nao_bloqueia_a_extracao_nem_e_apagado()
+    {
+        WriteGame(A001Fake, DialogueHello);
+        var project = NewProject();
+        File.WriteAllText(project.ScriptNamesPath, "isto nao e json");
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("isto nao e json", File.ReadAllText(project.ScriptNamesPath));
+        Assert.True(File.Exists(project.TextPath("a001")));
+    }
+
+    [Fact]
     public void Jogo_sem_nome_legivel_nao_cria_o_scripts_json()
     {
         WriteGame(A001Fake, DialogueHello);
