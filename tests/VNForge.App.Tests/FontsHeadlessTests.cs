@@ -27,20 +27,22 @@ public class FontsHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headles
             TestContext.Current.CancellationToken);
     }
 
-    [Fact]
-    public async Task Titulo_usa_a_fonte_de_exibicao()
+    [Theory]
+    [InlineData("title-lg", 22, 28)]
+    [InlineData("title-md", 17, 24)]
+    public async Task Titulo_usa_a_fonte_de_exibicao(string cssClass, double size, double lineHeight)
     {
         await fixture.Session.Dispatch(
             () =>
             {
-                var title = new TextBlock { Text = "Painel", Classes = { "title-lg" } };
+                var title = new TextBlock { Text = "Painel", Classes = { cssClass } };
                 var window = new Window { Content = title };
                 try
                 {
                     window.Show();
                     Assert.Equal("Zen Kaku Gothic New", title.FontFamily.Name.Split(',')[0].Split('#').Last().Trim());
-                    Assert.Equal(22, title.FontSize);
-                    Assert.Equal(28, title.LineHeight);
+                    Assert.Equal(size, title.FontSize);
+                    Assert.Equal(lineHeight, title.LineHeight);
                 }
                 finally
                 {

@@ -29,6 +29,27 @@ public class GalleryRenderTests(HeadlessFixture fixture) : IClassFixture<Headles
         Assert.True(new FileInfo(path).Length > 10_000);
     }
 
+    [Fact]
+    public async Task Galeria_nos_dois_temas_na_mesma_janela_mantem_um_cartao_marcado_em_cada_coluna()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = new ComponentGalleryWindow();
+                try
+                {
+                    window.Show();
+                    var radios = window.GetVisualDescendants().OfType<RadioButton>().ToList();
+                    Assert.Equal([true, false, true, false], radios.Select(r => r.IsChecked == true));
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     private static void Inspect(ComponentGallery gallery)
     {
         Assert.Equal(5, gallery.GetVisualDescendants().OfType<PipelineStepItem>().Count());

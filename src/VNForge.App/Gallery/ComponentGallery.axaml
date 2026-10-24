@@ -229,13 +229,13 @@
     <StackPanel Spacing="8">
       <TextBlock Classes="overline" Text="OPTIONCARD"/>
       <StackPanel>
-        <RadioButton Classes="option" GroupName="gallery-model" IsChecked="True">
+        <RadioButton x:Name="ModelOpus" Classes="option" IsChecked="True">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Classes="body-strong" Text="Claude Opus 5.5"/>
             <TextBlock Grid.Column="1" Classes="caption secondary" Text="US$ 5 / 25 por M"/>
           </Grid>
         </RadioButton>
-        <RadioButton Classes="option" GroupName="gallery-model">
+        <RadioButton x:Name="ModelSonnet" Classes="option">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Classes="body-strong" Text="Claude Sonnet 5.5"/>
             <TextBlock Grid.Column="1" Classes="caption secondary" Text="US$ 3 / 15 por M"/>
