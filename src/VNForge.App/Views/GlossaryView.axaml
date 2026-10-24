@@ -1,0 +1,128 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:g="using:VNForge.Core.Glossary"
+             x:Class="VNForge.App.Views.GlossaryView"
+             x:DataType="vm:GlossaryViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="1180" Margin="24,32,24,40" Spacing="16" HorizontalAlignment="Stretch">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="title-lg" Text="Glossário"/>
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                     Text="Termos e nomes fixos do projeto. Entram no prompt da IA e na Conferência; o editor avisa quando um termo aparece na linha."/>
+        </StackPanel>
+        <Button Grid.Column="1" Classes="accent" VerticalAlignment="Top" Command="{Binding SaveCommand}"
+                AutomationProperties.Name="Salvar glossário e personagens">
+          <TextBlock Text="Salvar" FontWeight="SemiBold"/>
+        </Button>
+      </Grid>
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Grid>
+      </Border>
+      <Border Classes="infobar" IsVisible="{Binding NoticeMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding NoticeMessage}"/>
+        </Grid>
+      </Border>
+
+      <!-- Termos -->
+      <Border Classes="panel" ClipToBounds="True">
+        <StackPanel>
+          <Border Classes="divider-bottom" Padding="16,8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="overline" Text="TERMOS" VerticalAlignment="Center"/>
+              <Button Grid.Column="1" Classes="sm" Command="{Binding AddTermCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Add}"/>
+                  <TextBlock Text="Adicionar termo"/>
+                </StackPanel>
+              </Button>
+            </Grid>
+          </Border>
+          <Grid ColumnDefinitions="*,*,1.4*,32" ColumnSpacing="12" Margin="16,8,16,0">
+            <TextBlock Classes="overline" Text="ORIGINAL"/>
+            <TextBlock Grid.Column="1" Classes="overline" Text="TRADUÇÃO"/>
+            <TextBlock Grid.Column="2" Classes="overline" Text="OBSERVAÇÃO"/>
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Terms}" Margin="0,4,0,8" AutomationProperties.Name="Termos do glossário">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GlossaryTermRow">
+                <Grid ColumnDefinitions="*,*,1.4*,32" ColumnSpacing="12" Margin="16,4">
+                  <TextBox Text="{Binding Source}" AutomationProperties.Name="Termo original"/>
+                  <TextBox Grid.Column="1" Text="{Binding Target}" AutomationProperties.Name="Tradução do termo"/>
+                  <TextBox Grid.Column="2" Text="{Binding Notes}" AutomationProperties.Name="Observação do termo"/>
+                  <Button Grid.Column="3" Classes="icon subtle" VerticalAlignment="Center"
+                          Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).RemoveTermCommand}"
+                          CommandParameter="{Binding}" AutomationProperties.Name="Remover termo">
+                    <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="body-sm secondary" Margin="16,4,16,16" Text="Nenhum termo ainda. Adicione o primeiro."
+                     IsVisible="{Binding NoTerms}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Personagens -->
+      <Border Classes="panel" ClipToBounds="True">
+        <StackPanel>
+          <Border Classes="divider-bottom" Padding="16,8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="overline" Text="PERSONAGENS" VerticalAlignment="Center"/>
+              <Button Grid.Column="1" Classes="sm" Command="{Binding AddCharacterCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Add}"/>
+                  <TextBlock Text="Adicionar personagem"/>
+                </StackPanel>
+              </Button>
+            </Grid>
+          </Border>
+          <Grid ColumnDefinitions="*,*,150,1.4*,32" ColumnSpacing="12" Margin="16,8,16,0">
+            <TextBlock Classes="overline" Text="NOME ORIGINAL"/>
+            <TextBlock Grid.Column="1" Classes="overline" Text="NOME TRADUZIDO"/>
+            <TextBlock Grid.Column="2" Classes="overline" Text="GÊNERO"/>
+            <TextBlock Grid.Column="3" Classes="overline" Text="TOM DE FALA"/>
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Characters}" Margin="0,4,0,8" AutomationProperties.Name="Personagens">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:CharacterRow">
+                <Grid ColumnDefinitions="*,*,150,1.4*,32" ColumnSpacing="12" Margin="16,4">
+                  <TextBox Text="{Binding Source}" AutomationProperties.Name="Nome original"/>
+                  <TextBox Grid.Column="1" Text="{Binding Target}" AutomationProperties.Name="Nome traduzido"/>
+                  <ComboBox Grid.Column="2" HorizontalAlignment="Stretch"
+                            ItemsSource="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Genders}"
+                            SelectedItem="{Binding Gender}" AutomationProperties.Name="Gênero">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="g:CharacterGender">
+                        <TextBlock Text="{Binding, Converter={x:Static c:GenderLabelConverter.Instance}}"/>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBox Grid.Column="3" Text="{Binding Tone}" AutomationProperties.Name="Tom de fala"/>
+                  <Button Grid.Column="4" Classes="icon subtle" VerticalAlignment="Center"
+                          Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).RemoveCharacterCommand}"
+                          CommandParameter="{Binding}" AutomationProperties.Name="Remover personagem">
+                    <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="body-sm secondary" Margin="16,4,16,16" Text="Nenhum personagem ainda. O nome original é o falante extraído do jogo."
+                     IsVisible="{Binding NoCharacters}"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

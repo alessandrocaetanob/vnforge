@@ -10,6 +10,7 @@ public enum NavKey
 {
     Start,
     Editor,
+    Glossary,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -29,6 +30,7 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
+    private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
 
     public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null)
@@ -37,7 +39,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ApiKeyStatus = Services.ApiKeyStatus.Describe(key);
         ApiKeyConfigured = key.Source != ApiKeySource.None;
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem];
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem];
         selectedNav = Nav[0];
         CurrentPage = start;
         start.ProjectOpened += (_, summary) => SetProject(summary);
@@ -51,6 +53,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public StartViewModel Start { get; }
 
     public EditorViewModel Editor { get; } = new();
+
+    public GlossaryViewModel Glossary { get; } = new();
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
@@ -82,7 +86,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             if (SetProperty(ref selectedNav, value))
             {
-                CurrentPage = value.Key == NavKey.Editor ? Editor : Start;
+                CurrentPage = value.Key switch
+                {
+                    NavKey.Editor => Editor,
+                    NavKey.Glossary => Glossary,
+                    _ => Start,
+                };
             }
         }
     }
@@ -91,6 +100,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         CurrentProject = summary;
         Editor.Project = summary;
+        // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
+        if (!Glossary.IsDirty || Glossary.Project?.Root != summary.Root)
+        {
+            Glossary.Project = summary;
+        }
+
         editorItem.IsEnabled = true;
+        glossaryItem.IsEnabled = true;
     }
 }
