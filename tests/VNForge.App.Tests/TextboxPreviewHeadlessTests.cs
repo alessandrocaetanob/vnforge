@@ -134,11 +134,17 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
         await fixture.Session.Dispatch(
             () =>
             {
-                var instalada = FontManager.Current.SystemFonts.Any(f => f.Name == "MS Gothic");
-                var esperada = instalada ? "MS Gothic" : "BIZ UDGothic";
+                var instalada = FontManager.Current.SystemFonts.Any(f => f.Name is "MS Gothic" or "ＭＳ ゴシック");
 
                 Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(new TextboxPreview().FontFamily), out var glifos));
-                Assert.Equal(esperada, glifos.FamilyName);
+                if (instalada)
+                {
+                    Assert.Contains(glifos.FamilyName, new[] { "MS Gothic", "ＭＳ ゴシック" });
+                }
+                else
+                {
+                    Assert.Contains(glifos.FamilyName, new[] { "BIZ UDGothic", "BIZ UDゴシック" });
+                }
             },
             CancellationToken.None);
     }
@@ -151,7 +157,7 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             {
                 var embutida = new FontFamily("avares://VNForge.App/Assets/Fonts#BIZ UDGothic");
                 Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(embutida), out var glifos));
-                Assert.Equal("BIZ UDGothic", glifos.FamilyName);
+                Assert.Contains(glifos.FamilyName, new[] { "BIZ UDGothic", "BIZ UDゴシック" });
                 foreach (var letra in "áãçõÉ")
                 {
                     Assert.True(glifos.CharacterToGlyphMap.TryGetGlyph(letra, out var glifo) && glifo != 0, $"sem glifo para {letra}");
