@@ -1,4 +1,5 @@
 using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
 using VNForge.Core.Injection;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -40,6 +41,12 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
 
     public BuildStatus Build { get; init; }
 
+    /// <summary>Nomes legíveis dos scripts (<c>scripts.json</c>); vazio quando o arquivo não existe ou está inválido.</summary>
+    public ScriptNames ScriptNames { get; init; } = ScriptNames.Empty;
+
+    /// <summary>Tradução do nome de cada falante (<c>characters.json</c>, pelo nome original sem espaços nas pontas); vazio quando o arquivo não existe ou está inválido.</summary>
+    public IReadOnlyDictionary<string, string> CharacterNames { get; init; } = new Dictionary<string, string>();
+
     /// <summary>Quando foi feito o backup mais recente que ainda não foi restaurado; nulo sem backup legível.</summary>
     public DateTimeOffset? LastBackupAt { get; init; }
 
@@ -72,9 +79,25 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         return new ProjectDashboard(status, stages, AiUsageLog.Load(project))
         {
             Qa = TryQa(project, texts),
+            ScriptNames = TryLoad(project.LoadScriptNames, ScriptNames.Empty),
+            CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal),
             Build = built ? BuildStatus.Current : BuildState.Load(project) is null ? BuildStatus.None : BuildStatus.Stale,
             LastBackupAt = restore?.Manifest.CreatedAt,
         };
+    }
+
+    // Um arquivo de apoio inválido (nomes, personagens) não derruba o Painel: os números dependem só de text/*.json.
+    private static T TryLoad<T>(Func<T> load, T fallback)
+    {
+        try
+        {
+            return load();
+        }
+        catch (GlossaryFileException)
+        {
+            return fallback;
+        }
     }
 
     /// <summary>Roda o QA sobre os textos já lidos. As linhas sem tradução não entram: já aparecem como pendentes na etapa Traduzir.</summary>
