@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using VNForge.Core.Engines;
+using VNForge.Core.Injection;
 
 namespace VNForge.Core.Projects;
 
@@ -50,15 +51,19 @@ public sealed class GameLauncher(IGameProcessStarter starter)
 
     /// <summary>
     /// Caminho completo de <c>game.exe</c>; <c>game.path</c> é relativo à pasta do projeto quando não é absoluto.
-    /// O <c>vnforge.json</c> pode vir de um projeto compartilhado, e o arquivo é aberto pelo shell: só vale um <c>.exe</c>
-    /// dentro da pasta do jogo, nunca um caminho absoluto ou que saia dela (<c>..\x.bat</c>, atalhos, <c>cmd.exe</c> do sistema).
+    /// O <c>vnforge.json</c> pode vir de um projeto compartilhado, e o arquivo é aberto pelo shell. Por isso valem duas regras:
+    /// <c>game.path</c> tem de ser a pasta que este projeto já registrou, na extração (<c>.cache/state.json</c>) ou numa injeção
+    /// (manifesto em <c>backup/</c>), então <c>C:\Windows\System32</c> não passa só por estar no JSON; e <c>game.exe</c> tem de ser um
+    /// <c>.exe</c> relativo a essa pasta e dentro dela (nada de caminho absoluto, <c>..</c>, <c>.bat</c> ou atalho).
+    /// Não protege de uma pasta de projeto adulterada por inteiro, com <c>.cache/</c> ou <c>backup/</c> forjados.
     /// </summary>
-    /// <exception cref="VNForgeException"><c>game.exe</c> é absoluto, sai da pasta do jogo ou não termina em <c>.exe</c>.</exception>
+    /// <exception cref="VNForgeException"><c>game.path</c> não é a pasta registrada pelo projeto, ou <c>game.exe</c> é absoluto, sai da pasta do jogo ou não termina em <c>.exe</c>.</exception>
     public static string ResolveExecutable(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
         var game = project.LoadConfig().Game;
         var gameDirectory = Path.GetFullPath(game.Path, project.Root);
+        EnsureRegistered(project, game.Path, gameDirectory);
         string executable;
         try
         {
@@ -75,6 +80,26 @@ public sealed class GameLauncher(IGameProcessStarter starter)
         }
 
         return executable;
+    }
+
+    private static void EnsureRegistered(ProjectFolder project, string configured, string gameDirectory)
+    {
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        var wanted = Normalize(gameDirectory);
+        var registered = new List<string>();
+        if (project.LoadState().GameDirectory is { } extracted)
+        {
+            registered.Add(extracted);
+        }
+
+        registered.AddRange(GameInjector.RecordedGameDirectories(project));
+        if (!registered.Any(r => string.Equals(Normalize(r), wanted, comparison)))
+        {
+            throw new VNForgeException(
+                $"O game.path do {ProjectFolder.ConfigFileName} ('{configured}') não é uma pasta de jogo que este projeto registrou, então o VNForge não abre o executável dela. "
+                + "Rode vnf extract (ou o assistente de novo projeto) com a pasta do jogo nesta máquina antes de abrir o jogo.");
+        }
     }
 
     /// <exception cref="GameExecutableNotFoundException">O executável não existe.</exception>

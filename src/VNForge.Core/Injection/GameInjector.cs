@@ -148,25 +148,72 @@ public sealed class GameInjector
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        var backups = ReadBackups(project).ToList();
-        var latest = backups.FirstOrDefault()
-            ?? throw new InjectionException($"Não há backup em '{project.BackupDirectory}'. Só dá para restaurar depois de um vnf inject.");
+        var backups = ReadBackupsTolerant(project).ToList();
+        var first = backups.FirstOrDefault()
+            ?? throw new InjectionException($"Não há backup para restaurar em '{project.BackupDirectory}'. Só dá para restaurar depois de um vnf inject, e cada backup é restaurado uma vez.");
+        if (first.Problem is not null)
+        {
+            throw first.Problem;
+        }
+
+        var latest = new BackupRecord(first.Directory, first.Manifest!);
         var gameDirectory = Directory.Exists(latest.Manifest.GameDirectory)
             ? latest.Manifest.GameDirectory
             : ResolveGameDirectory(project);
 
         var newest = new Dictionary<string, (string Directory, BackupEntry Entry)>(PathComparer);
-        foreach (var backup in backups.Where(b => string.Equals(b.Manifest.GameDirectory, latest.Manifest.GameDirectory, PathComparison)))
+        var consumed = new List<string>();
+        var unreadable = new List<FoundBackup>();
+        foreach (var backup in backups)
         {
+            if (backup.Manifest is null)
+            {
+                unreadable.Add(backup);
+                continue;
+            }
+
+            if (!string.Equals(backup.Manifest.GameDirectory, latest.Manifest.GameDirectory, PathComparison))
+            {
+                continue;
+            }
+
+            consumed.Add(backup.Directory);
             foreach (var entry in backup.Manifest.Files)
             {
                 newest.TryAdd(entry.Path, (backup.Directory, entry));
             }
         }
 
+        var warnings = unreadable.Select(u => SkipUnreadableBackup(u, newest)).ToList();
         var files = newest.Values.Select(v => v.Entry).OrderBy(e => e.Path, StringComparer.Ordinal).ToList();
         var directories = newest.ToDictionary(p => p.Key, p => p.Value.Directory, PathComparer);
-        return new RestorePlan(gameDirectory, latest.Directory, latest.Manifest with { Files = files }, directories);
+        return new RestorePlan(gameDirectory, latest.Directory, latest.Manifest with { Files = files }, directories)
+        {
+            ConsumedBackups = consumed,
+            Warnings = warnings,
+        };
+    }
+
+    /// <summary>
+    /// Um backup antigo sem manifesto legível só pode ser pulado se nenhuma cópia dentro dele fica sem outra fonte: o que só ele guarda não
+    /// voltaria ao jogo. Devolve o aviso do que foi pulado.
+    /// </summary>
+    private static string SkipUnreadableBackup(FoundBackup backup, Dictionary<string, (string Directory, BackupEntry Entry)> covered)
+    {
+        var needed = Directory.EnumerateFiles(backup.Directory, "*", SearchOption.AllDirectories)
+            .Select(f => Path.GetRelativePath(backup.Directory, f).Replace('\\', '/'))
+            .Where(p => !string.Equals(p, BackupManifest.FileName, PathComparison) && !p.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+            .Where(p => !covered.ContainsKey(p))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        if (needed.Count > 0)
+        {
+            throw new InjectionException(
+                $"{backup.Problem!.Message} Esse backup guarda '{string.Join("', '", needed)}', que nenhum outro backup cobre, então a restauração foi recusada e nada foi gravado. "
+                + "Restaure o manifesto a partir de uma cópia, ou devolva esses arquivos à mão a partir de " + $"'{backup.Directory}'.");
+        }
+
+        return $"{backup.Problem!.Message} Foi pulado: os arquivos dele têm outra fonte nos backups mais novos.";
     }
 
     /// <summary>
@@ -209,7 +256,33 @@ public sealed class GameInjector
                 $"Não foi possível restaurar tudo: {string.Join(" ", outcome.Failures)} O backup continua em '{plan.BackupDirectory}'; rode vnf restore de novo.");
         }
 
-        return new RestoreResult(plan.GameDirectory, plan.BackupDirectory, outcome.Restored, outcome.Removed, outcome.Kept);
+        var warnings = plan.Warnings.ToList();
+        foreach (var directory in plan.ConsumedBackups)
+        {
+            try
+            {
+                MarkRestored(directory);
+            }
+            catch (Exception ex) when (ex is InjectionException or IOException or UnauthorizedAccessException)
+            {
+                warnings.Add($"O jogo foi restaurado, mas não deu para marcar o backup '{directory}' como restaurado: {ex.Message} Ele pode aparecer de novo na próxima restauração.");
+            }
+        }
+
+        return new RestoreResult(plan.GameDirectory, plan.BackupDirectory, outcome.Restored, outcome.Removed, outcome.Kept) { Warnings = warnings };
+    }
+
+    /// <summary>Grava <see cref="BackupManifest.RestoredAt"/> no manifesto: o backup já devolveu os originais e não deve bloquear restaurações nem injeções futuras.</summary>
+    private void MarkRestored(string backupDirectory)
+    {
+        var manifestPath = Path.Combine(backupDirectory, BackupManifest.FileName);
+        var (manifest, problem) = TryReadManifest(manifestPath);
+        if (manifest is null)
+        {
+            throw problem!;
+        }
+
+        WriteManifest(backupDirectory, manifest with { RestoredAt = _timeProvider.GetUtcNow() });
     }
 
     /// <summary>Arquivos do backup que existem no jogo com um conteúdo que não é o injetado nem o original: o jogo mudou depois da injeção.</summary>
@@ -482,7 +555,22 @@ public sealed class GameInjector
         }
     }
 
+    /// <summary>Backups ainda não restaurados, do mais novo para o mais antigo; um manifesto ilegível lança <see cref="InjectionException"/> ao chegar nele.</summary>
     private static IEnumerable<BackupRecord> ReadBackups(ProjectFolder project)
+    {
+        foreach (var found in ReadBackupsTolerant(project))
+        {
+            if (found.Problem is not null)
+            {
+                throw found.Problem;
+            }
+
+            yield return new BackupRecord(found.Directory, found.Manifest!);
+        }
+    }
+
+    /// <summary>Como <see cref="ReadBackups"/>, mas um manifesto ilegível vem com o <see cref="FoundBackup.Problem"/> em vez de lançar. Backups já restaurados não aparecem.</summary>
+    private static IEnumerable<FoundBackup> ReadBackupsTolerant(ProjectFolder project)
     {
         if (!Directory.Exists(project.BackupDirectory))
         {
@@ -497,20 +585,52 @@ public sealed class GameInjector
                 continue;
             }
 
-            BackupManifest manifest;
-            try
+            var (manifest, problem) = TryReadManifest(manifestPath);
+            if (manifest?.RestoredAt is not null)
             {
-                var json = new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(File.ReadAllBytes(manifestPath));
-                manifest = BackupManifest.Parse(json.TrimStart((char)0xFEFF), manifestPath);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException)
-            {
-                throw new InjectionException($"O manifesto do backup não pôde ser lido: {manifestPath}", ex);
+                continue;
             }
 
-            yield return new BackupRecord(directory, manifest);
+            yield return new FoundBackup(directory, manifest, problem);
         }
     }
+
+    /// <summary>Pastas de jogo que as injeções do projeto registraram nos manifestos, restauradas ou não; manifesto ilegível é ignorado.</summary>
+    internal static IEnumerable<string> RecordedGameDirectories(ProjectFolder project)
+    {
+        if (!Directory.Exists(project.BackupDirectory))
+        {
+            yield break;
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory))
+        {
+            var manifestPath = Path.Combine(directory, BackupManifest.FileName);
+            if (File.Exists(manifestPath) && TryReadManifest(manifestPath).Manifest is { } manifest)
+            {
+                yield return manifest.GameDirectory;
+            }
+        }
+    }
+
+    private static (BackupManifest? Manifest, InjectionException? Problem) TryReadManifest(string manifestPath)
+    {
+        try
+        {
+            var json = new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(File.ReadAllBytes(manifestPath));
+            return (BackupManifest.Parse(json.TrimStart((char)0xFEFF), manifestPath), null);
+        }
+        catch (InjectionException ex)
+        {
+            return (null, ex);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException)
+        {
+            return (null, new InjectionException($"O manifesto do backup não pôde ser lido: {manifestPath}", ex));
+        }
+    }
+
+    private sealed record FoundBackup(string Directory, BackupManifest? Manifest, InjectionException? Problem);
 
     private sealed record BackupRecord(string Directory, BackupManifest Manifest);
 

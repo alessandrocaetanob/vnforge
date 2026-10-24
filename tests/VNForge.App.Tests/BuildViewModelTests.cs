@@ -28,6 +28,7 @@ public sealed class BuildViewModelTests : IDisposable
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("fold"),
             AiConfig.Default));
+        folder.SaveState(new PipelineState([], new Dictionary<string, StageState>(), game));
     }
 
     public void Dispose() => temp.Dispose();

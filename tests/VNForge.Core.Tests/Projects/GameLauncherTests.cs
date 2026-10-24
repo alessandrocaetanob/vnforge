@@ -1,3 +1,4 @@
+using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 
 namespace VNForge.Core.Tests.Projects;
@@ -22,6 +23,7 @@ public sealed class GameLauncherTests : IDisposable
                 new LanguagesConfig("ja", "pt-BR"),
                 new EncodingConfig("fold"),
                 AiConfig.Default));
+        _project.SaveState(new PipelineState([], new Dictionary<string, StageState>(), _game));
     }
 
     public void Dispose() => _temp.Dispose();
@@ -44,6 +46,82 @@ public sealed class GameLauncherTests : IDisposable
 
         Assert.Equal(Path.GetFullPath(path), launched);
         Assert.Equal(_game, _starter.WorkingDirectory);
+    }
+
+    [Fact]
+    public void Recusa_game_path_absoluto_fora_da_pasta_registrada_mesmo_com_exe_valido()
+    {
+        var system = Path.Combine(_temp.Path, "system32");
+        Directory.CreateDirectory(system);
+        File.WriteAllText(Path.Combine(system, "cmd.exe"), "MZ");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(system, "cmd.exe") });
+
+        var erro = Assert.Throws<VNForgeException>(() => new GameLauncher(_starter).Launch(_project));
+
+        Assert.Contains("game.path", erro.Message);
+        Assert.Contains("registrou", erro.Message);
+        Assert.Null(_starter.Executable);
+    }
+
+    [Fact]
+    public void Recusa_game_path_relativo_com_ponto_ponto_que_cai_fora_da_pasta_registrada()
+    {
+        var outro = Path.Combine(_temp.Path, "outro");
+        Directory.CreateDirectory(outro);
+        File.WriteAllText(Path.Combine(outro, "jogo.exe"), "MZ");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../outro", "jogo.exe") });
+
+        var erro = Assert.Throws<VNForgeException>(() => new GameLauncher(_starter).Launch(_project));
+
+        Assert.Contains("game.path", erro.Message);
+        Assert.Null(_starter.Executable);
+    }
+
+    [Fact]
+    public void Aceita_game_path_relativo_com_ponto_ponto_que_volta_a_pasta_registrada()
+    {
+        File.WriteAllText(Path.Combine(_game, "jogo.exe"), "MZ");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../jogo/", "jogo.exe") });
+
+        var launched = new GameLauncher(_starter).Launch(_project);
+
+        Assert.Equal(Path.Combine(_game, "jogo.exe"), launched);
+    }
+
+    [Fact]
+    public void Recusa_projeto_sem_pasta_de_jogo_registrada()
+    {
+        File.WriteAllText(Path.Combine(_game, "jogo.exe"), "MZ");
+        _project.SaveState(PipelineState.Empty);
+
+        var erro = Assert.Throws<VNForgeException>(() => new GameLauncher(_starter).Launch(_project));
+
+        Assert.Contains("vnf extract", erro.Message);
+        Assert.Null(_starter.Executable);
+    }
+
+    [Fact]
+    public void Aceita_pasta_registrada_so_pelo_manifesto_de_um_backup()
+    {
+        File.WriteAllText(Path.Combine(_game, "jogo.exe"), "MZ");
+        File.WriteAllText(Path.Combine(_game, "ysbin.ypf"), "original");
+        Directory.CreateDirectory(_project.BuildDirectory);
+        File.WriteAllText(Path.Combine(_project.BuildDirectory, "ysbin.ypf"), "traduzido");
+        new GameInjector().Inject(GameInjector.Plan(_project));
+        _project.SaveState(PipelineState.Empty);
+
+        var launched = new GameLauncher(_starter).Launch(_project);
+
+        Assert.Equal(Path.Combine(_game, "jogo.exe"), launched);
+    }
+
+    [Fact]
+    public void Aceita_extensao_exe_em_qualquer_caixa()
+    {
+        File.WriteAllText(Path.Combine(_game, "Jogo.EXE"), "MZ");
+        UseExe("Jogo.EXE");
+
+        Assert.Equal(Path.Combine(_game, "Jogo.EXE"), new GameLauncher(_starter).Launch(_project));
     }
 
     [Fact]

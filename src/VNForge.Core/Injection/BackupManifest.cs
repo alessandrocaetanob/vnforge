@@ -1,13 +1,20 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace VNForge.Core.Injection;
 
 /// <summary>
 /// O que uma injeção fez, gravado em <c>backup/&lt;data&gt;/vnforge-backup.json</c> antes de qualquer escrita no jogo.
 /// É por ele que <c>restore</c> sabe o que devolver, mesmo quando a injeção morreu no meio.
+/// <c>RestoredAt</c> é gravado quando uma restauração devolveu os arquivos dele: o backup não entra mais no plano de restauração nem no histórico da injeção.
 /// </summary>
-public sealed record BackupManifest(int Version, DateTimeOffset CreatedAt, string GameDirectory, IReadOnlyList<BackupEntry> Files)
+public sealed record BackupManifest(
+    int Version,
+    DateTimeOffset CreatedAt,
+    string GameDirectory,
+    IReadOnlyList<BackupEntry> Files,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? RestoredAt = null)
 {
     public const string FileName = "vnforge-backup.json";
 

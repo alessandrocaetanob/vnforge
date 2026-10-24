@@ -360,6 +360,11 @@ public sealed partial class BuildViewModel : ObservableObject
             {
                 AppendLog($"Mantido: {kept} (criado pela injeção, mas alterado depois; apague à mão se quiser)");
             }
+
+            foreach (var warning in result.Warnings)
+            {
+                AppendLog($"Aviso: {warning}");
+            }
         }
         else if (run.Failure is not null)
         {

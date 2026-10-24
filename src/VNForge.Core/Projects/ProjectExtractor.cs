@@ -97,7 +97,8 @@ public static class ProjectExtractor
             // Dentro do try: se o estado não grava, o texto volta ao que era e a extração pode ser repetida.
             project.SaveState(new PipelineState(
                 originals,
-                new Dictionary<string, StageState> { [ExtractStage] = new(StageStatus.Completed) }));
+                new Dictionary<string, StageState> { [ExtractStage] = new(StageStatus.Completed) },
+                gameDirectory));
         }
         catch
         {
