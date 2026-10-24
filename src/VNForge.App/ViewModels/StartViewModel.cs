@@ -13,6 +13,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     private readonly SemaphoreSlim loadGate = new(1, 1);
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(OpenSelectedCommand))]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedInEditorCommand))]
     [NotifyCanExecuteChangedFor(nameof(RemoveSelectedCommand))]
     public partial RecentProjectItem? Selected { get; set; }
@@ -25,11 +26,26 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     [ObservableProperty]
     public partial string? NoticeMessage { get; set; }
 
+    /// <summary>A lista de recentes existe em disco e não pôde ser lida; diz o arquivo e o que acontece com a lista. Persiste até a lista voltar a ser legível.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecentsProblem))]
+    public partial string? RecentsProblem { get; private set; }
+
+    public bool HasRecentsProblem => RecentsProblem is not null;
+
     public ObservableCollection<RecentProjectItem> Recents { get; } = [];
 
     public bool HasRecents => Recents.Count > 0;
 
-    public string RecentsSummary => Recents.Count == 1 ? "1 projeto" : $"{Recents.Count} projetos";
+    /// <summary>A pasta que contém o projeto aberto por último, onde os próximos costumam ficar; nula sem recentes.</summary>
+    public string? DefaultFolder => Recents.Count == 0 ? null : FolderOf(Recents[0].Path);
+
+    /// <summary>O rodapé da lista: "3 projetos · pasta padrão D:\Traducoes".</summary>
+    public string RecentsSummary => Recents.Count switch
+    {
+        0 => "Nenhum projeto",
+        var n => (n == 1 ? "1 projeto" : $"{n} projetos") + (DefaultFolder is { } folder ? $" · pasta padrão {folder}" : string.Empty),
+    };
 
     /// <summary>Um projeto foi aberto pelo seletor de pasta.</summary>
     public event EventHandler<ProjectSummary>? ProjectOpened;
@@ -37,8 +53,11 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     /// <summary>O usuário pediu o assistente de novo projeto.</summary>
     public event EventHandler? NewProjectRequested;
 
-    /// <summary>O usuário pediu para continuar o projeto selecionado no Editor.</summary>
+    /// <summary>O usuário pediu para continuar o projeto selecionado no Editor; <see cref="ProjectSummary.LastEditedScript"/> diz em que script.</summary>
     public event EventHandler<ProjectSummary>? EditorRequested;
+
+    /// <summary>O usuário abriu o projeto selecionado e quer o Painel dele; o projeto já foi entregue por <see cref="ProjectOpened"/>.</summary>
+    public event EventHandler<ProjectSummary>? DashboardRequested;
 
     /// <summary>Lê a lista de recentes; mantém a seleção (ou seleciona <paramref name="selectPath"/>) quando o item ainda existe.</summary>
     public async Task LoadAsync(string? selectPath = null)
@@ -49,7 +68,11 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         {
             var keep = selectPath ?? Selected?.Path;
             var now = clock.GetUtcNow();
-            var items = await Task.WhenAll(recents.Load().Select(recent => Task.Run(() => Describe(recent, now))));
+            var list = recents.Read();
+            var items = await Task.WhenAll(list.Projects.Select(recent => Task.Run(() => Describe(recent, now))));
+            RecentsProblem = list.Problem is { } problem
+                ? $"{problem} A lista aparece vazia; abrir um projeto a recria."
+                : null;
 
             Recents.Clear();
             foreach (var item in items)
@@ -59,6 +82,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
             Selected = Recents.FirstOrDefault(i => SamePath(i.Path, keep)) ?? Recents.FirstOrDefault();
             OnPropertyChanged(nameof(HasRecents));
+            OnPropertyChanged(nameof(DefaultFolder));
             OnPropertyChanged(nameof(RecentsSummary));
         }
         finally
@@ -78,8 +102,11 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         }
     }
 
-    /// <summary>Abre a pasta, registra nos recentes e seleciona. Em caso de falha, mostra <see cref="ErrorMessage"/> e não registra nada.</summary>
-    public async Task OpenAsync(string path)
+    /// <summary>
+    /// Abre a pasta, registra nos recentes e seleciona. Em caso de falha, mostra <see cref="ErrorMessage"/> e não registra nada.
+    /// Devolve o resumo do projeto aberto, ou <c>null</c> quando ele não abriu ou não pôde ser carregado.
+    /// </summary>
+    public async Task<ProjectSummary?> OpenAsync(string path)
     {
         ProjectSummary summary;
         try
@@ -89,7 +116,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         catch (Exception e) when (IsExpected(e))
         {
             ErrorMessage = $"{e.Message} O projeto não foi aberto.";
-            return;
+            return null;
         }
 
         try
@@ -111,6 +138,25 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         {
             // Os assinantes carregam os arquivos do projeto (glossário, textos); um arquivo ilegível não pode escapar do comando.
             ErrorMessage = $"{e.Message} O projeto não pôde ser carregado.";
+            return null;
+        }
+
+        return summary;
+    }
+
+    /// <summary>"Abrir projeto" do detalhe: abre de novo a pasta selecionada, para ler o que mudou nela, e leva ao Painel.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenSelected))]
+    private async Task OpenSelectedAsync()
+    {
+        if (Selected is not { } item)
+        {
+            return;
+        }
+
+        ClearMessages();
+        if (await OpenAsync(item.Path) is { } summary)
+        {
+            DashboardRequested?.Invoke(this, summary);
         }
     }
 
@@ -131,17 +177,27 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private async Task RemoveSelectedAsync()
+    private Task RemoveSelectedAsync() => RemoveRecentAsync(Selected);
+
+    /// <summary>Tira um projeto da lista de recentes (o menu da linha); a pasta dele não é tocada.</summary>
+    [RelayCommand]
+    private async Task RemoveRecentAsync(RecentProjectItem? item)
     {
-        if (Selected is { } item)
+        if (item is null)
         {
-            recents.Remove(item.Path);
-            Selected = null;
-            await LoadAsync();
+            return;
         }
+
+        recents.Remove(item.Path);
+        if (ReferenceEquals(Selected, item))
+        {
+            Selected = null;
+        }
+
+        await LoadAsync();
     }
 
-    private bool CanOpenSelected() => Selected?.IsAvailable == true;
+    private bool CanOpenSelected() => Selected?.IsSupported == true;
 
     private bool HasSelection() => Selected is not null;
 
@@ -169,6 +225,9 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     }
 
     private static bool IsExpected(Exception e) => e is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException;
+
+    private static string? FolderOf(string path) =>
+        System.IO.Path.GetDirectoryName(path.TrimEnd('\\', '/')) is { Length: > 0 } folder ? folder : null;
 
     private static bool SamePath(string a, string? b) =>
         b is not null && string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);

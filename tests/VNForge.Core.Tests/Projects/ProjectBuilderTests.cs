@@ -74,6 +74,21 @@ public sealed class ProjectBuilderTests : IDisposable
             File.ReadAllText(Path.Combine(_project.BuildDirectory, PackageFake)));
     }
 
+    [Fact]
+    public void Resumo_do_projeto_informa_o_ultimo_build_com_os_scripts_trocados()
+    {
+        Assert.Null(ProjectSummaryReader.Read(_project.Root).LastBuild);
+        Translate("a001", (0, Hello));
+
+        var result = Build();
+
+        var build = ProjectSummaryReader.Read(_project.Root).LastBuild;
+        Assert.NotNull(build);
+        Assert.Equal(Assert.Single(result.Archives).ReplacedFiles, build.Scripts);
+        Assert.Equal(1, build.Scripts);
+        Assert.True(DateTimeOffset.UtcNow - build.BuiltAt < TimeSpan.FromMinutes(5));
+    }
+
     private bool PainelConcluiu(PipelineStageKey etapa) => ProjectDashboard.Read(_project).Stages.Single(s => s.Key == etapa).IsComplete;
 
     [Fact]

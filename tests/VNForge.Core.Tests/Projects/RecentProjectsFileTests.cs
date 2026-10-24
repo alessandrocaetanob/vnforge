@@ -134,4 +134,54 @@ public class RecentProjectsFileBordasTests
 
         Assert.Equal(["D:/P3", "D:/P2"], file.Load().Select(r => r.Path));
     }
+
+    [Fact]
+    public void Read_de_lista_valida_nao_tem_problema()
+    {
+        using var temp = new TempFolder();
+        var file = new RecentProjectsFile(temp.Path);
+        file.Add(@"D:\A", new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero));
+
+        var lista = file.Read();
+
+        Assert.Null(lista.Problem);
+        Assert.Equal([@"D:\A"], lista.Projects.Select(r => r.Path));
+    }
+
+    [Fact]
+    public void Read_sem_arquivo_nao_tem_problema()
+    {
+        using var temp = new TempFolder();
+
+        var lista = new RecentProjectsFile(temp.Path).Read();
+
+        Assert.Empty(lista.Projects);
+        Assert.Null(lista.Problem);
+    }
+
+    [Theory]
+    [InlineData("{ isto não é json")]
+    [InlineData("{\"projetos\": []}")]
+    [InlineData("")]
+    public void Read_de_arquivo_ilegivel_devolve_lista_vazia_e_o_problema_com_o_caminho(string conteudo)
+    {
+        using var temp = new TempFolder();
+        var file = new RecentProjectsFile(temp.Path);
+        File.WriteAllText(file.Path, conteudo);
+
+        var lista = file.Read();
+
+        Assert.Empty(lista.Projects);
+        Assert.Contains(file.Path, lista.Problem);
+    }
+
+    [Fact]
+    public void Load_de_arquivo_ilegivel_continua_devolvendo_lista_vazia()
+    {
+        using var temp = new TempFolder();
+        var file = new RecentProjectsFile(temp.Path);
+        File.WriteAllText(file.Path, "{ quebrado");
+
+        Assert.Empty(file.Load());
+    }
 }
