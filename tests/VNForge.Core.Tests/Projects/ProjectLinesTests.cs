@@ -265,4 +265,26 @@ public class ProjectLinesTests
 
         Assert.Equal([aviso, erro], new LineFilter(LineStatusFilter.Warnings).Apply([aviso, erro, limpa]));
     }
+
+    [Fact]
+    public void WithUnit_tira_o_aviso_de_nao_traduzida_e_mantem_as_demais_ocorrencias()
+    {
+        var pendente = Linha("s", 1, null, TranslationStatus.Untranslated);
+        var entrada = Entrada(pendente, Problema("s", 1, QaSeverity.Warning, "nao-traduzida"), Problema("s", 1, QaSeverity.Warning, "outra-regra"));
+
+        var traduzida = entrada.WithUnit(pendente with { Translation = "Confirmar", Status = TranslationStatus.Translated });
+
+        Assert.Equal(["outra-regra"], traduzida.Issues.Select(i => i.RuleId));
+        Assert.Equal("Confirmar", traduzida.Unit.Translation);
+        Assert.Equal(entrada.Number, traduzida.Number);
+    }
+
+    [Fact]
+    public void WithUnit_volta_a_avisar_quando_a_traducao_e_apagada()
+    {
+        var traduzida = Linha("s", 1, null, TranslationStatus.Translated);
+        var apagada = Entrada(traduzida).WithUnit(traduzida with { Translation = null, Status = TranslationStatus.Untranslated });
+
+        Assert.Equal(["nao-traduzida"], apagada.Issues.Select(i => i.RuleId));
+    }
 }

@@ -26,6 +26,23 @@ public sealed record LineEntry(string ScriptKey, int Number, TextUnit Unit, IRea
     public QaSeverity? Severity => Issues.Count == 0 ? null : Issues.Max(i => i.Severity);
 
     public bool HasIssues => Issues.Count > 0;
+
+    /// <summary>
+    /// A mesma linha com <paramref name="unit"/> no lugar da unidade, depois de uma edição. Refaz só as ocorrências das regras de completude
+    /// (<see cref="CompletenessQaRules"/>), que olham a linha isolada; as demais, que dependem do glossário e do resto do projeto, ficam como estavam
+    /// e voltam a valer na próxima leitura.
+    /// </summary>
+    public LineEntry WithUnit(TextUnit unit)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+
+        var texts = new Dictionary<string, IReadOnlyList<TextUnit>> { [ScriptKey] = [unit] };
+        var fresh = CompletenessEngine.Run(QaContext.ForTexts(texts)).Issues;
+        var kept = Issues.Where(i => !CompletenessEngine.Rules.Any(r => string.Equals(r.Id, i.RuleId, StringComparison.Ordinal)));
+        return this with { Unit = unit, Issues = [.. kept, .. fresh] };
+    }
+
+    private static QaEngine CompletenessEngine { get; } = new(CompletenessQaRules.All);
 }
 
 /// <summary>Filtro de status da grade.</summary>
