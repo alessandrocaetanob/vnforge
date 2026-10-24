@@ -1,13 +1,177 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.EditorView"
              x:DataType="vm:EditorViewModel">
 
-  <!-- Casca do Editor. A lista de scripts, a grade e o inspetor entram na E10.2 (#99) e na E10.3 (#100). -->
-  <StackPanel Margin="24,32" Spacing="8" MaxWidth="1180" HorizontalAlignment="Left">
-    <TextBlock Classes="title-lg" Text="Editor"/>
-    <TextBlock Classes="body secondary" Text="{Binding Project.Name, StringFormat='Projeto {0}'}"/>
-    <TextBlock Classes="body-sm secondary" Text="A grade de linhas e o inspetor de tradução chegam nas próximas entregas do marco 3."/>
-  </StackPanel>
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="Alt+Down" Command="{Binding SelectNextCommand}"/>
+    <KeyBinding Gesture="Alt+Up" Command="{Binding SelectPreviousCommand}"/>
+  </UserControl.KeyBindings>
+
+  <UserControl.Styles>
+    <!-- Chips de filtro: o selecionado ganha accent-soft e borda accent. -->
+    <Style Selector="Button.chip">
+      <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    </Style>
+    <Style Selector="Button.chip.selected /template/ ContentPresenter#PART_ContentPresenter, Button.chip.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.chip.selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    </Style>
+
+    <!-- A grade usa a mesma seleção da lista de projetos (accent-soft e barra de 3px); a linha tem altura fixa para a virtualização não medir. -->
+    <Style Selector="ListBox.lines > ListBoxItem">
+      <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
+    </Style>
+    <Style Selector="ListBox.lines > ListBoxItem /template/ Border#SelectionBar">
+      <Setter Property="Margin" Value="0,6"/>
+    </Style>
+    <Style Selector="TextBlock.pct.complete">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
+
+    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+      <StackPanel Spacing="2" VerticalAlignment="Center">
+        <TextBlock Classes="mono secondary" Text="{Binding ProjectName}" TextTrimming="CharacterEllipsis"/>
+        <TextBlock Classes="title-lg" Text="{Binding ScriptTitle}" TextTrimming="CharacterEllipsis"/>
+      </StackPanel>
+
+      <ItemsControl Grid.Column="1" ItemsSource="{Binding Filters}" VerticalAlignment="Center" AutomationProperties.Name="Filtro de linhas">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="6"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:FilterChipViewModel">
+            <Button Classes="chip" Classes.selected="{Binding IsSelected}"
+                    Command="{Binding $parent[UserControl].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Label}"/>
+                <TextBlock Classes="secondary" FontWeight="SemiBold" Text="{Binding CountLabel}"/>
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center" ItemsSource="{Binding Speakers}"
+                SelectedItem="{Binding SelectedSpeaker}" AutomationProperties.Name="Personagem">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:SpeakerOption">
+            <TextBlock Text="{Binding Label}"/>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </Grid>
+
+    <Border Grid.Row="1" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="240,*,380" ColumnSpacing="12">
+
+      <!-- Scripts -->
+      <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Scripts">
+        <Grid RowDefinitions="48,*">
+          <Border Classes="divider-bottom" Padding="16,0">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="title-md" Text="Scripts" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+          <ListBox Grid.Row="1" Classes="projects" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+                   AutomationProperties.Name="Lista de scripts">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ScriptItemViewModel">
+                <StackPanel Spacing="6" Margin="16,10" ToolTip.Tip="{Binding Tooltip}">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="mono" Text="{Binding Key}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="1" Classes="caption secondary pct" Classes.complete="{Binding IsComplete}" Text="{Binding PercentLabel}"/>
+                  </Grid>
+                  <c:DistributionBar Height="4" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <!-- Grade de linhas: somente leitura; a edição acontece no detalhe. -->
+      <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Linhas">
+        <Grid RowDefinitions="32,*,Auto">
+          <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
+            <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12">
+              <TextBlock Classes="overline" Text="LINHA" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="overline" Text="STATUS" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="2" Classes="overline" Text="PERSONAGEM" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="3" Classes="overline" Text="ORIGINAL" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="4" Classes="overline" Text="TRADUÇÃO" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+
+          <ListBox Grid.Row="1" x:Name="LinesList" Classes="projects lines" ItemsSource="{Binding Lines}"
+                   SelectedItem="{Binding SelectedLine}" SelectionMode="Single" AutomationProperties.Name="Linhas do script">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel/>
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:LineViewModel">
+                <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12" Margin="16,0" VerticalAlignment="Center" ToolTip.Tip="{Binding Id}">
+                  <TextBlock Classes="mono secondary" Text="{Binding Number}" VerticalAlignment="Center"/>
+                  <c:StatusBadge Grid.Column="1" Status="{Binding Status}"/>
+                  <TextBlock Grid.Column="2" Classes="body-sm" Classes.secondary="{Binding IsNarration}" Text="{Binding SpeakerLabel}"
+                             TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="3" Classes="jp-row" Text="{Binding Source}" TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="4" Classes="body-sm" Classes.secondary="{Binding !HasTranslation}" Text="{Binding TranslationLabel}"
+                             TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
+                  <Panel Grid.Column="5" VerticalAlignment="Center">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"
+                              IsVisible="{Binding HasWarning}" AutomationProperties.Name="{Binding IssueLabel}"/>
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                              IsVisible="{Binding HasError}" AutomationProperties.Name="{Binding IssueLabel}"/>
+                  </Panel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <TextBlock Grid.Row="1" Classes="body-sm secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                     TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding IsEmpty}" Text="{Binding EmptyMessage}"/>
+
+          <Border Grid.Row="2" Classes="divider-top" Padding="12">
+            <StackPanel Spacing="8">
+              <c:DistributionBar Height="8" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
+              <TextBlock Classes="caption secondary" Text="{Binding LinesSummary}"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Coluna do detalhe: o #100 encaixa o ViewModel dele em EditorViewModel.Detail e um DataTemplate de aplicativo desenha o painel. -->
+      <Border Grid.Column="2" Classes="panel" Padding="16" AutomationProperties.Name="Linha selecionada">
+        <Panel>
+          <ContentControl Content="{Binding Detail}"/>
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="Selecione uma linha para ver o detalhe."
+                     IsVisible="{Binding Detail, Converter={x:Static ObjectConverters.IsNull}}"/>
+        </Panel>
+      </Border>
+    </Grid>
+  </Grid>
 </UserControl>

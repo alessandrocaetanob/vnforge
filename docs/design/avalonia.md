@@ -110,7 +110,9 @@ Noto Sans JP completa passa de 4 MB por peso; usar só os pesos 400 e 500. Subco
 | `DataGrid` | Pacote separado `Avalonia.Controls.DataGrid` | Não precisa: edição em célula e ordenação não fazem parte do fluxo |
 | `TreeDataGrid` | A versão mantida é um fork comercial do Avalonia Accelerate; a original MIT segue em repositório próprio, sem evolução | Não usar |
 
-Filtros, busca e ordenação ficam no ViewModel sobre uma coleção observável de `LineViewModel`; a grade recebe a lista já filtrada.
+Filtros, busca e ordenação ficam no ViewModel; a grade recebe a lista já filtrada. O `EditorViewModel` troca `Lines` por inteiro a cada filtro ou script, em vez de usar uma coleção observável, porque `Add` e `Remove` em dezenas de milhares de linhas gerariam um evento por item e travariam a tela. Os `LineViewModel` do script são criados uma vez e o filtro só escolhe entre eles. O teste headless `EditorGridHeadlessTests` abre a tela com 50 mil linhas geradas em código e confere que a virtualização realiza só as linhas visíveis e que rolar até o fim e até o meio leva menos de 2 segundos.
+
+A lista de scripts mostra a chave (`yst00013`) enquanto o nome legível do `yst_list.ybn` não é lido; quando existir, ele entra como segunda linha do item.
 
 ## Editor de tradução
 

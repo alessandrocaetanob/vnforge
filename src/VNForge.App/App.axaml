@@ -43,5 +43,6 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/NavRail.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/Panels.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/InfoBar.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/StatusBadge.axaml"/>
   </Application.Styles>
 </Application>

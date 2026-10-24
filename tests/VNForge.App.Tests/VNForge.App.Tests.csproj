@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" />
     <ProjectReference Include="..\..\src\VNForge.App\VNForge.App.csproj" />
   </ItemGroup>
 

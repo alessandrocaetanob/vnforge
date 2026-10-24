@@ -1,5 +1,6 @@
 using System.Globalization;
 using VNForge.Core.Glossary;
+using VNForge.Core.Text;
 
 namespace VNForge.App.Services;
 
@@ -70,6 +71,16 @@ public static class ProjectLabels
         "cp1252" => "CP1252 (patch no executável)",
         "sjis" => "Shift-JIS puro",
         _ => strategy,
+    };
+
+    public static string Status(TranslationStatus status) => status switch
+    {
+        TranslationStatus.Untranslated => "Pendente",
+        TranslationStatus.Machine => "IA",
+        TranslationStatus.Translated => "Traduzida",
+        TranslationStatus.Reviewed => "Revisada",
+        TranslationStatus.Approved => "Aprovada",
+        _ => status.ToString(),
     };
 
     public static string Gender(CharacterGender gender) => gender switch
