@@ -50,6 +50,12 @@ VNForge.App ─┤                            ▲
 
 Os testes usam xUnit v3 (`xunit.v3.mtp-v2`) sobre o Microsoft.Testing.Platform. No SDK 10, o `dotnet test` precisa de `global.json` com `test.runner = Microsoft.Testing.Platform`, e a solução passa por `--solution` (`dotnet test --solution VNForge.NoApp.slnf`; sem argumento, ele acha a solução da pasta).
 
+**CI e Sonar.** O CircleCI (`.circleci/config.yml`) tem dois jobs: `linux` compila e testa `VNForge.NoApp.slnf`, e `windows` compila e testa `VNForge.slnx`, com o app WPF. A análise do SonarCloud (organização `alessandrocaetanob`, projeto `alessandrocaetanob_vnforge`) roda dentro do job `windows`, com o `dotnet-sonarscanner`: `sonarscanner begin`, `dotnet build`, `dotnet-coverage collect "dotnet test ..."` e `sonarscanner end`. A cobertura vai por `sonar.cs.vscoveragexml.reportsPaths`. Em PR, o `begin` recebe `sonar.pullrequest.key` (o número em `CIRCLE_PULL_REQUEST`), `sonar.pullrequest.branch` e `sonar.pullrequest.base=main`; em outra branch, `sonar.branch.name`; na `main`, nada disso. Referência: [SonarScanner for .NET](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/scanners/sonarscanner-for-dotnet/using) e [cobertura em .NET](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/test-coverage/dotnet-test-coverage).
+
+O `SONAR_TOKEN` fica no contexto `sonarcloud` do CircleCI, usado só pelo job `windows`. PR de fork não recebe o contexto ("Pass secrets to builds from forked pull requests" fica desligado): o job detecta a falta do token, pula o Sonar e roda só build e testes. Nenhum segredo entra no repositório.
+
+**Armadilha: análise automática.** A "Automatic Analysis" do SonarCloud não passa pelo build, então não enxerga o `Nullable` do `Directory.Build.props` e acusa a S8970 em todo operador `!`. Ela também ignora `sonar-project.properties`, e desativar uma regra exige perfil de qualidade personalizado, que é pago. Por isso a análise automática fica desligada no projeto (as duas não rodam juntas); ligá-la de novo traz a S8970 de volta e conflita com a análise do CI.
+
 `Core` não conhece nenhuma engine nem nenhum provedor de IA. As engines e a IA implementam interfaces do `Core`.
 
 ## Componentes do Core
