@@ -43,6 +43,11 @@ internal static class ExportCommand
             ? ReviewFormats.Find(formatName)
                 ?? throw new UsageException($"Formato '{formatName}' desconhecido; os formatos de exportação são: {string.Join(", ", ReviewFormats.All.Select(f => f.Name))}.")
             : (outputArgument is null ? null : ReviewFormats.FromPath(outputArgument)) ?? ReviewFormats.Csv;
+        if (formatName is not null && outputArgument is not null && ReviewFormats.FromPath(outputArgument) is { } byExtension && byExtension != format)
+        {
+            throw new UsageException($"--format {format.Name} não combina com a extensão de '{outputArgument}' ({byExtension.Extension}); ajuste um dos dois.");
+        }
+
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var path = outputArgument is null
             ? Path.Combine(project.Root, "revisao" + format.Extension)

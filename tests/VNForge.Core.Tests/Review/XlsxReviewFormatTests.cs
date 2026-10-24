@@ -64,4 +64,14 @@ public class XlsxReviewFormatTests
         Assert.Empty(Xlsx.Read(bytes, "r.xlsx"));
         Assert.Throws<ReviewImportException>(() => Xlsx.Read(XlsxTestFiles.WithHeader("id", "translation"), "r.xlsx"));
     }
+
+    [Fact]
+    public void Ignora_o_furigana_gravado_pelo_excel_japones_nas_strings_compartilhadas()
+    {
+        var bytes = XlsxTestFiles.WithSharedPhonetic("id", "translation", "status", "notes", "漢字", "かんじ");
+
+        var lida = Assert.Single(Xlsx.Read(bytes, "r.xlsx"));
+
+        Assert.Equal("漢字", lida.Translation);
+    }
 }

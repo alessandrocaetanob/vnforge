@@ -90,7 +90,7 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
     {
         var book = doc.WorkbookPart ?? throw new ReviewImportException($"'{path}' não tem pasta de trabalho.");
         var sheet = book.WorksheetParts.FirstOrDefault()?.Worksheet ?? throw new ReviewImportException($"'{path}' não tem nenhuma aba.");
-        var shared = book.SharedStringTablePart?.SharedStringTable?.Elements<SharedStringItem>().Select(i => i.InnerText).ToList() ?? [];
+        var shared = book.SharedStringTablePart?.SharedStringTable?.Elements<SharedStringItem>().Select(PlainText).ToList() ?? [];
 
         var records = new List<(int Line, string[] Cells)>();
         foreach (var row in sheet.Descendants<Row>())
@@ -136,12 +136,16 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
             Cell(r.Cells, "translation"), Cell(r.Cells, "status"), Cell(r.Cells, "notes")))];
     }
 
+    /// <summary>Texto da célula sem o furigana (<c>rPh</c>) que o Excel japonês grava ao lado do texto digitado com IME.</summary>
+    private static string PlainText(OpenXmlCompositeElement item) =>
+        string.Concat(item.ChildElements.Where(e => e is DocumentFormat.OpenXml.Spreadsheet.Text or Run).Select(e => e.InnerText));
+
     private static string CellText(Cell cell, List<string> shared)
     {
         var type = cell.DataType?.Value;
         if (type == CellValues.InlineString)
         {
-            return Unescape(cell.InlineString?.InnerText ?? string.Empty);
+            return cell.InlineString is { } inline ? Unescape(PlainText(inline)) : string.Empty;
         }
 
         var value = cell.CellValue?.Text ?? string.Empty;
