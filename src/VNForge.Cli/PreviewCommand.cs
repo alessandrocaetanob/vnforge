@@ -1,5 +1,5 @@
 using System.CommandLine;
-using System.Globalization;
+using Spectre.Console;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -9,8 +9,6 @@ namespace VNForge.Cli;
 /// <summary><c>vnf preview &lt;id&gt;</c>: a tradução de uma linha depois do pipeline de formatação, com a contagem de linhas e de colunas.</summary>
 internal static class PreviewCommand
 {
-    private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
-
     private static readonly Argument<string> IdArgument = new("id")
     {
         Description = "Id da linha, como aparece em text/*.json.",
@@ -48,43 +46,39 @@ internal static class PreviewCommand
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Linha {preview.Id}");
-        if (preview.Notice is { } notice)
-        {
-            output.WriteLine(notice);
-        }
-
-        for (var b = 0; b < preview.Columns.Count; b++)
-        {
-            var box = preview.Columns[b];
-            output.WriteLine();
-            output.WriteLine($"Caixa {b + 1}: {Count(box.Count, "linha", "linhas")}");
-            foreach (var (columns, n) in box.Select((c, n) => (c, n)))
-            {
-                output.WriteLine($"  {n + 1}: {Count(columns, "coluna", "colunas")}");
-            }
-        }
-
-        output.WriteLine();
-        output.WriteLine("Texto:");
-        foreach (var line in preview.Text.Replace("\\p", "\\p\\n", StringComparison.Ordinal).Split("\\n"))
-        {
-            output.WriteLine($"  {line}");
-        }
-
-        output.WriteLine();
-        output.WriteLine(
-            $"Total: {Count(preview.LineCount, "linha", "linhas")}; largura máxima {Number(preview.MaxWidth)} colunas"
-            + (preview.WrapEnabled ? "." : " (quebra desligada no perfil)."));
-        foreach (var warning in preview.Warnings)
-        {
-            output.WriteLine($"Aviso: {warning}");
-        }
-
+        WriteText(cli.Ansi, preview);
         return ErrorHandler.OkExitCode;
     }
 
-    private static string Count(int value, string singular, string plural) => $"{Number(value)} {(value == 1 ? singular : plural)}";
+    private static void WriteText(IAnsiConsole ansi, LinePreview preview)
+    {
+        ansi.MarkupLine($"[bold {CliPalette.Hex(CliPalette.Accent)}]Linha {CliViews.Escape(preview.Id)}[/]");
+        if (preview.Notice is { } notice)
+        {
+            ansi.MarkupLine(CliViews.Escape(notice));
+        }
 
-    private static string Number(int value) => value.ToString("N0", PortugueseBrazil);
+        for (var b = 0; b < preview.Boxes.Count; b++)
+        {
+            ansi.WriteLine();
+            if (preview.Speaker is { } speaker)
+            {
+                ansi.Write(TextboxView.Plate(speaker));
+                ansi.WriteLine();
+            }
+
+            ansi.Write(TextboxView.Box(preview, b));
+        }
+
+        ansi.WriteLine();
+        ansi.MarkupLine(
+            $"Total: {Count(preview.LineCount, "linha", "linhas")}; largura máxima {CliFormat.Number(preview.MaxWidth)} colunas"
+            + (preview.WrapEnabled ? "." : " (quebra desligada no perfil)."));
+        foreach (var warning in preview.Warnings)
+        {
+            ansi.MarkupLine($"[{CliPalette.Hex(CliPalette.Warning)}]Aviso:[/] {CliViews.Escape(warning)}");
+        }
+    }
+
+    private static string Count(int value, string singular, string plural) => CliFormat.Count(value, singular, plural);
 }

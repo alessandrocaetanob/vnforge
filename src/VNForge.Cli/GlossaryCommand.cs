@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Spectre.Console;
 using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -98,14 +99,20 @@ internal static class GlossaryCommand
 
         if (terms.Count == 0)
         {
-            output.WriteLine("O glossário está vazio.");
+            cli.Ansi.MarkupLine("O glossário está vazio.");
+            return ErrorHandler.OkExitCode;
         }
 
+        var table = CliViews.NewTable(CliViews.Column("Original"), CliViews.Column("Tradução"), CliViews.Column("Notas"));
         foreach (var term in terms)
         {
-            output.WriteLine(term.Notes is null ? $"{term.Source} → {term.Target}" : $"{term.Source} → {term.Target} ({term.Notes})");
+            table.AddRow(
+                new Markup(CliViews.Escape(term.Source)),
+                new Markup(CliViews.Escape(term.Target)),
+                new Markup($"[dim]{CliViews.Escape(term.Notes ?? string.Empty)}[/]"));
         }
 
+        cli.Ansi.Write(table);
         return ErrorHandler.OkExitCode;
     }
 

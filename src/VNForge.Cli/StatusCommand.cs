@@ -1,5 +1,5 @@
 using System.CommandLine;
-using System.Globalization;
+using Spectre.Console;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -11,7 +11,9 @@ internal static class StatusCommand
 {
     private const string NoSpeakerLabel = "(sem falante)";
 
-    private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
+    private const int MinBarWidth = 10;
+    private const int MaxBarWidth = 60;
+    private const int RowBarWidth = 20;
 
     public static Command Create(VnfCli cli)
     {
@@ -36,25 +38,62 @@ internal static class StatusCommand
             return ErrorHandler.OkExitCode;
         }
 
-        var total = status.Total;
-        output.WriteLine($"{Number(total.Total)} {(total.Total == 1 ? "linha" : "linhas")}; {Percent(total)} com tradução.");
-        WriteCounts(output, total, "  ");
+        WriteText(cli.Ansi, project, status);
+        return ErrorHandler.OkExitCode;
+    }
 
-        output.WriteLine();
-        output.WriteLine("Por arquivo:");
+    private static void WriteText(IAnsiConsole ansi, ProjectFolder project, ProjectStatus status)
+    {
+        var total = status.Total;
+        var accent = CliPalette.Hex(CliPalette.Accent);
+        var config = project.LoadConfig();
+        ansi.MarkupLine($"[bold {accent}]{CliViews.Escape(config.Name)} · {CliViews.Escape(config.Languages.Target.ToUpperInvariant())}[/]");
+        ansi.MarkupLine($"{CliFormat.Count(total.Total, "linha", "linhas")} · {CliFormat.Percent(total.Percent)} com tradução");
+        ansi.Write(DistributionBar.Create(total, Math.Clamp(ansi.Profile.Width - 2, MinBarWidth, MaxBarWidth)));
+        ansi.WriteLine();
+        ansi.Write(DistributionBar.Legend(total));
+        ansi.WriteLine();
+
+        ansi.WriteLine();
+        var scripts = CliViews.NewTable(CliViews.Column("Script"), CliViews.Column("Linhas", right: true), CliViews.Column("Progresso"), CliViews.Column("%", right: true));
         foreach (var file in status.Files)
         {
-            output.WriteLine($"  {file.Key}: {Line(file.Counts)}");
+            scripts.AddRow(
+                new Markup(CliViews.Escape(file.Key)),
+                new Markup(CliFormat.Number(file.Counts.Total)),
+                DistributionBar.Create(file.Counts, RowBarWidth),
+                new Markup(CliFormat.Percent(file.Counts.Percent)));
         }
 
-        output.WriteLine();
-        output.WriteLine("Por personagem:");
+        ansi.Write(scripts);
+
+        ansi.WriteLine();
+        var names = project.LoadCharacters()
+            .GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal);
+        var characters = CliViews.NewTable(CliViews.Column("Personagem"), CliViews.Column("Linhas", right: true), CliViews.Column("Progresso"), CliViews.Column("%", right: true));
         foreach (var character in status.Characters)
         {
-            output.WriteLine($"  {character.Speaker ?? NoSpeakerLabel}: {Line(character.Counts)}");
+            characters.AddRow(
+                new Markup(SpeakerLabel(character.Speaker, names)),
+                new Markup(CliFormat.Number(character.Counts.Total)),
+                DistributionBar.Create(character.Counts, RowBarWidth),
+                new Markup(CliFormat.Percent(character.Counts.Percent)));
         }
 
-        return ErrorHandler.OkExitCode;
+        ansi.Write(characters);
+    }
+
+    private static string SpeakerLabel(string? speaker, Dictionary<string, string> names)
+    {
+        if (speaker is null)
+        {
+            return $"[dim]{NoSpeakerLabel}[/]";
+        }
+
+        return names.TryGetValue(speaker.Trim(), out var target)
+            ? $"{CliViews.Escape(speaker)} → {CliViews.Escape(target)}"
+            : CliViews.Escape(speaker);
     }
 
     private static Dictionary<string, object?> Data(StatusCounts counts, string? keyName = null, string? keyValue = null)
@@ -74,21 +113,4 @@ internal static class StatusCommand
         data["percent"] = counts.Percent;
         return data;
     }
-
-    private static void WriteCounts(TextWriter output, StatusCounts counts, string indent)
-    {
-        output.WriteLine($"{indent}sem tradução: {Number(counts.Untranslated)}");
-        output.WriteLine($"{indent}máquina: {Number(counts.Machine)}");
-        output.WriteLine($"{indent}traduzida: {Number(counts.Translated)}");
-        output.WriteLine($"{indent}revisada: {Number(counts.Reviewed)}");
-        output.WriteLine($"{indent}aprovada: {Number(counts.Approved)}");
-    }
-
-    private static string Line(StatusCounts c) =>
-        $"{Number(c.Total)} {(c.Total == 1 ? "linha" : "linhas")} ({Percent(c)}): "
-        + $"{Number(c.Untranslated)} sem tradução, {Number(c.Machine)} máquina, {Number(c.Translated)} traduzida(s), {Number(c.Reviewed)} revisada(s), {Number(c.Approved)} aprovada(s)";
-
-    private static string Percent(StatusCounts c) => string.Create(PortugueseBrazil, $"{c.Percent:0.#}%");
-
-    private static string Number(int value) => value.ToString("N0", PortugueseBrazil);
 }
