@@ -10,6 +10,7 @@ public enum NavKey
 {
     Start,
     Editor,
+    Conference,
     Settings,
     Glossary,
 }
@@ -31,8 +32,11 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
+    private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferência", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
+    private bool editorStale;
+    private string? lineNotFoundMessage;
 
     public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null)
     {
@@ -43,9 +47,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Tasks = new TaskBarViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, conferenceItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
+        Conference.TextsChanged += (_, _) => editorStale = true;
+        Conference.LineRequested += (_, request) =>
+        {
+            SelectedNav = editorItem;
+            LineNavigation = ShowLineAsync(request);
+        };
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         start.EditorRequested += (_, summary) =>
@@ -67,6 +77,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    public ConferenceViewModel Conference { get; } = new();
+
+    /// <summary>O último salto para uma linha do Editor pedido pela Conferência; os testes o aguardam.</summary>
+    public Task LineNavigation { get; private set; } = Task.CompletedTask;
+
+    /// <summary>A última conferência pedida ao abrir a página; os testes a aguardam.</summary>
+    public Task ConferenceLoading { get; private set; } = Task.CompletedTask;
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
@@ -98,16 +116,66 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
+            if (!ReferenceEquals(value, selectedNav) && !CanSwitchTo(value.Key))
+            {
+                OnPropertyChanged();
+                return;
+            }
+
             if (SetProperty(ref selectedNav, value))
             {
+                PrepareLeavingAndEntering(value.Key);
                 CurrentPage = value.Key switch
                 {
                     NavKey.Editor => Editor,
+                    NavKey.Conference => Conference,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
                     _ => Start,
                 };
             }
+        }
+    }
+
+    /// <summary>
+    /// A Conferência reescreve <c>text/*.json</c> inteiros, então a troca de página espera: não sai dela enquanto ela lê ou corrige, e só entra
+    /// nela depois de gravar a edição pendente do painel do Editor (se a gravação falha, o painel mostra o erro e a página não troca).
+    /// </summary>
+    private bool CanSwitchTo(NavKey target)
+    {
+        if (ReferenceEquals(CurrentPage, Conference) && Conference.IsBusy)
+        {
+            return false;
+        }
+
+        return target != NavKey.Conference || Editor.Detail?.Flush() != false;
+    }
+
+    private async Task ShowLineAsync(LineRequest request)
+    {
+        var found = await Editor.GoToLineAsync(request.ScriptKey, request.UnitId);
+        if (!found)
+        {
+            lineNotFoundMessage = $"A linha {request.UnitId} não existe mais neste projeto. Confira de novo na Conferência.";
+            Editor.ErrorMessage = lineNotFoundMessage;
+        }
+        else if (lineNotFoundMessage is not null && Editor.ErrorMessage == lineNotFoundMessage)
+        {
+            Editor.ErrorMessage = null;
+        }
+    }
+
+    /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>
+    private void PrepareLeavingAndEntering(NavKey target)
+    {
+        if (target == NavKey.Conference)
+        {
+            ConferenceLoading = Conference.RefreshAsync();
+        }
+        else if (target == NavKey.Editor && editorStale)
+        {
+            editorStale = false;
+            Editor.Reload();
         }
     }
 
@@ -140,7 +208,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Glossary.Project = summary;
         }
 
+        Conference.Project = summary;
+        editorStale = false;
         editorItem.IsEnabled = true;
+        conferenceItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
     }
 

@@ -32,6 +32,7 @@ public class MainWindowViewModelTests
         var vm = Create(temp, root);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
 
         Assert.Equal("Minha VN", vm.ProjectTitle);
         Assert.True(vm.Nav.Single(n => n.Key == NavKey.Editor).IsEnabled);
@@ -45,10 +46,12 @@ public class MainWindowViewModelTests
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
         var vm = Create(temp, root);
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
 
         vm.Start.OpenSelectedInEditorCommand.Execute(null);
 
         var editor = Assert.IsType<EditorViewModel>(vm.CurrentPage);
+        await editor.Loading;
         Assert.Equal("Minha VN", editor.Project?.Name);
         Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
     }
@@ -135,6 +138,7 @@ public class MainWindowViewModelTests
         Assert.False(item.IsEnabled);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
         vm.SelectedNav = item;
 
         Assert.True(item.IsEnabled);
@@ -149,9 +153,11 @@ public class MainWindowViewModelTests
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
         var vm = Create(temp, root);
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
         vm.Glossary.AddTermCommand.Execute(null);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
 
         Assert.Single(vm.Glossary.Terms);
         Assert.True(vm.Glossary.IsDirty);
