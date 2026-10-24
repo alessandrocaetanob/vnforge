@@ -72,7 +72,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public TaskBarViewModel Tasks { get; }
 
-    public EditorViewModel Editor { get; } = new();
+    public EditorViewModel Editor { get; init; } = new();
 
     public SettingsViewModel Settings { get; }
 

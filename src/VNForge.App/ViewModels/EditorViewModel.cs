@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -23,7 +24,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private readonly FilterChipViewModel[] chips;
     private readonly TimeProvider clock;
     private readonly Action<Action>? postToUi;
+    private readonly ILineSuggester suggester;
     private readonly Dictionary<string, TextUnit> savedUnits = new(StringComparer.Ordinal);
+    private readonly FormattingProfileCache profiles = new();
     private LineEditor? lineEditor;
     private ProjectLines? data;
     private IReadOnlyList<LineEntry> entries = [];
@@ -37,8 +40,10 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <param name="loader">Lê as linhas do projeto; o padrão lê <c>text/*.json</c>.</param>
     /// <param name="clock">Relógio do painel de detalhe (debounce da gravação e horário da origem <c>manual</c>); o padrão é o do sistema.</param>
     /// <param name="postToUi">Como o painel executa a gravação agendada na thread da tela; nulo usa o <see cref="SynchronizationContext"/> da thread que o criou. Os testes passam uma chamada direta.</param>
-    public EditorViewModel(Func<string, ProjectLines>? loader = null, TimeProvider? clock = null, Action<Action>? postToUi = null)
+    /// <param name="suggester">Pede a sugestão da IA do painel (Ctrl+Espaço); o padrão usa o provedor falso, sem rede.</param>
+    public EditorViewModel(Func<string, ProjectLines>? loader = null, TimeProvider? clock = null, Action<Action>? postToUi = null, ILineSuggester? suggester = null)
     {
+        this.suggester = suggester ?? new LineSuggester(() => null);
         this.clock = clock ?? TimeProvider.System;
         this.postToUi = postToUi;
         this.loader = loader ?? (root => ProjectLines.Read(ProjectFolder.Open(root)));
@@ -299,10 +304,21 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
-        return postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock)
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi);
+        var detail = postToUi is null
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester };
+        detail.AttachPreview(CurrentProfile());
+        return detail;
     }
+
+    /// <summary>
+    /// Refaz a prévia da linha aberta com o <c>formatting.json</c> de agora. A página do Editor chama ao voltar à tela, depois de Ajustes ter gravado o perfil;
+    /// sem mudança no arquivo, a prévia fica como está.
+    /// </summary>
+    public void RefreshPreview() => Detail?.AttachPreview(CurrentProfile());
+
+    /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
+    private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;
 
     private LineEditor? TryCreateEditor(string root)
     {
