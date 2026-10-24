@@ -399,7 +399,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             Quotes = SelectedQuotes?.Value ?? QuoteStyle.None,
             Ellipsis = SelectedEllipsis?.Value ?? EllipsisStyle.None,
         },
-        Wrap = baseProfile.Wrap with { Enabled = WrapEnabled, MaxWidth = WrapMaxWidth, MaxLines = WrapMaxLines },
+        Wrap = baseProfile.Wrap with { Enabled = WrapEnabled, MaxWidth = WrapMaxWidth, MaxLines = baseProfile.Wrap.MaxLines is null && WrapMaxLines == WrapRule.DefaultMaxLines ? null : WrapMaxLines },
     };
 
     private void SaveStyleGuide(string root)
