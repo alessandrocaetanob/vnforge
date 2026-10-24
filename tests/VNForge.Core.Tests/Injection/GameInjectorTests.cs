@@ -499,8 +499,8 @@ public sealed class GameInjectorTests : IDisposable
         var plan = GameInjector.PlanRestore(_project);
         var result = RestoreLatest(Injector());
 
-        Assert.Single(plan.Warnings);
-        Assert.Contains(first.BackupDirectory!, plan.Warnings[0]);
+        var warning = Assert.Single(plan.Warnings);
+        Assert.Contains(first.BackupDirectory!, warning);
         Assert.Equal(plan.Warnings, result.Warnings);
         AssertGameIsOriginal();
     }

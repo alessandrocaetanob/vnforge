@@ -22,8 +22,14 @@
     <DataTemplate DataType="vm:NewProjectWizardViewModel">
       <views:NewProjectWizardView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:DashboardViewModel">
+      <views:DashboardView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:EditorViewModel">
       <views:EditorView/>
+    </DataTemplate>
+    <DataTemplate DataType="vm:ConferenceViewModel">
+      <views:ConferenceView/>
     </DataTemplate>
     <DataTemplate DataType="vm:LineDetailViewModel">
       <views:LineDetailView/>
@@ -36,6 +42,9 @@
     </DataTemplate>
     <DataTemplate DataType="vm:BuildViewModel">
       <views:BuildView/>
+    </DataTemplate>
+    <DataTemplate DataType="vm:SearchReplaceViewModel">
+      <views:SearchReplaceView/>
     </DataTemplate>
   </Application.DataTemplates>
 

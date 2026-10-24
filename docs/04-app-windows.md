@@ -54,7 +54,15 @@ O assistente chama o mesmo `ProjectInitializer` do `vnf init` (`vnf init` ganhou
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-Cada etapa é um botão; o número mostra pendências.
+Cada etapa é um botão; o texto mostra as pendências. A página lê `ProjectDashboard` (Core): o progresso é o `ProjectStatusReporter` que o `vnf status` imprime, então total, percentual, arquivos e personagens são os mesmos números. Etapas:
+
+- **Extrair**: concluída quando o `.cache/state.json` registra a extração.
+- **Traduzir**: pendentes são as linhas sem tradução.
+- **Conferir**: pendentes são as linhas de máquina e traduzidas, que ninguém revisou. A contagem de avisos do QA entra com a tela de Conferência (#106).
+- **Build**: concluída quando os pacotes de `build/` conferem em tamanho e o último build foi feito com os mesmos textos, perfil de formatação e estratégia de hoje. O `vnf build` grava no `.cache/build-state.json` uma impressão digital do que ele lê de `text/*.json` (só o que entra nos bytes: original, tradução, tipo e posição das linhas que o build grava); mudar só status ou notas, ou copiar o projeto sem preservar datas, não a altera. Um build de versão anterior, sem impressão digital, aparece como pendente até o próximo build.
+- **Injetar**: concluída quando o Build está concluído e o backup mais recente lista arquivos que estão no jogo com o tamanho do arquivo de `build/`. A comparação é por tamanho, porque hashear os pacotes do jogo a cada abertura do Painel seria lento; depois de um `vnf restore` o jogo volta aos originais, o tamanho muda e a etapa volta a pendente. Dois arquivos de mesmo tamanho e conteúdo diferente passariam, o que o `vnf inject` (que compara hash) corrige.
+
+Só Traduzir e Conferir abrem uma tela hoje (o Editor); as outras abrem quando as telas delas entrarem. O custo de IA é o total de `.cache/ai-usage.json` (tokens e dólares), que `vnf translate` e `vnf review` atualizam ao fim de cada execução; sem o arquivo, o Painel diz que não há chamada registrada. Execução de modelo sem preço na tabela não soma dólar: o Painel mostra o custo como parcial ou desconhecido, nunca US$ 0,00. Um `ai-usage.json` inválido vai para `ai-usage.json.bad` e a conta recomeça; um arquivo que não abre naquele instante deixa a execução sem registro, sem apagar o histórico. A página recarrega a cada vez que é aberta.
 
 ### 4. Editor de tradução (tela principal)
 
@@ -85,7 +93,7 @@ Cada etapa é um botão; o número mostra pendências.
 
 - Grade virtualizada (aguenta dezenas de milhares de linhas).
 - Cores por status; ícone de aviso do QA ao lado da linha.
-- Busca e substituição em todo o projeto, com regex e prévia.
+- Busca e substituição em todo o projeto, com regex e prévia. Fica na página **Busca** do trilho (serviço `ProjectSearch` no Core). A busca procura na tradução ou no original; a substituição só altera a tradução. A prévia lista cada linha com o antes e o depois e não grava nada; **Aplicar** grava exatamente a prévia mostrada, e mudar qualquer campo a descarta. Ocorrência que encosta num marcador de controle (`\n`, `\p`, `{...}`) não conta, nem na busca nem na troca, e a linha cuja troca deixaria um marcador malformado (ou que já tem um) não é alterada: a prévia lista essas linhas com o motivo. "Palavra inteira" trata o marcador vizinho como separador e só vale na tradução (no original em japonês kana e kanji são todos letras). Cada busca tem limite de 2 s por linha, para uma regex catastrófica dar erro em vez de travar, e o botão Cancelar interrompe busca e prévia. Um padrão que só casa texto vazio (`^`, `$`) é avisado e ignorado. A linha gravada vira `translated` com origem `manual`, como uma edição no Editor; a prévia diz quantas linhas aprovadas ou revisadas perdem o status.
 - Painel da direita: original, tradução editável, sugestão da IA lado a lado, notas, histórico.
 - **Prévia da caixa de texto**: renderiza com a fonte, a largura em colunas e o limite de linhas do perfil de formatação. É aqui que ajustes de espaçamento ficam visíveis antes do build.
 - Marcadores de controle (`\p`, `\n`) aparecem como "chips" não editáveis por engano.
@@ -93,6 +101,8 @@ Cada etapa é um botão; o número mostra pendências.
 ### 5. Conferência (QA)
 
 Lista de problemas agrupada por regra, com filtro por severidade. Clicar leva à linha no editor. Botões "corrigir automaticamente" para regras seguras e "marcar como ok" para falsos positivos (gravado no `flags` da linha).
+
+Implementação (#106): a tela usa o mesmo `QaEngine` do `vnf check`, então a lista bate com a CLI. "Todos" equivale a `vnf check` e "Erros" a `vnf check --severity error`. "Corrigir automaticamente" chama o `QaFixer` (tudo ou uma regra) e "Marcar como ok" chama `QaFlags.MarkOk`, que só vale para aviso: erro não se silencia. Duplo clique na ocorrência (ou o botão "Abrir linha") leva à linha no Editor. A lista é lida ao abrir a página, e o Editor relê ao voltar, na mesma linha, se a Conferência mudou algum texto. Enquanto a Conferência lê ou grava, ela fica ocupada: não troca de página e desabilita os botões.
 
 ### 6. Glossário e personagens
 
