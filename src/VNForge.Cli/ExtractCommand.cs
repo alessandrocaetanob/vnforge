@@ -20,7 +20,7 @@ internal static class ExtractCommand
 
     public static Command Create(VnfCli cli)
     {
-        var command = new Command("extract", "Descompacta os arquivos do jogo para .cache/ e gera text/*.json (repetido, mantém as traduções; não altera a pasta do jogo).");
+        var command = new Command("extract", "Descompacta o jogo para .cache/ e gera text/*.json, mantendo as traduções; não altera o jogo.");
         command.SetAction((parseResult, token) => RunAsync(cli, parseResult, parseResult.InvocationConfiguration.Output, token));
         return command;
     }

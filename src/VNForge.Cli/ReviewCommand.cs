@@ -36,7 +36,7 @@ internal static class ReviewCommand
 
     public static Command Create(VnfCli cli)
     {
-        var command = new Command("review", "Pede à IA uma revisão das linhas traduzidas e grava as sugestões em 'notes', sem alterar traduções.");
+        var command = new Command("review", "Pede à IA uma revisão das linhas traduzidas e grava as sugestões em 'notes'; não altera traduções.");
         Common.AddTo(command, StatusOption);
         command.SetAction((parseResult, token) => RunAsync(cli, parseResult, token));
         return command;
