@@ -1,0 +1,48 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- docs/design/components/StatusBadge: 20px, pílula, 11/600; o ponto vazado marca só o status pendente. -->
+  <Style Selector="c|StatusBadge">
+    <Setter Property="Height" Value="20"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusPendingBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Ellipse Name="PART_PendingDot" Width="6" Height="6" StrokeThickness="1" IsVisible="False"
+                     Stroke="{TemplateBinding Foreground}"/>
+            <TextBlock Text="{TemplateBinding Label}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|StatusBadge:pending /template/ Ellipse#PART_PendingDot">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+
+  <Style Selector="c|StatusBadge[Status=Machine]">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
+  </Style>
+  <Style Selector="c|StatusBadge[Status=Translated]">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusTranslatedBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusTranslatedFg}"/>
+  </Style>
+  <Style Selector="c|StatusBadge[Status=Reviewed]">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusReviewedBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusReviewedFg}"/>
+  </Style>
+  <Style Selector="c|StatusBadge[Status=Approved]">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+  </Style>
+</Styles>

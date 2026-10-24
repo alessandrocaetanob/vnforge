@@ -1,4 +1,5 @@
 using VNForge.App.Services;
+using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
@@ -33,4 +34,13 @@ public class ProjectLabelsTests
     [InlineData(0, "0")]
     public void Numero_em_pt_BR(int n, string esperado) =>
         Assert.Equal(esperado, ProjectLabels.Number(n));
+
+    [Theory]
+    [InlineData(TranslationStatus.Untranslated, "Pendente")]
+    [InlineData(TranslationStatus.Machine, "IA")]
+    [InlineData(TranslationStatus.Translated, "Traduzida")]
+    [InlineData(TranslationStatus.Reviewed, "Revisada")]
+    [InlineData(TranslationStatus.Approved, "Aprovada")]
+    public void Status_em_portugues(TranslationStatus status, string esperado) =>
+        Assert.Equal(esperado, ProjectLabels.Status(status));
 }
