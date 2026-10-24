@@ -131,6 +131,7 @@ internal static class TranslateCommand
         summary.Cached = ledger.CacheHits;
         summary.Failed = [.. run.Failures];
         summary.Usage = (provider as ClaudeTranslationProvider)?.Usage;
+        RecordUsage(project, settings.Model, summary.Usage);
 
         if (run.CallbackError is { } callbackError)
         {

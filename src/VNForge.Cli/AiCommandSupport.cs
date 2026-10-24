@@ -172,6 +172,29 @@ internal static class AiCommandSupport
             ? ModelPricing.For(model).Cost(new TokenUsage(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens))
             : null;
 
+    /// <summary>Soma o gasto da execução ao total do projeto (<c>.cache/ai-usage.json</c>), que o Painel do app mostra.</summary>
+    public static void RecordUsage(ProjectFolder project, string model, ClaudeUsage? usage)
+    {
+        if (usage is not { } u)
+        {
+            return;
+        }
+
+        // Modelo sem preço na tabela não pode derrubar o comando depois de a tradução gravada: o custo fica desconhecido, nunca zero.
+        decimal? dollars = null;
+        try
+        {
+            dollars = DollarsFor(model, u);
+        }
+        catch (ArgumentException)
+        {
+            // Sem preço.
+        }
+
+        AiUsageLog.TryRecord(project, new AiUsageTotals(
+            u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens, dollars ?? 0m, 1, dollars is null ? 1 : 0));
+    }
+
     /// <summary>
     /// Fecha o texto do resultado: linhas recusadas, lotes que falharam, quantas linhas seguem pendentes e os tokens.
     /// </summary>
