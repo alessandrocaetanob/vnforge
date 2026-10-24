@@ -126,4 +126,69 @@ public class ProjectDashboardTests
         Assert.Equal(new AiUsageTotals(1010, 505, 200, 100, 1.75m, 2), gasto);
         Assert.Equal(1815, gasto.TotalTokens);
     }
+
+    [Fact]
+    public void A_conferencia_conta_erros_e_avisos_sem_as_linhas_sem_traducao()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        projeto.SaveText("yst00001",
+        [
+            new TextUnit("yst00001:000001", TextUnitKind.Dialogue, null, "原文\\p", "texto  com espaço duplo\\p", TranslationStatus.Translated),
+            new TextUnit("yst00001:000002", TextUnitKind.Dialogue, null, "原文\\p", "sem o marcador", TranslationStatus.Translated),
+            new TextUnit("yst00001:000003", TextUnitKind.Dialogue, null, "原文\\p", null, TranslationStatus.Untranslated),
+        ]);
+
+        var qa = ProjectDashboard.Read(projeto).Qa;
+
+        var report = VNForge.Core.Qa.QaEngine.Default.Run(VNForge.Core.Qa.QaContext.FromProject(projeto));
+        Assert.True(report.UntranslatedCount > 0);
+        Assert.Equal(1, qa!.Errors);
+        Assert.True(qa.Warnings >= 1);
+        Assert.Equal(report.OtherIssues.Count, qa.Total);
+        Assert.True(qa.Total < report.Issues.Count);
+    }
+
+    [Fact]
+    public void Projeto_sem_textos_nao_tem_problemas_de_conferencia()
+    {
+        using var temp = new TempFolder();
+
+        Assert.Equal(new QaTotals(0, 0), ProjectDashboard.Read(NovoProjeto(temp.Path)).Qa);
+    }
+
+    [Fact]
+    public void Glossario_invalido_deixa_a_conferencia_indisponivel_sem_derrubar_o_painel()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoComTextos(temp.Path);
+        File.WriteAllText(projeto.GlossaryPath, "isto nao e json");
+
+        var painel = ProjectDashboard.Read(projeto);
+
+        Assert.Null(painel.Qa);
+        Assert.Equal(6, painel.Status.Total.Total);
+    }
+
+    [Fact]
+    public void Sem_build_o_estado_e_None_e_com_texto_diferente_do_build_e_Stale()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoComTextos(temp.Path);
+        Assert.Equal(BuildStatus.None, ProjectDashboard.Read(projeto).Build);
+
+        File.WriteAllText(
+            Path.Combine(projeto.CacheDirectory, "build-state.json"),
+            "{\"version\":1,\"scripts\":{},\"archives\":[],\"warnings\":[],\"textFingerprint\":\"antigo\"}");
+
+        Assert.Equal(BuildStatus.Stale, ProjectDashboard.Read(projeto).Build);
+    }
+
+    [Fact]
+    public void Sem_backup_nao_ha_data_de_backup()
+    {
+        using var temp = new TempFolder();
+
+        Assert.Null(ProjectDashboard.Read(ProjetoComTextos(temp.Path)).LastBackupAt);
+    }
 }
