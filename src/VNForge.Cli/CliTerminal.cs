@@ -29,12 +29,16 @@ public sealed record CliTerminal(
     /// Terminal de <paramref name="output"/>. Só o <see cref="Console.Out"/> do processo pode ser interativo: um
     /// <see cref="StringWriter"/> ou um arquivo nunca recebe cor, mesmo com a CLI rodando num terminal.
     /// </summary>
-    public static CliTerminal ForWriter(TextWriter output)
+    public static CliTerminal ForWriter(TextWriter output) => ForWriter(output, Environment.GetEnvironmentVariable);
+
+    /// <summary>Como <see cref="ForWriter(TextWriter)"/>, lendo o ambiente por <paramref name="getEnvironmentVariable"/> (os testes não mexem no ambiente do processo).</summary>
+    public static CliTerminal ForWriter(TextWriter output, Func<string, string?> getEnvironmentVariable)
     {
+        ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
         ArgumentNullException.ThrowIfNull(output);
 
         var interactive = ReferenceEquals(output, Console.Out) && !Console.IsOutputRedirected;
-        var noColor = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"));
+        var noColor = !string.IsNullOrEmpty(getEnvironmentVariable("NO_COLOR"));
         return new CliTerminal(interactive, noColor);
     }
 }

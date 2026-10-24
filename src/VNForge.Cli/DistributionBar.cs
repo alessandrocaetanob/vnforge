@@ -46,13 +46,14 @@ public static class DistributionBar
             return cells;
         }
 
+        var nonZero = counts.Count(c => c > 0);
         var remainders = new double[counts.Count];
         for (var i = 0; i < counts.Count; i++)
         {
             var exact = (double)counts[i] * width / total;
             cells[i] = (int)Math.Floor(exact);
             remainders[i] = exact - cells[i];
-            if (counts[i] > 0 && cells[i] == 0 && width >= counts.Count(c => c > 0))
+            if (counts[i] > 0 && cells[i] == 0 && width >= nonZero)
             {
                 cells[i] = 1;
                 remainders[i] = -1;

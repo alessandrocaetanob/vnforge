@@ -174,6 +174,17 @@ public sealed class RichOutputTests : IDisposable
         Assert.False(plain.Cli.RichOutput);
     }
 
+    [Theory]
+    [InlineData("1", true)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void ForWriter_le_NO_COLOR_do_ambiente(string? value, bool expected)
+    {
+        var terminal = CliTerminal.ForWriter(new StringWriter(), name => name == "NO_COLOR" ? value : null);
+
+        Assert.Equal(expected, terminal.NoColorEnvironment);
+    }
+
     [Fact]
     public void Console_do_ansi_nao_recebe_prompts()
     {
