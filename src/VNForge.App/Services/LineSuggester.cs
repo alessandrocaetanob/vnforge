@@ -27,13 +27,35 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : IL
     private readonly Func<ITranslationProvider?> openProvider = openProvider ?? throw new ArgumentNullException(nameof(openProvider));
 
     /// <summary>Sugestor do app: Claude com a chave do ambiente ou do cofre e o modelo de <c>ai.json</c>; sem chave, o provedor falso.</summary>
-    public static LineSuggester ForUser(string configDirectory) => new(() => OpenClaude(configDirectory));
+    public static LineSuggester ForUser(string configDirectory)
+    {
+        // O cliente da Anthropic prende um HttpClient: reaproveita o provedor enquanto a chave e o modelo não mudam.
+        (string Key, string Model, ITranslationProvider Provider)? cached = null;
+        return new(() =>
+        {
+            var key = ApiKeyStatus.Resolve(configDirectory).Key;
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            var model = ReadModel(configDirectory);
+            if (cached is { } hit && hit.Key == key && hit.Model == model)
+            {
+                return hit.Provider;
+            }
+
+            var provider = ClaudeProviderFactory.Create(key, new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low });
+            cached = (key, model, provider);
+            return provider;
+        });
+    }
 
     public async Task<LineSuggestion> SuggestAsync(TextUnit unit, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(unit);
 
-        var real = openProvider();
+        var real = await Task.Run(openProvider, ct).ConfigureAwait(false);
         var provider = new ValidatingTranslationProvider(real ?? new FakeTranslationProvider());
         var results = await provider.TranslateAsync(new TranslationBatch([unit]), ct).ConfigureAwait(false);
         var result = results.FirstOrDefault(r => r.Id == unit.Id);
@@ -45,14 +67,8 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : IL
         return new LineSuggestion(result.Translation, FromFakeProvider: real is null);
     }
 
-    private static ITranslationProvider? OpenClaude(string configDirectory)
+    private static string ReadModel(string configDirectory)
     {
-        var key = ApiKeyStatus.Resolve(configDirectory).Key;
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            return null;
-        }
-
         var settingsFile = new AiUserSettingsFile(configDirectory);
         var model = AiUserSettings.Default.Model;
         try
@@ -67,6 +83,6 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : IL
             // ai.json inválido: a sugestão usa o modelo padrão em vez de falhar; o erro aparece em vnf config.
         }
 
-        return ClaudeProviderFactory.Create(key, new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low });
+        return model;
     }
 }
