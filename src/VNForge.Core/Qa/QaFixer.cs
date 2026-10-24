@@ -64,21 +64,102 @@ public static class QaFixer
         return new QaFixResult(fixes, changed);
     }
 
+    /// <summary>
+    /// A correção que cada ocorrência de <paramref name="issues"/> teria, sem gravar nada: uma por linha e regra que sabem corrigir, calculada
+    /// sobre a tradução gravada (as regras não se encadeiam, ao contrário de <see cref="Plan"/>). Ocorrência de regra sem <see cref="IQaFixer"/>,
+    /// de linha sem tradução ou que a linha silenciou (<see cref="TextUnit.Flags"/>) não entra; também não entra a que o corretor deixa como está.
+    /// </summary>
+    public static IReadOnlyList<QaFix> Propose(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaEngine engine, IEnumerable<QaIssue> issues)
+    {
+        ArgumentNullException.ThrowIfNull(texts);
+        ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(issues);
+
+        var units = new Dictionary<string, TextUnit>(StringComparer.Ordinal);
+        foreach (var unit in texts.Values.SelectMany(list => list))
+        {
+            units[unit.Id] = unit;
+        }
+
+        var seen = new HashSet<(string UnitId, string RuleId)>();
+        var proposals = new List<QaFix>();
+        foreach (var issue in issues)
+        {
+            if (engine.Find(issue.RuleId) is not IQaFixer fixer
+                || !units.TryGetValue(issue.UnitId, out var unit)
+                || !seen.Add((issue.UnitId, issue.RuleId)))
+            {
+                continue;
+            }
+
+            var fix = FixOne(unit, issue.ScriptKey, fixer);
+            if (fix is not null)
+            {
+                proposals.Add(fix);
+            }
+        }
+
+        return proposals;
+    }
+
+    private static QaFix? FixOne(TextUnit unit, string key, IQaFixer fixer)
+    {
+        if (!unit.HasTranslation || unit.Flags.Contains(fixer.Id, StringComparer.Ordinal))
+        {
+            return null;
+        }
+
+        var fixedText = fixer.Fix(unit.Translation);
+        return string.Equals(fixedText, unit.Translation, StringComparison.Ordinal) ? null : new QaFix(fixer.Id, unit.Id, key, unit.Translation, fixedText);
+    }
+
+    /// <summary>
+    /// Aplica a correção de <paramref name="ruleId"/> só à linha <paramref name="unitId"/> do script <paramref name="scriptKey"/> e grava o script.
+    /// Devolve nulo, sem gravar, quando a linha não existe, não tem tradução, foi silenciada ou o corretor não muda nada.
+    /// </summary>
+    /// <exception cref="VNForgeException">A regra não existe ou não tem correção automática.</exception>
+    public static QaFix? ApplyOne(ProjectFolder project, QaEngine engine, string scriptKey, string unitId, string ruleId)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(engine);
+        var rule = engine.Find(ruleId) ?? throw new VNForgeException($"Regra de QA desconhecida: {ruleId}.");
+        if (rule is not IQaFixer fixer)
+        {
+            throw new VNForgeException($"A regra não tem correção automática: {ruleId}.");
+        }
+
+        var units = project.LoadText(scriptKey);
+        var index = -1;
+        for (var i = 0; i < units.Count; i++)
+        {
+            if (string.Equals(units[i].Id, unitId, StringComparison.Ordinal))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        var fix = index < 0 ? null : FixOne(units[index], scriptKey, fixer);
+        if (fix is null)
+        {
+            return null;
+        }
+
+        var edited = units.ToList();
+        edited[index] = edited[index] with { Translation = fix.After };
+        project.SaveText(scriptKey, edited);
+        return fix;
+    }
+
     private static TextUnit FixUnit(TextUnit unit, string key, List<IQaFixer> fixers, List<QaFix> fixes)
     {
         var current = unit;
         foreach (var fixer in fixers)
         {
-            if (!current.HasTranslation || current.Flags.Contains(fixer.Id, StringComparer.Ordinal))
+            if (FixOne(current, key, fixer) is { } fix)
             {
-                continue;
-            }
-
-            var fixedText = fixer.Fix(current.Translation);
-            if (!string.Equals(fixedText, current.Translation, StringComparison.Ordinal))
-            {
-                fixes.Add(new QaFix(fixer.Id, current.Id, key, current.Translation, fixedText));
-                current = current with { Translation = fixedText };
+                fixes.Add(fix);
+                current = current with { Translation = fix.After };
             }
         }
 

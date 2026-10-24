@@ -162,4 +162,77 @@ public sealed class QaFixerTests : IDisposable
         Assert.Single(result.Fixes);
         Assert.Equal("Olá,  mundo", _project.LoadText("a")[0].Translation);
     }
+    private static QaReport Run(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts) =>
+        QaEngine.Default.Run(QaContext.ForTexts(texts));
+
+    [Fact]
+    public void Propoe_a_correcao_de_cada_regra_sobre_a_traducao_original_sem_encadear()
+    {
+        var texts = Texts(Unit("a:1", "Vamos,  anda !"));
+
+        var proposals = QaFixer.Propose(texts, QaEngine.Default, Run(texts).Issues);
+
+        // Cada regra propõe a sua correção sobre o texto gravado: a de espaço duplo não vê a de pontuação.
+        Assert.Equal(
+            [("espaco-duplo", "Vamos, anda !"), ("espaco-antes-pontuacao", "Vamos,  anda!")],
+            proposals.Select(p => (p.RuleId, p.After)));
+        Assert.All(proposals, p => Assert.Equal(("a:1", "a", "Vamos,  anda !"), (p.UnitId, p.ScriptKey, p.Before)));
+    }
+
+    [Fact]
+    public void Propoe_uma_vez_por_linha_e_regra_mesmo_com_varias_ocorrencias()
+    {
+        var texts = Texts(Unit("a:1", "a  b  c"));
+
+        var proposals = QaFixer.Propose(texts, QaEngine.Default, Run(texts).Issues);
+
+        Assert.Equal("a b c", Assert.Single(proposals).After);
+    }
+
+    [Fact]
+    public void Nao_propoe_para_regra_sem_corretor_nem_para_linha_silenciada()
+    {
+        var texts = Texts(
+            Unit("a:1", null, TranslationStatus.Approved),
+            Unit("a:2", "dois  espaços", TranslationStatus.Translated, "espaco-duplo"));
+
+        var report = Run(texts);
+
+        Assert.NotEmpty(report.Issues);
+        Assert.Empty(QaFixer.Propose(texts, QaEngine.Default, report.Issues));
+    }
+
+    [Fact]
+    public void ApplyOne_corrige_so_a_linha_e_a_regra_pedidas()
+    {
+        _project.SaveText("a", [Unit("a:1", "Olá,  mundo !"), Unit("a:2", "outra  linha")]);
+
+        var fix = QaFixer.ApplyOne(_project, QaEngine.Default, "a", "a:1", "espaco-duplo");
+
+        Assert.NotNull(fix);
+        Assert.Equal("Olá, mundo !", fix.After);
+        var saved = _project.LoadText("a");
+        Assert.Equal("Olá, mundo !", saved[0].Translation);
+        Assert.Equal("outra  linha", saved[1].Translation);
+    }
+
+    [Fact]
+    public void ApplyOne_devolve_nulo_e_nao_grava_quando_nada_muda()
+    {
+        _project.SaveText("a", [Unit("a:1", "limpo")]);
+        var path = _project.TextPath("a");
+        var bytes = File.ReadAllBytes(path);
+
+        Assert.Null(QaFixer.ApplyOne(_project, QaEngine.Default, "a", "a:1", "espaco-duplo"));
+        Assert.Equal(bytes, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public void ApplyOne_com_regra_sem_corretor_ou_desconhecida_falha()
+    {
+        _project.SaveText("a", [Unit("a:1", "x")]);
+
+        Assert.Throws<VNForgeException>(() => QaFixer.ApplyOne(_project, QaEngine.Default, "a", "a:1", "traducao-vazia"));
+        Assert.Throws<VNForgeException>(() => QaFixer.ApplyOne(_project, QaEngine.Default, "a", "a:1", "nada"));
+    }
 }

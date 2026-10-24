@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
@@ -34,7 +35,7 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
-                var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "yst00001:000000");
+                var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "yst00001:0000");
                 var center = cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
                 window.MouseDown(center, MouseButton.Left);
                 window.MouseUp(center, MouseButton.Left);
@@ -47,7 +48,7 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
     }
 
     [Fact]
-    public async Task Tela_desenha_cabecalho_de_regra_ocorrencia_e_os_botoes()
+    public async Task Tela_desenha_as_tres_colunas_com_regras_problemas_e_detalhe()
     {
         using var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
@@ -66,12 +67,21 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 window.UpdateLayout();
 
                 var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains("espaco-duplo", texts);
-                Assert.Contains("yst00001:000000", texts);
-                Assert.Contains("Corrigir esta regra", texts);
-                Assert.Contains("Abrir linha", texts);
+                Assert.Contains("Regras", texts);
+                Assert.Contains("Marcadores", texts);
+                Assert.Contains("Espaço duplo", texts);
+                Assert.Contains("yst00001:0000", texts);
+                Assert.Contains("Corrigível", texts);
+                Assert.Contains("Corrigir 1 automaticamente", texts);
+                Assert.Contains("Conferir de novo", texts);
+                Assert.Contains("Abrir no editor", texts);
+                Assert.Contains("Aplicar correção", texts);
                 Assert.Contains("Marcar como ok", texts);
-                Assert.Contains("Corrigir automaticamente", texts);
+                Assert.Contains("CORREÇÃO PROPOSTA", texts);
+
+                // O detalhe mostra a gravidade com o SeverityTag, e a primeira linha vem selecionada.
+                var tag = window.GetVisualDescendants().OfType<SeverityTag>().Single();
+                Assert.Equal(SeverityLevel.Warning, tag.Level);
             },
             CancellationToken.None);
     }

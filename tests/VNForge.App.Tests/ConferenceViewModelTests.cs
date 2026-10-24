@@ -48,18 +48,6 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
-    public async Task A_lista_bate_com_o_vnf_check_na_ordem_e_nos_textos()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await Loaded(temp);
-
-        var expected = QaEngine.Default.Run(QaContext.FromProject(folder)).Issues;
-
-        Assert.Equal(expected.Select(i => (i.RuleId, i.UnitId, i.Message)), IssueRows(vm).Select(r => (r.RuleId, r.UnitId, r.Message)));
-        Assert.Equal(QaBlockedException.Describe(QaEngine.Default.Run(QaContext.FromProject(folder))), vm.Summary);
-    }
-
-    [Fact]
     public async Task Filtro_de_erros_bate_com_vnf_check_severity_error()
     {
         using var temp = new TempFolder();
@@ -71,6 +59,7 @@ public class ConferenceViewModelTests
         Assert.NotEmpty(expected);
         Assert.Equal(expected.Select(i => (i.RuleId, i.UnitId)), IssueRows(vm).Select(r => (r.RuleId, r.UnitId)));
         Assert.All(IssueRows(vm), r => Assert.True(r.IsError));
+        Assert.Equal(expected.Count, IssueRows(vm).Sum(r => r.Count));
     }
 
     [Fact]
@@ -83,39 +72,11 @@ public class ConferenceViewModelTests
 
         vm.SelectSeverityCommand.Execute(vm.SeverityFilters.Single(f => f.Filter == ConferenceSeverityFilter.Warnings));
 
-        Assert.Equal(4, IssueRows(vm).Count());
+        // Quatro avisos no relatório: dois espaços duplos na mesma linha viram uma linha da lista, e a "não traduzida" é o resumo do script.
+        Assert.Equal(3, IssueRows(vm).Count());
+        Assert.Equal(4, IssueRows(vm).Sum(r => r.Count));
         Assert.All(IssueRows(vm), r => Assert.False(r.IsError));
         Assert.Equal([false, false, true], vm.SeverityFilters.Select(f => f.IsSelected));
-    }
-
-    [Fact]
-    public async Task Problemas_vem_agrupados_por_regra_com_cabecalho_e_contagem()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Loaded(temp);
-
-        var groups = vm.Rows.OfType<ConferenceGroupRowViewModel>().ToList();
-
-        Assert.Equal(["nao-traduzida", "traducao-vazia", "espaco-duplo"], groups.Select(g => g.RuleId));
-        var spaces = groups.Single(g => g.RuleId == "espaco-duplo");
-        Assert.Equal(3, spaces.Count);
-        Assert.True(spaces.CanFix);
-        Assert.Equal("Dois ou mais espaços seguidos na tradução.", spaces.Description);
-        Assert.False(groups.Single(g => g.RuleId == "traducao-vazia").CanFix);
-
-        // Cada cabeçalho precede só as ocorrências da própria regra.
-        string? current = null;
-        foreach (var row in vm.Rows)
-        {
-            if (row is ConferenceGroupRowViewModel group)
-            {
-                current = group.RuleId;
-            }
-            else
-            {
-                Assert.Equal(current, ((ConferenceIssueRowViewModel)row).RuleId);
-            }
-        }
     }
 
     [Fact]
@@ -139,18 +100,18 @@ public class ConferenceViewModelTests
         var (vm, folder) = await Loaded(temp);
         var changed = 0;
         vm.TextsChanged += (_, _) => changed++;
-        var row = IssueRows(vm).First(r => r.UnitId == "yst00001:000000");
+        var row = IssueRows(vm).First(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
 
         await vm.MarkOkCommand.ExecuteAsync(row);
 
         Assert.Contains("espaco-duplo", folder.LoadText("yst00001").Single(u => u.Id == "yst00001:000000").Flags);
-        Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000");
+        Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
         Assert.Equal(1, changed);
         Assert.Contains("1 aviso marcado como ok", vm.SilencedSummary);
 
-        // O que a tela mostra continua igual ao vnf check depois da marca.
+        // O que a tela mostra continua igual ao vnf check depois da marca: as mesmas ocorrências, sem as silenciadas.
         var expected = QaEngine.Default.Run(QaContext.FromProject(folder));
-        Assert.Equal(expected.Issues.Select(i => (i.RuleId, i.UnitId)), IssueRows(vm).Select(r => (r.RuleId, r.UnitId)));
+        Assert.Equal(expected.Issues.Count, IssueRows(vm).Sum(r => r.Count));
         Assert.Single(expected.Silenced);
     }
 
@@ -164,25 +125,6 @@ public class ConferenceViewModelTests
         Assert.False(row.CanMarkOk);
         Assert.False(vm.MarkOkCommand.CanExecute(row));
         Assert.Empty(folder.LoadText("yst00001").SelectMany(u => u.Flags));
-    }
-
-    [Fact]
-    public async Task Corrigir_a_regra_aplica_so_o_fixer_dela_grava_e_reconfere()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await Loaded(temp);
-        var changed = 0;
-        vm.TextsChanged += (_, _) => changed++;
-        var group = vm.Rows.OfType<ConferenceGroupRowViewModel>().Single(g => g.RuleId == "espaco-duplo");
-
-        await vm.FixRuleCommand.ExecuteAsync(group);
-
-        Assert.Equal("olá mundo", folder.LoadText("yst00001")[0].Translation);
-        Assert.Equal("a b c", folder.LoadText("yst00002")[0].Translation);
-        Assert.DoesNotContain(vm.Rows.OfType<ConferenceGroupRowViewModel>(), g => g.RuleId == "espaco-duplo");
-        Assert.Equal("2 correções aplicadas.", vm.NoticeMessage);
-        Assert.Equal(1, changed);
-        Assert.Equal(QaBlockedException.Describe(QaEngine.Default.Run(QaContext.FromProject(folder))), vm.Summary);
     }
 
     [Fact]
@@ -208,7 +150,7 @@ public class ConferenceViewModelTests
     {
         using var temp = new TempFolder();
         var (vm, folder) = await Loaded(temp);
-        await vm.MarkOkCommand.ExecuteAsync(IssueRows(vm).First(r => r.UnitId == "yst00001:000000"));
+        await vm.MarkOkCommand.ExecuteAsync(IssueRows(vm).First(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo"));
 
         await vm.FixAllCommand.ExecuteAsync(null);
 
@@ -382,46 +324,312 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
-    public async Task Corrigir_regra_sem_fixer_e_comandos_sem_alvo_nao_fazem_nada()
+    public async Task A_lista_poe_erros_primeiro_depois_por_script_e_linha_e_a_nao_traduzida_por_ultimo()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        Assert.Equal(
+            [("traducao-vazia", "yst00001:000002"), ("espaco-duplo", "yst00001:000000"), ("espaco-duplo", "yst00002:000005"), ("nao-traduzida", "yst00001:000003")],
+            IssueRows(vm).Select(r => (r.RuleId, r.UnitId)));
+        Assert.Equal(["Erro", "Aviso", "Aviso", "Aviso"], IssueRows(vm).Select(r => r.SeverityLabel));
+    }
+
+    [Fact]
+    public async Task Nao_traduzida_vira_uma_linha_por_script_com_a_contagem()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveText("yst00001", [Unit("yst00001", 0, null, TranslationStatus.Untranslated), Unit("yst00001", 1, null, TranslationStatus.Untranslated), Unit("yst00001", 2, "ok", TranslationStatus.Approved)]);
+        folder.SaveText("yst00002", [Unit("yst00002", 0, null, TranslationStatus.Untranslated)]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.RefreshAsync();
+
+        var rows = IssueRows(vm).ToList();
+        Assert.Equal(["yst00001", "yst00002"], rows.Select(r => r.LineLabel));
+        Assert.Equal([2, 1], rows.Select(r => r.Count));
+        Assert.Equal("Não traduzida", rows[0].Title);
+        Assert.Equal("2 linhas sem tradução neste script.", rows[0].Detail);
+        Assert.Equal("1 linha sem tradução neste script.", rows[1].Detail);
+        Assert.All(rows, r => Assert.False(r.CanMarkOk));
+        Assert.Equal("3", vm.SeverityFilters[0].CountLabel);
+        Assert.Equal("Mostrando 3 de 3 problemas abertos · agrupados por script", vm.ListFooter);
+
+        // Abrir no editor leva à primeira linha sem tradução do script.
+        LineRequest? received = null;
+        vm.LineRequested += (_, request) => received = request;
+        vm.OpenLineCommand.Execute(rows[0]);
+        Assert.Equal(new LineRequest("yst00001", "yst00001:000000"), received);
+    }
+
+    [Fact]
+    public async Task A_coluna_de_regras_conta_por_categoria_e_marca_a_pior_gravidade()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        Assert.Equal(
+            ["Todas", "Marcadores", "Caixa de texto", "Espaços", "Pontuação", "Acentuação", "Glossário", "Consistência", "Tradução"],
+            vm.Categories.Where(c => c.IsVisible).Select(c => c.Label));
+        Assert.Equal([5, 0, 0, 3, 0, 0, 0, 0, 2], vm.Categories.Where(c => c.IsVisible).Select(c => c.Count));
+
+        var spaces = vm.Categories.Single(c => c.Category == QaCategories.Spaces);
+        Assert.True(spaces.HasWarnings);
+        Assert.False(spaces.HasErrors);
+        var translation = vm.Categories.Single(c => c.Category == QaCategories.Translation);
+        Assert.True(translation.HasErrors);
+        var markers = vm.Categories.Single(c => c.Category == QaCategories.Markers);
+        Assert.True(markers.IsClear);
+        Assert.False(vm.Categories[0].IsClear);
+        Assert.False(vm.Categories.Single(c => c.Category == QaCategories.Other).IsVisible);
+    }
+
+    [Fact]
+    public async Task Escolher_uma_categoria_filtra_a_lista_e_os_chips_e_as_regras_continuam_contando_tudo()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        vm.SelectCategoryCommand.Execute(vm.Categories.Single(c => c.Category == QaCategories.Spaces));
+
+        Assert.Equal(["espaco-duplo", "espaco-duplo"], IssueRows(vm).Select(r => r.RuleId));
+        Assert.Equal([5, 1, 4], vm.SeverityFilters.Select(f => f.Count));
+        Assert.Equal(3, vm.Categories.Single(c => c.Category == QaCategories.Spaces).Count);
+        Assert.Equal([false, true], vm.Categories.Where(c => c.Category is null or QaCategories.Spaces).Select(c => c.IsSelected));
+
+        // Gravidade e categoria somam: o chip de erros não deixa nada dos Espaços.
+        vm.SelectSeverityCommand.Execute(vm.SeverityFilters.Single(f => f.Filter == ConferenceSeverityFilter.Errors));
+        Assert.True(vm.IsEmpty);
+        Assert.Equal("Nenhum problema com este filtro.", vm.EmptyMessage);
+        Assert.Equal("Mostrando 0 de 5 problemas abertos · agrupados por script", vm.ListFooter);
+
+        vm.SelectCategoryCommand.Execute(vm.Categories[0]);
+        Assert.Equal(["traducao-vazia"], IssueRows(vm).Select(r => r.RuleId));
+    }
+
+    [Fact]
+    public async Task Categoria_sem_problemas_explica_que_e_o_filtro()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        vm.SelectCategoryCommand.Execute(vm.Categories.Single(c => c.Category == QaCategories.Glossary));
+
+        Assert.True(vm.IsEmpty);
+        Assert.Null(vm.SelectedRow);
+        Assert.Equal("Nenhum problema com este filtro.", vm.EmptyMessage);
+    }
+
+    [Fact]
+    public async Task Cada_problema_com_corretor_traz_a_correcao_proposta_e_o_resto_nao()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        var spaced = IssueRows(vm).Single(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
+        Assert.True(spaced.HasProposal);
+        Assert.Equal("olá mundo", spaced.ProposedText);
+        Assert.Equal("Corrigível", spaced.Tag);
+        Assert.Equal("“olá  mundo”", spaced.Detail);
+        Assert.Equal("olá  mundo", spaced.Translation);
+        Assert.Equal("原文0", spaced.Original);
+        Assert.Equal("Espaço duplo", spaced.Title);
+        Assert.Equal("yst00001:0000", spaced.LineLabel);
+
+        var empty = IssueRows(vm).Single(r => r.RuleId == "traducao-vazia");
+        Assert.False(empty.HasProposal);
+        Assert.Equal(string.Empty, empty.Tag);
+        Assert.Equal("Tradução vazia", empty.Title);
+        Assert.Equal(empty.Message, empty.Detail);
+        Assert.False(empty.HasTranslation);
+
+        Assert.Equal("Corrigir 2 automaticamente", vm.FixAllLabel);
+    }
+
+    [Fact]
+    public async Task A_mesma_regra_apontada_duas_vezes_na_linha_e_um_problema_so_com_a_contagem()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        var row = IssueRows(vm).Single(r => r.UnitId == "yst00002:000005");
+
+        Assert.Equal(2, row.Count);
+        Assert.Equal("a b c", row.ProposedText);
+        Assert.Equal(5, vm.SeverityFilters[0].Count);
+    }
+
+    [Fact]
+    public async Task Faixa_de_erro_aparece_com_erro_aberto_e_conta_os_erros()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        Assert.True(vm.HasBlockingErrors);
+        Assert.Equal("1 erro bloqueia o build.", vm.BlockingMessage);
+
+        var root = SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Approved, TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveText("yst00001", [Unit("yst00001", 0, null, TranslationStatus.Approved), Unit("yst00001", 1, null, TranslationStatus.Reviewed)]);
+        var many = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+        await many.RefreshAsync();
+        Assert.Equal("2 erros bloqueiam o build.", many.BlockingMessage);
+
+        var clean = new ConferenceViewModel { Project = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("limpo"), "Limpa", TranslationStatus.Approved)) };
+        await clean.RefreshAsync();
+        Assert.False(clean.HasBlockingErrors);
+        Assert.Equal(string.Empty, clean.BlockingMessage);
+    }
+
+    [Fact]
+    public async Task O_cabecalho_diz_quando_conferiu_quantas_linhas_e_quantas_regras()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var now = new DateTimeOffset(2026, 10, 24, 0, 41, 0, TimeSpan.Zero);
+        var vm = new ConferenceViewModel(clock: new FixedClock(now)) { Project = ProjectSummaryReader.Read(root) };
+
+        Assert.Equal("Ainda não conferido", vm.CheckedSummary);
+
+        await vm.RefreshAsync();
+
+        var rules = QaEngine.Default.Rules.Count;
+        Assert.Equal($"Última conferência agora · 1 linha · {rules} regras ativas", vm.CheckedSummary);
+    }
+
+    [Fact]
+    public async Task Sem_projeto_o_cabecalho_e_a_faixa_ficam_vazios()
+    {
+        var vm = new ConferenceViewModel();
+
+        await vm.RefreshAsync();
+
+        Assert.Equal(string.Empty, vm.CheckedSummary);
+        Assert.False(vm.HasBlockingErrors);
+        Assert.Equal("Corrigir automaticamente", vm.FixAllLabel);
+        Assert.Null(vm.SelectedRow);
+        Assert.False(vm.HasSelection);
+    }
+
+    [Fact]
+    public async Task O_primeiro_problema_vem_selecionado_e_marcar_ok_passa_para_o_vizinho()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        Assert.Equal("traducao-vazia", vm.SelectedRow?.RuleId);
+        Assert.True(vm.HasSelection);
+
+        var first = IssueRows(vm).First(r => r.RuleId == "espaco-duplo");
+        vm.SelectedRow = first;
+        await vm.MarkOkCommand.ExecuteAsync(first);
+
+        // O aviso saiu da lista; no lugar dele fica o que veio depois.
+        Assert.Equal(("espaco-duplo", "yst00002:000005"), (vm.SelectedRow?.RuleId, vm.SelectedRow?.UnitId));
+    }
+
+    [Fact]
+    public async Task Aplicar_correcao_grava_so_a_linha_avisa_reconfere_e_passa_para_o_proximo()
     {
         using var temp = new TempFolder();
         var (vm, folder) = await Loaded(temp);
         var changed = 0;
         vm.TextsChanged += (_, _) => changed++;
-        var empty = vm.Rows.OfType<ConferenceGroupRowViewModel>().Single(g => g.RuleId == "traducao-vazia");
-        var requested = 0;
-        vm.LineRequested += (_, _) => requested++;
+        var row = IssueRows(vm).Single(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
+        vm.SelectedRow = row;
 
-        await vm.FixRuleCommand.ExecuteAsync(empty);
-        await vm.FixRuleCommand.ExecuteAsync(null);
-        await vm.MarkOkCommand.ExecuteAsync(null);
-        vm.OpenLineCommand.Execute(null);
-        vm.SelectSeverityCommand.Execute(null);
-        vm.SelectSeverityCommand.Execute(vm.SeverityFilters[0]);
+        await vm.ApplyFixCommand.ExecuteAsync(row);
 
-        Assert.Equal(0, changed);
-        Assert.Equal(0, requested);
-        Assert.Null(vm.NoticeMessage);
-        Assert.Equal("olá  mundo", folder.LoadText("yst00001")[0].Translation);
-        Assert.Equal(5, IssueRows(vm).Count());
+        Assert.Equal("olá mundo", folder.LoadText("yst00001")[0].Translation);
+        Assert.Equal("a  b  c", folder.LoadText("yst00002")[0].Translation);
+        Assert.Equal("1 correção aplicada.", vm.NoticeMessage);
+        Assert.Equal(1, changed);
+        Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000");
+        Assert.Equal("Corrigir 1 automaticamente", vm.FixAllLabel);
+        Assert.NotNull(vm.SelectedRow);
+        Assert.False(vm.IsBusy);
     }
 
     [Fact]
-    public async Task Filtro_sem_ocorrencias_explica_que_e_o_filtro()
+    public async Task Aplicar_correcao_em_problema_sem_proposta_ou_sem_alvo_nao_faz_nada()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await Loaded(temp);
+        var changed = 0;
+        vm.TextsChanged += (_, _) => changed++;
+        var empty = IssueRows(vm).Single(r => r.RuleId == "traducao-vazia");
+
+        Assert.False(vm.ApplyFixCommand.CanExecute(empty));
+        Assert.False(vm.ApplyFixCommand.CanExecute(null));
+        await vm.ApplyFixCommand.ExecuteAsync(empty);
+        await vm.ApplyFixCommand.ExecuteAsync(null);
+        await vm.MarkOkCommand.ExecuteAsync(null);
+        vm.OpenLineCommand.Execute(null);
+        vm.SelectSeverityCommand.Execute(null);
+        vm.SelectCategoryCommand.Execute(null);
+
+        Assert.Equal(0, changed);
+        Assert.Null(vm.NoticeMessage);
+        Assert.Equal("olá  mundo", folder.LoadText("yst00001")[0].Translation);
+        Assert.Equal(4, IssueRows(vm).Count());
+    }
+
+    [Fact]
+    public async Task Clicar_no_chip_ja_marcado_mantem_o_filtro_e_o_estado_do_chip()
     {
         using var temp = new TempFolder();
         var (vm, _) = await Loaded(temp);
-        await vm.FixAllCommand.ExecuteAsync(null);
-        foreach (var row in IssueRows(vm).Where(r => r.CanMarkOk).ToList())
+        var all = vm.SeverityFilters[0];
+        var before = vm.Rows;
+
+        all.IsSelected = false; // o ToggleButton desmarca o chip sozinho ao clique
+        vm.SelectSeverityCommand.Execute(all);
+
+        Assert.True(all.IsSelected);
+        Assert.Same(before, vm.Rows);
+    }
+
+    [Fact]
+    public void Toda_regra_do_QA_tem_titulo_e_explicacao_e_categoria_conhecida()
+    {
+        foreach (var rule in QaEngine.Default.Rules)
         {
-            await vm.MarkOkCommand.ExecuteAsync(row);
+            Assert.True(ConferenceRuleTexts.Has(rule.Id), $"Falta o texto da regra {rule.Id}.");
+            Assert.NotEqual(QaCategories.Other, QaCategories.Of(rule.Id));
         }
 
-        // Só o erro sobra; o filtro de avisos fica vazio.
-        vm.SelectSeverityCommand.Execute(vm.SeverityFilters.Single(f => f.Filter == ConferenceSeverityFilter.Warnings));
+        Assert.Equal("regra-nova", ConferenceRuleTexts.Title("regra-nova"));
+        Assert.Equal("Faz algo.", ConferenceRuleTexts.Explanation("regra-nova", "Faz algo."));
+    }
 
-        Assert.True(vm.IsEmpty);
-        Assert.Equal("Nenhum problema com este filtro.", vm.EmptyMessage);
+    [Theory]
+    [InlineData("yst00012:000042", "yst00012:0042")]
+    [InlineData("yst00012:123456", "yst00012:123456")]
+    [InlineData("sem-dois-pontos", "sem-dois-pontos")]
+    [InlineData("yst:abc", "yst:abc")]
+    public void A_linha_aparece_em_mono_com_quatro_digitos(string unitId, string expected)
+    {
+        Assert.Equal(expected, ConferenceIssueRowViewModel.FormatLine(unitId));
+    }
+
+    [Fact]
+    public void O_trecho_sem_espacos_ao_redor_e_cortado()
+    {
+        var before = "a  " + new string('x', 100);
+        var after = "a " + new string('x', 100);
+
+        Assert.Equal("“a  " + new string('x', 57) + "…”", ConferenceIssueRowViewModel.Excerpt(before, after));
+    }
+
+    [Theory]
+    [InlineData("Tem certeza?  Você vai se molhar.", "Tem certeza? Você vai se molhar.", "“certeza?  Você”")]
+    [InlineData("Uma frase bem longa antes do problema, anda !", "Uma frase bem longa antes do problema, anda!", "“anda !”")]
+    [InlineData("a  b e depois um trecho comprido sem problema nenhum", "a b e depois um trecho comprido sem problema nenhum", "“a  b”")]
+    public void O_trecho_mostra_o_que_a_correcao_muda_com_a_palavra_de_cada_lado(string before, string after, string expected)
+    {
+        Assert.Equal(expected, ConferenceIssueRowViewModel.Excerpt(before, after));
     }
 
     private sealed class FixGateRule(ManualResetEventSlim entered, ManualResetEventSlim gate) : IQaRule, IQaFixer
