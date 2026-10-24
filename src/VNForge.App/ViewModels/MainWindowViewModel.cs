@@ -36,6 +36,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
     private bool editorStale;
+    private string? lineNotFoundMessage;
 
     public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null)
     {
@@ -53,7 +54,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.LineRequested += (_, request) =>
         {
             SelectedNav = editorItem;
-            LineNavigation = Editor.GoToLineAsync(request.ScriptKey, request.UnitId);
+            LineNavigation = ShowLineAsync(request);
         };
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
@@ -145,6 +146,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         return target != NavKey.Conference || Editor.Detail?.Flush() != false;
+    }
+
+    private async Task ShowLineAsync(LineRequest request)
+    {
+        var found = await Editor.GoToLineAsync(request.ScriptKey, request.UnitId);
+        if (!found)
+        {
+            lineNotFoundMessage = $"A linha {request.UnitId} não existe mais neste projeto. Confira de novo na Conferência.";
+            Editor.ErrorMessage = lineNotFoundMessage;
+        }
+        else if (lineNotFoundMessage is not null && Editor.ErrorMessage == lineNotFoundMessage)
+        {
+            Editor.ErrorMessage = null;
+        }
     }
 
     /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>

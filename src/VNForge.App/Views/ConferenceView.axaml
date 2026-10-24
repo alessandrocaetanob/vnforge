@@ -101,7 +101,8 @@
               </Grid>
             </DataTemplate>
             <DataTemplate DataType="vm:ConferenceIssueRowViewModel">
-              <Grid ColumnDefinitions="Auto,170,*,Auto,Auto" ColumnSpacing="12" Margin="16,0" Height="{DynamicResource Vnf.RowHeight}">
+              <Grid ColumnDefinitions="Auto,170,*,Auto,Auto" ColumnSpacing="12" Margin="16,0" Height="{DynamicResource Vnf.RowHeight}"
+                    Background="Transparent" DoubleTapped="OnIssueDoubleTapped">
                 <Panel Grid.Column="0" Width="16" VerticalAlignment="Center">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
                             IsVisible="{Binding IsError}" AutomationProperties.Name="Erro"/>

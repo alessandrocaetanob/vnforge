@@ -80,6 +80,40 @@ public class EditorGoToLineTests
     }
 
     [Fact]
+    public async Task Reload_volta_ao_script_e_a_linha_que_estavam_selecionados()
+    {
+        var vm = await Carregado();
+        await vm.GoToLineAsync("yst00002", "yst00002:000002");
+
+        vm.Reload();
+        await vm.Loading;
+
+        Assert.Equal("yst00002", vm.SelectedScript?.Key);
+        Assert.Equal("yst00002:000002", vm.SelectedLine?.Id);
+    }
+
+    [Fact]
+    public async Task Reload_sem_linha_selecionada_ou_com_a_linha_que_sumiu_fica_no_comeco()
+    {
+        var calls = 0;
+        var vm = new EditorViewModel(_ => ++calls == 1 ? DoisScripts() : Lines(("yst00001", [Unit("yst00001", 1, "Ana", TranslationStatus.Machine)])));
+        vm.Project = Summary();
+        await vm.Loading;
+        await vm.GoToLineAsync("yst00001", "yst00001:000003");
+
+        vm.Reload();
+        await vm.Loading;
+
+        Assert.Equal("yst00001", vm.SelectedScript?.Key);
+        Assert.Equal("yst00001:000001", vm.SelectedLine?.Id);
+
+        var empty = new EditorViewModel(_ => DoisScripts());
+        empty.Reload();
+        await empty.Loading;
+        Assert.Empty(empty.Scripts);
+    }
+
+    [Fact]
     public async Task Ir_para_a_linha_espera_a_carga_em_andamento()
     {
         var vm = await Carregado();

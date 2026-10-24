@@ -1,5 +1,6 @@
 using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
+using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
@@ -75,6 +76,72 @@ public class MainWindowConferenceTests
     }
 
     [Fact]
+    public async Task Corrigir_tudo_com_edicao_pendente_no_Editor_grava_a_edicao_antes_e_o_Editor_volta_na_mesma_linha()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWithProblem(temp);
+        await PendingEditThen(vm, () => vm.Conference.FixAllCommand.ExecuteAsync(null));
+
+        var saved = ProjectFolder.Open(vm.CurrentProject!.Root).LoadText("yst00001");
+        Assert.Equal("pendente aqui", saved[2].Translation);
+        Assert.Equal("duas palavras", saved[1].Translation);
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+        await vm.Editor.Loading;
+        Assert.Equal("yst00001:000002", vm.Editor.SelectedLine?.Id);
+        Assert.Equal("pendente aqui", vm.Editor.Detail?.Translation);
+    }
+
+    [Fact]
+    public async Task Corrigir_uma_regra_com_edicao_pendente_no_Editor_grava_a_edicao_antes()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWithProblem(temp);
+        await PendingEditThen(vm, () =>
+        {
+            var group = vm.Conference.Rows.OfType<ConferenceGroupRowViewModel>().Single(g => g.RuleId == "espaco-duplo");
+            return vm.Conference.FixRuleCommand.ExecuteAsync(group);
+        });
+
+        var saved = ProjectFolder.Open(vm.CurrentProject!.Root).LoadText("yst00001");
+        Assert.Equal("pendente aqui", saved[2].Translation);
+        Assert.Equal("duas palavras", saved[1].Translation);
+    }
+
+    private static async Task PendingEditThen(MainWindowViewModel vm, Func<Task> fix)
+    {
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+        await vm.Editor.Loading;
+        vm.Editor.SelectedLine = vm.Editor.Lines[2];
+        vm.Editor.Detail!.Translation = "pendente  aqui";
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.Conference.RefreshAsync();
+        await fix();
+    }
+
+    [Fact]
+    public async Task Abrir_linha_que_sumiu_avisa_no_Editor_e_um_salto_certo_limpa_o_aviso()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWithProblem(temp);
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.Conference.RefreshAsync();
+
+        vm.Conference.OpenLineCommand.Execute(new ConferenceIssueRowViewModel(new QaIssue("espaco-duplo", QaSeverity.Warning, "yst00001:000099", "yst00001", "x")));
+        await vm.LineNavigation;
+
+        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
+        Assert.Equal("A linha yst00001:000099 não existe mais neste projeto. Confira de novo na Conferência.", vm.Editor.ErrorMessage);
+
+        vm.Conference.OpenLineCommand.Execute(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Single());
+        await vm.LineNavigation;
+
+        Assert.Null(vm.Editor.ErrorMessage);
+        Assert.Equal("yst00001:000001", vm.Editor.SelectedLine?.Id);
+    }
+
+    [Fact]
     public async Task Gravacao_pendente_que_falha_impede_de_entrar_na_Conferencia()
     {
         using var temp = new TempFolder();
@@ -101,7 +168,7 @@ public class MainWindowConferenceTests
 
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
         await vm.Conference.RefreshAsync();
-        vm.Conference.MarkOkCommand.Execute(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Single());
+        await vm.Conference.MarkOkCommand.ExecuteAsync(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Single());
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
         await vm.Editor.Loading;
 

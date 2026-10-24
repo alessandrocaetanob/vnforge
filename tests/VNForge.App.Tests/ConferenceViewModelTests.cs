@@ -141,7 +141,7 @@ public class ConferenceViewModelTests
         vm.TextsChanged += (_, _) => changed++;
         var row = IssueRows(vm).First(r => r.UnitId == "yst00001:000000");
 
-        vm.MarkOkCommand.Execute(row);
+        await vm.MarkOkCommand.ExecuteAsync(row);
 
         Assert.Contains("espaco-duplo", folder.LoadText("yst00001").Single(u => u.Id == "yst00001:000000").Flags);
         Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000");
@@ -208,7 +208,7 @@ public class ConferenceViewModelTests
     {
         using var temp = new TempFolder();
         var (vm, folder) = await Loaded(temp);
-        vm.MarkOkCommand.Execute(IssueRows(vm).First(r => r.UnitId == "yst00001:000000"));
+        await vm.MarkOkCommand.ExecuteAsync(IssueRows(vm).First(r => r.UnitId == "yst00001:000000"));
 
         await vm.FixAllCommand.ExecuteAsync(null);
 
@@ -279,6 +279,174 @@ public class ConferenceViewModelTests
         Assert.False(vm.IsBusy);
         Assert.True(vm.FixAllCommand.CanExecute(null));
         Assert.True(vm.MarkOkCommand.CanExecute(row));
+    }
+
+    [Fact]
+    public async Task Enquanto_corrige_fica_ocupada_e_nem_conferir_de_novo_nem_ok_gravam()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        using var entered = new ManualResetEventSlim();
+        using var gate = new ManualResetEventSlim();
+        var vm = new ConferenceViewModel(new QaEngine([new FixGateRule(entered, gate)])) { Project = ProjectSummaryReader.Read(root) };
+        var row = new ConferenceIssueRowViewModel(new QaIssue("regra-porta", QaSeverity.Warning, "yst00001:000000", "yst00001", "problema"));
+
+        var running = vm.FixAllCommand.ExecuteAsync(null);
+
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.True(vm.IsFixing);
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.RefreshCommand.CanExecute(null));
+        Assert.False(vm.FixAllCommand.CanExecute(null));
+        Assert.False(vm.MarkOkCommand.CanExecute(row));
+        Assert.False(vm.OpenLineCommand.CanExecute(row));
+
+        gate.Set();
+        await running;
+
+        Assert.False(vm.IsFixing);
+        Assert.False(vm.IsBusy);
+        Assert.True(vm.RefreshCommand.CanExecute(null));
+        Assert.Equal("Nada a corrigir automaticamente.", vm.NoticeMessage);
+    }
+
+    [Fact]
+    public async Task Regra_que_lanca_vira_mensagem_e_nao_deixa_a_pagina_ocupada()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var vm = new ConferenceViewModel(new QaEngine([new ThrowingRule()])) { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.RefreshAsync();
+
+        Assert.False(vm.IsBusy);
+        Assert.Empty(vm.Rows);
+        Assert.StartsWith("Não foi possível conferir o projeto: regra quebrada.", vm.ErrorMessage);
+        Assert.True(vm.FixAllCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Reconferencia_que_lanca_depois_de_corrigir_libera_a_pagina_e_mostra_o_erro()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var vm = new ConferenceViewModel(new QaEngine([new ThrowingRule()])) { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.FixAllCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsBusy);
+        Assert.StartsWith("Não foi possível conferir o projeto:", vm.ErrorMessage);
+        Assert.Null(vm.NoticeMessage);
+    }
+
+    [Fact]
+    public async Task Falha_no_segundo_script_mantem_o_primeiro_corrigido_avisa_e_reconfere()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "O bloqueio de arquivo por FileShare só vale no Windows.");
+        using var temp = new TempFolder();
+        var (vm, folder) = await Loaded(temp);
+        var changed = 0;
+        vm.TextsChanged += (_, _) => changed++;
+
+        // Leitura compartilhada deixa o Core ler, mas impede o File.Move que regrava o segundo script.
+        using (new FileStream(folder.TextPath("yst00002"), FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            await vm.FixAllCommand.ExecuteAsync(null);
+        }
+
+        Assert.Equal("olá mundo", folder.LoadText("yst00001")[0].Translation);
+        Assert.Equal("a  b  c", folder.LoadText("yst00002")[0].Translation);
+        Assert.StartsWith("Não foi possível corrigir automaticamente:", vm.ErrorMessage);
+        Assert.EndsWith("continuam gravados.", vm.ErrorMessage);
+        Assert.Null(vm.NoticeMessage);
+        Assert.Equal(1, changed);
+        Assert.False(vm.IsBusy);
+        Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
+        Assert.Contains(IssueRows(vm), r => r.UnitId == "yst00002:000005" && r.RuleId == "espaco-duplo");
+    }
+
+    [Fact]
+    public async Task Marcar_como_ok_em_linha_que_sumiu_mostra_o_erro_e_mantem_o_aviso()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+        var before = IssueRows(vm).Count();
+        var missing = new ConferenceIssueRowViewModel(new QaIssue("espaco-duplo", QaSeverity.Warning, "yst00001:000099", "yst00001", "x"));
+
+        await vm.MarkOkCommand.ExecuteAsync(missing);
+
+        Assert.StartsWith("Não foi possível marcar como ok:", vm.ErrorMessage);
+        Assert.EndsWith("O aviso continua na lista.", vm.ErrorMessage);
+        Assert.Equal(before, IssueRows(vm).Count());
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Corrigir_regra_sem_fixer_e_comandos_sem_alvo_nao_fazem_nada()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await Loaded(temp);
+        var changed = 0;
+        vm.TextsChanged += (_, _) => changed++;
+        var empty = vm.Rows.OfType<ConferenceGroupRowViewModel>().Single(g => g.RuleId == "traducao-vazia");
+        var requested = 0;
+        vm.LineRequested += (_, _) => requested++;
+
+        await vm.FixRuleCommand.ExecuteAsync(empty);
+        await vm.FixRuleCommand.ExecuteAsync(null);
+        await vm.MarkOkCommand.ExecuteAsync(null);
+        vm.OpenLineCommand.Execute(null);
+        vm.SelectSeverityCommand.Execute(null);
+        vm.SelectSeverityCommand.Execute(vm.SeverityFilters[0]);
+
+        Assert.Equal(0, changed);
+        Assert.Equal(0, requested);
+        Assert.Null(vm.NoticeMessage);
+        Assert.Equal("olá  mundo", folder.LoadText("yst00001")[0].Translation);
+        Assert.Equal(5, IssueRows(vm).Count());
+    }
+
+    [Fact]
+    public async Task Filtro_sem_ocorrencias_explica_que_e_o_filtro()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+        await vm.FixAllCommand.ExecuteAsync(null);
+        foreach (var row in IssueRows(vm).Where(r => r.CanMarkOk).ToList())
+        {
+            await vm.MarkOkCommand.ExecuteAsync(row);
+        }
+
+        // Só o erro sobra; o filtro de avisos fica vazio.
+        vm.SelectSeverityCommand.Execute(vm.SeverityFilters.Single(f => f.Filter == ConferenceSeverityFilter.Warnings));
+
+        Assert.True(vm.IsEmpty);
+        Assert.Equal("Nenhum problema com este filtro.", vm.EmptyMessage);
+    }
+
+    private sealed class FixGateRule(ManualResetEventSlim entered, ManualResetEventSlim gate) : IQaRule, IQaFixer
+    {
+        public string Id => "regra-porta";
+
+        public string Description => "Corrige só depois que o teste liberar.";
+
+        public IEnumerable<QaIssue> Check(QaContext context) => [];
+
+        public string Fix(string translation)
+        {
+            entered.Set();
+            gate.Wait(TimeSpan.FromSeconds(10));
+            return translation;
+        }
+    }
+
+    private sealed class ThrowingRule : IQaRule
+    {
+        public string Id => "regra-quebrada";
+
+        public string Description => "Sempre lança.";
+
+        public IEnumerable<QaIssue> Check(QaContext context) => throw new InvalidOperationException("regra quebrada.");
     }
 
     private sealed class GateRule(ManualResetEventSlim gate) : IQaRule

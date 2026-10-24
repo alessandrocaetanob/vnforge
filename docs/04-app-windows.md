@@ -94,7 +94,7 @@ Cada etapa é um botão; o número mostra pendências.
 
 Lista de problemas agrupada por regra, com filtro por severidade. Clicar leva à linha no editor. Botões "corrigir automaticamente" para regras seguras e "marcar como ok" para falsos positivos (gravado no `flags` da linha).
 
-Implementação (#106): a tela usa o mesmo `QaEngine` do `vnf check`, então a lista bate com a CLI. "Todos" equivale a `vnf check` e "Erros" a `vnf check --severity error`. "Corrigir automaticamente" chama o `QaFixer` (tudo ou uma regra) e "Marcar como ok" chama `QaFlags.MarkOk`, que só vale para aviso: erro não se silencia. A lista é lida ao abrir a página, e o Editor relê ao voltar se a Conferência mudou algum texto.
+Implementação (#106): a tela usa o mesmo `QaEngine` do `vnf check`, então a lista bate com a CLI. "Todos" equivale a `vnf check` e "Erros" a `vnf check --severity error`. "Corrigir automaticamente" chama o `QaFixer` (tudo ou uma regra) e "Marcar como ok" chama `QaFlags.MarkOk`, que só vale para aviso: erro não se silencia. Duplo clique na ocorrência (ou o botão "Abrir linha") leva à linha no Editor. A lista é lida ao abrir a página, e o Editor relê ao voltar, na mesma linha, se a Conferência mudou algum texto. Enquanto a Conferência lê ou grava, ela fica ocupada: não troca de página e desabilita os botões.
 
 ### 6. Glossário e personagens
 

@@ -112,9 +112,9 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy))]
     public partial bool IsLoading { get; private set; }
 
-    /// <summary>Verdadeiro enquanto uma correção grava <c>text/*.json</c> em segundo plano.</summary>
+    /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(FixRuleCommand), nameof(MarkOkCommand), nameof(OpenLineCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(FixRuleCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(RefreshCommand))]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsFixing { get; private set; }
 
@@ -166,7 +166,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     }
 
     /// <summary>Roda o QA do Core sobre o projeto, fora da thread da tela. Uma conferência mais nova descarta o resultado de uma mais antiga.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRefresh))]
     public async Task RefreshAsync()
     {
         var root = Project?.Root;
@@ -189,9 +189,17 @@ public sealed partial class ConferenceViewModel : ObservableObject
         {
             loaded = await Task.Run(() => engine.Run(QaContext.FromProject(ProjectFolder.Open(root))));
         }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        catch (Exception e)
         {
-            error = $"Não foi possível conferir o projeto: {e.Message.TrimEnd('.', ' ')}. A lista fica vazia.";
+            // Qualquer falha (arquivo ilegível, regra que lança) vira mensagem: a página não pode ficar presa em "ocupada".
+            error = $"Não foi possível conferir o projeto: {Reason(e)}. A lista fica vazia.";
+        }
+        finally
+        {
+            if (version == loadVersion)
+            {
+                IsLoading = false;
+            }
         }
 
         if (version != loadVersion)
@@ -199,11 +207,14 @@ public sealed partial class ConferenceViewModel : ObservableObject
             return;
         }
 
-        IsLoading = false;
         ErrorMessage = error;
         report = loaded ?? QaReport.Empty;
         Rebuild();
     }
+
+    private bool CanRefresh() => !IsFixing;
+
+    private static string Reason(Exception e) => e.Message.TrimEnd('.', ' ');
 
     [RelayCommand]
     private void SelectSeverity(SeverityChipViewModel? chip)
@@ -229,31 +240,46 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private bool CanOpenLine(ConferenceIssueRowViewModel? row) => !IsBusy && row is not null;
 
     [RelayCommand(CanExecute = nameof(CanMarkOk))]
-    private void MarkOk(ConferenceIssueRowViewModel? row)
+    private async Task MarkOkAsync(ConferenceIssueRowViewModel? row)
     {
-        if (row is null || Project is null)
+        var root = Project?.Root;
+        if (row is null || root is null)
         {
-            return;
-        }
-
-        try
-        {
-            QaFlags.MarkOk(ProjectFolder.Open(Project.Root), engine, row.UnitId, row.RuleId);
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            ErrorMessage = $"Não foi possível marcar como ok: {e.Message.TrimEnd('.', ' ')}. O aviso continua na lista.";
             return;
         }
 
         ErrorMessage = null;
         NoticeMessage = null;
+        var version = loadVersion;
+        IsFixing = true;
+        try
+        {
+            try
+            {
+                // Regrava o script inteiro: fora da thread da tela, e com a página ocupada para nada mais gravar ao mesmo tempo.
+                await Task.Run(() => QaFlags.MarkOk(ProjectFolder.Open(root), engine, row.UnitId, row.RuleId));
+            }
+            catch (Exception e)
+            {
+                ErrorMessage = $"Não foi possível marcar como ok: {Reason(e)}. O aviso continua na lista.";
+                return;
+            }
 
-        // O Core silencia todo aviso da mesma regra nesta linha; a lista acompanha sem reler o projeto inteiro.
-        var silenced = report.Issues.Where(i => IsSamePair(i, row)).ToList();
-        report = new QaReport([.. report.Issues.Where(i => !IsSamePair(i, row))], [.. report.Silenced, .. silenced], report.RulesRun);
-        Rebuild();
-        TextsChanged?.Invoke(this, EventArgs.Empty);
+            TextsChanged?.Invoke(this, EventArgs.Empty);
+            if (version != loadVersion)
+            {
+                return;
+            }
+
+            // O Core silencia todo aviso da mesma regra nesta linha; a lista acompanha sem reler o projeto inteiro.
+            var silenced = report.Issues.Where(i => IsSamePair(i, row)).ToList();
+            report = new QaReport([.. report.Issues.Where(i => !IsSamePair(i, row))], [.. report.Silenced, .. silenced], report.RulesRun);
+            Rebuild();
+        }
+        finally
+        {
+            IsFixing = false;
+        }
     }
 
     private bool CanMarkOk(ConferenceIssueRowViewModel? row) => !IsBusy && row is { CanMarkOk: true };
@@ -284,24 +310,29 @@ public sealed partial class ConferenceViewModel : ObservableObject
         IsFixing = true;
         try
         {
-            QaFixResult result;
+            QaFixResult? result = null;
+            string? failure = null;
             try
             {
                 result = await Task.Run(() => QaFixer.Apply(ProjectFolder.Open(root), engine, rules));
             }
-            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+            catch (Exception e)
             {
-                ErrorMessage = $"Não foi possível corrigir automaticamente: {e.Message.TrimEnd('.', ' ')}.";
-                return;
+                failure = $"Não foi possível corrigir automaticamente: {Reason(e)}. Os scripts já corrigidos antes da falha continuam gravados.";
             }
 
-            if (result.Fixes.Count > 0)
+            // O Apply grava script a script: uma falha no meio deixa os anteriores no disco, então o Editor e a lista releem de qualquer jeito.
+            if (result is null || result.Fixes.Count > 0)
             {
                 TextsChanged?.Invoke(this, EventArgs.Empty);
             }
 
             await RefreshAsync();
-            if (ErrorMessage is null)
+            if (failure is not null)
+            {
+                ErrorMessage = failure;
+            }
+            else if (ErrorMessage is null && result is not null)
             {
                 NoticeMessage = result.Fixes.Count switch
                 {
