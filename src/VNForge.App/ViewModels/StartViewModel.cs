@@ -10,6 +10,8 @@ namespace VNForge.App.ViewModels;
 /// <summary>Tela Início: abrir um projeto, ver os recentes e o progresso do projeto selecionado.</summary>
 public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock) : ObservableObject
 {
+    private readonly SemaphoreSlim loadGate = new(1, 1);
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedInEditorCommand))]
     [NotifyCanExecuteChangedFor(nameof(RemoveSelectedCommand))]
@@ -38,23 +40,28 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     /// <summary>Lê a lista de recentes; mantém a seleção (ou seleciona <paramref name="selectPath"/>) quando o item ainda existe.</summary>
     public async Task LoadAsync(string? selectPath = null)
     {
-        var keep = selectPath ?? Selected?.Path;
-        var now = clock.GetUtcNow();
-        var items = new List<RecentProjectItem>();
-        foreach (var recent in recents.Load())
+        // Duas cargas ao mesmo tempo (abertura da janela e um projeto aberto logo em seguida) embaralhariam a lista.
+        await loadGate.WaitAsync();
+        try
         {
-            items.Add(await Task.Run(() => Describe(recent, now)));
-        }
+            var keep = selectPath ?? Selected?.Path;
+            var now = clock.GetUtcNow();
+            var items = await Task.WhenAll(recents.Load().Select(recent => Task.Run(() => Describe(recent, now))));
 
-        Recents.Clear();
-        foreach (var item in items)
+            Recents.Clear();
+            foreach (var item in items)
+            {
+                Recents.Add(item);
+            }
+
+            Selected = Recents.FirstOrDefault(i => SamePath(i.Path, keep)) ?? Recents.FirstOrDefault();
+            OnPropertyChanged(nameof(HasRecents));
+            OnPropertyChanged(nameof(RecentsSummary));
+        }
+        finally
         {
-            Recents.Add(item);
+            loadGate.Release();
         }
-
-        Selected = Recents.FirstOrDefault(i => SamePath(i.Path, keep)) ?? Recents.FirstOrDefault();
-        OnPropertyChanged(nameof(HasRecents));
-        OnPropertyChanged(nameof(RecentsSummary));
     }
 
     [RelayCommand]
@@ -82,7 +89,16 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
             return;
         }
 
-        recents.Add(summary.Root, clock.GetUtcNow());
+        try
+        {
+            recents.Add(summary.Root, clock.GetUtcNow());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // A lista de recentes é conveniência: o projeto abre mesmo sem ela.
+            NoticeMessage = "O projeto abriu, mas não foi possível gravar a lista de recentes.";
+        }
+
         await LoadAsync(summary.Root);
         ProjectOpened?.Invoke(this, summary);
     }

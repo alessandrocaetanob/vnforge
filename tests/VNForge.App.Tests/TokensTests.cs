@@ -8,6 +8,14 @@ public partial class TokensTests
     private static string Pascal(string kebab) =>
         string.Concat(kebab.Split('-').Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
 
+    /// <summary>Segue referências como <c>{accent-soft}</c> até o hexno tema pedido.</summary>
+    private static string Resolve(JsonElement root, string value, string theme) => value.StartsWith('{')
+        ? root.GetProperty("color").GetProperty("tokens").EnumerateArray()
+            .Where(t => t.GetProperty("name").GetString() == value.Trim('{', '}'))
+            .Select(t => Resolve(root, t.GetProperty("value").GetProperty(theme).GetString()!, theme))
+            .First()
+        : value;
+
     [GeneratedRegex(@"x:Key=""(Vnf\.[A-Za-z0-9]+)""")]
     private static partial Regex KeyPattern();
 
@@ -25,6 +33,10 @@ public partial class TokensTests
             var nome = "Vnf." + Pascal(token.GetProperty("name").GetString()!);
             Assert.Equal(2, chaves.Count(c => c == nome));
             Assert.Equal(2, chaves.Count(c => c == nome + "Color"));
+            var cores = Regex.Matches(axaml, $@"x:Key=""{Regex.Escape(nome)}Color"">(#[0-9A-Fa-f]{{6,8}})<").Select(m => m.Groups[1].Value).ToList();
+            var valor = token.GetProperty("value");
+            Assert.Equal(Resolve(json.RootElement, valor.GetProperty("dark").GetString()!, "dark"), cores[0], ignoreCase: true);
+            Assert.Equal(Resolve(json.RootElement, valor.GetProperty("light").GetString()!, "light"), cores[1], ignoreCase: true);
             esperados.Add(nome);
         }
 
