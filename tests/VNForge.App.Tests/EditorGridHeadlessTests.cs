@@ -214,6 +214,31 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             CancellationToken.None);
     }
 
+    [Fact]
+    public async Task Tela_Busca_mostra_a_previa_com_antes_e_depois_na_lista()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated, TranslationStatus.Translated);
+        var vm = new SearchReplaceViewModel { Project = ProjectSummaryReader.Read(root), Pattern = "tradução", Replacement = "nova" };
+        await vm.PreviewCommand.ExecuteAsync(null);
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = new Window { Width = 1200, Height = 800, Content = new SearchReplaceView { DataContext = vm } };
+                window.Show();
+                Assentar(window);
+
+                var lista = window.GetVisualDescendants().OfType<ListBox>().Single();
+                Assert.Equal(2, lista.GetRealizedContainers().Count());
+                var textos = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+                Assert.Contains("tradução 0", textos);
+                Assert.Contains("nova 0", textos);
+                Assert.Contains("yst00001 · linha 1", textos);
+            },
+            CancellationToken.None);
+    }
+
     private static string? Automation(Control control) => Avalonia.Automation.AutomationProperties.GetName(control);
 
     private static Color? Cor(Control control, string key) =>

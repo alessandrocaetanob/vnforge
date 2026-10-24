@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.SearchReplaceView"
+             x:DataType="vm:SearchReplaceViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="24,32,24,24" RowSpacing="12">
+
+    <StackPanel Spacing="4">
+      <TextBlock Classes="title-lg" Text="Busca e substituição"/>
+      <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                 Text="Procura em todos os scripts do projeto. A substituição só altera a tradução, mostra cada linha que muda antes de gravar e não mexe nos marcadores de controle (\n, \p, {...})."/>
+    </StackPanel>
+
+    <Border Grid.Row="1" Classes="panel" Padding="16">
+      <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="overline" Text="PROCURAR"/>
+            <TextBox Text="{Binding Pattern}" PlaceholderText="Texto ou expressão regular" AutomationProperties.Name="Texto a procurar"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="4">
+            <TextBlock Classes="overline" Text="SUBSTITUIR POR"/>
+            <TextBox Text="{Binding Replacement}" PlaceholderText="Em regex vale $1, $2..." IsEnabled="{Binding CanReplace}"
+                     AutomationProperties.Name="Texto de substituição"/>
+          </StackPanel>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="20">
+          <CheckBox Content="Expressão regular" IsChecked="{Binding UseRegex}"/>
+          <CheckBox Content="Diferenciar maiúsculas" IsChecked="{Binding MatchCase}"/>
+          <CheckBox Content="Palavra inteira" IsChecked="{Binding WholeWord}"/>
+          <CheckBox Content="Procurar no original (sem substituir)" IsChecked="{Binding SearchSource}"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Command="{Binding FindCommand}" AutomationProperties.Name="Buscar">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Search}"/>
+              <TextBlock Text="Buscar"/>
+            </StackPanel>
+          </Button>
+          <Button Command="{Binding PreviewCommand}" AutomationProperties.Name="Prévia da substituição">
+            <TextBlock Text="Prévia da substituição"/>
+          </Button>
+          <Button Classes="accent" Command="{Binding ApplyCommand}" AutomationProperties.Name="Aplicar substituição">
+            <TextBlock Text="Aplicar" FontWeight="SemiBold"/>
+          </Button>
+        </StackPanel>
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                   Text="Aplicar grava só as linhas da prévia. Uma linha editada vira Traduzida (o mesmo que editar no Editor) e perde a aprovação."/>
+      </StackPanel>
+    </Border>
+
+    <StackPanel Grid.Row="2" Spacing="8">
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Grid>
+      </Border>
+      <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Summary}"
+                 IsVisible="{Binding Summary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+    </StackPanel>
+
+    <Border Grid.Row="3" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Resultados" IsVisible="{Binding HasResults}">
+      <Grid RowDefinitions="32,*">
+        <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
+          <Grid ColumnDefinitions="190,*,*" ColumnSpacing="12">
+            <TextBlock Classes="overline" Text="LINHA" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Classes="overline" Text="ANTES" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Classes="overline" Text="DEPOIS" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+        <ListBox Grid.Row="1" Classes="projects" ItemsSource="{Binding Results}" SelectionMode="Single"
+                 AutomationProperties.Name="Linhas encontradas">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel/>
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:SearchResultRow">
+              <Grid ColumnDefinitions="190,*,*" ColumnSpacing="12" Margin="16,6">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="mono" Text="{Binding Location}" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock Classes="caption secondary" Text="{Binding CountText}"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding Before}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="2" Classes="body-sm" Text="{Binding After}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                           IsVisible="{Binding HasAfter}"/>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>
