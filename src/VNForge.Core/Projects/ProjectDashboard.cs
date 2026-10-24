@@ -29,7 +29,7 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
 
         var extracted = project.LoadState().Stages.ContainsKey(ProjectExtractor.ExtractStage);
         var awaiting = AwaitingReview(counts);
-        var built = BuildState.Load(project) is { } build && build.ArchivesIntact(project);
+        var built = IsBuildCurrent(project);
         var injected = Directory.Exists(project.BackupDirectory) && Directory.EnumerateDirectories(project.BackupDirectory).Any();
 
         PipelineStage[] stages =
@@ -41,5 +41,18 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             new(PipelineStageKey.Inject, injected, injected ? 0 : 1),
         ];
         return new ProjectDashboard(status, stages, AiUsageLog.Load(project));
+    }
+
+    /// <summary>Há um build íntegro (<see cref="BuildState.ArchivesIntact"/>) e nenhum <c>text/*.json</c> foi gravado depois dele.</summary>
+    private static bool IsBuildCurrent(ProjectFolder project)
+    {
+        if (BuildState.Load(project) is not { } build || !build.ArchivesIntact(project))
+        {
+            return false;
+        }
+
+        var builtAt = File.GetLastWriteTimeUtc(Path.Combine(project.CacheDirectory, BuildState.StateFileName));
+        return !Directory.Exists(project.TextDirectory)
+            || Directory.EnumerateFiles(project.TextDirectory, "*.json").All(f => File.GetLastWriteTimeUtc(f) <= builtAt);
     }
 }

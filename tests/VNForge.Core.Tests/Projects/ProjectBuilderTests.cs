@@ -75,6 +75,19 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Painel_da_Build_como_concluido_so_ate_o_texto_mudar()
+    {
+        Translate("a001", (0, Hello));
+        Build();
+        var etapa = () => ProjectDashboard.Read(_project).Stages.Single(s => s.Key == PipelineStageKey.Build);
+        Assert.True(etapa().IsComplete);
+
+        File.SetLastWriteTimeUtc(_project.TextPath("a001"), DateTime.UtcNow.AddMinutes(5));
+
+        Assert.False(etapa().IsComplete);
+    }
+
+    [Fact]
     public void Entrega_ao_repacker_so_o_script_com_traducao_e_o_conteudo_original()
     {
         Translate("a001", (0, Hello));

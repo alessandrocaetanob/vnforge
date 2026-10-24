@@ -59,7 +59,7 @@ Cada etapa é um botão; o texto mostra as pendências. A página lê `ProjectDa
 - **Extrair**: concluída quando o `.cache/state.json` registra a extração.
 - **Traduzir**: pendentes são as linhas sem tradução.
 - **Conferir**: pendentes são as linhas de máquina e traduzidas, que ninguém revisou. A contagem de avisos do QA entra com a tela de Conferência (#106).
-- **Build**: concluída quando o estado do último build existe e os pacotes de `build/` conferem.
+- **Build**: concluída quando o estado do último build existe, os pacotes de `build/` conferem em tamanho e nenhum `text/*.json` foi gravado depois do build.
 - **Injetar**: concluída quando há backup de injeção em `backup/`.
 
 Só Traduzir e Conferir abrem uma tela hoje (o Editor); as outras abrem quando as telas delas entrarem. O custo de IA é o total de `.cache/ai-usage.json` (tokens e dólares), que `vnf translate` e `vnf review` atualizam ao fim de cada execução; sem o arquivo, o Painel diz que não há chamada registrada. A página recarrega a cada vez que é aberta.

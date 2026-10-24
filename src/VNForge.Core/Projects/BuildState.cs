@@ -28,7 +28,7 @@ internal sealed record BuildState(
 {
     internal const int CurrentVersion = 1;
 
-    private const string StateFileName = "build-state.json";
+    internal const string StateFileName = "build-state.json";
 
     private const string ScriptsDirectoryName = "build-scripts";
 
