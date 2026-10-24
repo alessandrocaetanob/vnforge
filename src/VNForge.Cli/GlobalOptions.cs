@@ -3,9 +3,9 @@ using System.CommandLine;
 namespace VNForge.Cli;
 
 /// <summary>Valores das opções globais de uma invocação.</summary>
-public sealed record GlobalSettings(string? Project, bool Json, bool Verbose, bool Quiet, bool Yes);
+public sealed record GlobalSettings(string? Project, bool Json, bool Verbose, bool Quiet, bool Yes, bool NoColor = false);
 
-/// <summary>Opções que valem para qualquer comando: <c>--project</c>, <c>--json</c>, <c>--verbose</c>, <c>--quiet</c> e <c>--yes</c>.</summary>
+/// <summary>Opções que valem para qualquer comando: <c>--project</c>, <c>--json</c>, <c>--verbose</c>, <c>--quiet</c>, <c>--yes</c> e <c>--no-color</c>.</summary>
 public sealed class GlobalOptions
 {
     public GlobalOptions()
@@ -36,6 +36,11 @@ public sealed class GlobalOptions
             Description = "Responde sim às confirmações, para uso em scripts.",
             Recursive = true,
         };
+        NoColor = new Option<bool>("--no-color")
+        {
+            Description = "Escreve texto simples, sem cor nem animação (também vale com NO_COLOR definida).",
+            Recursive = true,
+        };
     }
 
     public Option<string?> Project { get; }
@@ -48,6 +53,8 @@ public sealed class GlobalOptions
 
     public Option<bool> Yes { get; }
 
+    public Option<bool> NoColor { get; }
+
     public void AddTo(Command command)
     {
         command.Options.Add(Project);
@@ -55,6 +62,7 @@ public sealed class GlobalOptions
         command.Options.Add(Verbose);
         command.Options.Add(Quiet);
         command.Options.Add(Yes);
+        command.Options.Add(NoColor);
     }
 
     public GlobalSettings Read(ParseResult parseResult) => new(
@@ -62,5 +70,6 @@ public sealed class GlobalOptions
         parseResult.GetValue(Json),
         parseResult.GetValue(Verbose),
         parseResult.GetValue(Quiet),
-        parseResult.GetValue(Yes));
+        parseResult.GetValue(Yes),
+        parseResult.GetValue(NoColor));
 }

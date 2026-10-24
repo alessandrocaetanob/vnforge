@@ -3,6 +3,7 @@ using System.CommandLine.Help;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using Spectre.Console;
 using VNForge.AI.Claude;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
@@ -25,15 +26,18 @@ public sealed class VnfCli
     private readonly string _currentDirectory;
     private readonly string _userLogDirectory;
     private readonly Option<bool> _versionOption;
+    private readonly CliTerminal? _terminal;
 
-    private VnfCli(string currentDirectory, string userLogDirectory, string userConfigDirectory, TextReader input, IApiKeyStore apiKeyStore)
+    private VnfCli(string currentDirectory, string userLogDirectory, string userConfigDirectory, TextReader input, IApiKeyStore apiKeyStore, CliTerminal? terminal)
     {
+        _terminal = terminal;
         _currentDirectory = currentDirectory;
         _userLogDirectory = userLogDirectory;
         UserConfigDirectory = userConfigDirectory;
         Input = input;
         ApiKeyStore = apiKeyStore;
 
+        Ansi = CliConsole.Create(TextWriter.Null, new GlobalSettings(null, false, false, false, false), CliTerminal.Plain());
         Options = new GlobalOptions();
         _versionOption = new Option<bool>("--version") { Description = "Mostra a versão do vnf." };
 
@@ -63,6 +67,16 @@ public sealed class VnfCli
     /// <summary>Entrada padrão da invocação, de onde vêm respostas e segredos que não devem ir na linha de comando.</summary>
     public TextReader Input { get; }
 
+    /// <summary>
+    /// Console do Spectre sobre o <c>output</c> da invocação em andamento; os comandos escrevem por ele. Cor e animação
+    /// só em terminal interativo, nunca com <c>--json</c>, <c>--quiet</c>, <c>--no-color</c> ou <c>NO_COLOR</c>
+    /// (<see cref="RichOutput"/>). Entre invocações é um console de texto simples que descarta tudo.
+    /// </summary>
+    public IAnsiConsole Ansi { get; private set; }
+
+    /// <summary>A invocação em andamento pode usar cor e animação.</summary>
+    public bool RichOutput { get; private set; }
+
     /// <summary>Cofre da chave de API do usuário.</summary>
     public IApiKeyStore ApiKeyStore { get; }
 
@@ -89,12 +103,14 @@ public sealed class VnfCli
     /// <param name="userConfigDirectory">Configurações do usuário; padrão: <c>%APPDATA%/VNForge</c>.</param>
     /// <param name="input">Entrada padrão; padrão: <see cref="Console.In"/>.</param>
     /// <param name="apiKeyStore">Cofre da chave; padrão: DPAPI em <paramref name="userConfigDirectory"/>.</param>
+    /// <param name="terminal">Terminal da saída; padrão: o do processo quando a saída é o <see cref="Console.Out"/>, texto simples em qualquer outro writer.</param>
     public static VnfCli Create(
         string? currentDirectory = null,
         string? userLogDirectory = null,
         string? userConfigDirectory = null,
         TextReader? input = null,
-        IApiKeyStore? apiKeyStore = null)
+        IApiKeyStore? apiKeyStore = null,
+        CliTerminal? terminal = null)
     {
         var configDirectory = userConfigDirectory ?? AiUserSettingsFile.DefaultDirectory();
         var cli = new VnfCli(
@@ -102,7 +118,8 @@ public sealed class VnfCli
             userLogDirectory ?? VNForgeLogging.GetUserLogDirectory(),
             configDirectory,
             input ?? Console.In,
-            apiKeyStore ?? new DpapiApiKeyStore(configDirectory));
+            apiKeyStore ?? new DpapiApiKeyStore(configDirectory),
+            terminal);
         VnfCommands.Register(cli);
         return cli;
     }
@@ -126,6 +143,10 @@ public sealed class VnfCli
         var parseResult = Root.Parse(args);
         var settings = Options.Read(parseResult);
 
+        var terminal = _terminal ?? CliTerminal.ForWriter(output);
+        RichOutput = CliConsole.IsRich(settings, terminal);
+        Ansi = CliConsole.Create(output, settings, terminal);
+
         var logDirectory = VNForgeLogging.ResolveLogDirectory(settings.Project, _currentDirectory, _userLogDirectory);
         var level = LogLevelFor(settings);
         using var loggerFactory = VNForgeLogging.CreateFactoryForDirectory(logDirectory, level);
@@ -139,28 +160,36 @@ public sealed class VnfCli
             ProcessTerminationTimeout = null,
         };
 
-        return await ErrorHandler.ExecuteAsync(
-            async token =>
-            {
-                if (parseResult.Errors.Count > 0)
+        try
+        {
+            return await ErrorHandler.ExecuteAsync(
+                async token =>
                 {
-                    throw new UsageException(
-                        string.Join(" ", parseResult.Errors.Select(e => ParseErrorMessages.Translate(e.Message))) + " Use --help para ver as opções.");
-                }
+                    if (parseResult.Errors.Count > 0)
+                    {
+                        throw new UsageException(
+                            string.Join(" ", parseResult.Errors.Select(e => ParseErrorMessages.Translate(e.Message))) + " Use --help para ver as opções.");
+                    }
 
-                ThrowIfProjectMissing(settings);
-                if (logger.IsEnabled(LogLevel.Debug))
-                {
-                    logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
-                }
+                    ThrowIfProjectMissing(settings);
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
+                    }
 
-                return await parseResult.InvokeAsync(invocation, token).ConfigureAwait(false);
-            },
-            logger,
-            error,
-            logDirectory,
-            settings.Json ? output : null,
-            cancellationToken).ConfigureAwait(false);
+                    return await parseResult.InvokeAsync(invocation, token).ConfigureAwait(false);
+                },
+                logger,
+                error,
+                logDirectory,
+                settings.Json ? output : null,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Ansi = CliConsole.Create(TextWriter.Null, new GlobalSettings(null, false, false, false, false), CliTerminal.Plain());
+            RichOutput = false;
+        }
     }
 
     private void ThrowIfProjectMissing(GlobalSettings settings)
