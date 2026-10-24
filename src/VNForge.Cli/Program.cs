@@ -14,6 +14,7 @@ void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
     e.Cancel = true;
     if (Interlocked.Increment(ref presses) != 1)
     {
+        RestoreCursor();
         Environment.Exit(ErrorHandler.CancelledExitCode);
     }
 
@@ -24,6 +25,16 @@ void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
     catch (ObjectDisposedException)
     {
         // O comando já terminou e o token foi descartado.
+    }
+}
+
+// A barra ao vivo esconde o cursor (ESC[?25l) e só o mostra ao terminar; Environment.Exit pula esse fim.
+void RestoreCursor()
+{
+    if (!Console.IsOutputRedirected && !Console.IsErrorRedirected && Environment.GetEnvironmentVariable("TERM") != "dumb")
+    {
+        Console.Out.Write("[?25h");
+        Console.Out.Flush();
     }
 }
 

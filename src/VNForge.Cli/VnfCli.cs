@@ -27,6 +27,7 @@ public sealed class VnfCli
     private readonly string _userLogDirectory;
     private readonly Option<bool> _versionOption;
     private readonly CliTerminal? _terminal;
+    private bool _animationAllowed;
 
     private VnfCli(string currentDirectory, string userLogDirectory, string userConfigDirectory, TextReader input, IApiKeyStore apiKeyStore, CliTerminal? terminal)
     {
@@ -81,7 +82,7 @@ public sealed class VnfCli
     /// A invocação pode redesenhar a tela (barras de progresso ao vivo): saída rica, com ANSI e terminal interativo. Sem isso o
     /// progresso segue como log de linhas, como antes.
     /// </summary>
-    public bool CanAnimate => RichOutput && Ansi.Profile.Capabilities is { Ansi: true, Interactive: true };
+    public bool CanAnimate => RichOutput && _animationAllowed && Ansi.Profile.Capabilities is { Ansi: true, Interactive: true };
 
     /// <summary>Cofre da chave de API do usuário.</summary>
     public IApiKeyStore ApiKeyStore { get; }
@@ -151,6 +152,7 @@ public sealed class VnfCli
 
         var terminal = _terminal ?? CliTerminal.ForWriter(output);
         RichOutput = CliConsole.IsRich(settings, terminal);
+        _animationAllowed = terminal.Animate;
         Ansi = CliConsole.Create(output, settings, terminal);
 
         var logDirectory = VNForgeLogging.ResolveLogDirectory(settings.Project, _currentDirectory, _userLogDirectory);
@@ -195,6 +197,7 @@ public sealed class VnfCli
         {
             Ansi = CliConsole.Create(TextWriter.Null, new GlobalSettings(null, false, false, false, false), CliTerminal.Plain());
             RichOutput = false;
+            _animationAllowed = false;
         }
     }
 

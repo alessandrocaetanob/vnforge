@@ -100,14 +100,43 @@ public static class RunSummaries
         foreach (var entry in plan.Manifest.Files)
         {
             var backup = plan.BackupDirectories.TryGetValue(entry.Path, out var directory) ? directory : plan.BackupDirectory;
-            table.AddRow(
-                CliViews.Escape(entry.Path),
-                entry.Existed ? "volta ao original" : "removido (criado pela injeção)",
-                SizeText(Path.Combine(plan.GameDirectory, entry.Path)),
-                entry.Existed ? SizeText(Path.Combine(backup, entry.Path)) : Dash);
+            var current = Path.Combine(plan.GameDirectory, entry.Path);
+            var (action, after) = entry.Existed
+                ? ("volta ao original", SizeText(Path.Combine(backup, entry.Path)))
+                : CreatedByInjection(current, entry);
+            table.AddRow(CliViews.Escape(entry.Path), action, SizeText(current), after);
         }
 
         return WithHeader($"Backup: {plan.BackupDirectory}{Environment.NewLine}Jogo: {plan.GameDirectory}", table, null);
+    }
+
+    /// <summary>
+    /// Arquivo que a injeção criou: o <c>restore</c> só apaga se o conteúdo ainda é o injetado, mantém se mudou depois e não faz
+    /// nada se já não existe (mesma regra do <see cref="GameInjector.Restore"/>).
+    /// </summary>
+    private static (string Action, string After) CreatedByInjection(string current, BackupEntry entry)
+    {
+        if (!File.Exists(current))
+        {
+            return ("nada a fazer (já não existe)", Dash);
+        }
+
+        return HashOf(current) == entry.InjectedSha256
+            ? ("removido (criado pela injeção)", Dash)
+            : ("mantido (alterado depois da injeção)", SizeText(current));
+    }
+
+    private static string? HashOf(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(stream));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>"512 B", "3,4 KB", "41,2 MB" ou "1,3 GB", com vírgula decimal.</summary>

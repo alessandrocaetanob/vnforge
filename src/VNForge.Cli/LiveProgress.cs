@@ -13,6 +13,7 @@ namespace VNForge.Cli;
 public sealed class ProgressSink
 {
     private readonly ProgressTask? _task;
+    private bool _completeOnFinish;
 
     private ProgressSink(ProgressTask? task) => _task = task;
 
@@ -39,7 +40,10 @@ public sealed class ProgressSink
         }
     }
 
-    /// <summary>Andamento por script (<c>extract</c> e <c>build</c>); o primeiro relato fixa o total, o último troca o texto por <paramref name="finishing"/>.</summary>
+    /// <summary>
+    /// Andamento por script (<c>extract</c> e <c>build</c>); o primeiro relato fixa o total. O relato final (nome vazio) não completa a barra,
+    /// porque ainda falta trabalho depois dos scripts: ela volta a girar com o texto <paramref name="finishing"/> e só completa em <see cref="Finish"/>.
+    /// </summary>
     public void Scripts(ScriptWorkProgress progress, string finishing)
     {
         ArgumentNullException.ThrowIfNull(progress);
@@ -49,14 +53,31 @@ public sealed class ProgressSink
             return;
         }
 
-        if (task.IsIndeterminate)
+        if (!_completeOnFinish)
         {
+            _completeOnFinish = true;
             task.MaxValue = Math.Max(progress.Total, 1);
             task.IsIndeterminate = false;
         }
 
-        var counter = $"{LiveProgressText.Number(progress.Done)}/{LiveProgressText.Number(progress.Total)} scripts";
-        Report(progress.Done, progress.Name.Length == 0 ? $"{counter}  {finishing}" : $"{counter}  {progress.Name}");
+        if (progress.Name.Length == 0)
+        {
+            task.IsIndeterminate = true;
+            task.Description = finishing;
+            return;
+        }
+
+        Report(progress.Done, $"{LiveProgressText.Number(progress.Done)}/{LiveProgressText.Number(progress.Total)} scripts  {progress.Name}");
+    }
+
+    /// <summary>O trabalho acabou sem erro: a barra por script (que ficou girando no fim) chega a 100%.</summary>
+    internal void Finish()
+    {
+        if (_task is { } task && _completeOnFinish)
+        {
+            task.IsIndeterminate = false;
+            task.Value = task.MaxValue;
+        }
     }
 }
 
@@ -96,7 +117,9 @@ public static class LiveProgress
             {
                 var task = context.AddTask(description, new ProgressTaskSettings { MaxValue = total ?? 1 });
                 task.IsIndeterminate = total is null;
-                result = await work(ProgressSink.For(task)).ConfigureAwait(false);
+                var sink = ProgressSink.For(task);
+                result = await work(sink).ConfigureAwait(false);
+                sink.Finish();
             })
             .ConfigureAwait(false);
         return result;

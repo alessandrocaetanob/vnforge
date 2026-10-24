@@ -92,6 +92,19 @@ public sealed class TranslateCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Com_o_erro_padrao_redirecionado_nao_anima_e_o_log_por_lote_vai_para_o_arquivo()
+    {
+        using var rich = new CliHarness(terminal: TestTerminals.InteractiveAnsi() with { Animate = false });
+        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
+
+        var result = await rich.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("100%", result.Error);
+        Assert.DoesNotContain("lote 1/1", result.Output);
+    }
+
+    [Fact]
     public async Task No_terminal_interativo_com_no_color_o_progresso_segue_no_erro_padrao()
     {
         using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());

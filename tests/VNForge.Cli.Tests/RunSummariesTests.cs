@@ -140,17 +140,23 @@ public sealed class RunSummariesTests : IDisposable
     }
 
     [Fact]
-    public void Tabela_do_restore_diz_o_que_volta_e_o_que_sai()
+    public void Tabela_do_restore_diz_o_que_volta_o_que_sai_o_que_fica_e_o_que_ja_nao_existe()
     {
         Write(Path.Combine("jogo", Ysbin), 2048);
-        Write(Path.Combine("jogo", "novo.ypf"), 100);
+        var injected = Write(Path.Combine("jogo", "novo.ypf"), 100);
+        Write(Path.Combine("jogo", "mexido.ypf"), 300);
         Write(Path.Combine("backup", "2026-10-24_1200", Ysbin), 1024);
         var backup = Path.Combine(_root, "backup", "2026-10-24_1200");
         var manifest = new BackupManifest(
             BackupManifest.CurrentVersion,
             DateTimeOffset.UnixEpoch,
             Path.Combine(_root, "jogo"),
-            [new BackupEntry(Ysbin, true, "o", "i"), new BackupEntry("novo.ypf", false, null, "i")]);
+            [
+                new BackupEntry(Ysbin, true, "o", "i"),
+                new BackupEntry("novo.ypf", false, null, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(injected)))),
+                new BackupEntry("mexido.ypf", false, null, "hash-da-injecao"),
+                new BackupEntry("sumiu.ypf", false, null, "x"),
+            ]);
         var plan = new RestorePlan(Path.Combine(_root, "jogo"), backup, manifest, new Dictionary<string, string>());
         var harness = ConsoleHarness.Plain(width: 300);
 
@@ -160,5 +166,7 @@ public sealed class RunSummariesTests : IDisposable
         Assert.Contains(lines, l => l.StartsWith("Jogo: ", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.StartsWith(Ysbin, StringComparison.Ordinal) && l.Contains("volta ao original") && l.Contains("2,0 KB") && l.Contains("1,0 KB"));
         Assert.Contains(lines, l => l.StartsWith("novo.ypf", StringComparison.Ordinal) && l.Contains("removido (criado pela injeção)") && l.Contains("100 B"));
+        Assert.Contains(lines, l => l.StartsWith("mexido.ypf", StringComparison.Ordinal) && l.Contains("mantido (alterado depois da injeção)") && l.Contains("300 B"));
+        Assert.Contains(lines, l => l.StartsWith("sumiu.ypf", StringComparison.Ordinal) && l.Contains("nada a fazer"));
     }
 }

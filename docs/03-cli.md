@@ -46,7 +46,7 @@ Em texto simples a barra de distribuição continua legível: cada status tem um
 
 ### Progresso ao vivo (terminal interativo)
 
-Num terminal interativo com ANSI, as operações longas desenham uma barra que se atualiza no lugar. Fora dele (saída redirecionada, `--json`, `--quiet`, `--no-color`, `NO_COLOR`, terminal sem ANSI) nada disso aparece: o log de sempre continua, inclusive o progresso de `translate` e `review` no erro padrão, e o `--json` não muda.
+Num terminal interativo com ANSI, as operações longas desenham uma barra que se atualiza no lugar. Fora dele (saída redirecionada, `--json`, `--quiet`, `--no-color`, `NO_COLOR`, terminal sem ANSI, erro padrão redirecionado como em `vnf translate 2> progresso.log`) nada disso aparece: o log de sempre continua, inclusive o progresso de `translate` e `review` no erro padrão, e o `--json` não muda.
 
 | Comando | No terminal interativo |
 |---|---|

@@ -38,7 +38,7 @@ internal static class ExtractCommand
                 project,
                 KnownEngines.All,
                 token,
-                new InlineProgress<ScriptWorkProgress>(progress => sink.Scripts(progress, "gravando text/"))))).ConfigureAwait(false);
+                new InlineProgress<ScriptWorkProgress>(progress => sink.Scripts(progress, "gravando text/ e o estado do projeto"))))).ConfigureAwait(false);
 
         if (parseResult.GetValue(cli.Options.Json))
         {
