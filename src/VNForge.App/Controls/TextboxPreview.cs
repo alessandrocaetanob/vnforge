@@ -11,8 +11,8 @@ namespace VNForge.App.Controls;
 /// Só desenha o <see cref="Layout"/>; as quebras vêm do Core (<see cref="TextboxPreviewViewModel"/>). As cores são os tokens <c>textbox-*</c>.
 /// </summary>
 /// <remarks>
-/// A largura é medida em colunas, com <see cref="FontFamily"/> monoespaçada genérica. A decisão D6 (#105, fonte real do jogo) está em aberto:
-/// quando sair, trocar a fonte e <see cref="ColumnWidth"/> (que passa a medir em pixels) é tudo que muda aqui.
+/// A largura é medida em colunas. A fonte é a que o jogo pede, MS Gothic (ＭＳ ゴシック, largura fixa: latim em meia largura, japonês em largura inteira),
+/// ou, sem ela instalada (Linux, CI, Windows sem o pacote japonês), a BIZ UDGothic embutida, de métricas equivalentes (D6, #105).
 /// </remarks>
 public sealed class TextboxPreview : Control
 {
@@ -26,8 +26,11 @@ public sealed class TextboxPreview : Control
     public static readonly StyledProperty<TextboxLayout?> LayoutProperty =
         AvaloniaProperty.Register<TextboxPreview, TextboxLayout?>(nameof(Layout));
 
+    /// <summary>A MS Gothic do sistema primeiro e, na falta dela, a BIZ UDGothic embutida (SIL OFL 1.1; a fonte da Microsoft não pode ser redistribuída).</summary>
+    public static readonly FontFamily GameFont = new("MS Gothic, avares://VNForge.App/Assets/Fonts#BIZ UDGothic");
+
     public static readonly StyledProperty<FontFamily> FontFamilyProperty =
-        AvaloniaProperty.Register<TextboxPreview, FontFamily>(nameof(FontFamily), FontFamily.Default);
+        AvaloniaProperty.Register<TextboxPreview, FontFamily>(nameof(FontFamily), GameFont);
 
     public static readonly StyledProperty<double> FontSizeProperty =
         AvaloniaProperty.Register<TextboxPreview, double>(nameof(FontSize), 14);
@@ -46,7 +49,7 @@ public sealed class TextboxPreview : Control
         set => SetValue(LayoutProperty, value);
     }
 
-    /// <summary>Fonte da prévia; o ponto de troca para a fonte real do jogo (D6).</summary>
+    /// <summary>Fonte da prévia; por padrão <see cref="GameFont"/>.</summary>
     public FontFamily FontFamily
     {
         get => GetValue(FontFamilyProperty);
@@ -123,8 +126,7 @@ public sealed class TextboxPreview : Control
     }
 
     /// <summary>
-    /// Largura de uma coluna e altura de uma linha. A altura é a maior entre o latino e um glifo japonês, que vem de uma fonte de fallback mais alta.
-    /// Com a fonte real do jogo (D6), a largura passa a vir da medida em pixels do perfil.
+    /// Largura de uma coluna (a meia largura do latim) e altura de uma linha, a maior entre o latino e um glifo japonês.
     /// </summary>
     private (double ColumnWidth, double LineHeight) Metrics()
     {

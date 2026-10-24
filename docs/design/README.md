@@ -25,4 +25,4 @@ Os ícones são os Fluent UI System Icons da Microsoft (MIT), estilo Regular 20.
 
 ## Fontes
 
-Noto Sans (400, 500, 600), Noto Sans JP (400, 500), Zen Kaku Gothic New (500, 700) e JetBrains Mono (400, 500), todas sob a SIL OFL 1.1, embutidas em `src/VNForge.App/Assets/Fonts` com as licenças em `licenses/`. O Noto Sans JP vai completo, sem subconjunto de glifos, porque o texto vem do jogo.
+Noto Sans (400, 500, 600), Noto Sans JP (400, 500), Zen Kaku Gothic New (500, 700) e JetBrains Mono (400, 500) e BIZ UDGothic (400, a reserva da prévia da caixa de texto quando a MS Gothic do sistema não existe), todas sob a SIL OFL 1.1, embutidas em `src/VNForge.App/Assets/Fonts` com as licenças em `licenses/`. O Noto Sans JP vai completo, sem subconjunto de glifos, porque o texto vem do jogo.

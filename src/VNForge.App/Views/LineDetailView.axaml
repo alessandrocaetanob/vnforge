@@ -135,7 +135,7 @@
         <TextBlock Classes="overline" Text="PRÉVIA DA CAIXA DE TEXTO"/>
         <StackPanel Spacing="6" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
           <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding HasLayout}">
-            <c:TextboxPreview HorizontalAlignment="Left" Layout="{Binding Layout}" FontFamily="{DynamicResource Vnf.FontMono}"
+            <c:TextboxPreview HorizontalAlignment="Left" Layout="{Binding Layout}"
                               AutomationProperties.Name="Prévia da caixa de texto"/>
           </ScrollViewer>
           <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>

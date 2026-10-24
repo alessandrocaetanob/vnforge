@@ -311,6 +311,8 @@ Opções, da mais simples para a melhor:
    - a troca de charset pode exigir um DLL pequeno de hook (C++/Detours) ou patch direto nas chamadas de fonte; precisa ser investigado no seu executável
    - nomes de arquivo e strings internas continuam Shift-JIS; só o texto exibido muda
 
+Fonte do jogo: ele pede a fonte pelo nome ＭＳ ゴシック (MS Gothic, `msgothic.ttc`, largura fixa). O app não a redistribui: a prévia usa a instalada no sistema e, na falta dela, a BIZ UDGothic (SIL OFL 1.1), que é também a candidata para a fonte modificada do `remap` (#66). A decisão está em `docs/04-app-windows.md` (D6, #105).
+
 Plano: começar com `fold` para validar a ida e volta (M1), investigar `cp1252` no seu jogo (E5) e manter `remap` como alternativa.
 
 ## Referências
