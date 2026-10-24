@@ -555,10 +555,12 @@ public sealed partial class ConferenceViewModel : ObservableObject
         CheckedSummary = Project is null
             ? string.Empty
             : checkedAt is { } at
-                ? $"Última conferência {RelativeTime.Format(at, clock.GetLocalNow())} · {ProjectLabels.Number(lineCount)} linhas · {ProjectLabels.Number(report.RulesRun.Count)} regras ativas"
+                ? $"Última conferência {RelativeTime.Format(at, clock.GetLocalNow())} · {Plural(lineCount, "linha", "linhas")} · {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")}"
                 : "Ainda não conferido";
         OnPropertyChanged(nameof(EmptyMessage));
     }
+
+    private static string Plural(int n, string one, string many) => $"{ProjectLabels.Number(n)} {(n == 1 ? one : many)}";
 
     private bool PassesSeverity(ConferenceIssueRowViewModel row) => severityFilter switch
     {

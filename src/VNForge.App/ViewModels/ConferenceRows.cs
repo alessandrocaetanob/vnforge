@@ -150,6 +150,8 @@ public sealed class ConferenceIssueRowViewModel
     /// <summary>
     /// O trecho de <paramref name="before"/> que <paramref name="after"/> muda, com a palavra de cada lado e entre aspas: <c>“certeza?  Você”</c>.
     /// </summary>
+    private const int MaxExcerpt = 60;
+
     public static string Excerpt(string before, string after)
     {
         var prefix = 0;
@@ -186,7 +188,8 @@ public sealed class ConferenceIssueRowViewModel
             end++;
         }
 
-        return $"“{before[start..end]}”";
+        var snippet = before[start..end];
+        return snippet.Length > MaxExcerpt ? $"“{snippet[..MaxExcerpt]}…”" : $"“{snippet}”";
     }
 }
 

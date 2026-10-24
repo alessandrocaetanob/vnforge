@@ -496,7 +496,7 @@ public class ConferenceViewModelTests
         await vm.RefreshAsync();
 
         var rules = QaEngine.Default.Rules.Count;
-        Assert.Equal($"Última conferência agora · 1 linhas · {rules} regras ativas", vm.CheckedSummary);
+        Assert.Equal($"Última conferência agora · 1 linha · {rules} regras ativas", vm.CheckedSummary);
     }
 
     [Fact]
@@ -612,6 +612,15 @@ public class ConferenceViewModelTests
     public void A_linha_aparece_em_mono_com_quatro_digitos(string unitId, string expected)
     {
         Assert.Equal(expected, ConferenceIssueRowViewModel.FormatLine(unitId));
+    }
+
+    [Fact]
+    public void O_trecho_sem_espacos_ao_redor_e_cortado()
+    {
+        var before = "a  " + new string('x', 100);
+        var after = "a " + new string('x', 100);
+
+        Assert.Equal("“a  " + new string('x', 57) + "…”", ConferenceIssueRowViewModel.Excerpt(before, after));
     }
 
     [Theory]

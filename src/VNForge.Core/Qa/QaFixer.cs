@@ -156,16 +156,10 @@ public static class QaFixer
         var current = unit;
         foreach (var fixer in fixers)
         {
-            if (!current.HasTranslation || current.Flags.Contains(fixer.Id, StringComparer.Ordinal))
+            if (FixOne(current, key, fixer) is { } fix)
             {
-                continue;
-            }
-
-            var fixedText = fixer.Fix(current.Translation);
-            if (!string.Equals(fixedText, current.Translation, StringComparison.Ordinal))
-            {
-                fixes.Add(new QaFix(fixer.Id, current.Id, key, current.Translation, fixedText));
-                current = current with { Translation = fixedText };
+                fixes.Add(fix);
+                current = current with { Translation = fix.After };
             }
         }
 
