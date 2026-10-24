@@ -126,6 +126,27 @@ public sealed class QaEngineTests
         Assert.False(report.Blocks(allowWarnings: true));
     }
 
+    [Fact]
+    public void Linha_nao_traduzida_nunca_bloqueia_mas_e_contada()
+    {
+        var report = new QaEngine([new UntranslatedQaRule()]).Run(Context(new TextUnit("a:1", TextUnitKind.Dialogue, null, "こんにちは", null, TranslationStatus.Untranslated)));
+
+        Assert.False(report.Blocks(allowWarnings: false));
+        Assert.Equal(1, report.UntranslatedCount);
+        Assert.Empty(report.OtherIssues);
+    }
+
+    [Fact]
+    public void Nao_traduzida_junto_de_outro_aviso_deixa_o_outro_bloquear()
+    {
+        var engine = new QaEngine([new UntranslatedQaRule(), new FlagEmpty("aviso-x", QaSeverity.Warning)]);
+        var report = engine.Run(Context(Unit("a:1", ""), new TextUnit("a:2", TextUnitKind.Dialogue, null, "こんにちは", null, TranslationStatus.Untranslated)));
+
+        Assert.True(report.Blocks(allowWarnings: false));
+        Assert.False(report.Blocks(allowWarnings: true));
+        Assert.Equal(1, report.UntranslatedCount);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("Maiuscula")]

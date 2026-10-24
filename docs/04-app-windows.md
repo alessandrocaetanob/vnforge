@@ -118,6 +118,8 @@ Duas tabelas editáveis. Personagens têm nome original, tradução, gênero e n
 
 Log em tempo real, resumo do que mudou (scripts reconstruídos, tamanho do YPF novo), botões **Injetar**, **Abrir jogo** e **Restaurar originais**. Mostra onde está o backup.
 
+**Linhas sem tradução não bloqueiam o build** (decisão de 2026-10-24, #232). O build copia o original nelas e o resumo mostra a contagem ("6.853 linhas sem tradução; o build copiou o original nelas."), então um projeto recém-extraído constrói sem ligar nada. Os outros avisos do QA continuam exigindo "Permitir avisos do QA"; erros bloqueiam sempre.
+
 ## Como fica rodando no dia a dia
 
 1. Você abre o projeto; o app lembra o último script e a última linha.

@@ -18,6 +18,14 @@ public sealed record QaReport(IReadOnlyList<QaIssue> Issues, IReadOnlyList<QaIss
     /// <summary>Verdadeiro quando há erro (nunca silenciável).</summary>
     public bool HasErrors => Issues.Any(i => i.Severity == QaSeverity.Error);
 
-    /// <summary>Verdadeiro quando o <c>vnf build</c> deve parar: há erro, ou há aviso e o <paramref name="allowWarnings"/> é falso.</summary>
-    public bool Blocks(bool allowWarnings) => Issues.Any(i => i.Severity == QaSeverity.Error || !allowWarnings);
+    /// <summary>Linhas sem tradução (<see cref="UntranslatedQaRule"/>): o build copia o original nelas, então só entram na contagem do resumo.</summary>
+    public int UntranslatedCount => Issues.Count(IsUntranslated);
+
+    /// <summary>As ocorrências que não são de linha sem tradução; só estas entram no que o build pode bloquear.</summary>
+    public IReadOnlyList<QaIssue> OtherIssues => [.. Issues.Where(i => !IsUntranslated(i))];
+
+    /// <summary>Verdadeiro quando o <c>vnf build</c> deve parar: há erro, ou há aviso (que não seja de linha sem tradução) e o <paramref name="allowWarnings"/> é falso.</summary>
+    public bool Blocks(bool allowWarnings) => Issues.Any(i => i.Severity == QaSeverity.Error || (!allowWarnings && !IsUntranslated(i)));
+
+    private static bool IsUntranslated(QaIssue issue) => issue.RuleId == UntranslatedQaRule.RuleId;
 }

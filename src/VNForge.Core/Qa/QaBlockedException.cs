@@ -18,8 +18,8 @@ public sealed class QaBlockedException : VNForgeException
 
     private static string BuildMessage(QaReport report, bool allowWarnings)
     {
-        var blocking = report.Issues.Where(i => i.Severity == QaSeverity.Error || !allowWarnings).ToList();
-        var message = new StringBuilder($"O QA bloqueou o build ({Describe(report)}); nenhum arquivo foi gravado:");
+        var blocking = report.OtherIssues.Where(i => i.Severity == QaSeverity.Error || !allowWarnings).ToList();
+        var message = new StringBuilder($"O QA bloqueou o build ({DescribeBlocking(report)}); nenhum arquivo foi gravado:");
         foreach (var issue in blocking.Take(MaxLinesInMessage))
         {
             message.Append($"\n  {Label(issue.Severity)} {issue.UnitId} [{issue.RuleId}] {issue.Message}");
@@ -36,6 +36,22 @@ public sealed class QaBlockedException : VNForgeException
 
     /// <summary>Rótulo de uma ocorrência na saída de texto.</summary>
     public static string Label(QaSeverity severity) => severity == QaSeverity.Error ? "ERRO " : "AVISO";
+
+    /// <summary>"6.853 linhas sem tradução; o build copiou o original nelas." Vazio quando não há linha sem tradução.</summary>
+    public static string DescribeUntranslated(QaReport report)
+    {
+        var count = report.UntranslatedCount;
+        if (count == 0)
+        {
+            return string.Empty;
+        }
+
+        var number = count.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+        return $"QA: {number} {(count == 1 ? "linha sem tradução" : "linhas sem tradução")}; o build copiou o original {(count == 1 ? "nela" : "nelas")}.";
+    }
+
+    /// <summary>Resumo "2 erros, 37 avisos" sem as linhas sem tradução, que não bloqueiam (<see cref="DescribeUntranslated"/>).</summary>
+    public static string DescribeBlocking(QaReport report) => Describe(report with { Issues = report.OtherIssues });
 
     /// <summary>Resumo "2 erros, 37 avisos".</summary>
     public static string Describe(QaReport report)

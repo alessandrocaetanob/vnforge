@@ -103,9 +103,14 @@ internal static class BuildCommand
             output.WriteLine($"Codificação '{result.Encoding.Strategy}': {Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}; vnf build --report lista cada um.");
         }
 
-        foreach (var issue in result.Qa.Issues)
+        foreach (var issue in result.Qa.OtherIssues)
         {
             output.WriteLine(QaLine(issue));
+        }
+
+        if (result.Qa.UntranslatedCount > 0)
+        {
+            output.WriteLine(QaBlockedException.DescribeUntranslated(result.Qa));
         }
 
         if (result.Qa.Silenced.Count > 0)
@@ -135,14 +140,20 @@ internal static class BuildCommand
             return exitCode;
         }
 
-        foreach (var issue in blocked.Report.Issues.Take(MaxQaIssuesShown))
+        var others = blocked.Report.OtherIssues;
+        foreach (var issue in others.Take(MaxQaIssuesShown))
         {
             output.WriteLine(QaLine(issue));
         }
 
-        if (blocked.Report.Issues.Count > MaxQaIssuesShown)
+        if (others.Count > MaxQaIssuesShown)
         {
-            output.WriteLine($"... e mais {Number(blocked.Report.Issues.Count - MaxQaIssuesShown)} ocorrência(s); use --json para ver todas.");
+            output.WriteLine($"... e mais {Number(others.Count - MaxQaIssuesShown)} ocorrência(s); use --json para ver todas.");
+        }
+
+        if (blocked.Report.UntranslatedCount > 0)
+        {
+            output.WriteLine(QaBlockedException.DescribeUntranslated(blocked.Report));
         }
 
         if (blocked.Report.Silenced.Count > 0)
@@ -150,7 +161,7 @@ internal static class BuildCommand
             output.WriteLine($"QA: {Number(blocked.Report.Silenced.Count)} {Plural(blocked.Report.Silenced.Count, "aviso marcado como ok", "avisos marcados como ok")}.");
         }
 
-        output.WriteLine($"{QaBlockedException.Describe(blocked.Report)}. O build não gravou nada; corrija, marque o aviso como ok na linha ou use --allow-warnings para liberar só os avisos.");
+        output.WriteLine($"{QaBlockedException.DescribeBlocking(blocked.Report)}. O build não gravou nada; corrija, marque o aviso como ok na linha ou use --allow-warnings para liberar só os avisos.");
         return exitCode;
     }
 
@@ -160,9 +171,10 @@ internal static class BuildCommand
     private static object QaData(QaReport report) => new
     {
         errors = report.Errors.Count,
-        warnings = report.Warnings.Count,
+        warnings = report.OtherIssues.Count(i => i.Severity == QaSeverity.Warning),
+        untranslated = report.UntranslatedCount,
         silenced = report.Silenced.Count,
-        issues = report.Issues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
+        issues = report.OtherIssues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
     };
 
     private static int RunReport(bool json, EncodingReport report, TextWriter output)

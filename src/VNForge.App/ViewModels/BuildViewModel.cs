@@ -476,9 +476,14 @@ public sealed partial class BuildViewModel : ObservableObject
             summary.Add($"Codificação '{result.Encoding.Strategy}': {ProjectLabels.Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}.");
         }
 
-        if (result.Qa.Issues.Count > 0)
+        if (result.Qa.OtherIssues.Count > 0)
         {
-            summary.Add($"QA: {QaBlockedException.Describe(result.Qa)}, liberados por 'Permitir avisos do QA'.");
+            summary.Add($"QA: {QaBlockedException.DescribeBlocking(result.Qa)}, liberados por 'Permitir avisos do QA'.");
+        }
+
+        if (result.Qa.UntranslatedCount > 0)
+        {
+            summary.Add(QaBlockedException.DescribeUntranslated(result.Qa));
         }
 
         if (result.Qa.Silenced.Count > 0)
@@ -486,7 +491,7 @@ public sealed partial class BuildViewModel : ObservableObject
             summary.Add($"QA: {ProjectLabels.Number(result.Qa.Silenced.Count)} {Plural(result.Qa.Silenced.Count, "aviso marcado como ok", "avisos marcados como ok")}.");
         }
 
-        foreach (var issue in result.Qa.Issues)
+        foreach (var issue in result.Qa.OtherIssues)
         {
             AppendLog(QaLine(issue));
         }
@@ -511,17 +516,23 @@ public sealed partial class BuildViewModel : ObservableObject
 
     private void DescribeQaBlocked(QaBlockedException blocked)
     {
-        foreach (var issue in blocked.Report.Issues.Take(MaxQaIssuesLogged))
+        var others = blocked.Report.OtherIssues;
+        foreach (var issue in others.Take(MaxQaIssuesLogged))
         {
             AppendLog(QaLine(issue));
         }
 
-        if (blocked.Report.Issues.Count > MaxQaIssuesLogged)
+        if (others.Count > MaxQaIssuesLogged)
         {
-            AppendLog($"... e mais {ProjectLabels.Number(blocked.Report.Issues.Count - MaxQaIssuesLogged)} ocorrência(s).");
+            AppendLog($"... e mais {ProjectLabels.Number(others.Count - MaxQaIssuesLogged)} ocorrência(s).");
         }
 
-        Fail("Build bloqueado pelo QA", $"O QA bloqueou o build ({QaBlockedException.Describe(blocked.Report)}) e nada foi gravado. Corrija a tradução, marque o aviso como ok na linha ou ligue 'Permitir avisos do QA' para liberar só os avisos.");
+        if (blocked.Report.UntranslatedCount > 0)
+        {
+            AppendLog(QaBlockedException.DescribeUntranslated(blocked.Report));
+        }
+
+        Fail("Build bloqueado pelo QA", $"O QA bloqueou o build ({QaBlockedException.DescribeBlocking(blocked.Report)}) e nada foi gravado. Corrija a tradução, marque o aviso como ok na linha ou ligue 'Permitir avisos do QA' para liberar só os avisos.");
     }
 
     private static string QaLine(QaIssue issue) =>

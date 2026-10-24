@@ -12,13 +12,17 @@ public static class CompletenessQaRules
 
 /// <summary>
 /// Linha com original e sem tradução (<see cref="TranslationStatus.Untranslated"/> e <see cref="TextUnit.Translation"/> vazia). É aviso, não erro:
-/// o build copia o original, então um build parcial é legítimo e <c>--allow-warnings</c> o libera. Rascunho em <c>untranslated</c> com
+/// o build copia o original, então um build parcial é legítimo: esta regra nunca bloqueia o build (<see cref="QaReport.Blocks"/>) e o resumo
+/// do build só mostra a contagem. Os outros avisos seguem exigindo <c>--allow-warnings</c>. Rascunho em <c>untranslated</c> com
 /// texto não entra aqui: é o caso da regra de tradução ignorada.
 /// </summary>
 public sealed class UntranslatedQaRule : UnitQaRule
 {
+    /// <summary>Id da regra, que o <see cref="QaReport"/> usa para não bloquear o build por ela.</summary>
+    public const string RuleId = "nao-traduzida";
+
     /// <inheritdoc />
-    public override string Id => "nao-traduzida";
+    public override string Id => RuleId;
 
     /// <inheritdoc />
     public override string Description => "Linha ainda sem tradução.";

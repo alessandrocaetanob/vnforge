@@ -103,7 +103,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 `vnf build` (E8.1, E5.1; aceita `--json`)
 ```
   --report                 só lista os caracteres que a estratégia troca ou não representa; não reconstrói nada (sai com 2 se algum não for codificável)
-  --allow-warnings         deixa o build seguir com avisos de QA; erros de QA continuam bloqueando (E7.1)
+  --allow-warnings         deixa o build seguir com avisos de QA; erros de QA continuam bloqueando (E7.1). Os avisos `nao-traduzida` nunca bloqueiam: o build copia o original nessas linhas e o resumo traz a contagem ("QA: 6.853 linhas sem tradução; o build copiou o original nelas."; no `--json`, `qa.untranslated`) (#232)
   --only-changed [bool]    reaproveita os scripts cuja tradução não mudou desde o build anterior (padrão: ligado; `--only-changed false` reconstrói tudo) (E8.4)
   --encoding <estratégia>  estratégia de codificação só deste build (sjis, fold, cp1252); o vnforge.json não muda (E8.4)
 ```
