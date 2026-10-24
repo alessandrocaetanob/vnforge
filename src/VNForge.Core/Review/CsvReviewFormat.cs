@@ -79,9 +79,9 @@ internal sealed class CsvReviewFormat : IReviewFormat
         return rows;
     }
 
-    private static void AppendRecord(StringBuilder sb, IReadOnlyList<string> fields)
+    private static void AppendRecord(StringBuilder sb, string[] fields)
     {
-        for (var i = 0; i < fields.Count; i++)
+        for (var i = 0; i < fields.Length; i++)
         {
             if (i > 0)
             {

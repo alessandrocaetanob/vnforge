@@ -31,7 +31,10 @@ public sealed class FileLoggerTests : IDisposable
             var logger = factory.CreateLogger("Teste");
             const string arquivo = "ysbin.ypf";
             var falha = new InvalidOperationException("falha interna");
-            logger.LogInformation("Lendo {Arquivo}", arquivo);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("Lendo {Arquivo}", arquivo);
+            }
             logger.LogError(falha, "Falhou");
         }
 

@@ -116,7 +116,13 @@ public static class ErrorHandler
             case VNForgeException:
                 var expectedMessage = exception.Message;
                 Report(JsonEnvelope.ExpectedKind, expectedMessage, humanText: $"Erro: {expectedMessage}");
-                TryLog(() => logger.LogWarning(exception, "Erro esperado: {Mensagem}", expectedMessage));
+                TryLog(() =>
+                {
+                    if (logger.IsEnabled(LogLevel.Warning))
+                    {
+                        logger.LogWarning(exception, "Erro esperado: {Mensagem}", expectedMessage);
+                    }
+                });
                 return ErrorExitCode;
 
             default:

@@ -39,11 +39,12 @@ internal static class ExportCommand
 
     private static int Run(VnfCli cli, ParseResult parseResult, string? formatName, string? outputArgument, bool force)
     {
+        var fromOutput = outputArgument is null ? null : ReviewFormats.FromPath(outputArgument);
         var format = formatName is not null
             ? ReviewFormats.Find(formatName)
                 ?? throw new UsageException($"Formato '{formatName}' desconhecido; os formatos de exportação são: {string.Join(", ", ReviewFormats.All.Select(f => f.Name))}.")
-            : (outputArgument is null ? null : ReviewFormats.FromPath(outputArgument)) ?? ReviewFormats.Csv;
-        if (formatName is not null && outputArgument is not null && ReviewFormats.FromPath(outputArgument) is { } byExtension && byExtension != format)
+            : fromOutput ?? ReviewFormats.Csv;
+        if (formatName is not null && fromOutput is { } byExtension && byExtension != format)
         {
             throw new UsageException($"--format {format.Name} não combina com a extensão de '{outputArgument}' ({byExtension.Extension}); ajuste um dos dois.");
         }
