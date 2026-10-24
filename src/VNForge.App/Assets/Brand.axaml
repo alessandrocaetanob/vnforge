@@ -1,0 +1,5 @@
+<!-- Selo 訳, a marca do VNForge (docs/design/README-design-system.md, seção Marca). Traçado do design system. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StreamGeometry x:Key="Brand.Seal">M22.1 37.08Q21.8 36.84 21.31 36.54Q20.81 36.24 20.3 35.97V36.48H11.05V27.6H20.3V33.56Q21.59 31.24 22.21 28.08Q22.83 24.92 22.83 20.55V10.98H35.98V22.42H31.14Q31.56 26.15 33.38 29.25Q35.2 32.35 38 34.49Q37.28 34.91 36.49 35.65Q35.71 36.39 35.23 36.99Q32.25 34.58 30.26 31.09Q28.28 27.6 27.79 22.42H26.29Q26.2 25.85 25.69 28.5Q25.17 31.15 24.27 33.23Q23.37 35.31 22.1 37.08ZM10 17.87V15.04H21.41V17.87ZM26.32 19.23H32.49V14.14H26.32ZM11.38 26.15V23.47H19.94V26.15ZM11.38 22.03V19.35H19.94V22.03ZM11.38 13.57V10.92H19.94V13.57ZM14.15 33.62H17.2V30.46H14.15Z</StreamGeometry>
+</ResourceDictionary>

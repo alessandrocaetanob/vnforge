@@ -18,14 +18,14 @@ jobs:
             - nuget-linux-v1-
       - run:
           name: Build
-          command: dotnet build VNForge.NoApp.slnf --configuration Release
+          command: dotnet build VNForge.slnx --configuration Release
       - save_cache:
           key: nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
           paths:
             - ~/.nuget/packages
       - run:
           name: Testes
-          command: dotnet test --solution VNForge.NoApp.slnf --configuration Release --no-build
+          command: dotnet test --solution VNForge.slnx --configuration Release --no-build
 
   windows:
     executor: win/server-2022

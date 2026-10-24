@@ -1,0 +1,41 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:views="using:VNForge.App.Views"
+             x:Class="VNForge.App.App"
+             RequestedThemeVariant="Default">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VNForge.App/Themes/Tokens.axaml"/>
+        <ResourceInclude Source="avares://VNForge.App/Assets/Icons.axaml"/>
+        <ResourceInclude Source="avares://VNForge.App/Assets/Brand.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.DataTemplates>
+    <DataTemplate DataType="vm:StartViewModel">
+      <views:StartView/>
+    </DataTemplate>
+    <DataTemplate DataType="vm:EditorViewModel">
+      <views:EditorView/>
+    </DataTemplate>
+  </Application.DataTemplates>
+
+  <Application.Styles>
+    <!-- Accent fixo: o azul ai (藍) é identidade do app e os contrastes foram calculados para ele; não segue a cor do Windows. -->
+    <FluentTheme DensityStyle="Normal">
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#8DB0EA" RegionColor="#15181E" ErrorText="#F59AB2"/>
+        <ColorPaletteResources x:Key="Light" Accent="#2B4C7E" RegionColor="#F4F5F8" ErrorText="#9C1F45"/>
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://VNForge.App/Themes/Typography.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/Buttons.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/NavRail.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/Panels.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/InfoBar.axaml"/>
+  </Application.Styles>
+</Application>

@@ -1,0 +1,78 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Variantes de docs/design/components/Button: subtle, danger, sm, lg, icon; mais Border.kbd. "accent" é do Fluent. -->
+  <Style Selector="Button">
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlMd}"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Padding" Value="12,0"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.167"/>
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="Button.accent">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentHover}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
+  </Style>
+
+  <Style Selector="Button.subtle">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+
+  <Style Selector="Button.danger">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+
+  <Style Selector="Button.sm">
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="FontSize" Value="13"/>
+  </Style>
+  <Style Selector="Button.lg">
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlLg}"/>
+    <Setter Property="Padding" Value="20,0"/>
+  </Style>
+  <Style Selector="Button.icon">
+    <Setter Property="Width" Value="{DynamicResource Vnf.ControlMd}"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Anel de foco do teclado: 2px sólido em focus-ring. -->
+  <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter, ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
+    <Setter Property="BorderThickness" Value="2"/>
+  </Style>
+
+  <Style Selector="Border.kbd">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Padding" Value="6,1"/>
+  </Style>
+  <Style Selector="Border.kbd > TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontMono}"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+</Styles>

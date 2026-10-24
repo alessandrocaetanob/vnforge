@@ -1,0 +1,154 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.StartView"
+             x:DataType="vm:StartViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="1180" Margin="24,32,24,40" Spacing="16">
+
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock Classes="title-lg" Text="Projetos" VerticalAlignment="Center"/>
+        <Button Grid.Column="1" Margin="0,0,12,0" Command="{Binding OpenFolderCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+            <TextBlock Text="Abrir projeto"/>
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="2" Classes="accent" Command="{Binding NewProjectCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
+            <TextBlock Text="Novo projeto" FontWeight="SemiBold"/>
+          </StackPanel>
+        </Button>
+      </Grid>
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Grid>
+      </Border>
+      <Border Classes="infobar" IsVisible="{Binding NoticeMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding NoticeMessage}"/>
+        </Grid>
+      </Border>
+
+      <!-- Painéis lado a lado: Grid com colunas, para os dois terem a mesma altura. -->
+      <Grid ColumnDefinitions="*,400" ColumnSpacing="12">
+
+        <Border Classes="panel" ClipToBounds="True" MinHeight="260">
+          <Grid RowDefinitions="32,*,40">
+            <Border Classes="divider-bottom" Padding="16,0">
+              <Grid ColumnDefinitions="*,180,96" ColumnSpacing="16">
+                <TextBlock Classes="overline" Text="PROJETO" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="overline" Text="TRADUZIDO" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Classes="overline" Text="ABERTO" VerticalAlignment="Center"/>
+              </Grid>
+            </Border>
+
+            <ListBox Grid.Row="1" Classes="projects" ItemsSource="{Binding Recents}" SelectedItem="{Binding Selected}"
+                     IsVisible="{Binding HasRecents}" AutomationProperties.Name="Projetos recentes">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:RecentProjectItem">
+                  <Grid ColumnDefinitions="*,180,96" ColumnSpacing="16" Margin="16,12">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="body-strong" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Classes="mono secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                      <TextBlock Classes="body-sm" Text="{Binding PercentLabel}" IsVisible="{Binding IsAvailable}"/>
+                      <TextBlock Classes="body-sm" Text="Indisponível" Foreground="{DynamicResource Vnf.SignalWarningFg}" IsVisible="{Binding HasProblem}"/>
+                      <c:DistributionBar Height="4" Value="{Binding Distribution}" IsVisible="{Binding IsAvailable}"
+                                         AutomationProperties.Name="{Binding DistributionDescription}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Classes="body-sm secondary" Text="{Binding WhenLabel}" VerticalAlignment="Center"/>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Tela vazia: a ação principal vira um botão grande. -->
+            <StackPanel Grid.Row="1" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                        IsVisible="{Binding !HasRecents}">
+              <TextBlock Classes="title-md" Text="Nenhum projeto recente" HorizontalAlignment="Center"/>
+              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
+                         Text="Abra uma pasta criada com `vnf init`. Ela aparece aqui na próxima vez."/>
+              <Button Classes="accent lg" HorizontalAlignment="Center" Command="{Binding OpenFolderCommand}" Content="Abrir projeto"/>
+            </StackPanel>
+
+            <Border Grid.Row="2" Classes="divider-top" Padding="16,0">
+              <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding RecentsSummary}"/>
+            </Border>
+          </Grid>
+        </Border>
+
+        <!-- Projeto selecionado -->
+        <Border Grid.Column="1" Classes="panel" Padding="16" AutomationProperties.Name="Projeto selecionado">
+          <Panel>
+          <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16" IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="overline" Text="{Binding Selected.EngineLabel}"/>
+              <TextBlock Classes="title-md" Text="{Binding Selected.Name}" TextWrapping="Wrap"/>
+              <TextBlock Classes="mono secondary" Text="{Binding Selected.Path}" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Spacing="16" IsVisible="{Binding Selected.IsAvailable}">
+              <StackPanel Spacing="8">
+                <c:DistributionBar Height="8" Value="{Binding Selected.Distribution}" AutomationProperties.Name="{Binding Selected.DistributionDescription}"/>
+                <WrapPanel>
+                  <TextBlock Classes="caption secondary" Margin="0,0,12,0" Text="{Binding Selected.Distribution.Approved, StringFormat='Aprovadas {0}%'}"/>
+                  <TextBlock Classes="caption secondary" Margin="0,0,12,0" Text="{Binding Selected.Distribution.Reviewed, StringFormat='Revisadas {0}%'}"/>
+                  <TextBlock Classes="caption secondary" Margin="0,0,12,0" Text="{Binding Selected.Distribution.Translated, StringFormat='Traduzidas {0}%'}"/>
+                  <TextBlock Classes="caption secondary" Margin="0,0,12,0" Text="{Binding Selected.Distribution.Machine, StringFormat='IA {0}%'}"/>
+                  <TextBlock Classes="caption secondary" Text="{Binding Selected.Distribution.Pending, StringFormat='Pendentes {0}%'}"/>
+                </WrapPanel>
+              </StackPanel>
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+                <TextBlock Classes="body-sm secondary" Text="Traduzido"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding Selected.PercentLabel}"/>
+                <TextBlock Grid.Row="1" Classes="body-sm secondary" Text="Linhas"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Classes="body-sm" Text="{Binding Selected.Lines}"/>
+                <TextBlock Grid.Row="2" Classes="body-sm secondary" Text="Scripts"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" Text="{Binding Selected.Scripts}"/>
+                <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Acentuação"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm" Text="{Binding Selected.EncodingLabel}" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="4" Classes="body-sm secondary" Text="Modelo"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" Classes="body-sm" Text="{Binding Selected.ModelLabel}"/>
+              </Grid>
+            </StackPanel>
+
+            <Border Grid.Row="1" Classes="infobar warning" VerticalAlignment="Top" IsVisible="{Binding Selected.HasProblem}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.Problem}"/>
+              </Grid>
+            </Border>
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                      Command="{Binding OpenSelectedInEditorCommand}" Content="Abrir no Editor"/>
+              <Button Grid.Column="1" Command="{Binding RemoveSelectedCommand}" Content="Remover da lista"/>
+            </Grid>
+          </Grid>
+          <TextBlock Classes="body-sm secondary" Text="Selecione um projeto da lista para ver o progresso." TextWrapping="Wrap"
+                     IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNull}}"/>
+          </Panel>
+        </Border>
+      </Grid>
+
+      <Border Classes="infobar">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+            <Run FontWeight="SemiBold" Text="Um projeto é uma pasta. "/>
+            <Run Text="Texto, glossário e perfil de formatação ficam em JSON versionável; os arquivos do jogo nunca entram nela."/>
+          </TextBlock>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
