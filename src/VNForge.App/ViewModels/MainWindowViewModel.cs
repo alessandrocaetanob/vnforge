@@ -233,7 +233,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             await Start.OpenAsync(root);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ProjectConfigException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or Core.VNForgeException)
         {
             Start.ErrorMessage = $"{e.Message} O projeto foi criado, mas não pôde ser aberto.";
         }
