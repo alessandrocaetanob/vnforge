@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -123,6 +124,65 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
 
                 Assert.Contains(vm.Layout!.Boxes[0].Lines, l => l.Overflow);
                 DesenharDeVerdade(caixa);
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Fonte_padrao_e_a_MS_Gothic_do_sistema_ou_a_BIZ_UDGothic_embutida()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var instalada = FontManager.Current.SystemFonts.Any(f => f.Name is "MS Gothic" or "ＭＳ ゴシック");
+
+                Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(new TextboxPreview().FontFamily), out var glifos));
+                if (instalada)
+                {
+                    Assert.Contains(glifos.FamilyName, new[] { "MS Gothic", "ＭＳ ゴシック" });
+                }
+                else
+                {
+                    Assert.Contains(glifos.FamilyName, new[] { "BIZ UDGothic", "BIZ UDゴシック" });
+                }
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Fonte_embutida_resolve_sozinha_e_nao_deixa_glifo_faltando()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var embutida = new FontFamily("avares://VNForge.App/Assets/Fonts#BIZ UDGothic");
+                Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(embutida), out var glifos));
+                Assert.Contains(glifos.FamilyName, new[] { "BIZ UDGothic", "BIZ UDゴシック" });
+                foreach (var letra in "áãçõÉ")
+                {
+                    Assert.True(glifos.CharacterToGlyphMap.TryGetGlyph(letra, out var glifo) && glifo != 0, $"sem glifo para {letra}");
+                }
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Fonte_padrao_tem_os_acentos_do_portugues_e_o_latim_mede_metade_do_japones()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var tipo = new Typeface(new TextboxPreview().FontFamily);
+                Assert.True(FontManager.Current.TryGetGlyphTypeface(tipo, out var glifos));
+                foreach (var letra in "áãçõÉ")
+                {
+                    Assert.True(glifos.CharacterToGlyphMap.TryGetGlyph(letra, out var glifo) && glifo != 0, $"sem glifo para {letra}");
+                }
+
+                double Largura(string texto) => new Avalonia.Media.FormattedText(texto, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tipo, 20, Brushes.Black).Width;
+                Assert.Equal(Largura("あ") / 2, Largura("a"), 0.5);
+                Assert.Equal(Largura("a"), Largura("ã"), 0.5);
+                Assert.Equal(Largura("a"), Largura("É"), 0.5);
             },
             CancellationToken.None);
     }
