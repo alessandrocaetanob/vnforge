@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
+using VNForge.Core;
 using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
@@ -75,7 +77,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         };
         start.EditorRequested += (_, summary) =>
         {
-            SetProject(summary);
+            try
+            {
+                SetProject(summary);
+            }
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+            {
+                start.ErrorMessage = $"{e.Message} O projeto não pôde ser carregado.";
+                return;
+            }
+
             SelectedNav = editorItem;
         };
     }
@@ -238,9 +249,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             await Start.OpenAsync(root);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or Core.VNForgeException)
+        catch (Exception e)
         {
-            Start.ErrorMessage = $"{e.Message} O projeto foi criado, mas não pôde ser aberto.";
+            // Os erros esperados já viram mensagem em Start.OpenAsync; o resto é defeito: sem esta rede a Task falha ficaria sem observador.
+            Debug.WriteLine(e);
+            Start.ErrorMessage = "O projeto foi criado, mas ocorreu um erro inesperado ao abri-lo. Abra a pasta pelo Início.";
         }
     }
 

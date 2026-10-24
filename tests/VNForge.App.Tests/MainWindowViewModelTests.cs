@@ -133,8 +133,45 @@ public class MainWindowViewModelTests
 
         wizard.FinishCommand.Execute(null);
         await vm.ProjectOpening;
+        await vm.Editor.Loading;
 
         Assert.Contains("glossary.json ilegível.", vm.Start.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Abrir_pasta_com_falha_ao_carregar_o_projeto_vira_mensagem_e_o_comando_nao_lanca()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var vm = Create(temp, root);
+        vm.Start.ProjectOpened += (_, _) => throw new ProjectConfigException("glossary.json ilegível.");
+
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+
+        Assert.Contains("glossary.json ilegível.", vm.Start.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Abrir_no_Editor_um_recente_que_sumiu_mostra_mensagem_e_nao_navega()
+    {
+        using var temp = new TempFolder();
+        var gone = SampleProjects.Create(temp.SubFolder("some"), "Some", TranslationStatus.Approved);
+        var current = SampleProjects.Create(temp.SubFolder("fica"), "Fica", TranslationStatus.Approved);
+        var picker = new FakeFolderPicker(gone);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), picker, new FixedClock(Now)));
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        var summary = vm.Start.Recents.Single().Summary;
+        Assert.NotNull(summary);
+        await vm.Start.OpenAsync(current);
+        await vm.Editor.Loading;
+        Directory.Delete(gone, recursive: true);
+        vm.Start.Selected = vm.Start.Recents.Single(r => r.Summary == summary);
+
+        vm.Start.OpenSelectedInEditorCommand.Execute(null);
+
+        Assert.NotNull(vm.Start.ErrorMessage);
+        Assert.Same(vm.Start, vm.CurrentPage);
     }
 
     [Fact]
