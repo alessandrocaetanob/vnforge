@@ -5,10 +5,18 @@ namespace VNForge.Cli;
 /// <summary>
 /// Traduz as mensagens de erro de parse do System.CommandLine 2.0.13, que saem em inglês para
 /// opção obrigatória e valor inválido. Reconhece também a forma já localizada, para que o texto final
-/// seja sempre o mesmo. O que não for reconhecido mantém o texto original depois de um prefixo em português.
+/// seja sempre o mesmo. O que não for reconhecido sai como "Uso inválido." e o texto original vai só para o log
+/// (<see cref="TryTranslate"/> diz quando isso acontece). Mensagem de validação própria, escrita em português, entra aqui
+/// como regra que se repete: assim ela não cai no texto genérico.
 /// </summary>
 public static partial class ParseErrorMessages
 {
+    /// <summary>Texto genérico, em português, para a mensagem que não tem tradução.</summary>
+    public const string Generic = "Uso inválido.";
+
+    /// <summary>Validação própria da raiz: <c>--verbose</c> e <c>--quiet</c> juntas.</summary>
+    public const string VerboseWithQuiet = "As opções --verbose e --quiet não podem ser usadas juntas.";
+
     private static readonly (Regex Pattern, Func<Match, string> Format)[] Rules =
     [
         (RequiredOption(), m => $"A opção '{m.Groups[1].Value}' é obrigatória."),
@@ -22,9 +30,13 @@ public static partial class ParseErrorMessages
         (MissingCommandArgument(), m => $"Falta um argumento obrigatório do comando '{m.Groups[1].Value}'."),
         (MissingOptionValue(), m => $"A opção '{m.Groups[1].Value}' precisa de um valor."),
         (MissingCommand(), _ => "Informe um comando."),
+        (VerboseWithQuietPattern(), _ => VerboseWithQuiet),
     ];
 
-    public static string Translate(string message)
+    public static string Translate(string message) => TryTranslate(message, out var translated) ? translated : Generic;
+
+    /// <returns>Falso quando a mensagem não é reconhecida; <paramref name="translated"/> traz então o texto genérico.</returns>
+    public static bool TryTranslate(string message, out string translated)
     {
         ArgumentNullException.ThrowIfNull(message);
 
@@ -33,11 +45,13 @@ public static partial class ParseErrorMessages
             var match = pattern.Match(message);
             if (match.Success)
             {
-                return format(match);
+                translated = format(match);
+                return true;
             }
         }
 
-        return $"Uso inválido: {message}";
+        translated = Generic;
+        return false;
     }
 
     private static string TypeName(string typeName) => typeName switch
@@ -68,4 +82,7 @@ public static partial class ParseErrorMessages
 
     [GeneratedRegex(@"^(?:Required command was not provided|O comando necessário não foi fornecido)\.$")]
     private static partial Regex MissingCommand();
+
+    [GeneratedRegex(@"^As opções --verbose e --quiet não podem ser usadas juntas\.$")]
+    private static partial Regex VerboseWithQuietPattern();
 }
