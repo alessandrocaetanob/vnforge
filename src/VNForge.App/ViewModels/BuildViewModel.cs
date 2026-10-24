@@ -588,7 +588,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var mine = epoch;
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && item.Progress is null && !string.IsNullOrEmpty(item.Message) && item.Message != message)
+            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && item.Progress is null && !string.IsNullOrEmpty(item.Message))
             {
                 AppendLog(item.Message);
             }
