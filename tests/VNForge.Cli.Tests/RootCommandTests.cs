@@ -50,7 +50,7 @@ public sealed class RootCommandTests : IDisposable
         var root = await _cli.RunAsync(["--help"], TestContext.Current.CancellationToken);
         var sub = await _cli.RunAsync([Teste, "--help"], TestContext.Current.CancellationToken);
 
-        Assert.Contains("Comandos:", root.Output);
+        Assert.Contains("Outros comandos:", root.Output);
         Assert.Contains(Teste, root.Output);
         Assert.Contains("Uso:", sub.Output);
         Assert.Contains("vnf teste", sub.Output);

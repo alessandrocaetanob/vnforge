@@ -168,30 +168,45 @@ public sealed class VnfCli
             ProcessTerminationTimeout = null,
         };
 
+        Exception? failure = null;
         try
         {
-            return await ErrorHandler.ExecuteAsync(
+            var exitCode = await ErrorHandler.ExecuteAsync(
                 async token =>
                 {
-                    if (parseResult.Errors.Count > 0)
+                    try
                     {
-                        throw new UsageException(
-                            string.Join(" ", parseResult.Errors.Select(e => ParseErrorMessages.Translate(e.Message))) + " Use --help para ver as opções.");
-                    }
+                        if (parseResult.Errors.Count > 0)
+                        {
+                            throw UsageError(parseResult, logger);
+                        }
 
-                    ThrowIfProjectMissing(settings);
-                    if (logger.IsEnabled(LogLevel.Debug))
+                        ThrowIfProjectMissing(settings);
+                        if (logger.IsEnabled(LogLevel.Debug))
+                        {
+                            logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
+                        }
+
+                        return await parseResult.InvokeAsync(invocation, token).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
                     {
-                        logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
+                        failure = ex;
+                        throw;
                     }
-
-                    return await parseResult.InvokeAsync(invocation, token).ConfigureAwait(false);
                 },
                 logger,
                 error,
                 logDirectory,
                 settings.Json ? output : null,
                 cancellationToken).ConfigureAwait(false);
+
+            if (failure is not null && !settings.Json && exitCode == ErrorHandler.ErrorExitCode && CliErrorHints.For(failure) is { } hint)
+            {
+                await error.WriteLineAsync(CliErrorHints.Line(hint)).ConfigureAwait(false);
+            }
+
+            return exitCode;
         }
         finally
         {
@@ -199,6 +214,24 @@ public sealed class VnfCli
             RichOutput = false;
             _animationAllowed = false;
         }
+    }
+
+    /// <summary>Erro de uso do parser em português; o que não tem tradução sai genérico e o original vai para o log.</summary>
+    private static UsageException UsageError(ParseResult parseResult, ILogger logger)
+    {
+        var messages = new List<string>();
+        foreach (var error in parseResult.Errors)
+        {
+            if (!ParseErrorMessages.TryTranslate(error.Message, out var translated))
+            {
+                logger.LogWarning("Mensagem de uso sem tradução: {Original}", error.Message);
+            }
+
+            messages.Add(translated);
+        }
+
+        var commandPath = PortugueseHelpAction.CommandPath(parseResult.CommandResult.Command);
+        return new UsageException(string.Join(' ', messages.Distinct(StringComparer.Ordinal)), CliErrorHints.HelpHint(commandPath));
     }
 
     private void ThrowIfProjectMissing(GlobalSettings settings)
@@ -211,7 +244,7 @@ public sealed class VnfCli
         var root = Path.GetFullPath(settings.Project, _currentDirectory);
         if (!Directory.Exists(root))
         {
-            throw new UsageException($"A pasta do projeto não existe: {root}");
+            throw new UsageException($"A pasta do projeto não existe: {root}", CliErrorHints.ProjectFolderMissing);
         }
     }
 
@@ -219,7 +252,7 @@ public sealed class VnfCli
     {
         if (result.GetValue(Options.Verbose) && result.GetValue(Options.Quiet))
         {
-            result.AddError("As opções --verbose e --quiet não podem ser usadas juntas.");
+            result.AddError(ParseErrorMessages.VerboseWithQuiet);
         }
     }
 
