@@ -74,4 +74,20 @@ public class XlsxReviewFormatTests
 
         Assert.Equal("漢字", lida.Translation);
     }
+
+    [Fact]
+    public void Referencia_de_celula_alem_da_ultima_coluna_e_recusada_sem_alocar_a_linha()
+    {
+        var bytes = XlsxTestFiles.WithHeader("id", "translation", "status", "notes");
+        using var stream = new MemoryStream();
+        stream.Write(bytes);
+        using (var doc = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(stream, true))
+        {
+            var cell = doc.WorkbookPart!.WorksheetParts.First().Worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>().First();
+            cell.CellReference = "ZZZZZZZ1";
+            doc.WorkbookPart.WorksheetParts.First().Worksheet.Save();
+        }
+
+        Assert.Throws<ReviewImportException>(() => Xlsx.Read(stream.ToArray(), "r.xlsx"));
+    }
 }

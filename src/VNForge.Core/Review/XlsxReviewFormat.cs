@@ -18,6 +18,9 @@ namespace VNForge.Core.Review;
 internal sealed partial class XlsxReviewFormat : IReviewFormat
 {
     private static readonly string[] Header = ["id", "kind", "speaker", "source", "translation", "status", "notes"];
+    private const int MaxColumns = 16384;
+    private const long MaxCharactersInPart = 256L * 1024 * 1024;
+
     private static readonly string[] Required = ["id", "translation", "status", "notes"];
 
     public string Name => "xlsx";
@@ -56,7 +59,7 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
         try
         {
             using var stream = new MemoryStream(data);
-            using var doc = SpreadsheetDocument.Open(stream, false);
+            using var doc = SpreadsheetDocument.Open(stream, new OpenSettings { MaxCharactersInPart = MaxCharactersInPart });
             return ReadSheet(doc, path);
         }
         catch (Exception e) when (e is OpenXmlPackageException or FileFormatException or InvalidDataException or IOException or ArgumentException or XmlException)
@@ -216,6 +219,10 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
         foreach (var c in reference.TakeWhile(char.IsAsciiLetter))
         {
             index = (index * 26) + (char.ToUpperInvariant(c) - 'A' + 1);
+            if (index > MaxColumns)
+            {
+                throw new ReviewImportException($"Referência de célula '{reference}' fora do limite do XLSX (coluna XFD).");
+            }
         }
 
         return Math.Max(index - 1, 0);
