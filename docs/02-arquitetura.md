@@ -341,6 +341,7 @@ minha-vn-ptbr/
 ├─ formatting.json         # perfil de espaçamento e quebra de linha
 ├─ glossary.json           # termos fixos
 ├─ characters.json         # nomes de personagens: original → tradução, gênero, tom de fala
+├─ scripts.json            # nome legível de cada script: o que a engine leu do jogo e o que o usuário escolheu
 ├─ style.md                # guia de estilo livre, vai junto no prompt da IA
 ├─ text/                   # UMA unidade de texto por linha, um arquivo por script
 │  ├─ yst00012.json
@@ -377,6 +378,10 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 `GlossaryUsage.From(units)` conta, para a página Glossário, as linhas do projeto que contêm cada termo (`LinesContaining`, mesmo critério do `GlossaryMatcher`) e as linhas faladas por cada personagem (`LinesSpokenBy`); conta linhas, não ocorrências dentro da linha.
 
 `CharacterEntry.Source` é o nome exatamente como a engine o extrai em `TextUnit.Speaker`. `CharacterBook.Find(speaker)` acha a entrada por comparação ordinal, ignorando espaços nas pontas; falante nulo, vazio ou desconhecido (por exemplo `？？？`, quando não há entrada) devolve `null`. `ProjectFolder` lê e grava os dois arquivos (`LoadGlossary`, `SaveGlossary`, `LoadCharacters`, `SaveCharacters`). Os comandos `vnf glossary` e `vnf chars` ficam na E9.1.
+
+### Nome do script (`scripts.json`)
+
+`scripts.json` guarda o nome legível de cada script, com o envelope `{ "version": 1, "entries": [...] }` e uma entrada por linha: `{ "key": "yst00012", "detected": "manha", "name": "Capítulo 1 · Manhã" }`. `detected` é o que a engine leu do jogo (no YU-RIS, o arquivo do caminho na `yst_list`: `userscript\01_cap1\manha.yst` vira `manha`) e a extração o atualiza; `name` é o que o usuário escolheu e a extração nunca troca. `ScriptNames.DisplayName(key)` devolve `name`, senão `detected`, senão `null` (quem mostra o script usa a chave). Arquivo ausente vale nenhum nome; a extração só o cria quando a engine leu algum nome. Renomear é `ProjectFolder.RenameScript(key, nome)`; nome vazio volta ao `detected`. Erro de formato é `GlossaryFileException`. O `vnf status` mostra o nome na tabela por script (coluna "Nome", só quando algum script tem nome) e no campo `name` de cada item de `files` no `--json`.
 
 ### Estado do pipeline (`.cache/state.json`)
 

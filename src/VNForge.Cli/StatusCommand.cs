@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -27,23 +28,24 @@ internal static class StatusCommand
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var status = ProjectStatusReporter.Create(project);
+        var scriptNames = ScriptNamesOf(project);
 
         if (parseResult.GetValue(cli.Options.Json))
         {
             output.WriteLine(JsonEnvelope.Result(new
             {
                 total = Data(status.Total),
-                files = status.Files.Select(f => Data(f.Counts, "key", f.Key)),
+                files = status.Files.Select(f => Data(f.Counts, "key", f.Key, "name", scriptNames.DisplayName(f.Key))),
                 characters = status.Characters.Select(c => Data(c.Counts, "speaker", c.Speaker)),
             }));
             return ErrorHandler.OkExitCode;
         }
 
-        WriteText(cli.Ansi, project, status);
+        WriteText(cli.Ansi, project, status, scriptNames);
         return ErrorHandler.OkExitCode;
     }
 
-    private static void WriteText(IAnsiConsole ansi, ProjectFolder project, ProjectStatus status)
+    private static void WriteText(IAnsiConsole ansi, ProjectFolder project, ProjectStatus status, ScriptNames scriptNames)
     {
         var total = status.Total;
         var accent = CliPalette.Hex(CliPalette.Accent);
@@ -56,14 +58,22 @@ internal static class StatusCommand
         ansi.WriteLine();
 
         ansi.WriteLine();
-        var scripts = CliViews.NewTable(CliViews.Column("Script"), CliViews.Column("Linhas", right: true), CliViews.Column("Progresso"), CliViews.Column("%", right: true));
+        var named = status.Files.Any(file => scriptNames.DisplayName(file.Key) is not null);
+        var scripts = named
+            ? CliViews.NewTable(CliViews.Column("Script"), CliViews.Column("Nome"), CliViews.Column("Linhas", right: true), CliViews.Column("Progresso"), CliViews.Column("%", right: true))
+            : CliViews.NewTable(CliViews.Column("Script"), CliViews.Column("Linhas", right: true), CliViews.Column("Progresso"), CliViews.Column("%", right: true));
         foreach (var file in status.Files)
         {
-            scripts.AddRow(
-                new Markup(CliViews.Escape(file.Key)),
-                new Markup(CliFormat.Number(file.Counts.Total)),
-                DistributionBar.Create(file.Counts, RowBarWidth),
-                new Markup(CliFormat.Percent(file.Counts.Percent)));
+            var cells = new List<IRenderable> { new Markup(CliViews.Escape(file.Key)) };
+            if (named)
+            {
+                cells.Add(new Markup(CliViews.Escape(scriptNames.DisplayName(file.Key) ?? string.Empty)));
+            }
+
+            cells.Add(new Markup(CliFormat.Number(file.Counts.Total)));
+            cells.Add(DistributionBar.Create(file.Counts, RowBarWidth));
+            cells.Add(new Markup(CliFormat.Percent(file.Counts.Percent)));
+            scripts.AddRow(cells.ToArray());
         }
 
         ansi.Write(scripts);
@@ -81,6 +91,19 @@ internal static class StatusCommand
         }
 
         ansi.Write(characters);
+    }
+
+    // scripts.json inválido não derruba o status: sem ele os scripts aparecem só pela chave.
+    private static ScriptNames ScriptNamesOf(ProjectFolder project)
+    {
+        try
+        {
+            return project.LoadScriptNames();
+        }
+        catch (GlossaryFileException)
+        {
+            return ScriptNames.Empty;
+        }
     }
 
     // characters.json inválido não derruba o status: sem ele os falantes aparecem sem tradução do nome.
@@ -110,12 +133,17 @@ internal static class StatusCommand
             : CliViews.Escape(speaker);
     }
 
-    private static Dictionary<string, object?> Data(StatusCounts counts, string? keyName = null, string? keyValue = null)
+    private static Dictionary<string, object?> Data(StatusCounts counts, string? keyName = null, string? keyValue = null, string? extraName = null, string? extraValue = null)
     {
         var data = new Dictionary<string, object?>();
         if (keyName is not null)
         {
             data[keyName] = keyValue;
+        }
+
+        if (extraName is not null)
+        {
+            data[extraName] = extraValue;
         }
 
         data["lines"] = counts.Total;

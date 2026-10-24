@@ -32,8 +32,12 @@ public class DashboardViewHeadlessTests(HeadlessFixture fixture) : IClassFixture
                     Dispatcher.UIThread.RunJobs();
                     window.UpdateLayout();
 
-                    Assert.Equal(5, window.GetVisualDescendants().OfType<Button>().Count(b => b.DataContext is PipelineStageViewModel));
+                    var steps = window.GetVisualDescendants().OfType<PipelineStepItem>().ToList();
+                    Assert.Equal(["Extrair", "Traduzir", "Conferir", "Build", "Injetar"], steps.Select(s => s.Title));
+                    Assert.Equal(3, window.GetVisualDescendants().OfType<StatCard>().Count());
                     Assert.NotEmpty(window.GetVisualDescendants().OfType<DistributionBar>());
+                    Assert.Single(window.GetVisualDescendants().OfType<SignalBar>());
+                    Assert.Equal("Minha VN", window.GetVisualDescendants().OfType<PageHeader>().Single().Title);
                 }
                 finally
                 {

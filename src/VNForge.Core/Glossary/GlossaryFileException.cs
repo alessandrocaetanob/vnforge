@@ -1,6 +1,6 @@
 namespace VNForge.Core.Glossary;
 
-/// <summary>Um <c>glossary.json</c> ou <c>characters.json</c> não pôde ser lido ou gravado: não é UTF-8, não segue o formato ou tem entradas repetidas.</summary>
+/// <summary>Um <c>glossary.json</c>, <c>characters.json</c> ou <c>scripts.json</c> não pôde ser lido ou gravado: não é UTF-8, não segue o formato ou tem entradas repetidas.</summary>
 public sealed class GlossaryFileException : VNForgeException
 {
     public GlossaryFileException(string filePath, string reason, Exception? innerException = null)

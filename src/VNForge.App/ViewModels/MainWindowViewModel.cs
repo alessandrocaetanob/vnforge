@@ -99,6 +99,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             PipelineStageKey.Build or PipelineStageKey.Inject => buildItem,
             _ => editorItem,
         };
+        Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         start.EditorRequested += (_, summary) =>
         {
             try
@@ -292,6 +293,21 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         return target != NavKey.Conference || Editor.Detail?.Flush() != false;
+    }
+
+    /// <summary>Um botão do Painel: troca de página e, no Editor, abre o script pedido.</summary>
+    private void OpenFromDashboard(DashboardNavigation request)
+    {
+        if (Nav.FirstOrDefault(n => n.Key == request.Target) is not { IsEnabled: true } item)
+        {
+            return;
+        }
+
+        SelectedNav = item;
+        if (request.ScriptKey is { } key && Editor.Scripts.FirstOrDefault(script => script.Key == key) is { } script)
+        {
+            Editor.SelectedScript = script;
+        }
     }
 
     private async Task ShowLineAsync(LineRequest request)

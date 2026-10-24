@@ -76,6 +76,10 @@ internal static class DemoProject
             folder.SaveText(key, units);
         }
 
+        folder.SaveState(new PipelineState([], new Dictionary<string, StageState> { [ProjectExtractor.ExtractStage] = new(StageStatus.Completed) }));
+        folder.SaveScriptNames(ScriptNames.Empty.WithDetected(Named.ToDictionary(n => n.Key, n => (string?)n.Label)));
+        // O gasto do cartão "Uso da IA" do Painel: US$ 26,40 em 2,1 M tokens de entrada e 0,9 M de saída.
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(2_100_000, 900_000, 0, 0, 26.40m, 1));
         folder.SaveCharacters([.. Characters.Where(c => c.Japanese is not null).Select(c => new CharacterEntry(c.Japanese!, c.Portuguese))]);
         folder.SaveGlossary(
         [

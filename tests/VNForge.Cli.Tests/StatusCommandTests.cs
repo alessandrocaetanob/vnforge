@@ -93,6 +93,47 @@ public sealed class StatusCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Json_traz_o_nome_do_script_e_nulo_quando_nao_ha()
+    {
+        ProjectFolder.Open(_projectPath).RenameScript(Yst00001, "Prólogo");
+
+        var result = await _cli.RunAsync(["status", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
+
+        using var doc = JsonDocument.Parse(result.Output);
+        var files = doc.RootElement.GetProperty("data").GetProperty("files").EnumerateArray().ToList();
+        Assert.Equal(["Prólogo", null], files.Select(f => f.GetProperty("name").GetString()));
+        Assert.Equal([Yst00001, "yst00002"], files.Select(f => f.GetProperty("key").GetString()));
+    }
+
+    [Fact]
+    public async Task Texto_mostra_a_coluna_Nome_quando_algum_script_tem_nome()
+    {
+        var project = ProjectFolder.Open(_projectPath);
+        project.SaveScriptNames(ScriptNames.Empty
+            .WithDetected(new Dictionary<string, string?> { ["yst00002"] = "manha" })
+            .Rename(Yst00001, "Prólogo"));
+
+        var result = await _cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        var lines = result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n').Select(l => l.TrimEnd()).ToArray();
+        var header = Array.FindIndex(lines, l => l.TrimStart().StartsWith("Script", StringComparison.Ordinal));
+        Assert.Equal(["Script", "Nome", "Linhas", "Progresso", "%"], lines[header].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Matches(@"^\s*yst00001\s+Prólogo\s+3\s+\S{20}\s+66,6 %$", lines[header + 1]);
+        Assert.Matches(@"^\s*yst00002\s+manha\s+1\s+\S{20}\s+100,0 %$", lines[header + 2]);
+    }
+
+    [Fact]
+    public async Task Scripts_json_invalido_nao_derruba_o_status()
+    {
+        File.WriteAllText(ProjectFolder.Open(_projectPath).ScriptNamesPath, "isto nao e json");
+
+        var result = await _cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(Yst00001, result.Output);
+    }
+
+    [Fact]
     public async Task Terminal_interativo_pinta_a_barra_com_as_cores_do_app()
     {
         using var cli = new CliHarness(terminal: CliTerminal.TrueColor(width: 100));

@@ -47,33 +47,23 @@ O assistente chama o mesmo `ProjectInitializer` do `vnf init` (`vnf init` ganhou
 
 ### 3. Painel do projeto
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│ Minha VN — PT-BR                                    YU-RIS · CP1252  │
-├──────────────────────────────────────────────────────────────────────┤
-│  ① Extrair ✔   ② Traduzir 62%   ③ Conferir ⚠ 37   ④ Build   ⑤ Injetar│
-├──────────────────────────────────────────────────────────────────────┤
-│  Linhas      48.211                                                  │
-│  ████████████░░░░░░░  aprovadas 21%  revisadas 18%  IA 23%  vazias 38%│
-│                                                                      │
-│  Por arquivo                         Por personagem                  │
-│  yst00012  prólogo        100%       美咲 → Misaki     8.120 linhas   │
-│  yst00013  cap. 1          74%       健太 → Kenta      6.431 linhas   │
-│  ...                                 ...                             │
-│                                                                      │
-│  Custo de IA até agora: 2,1 M tokens                                 │
-└──────────────────────────────────────────────────────────────────────┘
-```
+O layout é o do artboard `docs/design/telas/Painel.dc.html`, de cima para baixo:
 
-Cada etapa é um botão; o texto mostra as pendências. A página lê `ProjectDashboard` (Core): o progresso é o `ProjectStatusReporter` que o `vnf status` imprime, então total, percentual, arquivos e personagens são os mesmos números. Etapas:
+1. **Cabeçalho** (`PageHeader`): a pasta do projeto e a engine em mono, o nome do projeto, "Abrir pasta" (abre a pasta no gerenciador de arquivos) e "Continuar em yst00013", que abre o Editor no primeiro script com linhas pendentes (sem pendentes, o primeiro com linhas por conferir, ou o primeiro script).
+2. **Etapas** (`PipelineStepper`): Extrair, Traduzir, Conferir, Build e Injetar, cada uma com o resumo sob o nome. A concluída tem ✓ verde, a primeira não concluída é a ativa, com sublinhado de destaque. Cada etapa abre a sua tela: Traduzir o Editor, Conferir a Conferência, Build e Injetar a tela Build, concluídas ou não; Extrair não tem tela.
+3. **Três cartões** (`StatCard`): *Linhas* (total, % concluída e pendentes, barra de distribuição com legenda, "Continuar no editor"); *Uso da IA* (gasto, tokens de entrada e de saída, modelo, barra do gasto sobre o gasto mais o restante estimado, "Ajustes de IA"); *Conferência* (problemas, barra de erros e avisos, "Abrir a conferência").
+4. **Tabelas**: "Por script" (id, nome, linhas, barra, %; "Ver todos no editor") e "Por personagem" (original → tradução, linhas, barra, %; "Editar nomes", que abre o Glossário). Cada uma mostra as 8 primeiras linhas e diz "8 de 312 scripts". Os scripts com nome vêm primeiro, cada grupo na ordem do jogo; os personagens, por número de linhas, com as linhas sem falante como "Narração". O % das tabelas e a descrição do cartão de Linhas contam aprovadas e revisadas (arredondado; só chega a 100% quando tudo está concluído); o "% com tradução" do `vnf status` conta tudo que saiu de pendente.
+5. **Legenda de progresso** no rodapé.
 
-- **Extrair**: concluída quando o `.cache/state.json` registra a extração.
-- **Traduzir**: pendentes são as linhas sem tradução.
-- **Conferir**: pendentes são as linhas de máquina e traduzidas, que ninguém revisou. A contagem de avisos do QA entra com a tela de Conferência (#106).
-- **Build**: concluída quando os pacotes de `build/` conferem em tamanho e o último build foi feito com os mesmos textos, perfil de formatação e estratégia de hoje. O `vnf build` grava no `.cache/build-state.json` uma impressão digital do que ele lê de `text/*.json` (só o que entra nos bytes: original, tradução, tipo e posição das linhas que o build grava); mudar só status ou notas, ou copiar o projeto sem preservar datas, não a altera. Um build de versão anterior, sem impressão digital, aparece como pendente até o próximo build.
-- **Injetar**: concluída quando o Build está concluído e o backup mais recente lista arquivos que estão no jogo com o tamanho do arquivo de `build/`. A comparação é por tamanho, porque hashear os pacotes do jogo a cada abertura do Painel seria lento; depois de um `vnf restore` o jogo volta aos originais, o tamanho muda e a etapa volta a pendente. Dois arquivos de mesmo tamanho e conteúdo diferente passariam, o que o `vnf inject` (que compara hash) corrige.
+A página lê `ProjectDashboard` (Core): o progresso é o `ProjectStatusReporter` que o `vnf status` imprime, os problemas vêm do mesmo QA do `vnf check` (sem contar as linhas ainda sem tradução, que já aparecem como pendentes em Traduzir), e os nomes vêm de `scripts.json` e `characters.json`. O nome do script é o do usuário ou, sem ele, o que a engine leu do jogo; o `vnf status` mostra o mesmo nome. Um `scripts.json`, `characters.json` ou glossário inválido não derruba o Painel: os nomes somem ou a conferência fica indisponível ("—"). Etapas:
 
-Traduzir abre o Editor, Conferir abre a Conferência, e Build e Injetar abrem a tela Build (a injeção mora nela); Build e Injetar só ficam acionáveis enquanto pendentes. Extrair não tem tela. O custo de IA é o total de `.cache/ai-usage.json` (tokens e dólares), que `vnf translate` e `vnf review` atualizam ao fim de cada execução; sem o arquivo, o Painel diz que não há chamada registrada. Execução de modelo sem preço na tabela não soma dólar: o Painel mostra o custo como parcial ou desconhecido, nunca US$ 0,00. Um `ai-usage.json` inválido vai para `ai-usage.json.bad` e a conta recomeça; um arquivo que não abre naquele instante deixa a execução sem registro, sem apagar o histórico. A página recarrega a cada vez que é aberta.
+- **Extrair**: concluída quando o `.cache/state.json` registra a extração. Resumo: "48.211 linhas em 312 scripts".
+- **Traduzir**: pendentes são as linhas sem tradução. Resumo: "62% · 18.320 pendentes".
+- **Conferir**: pendentes são as linhas de máquina e traduzidas, que ninguém revisou. Resumo: "2 erros · 37 avisos".
+- **Build**: concluída quando os pacotes de `build/` conferem em tamanho e o último build foi feito com os mesmos textos, perfil de formatação e estratégia de hoje. O `vnf build` grava no `.cache/build-state.json` uma impressão digital do que ele lê de `text/*.json` (só o que entra nos bytes: original, tradução, tipo e posição das linhas que o build grava); mudar só status ou notas, ou copiar o projeto sem preservar datas, não a altera. Um build de versão anterior, sem impressão digital, aparece como pendente até o próximo build. Resumo: "Build em dia", "Os textos mudaram desde o último" ou "Nenhum build ainda" (o artboard mostra "14 scripts alterados desde o último"; o build ainda não guarda a lista por script, então o Painel não a conta).
+- **Injetar**: concluída quando o Build está concluído e o backup mais recente lista arquivos que estão no jogo com o tamanho do arquivo de `build/`. A comparação é por tamanho, porque hashear os pacotes do jogo a cada abertura do Painel seria lento; depois de um `vnf restore` o jogo volta aos originais, o tamanho muda e a etapa volta a pendente. Dois arquivos de mesmo tamanho e conteúdo diferente passariam, o que o `vnf inject` (que compara hash) corrige. Resumo: "backup de 22/10 pronto", "Injetado · backup de 22/10" ou "Nenhuma injeção ainda".
+
+O custo de IA é o total de `.cache/ai-usage.json` (tokens e dólares), que `vnf translate` e `vnf review` atualizam ao fim de cada execução; sem o arquivo, o Painel diz que não há chamada registrada. Os tokens de entrada somam os de cache. O restante estimado é o gasto médio por linha que já saiu de pendente vezes as linhas pendentes; sem gasto, sem linha traduzida ou com execução sem preço, o Painel não estima. Execução de modelo sem preço na tabela não soma dólar: o Painel mostra o custo como parcial ou desconhecido, nunca US$ 0,00. Um `ai-usage.json` inválido vai para `ai-usage.json.bad` e a conta recomeça; um arquivo que não abre naquele instante deixa a execução sem registro, sem apagar o histórico. A página recarrega a cada vez que é aberta.
 
 ### 4. Editor de tradução (tela principal)
 
