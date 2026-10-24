@@ -32,6 +32,8 @@ O app é uma "mesa de tradução": abre um projeto VNForge, mostra o pipeline co
 
 Quatro passos: (1) escolher a pasta do jogo → detecção automática mostra engine, versão e arquivos encontrados; (2) idiomas e nome; (3) estratégia de acentuação, com explicação curta de cada opção; (4) provedor de IA (pode pular). No fim, oferece rodar a extração.
 
+O assistente chama o mesmo `ProjectInitializer` do `vnf init` (`vnf init` ganhou `--source`, `--target`, `--encoding` e `--model` para as mesmas escolhas), então o `vnforge.json` e as pastas saem iguais; um teste compara os dois com um jogo sintético. O passo 1 usa `ProjectInitializer.Inspect`, que só lê a pasta do jogo. "Pular" no passo 4 grava o padrão do `vnf init` (Claude Opus 5.5). A extração do passo final roda fora da thread da tela, sem progresso nem cancelar; o segundo plano com barra de tarefas vem com a #101.
+
 ### 3. Painel do projeto
 
 ```

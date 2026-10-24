@@ -1,4 +1,5 @@
 using VNForge.App.Services;
+using VNForge.Core.Engines;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -61,4 +62,26 @@ internal static class SampleProjects
         folder.SaveText("yst00001", units);
         return folder.Root;
     }
+}
+
+/// <summary>Engine que reconhece qualquer pasta, com versão e chave de mentira nos detalhes da detecção.</summary>
+internal sealed class FakeEngine(bool matches = true) : IEngine
+{
+    public string Id => "yuris";
+
+    public EngineDetection Detect(string gameDir) => matches
+        ? EngineDetection.Matched("parece fake", new Dictionary<string, string>
+        {
+            ["ypfVersion"] = "500",
+            ["scriptKey"] = "0xD36FAC96",
+            ["scriptsArchive"] = "ysbin.ypf",
+            ["scripts"] = "2",
+        })
+        : EngineDetection.NotDetected;
+
+    public IReadOnlyList<IArchiveFormat> Archives => [];
+
+    public IReadOnlyList<IScriptFormat> Scripts => [];
+
+    public IReadOnlyList<IGamePatch> Patches => [];
 }

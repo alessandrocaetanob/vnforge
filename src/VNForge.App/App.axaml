@@ -19,6 +19,9 @@
     <DataTemplate DataType="vm:StartViewModel">
       <views:StartView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:NewProjectWizardViewModel">
+      <views:NewProjectWizardView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:EditorViewModel">
       <views:EditorView/>
     </DataTemplate>
@@ -37,5 +40,6 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/NavRail.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/Panels.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/InfoBar.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/OptionCard.axaml"/>
   </Application.Styles>
 </Application>
