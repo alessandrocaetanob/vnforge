@@ -29,6 +29,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     private GlossaryUsage usage = GlossaryUsage.Empty;
     private bool usageLoaded;
     private int usageVersion;
+    private bool bulkUpdate;
 
     public GlossaryViewModel()
     {
@@ -148,6 +149,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         finally
         {
             loading = false;
+            RefreshVisible();
             termsDirty = false;
             charactersDirty = false;
             IsDirty = false;
@@ -186,6 +188,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
         usage = loaded;
         usageLoaded = true;
+        bulkUpdate = true;
         foreach (var row in Terms)
         {
             ApplyUses(row);
@@ -196,6 +199,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             ApplyUses(row);
         }
 
+        bulkUpdate = false;
         NotifySummaries();
     }
 
@@ -354,6 +358,11 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private void RefreshVisible()
     {
+        if (loading)
+        {
+            return;
+        }
+
         Replace(VisibleTerms, Terms.Where(t => Matches(t.Source, t.Target, t.Notes)));
         Replace(VisibleCharacters, Characters.Where(c => Matches(c.Source, c.Target, c.Tone)));
         OnPropertyChanged(nameof(NoTerms));
@@ -369,6 +378,11 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private void NotifySummaries()
     {
+        if (bulkUpdate)
+        {
+            return;
+        }
+
         OnPropertyChanged(nameof(TermsSummary));
         OnPropertyChanged(nameof(CharactersSummary));
     }
