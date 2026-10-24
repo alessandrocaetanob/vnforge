@@ -45,11 +45,12 @@ public static class ProjectExtractor
     /// <summary>Extrai o jogo do <paramref name="project"/>.</summary>
     /// <param name="project">Projeto aberto; <c>game.path</c> do <c>vnforge.json</c> é relativo à pasta do projeto quando não é absoluto.</param>
     /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
+    /// <param name="progress">Recebe um relato a cada script lido e um final; o primeiro só chega depois de descompactar os pacotes.</param>
     /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento antes da gravação do texto não deixa <c>text/</c> pela metade.</param>
     /// <exception cref="VNForgeException">
     /// Engine desconhecida ou sem suporte à extração, pasta do jogo inexistente, <c>.cache/</c> dentro do jogo, script ilegível ou duas chaves iguais. A mensagem, em português, cita o script ou o arquivo.
     /// </exception>
-    public static ExtractionResult Extract(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default)
+    public static ExtractionResult Extract(ProjectFolder project, IReadOnlyList<IEngine> engines, IProgress<ScriptWorkProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -74,7 +75,7 @@ public static class ProjectExtractor
 
         var warnings = new List<string>(unpacked.Warnings);
         warnings.AddRange(game.Warnings);
-        var extracted = ReadScripts(game, warnings, cancellationToken);
+        var extracted = ReadScripts(game, warnings, progress, cancellationToken);
         var originals = HashOriginals(gameDirectory, unpacked.Archives);
 
         var plan = TextReextraction.Merge(
@@ -200,13 +201,15 @@ public static class ProjectExtractor
 
     private sealed record Extracted(string Key, string? Name, IReadOnlyList<TextUnit> Units);
 
-    private static List<Extracted> ReadScripts(UnpackedGame game, List<string> warnings, CancellationToken cancellationToken)
+    private static List<Extracted> ReadScripts(UnpackedGame game, List<string> warnings, IProgress<ScriptWorkProgress>? progress, CancellationToken cancellationToken)
     {
         var result = new List<Extracted>(game.Scripts.Count);
         var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+        var done = 0;
         foreach (var script in game.Scripts)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new ScriptWorkProgress(done++, game.Scripts.Count, script.Name));
             var file = new ScriptFile(script.Name, File.ReadAllBytes(script.Path));
             if (!keys.TryAdd(file.Key, script.Path))
             {
@@ -228,6 +231,7 @@ public static class ProjectExtractor
             result.Add(new Extracted(file.Key, script.DisplayName, extraction.Units));
         }
 
+        progress?.Report(new ScriptWorkProgress(game.Scripts.Count, game.Scripts.Count, string.Empty));
         result.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
         return result;
     }

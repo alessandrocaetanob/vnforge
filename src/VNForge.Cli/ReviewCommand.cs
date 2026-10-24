@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Spectre.Console;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Review;
@@ -86,6 +87,7 @@ internal static class ReviewCommand
 
         var gate = new object();
         var summary = new RunSummary();
+        var reporter = new BatchReporter(settings.Model, pending.Count, settings.BatchSize, () => (provider as ClaudeReviewProvider)?.Usage);
 
         TranslationBatch BuildBatch(IReadOnlyList<TextUnit> lines)
         {
@@ -101,14 +103,27 @@ internal static class ReviewCommand
             {
                 var lastKey = selection.ApplyAndSave(project, results, (result, unit) => Annotate(summary, result, unit));
                 summary.Handled += results.Count;
-                if (!json)
+                if (reporter.IsLive)
+                {
+                    reporter.BatchDone(summary.Handled);
+                }
+                else if (!json)
                 {
                     error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
                 }
             }
         }
 
-        var run = await runner.RunAsync(pending, BuildBatch, OnBatchReviewed, null, token).ConfigureAwait(false);
+        if (cli.CanAnimate)
+        {
+            cli.Ansi.MarkupLine($"Revisando com [{CliPalette.Hex(CliPalette.Accent)}]{CliViews.Escape(settings.Model)}[/] · esforço {settings.Effort.ToString().ToLowerInvariant()}");
+        }
+
+        var run = await reporter.RunAsync(
+            cli.Ansi,
+            cli.CanAnimate,
+            "Revisando",
+            () => runner.RunAsync(pending, BuildBatch, OnBatchReviewed, null, token)).ConfigureAwait(false);
 
         summary.Failed = [.. run.Failures];
         summary.Usage = (provider as ClaudeReviewProvider)?.Usage;
