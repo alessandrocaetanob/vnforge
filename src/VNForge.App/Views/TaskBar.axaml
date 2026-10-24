@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:sv="using:VNForge.App.Services"
+             x:Class="VNForge.App.Views.TaskBar"
+             x:DataType="vm:TaskBarViewModel"
+             IsVisible="{Binding HasTasks}">
+
+  <!-- Tarefa em segundo plano: título, progresso, custo e Cancelar. A edição continua livre enquanto ela roda. -->
+  <ContentControl Content="{Binding Current}">
+    <ContentControl.ContentTemplate>
+      <DataTemplate x:DataType="sv:BackgroundTaskItem">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <TextBlock Classes="caption" Text="{Binding Title}" VerticalAlignment="Center"/>
+          <ProgressBar Width="160" Height="4" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                       Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
+                       IsVisible="{Binding IsRunning}"
+                       AutomationProperties.Name="Progresso da tarefa"/>
+          <TextBlock Classes="caption secondary" Text="{Binding Message}" MaxWidth="260"
+                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+          <TextBlock Classes="caption secondary" Text="{Binding CostText}" VerticalAlignment="Center"/>
+          <TextBlock Classes="caption secondary" Text="{Binding StateText}" VerticalAlignment="Center"
+                     IsVisible="{Binding !IsRunning}"/>
+          <Button Classes="subtle sm" Content="Cancelar" Command="{Binding CancelCommand}" IsVisible="{Binding IsRunning}"/>
+        </StackPanel>
+      </DataTemplate>
+    </ContentControl.ContentTemplate>
+  </ContentControl>
+</UserControl>
