@@ -127,8 +127,8 @@ public sealed class BuildViewModelTests : IDisposable
         var backup = Assert.Single(Directory.GetDirectories(folder.BackupDirectory));
         Assert.Equal(Original, File.ReadAllText(Path.Combine(backup, Ysbin)));
         Assert.Equal(backup, vm.BackupLocation);
-        Assert.Contains(vm.Log, l => l.StartsWith("Backup: ", StringComparison.Ordinal));
-        Assert.Contains(vm.Log, l => l.Contains("Injetado: 1 arquivo(s)", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("Backup: ", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("Injetado: 1 arquivo(s)", StringComparison.Ordinal));
         Assert.True(vm.RestoreCommand.CanExecute(null));
         Assert.False(vm.InjectCommand.CanExecute(null));
     }
@@ -167,7 +167,7 @@ public sealed class BuildViewModelTests : IDisposable
 
         Assert.Null(vm.ErrorMessage);
         Assert.Equal(Original, File.ReadAllText(GameFile));
-        Assert.Contains(vm.Log, l => l.Contains("Restaurado: 1 arquivo(s)", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("Restaurado: 1 arquivo(s)", StringComparison.Ordinal));
         Assert.True(vm.InjectCommand.CanExecute(null));
     }
 
@@ -185,7 +185,7 @@ public sealed class BuildViewModelTests : IDisposable
         await vm.ConfirmCommand.ExecuteAsync(null);
 
         Assert.False(File.Exists(extra));
-        Assert.Contains(vm.Log, l => l.Contains("removido: 1 arquivo(s)", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("removido: 1 arquivo(s)", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -251,7 +251,7 @@ public sealed class BuildViewModelTests : IDisposable
 
         Assert.False(vm.IsConfirming);
         Assert.False(vm.ConfirmCommand.CanExecute(null));
-        Assert.Contains(vm.Log, l => l.Contains("confirmação foi cancelada", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("confirmação foi cancelada", StringComparison.Ordinal));
         Assert.Equal(Original, File.ReadAllText(GameFile));
 
         vm.InjectCommand.Execute(null);
@@ -294,7 +294,7 @@ public sealed class BuildViewModelTests : IDisposable
 
         Assert.False(vm.IsConfirming);
         Assert.Equal(Traduzido, File.ReadAllText(GameFile));
-        Assert.Contains(vm.Log, l => l.Contains("confirmação foi cancelada", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("confirmação foi cancelada", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -343,7 +343,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.True(blocking.Entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
 
         Assert.False(vm.TryCloseSafely());
-        Assert.Contains("Aguarde", vm.Log[^1]);
+        Assert.Contains("Aguarde", vm.Log[^1].Message);
 
         blocking.Release.Set();
         await running;
@@ -360,7 +360,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.Equal(Path.Combine(game, "jogo.exe"), starter.Executable);
         Assert.Equal(game, starter.WorkingDirectory);
         Assert.Null(vm.ErrorMessage);
-        Assert.Contains(vm.Log, l => l.StartsWith("Jogo aberto: ", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("Jogo aberto: ", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -385,7 +385,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.NotNull(vm.ErrorMessage);
         Assert.False(vm.IsBusy);
         Assert.True(vm.BuildCommand.CanExecute(null));
-        Assert.Contains(vm.Log, l => l.Contains("Build falhou", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("Build falhou", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -405,7 +405,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.False(vm.IsConfirming);
     }
 
-    private BuildViewModel BuildableVm(QaEngine qa)
+    private BuildViewModel BuildableVm(QaEngine qa, TimeProvider? clock = null, BackgroundTaskService? tasks = null)
     {
         var scripts = Path.Combine(folder.GameCacheDirectory, "pkg");
         Directory.CreateDirectory(scripts);
@@ -416,7 +416,7 @@ public sealed class BuildViewModelTests : IDisposable
             new TextUnit("a001:000001", TextUnitKind.Dialogue, null, "さようなら", null, TranslationStatus.Untranslated),
             new TextUnit("a001:000002", TextUnitKind.Dialogue, null, "また", null, TranslationStatus.Untranslated),
         ]);
-        return new BuildViewModel(new BackgroundTaskService(), [new BuildableEngine()], starter, qa)
+        return new BuildViewModel(tasks ?? new BackgroundTaskService(), [new BuildableEngine()], starter, qa, clock)
         {
             Project = ProjectSummaryReader.Read(folder.Root),
         };
@@ -432,8 +432,8 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.False(vm.AllowWarnings);
         Assert.Null(vm.ErrorMessage);
         Assert.True(File.Exists(Path.Combine(folder.BuildDirectory, Ysbin)));
-        Assert.Contains("QA: 2 linhas sem tradução; o build copiou o original nelas.", vm.Summary);
-        Assert.DoesNotContain(vm.Log, l => l.Contains("[nao-traduzida]", StringComparison.Ordinal));
+        Assert.Contains(vm.Facts, f => f.Label == "QA" && f.Value == "2 linhas sem tradução; o build copiou o original nelas.");
+        Assert.DoesNotContain(vm.Log, l => l.Message.Contains("[nao-traduzida]", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -445,8 +445,8 @@ public sealed class BuildViewModelTests : IDisposable
 
         Assert.False(File.Exists(Path.Combine(folder.BuildDirectory, Ysbin)));
         Assert.Contains("1 aviso", vm.ErrorMessage);
-        Assert.Contains(vm.Log, l => l.Contains("[traducao-ruim]", StringComparison.Ordinal));
-        Assert.Contains(vm.Log, l => l.Contains("2 linhas sem tradução", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("[traducao-ruim]", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message.Contains("2 linhas sem tradução", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -458,8 +458,357 @@ public sealed class BuildViewModelTests : IDisposable
         await vm.BuildCommand.ExecuteAsync(null);
 
         Assert.Null(vm.ErrorMessage);
-        Assert.Contains(vm.Summary, l => l.Contains("liberados por 'Permitir avisos do QA'", StringComparison.Ordinal));
-        Assert.Contains(vm.Summary, l => l.Contains("2 linhas sem tradução", StringComparison.Ordinal));
+        Assert.Contains(vm.Facts, f => f.Value.Contains("liberados por 'Permitir avisos do QA'", StringComparison.Ordinal));
+        Assert.Contains(vm.Facts, f => f.Value.Contains("2 linhas sem tradução", StringComparison.Ordinal));
+    }
+
+    // ---- Tela no nível do design v2 (#246) ----
+
+    private static readonly DateTimeOffset Now = new(2026, 10, 24, 0, 41, 7, TimeSpan.Zero);
+
+    private BuildViewModel Open(TimeProvider? clock = null, QaEngine? qa = null) =>
+        new(new BackgroundTaskService(), [new FakeEngine()], starter, qa, clock) { Project = ProjectSummaryReader.Read(folder.Root) };
+
+    [Fact]
+    public async Task O_cabecalho_mostra_o_executavel_do_jogo()
+    {
+        var vm = Open();
+        await vm.ReloadAsync();
+
+        Assert.Equal(Path.Combine(game, "jogo.exe"), vm.GameExecutable);
+    }
+
+    [Fact]
+    public async Task Sem_erros_de_qa_nao_ha_faixa_de_aviso_e_o_build_esta_liberado()
+    {
+        var vm = Open();
+        await vm.ReloadAsync();
+
+        Assert.False(vm.HasQaErrors);
+        Assert.Equal(0, vm.QaErrorCount);
+        Assert.True(vm.BuildCommand.CanExecute(null));
+    }
+
+    private BuildViewModel OpenWithQaRules(params IQaRule[] rules)
+    {
+        folder.SaveText("a001",
+        [
+            new TextUnit("a001:000000", TextUnitKind.Dialogue, null, "こんにちは", "Olá", TranslationStatus.Translated),
+            new TextUnit("a001:000001", TextUnitKind.Dialogue, null, "さようなら", "Tchau", TranslationStatus.Translated),
+        ]);
+        return Open(qa: new QaEngine(rules));
+    }
+
+    [Fact]
+    public async Task Erros_de_qa_acendem_a_faixa_com_a_contagem_e_travam_o_novo_build()
+    {
+        PutBuild();
+        var vm = OpenWithQaRules(new ErrorOnOlaRule());
+
+        await vm.ReloadAsync();
+
+        Assert.True(vm.HasQaErrors);
+        Assert.Equal(1, vm.QaErrorCount);
+        Assert.Equal("1 erro novo impede um build novo.", vm.QaBannerTitle);
+        Assert.Contains("O build abaixo é de ", vm.QaBannerDetail);
+        Assert.Contains("continua válido para injetar", vm.QaBannerDetail);
+        Assert.False(vm.BuildCommand.CanExecute(null));
+        Assert.True(vm.InjectCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Varios_erros_vao_para_o_plural_e_sem_build_a_faixa_manda_corrigir()
+    {
+        var vm = OpenWithQaRules(new ErrorOnEveryLineRule());
+
+        await vm.ReloadAsync();
+
+        Assert.Equal("2 erros novos impedem um build novo.", vm.QaBannerTitle);
+        Assert.DoesNotContain("O build abaixo", vm.QaBannerDetail);
+    }
+
+    [Fact]
+    public async Task Ver_erros_pede_a_conferencia()
+    {
+        var vm = OpenWithQaRules(new ErrorOnOlaRule());
+        await vm.ReloadAsync();
+        var requests = 0;
+        vm.ErrorsRequested += (_, _) => requests++;
+
+        vm.ShowErrorsCommand.Execute(null);
+
+        Assert.Equal(1, requests);
+    }
+
+    [Fact]
+    public async Task A_descricao_de_permitir_avisos_diz_quantos_avisos_ha_abertos()
+    {
+        var vm = OpenWithQaRules(new BadTranslationRule());
+
+        await vm.ReloadAsync();
+
+        Assert.Equal(1, vm.QaWarningCount);
+        Assert.Equal("Erros sempre bloqueiam. Hoje há 1 aviso aberto.", vm.AllowWarningsDescription);
+    }
+
+    [Fact]
+    public async Task Sem_avisos_a_descricao_nao_inventa_numero()
+    {
+        var vm = Open();
+        await vm.ReloadAsync();
+
+        Assert.Equal("Erros sempre bloqueiam. Não há avisos abertos.", vm.AllowWarningsDescription);
+    }
+
+    [Fact]
+    public async Task O_resultado_acompanha_o_estado_do_build_da_injecao_e_da_restauracao()
+    {
+        var vm = Open();
+        await vm.ReloadAsync();
+        Assert.Equal(BuildResultTone.Info, vm.ResultTone);
+        Assert.Equal("Ainda não há build.", vm.ResultTitle);
+
+        PutBuild();
+        await vm.ReloadAsync();
+        Assert.Equal(BuildResultTone.Info, vm.ResultTone);
+        Assert.Equal("Build pronto, ainda não injetado.", vm.ResultTitle);
+        Assert.Equal("O jogo continua com os arquivos originais.", vm.ResultText);
+        Assert.Equal("Icon.Info", vm.ResultIconKey);
+
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        var name = Path.GetFileName(Directory.GetDirectories(folder.BackupDirectory).Single());
+        Assert.Equal(BuildResultTone.Success, vm.ResultTone);
+        Assert.Equal("Injetado no jogo.", vm.ResultTitle);
+        Assert.Equal($"Originais copiados para backup{Path.DirectorySeparatorChar}{name} antes da cópia.", vm.ResultText);
+        Assert.Equal("Icon.Check", vm.ResultIconKey);
+
+        vm.RestoreCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        Assert.Equal(BuildResultTone.Warning, vm.ResultTone);
+        Assert.Equal("Originais restaurados.", vm.ResultTitle);
+        Assert.Equal($"O jogo voltou aos arquivos de backup{Path.DirectorySeparatorChar}{name}. O build continua disponível para injetar.", vm.ResultText);
+        Assert.Equal("Icon.Warning", vm.ResultIconKey);
+    }
+
+    [Fact]
+    public async Task Depois_do_build_o_resultado_traz_scripts_pacote_e_acentuacao()
+    {
+        var vm = BuildableVm(new QaEngine([]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Equal("Scripts", vm.Facts[0].Label);
+        Assert.Equal("1 reconstruído de 1", vm.Facts[0].Value);
+        Assert.Equal("12 B (original 8 B)", vm.Facts.Single(f => f.Label == Ysbin).Value);
+        Assert.Equal("FOLD · 1 caractere substituído", vm.Facts.Single(f => f.Label == "Acentuação").Value);
+        Assert.True(vm.HasFacts);
+    }
+
+    [Fact]
+    public async Task Sem_caractere_trocado_a_acentuacao_diz_que_nenhum_foi_substituido()
+    {
+        var vm = BuildableVm(new QaEngine([]));
+        folder.SaveText("a001", [new TextUnit("a001:000000", TextUnitKind.Dialogue, null, "こんにちは", "Ola", TranslationStatus.Translated)]);
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Equal("FOLD · nenhum caractere substituído", vm.Facts.Single(f => f.Label == "Acentuação").Value);
+    }
+
+    [Fact]
+    public async Task O_tamanho_do_pacote_mostra_o_original_quando_o_jogo_o_tem()
+    {
+        File.WriteAllText(GameFile, new string('o', 2048));
+        var vm = BuildableVm(new QaEngine([]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Equal("12 B (original 2,0 KB)", vm.Facts.Single(f => f.Label == Ysbin).Value);
+    }
+
+    [Fact]
+    public async Task O_log_leva_o_horario_e_o_cabecalho_a_duracao_total()
+    {
+        var clock = new SteppingClock(Now, TimeSpan.FromMilliseconds(6800));
+        var vm = BuildableVm(new QaEngine([]), clock);
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.All(vm.Log, l => Assert.Equal("00:41:07", l.Time));
+        Assert.Equal("24/10/2026 00:41 · 6,8 s", vm.LogSummary);
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("Build concluído em 6,8 s", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(0, "0,0 s")]
+    [InlineData(6800, "6,8 s")]
+    [InlineData(59_940, "59,9 s")]
+    [InlineData(72_000, "1 min 12 s")]
+    [InlineData(3_725_000, "62 min 5 s")]
+    public void A_duracao_vira_texto_em_portugues(int milliseconds, string expected)
+    {
+        Assert.Equal(expected, BuildViewModel.FormatDuration(TimeSpan.FromMilliseconds(milliseconds)));
+    }
+
+    [Fact]
+    public async Task O_log_lista_os_scripts_reconstruidos_com_a_contagem_de_textos()
+    {
+        var vm = BuildableVm(new QaEngine([]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Contains(vm.Log, l => l.Message == "a001.fake reconstruído · 1 texto");
+    }
+
+    [Fact]
+    public async Task O_progresso_do_core_alimenta_a_tarefa_e_nao_enche_o_log()
+    {
+        var tasks = new BackgroundTaskService();
+        var seen = new System.Collections.Concurrent.ConcurrentQueue<(double? Progress, string Message)>();
+        tasks.Tasks.CollectionChanged += (_, e) =>
+        {
+            var item = (BackgroundTaskItem)e.NewItems![0]!;
+            item.PropertyChanged += (_, _) => seen.Enqueue((item.Progress, item.Message));
+        };
+        var vm = BuildableVm(new QaEngine([]), tasks: tasks);
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Contains(seen, s => s.Progress == 0 && s.Message == "Reconstruindo a001.fake (1 de 1)");
+        Assert.Contains(seen, s => s.Progress == 1 && s.Message == "Reconstruindo os scripts (1 de 1)");
+        Assert.DoesNotContain(vm.Log, l => l.Message.Contains("(1 de 1)", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message == "Reconstruindo os scripts com as traduções");
+    }
+
+    [Fact]
+    public async Task Sem_backup_a_lista_fica_vazia()
+    {
+        var vm = Open();
+        await vm.ReloadAsync();
+
+        Assert.Empty(vm.Backups);
+        Assert.False(vm.HasBackups);
+        Assert.Contains("Nenhum backup", vm.BackupMessage);
+    }
+
+    [Fact]
+    public async Task A_lista_de_backups_mostra_pasta_tamanho_e_descricao_do_mais_novo_ao_mais_antigo()
+    {
+        PutBuild();
+        PutBuild("pac/extra.ypf", "novo");
+        var vm = Open(new FixedClock(Now));
+        await vm.ReloadAsync();
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        var older = Path.Combine(folder.BackupDirectory, "2020-01-02_0304");
+        Directory.CreateDirectory(older);
+        File.WriteAllText(Path.Combine(older, "vnforge-backup.json"), "{ ilegível");
+        await vm.ReloadAsync();
+
+        Assert.True(vm.HasBackups);
+        Assert.Equal(2, vm.Backups.Count);
+        var separator = Path.DirectorySeparatorChar;
+        var latest = vm.Backups[0];
+        Assert.StartsWith($"backup{separator}", latest.Name, StringComparison.Ordinal);
+        Assert.Equal("8 B", latest.SizeText);
+        Assert.Equal($"{Ysbin} original · 1 arquivo criado · injeção de {DateTime.Now:dd/MM}", latest.Note);
+        Assert.Equal($"backup{separator}2020-01-02_0304", vm.Backups[1].Name);
+        Assert.Contains("manifesto", vm.Backups[1].Note);
+        Assert.Equal($"Pasta backup{separator} do projeto · fora do git · 2 backups", vm.BackupFooter);
+    }
+
+    [Fact]
+    public async Task Backup_ilegivel_sem_outra_fonte_explica_por_que_nao_da_para_restaurar()
+    {
+        var broken = Path.Combine(folder.BackupDirectory, "2020-01-02_0304");
+        Directory.CreateDirectory(broken);
+        File.WriteAllText(Path.Combine(broken, "vnforge-backup.json"), "{ ilegível");
+        var vm = Open();
+        await vm.ReloadAsync();
+
+        Assert.True(vm.HasRestoreProblem);
+        Assert.NotEmpty(vm.BackupMessage);
+        Assert.False(vm.RestoreCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task O_rodape_so_diz_fora_do_git_quando_o_gitignore_lista_o_backup()
+    {
+        var vm = Open();
+        await vm.ReloadAsync();
+        Assert.Contains("fora do git", vm.BackupFooter);
+
+        File.WriteAllText(Path.Combine(folder.Root, ".gitignore"), "build/\n");
+        await vm.ReloadAsync();
+
+        Assert.DoesNotContain("fora do git", vm.BackupFooter);
+    }
+
+    [Fact]
+    public async Task Backup_restaurado_diz_que_foi_restaurado()
+    {
+        PutBuild();
+        var vm = Open();
+        await vm.ReloadAsync();
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        vm.RestoreCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(vm.Backups);
+        Assert.Contains("restaurado", row.Note);
+        Assert.Equal($"Pasta backup{Path.DirectorySeparatorChar} do projeto · fora do git · 1 backup", vm.BackupFooter);
+    }
+
+    private sealed class ErrorOnOlaRule : UnitQaRule
+    {
+        public override string Id => "erro-ola";
+
+        public override string Description => "Teste.";
+
+        public override QaSeverity Severity => QaSeverity.Error;
+
+        protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
+        {
+            if (unit.Translation == "Olá")
+            {
+                yield return "recusada";
+            }
+        }
+    }
+
+    private sealed class ErrorOnEveryLineRule : UnitQaRule
+    {
+        public override string Id => "erro-todas";
+
+        public override string Description => "Teste.";
+
+        public override QaSeverity Severity => QaSeverity.Error;
+
+        protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
+        {
+            yield return "recusada";
+        }
+    }
+
+    /// <summary>Hora fixa; cada leitura do cronômetro avança o passo, então a duração de uma operação é conhecida.</summary>
+    private sealed class SteppingClock(DateTimeOffset now, TimeSpan step) : TimeProvider
+    {
+        private long ticks;
+
+        public override DateTimeOffset GetUtcNow() => now;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp()
+        {
+            var current = ticks;
+            ticks += (long)step.TotalMilliseconds;
+            return current;
+        }
     }
 
     private sealed class BadTranslationRule : UnitQaRule
@@ -515,7 +864,7 @@ public sealed class BuildViewModelTests : IDisposable
 
         public ScriptExtraction Extract(ScriptFile file, EngineContext ctx) => new([]);
 
-        public byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext ctx) => Encoding.UTF8.GetBytes("x");
+        public byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext ctx) => Encoding.UTF8.GetBytes("y");
     }
 
     private sealed class BlockingStarter : IGameProcessStarter

@@ -61,11 +61,12 @@ internal static class DemoProject
         new(Name, root ?? Root, "yuris", 500, "cp1252", ModelId, ScriptCount, Counts);
 
     /// <summary>Grava a pasta do projeto (<c>project.json</c>, <c>text/*.json</c>, glossário e personagens) em <paramref name="parent"/> e devolve o caminho.</summary>
-    public static string Create(string parent)
+    /// <param name="gameDirectory">Pasta do jogo registrada no projeto; sem ela, a do artboard (<c>D:\Jogos\MinhaVN</c>, que não existe aqui).</param>
+    public static string Create(string parent, string? gameDirectory = null)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             Name,
-            new GameConfig(@"D:\Jogos\MinhaVN", "MinhaVN.exe"),
+            new GameConfig(gameDirectory ?? @"D:\Jogos\MinhaVN", "MinhaVN.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("cp1252"),
