@@ -150,7 +150,7 @@ public class CsvReviewFormatTests
     {
         Assert.Same(ReviewFormats.Csv, ReviewFormats.Find("CSV"));
         Assert.Same(ReviewFormats.Csv, ReviewFormats.FromPath("rev.CSV"));
-        Assert.Null(ReviewFormats.Find("xlsx"));
-        Assert.Null(ReviewFormats.FromPath("rev.xlsx"));
+        Assert.Null(ReviewFormats.Find("po"));
+        Assert.Null(ReviewFormats.FromPath("rev.po"));
     }
 }

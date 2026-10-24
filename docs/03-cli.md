@@ -58,8 +58,8 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 
 | Comando | O que faz |
 |---|---|
-| `vnf export --format xlsx\|csv\|po` | Exporta o texto para revisão externa. Hoje só `csv` (UTF-8 com BOM, colunas `id,kind,speaker,source,translation,status,notes`), em `revisao.csv` ou no `--output`; não troca arquivo existente sem `--force`. XLSX e PO dependem da decisão #51 |
-| `vnf import <arquivo>` | Importa de volta, casando por `id`. Só `translation`, `status` e `notes` mudam; id desconhecido ou repetido e status inválido são erros e, com qualquer erro, nada é importado. Só regrava o `text/<chave>.json` que teve linha alterada |
+| `vnf export [--format csv\|xlsx]` | Exporta o texto para revisão externa em `revisao.<formato>` ou no `--output`. Sem `--format`, vale a extensão do `--output` (`.csv` ou `.xlsx`); sem nenhum dos dois, `csv`. O CSV é UTF-8 com BOM; o XLSX tem uma aba `Revisao` com todas as células em texto. As colunas são `id,kind,speaker,source,translation,status,notes` nos dois. Não troca arquivo existente sem `--force`. O formato `.po` não entra (decisão D1, #51) |
+| `vnf import <arquivo> [--format csv\|xlsx]` | Importa de volta (formato pela extensão, ou `--format`), casando por `id`. Só `translation`, `status` e `notes` mudam; id desconhecido ou repetido e status inválido são erros e, com qualquer erro, nada é importado. Só regrava o `text/<chave>.json` que teve linha alterada |
 | `vnf glossary add "先輩" "veterano" [--notes] [--force]`, `vnf glossary list` | Gerencia o glossário (`glossary.json`); termo repetido só é trocado com `--force`. Aceitam `--json` |
 | `vnf chars list`, `vnf chars set <original> <tradução> [--gender valor] [--tone texto]` | Gerencia os personagens (`characters.json`); `set` cria ou atualiza e mantém o que não foi informado. Gênero: `unknown`, `female`, `male` ou `other`. Aceitam `--json` |
 | `vnf config ai` | Configura modelo do Claude e chave (salva fora do projeto) |
@@ -236,4 +236,8 @@ $ vnf run
 ## Em aberto
 
 - [x] Nome do executável: `vnf` (decidido em [01-nome.md](01-nome.md)).
-- [ ] Distribuição: executável único autocontido (`dotnet publish -p:PublishSingleFile=true`) ou `dotnet tool install -g`?
+- [x] Distribuição (D5, decidido em 24/10/2026): **executável único autocontido**, gerado com `dotnet publish -p:PublishSingleFile=true --self-contained`. Quem traduz baixa o `vnf` e roda, sem instalar o SDK nem o runtime do .NET; `dotnet tool install -g` exigiria o SDK. Detalhes:
+  - **RIDs**: `win-x64` (público principal, o app e os jogos são Windows) e `linux-x64` (custo zero: o mesmo `dotnet publish` roda no job do CI). `win-arm64`, `osx-*` e `linux-arm64` ficam de fora até alguém pedir.
+  - **Sem trimming** (`PublishTrimmed` desligado). O `System.CommandLine` e o SDK `Anthropic` usam reflexão e serialização por reflexão; o trimming exigiria anotar e testar os dois, e o ganho é só de tamanho. O pacote sai com compressão do single-file (`EnableCompressionInSingleFile`), cerca de 41 MB no `win-x64`.
+  - **Pacote**: `vnf-<versão>-win-x64.zip` e `vnf-<versão>-linux-x64.tar.gz`, cada um com o executável e o `README.md`, mais `SHA256SUMS.txt`. A versão vem da tag (`v1.2.3` vira `1.2.3`) e aparece em `vnf --version`.
+  - **Publicação (E9.3)**: a cada tag `vX.Y.Z` (ou `vX.Y.Z-rc1`), o job `publicar` do CircleCI gera o pacote e o guarda como artefato; se o projeto tiver `GITHUB_TOKEN`, também cria o release do GitHub. Ver "CI" em [02-arquitetura.md](02-arquitetura.md).
