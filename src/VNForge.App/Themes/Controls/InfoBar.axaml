@@ -1,9 +1,11 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- InfoBar (docs/design/components/InfoBar): o Fluent do Avalonia não tem. Fundo e ícone pela severidade; texto em text-primary. -->
+  <!-- InfoBar (docs/design/components/InfoBar): o Fluent do Avalonia não tem. Raio sm e borda stroke-subtle, como o .vnf-infobar do design. Fundo e ícone pela severidade; texto em text-primary. -->
   <Style Selector="Border.infobar">
-    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="Padding" Value="12,10"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
   </Style>

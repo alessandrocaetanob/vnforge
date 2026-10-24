@@ -25,17 +25,27 @@ A janela principal (#241) segue o canvas v2:
 
 ### 1. Início
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  VNForge                                                     │
-│                                                              │
-│  [ + Novo projeto ]   [ Abrir projeto ]                      │
-│                                                              │
-│  Recentes                                                    │
-│  ▸ Minha VN — PT-BR      YU-RIS   62% traduzido   ontem      │
-│  ▸ Teste YPF             YU-RIS    0%             3 dias     │
-└──────────────────────────────────────────────────────────────┘
-```
+O Início é a porta de entrada: lista os projetos recentes à esquerda e mostra o projeto selecionado à direita (artboard "Início" do canvas v2).
+
+**Lista.** Cada linha traz nome, motor e caminho, porcentagem traduzida com a barra de distribuição e quando o projeto foi aberto. O rodapé diz quantos projetos há e a pasta padrão, que é a pasta que contém o projeto aberto por último (o app não tem uma configuração de pasta padrão). Botão direito numa linha oferece "Remover da lista"; a pasta do projeto não é tocada.
+
+**Detalhe.** Motor e formato, nome, caminho, a barra com a legenda (aprovadas, revisadas, traduzidas, IA, pendentes), linhas, scripts, acentuação, modelo com esforço (o Haiku aparece sem esforço, como no artboard) e último build. O último build vem da pasta `build/` do projeto: a data é a do arquivo mais novo e a quantidade de scripts, a que o `.cache/build-state.json` registrou (só vale se os pacotes de `build/` ainda conferem em tamanho); sem build, o campo diz "Nenhum build ainda".
+
+**Estados.**
+
+- *Motor sem suporte* (por exemplo KiriKiri/KAG): a linha mostra "Sem suporte" em cor de alerta e o detalhe, um aviso e o botão "Abrir projeto" desabilitado.
+- *Indisponível* (pasta que sumiu ou não abre): a linha mostra "Indisponível"; o detalhe explica o motivo e oferece "Remover da lista".
+- *Lista de recentes ilegível* (`recent.json` corrompido): um aviso no alto diz o caminho do arquivo e que a lista aparece vazia até um projeto ser aberto.
+
+#### Fluxo de referência
+
+O fluxo é o do canvas v2: **Início, abrir ou continuar, Painel com as cinco etapas**.
+
+1. Sem projeto, o Início mostra "Abrir projeto" e "Novo projeto". O trilho só libera Painel, Editor, Conferir e Build depois que um projeto é aberto.
+2. "Abrir projeto" da barra de ações escolhe uma pasta, registra o projeto nos recentes e o deixa selecionado no Início, com o detalhe pronto. Nada além disso muda de tela.
+3. "Abrir projeto" do detalhe abre o selecionado de novo (relê a pasta e sobe o projeto na lista) e leva ao **Painel**, onde as cinco etapas (extrair, traduzir, conferir, build, injetar) dizem o que falta.
+4. "Continuar em `<script>`" leva ao **Editor** direto no último script editado: o `text/*.json` gravado por último entre os que já têm alguma linha traduzida; sem tradução nenhuma, o primeiro script. Sem scripts extraídos, o botão diz "Continuar no Editor".
+5. "Novo projeto" abre o assistente; ao terminar, o projeto criado fica selecionado no Início, como no passo 2.
 
 ### 2. Assistente de novo projeto
 
