@@ -68,6 +68,41 @@ public sealed class ExtractCommandTests : IDisposable
             .ToDictionary(f => Path.GetRelativePath(directory, f), f => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f))));
 
     [Fact]
+    public async Task Em_terminal_interativo_o_resumo_vira_painel_com_scripts_pacote_e_duracao()
+    {
+        await InitProject();
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+
+        var result = await rich.RunAsync([ExtractVerb, "--project", ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(string.Empty, result.Error);
+        Assert.Contains("Resultado da extração", result.Output);
+        Assert.Contains("Scripts", result.Output);
+        Assert.Contains("5 (1 diálogo, 1 narração, 2 escolhas, 1 nome)", result.Output);
+        Assert.Contains(YsbinYpf, result.Output);
+        Assert.Contains("4 arquivos", result.Output);
+        Assert.Contains("Duração", result.Output);
+        Assert.DoesNotContain("Extraídos", result.Output);
+        Assert.False(result.Output.Contains('\u001b'));
+    }
+
+    [Theory]
+    [InlineData("--no-color")]
+    [InlineData("--quiet")]
+    public async Task No_terminal_interativo_com_no_color_ou_quiet_o_log_de_sempre_continua(string option)
+    {
+        await InitProject();
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+
+        var result = await rich.RunAsync([ExtractVerb, option, "--project", ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Extraídos 2 scripts, 5 linhas", result.Output);
+        Assert.DoesNotContain("Resultado da extração", result.Output);
+    }
+
+    [Fact]
     public async Task Resumo_mostra_scripts_e_linhas_por_kind_como_no_doc_03()
     {
         await InitProject();

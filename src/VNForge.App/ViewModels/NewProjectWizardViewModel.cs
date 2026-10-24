@@ -383,7 +383,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             {
                 try
                 {
-                    result = ProjectExtractor.Extract(project, engines, ct);
+                    result = ProjectExtractor.Extract(project, engines, cancellationToken: ct);
                 }
                 catch (Exception e) when (IsExpected(e))
                 {

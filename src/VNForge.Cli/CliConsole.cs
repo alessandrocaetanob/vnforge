@@ -32,7 +32,7 @@ public static class CliConsole
         {
             Ansi = rich ? terminal.Ansi : AnsiSupport.No,
             ColorSystem = rich ? terminal.ColorSystem : ColorSystemSupport.NoColors,
-            Interactive = rich ? InteractionSupport.Detect : InteractionSupport.No,
+            Interactive = rich ? terminal.Interaction : InteractionSupport.No,
             Out = new AnsiConsoleOutput(output),
         });
 

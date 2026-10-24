@@ -61,6 +61,63 @@ public sealed class TranslateCommandTests : IDisposable
     private TextUnit Line(string key, int index) => _project.LoadText(key)[index];
 
     [Fact]
+    public async Task Em_terminal_interativo_a_barra_substitui_o_log_do_erro_padrao()
+    {
+        using var rich = new CliHarness(terminal: TestTerminals.InteractiveAnsi());
+        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
+
+        var result = await rich.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(string.Empty, result.Error);
+        Assert.Contains("Traduzindo com", result.Output);
+        Assert.Contains("claude-opus-5-5", result.Output);
+        Assert.Contains(" · esforço medium", result.Output);
+        Assert.Contains("lote 1/1", result.Output);
+        Assert.Contains("4/4 linhas", result.Output);
+        Assert.Contains("4 linhas traduzidas de 4", result.Output);
+    }
+
+    [Fact]
+    public async Task Terminal_interativo_sem_ansi_nao_tem_como_animar_e_o_progresso_segue_no_erro_padrao()
+    {
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
+
+        var result = await rich.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("100%", result.Error);
+        Assert.DoesNotContain("lote 1/1", result.Output);
+    }
+
+    [Fact]
+    public async Task Com_o_erro_padrao_redirecionado_nao_anima_e_o_log_por_lote_vai_para_o_arquivo()
+    {
+        using var rich = new CliHarness(terminal: TestTerminals.InteractiveAnsi() with { Animate = false });
+        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
+
+        var result = await rich.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("100%", result.Error);
+        Assert.DoesNotContain("lote 1/1", result.Output);
+    }
+
+    [Fact]
+    public async Task No_terminal_interativo_com_no_color_o_progresso_segue_no_erro_padrao()
+    {
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
+
+        var result = await rich.RunAsync(["translate", "--no-color", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("100%", result.Error);
+        Assert.DoesNotContain("lote 1/1", result.Output);
+    }
+
+    [Fact]
     public async Task Traduz_as_linhas_sem_traducao_e_grava_status_machine_com_origem()
     {
         var result = await Run();
