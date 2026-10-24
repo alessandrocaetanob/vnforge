@@ -29,6 +29,12 @@ public static partial class MotionPreferences
     /// <summary>Avisa que o Windows pode ter mudado a configuração; quem escuta <see cref="Changed"/> relê <see cref="AnimationsEnabled"/>.</summary>
     public static void Refresh() => Changed?.Invoke(null, EventArgs.Empty);
 
+    private static void Reset(bool? value)
+    {
+        forced = value;
+        Changed?.Invoke(null, EventArgs.Empty);
+    }
+
     private static bool ReadSystem()
     {
         if (!OperatingSystem.IsWindows())
@@ -52,10 +58,6 @@ public static partial class MotionPreferences
 
     private sealed class Release(bool? before) : IDisposable
     {
-        public void Dispose()
-        {
-            forced = before;
-            Changed?.Invoke(null, EventArgs.Empty);
-        }
+        public void Dispose() => Reset(before);
     }
 }

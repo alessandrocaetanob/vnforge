@@ -13,6 +13,20 @@
     </Setter>
   </Style>
 
+  <!-- Barra indeterminada: o FluentTheme anima o indicador sozinho. Sem a classe "motion" ele some e uma faixa parada (Border.static-working, na TaskBar) assume o lugar. -->
+  <Style Selector="Window:not(.motion) ProgressBar:indeterminate /template/ Border#PART_Indicator">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="Border.static-working">
+    <Setter Property="IsVisible" Value="False"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="Opacity" Value="0.5"/>
+    <Setter Property="CornerRadius" Value="2"/>
+  </Style>
+  <Style Selector="Window:not(.motion) Border.static-working.indeterminate">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+
   <!-- Ícone girando nas tarefas em andamento. -->
   <Style Selector="PathIcon.spin">
     <Setter Property="RenderTransform" Value="rotate(0deg)"/>

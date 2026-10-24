@@ -191,6 +191,55 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
     });
 
     [Fact]
+    public Task Barra_de_distribuicao_solta_a_animacao_ao_sair_da_tela() => OnUi(() =>
+    {
+        using var _ = MotionPreferences.Force(true);
+        var bar = new DistributionBar { Height = 8, Value = new StatusDistribution(10, 0, 0, 0, 90) };
+        var window = Show(bar);
+        try
+        {
+            bar.Value = new StatusDistribution(60, 0, 0, 0, 40);
+            Assert.True(bar.IsSliding);
+
+            window.Content = null;
+            ScreenRenderer.Settle(window);
+
+            Assert.False(bar.IsSliding);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public Task Barra_de_tarefas_indeterminada_so_anima_com_animacoes(bool enabled) => OnUi(() =>
+    {
+        using var _ = MotionPreferences.Force(enabled);
+        var service = new BackgroundTaskService();
+        var gate = new TaskCompletionSource();
+        var item = service.Start("Extrair", (_, _) => gate.Task);
+        var view = new TaskBar { DataContext = new TaskBarViewModel(service) };
+        var window = Show(view);
+        try
+        {
+            var indicator = view.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Indicator");
+            var staticBar = view.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("static-working"));
+
+            Assert.True(item.IsIndeterminate);
+            Assert.Equal(enabled, indicator.IsVisible);
+            Assert.Equal(!enabled, staticBar.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+            gate.SetResult();
+        }
+    });
+
+    [Fact]
     public Task Esqueleto_monta_as_faixas_pedidas() => OnUi(() =>
     {
         var skeleton = new Skeleton { Rows = 4 };

@@ -127,6 +127,7 @@ public sealed partial class BuildViewModel : ObservableObject
     partial void OnProjectChanged(ProjectSummary? value)
     {
         epoch++;
+        notice = null;
         Log.Clear();
         Summary.Clear();
         ErrorMessage = null;
@@ -214,7 +215,10 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         await RefreshAsync();
-        RaiseNotice();
+        if (mine == epoch)
+        {
+            RaiseNotice();
+        }
     }
 
     private void RaiseNotice()
@@ -289,7 +293,10 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         await RefreshAsync();
-        RaiseNotice();
+        if (mine == epoch)
+        {
+            RaiseNotice();
+        }
     }
 
     [RelayCommand]

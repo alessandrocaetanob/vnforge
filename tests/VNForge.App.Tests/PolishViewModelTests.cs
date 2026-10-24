@@ -97,6 +97,20 @@ public class ThemeSettingsTests
         Assert.Equal(new AppSettings(4, ThemeChoice.System), file.Load());
     }
 
+    [Theory]
+    [InlineData("""{ "concurrency": "4", "theme": "dark" }""")]
+    [InlineData("""{ "concurrency": null, "theme": "dark" }""")]
+    [InlineData("""{ "concurrency": [4], "theme": "dark" }""")]
+    [InlineData("""{ "concurrency": true, "theme": "dark" }""")]
+    public void Concorrencia_que_nao_e_numero_vale_o_padrao_e_nao_derruba_o_app(string json)
+    {
+        using var temp = new TempFolder();
+        var file = new AppSettingsFile(temp.SubFolder("config"));
+        File.WriteAllText(file.Path, json);
+
+        Assert.Equal(new AppSettings(AppSettings.Default.Concurrency, ThemeChoice.Dark), file.Load());
+    }
+
     [Fact]
     public void Escolher_o_tema_nos_ajustes_grava_e_avisa_o_app()
     {
@@ -186,6 +200,77 @@ public class ToastsFromPagesTests : IDisposable
         await vm.Editor.Loading;
 
         Assert.Equal(TranslationStatus.Translated, Gravada(raiz, 0).Status);
+    }
+
+    [Fact]
+    public async Task Desfazer_recusado_porque_a_linha_mudou_mostra_aviso_de_erro_e_nao_mexe_no_arquivo()
+    {
+        var (vm, raiz) = await Abrir(TranslationStatus.Untranslated);
+        vm.Editor.Detail!.Translation = "Confirmar";
+        Assert.True(vm.Editor.FlushPendingEdits());
+        var aviso = Assert.Single(vm.Toasts.Toasts);
+        var projeto = ProjectFolder.Open(raiz);
+        var units = projeto.LoadText("yst00001").ToList();
+        units[0] = units[0] with { Translation = "Outro texto" };
+        projeto.SaveText("yst00001", units);
+
+        aviso.UndoCommand.Execute(null);
+
+        var erro = Assert.Single(vm.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, erro.Kind);
+        Assert.Contains("A linha mudou depois deste aviso; nada foi desfeito.", erro.Message);
+        Assert.Equal("Outro texto", Gravada(raiz, 0).Translation);
+    }
+
+    [Fact]
+    public async Task Desfazer_grava_antes_a_edicao_pendente_do_painel_e_recusa_em_vez_de_sobrescrever()
+    {
+        var (vm, raiz) = await Abrir(TranslationStatus.Untranslated);
+        vm.Editor.Detail!.Translation = "Confirmar";
+        Assert.True(vm.Editor.FlushPendingEdits());
+        var aviso = Assert.Single(vm.Toasts.Toasts);
+        vm.Editor.Detail!.Translation = "Texto ainda nao gravado";
+
+        aviso.UndoCommand.Execute(null);
+
+        Assert.Equal("Texto ainda nao gravado", Gravada(raiz, 0).Translation);
+        Assert.Single(vm.Toasts.Toasts, t => t.Kind == ToastKind.Error);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_limpa_os_avisos()
+    {
+        var config = pasta.SubFolder("config");
+        var primeiro = SampleProjects.Create(pasta.SubFolder("p1"), "Um", TranslationStatus.Untranslated);
+        var segundo = SampleProjects.Create(pasta.SubFolder("p2"), "Dois", TranslationStatus.Untranslated);
+        var picker = new SwitchableFolderPicker(primeiro);
+        var start = new StartViewModel(new RecentProjectsFile(config), picker, new FixedClock(relogio.GetUtcNow()));
+        var vm = new MainWindowViewModel(start, toasts: new ToastService(avisos, a => a()))
+        {
+            Editor = new EditorViewModel(clock: relogio, postToUi: a => a()),
+        };
+        await start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        vm.Toasts.Show("Build pronto.", ToastKind.Success, key: "build");
+        Assert.NotEmpty(vm.Toasts.Toasts);
+
+        picker.Answer = segundo;
+        await start.OpenFolderCommand.ExecuteAsync(null);
+
+        Assert.Empty(vm.Toasts.Toasts);
+    }
+
+    [Fact]
+    public async Task Desfazer_a_injecao_sem_poder_restaurar_explica_em_vez_de_so_navegar()
+    {
+        var (vm, _) = await Abrir(TranslationStatus.Translated);
+
+        vm.ShowBuildNotice(new BuildNotice(BuildNoticeKind.Injected, "Injetado no jogo: 1 arquivo(s), com backup."));
+        vm.Toasts.Toasts.Single(t => t.Key == "build").UndoCommand.Execute(null);
+
+        var aviso = Assert.Single(vm.Toasts.Toasts);
+        Assert.Equal(ToastKind.Warning, aviso.Kind);
+        Assert.Contains("Não dá para restaurar", aviso.Message);
     }
 
     [Fact]
@@ -294,4 +379,11 @@ public class EmptyStatesViewModelTests
         Assert.True(vm.IsClear);
         Assert.False(vm.ShowEmptyText);
     }
+}
+
+internal sealed class SwitchableFolderPicker(string answer) : IFolderPicker
+{
+    public string Answer { get; set; } = answer;
+
+    public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(Answer);
 }

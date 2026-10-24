@@ -87,7 +87,7 @@
             <Border Classes="divider-bottom" Padding="16,8">
               <TextBlock Classes="overline" Text="POR ARQUIVO"/>
             </Border>
-            <c:Skeleton Rows="6" IsVisible="{Binding IsLoading}" AutomationProperties.Name="Carregando o progresso por arquivo"/>
+            <c:Skeleton Rows="6" IsVisible="{Binding ShowFilesSkeleton}" AutomationProperties.Name="Carregando o progresso por arquivo"/>
             <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Files}" Margin="0,4" AutomationProperties.Name="Progresso por arquivo">
                 <ItemsControl.ItemsPanel>
@@ -117,7 +117,7 @@
             <Border Classes="divider-bottom" Padding="16,8">
               <TextBlock Classes="overline" Text="POR PERSONAGEM"/>
             </Border>
-            <c:Skeleton Rows="6" IsVisible="{Binding IsLoading}" AutomationProperties.Name="Carregando o progresso por personagem"/>
+            <c:Skeleton Rows="6" IsVisible="{Binding ShowCharactersSkeleton}" AutomationProperties.Name="Carregando o progresso por personagem"/>
             <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Characters}" Margin="0,4" AutomationProperties.Name="Progresso por personagem">
                 <ItemsControl.ItemsPanel>

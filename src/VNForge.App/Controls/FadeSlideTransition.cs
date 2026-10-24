@@ -61,6 +61,7 @@ public sealed class FadeSlideTransition : IPageTransition
         }
         catch (OperationCanceledException)
         {
+            // Trocar de página no meio da transição cancela a anterior; o finally deixa a página no estado final.
         }
         finally
         {

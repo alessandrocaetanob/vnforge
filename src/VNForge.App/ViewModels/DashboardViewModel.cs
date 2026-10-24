@@ -130,8 +130,14 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     /// <summary>Lendo os números: as tabelas mostram o esqueleto.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEmptyState), nameof(EmptyMessage))]
+    [NotifyPropertyChangedFor(nameof(ShowEmptyState), nameof(EmptyMessage), nameof(ShowFilesSkeleton), nameof(ShowCharactersSkeleton))]
     public partial bool IsLoading { get; private set; }
+
+    /// <summary>O esqueleto só entra quando não há linhas antigas para mostrar; ao reler, as linhas anteriores ficam até as novas chegarem.</summary>
+    public bool ShowFilesSkeleton => IsLoading && Files.Count == 0;
+
+    /// <inheritdoc cref="ShowFilesSkeleton"/>
+    public bool ShowCharactersSkeleton => IsLoading && Characters.Count == 0;
 
     /// <summary>Sem projeto aberto, ou projeto lido sem nenhuma linha: o Painel mostra o estado vazio com o selo 訳.</summary>
     public bool ShowEmptyState => Project is null || (loaded && !IsLoading && ErrorMessage is null && Files.Count == 0);

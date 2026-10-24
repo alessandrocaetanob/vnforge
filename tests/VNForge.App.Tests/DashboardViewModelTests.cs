@@ -34,6 +34,25 @@ public class DashboardViewModelTests
     }
 
     [Fact]
+    public async Task Esqueleto_so_aparece_enquanto_nao_ha_linhas_para_mostrar()
+    {
+        using var temp = new TempFolder();
+        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Untranslated);
+
+        var primeira = vm.ReloadAsync();
+        Assert.True(vm.ShowFilesSkeleton);
+        Assert.True(vm.ShowCharactersSkeleton);
+        await primeira;
+        Assert.False(vm.ShowFilesSkeleton);
+
+        var segunda = vm.ReloadAsync();
+        Assert.True(vm.IsLoading);
+        Assert.False(vm.ShowFilesSkeleton);
+        Assert.False(vm.ShowCharactersSkeleton);
+        await segunda;
+    }
+
+    [Fact]
     public async Task Etapas_mostram_as_pendencias_em_linhas()
     {
         using var temp = new TempFolder();

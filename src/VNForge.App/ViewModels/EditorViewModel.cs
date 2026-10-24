@@ -370,12 +370,18 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ArgumentNullException.ThrowIfNull(saved);
         if (lineEditor is null || Project?.Root != saved.ProjectRoot)
         {
+            ErrorMessage = $"Não foi possível desfazer a gravação da linha {saved.Number}: o projeto aberto mudou.";
+            return false;
+        }
+
+        if (!FlushPendingEdits())
+        {
             return false;
         }
 
         try
         {
-            lineEditor.Restore(saved.ScriptKey, saved.Previous);
+            lineEditor.Restore(saved.ScriptKey, saved.Previous, saved.Saved);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException)
         {

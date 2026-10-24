@@ -107,4 +107,12 @@ public sealed class ToastService
         toast.Timer = null;
         Toasts.Remove(toast);
     }
+
+    public void Clear()
+    {
+        foreach (var toast in Toasts.ToList())
+        {
+            Dismiss(toast);
+        }
+    }
 }

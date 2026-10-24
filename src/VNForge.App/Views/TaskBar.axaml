@@ -14,10 +14,11 @@
           <PathIcon Classes="spin" Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.ArrowSync}"
                     IsVisible="{Binding IsRunning}" AutomationProperties.AccessibilityView="Raw"/>
           <TextBlock Classes="caption" Text="{Binding Title}" VerticalAlignment="Center"/>
-          <ProgressBar Width="160" Height="4" Minimum="0" Maximum="100" VerticalAlignment="Center"
-                       Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
-                       IsVisible="{Binding IsRunning}"
-                       AutomationProperties.Name="Progresso da tarefa"/>
+          <Grid Width="160" Height="4" VerticalAlignment="Center" IsVisible="{Binding IsRunning}">
+            <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
+                         AutomationProperties.Name="Progresso da tarefa"/>
+            <Border Classes="static-working" Classes.indeterminate="{Binding IsIndeterminate}" AutomationProperties.AccessibilityView="Raw"/>
+          </Grid>
           <TextBlock Classes="caption secondary" Text="{Binding Message}" MaxWidth="260"
                      TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
           <TextBlock Classes="caption secondary" Text="{Binding CostText}" VerticalAlignment="Center"/>

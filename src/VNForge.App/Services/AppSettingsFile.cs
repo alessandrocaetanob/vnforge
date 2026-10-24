@@ -51,6 +51,7 @@ public sealed class AppSettingsFile(string directory)
 
             // Cada campo vale sozinho: um tema ilegível não derruba a concorrência salva, e vice-versa.
             var concurrency = root.TryGetProperty("concurrency", out var value)
+                && value.ValueKind == JsonValueKind.Number
                 && value.TryGetInt32(out var parsed)
                 && parsed is >= AppSettings.MinConcurrency and <= AppSettings.MaxConcurrency
                     ? parsed

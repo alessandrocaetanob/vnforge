@@ -53,8 +53,7 @@ public sealed class DistributionBar : Control
 
     private void OnValueChanged()
     {
-        running?.Cancel();
-        running = null;
+        CancelRunning();
         var shown = Shown();
         var next = Value is { } v ? new double[] { v.Approved, v.Reviewed, v.Translated, v.Machine } : new double[Segments];
         from = shown;
@@ -98,6 +97,27 @@ public sealed class DistributionBar : Control
 
         if (running == source)
         {
+            running = null;
+            source.Dispose();
+            IsSliding = false;
+            SetCurrentValue(ProgressProperty, 1);
+        }
+    }
+
+    private void CancelRunning()
+    {
+        var source = running;
+        running = null;
+        source?.Cancel();
+        source?.Dispose();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (running is not null)
+        {
+            CancelRunning();
             IsSliding = false;
             SetCurrentValue(ProgressProperty, 1);
         }

@@ -234,10 +234,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void ShowLineSaved(LineSavedEventArgs saved)
     {
         var text = saved.IsApproval ? $"Linha {saved.Number} aprovada." : $"Linha {saved.Number} gravada.";
-        Toasts.Show(text, ToastKind.Success, key: "line-save", undo: () => Editor.Undo(saved));
+        Toasts.Show(text, ToastKind.Success, key: "line-save", undo: () => UndoLineSave(saved));
     }
 
-    private void ShowBuildNotice(BuildNotice notice)
+    private void UndoLineSave(LineSavedEventArgs saved)
+    {
+        if (!Editor.Undo(saved))
+        {
+            Toasts.Show(Editor.ErrorMessage ?? $"Não foi possível desfazer a gravação da linha {saved.Number}.", ToastKind.Error, key: "line-undo");
+        }
+    }
+
+    public void ShowBuildNotice(BuildNotice notice)
     {
         if (notice.Kind == BuildNoticeKind.Injected)
         {
@@ -248,6 +256,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 if (Build.RestoreCommand.CanExecute(null))
                 {
                     Build.RestoreCommand.Execute(null);
+                }
+                else
+                {
+                    Toasts.Show("Não dá para restaurar os originais agora. Espere a operação em andamento terminar e use Restaurar na página Build.", ToastKind.Warning, key: "build-restore");
                 }
             });
             return;
@@ -330,6 +342,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void SetProject(ProjectSummary summary)
     {
+        if (CurrentProject?.Root != summary.Root)
+        {
+            Toasts.Clear();
+        }
+
         CurrentProject = summary;
         Dashboard.Project = summary;
         Editor.Project = summary;

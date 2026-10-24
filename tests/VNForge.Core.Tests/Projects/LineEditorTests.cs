@@ -39,9 +39,9 @@ public class LineEditorTests
         using var pasta = new TempFolder();
         var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
         var (projeto, editor) = Preparar(pasta.Path, antes, Linha(2, TranslationStatus.Untranslated));
-        editor.Approve("yst00001", antes.Id);
+        var gravada = editor.Approve("yst00001", antes.Id);
 
-        var restaurada = editor.Restore("yst00001", antes);
+        var restaurada = editor.Restore("yst00001", antes, gravada);
 
         Assert.Equal(antes.Status, restaurada.Status);
         var lida = Gravada(projeto, 1);
@@ -55,7 +55,44 @@ public class LineEditorTests
         using var pasta = new TempFolder();
         var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated));
 
-        Assert.Throws<KeyNotFoundException>(() => editor.Restore("yst00001", Linha(9, TranslationStatus.Translated, "x")));
+        Assert.Throws<KeyNotFoundException>(() =>
+        {
+            var inexistente = Linha(9, TranslationStatus.Translated, "x");
+            editor.Restore("yst00001", inexistente, inexistente);
+        });
+    }
+
+    [Fact]
+    public void Restore_recusa_quando_a_linha_mudou_depois_da_gravacao()
+    {
+        using var pasta = new TempFolder();
+        var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
+        var (projeto, editor) = Preparar(pasta.Path, antes);
+        var gravada = editor.Approve("yst00001", antes.Id);
+        var outra = editor.SetTranslation("yst00001", antes.Id, "Outro texto.");
+
+        var erro = Assert.Throws<VNForgeException>(() => editor.Restore("yst00001", antes, gravada));
+
+        Assert.Equal("A linha mudou depois deste aviso; nada foi desfeito.", erro.Message);
+        var lida = Gravada(projeto, 1);
+        Assert.Equal((outra.Translation, outra.Status, outra.Origin), (lida.Translation, lida.Status, lida.Origin));
+    }
+
+    [Fact]
+    public void Restore_mantem_flags_e_original_a_revisar_do_arquivo_atual()
+    {
+        using var pasta = new TempFolder();
+        var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
+        var (projeto, editor) = Preparar(pasta.Path, antes);
+        var gravada = editor.Approve("yst00001", antes.Id);
+        projeto.SaveText("yst00001", [gravada with { Flags = ["glossary"], PreviousSource = "旧原文" }]);
+
+        editor.Restore("yst00001", antes, gravada);
+
+        var lida = Gravada(projeto, 1);
+        Assert.Equal(TranslationStatus.Translated, lida.Status);
+        Assert.Equal(["glossary"], lida.Flags);
+        Assert.Equal("旧原文", lida.PreviousSource);
     }
 
     [Fact]
