@@ -30,9 +30,30 @@ internal sealed class ConsoleHarness
     /// <summary>Console como o de um terminal interativo, com ANSI de 24 bits.</summary>
     public static ConsoleHarness Rich(int width = 80) => new(CliTerminal.TrueColor(width));
 
+    /// <summary>Console sobre um terminal montado à mão (<see cref="TestTerminals"/>).</summary>
+    public static ConsoleHarness For(CliTerminal terminal) => new(terminal);
+
     public string Render(Spectre.Console.Rendering.IRenderable renderable)
     {
         Console.Write(renderable);
         return Output;
     }
+}
+
+/// <summary>Terminais montados à mão para os testes de saída rica.</summary>
+internal static class TestTerminals
+{
+    /// <summary>
+    /// Terminal interativo sem ANSI nem cor: a CLI entra no modo rico (barra, painel, tabela), mas a saída sai em texto puro
+    /// e os testes comparam o que o usuário lê.
+    /// </summary>
+    public static CliTerminal InteractivePlain(int width = 100) =>
+        new(IsInteractive: true, NoColorEnvironment: false, width, Spectre.Console.AnsiSupport.No, Spectre.Console.ColorSystemSupport.NoColors);
+
+    /// <summary>
+    /// Terminal interativo com ANSI de 24 bits e redesenho liberado: a única forma de a barra ao vivo do Spectre aparecer no
+    /// <see cref="StringWriter"/> dos testes. Os testes procuram trechos de texto, que o ANSI não parte.
+    /// </summary>
+    public static CliTerminal InteractiveAnsi(int width = 100) =>
+        CliTerminal.TrueColor(width) with { Interaction = Spectre.Console.InteractionSupport.Yes };
 }
