@@ -1,34 +1,29 @@
 version: 2.1
 
+parameters:
+  # O padrão roda os jobs Linux no pool de runners local (classe de recurso
+  # alessandrocaetanob/hyperius). Com o PC desligado os jobs ficam na fila esperando um
+  # runner; para rodar na nuvem do CircleCI (gasta créditos), dispare o pipeline com executor=nuvem.
+  executor:
+    type: enum
+    enum: [runner, nuvem]
+    default: runner
+    description: "runner usa o pool local; nuvem usa o Docker da CircleCI quando o PC está desligado."
+
 orbs:
   win: circleci/windows@5.1.1
 
-jobs:
-  linux:
+executors:
+  linux-runner:
+    machine: true
+    resource_class: alessandrocaetanob/hyperius
+  linux-nuvem:
     docker:
       - image: mcr.microsoft.com/dotnet/sdk:10.0
-    environment:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
-            - nuget-linux-v1-
-      - run:
-          name: Build
-          command: dotnet build VNForge.slnx --configuration Release
-      - save_cache:
-          key: nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
-          paths:
-            - ~/.nuget/packages
-      - run:
-          name: Testes
-          command: dotnet test --solution VNForge.slnx --configuration Release --no-build
 
-  windows:
-    executor: win/server-2022
+jobs:
+  linux:
+    executor: linux-<< pipeline.parameters.executor >>
     environment:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
@@ -36,12 +31,112 @@ jobs:
       # O blame do Sonar precisa dos blobs do histórico; o padrão (blobless) não os baixa.
       - checkout:
           method: full
+      # No runner, restore_cache e save_cache contam como tráfego de rede cobrado, e o
+      # NuGet baixa direto do nuget.org; na nuvem o cache economiza minutos de build.
+      - when:
+          condition:
+            equal: [nuvem, << pipeline.parameters.executor >>]
+          steps:
+            - restore_cache:
+                keys:
+                  - nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
+                  - nuget-linux-v1-
+      - run:
+          name: Sonar begin
+          command: |
+            set -euo pipefail
+            # No runner o diretório de trabalho pode sobrar de um job anterior com Sonar.
+            rm -f .sonar-begun
+            if [ -z "${SONAR_TOKEN:-}" ]; then
+              echo 'SONAR_TOKEN ausente (PR de fork): build e testes seguem sem análise do Sonar.'
+              exit 0
+            fi
+            # Build de tag não tem CIRCLE_BRANCH: o Sonar não tem a que ligar a análise.
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              echo 'Build de tag: sem análise do Sonar.'
+              exit 0
+            fi
+            # tool update instala ou atualiza: no runner o container é reaproveitado entre jobs,
+            # e tool install falharia com a ferramenta já instalada.
+            dotnet tool update --global dotnet-sonarscanner --version 11.3.0
+            dotnet tool update --global dotnet-coverage --version 18.11.2
+            export PATH="$HOME/.dotnet/tools:$PATH"
+            sonar_args=(
+              '/k:alessandrocaetanob_vnforge'
+              '/o:alessandrocaetanob'
+              "/d:sonar.token=$SONAR_TOKEN"
+              '/d:sonar.host.url=https://sonarcloud.io'
+              '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml'
+              # docs/design é referência copiada do design system (telas .dc.html e READMEs), não código do produto.
+              '/d:sonar.exclusions=docs/design/**'
+              # Tokens.axaml e Icons.axaml são gerados por tools/ e repetem a mesma estrutura por tema.
+              '/d:sonar.cpd.exclusions=src/VNForge.App/Themes/Tokens.axaml,src/VNForge.App/Assets/Icons.axaml,src/VNForge.App/Assets/Brand.axaml'
+              # tools/ são scripts de geração (tokens e ícones) rodados à mão, sem suíte de testes.
+              # Só ligação com o Avalonia (janela, views, controle de desenho, seletor de pasta): sem lógica, e a tela não roda no CI.
+              '/d:sonar.coverage.exclusions=tools/**,src/VNForge.App/App.axaml.cs,src/VNForge.App/Program.cs,src/VNForge.App/Views/**,src/VNForge.App/Controls/**,src/VNForge.App/Services/AvaloniaFolderPicker.cs'
+            )
+            # CIRCLE_PULL_REQUEST só existe se o PR já estava aberto ao disparar o build;
+            # sem ele, procura o PR aberto da branch na API pública do GitHub.
+            # Sem jq (a imagem de nuvem não tem): o primeiro "number" da resposta é o do primeiro PR.
+            if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
+              pr_key="${CIRCLE_PULL_REQUEST##*/}"
+            else
+              pr_key="$(curl -fsS "https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/pulls?state=open&head=$CIRCLE_PROJECT_USERNAME:$CIRCLE_BRANCH" 2>/dev/null \
+                | grep -o '"number": *[0-9]*' | head -n1 | grep -o '[0-9]*$' || true)"
+            fi
+            if [ -n "$pr_key" ]; then
+              sonar_args+=("/d:sonar.pullrequest.key=$pr_key")
+              sonar_args+=("/d:sonar.pullrequest.branch=$CIRCLE_BRANCH")
+              sonar_args+=('/d:sonar.pullrequest.base=main')
+            elif [ "${CIRCLE_BRANCH:-}" != main ]; then
+              sonar_args+=("/d:sonar.branch.name=$CIRCLE_BRANCH")
+            fi
+            dotnet sonarscanner begin "${sonar_args[@]}"
+            touch .sonar-begun
+      - run:
+          name: Build
+          command: dotnet build VNForge.slnx --configuration Release --no-incremental
+      - when:
+          condition:
+            equal: [nuvem, << pipeline.parameters.executor >>]
+          steps:
+            - save_cache:
+                key: nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
+                paths:
+                  - ~/.nuget/packages
+      - run:
+          name: Testes
+          command: |
+            set -euo pipefail
+            export PATH="$HOME/.dotnet/tools:$PATH"
+            if [ -f .sonar-begun ]; then
+              dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
+            else
+              dotnet test --solution VNForge.slnx --configuration Release --no-build
+            fi
+      - run:
+          name: Sonar end
+          # when: always fecha a análise mesmo com teste vermelho; só roda se o begin terminou.
+          when: always
+          command: |
+            set -euo pipefail
+            export PATH="$HOME/.dotnet/tools:$PATH"
+            if [ ! -f .sonar-begun ]; then exit 0; fi
+            dotnet sonarscanner end "/d:sonar.token=$SONAR_TOKEN"
+
+  windows:
+    executor: win/server-2022
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - checkout
       - run:
           name: Instala o SDK do global.json
           command: |
             $ErrorActionPreference = 'Stop'
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            # O script fica fora do checkout: dentro dele o Sonar o analisaria como código do projeto.
+            # O script fica fora do checkout para não sujar a árvore de trabalho.
             $installer = Join-Path $env:TEMP 'dotnet-install.ps1'
             Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installer
             & $installer -JsonFile global.json -InstallDir $dir
@@ -50,92 +145,26 @@ jobs:
             dotnet --info
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run:
-          name: Sonar begin
-          command: |
-            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            $env:DOTNET_ROOT = $dir
-            $env:PATH = "$dir;$env:PATH"
-            if (-not $env:SONAR_TOKEN) {
-              Write-Host 'SONAR_TOKEN ausente (PR de fork): build e testes seguem sem análise do Sonar.'
-              exit 0
-            }
-            # Build de tag não tem CIRCLE_BRANCH: o Sonar não tem a que ligar a análise.
-            if ($env:CIRCLE_TAG) {
-              Write-Host 'Build de tag: sem análise do Sonar.'
-              exit 0
-            }
-            dotnet tool install --global dotnet-sonarscanner --version 11.3.0
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            dotnet tool install --global dotnet-coverage --version 18.11.2
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
-            $sonarArgs = @(
-              '/k:alessandrocaetanob_vnforge',
-              '/o:alessandrocaetanob',
-              "/d:sonar.token=$env:SONAR_TOKEN",
-              '/d:sonar.host.url=https://sonarcloud.io',
-              '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml',
-              # docs/design é referência copiada do design system (telas .dc.html e READMEs), não código do produto.
-              '/d:sonar.exclusions=docs/design/**',
-              # Tokens.axaml e Icons.axaml são gerados por tools/ e repetem a mesma estrutura por tema.
-              '/d:sonar.cpd.exclusions=src/VNForge.App/Themes/Tokens.axaml,src/VNForge.App/Assets/Icons.axaml,src/VNForge.App/Assets/Brand.axaml',
-              # tools/ são scripts de geração (tokens e ícones) rodados à mão, sem suíte de testes.
-              # Só ligação com o Avalonia (janela, views, controle de desenho, seletor de pasta): sem lógica, e a tela não roda no CI.
-              '/d:sonar.coverage.exclusions=tools/**,src/VNForge.App/App.axaml.cs,src/VNForge.App/Program.cs,src/VNForge.App/Views/**,src/VNForge.App/Controls/**,src/VNForge.App/Services/AvaloniaFolderPicker.cs'
-            )
-            # CIRCLE_PULL_REQUEST só existe se o PR já estava aberto ao disparar o build;
-            # sem ele, procura o PR aberto da branch na API pública do GitHub.
-            $prKey = if ($env:CIRCLE_PULL_REQUEST) { ($env:CIRCLE_PULL_REQUEST -split '/')[-1] } else {
-              try {
-                $uri = "https://api.github.com/repos/$env:CIRCLE_PROJECT_USERNAME/$env:CIRCLE_PROJECT_REPONAME/pulls?state=open&head=$env:CIRCLE_PROJECT_USERNAME`:$env:CIRCLE_BRANCH"
-                (Invoke-RestMethod -Uri $uri | Select-Object -First 1).number
-              } catch { $null }
-            }
-            if ($prKey) {
-              $sonarArgs += "/d:sonar.pullrequest.key=$prKey"
-              $sonarArgs += "/d:sonar.pullrequest.branch=$env:CIRCLE_BRANCH"
-              $sonarArgs += '/d:sonar.pullrequest.base=main'
-            } elseif ($env:CIRCLE_BRANCH -ne 'main') {
-              $sonarArgs += "/d:sonar.branch.name=$env:CIRCLE_BRANCH"
-            }
-            dotnet sonarscanner begin @sonarArgs
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            New-Item -ItemType File -Path .sonar-begun | Out-Null
-      - run:
           name: Build
           command: |
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
             $env:DOTNET_ROOT = $dir
             $env:PATH = "$dir;$env:PATH"
-            dotnet build VNForge.slnx --configuration Release --no-incremental
+            dotnet build VNForge.slnx --configuration Release
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run:
           name: Testes
           command: |
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
             $env:DOTNET_ROOT = $dir
-            $env:PATH = "$dir;$env:USERPROFILE\.dotnet\tools;$env:PATH"
-            if (Test-Path .sonar-begun) {
-              dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
-            } else {
-              dotnet test --solution VNForge.slnx --configuration Release --no-build
-            }
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run:
-          name: Sonar end
-          # when: always fecha a análise mesmo com teste vermelho; só roda se o begin terminou.
-          when: always
-          command: |
-            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            $env:DOTNET_ROOT = $dir
-            $env:PATH = "$dir;$env:USERPROFILE\.dotnet\tools;$env:PATH"
-            if (-not (Test-Path .sonar-begun)) { exit 0 }
-            dotnet sonarscanner end "/d:sonar.token=$env:SONAR_TOKEN"
+            $env:PATH = "$dir;$env:PATH"
+            dotnet test --solution VNForge.slnx --configuration Release --no-build
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   publicar:
-    docker:
-      - image: mcr.microsoft.com/dotnet/sdk:10.0
+    # A release sai sempre de um container limpo da nuvem: no pool, o runner é compartilhado
+    # com os jobs de PR, e uma dependência adulterada ali entraria no executável.
+    executor: linux-nuvem
     environment:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
@@ -145,7 +174,12 @@ jobs:
           name: Empacota a CLI (win-x64 e linux-x64)
           command: |
             set -euo pipefail
-            apt-get update -qq && apt-get install -y -qq zip
+            # A imagem de nuvem roda como root e não tem sudo; o zip só é instalado se faltar.
+            if ! command -v zip >/dev/null; then
+              sudo_cmd=""
+              if [ "$(id -u)" -ne 0 ]; then sudo_cmd="sudo"; fi
+              $sudo_cmd apt-get update -qq && $sudo_cmd apt-get install -y -qq zip
+            fi
             # v1.2.3 vira 1.2.3; o --version do vnf passa a mostrar a versão da tag.
             version="${CIRCLE_TAG#v}"
             mkdir -p dist
@@ -198,17 +232,21 @@ workflows:
     jobs:
       # Os jobs de que o publicar depende também precisam do filtro de tags: o CircleCI
       # não dispara por tag um job sem `filters: tags`, e o requires ficaria sem pai.
-      - linux:
-          filters:
-            tags:
-              only: /.*/
       # O contexto guarda o SONAR_TOKEN. PRs de fork não o recebem ("Pass secrets to
       # builds from forked pull requests" fica desligado): o job roda sem análise.
-      - windows:
+      - linux:
           context: sonarcloud
           filters:
             tags:
               only: /.*/
+      # O Windows é o job mais caro em créditos: roda só na main e nas tags de versão, como
+      # conferência final. Os checks dos PRs rodam no pool local (linux).
+      - windows:
+          filters:
+            branches:
+              only: main
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/
       # Só tag de versão (v1.2.3 ou v1.2.3-rc1) e só depois de linux e windows verdes.
       - publicar:
           requires:
