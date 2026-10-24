@@ -13,7 +13,6 @@ public sealed class InjectRestoreCommandTests : IDisposable
     private const string Restore = "restore";
 
     private readonly CliHarness _cli = new();
-    private readonly TextReader _originalIn = Console.In;
     private readonly string _game;
     private readonly ProjectFolder _project;
 
@@ -35,7 +34,6 @@ public sealed class InjectRestoreCommandTests : IDisposable
 
     public void Dispose()
     {
-        Console.SetIn(_originalIn);
         _cli.Dispose();
     }
 
@@ -51,8 +49,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     public async Task Inject_em_terminal_interativo_mostra_a_tabela_do_que_vai_mudar_antes_de_perguntar()
     {
         PutBuild();
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain(200));
-        Console.SetIn(new StringReader("n\n"));
+        using var rich = new CliHarness(stdin: "n\n", terminal: TestTerminals.InteractivePlain(200));
 
         var result = await rich.RunAsync([Inject, "--project", _project.Root], TestContext.Current.CancellationToken);
 
@@ -69,8 +66,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     {
         PutBuild();
         await Run(Inject, YesOption);
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain(200));
-        Console.SetIn(new StringReader("n\n"));
+        using var rich = new CliHarness(stdin: "n\n", terminal: TestTerminals.InteractivePlain(200));
 
         var result = await rich.RunAsync([Restore, "--project", _project.Root], TestContext.Current.CancellationToken);
 
@@ -133,7 +129,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     public async Task Inject_sem_yes_pergunta_e_grava_quando_a_resposta_e_sim()
     {
         PutBuild();
-        Console.SetIn(new StringReader("s\n"));
+        _cli.SetInput("s\n");
 
         var result = await Run(Inject);
 
@@ -146,7 +142,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     public async Task Inject_sem_yes_e_resposta_nao_sai_com_3_sem_gravar_nada()
     {
         PutBuild();
-        Console.SetIn(new StringReader("n\n"));
+        _cli.SetInput("n\n");
 
         var result = await Run(Inject);
 
@@ -160,7 +156,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     public async Task Inject_sem_yes_e_sem_entrada_pede_o_yes()
     {
         PutBuild();
-        Console.SetIn(new StringReader(string.Empty));
+        _cli.SetInput(string.Empty);
 
         var result = await Run(Inject);
 
@@ -247,7 +243,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     {
         PutBuild();
         await Run(Inject, YesOption);
-        Console.SetIn(new StringReader("\n"));
+        _cli.SetInput("\n");
 
         var result = await Run(Restore);
 

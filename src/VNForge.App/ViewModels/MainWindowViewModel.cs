@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.Core;
@@ -17,7 +19,6 @@ public enum NavKey
     Settings,
     Glossary,
     Build,
-    Search,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -31,6 +32,19 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 
     [ObservableProperty]
     public partial bool IsEnabled { get; set; } = isEnabled;
+
+    /// <summary>Falso esconde o item do trilho (o Glossário só aparece com projeto aberto).</summary>
+    [ObservableProperty]
+    public partial bool IsVisible { get; set; } = true;
+
+    /// <summary>O contador do item (problemas da Conferência); nulo ou zero não mostra nada.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBadge), nameof(BadgeText))]
+    public partial int? Badge { get; set; }
+
+    public bool HasBadge => Badge is > 0;
+
+    public string BadgeText => Badge is > 99 ? "99+" : Badge?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
 }
 
 /// <summary>Janela principal: trilho de navegação, página atual e o projeto aberto.</summary>
@@ -38,16 +52,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly NavItemViewModel dashboardItem = new(NavKey.Dashboard, "Painel", "Icon.Board", isEnabled: false);
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
-    private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferência", "Icon.Shield", isEnabled: false);
-    private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
+    private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferir", "Icon.Shield", isEnabled: false);
+    private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Build", "Icon.Box", isEnabled: false);
-    private readonly NavItemViewModel searchItem = new(NavKey.Search, "Busca", "Icon.Search", isEnabled: false);
+    private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
+    private readonly Action<string> openFolder;
+    private readonly FormattingProfileCache profiles = new();
+    private bool editorCountIsNewer;
     private NavItemViewModel? selectedNav;
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, Action<string>? openFolder = null)
     {
+        this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
@@ -56,11 +74,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Build = new BuildViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), dashboardItem, editorItem, conferenceItem, searchItem, buildItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
-        selectedNav = Nav[0];
+        var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
+        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, settingsItem];
+        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem];
+        BottomNav = [settingsItem];
+        selectedNav = startItem;
         CurrentPage = start;
-        Search.FlushPendingEdits = Editor.FlushPendingEdits;
-        Search.Applied += (_, _) => Editor.Reload();
+        Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines);
+        Editor.PropertyChanged += OnEditorChanged;
+        Conference.PropertyChanged += OnConferenceChanged;
+        Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LineRequested += (_, request) =>
         {
@@ -100,15 +123,23 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public DashboardViewModel Dashboard { get; } = new();
 
-    public EditorViewModel Editor { get; init; } = new();
+    public EditorViewModel Editor
+    {
+        get;
+        init
+        {
+            // O app troca o Editor no inicializador de objeto, depois do construtor: a escuta do contador e da gravação passa para o novo.
+            field.PropertyChanged -= OnEditorChanged;
+            field = value;
+            field.PropertyChanged += OnEditorChanged;
+        }
+    } = new();
 
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
 
     public BuildViewModel Build { get; }
-
-    public SearchReplaceViewModel Search { get; } = new();
 
     public ConferenceViewModel Conference { get; } = new();
 
@@ -123,11 +154,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
+    /// <summary>Os itens do alto do trilho; o Glossário fica escondido até um projeto abrir.</summary>
+    public ReadOnlyCollection<NavItemViewModel> TopNav { get; }
+
+    /// <summary>Os itens do pé do trilho (Ajustes).</summary>
+    public ReadOnlyCollection<NavItemViewModel> BottomNav { get; }
+
+    public CommandPaletteViewModel Palette { get; }
+
+    [RelayCommand]
+    private void OpenPalette() => Palette.Open();
+
     [ObservableProperty]
     public partial object CurrentPage { get; private set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ProjectTitle))]
+    [NotifyPropertyChangedFor(nameof(ProjectTitle), nameof(HasProject), nameof(EncodingText), nameof(BoxLimitsText))]
     public partial ProjectSummary? CurrentProject { get; private set; }
 
     /// <summary>Texto da barra de status sobre a chave da Anthropic; nunca contém a chave.</summary>
@@ -138,6 +180,57 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public partial bool ApiKeyConfigured { get; private set; }
 
     public string ProjectTitle => CurrentProject?.Name ?? "Nenhum projeto aberto";
+
+    public bool HasProject => CurrentProject is not null;
+
+    /// <summary>"Salvo às 00:41" depois da primeira gravação do Editor nesta sessão; vazio antes.</summary>
+    public string SavedAtText => Editor.LastSavedAt is { } at ? $"Salvo às {at:HH:mm}" : string.Empty;
+
+    /// <summary>"Acentuação: CP1252" com a estratégia do projeto.</summary>
+    public string EncodingText => CurrentProject is { } project ? $"Acentuação: {ProjectLabels.EncodingShort(project.EncodingStrategy)}" : string.Empty;
+
+    /// <summary>"40 colunas · 3 linhas": os limites da caixa de texto do <c>formatting.json</c>; vazio sem projeto ou sem perfil legível.</summary>
+    public string BoxLimitsText
+    {
+        get
+        {
+            if (CurrentProject is not { } project || profiles.Get(project.Root) is not { } profile)
+            {
+                return string.Empty;
+            }
+
+            var columns = $"{profile.Wrap.MaxWidth} colunas";
+            return profile.Wrap.MaxLines is { } lines ? $"{columns} · {lines} {(lines == 1 ? "linha" : "linhas")}" : columns;
+        }
+    }
+
+    /// <summary>
+    /// Os itens do trilho são dois <c>ListBox</c> (alto e pé) e cada um mostra a seleção só dos seus itens; escolher um item do outro grupo
+    /// limpa o primeiro, e esse "nada selecionado" não pode mexer na página.
+    /// </summary>
+    public NavItemViewModel? SelectedTopNav
+    {
+        get => selectedNav is { } item && TopNav.Contains(item) ? item : null;
+        set => SelectFromRail(value);
+    }
+
+    public NavItemViewModel? SelectedBottomNav
+    {
+        get => selectedNav is { } item && BottomNav.Contains(item) ? item : null;
+        set => SelectFromRail(value);
+    }
+
+    private void SelectFromRail(NavItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        SelectedNav = item;
+        OnPropertyChanged(nameof(SelectedTopNav));
+        OnPropertyChanged(nameof(SelectedBottomNav));
+    }
 
     /// <summary>Item selecionado no trilho; um item desabilitado não é aceito e a seleção volta ao anterior.</summary>
     public NavItemViewModel? SelectedNav
@@ -159,6 +252,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             if (SetProperty(ref selectedNav, value))
             {
+                OnPropertyChanged(nameof(SelectedTopNav));
+                OnPropertyChanged(nameof(SelectedBottomNav));
                 PrepareLeavingAndEntering(value.Key);
                 CurrentPage = value.Key switch
                 {
@@ -168,7 +263,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
                     NavKey.Build => Build,
-                    NavKey.Search => Search,
                     _ => Start,
                 };
                 if (value.Key == NavKey.Dashboard)
@@ -179,6 +273,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 {
                     _ = Build.ReloadAsync();
                 }
+
+                OnPropertyChanged(nameof(BoxLimitsText));
             }
         }
     }
@@ -274,7 +370,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentProject = summary;
         Dashboard.Project = summary;
         Editor.Project = summary;
-        Search.Project = summary;
         Settings.Load(summary);
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
         if (!Glossary.IsDirty || Glossary.Project?.Root != summary.Root)
@@ -290,7 +385,133 @@ public sealed partial class MainWindowViewModel : ObservableObject
         conferenceItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
         buildItem.IsEnabled = true;
-        searchItem.IsEnabled = true;
+        glossaryItem.IsVisible = true;
+        UpdateProblemBadge();
+        OnPropertyChanged(nameof(SavedAtText));
+    }
+
+    private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditorViewModel.IssueCount))
+        {
+            editorCountIsNewer = true;
+            UpdateProblemBadge();
+        }
+        else if (e.PropertyName == nameof(EditorViewModel.LastSavedAt))
+        {
+            OnPropertyChanged(nameof(SavedAtText));
+        }
+    }
+
+    private void OnConferenceChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ConferenceViewModel.IssueCount))
+        {
+            editorCountIsNewer = false;
+            UpdateProblemBadge();
+        }
+    }
+
+    /// <summary>
+    /// O contador vem da última conferência. Antes da primeira, ou depois de o Editor contar de novo (uma edição ou uma releitura), vem das
+    /// ocorrências do Editor, que é o número mais recente.
+    /// </summary>
+    private void UpdateProblemBadge() =>
+        conferenceItem.Badge = CurrentProject is null ? null : editorCountIsNewer ? Editor.IssueCount : Conference.IssueCount ?? Editor.IssueCount;
+
+    /// <summary>Ajustes gravou o projeto: relê a acentuação e o modelo do <c>vnforge.json</c> e os limites da caixa do <c>formatting.json</c>.</summary>
+    private void ReloadProjectSettings()
+    {
+        if (CurrentProject is not { } project)
+        {
+            return;
+        }
+
+        try
+        {
+            var config = ProjectFolder.Open(project.Root).LoadConfig();
+            CurrentProject = project with { EncodingStrategy = config.Encoding.Strategy, Model = config.Ai.Model };
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine(e);
+        }
+
+        OnPropertyChanged(nameof(BoxLimitsText));
+    }
+
+    private List<PaletteEntry> PaletteNamedEntries()
+    {
+        var entries = new List<PaletteEntry>();
+        if (CurrentProject is { } project)
+        {
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Traduzir pendentes", "Mostra no Editor as linhas ainda sem tradução", () =>
+            {
+                if (GoTo(editorItem))
+                {
+                    Editor.ShowPendingLines();
+                }
+            }));
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Novo build", "Gera a pasta de build do projeto", () =>
+            {
+                if (GoTo(buildItem) && Build.BuildCommand.CanExecute(null))
+                {
+                    Build.BuildCommand.Execute(null);
+                }
+            }));
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));
+        }
+
+        foreach (var item in Nav.Where(n => n.IsEnabled && n.IsVisible))
+        {
+            entries.Add(new PaletteEntry(PaletteGroup.Screen, item.Label, "Tela", () => SelectedNav = item));
+        }
+
+        foreach (var script in Editor.Scripts)
+        {
+            entries.Add(new PaletteEntry(PaletteGroup.Script, script.Key, $"{script.LinesLabel} linhas · {script.PercentLabel} concluído", () =>
+            {
+                if (GoTo(editorItem))
+                {
+                    Editor.SelectedScript = script;
+                }
+            }));
+        }
+
+        return entries;
+    }
+
+    private List<PaletteEntry> PaletteLines(string text, int limit) =>
+        [.. Editor.FindLines(text, limit).Select(entry => new PaletteEntry(
+            PaletteGroup.Line,
+            entry.Unit.Translation is { Length: > 0 } translation ? translation : entry.Unit.Source,
+            $"{entry.ScriptKey} · linha {entry.Number}",
+            () =>
+            {
+                if (GoTo(editorItem))
+                {
+                    LineNavigation = ShowLineAsync(new LineRequest(entry.ScriptKey, entry.Unit.Id));
+                }
+            }))];
+
+    /// <summary>Troca de página e diz se chegou: a Conferência ocupada ou um painel que não grava recusam a troca.</summary>
+    private bool GoTo(NavItemViewModel item)
+    {
+        SelectedNav = item;
+        return ReferenceEquals(SelectedNav, item);
+    }
+
+    private static void OpenInFileManager(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception e) when (e is Win32Exception or InvalidOperationException)
+        {
+            // Sem gerenciador de arquivos (sessão remota, CI) o comando não tem outro destino; só registra.
+            Debug.WriteLine(e);
+        }
     }
 
     private void ShowKeyStatus(ResolvedApiKey key, string text)

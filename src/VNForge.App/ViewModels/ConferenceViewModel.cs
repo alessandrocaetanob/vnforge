@@ -151,6 +151,10 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [ObservableProperty]
     public partial string FixAllLabel { get; private set; } = "Corrigir automaticamente";
 
+    /// <summary>Quantas ocorrências a última conferência achou, sem filtro; nulo enquanto o projeto não foi conferido (ou a conferência falhou).</summary>
+    [ObservableProperty]
+    public partial int? IssueCount { get; private set; }
+
     public bool IsEmpty => Rows.Count == 0;
 
     public string EmptyMessage
@@ -523,6 +527,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     {
         // As contagens dos chips e da coluna de regras são do relatório inteiro, não do filtro: o artboard as mantém ao trocar de chip ou de regra.
         chips[0].Count = all.Sum(r => r.Count);
+        IssueCount = checkedAt is null ? null : chips[0].Count;
         chips[1].Count = all.Where(r => r.IsError).Sum(r => r.Count);
         chips[2].Count = chips[0].Count - chips[1].Count;
         foreach (var category in categories)

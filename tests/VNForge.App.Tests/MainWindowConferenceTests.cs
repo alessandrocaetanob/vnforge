@@ -30,7 +30,7 @@ public class MainWindowConferenceTests
         var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)));
         var item = vm.Nav.Single(n => n.Key == NavKey.Conference);
         Assert.False(item.IsEnabled);
-        Assert.Equal("Conferência", item.Label);
+        Assert.Equal("Conferir", item.Label);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
