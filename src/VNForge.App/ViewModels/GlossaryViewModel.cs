@@ -150,15 +150,26 @@ public sealed partial class GlossaryViewModel : ObservableObject
         NoticeMessage = null;
         try
         {
+            var terms = Terms.Where(t => !t.IsBlank).Select(t => t.ToTerm()).ToList();
             if (termsDirty)
             {
-                folder.SaveGlossary(Terms.Where(t => !t.IsBlank).Select(t => t.ToTerm()).ToList());
+                // Só linhas em branco e arquivo ausente: não cria um glossary.json vazio no projeto.
+                if (terms.Count > 0 || File.Exists(folder.GlossaryPath))
+                {
+                    folder.SaveGlossary(terms);
+                }
+
                 termsDirty = false;
             }
 
+            var characters = Characters.Where(c => !c.IsBlank).Select(c => c.ToEntry()).ToList();
             if (charactersDirty)
             {
-                folder.SaveCharacters(Characters.Where(c => !c.IsBlank).Select(c => c.ToEntry()).ToList());
+                if (characters.Count > 0 || File.Exists(folder.CharactersPath))
+                {
+                    folder.SaveCharacters(characters);
+                }
+
                 charactersDirty = false;
             }
         }
@@ -167,7 +178,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             ErrorMessage = $"{e.Reason} Nada foi gravado neste arquivo.";
             return;
         }
-        catch (IOException e)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             ErrorMessage = $"Não foi possível gravar: {e.Message}";
             return;

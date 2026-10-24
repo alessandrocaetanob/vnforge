@@ -1,3 +1,4 @@
+using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -119,8 +120,9 @@ public class GlossaryViewModelTests
         vm.SaveCommand.Execute(null);
 
         Assert.Null(vm.ErrorMessage);
-        Assert.Empty(folder.LoadGlossary());
-        Assert.Empty(folder.LoadCharacters());
+        Assert.False(File.Exists(folder.GlossaryPath));
+        Assert.False(File.Exists(folder.CharactersPath));
+        Assert.False(vm.IsDirty);
     }
 
     [Fact]
@@ -235,5 +237,46 @@ public class GlossaryViewModelTests
         Assert.False(vm.IsDirty);
         Assert.True(vm.NoCharacters);
         Assert.False(vm.NoTerms);
+    }
+
+    [Fact]
+    public void Remover_todas_as_linhas_de_um_arquivo_existente_grava_a_lista_vazia()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        folder.SaveGlossary([new GlossaryTerm("a", "A")]);
+        vm.Reload();
+
+        vm.RemoveTermCommand.Execute(vm.Terms[0]);
+        vm.SaveCommand.Execute(null);
+
+        Assert.Empty(folder.LoadGlossary());
+    }
+
+    [Fact]
+    public void Pasta_sem_permissao_de_escrita_vira_mensagem_e_nao_excecao()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        Directory.CreateDirectory(folder.GlossaryPath + ".tmp");
+        vm.AddTermCommand.Execute(null);
+        vm.Terms[0].Source = "a";
+        vm.Terms[0].Target = "A";
+        Directory.CreateDirectory(folder.GlossaryPath);
+
+        vm.SaveCommand.Execute(null);
+
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.True(vm.IsDirty);
+    }
+
+    [Fact]
+    public void Conversor_de_genero_mostra_o_rotulo_em_portugues()
+    {
+        var converter = GenderLabelConverter.Instance;
+
+        Assert.Equal("Feminino", converter.Convert(CharacterGender.Female, typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Null(converter.Convert("x", typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Throws<NotSupportedException>(() => converter.ConvertBack("x", typeof(CharacterGender), null, System.Globalization.CultureInfo.InvariantCulture));
     }
 }
