@@ -36,16 +36,16 @@ public sealed partial class SeverityChipViewModel(ConferenceSeverityFilter filte
 }
 
 /// <summary>Uma linha da lista da Conferência: o cabeçalho de uma regra ou uma ocorrência dela.</summary>
-public abstract class ConferenceRowViewModel
+public interface IConferenceRow
 {
     /// <summary>Id da regra a que a linha pertence: o do cabeçalho ou o da ocorrência.</summary>
-    public abstract string RuleId { get; }
+    string RuleId { get; }
 }
 
 /// <summary>Cabeçalho de um grupo: a regra, a frase que ela confere, quantas ocorrências tem e se sabe corrigir sozinha.</summary>
-public sealed class ConferenceGroupRowViewModel(string ruleId, string description, int count, bool canFix) : ConferenceRowViewModel
+public sealed class ConferenceGroupRowViewModel(string ruleId, string description, int count, bool canFix) : IConferenceRow
 {
-    public override string RuleId { get; } = ruleId;
+    public string RuleId { get; } = ruleId;
 
     public string Description { get; } = description;
 
@@ -57,11 +57,11 @@ public sealed class ConferenceGroupRowViewModel(string ruleId, string descriptio
 }
 
 /// <summary>Uma ocorrência do QA. Só leitura: a lista pode ter milhares delas.</summary>
-public sealed class ConferenceIssueRowViewModel(QaIssue issue) : ConferenceRowViewModel
+public sealed class ConferenceIssueRowViewModel(QaIssue issue) : IConferenceRow
 {
     public QaIssue Issue { get; } = issue;
 
-    public override string RuleId => Issue.RuleId;
+    public string RuleId => Issue.RuleId;
 
     public string UnitId => Issue.UnitId;
 
@@ -140,7 +140,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     [NotifyPropertyChangedFor(nameof(EmptyMessage))]
-    public partial IReadOnlyList<ConferenceRowViewModel> Rows { get; private set; } = [];
+    public partial IReadOnlyList<IConferenceRow> Rows { get; private set; } = [];
 
     /// <summary>"2 erros, 37 avisos", contando o que o filtro deixa à vista.</summary>
     [ObservableProperty]
@@ -397,7 +397,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
             _ => all,
         };
 
-        var rows = new List<ConferenceRowViewModel>(shown.Count + 8);
+        var rows = new List<IConferenceRow>(shown.Count + 8);
         foreach (var group in shown.GroupBy(i => i.RuleId, StringComparer.Ordinal))
         {
             var rule = engine.Find(group.Key);

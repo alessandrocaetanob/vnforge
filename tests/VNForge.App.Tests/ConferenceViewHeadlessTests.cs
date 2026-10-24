@@ -11,16 +11,8 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
-/// <summary>O Avalonia só aceita um aplicativo por thread de UI: toda classe de teste headless entra nesta coleção e divide a mesma sessão.</summary>
-[CollectionDefinition(Name)]
-public sealed class HeadlessCollection : ICollectionFixture<HeadlessFixture>
-{
-    public const string Name = "Headless";
-}
-
 /// <summary>Abre a tela de verdade (tema, estilos e DataTemplates por tipo de linha) para pegar erro de XAML que o ViewModel sozinho não mostra.</summary>
-[Collection(HeadlessCollection.Name)]
-public class ConferenceViewHeadlessTests(HeadlessFixture fixture)
+public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     [Fact]
     public async Task Duplo_clique_na_ocorrencia_pede_a_linha()
