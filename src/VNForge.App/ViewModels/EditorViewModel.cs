@@ -29,7 +29,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private readonly FormattingProfileCache profiles = new();
     private LineEditor? lineEditor;
     private ProjectLines? data;
-    private IReadOnlyList<LineEntry> entries = [];
+    private LineEntry[] entries = [];
     private LineViewModel[] scriptLines = [];
     private LineStatusFilter statusFilter = LineStatusFilter.All;
     private int loadVersion;
@@ -118,7 +118,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         get
         {
-            var total = entries.Count;
+            var total = entries.Length;
             var noun = total == 1 ? "linha" : "linhas";
             return Lines.Count == total
                 ? $"{ProjectLabels.Number(total)} {noun} neste script"
@@ -311,7 +311,29 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester }
             : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester };
         detail.AttachPreview(CurrentProfile());
+        detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
+    }
+
+    /// <summary>
+    /// O painel gravou a linha: a grade, os contadores dos filtros e o QA da linha passam a refletir a unidade nova. A linha continua onde está
+    /// mesmo que o filtro ativo deixe de aceitá-la; o filtro só é reavaliado na próxima troca.
+    /// </summary>
+    private void OnUnitSaved(LineViewModel line, TextUnit saved)
+    {
+        var updated = line.Entry.WithUnit(saved);
+        line.Update(updated);
+
+        // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
+        data?.Replace(updated);
+
+        // O painel descartado ao trocar de script grava por último; a linha dele já não é a do script atual.
+        var index = line.Number - 1;
+        if (index < scriptLines.Length && ReferenceEquals(scriptLines[index], line))
+        {
+            entries[index] = updated;
+            UpdateCounts();
+        }
     }
 
     /// <summary>
@@ -379,8 +401,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>Cria os <see cref="LineViewModel"/> do script atual, uma vez; os filtros só escolhem entre eles.</summary>
     private void BuildScript()
     {
-        entries = SelectedScript is { } script && data is not null ? data.LinesOf(script.Key) : [];
-        scriptLines = new LineViewModel[entries.Count];
+        entries = SelectedScript is { } script && data is not null ? [.. data.LinesOf(script.Key)] : [];
+        scriptLines = new LineViewModel[entries.Length];
         for (var i = 0; i < scriptLines.Length; i++)
         {
             scriptLines[i] = new LineViewModel(entries[i]);

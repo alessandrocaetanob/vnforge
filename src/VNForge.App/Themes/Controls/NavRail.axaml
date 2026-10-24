@@ -9,7 +9,7 @@
   </Style>
   <Style Selector="ListBox.navrail > ListBoxItem">
     <Setter Property="Padding" Value="0"/>
-    <Setter Property="Margin" Value="4,2"/>
+    <Setter Property="Margin" Value="2,2"/>
     <Setter Property="Height" Value="56"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
@@ -32,6 +32,10 @@
         </Panel>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- Os 72px do trilho deixam 68 por item: "Conferência" em 12px passa disso e perdia a última letra. -->
+  <Style Selector="ListBox.navrail > ListBoxItem TextBlock">
+    <Setter Property="FontSize" Value="11"/>
   </Style>
   <Style Selector="ListBox.navrail > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
