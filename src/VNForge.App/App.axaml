@@ -25,6 +25,9 @@
     <DataTemplate DataType="vm:SettingsViewModel">
       <views:SettingsView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:GlossaryViewModel">
+      <views:GlossaryView/>
+    </DataTemplate>
   </Application.DataTemplates>
 
   <Application.Styles>
