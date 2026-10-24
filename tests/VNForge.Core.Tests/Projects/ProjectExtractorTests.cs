@@ -76,6 +76,20 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Relata_cada_script_lido_em_ordem_e_um_relato_final_com_todos()
+    {
+        WriteGame(A001Fake, DialogueHi);
+        WriteGame(A002Fake, DialogueHi);
+        var reports = new List<ScriptWorkProgress>();
+
+        ProjectExtractor.Extract(NewProject(), [new FakeEngine()], TestContext.Current.CancellationToken, new SyncProgress<ScriptWorkProgress>(reports.Add));
+
+        Assert.Equal([A001Fake, A002Fake, string.Empty], reports.Select(r => r.Name));
+        Assert.Equal([0, 1, 2], reports.Select(r => r.Done));
+        Assert.All(reports, r => Assert.Equal(2, r.Total));
+    }
+
+    [Fact]
     public void Descompacta_para_o_cache_do_projeto_em_game()
     {
         WriteGame(A001Fake, DialogueHello);

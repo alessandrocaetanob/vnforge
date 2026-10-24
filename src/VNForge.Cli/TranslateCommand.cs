@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Spectre.Console;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using VNForge.AI.Claude;
@@ -76,6 +77,7 @@ internal static class TranslateCommand
 
         var gate = new object();
         var summary = new RunSummary();
+        var reporter = new BatchReporter(settings.Model, pending.Count, settings.BatchSize, () => (provider as ClaudeTranslationProvider)?.Usage);
 
         TranslationBatch BuildBatch(IReadOnlyList<TextUnit> lines)
         {
@@ -108,17 +110,30 @@ internal static class TranslateCommand
                     };
                 });
                 summary.Handled += results.Count;
-                if (!json)
+                if (reporter.IsLive)
+                {
+                    reporter.BatchDone(summary.Handled);
+                }
+                else if (!json)
                 {
                     error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
                 }
             }
         }
 
+        if (cli.CanAnimate)
+        {
+            cli.Ansi.MarkupLine($"Traduzindo com [{CliPalette.Hex(CliPalette.Accent)}]{CliViews.Escape(settings.Model)}[/] · esforço {settings.Effort.ToString().ToLowerInvariant()}");
+        }
+
         TranslationRunResult run;
         try
         {
-            run = await runner.RunAsync(pending, BuildBatch, OnBatchTranslated, null, token).ConfigureAwait(false);
+            run = await reporter.RunAsync(
+                cli.Ansi,
+                cli.CanAnimate,
+                "Traduzindo",
+                () => runner.RunAsync(pending, BuildBatch, OnBatchTranslated, null, token)).ConfigureAwait(false);
         }
         finally
         {

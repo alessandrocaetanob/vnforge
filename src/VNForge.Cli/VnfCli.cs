@@ -77,6 +77,12 @@ public sealed class VnfCli
     /// <summary>A invocação em andamento pode usar cor e animação.</summary>
     public bool RichOutput { get; private set; }
 
+    /// <summary>
+    /// A invocação pode redesenhar a tela (barras de progresso ao vivo): saída rica, com ANSI e terminal interativo. Sem isso o
+    /// progresso segue como log de linhas, como antes.
+    /// </summary>
+    public bool CanAnimate => RichOutput && Ansi.Profile.Capabilities is { Ansi: true, Interactive: true };
+
     /// <summary>Cofre da chave de API do usuário.</summary>
     public IApiKeyStore ApiKeyStore { get; }
 

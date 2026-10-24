@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Diagnostics;
 using System.Globalization;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -20,14 +21,24 @@ internal static class ExtractCommand
     public static Command Create(VnfCli cli)
     {
         var command = new Command("extract", "Descompacta os arquivos do jogo para .cache/ e gera text/*.json (repetido, mantém as traduções; não altera a pasta do jogo).");
-        command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, parseResult.InvocationConfiguration.Output, token)));
+        command.SetAction((parseResult, token) => RunAsync(cli, parseResult, parseResult.InvocationConfiguration.Output, token));
         return command;
     }
 
-    private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output, CancellationToken token)
+    private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, TextWriter output, CancellationToken token)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-        var result = ProjectExtractor.Extract(project, KnownEngines.All, token);
+        var clock = Stopwatch.StartNew();
+        var result = await LiveProgress.RunAsync(
+            cli.Ansi,
+            cli.CanAnimate,
+            "Descompactando o jogo",
+            total: null,
+            sink => Task.FromResult(ProjectExtractor.Extract(
+                project,
+                KnownEngines.All,
+                token,
+                new InlineProgress<ScriptWorkProgress>(progress => sink.Scripts(progress, "gravando text/"))))).ConfigureAwait(false);
 
         if (parseResult.GetValue(cli.Options.Json))
         {
@@ -46,6 +57,13 @@ internal static class ExtractCommand
             return ErrorHandler.OkExitCode;
         }
 
+        if (cli.RichOutput)
+        {
+            cli.Ansi.Write(RunSummaries.ExtractPanel(result, clock.Elapsed));
+            WriteWarnings(output, result);
+            return ErrorHandler.OkExitCode;
+        }
+
         foreach (var archive in result.Archives)
         {
             output.WriteLine($"Descompactado: {archive.GamePath} ({Number(archive.FileCount)} {Plural(archive.FileCount, "arquivo", "arquivos")}) em {Path.Combine(result.CacheDirectory, archive.Directory.Replace('/', Path.DirectorySeparatorChar))}");
@@ -57,6 +75,12 @@ internal static class ExtractCommand
             output.WriteLine($"Re-extração: {Number(r.Kept)} mantidas, {Number(r.Outdated)} desatualizadas (original mudou; tradução antiga guardada), {Number(r.Added)} novas, {Number(r.Removed)} removidas.");
         }
 
+        WriteWarnings(output, result);
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static void WriteWarnings(TextWriter output, ExtractionResult result)
+    {
         foreach (var warning in result.Warnings.Take(MaxWarningsShown))
         {
             output.WriteLine($"Aviso: {warning}");
@@ -66,20 +90,23 @@ internal static class ExtractCommand
         {
             output.WriteLine($"... e mais {Number(result.Warnings.Count - MaxWarningsShown)} aviso(s); use --json para ver todos.");
         }
-
-        return ErrorHandler.OkExitCode;
     }
 
     private static string Summary(ExtractionResult result)
     {
         var scripts = result.Scripts.Count;
         var text = $"Extraídos {Number(scripts)} {Plural(scripts, "script", "scripts")}, {Number(result.TotalLines)} {Plural(result.TotalLines, "linha", "linhas")}";
-        var kinds = SummaryOrder
-            .Where(kind => result.LinesByKind.GetValueOrDefault(kind) > 0)
-            .Select(kind => $"{Number(result.LinesByKind[kind])} {KindLabel(kind, result.LinesByKind[kind])}")
-            .ToList();
-        return kinds.Count == 0 ? text : $"{text} ({string.Join(", ", kinds)})";
+        var kinds = KindsText(result);
+        return kinds.Length == 0 ? text : $"{text} ({kinds})";
     }
+
+    /// <summary>"1.204 diálogos, 38 narração, 6 escolhas": as linhas por papel, sem os papéis vazios.</summary>
+    internal static string KindsText(ExtractionResult result) =>
+        string.Join(
+            ", ",
+            SummaryOrder
+                .Where(kind => result.LinesByKind.GetValueOrDefault(kind) > 0)
+                .Select(kind => $"{Number(result.LinesByKind[kind])} {KindLabel(kind, result.LinesByKind[kind])}"));
 
     private static string KindLabel(TextUnitKind kind, int count) => kind switch
     {
