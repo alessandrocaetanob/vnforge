@@ -1,36 +1,55 @@
 using System.Collections.Specialized;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VNForge.App.ViewModels;
 
 namespace VNForge.App.Views;
 
 public sealed partial class BuildView : UserControl
 {
-    private NotifyCollectionChangedEventHandler? follow;
+    private readonly NotifyCollectionChangedEventHandler follow;
     private BuildViewModel? followed;
 
     public BuildView()
     {
         InitializeComponent();
+        follow = (_, _) => Dispatcher.UIThread.Post(() => LogScroll.ScrollToEnd(), DispatcherPriority.Background);
         DataContextChanged += (_, _) => FollowLog();
     }
 
-    /// <summary>Mantém o fim do log à vista enquanto linhas novas chegam.</summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        FollowLog();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        Unfollow();
+    }
+
+    /// <summary>Mantém o fim do log à vista enquanto linhas novas chegam; só enquanto a página está na tela, para não reter a view.</summary>
     private void FollowLog()
     {
-        if (followed is not null && follow is not null)
-        {
-            followed.Log.CollectionChanged -= follow;
-        }
-
-        followed = DataContext as BuildViewModel;
-        if (followed is null)
+        Unfollow();
+        if (!this.IsAttachedToVisualTree() || DataContext is not BuildViewModel vm)
         {
             return;
         }
 
-        follow = (_, _) => Dispatcher.UIThread.Post(() => LogScroll.ScrollToEnd(), DispatcherPriority.Background);
-        followed.Log.CollectionChanged += follow;
+        followed = vm;
+        vm.Log.CollectionChanged += follow;
+    }
+
+    private void Unfollow()
+    {
+        if (followed is not null)
+        {
+            followed.Log.CollectionChanged -= follow;
+            followed = null;
+        }
     }
 }

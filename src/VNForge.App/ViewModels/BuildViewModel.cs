@@ -280,7 +280,11 @@ public sealed partial class BuildViewModel : ObservableObject
     private async Task InjectAsync(InjectionPlan plan)
     {
         AppendLog($"Injetando {ProjectLabels.Number(plan.Files.Count)} arquivo(s) em {plan.GameDirectory}");
-        var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", _ => new GameInjector().Inject(plan));
+        var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", _ =>
+        {
+            EnsureBuildMatchesPlan(plan);
+            return new GameInjector().Inject(plan);
+        });
         if (run.Value is { } result)
         {
             if (result.BackupDirectory is not null)
@@ -302,8 +306,13 @@ public sealed partial class BuildViewModel : ObservableObject
 
     private async Task RestoreAsync(RestorePlan plan)
     {
+        var root = Project!.Root;
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
-        var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", _ => new GameInjector().Restore(plan));
+        var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", _ =>
+        {
+            EnsureBackupIsLatest(root, plan);
+            return new GameInjector().Restore(plan);
+        });
         if (run.Value is { } result)
         {
             AppendLog($"Restaurado: {ProjectLabels.Number(result.Restored.Count)} arquivo(s); removido: {ProjectLabels.Number(result.Removed.Count)} arquivo(s) criado(s) pela injeção.");
@@ -322,6 +331,29 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
+    /// <summary>Recusa a injeção se um arquivo de <c>build/</c> mudou depois do plano que o usuário confirmou: o jogo não recebe conteúdo que a tela não mostrou.</summary>
+    private static void EnsureBuildMatchesPlan(InjectionPlan plan)
+    {
+        foreach (var file in plan.Files)
+        {
+            using var stream = new FileStream(file.BuildPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(stream)) != file.BuildSha256)
+            {
+                throw new InjectionException($"O arquivo '{file.RelativePath}' de build/ mudou depois da conferência. Nada foi gravado no jogo; confira o que muda e injete de novo.");
+            }
+        }
+    }
+
+    /// <summary>Recusa a restauração se surgiu um backup mais novo que o confirmado: restaurar o antigo devolveria o jogo a um estado velho.</summary>
+    private static void EnsureBackupIsLatest(string root, RestorePlan plan)
+    {
+        var latest = GameInjector.PlanRestore(ProjectFolder.Open(root));
+        if (!string.Equals(latest.BackupDirectory, plan.BackupDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InjectionException($"Há um backup mais novo ({latest.BackupDirectory}) que o confirmado. Nada foi restaurado; confira o backup e restaure de novo.");
+        }
+    }
+
     /// <summary>
     /// Roda o trabalho como tarefa da barra inferior e devolve o resultado ou a falha esperada, capturados dentro do trabalho:
     /// o estado da tarefa só muda quando o <c>Dispatcher</c> processa o <c>post</c>, depois de <see cref="BackgroundTaskItem.Completion"/>.
@@ -337,7 +369,7 @@ public sealed partial class BuildViewModel : ObservableObject
             {
                 value = work(ct);
             }
-            catch (Exception e) when (IsExpected(e) && e is not OperationCanceledException)
+            catch (Exception e) when (e is not OperationCanceledException)
             {
                 failure = e;
             }
@@ -479,7 +511,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
     private void ReportStopped(string what)
     {
-        AppendLog($"{what} cancelado ou interrompido; o jogo não foi alterado por esta etapa.");
+        AppendLog($"{what} cancelado.");
     }
 
     private void Fail(string title, string message)

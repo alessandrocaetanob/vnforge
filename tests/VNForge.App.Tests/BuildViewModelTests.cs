@@ -200,6 +200,41 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Build_que_mudou_depois_do_plano_confirmado_nao_e_gravado_no_jogo()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        vm.InjectCommand.Execute(null);
+        PutBuild(content: "outro conteúdo, que a tela não mostrou");
+
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.Contains("mudou depois da conferência", vm.ErrorMessage);
+        Assert.Equal(Original, File.ReadAllText(GameFile));
+        Assert.False(Directory.Exists(folder.BackupDirectory) && Directory.GetDirectories(folder.BackupDirectory).Length > 0);
+    }
+
+    [Fact]
+    public async Task Backup_mais_novo_que_o_confirmado_nao_e_ignorado_na_restauracao()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        vm.RestoreCommand.Execute(null);
+        var newer = Path.Combine(folder.BackupDirectory, "9999-12-31_2359");
+        Directory.CreateDirectory(newer);
+        var manifest = Directory.GetDirectories(folder.BackupDirectory).Where(d => d != newer).Single();
+        File.Copy(Path.Combine(manifest, "vnforge-backup.json"), Path.Combine(newer, "vnforge-backup.json"));
+        File.Copy(Path.Combine(manifest, Ysbin), Path.Combine(newer, Ysbin));
+
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.Contains("backup mais novo", vm.ErrorMessage);
+        Assert.Equal(Traduzido, File.ReadAllText(GameFile));
+    }
+
+    [Fact]
     public async Task Abrir_jogo_dispara_o_executavel_do_projeto()
     {
         var vm = await OpenAsync();
