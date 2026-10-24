@@ -147,6 +147,17 @@ public sealed class QaEngineTests
         Assert.Equal(1, report.UntranslatedCount);
     }
 
+    [Fact]
+    public void DescribeUntranslated_usa_singular_plural_e_fica_vazio_sem_linhas()
+    {
+        static QaReport Report(int n) => new QaEngine([new UntranslatedQaRule()]).Run(Context(
+            [.. Enumerable.Range(1, n).Select(i => new TextUnit($"a:{i}", TextUnitKind.Dialogue, null, "こんにちは", null, TranslationStatus.Untranslated))]));
+
+        Assert.Equal(string.Empty, QaBlockedException.DescribeUntranslated(Report(0)));
+        Assert.Equal("QA: 1 linha sem tradução; o build copiou o original nela.", QaBlockedException.DescribeUntranslated(Report(1)));
+        Assert.Equal("QA: 1.254 linhas sem tradução; o build copiou o original nelas.", QaBlockedException.DescribeUntranslated(Report(1254)));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("Maiuscula")]

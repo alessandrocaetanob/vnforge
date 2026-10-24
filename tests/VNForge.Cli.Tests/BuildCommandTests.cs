@@ -256,6 +256,38 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Build_bloqueado_por_outro_aviso_nao_lista_nao_traduzida_mas_traz_a_contagem()
+    {
+        await InitAndExtract();
+        Translate(Yst1, i => i == 0 ? Hello : "Mika");
+        _cli.Cli.Qa = new QaEngine([new UntranslatedQaRule(), new TranslationIs(ForbiddenWord, QaSeverity.Warning, Hello)]);
+
+        var result = await Build();
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("[palavra-proibida]", result.Output);
+        Assert.DoesNotContain("[nao-traduzida]", result.Output);
+        Assert.Contains("linhas sem tradução; o build copiou o original nelas", result.Output);
+        Assert.Contains("0 erros, 1 aviso.", result.Output);
+    }
+
+    [Fact]
+    public async Task Json_de_build_bloqueado_traz_untranslated_sem_listar_as_linhas()
+    {
+        await InitAndExtract();
+        Translate(Yst1, i => i == 0 ? Hello : "Mika");
+        _cli.Cli.Qa = new QaEngine([new UntranslatedQaRule(), new TranslationIs(ForbiddenWord, QaSeverity.Warning, Hello)]);
+
+        var result = await Build(JsonFlag);
+
+        using var document = JsonDocument.Parse(result.Output);
+        var data = document.RootElement.GetProperty("data");
+        Assert.True(data.GetProperty("untranslated").GetInt32() > 0);
+        Assert.Equal(1, data.GetProperty("warnings").GetInt32());
+        Assert.Single(data.GetProperty("issues").EnumerateArray());
+    }
+
+    [Fact]
     public async Task Aviso_marcado_como_ok_nao_para_o_build()
     {
         await InitAndExtract();
