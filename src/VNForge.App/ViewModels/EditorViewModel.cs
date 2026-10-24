@@ -10,7 +10,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.ViewModels;
 
 /// <summary>Uma gravação de linha que mudou a tradução ou o status: a unidade de antes e a de depois, para o aviso "Desfazer".</summary>
-public sealed record LineSavedEventArgs(string ScriptKey, int Number, TextUnit Previous, TextUnit Saved)
+public sealed record LineSavedEventArgs(string? ProjectRoot, string ScriptKey, int Number, TextUnit Previous, TextUnit Saved)
 {
     public bool IsApproval => Saved.Status == TranslationStatus.Approved && Previous.Status != TranslationStatus.Approved;
 }
@@ -360,7 +360,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         if (previous.Translation != saved.Translation || previous.Status != saved.Status)
         {
-            LineSaved?.Invoke(this, new LineSavedEventArgs(line.Entry.ScriptKey, line.Number, previous, saved));
+            LineSaved?.Invoke(this, new LineSavedEventArgs(Project?.Root, line.Entry.ScriptKey, line.Number, previous, saved));
         }
     }
 
@@ -368,7 +368,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     public bool Undo(LineSavedEventArgs saved)
     {
         ArgumentNullException.ThrowIfNull(saved);
-        if (lineEditor is null)
+        if (lineEditor is null || Project?.Root != saved.ProjectRoot)
         {
             return false;
         }

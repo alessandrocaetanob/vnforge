@@ -63,12 +63,12 @@ public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
             return unit.Status == TranslationStatus.Approved ? unit : unit with { Status = TranslationStatus.Approved };
         });
 
-    /// <summary>Devolve a linha ao estado que ela tinha (tradução, status, origem e notas), p. ex. para desfazer uma gravação.</summary>
+    /// <summary>Devolve a linha ao estado que ela tinha (tradução, status e origem; as notas atuais ficam), p. ex. para desfazer uma gravação.</summary>
     /// <exception cref="KeyNotFoundException">O script não tem uma linha com o id de <paramref name="previous"/>.</exception>
     public TextUnit Restore(string scriptKey, TextUnit previous)
     {
         ArgumentNullException.ThrowIfNull(previous);
-        return Update(scriptKey, previous.Id, unit => unit == previous ? unit : previous);
+        return Update(scriptKey, previous.Id, unit => unit == previous ? unit : previous with { Notes = unit.Notes });
     }
 
     private TextUnit Update(string scriptKey, string id, Func<TextUnit, TextUnit> change)
