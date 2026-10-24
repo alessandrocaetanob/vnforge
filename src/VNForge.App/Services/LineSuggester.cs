@@ -31,6 +31,7 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : IL
     {
         // O cliente da Anthropic prende um HttpClient: reaproveita o provedor enquanto a chave e o modelo não mudam.
         (string Key, string Model, ITranslationProvider Provider)? cached = null;
+        var gate = new object();
         return new(() =>
         {
             var key = ApiKeyStatus.Resolve(configDirectory).Key;
@@ -40,14 +41,17 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : IL
             }
 
             var model = ReadModel(configDirectory);
-            if (cached is { } hit && hit.Key == key && hit.Model == model)
+            lock (gate)
             {
-                return hit.Provider;
-            }
+                if (cached is { } hit && hit.Key == key && hit.Model == model)
+                {
+                    return hit.Provider;
+                }
 
-            var provider = ClaudeProviderFactory.Create(key, new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low });
-            cached = (key, model, provider);
-            return provider;
+                var provider = ClaudeProviderFactory.Create(key, new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low });
+                cached = (key, model, provider);
+                return provider;
+            }
         });
     }
 

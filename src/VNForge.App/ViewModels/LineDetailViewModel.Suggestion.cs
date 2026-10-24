@@ -36,7 +36,7 @@ public sealed partial class LineDetailViewModel
     [RelayCommand(CanExecute = nameof(CanSuggest))]
     private async Task SuggestAsync()
     {
-        if (Suggester is not { } suggester)
+        if (Suggester is not { } suggester || disposed)
         {
             return;
         }
