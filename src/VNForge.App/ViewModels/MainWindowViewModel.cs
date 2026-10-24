@@ -82,6 +82,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentPage = start;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines);
         Editor.PropertyChanged += OnEditorChanged;
+        Editor.CheckRequested += OnEditorCheckRequested;
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Conference.TextsChanged += (_, _) => editorStale = true;
@@ -132,8 +133,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             // O app troca o Editor no inicializador de objeto, depois do construtor: a escuta do contador e da gravação passa para o novo.
             field.PropertyChanged -= OnEditorChanged;
+            field.CheckRequested -= OnEditorCheckRequested;
             field = value;
             field.PropertyChanged += OnEditorChanged;
+            field.CheckRequested += OnEditorCheckRequested;
         }
     } = new();
 
@@ -411,6 +414,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));
     }
+
+    private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
 
     private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
     {

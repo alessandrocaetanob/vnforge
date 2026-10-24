@@ -43,9 +43,6 @@
     <DataTemplate DataType="vm:BuildViewModel">
       <views:BuildView/>
     </DataTemplate>
-    <DataTemplate DataType="vm:SearchReplaceViewModel">
-      <views:SearchReplaceView/>
-    </DataTemplate>
   </Application.DataTemplates>
 
   <Application.Styles>

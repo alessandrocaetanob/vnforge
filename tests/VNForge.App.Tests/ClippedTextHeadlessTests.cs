@@ -139,11 +139,9 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
                 var window = Open(vm, width);
                 var detail = window.GetVisualDescendants().OfType<LineDetailView>().Single();
                 problems.AddRange(FindClipped(detail));
-                var approve = detail.GetVisualDescendants().OfType<Button>().Where(b => b.Command is not null && b.Command == ((LineDetailViewModel)detail.DataContext!).ApproveCommand
-                    || b.Command == ((LineDetailViewModel)detail.DataContext!).ApproveAndNextCommand
-                    || b.Command == ((LineDetailViewModel)detail.DataContext!).PreviousCommand
-                    || b.Command == ((LineDetailViewModel)detail.DataContext!).NextCommand).ToList();
-                Assert.Equal(4, approve.Count);
+                var model = (LineDetailViewModel)detail.DataContext!;
+                var approve = detail.GetVisualDescendants().OfType<Button>().Where(b => b.Command == model.ApproveAndNextCommand || b.Command == model.AcceptSuggestionCommand).ToList();
+                Assert.Equal(2, approve.Count);
                 heights.AddRange(approve.Select(b => b.Bounds.Height));
                 window.Close();
             },
