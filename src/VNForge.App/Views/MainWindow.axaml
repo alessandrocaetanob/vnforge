@@ -1,0 +1,96 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VNForge.App.ViewModels"
+        xmlns:c="using:VNForge.App.Controls"
+        x:Class="VNForge.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="VNForge"
+        Width="1440" Height="900" MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowDecorations="Full"
+        TransparencyLevelHint="Mica"
+        Background="Transparent">
+
+  <Window.Styles>
+    <!-- A decoração do sistema também escreve o título; a barra própria já mostra o nome do app e do projeto. -->
+    <Style Selector="WindowDrawnDecorations TextBlock">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+  </Window.Styles>
+
+  <!-- O Mica só aparece com Background transparente; sem ele (sessão remota, economia de bateria) a reserva bg-base cobre o fundo. -->
+  <Panel>
+    <Border Name="MicaFallback" Background="{DynamicResource Vnf.BgBase}"/>
+
+    <Grid RowDefinitions="40,*,28" ColumnDefinitions="72,*">
+
+      <!-- Barra de título própria: selo, nome do app, projeto aberto. Os botões de janela são os do sistema. -->
+      <Border Grid.Row="0" Grid.ColumnSpan="2" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar">
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="14,0,0,0">
+          <Viewbox Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center"
+                   AutomationProperties.Name="VNForge">
+            <Canvas Width="48" Height="48">
+              <Canvas.RenderTransform>
+                <RotateTransform Angle="-4"/>
+              </Canvas.RenderTransform>
+              <Border Canvas.Left="5" Canvas.Top="5" Width="38" Height="38" CornerRadius="6"
+                      BorderThickness="3.5" BorderBrush="{DynamicResource Vnf.BrandShu}"/>
+              <Path Data="{StaticResource Brand.Seal}" Fill="{DynamicResource Vnf.BrandShu}" RenderTransformOrigin="0,0">
+                <Path.RenderTransform>
+                  <TransformGroup>
+                    <TranslateTransform X="-24" Y="-24"/>
+                    <ScaleTransform ScaleX="0.86" ScaleY="0.86"/>
+                    <TranslateTransform X="24" Y="24"/>
+                  </TransformGroup>
+                </Path.RenderTransform>
+              </Path>
+            </Canvas>
+          </Viewbox>
+          <TextBlock Grid.Column="1" Classes="body-strong" Text="VNForge" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          <TextBlock Grid.Column="2" Classes="body-sm secondary" Text="{Binding ProjectTitle}" Margin="16,0,0,0"
+                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+          <!-- Reserva para os botões de janela do sistema. -->
+          <Border Grid.Column="3" Width="140"/>
+        </Grid>
+      </Border>
+
+      <ListBox Grid.Row="1" Grid.Column="0" Classes="navrail"
+               ItemsSource="{Binding Nav}" SelectedItem="{Binding SelectedNav}"
+               AutomationProperties.Name="Seções">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem" x:DataType="vm:NavItemViewModel">
+            <Setter Property="IsEnabled" Value="{Binding IsEnabled}"/>
+          </Style>
+        </ListBox.Styles>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:NavItemViewModel">
+            <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <PathIcon Width="20" Height="20" Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+              <TextBlock Classes="caption" Text="{Binding Label}" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <!-- A área de conteúdo é sempre opaca: o Mica aparece só na barra de título, no trilho e na barra de status. -->
+      <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource Vnf.BgLayer}"
+              BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0">
+        <ContentControl Content="{Binding CurrentPage}"/>
+      </Border>
+
+      <Border Grid.Row="2" Grid.ColumnSpan="2" Padding="14,0">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="caption secondary" Text="VNForge 0.1 (prévia)" VerticalAlignment="Center"/>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}"
+                      Data="{StaticResource Icon.Check}" IsVisible="{Binding ApiKeyConfigured}"/>
+            <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}"
+                      Data="{StaticResource Icon.Warning}" IsVisible="{Binding !ApiKeyConfigured}"/>
+            <TextBlock Classes="caption secondary" Text="{Binding ApiKeyStatus}"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Panel>
+</Window>

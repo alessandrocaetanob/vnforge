@@ -18,14 +18,14 @@ jobs:
             - nuget-linux-v1-
       - run:
           name: Build
-          command: dotnet build VNForge.NoApp.slnf --configuration Release
+          command: dotnet build VNForge.slnx --configuration Release
       - save_cache:
           key: nuget-linux-v1-{{ checksum "Directory.Packages.props" }}
           paths:
             - ~/.nuget/packages
       - run:
           name: Testes
-          command: dotnet test --solution VNForge.NoApp.slnf --configuration Release --no-build
+          command: dotnet test --solution VNForge.slnx --configuration Release --no-build
 
   windows:
     executor: win/server-2022
@@ -74,7 +74,14 @@ jobs:
               '/o:alessandrocaetanob',
               "/d:sonar.token=$env:SONAR_TOKEN",
               '/d:sonar.host.url=https://sonarcloud.io',
-              '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml'
+              '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml',
+              # docs/design é referência copiada do design system (telas .dc.html e READMEs), não código do produto.
+              '/d:sonar.exclusions=docs/design/**',
+              # Tokens.axaml e Icons.axaml são gerados por tools/ e repetem a mesma estrutura por tema.
+              '/d:sonar.cpd.exclusions=src/VNForge.App/Themes/Tokens.axaml,src/VNForge.App/Assets/Icons.axaml,src/VNForge.App/Assets/Brand.axaml',
+              # tools/ são scripts de geração (tokens e ícones) rodados à mão, sem suíte de testes.
+              # Só ligação com o Avalonia (janela, views, controle de desenho, seletor de pasta): sem lógica, e a tela não roda no CI.
+              '/d:sonar.coverage.exclusions=tools/**,src/VNForge.App/App.axaml.cs,src/VNForge.App/Program.cs,src/VNForge.App/Views/**,src/VNForge.App/Controls/**,src/VNForge.App/Services/AvaloniaFolderPicker.cs'
             )
             # CIRCLE_PULL_REQUEST só existe se o PR já estava aberto ao disparar o build;
             # sem ele, procura o PR aberto da branch na API pública do GitHub.

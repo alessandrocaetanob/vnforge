@@ -12,7 +12,7 @@ Rascunho para o brainstorm antes de criar o repositório. Nada aqui é definitiv
 | [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md) | O que já levantei sobre os formatos do YU-RIS (YPF, YBN, codificação) |
 | [plans/2026-10-22-backlog-github.md](plans/2026-10-22-backlog-github.md) | Marcos, épicos e issues no GitHub, com dependências |
 
-Protótipo visual do app: [VNForge App Windows no Claude Design](https://claude.ai/artifact/36wMrNUfoMvXmhRNdJQhrn).
+Design do app (telas, tokens e componentes): [design/](design/README.md).
 
 ## Decisões tomadas
 
@@ -22,7 +22,8 @@ Protótipo visual do app: [VNForge App Windows no Claude Design](https://claude.
 | Repositório | Privado no GitHub |
 | Runtime | .NET 10 |
 | IA | Só Claude na primeira versão, modelo selecionável; outros provedores depois |
-| Visual do app | Próprio, estilo Fluent do Windows 11 (sem design system externo) |
+| Interface do app | Avalonia 12, tema `FluentTheme`, design system "VNForge v2" (D3, #96) |
+| Telas do M3 | Início e Editor; o resto no M4 (D4, #97) |
 
 ## Visão em uma frase
 

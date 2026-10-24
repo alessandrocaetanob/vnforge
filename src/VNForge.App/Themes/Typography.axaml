@@ -1,0 +1,72 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Escalas de docs/design/tokens.json (type.groups). Texto japonês sempre em Vnf.FontJp. -->
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontUi}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+
+  <Style Selector="TextBlock.title-lg">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="22"/>
+    <Setter Property="LineHeight" Value="28"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.title-md">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="17"/>
+    <Setter Property="LineHeight" Value="24"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.body">
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="LineHeight" Value="20"/>
+  </Style>
+  <Style Selector="TextBlock.body-strong">
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="LineHeight" Value="20"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="TextBlock.body-sm">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="LineHeight" Value="18"/>
+  </Style>
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="16"/>
+  </Style>
+  <Style Selector="TextBlock.overline">
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="LineHeight" Value="14"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="LetterSpacing" Value="0.44"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="TextBlock.jp-body">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontJp}"/>
+    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="LineHeight" Value="24"/>
+  </Style>
+  <Style Selector="TextBlock.jp-row">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontJp}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="LineHeight" Value="18"/>
+  </Style>
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontMono}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="18"/>
+  </Style>
+  <Style Selector="TextBlock.mono-xs">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontMono}"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="LineHeight" Value="14"/>
+    <Setter Property="FontWeight" Value="Medium"/>
+  </Style>
+
+  <Style Selector="TextBlock.secondary">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+</Styles>

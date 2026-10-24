@@ -6,7 +6,7 @@ Leia `docs/README.md` e o documento do épico em que vai trabalhar (`docs/05-epi
 
 ## Projeto
 
-- C# 14 / **.NET 10**. CLI com `System.CommandLine` 2.x; app Windows em WPF (`net10.0-windows`) com CommunityToolkit.Mvvm.
+- C# 14 / **.NET 10**. CLI com `System.CommandLine` 2.x; app em Avalonia 12 (`net10.0`, tema `FluentTheme`) com CommunityToolkit.Mvvm; o app compila e testa em qualquer sistema.
 - Solução: `src/VNForge.Core`, `src/VNForge.Engines.YuRis`, `src/VNForge.AI`, `src/VNForge.Cli`, `src/VNForge.App`, testes em `tests/`.
 - `VNForge.Core` não depende de nenhuma engine nem de provedor de IA.
 - CLI e app usam o mesmo Core. Toda funcionalidade nova entra no Core primeiro.

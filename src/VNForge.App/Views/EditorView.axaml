@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.EditorView"
+             x:DataType="vm:EditorViewModel">
+
+  <!-- Casca do Editor. A lista de scripts, a grade e o inspetor entram na E10.2 (#99) e na E10.3 (#100). -->
+  <StackPanel Margin="24,32" Spacing="8" MaxWidth="1180" HorizontalAlignment="Left">
+    <TextBlock Classes="title-lg" Text="Editor"/>
+    <TextBlock Classes="body secondary" Text="{Binding Project.Name, StringFormat='Projeto {0}'}"/>
+    <TextBlock Classes="body-sm secondary" Text="A grade de linhas e o inspetor de tradução chegam nas próximas entregas do marco 3."/>
+  </StackPanel>
+</UserControl>
