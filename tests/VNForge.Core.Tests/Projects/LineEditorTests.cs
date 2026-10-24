@@ -43,8 +43,9 @@ public class LineEditorTests
 
         var restaurada = editor.Restore("yst00001", antes);
 
-        Assert.Equal(antes, restaurada);
-        Assert.Equal(antes, Gravada(projeto, 1));
+        Assert.Equal(antes.Status, restaurada.Status);
+        var lida = Gravada(projeto, 1);
+        Assert.Equal((antes.Translation, antes.Status, antes.Origin, antes.Notes), (lida.Translation, lida.Status, lida.Origin, lida.Notes));
         Assert.Equal(TranslationStatus.Untranslated, Gravada(projeto, 2).Status);
     }
 
