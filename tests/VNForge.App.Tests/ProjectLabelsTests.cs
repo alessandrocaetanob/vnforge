@@ -1,4 +1,5 @@
 using VNForge.App.Services;
+using VNForge.Core.Glossary;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
@@ -43,4 +44,12 @@ public class ProjectLabelsTests
     [InlineData(TranslationStatus.Approved, "Aprovada")]
     public void Status_em_portugues(TranslationStatus status, string esperado) =>
         Assert.Equal(esperado, ProjectLabels.Status(status));
+
+    [Theory]
+    [InlineData(CharacterGender.Unknown, "Não definido")]
+    [InlineData(CharacterGender.Female, "Feminino")]
+    [InlineData(CharacterGender.Male, "Masculino")]
+    [InlineData(CharacterGender.Other, "Outro")]
+    public void Genero(CharacterGender gender, string esperado) =>
+        Assert.Equal(esperado, ProjectLabels.Gender(gender));
 }

@@ -18,6 +18,7 @@ $Icons = [ordered]@{
     'Icon.Home'     = @('Home', 'home')
     'Icon.Board'    = @('Board', 'board')
     'Icon.Edit'     = @('Edit', 'edit')
+    'Icon.Book'     = @('Book', 'book')
     'Icon.Shield'   = @('Shield Checkmark', 'shield_checkmark')
     'Icon.Box'      = @('Box', 'box')
     'Icon.Settings' = @('Settings', 'settings')

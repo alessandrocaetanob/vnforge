@@ -1,4 +1,5 @@
 using System.Globalization;
+using VNForge.Core.Glossary;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Services;
@@ -80,6 +81,14 @@ public static class ProjectLabels
         TranslationStatus.Reviewed => "Revisada",
         TranslationStatus.Approved => "Aprovada",
         _ => status.ToString(),
+    };
+
+    public static string Gender(CharacterGender gender) => gender switch
+    {
+        CharacterGender.Female => "Feminino",
+        CharacterGender.Male => "Masculino",
+        CharacterGender.Other => "Outro",
+        _ => "Não definido",
     };
 
     public static string Number(int value) => value.ToString("N0", PtBr);

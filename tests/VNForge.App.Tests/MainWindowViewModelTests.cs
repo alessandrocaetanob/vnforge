@@ -64,4 +64,36 @@ public class MainWindowViewModelTests
         Assert.IsType<StartViewModel>(vm.CurrentPage);
         Assert.Equal(NavKey.Start, vm.SelectedNav?.Key);
     }
+
+    [Fact]
+    public async Task Glossario_fica_desabilitado_ate_abrir_um_projeto_e_depois_navega_para_a_pagina()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var vm = Create(temp, root);
+        var item = vm.Nav.Single(n => n.Key == NavKey.Glossary);
+        Assert.False(item.IsEnabled);
+
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        vm.SelectedNav = item;
+
+        Assert.True(item.IsEnabled);
+        Assert.Same(vm.Glossary, vm.CurrentPage);
+        Assert.Equal("Minha VN", vm.Glossary.Project?.Name);
+    }
+
+    [Fact]
+    public async Task Reabrir_o_mesmo_projeto_preserva_edicao_do_glossario_nao_salva()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var vm = Create(temp, root);
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        vm.Glossary.AddTermCommand.Execute(null);
+
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+
+        Assert.Single(vm.Glossary.Terms);
+        Assert.True(vm.Glossary.IsDirty);
+    }
 }
