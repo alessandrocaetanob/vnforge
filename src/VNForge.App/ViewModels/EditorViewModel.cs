@@ -103,6 +103,14 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [ObservableProperty]
     public partial LineDetailViewModel? Detail { get; private set; }
 
+    /// <summary>Quando o painel gravou uma linha pela última vez nesta sessão; nulo antes da primeira gravação.</summary>
+    [ObservableProperty]
+    public partial DateTimeOffset? LastSavedAt { get; private set; }
+
+    /// <summary>Quantas ocorrências do QA o projeto tem, somadas em todas as linhas; acompanha as edições do painel.</summary>
+    [ObservableProperty]
+    public partial int IssueCount { get; private set; }
+
     public string ProjectName => Project?.Name ?? string.Empty;
 
     public string ScriptTitle => SelectedScript?.Key ?? string.Empty;
@@ -208,6 +216,41 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         await Loading;
         return SelectLine(scriptKey, unitId);
     }
+
+    /// <summary>
+    /// Procura <paramref name="text"/>, sem diferenciar maiúsculas, no original e na tradução de todos os scripts, na ordem do projeto.
+    /// Para ao chegar em <paramref name="limit"/> linhas; texto vazio não acha nada.
+    /// </summary>
+    public IReadOnlyList<LineEntry> FindLines(string text, int limit)
+    {
+        var found = new List<LineEntry>();
+        if (data is null || string.IsNullOrWhiteSpace(text) || limit <= 0)
+        {
+            return found;
+        }
+
+        foreach (var script in data.Scripts)
+        {
+            foreach (var entry in data.LinesOf(script.Key))
+            {
+                var unit = entry.Unit;
+                if (unit.Source.Contains(text, StringComparison.OrdinalIgnoreCase)
+                    || (unit.Translation?.Contains(text, StringComparison.OrdinalIgnoreCase) ?? false))
+                {
+                    found.Add(entry);
+                    if (found.Count >= limit)
+                    {
+                        return found;
+                    }
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Deixa só as linhas pendentes na grade, como o chip "Pendentes".</summary>
+    public void ShowPendingLines() => SelectFilter(chips.First(c => c.Filter == LineStatusFilter.Pending));
 
     private bool SelectLine(string scriptKey, string unitId)
     {
@@ -322,6 +365,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private void OnUnitSaved(LineViewModel line, TextUnit saved)
     {
         var updated = line.Entry.WithUnit(saved);
+        IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
+        LastSavedAt = clock.GetLocalNow();
         line.Update(updated);
 
         // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
@@ -380,6 +425,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
+            IssueCount = loaded is null ? 0 : loaded.Scripts.Sum(script => loaded.LinesOf(script.Key).Sum(line => line.Issues.Count));
             Scripts.Clear();
             foreach (var script in loaded?.Scripts ?? [])
             {
