@@ -1,0 +1,49 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- docs/design/components/AiSuggestion: cabeçalho com Sparkle, modelo em status-ai-fg e o resto em text-secondary;
+       corpo com a diferença por palavra (inserção em status-approved-*, remoção riscada em text-secondary). -->
+  <Style Selector="c|AiSuggestion">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+                CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Width="16" Height="16" Data="{DynamicResource Icon.Sparkle}" Foreground="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"/>
+              <TextBlock Name="PART_Model" Text="{TemplateBinding Model}" FontSize="12" LineHeight="16" FontWeight="SemiBold"
+                         Foreground="{DynamicResource Vnf.StatusAiFg}" VerticalAlignment="Center"/>
+              <TextBlock Name="PART_Details" Text="{TemplateBinding Details}" FontSize="12" LineHeight="16"
+                         Foreground="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <SelectableTextBlock Name="PART_Body" FontSize="14" LineHeight="22" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextPrimary}"/>
+            <ProgressBar Name="PART_Busy" Classes="thin" IsIndeterminate="True" IsVisible="False" ShowProgressText="False"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Name="PART_Use" Classes="sm" Content="Usar sugestão" Command="{TemplateBinding UseCommand}"/>
+              <Button Name="PART_Cancel" Classes="sm" Content="Cancelar" Command="{TemplateBinding CancelCommand}" IsVisible="False"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|AiSuggestion:busy /template/ ProgressBar#PART_Busy">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <Style Selector="c|AiSuggestion:busy /template/ Button#PART_Use">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="c|AiSuggestion:busy /template/ Button#PART_Cancel">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+
+  <Style Selector="Run.ins">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+  </Style>
+  <Style Selector="Run.del">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="TextDecorations" Value="Strikethrough"/>
+  </Style>
+</Styles>

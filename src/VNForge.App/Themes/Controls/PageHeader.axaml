@@ -1,0 +1,21 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Cabeçalho de página (artboards): migalha em mono 12/16 text-secondary, título title-lg e as ações à direita, alinhadas à base. -->
+  <Style Selector="c|PageHeader">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <StackPanel Spacing="2" VerticalAlignment="Bottom" MinWidth="0">
+            <TextBlock Name="PART_Breadcrumb" Classes="mono secondary" Text="{TemplateBinding Breadcrumb}" TextTrimming="CharacterEllipsis"
+                       IsVisible="{TemplateBinding Breadcrumb, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            <TextBlock Name="PART_Title" Classes="title-lg" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+          <ContentPresenter Name="PART_Actions" Grid.Column="1" VerticalAlignment="Bottom"
+                            Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

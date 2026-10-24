@@ -63,5 +63,16 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/InfoBar.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/OptionCard.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/StatusBadge.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/SeverityTag.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/PipelineStepper.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/LineRow.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/ScriptItem.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/ToggleRule.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/Segmented.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/FilterChip.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/AiSuggestion.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/Legend.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/StatCard.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/PageHeader.axaml"/>
   </Application.Styles>
 </Application>

@@ -1,0 +1,55 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- docs/design/components/StatusDistribution: a legenda é um WrapPanel; quadrado de 8px com raio 2 e texto em 12/16 text-secondary. -->
+  <Style Selector="c|Legend">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <WrapPanel ItemSpacing="16" LineSpacing="4"/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|LegendItem">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Border Name="PART_Swatch" Width="8" Height="8" CornerRadius="2" VerticalAlignment="Center"/>
+          <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" VerticalAlignment="Center"/>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Approved] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SegApproved}"/>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Reviewed] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SegReviewed}"/>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Translated] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SegTranslated}"/>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Machine] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SegAi}"/>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Pending] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SegPending}"/>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Error] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Warning] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+  </Style>
+  <Style Selector="c|LegendItem[Tone=Accent] /template/ Border#PART_Swatch">
+    <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
+</Styles>

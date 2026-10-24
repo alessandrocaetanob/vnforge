@@ -1,0 +1,27 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- docs/design/components/ToggleRule: nome e exemplo à esquerda, interruptor sem OnContent/OffContent à direita, divisória embaixo.
+       Dentro de um Border.panel a última linha fica sem divisória. -->
+  <Style Selector="c|ToggleRule">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1" Padding="16,12">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+            <StackPanel VerticalAlignment="Center" MinWidth="0">
+              <TextBlock Text="{TemplateBinding Title}" Classes="body" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Name="PART_Description" Text="{TemplateBinding Description}" Classes="caption secondary" TextWrapping="Wrap"
+                         IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+            <ToggleSwitch Name="PART_Switch" Grid.Column="1" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" VerticalAlignment="Center"
+                          IsChecked="{TemplateBinding IsChecked, Mode=TwoWay}" AutomationProperties.Name="{TemplateBinding Title}"/>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|ToggleRule:nth-last-child(1) /template/ Border#PART_Root">
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+</Styles>

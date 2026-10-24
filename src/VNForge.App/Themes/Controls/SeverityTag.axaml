@@ -1,0 +1,37 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- docs/design/components/SeverityTag: 22px, ícone de 16, texto 12/600. Erro bloqueia o build; aviso não; "ok" é nenhum problema. -->
+  <Style Selector="c|SeverityTag">
+    <Setter Property="Height" Value="22"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="6,0,8,0">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <PathIcon Name="PART_Icon" Width="16" Height="16" Foreground="{TemplateBinding Foreground}" Data="{DynamicResource Icon.Check}"/>
+            <TextBlock Text="{TemplateBinding Text}" Foreground="{TemplateBinding Foreground}" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|SeverityTag:warning">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SignalWarningBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+  </Style>
+  <Style Selector="c|SeverityTag:warning /template/ PathIcon#PART_Icon">
+    <Setter Property="Data" Value="{DynamicResource Icon.Warning}"/>
+  </Style>
+  <Style Selector="c|SeverityTag:error">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+  <Style Selector="c|SeverityTag:error /template/ PathIcon#PART_Icon">
+    <Setter Property="Data" Value="{DynamicResource Icon.Error}"/>
+  </Style>
+</Styles>
