@@ -65,6 +65,17 @@ public sealed class HelpSectionsTests : IDisposable
     }
 
     [Fact]
+    public async Task Patch_exe_esta_planejado_e_nao_e_um_comando_registrado()
+    {
+        Assert.DoesNotContain(_cli.Cli.Root.Subcommands, c => c.Name == "patch-exe");
+
+        var result = await _cli.RunAsync(["patch-exe"], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("patch-exe", result.Error);
+    }
+
+    [Fact]
     public void Descricao_e_de_uma_linha()
     {
         foreach (var path in Leaves().Concat(Groups()))
@@ -72,6 +83,7 @@ public sealed class HelpSectionsTests : IDisposable
             var description = Find(path).Description;
             Assert.False(string.IsNullOrWhiteSpace(description), path);
             Assert.DoesNotContain('\n', description);
+            Assert.True(description.Length <= 100, $"'{path}' tem {description.Length} caracteres; a descrição cabe em uma linha de até 100.");
         }
     }
 

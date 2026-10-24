@@ -49,8 +49,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     public async Task Inject_em_terminal_interativo_mostra_a_tabela_do_que_vai_mudar_antes_de_perguntar()
     {
         PutBuild();
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain(200));
-        Console.SetIn(new StringReader("n\n"));
+        using var rich = new CliHarness(stdin: "n\n", terminal: TestTerminals.InteractivePlain(200));
 
         var result = await rich.RunAsync([Inject, "--project", _project.Root], TestContext.Current.CancellationToken);
 
@@ -67,8 +66,7 @@ public sealed class InjectRestoreCommandTests : IDisposable
     {
         PutBuild();
         await Run(Inject, YesOption);
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain(200));
-        Console.SetIn(new StringReader("n\n"));
+        using var rich = new CliHarness(stdin: "n\n", terminal: TestTerminals.InteractivePlain(200));
 
         var result = await rich.RunAsync([Restore, "--project", _project.Root], TestContext.Current.CancellationToken);
 
