@@ -100,6 +100,16 @@ public class ProjectSearchTests
     }
 
     [Fact]
+    public void Palavra_inteira_le_o_vizinho_fora_do_plano_basico_pelo_par_substituto()
+    {
+        var textos = Textos(("a", [Linha("a", 1, "😀ela"), Linha("a", 2, "𝐀ela")]));
+
+        var achados = Achar(textos, new SearchOptions("ela", WholeWord: true)).Hits;
+
+        Assert.Equal(["a:000001"], achados.Select(h => h.UnitId));
+    }
+
+    [Fact]
     public void Palavra_inteira_preserva_a_substituicao_ao_lado_de_marcador()
     {
         var textos = Textos(("a", [Linha("a", 1, @"Oi\nela foi.")]));
