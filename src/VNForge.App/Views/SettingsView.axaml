@@ -1,209 +1,313 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="860" Margin="24,32,24,40" Spacing="16">
+  <UserControl.Resources>
+    <StreamGeometry x:Key="Icon.Key">M15 6C15 6.55228 14.5523 7 14 7C13.4477 7 13 6.55228 13 6C13 5.44772 13.4477 5 14 5C14.5523 5 15 5.44772 15 6ZM12.5 2C9.42386 2 7 4.42386 7 7.5C7 7.89668 7.04001 8.29598 7.12154 8.67456C7.17968 8.94454 7.11378 9.17912 6.98018 9.31271L2.43934 13.8536C2.15804 14.1349 2 14.5164 2 14.9142V16.5C2 17.3284 2.67157 18 3.5 18H5.5C6.32843 18 7 17.3284 7 16.5V16H8C8.55228 16 9 15.5523 9 15V14H10C10.5523 14 11 13.5523 11 13V12.8199C11.4935 12.9536 12.0069 13 12.5 13C15.5761 13 18 10.5761 18 7.5C18 4.42386 15.5761 2 12.5 2ZM8 7.5C8 4.97614 9.97614 3 12.5 3C15.0239 3 17 4.97614 17 7.5C17 10.0239 15.0239 12 12.5 12C11.8408 12 11.2274 11.9047 10.7236 11.6528C10.5686 11.5753 10.3845 11.5836 10.2371 11.6747C10.0897 11.7658 10 11.9267 10 12.1V13H9C8.44772 13 8 13.4477 8 14V15H7C6.44772 15 6 15.4477 6 16V16.5C6 16.7761 5.77614 17 5.5 17H3.5C3.22386 17 3 16.7761 3 16.5V14.9142C3 14.7816 3.05268 14.6544 3.14645 14.5607L7.68729 10.0198C8.11942 9.58768 8.20942 8.97619 8.09913 8.46404C8.03354 8.15949 8 7.83105 8 7.5Z</StreamGeometry>
+  </UserControl.Resources>
 
-      <StackPanel Spacing="4">
+  <UserControl.Styles>
+    <!-- A faixa das abas ganha a linha de baixo em toda a largura (artboard de Ajustes); o resto do estilo vem de Themes/Controls/Segmented.axaml. -->
+    <Style Selector="TabControl.tabs">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <DockPanel>
+            <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
+              <ItemsPresenter Name="PART_ItemsPresenter">
+                <ItemsPresenter.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel/>
+                  </ItemsPanelTemplate>
+                </ItemsPresenter.ItemsPanel>
+              </ItemsPresenter>
+            </Border>
+            <ContentPresenter Name="PART_SelectedContentHost"
+                              Content="{TemplateBinding SelectedContent}"
+                              ContentTemplate="{TemplateBinding SelectedContentTemplate}"/>
+          </DockPanel>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="960" Margin="24,16,24,32" Spacing="16">
+
+      <StackPanel Spacing="2">
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                   Text="Valem para este projeto e ficam em vnforge.json; a chave da API fica no seu perfil do Windows."/>
         <TextBlock Classes="title-lg" Text="Ajustes"/>
-        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
-                   Text="Modelo, acentuação, guia de estilo e formatação valem para o projeto aberto e ficam nos arquivos dele; a chave da API fica no seu perfil do Windows, nunca no projeto."/>
       </StackPanel>
 
+      <Border Classes="infobar" IsVisible="{Binding !HasProject}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap"
+                     Text="Abra um projeto no Início para editar o modelo, o esforço, o guia de estilo, a formatação e a acentuação. A chave e as chamadas em paralelo valem para o seu usuário."/>
+        </Grid>
+      </Border>
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
         </Grid>
       </Border>
-      <Border Classes="infobar success" IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Check}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding StatusMessage}"/>
-        </Grid>
-      </Border>
 
-      <!-- Aparência: vale para o app todo e fica nas preferências do usuário, não no projeto. -->
-      <Border Classes="panel" Padding="16">
-        <StackPanel Spacing="10">
-          <TextBlock Classes="title-md" Text="Aparência"/>
-          <StackPanel Spacing="6">
-            <TextBlock Classes="body-strong" Text="Tema"/>
+      <TabControl Classes="tabs" SelectedIndex="{Binding SelectedTab}" AutomationProperties.Name="Seções de ajustes">
+
+        <!-- IA -->
+        <TabItem Header="IA">
+          <StackPanel Margin="0,16,0,0" Spacing="20">
+
+            <StackPanel Spacing="8">
+              <TextBlock Classes="overline" Text="PROVEDOR"/>
+              <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel ItemSpacing="8" LineSpacing="8"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ProviderOption">
+                    <Panel>
+                      <!-- Provedor disponível: pílula verde como o selo "Aprovada". -->
+                      <Border Height="20" Padding="8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}" IsVisible="{Binding IsAvailable}"
+                              Background="{DynamicResource Vnf.StatusApprovedBg}" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Vnf.StatusApprovedFg}"/>
+                      </Border>
+                      <!-- Provedor que ainda não existe: contorno tracejado. -->
+                      <Panel Height="28" IsVisible="{Binding !IsAvailable}">
+                        <Rectangle RadiusX="4" RadiusY="4" StrokeThickness="1" StrokeDashArray="3,3"
+                                   Stroke="{DynamicResource Vnf.StrokeControl}"/>
+                        <TextBlock Text="{Binding Label}" Margin="10,0" FontSize="13" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Vnf.TextSecondary}"/>
+                      </Panel>
+                    </Panel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <!-- Cartão da chave: estado, Trocar chave e Testar conexão. A chave nunca aparece depois de guardada. -->
+            <Border Classes="panel" Padding="16,14">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+                  <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Key}" Foreground="{DynamicResource Vnf.TextSecondary}"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Classes="body" Text="Chave da API"/>
+                    <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding KeyDetail}"
+                               Foreground="{DynamicResource Vnf.SignalWarningFg}" IsVisible="{Binding !KeyConfigured}"/>
+                    <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding KeyDetail}"
+                               Foreground="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding KeyConfigured}"/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Classes="sm" Content="{Binding ChangeKeyLabel}" Command="{Binding ChangeKeyCommand}"/>
+                  <Button Grid.Column="3" Classes="subtle sm" Content="{Binding TestConnectionLabel}" Command="{Binding TestConnectionCommand}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding IsChangingKey}">
+                  <TextBox PasswordChar="●" Text="{Binding NewApiKey}" PlaceholderText="Cole a chave nova aqui"
+                           AutomationProperties.Name="Chave da API nova"/>
+                  <Button Grid.Column="1" Classes="accent" Content="Guardar chave" Command="{Binding SaveKeyCommand}"/>
+                  <Button Grid.Column="2" Content="Cancelar" Command="{Binding CancelChangeKeyCommand}"/>
+                  <Button Grid.Column="3" Classes="danger" Content="Apagar chave" Command="{Binding ClearKeyCommand}" IsVisible="{Binding KeyConfigured}"/>
+                </Grid>
+
+                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding KeyMessage}"
+                           IsVisible="{Binding KeyMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ConnectionMessage}"
+                           Foreground="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding ConnectionOk}"/>
+                <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ConnectionMessage}"
+                           Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding ConnectionFailed}"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsChangingKey}"
+                           Text="A chave fica criptografada com o DPAPI no seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade."/>
+              </StackPanel>
+            </Border>
+
+            <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
+              <TextBlock Classes="overline" Text="MODELO"/>
+              <ItemsControl ItemsSource="{Binding Models}" AutomationProperties.Name="Modelo">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ModelOption">
+                    <RadioButton Classes="option" Margin="0,0,0,8" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                 AutomationProperties.Name="{Binding Name}">
+                      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                        <TextBlock Classes="body-strong" Text="{Binding Name}"/>
+                        <TextBlock Grid.Column="1" Classes="mono secondary" Text="{Binding Price}"/>
+                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                      </Grid>
+                    </RadioButton>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <WrapPanel ItemSpacing="24" LineSpacing="16">
+              <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
+                <TextBlock Classes="overline" Text="ESFORÇO"/>
+                <ListBox Classes="seg" ItemsSource="{Binding Efforts}" SelectedItem="{Binding SelectedEffort}"
+                         AutomationProperties.Name="Esforço" DisplayMemberBinding="{Binding Label}"/>
+              </StackPanel>
+              <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
+                <TextBlock Classes="overline" Text="LINHAS POR LOTE"/>
+                <NumericUpDown Width="112" Value="{Binding BatchSize}" Minimum="{Binding MinBatchSize}" Maximum="{Binding MaxBatchSize}"
+                               FormatString="0" AutomationProperties.Name="Linhas por lote"/>
+              </StackPanel>
+              <StackPanel Spacing="8">
+                <TextBlock Classes="overline" Text="CHAMADAS EM PARALELO"/>
+                <NumericUpDown Width="112" Value="{Binding Concurrency}" Minimum="{Binding MinConcurrency}" Maximum="{Binding MaxConcurrency}"
+                               FormatString="0" AutomationProperties.Name="Chamadas em paralelo"/>
+              </StackPanel>
+            </WrapPanel>
+
+            <Border Classes="infobar">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Prompt de sistema e glossário vão em cache."/>
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap"
+                             Text="Eles se repetem em todo lote; linhas já traduzidas não são enviadas de novo (cache por hash)."/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <!-- Fora do artboard: o guia de estilo (style.md) existia nos Ajustes e continua aqui, na aba da IA que o usa. -->
+            <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
+              <TextBlock Classes="overline" Text="GUIA DE ESTILO (STYLE.MD)"/>
+              <TextBox Text="{Binding StyleGuide}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" MaxHeight="280"
+                       PlaceholderText="Tom, tratamento, como lidar com honoríficos…" AutomationProperties.Name="Guia de estilo"/>
+            </StackPanel>
+          </StackPanel>
+        </TabItem>
+
+        <!-- Formatação -->
+        <TabItem Header="Formatação">
+          <Grid Margin="0,16,0,0" ColumnDefinitions="*,320" ColumnSpacing="12" IsEnabled="{Binding HasProject}">
+            <Border Classes="panel" ClipToBounds="True" VerticalAlignment="Top">
+              <StackPanel>
+                <Grid Height="48" ColumnDefinitions="*,Auto" Margin="16,0">
+                  <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Regras"/>
+                  <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="formatting.json"/>
+                </Grid>
+                <Border Classes="divider-top">
+                  <StackPanel>
+                    <c:ToggleRule Title="Compor letra e acento (NFC)" Description="“a” e “´” soltos viram “á”, um só caractere" IsChecked="{Binding Nfc}"/>
+                    <c:ToggleRule Title="Remover espaços invisíveis" Description="Tira espaço de largura zero e marcas ocultas coladas no texto" IsChecked="{Binding InvisibleSpaces}"/>
+                    <c:ToggleRule Title="Trocar espaço sem quebra por espaço comum" Description="U+00A0 vira um espaço normal" IsChecked="{Binding Nbsp}"/>
+                    <c:ToggleRule Title="Juntar espaços duplos" Description="Dois ou mais espaços viram um" IsChecked="{Binding CollapseSpaces}"/>
+                    <c:ToggleRule Title="Remover espaço antes de pontuação" Description="“anda !” vira “anda!” em ? ! : ;" IsChecked="{Binding SpaceBeforePunctuation}"/>
+                    <c:ToggleRule Title="Inserir espaço depois da pontuação" Description="“Oi,tudo” vira “Oi, tudo”" IsChecked="{Binding SpaceAfterPunctuation}"/>
+
+                    <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1" Padding="16,12" MinHeight="64">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <StackPanel VerticalAlignment="Center">
+                          <TextBlock Classes="body" Text="Aspas curvas"/>
+                          <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Mantém, troca por aspas retas (CP1252 não tem « ») ou por 「 」"/>
+                        </StackPanel>
+                        <ListBox Grid.Column="1" Classes="seg" ItemsSource="{Binding QuoteStyles}" SelectedItem="{Binding SelectedQuotes}"
+                                 VerticalAlignment="Center" AutomationProperties.Name="Aspas curvas" DisplayMemberBinding="{Binding Label}"/>
+                      </Grid>
+                    </Border>
+                    <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1" Padding="16,12" MinHeight="64">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <StackPanel VerticalAlignment="Center">
+                          <TextBlock Classes="body" Text="Reticências"/>
+                          <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="“…” ocupa 1 coluna; “...” ocupa 3"/>
+                        </StackPanel>
+                        <ListBox Grid.Column="1" Classes="seg" ItemsSource="{Binding EllipsisStyles}" SelectedItem="{Binding SelectedEllipsis}"
+                                 VerticalAlignment="Center" AutomationProperties.Name="Reticências" DisplayMemberBinding="{Binding Label}"/>
+                      </Grid>
+                    </Border>
+                    <c:ToggleRule Title="Quebrar linha por palavra" Description="Respeita as colunas e as linhas por caixa ao lado" IsChecked="{Binding WrapEnabled}"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Classes="panel" ClipToBounds="True">
+              <StackPanel>
+                <Grid Height="48" Margin="16,0">
+                  <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Caixa e prévia"/>
+                </Grid>
+                <Border Classes="divider-top" Padding="16">
+                  <StackPanel Spacing="12">
+                    <WrapPanel ItemSpacing="16" IsEnabled="{Binding WrapEnabled}">
+                      <StackPanel Spacing="8">
+                        <TextBlock Classes="overline" Text="COLUNAS"/>
+                        <NumericUpDown Width="112" Value="{Binding WrapMaxWidth}" Minimum="1" Maximum="200" FormatString="0" AutomationProperties.Name="Colunas"/>
+                      </StackPanel>
+                      <StackPanel Spacing="8">
+                        <TextBlock Classes="overline" Text="LINHAS POR CAIXA"/>
+                        <NumericUpDown Width="112" Value="{Binding WrapMaxLines}" Minimum="1" Maximum="20" FormatString="0" AutomationProperties.Name="Linhas por caixa"/>
+                      </StackPanel>
+                    </WrapPanel>
+                    <TextBlock Classes="overline" Text="ANTES"/>
+                    <TextBox Classes="mono" Text="{Binding PreviewBefore}" AcceptsReturn="False" TextWrapping="Wrap"
+                             Background="{DynamicResource Vnf.BgInset}" BorderThickness="0" Padding="12,10" AutomationProperties.Name="Texto de exemplo"/>
+                    <TextBlock Classes="overline" Text="DEPOIS, NO BUILD"/>
+                    <Border Padding="12,10" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}"
+                            BorderBrush="{DynamicResource Vnf.Accent}" BorderThickness="1">
+                      <TextBlock Classes="mono" Text="{Binding PreviewAfter}" TextWrapping="Wrap" AutomationProperties.Name="Texto depois das regras"/>
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding PreviewWarnings}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                          <TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.SignalWarningFg}" TextWrapping="Wrap" Text="{Binding}"/>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="As regras rodam no build; o texto salvo no projeto não muda."/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </TabItem>
+
+        <!-- Acentuação -->
+        <TabItem Header="Acentuação">
+          <StackPanel Margin="0,16,0,0" Spacing="8" IsEnabled="{Binding HasProject}">
+            <TextBlock Classes="overline" Text="ESTRATÉGIA DE ACENTUAÇÃO"/>
+            <ItemsControl ItemsSource="{Binding Encodings}" AutomationProperties.Name="Estratégia de acentuação">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EncodingOption">
+                  <RadioButton Classes="option" Margin="0,0,0,8" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                               AutomationProperties.Name="{Binding Name}">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                      <TextBlock Classes="body-strong" Text="{Binding Name}"/>
+                      <TextBlock Grid.Column="1" Classes="mono secondary" Text="{Binding Sample}"/>
+                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+                    </Grid>
+                  </RadioButton>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Classes="infobar warning" IsVisible="{Binding ShowCp1252Warning}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Com CP1252, o caractere ï fica proibido."/>
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap"
+                             Text="O byte 0xEF é o prefixo dos códigos de controle do YU-RIS; o QA acusa qualquer ï na tradução."/>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </TabItem>
+
+        <!-- Aparência: vale para o app todo e fica nas preferências do usuário, não no projeto. -->
+        <TabItem Header="Aparência">
+          <StackPanel Margin="0,16,0,0" Spacing="8">
+            <TextBlock Classes="overline" Text="TEMA"/>
             <ListBox Classes="seg" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tema"/>
             <TextBlock Classes="caption secondary" Text="Sistema segue o tema do Windows."/>
           </StackPanel>
-        </StackPanel>
-      </Border>
-
-      <!-- IA -->
-      <Border Classes="panel" Padding="16">
-        <StackPanel Spacing="16">
-          <TextBlock Classes="overline" Text="INTELIGÊNCIA ARTIFICIAL"/>
-
-          <StackPanel Spacing="6">
-            <TextBlock Classes="body-strong" Text="Provedor"/>
-            <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel/>
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:ProviderOption">
-                  <Border Margin="0,0,8,8" Padding="10,4" CornerRadius="4" BorderThickness="1"
-                          BorderBrush="{DynamicResource Vnf.StrokeSubtle}">
-                    <TextBlock Classes="body-sm" Text="{Binding Label}"/>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-
-          <StackPanel Spacing="6">
-            <TextBlock Classes="body-strong" Text="Chave da API"/>
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}"
-                        Data="{StaticResource Icon.Check}" IsVisible="{Binding KeyConfigured}"/>
-              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}"
-                        Data="{StaticResource Icon.Warning}" IsVisible="{Binding !KeyConfigured}"/>
-              <TextBlock Classes="body-sm" Text="{Binding KeyStatus}"/>
-            </StackPanel>
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-              <TextBox PasswordChar="●" Text="{Binding NewApiKey}" PlaceholderText="Cole a chave nova aqui"
-                       AutomationProperties.Name="Chave da API nova"/>
-              <Button Grid.Column="1" Classes="accent" Content="Guardar chave" Command="{Binding SaveKeyCommand}"/>
-              <Button Grid.Column="2" Classes="danger" Content="Apagar chave" Command="{Binding ClearKeyCommand}"/>
-            </Grid>
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding KeyMessage}"
-                       IsVisible="{Binding KeyMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                       Text="A chave fica criptografada com o DPAPI no seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade."/>
-          </StackPanel>
-
-          <StackPanel Spacing="6">
-            <TextBlock Classes="body-strong" Text="Modelo"/>
-            <ComboBox ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding HasProject}"
-                      MinWidth="320" AutomationProperties.Name="Modelo">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="vm:ModelOption">
-                  <StackPanel>
-                    <TextBlock Classes="body" Text="{Binding Name}"/>
-                    <TextBlock Classes="caption secondary" Text="{Binding Price}"/>
-                  </StackPanel>
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </StackPanel>
-
-          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
-            <StackPanel Spacing="6">
-              <TextBlock Classes="body-strong" Text="Esforço"/>
-              <ComboBox ItemsSource="{Binding Efforts}" SelectedItem="{Binding SelectedEffort}" IsEnabled="{Binding HasProject}"
-                        DisplayMemberBinding="{Binding Label}" MinWidth="140" AutomationProperties.Name="Esforço"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="6">
-              <TextBlock Classes="body-strong" Text="Linhas por lote"/>
-              <NumericUpDown Value="{Binding BatchSize}" Minimum="{Binding MinBatchSize}" Maximum="{Binding MaxBatchSize}"
-                             FormatString="0" IsEnabled="{Binding HasProject}" AutomationProperties.Name="Linhas por lote"/>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Spacing="6">
-              <TextBlock Classes="body-strong" Text="Chamadas em paralelo"/>
-              <NumericUpDown Value="{Binding Concurrency}" Minimum="{Binding MinConcurrency}" Maximum="{Binding MaxConcurrency}"
-                             FormatString="0" AutomationProperties.Name="Chamadas em paralelo"/>
-            </StackPanel>
-          </Grid>
-
-          <StackPanel Spacing="6">
-            <TextBlock Classes="body-strong" Text="Guia de estilo (style.md)"/>
-            <TextBox Text="{Binding StyleGuide}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" MaxHeight="280"
-                     IsEnabled="{Binding HasProject}" PlaceholderText="Tom, tratamento, como lidar com honoríficos…"
-                     AutomationProperties.Name="Guia de estilo"/>
-          </StackPanel>
-        </StackPanel>
-      </Border>
-
-      <!-- Acentuação -->
-      <Border Classes="panel" Padding="16">
-        <StackPanel Spacing="6">
-          <TextBlock Classes="overline" Text="ACENTUAÇÃO"/>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
-                     Text="Como o texto em português entra no jogo, que usa Shift-JIS."/>
-          <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding SelectedEncoding}" IsEnabled="{Binding HasProject}"
-                    DisplayMemberBinding="{Binding Label}" MinWidth="320" AutomationProperties.Name="Estratégia de acentuação"/>
-        </StackPanel>
-      </Border>
-
-      <!-- Formatação -->
-      <Border Classes="panel" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Classes="overline" Text="FORMATAÇÃO"/>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
-                     Text="As regras rodam no build; o texto salvo no projeto não muda."/>
-
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="24">
-            <StackPanel Spacing="8">
-              <ToggleSwitch IsChecked="{Binding Nfc}" Content="Compor letra e acento (NFC)"/>
-              <ToggleSwitch IsChecked="{Binding InvisibleSpaces}" Content="Remover espaços invisíveis"/>
-              <ToggleSwitch IsChecked="{Binding Nbsp}" Content="Trocar espaço sem quebra por espaço comum"/>
-              <ToggleSwitch IsChecked="{Binding CollapseSpaces}" Content="Colapsar espaços duplos"/>
-              <ToggleSwitch IsChecked="{Binding SpaceBeforePunctuation}" Content="Tirar o espaço antes de ? ! : ;"/>
-              <ToggleSwitch IsChecked="{Binding SpaceAfterPunctuation}" Content="Inserir espaço depois da pontuação"/>
-            </StackPanel>
-            <StackPanel Spacing="8">
-              <TextBlock Classes="body-strong" Text="Aspas curvas"/>
-              <ComboBox ItemsSource="{Binding QuoteStyles}" SelectedItem="{Binding SelectedQuotes}"
-                        DisplayMemberBinding="{Binding Label}" MinWidth="200" AutomationProperties.Name="Aspas curvas"/>
-              <TextBlock Classes="body-strong" Text="Reticências"/>
-              <ComboBox ItemsSource="{Binding EllipsisStyles}" SelectedItem="{Binding SelectedEllipsis}"
-                        DisplayMemberBinding="{Binding Label}" MinWidth="200" AutomationProperties.Name="Reticências"/>
-              <ToggleSwitch IsChecked="{Binding WrapEnabled}" Content="Quebrar linha por palavra"/>
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsEnabled="{Binding WrapEnabled}">
-                <StackPanel Spacing="4">
-                  <TextBlock Classes="caption secondary" Text="Colunas"/>
-                  <NumericUpDown Value="{Binding WrapMaxWidth}" Minimum="1" Maximum="200" FormatString="0" AutomationProperties.Name="Colunas"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Spacing="4">
-                  <TextBlock Classes="caption secondary" Text="Linhas por caixa"/>
-                  <NumericUpDown Value="{Binding WrapMaxLines}" Minimum="1" Maximum="20" FormatString="0" AutomationProperties.Name="Linhas por caixa"/>
-                </StackPanel>
-              </Grid>
-            </StackPanel>
-          </Grid>
-
-          <TextBlock Classes="body-strong" Text="Prévia ao vivo"/>
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-            <StackPanel Spacing="4">
-              <TextBlock Classes="caption secondary" Text="Antes"/>
-              <TextBox Classes="mono" Text="{Binding PreviewBefore}" AcceptsReturn="False" TextWrapping="Wrap" AutomationProperties.Name="Texto de exemplo"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="4">
-              <TextBlock Classes="caption secondary" Text="Depois, no build"/>
-              <Border Padding="10,8" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}">
-                <TextBlock Classes="mono" Text="{Binding PreviewAfter}" TextWrapping="Wrap" AutomationProperties.Name="Texto depois das regras"/>
-              </Border>
-            </StackPanel>
-          </Grid>
-          <ItemsControl ItemsSource="{Binding PreviewWarnings}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="x:String">
-                <TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.SignalWarningFg}" TextWrapping="Wrap" Text="{Binding}"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </Border>
-
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Classes="body-sm secondary" VerticalAlignment="Center" TextWrapping="Wrap"
-                   Text="{Binding ProjectName, StringFormat='Ajustes do projeto: {0}'}" IsVisible="{Binding HasProject}"/>
-        <TextBlock Classes="body-sm secondary" VerticalAlignment="Center" TextWrapping="Wrap"
-                   Text="Abra um projeto para editar o modelo, a acentuação, o guia de estilo e a formatação." IsVisible="{Binding !HasProject}"/>
-        <Button Grid.Column="1" Classes="accent lg" Content="Salvar ajustes do projeto" Command="{Binding SaveProjectCommand}"/>
-      </Grid>
+        </TabItem>
+      </TabControl>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

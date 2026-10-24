@@ -8,6 +8,7 @@
     <Setter Property="Padding" Value="16,0"/>
     <Setter Property="Template">
       <ControlTemplate>
+        <Border Background="{TemplateBinding Background}">
         <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
           <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}" VerticalAlignment="Center"/>
           <c:StatusBadge Grid.Column="1" Status="{TemplateBinding Status}"/>
@@ -24,6 +25,7 @@
                       Foreground="{DynamicResource Vnf.SignalErrorFg}" AutomationProperties.Name="{TemplateBinding IssueLabel}"/>
           </Panel>
         </Grid>
+        </Border>
       </ControlTemplate>
     </Setter>
   </Style>

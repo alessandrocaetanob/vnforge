@@ -95,19 +95,20 @@ public class MainWindowConferenceTests
     }
 
     [Fact]
-    public async Task Corrigir_uma_regra_com_edicao_pendente_no_Editor_grava_a_edicao_antes()
+    public async Task Aplicar_correcao_com_edicao_pendente_no_Editor_grava_a_edicao_antes()
     {
         using var temp = new TempFolder();
         var vm = await OpenedWithProblem(temp);
         await PendingEditThen(vm, () =>
         {
-            var group = vm.Conference.Rows.OfType<ConferenceGroupRowViewModel>().Single(g => g.RuleId == "espaco-duplo");
-            return vm.Conference.FixRuleCommand.ExecuteAsync(group);
+            var row = vm.Conference.Rows.Single(r => r.RuleId == "espaco-duplo" && r.UnitId == "yst00001:000002");
+            return vm.Conference.ApplyFixCommand.ExecuteAsync(row);
         });
 
         var saved = ProjectFolder.Open(vm.CurrentProject!.Root).LoadText("yst00001");
         Assert.Equal("pendente aqui", saved[2].Translation);
-        Assert.Equal("duas palavras", saved[1].Translation);
+        // A correção é só da linha pedida: a edição pendente foi gravada antes e então corrigida; a outra linha fica como estava.
+        Assert.Equal("duas  palavras", saved[1].Translation);
     }
 
     private static async Task PendingEditThen(MainWindowViewModel vm, Func<Task> fix)

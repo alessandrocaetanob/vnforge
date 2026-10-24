@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
@@ -10,12 +11,14 @@ namespace VNForge.App.ViewModels;
 /// Uma linha da grade. A grade pode ter dezenas de milhares delas, então os membros são getters baratos e a única notificação é a de <see cref="Update"/>,
 /// que o Editor chama quando o painel de detalhe grava a linha.
 /// </summary>
-public sealed class LineViewModel(LineEntry entry) : INotifyPropertyChanged
+/// <param name="entry">A linha da grade.</param>
+/// <param name="speakerTarget">O nome do falante em português (<c>characters.json</c>); nulo mostra o nome original.</param>
+public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null) : INotifyPropertyChanged
 {
     private static readonly string[] Changeable =
     [
-        nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel),
-        nameof(HasWarning), nameof(HasError), nameof(IssueLabel),
+        nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
+        nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel),
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -42,9 +45,18 @@ public sealed class LineViewModel(LineEntry entry) : INotifyPropertyChanged
 
     public bool IsNarration => string.IsNullOrEmpty(Entry.Unit.Speaker);
 
-    public string SpeakerLabel => IsNarration ? "Narração" : Entry.Unit.Speaker!;
+    public string SpeakerLabel => IsNarration ? "Narração" : SpeakerName!;
+
+    /// <summary>O falante como a grade o mostra: o nome em português quando o personagem está cadastrado, o original quando não; nulo na narração.</summary>
+    public string? SpeakerName => IsNarration ? null : speakerTarget ?? Entry.Unit.Speaker;
 
     public string Source => Entry.Unit.Source;
+
+    /// <summary>O original sem marcadores de pausa, para a coluna cortada com reticências.</summary>
+    public string SourcePlain { get; } = LineText.Plain(entry.Unit.Source);
+
+    /// <summary>A tradução sem marcadores de pausa; vazia sem tradução.</summary>
+    public string TranslationPlain => LineText.Plain(Entry.Unit.Translation);
 
     public bool HasTranslation => Entry.Unit.HasTranslation;
 
@@ -53,6 +65,8 @@ public sealed class LineViewModel(LineEntry entry) : INotifyPropertyChanged
     public bool HasWarning => Entry.Severity == QaSeverity.Warning;
 
     public bool HasError => Entry.Severity == QaSeverity.Error;
+
+    public LineIssue Issue => HasError ? LineIssue.Error : HasWarning ? LineIssue.Warning : LineIssue.None;
 
     /// <summary>Texto do indicador do QA para leitor de tela; vazio quando a linha não tem ocorrência.</summary>
     public string IssueLabel

@@ -61,11 +61,12 @@ internal static class DemoProject
         new(Name, root ?? Root, "yuris", 500, "cp1252", ModelId, ScriptCount, Counts);
 
     /// <summary>Grava a pasta do projeto (<c>project.json</c>, <c>text/*.json</c>, glossário e personagens) em <paramref name="parent"/> e devolve o caminho.</summary>
-    public static string Create(string parent)
+    /// <param name="gameDirectory">Pasta do jogo registrada no projeto; sem ela, a do artboard (<c>D:\Jogos\MinhaVN</c>, que não existe aqui).</param>
+    public static string Create(string parent, string? gameDirectory = null)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             Name,
-            new GameConfig(@"D:\Jogos\MinhaVN", "MinhaVN.exe"),
+            new GameConfig(gameDirectory ?? @"D:\Jogos\MinhaVN", "MinhaVN.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("cp1252"),
@@ -75,6 +76,10 @@ internal static class DemoProject
             folder.SaveText(key, units);
         }
 
+        folder.SaveState(new PipelineState([], new Dictionary<string, StageState> { [ProjectExtractor.ExtractStage] = new(StageStatus.Completed) }));
+        folder.SaveScriptNames(ScriptNames.Empty.WithDetected(Named.ToDictionary(n => n.Key, n => (string?)n.Label)));
+        // O gasto do cartão "Uso da IA" do Painel: US$ 26,40 em 2,1 M tokens de entrada e 0,9 M de saída.
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(2_100_000, 900_000, 0, 0, 26.40m, 1));
         folder.SaveCharacters([.. Characters.Where(c => c.Japanese is not null).Select(c => new CharacterEntry(c.Japanese!, c.Portuguese))]);
         folder.SaveGlossary(
         [

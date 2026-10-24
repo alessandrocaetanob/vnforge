@@ -84,6 +84,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentPage = start;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines);
         Editor.PropertyChanged += OnEditorChanged;
+        Editor.CheckRequested += OnEditorCheckRequested;
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Conference.TextsChanged += (_, _) => editorStale = true;
@@ -94,6 +95,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             SelectedNav = editorItem;
             LineNavigation = ShowLineAsync(request);
         };
+        Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         Dashboard.StageRequested += (_, stage) => SelectedNav = stage switch
@@ -103,6 +105,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _ => editorItem,
         };
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
+        Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         start.EditorRequested += (_, summary) =>
         {
             try
@@ -143,9 +146,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // O app troca o Editor no inicializador de objeto, depois do construtor: as escutas passam para o novo.
             DetachEditor(editor);
             editor.PropertyChanged -= OnEditorChanged;
+            editor.CheckRequested -= OnEditorCheckRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
+            editor.CheckRequested += OnEditorCheckRequested;
         }
     }
 
@@ -199,6 +204,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>"Salvo às 00:41" depois da primeira gravação do Editor nesta sessão; vazio antes.</summary>
     public string SavedAtText => Editor.LastSavedAt is { } at ? $"Salvo às {at:HH:mm}" : string.Empty;
+
+    /// <summary>"Alterações salvas automaticamente em vnforge.json" enquanto os Ajustes de um projeto estão abertos; vazio nas outras telas.</summary>
+    public string StatusNote => SelectedNav?.Key == NavKey.Settings && Settings.HasProject ? SettingsViewModel.AutosaveNote : string.Empty;
 
     /// <summary>"Acentuação: CP1252" com a estratégia do projeto.</summary>
     public string EncodingText => CurrentProject is { } project ? $"Acentuação: {ProjectLabels.EncodingShort(project.EncodingStrategy)}" : string.Empty;
@@ -289,6 +297,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
 
                 OnPropertyChanged(nameof(BoxLimitsText));
+                OnPropertyChanged(nameof(StatusNote));
             }
         }
     }
@@ -354,6 +363,21 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         Toasts.Show(notice.Message, ToastKind.Success, key: "build");
+    }
+
+    /// <summary>Um botão do Painel: troca de página e, no Editor, abre o script pedido.</summary>
+    private void OpenFromDashboard(DashboardNavigation request)
+    {
+        if (Nav.FirstOrDefault(n => n.Key == request.Target) is not { IsEnabled: true } item)
+        {
+            return;
+        }
+
+        SelectedNav = item;
+        if (request.ScriptKey is { } key && Editor.Scripts.FirstOrDefault(script => script.Key == key) is { } script)
+        {
+            Editor.SelectedScript = script;
+        }
     }
 
     private async Task ShowLineAsync(LineRequest request)
@@ -439,6 +463,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);
+        OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
         if (!Glossary.IsDirty || Glossary.Project?.Root != summary.Root)
         {
@@ -457,6 +482,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));
     }
+
+    private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
 
     private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
     {

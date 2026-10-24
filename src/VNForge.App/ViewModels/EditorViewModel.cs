@@ -19,7 +19,7 @@ public sealed record LineSavedEventArgs(string? ProjectRoot, string ScriptKey, i
 public sealed record SpeakerOption(string Label, string? Value);
 
 /// <summary>
-/// Página do Editor: lista de scripts com progresso, grade de linhas filtrável e a coluna do detalhe.
+/// Página do Editor: lista de scripts com progresso, grade de linhas filtrável, a coluna do detalhe e o painel de busca e substituição.
 /// A grade recebe <see cref="Lines"/> trocada de uma vez a cada filtro; mexer numa coleção observável de dezenas de milhares de linhas travaria a tela.
 /// </summary>
 public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
@@ -31,9 +31,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private readonly TimeProvider clock;
     private readonly Action<Action>? postToUi;
     private readonly ILineSuggester suggester;
+    private readonly Func<string, EditorContext> contextLoader;
+    private readonly Func<string, string?> scriptLabel;
     private readonly Dictionary<string, TextUnit> savedUnits = new(StringComparer.Ordinal);
     private readonly FormattingProfileCache profiles = new();
     private LineEditor? lineEditor;
+    private EditorContext context = EditorContext.Empty;
     private ProjectLines? data;
     private LineEntry[] entries = [];
     private LineViewModel[] scriptLines = [];
@@ -48,8 +51,31 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <param name="clock">Relógio do painel de detalhe (debounce da gravação e horário da origem <c>manual</c>); o padrão é o do sistema.</param>
     /// <param name="postToUi">Como o painel executa a gravação agendada na thread da tela; nulo usa o <see cref="SynchronizationContext"/> da thread que o criou. Os testes passam uma chamada direta.</param>
     /// <param name="suggester">Pede a sugestão da IA do painel (Ctrl+Espaço); o padrão usa o provedor falso, sem rede.</param>
-    public EditorViewModel(Func<string, ProjectLines>? loader = null, TimeProvider? clock = null, Action<Action>? postToUi = null, ILineSuggester? suggester = null)
+    /// <param name="contextLoader">Lê os personagens e o glossário do projeto; o padrão lê <c>characters.json</c> e <c>glossary.json</c>.</param>
+    /// <param name="scriptLabel">Dá o nome legível de um script pela chave dele; nulo mostra só a chave.</param>
+    /// <param name="search">O painel de busca e substituição; o padrão cria o <see cref="SearchReplaceViewModel"/> do projeto.</param>
+    public EditorViewModel(
+        Func<string, ProjectLines>? loader = null,
+        TimeProvider? clock = null,
+        Action<Action>? postToUi = null,
+        ILineSuggester? suggester = null,
+        Func<string, EditorContext>? contextLoader = null,
+        Func<string, string?>? scriptLabel = null,
+        SearchReplaceViewModel? search = null)
     {
+        this.contextLoader = contextLoader ?? EditorContext.Read;
+        this.scriptLabel = scriptLabel ?? (_ => null);
+        Search = search ?? new SearchReplaceViewModel(clock);
+        Search.FlushPendingEdits = FlushPendingEdits;
+        Search.Applied += (_, _) => Reload();
+        Search.ResultOpened += (_, row) => SearchNavigation = OpenSearchResultAsync(row);
+        Search.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SearchReplaceViewModel.IsReplaceVisible))
+            {
+                OnPropertyChanged(nameof(IsReplaceVisible));
+            }
+        };
         this.suggester = suggester ?? new LineSuggester(() => null);
         this.clock = clock ?? TimeProvider.System;
         this.postToUi = postToUi;
@@ -85,7 +111,22 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     public ObservableCollection<ScriptItemViewModel> Scripts { get; } = [];
 
+    /// <summary>
+    /// Os scripts que passam por <see cref="ScriptFilter"/>. A lista da tela tem todos os itens e esconde os que não passam, para o script aberto
+    /// continuar selecionado mesmo quando o filtro o esconde.
+    /// </summary>
+    public IEnumerable<ScriptItemViewModel> VisibleScripts => Scripts.Where(s => s.IsShown);
+
+    /// <summary>O texto do campo "Filtrar scripts": casa a chave ou o nome do capítulo.</summary>
     [ObservableProperty]
+    public partial string ScriptFilter { get; set; } = string.Empty;
+
+    /// <summary>A chave do script que a IA está traduzindo; o item dele na lista mostra o ícone girando. Nulo sem tarefa.</summary>
+    [ObservableProperty]
+    public partial string? RunningScriptKey { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckFileCommand), nameof(TranslatePendingCommand))]
     public partial ScriptItemViewModel? SelectedScript { get; set; }
 
     public IReadOnlyList<FilterChipViewModel> Filters => chips;
@@ -123,7 +164,14 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     public string ProjectName => Project?.Name ?? string.Empty;
 
-    public string ScriptTitle => SelectedScript?.Key ?? string.Empty;
+    /// <summary>A linha de cima do cabeçalho, em mono: a chave do script aberto.</summary>
+    public string Breadcrumb => SelectedScript?.Key ?? string.Empty;
+
+    /// <summary>O título do cabeçalho: o nome do capítulo, ou a chave quando o projeto ainda não guarda o nome.</summary>
+    public string ScriptTitle => SelectedScript?.Display ?? string.Empty;
+
+    /// <summary>Linhas do script aberto que ainda não têm tradução.</summary>
+    public int PendingLines { get; private set; }
 
     public string ScriptsCount => ProjectLabels.Number(Scripts.Count);
 
@@ -183,13 +231,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         // As linhas do projeto anterior não podem ficar na tela como se fossem do novo enquanto ele carrega.
         Apply(null);
         lineEditor = null;
+        context = EditorContext.Empty;
         savedUnits.Clear();
         IsLoading = true;
         ProjectLines? loaded = null;
+        var loadedContext = EditorContext.Empty;
         string? error = null;
         try
         {
-            loaded = await Task.Run(() => loader(root));
+            (loaded, loadedContext) = await Task.Run(() => (loader(root), contextLoader(root)));
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -204,6 +254,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         IsLoading = false;
         ErrorMessage = error;
         lineEditor = loaded is null ? null : TryCreateEditor(root);
+        context = loadedContext;
         Apply(loaded);
     }
 
@@ -303,14 +354,140 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         return ReferenceEquals(SelectedLine, target);
     }
 
+    partial void OnScriptFilterChanged(string value)
+    {
+        ApplyScriptFilter();
+        OnPropertyChanged(nameof(VisibleScripts));
+    }
+
+    partial void OnRunningScriptKeyChanged(string? value)
+    {
+        foreach (var script in Scripts)
+        {
+            script.IsRunning = value is not null && script.Key == value;
+        }
+    }
+
+    private void ApplyScriptFilter()
+    {
+        foreach (var script in Scripts)
+        {
+            script.IsShown = script.Matches(ScriptFilter);
+        }
+    }
+
+    /// <summary>Disparado por "Conferir arquivo": a janela abre a Conferência. Leva a chave do script aberto.</summary>
+    public event EventHandler<string>? CheckRequested;
+
+    /// <summary>Disparado por "Traduzir pendentes": quem sabe traduzir em lote assume. Leva a chave do script aberto.</summary>
+    public event EventHandler<string>? TranslateRequested;
+
+    [RelayCommand(CanExecute = nameof(HasScript))]
+    private void CheckFile() => CheckRequested?.Invoke(this, SelectedScript!.Key);
+
+    [RelayCommand(CanExecute = nameof(CanTranslatePending))]
+    private void TranslatePending() => TranslateRequested?.Invoke(this, SelectedScript!.Key);
+
+    private bool HasScript() => SelectedScript is not null;
+
+    private bool CanTranslatePending() => SelectedScript is not null && PendingLines > 0;
+
+    /// <summary>O painel de busca e substituição do projeto, que abre dentro do Editor.</summary>
+    public SearchReplaceViewModel Search { get; }
+
+    /// <summary>O painel de busca está aberto sobre a grade.</summary>
+    [ObservableProperty]
+    public partial bool IsSearchOpen { get; set; }
+
+    /// <summary>O campo "Substituir por" e os botões de troca estão visíveis (Ctrl+H); sem eles o painel só busca.</summary>
+    public bool IsReplaceVisible
+    {
+        get => Search.IsReplaceVisible;
+        set => Search.IsReplaceVisible = value;
+    }
+
+    /// <summary>Disparado ao abrir o painel por botão ou atalho; leva se é para a substituição (Ctrl+H), para a tela pôr o foco no campo certo.</summary>
+    public event EventHandler<bool>? SearchOpened;
+
+    /// <summary>O último salto para uma linha pedido pela lista de resultados; os testes o aguardam.</summary>
+    public Task SearchNavigation { get; private set; } = Task.CompletedTask;
+
+    /// <summary>Ctrl+F: abre o painel de busca. Se a substituição já estava aberta, ela continua.</summary>
+    [RelayCommand]
+    private void OpenSearch()
+    {
+        IsSearchOpen = true;
+        SearchOpened?.Invoke(this, false);
+    }
+
+    /// <summary>Ctrl+H: abre o painel com a substituição.</summary>
+    [RelayCommand]
+    private void OpenReplace()
+    {
+        IsSearchOpen = true;
+        IsReplaceVisible = true;
+        SearchOpened?.Invoke(this, true);
+    }
+
+    /// <summary>O botão da barra: abre o painel, ou fecha quando ele já está aberto.</summary>
+    [RelayCommand]
+    private void ToggleSearch()
+    {
+        if (IsSearchOpen)
+        {
+            CloseSearch();
+        }
+        else
+        {
+            OpenSearch();
+        }
+    }
+
+    /// <summary>Esc: fecha o painel. O que foi digitado fica para a próxima vez.</summary>
+    [RelayCommand]
+    private void CloseSearch()
+    {
+        IsSearchOpen = false;
+        IsReplaceVisible = false;
+    }
+
+    /// <summary>Leva a grade à linha de um resultado: troca de script e tira os filtros que a escondem. Avisa quando a linha não existe mais.</summary>
+    [RelayCommand]
+    public async Task OpenSearchResultAsync(SearchResultRow? row)
+    {
+        if (row is null || row.UnitId.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await GoToLineAsync(row.ScriptKey, row.UnitId))
+            {
+                ErrorMessage = $"A linha {row.UnitId} não existe mais neste projeto. Busque de novo.";
+            }
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"Não foi possível abrir a linha {row.UnitId}: {e.Message}";
+        }
+    }
+
     [RelayCommand]
     private void ShowAll() => SelectFilter(chips[0]);
 
     [RelayCommand]
     private void SelectFilter(FilterChipViewModel? chip)
     {
-        if (chip is null || chip.Filter == statusFilter)
+        if (chip is null)
         {
+            return;
+        }
+
+        if (chip.Filter == statusFilter)
+        {
+            // O chip é um botão de alternar: clicar no que já vale o desmarcaria na tela.
+            chip.IsSelected = true;
             return;
         }
 
@@ -334,7 +511,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>Grava a edição pendente do painel de detalhe. Falso quando a gravação falha; sem painel aberto não há o que gravar.</summary>
     public bool FlushPendingEdits() => Detail?.Flush() ?? true;
 
-    partial void OnProjectChanged(ProjectSummary? value) => Loading = LoadAsync();
+    partial void OnProjectChanged(ProjectSummary? value)
+    {
+        Search.Project = value;
+        Loading = LoadAsync();
+    }
 
     partial void OnSelectedLineChanged(LineViewModel? oldValue, LineViewModel? newValue)
     {
@@ -381,9 +562,10 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
+        var lineContext = context.For(unit.Speaker, unit.Source);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Context = lineContext }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Context = lineContext };
         detail.AttachPreview(CurrentProfile());
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
@@ -495,8 +677,10 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             Scripts.Clear();
             foreach (var script in loaded?.Scripts ?? [])
             {
-                Scripts.Add(new ScriptItemViewModel(script));
+                Scripts.Add(new ScriptItemViewModel(script, scriptLabel(script.Key)) { IsRunning = script.Key == RunningScriptKey });
             }
+
+            ApplyScriptFilter();
 
             SelectedScript = Scripts.FirstOrDefault();
         }
@@ -508,6 +692,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         OnPropertyChanged(nameof(ScriptsCount));
         OnPropertyChanged(nameof(EmptyMessage));
         OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(VisibleScripts));
         BuildScript();
     }
 
@@ -518,7 +703,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         scriptLines = new LineViewModel[entries.Length];
         for (var i = 0; i < scriptLines.Length; i++)
         {
-            scriptLines[i] = new LineViewModel(entries[i]);
+            scriptLines[i] = new LineViewModel(entries[i], context.Characters.Find(entries[i].Unit.Speaker)?.Target);
         }
 
         applying = true;
@@ -544,6 +729,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         UpdateCounts();
         Refresh();
+        OnPropertyChanged(nameof(Breadcrumb));
         OnPropertyChanged(nameof(ScriptTitle));
         OnPropertyChanged(nameof(Distribution));
         OnPropertyChanged(nameof(DistributionDescription));
@@ -568,6 +754,10 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         {
             chip.Count = new LineFilter(chip.Filter, speaker).Count(entries);
         }
+
+        PendingLines = new LineFilter(LineStatusFilter.Pending).Count(entries);
+        OnPropertyChanged(nameof(PendingLines));
+        TranslatePendingCommand.NotifyCanExecuteChanged();
     }
 
     private void Refresh()

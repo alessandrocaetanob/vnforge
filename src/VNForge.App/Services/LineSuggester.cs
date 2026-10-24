@@ -8,7 +8,9 @@ namespace VNForge.App.Services;
 /// <summary>A sugestão de tradução de uma linha.</summary>
 /// <param name="Text">Texto sugerido, com os mesmos marcadores de controle do original.</param>
 /// <param name="FromFakeProvider">Veio do provedor falso (app sem chave de API), não do Claude.</param>
-public sealed record LineSuggestion(string Text, bool FromFakeProvider);
+/// <param name="Model">O id do modelo que respondeu (<c>claude-opus-5-5</c>); nulo no provedor falso.</param>
+/// <param name="Effort">O esforço pedido ao modelo, em português ("baixo"); nulo no provedor falso.</param>
+public sealed record LineSuggestion(string Text, bool FromFakeProvider, string? Model = null, string? Effort = null);
 
 /// <summary>A IA respondeu, mas sem uma sugestão aproveitável; a mensagem, em português, vai direto ao usuário.</summary>
 public sealed class LineSuggestionException(string message) : Exception(message);
@@ -25,7 +27,8 @@ public interface ILineSuggester
 /// <see cref="FakeTranslationProvider"/>, para o Editor funcionar (e ser testado) sem rede.
 /// </summary>
 /// <param name="openProvider">Abre o provedor real a cada pedido (a chave pode mudar em Ajustes); nulo quando não há chave.</param>
-public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : ILineSuggester
+/// <param name="currentModel">Diz qual modelo o provedor real usa, para o cartão da sugestão; nulo não informa o modelo.</param>
+public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func<string>? currentModel = null) : ILineSuggester
 {
     private readonly Func<ITranslationProvider?> openProvider = openProvider ?? throw new ArgumentNullException(nameof(openProvider));
 
@@ -40,29 +43,33 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : IL
 
         // O cliente da Anthropic prende um HttpClient: reaproveita o provedor enquanto a chave e o modelo não mudam.
         (string Key, string Model, ITranslationProvider Provider)? cached = null;
+        string? lastModel = null;
         var gate = new object();
-        return new(() =>
-        {
-            var key = readKey(configDirectory);
-            if (string.IsNullOrWhiteSpace(key))
+        return new(
+            () =>
             {
-                return null;
-            }
-
-            var model = ReadModel(configDirectory);
-            lock (gate)
-            {
-                if (cached is { } hit && hit.Key == key && hit.Model == model)
+                var key = readKey(configDirectory);
+                if (string.IsNullOrWhiteSpace(key))
                 {
-                    return hit.Provider;
+                    return null;
                 }
 
-                (cached?.Provider as IDisposable)?.Dispose();
-                var provider = createProvider(key, model);
-                cached = (key, model, provider);
-                return provider;
-            }
-        });
+                var model = ReadModel(configDirectory);
+                lock (gate)
+                {
+                    lastModel = model;
+                    if (cached is { } hit && hit.Key == key && hit.Model == model)
+                    {
+                        return hit.Provider;
+                    }
+
+                    (cached?.Provider as IDisposable)?.Dispose();
+                    var provider = createProvider(key, model);
+                    cached = (key, model, provider);
+                    return provider;
+                }
+            },
+            () => lastModel ?? string.Empty);
     }
 
     /// <summary>Provedor Claude da sugestão: esforço baixo, porque é uma linha só e o usuário espera a resposta.</summary>
@@ -82,7 +89,9 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider) : IL
             throw new LineSuggestionException("O provedor não devolveu uma sugestão válida para esta linha.");
         }
 
-        return new LineSuggestion(result.Translation, FromFakeProvider: real is null);
+        return real is null
+            ? new LineSuggestion(result.Translation, FromFakeProvider: true)
+            : new LineSuggestion(result.Translation, FromFakeProvider: false, currentModel?.Invoke() is { Length: > 0 } model ? model : null, Effort: "baixo");
     }
 
     private static string ReadModel(string configDirectory)

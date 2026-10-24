@@ -4,59 +4,60 @@
              x:Class="VNForge.App.Views.SearchReplaceView"
              x:DataType="vm:SearchReplaceViewModel">
 
-  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="24,32,24,24" RowSpacing="12">
+  <!-- Painel de busca e substituição do Editor. Procura em todos os scripts; a substituição só altera a tradução, mostra cada linha que muda
+       antes de gravar e não mexe nos marcadores de controle (\n, \p, {...}). -->
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="12" RowSpacing="8">
 
-    <StackPanel Spacing="4">
-      <TextBlock Classes="title-lg" Text="Busca e substituição"/>
-      <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
-                 Text="Procura em todos os scripts do projeto. A substituição só altera a tradução, mostra cada linha que muda antes de gravar e não mexe nos marcadores de controle (\n, \p, {...})."/>
-    </StackPanel>
-
-    <Border Grid.Row="1" Classes="panel" Padding="16">
-      <StackPanel Spacing="12">
-        <!-- Os campos travam durante a operação: mudar um no meio de uma gravação esconderia o resultado dela. Os botões seguem os próprios comandos. -->
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsEnabled="{Binding !IsBusy}">
-          <StackPanel Spacing="4">
-            <TextBlock Classes="overline" Text="PROCURAR"/>
-            <TextBox Text="{Binding Pattern}" PlaceholderText="Texto ou expressão regular" AutomationProperties.Name="Texto a procurar"/>
+    <!-- Os campos travam durante a operação: mudar um no meio de uma gravação esconderia o resultado dela. Os botões seguem os próprios comandos. -->
+    <Grid ColumnDefinitions="Auto,*,*,Auto" ColumnSpacing="8">
+      <ToggleButton Classes="sm" VerticalAlignment="Center" IsChecked="{Binding IsReplaceVisible}" IsEnabled="{Binding !IsBusy}"
+                    AutomationProperties.Name="Mostrar a substituição" ToolTip.Tip="Mostra o campo de substituição (Ctrl+H)">
+        <TextBlock Text="Substituir" FontSize="13"/>
+      </ToggleButton>
+      <TextBox x:Name="PatternBox" Grid.Column="1" VerticalAlignment="Center" Text="{Binding Pattern}" IsEnabled="{Binding !IsBusy}"
+               PlaceholderText="Procurar (texto ou expressão regular)" AutomationProperties.Name="Texto a procurar">
+        <TextBox.KeyBindings>
+          <KeyBinding Gesture="Enter" Command="{Binding FindCommand}"/>
+        </TextBox.KeyBindings>
+      </TextBox>
+      <TextBox x:Name="ReplacementBox" Grid.Column="2" VerticalAlignment="Center" Text="{Binding Replacement}" IsVisible="{Binding IsReplaceVisible}"
+               IsEnabled="{Binding !IsBusy}" PlaceholderText="Substituir por (em regex vale $1, $2...)" AutomationProperties.Name="Texto de substituição">
+        <TextBox.KeyBindings>
+          <KeyBinding Gesture="Enter" Command="{Binding PreviewCommand}"/>
+        </TextBox.KeyBindings>
+      </TextBox>
+      <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Command="{Binding FindCommand}" AutomationProperties.Name="Buscar">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Search}"/>
+            <TextBlock Text="Buscar"/>
           </StackPanel>
-          <StackPanel Grid.Column="1" Spacing="4">
-            <TextBlock Classes="overline" Text="SUBSTITUIR POR"/>
-            <TextBox Text="{Binding Replacement}" PlaceholderText="Em regex vale $1, $2..." IsEnabled="{Binding CanReplace}"
-                     AutomationProperties.Name="Texto de substituição"/>
-          </StackPanel>
-        </Grid>
-
-        <StackPanel Orientation="Horizontal" Spacing="20" IsEnabled="{Binding !IsBusy}">
-          <CheckBox Content="Expressão regular" IsChecked="{Binding UseRegex}"/>
-          <CheckBox Content="Diferenciar maiúsculas" IsChecked="{Binding MatchCase}"/>
-          <CheckBox Content="Palavra inteira (só na tradução)" IsChecked="{Binding WholeWord}" IsEnabled="{Binding CanWholeWord}"/>
-          <CheckBox Content="Procurar no original (sem substituir)" IsChecked="{Binding SearchSource}"/>
-        </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Command="{Binding FindCommand}" AutomationProperties.Name="Buscar">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Search}"/>
-              <TextBlock Text="Buscar"/>
-            </StackPanel>
-          </Button>
-          <Button Command="{Binding PreviewCommand}" AutomationProperties.Name="Prévia da substituição">
-            <TextBlock Text="Prévia da substituição"/>
-          </Button>
-          <Button Classes="accent" Command="{Binding ApplyCommand}" AutomationProperties.Name="Aplicar substituição">
-            <TextBlock Text="Aplicar" FontWeight="SemiBold"/>
-          </Button>
-          <Button Classes="subtle" Command="{Binding CancelCommand}" IsVisible="{Binding IsCancellable}" AutomationProperties.Name="Cancelar a busca">
-            <TextBlock Text="Cancelar"/>
-          </Button>
-        </StackPanel>
-        <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                   Text="Aplicar grava só as linhas da prévia. Uma linha editada vira Traduzida (o mesmo que editar no Editor) e perde a aprovação."/>
+        </Button>
+        <Button Command="{Binding PreviewCommand}" IsVisible="{Binding IsReplaceVisible}" AutomationProperties.Name="Prévia da substituição"
+                ToolTip.Tip="Lista cada linha que mudaria, sem gravar">
+          <TextBlock Text="Prévia"/>
+        </Button>
+        <Button Classes="accent" Command="{Binding ApplyCommand}" IsVisible="{Binding IsReplaceVisible}" AutomationProperties.Name="Aplicar substituição"
+                ToolTip.Tip="Grava só as linhas da prévia. A linha editada vira Traduzida e perde a aprovação.">
+          <TextBlock Text="Aplicar" FontWeight="SemiBold"/>
+        </Button>
+        <Button Classes="subtle" Command="{Binding CancelCommand}" IsVisible="{Binding IsCancellable}" AutomationProperties.Name="Cancelar a busca">
+          <TextBlock Text="Cancelar"/>
+        </Button>
+        <Button x:Name="CloseButton" Classes="subtle icon" AutomationProperties.Name="Fechar a busca" ToolTip.Tip="Fecha o painel (Esc)">
+          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
+        </Button>
       </StackPanel>
-    </Border>
+    </Grid>
 
-    <StackPanel Grid.Row="2" Spacing="8">
+    <WrapPanel Grid.Row="1" ItemSpacing="20" LineSpacing="4" IsEnabled="{Binding !IsBusy}">
+      <CheckBox Content="Expressão regular" IsChecked="{Binding UseRegex}"/>
+      <CheckBox Content="Diferenciar maiúsculas" IsChecked="{Binding MatchCase}"/>
+      <CheckBox Content="Palavra inteira (só na tradução)" IsChecked="{Binding WholeWord}" IsEnabled="{Binding CanWholeWord}"/>
+      <CheckBox Content="Procurar no original (sem substituir)" IsChecked="{Binding SearchSource}"/>
+    </WrapPanel>
+
+    <StackPanel Grid.Row="2" Spacing="6">
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
@@ -74,7 +75,8 @@
       </ItemsControl>
     </StackPanel>
 
-    <Border Grid.Row="3" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Resultados" IsVisible="{Binding HasResults}">
+    <!-- Os resultados: clicar num deles leva a grade à linha. -->
+    <Border Grid.Row="3" Classes="panel" ClipToBounds="True" MaxHeight="240" AutomationProperties.Name="Resultados" IsVisible="{Binding HasResults}">
       <Grid RowDefinitions="32,*">
         <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
           <Grid ColumnDefinitions="190,*,*" ColumnSpacing="12">
@@ -83,8 +85,8 @@
             <TextBlock Grid.Column="2" Classes="overline" Text="DEPOIS" VerticalAlignment="Center"/>
           </Grid>
         </Border>
-        <ListBox Grid.Row="1" Classes="projects" ItemsSource="{Binding Results}" SelectionMode="Single"
-                 AutomationProperties.Name="Linhas encontradas">
+        <ListBox x:Name="ResultsList" Grid.Row="1" Classes="projects" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedResult}"
+                 SelectionMode="Single" AutomationProperties.Name="Linhas encontradas">
           <ListBox.ItemsPanel>
             <ItemsPanelTemplate>
               <VirtualizingStackPanel/>

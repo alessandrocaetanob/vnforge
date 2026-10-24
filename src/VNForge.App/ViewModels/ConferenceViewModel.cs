@@ -4,6 +4,7 @@ using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
+using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
@@ -35,71 +36,41 @@ public sealed partial class SeverityChipViewModel(ConferenceSeverityFilter filte
     public partial bool IsSelected { get; set; }
 }
 
-/// <summary>Uma linha da lista da Conferência: o cabeçalho de uma regra ou uma ocorrência dela.</summary>
-public interface IConferenceRow
-{
-    /// <summary>Id da regra a que a linha pertence: o do cabeçalho ou o da ocorrência.</summary>
-    string RuleId { get; }
-}
-
-/// <summary>Cabeçalho de um grupo: a regra, a frase que ela confere, quantas ocorrências tem e se sabe corrigir sozinha.</summary>
-public sealed class ConferenceGroupRowViewModel(string ruleId, string description, int count, bool canFix) : IConferenceRow
-{
-    public string RuleId { get; } = ruleId;
-
-    public string Description { get; } = description;
-
-    public int Count { get; } = count;
-
-    public string CountLabel => $"{ProjectLabels.Number(Count)} {(Count == 1 ? "ocorrência" : "ocorrências")}";
-
-    public bool CanFix { get; } = canFix;
-}
-
-/// <summary>Uma ocorrência do QA. Só leitura: a lista pode ter milhares delas.</summary>
-public sealed class ConferenceIssueRowViewModel(QaIssue issue) : IConferenceRow
-{
-    public QaIssue Issue { get; } = issue;
-
-    public string RuleId => Issue.RuleId;
-
-    public string UnitId => Issue.UnitId;
-
-    public string ScriptKey => Issue.ScriptKey;
-
-    public string Message => Issue.Message;
-
-    public bool IsError => Issue.Severity == QaSeverity.Error;
-
-    public string SeverityLabel => IsError ? "Erro" : "Aviso";
-
-    /// <summary>Erro não se silencia: só o aviso pode ser marcado como ok.</summary>
-    public bool CanMarkOk => !IsError;
-}
-
 /// <summary>
-/// Página Conferência: o resultado do <see cref="QaEngine"/> do Core (o mesmo de <c>vnf check</c>) agrupado por regra, com filtro de gravidade,
-/// salto até a linha no Editor, "corrigir automaticamente" (<see cref="QaFixer"/>) e "marcar como ok" (<see cref="QaFlags"/>).
-/// A lista é lida quando a página é aberta (<see cref="RefreshAsync"/>) e é trocada por inteiro a cada filtro.
+/// Página Conferência: o resultado do <see cref="QaEngine"/> do Core (o mesmo de <c>vnf check</c>) em três colunas, como o artboard: as regras por
+/// categoria (<see cref="QaCategories"/>), a lista de problemas (a "não traduzida" resumida por script) e o detalhe do selecionado, com a correção
+/// proposta pelos <see cref="IQaFixer"/>. Filtro de gravidade, salto até a linha no Editor, "corrigir automaticamente" (<see cref="QaFixer"/>) e
+/// "marcar como ok" (<see cref="QaFlags"/>). O projeto é lido quando a página é aberta (<see cref="RefreshAsync"/>); a lista é trocada por inteiro a cada filtro.
 /// </summary>
 public sealed partial class ConferenceViewModel : ObservableObject
 {
     private readonly QaEngine engine;
+    private readonly TimeProvider clock;
     private readonly SeverityChipViewModel[] chips;
+    private readonly ConferenceCategoryViewModel[] categories;
     private QaReport report = QaReport.Empty;
-    private bool scanned;
+    private IReadOnlyList<ConferenceIssueRowViewModel> all = [];
     private ConferenceSeverityFilter severityFilter = ConferenceSeverityFilter.All;
+    private string? categoryFilter;
     private int loadVersion;
-    private bool reportLoaded;
+    private int lineCount;
+    private int fixableCount;
+    private DateTimeOffset? checkedAt;
 
-    public ConferenceViewModel(QaEngine? qa = null)
+    public ConferenceViewModel(QaEngine? qa = null, TimeProvider? clock = null)
     {
         engine = qa ?? QaEngine.Default;
+        this.clock = clock ?? TimeProvider.System;
         chips =
         [
             new SeverityChipViewModel(ConferenceSeverityFilter.All, "Todos") { IsSelected = true },
             new SeverityChipViewModel(ConferenceSeverityFilter.Errors, "Erros"),
             new SeverityChipViewModel(ConferenceSeverityFilter.Warnings, "Avisos"),
+        ];
+        categories =
+        [
+            new ConferenceCategoryViewModel(null) { IsSelected = true },
+            .. QaCategories.All.Select(c => new ConferenceCategoryViewModel(c) { IsVisible = IsAlwaysListed(c) }),
         ];
     }
 
@@ -114,13 +85,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial ProjectSummary? Project { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(FixRuleCommand), nameof(MarkOkCommand), nameof(OpenLineCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand))]
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(FixRuleCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(RefreshCommand))]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsFixing { get; private set; }
 
@@ -138,19 +109,47 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     public IReadOnlyList<SeverityChipViewModel> SeverityFilters => chips;
 
-    /// <summary>Cabeçalhos e ocorrências na ordem do <c>vnf check</c>. É trocada por inteiro; nunca recebe <c>Add</c> nem <c>Remove</c>.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEmpty))]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsClear), nameof(ShowEmptyText))]
-    public partial IReadOnlyList<IConferenceRow> Rows { get; private set; } = [];
+    /// <summary>A coluna "Regras": "Todas" e as categorias, com a contagem de problemas abertos de cada uma.</summary>
+    public IReadOnlyList<ConferenceCategoryViewModel> Categories => categories;
 
-    /// <summary>"2 erros, 37 avisos", contando o que o filtro deixa à vista.</summary>
+    /// <summary>
+    /// Os problemas à vista, com o filtro de gravidade e a categoria: erros primeiro, depois por script e linha, e a "não traduzida" por último,
+    /// um resumo por script. É trocada por inteiro; nunca recebe <c>Add</c> nem <c>Remove</c>.
+    /// </summary>
     [ObservableProperty]
-    public partial string Summary { get; private set; } = string.Empty;
+    [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(EmptyMessage))]
+    public partial IReadOnlyList<ConferenceIssueRowViewModel> Rows { get; private set; } = [];
+
+    /// <summary>O problema aberto no detalhe. Ao sair da lista (corrigido, silenciado ou filtrado), passa para o vizinho.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelection))]
+    public partial ConferenceIssueRowViewModel? SelectedRow { get; set; }
+
+    public bool HasSelection => SelectedRow is not null;
+
+    /// <summary>"Última conferência há 4 min · 48.211 linhas · 14 regras ativas"; "Ainda não conferido" até a primeira leitura.</summary>
+    [ObservableProperty]
+    public partial string CheckedSummary { get; private set; } = string.Empty;
+
+    /// <summary>"Mostrando 39 de 18.359 problemas abertos · agrupados por script", mais "3 avisos marcados como ok." quando há.</summary>
+    [ObservableProperty]
+    public partial string ListFooter { get; private set; } = string.Empty;
 
     /// <summary>"3 avisos marcados como ok."; vazio quando nenhum aviso foi silenciado.</summary>
     [ObservableProperty]
     public partial string SilencedSummary { get; private set; } = string.Empty;
+
+    /// <summary>"2 erros bloqueiam o build."; vazio sem erro.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBlockingErrors))]
+    public partial string BlockingMessage { get; private set; } = string.Empty;
+
+    /// <summary>Há erro aberto: a faixa vermelha do alto aparece. Erro nunca se silencia.</summary>
+    public bool HasBlockingErrors => BlockingMessage.Length > 0;
+
+    /// <summary>"Corrigir 3 automaticamente"; "Corrigir automaticamente" quando não há o que corrigir.</summary>
+    [ObservableProperty]
+    public partial string FixAllLabel { get; private set; } = "Corrigir automaticamente";
 
     /// <summary>Quantas ocorrências a última conferência achou, sem filtro; nulo enquanto o projeto não foi conferido (ou a conferência falhou).</summary>
     [ObservableProperty]
@@ -162,7 +161,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public bool ShowEmptyText => IsEmpty && !IsClear;
 
     /// <summary>A conferência rodou e não achou nada: a página mostra o estado vazio com o selo 訳.</summary>
-    public bool IsClear => scanned && Project is not null && !IsLoading && ErrorMessage is null && report.Issues.Count == 0;
+    public bool IsClear => checkedAt is not null && Project is not null && !IsLoading && ErrorMessage is null && all.Count == 0;
 
     public string EmptyMessage
     {
@@ -183,9 +182,11 @@ public sealed partial class ConferenceViewModel : ObservableObject
                 return "Não há problemas para mostrar.";
             }
 
-            return report.Issues.Count > 0 ? "Nenhum problema com este filtro." : "Nenhum problema encontrado.";
+            return all.Count > 0 ? "Nenhum problema com este filtro." : "Nenhum problema encontrado.";
         }
     }
+
+    private static bool IsAlwaysListed(string category) => category != QaCategories.Translation && category != QaCategories.Other;
 
     private static string DescribeSilenced(int count)
     {
@@ -204,10 +205,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         IsLoading = false;
         ErrorMessage = null;
         NoticeMessage = null;
-        report = QaReport.Empty;
-        scanned = false;
-        reportLoaded = false;
-        Rebuild();
+        Load(null);
     }
 
     /// <summary>Roda o QA do Core sobre o projeto, fora da thread da tela. Uma conferência mais nova descarta o resultado de uma mais antiga.</summary>
@@ -222,18 +220,16 @@ public sealed partial class ConferenceViewModel : ObservableObject
         if (root is null)
         {
             IsLoading = false;
-            report = QaReport.Empty;
-            reportLoaded = false;
-            Rebuild();
+            Load(null);
             return;
         }
 
         IsLoading = true;
-        QaReport? loaded = null;
+        Checked? loaded = null;
         string? error = null;
         try
         {
-            loaded = await Task.Run(() => engine.Run(QaContext.FromProject(ProjectFolder.Open(root))));
+            loaded = await Task.Run(() => Check(root));
         }
         catch (Exception e)
         {
@@ -254,10 +250,65 @@ public sealed partial class ConferenceViewModel : ObservableObject
         }
 
         ErrorMessage = error;
-        report = loaded ?? QaReport.Empty;
-        scanned = loaded is not null;
-        reportLoaded = loaded is not null;
+        Load(loaded);
+    }
+
+    private void Load(Checked? loaded)
+    {
+        report = loaded?.Report ?? QaReport.Empty;
+        all = loaded?.Rows ?? [];
+        lineCount = loaded?.LineCount ?? 0;
+        fixableCount = loaded?.Fixable ?? 0;
+        checkedAt = loaded is null ? null : clock.GetUtcNow();
         Rebuild();
+    }
+
+    /// <summary>O que uma conferência devolve: o relatório, as linhas já com a correção proposta e os números do cabeçalho.</summary>
+    private sealed record Checked(QaReport Report, IReadOnlyList<ConferenceIssueRowViewModel> Rows, int LineCount, int Fixable);
+
+    private Checked Check(string root)
+    {
+        var context = QaContext.FromProject(ProjectFolder.Open(root));
+        var result = engine.Run(context);
+        var proposals = QaFixer.Propose(context.Texts, engine, result.Issues).ToDictionary(p => (p.UnitId, p.RuleId));
+
+        // "Não traduzida" é resumo por script: só a primeira linha de cada um vai para o detalhe, as outras ficam fora da memória da tela.
+        var untranslated = result.Issues.Where(i => i.RuleId == UntranslatedQaRule.RuleId).GroupBy(i => i.ScriptKey, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
+        var others = result.Issues.Where(i => i.RuleId != UntranslatedQaRule.RuleId).ToList();
+        var wanted = others.Select(i => i.UnitId).Concat(untranslated.Select(g => g.First().UnitId)).ToHashSet(StringComparer.Ordinal);
+        var units = new Dictionary<string, TextUnit>(StringComparer.Ordinal);
+        foreach (var unit in context.Texts.Values.SelectMany(list => list).Where(u => wanted.Contains(u.Id)))
+        {
+            units.TryAdd(unit.Id, unit);
+        }
+
+        var order = engine.Rules.Select((rule, index) => (rule.Id, index)).ToDictionary(x => x.Id, x => x.index, StringComparer.Ordinal);
+        // Uma linha com a mesma regra apontada mais de uma vez (dois espaços duplos) é um problema só na lista; a contagem guarda quantas ocorrências são.
+        var rows = others
+            .GroupBy(issue => (issue.UnitId, issue.RuleId))
+            .Select(group =>
+            {
+                var issue = group.First();
+                return new ConferenceIssueRowViewModel(
+                    issue,
+                    proposals.GetValueOrDefault((issue.UnitId, issue.RuleId)),
+                    units.GetValueOrDefault(issue.UnitId),
+                    group.Count(),
+                    engine.Find(issue.RuleId)?.Description);
+            })
+            .OrderBy(r => r.IsError ? 0 : 1)
+            .ThenBy(r => r.ScriptKey, StringComparer.Ordinal)
+            .ThenBy(r => r.UnitId, StringComparer.Ordinal)
+            .ThenBy(r => order.GetValueOrDefault(r.RuleId, int.MaxValue))
+            .ToList();
+
+        rows.AddRange(untranslated.Select(group =>
+        {
+            var head = group.First();
+            return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), engine.Find(head.RuleId)?.Description);
+        }));
+
+        return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count);
     }
 
     private bool CanRefresh() => !IsFixing;
@@ -267,12 +318,31 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [RelayCommand]
     private void SelectSeverity(SeverityChipViewModel? chip)
     {
-        if (chip is null || chip.Filter == severityFilter)
+        if (chip is null)
         {
             return;
         }
 
+        if (chip.Filter == severityFilter)
+        {
+            // O chip é um botão de alternância: clicar no marcado o desmarca sozinho. Volta ao estado do filtro sem refazer a lista.
+            SyncSelection();
+            return;
+        }
+
         severityFilter = chip.Filter;
+        Rebuild();
+    }
+
+    [RelayCommand]
+    private void SelectCategory(ConferenceCategoryViewModel? category)
+    {
+        if (category is null || category.Category == categoryFilter)
+        {
+            return;
+        }
+
+        categoryFilter = category.Category;
         Rebuild();
     }
 
@@ -322,6 +392,12 @@ public sealed partial class ConferenceViewModel : ObservableObject
             // O Core silencia cada aviso da mesma regra nesta linha; a lista acompanha sem reler o projeto inteiro.
             var silenced = report.Issues.Where(i => IsSamePair(i, row)).ToList();
             report = new QaReport([.. report.Issues.Where(i => !IsSamePair(i, row))], [.. report.Silenced, .. silenced], report.RulesRun);
+            all = [.. all.Where(r => !IsSamePair(r.Issue, row))];
+            if (row.HasProposal)
+            {
+                fixableCount--;
+            }
+
             Rebuild();
         }
         finally
@@ -337,15 +413,57 @@ public sealed partial class ConferenceViewModel : ObservableObject
         && string.Equals(issue.RuleId, row.RuleId, StringComparison.Ordinal)
         && string.Equals(issue.UnitId, row.UnitId, StringComparison.Ordinal);
 
-    [RelayCommand(CanExecute = nameof(CanFixAll))]
-    private Task FixAllAsync() => FixAsync(null);
+    /// <summary>"Aplicar correção": a proposta do <see cref="IQaFixer"/> da regra, só para esta linha. Reconfere em seguida.</summary>
+    [RelayCommand(CanExecute = nameof(CanApplyFix))]
+    private async Task ApplyFixAsync(ConferenceIssueRowViewModel? row)
+    {
+        var root = Project?.Root;
+        if (row is not { HasProposal: true } || root is null)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        NoticeMessage = null;
+        IsFixing = true;
+        try
+        {
+            QaFix? applied = null;
+            string? failure = null;
+            try
+            {
+                applied = await Task.Run(() => QaFixer.ApplyOne(ProjectFolder.Open(root), engine, row.ScriptKey, row.UnitId, row.RuleId));
+            }
+            catch (Exception e)
+            {
+                failure = $"Não foi possível aplicar a correção: {Reason(e)}. A tradução continua como estava.";
+            }
+
+            if (applied is not null)
+            {
+                TextsChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            await RefreshAsync();
+            if (failure is not null)
+            {
+                ErrorMessage = failure;
+            }
+            else if (ErrorMessage is null)
+            {
+                NoticeMessage = applied is null ? "A linha já não tinha o que corrigir." : "1 correção aplicada.";
+            }
+        }
+        finally
+        {
+            IsFixing = false;
+        }
+    }
+
+    private bool CanApplyFix(ConferenceIssueRowViewModel? row) => !IsBusy && row is { HasProposal: true };
 
     [RelayCommand(CanExecute = nameof(CanFixAll))]
-    private Task FixRuleAsync(ConferenceGroupRowViewModel? group) => group is { CanFix: true } ? FixAsync([group.RuleId]) : Task.CompletedTask;
-
-    private bool CanFixAll() => Project is not null && !IsBusy;
-
-    private async Task FixAsync(IReadOnlyCollection<string>? rules)
+    private async Task FixAllAsync()
     {
         var root = Project?.Root;
         if (root is null)
@@ -362,7 +480,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
             string? failure = null;
             try
             {
-                result = await Task.Run(() => QaFixer.Apply(ProjectFolder.Open(root), engine, rules));
+                result = await Task.Run(() => QaFixer.Apply(ProjectFolder.Open(root), engine));
             }
             catch (Exception e)
             {
@@ -396,39 +514,91 @@ public sealed partial class ConferenceViewModel : ObservableObject
         }
     }
 
-    private void Rebuild()
+    private bool CanFixAll() => Project is not null && !IsBusy;
+
+    private void SyncSelection()
     {
-        var all = report.Issues;
-        IssueCount = reportLoaded ? all.Count : null;
-        chips[0].Count = all.Count;
-        chips[1].Count = all.Count(i => i.Severity == QaSeverity.Error);
-        chips[2].Count = all.Count - chips[1].Count;
         foreach (var chip in chips)
         {
             chip.IsSelected = chip.Filter == severityFilter;
         }
 
-        var shown = severityFilter switch
+        foreach (var category in categories)
         {
-            ConferenceSeverityFilter.Errors => all.Where(i => i.Severity == QaSeverity.Error).ToList(),
-            ConferenceSeverityFilter.Warnings => all.Where(i => i.Severity == QaSeverity.Warning).ToList(),
-            _ => all,
-        };
+            category.IsSelected = category.Category == categoryFilter;
+        }
+    }
 
-        var rows = new List<IConferenceRow>(shown.Count + 8);
-        foreach (var group in shown.GroupBy(i => i.RuleId, StringComparer.Ordinal))
+    private void Rebuild()
+    {
+        // As contagens dos chips e da coluna de regras são do relatório inteiro, não do filtro: o artboard as mantém ao trocar de chip ou de regra.
+        chips[0].Count = all.Sum(r => r.Count);
+        IssueCount = checkedAt is null ? null : chips[0].Count;
+        chips[1].Count = all.Where(r => r.IsError).Sum(r => r.Count);
+        chips[2].Count = chips[0].Count - chips[1].Count;
+        foreach (var category in categories)
         {
-            var rule = engine.Find(group.Key);
-            rows.Add(new ConferenceGroupRowViewModel(group.Key, rule?.Description ?? group.Key, group.Count(), rule is IQaFixer));
-            rows.AddRange(group.Select(issue => new ConferenceIssueRowViewModel(issue)));
+            var inCategory = category.IsAll ? all : [.. all.Where(r => r.Category == category.Category)];
+            category.Count = inCategory.Sum(r => r.Count);
+            category.ContainsError = inCategory.Any(r => r.IsError);
+            category.IsVisible = category.IsAll || IsAlwaysListed(category.Category!) || category.Count > 0 || category.Category == categoryFilter;
         }
 
-        Rows = rows;
-        Summary = Project is null ? string.Empty : QaBlockedException.Describe(new QaReport(shown, [], []));
-        var silenced = report.Silenced.Count;
-        SilencedSummary = DescribeSilenced(silenced);
+        SyncSelection();
+
+        List<ConferenceIssueRowViewModel> shown = [.. all.Where(r => (categoryFilter is null || r.Category == categoryFilter) && PassesSeverity(r))];
+        var previous = SelectedRow;
+        var previousIndex = previous is null ? -1 : Rows.ToList().IndexOf(previous);
+        Rows = shown;
+        SelectedRow = Reselect(shown, previous, previousIndex);
+
+        SilencedSummary = DescribeSilenced(report.Silenced.Count);
+        var footer = $"Mostrando {ProjectLabels.Number(shown.Sum(r => r.Count))} de {ProjectLabels.Number(chips[0].Count)} problemas abertos · agrupados por script";
+        ListFooter = SilencedSummary.Length > 0 ? $"{footer} · {SilencedSummary}" : footer;
+        var errors = chips[1].Count;
+        BlockingMessage = errors switch
+        {
+            0 => string.Empty,
+            1 => "1 erro bloqueia o build.",
+            _ => $"{ProjectLabels.Number(errors)} erros bloqueiam o build.",
+        };
+        FixAllLabel = fixableCount > 0 ? $"Corrigir {ProjectLabels.Number(fixableCount)} automaticamente" : "Corrigir automaticamente";
+        CheckedSummary = Project is null
+            ? string.Empty
+            : checkedAt is { } at
+                ? $"Última conferência {RelativeTime.Format(at, clock.GetLocalNow())} · {Plural(lineCount, "linha", "linhas")} · {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")}"
+                : "Ainda não conferido";
         OnPropertyChanged(nameof(EmptyMessage));
         OnPropertyChanged(nameof(IsClear));
         OnPropertyChanged(nameof(ShowEmptyText));
+    }
+
+    private static string Plural(int n, string one, string many) => $"{ProjectLabels.Number(n)} {(n == 1 ? one : many)}";
+
+    private bool PassesSeverity(ConferenceIssueRowViewModel row) => severityFilter switch
+    {
+        ConferenceSeverityFilter.Errors => row.IsError,
+        ConferenceSeverityFilter.Warnings => !row.IsError,
+        _ => true,
+    };
+
+    /// <summary>Mantém o problema aberto se ainda está na lista (mesma regra e linha); senão, o que ficou no lugar dele, ou o último.</summary>
+    private static ConferenceIssueRowViewModel? Reselect(IReadOnlyList<ConferenceIssueRowViewModel> rows, ConferenceIssueRowViewModel? previous, int previousIndex)
+    {
+        if (rows.Count == 0)
+        {
+            return null;
+        }
+
+        if (previous is not null)
+        {
+            var same = rows.FirstOrDefault(r => r.RuleId == previous.RuleId && r.UnitId == previous.UnitId && r.ScriptKey == previous.ScriptKey);
+            if (same is not null)
+            {
+                return same;
+            }
+        }
+
+        return rows[Math.Clamp(previousIndex, 0, rows.Count - 1)];
     }
 }

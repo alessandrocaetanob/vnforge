@@ -2,72 +2,63 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
+             xmlns:v="using:VNForge.App.Views"
              x:Class="VNForge.App.Views.EditorView"
              x:DataType="vm:EditorViewModel">
 
   <UserControl.KeyBindings>
     <KeyBinding Gesture="Alt+Down" Command="{Binding SelectNextCommand}"/>
     <KeyBinding Gesture="Alt+Up" Command="{Binding SelectPreviousCommand}"/>
+    <KeyBinding Gesture="Escape" Command="{Binding CloseSearchCommand}"/>
   </UserControl.KeyBindings>
 
   <UserControl.Styles>
-    <!-- Chips de filtro: o selecionado ganha accent-soft e borda accent. -->
-    <Style Selector="Button.chip">
-      <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
-      <Setter Property="Padding" Value="12,0"/>
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
-    </Style>
-    <Style Selector="Button.chip.selected /template/ ContentPresenter#PART_ContentPresenter, Button.chip.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.chip.selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
-    </Style>
-
-    <Style Selector="TextBlock.pct.complete">
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+    <!-- Os scripts que o filtro da lista não aceita ficam escondidos, mas continuam na lista: o script aberto não perde a seleção. -->
+    <Style Selector="ListBox.scripts > ListBoxItem" x:DataType="vm:ScriptItemViewModel">
+      <Setter Property="IsVisible" Value="{Binding IsShown}"/>
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
 
-    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
-      <StackPanel Spacing="2" VerticalAlignment="Center">
-        <TextBlock Classes="mono secondary" Text="{Binding ProjectName}" TextTrimming="CharacterEllipsis"/>
-        <TextBlock Classes="title-lg" Text="{Binding ScriptTitle}" TextTrimming="CharacterEllipsis"/>
-      </StackPanel>
-
-      <ItemsControl Grid.Column="1" ItemsSource="{Binding Filters}" VerticalAlignment="Center" AutomationProperties.Name="Filtro de linhas">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Horizontal" Spacing="6"/>
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:FilterChipViewModel">
-            <Button Classes="chip" Classes.selected="{Binding IsSelected}"
-                    Command="{Binding $parent[UserControl].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
-                    CommandParameter="{Binding}">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="{Binding Label}"/>
-                <TextBlock Classes="secondary" FontWeight="SemiBold" Text="{Binding CountLabel}"/>
-              </StackPanel>
-            </Button>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-
-      <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center" ItemsSource="{Binding Speakers}"
-                SelectedItem="{Binding SelectedSpeaker}" AutomationProperties.Name="Personagem">
-        <ComboBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:SpeakerOption">
-            <TextBlock Text="{Binding Label}"/>
-          </DataTemplate>
-        </ComboBox.ItemTemplate>
-      </ComboBox>
-    </Grid>
+    <!-- Cabeçalho: chave em mono, nome do capítulo, filtros com contagem e as duas ações do arquivo. -->
+    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}">
+      <WrapPanel ItemSpacing="6" LineSpacing="8" MaxWidth="960" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+        <ItemsControl ItemsSource="{Binding Filters}" AutomationProperties.Name="Filtro de linhas" VerticalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="6"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:FilterChipViewModel">
+              <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}"
+                            Command="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
+                            CommandParameter="{Binding}"/>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Button Classes="sm" Command="{Binding ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
+                ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
+            <TextBlock Text="Buscar" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
+        <Button Classes="sm" Command="{Binding CheckFileCommand}" ToolTip.Tip="Abre a Conferência">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Shield}"/>
+            <TextBlock Text="Conferir arquivo" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
+        <Button Classes="accent sm" Command="{Binding TranslatePendingCommand}" ToolTip.Tip="Traduz com a IA as linhas pendentes deste script">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="Traduzir pendentes" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
+      </WrapPanel>
+    </c:PageHeader>
 
     <Border Grid.Row="1" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
       <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -76,35 +67,45 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="2" ColumnDefinitions="240,*,380" ColumnSpacing="12">
+    <!-- Busca e substituição no projeto: abre aqui, sobre a grade, para quem traduz procurar a partir da linha em que está. -->
+    <Border Grid.Row="2" Classes="panel" ClipToBounds="True" IsVisible="{Binding IsSearchOpen}" AutomationProperties.Name="Busca e substituição">
+      <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
+    </Border>
+
+    <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,69* (320 a 420): a 1440 px de janela dá 248 · 628 · 420, como o artboard. -->
+    <Grid Grid.Row="3" ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="248"/>
+        <ColumnDefinition Width="2.53*" MinWidth="240"/>
+        <ColumnDefinition Width="1.69*" MinWidth="320" MaxWidth="420"/>
+      </Grid.ColumnDefinitions>
 
       <!-- Scripts -->
       <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Scripts">
-        <Grid RowDefinitions="48,*">
-          <Border Classes="divider-bottom" Padding="16,0">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="title-md" Text="Scripts" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
-            </Grid>
-          </Border>
-          <ListBox Grid.Row="1" Classes="projects" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+        <Grid RowDefinitions="48,Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="12,0">
+            <TextBlock Classes="title-md" Text="Scripts" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
+          </Grid>
+          <TextBox Grid.Row="1" Margin="12,0,12,8" MinHeight="28" Height="28" FontSize="13" Padding="8,0" VerticalContentAlignment="Center"
+                   PlaceholderText="Filtrar scripts" Text="{Binding ScriptFilter}" AutomationProperties.Name="Filtrar scripts">
+            <TextBox.InnerLeftContent>
+              <PathIcon Width="16" Height="16" Margin="8,0,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+            </TextBox.InnerLeftContent>
+          </TextBox>
+          <ListBox Grid.Row="2" Classes="scripts" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
                    AutomationProperties.Name="Lista de scripts">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ScriptItemViewModel">
-                <StackPanel Spacing="6" Margin="16,10" ToolTip.Tip="{Binding Tooltip}">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="mono" Text="{Binding Key}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="1" Classes="caption secondary pct" Classes.complete="{Binding IsComplete}" Text="{Binding PercentLabel}"/>
-                  </Grid>
-                  <c:DistributionBar Height="4" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
-                </StackPanel>
+                <c:ScriptItem Key="{Binding Key}" Label="{Binding Label}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
+                              ToolTip.Tip="{Binding Tooltip}"/>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
         </Grid>
       </Border>
 
-      <!-- Grade de linhas: somente leitura; a edição acontece no detalhe. -->
+      <!-- Grade de linhas: somente leitura; a edição acontece no inspetor. -->
       <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Linhas">
         <Grid RowDefinitions="32,*,Auto">
           <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
@@ -126,22 +127,9 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:LineViewModel">
-                <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12" Margin="16,0" VerticalAlignment="Center" ToolTip.Tip="{Binding Id}"
-                      c:Motion.PulseOnApproval="{Binding Status}">
-                  <TextBlock Classes="mono secondary" Text="{Binding Number}" VerticalAlignment="Center"/>
-                  <c:StatusBadge Grid.Column="1" Status="{Binding Status}"/>
-                  <TextBlock Grid.Column="2" Classes="body-sm" Classes.secondary="{Binding IsNarration}" Text="{Binding SpeakerLabel}"
-                             TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="3" Classes="jp-row" Text="{Binding Source}" TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="4" Classes="body-sm" Classes.secondary="{Binding !HasTranslation}" Text="{Binding TranslationLabel}"
-                             TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
-                  <Panel Grid.Column="5" VerticalAlignment="Center">
-                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"
-                              IsVisible="{Binding HasWarning}" AutomationProperties.Name="{Binding IssueLabel}"/>
-                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
-                              IsVisible="{Binding HasError}" AutomationProperties.Name="{Binding IssueLabel}"/>
-                  </Panel>
-                </Grid>
+                <c:LineRow Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" Original="{Binding SourcePlain}"
+                           Translation="{Binding TranslationPlain}" Issue="{Binding Issue}" IssueLabel="{Binding IssueLabel}"
+                           ToolTip.Tip="{Binding Id}" c:Motion.PulseOnApproval="{Binding Status}"/>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
@@ -151,16 +139,20 @@
           <c:EmptyState Grid.Row="1" IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
                         ActionText="{Binding EmptyActionText}" ActionCommand="{Binding ShowAllCommand}"/>
 
+          <!-- Pé da grade: a barra de distribuição do script e a legenda com as porcentagens. -->
           <Border Grid.Row="2" Classes="divider-top" Padding="12">
             <StackPanel Spacing="8">
               <c:DistributionBar Height="8" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
-              <TextBlock Classes="caption secondary" Text="{Binding LinesSummary}"/>
+              <WrapPanel ItemSpacing="16" LineSpacing="4">
+                <TextBlock FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding LinesSummary}"/>
+                <c:Legend Value="{Binding Distribution}"/>
+              </WrapPanel>
             </StackPanel>
           </Border>
         </Grid>
       </Border>
 
-      <!-- Coluna do detalhe: o #100 encaixa o ViewModel dele em EditorViewModel.Detail e um DataTemplate de aplicativo desenha o painel. -->
+      <!-- Inspetor: o ViewModel do detalhe fica em EditorViewModel.Detail e um DataTemplate do aplicativo desenha o painel. -->
       <Border Grid.Column="2" Classes="panel" Padding="16" AutomationProperties.Name="Linha selecionada">
         <Panel>
           <ContentControl Content="{Binding Detail}"/>

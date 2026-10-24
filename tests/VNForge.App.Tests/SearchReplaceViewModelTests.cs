@@ -307,4 +307,57 @@ public class SearchReplaceViewModelTests
         Assert.Equal("nova 0", folder.LoadText("yst00001")[0].Translation);
         Assert.False(vm.HasPreview);
     }
+
+    [Fact]
+    public async Task Janela_principal_nao_tem_mais_a_pagina_Busca_e_o_Editor_relê_depois_de_aplicar()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)));
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        Assert.DoesNotContain(vm.Nav, n => n.Label == "Busca");
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+        Assert.Same(vm.Editor, vm.CurrentPage);
+        vm.Editor.OpenReplaceCommand.Execute(null);
+        vm.Editor.Search.Pattern = "tradução";
+        vm.Editor.Search.Replacement = "nova";
+        await vm.Editor.Search.PreviewCommand.ExecuteAsync(null);
+        await vm.Editor.Search.ApplyCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+
+        Assert.Equal("nova 0", ProjectFolder.Open(root).LoadText("yst00001")[0].Translation);
+    }
+
+    [Fact]
+    public async Task Clicar_num_resultado_da_busca_dispara_o_evento_com_a_linha()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
+        var abertos = new List<SearchResultRow>();
+        vm.ResultOpened += (_, linha) => abertos.Add(linha);
+        vm.Pattern = "tradução";
+        await vm.FindCommand.ExecuteAsync(null);
+
+        vm.SelectedResult = vm.Results[0];
+
+        var aberto = Assert.Single(abertos);
+        Assert.Equal("yst00001", aberto.ScriptKey);
+        Assert.Equal("yst00001:000000", aberto.UnitId);
+    }
+
+    [Fact]
+    public async Task Mudar_o_padrao_limpa_o_resultado_escolhido()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
+        vm.Pattern = "tradução";
+        await vm.FindCommand.ExecuteAsync(null);
+        vm.SelectedResult = vm.Results[0];
+
+        vm.Pattern = "outra";
+
+        Assert.Null(vm.SelectedResult);
+    }
 }
