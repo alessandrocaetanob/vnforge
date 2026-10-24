@@ -25,6 +25,7 @@ public sealed class RootCommandTests : IDisposable
         Assert.Contains("--verbose", result.Output);
         Assert.Contains("--quiet", result.Output);
         Assert.Contains("--yes", result.Output);
+        Assert.Contains("--no-color", result.Output);
         Assert.Contains("--version", result.Output);
         Assert.Contains("Mostra esta ajuda.", result.Output);
         Assert.DoesNotContain("Description:", result.Output);
@@ -106,7 +107,7 @@ public sealed class RootCommandTests : IDisposable
             TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Equal(new GlobalSettings("meu-projeto", Json: true, Verbose: true, Quiet: false, Yes: true), seen);
+        Assert.Equal(new GlobalSettings("meu-projeto", Json: true, Verbose: true, Quiet: false, Yes: true, NoColor: false), seen);
     }
 
     [Fact]
@@ -121,6 +122,6 @@ public sealed class RootCommandTests : IDisposable
 
         await _cli.RunAsync([Teste], TestContext.Current.CancellationToken);
 
-        Assert.Equal(new GlobalSettings(null, Json: false, Verbose: false, Quiet: false, Yes: false), seen);
+        Assert.Equal(new GlobalSettings(null, Json: false, Verbose: false, Quiet: false, Yes: false, NoColor: false), seen);
     }
 }
