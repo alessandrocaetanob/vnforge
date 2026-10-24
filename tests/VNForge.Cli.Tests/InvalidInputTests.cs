@@ -50,11 +50,13 @@ public sealed class InvalidInputTests : IDisposable
     }
 
     [Fact]
-    public void Erro_esperado_sem_o_caminho_ganha_o_arquivo_no_fim()
+    public void Erro_esperado_passa_sem_mudar_mesmo_sem_citar_o_caminho()
     {
-        var thrown = Assert.Throws<VNForgeException>(() => InputFileGuard.Read<int>(Caminho, () => throw new VNForgeException("A entrada \"x\" diverge.")));
+        var original = new VNForgeException("Falha qualquer.");
 
-        Assert.Equal($"A entrada \"x\" diverge. Arquivo: {Caminho}", thrown.Message);
+        var thrown = Assert.Throws<VNForgeException>(() => InputFileGuard.Read<int>(Caminho, () => throw original));
+
+        Assert.Same(original, thrown);
     }
 
     [Fact]

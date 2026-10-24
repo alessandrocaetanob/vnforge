@@ -58,14 +58,16 @@ public static class YpfCommand
         command.SetAction((parseResult, token) =>
         {
             var target = Resolve(cli, parseResult.GetRequiredValue(folder));
-            if (HasEntries(target) && !ConfirmationPrompt.Confirm(parseResult, cli, $"A pasta de destino não está vazia: {target}. Sobrescrever os arquivos que coincidirem?"))
+            var source = Resolve(cli, parseResult.GetRequiredValue(file));
+            using var archive = OpenArchive(cli, source);
+            if (!parseResult.GetValue(cli.Options.Yes)
+                && HasEntries(target)
+                && !ConfirmationPrompt.Confirm(parseResult, cli, $"A pasta de destino não está vazia: {target}. Sobrescrever os arquivos que coincidirem?"))
             {
                 return Task.FromResult(Cancelled(parseResult));
             }
 
-            var source = Resolve(cli, parseResult.GetRequiredValue(file));
-            using var archive = OpenArchive(cli, source);
-            var result = InputFileGuard.Read(source, () => YpfFolder.Unpack(archive, target, token));
+            var result = UnpackTo(archive, source, target, token);
             Print(
                 parseResult,
                 cli,
@@ -104,12 +106,6 @@ public static class YpfCommand
                 throw new UsageException("O arquivo de saída não pode ser o YPF original: grave num arquivo novo.");
             }
 
-            var targetExists = File.Exists(target);
-            if (targetExists && !ConfirmationPrompt.Confirm(parseResult, cli, $"O arquivo de saída já existe: {target}. Sobrescrever?"))
-            {
-                return Task.FromResult(Cancelled(parseResult));
-            }
-
             var sourceFolder = Resolve(cli, parseResult.GetRequiredValue(folder));
             if (target.StartsWith(sourceFolder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, PathComparison))
             {
@@ -117,7 +113,14 @@ public static class YpfCommand
             }
 
             using var archive = OpenArchive(cli, source);
-            var result = InputFileGuard.Read(source, () => PackTo(archive, sourceFolder, target, overwrite: targetExists, token));
+            YpfFolder.ValidatePackFolder(archive, sourceFolder);
+            var targetExists = File.Exists(target);
+            if (targetExists && !ConfirmationPrompt.Confirm(parseResult, cli, $"O arquivo de saída já existe: {target}. Sobrescrever?"))
+            {
+                return Task.FromResult(Cancelled(parseResult));
+            }
+
+            var result = PackTo(archive, sourceFolder, target, overwrite: targetExists, token);
             var identical = FilesEqual(source, target);
             Print(
                 parseResult,
@@ -152,6 +155,19 @@ public static class YpfCommand
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new VNForgeException($"Não foi possível ler a pasta \"{directory}\": {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>Extrai e, se o erro for da extração, diz de qual YPF ele veio (o erro do YPF em si já cita o arquivo).</summary>
+    private static YpfUnpackResult UnpackTo(YpfArchive archive, string source, string target, CancellationToken token)
+    {
+        try
+        {
+            return YpfFolder.Unpack(archive, target, token);
+        }
+        catch (VNForgeException ex) when (ex.GetType() == typeof(VNForgeException) && !ex.Message.Contains(source, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new VNForgeException($"{ex.Message} (YPF de origem: {source})", ex);
         }
     }
 

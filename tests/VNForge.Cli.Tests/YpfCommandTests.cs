@@ -281,6 +281,36 @@ public sealed class YpfCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Pack_valida_antes_de_perguntar()
+    {
+        var ypf = WriteSample();
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllBytesAsync(Path.Combine(At("out"), "extra.bin"), [1], TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(At(NovoYpf), "antigo", TestContext.Current.CancellationToken);
+        _cli.SetInput("s\n");
+
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("extra.bin", result.Error);
+        Assert.DoesNotContain("[s/N]", result.Error);
+        Assert.Equal("antigo", await File.ReadAllTextAsync(At(NovoYpf), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Unpack_de_ypf_invalido_falha_antes_de_perguntar()
+    {
+        await File.WriteAllBytesAsync(At("lixo.ypf"), new byte[64], TestContext.Current.CancellationToken);
+        await ExistingTarget();
+        _cli.SetInput("s\n");
+
+        var result = await _cli.RunAsync(["ypf", Unpack, At("lixo.ypf"), At("out")], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.DoesNotContain("[s/N]", result.Error);
+    }
+
+    [Fact]
     public async Task Pack_pergunta_antes_de_sobrescrever_a_saida_e_recusa_sai_com_3()
     {
         var ypf = WriteSample();

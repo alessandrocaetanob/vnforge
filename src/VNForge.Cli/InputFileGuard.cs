@@ -4,7 +4,7 @@ namespace VNForge.Cli;
 
 /// <summary>
 /// Leitura de um arquivo do jogo (YPF, YBN) que sempre falha em português e com o caminho: o conteúdo fora do formato vira
-/// <see cref="InvalidFileException"/> e o erro do disco, "Não foi possível ler". Exceção de lógica (bug) passa sem mudar.
+/// <see cref="InvalidFileException"/> e o erro do disco, "Não foi possível ler". Erro previsto e exceção de lógica (bug) passam sem mudar. Use só em volta da leitura do arquivo: erro de gravação ou de caminho de destino não é culpa dele.
 /// </summary>
 public static class InputFileGuard
 {
@@ -28,10 +28,6 @@ public static class InputFileGuard
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new VNForgeException($"Não foi possível ler \"{path}\": {ex.Message}", ex);
-        }
-        catch (VNForgeException ex) when (!ex.Message.Contains(path, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new VNForgeException($"{ex.Message} Arquivo: {path}", ex);
         }
     }
 }
