@@ -41,6 +41,7 @@ public class MainWindowSettingsTests
         var vm = Create(temp, root);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
 
         Assert.True(vm.Settings.HasProject);
         Assert.Equal("Minha VN", vm.Settings.ProjectName);

@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
+using VNForge.Core;
 using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
@@ -75,7 +77,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         };
         start.EditorRequested += (_, summary) =>
         {
-            SetProject(summary);
+            try
+            {
+                SetProject(summary);
+            }
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+            {
+                start.ErrorMessage = $"{e.Message} O projeto não pôde ser carregado.";
+                return;
+            }
+
             SelectedNav = editorItem;
         };
     }
@@ -103,6 +114,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>O último salto para uma linha do Editor pedido pela Conferência; os testes o aguardam.</summary>
     public Task LineNavigation { get; private set; } = Task.CompletedTask;
+
+    /// <summary>A última abertura de projeto criado pelo assistente; os testes a aguardam.</summary>
+    public Task ProjectOpening { get; private set; } = Task.CompletedTask;
 
     /// <summary>A última conferência pedida ao abrir a página; os testes a aguardam.</summary>
     public Task ConferenceLoading { get; private set; } = Task.CompletedTask;
@@ -221,12 +235,26 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var wizard = create();
         wizard.Cancelled += (_, _) => CurrentPage = Start;
-        wizard.Completed += async (_, root) =>
+        wizard.Completed += (_, root) =>
         {
             CurrentPage = Start;
-            await Start.OpenAsync(root);
+            ProjectOpening = OpenCreatedProjectAsync(root);
         };
         CurrentPage = wizard;
+    }
+
+    private async Task OpenCreatedProjectAsync(string root)
+    {
+        try
+        {
+            await Start.OpenAsync(root);
+        }
+        catch (Exception e)
+        {
+            // Os erros esperados já viram mensagem em Start.OpenAsync; o resto é defeito: sem esta rede a Task falha ficaria sem observador.
+            Debug.WriteLine(e);
+            Start.ErrorMessage = "O projeto foi criado, mas ocorreu um erro inesperado ao abri-lo. Abra a pasta pelo Início.";
+        }
     }
 
     /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a página Build com o aviso.</summary>

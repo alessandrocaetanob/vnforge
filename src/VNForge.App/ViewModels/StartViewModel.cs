@@ -103,7 +103,15 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         }
 
         await LoadAsync(summary.Root);
-        ProjectOpened?.Invoke(this, summary);
+        try
+        {
+            ProjectOpened?.Invoke(this, summary);
+        }
+        catch (Exception e) when (IsExpected(e))
+        {
+            // Os assinantes carregam os arquivos do projeto (glossário, textos); um arquivo ilegível não pode escapar do comando.
+            ErrorMessage = $"{e.Message} O projeto não pôde ser carregado.";
+        }
     }
 
     [RelayCommand]

@@ -315,6 +315,7 @@ public class SearchReplaceViewModelTests
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
         var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)));
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
         var item = vm.Nav.Single(n => n.Key == NavKey.Search);
         Assert.True(item.IsEnabled);
 
