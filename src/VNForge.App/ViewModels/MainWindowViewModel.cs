@@ -205,7 +205,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"Continuar em": abre o script em que o usuário parou, quando ele ainda existe na lista do Editor.</summary>
     private async Task ShowScriptAsync(string scriptKey)
     {
-        await Editor.Loading;
+        try
+        {
+            await Editor.Loading;
+        }
+        catch (Exception e)
+        {
+            // O Editor já mostra o erro de carga; sem ele não há script a selecionar.
+            Debug.WriteLine(e);
+            return;
+        }
+
         if (Editor.Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal)) is { } script)
         {
             Editor.SelectedScript = script;

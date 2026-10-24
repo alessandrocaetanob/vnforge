@@ -84,16 +84,10 @@ public static class ProjectSummaryReader
             return status.Files.FirstOrDefault()?.Key;
         }
 
-        try
-        {
-            return worked
-                .OrderByDescending(f => File.GetLastWriteTimeUtc(folder.TextPath(f.Key)))
-                .ThenBy(f => f.Key, StringComparer.Ordinal)
-                .First().Key;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return worked[0].Key;
-        }
+        // GetLastWriteTimeUtc não lança: um arquivo que sumiu vale como o mais antigo.
+        return worked
+            .OrderByDescending(f => File.GetLastWriteTimeUtc(folder.TextPath(f.Key)))
+            .ThenBy(f => f.Key, StringComparer.Ordinal)
+            .First().Key;
     }
 }
