@@ -63,6 +63,12 @@ public sealed class ScreenRenderTests(HeadlessFixture fixture, DemoFolderFixture
                         Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
                         Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
                     }
+
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+                    vm.Palette.Open();
+                    vm.Palette.Query = "ed";
+                    ScreenRenderer.Settle(window);
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("paleta", theme)));
                 }
                 finally
                 {
