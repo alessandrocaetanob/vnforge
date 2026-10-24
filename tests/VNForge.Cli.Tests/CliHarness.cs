@@ -7,7 +7,7 @@ namespace VNForge.Cli.Tests;
 /// <summary>Roda o <see cref="VnfCli"/> em processo, com cwd e pasta de log próprios e saída capturada.</summary>
 internal sealed class CliHarness : IDisposable
 {
-    public CliHarness(string? stdin = null, bool realVault = false)
+    public CliHarness(string? stdin = null, bool realVault = false, CliTerminal? terminal = null)
     {
         Root = Path.Combine(Path.GetTempPath(), "vnforge-cli-tests-" + Guid.NewGuid().ToString("N"));
         WorkingDirectory = Path.Combine(Root, "cwd");
@@ -15,7 +15,7 @@ internal sealed class CliHarness : IDisposable
         Directory.CreateDirectory(WorkingDirectory);
         UserConfigDirectory = Path.Combine(Root, "user-config");
         Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory, UserConfigDirectory, new StringReader(stdin ?? string.Empty),
-            realVault ? null : new InMemoryApiKeyStore());
+            realVault ? null : new InMemoryApiKeyStore(), terminal ?? CliTerminal.Plain(width: 100));
         // Os testes de comando não dependem das regras reais de QA (testadas em Core.Tests).
         Cli.Qa = new VNForge.Core.Qa.QaEngine([]);
     }

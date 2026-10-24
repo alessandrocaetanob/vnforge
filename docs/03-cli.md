@@ -8,7 +8,7 @@
 - Códigos de saída: `0` ok, `1` erro, `2` QA encontrou erros bloqueantes, `3` cancelado.
 - Nada destrutivo sem confirmação; `--yes` pula a confirmação em scripts.
 - `--verbose` / `--quiet` controlam o log; o log completo vai para `.cache/logs/`.
-- Opções globais, válidas em qualquer posição da linha: `--project <pasta>`, `--json`, `--verbose`, `--quiet`, `--yes`. `--verbose` e `--quiet` não combinam. `--version` existe só na raiz; `--help` mostra a ajuda em português em qualquer comando.
+- Opções globais, válidas em qualquer posição da linha: `--project <pasta>`, `--json`, `--verbose`, `--quiet`, `--yes`, `--no-color`. `--verbose` e `--quiet` não combinam. `--version` existe só na raiz; `--help` mostra a ajuda em português em qualquer comando.
 - Ctrl+C cancela o comando em andamento e sai com `3`. Um segundo Ctrl+C encerra o processo na hora, também com `3`, para o caso de um comando que não respeita o cancelamento.
 - Só conta como cancelamento a exceção de cancelamento com o token do Ctrl+C ativo. Um timeout de rede (`HttpClient`) é erro e sai com `1`.
 - Erro de uso (opção desconhecida, opção obrigatória ausente, valor inválido, `--project` apontando para pasta que não existe) sai com `1`, em português, e a mensagem aponta `--help`.
@@ -30,10 +30,25 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 
 `error.kind` é `expected` (erro previsto, a mensagem está em português), `unexpected` (bug; `message` genérica e `logDirectory` aponta o log com o stack) ou `cancelled` (código `3`). O stack trace nunca aparece. Cada comando define o conteúdo de `data`.
 
+### Cor e texto simples
+
+A saída usa Spectre.Console 0.57.2 e as cores do app: aprovada `#5FBF7F`, revisada `#3E9AAE`, traduzida `#6E8FCB`, IA `#9A7FD6`, pendente `#3A4250`, aviso `#F2C46D`, erro `#F59AB2` e destaque `#8DB0EA`. Cor e animação só aparecem quando a saída vai para um terminal interativo.
+
+A saída vira texto simples, sem ANSI e sem animação, quando vale qualquer um destes:
+
+- a saída foi redirecionada para arquivo ou pipe;
+- `--json`;
+- `--quiet`;
+- `--no-color`;
+- a variável de ambiente `NO_COLOR` está definida e não vazia (https://no-color.org).
+
+Em texto simples a barra de distribuição continua legível: cada status tem um glifo próprio (`█` aprovadas, `▓` revisadas, `▒` traduzidas, `░` IA, `·` pendentes). `--no-color` vale em qualquer comando e em qualquer posição.
+
 ### Como escrever um comando
 
 - Registre o comando em `VnfCommands.Register` (`src/VNForge.Cli/VnfCommands.cs`), uma linha por comando.
-- Escreva o resultado em `parseResult.InvocationConfiguration.Output`, nunca em `Console.Out`, para a saída poder ser capturada nos testes.
+- Escreva o resultado em `parseResult.InvocationConfiguration.Output`, nunca em `Console.Out`, para a saída poder ser capturada nos testes. Para saída com cor, tabela, painel ou barra, use `cli.Ansi` (um `IAnsiConsole` sobre o mesmo writer) e os helpers `CliViews.NewTable`, `CliViews.NewPanel` e `DistributionBar`; `cli.RichOutput` diz se a invocação pode usar cor e animação. Dado do projeto vai por `CliViews.Escape` antes de entrar num markup.
+- Nos testes, `CliHarness` roda a CLI com terminal de texto simples e largura 100; `ConsoleHarness.Plain(width)` e `ConsoleHarness.Rich(width)` criam o console para testar um helper sozinho.
 - Com `--json`, escreva `JsonEnvelope.Result(data, exitCode)` passando o mesmo `exitCode` que o comando devolve (por exemplo `2` no QA bloqueante).
 - Lance `VNForgeException` para erro previsto; use o `CancellationToken` da ação, que o Ctrl+C cancela.
 
