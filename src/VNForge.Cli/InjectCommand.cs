@@ -24,7 +24,11 @@ internal static class InjectCommand
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
 
-        if (plan.Files.Count > 0 && !json)
+        if (plan.Files.Count > 0 && !json && cli.RichOutput)
+        {
+            cli.Ansi.Write(RunSummaries.InjectTable(plan));
+        }
+        else if (plan.Files.Count > 0 && !json)
         {
             output.WriteLine($"Jogo: {plan.GameDirectory}");
             foreach (var file in plan.Files)

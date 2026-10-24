@@ -24,7 +24,11 @@ internal static class RestoreCommand
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
 
-        if (!json)
+        if (!json && cli.RichOutput)
+        {
+            cli.Ansi.Write(RunSummaries.RestoreTable(plan));
+        }
+        else if (!json)
         {
             output.WriteLine($"Backup: {plan.BackupDirectory}");
             output.WriteLine($"Jogo: {plan.GameDirectory}");

@@ -65,6 +65,7 @@ public static class ProjectBuilder
     /// <param name="qa">Regras de QA que rodam antes de reconstruir; o padrão é <see cref="QaEngine.Default"/>.</param>
     /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre, e aviso de linha sem tradução (<see cref="UntranslatedQaRule"/>) nunca bloqueia.</param>
     /// <param name="options">Build incremental e estratégia de codificação só deste build; <c>null</c> reconstrói tudo com a estratégia do <c>vnforge.json</c>.</param>
+    /// <param name="progress">Recebe um relato a cada script do jogo examinado e um final.</param>
     /// <exception cref="QaBlockedException">O QA achou erro, ou aviso sem <paramref name="allowWarnings"/>; nada é gravado.</exception>
     /// <exception cref="VNForgeException">
     /// Engine desconhecida ou sem suporte ao build, estratégia de codificação desconhecida ou sem encoder, jogo ou <c>.cache/game</c> inexistente,
@@ -72,7 +73,7 @@ public static class ProjectBuilder
     /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null, CancellationToken cancellationToken = default)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null, IProgress<ScriptWorkProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -130,7 +131,7 @@ public static class ProjectBuilder
         }
 
         var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;
-        var (rebuilt, built, state, reused) = RebuildScripts(project, game, texts, encoder, previous, warnings, cancellationToken);
+        var (rebuilt, built, state, reused) = RebuildScripts(project, game, texts, encoder, previous, warnings, progress, cancellationToken);
 
         if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
         {
@@ -231,6 +232,7 @@ public static class ProjectBuilder
         ITextEncoder encoder,
         BuildState? previous,
         List<string> warnings,
+        IProgress<ScriptWorkProgress>? progress,
         CancellationToken cancellationToken)
     {
         var rebuilt = new List<RebuiltScript>();
@@ -238,9 +240,11 @@ public static class ProjectBuilder
         var state = new Dictionary<string, BuildStateScript>(StringComparer.Ordinal);
         var reused = 0;
         var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+        var done = 0;
         foreach (var script in game.Scripts)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new ScriptWorkProgress(done++, game.Scripts.Count, script.Name));
             var original = File.ReadAllBytes(script.Path);
             var file = new ScriptFile(script.Name, original);
             if (!keys.TryAdd(file.Key, script.Path))
@@ -281,6 +285,7 @@ public static class ProjectBuilder
             built.Add(new BuiltScript(file.Key, script.Name, units.Count(u => u.NeedsRewrite)));
         }
 
+        progress?.Report(new ScriptWorkProgress(game.Scripts.Count, game.Scripts.Count, string.Empty));
         var known = keys.Keys.ToHashSet(StringComparer.Ordinal);
         warnings.AddRange(texts.Keys.Where(k => !known.Contains(k)).Select(k => $"text/{k}.json não corresponde a nenhum script do jogo descompactado; ignorado."));
         built.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
