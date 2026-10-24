@@ -5,7 +5,9 @@ public static class ReviewFormats
 {
     public static IReviewFormat Csv { get; } = new CsvReviewFormat();
 
-    public static IReadOnlyList<IReviewFormat> All { get; } = [Csv];
+    public static IReviewFormat Xlsx { get; } = new XlsxReviewFormat();
+
+    public static IReadOnlyList<IReviewFormat> All { get; } = [Csv, Xlsx];
 
     /// <summary>Acha o formato pelo nome (sem diferenciar maiúsculas); <c>null</c> se não existe.</summary>
     public static IReviewFormat? Find(string name) =>

@@ -96,9 +96,41 @@ public sealed class ExportImportCommandTests : IDisposable
     [Fact]
     public async Task Formato_desconhecido_e_erro_de_uso()
     {
-        var result = await _cli.RunAsync([Export, "--format", "xlsx", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+        var result = await _cli.RunAsync([Export, "--format", "po", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
+        Assert.Contains("po", result.Error);
         Assert.Contains("xlsx", result.Error);
+    }
+
+    [Theory]
+    [InlineData("--format", "xlsx")]
+    [InlineData("--output", "rev.xlsx")]
+    public async Task Export_xlsx_por_opcao_ou_pela_extensao_e_import_sem_edicao_nao_muda_nada(string option, string value)
+    {
+        var antes = await File.ReadAllBytesAsync(_project.TextPath(Yst00001), TestContext.Current.CancellationToken);
+        var planilha = Path.Combine(ProjectPath, "revisao.xlsx");
+        var args = option == "--output"
+            ? new[] { Export, "--output", planilha, ProjectOption, ProjectPath }
+            : [Export, "--format", value, ProjectOption, ProjectPath];
+
+        var export = await _cli.RunAsync(args, TestContext.Current.CancellationToken);
+        var import = await _cli.RunAsync(["import", planilha, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, export.ExitCode);
+        Assert.True(File.Exists(planilha));
+        Assert.Equal(0, import.ExitCode);
+        Assert.Contains("Nenhuma alteração", import.Output);
+        var depois = await File.ReadAllBytesAsync(_project.TextPath(Yst00001), TestContext.Current.CancellationToken);
+        Assert.True(antes.AsSpan().SequenceEqual(depois));
+    }
+
+    [Fact]
+    public async Task Export_json_informa_o_formato_xlsx()
+    {
+        var result = await _cli.RunAsync([Export, "--format", "xlsx", "--json", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("\"format\": \"xlsx\"", result.Output.Replace("\"format\":\"", "\"format\": \""));
     }
 }

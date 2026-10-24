@@ -1,7 +1,7 @@
 namespace VNForge.Core.Review;
 
 /// <summary>
-/// Um formato de arquivo para revisão externa (CSV hoje; XLSX e PO entram implementando esta interface e registrando-se em
+/// Um formato de arquivo para revisão externa (CSV e XLSX; um formato novo entra implementando esta interface e registrando-se em
 /// <see cref="ReviewFormats"/>). O contrato de importação é o mesmo para todos e fica em <see cref="ReviewImporter"/>.
 /// </summary>
 public interface IReviewFormat
