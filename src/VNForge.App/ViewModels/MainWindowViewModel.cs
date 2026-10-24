@@ -33,9 +33,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null)
     {
         Start = start;
+        TaskService = taskService ?? new BackgroundTaskService();
+        Tasks = new TaskBarViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ApiKeyStatus = Services.ApiKeyStatus.Describe(key);
         ApiKeyConfigured = key.Source != ApiKeySource.None;
@@ -51,6 +53,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     public StartViewModel Start { get; }
+
+    /// <summary>Onde as telas iniciam extrair, traduzir, build e injetar sem travar a edição.</summary>
+    public BackgroundTaskService TaskService { get; }
+
+    public TaskBarViewModel Tasks { get; }
 
     public EditorViewModel Editor { get; } = new();
 
