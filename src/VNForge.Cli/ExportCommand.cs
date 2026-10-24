@@ -7,18 +7,17 @@ using VNForge.Core.Review;
 
 namespace VNForge.Cli;
 
-/// <summary><c>vnf export --format csv</c>: grava as linhas de <c>text/*.json</c> num arquivo para revisores. Não altera o projeto.</summary>
+/// <summary><c>vnf export</c> (CSV ou XLSX): grava as linhas de <c>text/*.json</c> num arquivo para revisores. Não altera o projeto.</summary>
 internal static class ExportCommand
 {
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     public static Command Create(VnfCli cli)
     {
-        var format = new Option<string>("--format")
+        var format = new Option<string?>("--format")
         {
-            Description = $"Formato do arquivo: {string.Join(", ", ReviewFormats.All.Select(f => f.Name))}.",
+            Description = $"Formato do arquivo: {string.Join(", ", ReviewFormats.All.Select(f => f.Name))} (padrão: pela extensão de --output; sem ela, {ReviewFormats.Csv.Name}).",
             HelpName = "formato",
-            DefaultValueFactory = _ => ReviewFormats.Csv.Name,
         };
         var output = new Option<string?>("--output")
         {
@@ -34,14 +33,21 @@ internal static class ExportCommand
         command.Options.Add(format);
         command.Options.Add(output);
         command.Options.Add(force);
-        command.SetAction(parseResult => Run(cli, parseResult, parseResult.GetRequiredValue(format), parseResult.GetValue(output), parseResult.GetValue(force)));
+        command.SetAction(parseResult => Run(cli, parseResult, parseResult.GetValue(format), parseResult.GetValue(output), parseResult.GetValue(force)));
         return command;
     }
 
-    private static int Run(VnfCli cli, ParseResult parseResult, string formatName, string? outputArgument, bool force)
+    private static int Run(VnfCli cli, ParseResult parseResult, string? formatName, string? outputArgument, bool force)
     {
-        var format = ReviewFormats.Find(formatName)
-            ?? throw new UsageException($"Formato '{formatName}' desconhecido; os formatos de exportação são: {string.Join(", ", ReviewFormats.All.Select(f => f.Name))}.");
+        var format = formatName is not null
+            ? ReviewFormats.Find(formatName)
+                ?? throw new UsageException($"Formato '{formatName}' desconhecido; os formatos de exportação são: {string.Join(", ", ReviewFormats.All.Select(f => f.Name))}.")
+            : (outputArgument is null ? null : ReviewFormats.FromPath(outputArgument)) ?? ReviewFormats.Csv;
+        if (formatName is not null && outputArgument is not null && ReviewFormats.FromPath(outputArgument) is { } byExtension && byExtension != format)
+        {
+            throw new UsageException($"--format {format.Name} não combina com a extensão de '{outputArgument}' ({byExtension.Extension}); ajuste um dos dois.");
+        }
+
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var path = outputArgument is null
             ? Path.Combine(project.Root, "revisao" + format.Extension)

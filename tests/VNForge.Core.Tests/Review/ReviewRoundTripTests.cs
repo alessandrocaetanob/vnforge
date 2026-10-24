@@ -44,16 +44,18 @@ public class ReviewRoundTripTests
         }
     }
 
-    [Fact]
-    public void Exportar_e_importar_sem_edicao_nao_altera_os_text_json_nem_regrava_arquivos()
+    [Theory]
+    [InlineData("csv")]
+    [InlineData("xlsx")]
+    public void Exportar_e_importar_sem_edicao_em_cada_formato_nao_altera_os_text_json_nem_regrava_arquivos(string formato)
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
         Semear(projeto);
         var antes = Bytes(projeto);
-        var csv = Path.Combine(temp.Path, "revisao.csv");
+        var csv = Path.Combine(temp.Path, "revisao." + formato);
 
-        var exportadas = ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
+        var exportadas = ReviewExporter.Export(projeto, ReviewFormats.Find(formato)!, csv);
         var resultado = ReviewImporter.Import(projeto, csv);
 
         Assert.Equal(4, exportadas);
