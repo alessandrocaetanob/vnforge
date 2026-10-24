@@ -59,7 +59,7 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
         try
         {
             using var stream = new MemoryStream(data);
-            using var doc = SpreadsheetDocument.Open(stream, new OpenSettings { MaxCharactersInPart = MaxCharactersInPart });
+            using var doc = SpreadsheetDocument.Open(stream, false, new OpenSettings { MaxCharactersInPart = MaxCharactersInPart });
             return ReadSheet(doc, path);
         }
         catch (Exception e) when (e is OpenXmlPackageException or FileFormatException or InvalidDataException or IOException or ArgumentException or XmlException)

@@ -83,9 +83,9 @@ public class XlsxReviewFormatTests
         stream.Write(bytes);
         using (var doc = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(stream, true))
         {
-            var cell = doc.WorkbookPart!.WorksheetParts.First().Worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>().First();
+            var cell = doc.WorkbookPart!.WorksheetParts.First().Worksheet!.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>().First();
             cell.CellReference = "ZZZZZZZ1";
-            doc.WorkbookPart.WorksheetParts.First().Worksheet.Save();
+            doc.WorkbookPart.WorksheetParts.First().Worksheet!.Save();
         }
 
         Assert.Throws<ReviewImportException>(() => Xlsx.Read(stream.ToArray(), "r.xlsx"));
