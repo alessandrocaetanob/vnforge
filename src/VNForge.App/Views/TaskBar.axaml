@@ -11,6 +11,8 @@
     <ContentControl.ContentTemplate>
       <DataTemplate x:DataType="sv:BackgroundTaskItem">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <PathIcon Classes="spin" Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.ArrowSync}"
+                    IsVisible="{Binding IsRunning}" AutomationProperties.AccessibilityView="Raw"/>
           <TextBlock Classes="caption" Text="{Binding Title}" VerticalAlignment="Center"/>
           <ProgressBar Width="160" Height="4" Minimum="0" Maximum="100" VerticalAlignment="Center"
                        Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"

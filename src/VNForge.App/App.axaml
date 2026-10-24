@@ -74,5 +74,9 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/Legend.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/StatCard.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/PageHeader.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/EmptyState.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/Skeleton.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/ToastHost.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/Motion.axaml"/>
   </Application.Styles>
 </Application>

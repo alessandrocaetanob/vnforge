@@ -71,14 +71,10 @@
               </ListBox.ItemTemplate>
             </ListBox>
 
-            <!-- Tela vazia: a ação principal vira um botão grande. -->
-            <StackPanel Grid.Row="1" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
-                        IsVisible="{Binding !HasRecents}">
-              <TextBlock Classes="title-md" Text="Nenhum projeto recente" HorizontalAlignment="Center"/>
-              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
-                         Text="Abra uma pasta criada com `vnf init`. Ela aparece aqui na próxima vez."/>
-              <Button Classes="accent lg" HorizontalAlignment="Center" Command="{Binding OpenFolderCommand}" Content="Abrir projeto"/>
-            </StackPanel>
+            <!-- Tela vazia: o selo 訳, uma frase e a ação principal. -->
+            <c:EmptyState Grid.Row="1" IsVisible="{Binding !HasRecents}"
+                          Message="Nenhum projeto recente. Abra uma pasta criada com vnf init e ela aparece aqui na próxima vez."
+                          ActionText="Abrir projeto" ActionCommand="{Binding OpenFolderCommand}"/>
 
             <Border Grid.Row="2" Classes="divider-top" Padding="16,0">
               <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding RecentsSummary}"/>

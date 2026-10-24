@@ -80,6 +80,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private readonly Func<string, ProjectDashboard> loader;
     private int loadVersion;
+    private bool loaded;
 
     /// <param name="loader">Lê o painel de uma pasta de projeto; o padrão lê o disco.</param>
     public DashboardViewModel(Func<string, ProjectDashboard>? loader = null)
@@ -89,6 +90,9 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     /// <summary>Pedido para ir à tela da etapa (a janela principal decide qual).</summary>
     public event EventHandler<PipelineStageKey>? StageRequested;
+
+    /// <summary>Pedido para ir ao Início (a ação do estado vazio "sem projeto").</summary>
+    public event EventHandler? StartRequested;
 
     public ObservableCollection<PipelineStageViewModel> Stages { get; } = [];
 
@@ -124,6 +128,21 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     public bool HasProject => Project is not null;
 
+    /// <summary>Lendo os números: as tabelas mostram o esqueleto.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmptyState), nameof(EmptyMessage))]
+    public partial bool IsLoading { get; private set; }
+
+    /// <summary>Sem projeto aberto, ou projeto lido sem nenhuma linha: o Painel mostra o estado vazio com o selo 訳.</summary>
+    public bool ShowEmptyState => Project is null || (loaded && !IsLoading && ErrorMessage is null && Files.Count == 0);
+
+    public string EmptyMessage => Project is null
+        ? "Nenhum projeto aberto. Abra um no Início para ver o painel."
+        : "Este projeto ainda não tem texto extraído. Rode vnf extract para ver o progresso aqui.";
+
+    /// <summary>A ação do estado vazio: só existe quando falta o projeto.</summary>
+    public string? EmptyActionText => Project is null ? "Abrir projeto" : null;
+
     /// <summary>Lê os números de novo. Uma leitura mais nova descarta o resultado de uma mais antiga que ainda esteja em curso.</summary>
     public async Task ReloadAsync()
     {
@@ -137,6 +156,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         ProjectDashboard? dashboard = null;
         string? error = null;
+        IsLoading = true;
         try
         {
             dashboard = await Task.Run(() => loader(project.Root));
@@ -159,7 +179,13 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
 
         Apply(dashboard);
+        loaded = true;
+        IsLoading = false;
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
+
+    [RelayCommand]
+    private void OpenStart() => StartRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand]
     private void OpenStage(PipelineStageViewModel? stage)
@@ -226,6 +252,11 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private void Clear()
     {
+        loaded = false;
+        IsLoading = false;
+        OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(EmptyActionText));
         Stages.Clear();
         Files.Clear();
         Characters.Clear();

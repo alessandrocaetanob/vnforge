@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.ConferenceView"
              x:DataType="vm:ConferenceViewModel">
 
@@ -133,7 +134,11 @@
         </ListBox>
 
         <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
-                   TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding IsEmpty}" Text="{Binding EmptyMessage}"/>
+                   TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding ShowEmptyText}" Text="{Binding EmptyMessage}"/>
+        <!-- Conferência limpa: a frase acima cede lugar ao estado vazio com o selo 訳. -->
+        <c:EmptyState IsVisible="{Binding IsClear}"
+                      Message="Nenhum problema encontrado. A tradução está pronta para o build."
+                      ActionText="Conferir de novo" ActionCommand="{Binding RefreshCommand}"/>
       </Panel>
     </Border>
     </Grid>

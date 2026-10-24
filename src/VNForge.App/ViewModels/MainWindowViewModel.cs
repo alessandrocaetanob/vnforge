@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.Core;
@@ -43,12 +44,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Build", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel searchItem = new(NavKey.Search, "Busca", "Icon.Search", isEnabled: false);
     private NavItemViewModel? selectedNav;
+    private EditorViewModel editor = new();
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null)
     {
         Start = start;
+        Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
@@ -62,6 +65,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Search.FlushPendingEdits = Editor.FlushPendingEdits;
         Search.Applied += (_, _) => Editor.Reload();
         Conference.TextsChanged += (_, _) => editorStale = true;
+        AttachEditor(editor);
+        Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);
         Conference.LineRequested += (_, request) =>
         {
             SelectedNav = editorItem;
@@ -75,6 +80,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             PipelineStageKey.Build or PipelineStageKey.Inject => buildItem,
             _ => editorItem,
         };
+        Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         start.EditorRequested += (_, summary) =>
         {
             try
@@ -93,6 +99,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public StartViewModel Start { get; }
 
+    /// <summary>Avisos curtos de gravação, build pronto e injeção.</summary>
+    public ToastService Toasts { get; }
+
+    /// <summary>O mapa de atalhos (tecla <c>?</c>) está aberto.</summary>
+    [ObservableProperty]
+    public partial bool IsShortcutMapOpen { get; private set; }
+
     /// <summary>Onde as telas iniciam extrair, traduzir, build e injetar sem travar a edição.</summary>
     public BackgroundTaskService TaskService { get; }
 
@@ -100,7 +113,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public DashboardViewModel Dashboard { get; } = new();
 
-    public EditorViewModel Editor { get; init; } = new();
+    public EditorViewModel Editor
+    {
+        get => editor;
+        init
+        {
+            DetachEditor(editor);
+            editor = value;
+            AttachEditor(editor);
+        }
+    }
 
     public SettingsViewModel Settings { get; }
 
@@ -195,6 +217,43 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         return target != NavKey.Conference || Editor.Detail?.Flush() != false;
+    }
+
+    private void AttachEditor(EditorViewModel value) => value.LineSaved += OnLineSaved;
+
+    private void DetachEditor(EditorViewModel value) => value.LineSaved -= OnLineSaved;
+
+    private void OnLineSaved(object? sender, LineSavedEventArgs saved) => ShowLineSaved(saved);
+
+    [RelayCommand]
+    private void ToggleShortcutMap() => IsShortcutMapOpen = !IsShortcutMapOpen;
+
+    [RelayCommand]
+    private void CloseShortcutMap() => IsShortcutMapOpen = false;
+
+    private void ShowLineSaved(LineSavedEventArgs saved)
+    {
+        var text = saved.IsApproval ? $"Linha {saved.Number} aprovada." : $"Linha {saved.Number} gravada.";
+        Toasts.Show(text, ToastKind.Success, key: "line-save", undo: () => Editor.Undo(saved));
+    }
+
+    private void ShowBuildNotice(BuildNotice notice)
+    {
+        if (notice.Kind == BuildNoticeKind.Injected)
+        {
+            // Desfazer a injeção é restaurar os originais, e a restauração pede confirmação na página Build, como sempre.
+            Toasts.Show(notice.Message, ToastKind.Success, key: "build", undo: () =>
+            {
+                SelectedNav = buildItem;
+                if (Build.RestoreCommand.CanExecute(null))
+                {
+                    Build.RestoreCommand.Execute(null);
+                }
+            });
+            return;
+        }
+
+        Toasts.Show(notice.Message, ToastKind.Success, key: "build");
     }
 
     private async Task ShowLineAsync(LineRequest request)

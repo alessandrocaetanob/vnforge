@@ -14,12 +14,9 @@
                    Text="Etapas do pipeline, progresso da tradução e custo de IA. Os números são os mesmos do vnf status."/>
       </StackPanel>
 
-      <Border Classes="infobar" IsVisible="{Binding !HasProject}">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="Abra um projeto no Início para ver o painel."/>
-        </Grid>
-      </Border>
+      <!-- Sem projeto (ou projeto sem texto): o selo 訳, uma frase e a ação. -->
+      <c:EmptyState IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
+                    ActionText="{Binding EmptyActionText}" ActionCommand="{Binding OpenStartCommand}"/>
 
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -90,6 +87,7 @@
             <Border Classes="divider-bottom" Padding="16,8">
               <TextBlock Classes="overline" Text="POR ARQUIVO"/>
             </Border>
+            <c:Skeleton Rows="6" IsVisible="{Binding IsLoading}" AutomationProperties.Name="Carregando o progresso por arquivo"/>
             <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Files}" Margin="0,4" AutomationProperties.Name="Progresso por arquivo">
                 <ItemsControl.ItemsPanel>
@@ -119,6 +117,7 @@
             <Border Classes="divider-bottom" Padding="16,8">
               <TextBlock Classes="overline" Text="POR PERSONAGEM"/>
             </Border>
+            <c:Skeleton Rows="6" IsVisible="{Binding IsLoading}" AutomationProperties.Name="Carregando o progresso por personagem"/>
             <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Characters}" Margin="0,4" AutomationProperties.Name="Progresso por personagem">
                 <ItemsControl.ItemsPanel>

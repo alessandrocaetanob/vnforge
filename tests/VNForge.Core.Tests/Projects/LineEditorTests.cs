@@ -34,6 +34,30 @@ public class LineEditorTests
         projeto.LoadText("yst00001").Single(u => u.Id == $"yst00001:{n:D6}");
 
     [Fact]
+    public void Restore_devolve_a_linha_ao_estado_anterior()
+    {
+        using var pasta = new TempFolder();
+        var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
+        var (projeto, editor) = Preparar(pasta.Path, antes, Linha(2, TranslationStatus.Untranslated));
+        editor.Approve("yst00001", antes.Id);
+
+        var restaurada = editor.Restore("yst00001", antes);
+
+        Assert.Equal(antes, restaurada);
+        Assert.Equal(antes, Gravada(projeto, 1));
+        Assert.Equal(TranslationStatus.Untranslated, Gravada(projeto, 2).Status);
+    }
+
+    [Fact]
+    public void Restore_de_linha_que_nao_existe_falha()
+    {
+        using var pasta = new TempFolder();
+        var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated));
+
+        Assert.Throws<KeyNotFoundException>(() => editor.Restore("yst00001", Linha(9, TranslationStatus.Translated, "x")));
+    }
+
+    [Fact]
     public void Traducao_nova_grava_translated_com_origem_manual()
     {
         using var pasta = new TempFolder();

@@ -87,6 +87,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private readonly QaEngine engine;
     private readonly SeverityChipViewModel[] chips;
     private QaReport report = QaReport.Empty;
+    private bool scanned;
     private ConferenceSeverityFilter severityFilter = ConferenceSeverityFilter.All;
     private int loadVersion;
 
@@ -113,7 +114,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(FixRuleCommand), nameof(MarkOkCommand), nameof(OpenLineCommand))]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
@@ -127,7 +128,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     /// <summary>Falha ao ler ou corrigir o projeto: o fato e a consequência, em português.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsClear), nameof(ShowEmptyText))]
     public partial string? ErrorMessage { get; private set; }
 
     /// <summary>Resultado da última correção ("2 correções aplicadas.").</summary>
@@ -139,7 +140,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     /// <summary>Cabeçalhos e ocorrências na ordem do <c>vnf check</c>. É trocada por inteiro; nunca recebe <c>Add</c> nem <c>Remove</c>.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsClear), nameof(ShowEmptyText))]
     public partial IReadOnlyList<IConferenceRow> Rows { get; private set; } = [];
 
     /// <summary>"2 erros, 37 avisos", contando o que o filtro deixa à vista.</summary>
@@ -151,6 +152,12 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial string SilencedSummary { get; private set; } = string.Empty;
 
     public bool IsEmpty => Rows.Count == 0;
+
+    /// <summary>A frase de <see cref="EmptyMessage"/> aparece quando a lista está vazia e o estado vazio do <see cref="IsClear"/> não a substitui.</summary>
+    public bool ShowEmptyText => IsEmpty && !IsClear;
+
+    /// <summary>A conferência rodou e não achou nada: a página mostra o estado vazio com o selo 訳.</summary>
+    public bool IsClear => scanned && Project is not null && !IsLoading && ErrorMessage is null && report.Issues.Count == 0;
 
     public string EmptyMessage
     {
@@ -193,6 +200,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         ErrorMessage = null;
         NoticeMessage = null;
         report = QaReport.Empty;
+        scanned = false;
         Rebuild();
     }
 
@@ -240,6 +248,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
         ErrorMessage = error;
         report = loaded ?? QaReport.Empty;
+        scanned = loaded is not null;
         Rebuild();
     }
 
@@ -410,5 +419,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         var silenced = report.Silenced.Count;
         SilencedSummary = DescribeSilenced(silenced);
         OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(IsClear));
+        OnPropertyChanged(nameof(ShowEmptyText));
     }
 }

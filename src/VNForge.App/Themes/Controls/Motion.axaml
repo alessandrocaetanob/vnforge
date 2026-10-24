@@ -1,0 +1,60 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Todo movimento do app mora sob a classe "motion" da janela (Motion.Follow): ela sai quando o Windows pede menos animação. -->
+
+  <!-- Barras de progresso: o indicador desliza até o novo valor. -->
+  <Style Selector="Window.motion ProgressBar /template/ Border#PART_Indicator">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Width" Duration="0:0:0.3" Easing="CubicEaseOut"/>
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- Ícone girando nas tarefas em andamento. -->
+  <Style Selector="PathIcon.spin">
+    <Setter Property="RenderTransform" Value="rotate(0deg)"/>
+  </Style>
+  <Style Selector="Window.motion PathIcon.spin">
+    <Style.Animations>
+      <Animation Duration="0:0:1" IterationCount="INFINITE">
+        <KeyFrame Cue="0%">
+          <Setter Property="RotateTransform.Angle" Value="0"/>
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="RotateTransform.Angle" Value="360"/>
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Pulso verde curto na linha que acabou de ser aprovada (Motion.PulseOnApproval põe a classe por 700 ms). -->
+  <Style Selector="Window.motion Grid.pulse">
+    <Style.Animations>
+      <Animation Duration="0:0:0.7" Easing="CubicEaseOut">
+        <KeyFrame Cue="0%">
+          <Setter Property="Background" Value="#555FBF7F"/>
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Background" Value="#005FBF7F"/>
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Esqueleto: as faixas pulsam devagar. -->
+  <Style Selector="Window.motion c|Skeleton">
+    <Style.Animations>
+      <Animation Duration="0:0:1.2" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="1"/>
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.45"/>
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+</Styles>

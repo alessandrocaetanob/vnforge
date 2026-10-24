@@ -26,6 +26,19 @@
         </Grid>
       </Border>
 
+      <!-- Aparência: vale para o app todo e fica nas preferências do usuário, não no projeto. -->
+      <Border Classes="panel" Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="title-md" Text="Aparência"/>
+          <StackPanel Spacing="6">
+            <TextBlock Classes="body-strong" Text="Tema"/>
+            <ListBox Classes="seg" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}"
+                     DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tema"/>
+            <TextBlock Classes="caption secondary" Text="Sistema segue o tema do Windows."/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
       <!-- IA -->
       <Border Classes="panel" Padding="16">
         <StackPanel Spacing="16">

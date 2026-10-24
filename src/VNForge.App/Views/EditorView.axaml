@@ -126,7 +126,8 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:LineViewModel">
-                <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12" Margin="16,0" VerticalAlignment="Center" ToolTip.Tip="{Binding Id}">
+                <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12" Margin="16,0" VerticalAlignment="Center" ToolTip.Tip="{Binding Id}"
+                      c:Motion.PulseOnApproval="{Binding Status}">
                   <TextBlock Classes="mono secondary" Text="{Binding Number}" VerticalAlignment="Center"/>
                   <c:StatusBadge Grid.Column="1" Status="{Binding Status}"/>
                   <TextBlock Grid.Column="2" Classes="body-sm" Classes.secondary="{Binding IsNarration}" Text="{Binding SpeakerLabel}"
@@ -145,8 +146,10 @@
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <TextBlock Grid.Row="1" Classes="body-sm secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
-                     TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding IsEmpty}" Text="{Binding EmptyMessage}"/>
+          <!-- Lendo as linhas: esqueleto; vazio de verdade: o selo 訳 com uma frase (e "Ver todas" quando o filtro esvaziou a grade). -->
+          <c:Skeleton Grid.Row="1" Rows="9" VerticalAlignment="Top" IsVisible="{Binding IsLoading}" AutomationProperties.Name="Carregando as linhas"/>
+          <c:EmptyState Grid.Row="1" IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
+                        ActionText="{Binding EmptyActionText}" ActionCommand="{Binding ShowAllCommand}"/>
 
           <Border Grid.Row="2" Classes="divider-top" Padding="12">
             <StackPanel Spacing="8">

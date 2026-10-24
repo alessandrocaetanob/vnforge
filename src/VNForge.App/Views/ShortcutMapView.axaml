@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.ShortcutMapView"
+             x:DataType="vm:MainWindowViewModel">
+
+  <!-- Mapa de atalhos (tecla ?): cartão central sobre um véu; clicar fora ou Esc fecha. -->
+  <Panel IsVisible="{Binding IsShortcutMapOpen}">
+    <Border Background="#99000000" PointerPressed="OnScrimPressed"/>
+    <Border Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+            CornerRadius="{DynamicResource Vnf.RadiusMd}" BoxShadow="{DynamicResource Vnf.ShadowFlyout}"
+            Padding="24" Width="460" HorizontalAlignment="Center" VerticalAlignment="Center"
+            AutomationProperties.Name="Mapa de atalhos">
+      <StackPanel Spacing="16">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="title-md" Text="Atalhos"/>
+          <Button Grid.Column="1" Classes="subtle sm" Command="{Binding CloseShortcutMapCommand}" AutomationProperties.Name="Fechar o mapa de atalhos">
+            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Dismiss}"/>
+          </Button>
+        </Grid>
+        <ItemsControl ItemsSource="{x:Static vm:ShortcutMap.Groups}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ShortcutGroup">
+              <StackPanel Spacing="8" Margin="0,0,0,12">
+                <TextBlock Classes="overline" Text="{Binding Title}"/>
+                <ItemsControl ItemsSource="{Binding Entries}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ShortcutEntry">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                        <TextBlock Classes="body-sm" Text="{Binding Description}" VerticalAlignment="Center"/>
+                        <ItemsControl Grid.Column="1" ItemsSource="{Binding Keys}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <StackPanel Orientation="Horizontal" Spacing="4"/>
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                              <Border Classes="kbd">
+                                <TextBlock Text="{Binding}"/>
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+  </Panel>
+</UserControl>

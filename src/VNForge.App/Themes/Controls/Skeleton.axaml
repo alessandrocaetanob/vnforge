@@ -1,0 +1,19 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Esqueleto de carregamento: faixas em bg-inset com a cadência do conteúdo que vem. A pulsação está em Motion.axaml. -->
+  <Style Selector="c|Skeleton">
+    <Setter Property="Padding" Value="16,12"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Name="PART_Rows" Margin="{TemplateBinding Padding}"/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|Skeleton Border.skeleton-bar">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="CornerRadius" Value="4"/>
+  </Style>
+</Styles>
