@@ -714,7 +714,13 @@ public sealed partial class BuildViewModel : ObservableObject
             return $"Os {ProjectLabels.Number(plan.UnchangedCount)} arquivo(s) de build/ já estão iguais no jogo. Nada a injetar.";
         }
 
-        var unchanged = plan.UnchangedCount > 0 ? $"; {ProjectLabels.Number(plan.UnchangedCount)} já {(plan.UnchangedCount == 1 ? "está igual" : "estão iguais")} no jogo" : string.Empty;
+        var unchanged = string.Empty;
+        if (plan.UnchangedCount > 0)
+        {
+            var verb = plan.UnchangedCount == 1 ? "está igual" : "estão iguais";
+            unchanged = $"; {ProjectLabels.Number(plan.UnchangedCount)} já {verb} no jogo";
+        }
+
         return $"A injeção grava {ProjectLabels.Number(plan.Files.Count)} arquivo(s) na pasta do jogo{unchanged}.";
     }
 
