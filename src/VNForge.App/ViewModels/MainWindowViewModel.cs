@@ -99,6 +99,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>O último salto para uma linha do Editor pedido pela Conferência; os testes o aguardam.</summary>
     public Task LineNavigation { get; private set; } = Task.CompletedTask;
 
+    /// <summary>A última abertura de projeto criado pelo assistente; os testes a aguardam.</summary>
+    public Task ProjectOpening { get; private set; } = Task.CompletedTask;
+
     /// <summary>A última conferência pedida ao abrir a página; os testes a aguardam.</summary>
     public Task ConferenceLoading { get; private set; } = Task.CompletedTask;
 
@@ -216,12 +219,24 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var wizard = create();
         wizard.Cancelled += (_, _) => CurrentPage = Start;
-        wizard.Completed += async (_, root) =>
+        wizard.Completed += (_, root) =>
         {
             CurrentPage = Start;
-            await Start.OpenAsync(root);
+            ProjectOpening = OpenCreatedProjectAsync(root);
         };
         CurrentPage = wizard;
+    }
+
+    private async Task OpenCreatedProjectAsync(string root)
+    {
+        try
+        {
+            await Start.OpenAsync(root);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ProjectConfigException)
+        {
+            Start.ErrorMessage = $"{e.Message} O projeto foi criado, mas não pôde ser aberto.";
+        }
     }
 
     /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a página Build com o aviso.</summary>

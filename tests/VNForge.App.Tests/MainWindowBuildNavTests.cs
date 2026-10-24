@@ -34,6 +34,7 @@ public class MainWindowBuildNavTests
         Assert.IsType<StartViewModel>(vm.CurrentPage);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
         vm.SelectedNav = item;
         await vm.Build.Loading;
 

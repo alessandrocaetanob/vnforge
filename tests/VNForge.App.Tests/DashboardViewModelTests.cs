@@ -168,6 +168,7 @@ public class DashboardViewModelTests
         Assert.False(item.IsEnabled);
 
         await main.Start.OpenFolderCommand.ExecuteAsync(null);
+        await main.Editor.Loading;
         Assert.True(item.IsEnabled);
         var loaded = new TaskCompletionSource();
         main.Dashboard.PropertyChanged += (_, e) =>

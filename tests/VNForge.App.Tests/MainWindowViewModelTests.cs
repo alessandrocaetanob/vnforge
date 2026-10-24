@@ -106,15 +106,35 @@ public class MainWindowViewModelTests
         await wizard.NextCommand.ExecuteAsync(null);
 
         wizard.FinishCommand.Execute(null);
-        // O handler de Completed abre o projeto em segundo plano; espera o projeto terminar de abrir (a última etapa habilita o Glossário).
-        for (var i = 0; i < 100 && vm.Nav.Single(n => n.Key == NavKey.Glossary).IsEnabled is false; i++)
-        {
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
+        await vm.ProjectOpening;
+        await vm.Editor.Loading;
 
         Assert.Same(vm.Start, vm.CurrentPage);
         Assert.Equal("meu-projeto", vm.ProjectTitle);
         Assert.Single(vm.Start.Recents);
+    }
+
+    [Fact]
+    public async Task Falha_ao_abrir_o_projeto_criado_vira_mensagem_na_tela_e_nao_derruba_o_processo()
+    {
+        using var temp = new TempFolder();
+        var (vm, wizard) = CreateWithWizard(temp);
+        var game = temp.SubFolder("jogo");
+        File.WriteAllText(Path.Combine(game, "Jogo.exe"), "MZ");
+        vm.Start.NewProjectCommand.Execute(null);
+        await wizard.SetGameFolderAsync(game);
+        wizard.SetProjectDirectory(Path.Combine(temp.Path, "meu-projeto"));
+        await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
+        // Um glossário ilegível faz GlossaryViewModel.Reload lançar ProjectConfigException durante SetProject.
+        vm.Start.ProjectOpened += (_, _) => throw new ProjectConfigException("glossary.json ilegível.");
+
+        wizard.FinishCommand.Execute(null);
+        await vm.ProjectOpening;
+
+        Assert.Contains("glossary.json ilegível.", vm.Start.ErrorMessage);
     }
 
     [Fact]
