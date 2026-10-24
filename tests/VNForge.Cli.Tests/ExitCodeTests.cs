@@ -34,7 +34,7 @@ public sealed class ExitCodeTests : IDisposable
     [Fact]
     public async Task Erro_esperado_sai_com_1_e_mensagem_curta_no_stderr()
     {
-        _cli.AddCommand(Falha, _ => throw new InvalidFileException("a.ypf", "truncado"));
+        _cli.AddCommand(Falha, _ => throw new VNForge.Core.VNForgeException("O arquivo 'a.ypf' é inválido: truncado"));
 
         var result = await _cli.RunAsync([Falha], TestContext.Current.CancellationToken);
 
@@ -136,7 +136,7 @@ public sealed class ExitCodeTests : IDisposable
     public async Task Json_nao_muda_o_codigo_de_saida_nem_escreve_no_stderr()
     {
         _cli.AddCommand(FakeQaCommand, _ => ErrorHandler.QaBlockedExitCode);
-        _cli.AddCommand(Falha, _ => throw new InvalidFileException("a.ypf", "truncado"));
+        _cli.AddCommand(Falha, _ => throw new VNForge.Core.VNForgeException("O arquivo 'a.ypf' é inválido: truncado"));
         _cli.AddCommand(Cancela, _ => throw new OperationCanceledException());
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();

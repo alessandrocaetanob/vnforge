@@ -25,7 +25,7 @@ internal sealed class AiOptions
     public Option<string?> Model { get; } = new("--model")
     {
         Description = $"Modelo Claude: {string.Join(", ", ClaudeModels.All)}. Padrão: o de 'vnf config ai' ou o do vnforge.json.",
-        HelpName = "id",
+        HelpName = "modelo",
     };
 
     public Option<string?> Effort { get; } = new("--effort")

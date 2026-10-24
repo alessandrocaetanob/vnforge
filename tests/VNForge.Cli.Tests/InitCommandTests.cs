@@ -56,6 +56,48 @@ public sealed class InitCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Encoding_remap_avisa_que_o_build_ainda_nao_tem_a_estrategia()
+    {
+        var game = NewGameDir();
+
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--encoding", "remap"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Aviso: ", result.Output);
+        Assert.Contains("remap", result.Output);
+        Assert.Contains("#66", result.Output);
+        Assert.Equal("remap", ProjectFolder.Open(ProjectPath()).LoadConfig().Encoding.Strategy);
+    }
+
+    [Fact]
+    public async Task Encoding_remap_com_json_leva_o_aviso_em_warnings()
+    {
+        var game = NewGameDir();
+
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--encoding", "remap", "--json"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        using var document = JsonDocument.Parse(result.Output);
+        var warnings = document.RootElement.GetProperty("data").GetProperty("warnings").GetString();
+        Assert.Contains("remap", warnings);
+        Assert.Contains("#66", warnings);
+    }
+
+    [Theory]
+    [InlineData("fold")]
+    [InlineData("cp1252")]
+    [InlineData("sjis")]
+    public async Task Encoding_com_encoder_no_build_nao_avisa(string strategy)
+    {
+        var game = NewGameDir();
+
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--encoding", strategy], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.DoesNotContain("#66", result.Output);
+    }
+
+    [Fact]
     public async Task Saida_segue_o_exemplo_do_fluxo_tipico()
     {
         var game = NewGameDir();
@@ -170,7 +212,7 @@ public sealed class InitCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("vnf init", result.Output);
-        Assert.Contains("--game <dir>", result.Output);
+        Assert.Contains("--game <pasta>", result.Output);
         Assert.Contains("<pasta>", result.Output);
     }
 }

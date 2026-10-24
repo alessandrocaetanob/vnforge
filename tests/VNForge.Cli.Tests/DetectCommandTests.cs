@@ -156,6 +156,6 @@ public sealed class DetectCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("vnf detect", result.Output);
-        Assert.Contains("--game <dir>", result.Output);
+        Assert.Contains("--game <pasta>", result.Output);
     }
 }

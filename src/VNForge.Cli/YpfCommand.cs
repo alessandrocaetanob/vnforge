@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Globalization;
 using Spectre.Console;
 using VNForge.Core;
+using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Engines.YuRis.Ypf;
 
@@ -57,14 +58,14 @@ public static class YpfCommand
         command.SetAction((parseResult, token) =>
         {
             var target = Resolve(cli, parseResult.GetRequiredValue(folder));
-            if (!parseResult.GetValue(cli.Options.Yes) && HasEntries(target))
+            if (HasEntries(target) && !ConfirmationPrompt.Confirm(parseResult, cli, $"A pasta de destino não está vazia: {target}. Sobrescrever os arquivos que coincidirem?"))
             {
-                throw new UsageException($"A pasta de destino não está vazia: {target}. Use --yes para sobrescrever os arquivos que coincidirem.");
+                return Task.FromResult(Cancelled(parseResult));
             }
 
             var source = Resolve(cli, parseResult.GetRequiredValue(file));
             using var archive = OpenArchive(cli, source);
-            var result = YpfFolder.Unpack(archive, target, token);
+            var result = InputFileGuard.Read(source, () => YpfFolder.Unpack(archive, target, token));
             Print(
                 parseResult,
                 cli,
@@ -103,9 +104,10 @@ public static class YpfCommand
                 throw new UsageException("O arquivo de saída não pode ser o YPF original: grave num arquivo novo.");
             }
 
-            if (File.Exists(target) && !parseResult.GetValue(cli.Options.Yes))
+            var targetExists = File.Exists(target);
+            if (targetExists && !ConfirmationPrompt.Confirm(parseResult, cli, $"O arquivo de saída já existe: {target}. Sobrescrever?"))
             {
-                throw new UsageException($"O arquivo de saída já existe: {target}. Use --yes para sobrescrever.");
+                return Task.FromResult(Cancelled(parseResult));
             }
 
             var sourceFolder = Resolve(cli, parseResult.GetRequiredValue(folder));
@@ -115,7 +117,7 @@ public static class YpfCommand
             }
 
             using var archive = OpenArchive(cli, source);
-            var result = PackTo(archive, sourceFolder, target, parseResult.GetValue(cli.Options.Yes), token);
+            var result = InputFileGuard.Read(source, () => PackTo(archive, sourceFolder, target, overwrite: targetExists, token));
             var identical = FilesEqual(source, target);
             Print(
                 parseResult,
@@ -133,6 +135,12 @@ public static class YpfCommand
             return Task.FromResult(0);
         });
         return command;
+    }
+
+    private static int Cancelled(ParseResult parseResult)
+    {
+        parseResult.InvocationConfiguration.Output.WriteLine("Operação cancelada. Nada foi gravado.");
+        return ErrorHandler.CancelledExitCode;
     }
 
     private static bool HasEntries(string directory)
@@ -200,7 +208,7 @@ public static class YpfCommand
 
         try
         {
-            return (YpfArchive)Format.Open(stream);
+            return InputFileGuard.Read(full, () => (YpfArchive)Format.Open(stream));
         }
         catch
         {

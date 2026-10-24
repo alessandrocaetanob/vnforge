@@ -24,11 +24,29 @@ public sealed class ParseErrorMessagesTests
     }
 
     [Fact]
-    public void Mensagem_desconhecida_mantem_o_texto_original_depois_de_um_prefixo()
+    public void Mensagem_desconhecida_sai_generica_em_portugues_sem_o_texto_original()
     {
-        Assert.Equal(
-            "Uso inválido: File does not exist: 'x'.",
-            ParseErrorMessages.Translate("File does not exist: 'x'."));
+        var translated = ParseErrorMessages.Translate("File does not exist: 'x'.");
+
+        Assert.Equal("Uso inválido.", translated);
+        Assert.DoesNotContain("File", translated);
+    }
+
+    [Fact]
+    public void TryTranslate_diz_se_a_mensagem_foi_reconhecida()
+    {
+        Assert.True(ParseErrorMessages.TryTranslate("Option '--game' is required.", out var known));
+        Assert.Equal("A opção '--game' é obrigatória.", known);
+
+        Assert.False(ParseErrorMessages.TryTranslate("File does not exist: 'x'.", out var unknown));
+        Assert.Equal("Uso inválido.", unknown);
+    }
+
+    [Fact]
+    public void Mensagem_propria_em_portugues_passa_como_esta()
+    {
+        Assert.True(ParseErrorMessages.TryTranslate(ParseErrorMessages.VerboseWithQuiet, out var text));
+        Assert.Equal("As opções --verbose e --quiet não podem ser usadas juntas.", text);
     }
 
     [Fact]
