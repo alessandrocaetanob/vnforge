@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using VNForge.Core.Engines;
 
 namespace VNForge.Core.Projects;
 
@@ -47,12 +48,33 @@ public sealed class GameLauncher(IGameProcessStarter starter)
 {
     private readonly IGameProcessStarter _starter = starter ?? throw new ArgumentNullException(nameof(starter));
 
-    /// <summary>Caminho completo de <c>game.exe</c>; <c>game.path</c> é relativo à pasta do projeto quando não é absoluto.</summary>
+    /// <summary>
+    /// Caminho completo de <c>game.exe</c>; <c>game.path</c> é relativo à pasta do projeto quando não é absoluto.
+    /// O <c>vnforge.json</c> pode vir de um projeto compartilhado, e o arquivo é aberto pelo shell: só vale um <c>.exe</c>
+    /// dentro da pasta do jogo, nunca um caminho absoluto ou que saia dela (<c>..\x.bat</c>, atalhos, <c>cmd.exe</c> do sistema).
+    /// </summary>
+    /// <exception cref="VNForgeException"><c>game.exe</c> é absoluto, sai da pasta do jogo ou não termina em <c>.exe</c>.</exception>
     public static string ResolveExecutable(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
         var game = project.LoadConfig().Game;
-        return Path.GetFullPath(game.Exe, Path.GetFullPath(game.Path, project.Root));
+        var gameDirectory = Path.GetFullPath(game.Path, project.Root);
+        string executable;
+        try
+        {
+            executable = GamePaths.Resolve(gameDirectory, game.Exe);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new VNForgeException($"O game.exe do {ProjectFolder.ConfigFileName} ('{game.Exe}') precisa ser um caminho relativo à pasta do jogo e ficar dentro dela. {ex.Message}", ex);
+        }
+
+        if (!executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new VNForgeException($"O game.exe do {ProjectFolder.ConfigFileName} ('{game.Exe}') não é um executável .exe, e o VNForge só abre arquivos .exe da pasta do jogo.");
+        }
+
+        return executable;
     }
 
     /// <exception cref="GameExecutableNotFoundException">O executável não existe.</exception>

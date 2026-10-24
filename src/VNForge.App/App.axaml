@@ -34,6 +34,9 @@
     <DataTemplate DataType="vm:GlossaryViewModel">
       <views:GlossaryView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:BuildViewModel">
+      <views:BuildView/>
+    </DataTemplate>
   </Application.DataTemplates>
 
   <Application.Styles>

@@ -22,11 +22,13 @@ public static class HeadlessEntry
         AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = true });
 }
 
-/// <summary>Uma sessão por classe de teste: o Avalonia só aceita uma instância de aplicativo por thread de UI.</summary>
+/// <summary>Uma sessão por processo, dividida entre as classes de teste: o Avalonia só aceita uma instância de aplicativo por thread de UI.</summary>
 public sealed class HeadlessFixture
 {
+    private static readonly Lazy<HeadlessUnitTestSession> Shared = new(() => HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry)));
+
     // Sem Dispose: Session.Dispose() trava quando chamado da thread do xUnit; a thread da sessão não segura o processo.
-    public HeadlessUnitTestSession Session { get; } = HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry));
+    public HeadlessUnitTestSession Session { get; } = Shared.Value;
 }
 
 /// <summary>

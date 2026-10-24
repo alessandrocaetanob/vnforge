@@ -359,6 +359,68 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
+    public void Restore_depois_de_uma_segunda_injecao_parcial_devolve_tambem_o_que_so_o_primeiro_backup_guardou()
+    {
+        SeedGameAndBuild();
+        InjectAll(Injector());
+        _clock.Now = _clock.Now.AddMinutes(5);
+        Build(YsbinYpf, "traduzido-ysbin-v2");
+        var second = InjectAll(Injector());
+        Assert.Equal([YsbinYpf], second.Written);
+
+        var plan = GameInjector.PlanRestore(_project);
+        var result = RestoreLatest(Injector());
+
+        Assert.Equal([BgmYpf, YsbinYpf], plan.Manifest.Files.Select(f => f.Path).Order(StringComparer.Ordinal));
+        Assert.Equal([BgmYpf, YsbinYpf], result.Restored);
+        AssertGameIsOriginal();
+    }
+
+    [Fact]
+    public void Restore_usa_para_cada_arquivo_a_entrada_mais_nova_dele()
+    {
+        SeedGameAndBuild();
+        InjectAll(Injector());
+        _clock.Now = _clock.Now.AddMinutes(5);
+        Build(YsbinYpf, "traduzido-ysbin-v2");
+        var second = InjectAll(Injector());
+
+        var plan = GameInjector.PlanRestore(_project);
+
+        Assert.Equal(second.BackupDirectory, plan.BackupDirectory);
+        Assert.Equal(second.BackupDirectory, plan.BackupDirectories[YsbinYpf]);
+        Assert.NotEqual(second.BackupDirectory, plan.BackupDirectories[BgmYpf]);
+    }
+
+    [Fact]
+    public void Restore_recusa_quando_o_jogo_mudou_depois_da_injecao_e_nao_grava_nada()
+    {
+        SeedGameAndBuild();
+        InjectAll(Injector());
+        Game(YsbinYpf, "atualizado-pelo-jogo");
+
+        var erro = Assert.Throws<InjectionException>(() => RestoreLatest(Injector()));
+
+        Assert.Contains("mudou depois da injeção", erro.Message);
+        Assert.Contains(YsbinYpf, erro.Message);
+        Assert.Equal("atualizado-pelo-jogo", ReadGame(YsbinYpf));
+        Assert.Equal(TranslatedBgmDir, ReadGame(BgmYpf));
+    }
+
+    [Fact]
+    public void Restore_nao_recusa_arquivo_que_ja_esta_com_o_original()
+    {
+        SeedGameAndBuild();
+        InjectAll(Injector());
+        Game(YsbinYpf, OriginalYsbinDir);
+
+        var result = RestoreLatest(Injector());
+
+        Assert.Equal([BgmYpf, YsbinYpf], result.Restored);
+        AssertGameIsOriginal();
+    }
+
+    [Fact]
     public void Restore_pode_ser_repetido()
     {
         SeedGameAndBuild();

@@ -12,6 +12,7 @@ public enum NavKey
     Editor,
     Settings,
     Glossary,
+    Build,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -32,6 +33,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
+    private readonly NavItemViewModel buildItem = new(NavKey.Build, "Build", "Icon.Box", isEnabled: false);
     private NavItemViewModel? selectedNav;
 
     public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null)
@@ -41,9 +43,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
         Tasks = new TaskBarViewModel(TaskService);
+        Build = new BuildViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem, buildItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
         start.ProjectOpened += (_, summary) => SetProject(summary);
@@ -67,6 +70,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    public BuildViewModel Build { get; }
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
@@ -105,8 +110,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Editor => Editor,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
+                    NavKey.Build => Build,
                     _ => Start,
                 };
+                if (value.Key == NavKey.Build)
+                {
+                    _ = Build.ReloadAsync();
+                }
             }
         }
     }
@@ -129,6 +139,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentPage = wizard;
     }
 
+    /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a página Build com o aviso.</summary>
+    public bool TryClose()
+    {
+        if (Build.TryCloseSafely())
+        {
+            return true;
+        }
+
+        SelectedNav = buildItem;
+        return false;
+    }
+
     private void SetProject(ProjectSummary summary)
     {
         CurrentProject = summary;
@@ -140,8 +162,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Glossary.Project = summary;
         }
 
+        Build.Project = summary;
         editorItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
+        buildItem.IsEnabled = true;
     }
 
     private void ShowKeyStatus(ResolvedApiKey key, string text)
