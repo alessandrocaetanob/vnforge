@@ -391,9 +391,16 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return;
         }
 
-        if (!await GoToLineAsync(row.ScriptKey, row.UnitId))
+        try
         {
-            ErrorMessage = $"A linha {row.UnitId} não existe mais neste projeto. Busque de novo.";
+            if (!await GoToLineAsync(row.ScriptKey, row.UnitId))
+            {
+                ErrorMessage = $"A linha {row.UnitId} não existe mais neste projeto. Busque de novo.";
+            }
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"Não foi possível abrir a linha {row.UnitId}: {e.Message}";
         }
     }
 

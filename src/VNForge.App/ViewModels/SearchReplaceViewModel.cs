@@ -215,6 +215,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
                 var found = await Task.Run(() => find(root, options, token), token);
                 return () =>
                 {
+                    SelectedResult = null;
                     Results = [.. found.Hits.Select(h => new SearchResultRow(Location(h.ScriptKey, h.Number), h.Text, null, h.Matches.Count, h.Matches[0].Start, h.ScriptKey, h.UnitId))];
                     Summary = DescribeFind(found);
                 };
@@ -235,6 +236,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
                 return () =>
                 {
                     preview = computed;
+                    SelectedResult = null;
                     Results = [.. computed.Items.Select(i => new SearchResultRow(Location(i.ScriptKey, i.Number), i.Before, i.After, i.Count, FirstDifference(i.Before, i.After), i.ScriptKey, i.UnitId))];
                     Summary = DescribePreview(computed);
                     SkippedNotes = DescribeSkipped(computed);
