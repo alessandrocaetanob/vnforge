@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.CommandLine;
+using Spectre.Console;
 using VNForge.Core.Engines;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -67,22 +68,37 @@ internal static class DetectCommand
             return ErrorHandler.OkExitCode;
         }
 
-        if (detection is null)
-        {
-            output.WriteLine($"Engine não reconhecida na pasta {folder}.");
-        }
-        else
-        {
-            output.WriteLine($"Engine detectada: {engineId}");
-            output.WriteLine(detection.Summary);
-        }
-
-        foreach (var (name, value) in details ?? FrozenDictionary<string, string>.Empty)
-        {
-            output.WriteLine($"  {LabelOf(name)}: {value}");
-        }
-
+        WriteTree(cli.Ansi, folder, engineId, detection, details ?? FrozenDictionary<string, string>.Empty);
         return ErrorHandler.OkExitCode;
+    }
+
+    private static void WriteTree(IAnsiConsole ansi, string folder, string? engineId, EngineDetection? detection, IReadOnlyDictionary<string, string> details)
+    {
+        var accent = CliPalette.Hex(CliPalette.Accent);
+        var root = new Tree(new Markup(detection is null
+            ? $"[{CliPalette.Hex(CliPalette.Warning)}]Engine não reconhecida[/] na pasta {CliViews.Escape(folder)}."
+            : $"Engine detectada: [bold {accent}]{CliViews.Escape(engineId ?? string.Empty)}[/]"));
+
+        if (detection is not null)
+        {
+            root.AddNode(CliViews.Escape(detection.Summary));
+        }
+
+        TreeNode? packages = null;
+        foreach (var (name, value) in details)
+        {
+            if (name.StartsWith(PackagePrefix, StringComparison.Ordinal))
+            {
+                packages ??= root.AddNode($"[{accent}]Pacotes[/]");
+                packages.AddNode($"{CliViews.Escape(name[PackagePrefix.Length..])}: {CliViews.Escape(value)}");
+                continue;
+            }
+
+            var color = name == "warnings" ? $"[{CliPalette.Hex(CliPalette.Warning)}]" : $"[{accent}]";
+            root.AddNode($"{color}{CliViews.Escape(LabelOf(name))}[/]: {CliViews.Escape(value)}");
+        }
+
+        ansi.Write(root);
     }
 
     private static string LabelOf(string key)

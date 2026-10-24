@@ -141,6 +141,7 @@ public class ControlMarkersTests
     [Fact]
     public void Nenhum_par_com_EF_na_abertura_e_caractere_valido_na_pagina_932()
     {
+        _ = GameEncodings.ShiftJis;
         var strict = Encoding.GetEncoding(932, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
 
         for (var trail = 0; trail < 256; trail++)
