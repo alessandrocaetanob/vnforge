@@ -181,10 +181,12 @@ public class DashboardViewModelTests
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine);
         var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)));
         await main.Start.OpenFolderCommand.ExecuteAsync(null);
+        await main.Editor.Loading;
         await main.Dashboard.ReloadAsync();
 
         main.Dashboard.OpenStageCommand.Execute(main.Dashboard.Stages.Single(s => s.Key == stage));
         await main.ConferenceLoading;
+        await main.Build.Loading;
 
         Assert.Equal(expected, main.SelectedNav!.Key);
     }
