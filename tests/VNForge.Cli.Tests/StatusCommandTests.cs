@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -64,17 +65,79 @@ public sealed class StatusCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Texto_mostra_as_tres_secoes_em_portugues()
+    public async Task Texto_mostra_titulo_barra_legenda_e_as_duas_tabelas()
     {
+        var project = ProjectFolder.Open(_projectPath);
+        project.SaveCharacters([new CharacterEntry("美咲", "Misaki")]);
+
         var result = await _cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("4 linhas", result.Output);
-        Assert.Contains("Por arquivo", result.Output);
-        Assert.Contains(Yst00001, result.Output);
-        Assert.Contains("Por personagem", result.Output);
+        Assert.DoesNotContain('\u001b', result.Output);
+        var lines = result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n').Select(l => l.TrimEnd()).ToArray();
+        Assert.Equal("Minha VN · PT-BR", lines[0]);
+        Assert.Equal("4 linhas · 75,0 % com tradução", lines[1]);
+        Assert.Matches("^[█▓▒░·]{60}$", lines[2]);
+        Assert.Equal("█ Aprovadas 1  ▓ Revisadas 1  ▒ Traduzidas 0  ░ IA 1  · Pendentes 1", lines[3]);
+
+        var scriptHeader = Array.FindIndex(lines, l => l.TrimStart().StartsWith("Script", StringComparison.Ordinal));
+        Assert.Equal(["Script", "Linhas", "Progresso", "%"], lines[scriptHeader].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Matches(@"^\s*yst00001\s+3\s+\S{20}\s+66,6 %$", lines[scriptHeader + 1]);
+        Assert.Matches(@"^\s*yst00002\s+1\s+\S{20}\s+100,0 %$", lines[scriptHeader + 2]);
+
+        var characterHeader = Array.FindIndex(lines, l => l.TrimStart().StartsWith("Personagem", StringComparison.Ordinal));
+        Assert.True(characterHeader > scriptHeader);
+        Assert.Contains("美咲 → Misaki", lines[characterHeader + 1]);
+        Assert.Contains("健", lines[characterHeader + 2]);
+        Assert.Contains("(sem falante)", lines[characterHeader + 3]);
+    }
+
+    [Fact]
+    public async Task Terminal_interativo_pinta_a_barra_com_as_cores_do_app()
+    {
+        using var cli = new CliHarness(terminal: CliTerminal.TrueColor(width: 100));
+
+        var result = await cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("38;2;95;191;127m", result.Output); // aprovada
+        Assert.Contains("38;2;154;127;214m", result.Output); // IA
+        Assert.Contains("38;2;58;66;80m", result.Output); // pendente
+    }
+
+    [Fact]
+    public async Task No_color_tira_o_ansi_mesmo_em_terminal_interativo()
+    {
+        using var cli = new CliHarness(terminal: CliTerminal.TrueColor(width: 100));
+
+        var result = await cli.RunAsync(["status", "--project", _projectPath, "--no-color"], TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain('\u001b', result.Output);
+        Assert.Contains("█ Aprovadas 1", result.Output);
+    }
+
+    [Fact]
+    public async Task Characters_json_invalido_nao_derruba_o_status_em_texto()
+    {
+        File.WriteAllText(ProjectFolder.Open(_projectPath).CharactersPath, "isto nao e json");
+
+        var result = await _cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
         Assert.Contains("美咲", result.Output);
-        Assert.Contains("(sem falante)", result.Output);
+        Assert.DoesNotContain("→", result.Output);
+    }
+
+    [Fact]
+    public async Task Projeto_sem_linhas_mostra_a_barra_toda_pendente()
+    {
+        var empty = ProjectFolder.Create(Path.Combine(_cli.Root, "vazio"), ProjectFolder.Open(_projectPath).LoadConfig());
+
+        var result = await _cli.RunAsync(["status", "--project", empty.Root], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("0 linhas · 0,0 % com tradução", result.Output);
+        Assert.Contains(new string('·', 60), result.Output);
     }
 
     [Fact]

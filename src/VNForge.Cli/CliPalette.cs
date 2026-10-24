@@ -24,6 +24,18 @@ public static class CliPalette
     /// <summary>Cor de destaque: bordas de painel, títulos e o que o usuário deve notar.</summary>
     public static readonly Color Accent = new(0x8D, 0xB0, 0xEA);
 
+    /// <summary>Fundo da caixa de texto do jogo, o mesmo do app (<c>Vnf.TextboxBg</c>).</summary>
+    public static readonly Color TextboxBackground = new(0x14, 0x16, 0x1C);
+
+    /// <summary>Tinta do texto na caixa (<c>Vnf.TextboxInk</c>).</summary>
+    public static readonly Color TextboxInk = new(0xF1, 0xEE, 0xE6);
+
+    /// <summary>Texto que passa do limite da caixa, em coral como no app (<c>Vnf.TextboxOverflow</c>).</summary>
+    public static readonly Color TextboxOverflow = new(0xFF, 0x9B, 0x85);
+
+    /// <summary>Placa com o nome do falante (<c>Vnf.TextboxPlate</c>).</summary>
+    public static readonly Color TextboxPlate = new(0x2B, 0x4C, 0x7E);
+
     /// <summary>Cor em <c>#RRGGBB</c>, a forma que o markup do Spectre aceita (<c>[#5FBF7F]texto[/]</c>).</summary>
     public static string Hex(Color color) => "#" + color.ToHex().ToUpperInvariant();
 }

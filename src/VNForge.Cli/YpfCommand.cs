@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Globalization;
+using Spectre.Console;
 using VNForge.Core;
 using VNForge.Core.Output;
 using VNForge.Engines.YuRis.Ypf;
@@ -32,7 +33,15 @@ public static class YpfCommand
         command.SetAction(parseResult =>
         {
             using var archive = OpenArchive(cli, parseResult.GetRequiredValue(file));
-            Print(parseResult, cli, JsonData(archive), () => HumanInfo(archive));
+            if (parseResult.GetValue(cli.Options.Json))
+            {
+                parseResult.InvocationConfiguration.Output.WriteLine(JsonEnvelope.Result(JsonData(archive)));
+            }
+            else
+            {
+                cli.Ansi.Write(InfoTree(archive));
+            }
+
             return 0;
         });
         return command;
@@ -272,26 +281,55 @@ public static class YpfCommand
         };
     }
 
-    private static string HumanInfo(YpfArchive archive)
+    private static Tree InfoTree(YpfArchive archive)
     {
         var p = archive.Parameters;
-        var lines = new List<string>
+        var accent = CliPalette.Hex(CliPalette.Accent);
+        var root = new Tree(new Markup(
+            $"[bold {accent}]YPF[/] · versão {archive.Header.Version} · {CliFormat.Count(archive.Header.FileCount, "arquivo", "arquivos")}"));
+
+        var structure = root.AddNode($"[{accent}]Estrutura[/]");
+        AddField(structure, "Tamanho do arquivo", $"{CliFormat.Number(p.FileLength)} bytes");
+        AddField(structure, "Hash do nome", p.NameHash.ToString());
+        AddField(structure, "Hash dos dados", p.DataHash + (p.DataHashVerified ? string.Empty : " (padrão da versão, não confirmado)"));
+        AddField(structure, "Offset", $"{(p.OffsetSize == YpfOffsetSize.Bits64 ? 64 : 32)} bits");
+        AddField(structure, "Tabela de troca", p.SwapTable.ToString());
+        AddField(structure, "Chave do nome", $"0x{p.NameKey:X2}");
+        AddField(structure, "Tamanho do índice", $"{CliFormat.Number(p.IndexSize)} bytes");
+
+        var files = root.AddNode($"[{accent}]Arquivos[/] ({archive.Entries.Count})");
+        var folders = new Dictionary<string, TreeNode>(StringComparer.Ordinal);
+        foreach (var entry in archive.Entries)
         {
-            $"Versão: {archive.Header.Version}",
-            $"Arquivos: {archive.Header.FileCount}",
-            $"Tamanho do arquivo: {p.FileLength.ToString(CultureInfo.InvariantCulture)} bytes",
-            $"Hash do nome: {p.NameHash}",
-            $"Hash dos dados: {p.DataHash}" + (p.DataHashVerified ? string.Empty : " (padrão da versão, não confirmado)"),
-            $"Offset: {(p.OffsetSize == YpfOffsetSize.Bits64 ? 64 : 32)} bits",
-            $"Tabela de troca: {p.SwapTable}",
-            $"Chave do nome: 0x{p.NameKey:X2}",
-            $"Tamanho do índice: {p.IndexSize} bytes",
-            string.Empty,
-            "Caminho | Tamanho | Armazenado | Zlib | Hash do nome | Hash dos dados",
-        };
-        lines.AddRange(archive.Entries.Select(e =>
-            $"{e.Path} | {e.Size.ToString(CultureInfo.InvariantCulture)} | {e.SizeStored} | {(e.IsCompressed ? "sim" : "não")} | {Hex(e.NameHash)} | {Hex(e.DataHash)}"));
-        return string.Join(Environment.NewLine, lines);
+            var parts = entry.Path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+            var parent = files;
+            for (var depth = 0; depth < parts.Length - 1; depth++)
+            {
+                var folder = parts[depth];
+                var key = string.Join('/', parts.Take(depth + 1));
+                if (!folders.TryGetValue(key, out var node))
+                {
+                    node = parent.AddNode($"[{accent}]{CliViews.Escape(folder)}[/]");
+                    folders[key] = node;
+                }
+
+                parent = node;
+            }
+
+            parent.AddNode($"{CliViews.Escape(parts.Length == 0 ? entry.Path : parts[^1])}  [dim]{CliViews.Escape(Describe(entry))}[/]");
+        }
+
+        return root;
+    }
+
+    private static void AddField(TreeNode parent, string label, string value) =>
+        parent.AddNode($"{CliViews.Escape(label)}: {CliViews.Escape(value)}");
+
+    private static string Describe(YpfEntry entry)
+    {
+        var size = $"{CliFormat.Number(entry.Size)} bytes";
+        var stored = entry.IsCompressed ? $" · zlib, {CliFormat.Number(entry.SizeStored)} armazenados" : string.Empty;
+        return $"{size}{stored} · nome {Hex(entry.NameHash)} · dados {Hex(entry.DataHash)}";
     }
 
     private static string HumanPack(YpfPackResult result, string target, bool identical)

@@ -48,6 +48,17 @@ public sealed class LinePreviewerTests : IDisposable
     }
 
     [Fact]
+    public void Falante_da_linha_vai_para_a_previa_e_linha_sem_falante_fica_nula()
+    {
+        Save(
+            new TextUnit("a001:000001", TextUnitKind.Dialogue, "美咲", "原文", "Olá", TranslationStatus.Translated),
+            new TextUnit("a001:000002", TextUnitKind.Dialogue, "", "原文", "Oi", TranslationStatus.Translated));
+
+        Assert.Equal("美咲", LinePreviewer.Create(_project, "a001:000001").Speaker);
+        Assert.Null(LinePreviewer.Create(_project, "a001:000002").Speaker);
+    }
+
+    [Fact]
     public void Colunas_seguem_a_medida_do_charWidth_do_perfil()
     {
         SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 40, "charWidth": "halfWidthLatin" } }""");
