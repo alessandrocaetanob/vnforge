@@ -69,17 +69,7 @@ public static class YbnCommand
                 $"Não achei o {YscName} na pasta do script nem na pasta acima ({string.Join(", ", candidates.Select(Path.GetDirectoryName))}). Informe o caminho com --ysc.");
     }
 
-    private static T Read<T>(string path, Func<string, T> read)
-    {
-        try
-        {
-            return read(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            throw new VNForgeException($"Não foi possível ler \"{path}\": {ex.Message}", ex);
-        }
-    }
+    private static T Read<T>(string path, Func<string, T> read) => InputFileGuard.Read(path, () => read(path));
 
     private static string Key(uint key) => $"0x{key:X8}";
 

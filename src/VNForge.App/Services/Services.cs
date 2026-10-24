@@ -73,6 +73,16 @@ public static class ProjectLabels
         _ => strategy,
     };
 
+    /// <summary>O nome curto da estratégia de acentuação para a barra de status: "CP1252", "Shift-JIS".</summary>
+    public static string EncodingShort(string strategy) => strategy switch
+    {
+        "cp1252" => "CP1252",
+        "sjis" => "Shift-JIS",
+        "fold" => "sem acentos",
+        "remap" => "glifos remapeados",
+        _ => strategy,
+    };
+
     public static string Status(TranslationStatus status) => status switch
     {
         TranslationStatus.Untranslated => "Pendente",

@@ -9,6 +9,9 @@ namespace VNForge.Cli;
 /// <summary><c>vnf init &lt;pasta&gt; --game &lt;dir&gt;</c>: cria o projeto, detecta a engine e grava engine, versão e chave no <c>vnforge.json</c>.</summary>
 internal static class InitCommand
 {
+    private const string RemapWarning =
+        "A estratégia 'remap' ainda não tem encoder no vnf build (#66): o projeto é criado, mas o build recusa até ela entrar. Use fold, cp1252 ou sjis para construir.";
+
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     public static Command Create(VnfCli cli)
@@ -17,7 +20,7 @@ internal static class InitCommand
         var game = new Option<string>("--game")
         {
             Description = "Pasta do jogo a traduzir.",
-            HelpName = "dir",
+            HelpName = "pasta",
             Required = true,
         };
         var name = new Option<string?>("--name")
@@ -86,6 +89,7 @@ internal static class InitCommand
 
         var output = parseResult.InvocationConfiguration.Output;
         var details = result.Detection.Details;
+        var warnings = Warnings(details.GetValueOrDefault(ProjectInitializer.WarningsDetail), result.Config.Encoding.Strategy);
         if (parseResult.GetValue(cli.Options.Json))
         {
             output.WriteLine(JsonEnvelope.Result(new
@@ -96,7 +100,7 @@ internal static class InitCommand
                 version = result.Config.Engine.Version,
                 scriptKey = result.Config.Engine.ScriptKey,
                 summary = result.Detection.Summary,
-                warnings = details.GetValueOrDefault(ProjectInitializer.WarningsDetail),
+                warnings,
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -112,13 +116,23 @@ internal static class InitCommand
             output.WriteLine($"Chave XOR dos scripts: {key}{KeyOrigin(details)}");
         }
 
-        if (details.TryGetValue(ProjectInitializer.WarningsDetail, out var warnings))
+        if (warnings is not null)
         {
             output.WriteLine($"Aviso: {warnings}");
         }
 
         output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
         return ErrorHandler.OkExitCode;
+    }
+
+    private static string? Warnings(string? detected, string encodingStrategy)
+    {
+        if (encodingStrategy != "remap")
+        {
+            return detected;
+        }
+
+        return string.IsNullOrEmpty(detected) ? RemapWarning : $"{detected} {RemapWarning}";
     }
 
     private static string Versions(IReadOnlyDictionary<string, string> details)

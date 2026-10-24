@@ -21,7 +21,7 @@ internal static class ImportCommand
             HelpName = "formato",
         };
 
-        var command = new Command("import", "Importa um arquivo de revisão para text/, casando por id (só tradução, status e notas mudam; com qualquer erro nada é importado).");
+        var command = new Command("import", "Importa um arquivo de revisão para text/, casando por id; com qualquer erro nada é importado.");
         command.Arguments.Add(file);
         command.Options.Add(format);
         command.SetAction(parseResult => Run(cli, parseResult, parseResult.GetRequiredValue(file), parseResult.GetValue(format)));

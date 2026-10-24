@@ -17,7 +17,7 @@ internal static class DetectCommand
         var game = new Option<string?>("--game")
         {
             Description = "Pasta do jogo (padrão: a pasta atual).",
-            HelpName = "dir",
+            HelpName = "pasta",
         };
 
         var command = new Command("detect", "Diagnostica a engine do jogo (versões, arquivos de pacote, chave XOR) sem gravar nada.");
@@ -31,7 +31,7 @@ internal static class DetectCommand
         var folder = Path.GetFullPath(string.IsNullOrWhiteSpace(gameOption) ? "." : gameOption, cli.CurrentDirectory);
         if (!Directory.Exists(folder))
         {
-            throw new UsageException($"A pasta do jogo não existe: {folder}");
+            throw new UsageException($"A pasta do jogo não existe: {folder}", "Informe a pasta do jogo com --game <pasta>.");
         }
 
         string? engineId = null;
