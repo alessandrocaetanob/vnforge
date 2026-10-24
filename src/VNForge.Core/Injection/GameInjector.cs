@@ -555,6 +555,50 @@ public sealed class GameInjector
         }
     }
 
+    /// <summary>
+    /// Todos os backups do projeto, do mais novo para o mais antigo, restaurados ou não, para a lista da tela Build. Só lê: um manifesto ilegível
+    /// vem com <see cref="BackupInfo.Problem"/> em vez de lançar, e uma pasta sem manifesto não é um backup.
+    /// </summary>
+    public static IReadOnlyList<BackupInfo> ListBackups(ProjectFolder project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+
+        if (!Directory.Exists(project.BackupDirectory))
+        {
+            return [];
+        }
+
+        var backups = new List<BackupInfo>();
+        foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal).Reverse())
+        {
+            var manifestPath = Path.Combine(directory, BackupManifest.FileName);
+            if (!File.Exists(manifestPath))
+            {
+                continue;
+            }
+
+            var (manifest, problem) = TryReadManifest(manifestPath);
+            backups.Add(new BackupInfo(Path.GetFileName(directory), directory, manifest, BackupSize(directory), problem?.Message));
+        }
+
+        return backups;
+    }
+
+    private static long BackupSize(string directory)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                .Where(f => !string.Equals(Path.GetRelativePath(directory, f), BackupManifest.FileName, PathComparison)
+                    && !f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+                .Sum(f => new FileInfo(f).Length);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
+    }
+
     /// <summary>Backups ainda não restaurados, do mais novo para o mais antigo; um manifesto ilegível lança <see cref="InjectionException"/> ao chegar nele.</summary>
     private static IEnumerable<BackupRecord> ReadBackups(ProjectFolder project)
     {

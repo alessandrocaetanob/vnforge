@@ -51,13 +51,13 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 Assert.True(Botao(window, "Injetar no jogo").IsEffectivelyEnabled);
                 Assert.True(Botao(window, "Abrir jogo").IsEffectivelyEnabled);
                 Assert.False(Botao(window, "Restaurar originais").IsEffectivelyEnabled);
-                Assert.True(Botao(window, "Fazer o build").IsEffectivelyEnabled);
-                Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "ysbin.ypf");
+                Assert.True(Botao(window, "Novo build").IsEffectivelyEnabled);
 
                 vm.InjectCommand.Execute(null);
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
                 Assert.True(Botao(window, "Confirmar").IsEffectivelyVisible);
+                Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "ysbin.ypf");
             },
             CancellationToken.None);
     }

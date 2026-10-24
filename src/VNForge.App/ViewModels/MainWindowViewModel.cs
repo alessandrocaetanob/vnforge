@@ -67,6 +67,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             SelectedNav = editorItem;
             LineNavigation = ShowLineAsync(request);
         };
+        Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         Dashboard.StageRequested += (_, stage) => SelectedNav = stage switch
