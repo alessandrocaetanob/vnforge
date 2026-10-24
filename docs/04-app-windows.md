@@ -93,7 +93,7 @@ Só Traduzir e Conferir abrem uma tela hoje (o Editor); as outras abrem quando a
 
 - Grade virtualizada (aguenta dezenas de milhares de linhas).
 - Cores por status; ícone de aviso do QA ao lado da linha.
-- Busca e substituição em todo o projeto, com regex e prévia.
+- Busca e substituição em todo o projeto, com regex e prévia. Fica na página **Busca** do trilho (serviço `ProjectSearch` no Core). A busca procura na tradução ou no original; a substituição só altera a tradução. A prévia lista cada linha com o antes e o depois e não grava nada; **Aplicar** grava exatamente a prévia mostrada, e mudar qualquer campo a descarta. Ocorrência que encosta num marcador de controle (`\n`, `\p`, `{...}`) não conta, nem na busca nem na troca, e a linha cuja troca deixaria um marcador malformado (ou que já tem um) não é alterada: a prévia lista essas linhas com o motivo. "Palavra inteira" trata o marcador vizinho como separador e só vale na tradução (no original em japonês kana e kanji são todos letras). Cada busca tem limite de 2 s por linha, para uma regex catastrófica dar erro em vez de travar, e o botão Cancelar interrompe busca e prévia. Um padrão que só casa texto vazio (`^`, `$`) é avisado e ignorado. A linha gravada vira `translated` com origem `manual`, como uma edição no Editor; a prévia diz quantas linhas aprovadas ou revisadas perdem o status.
 - Painel da direita: original, tradução editável, sugestão da IA lado a lado, notas, histórico.
 - **Prévia da caixa de texto**: renderiza com a fonte, a largura em colunas e o limite de linhas do perfil de formatação. É aqui que ajustes de espaçamento ficam visíveis antes do build.
 - Marcadores de controle (`\p`, `\n`) aparecem como "chips" não editáveis por engano.

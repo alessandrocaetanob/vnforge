@@ -257,6 +257,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     public void SelectPrevious() => Move(-1);
 
+    /// <summary>Grava a edição pendente do painel de detalhe. Falso quando a gravação falha; sem painel aberto não há o que gravar.</summary>
+    public bool FlushPendingEdits() => Detail?.Flush() ?? true;
+
     partial void OnProjectChanged(ProjectSummary? value) => Loading = LoadAsync();
 
     partial void OnSelectedLineChanged(LineViewModel? oldValue, LineViewModel? newValue)

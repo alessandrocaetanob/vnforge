@@ -14,6 +14,7 @@ public enum NavKey
     Conference,
     Settings,
     Glossary,
+    Search,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -36,6 +37,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferência", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
+    private readonly NavItemViewModel searchItem = new(NavKey.Search, "Busca", "Icon.Search", isEnabled: false);
     private NavItemViewModel? selectedNav;
     private bool editorStale;
     private string? lineNotFoundMessage;
@@ -49,9 +51,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Tasks = new TaskBarViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), dashboardItem, editorItem, conferenceItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), dashboardItem, editorItem, conferenceItem, searchItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
+        Search.FlushPendingEdits = Editor.FlushPendingEdits;
+        Search.Applied += (_, _) => Editor.Reload();
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LineRequested += (_, request) =>
         {
@@ -82,6 +86,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    public SearchReplaceViewModel Search { get; } = new();
 
     public ConferenceViewModel Conference { get; } = new();
 
@@ -137,6 +143,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Conference => Conference,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
+                    NavKey.Search => Search,
                     _ => Start,
                 };
                 if (value.Key == NavKey.Dashboard)
@@ -212,6 +219,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentProject = summary;
         Dashboard.Project = summary;
         Editor.Project = summary;
+        Search.Project = summary;
         Settings.Load(summary);
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
         if (!Glossary.IsDirty || Glossary.Project?.Root != summary.Root)
@@ -225,6 +233,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         editorItem.IsEnabled = true;
         conferenceItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
+        searchItem.IsEnabled = true;
     }
 
     private void ShowKeyStatus(ResolvedApiKey key, string text)

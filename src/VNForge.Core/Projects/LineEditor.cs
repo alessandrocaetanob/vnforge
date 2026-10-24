@@ -8,7 +8,7 @@ namespace VNForge.Core.Projects;
 /// </summary>
 public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
 {
-    private const string ManualProvider = "manual";
+    internal const string ManualProvider = "manual";
 
     private readonly ProjectFolder project = project ?? throw new ArgumentNullException(nameof(project));
     private readonly TimeProvider clock = clock ?? throw new ArgumentNullException(nameof(clock));
