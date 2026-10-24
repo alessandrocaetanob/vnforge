@@ -16,6 +16,8 @@ public sealed class ProjectFolder
 
     public const string CharactersFileName = "characters.json";
 
+    public const string ScriptNamesFileName = "scripts.json";
+
     private const string InvalidUtf8Reason = "o arquivo não está em UTF-8 válido.";
 
     private const string TextFileExtension = ".json";
@@ -150,6 +152,23 @@ public sealed class ProjectFolder
     /// <exception cref="GlossaryFileException">Nome original vazio ou repetido; nada é gravado.</exception>
     public void SaveCharacters(IReadOnlyList<CharacterEntry> characters) =>
         WriteAtomically(CharactersPath, CharacterSerializer.Serialize(characters, CharactersPath), overwrite: true);
+
+    /// <summary><c>scripts.json</c>, os nomes legíveis dos scripts (o que a engine leu do jogo e o que o usuário escolheu). É opcional.</summary>
+    public string ScriptNamesPath => Path.Combine(Root, ScriptNamesFileName);
+
+    /// <summary>Lê o <c>scripts.json</c>; sem o arquivo, devolve <see cref="ScriptNames.Empty"/>.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public ScriptNames LoadScriptNames() =>
+        File.Exists(ScriptNamesPath) ? ScriptNamesSerializer.Parse(ReadGlossaryFile(ScriptNamesPath), ScriptNamesPath) : ScriptNames.Empty;
+
+    /// <summary>Grava o <c>scripts.json</c> (UTF-8 sem BOM, LF), ordenado pela chave; a gravação é atômica.</summary>
+    public void SaveScriptNames(ScriptNames names) =>
+        WriteAtomically(ScriptNamesPath, ScriptNamesSerializer.Serialize(names), overwrite: true);
+
+    /// <summary>Dá ao script de chave <paramref name="key"/> o nome <paramref name="name"/> e grava o <c>scripts.json</c>; texto vazio volta ao nome que a engine leu do jogo.</summary>
+    /// <exception cref="GlossaryFileException">O <c>scripts.json</c> atual é inválido; nada é gravado.</exception>
+    public void RenameScript(string key, string? name) =>
+        SaveScriptNames(LoadScriptNames().Rename(key, name));
 
     private static string ReadGlossaryFile(string path)
     {

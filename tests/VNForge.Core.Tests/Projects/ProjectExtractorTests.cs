@@ -335,6 +335,43 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Nome_legivel_do_script_fica_no_projeto()
+    {
+        WriteGame(A001Fake, DialogueHello);
+        var project = NewProject();
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+
+        Assert.Equal("Prologo", project.LoadScriptNames().DisplayName("a001"));
+    }
+
+    [Fact]
+    public void Reextracao_mantem_o_nome_que_o_usuario_deu_ao_script()
+    {
+        WriteGame(A001Fake, DialogueHello);
+        var project = NewProject();
+        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+        project.RenameScript("a001", "Capítulo 1");
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+
+        var names = project.LoadScriptNames();
+        Assert.Equal("Capítulo 1", names.DisplayName("a001"));
+        Assert.Equal("Prologo", Assert.Single(names.Entries).Detected);
+    }
+
+    [Fact]
+    public void Jogo_sem_nome_legivel_nao_cria_o_scripts_json()
+    {
+        WriteGame(A001Fake, DialogueHello);
+        var project = NewProject();
+
+        ProjectExtractor.Extract(project, [new FakeEngine(displayName: null)], TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(project.ScriptNamesPath));
+    }
+
+    [Fact]
     public void Duas_chaves_iguais_abortam_citando_os_dois_arquivos()
     {
         WriteGame(A001Fake, DialogueHello);
@@ -505,7 +542,7 @@ public sealed class ProjectExtractorTests : IDisposable
         public IReadOnlyList<IGamePatch> Patches => [];
     }
 
-    private sealed class FakeEngine : IEngine, IGameUnpacker
+    private sealed class FakeEngine(string? displayName = "Prologo") : IEngine, IGameUnpacker
     {
         private readonly FakeFormat _format = new();
 
@@ -541,7 +578,7 @@ public sealed class ProjectExtractorTests : IDisposable
                 new FakeContext(),
                 Directory.EnumerateFiles(unpackedDirectory, "*", SearchOption.AllDirectories)
                     .Order(StringComparer.Ordinal)
-                    .Select(f => new UnpackedScript(Path.GetFileName(f), f, _format, "Prologo"))
+                    .Select(f => new UnpackedScript(Path.GetFileName(f), f, _format, displayName))
                     .ToList())
             { Warnings = ["aviso do open"] };
     }
