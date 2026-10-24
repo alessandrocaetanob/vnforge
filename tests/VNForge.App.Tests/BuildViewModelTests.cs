@@ -230,8 +230,120 @@ public sealed class BuildViewModelTests : IDisposable
 
         await vm.ConfirmCommand.ExecuteAsync(null);
 
-        Assert.Contains("backup mais novo", vm.ErrorMessage);
+        Assert.Contains("Os backups mudaram depois da conferência", vm.ErrorMessage);
         Assert.Equal(Traduzido, File.ReadAllText(GameFile));
+    }
+
+    [Fact]
+    public async Task Recarregar_com_o_build_alterado_derruba_a_confirmacao_e_a_nova_injecao_usa_o_plano_novo()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        vm.InjectCommand.Execute(null);
+        Assert.True(vm.IsConfirming);
+        PutBuild(content: "traduzido-v2");
+
+        await vm.ReloadAsync();
+
+        Assert.False(vm.IsConfirming);
+        Assert.False(vm.ConfirmCommand.CanExecute(null));
+        Assert.Contains(vm.Log, l => l.Contains("confirmação foi cancelada", StringComparison.Ordinal));
+        Assert.Equal(Original, File.ReadAllText(GameFile));
+
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.Equal("traduzido-v2", File.ReadAllText(GameFile));
+    }
+
+    [Fact]
+    public async Task Recarregar_com_o_mesmo_plano_mantem_a_confirmacao_e_injeta_o_que_foi_mostrado()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        vm.InjectCommand.Execute(null);
+
+        await vm.ReloadAsync();
+
+        Assert.True(vm.IsConfirming);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        Assert.Equal(Traduzido, File.ReadAllText(GameFile));
+    }
+
+    [Fact]
+    public async Task Recarregar_com_backup_novo_derruba_a_confirmacao_da_restauracao()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        vm.RestoreCommand.Execute(null);
+        Assert.True(vm.IsConfirming);
+        var older = Directory.GetDirectories(folder.BackupDirectory).Single();
+        var newer = Path.Combine(folder.BackupDirectory, "9999-12-31_2359");
+        Directory.CreateDirectory(newer);
+        File.Copy(Path.Combine(older, "vnforge-backup.json"), Path.Combine(newer, "vnforge-backup.json"));
+        File.Copy(Path.Combine(older, Ysbin), Path.Combine(newer, Ysbin));
+
+        await vm.ReloadAsync();
+
+        Assert.False(vm.IsConfirming);
+        Assert.Equal(Traduzido, File.ReadAllText(GameFile));
+        Assert.Contains(vm.Log, l => l.Contains("confirmação foi cancelada", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Projeto_ilegivel_na_recarga_vira_mensagem_e_nao_lanca()
+    {
+        var vm = await OpenAsync();
+        Directory.Delete(folder.Root, recursive: true);
+
+        await vm.ReloadAsync();
+
+        Assert.False(vm.InjectCommand.CanExecute(null));
+        Assert.NotEmpty(vm.PlanMessage);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_durante_uma_operacao_descarta_a_saida_dela()
+    {
+        var blocking = new BlockingStarter();
+        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], blocking);
+        vm.Project = ProjectSummaryReader.Read(folder.Root);
+        await vm.ReloadAsync();
+        var running = vm.LaunchCommand.ExecuteAsync(null);
+        Assert.True(blocking.Entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.True(vm.IsBusy);
+
+        var other = SampleProjects.Create(temp.SubFolder("outro"), "Outro", TranslationStatus.Approved);
+        vm.Project = ProjectSummaryReader.Read(other);
+        blocking.Release.Set();
+        await running;
+
+        Assert.False(vm.IsBusy);
+        Assert.Empty(vm.Log);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Fechar_a_janela_no_meio_de_uma_operacao_e_recusado_com_aviso()
+    {
+        var blocking = new BlockingStarter();
+        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], blocking);
+        vm.Project = ProjectSummaryReader.Read(folder.Root);
+        await vm.ReloadAsync();
+        Assert.True(vm.TryCloseSafely());
+
+        var running = vm.LaunchCommand.ExecuteAsync(null);
+        Assert.True(blocking.Entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+
+        Assert.False(vm.TryCloseSafely());
+        Assert.Contains("Aguarde", vm.Log[^1]);
+
+        blocking.Release.Set();
+        await running;
+        Assert.True(vm.TryCloseSafely());
     }
 
     [Fact]
@@ -287,6 +399,19 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.Empty(vm.Log);
         Assert.Null(vm.ErrorMessage);
         Assert.False(vm.IsConfirming);
+    }
+
+    private sealed class BlockingStarter : IGameProcessStarter
+    {
+        public ManualResetEventSlim Entered { get; } = new();
+
+        public ManualResetEventSlim Release { get; } = new();
+
+        public void Start(string executablePath, string workingDirectory)
+        {
+            Entered.Set();
+            Release.Wait(TimeSpan.FromSeconds(10));
+        }
     }
 
     private sealed class RecordingStarter : IGameProcessStarter

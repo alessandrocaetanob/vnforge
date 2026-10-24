@@ -41,7 +41,10 @@ public sealed partial class BuildViewModel : ObservableObject
     private readonly QaEngine? qa;
     private InjectionPlan? injectionPlan;
     private RestorePlan? restorePlan;
+    private InjectionPlan? confirmedInject;
+    private RestorePlan? confirmedRestore;
     private int refreshVersion;
+    private int epoch;
 
     public BuildViewModel(BackgroundTaskService tasks, IReadOnlyList<IEngine>? engines = null, IGameProcessStarter? starter = null, QaEngine? qa = null)
     {
@@ -110,6 +113,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
     partial void OnProjectChanged(ProjectSummary? value)
     {
+        epoch++;
         Log.Clear();
         Summary.Clear();
         ErrorMessage = null;
@@ -151,6 +155,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
         ClearConfirmation();
         ErrorMessage = null;
+        var mine = epoch;
         IsBusy = true;
         try
         {
@@ -160,6 +165,11 @@ public sealed partial class BuildViewModel : ObservableObject
             AppendLog("Iniciando o build: conferindo a tradução e reconstruindo os scripts.");
             var run = await RunAsync("Build de " + summary.Name, "Reconstruindo os scripts com as traduções", ct =>
                 ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: allowWarnings, options: options, cancellationToken: ct));
+            if (mine != epoch)
+            {
+                return;
+            }
+
             if (run.Value is { } result)
             {
                 DescribeBuild(project, result);
@@ -179,7 +189,10 @@ public sealed partial class BuildViewModel : ObservableObject
         }
         catch (Exception e) when (IsExpected(e))
         {
-            Fail("Build falhou", e.Message);
+            if (mine == epoch)
+            {
+                Fail("Build falhou", e.Message);
+            }
         }
         finally
         {
@@ -198,6 +211,8 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         var replaced = plan.Files.Count(f => f.ReplacesExisting);
+        confirmedInject = plan;
+        confirmedRestore = null;
         ConfirmationText = $"Gravar {ProjectLabels.Number(plan.Files.Count)} arquivo(s) na pasta do jogo? Os {ProjectLabels.Number(replaced)} original(is) que serão trocados vão primeiro para o backup, em {plan.BackupRoot}.";
         Pending = BuildConfirmation.Inject;
     }
@@ -210,7 +225,9 @@ public sealed partial class BuildViewModel : ObservableObject
             return;
         }
 
-        ConfirmationText = $"Restaurar os originais na pasta do jogo? Devolve {ProjectLabels.Number(plan.Manifest.Files.Count)} arquivo(s) do backup em {plan.BackupDirectory} e apaga os que a injeção criou.";
+        confirmedRestore = plan;
+        confirmedInject = null;
+        ConfirmationText = $"Restaurar os originais na pasta do jogo? Devolve {ProjectLabels.Number(plan.Manifest.Files.Count)} arquivo(s) dos backups (o mais recente é {plan.BackupDirectory}) e apaga os que a injeção criou.";
         Pending = BuildConfirmation.Restore;
     }
 
@@ -218,24 +235,30 @@ public sealed partial class BuildViewModel : ObservableObject
     private async Task ConfirmAsync()
     {
         var action = Pending;
+        var inject = confirmedInject;
+        var restore = confirmedRestore;
         ClearConfirmation();
         ErrorMessage = null;
+        var mine = epoch;
         IsBusy = true;
         try
         {
             switch (action)
             {
-                case BuildConfirmation.Inject when injectionPlan is { } plan:
-                    await InjectAsync(plan);
+                case BuildConfirmation.Inject when inject is not null:
+                    await InjectAsync(inject, mine);
                     break;
-                case BuildConfirmation.Restore when restorePlan is { } plan:
-                    await RestoreAsync(plan);
+                case BuildConfirmation.Restore when restore is not null:
+                    await RestoreAsync(restore, mine);
                     break;
             }
         }
         catch (Exception e) when (IsExpected(e))
         {
-            Fail("Operação falhou", e.Message);
+            if (mine == epoch)
+            {
+                Fail("Operação falhou", e.Message);
+            }
         }
         finally
         {
@@ -260,16 +283,23 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         ErrorMessage = null;
+        var mine = epoch;
         IsBusy = true;
         try
         {
             var project = ProjectFolder.Open(summary.Root);
             var executable = await Task.Run(() => new GameLauncher(starter).Launch(project));
-            AppendLog($"Jogo aberto: {executable}");
+            if (mine == epoch)
+            {
+                AppendLog($"Jogo aberto: {executable}");
+            }
         }
         catch (Exception e) when (IsExpected(e))
         {
-            Fail("Não foi possível abrir o jogo", e.Message);
+            if (mine == epoch)
+            {
+                Fail("Não foi possível abrir o jogo", e.Message);
+            }
         }
         finally
         {
@@ -277,7 +307,7 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    private async Task InjectAsync(InjectionPlan plan)
+    private async Task InjectAsync(InjectionPlan plan, int mine)
     {
         AppendLog($"Injetando {ProjectLabels.Number(plan.Files.Count)} arquivo(s) em {plan.GameDirectory}");
         var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", _ =>
@@ -285,6 +315,11 @@ public sealed partial class BuildViewModel : ObservableObject
             EnsureBuildMatchesPlan(plan);
             return new GameInjector().Inject(plan);
         });
+        if (mine != epoch)
+        {
+            return;
+        }
+
         if (run.Value is { } result)
         {
             if (result.BackupDirectory is not null)
@@ -304,15 +339,20 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    private async Task RestoreAsync(RestorePlan plan)
+    private async Task RestoreAsync(RestorePlan plan, int mine)
     {
         var root = Project!.Root;
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
         var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", _ =>
         {
-            EnsureBackupIsLatest(root, plan);
+            EnsureBackupsMatchPlan(root, plan);
             return new GameInjector().Restore(plan);
         });
+        if (mine != epoch)
+        {
+            return;
+        }
+
         if (run.Value is { } result)
         {
             AppendLog($"Restaurado: {ProjectLabels.Number(result.Restored.Count)} arquivo(s); removido: {ProjectLabels.Number(result.Removed.Count)} arquivo(s) criado(s) pela injeção.");
@@ -344,15 +384,26 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    /// <summary>Recusa a restauração se surgiu um backup mais novo que o confirmado: restaurar o antigo devolveria o jogo a um estado velho.</summary>
-    private static void EnsureBackupIsLatest(string root, RestorePlan plan)
+    /// <summary>Recusa a restauração se os backups mudaram depois do plano confirmado (surgiu um mais novo, por exemplo): restaurar o antigo devolveria o jogo a um estado velho.</summary>
+    private static void EnsureBackupsMatchPlan(string root, RestorePlan plan)
     {
-        var latest = GameInjector.PlanRestore(ProjectFolder.Open(root));
-        if (!string.Equals(latest.BackupDirectory, plan.BackupDirectory, StringComparison.OrdinalIgnoreCase))
+        var current = GameInjector.PlanRestore(ProjectFolder.Open(root));
+        if (!SameRestore(current, plan))
         {
-            throw new InjectionException($"Há um backup mais novo ({latest.BackupDirectory}) que o confirmado. Nada foi restaurado; confira o backup e restaure de novo.");
+            throw new InjectionException($"Os backups mudaram depois da conferência (há um backup mais novo, {current.BackupDirectory}). Nada foi restaurado; confira o backup e restaure de novo.");
         }
     }
+
+    private static bool SameInjection(InjectionPlan a, InjectionPlan b) =>
+        a.GameDirectory == b.GameDirectory
+        && a.Files.Select(f => (f.RelativePath, f.BuildSha256, f.OriginalSha256, f.TargetSha256))
+            .SequenceEqual(b.Files.Select(f => (f.RelativePath, f.BuildSha256, f.OriginalSha256, f.TargetSha256)));
+
+    private static bool SameRestore(RestorePlan a, RestorePlan b) =>
+        a.GameDirectory == b.GameDirectory
+        && a.BackupDirectory == b.BackupDirectory
+        && a.Manifest.Files.SequenceEqual(b.Manifest.Files)
+        && a.BackupDirectories.OrderBy(p => p.Key, StringComparer.Ordinal).SequenceEqual(b.BackupDirectories.OrderBy(p => p.Key, StringComparer.Ordinal));
 
     /// <summary>
     /// Roda o trabalho como tarefa da barra inferior e devolve o resultado ou a falha esperada, capturados dentro do trabalho:
@@ -376,9 +427,10 @@ public sealed partial class BuildViewModel : ObservableObject
 
             return Task.CompletedTask;
         });
+        var mine = epoch;
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && !string.IsNullOrEmpty(item.Message))
+            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && !string.IsNullOrEmpty(item.Message))
             {
                 AppendLog(item.Message);
             }
@@ -402,7 +454,6 @@ public sealed partial class BuildViewModel : ObservableObject
         foreach (var archive in result.Archives)
         {
             var built = Path.Combine(result.BuildDirectory, archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
-            var original = Path.Combine(result.GameDirectory, archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
             var detail = archive.ReplacedFiles == 0
                 ? "sem alterações, idêntico ao original"
                 : $"{ProjectLabels.Number(archive.ReplacedFiles)} {Plural(archive.ReplacedFiles, "script alterado", "scripts alterados")}";
@@ -534,6 +585,20 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         Pending = BuildConfirmation.None;
         ConfirmationText = string.Empty;
+        confirmedInject = null;
+        confirmedRestore = null;
+    }
+
+    /// <summary>Chamado ao fechar a janela: enquanto uma operação escreve no jogo, fechar a deixaria pela metade. Devolve <c>false</c> e avisa na página.</summary>
+    public bool TryCloseSafely()
+    {
+        if (!IsBusy)
+        {
+            return true;
+        }
+
+        Fail("Aguarde", "Uma operação está escrevendo no jogo. Feche o VNForge quando ela terminar, para não deixar o jogo pela metade.");
+        return false;
     }
 
     /// <summary>Lê de novo o build, o plano de injeção e o backup; a janela chama ao abrir a página, porque o jogo e o <c>build/</c> podem ter mudado fora do app. Trocar de projeto só limpa o estado; não lê o disco.</summary>
@@ -550,7 +615,7 @@ public sealed partial class BuildViewModel : ObservableObject
             {
                 state = await Task.Run(() => ReadState(root));
             }
-            catch (Exception e) when (IsExpected(e))
+            catch (Exception e) when (e is not OperationCanceledException)
             {
                 state = ProjectState.Unreadable(e.Message);
             }
@@ -568,6 +633,7 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         injectionPlan = state?.Plan;
         restorePlan = state?.Restore;
+        DropStaleConfirmation();
         GameFolder = state?.GameFolder ?? string.Empty;
         PlanMessage = state?.PlanMessage ?? string.Empty;
         BackupLocation = state?.BackupLocation ?? string.Empty;
@@ -579,6 +645,22 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         UpdateCommands();
+    }
+
+    /// <summary>O plano lido de novo substituiu o que o usuário viu: a confirmação pendente é de outro plano e cai, para ele conferir de novo.</summary>
+    private void DropStaleConfirmation()
+    {
+        var stale = Pending switch
+        {
+            BuildConfirmation.Inject => injectionPlan is null || confirmedInject is null || !SameInjection(injectionPlan, confirmedInject),
+            BuildConfirmation.Restore => restorePlan is null || confirmedRestore is null || !SameRestore(restorePlan, confirmedRestore),
+            _ => false,
+        };
+        if (stale)
+        {
+            ClearConfirmation();
+            AppendLog("A confirmação foi cancelada: o que seria gravado mudou desde que você pediu. Confira a lista e peça de novo.");
+        }
     }
 
     private static ProjectState ReadState(string root)

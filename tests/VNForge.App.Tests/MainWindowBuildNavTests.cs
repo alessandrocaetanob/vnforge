@@ -12,6 +12,16 @@ public class MainWindowBuildNavTests
         new(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(pickerAnswer), new FixedClock(Now)));
 
     [Fact]
+    public void Janela_fecha_quando_nenhuma_operacao_do_Build_esta_rodando()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
+        Assert.True(vm.TryClose());
+        Assert.IsType<StartViewModel>(vm.CurrentPage);
+    }
+
+    [Fact]
     public async Task Build_fica_desabilitado_ate_abrir_um_projeto_e_depois_navega_para_a_pagina()
     {
         using var temp = new TempFolder();

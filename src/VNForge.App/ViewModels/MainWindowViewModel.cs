@@ -139,6 +139,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentPage = wizard;
     }
 
+    /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a página Build com o aviso.</summary>
+    public bool TryClose()
+    {
+        if (Build.TryCloseSafely())
+        {
+            return true;
+        }
+
+        SelectedNav = buildItem;
+        return false;
+    }
+
     private void SetProject(ProjectSummary summary)
     {
         CurrentProject = summary;

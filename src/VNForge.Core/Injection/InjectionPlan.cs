@@ -28,8 +28,11 @@ public sealed record PlannedFile(
 /// <param name="BackupDirectory">Pasta <c>backup/AAAA-MM-DD_HHmm</c> criada; nula quando não havia o que injetar.</param>
 public sealed record InjectionResult(string GameDirectory, string? BackupDirectory, IReadOnlyList<string> Written, int UnchangedCount);
 
-/// <summary>O que <see cref="GameInjector.Restore"/> vai devolver: o backup mais recente.</summary>
-public sealed record RestorePlan(string GameDirectory, string BackupDirectory, BackupManifest Manifest);
+/// <summary>O que <see cref="GameInjector.Restore"/> vai devolver.</summary>
+/// <param name="BackupDirectory">O backup mais recente.</param>
+/// <param name="Manifest">Uma entrada por arquivo que alguma injeção mexeu: a mais nova de cada um, de qualquer backup da mesma pasta de jogo.</param>
+/// <param name="BackupDirectories">Para cada caminho de <paramref name="Manifest"/>, a pasta do backup que guarda a cópia do original.</param>
+public sealed record RestorePlan(string GameDirectory, string BackupDirectory, BackupManifest Manifest, IReadOnlyDictionary<string, string> BackupDirectories);
 
 /// <param name="Kept">Arquivos criados pela injeção que mudaram depois dela: o restore os deixa em paz.</param>
 public sealed record RestoreResult(string GameDirectory, string BackupDirectory, IReadOnlyList<string> Restored, IReadOnlyList<string> Removed, IReadOnlyList<string> Kept);
