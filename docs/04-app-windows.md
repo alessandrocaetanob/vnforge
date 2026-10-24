@@ -118,4 +118,5 @@ Log em tempo real, resumo do que mudou (scripts reconstruídos, tamanho do YPF n
 ## Em aberto
 
 - [x] Telas da primeira versão (D4, #97, 2026-10-24): **Início e Editor** entram no M3 (#98, #99, #100). Painel (#102), Conferência (#106), Build e injeção (#103) e Ajustes (#110) ficam no M4; até lá, o resto vai pela CLI. O trilho de navegação mostra só Início e Editor no M3.
+- [x] Ajustes (#110, 2026-10-24): provedor Claude com os outros em "em breve", modelo com preço, chave só no cofre DPAPI (`apikey.dat` em `%APPDATA%/VNForge`), esforço, lote, concorrência (`app.json`, do usuário), guia de estilo (`style.md`), acentuação e as regras de normalização, espaçamento, aspas, reticências e quebra de linha com prévia ao vivo. Modelo, esforço, lote e acentuação gravam em `vnforge.json`; as regras em `formatting.json`. Ficam para depois: estimativa de custo das linhas pendentes, "Testar conexão", substituições personalizadas e a tabela do `remap`.
 - [ ] A prévia deve usar a fonte real do jogo? (Dá para ler o nome da fonte da configuração do YU-RIS.)

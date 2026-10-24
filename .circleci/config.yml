@@ -169,6 +169,14 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
     steps:
+      - run:
+          name: Confere o GITHUB_TOKEN
+          command: |
+            # O pacote só sai como release do GitHub: sem o token, falha antes de compilar.
+            if [ -z "${GITHUB_TOKEN:-}" ]; then
+              echo "GITHUB_TOKEN ausente no contexto github-release: nada foi publicado." >&2
+              exit 1
+            fi
       - checkout
       - run:
           name: Empacota a CLI (win-x64 e linux-x64)
@@ -205,21 +213,19 @@ jobs:
             version="${CIRCLE_TAG#v}"
             dir="$(mktemp -d)"; tar -xzf "dist/vnf-$version-linux-x64.tar.gz" -C "$dir" --strip-components=1
             test "$("$dir/vnf" --version)" = "vnf $version"
-      - store_artifacts:
-          path: dist
       - run:
           name: Release do GitHub
           command: |
             set -euo pipefail
-            # Sem GITHUB_TOKEN no projeto do CircleCI, o pacote fica só como artefato do job.
-            if [ -z "${GITHUB_TOKEN:-}" ]; then
-              echo "GITHUB_TOKEN ausente: sem release do GitHub, o pacote está nos artefatos do job."
-              exit 0
-            fi
             api="https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
             auth="Authorization: Bearer $GITHUB_TOKEN"
-            response="$(curl -fsS -X POST -H "$auth" "$api/releases" \
-              -d "{\"tag_name\":\"$CIRCLE_TAG\",\"name\":\"$CIRCLE_TAG\",\"generate_release_notes\":true}")"
+            # A release criada pela interface do GitHub já existe e recebe os arquivos;
+            # sem ela, o job cria uma, como pré-release quando a tag tem sufixo (v1.2.3-rc1).
+            if ! response="$(curl -fsS -H "$auth" "$api/releases/tags/$CIRCLE_TAG")"; then
+              prerelease=false; if [[ "$CIRCLE_TAG" == *-* ]]; then prerelease=true; fi
+              response="$(curl -fsS -X POST -H "$auth" "$api/releases" \
+                -d "{\"tag_name\":\"$CIRCLE_TAG\",\"name\":\"$CIRCLE_TAG\",\"prerelease\":$prerelease,\"generate_release_notes\":true}")"
+            fi
             upload="$(echo "$response" | sed -n 's/.*"upload_url": *"\([^{"]*\).*/\1/p' | head -n1)"
             for f in dist/*; do
               curl -fsS -X POST -H "$auth" -H "Content-Type: application/octet-stream" \
@@ -248,7 +254,10 @@ workflows:
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/
       # Só tag de versão (v1.2.3 ou v1.2.3-rc1) e só depois de linux e windows verdes.
+      # O GITHUB_TOKEN fica no contexto github-release, que só este job recebe: os jobs de PR
+      # rodam código de qualquer branch e não podem ver um token com escrita no repositório.
       - publicar:
+          context: github-release
           requires:
             - linux
             - windows
