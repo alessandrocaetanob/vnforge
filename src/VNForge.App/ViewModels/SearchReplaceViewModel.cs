@@ -229,9 +229,9 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         var root = Project.Root;
         ReplaceResult? result = null;
         await RunAsync(
-            async _ =>
+            async token =>
             {
-                result = await Task.Run(() => ProjectSearch.Apply(ProjectFolder.Open(root), planned, clock));
+                result = await Task.Run(() => ProjectSearch.Apply(ProjectFolder.Open(root), planned, clock), token);
                 return () =>
                 {
                     preview = null;
@@ -332,12 +332,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
 
     private static string DescribePreview(ReplacePreview computed)
     {
-        var parts = new List<string>
-        {
-            computed.IsEmpty
-                ? computed.EmptyMatchLines > 0 && computed.SkippedLines == 0 ? EmptyOnly(computed.EmptyMatchLines) : "Nenhuma linha muda."
-                : $"A substituição altera {Plural(computed.Items.Count, "linha", "linhas")} ({Plural(computed.TotalReplacements, "ocorrência", "ocorrências")}). Nada foi gravado ainda.",
-        };
+        var parts = new List<string> { DescribeOutcome(computed) };
 
         if (computed.ApprovedLines > 0 || computed.ReviewedLines > 0)
         {
@@ -373,7 +368,17 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         return string.Join(' ', parts);
     }
 
-    private static IReadOnlyList<string> DescribeSkipped(ReplacePreview computed)
+    private static string DescribeOutcome(ReplacePreview computed)
+    {
+        if (!computed.IsEmpty)
+        {
+            return $"A substituição altera {Plural(computed.Items.Count, "linha", "linhas")} ({Plural(computed.TotalReplacements, "ocorrência", "ocorrências")}). Nada foi gravado ainda.";
+        }
+
+        return computed.EmptyMatchLines > 0 && computed.SkippedLines == 0 ? EmptyOnly(computed.EmptyMatchLines) : "Nenhuma linha muda.";
+    }
+
+    private static List<string> DescribeSkipped(ReplacePreview computed)
     {
         var notes = computed.Skipped
             .Take(SkippedNotesLimit)
