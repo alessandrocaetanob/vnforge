@@ -58,7 +58,18 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     public string Id => unit.Id;
 
     /// <summary>A unidade como está gravada em <c>text/&lt;script&gt;.json</c>: a recebida na criação, trocada a cada gravação bem-sucedida.</summary>
-    public TextUnit Saved { get; private set; }
+    public TextUnit Saved
+    {
+        get;
+        private set
+        {
+            field = value;
+            SavedChanged?.Invoke(value);
+        }
+    }
+
+    /// <summary>Disparado a cada gravação bem-sucedida, com a unidade como ficou no arquivo; o Editor usa para atualizar a linha da grade.</summary>
+    public event Action<TextUnit>? SavedChanged;
 
     public string ScriptKey => scriptKey;
 

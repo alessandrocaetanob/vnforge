@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using VNForge.App.Services;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
@@ -6,11 +7,30 @@ using VNForge.Core.Text;
 namespace VNForge.App.ViewModels;
 
 /// <summary>
-/// Uma linha da grade. Só leitura e sem notificação de mudança: a grade pode ter dezenas de milhares delas, então os membros são getters baratos.
+/// Uma linha da grade. A grade pode ter dezenas de milhares delas, então os membros são getters baratos e a única notificação é a de <see cref="Update"/>,
+/// que o Editor chama quando o painel de detalhe grava a linha.
 /// </summary>
-public sealed class LineViewModel(LineEntry entry)
+public sealed class LineViewModel(LineEntry entry) : INotifyPropertyChanged
 {
-    public LineEntry Entry { get; } = entry;
+    private static readonly string[] Changeable =
+    [
+        nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel),
+        nameof(HasWarning), nameof(HasError), nameof(IssueLabel),
+    ];
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public LineEntry Entry { get; private set; } = entry;
+
+    /// <summary>Troca a linha pela versão gravada (tradução, status e ocorrências do QA) e avisa a grade.</summary>
+    public void Update(LineEntry updated)
+    {
+        Entry = updated;
+        foreach (var name in Changeable)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+    }
 
     public int Number => Entry.Number;
 
