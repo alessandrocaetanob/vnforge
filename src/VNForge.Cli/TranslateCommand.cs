@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Spectre.Console;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using VNForge.AI.Claude;
@@ -76,6 +77,7 @@ internal static class TranslateCommand
 
         var gate = new object();
         var summary = new RunSummary();
+        var reporter = new BatchReporter(settings.Model, pending.Count, settings.BatchSize, () => (provider as ClaudeTranslationProvider)?.Usage);
 
         TranslationBatch BuildBatch(IReadOnlyList<TextUnit> lines)
         {
@@ -90,35 +92,32 @@ internal static class TranslateCommand
             lock (gate)
             {
                 var origin = new TranslationOrigin(ProviderName, settings.Model, DateTimeOffset.UtcNow);
-                var lastKey = selection.ApplyAndSave(project, results, (result, unit) =>
-                {
-                    if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
-                    {
-                        summary.Refused.Add(result.Id);
-                        return null;
-                    }
-
-                    summary.Translated++;
-                    return unit with
-                    {
-                        Translation = result.Translation,
-                        Status = TranslationStatus.Machine,
-                        Origin = origin,
-                        PreviousSource = null,
-                    };
-                });
+                var lastKey = selection.ApplyAndSave(project, results, (result, unit) => Apply(summary, origin, result, unit));
                 summary.Handled += results.Count;
-                if (!json)
+                if (reporter.IsLive)
+                {
+                    reporter.BatchDone(summary.Handled);
+                }
+                else if (!json)
                 {
                     error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
                 }
             }
         }
 
+        if (cli.CanAnimate)
+        {
+            cli.Ansi.MarkupLine($"Traduzindo com [{CliPalette.Hex(CliPalette.Accent)}]{CliViews.Escape(settings.Model)}[/] · esforço {settings.Effort.ToString().ToLowerInvariant()}");
+        }
+
         TranslationRunResult run;
         try
         {
-            run = await runner.RunAsync(pending, BuildBatch, OnBatchTranslated, null, token).ConfigureAwait(false);
+            run = await reporter.RunAsync(
+                cli.Ansi,
+                cli.CanAnimate,
+                "Traduzindo",
+                () => runner.RunAsync(pending, BuildBatch, OnBatchTranslated, null, token)).ConfigureAwait(false);
         }
         finally
         {
@@ -149,6 +148,25 @@ internal static class TranslateCommand
         }
 
         return WriteResult(output, json, settings, pending.Count, summary);
+    }
+
+    /// <summary>Grava a tradução na linha como <c>machine</c>; devolve <c>null</c> para a linha recusada ou vazia, que fica como estava.</summary>
+    private static TextUnit? Apply(RunSummary summary, TranslationOrigin origin, TranslationResult result, TextUnit unit)
+    {
+        if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
+        {
+            summary.Refused.Add(result.Id);
+            return null;
+        }
+
+        summary.Translated++;
+        return unit with
+        {
+            Translation = result.Translation,
+            Status = TranslationStatus.Machine,
+            Origin = origin,
+            PreviousSource = null,
+        };
     }
 
     private static int WriteDryRun(

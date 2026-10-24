@@ -11,12 +11,16 @@ namespace VNForge.Cli;
 /// <param name="Width">Largura fixa em colunas; <c>null</c> deixa o Spectre medir o terminal.</param>
 /// <param name="Ansi">Suporte a ANSI quando a saída é rica.</param>
 /// <param name="ColorSystem">Sistema de cores quando a saída é rica.</param>
+/// <param name="Animate">Pode redesenhar a tela. Falso com o erro padrão redirecionado (<c>vnf translate 2&gt; progresso.log</c>): a barra iria para o terminal e o log por lote sumiria do arquivo.</param>
+/// <param name="Interaction">Se o Spectre pode redesenhar a tela (barras ao vivo) quando a saída é rica; os testes forçam <see cref="InteractionSupport.Yes"/>.</param>
 public sealed record CliTerminal(
     bool IsInteractive,
     bool NoColorEnvironment,
     int? Width = null,
     AnsiSupport Ansi = AnsiSupport.Detect,
-    ColorSystemSupport ColorSystem = ColorSystemSupport.Detect)
+    ColorSystemSupport ColorSystem = ColorSystemSupport.Detect,
+    InteractionSupport Interaction = InteractionSupport.Detect,
+    bool Animate = true)
 {
     /// <summary>Saída redirecionada: texto simples. É o que os testes usam por padrão.</summary>
     public static CliTerminal Plain(int? width = null) => new(IsInteractive: false, NoColorEnvironment: false, width);
@@ -39,6 +43,6 @@ public sealed record CliTerminal(
 
         var interactive = ReferenceEquals(output, Console.Out) && !Console.IsOutputRedirected;
         var noColor = !string.IsNullOrEmpty(getEnvironmentVariable("NO_COLOR"));
-        return new CliTerminal(interactive, noColor);
+        return new CliTerminal(interactive, noColor, Animate: !Console.IsErrorRedirected);
     }
 }
