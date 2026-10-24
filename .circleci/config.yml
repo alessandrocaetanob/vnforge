@@ -33,7 +33,9 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
     steps:
-      - checkout
+      # O blame do Sonar precisa dos blobs do histórico; o padrão (blobless) não os baixa.
+      - checkout:
+          method: full
       - run:
           name: Instala o SDK do global.json
           command: |
