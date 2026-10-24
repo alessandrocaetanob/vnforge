@@ -54,18 +54,22 @@ public static class RunSummaries
         var scripts = $"{Number(result.RebuiltScripts.Count)} reconstruídos de {Number(result.ScriptCount)}";
         grid.AddRow(Label("Scripts"), Value(result.ReusedScripts > 0 ? $"{scripts} · {Number(result.ReusedScripts)} reaproveitados" : scripts));
         grid.AddRow(Label("Linhas"), Value($"{Number(result.TotalLines)} trocadas"));
-        foreach (var archive in result.Archives)
+        foreach (var gamePath in result.Archives.Select(archive => archive.GamePath))
         {
-            var built = SizeOf(Path.Combine(result.BuildDirectory, archive.GamePath));
-            var original = SizeOf(Path.Combine(result.GameDirectory, archive.GamePath));
+            var built = SizeOf(Path.Combine(result.BuildDirectory, gamePath));
+            var original = SizeOf(Path.Combine(result.GameDirectory, gamePath));
             var text = built is { } size ? FormatBytes(size) : "não gravado";
-            grid.AddRow(Label(archive.GamePath), Value(original is { } before ? $"{text} (original {FormatBytes(before)})" : text));
+            grid.AddRow(Label(gamePath), Value(original is { } before ? $"{text} (original {FormatBytes(before)})" : text));
         }
 
         var replaced = result.Encoding.Replaced.Count;
-        var accents = replaced == 0
-            ? $"{result.Encoding.Strategy} · nenhum caractere trocado"
-            : $"{result.Encoding.Strategy} · {Number(replaced)} {(replaced == 1 ? "caractere trocado" : "caracteres trocados")}";
+        var swaps = replaced switch
+        {
+            0 => "nenhum caractere trocado",
+            1 => "1 caractere trocado",
+            _ => $"{Number(replaced)} caracteres trocados",
+        };
+        var accents = $"{result.Encoding.Strategy} · {swaps}";
         grid.AddRow(Label("Acentuação"), Value(accents));
         grid.AddRow(Label("Duração"), Value(FormatDuration(elapsed)));
         return CliViews.NewPanel("Resultado do build", grid);
@@ -184,7 +188,7 @@ public static class RunSummaries
 
     private static Text Value(string text) => new(text);
 
-    private static IRenderable WithHeader(string header, Table table, string? footer)
+    private static Rows WithHeader(string header, Table table, string? footer)
     {
         var rows = new List<IRenderable> { new Text(header), table };
         if (footer is not null)

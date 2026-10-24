@@ -37,12 +37,12 @@ internal static class ExtractCommand
             sink => Task.FromResult(ProjectExtractor.Extract(
                 project,
                 KnownEngines.All,
-                token,
-                new InlineProgress<ScriptWorkProgress>(progress => sink.Scripts(progress, "gravando text/ e o estado do projeto"))))).ConfigureAwait(false);
+                new InlineProgress<ScriptWorkProgress>(progress => sink.Scripts(progress, "gravando text/ e o estado do projeto")),
+                token))).ConfigureAwait(false);
 
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 gameDirectory = result.GameDirectory,
                 cacheDirectory = result.CacheDirectory,
@@ -66,13 +66,13 @@ internal static class ExtractCommand
 
         foreach (var archive in result.Archives)
         {
-            output.WriteLine($"Descompactado: {archive.GamePath} ({Number(archive.FileCount)} {Plural(archive.FileCount, "arquivo", "arquivos")}) em {Path.Combine(result.CacheDirectory, archive.Directory.Replace('/', Path.DirectorySeparatorChar))}");
+            await output.WriteLineAsync($"Descompactado: {archive.GamePath} ({Number(archive.FileCount)} {Plural(archive.FileCount, "arquivo", "arquivos")}) em {Path.Combine(result.CacheDirectory, archive.Directory.Replace('/', Path.DirectorySeparatorChar))}");
         }
 
-        output.WriteLine(Summary(result));
+        await output.WriteLineAsync(Summary(result));
         if (result.Reextraction is { } r)
         {
-            output.WriteLine($"Re-extração: {Number(r.Kept)} mantidas, {Number(r.Outdated)} desatualizadas (original mudou; tradução antiga guardada), {Number(r.Added)} novas, {Number(r.Removed)} removidas.");
+            await output.WriteLineAsync($"Re-extração: {Number(r.Kept)} mantidas, {Number(r.Outdated)} desatualizadas (original mudou; tradução antiga guardada), {Number(r.Added)} novas, {Number(r.Removed)} removidas.");
         }
 
         WriteWarnings(output, result);

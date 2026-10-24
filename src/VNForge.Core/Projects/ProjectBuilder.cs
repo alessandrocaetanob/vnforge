@@ -73,7 +73,7 @@ public static class ProjectBuilder
     /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null, CancellationToken cancellationToken = default, IProgress<ScriptWorkProgress>? progress = null)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null, IProgress<ScriptWorkProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);

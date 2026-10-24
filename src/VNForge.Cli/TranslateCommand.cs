@@ -92,23 +92,7 @@ internal static class TranslateCommand
             lock (gate)
             {
                 var origin = new TranslationOrigin(ProviderName, settings.Model, DateTimeOffset.UtcNow);
-                var lastKey = selection.ApplyAndSave(project, results, (result, unit) =>
-                {
-                    if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
-                    {
-                        summary.Refused.Add(result.Id);
-                        return null;
-                    }
-
-                    summary.Translated++;
-                    return unit with
-                    {
-                        Translation = result.Translation,
-                        Status = TranslationStatus.Machine,
-                        Origin = origin,
-                        PreviousSource = null,
-                    };
-                });
+                var lastKey = selection.ApplyAndSave(project, results, (result, unit) => Apply(summary, origin, result, unit));
                 summary.Handled += results.Count;
                 if (reporter.IsLive)
                 {
@@ -164,6 +148,25 @@ internal static class TranslateCommand
         }
 
         return WriteResult(output, json, settings, pending.Count, summary);
+    }
+
+    /// <summary>Grava a tradução na linha como <c>machine</c>; devolve <c>null</c> para a linha recusada ou vazia, que fica como estava.</summary>
+    private static TextUnit? Apply(RunSummary summary, TranslationOrigin origin, TranslationResult result, TextUnit unit)
+    {
+        if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
+        {
+            summary.Refused.Add(result.Id);
+            return null;
+        }
+
+        summary.Translated++;
+        return unit with
+        {
+            Translation = result.Translation,
+            Status = TranslationStatus.Machine,
+            Origin = origin,
+            PreviousSource = null,
+        };
     }
 
     private static int WriteDryRun(

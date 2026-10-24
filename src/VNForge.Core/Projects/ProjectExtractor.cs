@@ -45,12 +45,12 @@ public static class ProjectExtractor
     /// <summary>Extrai o jogo do <paramref name="project"/>.</summary>
     /// <param name="project">Projeto aberto; <c>game.path</c> do <c>vnforge.json</c> é relativo à pasta do projeto quando não é absoluto.</param>
     /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
-    /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento antes da gravação do texto não deixa <c>text/</c> pela metade.</param>
     /// <param name="progress">Recebe um relato a cada script lido e um final; o primeiro só chega depois de descompactar os pacotes.</param>
+    /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento antes da gravação do texto não deixa <c>text/</c> pela metade.</param>
     /// <exception cref="VNForgeException">
     /// Engine desconhecida ou sem suporte à extração, pasta do jogo inexistente, <c>.cache/</c> dentro do jogo, script ilegível ou duas chaves iguais. A mensagem, em português, cita o script ou o arquivo.
     /// </exception>
-    public static ExtractionResult Extract(ProjectFolder project, IReadOnlyList<IEngine> engines, CancellationToken cancellationToken = default, IProgress<ScriptWorkProgress>? progress = null)
+    public static ExtractionResult Extract(ProjectFolder project, IReadOnlyList<IEngine> engines, IProgress<ScriptWorkProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);

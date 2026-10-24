@@ -33,7 +33,7 @@ void RestoreCursor()
 {
     if (!Console.IsOutputRedirected && !Console.IsErrorRedirected && Environment.GetEnvironmentVariable("TERM") != "dumb")
     {
-        Console.Out.Write("[?25h");
+        Console.Out.Write("\u001B[?25h");
         Console.Out.Flush();
     }
 }

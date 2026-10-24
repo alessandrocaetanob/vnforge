@@ -86,7 +86,7 @@ internal static class BuildCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 gameDirectory = result.GameDirectory,
                 buildDirectory = result.BuildDirectory,
@@ -116,10 +116,10 @@ internal static class BuildCommand
             var detail = archive.ReplacedFiles == 0
                 ? "sem alterações, idêntico ao original"
                 : $"{Number(archive.ReplacedFiles)} {Plural(archive.ReplacedFiles, "script alterado", "scripts alterados")}";
-            output.WriteLine($"Gravado: {path} ({detail})");
+            await output.WriteLineAsync($"Gravado: {path} ({detail})");
         }
 
-        output.WriteLine(Summary(result));
+        await output.WriteLineAsync(Summary(result));
         WriteDetails(output, result);
         return ErrorHandler.OkExitCode;
     }
