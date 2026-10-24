@@ -572,6 +572,7 @@ public sealed class BuildViewModelTests : IDisposable
         await vm.ReloadAsync();
         Assert.Equal(BuildResultTone.Info, vm.ResultTone);
         Assert.Equal("Build pronto, ainda não injetado.", vm.ResultTitle);
+        Assert.Equal("O jogo continua com os arquivos originais.", vm.ResultText);
         Assert.Equal("Icon.Info", vm.ResultIconKey);
 
         vm.InjectCommand.Execute(null);

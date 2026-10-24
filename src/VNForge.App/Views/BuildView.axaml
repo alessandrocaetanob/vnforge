@@ -32,8 +32,8 @@
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center">
-            <Run FontWeight="SemiBold" Text="{Binding QaBannerTitle}"/>
-            <Run Text="{Binding QaBannerDetail}"/>
+            <Run FontWeight="SemiBold" Text="{Binding QaBannerTitle, Mode=OneWay}"/>
+            <Run Text="{Binding QaBannerDetail, Mode=OneWay}"/>
           </TextBlock>
           <Button Grid.Column="2" Classes="sm accent" Command="{Binding ShowErrorsCommand}" Content="Ver erros"
                   VerticalAlignment="Center" AutomationProperties.Name="Ver erros"/>
@@ -101,8 +101,8 @@
                   <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
                             Data="{Binding ResultIconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
                   <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-                    <Run FontWeight="SemiBold" Text="{Binding ResultTitle}"/>
-                    <Run Text="{Binding ResultText}"/>
+                    <Run FontWeight="SemiBold" Text="{Binding ResultTitle, Mode=OneWay}"/>
+                    <Run Text="{Binding ResultText, Mode=OneWay}"/>
                   </TextBlock>
                 </Grid>
               </Border>
@@ -162,8 +162,8 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:BuildLogLine">
                         <TextBlock Classes="mono secondary" LineHeight="20" TextWrapping="Wrap">
-                          <Run FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Time}"/>
-                          <Run Text="{Binding Message, StringFormat='  {0}'}"/>
+                          <Run FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Time, Mode=OneWay}"/>
+                          <Run Text="{Binding Message, StringFormat='  {0}', Mode=OneWay}"/>
                         </TextBlock>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>

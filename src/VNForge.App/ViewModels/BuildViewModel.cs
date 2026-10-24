@@ -578,7 +578,7 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         foreach (var archive in result.Archives)
         {
-            var built = Path.Combine(result.BuildDirectory, archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
+            var built = Path.Combine("build", archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
             var detail = archive.ReplacedFiles == 0
                 ? "sem alterações, idêntico ao original"
                 : $"{ProjectLabels.Number(archive.ReplacedFiles)} {Plural(archive.ReplacedFiles, "script alterado", "scripts alterados")}";
@@ -617,7 +617,7 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         AppendLog(BuildSummaryLine(result));
-        AppendLog($"Build concluído em {FormatDuration(elapsed)} → {result.BuildDirectory}");
+        AppendLog($"Build concluído em {FormatDuration(elapsed)} → build{Path.DirectorySeparatorChar}");
         ShowFacts(project, result);
     }
 
@@ -956,7 +956,10 @@ public sealed partial class BuildViewModel : ObservableObject
         }
         else if (state.Plan.Files.Count > 0)
         {
-            SetResult(BuildResultTone.Info, "Build pronto, ainda não injetado.", state.PlanMessage);
+            SetResult(
+                BuildResultTone.Info,
+                "Build pronto, ainda não injetado.",
+                state.Restore is null ? "O jogo continua com os arquivos originais." : state.PlanMessage);
         }
         else if (state.Restore is { } restore)
         {
