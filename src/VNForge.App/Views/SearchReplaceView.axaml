@@ -13,9 +13,9 @@
     </StackPanel>
 
     <Border Grid.Row="1" Classes="panel" Padding="16">
-      <!-- Travado durante a operação: mudar um campo no meio de uma gravação esconderia o resultado dela. -->
-      <StackPanel Spacing="12" IsEnabled="{Binding !IsBusy}">
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+      <StackPanel Spacing="12">
+        <!-- Os campos travam durante a operação: mudar um no meio de uma gravação esconderia o resultado dela. Os botões seguem os próprios comandos. -->
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsEnabled="{Binding !IsBusy}">
           <StackPanel Spacing="4">
             <TextBlock Classes="overline" Text="PROCURAR"/>
             <TextBox Text="{Binding Pattern}" PlaceholderText="Texto ou expressão regular" AutomationProperties.Name="Texto a procurar"/>
@@ -27,10 +27,10 @@
           </StackPanel>
         </Grid>
 
-        <StackPanel Orientation="Horizontal" Spacing="20">
+        <StackPanel Orientation="Horizontal" Spacing="20" IsEnabled="{Binding !IsBusy}">
           <CheckBox Content="Expressão regular" IsChecked="{Binding UseRegex}"/>
           <CheckBox Content="Diferenciar maiúsculas" IsChecked="{Binding MatchCase}"/>
-          <CheckBox Content="Palavra inteira" IsChecked="{Binding WholeWord}"/>
+          <CheckBox Content="Palavra inteira (só na tradução)" IsChecked="{Binding WholeWord}" IsEnabled="{Binding CanWholeWord}"/>
           <CheckBox Content="Procurar no original (sem substituir)" IsChecked="{Binding SearchSource}"/>
         </StackPanel>
 
@@ -47,6 +47,9 @@
           <Button Classes="accent" Command="{Binding ApplyCommand}" AutomationProperties.Name="Aplicar substituição">
             <TextBlock Text="Aplicar" FontWeight="SemiBold"/>
           </Button>
+          <Button Classes="subtle" Command="{Binding CancelCommand}" IsVisible="{Binding IsCancellable}" AutomationProperties.Name="Cancelar a busca">
+            <TextBlock Text="Cancelar"/>
+          </Button>
         </StackPanel>
         <TextBlock Classes="caption secondary" TextWrapping="Wrap"
                    Text="Aplicar grava só as linhas da prévia. Uma linha editada vira Traduzida (o mesmo que editar no Editor) e perde a aprovação."/>
@@ -62,6 +65,13 @@
       </Border>
       <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Summary}"
                  IsVisible="{Binding Summary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      <ItemsControl ItemsSource="{Binding SkippedNotes}" IsVisible="{Binding HasSkippedNotes}" AutomationProperties.Name="Linhas deixadas como estão">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <TextBlock Classes="caption secondary" Text="{Binding}" TextWrapping="Wrap"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
     </StackPanel>
 
     <Border Grid.Row="3" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Resultados" IsVisible="{Binding HasResults}">
@@ -87,8 +97,8 @@
                   <TextBlock Classes="mono" Text="{Binding Location}" TextTrimming="CharacterEllipsis"/>
                   <TextBlock Classes="caption secondary" Text="{Binding CountText}"/>
                 </StackPanel>
-                <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding Before}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"/>
-                <TextBlock Grid.Column="2" Classes="body-sm" Text="{Binding After}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding BeforeExcerpt}" TextWrapping="Wrap" ToolTip.Tip="{Binding Before}"/>
+                <TextBlock Grid.Column="2" Classes="body-sm" Text="{Binding AfterExcerpt}" TextWrapping="Wrap" ToolTip.Tip="{Binding After}"
                            IsVisible="{Binding HasAfter}"/>
               </Grid>
             </DataTemplate>

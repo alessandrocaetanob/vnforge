@@ -175,6 +175,140 @@ public class SearchReplaceViewModelTests
     }
 
     [Fact]
+    public void Procurar_no_original_desliga_palavra_inteira_e_nao_a_passa_para_a_busca()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
+        vm.WholeWord = true;
+        Assert.True(vm.CanWholeWord);
+
+        vm.SearchSource = true;
+
+        Assert.False(vm.CanWholeWord);
+        Assert.False(vm.WholeWord);
+    }
+
+    [Fact]
+    public async Task Palavra_inteira_vale_na_traducao()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
+        vm.Pattern = "tradu";
+        vm.WholeWord = true;
+
+        await vm.FindCommand.ExecuteAsync(null);
+        Assert.Empty(vm.Results);
+
+        vm.Pattern = "tradução";
+        await vm.FindCommand.ExecuteAsync(null);
+        Assert.Single(vm.Results);
+    }
+
+    [Fact]
+    public async Task Cancelar_interrompe_a_busca_e_nao_deixa_resultado()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        using var comecou = new ManualResetEventSlim();
+        var vm = new SearchReplaceViewModel(find: (_, _, token) =>
+        {
+            comecou.Set();
+            token.WaitHandle.WaitOne();
+            token.ThrowIfCancellationRequested();
+            return new SearchResult([], 0);
+        })
+        {
+            Project = ProjectSummaryReader.Read(root),
+            Pattern = "x",
+        };
+        Assert.False(vm.CancelCommand.CanExecute(null));
+
+        var busca = vm.FindCommand.ExecuteAsync(null);
+        comecou.Wait(TestContext.Current.CancellationToken);
+        Assert.True(vm.IsBusy);
+        Assert.True(vm.CancelCommand.CanExecute(null));
+        vm.CancelCommand.Execute(null);
+        await busca;
+
+        Assert.Equal("Cancelado. Nada foi gravado.", vm.Summary);
+        Assert.False(vm.IsBusy);
+        Assert.False(vm.CancelCommand.CanExecute(null));
+        Assert.Empty(vm.Results);
+    }
+
+    [Fact]
+    public async Task Padrao_que_so_casa_vazio_explica_na_busca_e_na_previa()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
+        vm.Pattern = "^";
+        vm.UseRegex = true;
+
+        await vm.FindCommand.ExecuteAsync(null);
+        Assert.Contains("só casou texto vazio", vm.Summary);
+
+        await vm.PreviewCommand.ExecuteAsync(null);
+        Assert.Contains("só casou texto vazio", vm.Summary);
+        Assert.False(vm.HasPreview);
+    }
+
+    [Fact]
+    public async Task Previa_avisa_quantas_linhas_perdem_a_aprovacao_e_lista_as_puladas()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Abrir(temp, TranslationStatus.Approved, TranslationStatus.Reviewed, TranslationStatus.Machine);
+        var linhas = folder.LoadText("yst00001").ToList();
+        linhas[2] = linhas[2] with { Translation = @"tradução \q" };
+        folder.SaveText("yst00001", linhas);
+        vm.Pattern = "tradução";
+        vm.Replacement = "nova";
+
+        await vm.PreviewCommand.ExecuteAsync(null);
+
+        Assert.Contains("1 aprovada e 1 revisada", vm.Summary);
+        Assert.Contains("já tem um marcador de controle malformado: 1", vm.Summary);
+        Assert.Equal(["yst00001 · linha 3: o texto já tem um marcador malformado."], vm.SkippedNotes);
+        Assert.True(vm.HasSkippedNotes);
+    }
+
+    [Fact]
+    public void Trecho_da_lista_mostra_a_janela_em_volta_da_troca_em_texto_longo()
+    {
+        var longo = new string('a', 300) + "ALVO" + new string('b', 300);
+
+        var linha = new SearchResultRow("s · linha 1", longo, longo.Replace("ALVO", "novo"), 1, 300);
+
+        Assert.Contains("ALVO", linha.BeforeExcerpt);
+        Assert.Contains("novo", linha.AfterExcerpt);
+        Assert.StartsWith("…", linha.BeforeExcerpt);
+        Assert.EndsWith("…", linha.BeforeExcerpt);
+        Assert.True(linha.BeforeExcerpt.Length <= 142);
+        Assert.Equal("curto", SearchResultRow.Excerpt("curto", 3));
+        Assert.StartsWith("ALVO", SearchResultRow.Excerpt("ALVO" + new string('x', 300), 0));
+    }
+
+    [Fact]
+    public async Task Aplicar_que_falha_no_segundo_script_avisa_e_manda_o_Editor_reler()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Abrir(temp, TranslationStatus.Translated);
+        folder.SaveText("yst00002", [new TextUnit("yst00002:000000", TextUnitKind.Dialogue, null, "原文", "tradução b", TranslationStatus.Translated)]);
+        vm.Pattern = "tradução";
+        vm.Replacement = "nova";
+        await vm.PreviewCommand.ExecuteAsync(null);
+        File.Delete(folder.TextPath("yst00002"));
+        var avisos = new List<ReplaceResult>();
+        vm.Applied += (_, r) => avisos.Add(r);
+
+        await vm.ApplyCommand.ExecuteAsync(null);
+
+        Assert.Contains("Alguns scripts podem já ter sido gravados", vm.ErrorMessage);
+        Assert.Equal(0, Assert.Single(avisos).Applied);
+        Assert.Equal("nova 0", folder.LoadText("yst00001")[0].Translation);
+        Assert.False(vm.HasPreview);
+    }
+
+    [Fact]
     public async Task Janela_principal_tem_o_item_Busca_e_o_Editor_relê_depois_de_aplicar()
     {
         using var temp = new TempFolder();

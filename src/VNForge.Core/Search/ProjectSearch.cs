@@ -7,60 +7,72 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Search;
 
 /// <summary>
-/// Busca e substituição em todos os <c>text/*.json</c> do projeto. A busca só lê. A substituição é em duas etapas: <see cref="PreviewReplace"/>
+/// Busca e substituição em todos os <c>text/*.json</c> do projeto. A busca só lê. A substituição é em duas etapas: <see cref="PreviewReplace(ProjectFolder, SearchOptions, string, CancellationToken)"/>
 /// calcula cada linha alterada sem gravar nada, e <see cref="Apply"/> grava exatamente essa prévia.
 /// </summary>
 /// <remarks>
-/// A substituição só mexe na tradução e nunca troca um marcador de controle (<c>\n</c>, <c>\p</c>, <c>{...}</c>): uma ocorrência que encosta num marcador fica de fora,
-/// e uma troca que deixaria um marcador malformado faz a linha inteira ficar como está. Ocorrências vazias (um regex como <c>x*</c>) são ignoradas.
+/// Marcadores de controle (<c>\n</c>, <c>\p</c>, <c>{...}</c>) não são texto: uma ocorrência que encosta num deles não conta, nem na busca nem na substituição
+/// (na substituição ela é contada em <see cref="ReplacePreview.ProtectedMatches"/>), e uma troca que deixaria um marcador malformado faz a linha ficar como está.
+/// Ocorrências vazias (um regex como <c>x*</c> ou <c>^</c>) são ignoradas.
 /// </remarks>
 public static class ProjectSearch
 {
     /// <summary>Procura nos textos de <paramref name="project"/>.</summary>
     /// <exception cref="SearchException">Texto vazio, regex inválida ou lenta demais.</exception>
     /// <exception cref="TextFileException">Algum <c>text/*.json</c> inválido.</exception>
-    public static IReadOnlyList<SearchHit> Find(ProjectFolder project, SearchOptions options)
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> foi cancelado.</exception>
+    public static SearchResult Find(ProjectFolder project, SearchOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
-        return Find(project.LoadAllText(), options);
+        return Find(project.LoadAllText(), options, cancellationToken);
     }
 
     /// <summary>Procura em <paramref name="texts"/> (script e linhas), na ordem ordinal da chave e na ordem do arquivo.</summary>
     /// <exception cref="SearchException">Texto vazio, regex inválida ou lenta demais.</exception>
-    public static IReadOnlyList<SearchHit> Find(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, SearchOptions options)
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> foi cancelado; o token é conferido a cada linha.</exception>
+    public static SearchResult Find(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, SearchOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(texts);
         var pattern = SearchPattern.Compile(options);
 
         var hits = new List<SearchHit>();
+        var emptyLines = 0;
         foreach (var (key, units) in OrderedScripts(texts))
         {
             for (var i = 0; i < units.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var text = TextToSearch(units[i], options.Field);
                 if (text is null)
                 {
                     continue;
                 }
 
-                var matches = pattern.Matches(text);
-                if (matches.Count > 0)
+                var markers = MarkerSpans(text) ?? [];
+                var matches = pattern.Matches(text, markers, out var empty);
+                var visible = matches.Where(m => !Touches(markers, m)).ToList();
+                if (visible.Count > 0)
                 {
-                    hits.Add(new SearchHit(key, i + 1, units[i].Id, text, [.. matches.Select(m => new TextRange(m.Index, m.Length))]));
+                    hits.Add(new SearchHit(key, i + 1, units[i].Id, text, [.. visible.Select(m => new TextRange(m.Index, m.Length))]));
+                }
+                else if (matches.Count == 0 && empty > 0)
+                {
+                    emptyLines++;
                 }
             }
         }
 
-        return hits;
+        return new SearchResult(hits, emptyLines);
     }
 
     /// <summary>Calcula a substituição nos textos de <paramref name="project"/> sem gravar nada.</summary>
     /// <exception cref="SearchException">Texto vazio, regex inválida ou lenta demais, ou o campo é o original.</exception>
     /// <exception cref="TextFileException">Algum <c>text/*.json</c> inválido.</exception>
-    public static ReplacePreview PreviewReplace(ProjectFolder project, SearchOptions options, string replacement)
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> foi cancelado.</exception>
+    public static ReplacePreview PreviewReplace(ProjectFolder project, SearchOptions options, string replacement, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
-        return PreviewReplace(project.LoadAllText(), options, replacement);
+        return PreviewReplace(project.LoadAllText(), options, replacement, cancellationToken);
     }
 
     /// <summary>
@@ -68,7 +80,8 @@ public static class ProjectSearch
     /// no modo literal vale como está.
     /// </summary>
     /// <exception cref="SearchException">Texto vazio, regex inválida ou lenta demais, ou o campo é o original.</exception>
-    public static ReplacePreview PreviewReplace(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, SearchOptions options, string replacement)
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> foi cancelado; o token é conferido a cada linha.</exception>
+    public static ReplacePreview PreviewReplace(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, SearchOptions options, string replacement, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(texts);
         ArgumentNullException.ThrowIfNull(options);
@@ -80,42 +93,57 @@ public static class ProjectSearch
 
         var pattern = SearchPattern.Compile(options);
         var items = new List<ReplaceItem>();
+        var skipped = new List<SkippedLine>();
         var protectedMatches = 0;
-        var skipped = 0;
+        var emptyLines = 0;
         foreach (var (key, units) in OrderedScripts(texts))
         {
             for (var i = 0; i < units.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var before = TextToSearch(units[i], SearchField.Translation);
                 if (before is null)
                 {
                     continue;
                 }
 
-                var matches = pattern.Matches(before);
+                var markers = MarkerSpans(before);
+                var matches = pattern.Matches(before, markers ?? [], out var empty);
                 if (matches.Count == 0)
                 {
+                    emptyLines += empty > 0 ? 1 : 0;
                     continue;
                 }
 
-                var outcome = Rewrite(pattern, before, matches, replacement);
+                if (markers is null)
+                {
+                    skipped.Add(new SkippedLine(key, i + 1, SkipReason.MalformedMarkers));
+                    continue;
+                }
+
+                var outcome = Rewrite(pattern, before, matches, markers, replacement);
+                if (outcome.BreaksMarkers)
+                {
+                    skipped.Add(new SkippedLine(key, i + 1, SkipReason.ReplacementBreaksMarkers));
+                    continue;
+                }
+
                 protectedMatches += outcome.Protected;
-                skipped += outcome.Skipped ? 1 : 0;
                 if (outcome.After is not null)
                 {
-                    items.Add(new ReplaceItem(key, i + 1, units[i].Id, before, outcome.After, outcome.Count));
+                    items.Add(new ReplaceItem(key, i + 1, units[i].Id, before, outcome.After, outcome.Count, units[i].Status));
                 }
             }
         }
 
-        return new ReplacePreview(options, replacement, items, protectedMatches, skipped);
+        return new ReplacePreview(options, replacement, items, protectedMatches, skipped, emptyLines);
     }
 
     /// <summary>
     /// Grava a prévia: cada linha recebe <see cref="ReplaceItem.After"/>, vira <see cref="TranslationStatus.Translated"/> com origem <c>manual</c>
     /// (como uma edição no Editor, que desfaz a revisão) e o script é regravado de uma vez. Uma linha cuja tradução já não é a da prévia não é tocada.
     /// </summary>
-    /// <exception cref="TextFileException">Algum script da prévia ausente ou inválido.</exception>
+    /// <exception cref="TextFileException">Algum script da prévia ausente ou inválido; os scripts anteriores já estão gravados.</exception>
     public static ReplaceResult Apply(ProjectFolder project, ReplacePreview preview, TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -161,23 +189,17 @@ public static class ProjectSearch
         return new ReplaceResult(applied, stale);
     }
 
-    private readonly record struct Rewritten(string? After, int Count, int Protected, bool Skipped);
+    private readonly record struct Rewritten(string? After, int Count, int Protected, bool BreaksMarkers);
 
-    private static Rewritten Rewrite(SearchPattern pattern, string before, IReadOnlyList<Match> matches, string replacement)
+    private static Rewritten Rewrite(SearchPattern pattern, string before, IReadOnlyList<Match> matches, IReadOnlyList<TextRange> markers, string replacement)
     {
-        var markers = MarkerSpans(before);
-        if (markers is null)
-        {
-            return new Rewritten(null, 0, 0, Skipped: true);
-        }
-
         var builder = new StringBuilder(before.Length + 16);
         var position = 0;
         var count = 0;
         var protectedCount = 0;
         foreach (var match in matches)
         {
-            if (markers.Any(m => match.Index < m.Start + m.Length && match.Index + match.Length > m.Start))
+            if (Touches(markers, match))
             {
                 protectedCount++;
                 continue;
@@ -186,7 +208,7 @@ public static class ProjectSearch
             var text = pattern.Expand(match, replacement);
             if (!HasValidMarkers(text))
             {
-                return new Rewritten(null, 0, 0, Skipped: true);
+                return new Rewritten(null, 0, 0, BreaksMarkers: true);
             }
 
             builder.Append(before, position, match.Index - position).Append(text);
@@ -196,12 +218,25 @@ public static class ProjectSearch
 
         if (count == 0)
         {
-            return new Rewritten(null, 0, protectedCount, Skipped: false);
+            return new Rewritten(null, 0, protectedCount, BreaksMarkers: false);
         }
 
         builder.Append(before, position, before.Length - position);
         var after = builder.ToString();
-        return new Rewritten(string.Equals(after, before, StringComparison.Ordinal) ? null : after, count, protectedCount, Skipped: false);
+        return new Rewritten(string.Equals(after, before, StringComparison.Ordinal) ? null : after, count, protectedCount, BreaksMarkers: false);
+    }
+
+    private static bool Touches(IReadOnlyList<TextRange> markers, Match match)
+    {
+        foreach (var marker in markers)
+        {
+            if (match.Index < marker.Start + marker.Length && match.Index + match.Length > marker.Start)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Onde estão os marcadores de <paramref name="text"/>; nulo quando o texto tem um marcador malformado e não dá para saber.</summary>
