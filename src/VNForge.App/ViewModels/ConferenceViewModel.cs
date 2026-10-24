@@ -36,12 +36,16 @@ public sealed partial class SeverityChipViewModel(ConferenceSeverityFilter filte
 }
 
 /// <summary>Uma linha da lista da Conferência: o cabeçalho de uma regra ou uma ocorrência dela.</summary>
-public abstract class ConferenceRowViewModel;
+public abstract class ConferenceRowViewModel
+{
+    /// <summary>Id da regra a que a linha pertence: o do cabeçalho ou o da ocorrência.</summary>
+    public abstract string RuleId { get; }
+}
 
 /// <summary>Cabeçalho de um grupo: a regra, a frase que ela confere, quantas ocorrências tem e se sabe corrigir sozinha.</summary>
 public sealed class ConferenceGroupRowViewModel(string ruleId, string description, int count, bool canFix) : ConferenceRowViewModel
 {
-    public string RuleId { get; } = ruleId;
+    public override string RuleId { get; } = ruleId;
 
     public string Description { get; } = description;
 
@@ -57,7 +61,7 @@ public sealed class ConferenceIssueRowViewModel(QaIssue issue) : ConferenceRowVi
 {
     public QaIssue Issue { get; } = issue;
 
-    public string RuleId => Issue.RuleId;
+    public override string RuleId => Issue.RuleId;
 
     public string UnitId => Issue.UnitId;
 
@@ -148,12 +152,39 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     public bool IsEmpty => Rows.Count == 0;
 
-    public string EmptyMessage =>
-        Project is null ? "Abra um projeto para conferir as traduções."
-        : IsLoading ? "Conferindo as traduções..."
-        : ErrorMessage is not null ? "Não há problemas para mostrar."
-        : report.Issues.Count > 0 ? "Nenhum problema com este filtro."
-        : "Nenhum problema encontrado.";
+    public string EmptyMessage
+    {
+        get
+        {
+            if (Project is null)
+            {
+                return "Abra um projeto para conferir as traduções.";
+            }
+
+            if (IsLoading)
+            {
+                return "Conferindo as traduções...";
+            }
+
+            if (ErrorMessage is not null)
+            {
+                return "Não há problemas para mostrar.";
+            }
+
+            return report.Issues.Count > 0 ? "Nenhum problema com este filtro." : "Nenhum problema encontrado.";
+        }
+    }
+
+    private static string DescribeSilenced(int count)
+    {
+        if (count == 0)
+        {
+            return string.Empty;
+        }
+
+        var phrase = count == 1 ? "aviso marcado como ok" : "avisos marcados como ok";
+        return $"{ProjectLabels.Number(count)} {phrase}.";
+    }
 
     partial void OnProjectChanged(ProjectSummary? value)
     {
@@ -271,7 +302,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
                 return;
             }
 
-            // O Core silencia todo aviso da mesma regra nesta linha; a lista acompanha sem reler o projeto inteiro.
+            // O Core silencia cada aviso da mesma regra nesta linha; a lista acompanha sem reler o projeto inteiro.
             var silenced = report.Issues.Where(i => IsSamePair(i, row)).ToList();
             report = new QaReport([.. report.Issues.Where(i => !IsSamePair(i, row))], [.. report.Silenced, .. silenced], report.RulesRun);
             Rebuild();
@@ -377,7 +408,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         Rows = rows;
         Summary = Project is null ? string.Empty : QaBlockedException.Describe(new QaReport(shown, [], []));
         var silenced = report.Silenced.Count;
-        SilencedSummary = silenced == 0 ? string.Empty : $"{ProjectLabels.Number(silenced)} {(silenced == 1 ? "aviso marcado como ok" : "avisos marcados como ok")}.";
+        SilencedSummary = DescribeSilenced(silenced);
         OnPropertyChanged(nameof(EmptyMessage));
     }
 }

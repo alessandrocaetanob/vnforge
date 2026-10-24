@@ -18,6 +18,7 @@ public class MainWindowConferenceTests
         folder.SaveText("yst00001", units);
         var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)));
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
         return vm;
     }
 
@@ -32,9 +33,10 @@ public class MainWindowConferenceTests
         Assert.Equal("Conferência", item.Label);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
         Assert.True(item.IsEnabled);
         vm.SelectedNav = item;
-        await vm.Conference.RefreshAsync();
+        await vm.ConferenceLoading;
 
         Assert.Same(vm.Conference, vm.CurrentPage);
         Assert.Equal("Minha VN", vm.Conference.Project?.Name);
@@ -47,7 +49,7 @@ public class MainWindowConferenceTests
         using var temp = new TempFolder();
         var vm = await OpenedWithProblem(temp);
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.Conference.RefreshAsync();
+        await vm.ConferenceLoading;
         var row = vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Single();
 
         vm.Conference.OpenLineCommand.Execute(row);
@@ -69,7 +71,7 @@ public class MainWindowConferenceTests
         vm.Editor.Detail!.Translation = "editada  agora";
 
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.Conference.RefreshAsync();
+        await vm.ConferenceLoading;
 
         Assert.Same(vm.Conference, vm.CurrentPage);
         Assert.Contains(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>(), r => r.UnitId == "yst00001:000002" && r.RuleId == "espaco-duplo");
@@ -116,7 +118,7 @@ public class MainWindowConferenceTests
         vm.Editor.Detail!.Translation = "pendente  aqui";
 
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.Conference.RefreshAsync();
+        await vm.ConferenceLoading;
         await fix();
     }
 
@@ -126,7 +128,7 @@ public class MainWindowConferenceTests
         using var temp = new TempFolder();
         var vm = await OpenedWithProblem(temp);
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.Conference.RefreshAsync();
+        await vm.ConferenceLoading;
 
         vm.Conference.OpenLineCommand.Execute(new ConferenceIssueRowViewModel(new QaIssue("espaco-duplo", QaSeverity.Warning, "yst00001:000099", "yst00001", "x")));
         await vm.LineNavigation;
@@ -167,7 +169,7 @@ public class MainWindowConferenceTests
         Assert.Single(vm.Editor.Lines, l => l.HasWarning);
 
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.Conference.RefreshAsync();
+        await vm.ConferenceLoading;
         await vm.Conference.MarkOkCommand.ExecuteAsync(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Single());
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
         await vm.Editor.Loading;

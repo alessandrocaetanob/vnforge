@@ -83,6 +83,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>O último salto para uma linha do Editor pedido pela Conferência; os testes o aguardam.</summary>
     public Task LineNavigation { get; private set; } = Task.CompletedTask;
 
+    /// <summary>A última conferência pedida ao abrir a página; os testes a aguardam.</summary>
+    public Task ConferenceLoading { get; private set; } = Task.CompletedTask;
+
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
     [ObservableProperty]
@@ -167,7 +170,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (target == NavKey.Conference)
         {
-            _ = Conference.RefreshAsync();
+            ConferenceLoading = Conference.RefreshAsync();
         }
         else if (target == NavKey.Editor && editorStale)
         {
