@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Cost;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Engines;
@@ -18,6 +19,9 @@ public enum WizardStep
     Ai,
     Done,
 }
+
+/// <summary>Um fato da engine detectada, mostrado como linha do cartão de resultado (arquivo de scripts, chave).</summary>
+public sealed record DetectionFact(string Label, string Value);
 
 /// <summary>Uma opção de escolha única do assistente (idioma, acentuação, modelo): o <see cref="Id"/> é o que vai para o <c>vnforge.json</c>.</summary>
 public sealed partial class ChoiceOption(string id, string title, string value = "", string description = "") : ObservableObject
@@ -98,6 +102,12 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         EncodingStrategies = new ChoiceGroup(
             ProjectChoices.EncodingStrategies.Where(s => s != "sjis").Select(EncodingOption), ProjectChoices.DefaultEncoding);
         Models = new ChoiceGroup(ProjectChoices.Models.Select(ModelOption), ProjectChoices.DefaultAi.Model);
+        foreach (var group in new[] { SourceLanguages, TargetLanguages, EncodingStrategies, Models })
+        {
+            group.SelectionChanged += (_, _) => RefreshSteps();
+        }
+
+        RefreshSteps();
     }
 
     public ChoiceGroup SourceLanguages { get; }
@@ -111,12 +121,30 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     /// <summary>Linhas da detecção do passo 1: engine, arquivo de scripts, chave.</summary>
     public ObservableCollection<string> DetectionLines { get; } = [];
 
+    /// <summary>Os fatos da engine detectada (arquivo de scripts, chave), abaixo de <see cref="EngineTitle"/>.</summary>
+    public ObservableCollection<DetectionFact> DetectionFacts { get; } = [];
+
+    /// <summary>Os quatro passos para o <see cref="PipelineStepper"/>: o concluído mostra o resultado, o pendente diz o que falta.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<PipelineStep> Steps { get; private set; } = [];
+
+    /// <summary>Engine e versão do que a detecção achou, como "YU-RIS · YPF v500"; vazio até haver uma pasta reconhecida.</summary>
+    [ObservableProperty]
+    public partial string EngineTitle { get; private set; } = string.Empty;
+
+    /// <summary>Aviso da detecção (por exemplo, chave estimada); nulo quando não houve.</summary>
+    [ObservableProperty]
+    public partial string? DetectionWarning { get; private set; }
+
+    /// <summary>Verdadeiro quando a pasta do jogo foi reconhecida por uma engine.</summary>
+    public bool HasDetection => inspection is not null;
+
     /// <summary>Executáveis candidatos; com mais de um, o usuário escolhe.</summary>
     public ObservableCollection<string> Executables { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsGameStep), nameof(IsNamesStep), nameof(IsAccentsStep), nameof(IsAiStep), nameof(IsDoneStep), nameof(StepNumber), nameof(StepTitle), nameof(StepLabel), nameof(CanGoBack), nameof(IsWizardStep), nameof(NextLabel))]
-    [NotifyCanExecuteChangedFor(nameof(NextCommand), nameof(BackCommand))]
+    [NotifyPropertyChangedFor(nameof(IsGameStep), nameof(IsNamesStep), nameof(IsAccentsStep), nameof(IsAiStep), nameof(IsDoneStep), nameof(StepNumber), nameof(StepTitle), nameof(StepLabel), nameof(Breadcrumb), nameof(CanGoBack), nameof(IsWizardStep), nameof(NextLabel))]
+    [NotifyCanExecuteChangedFor(nameof(NextCommand), nameof(BackCommand), nameof(GoToStepCommand))]
     public partial WizardStep Step { get; private set; }
 
     [ObservableProperty]
@@ -163,6 +191,9 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public string GameFolderLabel => GameFolder ?? "Nenhuma pasta escolhida";
 
     public string ProjectDirectoryLabel => ProjectDirectory ?? "Nenhuma pasta escolhida";
+
+    /// <summary>A migalha do cabeçalho: "Passo 2 de 4"; "Pronto" depois de criar o projeto.</summary>
+    public string Breadcrumb => IsWizardStep ? $"Passo {StepNumber} de 4" : "Pronto";
 
     public string StepLabel => $"Passo {StepNumber} de 4 · {StepTitle}";
 
@@ -219,10 +250,15 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             inspection = null;
             GameFolder = null;
             DetectionLines.Clear();
+            DetectionFacts.Clear();
+            EngineTitle = string.Empty;
+            DetectionWarning = null;
             Executables.Clear();
             OnPropertyChanged(nameof(HasExecutables));
             SelectedExe = null;
             ErrorMessage = $"{e.Message} Escolha outra pasta.";
+            OnPropertyChanged(nameof(HasDetection));
+            RefreshSteps();
             return;
         }
         finally
@@ -232,6 +268,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
         GameFolder = Path.GetFullPath(path);
         DescribeDetection(inspection);
+        OnPropertyChanged(nameof(HasDetection));
         Executables.Clear();
         foreach (var exe in inspection.Executables)
         {
@@ -245,6 +282,8 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         {
             ErrorMessage = $"Nenhum executável (.exe) em '{GameFolder}'. Escolha a pasta que tem o executável do jogo.";
         }
+
+        RefreshSteps();
     }
 
     /// <summary>Define a pasta do projeto; sem nome digitado, o nome do projeto vira o da pasta (como o <c>vnf init</c>).</summary>
@@ -299,6 +338,16 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         ErrorMessage = null;
         Step--;
     }
+
+    /// <summary>Volta a um passo já concluído pelo cabeçalho de passos; os adiante só se alcançam com Avançar.</summary>
+    [RelayCommand(CanExecute = nameof(CanGoToStep))]
+    private void GoToStep(WizardStep target)
+    {
+        ErrorMessage = null;
+        Step = target;
+    }
+
+    private bool CanGoToStep(WizardStep target) => !IsBusy && Step != WizardStep.Done && target < Step;
 
     [RelayCommand]
     private void Cancel() => Cancelled?.Invoke(this, EventArgs.Empty);
@@ -396,6 +445,41 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         _ => false,
     };
 
+    partial void OnStepChanged(WizardStep value) => RefreshSteps();
+
+    partial void OnSkipAiChanged(bool value) => RefreshSteps();
+
+    partial void OnIsBusyChanged(bool value) => GoToStepCommand.NotifyCanExecuteChanged();
+
+    private static readonly string[] StepTitles = ["Pasta do jogo", "Idiomas e nome", "Acentuação", "Provedor de IA"];
+
+    private static readonly string[] StepPrompts =
+        ["Escolha a pasta instalada", "Nome, pasta e idiomas", "Como tratar os acentos", "Modelo da tradução"];
+
+    private void RefreshSteps()
+    {
+        string?[] results =
+        [
+            HasDetection ? $"{EngineTitle} detectada" : null,
+            $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Title}",
+            EncodingStrategies.Selected.Title,
+            SkipAi ? $"{ProjectLabels.Model(ProjectChoices.DefaultAi.Model)} (padrão)" : Models.Selected.Title,
+        ];
+
+        var steps = new PipelineStep[StepTitles.Length];
+        for (var i = 0; i < steps.Length; i++)
+        {
+            var done = Step == WizardStep.Done || i < (int)Step;
+            var active = !done && i == (int)Step;
+            var state = done ? PipelineStepState.Done : active ? PipelineStepState.Active : PipelineStepState.Pending;
+            // O passo concluído diz o que ficou decidido; o atual já mostra o resultado da pasta assim que há detecção (passo 1).
+            var subtitle = (done || (active && i == 0)) && results[i] is { } result ? result : StepPrompts[i];
+            steps[i] = new PipelineStep(i + 1, StepTitles[i], subtitle, state, done && Step != WizardStep.Done ? GoToStepCommand : null, (WizardStep)i);
+        }
+
+        Steps = steps;
+    }
+
     partial void OnIsExtractedChanged(bool value) => ExtractCommand.NotifyCanExecuteChanged();
 
     partial void OnCreatedChanged(ProjectResultInfo? value) => ExtractCommand.NotifyCanExecuteChanged();
@@ -434,25 +518,31 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private void DescribeDetection(GameInspection found)
     {
         DetectionLines.Clear();
+        DetectionFacts.Clear();
+        DetectionWarning = null;
         var details = found.Detection.Details;
         var version = details.TryGetValue(ProjectInitializer.VersionDetail, out var ypf) && int.TryParse(ypf, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : (int?)null;
-        DetectionLines.Add($"Engine: {ProjectLabels.Engine(found.Engine.Id, version)}");
+        EngineTitle = ProjectLabels.Engine(found.Engine.Id, version);
+        DetectionLines.Add($"Engine: {EngineTitle}");
         if (details.TryGetValue("scriptsArchive", out var archive))
         {
             var count = details.TryGetValue("scripts", out var n) && int.TryParse(n, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var total)
                 ? $" ({ProjectLabels.Number(total)} {(total == 1 ? "script" : "scripts")})"
                 : string.Empty;
             DetectionLines.Add($"Arquivo de scripts: {archive}{count}");
+            DetectionFacts.Add(new DetectionFact("Arquivo de scripts", count.Length == 0 ? archive : $"{archive} · {count.Trim(' ', '(', ')')}"));
         }
 
         if (details.TryGetValue(ProjectInitializer.ScriptKeyDetail, out var key))
         {
             DetectionLines.Add($"Chave XOR dos scripts: {key}");
+            DetectionFacts.Add(new DetectionFact("Chave XOR dos scripts", key));
         }
 
         if (details.TryGetValue(ProjectInitializer.WarningsDetail, out var warnings))
         {
             DetectionLines.Add($"Aviso: {warnings}");
+            DetectionWarning = warnings;
         }
     }
 

@@ -32,6 +32,8 @@ O app é uma "mesa de tradução": abre um projeto VNForge, mostra o pipeline co
 
 Quatro passos: (1) escolher a pasta do jogo → detecção automática mostra engine, versão e arquivos encontrados; (2) idiomas e nome; (3) estratégia de acentuação, com explicação curta de cada opção; (4) provedor de IA (pode pular). No fim, oferece rodar a extração.
 
+Os passos aparecem numerados no alto, no estilo do `PipelineStepper` do Painel: o passo concluído mostra o que ficou decidido ("YU-RIS · YPF v500 detectada", "Japonês → Português do Brasil", "Remover acentos") e clicar nele volta; o pendente diz o que falta. A engine detectada vira um cartão de resultado (engine e versão, arquivo de scripts, chave XOR, executável do jogo), não uma lista de linhas. Acentuação e modelo são cartões de opção; "Usar o modelo padrão" é um interruptor. O desenho está em `docs/design/telas/NovoProjeto.dc.html`.
+
 O assistente chama o mesmo `ProjectInitializer` do `vnf init` (`vnf init` ganhou `--source`, `--target`, `--encoding` e `--model` para as mesmas escolhas), então o `vnforge.json` e as pastas saem iguais; um teste compara os dois com um jogo sintético. O passo 1 usa `ProjectInitializer.Inspect`, que só lê a pasta do jogo. "Pular" no passo 4 grava o padrão do `vnf init` (Claude Opus 5.5). A extração do passo final roda pela barra de tarefas (#101), com andamento e cancelar.
 
 ### 3. Painel do projeto
@@ -106,7 +108,9 @@ Implementação (#106): a tela usa o mesmo `QaEngine` do `vnf check`, então a l
 
 ### 6. Glossário e personagens
 
-Duas tabelas editáveis. Personagens têm nome original, tradução, gênero e notas de estilo de fala (vai para o prompt da IA). O glossário avisa no editor quando um termo aparece na linha atual.
+Duas tabelas editáveis, em abas (Termos e Personagens, cada uma com a contagem). Personagens têm nome original, tradução, gênero e notas de estilo de fala (vai para o prompt da IA). O glossário avisa no editor quando um termo aparece na linha atual.
+
+A caixa de busca, na linha das abas, filtra a tabela aberta por original, tradução e observação (ou tom de fala); ela só esconde linhas da tela, e o salvamento grava todas. Cada linha mostra quantas linhas do projeto a usam: para um termo, as linhas cujo original contém o termo (o mesmo critério do QA e do lote de IA); para um personagem, as linhas em que ele é o falante. A contagem vem do `GlossaryUsage` do Core, lida em segundo plano, e aparece como "…" até terminar. O botão de remover tem tooltip, e `Ctrl+S` salva (só o arquivo que mudou é reescrito). O desenho está em `docs/design/telas/Glossario.dc.html`.
 
 ### 7. Configurações
 

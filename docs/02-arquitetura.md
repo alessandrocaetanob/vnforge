@@ -374,6 +374,8 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 | `glossary.json` | `GlossaryTerm` | `source`, `target`, `notes` (opcional) |
 | `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional) |
 
+`GlossaryUsage.From(units)` conta, para a página Glossário, as linhas do projeto que contêm cada termo (`LinesContaining`, mesmo critério do `GlossaryMatcher`) e as linhas faladas por cada personagem (`LinesSpokenBy`); conta linhas, não ocorrências dentro da linha.
+
 `CharacterEntry.Source` é o nome exatamente como a engine o extrai em `TextUnit.Speaker`. `CharacterBook.Find(speaker)` acha a entrada por comparação ordinal, ignorando espaços nas pontas; falante nulo, vazio ou desconhecido (por exemplo `？？？`, quando não há entrada) devolve `null`. `ProjectFolder` lê e grava os dois arquivos (`LoadGlossary`, `SaveGlossary`, `LoadCharacters`, `SaveCharacters`). Os comandos `vnf glossary` e `vnf chars` ficam na E9.1.
 
 ### Estado do pipeline (`.cache/state.json`)
