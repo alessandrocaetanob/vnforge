@@ -108,6 +108,46 @@ public sealed class LinePreviewerTests : IDisposable
     }
 
     [Fact]
+    public void Boxes_trazem_o_texto_e_as_colunas_de_cada_linha_sem_os_marcadores_de_quebra()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 10, "maxLines": 3, "charWidth": "uniform" } }""");
+        Save(Unit("a001:000001", "um dois tres quatro\\pfim\\c!"));
+
+        var preview = LinePreviewer.Create(_project, "a001:000001");
+
+        Assert.Equal([["um dois", "tres", "quatro"], ["fim\\c!"]], preview.Boxes.Select(b => b.Select(l => l.Text).ToArray()));
+        Assert.Equal([[7, 4, 6], [4]], preview.Boxes.Select(b => b.Select(l => l.Columns).ToArray()));
+    }
+
+    [Fact]
+    public void Texto_em_edicao_quebra_nos_mesmos_pontos_que_a_linha_gravada()
+    {
+        const string Profile = """{ "wrap": { "enabled": true, "maxWidth": 12, "maxLines": 2, "charWidth": "uniform" }, "typography": { "ellipsis": "dots" } }""";
+        const string Edited = "Isto… é um texto bem longo para a caixa\\pOutra caixa curta";
+        SaveProfile(Profile);
+        Save(Unit("a001:000001", Edited));
+        var saved = LinePreviewer.Create(_project, "a001:000001");
+
+        var unsaved = LinePreviewer.Create(_project.LoadFormatting(), Unit("a001:000001", "antigo"), Edited);
+
+        Assert.Equal(saved.Text, unsaved.Text);
+        Assert.Equal(saved.Columns, unsaved.Columns);
+        Assert.Equal(saved.Warnings, unsaved.Warnings);
+        Assert.Equal(saved.MaxLines, unsaved.MaxLines);
+    }
+
+    [Fact]
+    public void Texto_em_edicao_de_linha_ainda_sem_traducao_ja_e_formatado_como_o_build_fara_ao_gravar()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
+
+        var preview = LinePreviewer.Create(_project.LoadFormatting(), Unit("a001:000001", null), "aaa bbb");
+
+        Assert.True(preview.Formatted);
+        Assert.Equal("aaa\\nbbb", preview.Text);
+    }
+
+    [Fact]
     public void Id_inexistente_e_linha_sem_traducao_lancam_erro_em_portugues()
     {
         Save(Unit("a001:000001", null));

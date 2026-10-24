@@ -136,6 +136,12 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         return missing;
     }
 
+    /// <summary>A caixa de texto da linha com o perfil de formatação, refeita a cada edição da tradução; nulo até <see cref="AttachPreview"/> ou sem perfil legível.</summary>
+    public TextboxPreviewViewModel? Preview { get; private set; }
+
+    /// <summary>Liga a prévia da caixa de texto, já com a tradução que está no campo.</summary>
+    public void AttachPreview(FormattingProfile profile) => Preview = new TextboxPreviewViewModel(unit, profile, Translation);
+
     /// <summary>Grava o que estiver pendente. Devolve falso (e preenche <see cref="ErrorMessage"/>) quando a gravação falha; a edição continua pendente.</summary>
     public bool Flush()
     {
@@ -210,6 +216,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
         translationDirty = true;
         UpdateMarkers();
+        Preview?.Update(value);
         ScheduleSave();
     }
 

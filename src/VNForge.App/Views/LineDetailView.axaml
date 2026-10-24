@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:ae="using:AvaloniaEdit"
+             xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.LineDetailView"
              x:DataType="vm:LineDetailViewModel">
 
@@ -55,6 +56,26 @@
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
         </Grid>
       </Border>
+
+      <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <TextBlock Classes="overline" Text="CAIXA DE TEXTO"/>
+        <StackPanel Spacing="6" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding HasLayout}">
+            <c:TextboxPreview HorizontalAlignment="Left" Layout="{Binding Layout}" FontFamily="{DynamicResource Vnf.FontMono}"
+                              AutomationProperties.Name="Prévia da caixa de texto"/>
+          </ScrollViewer>
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
+          <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Problem}"
+                     IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </StackPanel>
+      </StackPanel>
 
       <TextBlock Classes="overline" Text="NOTAS"/>
       <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Notas da linha"/>

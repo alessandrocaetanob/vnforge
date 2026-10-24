@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -240,9 +241,28 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
-        return postToUi is null
+        var detail = postToUi is null
             ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock)
             : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi);
+        if (TryLoadProfile() is { } profile)
+        {
+            detail.AttachPreview(profile);
+        }
+
+        return detail;
+    }
+
+    /// <summary>Lê o perfil a cada linha aberta, para a prévia refletir o que a tela Ajustes acabou de gravar. Sem perfil legível, o painel fica sem prévia.</summary>
+    private FormattingProfile? TryLoadProfile()
+    {
+        try
+        {
+            return Project is { } project ? ProjectFolder.Open(project.Root).LoadFormatting() : null;
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private LineEditor? TryCreateEditor(string root)

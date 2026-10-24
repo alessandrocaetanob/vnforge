@@ -2,6 +2,9 @@ using System.Text;
 
 namespace VNForge.Core.Formatting;
 
+/// <summary>Uma linha de uma caixa: o texto como está (com marcadores como <c>\c</c> e <c>{VAR:x}</c>) e as colunas que ocupa.</summary>
+public readonly record struct MeasuredLine(string Text, int Columns);
+
 /// <summary>
 /// Mede um texto já formatado: as colunas de cada linha de cada caixa. Usa a mesma tabela de larguras e o mesmo tratamento de marcadores
 /// que o <see cref="WordWrapper"/> (marcadores não ocupam coluna; <c>\n</c> fecha a linha; <c>\p</c> fecha a caixa).
@@ -10,14 +13,22 @@ public static class LineMeasure
 {
     /// <summary>Colunas de cada linha, agrupadas por caixa.</summary>
     /// <exception cref="ArgumentException">Marcador inválido ou chave sem fechamento no texto.</exception>
-    public static IReadOnlyList<IReadOnlyList<int>> Columns(string text, CharWidth width)
+    public static IReadOnlyList<IReadOnlyList<int>> Columns(string text, CharWidth width) =>
+        [.. Lines(text, width).Select(box => (IReadOnlyList<int>)[.. box.Select(line => line.Columns)])];
+
+    /// <summary>
+    /// O texto de cada linha (sem os <c>\n</c> e <c>\p</c> que a separam; os demais marcadores ficam) e as colunas dela, agrupadas por caixa.
+    /// Divide nos mesmos pontos que <see cref="Columns"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">Marcador inválido ou chave sem fechamento no texto.</exception>
+    public static IReadOnlyList<IReadOnlyList<MeasuredLine>> Lines(string text, CharWidth width)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(width);
 
         var state = new Measurement();
 
-        foreach (var (kind, w) in Tokens(text, width))
+        foreach (var (kind, w, start, end) in Tokens(text, width))
         {
             switch (kind)
             {
@@ -30,6 +41,7 @@ public static class LineMeasure
                 default:
                     state.Column += w;
                     state.HasContent |= kind != 's';
+                    state.Text.Append(text, start, end - start);
                     break;
             }
         }
@@ -42,12 +54,14 @@ public static class LineMeasure
         return state.Boxes;
     }
 
-    /// <summary>O que a leitura acumulou: a coluna da linha aberta, as linhas da caixa aberta e as caixas fechadas.</summary>
+    /// <summary>O que a leitura acumulou: a coluna e o texto da linha aberta, as linhas da caixa aberta e as caixas fechadas.</summary>
     private sealed class Measurement
     {
-        public List<IReadOnlyList<int>> Boxes { get; } = [];
+        public List<IReadOnlyList<MeasuredLine>> Boxes { get; } = [];
 
-        public List<int> Lines { get; private set; } = [];
+        public List<MeasuredLine> Lines { get; private set; } = [];
+
+        public StringBuilder Text { get; } = new();
 
         public int Column { get; set; }
 
@@ -55,7 +69,8 @@ public static class LineMeasure
 
         public void EndLine()
         {
-            Lines.Add(Column);
+            Lines.Add(new MeasuredLine(Text.ToString(), Column));
+            Text.Clear();
             Column = 0;
             HasContent = false;
         }
@@ -72,26 +87,30 @@ public static class LineMeasure
         }
     }
 
-    // 'n' = \n, 'p' = \p, 's' = espaço, 'g' = glifo, 'm' = marcador sem largura.
-    private static IEnumerable<(char Kind, int Width)> Tokens(string text, CharWidth width)
+    // 'n' = \n, 'p' = \p, 's' = espaço, 'g' = glifo, 'm' = marcador sem largura. Start e End são os índices do trecho no texto.
+    private static IEnumerable<(char Kind, int Width, int Start, int End)> Tokens(string text, CharWidth width)
     {
         var i = 0;
         while (i < text.Length)
         {
+            var start = i;
+            (char Kind, int Width) token;
             if (text[i] == '\\')
             {
-                yield return ReadEscape(text, ref i, width);
+                token = ReadEscape(text, ref i, width);
             }
             else if (text[i] == '{')
             {
-                yield return ReadBraced(text, ref i);
+                token = ReadBraced(text, ref i);
             }
             else
             {
                 var rune = Rune.GetRuneAt(text, i);
                 i += rune.Utf16SequenceLength;
-                yield return (rune.Value == ' ' ? 's' : 'g', width(rune));
+                token = (rune.Value == ' ' ? 's' : 'g', width(rune));
             }
+
+            yield return (token.Kind, token.Width, start, i);
         }
     }
 

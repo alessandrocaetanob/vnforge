@@ -125,7 +125,7 @@ O painel de detalhe (`LineDetailView`) usa o `TextEditor` com o `MarkerChipGener
 | Controle | Base | Observação |
 |---|---|---|
 | `StatusBadge` | `TemplatedControl` | Propriedade `Status` (enum); estilos por `^[Status=…]` |
-| `TextboxPreview` | `Control` com `Render` | Usa o `ILineBreaker` do `VNForge.Core`; nada de quebra duplicada na UI |
+| `TextboxPreview` | `Control` com `Render` | Usa o `LinePreviewer` do `VNForge.Core` (o mesmo do build e do `vnf preview`); nada de quebra duplicada na UI |
 | `InfoBar` | `TemplatedControl` | O Fluent do Avalonia não tem InfoBar |
 | `PipelineStepper` | `ItemsControl` + `ControlTheme` de `Button` | Pseudo-classes `:done`, `:active` |
 | `OptionCard` | `ControlTheme` de `RadioButton` | Template em `Border` + `Grid` |
