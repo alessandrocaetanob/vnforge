@@ -2,6 +2,16 @@ using System.Text;
 
 namespace VNForge.Core.Formatting;
 
+/// <summary>Um trecho da linha na régua de colunas: um glifo (com a largura da tabela) ou um marcador, que não ocupa coluna.</summary>
+/// <param name="Text">O que desenhar: o glifo, ou o marcador como está (<c>\c</c>, <c>{VAR:x}</c>). <c>\\</c> e <c>\{</c> viram <c>\</c> e <c>{</c>.</param>
+/// <param name="Column">Coluna em que o trecho começa.</param>
+/// <param name="Width">Colunas que ocupa; 0 para marcador.</param>
+/// <param name="IsMarker">Verdadeiro para marcador de controle ou variável.</param>
+public readonly record struct LineSegment(string Text, int Column, int Width, bool IsMarker);
+
+/// <summary>Uma linha de uma caixa: o texto como está (com marcadores como <c>\c</c> e <c>{VAR:x}</c>), as colunas que ocupa e os trechos dela na régua de colunas.</summary>
+public readonly record struct MeasuredLine(string Text, int Columns, IReadOnlyList<LineSegment> Segments);
+
 /// <summary>
 /// Mede um texto já formatado: as colunas de cada linha de cada caixa. Usa a mesma tabela de larguras e o mesmo tratamento de marcadores
 /// que o <see cref="WordWrapper"/> (marcadores não ocupam coluna; <c>\n</c> fecha a linha; <c>\p</c> fecha a caixa).
@@ -10,14 +20,22 @@ public static class LineMeasure
 {
     /// <summary>Colunas de cada linha, agrupadas por caixa.</summary>
     /// <exception cref="ArgumentException">Marcador inválido ou chave sem fechamento no texto.</exception>
-    public static IReadOnlyList<IReadOnlyList<int>> Columns(string text, CharWidth width)
+    public static IReadOnlyList<IReadOnlyList<int>> Columns(string text, CharWidth width) =>
+        [.. Lines(text, width).Select(box => (IReadOnlyList<int>)[.. box.Select(line => line.Columns)])];
+
+    /// <summary>
+    /// O texto de cada linha (sem os <c>\n</c> e <c>\p</c> que a separam; os demais marcadores ficam) e as colunas dela, agrupadas por caixa.
+    /// Divide nos mesmos pontos que <see cref="Columns"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">Marcador inválido ou chave sem fechamento no texto.</exception>
+    public static IReadOnlyList<IReadOnlyList<MeasuredLine>> Lines(string text, CharWidth width)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(width);
 
         var state = new Measurement();
 
-        foreach (var (kind, w) in Tokens(text, width))
+        foreach (var (kind, w, start, end) in Tokens(text, width))
         {
             switch (kind)
             {
@@ -28,13 +46,16 @@ public static class LineMeasure
                     state.EndBox();
                     break;
                 default:
+                    var raw = text.Substring(start, end - start);
+                    state.Segments.Add(new LineSegment(kind == 'g' && raw[0] == '\\' ? raw[1..] : raw, state.Column, w, kind == 'm'));
                     state.Column += w;
                     state.HasContent |= kind != 's';
+                    state.Text.Append(raw);
                     break;
             }
         }
 
-        if (state.HasContent || state.Lines.Count > 0 || state.Boxes.Count == 0)
+        if (state.HasContent || state.OpenBox.Count > 0 || state.Boxes.Count == 0)
         {
             state.EndBox();
         }
@@ -42,12 +63,16 @@ public static class LineMeasure
         return state.Boxes;
     }
 
-    /// <summary>O que a leitura acumulou: a coluna da linha aberta, as linhas da caixa aberta e as caixas fechadas.</summary>
+    /// <summary>O que a leitura acumulou: a coluna e o texto da linha aberta, as linhas da caixa aberta e as caixas fechadas.</summary>
     private sealed class Measurement
     {
-        public List<IReadOnlyList<int>> Boxes { get; } = [];
+        public List<IReadOnlyList<MeasuredLine>> Boxes { get; } = [];
 
-        public List<int> Lines { get; private set; } = [];
+        public List<MeasuredLine> OpenBox { get; private set; } = [];
+
+        public StringBuilder Text { get; } = new();
+
+        public List<LineSegment> Segments { get; } = [];
 
         public int Column { get; set; }
 
@@ -55,7 +80,9 @@ public static class LineMeasure
 
         public void EndLine()
         {
-            Lines.Add(Column);
+            OpenBox.Add(new MeasuredLine(Text.ToString(), Column, [.. Segments]));
+            Text.Clear();
+            Segments.Clear();
             Column = 0;
             HasContent = false;
         }
@@ -67,31 +94,35 @@ public static class LineMeasure
                 EndLine();
             }
 
-            Boxes.Add(Lines);
-            Lines = [];
+            Boxes.Add(OpenBox);
+            OpenBox = [];
         }
     }
 
-    // 'n' = \n, 'p' = \p, 's' = espaço, 'g' = glifo, 'm' = marcador sem largura.
-    private static IEnumerable<(char Kind, int Width)> Tokens(string text, CharWidth width)
+    // 'n' = \n, 'p' = \p, 's' = espaço, 'g' = glifo, 'm' = marcador sem largura. Start e End são os índices do trecho no texto.
+    private static IEnumerable<(char Kind, int Width, int Start, int End)> Tokens(string text, CharWidth width)
     {
         var i = 0;
         while (i < text.Length)
         {
+            var start = i;
+            (char Kind, int Width) token;
             if (text[i] == '\\')
             {
-                yield return ReadEscape(text, ref i, width);
+                token = ReadEscape(text, ref i, width);
             }
             else if (text[i] == '{')
             {
-                yield return ReadBraced(text, ref i);
+                token = ReadBraced(text, ref i);
             }
             else
             {
                 var rune = Rune.GetRuneAt(text, i);
                 i += rune.Utf16SequenceLength;
-                yield return (rune.Value == ' ' ? 's' : 'g', width(rune));
+                token = (rune.Value == ' ' ? 's' : 'g', width(rune));
             }
+
+            yield return (token.Kind, token.Width, start, i);
         }
     }
 
