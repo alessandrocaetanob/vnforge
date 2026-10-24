@@ -8,4 +8,4 @@ Simulação da caixa de texto do jogo com o perfil de formatação aplicado: pla
 
 ## Avalonia
 
-`Control` próprio (`TextboxPreview`) com propriedades `Text`, `Speaker`, `Columns`, `MaxLines`, que chama o mesmo `ILineBreaker` do `VNForge.Core` usado no build e desenha em `Render` com `TextLayout`. Nada de reimplementar a quebra na interface.
+`Control` próprio (`TextboxPreview`) com a propriedade `Layout` (placa, colunas, limite e linhas já quebradas) e `FontFamily`, que desenha em `Render` com `FormattedText`. Quem quebra é o `LinePreviewer` do `VNForge.Core`, o mesmo serviço do build e do `vnf preview`, chamado pelo `TextboxPreviewViewModel`; nada de reimplementar a quebra na interface. A fonte é monoespaçada genérica até a decisão D6 (#105) sair: trocar `FontFamily` e `TextboxPreview.Metrics` é o ponto de troca.
