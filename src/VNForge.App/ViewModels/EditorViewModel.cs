@@ -170,6 +170,40 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         Apply(loaded);
     }
 
+    /// <summary>Relê as linhas do projeto atual, p. ex. depois de a Conferência corrigir textos fora do Editor.</summary>
+    public void Reload() => Loading = LoadAsync();
+
+    /// <summary>
+    /// Seleciona a linha <paramref name="unitId"/> do script <paramref name="scriptKey"/>, trocando de script e tirando os filtros que a escondem.
+    /// Espera a carga em andamento. Devolve falso, sem mexer na seleção, quando o script ou a linha não existem.
+    /// </summary>
+    public async Task<bool> GoToLineAsync(string scriptKey, string unitId)
+    {
+        await Loading;
+
+        var script = Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal));
+        var entry = data?.LinesOf(scriptKey).FirstOrDefault(l => string.Equals(l.Unit.Id, unitId, StringComparison.Ordinal));
+        if (script is null || entry is null)
+        {
+            return false;
+        }
+
+        if (!ReferenceEquals(SelectedScript, script))
+        {
+            SelectedScript = script;
+        }
+
+        var target = scriptLines[entry.Number - 1];
+        if (IndexOf(target) < 0)
+        {
+            SelectFilter(chips[0]);
+            SelectedSpeaker = Speakers[0];
+        }
+
+        SelectedLine = target;
+        return ReferenceEquals(SelectedLine, target);
+    }
+
     [RelayCommand]
     private void SelectFilter(FilterChipViewModel? chip)
     {

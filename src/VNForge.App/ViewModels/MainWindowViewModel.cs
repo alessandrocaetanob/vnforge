@@ -10,6 +10,7 @@ public enum NavKey
 {
     Start,
     Editor,
+    Conference,
     Settings,
     Glossary,
 }
@@ -31,8 +32,10 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
+    private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferência", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
+    private bool editorStale;
 
     public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null)
     {
@@ -43,9 +46,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Tasks = new TaskBarViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, conferenceItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
+        Conference.TextsChanged += (_, _) => editorStale = true;
+        Conference.LineRequested += (_, request) =>
+        {
+            SelectedNav = editorItem;
+            LineNavigation = Editor.GoToLineAsync(request.ScriptKey, request.UnitId);
+        };
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         start.EditorRequested += (_, summary) =>
@@ -67,6 +76,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    public ConferenceViewModel Conference { get; } = new();
+
+    /// <summary>O último salto para uma linha do Editor pedido pela Conferência; os testes o aguardam.</summary>
+    public Task LineNavigation { get; private set; } = Task.CompletedTask;
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
@@ -100,14 +114,34 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             if (SetProperty(ref selectedNav, value))
             {
+                PrepareLeavingAndEntering(value.Key);
                 CurrentPage = value.Key switch
                 {
                     NavKey.Editor => Editor,
+                    NavKey.Conference => Conference,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
                     _ => Start,
                 };
             }
+        }
+    }
+
+    /// <summary>
+    /// A Conferência corrige e marca textos em disco, então o que o painel do Editor ainda não gravou entra antes de ela ler; ao voltar ao Editor,
+    /// ele relê se a Conferência mudou algo.
+    /// </summary>
+    private void PrepareLeavingAndEntering(NavKey target)
+    {
+        if (target == NavKey.Conference)
+        {
+            Editor.Detail?.Flush();
+            _ = Conference.RefreshAsync();
+        }
+        else if (target == NavKey.Editor && editorStale)
+        {
+            editorStale = false;
+            Editor.Reload();
         }
     }
 
@@ -140,7 +174,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Glossary.Project = summary;
         }
 
+        Conference.Project = summary;
+        editorStale = false;
         editorItem.IsEnabled = true;
+        conferenceItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
     }
 

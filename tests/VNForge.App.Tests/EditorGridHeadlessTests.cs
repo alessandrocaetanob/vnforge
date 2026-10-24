@@ -33,7 +33,8 @@ public sealed class HeadlessFixture
 /// Guarda o critério "a grade rola sem travar com 50 mil linhas": a tela real, com a virtualização do <c>ListBox</c>,
 /// carregada com linhas geradas em código. Os limites de tempo são folgados para não oscilar no CI; o que importa é a ordem de grandeza.
 /// </summary>
-public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
+[Collection(HeadlessCollection.Name)]
+public class EditorGridHeadlessTests(HeadlessFixture fixture)
 {
     private const int LineCount = 50_000;
     private const int MaxRealized = 100;
