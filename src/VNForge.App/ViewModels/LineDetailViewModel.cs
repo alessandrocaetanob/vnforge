@@ -46,6 +46,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
         this.postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
 
+        Saved = unit;
         SourceSegments = SplitOrPlain(unit.Source, out sourceMarkers);
         Translation = unit.Translation ?? string.Empty;
         Notes = unit.Notes;
@@ -55,6 +56,9 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     }
 
     public string Id => unit.Id;
+
+    /// <summary>A unidade como está gravada em <c>text/&lt;script&gt;.json</c>: a recebida na criação, trocada a cada gravação bem-sucedida.</summary>
+    public TextUnit Saved { get; private set; }
 
     public string ScriptKey => scriptKey;
 
@@ -140,13 +144,14 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         {
             if (translationDirty)
             {
-                Status = editor.SetTranslation(scriptKey, unit.Id, Translation).Status;
+                Saved = editor.SetTranslation(scriptKey, unit.Id, Translation);
+                Status = Saved.Status;
                 translationDirty = false;
             }
 
             if (notesDirty)
             {
-                editor.SetNotes(scriptKey, unit.Id, Notes);
+                Saved = editor.SetNotes(scriptKey, unit.Id, Notes);
                 notesDirty = false;
             }
         });
@@ -232,7 +237,11 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        return TrySave(() => Status = editor.Approve(scriptKey, unit.Id).Status);
+        return TrySave(() =>
+        {
+            Saved = editor.Approve(scriptKey, unit.Id);
+            Status = Saved.Status;
+        });
     }
 
     private bool TrySave(Action save)

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
@@ -14,21 +15,32 @@ public sealed record SpeakerOption(string Label, string? Value);
 /// Página do Editor: lista de scripts com progresso, grade de linhas filtrável e a coluna do detalhe.
 /// A grade recebe <see cref="Lines"/> trocada de uma vez a cada filtro; mexer numa coleção observável de dezenas de milhares de linhas travaria a tela.
 /// </summary>
-public sealed partial class EditorViewModel : ObservableObject
+public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 {
     private const string AllSpeakersLabel = "Todos os personagens";
 
     private readonly Func<string, ProjectLines> loader;
     private readonly FilterChipViewModel[] chips;
+    private readonly TimeProvider clock;
+    private readonly Action<Action>? postToUi;
+    private readonly Dictionary<string, TextUnit> savedUnits = new(StringComparer.Ordinal);
+    private LineEditor? lineEditor;
     private ProjectLines? data;
     private IReadOnlyList<LineEntry> entries = [];
     private LineViewModel[] scriptLines = [];
     private LineStatusFilter statusFilter = LineStatusFilter.All;
     private int loadVersion;
     private bool applying;
+    private bool revertingSelection;
+    private bool discardingSelection;
 
-    public EditorViewModel(Func<string, ProjectLines>? loader = null)
+    /// <param name="loader">Lê as linhas do projeto; o padrão lê <c>text/*.json</c>.</param>
+    /// <param name="clock">Relógio do painel de detalhe (debounce da gravação e horário da origem <c>manual</c>); o padrão é o do sistema.</param>
+    /// <param name="postToUi">Como o painel executa a gravação agendada na thread da tela; nulo usa o <see cref="SynchronizationContext"/> da thread que o criou. Os testes passam uma chamada direta.</param>
+    public EditorViewModel(Func<string, ProjectLines>? loader = null, TimeProvider? clock = null, Action<Action>? postToUi = null)
     {
+        this.clock = clock ?? TimeProvider.System;
+        this.postToUi = postToUi;
         this.loader = loader ?? (root => ProjectLines.Read(ProjectFolder.Open(root)));
         chips =
         [
@@ -79,9 +91,12 @@ public sealed partial class EditorViewModel : ObservableObject
     [ObservableProperty]
     public partial LineViewModel? SelectedLine { get; set; }
 
-    /// <summary>ViewModel do painel de detalhe (#100). Fica nulo até o #100 encaixar o tipo dele; a coluna direita do Editor mostra este conteúdo.</summary>
+    /// <summary>
+    /// Painel de detalhe da <see cref="SelectedLine"/>, recriado a cada troca de linha. Nulo sem linha selecionada ou quando a pasta do projeto não abre
+    /// (não há onde gravar). Trocar de linha grava antes o que estiver pendente no painel.
+    /// </summary>
     [ObservableProperty]
-    public partial object? Detail { get; set; }
+    public partial LineDetailViewModel? Detail { get; private set; }
 
     public string ProjectName => Project?.Name ?? string.Empty;
 
@@ -130,6 +145,8 @@ public sealed partial class EditorViewModel : ObservableObject
 
         // As linhas do projeto anterior não podem ficar na tela como se fossem do novo enquanto ele carrega.
         Apply(null);
+        lineEditor = null;
+        savedUnits.Clear();
         IsLoading = true;
         ProjectLines? loaded = null;
         string? error = null;
@@ -149,6 +166,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
         IsLoading = false;
         ErrorMessage = error;
+        lineEditor = loaded is null ? null : TryCreateEditor(root);
         Apply(loaded);
     }
 
@@ -176,6 +194,68 @@ public sealed partial class EditorViewModel : ObservableObject
     public void SelectPrevious() => Move(-1);
 
     partial void OnProjectChanged(ProjectSummary? value) => Loading = LoadAsync();
+
+    partial void OnSelectedLineChanged(LineViewModel? oldValue, LineViewModel? newValue)
+    {
+        if (revertingSelection)
+        {
+            return;
+        }
+
+        if (Detail is { } panel)
+        {
+            // Só a troca pedida pelo usuário pode ser vetada: ao trocar de script ou de projeto, ou quando o filtro tira a linha da grade, a linha antiga já não existe na lista.
+            var canVeto = !discardingSelection && oldValue is not null && IndexOf(oldValue) >= 0;
+            if (!panel.Flush() && canVeto)
+            {
+                revertingSelection = true;
+                try
+                {
+                    SelectedLine = oldValue;
+                }
+                finally
+                {
+                    revertingSelection = false;
+                }
+
+                return;
+            }
+
+            if (oldValue is not null && !ReferenceEquals(panel.Saved, oldValue.Entry.Unit))
+            {
+                savedUnits[panel.Id] = panel.Saved;
+            }
+
+            panel.Dispose();
+        }
+
+        Detail = CreateDetail(newValue);
+    }
+
+    private LineDetailViewModel? CreateDetail(LineViewModel? line)
+    {
+        if (line is null || lineEditor is null)
+        {
+            return null;
+        }
+
+        var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
+        return postToUi is null
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock)
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi);
+    }
+
+    private LineEditor? TryCreateEditor(string root)
+    {
+        try
+        {
+            return new LineEditor(ProjectFolder.Open(root), clock);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     partial void OnSelectedScriptChanged(ScriptItemViewModel? value)
     {
@@ -239,7 +319,16 @@ public sealed partial class EditorViewModel : ObservableObject
             applying = false;
         }
 
-        SelectedLine = null;
+        discardingSelection = true;
+        try
+        {
+            SelectedLine = null;
+        }
+        finally
+        {
+            discardingSelection = false;
+        }
+
         UpdateCounts();
         Refresh();
         OnPropertyChanged(nameof(ScriptTitle));
