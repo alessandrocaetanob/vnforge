@@ -57,6 +57,37 @@ public sealed class ReviewCommandTests : IDisposable
         string.Concat(_project.LoadAllText().OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => TextUnitJson.SerializeList(p.Value)));
 
     [Fact]
+    public async Task Em_terminal_interativo_a_barra_substitui_o_log_do_erro_padrao()
+    {
+        using var rich = new CliHarness(terminal: TestTerminals.InteractiveAnsi());
+        rich.Cli.ReviewProviderFactory = (_, _) => _provider;
+
+        var result = await rich.RunAsync(["review", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(string.Empty, result.Error);
+        Assert.Contains("Revisando com", result.Output);
+        Assert.Contains("claude-opus-5-5", result.Output);
+        Assert.Contains(" · esforço medium", result.Output);
+        Assert.Contains("lote 1/1", result.Output);
+        Assert.Contains("4/4 linhas", result.Output);
+        Assert.Contains("4 linhas revisadas de 4", result.Output);
+    }
+
+    [Fact]
+    public async Task No_terminal_interativo_com_no_color_o_progresso_segue_no_erro_padrao()
+    {
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+        rich.Cli.ReviewProviderFactory = (_, _) => _provider;
+
+        var result = await rich.RunAsync(["review", "--no-color", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("100%", result.Error);
+        Assert.DoesNotContain("lote 1/1", result.Output);
+    }
+
+    [Fact]
     public async Task Grava_a_sugestao_em_notes_sem_mudar_translation_status_nem_origin()
     {
         var before = _project.LoadAllText().ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
