@@ -220,6 +220,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Há projeto aberto e legível: os ajustes do projeto só valem com ele.</summary>
     public bool HasProject => folder is not null;
 
+    /// <summary>Quanto o "Testar conexão" espera pela API antes de desistir; sem teto, a rede parada deixaria o botão em "Testando…" por minutos.</summary>
+    public TimeSpan ConnectionTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
     /// <summary>Termina quando a estimativa das linhas pendentes foi calculada (ou descartada por outro projeto).</summary>
     public Task EstimateLoading { get; private set; } = Task.CompletedTask;
 
@@ -467,7 +470,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         ConnectionOk = false;
         try
         {
-            var result = await ClaudeConnectionTest.RunAsync(clientFactory(key), CancellationToken.None);
+            using var timeout = new CancellationTokenSource(ConnectionTimeout);
+            var result = await ClaudeConnectionTest.RunAsync(clientFactory(key), timeout.Token);
             ConnectionOk = result.Success;
             ConnectionMessage = result.Message;
         }
@@ -740,8 +744,9 @@ public sealed partial class SettingsViewModel : ObservableObject
                 return (pending.Count, CostEstimator.EstimateForModels(pending, ids));
             });
         }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
+            // Sem estimativa o cartão mostra só o uso do modelo; ler o texto do projeto falhou e a tela de Ajustes não depende disso.
             return;
         }
 

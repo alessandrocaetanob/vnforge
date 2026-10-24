@@ -655,6 +655,32 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Testar_conexao_que_nao_responde_desiste_no_prazo_e_solta_o_botao()
+    {
+        using var temp = new TempFolder();
+        var client = new HangingClient();
+        var vm = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), _ => SecretKey, _ => client)
+        {
+            ConnectionTimeout = TimeSpan.FromMilliseconds(50),
+        };
+
+        await vm.TestConnectionCommand.ExecuteAsync(null);
+
+        Assert.False(vm.ConnectionOk);
+        Assert.Contains("tempo esgotado", vm.ConnectionMessage);
+        Assert.False(vm.IsTestingConnection);
+    }
+
+    private sealed class HangingClient : IClaudeMessageClient
+    {
+        public async Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct)
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            return new ClaudeReply(null, string.Empty);
+        }
+    }
+
+    [Fact]
     public async Task Trocar_ou_apagar_a_chave_limpa_o_resultado_do_teste_anterior()
     {
         using var temp = new TempFolder();
