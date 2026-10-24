@@ -108,9 +108,18 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial ProjectSummary? Project { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand))]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(FixRuleCommand), nameof(MarkOkCommand), nameof(OpenLineCommand))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy))]
     public partial bool IsLoading { get; private set; }
+
+    /// <summary>Verdadeiro enquanto uma correção grava <c>text/*.json</c> em segundo plano.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(FixRuleCommand), nameof(MarkOkCommand), nameof(OpenLineCommand))]
+    [NotifyPropertyChangedFor(nameof(IsBusy))]
+    public partial bool IsFixing { get; private set; }
+
+    /// <summary>Lendo ou corrigindo o projeto. Nesse tempo nada mais grava em <c>text/*.json</c>, e a janela principal não deixa trocar de página.</summary>
+    public bool IsBusy => IsLoading || IsFixing;
 
     /// <summary>Falha ao ler ou corrigir o projeto: o fato e a consequência, em português.</summary>
     [ObservableProperty]
@@ -208,7 +217,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         Rebuild();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanOpenLine))]
     private void OpenLine(ConferenceIssueRowViewModel? row)
     {
         if (row is not null)
@@ -216,6 +225,8 @@ public sealed partial class ConferenceViewModel : ObservableObject
             LineRequested?.Invoke(this, new LineRequest(row.ScriptKey, row.UnitId));
         }
     }
+
+    private bool CanOpenLine(ConferenceIssueRowViewModel? row) => !IsBusy && row is not null;
 
     [RelayCommand(CanExecute = nameof(CanMarkOk))]
     private void MarkOk(ConferenceIssueRowViewModel? row)
@@ -245,7 +256,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         TextsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private static bool CanMarkOk(ConferenceIssueRowViewModel? row) => row is { CanMarkOk: true };
+    private bool CanMarkOk(ConferenceIssueRowViewModel? row) => !IsBusy && row is { CanMarkOk: true };
 
     private static bool IsSamePair(QaIssue issue, ConferenceIssueRowViewModel row) =>
         issue.Severity == QaSeverity.Warning
@@ -258,7 +269,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanFixAll))]
     private Task FixRuleAsync(ConferenceGroupRowViewModel? group) => group is { CanFix: true } ? FixAsync([group.RuleId]) : Task.CompletedTask;
 
-    private bool CanFixAll() => Project is not null && !IsLoading;
+    private bool CanFixAll() => Project is not null && !IsBusy;
 
     private async Task FixAsync(IReadOnlyCollection<string>? rules)
     {
@@ -270,31 +281,39 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
         ErrorMessage = null;
         NoticeMessage = null;
-        QaFixResult result;
+        IsFixing = true;
         try
         {
-            result = await Task.Run(() => QaFixer.Apply(ProjectFolder.Open(root), engine, rules));
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            ErrorMessage = $"Não foi possível corrigir automaticamente: {e.Message.TrimEnd('.', ' ')}.";
-            return;
-        }
-
-        if (result.Fixes.Count > 0)
-        {
-            TextsChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        await RefreshAsync();
-        if (ErrorMessage is null)
-        {
-            NoticeMessage = result.Fixes.Count switch
+            QaFixResult result;
+            try
             {
-                0 => "Nada a corrigir automaticamente.",
-                1 => "1 correção aplicada.",
-                var n => $"{ProjectLabels.Number(n)} correções aplicadas.",
-            };
+                result = await Task.Run(() => QaFixer.Apply(ProjectFolder.Open(root), engine, rules));
+            }
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+            {
+                ErrorMessage = $"Não foi possível corrigir automaticamente: {e.Message.TrimEnd('.', ' ')}.";
+                return;
+            }
+
+            if (result.Fixes.Count > 0)
+            {
+                TextsChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            await RefreshAsync();
+            if (ErrorMessage is null)
+            {
+                NoticeMessage = result.Fixes.Count switch
+                {
+                    0 => "Nada a corrigir automaticamente.",
+                    1 => "1 correção aplicada.",
+                    var n => $"{ProjectLabels.Number(n)} correções aplicadas.",
+                };
+            }
+        }
+        finally
+        {
+            IsFixing = false;
         }
     }
 

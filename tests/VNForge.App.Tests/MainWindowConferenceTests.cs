@@ -58,6 +58,40 @@ public class MainWindowConferenceTests
     }
 
     [Fact]
+    public async Task Entrar_na_Conferencia_grava_antes_a_edicao_pendente_do_Editor()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWithProblem(temp);
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+        await vm.Editor.Loading;
+        vm.Editor.SelectedLine = vm.Editor.Lines[2];
+        vm.Editor.Detail!.Translation = "editada  agora";
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.Conference.RefreshAsync();
+
+        Assert.Same(vm.Conference, vm.CurrentPage);
+        Assert.Contains(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>(), r => r.UnitId == "yst00001:000002" && r.RuleId == "espaco-duplo");
+    }
+
+    [Fact]
+    public async Task Gravacao_pendente_que_falha_impede_de_entrar_na_Conferencia()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWithProblem(temp);
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+        await vm.Editor.Loading;
+        vm.Editor.Detail!.Translation = "não vai gravar";
+        File.Delete(ProjectFolder.Open(vm.CurrentProject!.Root).TextPath("yst00001"));
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+
+        Assert.Same(vm.Editor, vm.CurrentPage);
+        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
+        Assert.NotNull(vm.Editor.Detail?.ErrorMessage);
+    }
+
+    [Fact]
     public async Task Marcar_como_ok_na_Conferencia_faz_o_Editor_reler_ao_voltar()
     {
         using var temp = new TempFolder();

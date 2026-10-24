@@ -256,4 +256,41 @@ public class ConferenceViewModelTests
         Assert.Empty(vm.Rows);
         Assert.Equal("Abra um projeto para conferir as traduções.", vm.EmptyMessage);
     }
+
+    [Fact]
+    public async Task Enquanto_confere_fica_ocupada_e_nenhum_comando_grava()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        using var gate = new ManualResetEventSlim();
+        var vm = new ConferenceViewModel(new QaEngine([new GateRule(gate)])) { Project = ProjectSummaryReader.Read(root) };
+        var row = new ConferenceIssueRowViewModel(new QaIssue("regra-porta", QaSeverity.Warning, "yst00001:000000", "yst00001", "problema"));
+
+        var running = vm.RefreshAsync();
+
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.FixAllCommand.CanExecute(null));
+        Assert.False(vm.MarkOkCommand.CanExecute(row));
+        Assert.False(vm.OpenLineCommand.CanExecute(row));
+
+        gate.Set();
+        await running;
+
+        Assert.False(vm.IsBusy);
+        Assert.True(vm.FixAllCommand.CanExecute(null));
+        Assert.True(vm.MarkOkCommand.CanExecute(row));
+    }
+
+    private sealed class GateRule(ManualResetEventSlim gate) : IQaRule
+    {
+        public string Id => "regra-porta";
+
+        public string Description => "Espera o teste liberar.";
+
+        public IEnumerable<QaIssue> Check(QaContext context)
+        {
+            gate.Wait(TimeSpan.FromSeconds(10));
+            return [];
+        }
+    }
 }

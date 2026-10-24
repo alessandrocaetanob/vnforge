@@ -112,6 +112,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
+            if (!ReferenceEquals(value, selectedNav) && !CanSwitchTo(value.Key))
+            {
+                OnPropertyChanged();
+                return;
+            }
+
             if (SetProperty(ref selectedNav, value))
             {
                 PrepareLeavingAndEntering(value.Key);
@@ -128,14 +134,24 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// A Conferência corrige e marca textos em disco, então o que o painel do Editor ainda não gravou entra antes de ela ler; ao voltar ao Editor,
-    /// ele relê se a Conferência mudou algo.
+    /// A Conferência reescreve <c>text/*.json</c> inteiros, então a troca de página espera: não sai dela enquanto ela lê ou corrige, e só entra
+    /// nela depois de gravar a edição pendente do painel do Editor (se a gravação falha, o painel mostra o erro e a página não troca).
     /// </summary>
+    private bool CanSwitchTo(NavKey target)
+    {
+        if (ReferenceEquals(CurrentPage, Conference) && Conference.IsBusy)
+        {
+            return false;
+        }
+
+        return target != NavKey.Conference || Editor.Detail?.Flush() != false;
+    }
+
+    /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>
     private void PrepareLeavingAndEntering(NavKey target)
     {
         if (target == NavKey.Conference)
         {
-            Editor.Detail?.Flush();
             _ = Conference.RefreshAsync();
         }
         else if (target == NavKey.Editor && editorStale)
