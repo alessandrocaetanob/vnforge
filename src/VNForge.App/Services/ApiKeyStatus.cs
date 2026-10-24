@@ -17,24 +17,22 @@ public static class ApiKeyStatus
     }
 
     /// <summary>Resolve a chave do ambiente ou do cofre; onde o cofre não existe (fora do Windows), cai para só o ambiente.</summary>
-    public static ResolvedApiKey Resolve(string configDirectory)
+    public static ResolvedApiKey Resolve(string configDirectory) =>
+        Resolve(() => new DpapiApiKeyStore(configDirectory));
+
+    public static ResolvedApiKey Resolve(Func<IApiKeyStore> openVault)
     {
+        ArgumentNullException.ThrowIfNull(openVault);
         try
         {
-            return ApiKeyResolver.Resolve(new DpapiApiKeyStore(configDirectory));
+            return ApiKeyResolver.Resolve(openVault());
         }
         catch (Exception e) when (e is PlatformNotSupportedException or System.Security.Cryptography.CryptographicException or IOException)
         {
-            return ApiKeyResolver.Resolve(new NoVault());
+            var fromEnvironment = Environment.GetEnvironmentVariable(ApiKeyResolver.EnvironmentVariable);
+            return string.IsNullOrWhiteSpace(fromEnvironment)
+                ? new ResolvedApiKey(null, ApiKeySource.None)
+                : new ResolvedApiKey(fromEnvironment.Trim(), ApiKeySource.Environment);
         }
-    }
-
-    private sealed class NoVault : IApiKeyStore
-    {
-        public string? Load() => null;
-
-        public void Save(string apiKey) => throw new PlatformNotSupportedException();
-
-        public bool Delete() => false;
     }
 }

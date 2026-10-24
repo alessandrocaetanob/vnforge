@@ -72,8 +72,9 @@ jobs:
               '/d:sonar.exclusions=docs/design/**',
               # Tokens.axaml e Icons.axaml são gerados por tools/ e repetem a mesma estrutura por tema.
               '/d:sonar.cpd.exclusions=src/VNForge.App/Themes/Tokens.axaml,src/VNForge.App/Assets/Icons.axaml,src/VNForge.App/Assets/Brand.axaml',
+              # tools/ são scripts de geração (tokens e ícones) rodados à mão, sem suíte de testes.
               # Só ligação com o Avalonia (janela, views, controle de desenho, seletor de pasta): sem lógica, e a tela não roda no CI.
-              '/d:sonar.coverage.exclusions=src/VNForge.App/App.axaml.cs,src/VNForge.App/Program.cs,src/VNForge.App/Views/**,src/VNForge.App/Controls/**,src/VNForge.App/Services/AvaloniaFolderPicker.cs'
+              '/d:sonar.coverage.exclusions=tools/**,src/VNForge.App/App.axaml.cs,src/VNForge.App/Program.cs,src/VNForge.App/Views/**,src/VNForge.App/Controls/**,src/VNForge.App/Services/AvaloniaFolderPicker.cs'
             )
             # CIRCLE_PULL_REQUEST só existe se o PR já estava aberto ao disparar o build;
             # sem ele, procura o PR aberto da branch na API pública do GitHub.
