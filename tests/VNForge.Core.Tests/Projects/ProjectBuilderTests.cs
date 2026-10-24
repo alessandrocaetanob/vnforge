@@ -59,6 +59,19 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Relata_cada_script_do_jogo_em_ordem_e_um_relato_final_com_todos()
+    {
+        Translate("a001", (0, Hello));
+        var reports = new List<ScriptWorkProgress>();
+
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), progress: new SyncProgress<ScriptWorkProgress>(reports.Add));
+
+        Assert.Equal(["a001.fake", "a002.fake", string.Empty], reports.Select(r => r.Name));
+        Assert.Equal([0, 1, 2], reports.Select(r => r.Done));
+        Assert.All(reports, r => Assert.Equal(2, r.Total));
+    }
+
+    [Fact]
     public void Sem_traducao_nenhum_script_e_reconstruido_e_o_pacote_sai_identico()
     {
         var result = Build();

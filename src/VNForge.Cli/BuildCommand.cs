@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Diagnostics;
 using System.Globalization;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -45,11 +46,11 @@ internal static class BuildCommand
         command.Options.Add(AllowWarningsOption);
         command.Options.Add(OnlyChangedOption);
         command.Options.Add(EncodingOption);
-        command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, parseResult.InvocationConfiguration.Output, token)));
+        command.SetAction((parseResult, token) => RunAsync(cli, parseResult, parseResult.InvocationConfiguration.Output, token));
         return command;
     }
 
-    private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output, CancellationToken token)
+    private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, TextWriter output, CancellationToken token)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         if (parseResult.GetValue(ReportOption))
@@ -59,10 +60,24 @@ internal static class BuildCommand
 
         var json = parseResult.GetValue(cli.Options.Json);
         var allowWarnings = parseResult.GetValue(AllowWarningsOption);
+        var options = new BuildOptions(parseResult.GetValue(OnlyChangedOption), parseResult.GetValue(EncodingOption));
+        var clock = Stopwatch.StartNew();
         BuildResult result;
         try
         {
-            result = ProjectBuilder.Build(project, KnownEngines.All, cancellationToken: token, qa: cli.Qa, allowWarnings: allowWarnings, options: new BuildOptions(parseResult.GetValue(OnlyChangedOption), parseResult.GetValue(EncodingOption)));
+            result = await LiveProgress.RunAsync(
+                cli.Ansi,
+                cli.CanAnimate,
+                "Conferindo as traduções",
+                total: null,
+                sink => Task.FromResult(ProjectBuilder.Build(
+                    project,
+                    KnownEngines.All,
+                    qa: cli.Qa,
+                    allowWarnings: allowWarnings,
+                    options: options,
+                    cancellationToken: token,
+                    progress: new InlineProgress<ScriptWorkProgress>(progress => sink.Scripts(progress, "reempacotando"))))).ConfigureAwait(false);
         }
         catch (QaBlockedException blocked)
         {
@@ -71,7 +86,7 @@ internal static class BuildCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 gameDirectory = result.GameDirectory,
                 buildDirectory = result.BuildDirectory,
@@ -88,16 +103,30 @@ internal static class BuildCommand
             return ErrorHandler.OkExitCode;
         }
 
+        if (cli.RichOutput)
+        {
+            cli.Ansi.Write(RunSummaries.BuildPanel(result, clock.Elapsed));
+            WriteDetails(output, result);
+            return ErrorHandler.OkExitCode;
+        }
+
         foreach (var archive in result.Archives)
         {
             var path = Path.Combine(result.BuildDirectory, archive.GamePath.Replace('/', Path.DirectorySeparatorChar));
             var detail = archive.ReplacedFiles == 0
                 ? "sem alterações, idêntico ao original"
                 : $"{Number(archive.ReplacedFiles)} {Plural(archive.ReplacedFiles, "script alterado", "scripts alterados")}";
-            output.WriteLine($"Gravado: {path} ({detail})");
+            await output.WriteLineAsync($"Gravado: {path} ({detail})");
         }
 
-        output.WriteLine(Summary(result));
+        await output.WriteLineAsync(Summary(result));
+        WriteDetails(output, result);
+        return ErrorHandler.OkExitCode;
+    }
+
+    /// <summary>O que vem depois do resumo: caracteres trocados, QA e avisos do build.</summary>
+    private static void WriteDetails(TextWriter output, BuildResult result)
+    {
         if (result.Encoding.Replaced.Count > 0)
         {
             output.WriteLine($"Codificação '{result.Encoding.Strategy}': {Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}; vnf build --report lista cada um.");
@@ -127,8 +156,6 @@ internal static class BuildCommand
         {
             output.WriteLine($"... e mais {Number(result.Warnings.Count - MaxWarningsShown)} aviso(s); use --json para ver todos.");
         }
-
-        return ErrorHandler.OkExitCode;
     }
 
     private static int RunQaBlocked(bool json, QaBlockedException blocked, TextWriter output)

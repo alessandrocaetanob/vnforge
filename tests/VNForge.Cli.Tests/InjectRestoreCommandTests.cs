@@ -48,6 +48,55 @@ public sealed class InjectRestoreCommandTests : IDisposable
         _cli.RunAsync([.. args, "--project", _project.Root], TestContext.Current.CancellationToken);
 
     [Fact]
+    public async Task Inject_em_terminal_interativo_mostra_a_tabela_do_que_vai_mudar_antes_de_perguntar()
+    {
+        PutBuild();
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain(200));
+        Console.SetIn(new StringReader("n\n"));
+
+        var result = await rich.RunAsync([Inject, "--project", _project.Root], TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("O que acontece", result.Output);
+        Assert.Contains(YsbinYpf, result.Output);
+        Assert.Contains("substitui o original", result.Output);
+        Assert.Contains("Gravar 1 arquivo(s)", result.Error);
+        Assert.Equal(Original, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Restore_em_terminal_interativo_mostra_a_tabela_do_que_volta_antes_de_perguntar()
+    {
+        PutBuild();
+        await Run(Inject, YesOption);
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain(200));
+        Console.SetIn(new StringReader("n\n"));
+
+        var result = await rich.RunAsync([Restore, "--project", _project.Root], TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("O que acontece", result.Output);
+        Assert.Contains("volta ao original", result.Output);
+        Assert.Contains("Restaurar 1 arquivo(s)", result.Error);
+        Assert.Equal(Traduzido, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Inject_e_restore_com_json_nao_desenham_tabela_mesmo_no_terminal_interativo()
+    {
+        PutBuild();
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain(200));
+
+        var inject = await rich.RunAsync([Inject, YesOption, "--json", "--project", _project.Root], TestContext.Current.CancellationToken);
+        var restore = await rich.RunAsync([Restore, YesOption, "--json", "--project", _project.Root], TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain("O que acontece", inject.Output);
+        Assert.DoesNotContain("O que acontece", restore.Output);
+        using var document = JsonDocument.Parse(inject.Output);
+        Assert.Equal(JsonValueKind.Object, document.RootElement.GetProperty("data").ValueKind);
+    }
+
+    [Fact]
     public async Task Inject_com_yes_faz_backup_e_grava_o_build()
     {
         PutBuild();
