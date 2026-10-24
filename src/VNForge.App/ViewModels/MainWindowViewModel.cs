@@ -9,6 +9,7 @@ namespace VNForge.App.ViewModels;
 public enum NavKey
 {
     Start,
+    Dashboard,
     Editor,
     Settings,
     Glossary,
@@ -30,6 +31,7 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 /// <summary>Janela principal: trilho de navegação, página atual e o projeto aberto.</summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {
+    private readonly NavItemViewModel dashboardItem = new(NavKey.Dashboard, "Painel", "Icon.Board", isEnabled: false);
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
@@ -43,11 +45,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Tasks = new TaskBarViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), editorItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), dashboardItem, editorItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
+        Dashboard.StageRequested += (_, _) => SelectedNav = editorItem;
         start.EditorRequested += (_, summary) =>
         {
             SetProject(summary);
@@ -61,6 +64,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public BackgroundTaskService TaskService { get; }
 
     public TaskBarViewModel Tasks { get; }
+
+    public DashboardViewModel Dashboard { get; } = new();
 
     public EditorViewModel Editor { get; } = new();
 
@@ -102,11 +107,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
             {
                 CurrentPage = value.Key switch
                 {
+                    NavKey.Dashboard => Dashboard,
                     NavKey.Editor => Editor,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
                     _ => Start,
                 };
+                if (value.Key == NavKey.Dashboard)
+                {
+                    _ = Dashboard.ReloadAsync();
+                }
             }
         }
     }
@@ -132,6 +142,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void SetProject(ProjectSummary summary)
     {
         CurrentProject = summary;
+        Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
@@ -140,6 +151,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Glossary.Project = summary;
         }
 
+        dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
     }

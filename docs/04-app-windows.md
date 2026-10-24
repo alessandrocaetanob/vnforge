@@ -54,7 +54,15 @@ O assistente chama o mesmo `ProjectInitializer` do `vnf init` (`vnf init` ganhou
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-Cada etapa é um botão; o número mostra pendências.
+Cada etapa é um botão; o texto mostra as pendências. A página lê `ProjectDashboard` (Core): o progresso é o `ProjectStatusReporter` que o `vnf status` imprime, então total, percentual, arquivos e personagens são os mesmos números. Etapas:
+
+- **Extrair**: concluída quando o `.cache/state.json` registra a extração.
+- **Traduzir**: pendentes são as linhas sem tradução.
+- **Conferir**: pendentes são as linhas de máquina e traduzidas, que ninguém revisou. A contagem de avisos do QA entra com a tela de Conferência (#106).
+- **Build**: concluída quando o estado do último build existe e os pacotes de `build/` conferem.
+- **Injetar**: concluída quando há backup de injeção em `backup/`.
+
+Só Traduzir e Conferir abrem uma tela hoje (o Editor); as outras abrem quando as telas delas entrarem. O custo de IA é o total de `.cache/ai-usage.json` (tokens e dólares), que `vnf translate` e `vnf review` atualizam ao fim de cada execução; sem o arquivo, o Painel diz que não há chamada registrada. A página recarrega a cada vez que é aberta.
 
 ### 4. Editor de tradução (tela principal)
 
