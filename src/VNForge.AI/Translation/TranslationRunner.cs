@@ -132,7 +132,7 @@ public sealed class TranslationRunner
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
-            // Parada pedida por erro no callback ou por falha de lote: o resultado parcial é devolvido abaixo.
+            // A parada veio de um erro no callback (guardado em callbackError): o resultado parcial é devolvido abaixo.
         }
 
         return new TranslationRunResult(
