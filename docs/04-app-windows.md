@@ -1,12 +1,12 @@
 # 04 — Aplicativo Windows
 
-**Protótipo visual:** [VNForge App Windows no Claude Design](https://claude.ai/artifact/36wMrNUfoMvXmhRNdJQhrn). São seis telas navegáveis (Início, Painel, Editor, Conferência, Build e injeção, Configurações). O Editor é interativo: selecionar linha, editar a tradução, aprovar, usar a sugestão da IA e ver a prévia da caixa de texto recalcular a quebra de linha. Os desenhos em texto abaixo são o rascunho que originou o protótipo; quando divergirem, vale o protótipo.
+**Design:** as telas e o design system estão copiados em [design/](design/README.md) (canvas "VNForge v2 · App Windows" e design system "VNForge v2", no Claude.ai). São seis telas (Início, Painel, Editor, Conferir, Build, Ajustes). Os desenhos em texto abaixo são o rascunho que originou o design; quando divergirem, vale o design. A implementação segue [design/avalonia.md](design/avalonia.md).
 
 ## Ideia geral
 
 O app é uma "mesa de tradução": abre um projeto VNForge, mostra o pipeline como uma sequência de etapas e passa a maior parte do tempo no editor de linhas. Usa a mesma biblioteca da CLI, então um projeto pode ser extraído pela CLI e revisado no app, ou o contrário.
 
-- WPF em .NET 10, tema Fluent (claro/escuro seguindo o Windows).
+- Avalonia 12 em .NET 10, tema `FluentTheme` (claro ou escuro, seguindo o Windows).
 - MVVM com CommunityToolkit.Mvvm; nenhuma regra de negócio nas telas.
 - Tarefas longas (extrair, traduzir, build) rodam em segundo plano com barra de progresso e botão cancelar. Dá para continuar editando enquanto a IA traduz outro arquivo.
 - Salvamento automático a cada edição (arquivo `text/*.json` do script atual).
@@ -117,5 +117,5 @@ Log em tempo real, resumo do que mudou (scripts reconstruídos, tamanho do YPF n
 
 ## Em aberto
 
-- [ ] Prioridade das telas para a primeira versão (sugestão: Início, Editor, Build/Injeção; o resto via CLI no começo).
+- [x] Telas da primeira versão (D4, #97, 2026-10-24): **Início e Editor** entram no M3 (#98, #99, #100). Painel (#102), Conferência (#106), Build e injeção (#103) e Ajustes (#110) ficam no M4; até lá, o resto vai pela CLI. O trilho de navegação mostra só Início e Editor no M3.
 - [ ] A prévia deve usar a fonte real do jogo? (Dá para ler o nome da fonte da configuração do YU-RIS.)

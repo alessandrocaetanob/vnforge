@@ -7,7 +7,7 @@
 | Runtime | **.NET 10** (SDK 10.0.x, LTS) | Versão mais recente, suporte longo |
 | Linguagem | C# 14 | Vem com o .NET 10 |
 | CLI | `System.CommandLine` 2.x | Parser oficial da Microsoft, estável desde o .NET 10 |
-| App Windows | **WPF** (`net10.0-windows`) + CommunityToolkit.Mvvm | Maduro, tema Fluent nativo desde o .NET 9, DataGrid pronto para milhares de linhas. Ver alternativas no fim |
+| App | **Avalonia 12** (`net10.0`, tema `FluentTheme`) + CommunityToolkit.Mvvm | Decisão D3 (#96, 2026-10-24). Roda em Windows, Linux e macOS, compila no mesmo job do Core e da CLI, e o Fluent segue o tema claro ou escuro do Windows. A grade usa `ListBox` virtualizado; ver alternativas no fim e `docs/design/avalonia.md` |
 | IA — Claude | SDK oficial `Anthropic` para C# | Único provedor da primeira versão (é a chave que temos). Cliente oficial, com retries e tipos prontos |
 | IA — outras (depois) | Cliente "compatível com OpenAI" via HttpClient | Fica para um épico posterior. Um único cliente cobre OpenAI, Gemini, OpenRouter, DeepSeek, Ollama e LM Studio |
 | Compressão | `System.IO.Compression.ZLibStream` | Os arquivos YPF usam zlib |
@@ -21,18 +21,19 @@
 ```
 vnforge/
 ├─ VNForge.slnx
-├─ VNForge.NoApp.slnf             # filtro de solução sem o app: compila e testa no Linux
 ├─ global.json                    # SDK 10.0.x e runner de testes (Microsoft.Testing.Platform)
 ├─ Directory.Build.props          # net10.0, nullable, warnings as errors, versão
 ├─ Directory.Packages.props       # versões centralizadas de pacotes
+├─ tools/                         # Generate-Tokens.ps1 (tokens.json -> Tokens.axaml), Update-Icons.ps1 (Fluent Icons -> Icons.axaml)
 ├─ src/
 │  ├─ VNForge.Core/               # modelo do projeto, pipeline, formatação, codificação, QA
 │  ├─ VNForge.Engines.YuRis/      # YPF, YSTB, YSCM, YSTL, patch do executável
 │  ├─ VNForge.AI/                 # provedores de IA, prompts, orquestração em lote
 │  ├─ VNForge.Cli/                # executável "vnf"
-│  └─ VNForge.App/                # WPF (só compila/roda no Windows)
+│  └─ VNForge.App/                # Avalonia 12 (compila e testa em qualquer sistema; Mica e barra de título só no Windows)
 ├─ tests/
 │  ├─ VNForge.Core.Tests/
+│  ├─ VNForge.App.Tests/         # ViewModels, rótulos e a conferência de Tokens.axaml contra o tokens.json
 │  ├─ VNForge.Engines.YuRis.Tests/
 │  └─ VNForge.AI.Tests/           # com provedor falso, sem chamar API real
 ├─ docs/
@@ -48,9 +49,9 @@ VNForge.App ─┤                            ▲
              └─► VNForge.Engines.YuRis ───┘
 ```
 
-Os testes usam xUnit v3 (`xunit.v3.mtp-v2`) sobre o Microsoft.Testing.Platform. No SDK 10, o `dotnet test` precisa de `global.json` com `test.runner = Microsoft.Testing.Platform`, e a solução passa por `--solution` (`dotnet test --solution VNForge.NoApp.slnf`; sem argumento, ele acha a solução da pasta).
+Os testes usam xUnit v3 (`xunit.v3.mtp-v2`) sobre o Microsoft.Testing.Platform. No SDK 10, o `dotnet test` precisa de `global.json` com `test.runner = Microsoft.Testing.Platform`, e a solução passa por `--solution` (`dotnet test --solution VNForge.slnx`; sem argumento, ele acha a solução da pasta).
 
-**CI e Sonar.** O CircleCI (`.circleci/config.yml`) tem dois jobs: `linux` compila e testa `VNForge.NoApp.slnf`, e `windows` compila e testa `VNForge.slnx`, com o app WPF. A análise do SonarCloud (organização `alessandrocaetanob`, projeto `alessandrocaetanob_vnforge`) roda dentro do job `windows`, com o `dotnet-sonarscanner`: `sonarscanner begin`, `dotnet build`, `dotnet-coverage collect "dotnet test ..."` e `sonarscanner end`. A cobertura vai por `sonar.cs.vscoveragexml.reportsPaths`. Em PR, o `begin` recebe `sonar.pullrequest.key` (o número em `CIRCLE_PULL_REQUEST`), `sonar.pullrequest.branch` e `sonar.pullrequest.base=main`; em outra branch, `sonar.branch.name`; na `main`, nada disso. Referência: [SonarScanner for .NET](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/scanners/sonarscanner-for-dotnet/using) e [cobertura em .NET](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/test-coverage/dotnet-test-coverage).
+**CI e Sonar.** O CircleCI (`.circleci/config.yml`) tem dois jobs: `linux` e `windows` compilam e testam `VNForge.slnx`, com o app Avalonia nos dois. O `linux` prova que o app e os ViewModels não dependem do Windows; o `windows` leva a análise do Sonar. O filtro `VNForge.NoApp.slnf` deixou de existir: o app Avalonia é `net10.0` e não precisa ficar de fora. A análise do SonarCloud (organização `alessandrocaetanob`, projeto `alessandrocaetanob_vnforge`) roda dentro do job `windows`, com o `dotnet-sonarscanner`: `sonarscanner begin`, `dotnet build`, `dotnet-coverage collect "dotnet test ..."` e `sonarscanner end`. A cobertura vai por `sonar.cs.vscoveragexml.reportsPaths`. Em PR, o `begin` recebe `sonar.pullrequest.key` (o número em `CIRCLE_PULL_REQUEST`), `sonar.pullrequest.branch` e `sonar.pullrequest.base=main`; em outra branch, `sonar.branch.name`; na `main`, nada disso. Referência: [SonarScanner for .NET](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/scanners/sonarscanner-for-dotnet/using) e [cobertura em .NET](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/test-coverage/dotnet-test-coverage).
 
 O `SONAR_TOKEN` fica no contexto `sonarcloud` do CircleCI, usado só pelo job `windows`. PR de fork não recebe o contexto ("Pass secrets to builds from forked pull requests" fica desligado): o job detecta a falta do token, pula o Sonar e roda só build e testes. Nenhum segredo entra no repositório.
 
@@ -383,15 +384,15 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 
 | Opção | Por que não (por enquanto) |
 |---|---|
-| WinUI 3 | Mais moderno visualmente, mas empacotamento e DataGrid ainda dão mais trabalho que WPF |
-| Avalonia | Rodaria em Linux/macOS também. Boa opção se quisermos multiplataforma; a troca custa pouco se o ViewModel ficar separado |
+| WPF | Só Windows, e o app precisaria de um job Windows só para compilar. Tem `DataGrid` pronto, mas a grade do VNForge é somente leitura, de altura fixa, e um `ListBox` virtualizado a cobre |
+| WinUI 3 | Mais moderno visualmente, mas empacotamento e DataGrid dão mais trabalho que WPF |
 | MAUI | Pensado para mobile; desktop Windows é cidadão de segunda classe |
 
-Como a lógica fica toda no Core e nos ViewModels, trocar WPF por Avalonia depois é viável.
+A escolha foi Avalonia (D3, #96). A lógica fica no Core e nos ViewModels, então uma troca futura de interface continua barata.
 
 ## Em aberto
 
-- [ ] WPF (só Windows) ou Avalonia (multiplataforma)?
+- [x] WPF ou Avalonia: **Avalonia 12** sobre .NET 10, tema `FluentTheme`, CommunityToolkit.Mvvm (#96, 2026-10-24).
 - [x] Provedor de IA: Claude primeiro, modelo selecionável; outros provedores depois (E12).
 - [x] Estratégia de codificação padrão: `fold` (#63, 2026-10-23). O jogo lê Shift-JIS, e `cp1252` só funciona com o patch do executável (#65), ainda não validado. Projetos passam para `cp1252` à mão depois disso.
 - [ ] Formato de exportação extra para revisores (planilha .xlsx? .po?).

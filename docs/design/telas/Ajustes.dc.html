@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>VNForge · Ajustes</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/vnforge/tokens.css">
+<link rel="stylesheet" href="ds/vnforge/components/bundle.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600&amp;family=Noto+Sans+JP:wght@400;500&amp;family=Zen+Kaku+Gothic+New:wght@500;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--accent-text)}a:hover{color:var(--text-primary)}
+.tab{position:relative;height:40px;padding:0 14px;border:0;background:transparent;color:var(--text-secondary);font:400 14px/20px var(--font-ui);cursor:pointer}
+.tab:hover{color:var(--text-primary)}
+.tab[aria-selected="true"]{color:var(--text-primary);font-weight:600}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:3px;border-radius:2px;background:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--stroke-control);border-radius:4px;overflow:hidden}
+.seg button{height:30px;padding:0 14px;border:0;border-right:1px solid var(--stroke-subtle);background:var(--bg-inset);color:var(--text-primary);font:400 13px/18px var(--font-ui);cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:600}
+.num{width:96px}
+.soon{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:4px;border:1px dashed var(--stroke-control);color:var(--text-secondary);font-size:13px}
+.pv{padding:10px 12px;border-radius:4px;background:var(--bg-inset);font:400 13px/20px var(--font-mono);white-space:pre-wrap}
+</style>
+</helmet>
+<div data-theme="{{theme}}" style="min-height: 100vh; display: flex; flex-direction: column; background: var(--bg-base); color: var(--text-primary); font-family: var(--font-ui); font-size: 14px; line-height: 20px;">
+
+  <header class="vnf-titlebar">
+    <svg width="22" height="22" viewBox="0 0 48 48" role="img" aria-label="VNForge"><g transform="rotate(-4 24 24)"><rect x="5" y="5" width="38" height="38" rx="6" fill="none" stroke="var(--brand-shu)" stroke-width="3.5"></rect><path d="{{seal}}" transform="translate(24 24) scale(0.86) translate(-24 -24)" fill="var(--brand-shu)"></path></g></svg>
+    <span style="font-weight: 600;">VNForge</span>
+    <span class="crumb">Minha VN — PT-BR</span>
+    <label class="search" for="cmd"><svg class="vnf-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.search}}" fill="currentColor"></path></svg><input id="cmd" type="search" placeholder="Buscar linhas, scripts e comandos" style="border: 0; outline: 0; background: transparent; color: var(--text-primary); font: inherit; flex: 1 1 auto; min-width: 0;"><span class="vnf-kbd">Ctrl+K</span></label>
+    <div class="caption" aria-hidden="true">
+      <span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor"></path></svg></span>
+      <span><svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" fill="none"></rect></svg></span>
+      <span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor"></path></svg></span>
+    </div>
+  </header>
+
+  <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; min-height: 0;">
+    <nav class="vnf-nav" aria-label="Seções">
+      <a href="Inicio.dc.html"><svg class="vnf-ico-20" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.home}}" fill="currentColor"></path></svg>Início</a>
+      <a href="Painel.dc.html"><svg class="vnf-ico-20" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.board}}" fill="currentColor"></path></svg>Painel</a>
+      <a href="Main.dc.html"><svg class="vnf-ico-20" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.edit}}" fill="currentColor"></path></svg>Editor</a>
+      <a href="Conferir.dc.html"><svg class="vnf-ico-20" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.shield}}" fill="currentColor"></path></svg>Conferir<span class="count" style="background: var(--signal-error-bg); color: var(--signal-error-fg);">39</span></a>
+      <a href="Build.dc.html"><svg class="vnf-ico-20" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.box}}" fill="currentColor"></path></svg>Build</a>
+      <span style="flex-grow: 1; min-height: 24px;"></span>
+      <a href="Ajustes.dc.html" aria-current="page"><svg class="vnf-ico-20" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.settings}}" fill="currentColor"></path></svg>Ajustes</a>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; background: var(--bg-layer); border: 1px solid var(--stroke-subtle); border-right: 0; border-bottom: 0; border-top-left-radius: 8px;">
+      <div style="max-width: 960px; margin: 0 auto; padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 12px; color: var(--text-secondary);">Valem para este projeto e ficam em vnforge.json; a chave da API fica no seu perfil do Windows.</span>
+          <h1 class="title-lg" style="margin: 0;">Ajustes</h1>
+        </div>
+
+        <div role="tablist" aria-label="Seções de ajustes" style="display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--stroke-subtle);">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3"><button type="button" role="tab" class="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for>
+        </div>
+
+        <sc-if value="{{isAi}}" hint-placeholder-val="{{true}}">
+          <section style="display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <span class="vnf-overline">Provedor</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                <span class="vnf-badge approved">Claude (Anthropic)</span>
+                <span class="soon">OpenAI · em breve</span><span class="soon">Gemini · em breve</span><span class="soon">Ollama / LM Studio · em breve</span>
+              </div>
+            </div>
+
+            <div class="vnf-panel" style="padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+              <svg class="vnf-ico-20" viewBox="0 0 20 20" aria-hidden="true" style="color: var(--text-secondary);"><path d="{{ic.key}}" fill="currentColor"></path></svg>
+              <span style="display: flex; flex-direction: column; flex-grow: 1; min-width: 0;"><span>Chave da API</span><small style="font-size: 12px; color: var(--status-approved-fg);">Configurada · guardada no Cofre do Windows (DPAPI), fora do projeto</small></span>
+              <button type="button" class="vnf-btn sm">Trocar chave</button>
+              <button type="button" class="vnf-btn subtle sm">Testar conexão</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;" role="radiogroup" aria-label="Modelo">
+              <span class="vnf-overline">Modelo</span>
+              <sc-for list="{{models}}" as="m" hint-placeholder-count="4">
+                <label class="vnf-option"><input type="radio" name="modelo" checked="{{m.on}}" onChange="{{m.pick}}"><b>{{m.name}}</b><span class="price">US$ {{m.price}} / M tokens</span><small>{{m.use}} · estimativa para as 18.320 pendentes: US$ {{m.est}}</small></label>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span class="vnf-overline" id="eff">Esforço</span>
+                <div class="seg" role="group" aria-labelledby="eff"><sc-for list="{{efforts}}" as="e" hint-placeholder-count="3"><button type="button" aria-pressed="{{e.on}}" onClick="{{e.pick}}">{{e.label}}</button></sc-for></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label class="vnf-overline" for="lote">Linhas por lote</label>
+                <label class="vnf-input num"><input id="lote" type="number" value="30" min="5" max="80"></label>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label class="vnf-overline" for="conc">Chamadas em paralelo</label>
+                <label class="vnf-input num"><input id="conc" type="number" value="2" min="1" max="8"></label>
+              </div>
+            </div>
+            <div class="vnf-infobar info"><span class="ico"><svg class="vnf-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.info}}" fill="currentColor"></path></svg></span><span><b>Prompt de sistema e glossário vão em cache.</b>Eles se repetem em todo lote; linhas já traduzidas não são enviadas de novo (cache por hash).</span></div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{isFmt}}" hint-placeholder-val="{{false}}">
+          <section style="display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch;">
+            <div class="vnf-panel" style="flex: 999 1 420px; min-width: 0; overflow: hidden;">
+              <div style="display: flex; align-items: center; height: 48px; padding: 0 16px; border-bottom: 1px solid var(--stroke-subtle);"><h2 class="title-md" style="margin: 0; flex-grow: 1;">Regras</h2><span style="font-size: 12px; color: var(--text-secondary);">perfil Padrão PT-BR</span></div>
+              <sc-for list="{{rules}}" as="r" hint-placeholder-count="5">
+                <div class="vnf-rule" style="min-height: 64px; box-sizing: border-box;"><span class="txt"><label for="{{r.id}}">{{r.label}}</label><small>{{r.hint}}</small></span><input id="{{r.id}}" class="vnf-switch" type="checkbox" checked="{{r.on}}" onChange="{{r.toggle}}"></div>
+              </sc-for>
+            </div>
+            <div class="vnf-panel" style="flex: 1 1 320px; max-width: 400px; min-width: 0; display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; height: 48px; padding: 0 16px; border-bottom: 1px solid var(--stroke-subtle);"><h2 class="title-md" style="margin: 0;">Caixa e prévia</h2></div>
+              <div style="flex: 1 1 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;"><label class="vnf-overline" for="cols">Colunas</label><label class="vnf-input num"><input id="cols" type="number" value="40"></label></div>
+                <div style="display: flex; flex-direction: column; gap: 8px;"><label class="vnf-overline" for="lin">Linhas por caixa</label><label class="vnf-input num"><input id="lin" type="number" value="3"></label></div>
+              </div>
+              <span class="vnf-overline">Antes</span>
+              <div class="pv">{{fmtBefore}}</div>
+              <span class="vnf-overline">Depois, no build</span>
+              <div class="pv" style="box-shadow: inset 0 0 0 1px var(--accent);">{{fmtAfter}}</div>
+              <span style="margin-top: auto; font-size: 12px; color: var(--text-secondary);">As regras rodam no build; o texto salvo no projeto não muda.</span>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{isEnc}}" hint-placeholder-val="{{false}}">
+          <section style="display: flex; flex-direction: column; gap: 8px;" role="radiogroup" aria-label="Estratégia de acentuação">
+            <span class="vnf-overline">Estratégia de acentuação</span>
+            <sc-for list="{{encs}}" as="x" hint-placeholder-count="3">
+              <label class="vnf-option"><input type="radio" name="enc" checked="{{x.on}}" onChange="{{x.pick}}"><b>{{x.name}}</b><span class="price">{{x.sample}}</span><small>{{x.desc}}</small></label>
+            </sc-for>
+            <div class="vnf-infobar warning"><span class="ico"><svg class="vnf-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="{{ic.warning}}" fill="currentColor"></path></svg></span><span><b>Com CP1252, o caractere ï fica proibido.</b>O byte 0xEF é o prefixo dos códigos de controle do YU-RIS; o QA acusa qualquer ï na tradução.</span></div>
+          </section>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+
+  <footer class="vnf-statusbar">
+    <span>Alterações salvas automaticamente em vnforge.json</span>
+    <span style="flex-grow: 1;"></span>
+    <span>{{modelName}} · esforço {{effortName}}</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark","section":"Aparência"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'ai', model: 0, effort: 1, enc: 2, rules: { punct: true, dbl: true, ell: false, quotes: true, full: false } };
+  }
+  renderVals() {
+    const theme = this.props.theme ?? 'dark';
+    const IC = {
+      home: 'M8.9975 2.38811C9.56767 1.87584 10.4323 1.87584 11.0025 2.38811L16.5025 7.32965C16.8191 7.61414 17 8.01977 17 8.44544V15.4996C17 16.328 16.3284 16.9996 15.5 16.9996H13C12.1716 16.9996 11.5 16.328 11.5 15.4996V11.9996C11.5 11.7234 11.2761 11.4996 11 11.4996H9C8.72386 11.4996 8.5 11.7234 8.5 11.9996V15.4996C8.5 16.328 7.82843 16.9996 7 16.9996H4.5C3.67157 16.9996 3 16.328 3 15.4996V8.44544C3 8.01977 3.18086 7.61414 3.4975 7.32965L8.9975 2.38811ZM10.3342 3.13197C10.1441 2.96122 9.85589 2.96122 9.66583 3.13197L4.16583 8.07351C4.06029 8.16834 4 8.30355 4 8.44544V15.4996C4 15.7757 4.22386 15.9996 4.5 15.9996H7C7.27614 15.9996 7.5 15.7757 7.5 15.4996V11.9996C7.5 11.1711 8.17157 10.4996 9 10.4996H11C11.8284 10.4996 12.5 11.1711 12.5 11.9996V15.4996C12.5 15.7757 12.7239 15.9996 13 15.9996H15.5C15.7761 15.9996 16 15.7757 16 15.4996V8.44544C16 8.30355 15.9397 8.16834 15.8342 8.07351L10.3342 3.13197Z',
+      board: 'M3 6C3 4.34315 4.34315 3 6 3H14C15.6569 3 17 4.34315 17 6V14C17 15.6569 15.6569 17 14 17H6C4.34315 17 3 15.6569 3 14V6ZM6 4C4.89543 4 4 4.89543 4 6V7.05767L9.5 7.00478V4H6ZM10.5 4V12H16V6C16 4.89543 15.1046 4 14 4H10.5ZM16 13H10.5V16H14C15.1046 16 16 15.1046 16 14V13ZM9.5 16V8.00483L4 8.05772V14C4 15.1046 4.89543 16 6 16H9.5Z',
+      edit: 'M17.1813 2.92689C16.029 1.71505 14.1046 1.69077 12.9222 2.87317L3.54735 12.2475C3.21952 12.5754 2.99198 12.9899 2.89142 13.4424L2.0138 17.3923C1.97672 17.5592 2.02748 17.7335 2.14838 17.8544C2.26928 17.9753 2.44356 18.026 2.61044 17.9889L6.53683 17.1157C7.00426 17.0118 7.43237 16.7767 7.77096 16.4381L17.129 7.08003C18.27 5.939 18.2932 4.09631 17.1813 2.92689ZM13.6293 3.58029C14.4142 2.79538 15.6917 2.8115 16.4566 3.61596C17.1947 4.39225 17.1793 5.61548 16.4218 6.37293L15.7506 7.04418L12.958 4.25155L13.6293 3.58029ZM12.2508 4.95864L15.0435 7.7513L7.06385 15.731C6.8597 15.9352 6.60158 16.0769 6.31975 16.1396L3.16044 16.8421L3.86762 13.6593C3.92692 13.3924 4.0611 13.148 4.25444 12.9547L12.2508 4.95864Z',
+      shield: 'M9.72265 2.08397C9.8906 1.97201 10.1094 1.97201 10.2774 2.08397C12.2155 3.3761 14.3117 4.1823 16.5707 4.50503C16.817 4.54021 17 4.75117 17 5V9.5C17 9.53323 16.9998 9.56638 16.9995 9.59945C16.6829 9.43763 16.3485 9.30559 16 9.20703V5.42787C14.0146 5.09055 12.1473 4.39606 10.4009 3.34583L10 3.09715L9.59914 3.34583C7.85275 4.39606 5.98541 5.09055 4 5.42787V9.5C4 12.7423 5.79804 15.1434 9.47811 16.7463C9.67284 17.1809 9.92235 17.5857 10.2179 17.9519L10.1795 17.9667C10.064 18.0111 9.93604 18.0111 9.82051 17.9667C5.30699 16.2307 3 13.3913 3 9.5V5C3 4.75117 3.18297 4.54021 3.42929 4.50503C5.68833 4.1823 7.78446 3.3761 9.72265 2.08397ZM19 14.5C19 16.9853 16.9853 19 14.5 19C12.0147 19 10 16.9853 10 14.5C10 12.0147 12.0147 10 14.5 10C16.9853 10 19 12.0147 19 14.5ZM16.8536 12.6464C16.6583 12.4512 16.3417 12.4512 16.1464 12.6464L13.5 15.2929L12.8536 14.6464C12.6583 14.4512 12.3417 14.4512 12.1464 14.6464C11.9512 14.8417 11.9512 15.1583 12.1464 15.3536L13.1464 16.3536C13.3417 16.5488 13.6583 16.5488 13.8536 16.3536L16.8536 13.3536C17.0488 13.1583 17.0488 12.8417 16.8536 12.6464Z',
+      box: 'M11.2999 2.4808C10.4654 2.14702 9.53457 2.14702 8.70013 2.4808L2.94291 4.78369C2.37343 5.01148 2 5.56305 2 6.1764V13.8223C2 14.4357 2.37343 14.9873 2.94291 15.2151L8.70013 17.5179C9.53457 17.8517 10.4654 17.8517 11.2999 17.5179L17.0571 15.2151C17.6266 14.9873 18 14.4357 18 13.8223V6.1764C18 5.56305 17.6266 5.01148 17.0571 4.78369L11.2999 2.4808ZM9.07152 3.40928C9.66755 3.17087 10.3324 3.17087 10.9285 3.40928L16.1538 5.49941L13.8751 6.41088L7.72133 3.94935L9.07152 3.40928ZM6.37504 4.48787L12.5289 6.94939L10.0001 7.96088L3.84633 5.49935L6.37504 4.48787ZM10.5001 8.83791L17 6.23797V13.8223C17 14.0268 16.8755 14.2106 16.6857 14.2866L10.9285 16.5895C10.7889 16.6453 10.6455 16.6881 10.5001 16.7177V8.83791ZM9.50015 8.83791V16.7178C9.35467 16.6881 9.21121 16.6453 9.07152 16.5895L3.3143 14.2866C3.12448 14.2106 3 14.0268 3 13.8223V6.23785L9.50015 8.83791Z',
+      settings: 'M1.91099 7.38266C2.28028 6.24053 2.88863 5.19213 3.69133 4.30364C3.82707 4.15339 4.04002 4.09984 4.23069 4.16802L6.14897 4.85392C6.66905 5.03977 7.24131 4.76883 7.42716 4.24875C7.44544 4.19762 7.45952 4.14507 7.46925 4.09173L7.83471 2.08573C7.87104 1.88627 8.02422 1.7285 8.22251 1.6863C8.8027 1.5628 9.39758 1.5 10.0003 1.5C10.6026 1.5 11.1971 1.56273 11.7769 1.68607C11.9752 1.72824 12.1284 1.88591 12.1648 2.08529L12.5313 4.09165C12.6303 4.63497 13.1511 4.9951 13.6944 4.89601C13.7479 4.88627 13.8004 4.87219 13.8515 4.85395L15.7698 4.16802C15.9605 4.09984 16.1734 4.15339 16.3092 4.30364C17.1119 5.19213 17.7202 6.24053 18.0895 7.38266C18.1518 7.57534 18.0918 7.78658 17.9374 7.91764L16.3825 9.23773C15.9615 9.5952 15.9101 10.2263 16.2675 10.6473C16.3027 10.6887 16.3411 10.7271 16.3825 10.7623L17.9374 12.0824C18.0918 12.2134 18.1518 12.4247 18.0895 12.6173C17.7202 13.7595 17.1119 14.8079 16.3092 15.6964C16.1734 15.8466 15.9605 15.9002 15.7698 15.832L13.8515 15.1461C13.3315 14.9602 12.7592 15.2312 12.5733 15.7512C12.5551 15.8024 12.541 15.8549 12.5312 15.9085L12.1648 17.9147C12.1284 18.1141 11.9752 18.2718 11.7769 18.3139C11.1971 18.4373 10.6026 18.5 10.0003 18.5C9.39758 18.5 8.8027 18.4372 8.22251 18.3137C8.02422 18.2715 7.87104 18.1137 7.83471 17.9143L7.46926 15.9084C7.37018 15.365 6.8494 15.0049 6.30608 15.104C6.25265 15.1137 6.20011 15.1278 6.14906 15.1461L4.23069 15.832C4.04002 15.9002 3.82707 15.8466 3.69133 15.6964C2.88863 14.8079 2.28028 13.7595 1.91099 12.6173C1.84869 12.4247 1.90876 12.2134 2.06313 12.0824L3.61798 10.7623C4.03897 10.4048 4.09046 9.77373 3.73299 9.35274C3.69784 9.31135 3.65937 9.27288 3.618 9.23775L2.06313 7.91764C1.90876 7.78658 1.84869 7.57534 1.91099 7.38266ZM2.97154 7.37709L4.26523 8.47546C4.34803 8.54576 4.42496 8.62269 4.49526 8.70548C5.2102 9.54746 5.10721 10.8096 4.26521 11.5246L2.97154 12.6229C3.26359 13.4051 3.68504 14.1322 4.21648 14.7751L5.81246 14.2044C5.91473 14.1679 6.01982 14.1397 6.12667 14.1202C7.21332 13.922 8.25487 14.6423 8.45305 15.729L8.75702 17.3975C9.16489 17.4655 9.58024 17.5 10.0003 17.5C10.42 17.5 10.8351 17.4656 11.2427 17.3976L11.5475 15.7289C11.567 15.6221 11.5951 15.517 11.6317 15.4147C12.0034 14.3746 13.1479 13.8327 14.1881 14.2044L15.784 14.7751C16.3155 14.1322 16.7369 13.4051 17.029 12.6229L15.7353 11.5245C15.6525 11.4542 15.5756 11.3773 15.5053 11.2945C14.7903 10.4525 14.8933 9.1904 15.7353 8.47544L17.029 7.37709C16.7369 6.59486 16.3155 5.86783 15.784 5.22494L14.1881 5.79559C14.0858 5.83214 13.9807 5.8603 13.8738 5.87979C12.7872 6.07796 11.7456 5.3577 11.5475 4.27119L11.2427 2.60235C10.8351 2.53443 10.42 2.5 10.0003 2.5C9.58024 2.5 9.16489 2.53448 8.75702 2.60249L8.45304 4.27105C8.43355 4.37791 8.40539 4.48299 8.36884 4.58527C7.99714 5.62542 6.8526 6.1673 5.81237 5.79556L4.21648 5.22494C3.68504 5.86783 3.26359 6.59486 2.97154 7.37709ZM7.50026 10C7.50026 8.61929 8.61954 7.5 10.0003 7.5C11.381 7.5 12.5003 8.61929 12.5003 10C12.5003 11.3807 11.381 12.5 10.0003 12.5C8.61954 12.5 7.50026 11.3807 7.50026 10ZM8.50026 10C8.50026 10.8284 9.17183 11.5 10.0003 11.5C10.8287 11.5 11.5003 10.8284 11.5003 10C11.5003 9.17157 10.8287 8.5 10.0003 8.5C9.17183 8.5 8.50026 9.17157 8.50026 10Z',
+      search: 'M13.7291 14.4362C12.5924 15.411 11.115 16 9.5 16C5.91015 16 3 13.0899 3 9.5C3 5.91015 5.91015 3 9.5 3C13.0899 3 16 5.91015 16 9.5C16 11.115 15.411 12.5924 14.4361 13.7292L17.8535 17.1465C18.0487 17.3417 18.0487 17.6583 17.8535 17.8536C17.6799 18.0271 17.4105 18.0464 17.2156 17.9114L17.1464 17.8536L13.7291 14.4362ZM13.0196 13.7266C13.276 13.5128 13.5127 13.2761 13.7265 13.0197C14.5216 12.0659 15 10.8388 15 9.5C15 6.46243 12.5376 4 9.5 4C6.46243 4 4 6.46243 4 9.5C4 12.5376 6.46243 15 9.5 15C10.8388 15 12.0658 14.5217 13.0196 13.7266Z',
+      key: 'M15 6C15 6.55228 14.5523 7 14 7C13.4477 7 13 6.55228 13 6C13 5.44772 13.4477 5 14 5C14.5523 5 15 5.44772 15 6ZM12.5 2C9.42386 2 7 4.42386 7 7.5C7 7.89668 7.04001 8.29598 7.12154 8.67456C7.17968 8.94454 7.11378 9.17912 6.98018 9.31271L2.43934 13.8536C2.15804 14.1349 2 14.5164 2 14.9142V16.5C2 17.3284 2.67157 18 3.5 18H5.5C6.32843 18 7 17.3284 7 16.5V16H8C8.55228 16 9 15.5523 9 15V14H10C10.5523 14 11 13.5523 11 13V12.8199C11.4935 12.9536 12.0069 13 12.5 13C15.5761 13 18 10.5761 18 7.5C18 4.42386 15.5761 2 12.5 2ZM8 7.5C8 4.97614 9.97614 3 12.5 3C15.0239 3 17 4.97614 17 7.5C17 10.0239 15.0239 12 12.5 12C11.8408 12 11.2274 11.9047 10.7236 11.6528C10.5686 11.5753 10.3845 11.5836 10.2371 11.6747C10.0897 11.7658 10 11.9267 10 12.1V13H9C8.44772 13 8 13.4477 8 14V15H7C6.44772 15 6 15.4477 6 16V16.5C6 16.7761 5.77614 17 5.5 17H3.5C3.22386 17 3 16.7761 3 16.5V14.9142C3 14.7816 3.05268 14.6544 3.14645 14.5607L7.68729 10.0198C8.11942 9.58768 8.20942 8.97619 8.09913 8.46404C8.03354 8.15949 8 7.83105 8 7.5Z',
+      info: 'M10.4921 8.91012C10.4497 8.67687 10.2456 8.49999 10.0001 8.49999C9.72397 8.49999 9.50011 8.72385 9.50011 8.99999V13.5021L9.50817 13.592C9.55051 13.8253 9.75465 14.0021 10.0001 14.0021C10.2763 14.0021 10.5001 13.7783 10.5001 13.5021V8.99999L10.4921 8.91012ZM10.7988 6.74999C10.7988 6.33578 10.463 5.99999 10.0488 5.99999C9.63461 5.99999 9.29883 6.33578 9.29883 6.74999C9.29883 7.16421 9.63461 7.49999 10.0488 7.49999C10.463 7.49999 10.7988 7.16421 10.7988 6.74999ZM18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10ZM3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10Z',
+      warning: 'M7.37013 3.55566C8.50949 1.48158 11.4895 1.48168 12.629 3.55566L18.1251 13.5605C19.2227 15.5597 17.7759 18.0046 15.4952 18.0049H4.5039C2.22288 18.0048 0.776902 15.5598 1.87498 13.5605L7.37013 3.55566ZM11.753 4.03711C10.9934 2.65441 9.00677 2.65456 8.24709 4.03711L2.75096 14.042C2.01908 15.3748 2.98329 17.0048 4.5039 17.0049H15.4952C17.0156 17.0046 17.9798 15.3747 17.2481 14.042L11.753 4.03711ZM10 12.75C10.4142 12.7501 10.75 13.0858 10.75 13.5C10.75 13.9141 10.4141 14.2499 10 14.25C9.58587 14.25 9.2501 13.9141 9.25003 13.5C9.25003 13.0858 9.58582 12.75 10 12.75ZM10 6.5C10.2761 6.50007 10.5 6.7239 10.5 7V11C10.5 11.276 10.2761 11.4999 10 11.5C9.72394 11.5 9.50011 11.2761 9.50003 11V7C9.50003 6.72386 9.72389 6.5 10 6.5Z'
+    };
+    const SEAL = 'M22.1 37.08Q21.8 36.84 21.31 36.54Q20.81 36.24 20.3 35.97V36.48H11.05V27.6H20.3V33.56Q21.59 31.24 22.21 28.08Q22.83 24.92 22.83 20.55V10.98H35.98V22.42H31.14Q31.56 26.15 33.38 29.25Q35.2 32.35 38 34.49Q37.28 34.91 36.49 35.65Q35.71 36.39 35.23 36.99Q32.25 34.58 30.26 31.09Q28.28 27.6 27.79 22.42H26.29Q26.2 25.85 25.69 28.5Q25.17 31.15 24.27 33.23Q23.37 35.31 22.1 37.08ZM10 17.87V15.04H21.41V17.87ZM26.32 19.23H32.49V14.14H26.32ZM11.38 26.15V23.47H19.94V26.15ZM11.38 22.03V19.35H19.94V22.03ZM11.38 13.57V10.92H19.94V13.57ZM14.15 33.62H17.2V30.46H14.15Z';
+    const { tab, model, effort, enc, rules } = this.state;
+    const MODELS = [
+      { name: 'Claude Opus 5.5', price: '4 / 20', use: 'Padrão para tradução e revisão', est: '21,10' },
+      { name: 'Claude Sonnet 5.5', price: '2 / 10', use: 'Rascunho mais barato e rápido', est: '10,55' },
+      { name: 'Claude Haiku 5.5', price: '0,10 / 0,50', use: 'Menus, nomes e textos curtos', est: '0,53' },
+      { name: 'Claude Fable 5.1', price: '10 / 50', use: 'Cenas difíceis e revisão fina', est: '52,75' }
+    ];
+    const EFF = ['Baixo', 'Médio', 'Alto'];
+    const RULES = [
+      ['punct', 'Remover espaço antes de pontuação', '"anda !" vira "anda!" em ? ! : ;'],
+      ['dbl', 'Juntar espaços duplos', 'Dois ou mais espaços viram um'],
+      ['ell', 'Trocar ... por …', 'Ocupa 1 coluna em vez de 3'],
+      ['quotes', 'Aspas curvas para retas', '“ ” e « » viram " (CP1252 não tem « »)'],
+      ['full', 'ASCII em largura cheia', 'Ｈｏｊｅ — só para jogos que não exibem meia largura']
+    ];
+    const ENCS = [
+      { name: 'Remover acentos (fold)', sample: 'ação → acao', desc: 'Funciona em qualquer jogo sem mexer no executável. Bom para validar a ida e volta.' },
+      { name: 'Remapear para meia largura (remap)', sample: 'ação → aｱｲo', desc: 'Usa katakanas de 1 byte como substitutos e uma fonte modificada que desenha as letras certas.' },
+      { name: 'Latin-1 nativo (cp1252)', sample: 'ação → ação', desc: 'Patch na tabela de lead bytes do executável e fonte com ANSI_CHARSET. Acentos com qualquer fonte do Windows; experimental.' }
+    ];
+    const before = '«Tranquilo , tranquilo!  Vamos... anda !»';
+    let after = before;
+    if (rules.quotes) after = after.replace(/[«»“”]/g, '"');
+    if (rules.dbl) after = after.replace(/ {2,}/g, ' ');
+    if (rules.punct) after = after.replace(/ +([!?:;,])/g, '$1');
+    if (rules.ell) after = after.replace(/\.\.\./g, '…');
+    if (rules.full) after = after.replace(/[!-~]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0xFEE0));
+    return {
+      theme, ic: IC, seal: SEAL,
+      tabs: [['ai', 'IA'], ['fmt', 'Formatação'], ['enc', 'Acentuação']].map(([k, l]) => ({ label: l, on: tab === k ? 'true' : 'false', pick: () => this.setState({ tab: k }) })),
+      isAi: tab === 'ai', isFmt: tab === 'fmt', isEnc: tab === 'enc',
+      models: MODELS.map((m, i) => ({ ...m, on: i === model, pick: () => this.setState({ model: i }) })),
+      efforts: EFF.map((l, i) => ({ label: l, on: i === effort ? 'true' : 'false', pick: () => this.setState({ effort: i }) })),
+      rules: RULES.map(([k, l, h]) => ({ id: 'r-' + k, label: l, hint: h, on: !!rules[k], toggle: () => this.setState({ rules: { ...rules, [k]: !rules[k] } }) })),
+      encs: ENCS.map((x, i) => ({ ...x, on: i === enc, pick: () => this.setState({ enc: i }) })),
+      fmtBefore: before, fmtAfter: after,
+      modelName: MODELS[model].name, effortName: EFF[effort].toLowerCase()
+    };
+  }
+}
+</script>
+</body>
+</html>
