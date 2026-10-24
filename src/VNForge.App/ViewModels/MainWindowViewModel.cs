@@ -67,7 +67,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public DashboardViewModel Dashboard { get; } = new();
 
-    public EditorViewModel Editor { get; } = new();
+    public EditorViewModel Editor { get; init; } = new();
 
     public SettingsViewModel Settings { get; }
 
