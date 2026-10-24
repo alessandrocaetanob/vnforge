@@ -94,7 +94,7 @@ public sealed partial class BuildViewModel : ObservableObject
     [ObservableProperty]
     public partial bool OnlyChanged { get; set; } = true;
 
-    /// <summary>Deixa o build seguir com avisos de QA; erros bloqueiam sempre (<c>--allow-warnings</c>).</summary>
+    /// <summary>Deixa o build seguir com avisos de QA; erros bloqueiam sempre e linhas sem tradução nunca bloqueiam (<c>--allow-warnings</c>).</summary>
     [ObservableProperty]
     public partial bool AllowWarnings { get; set; }
 
