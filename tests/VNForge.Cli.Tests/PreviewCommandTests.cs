@@ -85,6 +85,43 @@ public sealed class PreviewCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Marcadores_nao_desalinham_a_regua_entre_as_linhas()
+    {
+        var project = ProjectFolder.Open(_projectPath);
+        project.SaveText("b001", [new("b001:000001", TextUnitKind.Dialogue, null, "原文", "abc\\cdef\\nxyz", TranslationStatus.Translated)]);
+
+        var result = await _cli.RunAsync(["preview", "b001:000001", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        var rows = Lines(result.Output).Where(l => l.Contains('┊', StringComparison.Ordinal)).ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.Contains("abc\\cdef", rows[0], StringComparison.Ordinal);
+        Assert.Equal(rows[0].IndexOf('┊', StringComparison.Ordinal), rows[1].IndexOf('┊', StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Texto_largo_no_terminal_nao_desalinha_a_borda_do_painel()
+    {
+        var project = ProjectFolder.Open(_projectPath);
+        project.SaveText("c001", [new("c001:000001", TextUnitKind.Dialogue, null, "原文", "美咲\\nab", TranslationStatus.Translated)]);
+
+        var result = await _cli.RunAsync(["preview", "c001:000001", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        var rows = Lines(result.Output).Where(l => l.StartsWith('│')).ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.Contains("美咲", rows[0], StringComparison.Ordinal);
+        Assert.Equal(TerminalCells(rows[0]), TerminalCells(rows[1]));
+
+        // O fundo escuro de cada linha termina na mesma célula, onde começa o contador.
+        var counter = rows.Select(r => TerminalCells(r[..r.IndexOf("2/10 col", StringComparison.Ordinal)])).ToArray();
+        Assert.Equal(counter[0], counter[1]);
+    }
+
+    // Kanji e kana ocupam duas células no terminal; o resto, uma.
+    private static int TerminalCells(string text) => text.Sum(c => c >= '　' ? 2 : 1);
+
+    [Fact]
     public async Task Quebra_desligada_nao_desenha_a_regua()
     {
         File.WriteAllText(ProjectFolder.Open(_projectPath).FormattingPath, """{ "wrap": { "enabled": false } }""");

@@ -32,6 +32,8 @@ public static class TextboxView
         int? limit = preview.WrapEnabled ? preview.MaxWidth : null;
         int? maxLines = preview.Formatted ? preview.MaxLines : null;
 
+        // A régua fica na mesma célula do terminal em todas as linhas: o limite mais o que os marcadores da linha mais carregada ocupam.
+        var rulerAt = (limit ?? 0) + box.Max(line => line.Segments.Where(s => s.IsMarker).Sum(s => CellWidth(s.Text)));
         var rows = new List<Row>();
         for (var n = 0; n < box.Count; n++)
         {
@@ -40,7 +42,7 @@ public static class TextboxView
                 rows.Add(Separator(max));
             }
 
-            rows.Add(Line(box[n], limit, overflow: maxLines is { } m && n >= m));
+            rows.Add(Line(box[n], limit, rulerAt, overflow: maxLines is { } m && n >= m));
         }
 
         var width = rows.Count == 0 ? 0 : rows.Max(r => r.Cells);
@@ -51,17 +53,16 @@ public static class TextboxView
         return CliViews.NewPanel($"Caixa {index + 1} · {CliFormat.Count(box.Count, "linha", "linhas")}", content);
     }
 
-    private static Row Line(MeasuredLine line, int? limit, bool overflow)
+    private static Row Line(MeasuredLine line, int? limit, int rulerAt, bool overflow)
     {
         var overflowColor = CliPalette.Hex(CliPalette.TextboxOverflow);
         var text = new StringBuilder();
         var cells = 0;
-        var column = 0;
         var rulerDrawn = limit is null;
 
         void DrawRuler()
         {
-            var pad = Math.Max(0, limit!.Value - column);
+            var pad = Math.Max(0, rulerAt - cells);
             text.Append(' ', pad).Append(Ruler);
             cells += pad + 1;
             rulerDrawn = true;
@@ -72,7 +73,7 @@ public static class TextboxView
             if (segment.IsMarker)
             {
                 text.Append("[dim]").Append(CliViews.Escape(segment.Text)).Append("[/]");
-                cells += segment.Text.Length;
+                cells += CellWidth(segment.Text);
                 continue;
             }
 
@@ -84,8 +85,7 @@ public static class TextboxView
 
             var glyph = CliViews.Escape(segment.Text);
             text.Append(overflow || beyond ? $"[{overflowColor}]{glyph}[/]" : glyph);
-            cells += segment.Width;
-            column = segment.Column + segment.Width;
+            cells += CellWidth(segment.Text);
         }
 
         if (!rulerDrawn)
@@ -98,13 +98,16 @@ public static class TextboxView
         return new Row(text.ToString(), cells, $"  [dim]{counter}[/]{note}");
     }
 
+    // Células que o texto ocupa no terminal (um kanji são duas), a mesma conta que o Spectre usa para alinhar o painel.
+    private static int CellWidth(string text) => new Segment(text).CellCount();
+
     private static Row Separator(int maxLines)
     {
         var color = CliPalette.Hex(CliPalette.TextboxOverflow);
         return new Row(string.Empty, 0, $"  [{color}]limite de {CliFormat.Count(maxLines, "linha", "linhas")}[/]", Dash);
     }
 
-    // Texto já com markup e quantas células do terminal ele ocupa (marcadores contam o próprio texto, glifos a largura da tabela do jogo).
+    // Texto já com markup e quantas células do terminal ele ocupa, medidas no terminal e não na tabela de larguras do jogo.
     private sealed record Row(string Text, int Cells, string Suffix, char Fill = ' ')
     {
         public string Render(int width, string ink, string background)
