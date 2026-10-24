@@ -92,15 +92,53 @@ public class LineSuggestionTests : IDisposable
     }
 
     [Fact]
-    public async Task Nova_sugestao_apaga_a_anterior_e_o_erro()
+    public async Task Novo_pedido_apaga_a_sugestao_anterior_e_o_erro_ja_ao_comecar()
     {
-        var chamadas = 0;
-        using var vm = Abrir(0, new LineSuggester(() => new FakeTranslationProvider(u => $"v{++chamadas}")));
+        var terceiro = new TaskCompletionSource<LineSuggestion>();
+        var sugestor = new RoteiroSugestor(
+            _ => Task.FromResult(new LineSuggestion("v1", FromFakeProvider: false)),
+            _ => throw new HttpRequestException("connection reset"),
+            _ => terceiro.Task);
+        using var vm = Abrir(0, sugestor);
 
         await vm.SuggestCommand.ExecuteAsync(null);
+        Assert.Equal("v1", vm.Suggestion);
+
+        await vm.SuggestCommand.ExecuteAsync(null);
+        Assert.False(vm.HasSuggestion);
+        Assert.Contains("conexão", vm.SuggestionError);
+
+        var pedido = vm.SuggestCommand.ExecuteAsync(null);
+        Assert.True(vm.IsSuggesting);
+        Assert.Null(vm.SuggestionError);
+        Assert.Equal(string.Empty, vm.Suggestion);
+
+        terceiro.SetResult(new LineSuggestion("v3", FromFakeProvider: false));
+        await pedido;
+        Assert.Equal("v3", vm.Suggestion);
+        Assert.Null(vm.SuggestionError);
+    }
+
+    [Fact]
+    public async Task Erro_do_provedor_nao_mostra_o_texto_em_ingles()
+    {
+        using var vm = Abrir(0, new RoteiroSugestor(_ => throw new InvalidDataException("Unexpected JSON token at line 3")));
+
         await vm.SuggestCommand.ExecuteAsync(null);
 
-        Assert.Equal("v2", vm.Suggestion);
+        Assert.DoesNotContain("JSON", vm.SuggestionError);
+        Assert.Contains("Erro inesperado", vm.SuggestionError);
+    }
+
+    [Fact]
+    public async Task Recusa_do_modelo_vira_mensagem_em_portugues()
+    {
+        using var vm = Abrir(0, new LineSuggester(() => new RecusaProvider()));
+
+        await vm.SuggestCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasSuggestion);
+        Assert.Contains("sugestão válida", vm.SuggestionError);
     }
 
     [Fact]
@@ -112,18 +150,68 @@ public class LineSuggestionTests : IDisposable
     }
 
     [Fact]
+    public async Task Executar_sem_sugestor_nao_faz_nada()
+    {
+        using var vm = Abrir(0, null);
+
+        await vm.SuggestCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasSuggestion);
+        Assert.False(vm.IsSuggesting);
+        Assert.Null(vm.SuggestionError);
+    }
+
+    [Fact]
+    public async Task Painel_descartado_nao_pede_sugestao()
+    {
+        var provedor = new FakeTranslationProvider();
+        var vm = Abrir(0, new LineSuggester(() => provedor));
+        vm.Dispose();
+
+        await vm.SuggestCommand.ExecuteAsync(null);
+
+        Assert.Empty(provedor.ReceivedBatches);
+        Assert.False(vm.HasSuggestion);
+    }
+
+    [Fact]
     public async Task Descartar_o_painel_durante_o_pedido_ignora_a_resposta()
     {
-        var espera = new TaskCompletionSource<string>();
-        var vm = Abrir(0, new EsperaSugestor(espera.Task));
+        var espera = new EsperaSugestor();
+        var vm = Abrir(0, espera);
 
         var pedido = vm.SuggestCommand.ExecuteAsync(null);
         Assert.True(vm.IsSuggesting);
+        Assert.False(espera.Cancelado);
         vm.Dispose();
-        espera.SetResult("tarde demais");
+        Assert.True(espera.Cancelado);
         await pedido;
 
         Assert.False(vm.HasSuggestion);
+        Assert.Null(vm.SuggestionError);
+        Assert.False(vm.IsSuggesting);
+    }
+
+    [Fact]
+    public async Task Trocar_de_linha_com_pedido_em_andamento_cancela_e_a_sugestao_nao_aparece_na_nova()
+    {
+        var espera = new EsperaSugestor();
+        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao(), suggester: espera);
+        vm.Project = EditorFixtures.Summary("Teste", raiz);
+        await vm.Loading;
+        var antigo = vm.Detail!;
+
+        var pedido = antigo.SuggestCommand.ExecuteAsync(null);
+        vm.SelectedLine = vm.Lines[1];
+        var novo = vm.Detail!;
+        espera.Completar("tarde demais");
+        await pedido;
+
+        Assert.NotSame(antigo, novo);
+        Assert.True(espera.Cancelado);
+        Assert.False(antigo.HasSuggestion);
+        Assert.False(novo.HasSuggestion);
+        Assert.Null(novo.SuggestionError);
     }
 
     [Fact]
@@ -147,7 +235,7 @@ public class LineSuggestionTests : IDisposable
         var sugestor = new LineSuggester(() => new FakeTranslationProvider(u => "sem marcador"));
         var unidade = new TextUnit("yst00001:000007", TextUnitKind.Dialogue, null, @"こんにちは\p", null, TranslationStatus.Untranslated);
 
-        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() => sugestor.SuggestAsync(unidade, CancellationToken.None));
+        var erro = await Assert.ThrowsAsync<LineSuggestionException>(() => sugestor.SuggestAsync(unidade, CancellationToken.None));
 
         Assert.Contains("sugestão válida", erro.Message);
     }
@@ -176,9 +264,39 @@ public class LineSuggestionTests : IDisposable
         }
     }
 
-    private sealed class EsperaSugestor(Task<string> resposta) : ILineSuggester
+    private sealed class EsperaSugestor : ILineSuggester
     {
-        public async Task<LineSuggestion> SuggestAsync(TextUnit unit, CancellationToken ct) =>
-            new(await resposta, FromFakeProvider: false);
+        private readonly TaskCompletionSource<string> resposta = new();
+
+        /// <summary>O token recebido foi cancelado.</summary>
+        public bool Cancelado { get; private set; }
+
+        public void Completar(string texto) => resposta.TrySetResult(texto);
+
+        public async Task<LineSuggestion> SuggestAsync(TextUnit unit, CancellationToken ct)
+        {
+            ct.Register(() =>
+            {
+                Cancelado = true;
+                resposta.TrySetCanceled(ct);
+            });
+            return new(await resposta.Task, FromFakeProvider: false);
+        }
+    }
+
+    private sealed class RoteiroSugestor(params Func<CancellationToken, Task<LineSuggestion>>[] passos) : ILineSuggester
+    {
+        private int proximo;
+
+        public Task<LineSuggestion> SuggestAsync(TextUnit unit, CancellationToken ct) => passos[proximo++](ct);
+    }
+
+    private sealed class RecusaProvider : ITranslationProvider
+    {
+        public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
+        {
+            IReadOnlyList<TranslationResult> resultado = [.. batch.Lines.Select(u => new TranslationResult(u.Id, string.Empty, Refused: true))];
+            return Task.FromResult(resultado);
+        }
     }
 }

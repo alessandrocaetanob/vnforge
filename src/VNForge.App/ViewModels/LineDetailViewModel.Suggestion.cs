@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.AI.Claude;
 using VNForge.App.Services;
 
 namespace VNForge.App.ViewModels;
@@ -41,7 +42,7 @@ public sealed partial class LineDetailViewModel
             return;
         }
 
-        suggestionCancellation?.Cancel();
+        // O RelayCommand assíncrono não deixa dois pedidos correrem juntos, então aqui não há pedido anterior a cancelar.
         using var cancellation = new CancellationTokenSource();
         suggestionCancellation = cancellation;
         Suggestion = string.Empty;
@@ -61,9 +62,11 @@ public sealed partial class LineDetailViewModel
         catch (Exception e)
         {
             // O provedor pode lançar de tudo (rede, SDK, recusa); um pedido cancelado por Dispose não mostra erro.
-            if (e is not OperationCanceledException && !cancellation.IsCancellationRequested && !disposed)
+            // Cancelamento sem Dispose é tempo esgotado e entra no mapeamento.
+            if (!cancellation.IsCancellationRequested && !disposed)
             {
-                SuggestionError = $"Não foi possível pedir a sugestão: {e.Message.TrimEnd()} A tradução da linha não mudou.";
+                var reason = e is LineSuggestionException ? e.Message : ClaudeErrorMessages.Describe(e);
+                SuggestionError = $"Não foi possível pedir a sugestão: {reason} A tradução da linha não mudou.";
             }
         }
         finally
