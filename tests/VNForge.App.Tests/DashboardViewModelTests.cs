@@ -142,7 +142,7 @@ public class DashboardViewModelTests
     }
 
     [Fact]
-    public async Task So_Traduzir_e_Conferir_abrem_o_Editor()
+    public async Task Etapas_com_trabalho_pendente_pedem_a_tela_delas_e_Extrair_nao()
     {
         using var temp = new TempFolder();
         var vm = Open(temp, TranslationStatus.Machine);
@@ -155,7 +155,38 @@ public class DashboardViewModelTests
             vm.OpenStageCommand.Execute(stage);
         }
 
-        Assert.Equal([PipelineStageKey.Translate, PipelineStageKey.Review], requested);
+        Assert.Equal([PipelineStageKey.Translate, PipelineStageKey.Review, PipelineStageKey.Build, PipelineStageKey.Inject], requested);
+        Assert.False(vm.Stages.Single(s => s.Key == PipelineStageKey.Extract).IsActionable);
+    }
+
+    [Fact]
+    public void Build_e_Injetar_concluidos_nao_sao_acionaveis()
+    {
+        var done = new PipelineStageViewModel(4, new PipelineStage(PipelineStageKey.Build, true, 0));
+        var pending = new PipelineStageViewModel(5, new PipelineStage(PipelineStageKey.Inject, false, 1));
+
+        Assert.False(done.IsActionable);
+        Assert.True(pending.IsActionable);
+        Assert.Equal("Pendente", pending.StatusText);
+    }
+
+    [Theory]
+    [InlineData(PipelineStageKey.Translate, NavKey.Editor)]
+    [InlineData(PipelineStageKey.Review, NavKey.Conference)]
+    [InlineData(PipelineStageKey.Build, NavKey.Build)]
+    [InlineData(PipelineStageKey.Inject, NavKey.Build)]
+    public async Task O_pedido_de_uma_etapa_navega_para_a_tela_dela(PipelineStageKey stage, NavKey expected)
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine);
+        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)));
+        await main.Start.OpenFolderCommand.ExecuteAsync(null);
+        await main.Dashboard.ReloadAsync();
+
+        main.Dashboard.OpenStageCommand.Execute(main.Dashboard.Stages.Single(s => s.Key == stage));
+        await main.ConferenceLoading;
+
+        Assert.Equal(expected, main.SelectedNav!.Key);
     }
 
     [Fact]

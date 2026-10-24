@@ -7,7 +7,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>Uma etapa do pipeline no Painel. Só Traduzir e Conferir levam a uma tela hoje (o Editor).</summary>
+/// <summary>Uma etapa do pipeline no Painel. Traduzir leva ao Editor, Conferir à Conferência, Build e Injetar à tela Build.</summary>
 public sealed class PipelineStageViewModel(int number, PipelineStage stage)
 {
     public PipelineStageKey Key { get; } = stage.Key;
@@ -32,11 +32,17 @@ public sealed class PipelineStageViewModel(int number, PipelineStage stage)
     /// <summary>Pendências em linhas só para as etapas que contam linhas; as de tudo ou nada dizem "Pendente".</summary>
     public string StatusText => IsComplete ? "Concluída" : PendingText();
 
-    public bool IsActionable => Key is PipelineStageKey.Translate or PipelineStageKey.Review;
+    /// <summary>Traduzir e Conferir abrem sua tela sempre; Build e Injetar só enquanto pendentes; Extrair não tem tela.</summary>
+    public bool IsActionable => Key switch
+    {
+        PipelineStageKey.Translate or PipelineStageKey.Review => true,
+        PipelineStageKey.Build or PipelineStageKey.Inject => !IsComplete,
+        _ => false,
+    };
 
     private string PendingText()
     {
-        if (Pending == 0 || !IsActionable)
+        if (Pending == 0 || Key is not (PipelineStageKey.Translate or PipelineStageKey.Review))
         {
             return "Pendente";
         }
@@ -81,7 +87,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         this.loader = loader ?? (root => ProjectDashboard.Read(ProjectFolder.Open(root)));
     }
 
-    /// <summary>Pedido para ir à tela da etapa (hoje, o Editor para Traduzir e Conferir).</summary>
+    /// <summary>Pedido para ir à tela da etapa (a janela principal decide qual).</summary>
     public event EventHandler<PipelineStageKey>? StageRequested;
 
     public ObservableCollection<PipelineStageViewModel> Stages { get; } = [];
