@@ -90,6 +90,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private bool scanned;
     private ConferenceSeverityFilter severityFilter = ConferenceSeverityFilter.All;
     private int loadVersion;
+    private bool reportLoaded;
 
     public ConferenceViewModel(QaEngine? qa = null)
     {
@@ -151,6 +152,10 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [ObservableProperty]
     public partial string SilencedSummary { get; private set; } = string.Empty;
 
+    /// <summary>Quantas ocorrências a última conferência achou, sem filtro; nulo enquanto o projeto não foi conferido (ou a conferência falhou).</summary>
+    [ObservableProperty]
+    public partial int? IssueCount { get; private set; }
+
     public bool IsEmpty => Rows.Count == 0;
 
     /// <summary>A frase de <see cref="EmptyMessage"/> aparece quando a lista está vazia e o estado vazio do <see cref="IsClear"/> não a substitui.</summary>
@@ -201,6 +206,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         NoticeMessage = null;
         report = QaReport.Empty;
         scanned = false;
+        reportLoaded = false;
         Rebuild();
     }
 
@@ -217,6 +223,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         {
             IsLoading = false;
             report = QaReport.Empty;
+            reportLoaded = false;
             Rebuild();
             return;
         }
@@ -249,6 +256,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         ErrorMessage = error;
         report = loaded ?? QaReport.Empty;
         scanned = loaded is not null;
+        reportLoaded = loaded is not null;
         Rebuild();
     }
 
@@ -391,6 +399,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private void Rebuild()
     {
         var all = report.Issues;
+        IssueCount = reportLoaded ? all.Count : null;
         chips[0].Count = all.Count;
         chips[1].Count = all.Count(i => i.Severity == QaSeverity.Error);
         chips[2].Count = all.Count - chips[1].Count;

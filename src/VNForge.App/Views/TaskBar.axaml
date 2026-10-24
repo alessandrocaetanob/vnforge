@@ -6,27 +6,56 @@
              x:DataType="vm:TaskBarViewModel"
              IsVisible="{Binding HasTasks}">
 
-  <!-- Tarefa em segundo plano: título, progresso, custo e Cancelar. A edição continua livre enquanto ela roda. -->
-  <ContentControl Content="{Binding Current}">
-    <ContentControl.ContentTemplate>
-      <DataTemplate x:DataType="sv:BackgroundTaskItem">
-        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <PathIcon Classes="spin" Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.ArrowSync}"
-                    IsVisible="{Binding IsRunning}" AutomationProperties.AccessibilityView="Raw"/>
-          <TextBlock Classes="caption" Text="{Binding Title}" VerticalAlignment="Center"/>
-          <Grid Width="160" Height="4" VerticalAlignment="Center" IsVisible="{Binding IsRunning}">
-            <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
-                         AutomationProperties.Name="Progresso da tarefa"/>
-            <Border Classes="static-working" Classes.indeterminate="{Binding IsIndeterminate}" AutomationProperties.AccessibilityView="Raw"/>
-          </Grid>
-          <TextBlock Classes="caption secondary" Text="{Binding Message}" MaxWidth="260"
-                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-          <TextBlock Classes="caption secondary" Text="{Binding CostText}" VerticalAlignment="Center"/>
-          <TextBlock Classes="caption secondary" Text="{Binding StateText}" VerticalAlignment="Center"
-                     IsVisible="{Binding !IsRunning}"/>
-          <Button Classes="subtle sm" Content="Cancelar" Command="{Binding CancelCommand}" IsVisible="{Binding IsRunning}"/>
-        </StackPanel>
-      </DataTemplate>
-    </ContentControl.ContentTemplate>
-  </ContentControl>
+  <!-- Tarefa em segundo plano: título, progresso, custo e Cancelar, e "Tarefas (n)" com a lista. A edição continua livre enquanto ela roda. -->
+  <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+    <ContentControl Content="{Binding Current}">
+      <ContentControl.ContentTemplate>
+        <DataTemplate x:DataType="sv:BackgroundTaskItem">
+          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <PathIcon Classes="spin" Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusAiFg}" Data="{StaticResource Icon.ArrowSync}"
+                      IsVisible="{Binding IsRunning}" AutomationProperties.AccessibilityView="Raw"/>
+            <TextBlock Classes="caption" Text="{Binding Title}" VerticalAlignment="Center"/>
+            <Grid Width="120" Height="4" VerticalAlignment="Center" IsVisible="{Binding IsRunning}">
+              <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
+                           AutomationProperties.Name="Progresso da tarefa"/>
+              <Border Classes="static-working" Classes.indeterminate="{Binding IsIndeterminate}" AutomationProperties.AccessibilityView="Raw"/>
+            </Grid>
+            <TextBlock Classes="caption secondary" Text="{Binding Message}" MaxWidth="260"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <TextBlock Classes="caption secondary" Text="{Binding CostText}" VerticalAlignment="Center"/>
+            <TextBlock Classes="caption secondary" Text="{Binding StateText}" VerticalAlignment="Center"
+                       IsVisible="{Binding !IsRunning}"/>
+            <Button Classes="subtle sm" Content="Cancelar" Command="{Binding CancelCommand}" IsVisible="{Binding IsRunning}"/>
+          </StackPanel>
+        </DataTemplate>
+      </ContentControl.ContentTemplate>
+    </ContentControl>
+
+    <Button Classes="subtle sm" Content="{Binding TasksLabel}" VerticalAlignment="Center" AutomationProperties.Name="Lista de tarefas">
+      <Button.Flyout>
+        <Flyout Placement="TopEdgeAlignedLeft">
+          <StackPanel Spacing="8" MinWidth="360" MaxWidth="480">
+            <TextBlock Classes="overline secondary" Text="TAREFAS"/>
+            <ItemsControl ItemsSource="{Binding Service.Tasks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="sv:BackgroundTaskItem">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="body-sm" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Classes="caption secondary" Text="{Binding Message}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right" Margin="12,0,0,0">
+                      <TextBlock Classes="caption" Text="{Binding StateText}" HorizontalAlignment="Right"/>
+                      <TextBlock Classes="caption secondary" Text="{Binding CostText}" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Classes="subtle sm" Content="Limpar concluídas" Command="{Binding ClearFinishedCommand}" HorizontalAlignment="Left"/>
+          </StackPanel>
+        </Flyout>
+      </Button.Flyout>
+    </Button>
+  </StackPanel>
 </UserControl>

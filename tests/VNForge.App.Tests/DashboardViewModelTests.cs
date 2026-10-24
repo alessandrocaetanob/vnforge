@@ -37,11 +37,21 @@ public class DashboardViewModelTests
     public async Task Esqueleto_so_aparece_enquanto_nao_ha_linhas_para_mostrar()
     {
         using var temp = new TempFolder();
-        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Untranslated);
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Untranslated);
+        using var gate = new SemaphoreSlim(0);
+        var vm = new DashboardViewModel(path =>
+        {
+            gate.Wait(TestContext.Current.CancellationToken);
+            return ProjectDashboard.Read(ProjectFolder.Open(path));
+        })
+        {
+            Project = ProjectSummaryReader.Read(root),
+        };
 
         var primeira = vm.ReloadAsync();
         Assert.True(vm.ShowFilesSkeleton);
         Assert.True(vm.ShowCharactersSkeleton);
+        gate.Release();
         await primeira;
         Assert.False(vm.ShowFilesSkeleton);
 
@@ -49,6 +59,7 @@ public class DashboardViewModelTests
         Assert.True(vm.IsLoading);
         Assert.False(vm.ShowFilesSkeleton);
         Assert.False(vm.ShowCharactersSkeleton);
+        gate.Release();
         await segunda;
     }
 
