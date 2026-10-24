@@ -152,21 +152,79 @@ public sealed class YpfCommandTests : IDisposable
         Assert.True(File.Exists(Path.Combine(At("saida"), "se", PortaOgg)));
     }
 
+    private async Task<string> ExistingTarget()
+    {
+        Directory.CreateDirectory(At("out"));
+        var old = Path.Combine(At("out"), "antigo.txt");
+        await File.WriteAllTextAsync(old, "x", TestContext.Current.CancellationToken);
+        return old;
+    }
+
     [Fact]
-    public async Task Unpack_em_pasta_com_arquivos_pede_yes()
+    public async Task Unpack_em_pasta_com_arquivos_pergunta_e_recusa_sai_com_3_sem_gravar()
     {
         var ypf = WriteSample();
-        Directory.CreateDirectory(At("out"));
-        await File.WriteAllTextAsync(Path.Combine(At("out"), "antigo.txt"), "x", TestContext.Current.CancellationToken);
+        await ExistingTarget();
+        _cli.SetInput("n\n");
 
         var refused = await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
-        Assert.Equal(1, refused.ExitCode);
-        Assert.Contains(YesOption, refused.Error);
-        Assert.False(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
 
-        var accepted = await _cli.RunAsync(["ypf", Unpack, ypf, At("out"), YesOption], Token);
+        Assert.Equal(3, refused.ExitCode);
+        Assert.Contains("não está vazia", refused.Error);
+        Assert.Contains("[s/N]", refused.Error);
+        Assert.Contains("Nada foi gravado", refused.Output);
+        Assert.False(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
+    }
+
+    [Fact]
+    public async Task Unpack_em_pasta_com_arquivos_extrai_quando_a_resposta_e_sim()
+    {
+        var ypf = WriteSample();
+        var old = await ExistingTarget();
+        _cli.SetInput("s\n");
+
+        var accepted = await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+
         Assert.Equal(0, accepted.ExitCode);
         Assert.True(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
+        Assert.True(File.Exists(old));
+    }
+
+    [Fact]
+    public async Task Unpack_em_pasta_com_arquivos_e_yes_extrai_sem_perguntar()
+    {
+        var ypf = WriteSample();
+        await ExistingTarget();
+
+        var accepted = await _cli.RunAsync(["ypf", Unpack, ypf, At("out"), YesOption], Token);
+
+        Assert.Equal(0, accepted.ExitCode);
+        Assert.DoesNotContain("[s/N]", accepted.Error);
+        Assert.True(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
+    }
+
+    [Fact]
+    public async Task Unpack_em_pasta_com_arquivos_sem_yes_e_sem_entrada_pede_o_yes()
+    {
+        var ypf = WriteSample();
+        await ExistingTarget();
+
+        var result = await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains(YesOption, result.Error);
+        Assert.False(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
+    }
+
+    [Fact]
+    public async Task Unpack_em_pasta_vazia_nao_pergunta()
+    {
+        var ypf = WriteSample();
+
+        var result = await _cli.RunAsync(["ypf", Unpack, ypf, At("vazia")], Token);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.DoesNotContain("[s/N]", result.Error);
     }
 
     [Fact]
@@ -223,20 +281,84 @@ public sealed class YpfCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Pack_pede_yes_para_sobrescrever_a_saida_e_nao_deixa_temporario()
+    public async Task Pack_valida_antes_de_perguntar()
+    {
+        var ypf = WriteSample();
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllBytesAsync(Path.Combine(At("out"), "extra.bin"), [1], TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(At(NovoYpf), "antigo", TestContext.Current.CancellationToken);
+        _cli.SetInput("s\n");
+
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("extra.bin", result.Error);
+        Assert.DoesNotContain("[s/N]", result.Error);
+        Assert.Equal("antigo", await File.ReadAllTextAsync(At(NovoYpf), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Unpack_de_ypf_invalido_falha_antes_de_perguntar()
+    {
+        await File.WriteAllBytesAsync(At("lixo.ypf"), new byte[64], TestContext.Current.CancellationToken);
+        await ExistingTarget();
+        _cli.SetInput("s\n");
+
+        var result = await _cli.RunAsync(["ypf", Unpack, At("lixo.ypf"), At("out")], Token);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.DoesNotContain("[s/N]", result.Error);
+    }
+
+    [Fact]
+    public async Task Pack_pergunta_antes_de_sobrescrever_a_saida_e_recusa_sai_com_3()
+    {
+        var ypf = WriteSample();
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllTextAsync(At(NovoYpf), "antigo", TestContext.Current.CancellationToken);
+        _cli.SetInput("n\n");
+
+        var refused = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
+
+        Assert.Equal(3, refused.ExitCode);
+        Assert.Contains("já existe", refused.Error);
+        Assert.Contains("[s/N]", refused.Error);
+        Assert.Equal("antigo", await File.ReadAllTextAsync(At(NovoYpf), TestContext.Current.CancellationToken));
+        Assert.Empty(Directory.GetFiles(_cli.WorkingDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task Pack_sobrescreve_a_saida_quando_a_resposta_e_sim_ou_com_yes_e_nao_deixa_temporario()
+    {
+        var ypf = WriteSample();
+        await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
+        await File.WriteAllTextAsync(At(NovoYpf), "antigo", TestContext.Current.CancellationToken);
+        _cli.SetInput("s\n");
+
+        var answered = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
+        Assert.Equal(0, answered.ExitCode);
+        Assert.Equal(await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken), await File.ReadAllBytesAsync(At(NovoYpf), TestContext.Current.CancellationToken));
+
+        await File.WriteAllTextAsync(At(NovoYpf), "antigo", TestContext.Current.CancellationToken);
+        var accepted = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf), YesOption], Token);
+        Assert.Equal(0, accepted.ExitCode);
+        Assert.DoesNotContain("[s/N]", accepted.Error);
+        Assert.Equal(await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken), await File.ReadAllBytesAsync(At(NovoYpf), TestContext.Current.CancellationToken));
+        Assert.Empty(Directory.GetFiles(_cli.WorkingDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task Pack_sobre_saida_existente_com_json_sem_yes_pede_o_yes()
     {
         var ypf = WriteSample();
         await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
         await File.WriteAllTextAsync(At(NovoYpf), "antigo", TestContext.Current.CancellationToken);
 
-        var refused = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf)], Token);
-        Assert.Equal(1, refused.ExitCode);
-        Assert.Equal("antigo", await File.ReadAllTextAsync(At(NovoYpf), TestContext.Current.CancellationToken));
+        var result = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf), JsonOption], Token);
 
-        var accepted = await _cli.RunAsync(["ypf", "pack", At("out"), OriginalOption, ypf, OutputOption, At(NovoYpf), YesOption], Token);
-        Assert.Equal(0, accepted.ExitCode);
-        Assert.Equal(await File.ReadAllBytesAsync(ypf, TestContext.Current.CancellationToken), await File.ReadAllBytesAsync(At(NovoYpf), TestContext.Current.CancellationToken));
-        Assert.Empty(Directory.GetFiles(_cli.WorkingDirectory, "*.tmp"));
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains(YesOption, result.Output);
+        Assert.Equal("antigo", await File.ReadAllTextAsync(At(NovoYpf), TestContext.Current.CancellationToken));
     }
 
     [Fact]

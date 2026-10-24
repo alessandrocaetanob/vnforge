@@ -14,11 +14,14 @@ internal sealed class CliHarness : IDisposable
         UserLogDirectory = Path.Combine(Root, "user-logs");
         Directory.CreateDirectory(WorkingDirectory);
         UserConfigDirectory = Path.Combine(Root, "user-config");
-        Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory, UserConfigDirectory, new StringReader(stdin ?? string.Empty),
+        _input = new SwitchableReader(stdin);
+        Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory, UserConfigDirectory, _input,
             realVault ? null : new InMemoryApiKeyStore(), terminal ?? CliTerminal.Plain(width: 100));
         // Os testes de comando não dependem das regras reais de QA (testadas em Core.Tests).
         Cli.Qa = new VNForge.Core.Qa.QaEngine([]);
     }
+
+    private readonly SwitchableReader _input;
 
     public string Root { get; }
 
@@ -29,6 +32,9 @@ internal sealed class CliHarness : IDisposable
     public string UserConfigDirectory { get; }
 
     public VnfCli Cli { get; }
+
+    /// <summary>Troca o que o comando seguinte lê da entrada padrão (resposta de confirmação, chave de API).</summary>
+    public void SetInput(string text) => _input.Set(text);
 
     public void AddCommand(string name, Func<ParseResult, CancellationToken, Task<int>> action)
     {
@@ -55,6 +61,22 @@ internal sealed class CliHarness : IDisposable
             Directory.Delete(Root, recursive: true);
         }
     }
+}
+
+/// <summary>Entrada padrão que o teste pode trocar depois de criar o <see cref="VnfCli"/>.</summary>
+internal sealed class SwitchableReader(string? text) : TextReader
+{
+    private TextReader _inner = new StringReader(text ?? string.Empty);
+
+    public void Set(string text) => _inner = new StringReader(text);
+
+    public override string? ReadLine() => _inner.ReadLine();
+
+    public override int Peek() => _inner.Peek();
+
+    public override int Read() => _inner.Read();
+
+    public override string ReadToEnd() => _inner.ReadToEnd();
 }
 
 internal sealed class InMemoryApiKeyStore : IApiKeyStore
