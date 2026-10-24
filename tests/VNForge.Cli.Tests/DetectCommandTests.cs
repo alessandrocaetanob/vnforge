@@ -47,8 +47,12 @@ public sealed class DetectCommandTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine detectada: yuris", result.Output);
         Assert.Contains("parece YU-RIS", result.Output);
-        Assert.Contains("Pacote bgm.ypf: v500", result.Output);
-        Assert.Contains("v500", result.Output);
+        var lines = result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n');
+        Assert.Equal("Engine detectada: yuris", lines[0]);
+        Assert.StartsWith("├── parece YU-RIS", lines[1]);
+        var packages = Array.FindIndex(lines, l => l.EndsWith("Pacotes", StringComparison.Ordinal));
+        Assert.True(packages > 1, "o nó Pacotes tem de vir depois do resumo");
+        Assert.Matches(@"^[│ ]   └── bgm\.ypf: v500", lines[packages + 1]);
     }
 
     [Fact]
@@ -63,7 +67,7 @@ public sealed class DetectCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Engine detectada: yuris", result.Output);
-        Assert.Contains("Pacote bgm.ypf: assinatura YPF, índice ilegível", result.Output);
+        Assert.Contains("└── bgm.ypf: assinatura YPF, índice ilegível", result.Output);
         Assert.Contains("Avisos: bgm.ypf:", result.Output);
     }
 

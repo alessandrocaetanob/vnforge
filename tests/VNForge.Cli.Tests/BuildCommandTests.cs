@@ -148,6 +148,43 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Em_terminal_interativo_o_resumo_vira_painel_com_scripts_pacote_acentuacao_e_duracao()
+    {
+        await InitAndExtract();
+        Translate(Yst1, i => $"Traduzido {i}");
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+        rich.Cli.Qa = new QaEngine([]);
+
+        var result = await rich.RunAsync([BuildVerb, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(string.Empty, result.Error);
+        Assert.Contains("Resultado do build", result.Output);
+        Assert.Contains("1 reconstruídos de 2", result.Output);
+        Assert.Contains(YsbinYpf, result.Output);
+        Assert.Contains("(original ", result.Output);
+        Assert.Contains("Acentuação", result.Output);
+        Assert.Contains("sjis · nenhum caractere trocado", result.Output);
+        Assert.Contains("Duração", result.Output);
+        Assert.DoesNotContain("Reconstruídos", result.Output);
+    }
+
+    [Fact]
+    public async Task No_terminal_interativo_com_no_color_o_log_de_sempre_continua()
+    {
+        await InitAndExtract();
+        Translate(Yst1, i => $"Traduzido {i}");
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+        rich.Cli.Qa = new QaEngine([]);
+
+        var result = await rich.RunAsync([BuildVerb, "--no-color", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Reconstruídos 1 script", result.Output);
+        Assert.DoesNotContain("Resultado do build", result.Output);
+    }
+
+    [Fact]
     public async Task Sem_traducao_o_ysbin_ypf_do_build_e_identico_ao_original()
     {
         await InitAndExtract();

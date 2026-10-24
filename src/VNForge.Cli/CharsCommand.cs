@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Spectre.Console;
 using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -114,15 +115,21 @@ internal static class CharsCommand
 
         if (characters.Count == 0)
         {
-            output.WriteLine("Nenhum personagem cadastrado.");
+            cli.Ansi.MarkupLine("Nenhum personagem cadastrado.");
+            return ErrorHandler.OkExitCode;
         }
 
+        var table = CliViews.NewTable(CliViews.Column("Original"), CliViews.Column("Tradução"), CliViews.Column("Gênero"), CliViews.Column("Tom"));
         foreach (var c in characters)
         {
-            var tone = c.Tone is null ? string.Empty : $", {c.Tone}";
-            output.WriteLine($"{c.Source} → {c.Target} ({GenderName(c.Gender)}{tone})");
+            table.AddRow(
+                new Markup(CliViews.Escape(c.Source)),
+                new Markup(CliViews.Escape(c.Target)),
+                new Markup(GenderName(c.Gender)),
+                new Markup($"[dim]{CliViews.Escape(c.Tone ?? string.Empty)}[/]"));
         }
 
+        cli.Ansi.Write(table);
         return ErrorHandler.OkExitCode;
     }
 
