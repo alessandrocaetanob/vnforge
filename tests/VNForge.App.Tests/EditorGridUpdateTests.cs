@@ -119,4 +119,29 @@ public class EditorGridUpdateTests : IDisposable
         Assert.Equal("Confirmar", outro.Lines[0].TranslationLabel);
         Assert.False(outro.Lines[0].HasWarning);
     }
+
+    [Fact]
+    public async Task Editar_ir_a_outro_script_e_voltar_mantem_a_linha_e_o_painel_atualizados()
+    {
+        var vm = new EditorViewModel(
+            _ => ProjectLines.Create(new Dictionary<string, IReadOnlyList<TextUnit>>
+            {
+                ["yst00001"] = [Gravada(0)],
+                ["b"] = [EditorFixtures.Unit("b", 1, null, TranslationStatus.Approved)],
+            }),
+            relogio,
+            acao => acao());
+        vm.Project = EditorFixtures.Summary("Teste", raiz);
+        await vm.Loading;
+        var scriptA = vm.Scripts.Single(x => x.Key == "yst00001");
+        vm.SelectedScript = scriptA;
+
+        vm.Detail!.Translation = "Confirmar";
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "b");
+        vm.SelectedScript = scriptA;
+
+        Assert.Equal("Confirmar", vm.Lines[0].TranslationLabel);
+        Assert.Equal(TranslationStatus.Translated, vm.Lines[0].Status);
+        Assert.Equal("Confirmar", vm.Detail?.Translation);
+    }
 }

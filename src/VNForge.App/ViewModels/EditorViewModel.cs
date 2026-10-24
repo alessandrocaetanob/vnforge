@@ -324,6 +324,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var updated = line.Entry.WithUnit(saved);
         line.Update(updated);
 
+        // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
+        data?.Replace(updated);
+
         // O painel descartado ao trocar de script grava por último; a linha dele já não é a do script atual.
         var index = line.Number - 1;
         if (index < scriptLines.Length && ReferenceEquals(scriptLines[index], line))

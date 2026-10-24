@@ -159,6 +159,19 @@ public sealed class ProjectLines
     /// <summary>Linhas do script na ordem do arquivo; vazio para uma chave desconhecida.</summary>
     public IReadOnlyList<LineEntry> LinesOf(string key) => byScript.TryGetValue(key, out var lines) ? lines : NoLines;
 
+    /// <summary>
+    /// Troca a linha <see cref="LineEntry.Number"/> do script pela versão editada, para que <see cref="LinesOf"/> devolva a edição
+    /// quando o Editor reconstruir a grade. A entrada tem de ser da mesma posição e do mesmo script.
+    /// </summary>
+    public void Replace(LineEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (byScript.TryGetValue(entry.ScriptKey, out var lines) && entry.Number >= 1 && entry.Number <= lines.Length)
+        {
+            lines[entry.Number - 1] = entry;
+        }
+    }
+
     /// <summary>Lê os textos do projeto e roda o QA (<paramref name="qa"/>, ou <see cref="QaEngine.Default"/>) para marcar as linhas.</summary>
     /// <exception cref="VNForgeException">Arquivo do projeto inválido ou estratégia de codificação desconhecida.</exception>
     public static ProjectLines Read(ProjectFolder project, QaEngine? qa = null)
