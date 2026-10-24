@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Skia;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
@@ -18,8 +19,13 @@ namespace VNForge.App.Tests;
 /// <summary>Ponto de entrada da sessão headless: sobe o <see cref="App"/> de verdade (tema, estilos e recursos), sem janela do sistema.</summary>
 public static class HeadlessEntry
 {
+    // O Skia pede ao sistema uma fonte padrão; um contêiner Linux sem fontes não tem nenhuma e o FontManager lança.
+    // Apontar para a fonte embutida deixa o resultado igual em qualquer máquina.
     public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = true });
+        AppBuilder.Configure<App>()
+            .With(new FontManagerOptions { DefaultFamilyName = "avares://VNForge.App/Assets/Fonts#Noto Sans" })
+            .UseSkia()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }
 
 /// <summary>Uma sessão para o processo todo: o Avalonia só aceita uma instância de aplicativo por thread de UI, então as classes de teste a dividem.</summary>

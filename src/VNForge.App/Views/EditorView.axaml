@@ -26,13 +26,6 @@
       <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
     </Style>
 
-    <!-- A grade usa a mesma seleção da lista de projetos (accent-soft e barra de 3px); a linha tem altura fixa para a virtualização não medir. -->
-    <Style Selector="ListBox.lines > ListBoxItem">
-      <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
-    </Style>
-    <Style Selector="ListBox.lines > ListBoxItem /template/ Border#SelectionBar">
-      <Setter Property="Margin" Value="0,6"/>
-    </Style>
     <Style Selector="TextBlock.pct.complete">
       <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
     </Style>

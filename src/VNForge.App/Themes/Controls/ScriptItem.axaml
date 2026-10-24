@@ -1,0 +1,96 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Barra de progresso simples (vnf-progress): 4px, trilho em stroke-subtle, preenchimento em accent; cheia, em seg-approved. -->
+  <Style Selector="ProgressBar.thin">
+    <Setter Property="MinHeight" Value="4"/>
+    <Setter Property="Height" Value="4"/>
+    <Setter Property="CornerRadius" Value="2"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
+  <Style Selector="ProgressBar.thin.done">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SegApproved}"/>
+  </Style>
+  <Style Selector="ProgressBar.thin /template/ Border#PART_Indicator">
+    <Setter Property="CornerRadius" Value="2"/>
+  </Style>
+
+  <!-- docs/design/components/ScriptItem: id em mono, percentual à direita, nome legível embaixo e a barra de 4px. -->
+  <Style Selector="c|ScriptItem">
+    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Spacing="4" Margin="{TemplateBinding Padding}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBlock Name="PART_Id" Classes="mono" Text="{TemplateBinding Key}" TextTrimming="CharacterEllipsis"
+                       FontSize="12" LineHeight="16"/>
+            <StackPanel Name="PART_Percent" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+              <PathIcon Name="PART_Running" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.ArrowSync}"
+                        Foreground="{DynamicResource Vnf.StatusAiFg}" AutomationProperties.Name="IA traduzindo"/>
+              <TextBlock Name="PART_PercentText" Text="{TemplateBinding PercentText}" FontSize="12" LineHeight="16"
+                         Foreground="{DynamicResource Vnf.TextSecondary}"/>
+            </StackPanel>
+          </Grid>
+          <TextBlock Name="PART_Label" Text="{TemplateBinding Label}" FontSize="12" LineHeight="16" TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource Vnf.TextSecondary}"/>
+          <ProgressBar Name="PART_Bar" Classes="thin" Minimum="0" Maximum="100" Value="{TemplateBinding Percent}" ShowProgressText="False"/>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|ScriptItem:unlabeled /template/ TextBlock#PART_Label">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="c|ScriptItem:running /template/ PathIcon#PART_Running">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <Style Selector="c|ScriptItem:running /template/ TextBlock#PART_PercentText">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
+  </Style>
+  <Style Selector="c|ScriptItem:complete /template/ ProgressBar#PART_Bar">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SegApproved}"/>
+  </Style>
+  <!-- O script atual é o item selecionado da lista: accent-soft e id em 600. -->
+  <Style Selector="ListBoxItem:selected c|ScriptItem /template/ TextBlock#PART_Id">
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+
+  <!-- Lista de scripts do Editor: itens de raio sm sem barra lateral, hover em bg-card-hover e atual em accent-soft. -->
+  <Style Selector="ListBox.scripts">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Padding" Value="0,0,0,8"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <VirtualizingStackPanel/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.scripts > ListBoxItem">
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Margin" Value="6,1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_ContentPresenter"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{TemplateBinding CornerRadius}"
+                          Padding="{TemplateBinding Padding}"
+                          Content="{TemplateBinding Content}"
+                          ContentTemplate="{TemplateBinding ContentTemplate}"/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.scripts > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="ListBox.scripts > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+  </Style>
+</Styles>

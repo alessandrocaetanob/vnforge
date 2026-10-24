@@ -1,0 +1,101 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- docs/design/components/PipelineStepper: cinco botões contíguos de mesma largura. Concluída: círculo cheio em seg-approved com ✓;
+       atual (a primeira não concluída): número em accent-text e sublinhado de 2px accent. -->
+  <Style Selector="c|PipelineStepper">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <UniformGrid Rows="1"/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="c|PipelineStepItem">
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="0,1,1,1"/>
+    <Setter Property="CornerRadius" Value="0"/>
+    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <Panel>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" VerticalAlignment="Center">
+              <Border Name="PART_Circle" Width="24" Height="24" CornerRadius="12" BorderThickness="1.5"
+                      BorderBrush="{DynamicResource Vnf.StrokeControl}" VerticalAlignment="Center">
+                <Panel>
+                  <TextBlock Name="PART_Number" Text="{TemplateBinding Number}" FontSize="12" FontWeight="SemiBold" LineHeight="14"
+                             Foreground="{DynamicResource Vnf.TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <PathIcon Name="PART_Check" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Checkmark}"
+                            Foreground="{DynamicResource Vnf.BgCard}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Panel>
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+                <TextBlock Text="{TemplateBinding Title}" FontSize="13" LineHeight="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource Vnf.TextPrimary}"/>
+                <TextBlock Text="{TemplateBinding Subtitle}" FontSize="12" LineHeight="16" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource Vnf.TextSecondary}"/>
+              </StackPanel>
+            </Grid>
+            <Border Name="PART_Underline" Height="2" VerticalAlignment="Bottom" Margin="-14,0,-14,-10" IsVisible="False"
+                    Background="{DynamicResource Vnf.Accent}"/>
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <!-- A primeira etapa tem borda esquerda e cantos arredondados à esquerda; a última, à direita. -->
+  <Style Selector="c|PipelineStepItem:nth-child(1)">
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="8,0,0,8"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:nth-last-child(1)">
+    <Setter Property="CornerRadius" Value="0,8,8,0"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:nth-child(1):nth-last-child(1)">
+    <Setter Property="CornerRadius" Value="8"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:pointerover /template/ Border#PART_Root">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:pressed /template/ Border#PART_Root">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:focus-visible /template/ Border#PART_Root">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
+  </Style>
+
+  <Style Selector="c|PipelineStepItem:done /template/ Border#PART_Circle">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SegApproved}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SegApproved}"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:done /template/ TextBlock#PART_Number">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:done /template/ PathIcon#PART_Check">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:active /template/ Border#PART_Circle">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:active /template/ TextBlock#PART_Number">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <Style Selector="c|PipelineStepItem:active /template/ Border#PART_Underline">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+</Styles>
