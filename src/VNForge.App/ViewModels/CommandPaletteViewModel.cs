@@ -179,7 +179,7 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     }
 
     /// <summary>Minúsculas e sem acento, para "conferencia" achar "Conferência".</summary>
-    private static string Fold(string text)
+    public static string Fold(string text)
     {
         var decomposed = text.Normalize(NormalizationForm.FormD);
         var builder = new StringBuilder(decomposed.Length);

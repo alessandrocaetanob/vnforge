@@ -46,6 +46,7 @@ public class MainWindowRailTests
         Assert.False(glossary.IsVisible);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
 
         Assert.True(glossary.IsVisible);
     }
@@ -153,6 +154,96 @@ public class MainWindowRailTests
         Assert.Equal("Acentuação: sem acentos", vm.EncodingText);
         Assert.Equal("54 colunas · 3 linhas", vm.BoxLimitsText);
         Assert.Equal(string.Empty, vm.SavedAtText);
+    }
+
+    [Fact]
+    public async Task Salvar_os_Ajustes_do_projeto_atualiza_a_acentuacao_e_os_limites_da_caixa()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        var vm = Create(temp, root);
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        Assert.Equal("Acentuação: sem acentos", vm.EncodingText);
+        Assert.Equal("54 colunas · 3 linhas", vm.BoxLimitsText);
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.Settings.SelectedEncoding = vm.Settings.Encodings.Single(c => c.Id == "cp1252");
+        vm.Settings.WrapMaxWidth = 40;
+        vm.Settings.WrapMaxLines = 2;
+        vm.Settings.SaveProjectCommand.Execute(null);
+
+        Assert.Equal("Acentuação: CP1252", vm.EncodingText);
+        Assert.Equal("40 colunas · 2 linhas", vm.BoxLimitsText);
+        Assert.Contains(nameof(MainWindowViewModel.EncodingText), changed);
+        Assert.Contains(nameof(MainWindowViewModel.BoxLimitsText), changed);
+    }
+
+    [Fact]
+    public async Task Hora_da_gravacao_some_ao_abrir_outro_projeto_mas_sobrevive_ao_Reload()
+    {
+        using var temp = new TempFolder();
+        var rootA = SampleProjects.Create(temp.SubFolder("a"), "Projeto A", TranslationStatus.Machine);
+        var rootB = SampleProjects.Create(temp.SubFolder("b"), "Projeto B", TranslationStatus.Machine);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(rootA), new FixedClock(Now)))
+        {
+            Editor = new EditorViewModel(clock: new FixedClock(Now), postToUi: a => a()),
+        };
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        vm.Editor.SelectedLine = vm.Editor.Lines[0];
+        vm.Editor.Detail!.Translation = "Bom dia.";
+        vm.Editor.Detail.Flush();
+        Assert.Equal("Salvo às 00:41", vm.SavedAtText);
+
+        vm.Editor.Reload();
+        await vm.Editor.Loading;
+        Assert.Equal("Salvo às 00:41", vm.SavedAtText);
+
+        vm.Editor.Project = ProjectSummaryReader.Read(rootB);
+        await vm.Editor.Loading;
+        Assert.Equal(string.Empty, vm.SavedAtText);
+    }
+
+    [Fact]
+    public async Task Contador_baixa_quando_o_Editor_corrige_uma_linha_depois_da_conferencia()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated, TranslationStatus.Approved);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)))
+        {
+            Editor = new EditorViewModel(clock: new FixedClock(Now), postToUi: a => a()),
+        };
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        var item = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        vm.SelectedNav = item;
+        await vm.ConferenceLoading;
+        Assert.Equal(1, item.Badge);
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+        vm.Editor.SelectedLine = vm.Editor.Lines[0];
+        vm.Editor.Detail!.Translation = "Bom dia.";
+        vm.Editor.Detail.Flush();
+
+        Assert.Equal(0, vm.Editor.IssueCount);
+        Assert.Equal(0, item.Badge);
+        Assert.False(item.HasBadge);
+    }
+
+    [Fact]
+    public async Task Busca_de_linhas_da_paleta_ignora_acentos_na_traducao()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        var vm = Create(temp, root);
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+
+        Assert.Single(vm.Editor.FindLines("traducao", 5));
+        Assert.Single(vm.Editor.FindLines("TRADUÇÃO", 5));
+        Assert.Single(vm.Editor.FindLines("原文0", 5));
     }
 
     [Fact]

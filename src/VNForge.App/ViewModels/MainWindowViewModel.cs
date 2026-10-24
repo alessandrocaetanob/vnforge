@@ -58,6 +58,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
     private readonly Action<string> openFolder;
     private readonly FormattingProfileCache profiles = new();
+    private bool editorCountIsNewer;
     private NavItemViewModel? selectedNav;
     private bool editorStale;
     private string? lineNotFoundMessage;
@@ -82,6 +83,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines);
         Editor.PropertyChanged += OnEditorChanged;
         Conference.PropertyChanged += OnConferenceChanged;
+        Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LineRequested += (_, request) =>
         {
@@ -392,6 +394,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(EditorViewModel.IssueCount))
         {
+            editorCountIsNewer = true;
             UpdateProblemBadge();
         }
         else if (e.PropertyName == nameof(EditorViewModel.LastSavedAt))
@@ -404,13 +407,38 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(ConferenceViewModel.IssueCount))
         {
+            editorCountIsNewer = false;
             UpdateProblemBadge();
         }
     }
 
-    /// <summary>O contador da Conferência vem da última conferência; antes da primeira, das ocorrências que o Editor já leu.</summary>
+    /// <summary>
+    /// O contador vem da última conferência. Antes da primeira, ou depois de o Editor contar de novo (uma edição ou uma releitura), vem das
+    /// ocorrências do Editor, que é o número mais recente.
+    /// </summary>
     private void UpdateProblemBadge() =>
-        conferenceItem.Badge = CurrentProject is null ? null : Conference.IssueCount ?? Editor.IssueCount;
+        conferenceItem.Badge = CurrentProject is null ? null : editorCountIsNewer ? Editor.IssueCount : Conference.IssueCount ?? Editor.IssueCount;
+
+    /// <summary>Ajustes gravou o projeto: relê a acentuação e o modelo do <c>vnforge.json</c> e os limites da caixa do <c>formatting.json</c>.</summary>
+    private void ReloadProjectSettings()
+    {
+        if (CurrentProject is not { } project)
+        {
+            return;
+        }
+
+        try
+        {
+            var config = ProjectFolder.Open(project.Root).LoadConfig();
+            CurrentProject = project with { EncodingStrategy = config.Encoding.Strategy, Model = config.Ai.Model };
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine(e);
+        }
+
+        OnPropertyChanged(nameof(BoxLimitsText));
+    }
 
     private List<PaletteEntry> PaletteNamedEntries()
     {

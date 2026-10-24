@@ -33,6 +33,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private LineViewModel[] scriptLines = [];
     private LineStatusFilter statusFilter = LineStatusFilter.All;
     private int loadVersion;
+    private string? loadedRoot;
     private bool applying;
     private bool revertingSelection;
     private bool discardingSelection;
@@ -148,6 +149,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var root = Project?.Root;
         var version = ++loadVersion;
         ErrorMessage = null;
+        if (!string.Equals(root, loadedRoot, StringComparison.Ordinal))
+        {
+            // A hora da última gravação é do projeto aberto; só um Reload do mesmo projeto a mantém.
+            LastSavedAt = null;
+            loadedRoot = root;
+        }
 
         if (root is null)
         {
@@ -218,7 +225,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     /// <summary>
-    /// Procura <paramref name="text"/>, sem diferenciar maiúsculas, no original e na tradução de todos os scripts, na ordem do projeto.
+    /// Procura <paramref name="text"/>, sem diferenciar maiúsculas (nem acentos, na tradução), no original e na tradução de todos os scripts, na ordem do projeto.
     /// Para ao chegar em <paramref name="limit"/> linhas; texto vazio não acha nada.
     /// </summary>
     public IReadOnlyList<LineEntry> FindLines(string text, int limit)
@@ -229,13 +236,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return found;
         }
 
+        // Só a tradução em português perde o acento na busca; no original em japonês a dobra juntaria kana com e sem dakuten.
+        var folded = CommandPaletteViewModel.Fold(text);
         foreach (var script in data.Scripts)
         {
             foreach (var entry in data.LinesOf(script.Key))
             {
                 var unit = entry.Unit;
                 if (unit.Source.Contains(text, StringComparison.OrdinalIgnoreCase)
-                    || (unit.Translation?.Contains(text, StringComparison.OrdinalIgnoreCase) ?? false))
+                    || (unit.Translation is { } translation && CommandPaletteViewModel.Fold(translation).Contains(folded, StringComparison.Ordinal)))
                 {
                     found.Add(entry);
                     if (found.Count >= limit)
