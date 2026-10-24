@@ -71,7 +71,14 @@ public sealed class TextboxPreview : Control
             height += BoxHeight(layout, box, lineHeight) + PlateHeight(layout, lineHeight) + BoxGap;
         }
 
-        return new Size(layout.Columns * columnWidth + (Padding * 2), Math.Max(0, height - BoxGap));
+        return new Size(ContentWidth(layout, columnWidth), Math.Max(0, height - BoxGap));
+    }
+
+    /// <summary>A caixa mede as colunas do perfil; a placa de um nome mais largo que elas estica o controle em vez de ser cortada.</summary>
+    private double ContentWidth(TextboxLayout layout, double columnWidth)
+    {
+        var box = layout.Columns * columnWidth + (Padding * 2);
+        return layout.Speaker is { } speaker ? Math.Max(box, Format(speaker, new Typeface(FontFamily), Brushes.Black).Width + (PlatePadding * 2)) : box;
     }
 
     public override void Render(DrawingContext context)
