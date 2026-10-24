@@ -1,11 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.NewProjectWizardView"
              x:DataType="vm:NewProjectWizardViewModel">
 
   <UserControl.Resources>
-    <!-- Cartão de escolha única: nome, valor à direita e uma linha de descrição. -->
+    <!-- Cartão de escolha única (OptionCard): nome, valor à direita e uma linha de descrição. -->
     <DataTemplate x:Key="ChoiceCard" x:DataType="vm:ChoiceOption">
       <RadioButton Classes="option" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="2">
@@ -20,12 +21,13 @@
   </UserControl.Resources>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="760" Margin="24,32,24,40" Spacing="16">
+    <StackPanel MaxWidth="960" Margin="24,16,24,32" Spacing="16">
 
-      <StackPanel Spacing="4">
-        <TextBlock Classes="title-lg" Text="Novo projeto"/>
-        <TextBlock Classes="body-sm secondary" Text="{Binding StepLabel}" IsVisible="{Binding IsWizardStep}"/>
-      </StackPanel>
+      <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="Novo projeto">
+        <Button Classes="subtle" Command="{Binding CancelCommand}" Content="Cancelar" IsVisible="{Binding IsWizardStep}"/>
+      </c:PageHeader>
+
+      <c:PipelineStepper ItemsSource="{Binding Steps}" IsVisible="{Binding IsWizardStep}" AutomationProperties.Name="Passos do assistente"/>
 
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -34,114 +36,188 @@
         </Grid>
       </Border>
 
-      <!-- 1. Pasta do jogo e detecção -->
-      <Border Classes="panel" Padding="16" IsVisible="{Binding IsGameStep}">
-        <StackPanel Spacing="12">
-          <TextBlock Classes="body" TextWrapping="Wrap"
-                     Text="Escolha a pasta onde o jogo está instalado. O VNForge só lê essa pasta; nada é gravado nela fora da injeção, com backup."/>
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-            <TextBlock Classes="mono secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding GameFolderLabel}"/>
-            <Button Grid.Column="1" Command="{Binding BrowseGameCommand}">
+      <!-- 1. Pasta do jogo; a engine detectada aparece como resultado -->
+      <StackPanel Spacing="16" IsVisible="{Binding IsGameStep}">
+        <Border Classes="panel" Padding="16,14">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <PathIcon Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+              <TextBlock Text="Pasta do jogo"/>
+              <TextBlock Classes="mono secondary" TextTrimming="CharacterEllipsis" Text="{Binding GameFolderLabel}"/>
+            </StackPanel>
+            <Button Grid.Column="2" Command="{Binding BrowseGameCommand}">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
                 <TextBlock Text="Escolher pasta"/>
               </StackPanel>
             </Button>
           </Grid>
-          <ItemsControl ItemsSource="{Binding DetectionLines}" IsVisible="{Binding HasGame}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="x:String">
-                <TextBlock Classes="body-sm" Text="{Binding}" TextWrapping="Wrap"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <StackPanel Spacing="4" IsVisible="{Binding HasExecutables}">
-            <TextBlock Classes="overline" Text="EXECUTÁVEL DO JOGO"/>
-            <ComboBox ItemsSource="{Binding Executables}" SelectedItem="{Binding SelectedExe}" MinWidth="280"
-                      AutomationProperties.Name="Executável do jogo"/>
+        </Border>
+
+        <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasDetection}" AutomationProperties.Name="Engine detectada">
+          <StackPanel>
+            <Border Classes="divider-bottom" Padding="16,0" MinHeight="56">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <PathIcon Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,8">
+                  <TextBlock Classes="overline" Text="ENGINE DETECTADA"/>
+                  <TextBlock Classes="title-md" Text="{Binding EngineTitle}"/>
+                </StackPanel>
+                <Border Grid.Column="2" VerticalAlignment="Center" Padding="8,2" CornerRadius="{DynamicResource Vnf.RadiusSm}"
+                        Background="{DynamicResource Vnf.StatusApprovedBg}">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportada"/>
+                </Border>
+              </Grid>
+            </Border>
+            <StackPanel Margin="16" Spacing="8">
+              <ItemsControl ItemsSource="{Binding DetectionFacts}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DetectionFact">
+                    <Grid ColumnDefinitions="180,*" ColumnSpacing="16" Margin="0,0,0,8">
+                      <TextBlock Classes="body-sm secondary" Text="{Binding Label}"/>
+                      <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Value}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
+                <TextBlock Classes="body-sm secondary" Text="Executável do jogo" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Executables}" SelectedItem="{Binding SelectedExe}" MinWidth="280"
+                          IsVisible="{Binding HasExecutables}" AutomationProperties.Name="Executável do jogo"/>
+                <TextBlock Grid.Column="1" Classes="mono" Text="{Binding SelectedExe}" VerticalAlignment="Center" IsVisible="{Binding !HasExecutables}"/>
+              </Grid>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
-      </Border>
+        </Border>
+
+        <Border Classes="infobar warning" IsVisible="{Binding DetectionWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding DetectionWarning}"/>
+          </Grid>
+        </Border>
+
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                   Text="O VNForge só lê esta pasta. Nada é gravado nela fora da injeção, com backup."/>
+      </StackPanel>
 
       <!-- 2. Idiomas e nome -->
-      <Border Classes="panel" Padding="16" IsVisible="{Binding IsNamesStep}">
-        <StackPanel Spacing="16">
-          <StackPanel Spacing="4">
-            <TextBlock Classes="overline" Text="NOME DO PROJETO"/>
-            <TextBox Text="{Binding ProjectName}" AutomationProperties.Name="Nome do projeto"/>
-          </StackPanel>
-          <StackPanel Spacing="4">
-            <TextBlock Classes="overline" Text="PASTA DO PROJETO"/>
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <TextBlock Classes="mono secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding ProjectDirectoryLabel}"/>
-              <Button Grid.Column="1" Command="{Binding BrowseProjectCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
-                  <TextBlock Text="Escolher pasta"/>
-                </StackPanel>
-              </Button>
-            </Grid>
-            <TextBlock Classes="caption secondary" Text="Fora da pasta do jogo. Texto, cache e backups ficam aqui."/>
-          </StackPanel>
-          <StackPanel Spacing="4">
-            <TextBlock Classes="overline" Text="IDIOMA DO JOGO"/>
-            <ItemsControl ItemsSource="{Binding SourceLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel ItemWidth="170"/>
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-            </ItemsControl>
-          </StackPanel>
-          <StackPanel Spacing="4">
-            <TextBlock Classes="overline" Text="IDIOMA DA TRADUÇÃO"/>
-            <ItemsControl ItemsSource="{Binding TargetLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel ItemWidth="220"/>
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-            </ItemsControl>
-          </StackPanel>
+      <StackPanel Spacing="20" IsVisible="{Binding IsNamesStep}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="NOME DO PROJETO"/>
+          <TextBox Text="{Binding ProjectName}" AutomationProperties.Name="Nome do projeto"/>
         </StackPanel>
-      </Border>
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="PASTA DO PROJETO"/>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Classes="mono secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding ProjectDirectoryLabel}"/>
+            <Button Grid.Column="1" Command="{Binding BrowseProjectCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+                <TextBlock Text="Escolher pasta"/>
+              </StackPanel>
+            </Button>
+          </Grid>
+          <TextBlock Classes="caption secondary" Text="Fora da pasta do jogo. Texto, cache e backups ficam aqui."/>
+        </StackPanel>
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="IDIOMA DO JOGO"/>
+          <ItemsControl ItemsSource="{Binding SourceLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel ItemWidth="200"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </StackPanel>
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="IDIOMA DA TRADUÇÃO"/>
+          <ItemsControl ItemsSource="{Binding TargetLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel ItemWidth="240"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </StackPanel>
+      </StackPanel>
 
       <!-- 3. Acentuação -->
       <StackPanel Spacing="8" IsVisible="{Binding IsAccentsStep}">
-        <TextBlock Classes="body" TextWrapping="Wrap"
-                   Text="O jogo lê o texto em Shift-JIS, que não tem letras acentuadas. A estratégia decide o que acontece com elas no build. Dá para trocar depois no vnforge.json."/>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                   Text="O jogo lê o texto em Shift-JIS, que não tem letras acentuadas. A estratégia decide o que acontece com elas no build. Dá para trocar depois nos Ajustes."/>
+        <TextBlock Classes="overline" Margin="0,8,0,0" Text="ESTRATÉGIA DE ACENTUAÇÃO"/>
         <ItemsControl ItemsSource="{Binding EncodingStrategies.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>
       </StackPanel>
 
       <!-- 4. IA -->
-      <StackPanel Spacing="8" IsVisible="{Binding IsAiStep}">
-        <TextBlock Classes="body" TextWrapping="Wrap"
-                   Text="Provedor: Claude, na primeira versão. Escolha o modelo da tradução ou pule e use o padrão. A chave da API fica no ambiente ou no cofre do usuário, nunca no projeto."/>
-        <CheckBox IsChecked="{Binding SkipAi}" Content="Pular e usar o padrão (Claude Opus 5.5)"/>
-        <ItemsControl ItemsSource="{Binding Models.Options}" ItemTemplate="{StaticResource ChoiceCard}" IsEnabled="{Binding !SkipAi}"/>
+      <StackPanel Spacing="16" IsVisible="{Binding IsAiStep}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="PROVEDOR"/>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Padding="10,4" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.StatusApprovedBg}">
+              <TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Claude (Anthropic)"/>
+            </Border>
+            <Border Padding="10,4" CornerRadius="{DynamicResource Vnf.RadiusSm}" BorderThickness="1" BorderBrush="{DynamicResource Vnf.StrokeControl}">
+              <TextBlock Classes="body-sm secondary" Text="Outros provedores · em breve"/>
+            </Border>
+          </StackPanel>
+        </StackPanel>
+        <Border Classes="panel" ClipToBounds="True">
+          <c:ToggleRule Title="Usar o modelo padrão" Description="Claude Opus 5.5. Dá para escolher outro depois, nos Ajustes."
+                        IsChecked="{Binding SkipAi, Mode=TwoWay}"/>
+        </Border>
+        <StackPanel Spacing="8" IsEnabled="{Binding !SkipAi}">
+          <TextBlock Classes="overline" Text="MODELO"/>
+          <ItemsControl ItemsSource="{Binding Models.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>
+        </StackPanel>
+        <Border Classes="infobar">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+            <StackPanel Grid.Column="1">
+              <TextBlock Classes="body-strong" Text="A chave da API não entra no projeto."/>
+              <TextBlock Classes="body-sm" TextWrapping="Wrap"
+                         Text="Ela fica na variável de ambiente ANTHROPIC_API_KEY ou no cofre do Windows (DPAPI). Configure em Ajustes."/>
+            </StackPanel>
+          </Grid>
+        </Border>
       </StackPanel>
 
       <!-- Fim: projeto criado, oferece extrair -->
-      <Border Classes="panel" Padding="16" IsVisible="{Binding IsDoneStep}">
-        <StackPanel Spacing="12">
-          <TextBlock Classes="title-md" Text="Projeto criado"/>
-          <TextBlock Classes="mono secondary" Text="{Binding CreatedSummary}" TextWrapping="Wrap"/>
-          <TextBlock Classes="body" TextWrapping="Wrap"
-                     Text="Quer extrair o texto do jogo agora? A extração lê os scripts do jogo e grava as linhas no projeto. Ela pode levar alguns minutos."/>
-          <TextBlock Classes="body-sm" Text="{Binding ExtractionMessage}" TextWrapping="Wrap"
-                     IsVisible="{Binding ExtractionMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-          <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button Classes="accent" Command="{Binding ExtractCommand}" Content="Extrair agora"/>
-            <Button Command="{Binding FinishCommand}" Content="Abrir projeto"/>
+      <StackPanel Spacing="16" IsVisible="{Binding IsDoneStep}">
+        <Border Classes="infobar success">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Check}"/>
+            <StackPanel Grid.Column="1">
+              <TextBlock Classes="body-strong" Text="Projeto criado."/>
+              <TextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding CreatedSummary}"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Border Classes="panel" Padding="16">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="title-md" Text="Extrair o texto do jogo agora?"/>
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                       Text="A extração lê os scripts do jogo e grava as linhas no projeto. Ela pode levar alguns minutos e roda na barra de tarefas."/>
+            <TextBlock Classes="body-sm" Text="{Binding ExtractionMessage}" TextWrapping="Wrap"
+                       IsVisible="{Binding ExtractionMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Classes="accent" Command="{Binding ExtractCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                  <TextBlock Text="Extrair agora"/>
+                </StackPanel>
+              </Button>
+              <Button Command="{Binding FinishCommand}" Content="Abrir projeto"/>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
-      </Border>
+        </Border>
+      </StackPanel>
 
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" IsVisible="{Binding IsWizardStep}">
-        <Button Command="{Binding CancelCommand}" Content="Cancelar"/>
-        <Button Grid.Column="2" Command="{Binding BackCommand}" Content="Voltar"/>
-        <Button Grid.Column="3" Classes="accent" Command="{Binding NextCommand}" Content="{Binding NextLabel}"/>
-      </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" IsVisible="{Binding IsWizardStep}">
+        <Button Command="{Binding BackCommand}" Content="Voltar"/>
+        <Button Classes="accent" Command="{Binding NextCommand}" Content="{Binding NextLabel}"/>
+      </StackPanel>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

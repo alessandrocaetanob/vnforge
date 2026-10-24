@@ -15,7 +15,7 @@ Cópia local do design do aplicativo, para a implementação em Avalonia ter a f
 | `avalonia.md` | Como o design vira recursos e controles Avalonia |
 | `tokens.json` | Fonte dos tokens. `tools/Generate-Tokens.ps1` gera `src/VNForge.App/Themes/Tokens.axaml` a partir dele |
 | `components/*/README.md` | Um README por componente |
-| `telas/*.dc.html` | As telas desenhadas no canvas (Início, Painel, Editor escuro em `Main`, Editor claro, Conferir, Build, Ajustes). Dependem do `support.js` e do CSS do design system, que não vêm junto; servem de leitura |
+| `telas/*.dc.html` | As telas desenhadas no canvas (Início, Painel, Editor escuro em `Main`, Editor claro, Conferir, Build, Ajustes) e, desenhadas na #248 na mesma linguagem e ainda fora do canvas do claude.ai, `Glossario` e `NovoProjeto`. Dependem do `support.js` e do CSS do design system, que não vêm junto; servem de leitura |
 
 Quando o design mudar: atualize `tokens.json` aqui, rode `pwsh tools/Generate-Tokens.ps1` e confira o diff do `Tokens.axaml`. O teste `TokensTests` falha se os dois divergirem.
 
