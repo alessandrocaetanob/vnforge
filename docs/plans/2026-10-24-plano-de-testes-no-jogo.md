@@ -16,8 +16,8 @@ Nada é gravado no jogo nesta etapa.
 
 | Issue | Passos | Pronto quando |
 |---|---|---|
-| #31 Ida e volta do YPF | `vnf ypf unpack` de cada `.ypf` para uma pasta temporária, `vnf ypf pack` para outra, `fc /b` ou hash contra o original | Todos os `.ypf` saem idênticos; a variante encontrada (versão, compressão, tabela de nomes) está no `docs/06-yuris-notas-tecnicas.md` |
-| #41 Ida e volta dos scripts | `vnf extract` e `vnf build` sem nenhuma tradução; comparar cada `yst*.ybn` de `build/` com o de `.cache/game/` | Todos os `yst*.ybn` idênticos; versão do YSTB, chave XOR e contagem de unidades por `kind` no doc 06 |
+| #31 Ida e volta do YPF | Para cada `.ypf`: `vnf ypf unpack <jogo>\ysbin.ypf C:\tmp\ysbin`, `vnf ypf pack C:\tmp\ysbin --original <jogo>\ysbin.ypf --output C:\tmp\ysbin.ypf` e `certutil -hashfile` nos dois arquivos | Todos os `.ypf` saem idênticos; a variante encontrada (versão, compressão, tabela de nomes) está no `docs/06-yuris-notas-tecnicas.md` |
+| #41 Ida e volta dos scripts | `vnf extract`; depois reconstruir cada `yst*.ybn` sem mudança e comparar com o de `.cache/game/ysbin.ypf/`. O `vnf build` só reconstrói scripts com tradução diferente do `source`, então ele sozinho não exercita este caso: se o teste de integração do repo não puder apontar para a pasta do jogo, abra uma issue para um modo de reconstrução sem mudanças antes de seguir | Todos os `yst*.ybn` idênticos; versão do YSTB, chave XOR e contagem de unidades por `kind` no doc 06 |
 
 Se um arquivo sair diferente, pare aqui: a regra de reescrita mínima do `CLAUDE.md` vale antes de qualquer teste com tradução.
 
@@ -28,14 +28,14 @@ Se um arquivo sair diferente, pare aqui: a regra de reescrita mínima do `CLAUDE
 | #59 Largura e linhas da caixa | Escrever em `text/<script>.json` uma fala longa em ASCII numa linha da primeira cena, `vnf preview <id>`, `vnf build`, `vnf inject`, `vnf run` e contar colunas e linhas na caixa | A quebra no jogo cai onde o `vnf preview` mostra; colunas e linhas gravadas no perfil de exemplo do `formatting.json` |
 | #62 Lead bytes e charset da fonte | Trabalhar só numa cópia do executável: localizar a tabela de 256 lead bytes, testar zerá-la, ver o `charset` passado ao `CreateFontIndirectA` | Endereço da tabela e caminho escolhido para a fonte no doc 06; decisão registrada entre seguir com `cp1252` ou partir para `remap` (#66) |
 
-A decisão do #62 define se o #66 e o #65 entram numa versão seguinte. Sem `cp1252` funcionando, a etapa 3 roda com a estratégia `fold` (acentos trocados pela letra sem acento).
+A decisão do #62 define se o #66 e o #65 entram numa versão seguinte. O critério do #67 é acento certo no jogo, então sem `cp1252` funcionando a etapa 3 espera o `remap` (#66). Com a estratégia `fold` (acento trocado pela letra sem acento) dá para adiantar o #59 e os passos do #85 que não dependem de acento, mas o #67 não fecha.
 
 ## Etapa 3 · Marcos M2 e M3
 
 | Issue | Passos | Pronto quando |
 |---|---|---|
 | #67 Validação do M2 | Traduzir à mão uma cena curta no Editor do app, com diálogo, nome de personagem e escolha; Build no app ou `vnf build` e `vnf inject`; jogar a cena; depois `vnf restore` | Acentos certos nos três tipos de texto, quebras onde a prévia mostra, `vnf restore` deixa a pasta igual à cópia intacta |
-| #85 Validação do M3 | Um capítulo inteiro: `vnf translate --files <scripts do capítulo> --dry-run` para ver o custo, `vnf translate`, `vnf check`, revisão na Conferência e no Editor do app, Build e injeção pelo app, jogar o capítulo | O capítulo roda no jogo sem erro de QA pendente |
+| #85 Validação do M3 | Um capítulo inteiro: `vnf translate --files "yst0001*" --dry-run` (troque o padrão pelos scripts do capítulo) para ver o custo, `vnf translate`, `vnf check`, revisão na Conferência e no Editor do app, Build e injeção pelo app, jogar o capítulo | O capítulo roda no jogo sem erro de QA pendente |
 
 O #85 também é o teste de uso da V2: paleta de comandos, Painel, Editor, Conferência e Build com um projeto real. Diferenças de layout ou ação errada viram issue com o label "área: app".
 
@@ -53,7 +53,7 @@ Com o #115 fechado, o #12 (E11, M4) fecha junto.
 ## Ordem e dependências
 
 ```
-#31, #41 ─► #59 ─► #62 ─► #67 (M2) ─► #85 (M3) ─► #112 ─► #113 ─► #115 ─► #12 (M4)
+#31 ─► #41 ─► #59 ─► #62 ─► #67 (M2) ─► #85 (M3) ─► #112 ─► #113 ─► #115 ─► #12 (M4)
                                                     └─► #114
 ```
 
