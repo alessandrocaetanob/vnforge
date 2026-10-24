@@ -154,23 +154,27 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
     }
 
     [Fact]
-    public async Task Conferencia_em_tela_larga_nao_afasta_as_acoes_da_ocorrencia()
+    public async Task Conferencia_em_tela_larga_so_estica_a_lista_de_problemas()
     {
         using var temp = new TempFolder();
         var vm = await OpenedWithProblem(temp);
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
         await vm.ConferenceLoading;
-        double panelWidth = 0;
+        var widths = new List<double>();
 
         await fixture.Session.Dispatch(
             () =>
             {
                 var window = Open(vm, 2560);
-                panelWidth = window.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible).Bounds.Width;
+                widths.AddRange(window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible).Select(b => b.Bounds.Width));
                 window.Close();
             },
             CancellationToken.None);
 
-        Assert.InRange(panelWidth, 1, 1102);
+        // Regras e detalhe mantêm a largura do artboard; a lista de problemas fica com o resto.
+        Assert.Equal(3, widths.Count);
+        Assert.Equal(200, widths[0], 1);
+        Assert.Equal(340, widths[2], 1);
+        Assert.True(widths[1] > 1500);
     }
 }
