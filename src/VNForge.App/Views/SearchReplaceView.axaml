@@ -13,7 +13,8 @@
     </StackPanel>
 
     <Border Grid.Row="1" Classes="panel" Padding="16">
-      <StackPanel Spacing="12">
+      <!-- Travado durante a operação: mudar um campo no meio de uma gravação esconderia o resultado dela. -->
+      <StackPanel Spacing="12" IsEnabled="{Binding !IsBusy}">
         <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
           <StackPanel Spacing="4">
             <TextBlock Classes="overline" Text="PROCURAR"/>

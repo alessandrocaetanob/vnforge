@@ -179,6 +179,12 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         {
             Applied?.Invoke(this, result);
         }
+        else if (result is null && ErrorMessage is not null)
+        {
+            // A gravação falhou no meio: scripts anteriores podem já ter sido gravados, então o Editor relê o projeto.
+            ErrorMessage += " Alguns scripts podem já ter sido gravados; confira no Editor.";
+            Applied?.Invoke(this, new ReplaceResult(0, []));
+        }
     }
 
     private SearchOptions Options() => new(Pattern, UseRegex, MatchCase, WholeWord, SearchSource ? SearchField.Source : SearchField.Translation);
