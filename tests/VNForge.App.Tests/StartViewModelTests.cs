@@ -175,3 +175,95 @@ public class StartViewModelTests
         Assert.Empty(outro.Recents);
     }
 }
+
+public class StartViewModelFalhasTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task Falha_ao_gravar_os_recentes_nao_impede_abrir_o_projeto()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        // A "pasta de configuração" é um arquivo: criar o recent.json dentro dela dá IOException.
+        var bloqueio = Path.Combine(temp.Path, "config-arquivo");
+        File.WriteAllText(bloqueio, "x");
+        var vm = new StartViewModel(new RecentProjectsFile(bloqueio), new FakeFolderPicker(root), new FixedClock(Now));
+        ProjectSummary? aberto = null;
+        vm.ProjectOpened += (_, s) => aberto = s;
+
+        await vm.OpenFolderCommand.ExecuteAsync(null);
+
+        Assert.Equal("Minha VN", aberto?.Name);
+        Assert.Contains("lista de recentes", vm.NoticeMessage);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Abrir_dois_projetos_deixa_o_ultimo_no_topo_e_selecionado()
+    {
+        using var temp = new TempFolder();
+        var a = SampleProjects.Create(temp.SubFolder("a"), "A", TranslationStatus.Approved);
+        var b = SampleProjects.Create(temp.SubFolder("b"), "B", TranslationStatus.Untranslated);
+        var config = new RecentProjectsFile(temp.SubFolder("config"));
+        var vm = new StartViewModel(config, new FakeFolderPicker(null), new FixedClock(Now));
+
+        await vm.OpenAsync(a);
+        await vm.OpenAsync(b);
+
+        Assert.Equal(["A", "B"], vm.Recents.Select(i => i.Name).Order());
+        Assert.Equal("B", vm.Selected?.Name);
+        Assert.Equal("2 projetos", vm.RecentsSummary);
+    }
+
+    [Fact]
+    public async Task Cargas_simultaneas_nao_duplicam_itens()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var config = new RecentProjectsFile(temp.SubFolder("config"));
+        config.Add(root, Now);
+        var vm = new StartViewModel(config, new FakeFolderPicker(null), new FixedClock(Now));
+
+        await Task.WhenAll(vm.LoadAsync(), vm.LoadAsync(), vm.LoadAsync());
+
+        Assert.Single(vm.Recents);
+        Assert.Equal("1 projeto", vm.RecentsSummary);
+    }
+
+    [Fact]
+    public async Task Item_com_problema_usa_o_nome_da_pasta_e_mostra_travessao_no_progresso()
+    {
+        using var temp = new TempFolder();
+        var config = new RecentProjectsFile(temp.SubFolder("config"));
+        config.Add(Path.Combine(temp.Path, "sumiu"), Now);
+        var vm = new StartViewModel(config, new FakeFolderPicker(null), new FixedClock(Now));
+
+        await vm.LoadAsync();
+
+        var item = Assert.Single(vm.Recents);
+        Assert.Equal("sumiu", item.Name);
+        Assert.Equal("—", item.PercentLabel);
+        Assert.Equal("—", item.Lines);
+        Assert.Equal("—", item.ModelLabel);
+        Assert.Equal(item.Path, item.Subtitle);
+        Assert.Equal(100, item.Distribution.Pending);
+    }
+
+    [Fact]
+    public async Task Item_disponivel_descreve_a_distribuicao_para_leitor_de_tela()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Untranslated);
+        var vm = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now));
+
+        await vm.OpenAsync(root);
+
+        var item = vm.Selected!;
+        Assert.Equal("Aprovadas 50%, revisadas 0%, traduzidas 0%, IA 0%, pendentes 50%", item.DistributionDescription);
+        Assert.Equal("Claude Opus 5.5", item.ModelLabel);
+        Assert.Equal("1", item.Scripts);
+        Assert.Equal("Remover acentos (fold)", item.EncodingLabel);
+        Assert.StartsWith("YU-RIS · YPF v500 · ", item.Subtitle);
+    }
+}
