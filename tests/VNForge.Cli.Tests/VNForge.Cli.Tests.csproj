@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VNForge.Cli\VNForge.Cli.csproj" />
+    <!-- O assistente de novo projeto tem de gerar o mesmo projeto que o vnf init (WizardEquivalenceTests). -->
+    <ProjectReference Include="..\..\src\VNForge.App\VNForge.App.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -21,7 +21,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     [ObservableProperty]
     public partial string? ErrorMessage { get; set; }
 
-    /// <summary>Aviso que não é erro, como o assistente de novo projeto que ainda não existe.</summary>
+    /// <summary>Aviso que não é erro, como a lista de recentes que não pôde ser gravada.</summary>
     [ObservableProperty]
     public partial string? NoticeMessage { get; set; }
 
@@ -33,6 +33,9 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
     /// <summary>Um projeto foi aberto pelo seletor de pasta.</summary>
     public event EventHandler<ProjectSummary>? ProjectOpened;
+
+    /// <summary>O usuário pediu o assistente de novo projeto.</summary>
+    public event EventHandler? NewProjectRequested;
 
     /// <summary>O usuário pediu para continuar o projeto selecionado no Editor.</summary>
     public event EventHandler<ProjectSummary>? EditorRequested;
@@ -107,7 +110,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     private void NewProject()
     {
         ClearMessages();
-        NoticeMessage = "O assistente de novo projeto chega no próximo marco. Por enquanto, crie o projeto com `vnf init` e abra a pasta aqui.";
+        NewProjectRequested?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenSelected))]

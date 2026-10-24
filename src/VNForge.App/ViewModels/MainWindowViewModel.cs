@@ -34,7 +34,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private NavItemViewModel? selectedNav;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null)
     {
         Start = start;
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
@@ -47,6 +47,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         selectedNav = Nav[0];
         CurrentPage = start;
         start.ProjectOpened += (_, summary) => SetProject(summary);
+        start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         start.EditorRequested += (_, summary) =>
         {
             SetProject(summary);
@@ -108,6 +109,24 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 };
             }
         }
+    }
+
+    /// <summary>Troca a página pelo assistente de novo projeto; ao terminar ou cancelar volta ao Início, e um projeto criado é aberto.</summary>
+    private void ShowWizard(Func<NewProjectWizardViewModel>? create)
+    {
+        if (create is null)
+        {
+            return;
+        }
+
+        var wizard = create();
+        wizard.Cancelled += (_, _) => CurrentPage = Start;
+        wizard.Completed += async (_, root) =>
+        {
+            CurrentPage = Start;
+            await Start.OpenAsync(root);
+        };
+        CurrentPage = wizard;
     }
 
     private void SetProject(ProjectSummary summary)

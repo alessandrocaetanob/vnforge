@@ -6,7 +6,37 @@ namespace VNForge.Core.Projects;
 /// <summary>Escolhas do usuário ao criar um projeto; o que ficar nulo é deduzido da pasta do jogo.</summary>
 /// <param name="Name">Nome do projeto; padrão: o nome da pasta do projeto.</param>
 /// <param name="Exe">Executável do jogo, relativo à pasta do jogo; padrão: o único <c>.exe</c> da pasta (fora os desinstaladores).</param>
-public sealed record ProjectInitOptions(string? Name = null, string? Exe = null);
+/// <param name="SourceLanguage">Idioma do jogo; padrão: <c>ja</c>.</param>
+/// <param name="TargetLanguage">Idioma da tradução; padrão: <c>pt-BR</c>.</param>
+/// <param name="EncodingStrategy">Estratégia de acentuação; padrão: <see cref="ProjectChoices.DefaultEncoding"/>.</param>
+/// <param name="Ai">Provedor, modelo e lote da IA; padrão: <see cref="ProjectChoices.DefaultAi"/>.</param>
+public sealed record ProjectInitOptions(
+    string? Name = null,
+    string? Exe = null,
+    string? SourceLanguage = null,
+    string? TargetLanguage = null,
+    string? EncodingStrategy = null,
+    AiConfig? Ai = null);
+
+/// <summary>O que a detecção achou na pasta do jogo, sem criar nada: base do primeiro passo do assistente de novo projeto.</summary>
+/// <param name="Executables">Executáveis candidatos, sem os desinstaladores, em ordem alfabética.</param>
+public sealed record GameInspection(IEngine Engine, EngineDetection Detection, IReadOnlyList<string> Executables);
+
+/// <summary>Valores que o <c>vnforge.json</c> aceita nas escolhas do <c>vnf init</c> e do assistente, e os padrões de cada uma.</summary>
+public static class ProjectChoices
+{
+    public const string DefaultSourceLanguage = "ja";
+    public const string DefaultTargetLanguage = "pt-BR";
+
+    // fold até o patch do executável (#65) ser validado: o jogo lê Shift-JIS e cp1252 vira lixo na tela (decisão #63).
+    public const string DefaultEncoding = "fold";
+
+    public static IReadOnlyList<string> EncodingStrategies => ProjectConfigValidator.EncodingStrategies;
+
+    public static IReadOnlyList<string> Models => ProjectConfigValidator.AnthropicModels;
+
+    public static AiConfig DefaultAi => AiConfig.Default;
+}
 
 /// <summary>O projeto criado e o que a detecção encontrou no jogo.</summary>
 public sealed record ProjectInitResult(ProjectFolder Folder, ProjectConfig Config, IEngine Engine, EngineDetection Detection);
@@ -28,11 +58,22 @@ public static class ProjectInitializer
 
     private const string UninstallerPrefix = "unins";
 
-    // Idiomas e codificação iniciais, os do exemplo de docs/02-arquitetura.md; o usuário muda no vnforge.json.
-    private const string DefaultSourceLanguage = "ja";
-    private const string DefaultTargetLanguage = "pt-BR";
-    // fold até o patch do executável (#65) ser validado: o jogo lê Shift-JIS e cp1252 vira lixo na tela (decisão #63).
-    private const string DefaultEncoding = "fold";
+    /// <summary>Roda a detecção das engines e lista os executáveis da pasta do jogo. Só lê a pasta.</summary>
+    /// <exception cref="ProjectInitException">Jogo inexistente ou engine não reconhecida.</exception>
+    public static GameInspection Inspect(string gameDir, IReadOnlyList<IEngine> engines)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
+        ArgumentNullException.ThrowIfNull(engines);
+
+        var game = Path.GetFullPath(gameDir);
+        if (!Directory.Exists(game))
+        {
+            throw new ProjectInitException($"A pasta do jogo não existe: {game}");
+        }
+
+        var (engine, detection) = Detect(engines, game);
+        return new GameInspection(engine, detection, ListExecutables(game));
+    }
 
     /// <summary>Cria o projeto em <paramref name="projectDir"/> para o jogo de <paramref name="gameDir"/>.</summary>
     /// <exception cref="ProjectConfigException">A pasta já tem um <c>vnforge.json</c>; nada é sobrescrito.</exception>
@@ -72,9 +113,11 @@ public static class ProjectInitializer
             string.IsNullOrWhiteSpace(options.Name) ? NameOf(project) : options.Name.Trim(),
             new GameConfig(game.Replace(Path.DirectorySeparatorChar, '/'), exe),
             new EngineConfig(engine.Id, VersionOf(detection), KeyOf(detection)),
-            new LanguagesConfig(DefaultSourceLanguage, DefaultTargetLanguage),
-            new EncodingConfig(DefaultEncoding),
-            AiConfig.Default);
+            new LanguagesConfig(
+                string.IsNullOrWhiteSpace(options.SourceLanguage) ? ProjectChoices.DefaultSourceLanguage : options.SourceLanguage.Trim(),
+                string.IsNullOrWhiteSpace(options.TargetLanguage) ? ProjectChoices.DefaultTargetLanguage : options.TargetLanguage.Trim()),
+            new EncodingConfig(string.IsNullOrWhiteSpace(options.EncodingStrategy) ? ProjectChoices.DefaultEncoding : options.EncodingStrategy.Trim()),
+            options.Ai ?? ProjectChoices.DefaultAi);
 
         return new ProjectInitResult(ProjectFolder.Create(project, config), config, engine, detection);
     }
@@ -107,13 +150,7 @@ public static class ProjectInitializer
             return ValidateExe(game, requested.Trim());
         }
 
-        var candidates = Directory
-            .EnumerateFiles(game, "*.exe", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive })
-            .Select(Path.GetFileName)
-            .OfType<string>()
-            .Where(name => !name.StartsWith(UninstallerPrefix, StringComparison.OrdinalIgnoreCase))
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var candidates = ListExecutables(game);
 
         return candidates.Count switch
         {
@@ -123,6 +160,15 @@ public static class ProjectInitializer
                 $"Mais de um executável (.exe) em '{game}': {string.Join(", ", candidates)}. Informe o do jogo com --exe."),
         };
     }
+
+    private static List<string> ListExecutables(string game) =>
+        Directory
+            .EnumerateFiles(game, "*.exe", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive })
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .Where(name => !name.StartsWith(UninstallerPrefix, StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     private static string ValidateExe(string game, string requested)
     {

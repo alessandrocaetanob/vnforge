@@ -204,6 +204,64 @@ public sealed class ProjectInitializerTests : IDisposable
         Assert.False(Directory.Exists(ProjectDir()));
     }
 
+    [Fact]
+    public void Idiomas_acentuacao_e_ia_escolhidos_vao_para_o_vnforge_json()
+    {
+        var ai = new AiConfig("anthropic", "claude-sonnet-5-5", "medium", 30);
+
+        var result = ProjectInitializer.Initialize(
+            ProjectDir(), _game, [Matching()],
+            new ProjectInitOptions(SourceLanguage: "en", TargetLanguage: "es", EncodingStrategy: "remap", Ai: ai));
+
+        var saved = ProjectFolder.Open(ProjectDir()).LoadConfig();
+        Assert.Equal(new LanguagesConfig("en", "es"), saved.Languages);
+        Assert.Equal(new EncodingConfig("remap"), saved.Encoding);
+        Assert.Equal(ai, saved.Ai);
+        Assert.Equal(saved, result.Config);
+    }
+
+    [Fact]
+    public void Estrategia_de_acentuacao_invalida_da_erro_sem_criar_o_projeto()
+    {
+        Assert.Throws<ProjectConfigException>(
+            () => ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()], new ProjectInitOptions(EncodingStrategy: "inexistente")));
+
+        Assert.False(File.Exists(Path.Combine(ProjectDir(), ProjectFolder.ConfigFileName)));
+    }
+
+    [Fact]
+    public void Inspect_devolve_engine_deteccao_e_executaveis_sem_criar_nada()
+    {
+        File.WriteAllText(Path.Combine(_game, "unins000.exe"), "MZ");
+        File.WriteAllText(Path.Combine(_game, "Outro.exe"), "MZ");
+
+        var inspection = ProjectInitializer.Inspect(_game, [Matching(("ypfVersion", "500"))]);
+
+        Assert.Equal("fake", inspection.Engine.Id);
+        Assert.Equal("500", inspection.Detection.Details["ypfVersion"]);
+        Assert.Equal(["Jogo.exe", "Outro.exe"], inspection.Executables);
+        Assert.Equal(3, Directory.EnumerateFileSystemEntries(_game).Count());
+    }
+
+    [Fact]
+    public void Inspect_de_pasta_inexistente_ou_sem_engine_da_erro_em_portugues()
+    {
+        var missing = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Inspect(Path.Combine(_temp.Path, "nada"), [Matching()]));
+        Assert.Contains("não existe", missing.Message);
+
+        var unknown = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Inspect(_game, [new FakeEngine(EngineDetection.NotDetected)]));
+        Assert.Contains("Engine não reconhecida", unknown.Message);
+    }
+
+    [Fact]
+    public void ProjectChoices_lista_o_que_o_vnforge_json_aceita()
+    {
+        Assert.Contains("fold", ProjectChoices.EncodingStrategies);
+        Assert.Contains("claude-opus-5-5", ProjectChoices.Models);
+        Assert.Equal(AiConfig.Default, ProjectChoices.DefaultAi);
+        Assert.Equal("fold", ProjectChoices.DefaultEncoding);
+    }
+
     private sealed class FakeEngine(EngineDetection detection, string id = "fake") : IEngine
     {
         public string Id { get; } = id;

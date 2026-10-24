@@ -1,0 +1,37 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- docs/design/components/OptionCard: RadioButton em cartão; marcado, a borda vira accent de 2px. -->
+  <Style Selector="RadioButton.option">
+    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="Margin" Value="0,0,8,8"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Card"
+                Background="{DynamicResource Vnf.BgCard}"
+                BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource Vnf.RadiusMd}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.option:pointerover /template/ Border#Card">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="RadioButton.option:checked /template/ Border#Card">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="BorderThickness" Value="2"/>
+    <Setter Property="Padding" Value="13,9"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+  </Style>
+  <Style Selector="RadioButton.option:focus-visible /template/ Border#Card">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
+  </Style>
+</Styles>

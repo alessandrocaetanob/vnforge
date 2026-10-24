@@ -31,17 +31,48 @@ internal static class InitCommand
             HelpName = "arquivo",
         };
 
+        var source = new Option<string?>("--source")
+        {
+            Description = "Idioma do jogo (padrão: ja).",
+            HelpName = "idioma",
+        };
+        var target = new Option<string?>("--target")
+        {
+            Description = "Idioma da tradução (padrão: pt-BR).",
+            HelpName = "idioma",
+        };
+        var encoding = new Option<string?>("--encoding")
+        {
+            Description = $"Estratégia de acentuação ({string.Join(", ", ProjectChoices.EncodingStrategies)}; padrão: {ProjectChoices.DefaultEncoding}).",
+            HelpName = "estratégia",
+        };
+        var model = new Option<string?>("--model")
+        {
+            Description = $"Modelo de IA ({string.Join(", ", ProjectChoices.Models)}; padrão: {ProjectChoices.DefaultAi.Model}).",
+            HelpName = "modelo",
+        };
+
         var command = new Command("init", "Cria o projeto de tradução, detecta a engine e grava versão e chave no vnforge.json.");
         command.Arguments.Add(folder);
         command.Options.Add(game);
         command.Options.Add(name);
         command.Options.Add(exe);
+        command.Options.Add(source);
+        command.Options.Add(target);
+        command.Options.Add(encoding);
+        command.Options.Add(model);
         command.SetAction(parseResult => Run(
             cli,
             parseResult,
             parseResult.GetRequiredValue(folder),
             parseResult.GetRequiredValue(game),
-            new ProjectInitOptions(parseResult.GetValue(name), parseResult.GetValue(exe))));
+            new ProjectInitOptions(
+                parseResult.GetValue(name),
+                parseResult.GetValue(exe),
+                parseResult.GetValue(source),
+                parseResult.GetValue(target),
+                parseResult.GetValue(encoding),
+                parseResult.GetValue(model) is { } chosen ? ProjectChoices.DefaultAi with { Model = chosen } : null)));
         return command;
     }
 

@@ -149,14 +149,18 @@ public class StartViewModelTests
     }
 
     [Fact]
-    public void Novo_projeto_avisa_que_o_assistente_ainda_nao_existe_e_indica_a_CLI()
+    public void Novo_projeto_pede_o_assistente_e_limpa_os_avisos()
     {
         using var temp = new TempFolder();
         var vm = Create(temp);
+        vm.NoticeMessage = "aviso antigo";
+        var pedidos = 0;
+        vm.NewProjectRequested += (_, _) => pedidos++;
 
         vm.NewProjectCommand.Execute(null);
 
-        Assert.Contains("vnf init", vm.NoticeMessage);
+        Assert.Equal(1, pedidos);
+        Assert.Null(vm.NoticeMessage);
     }
 
     [Fact]
