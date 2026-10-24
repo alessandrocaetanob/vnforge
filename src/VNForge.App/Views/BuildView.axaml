@@ -1,0 +1,140 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.BuildView"
+             x:DataType="vm:BuildViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="1180" Margin="24,32,24,40" Spacing="16">
+
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="body-sm secondary mono" TextTrimming="CharacterEllipsis"
+                     Text="{Binding GameFolder, StringFormat='Jogo: {0}'}"
+                     IsVisible="{Binding GameFolder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          <TextBlock Classes="title-lg" Text="Build e injeção"/>
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                     Text="Reconstrói os scripts com as traduções, grava os pacotes em build/ e injeta no jogo. Os originais vão para o backup antes de qualquer escrita."/>
+        </StackPanel>
+        <Button Grid.Column="1" Classes="accent" VerticalAlignment="Bottom" Command="{Binding BuildCommand}"
+                AutomationProperties.Name="Fazer o build">
+          <TextBlock Text="Fazer build" FontWeight="SemiBold"/>
+        </Button>
+      </Grid>
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Grid>
+      </Border>
+
+      <Border Classes="infobar warning" IsVisible="{Binding IsConfirming}">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ConfirmationText}"/>
+          <Button Grid.Column="2" Classes="accent" Command="{Binding ConfirmCommand}" Content="Confirmar"
+                  AutomationProperties.Name="Confirmar"/>
+          <Button Grid.Column="3" Command="{Binding CancelConfirmationCommand}" Content="Cancelar"
+                  AutomationProperties.Name="Cancelar"/>
+        </Grid>
+      </Border>
+
+      <Grid ColumnDefinitions="*,400" ColumnSpacing="12">
+        <!-- Opções e o que muda no jogo -->
+        <StackPanel Spacing="12">
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="overline" Text="OPÇÕES DO BUILD"/>
+              <ToggleSwitch IsChecked="{Binding OnlyChanged}" OnContent="Reconstruir só scripts alterados" OffContent="Reconstruir todos os scripts"
+                            AutomationProperties.Name="Reconstruir só scripts alterados"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                         Text="Os demais arquivos do pacote são copiados byte a byte do original."/>
+              <ToggleSwitch IsChecked="{Binding AllowWarnings}" OnContent="Permitir avisos do QA" OffContent="Permitir avisos do QA"
+                            AutomationProperties.Name="Permitir avisos do QA"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                         Text="Erros de QA sempre bloqueiam o build."/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" ClipToBounds="True">
+            <StackPanel>
+              <Border Classes="divider-bottom" Padding="16,12">
+                <TextBlock Classes="overline" Text="O QUE MUDA NO JOGO"/>
+              </Border>
+              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,12"
+                         Text="{Binding PlanMessage}"/>
+              <ItemsControl ItemsSource="{Binding Changes}" Margin="16,0,16,12" AutomationProperties.Name="Arquivos que serão gravados no jogo">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PlannedChange">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,2">
+                      <TextBlock Classes="body-sm mono" Text="{Binding Path}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding Kind}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Resultado e ações -->
+        <Border Grid.Column="1" Classes="panel" Padding="16">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="overline" Text="RESULTADO"/>
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                       Text="O resumo do build aparece aqui depois de &quot;Fazer build&quot;."
+                       IsVisible="{Binding !HasSummary}"/>
+            <ItemsControl ItemsSource="{Binding Summary}" IsVisible="{Binding HasSummary}" AutomationProperties.Name="Resumo do build">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap" Margin="0,2" Text="{Binding}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+              <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                      Command="{Binding InjectCommand}" Content="Injetar no jogo"
+                      AutomationProperties.Name="Injetar no jogo"/>
+              <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                      Command="{Binding LaunchCommand}" Content="Abrir jogo"
+                      AutomationProperties.Name="Abrir jogo"/>
+            </Grid>
+            <Button Classes="danger" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Command="{Binding RestoreCommand}" Content="Restaurar originais"
+                    AutomationProperties.Name="Restaurar originais"/>
+
+            <StackPanel Spacing="4">
+              <TextBlock Classes="overline" Text="BACKUP"/>
+              <TextBlock Classes="body-sm mono" TextWrapping="Wrap" Text="{Binding BackupLocation}"
+                         AutomationProperties.Name="Pasta do backup"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding BackupMessage}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Log -->
+      <Border Classes="panel" ClipToBounds="True">
+        <StackPanel>
+          <Border Classes="divider-bottom" Padding="16,12">
+            <TextBlock Classes="overline" Text="LOG"/>
+          </Border>
+          <TextBlock Classes="body-sm secondary" Margin="16,12" Text="Nada executado ainda neste projeto."
+                     IsVisible="{Binding !HasLog}"/>
+          <ScrollViewer x:Name="LogScroll" MaxHeight="280" Background="{DynamicResource Vnf.BgInset}"
+                        HorizontalScrollBarVisibility="Auto" IsVisible="{Binding HasLog}">
+            <ItemsControl ItemsSource="{Binding Log}" Margin="16,12" AutomationProperties.Name="Log do build">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock Classes="mono-xs" Text="{Binding}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

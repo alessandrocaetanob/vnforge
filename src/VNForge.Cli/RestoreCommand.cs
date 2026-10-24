@@ -46,6 +46,7 @@ internal static class RestoreCommand
                 restored = result.Restored,
                 removed = result.Removed,
                 kept = result.Kept,
+                warnings = result.Warnings,
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -54,6 +55,11 @@ internal static class RestoreCommand
         foreach (var kept in result.Kept)
         {
             output.WriteLine($"Mantido: {kept} (criado pela injeção, mas alterado depois; apague à mão se quiser)");
+        }
+
+        foreach (var warning in result.Warnings)
+        {
+            output.WriteLine($"Aviso: {warning}");
         }
 
         return ErrorHandler.OkExitCode;

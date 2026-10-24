@@ -20,10 +20,10 @@ public sealed record StageState(StageStatus Status);
 public sealed record OriginalFile(string Path, long Size, string Sha256);
 
 /// <summary>
-/// Conteúdo do <c>.cache/state.json</c>: os hashes dos originais do jogo e o estado de cada etapa, para a CLI e o app continuarem de onde
+/// Conteúdo do <c>.cache/state.json</c>: os hashes dos originais do jogo, a pasta do jogo que a extração leu (<c>GameDirectory</c>, nula em estado antigo) e o estado de cada etapa, para a CLI e o app continuarem de onde
 /// o outro parou. Sem data nem outro valor que mude a cada execução: o mesmo estado gera o mesmo arquivo.
 /// </summary>
-public sealed record PipelineState(IReadOnlyList<OriginalFile> Originals, IReadOnlyDictionary<string, StageState> Stages)
+public sealed record PipelineState(IReadOnlyList<OriginalFile> Originals, IReadOnlyDictionary<string, StageState> Stages, string? GameDirectory = null)
 {
     public const int CurrentVersion = 1;
 
@@ -43,7 +43,8 @@ public sealed record PipelineState(IReadOnlyList<OriginalFile> Originals, IReadO
             new Document(
                 CurrentVersion,
                 Originals.OrderBy(o => o.Path, StringComparer.Ordinal).ToList(),
-                Stages.OrderBy(s => s.Key, StringComparer.Ordinal).ToDictionary(s => s.Key, s => s.Value)),
+                Stages.OrderBy(s => s.Key, StringComparer.Ordinal).ToDictionary(s => s.Key, s => s.Value),
+                GameDirectory),
             Options) + "\n";
 
     internal static PipelineState Parse(string json, string path)
@@ -61,7 +62,7 @@ public sealed record PipelineState(IReadOnlyList<OriginalFile> Originals, IReadO
                 throw new VNForgeException($"O estado do pipeline está fora do formato esperado: {path}. Apague o .cache/ para recomeçar.");
             }
 
-            return new PipelineState(document.Originals, document.Stages);
+            return new PipelineState(document.Originals, document.Stages, document.GameDirectory);
         }
         catch (JsonException ex)
         {
@@ -69,5 +70,5 @@ public sealed record PipelineState(IReadOnlyList<OriginalFile> Originals, IReadO
         }
     }
 
-    private sealed record Document(int Version, List<OriginalFile> Originals, Dictionary<string, StageState> Stages);
+    private sealed record Document(int Version, List<OriginalFile> Originals, Dictionary<string, StageState> Stages, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? GameDirectory = null);
 }

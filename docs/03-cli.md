@@ -52,7 +52,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 | `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1, E5.1 e E4.1: estratégia do `encoding.strategy` e perfil `formatting.json`; detalhes abaixo) |
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
-| `vnf run` | Abre o `game.exe` do `vnforge.json` (atalho para testar depois do inject). Se o executável não existe, o erro mostra o caminho procurado (E8.6) |
+| `vnf run` | Abre o `game.exe` do `vnforge.json` (atalho para testar depois do inject). `game.path` tem de ser a pasta que o projeto registrou na extração (ou numa injeção), e `game.exe` um `.exe` relativo a ela e dentro dela (caminho absoluto, `..` e `.bat`/atalhos são recusados). Se o executável não existe, o erro mostra o caminho procurado (E8.6) |
 
 ## Comandos de apoio
 
@@ -155,7 +155,7 @@ Com `--json`, `data` traz `file`, `ysc`, `version`, `key`, `keyOrigin` (`none`, 
 
 `vnf inject` e `vnf restore` (E8.2; ambos aceitam `--json`, `--project` e `--yes`)
 ```
-  inject                   cada arquivo de build/ substitui o de mesmo caminho na pasta do jogo (game.path do vnforge.json)
+  restore                  devolve os originais: o backup mais recente e, para arquivos que só um backup mais velho guardou, o deles
   restore                  devolve os originais do backup mais recente
   --yes                    pula a confirmação "Gravar N arquivo(s)?" (obrigatório com --json)
 ```

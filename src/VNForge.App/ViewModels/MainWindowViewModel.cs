@@ -14,6 +14,7 @@ public enum NavKey
     Conference,
     Settings,
     Glossary,
+    Build,
     Search,
 }
 
@@ -37,6 +38,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferência", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
+    private readonly NavItemViewModel buildItem = new(NavKey.Build, "Build", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel searchItem = new(NavKey.Search, "Busca", "Icon.Search", isEnabled: false);
     private NavItemViewModel? selectedNav;
     private bool editorStale;
@@ -49,9 +51,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
         Tasks = new TaskBarViewModel(TaskService);
+        Build = new BuildViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), dashboardItem, editorItem, conferenceItem, searchItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
+        Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), dashboardItem, editorItem, conferenceItem, searchItem, buildItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
         Search.FlushPendingEdits = Editor.FlushPendingEdits;
@@ -86,6 +89,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    public BuildViewModel Build { get; }
 
     public SearchReplaceViewModel Search { get; } = new();
 
@@ -143,12 +148,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Conference => Conference,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
+                    NavKey.Build => Build,
                     NavKey.Search => Search,
                     _ => Start,
                 };
                 if (value.Key == NavKey.Dashboard)
                 {
                     _ = Dashboard.ReloadAsync();
+                }
+                else if (value.Key == NavKey.Build)
+                {
+                    _ = Build.ReloadAsync();
                 }
             }
         }
@@ -214,6 +224,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentPage = wizard;
     }
 
+    /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a página Build com o aviso.</summary>
+    public bool TryClose()
+    {
+        if (Build.TryCloseSafely())
+        {
+            return true;
+        }
+
+        SelectedNav = buildItem;
+        return false;
+    }
+
     private void SetProject(ProjectSummary summary)
     {
         CurrentProject = summary;
@@ -227,12 +249,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Glossary.Project = summary;
         }
 
+        Build.Project = summary;
         Conference.Project = summary;
         editorStale = false;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;
         conferenceItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
+        buildItem.IsEnabled = true;
         searchItem.IsEnabled = true;
     }
 

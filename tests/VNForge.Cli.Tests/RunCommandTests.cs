@@ -27,6 +27,7 @@ public sealed class RunCommandTests : IDisposable
                 new LanguagesConfig("ja", "pt-BR"),
                 new EncodingConfig("fold"),
                 AiConfig.Default));
+        _project.SaveState(new PipelineState([], new Dictionary<string, StageState>(), _game));
     }
 
     public void Dispose() => _cli.Dispose();
@@ -78,6 +79,7 @@ public sealed class RunCommandTests : IDisposable
         Directory.CreateDirectory(folder);
         await File.WriteAllTextAsync(Path.Combine(folder, ExeName), FakeContent, TestContext.Current.CancellationToken);
         _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(relative, ExeName) });
+        _project.SaveState(new PipelineState([], new Dictionary<string, StageState>(), folder));
 
         var result = await Run("run");
 

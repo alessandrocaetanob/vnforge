@@ -40,6 +40,9 @@
     <DataTemplate DataType="vm:GlossaryViewModel">
       <views:GlossaryView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:BuildViewModel">
+      <views:BuildView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:SearchReplaceViewModel">
       <views:SearchReplaceView/>
     </DataTemplate>
