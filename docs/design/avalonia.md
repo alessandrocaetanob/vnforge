@@ -114,7 +114,9 @@ Filtros, busca e ordenação ficam no ViewModel sobre uma coleção observável 
 
 ## Editor de tradução
 
-`AvaloniaEdit.TextEditor` (pacote `Avalonia.AvaloniaEdit`, MIT) com um `VisualLineElementGenerator` que transforma marcadores em chips atômicos e um `IBackgroundRenderer` para sublinhar termos do glossário. Confirmar a versão compatível com Avalonia 12 antes de fixar no `Directory.Packages.props`.
+`AvaloniaEdit.TextEditor` (pacote `Avalonia.AvaloniaEdit`, MIT) com um `VisualLineElementGenerator` que transforma marcadores em chips atômicos e um `IBackgroundRenderer` para sublinhar termos do glossário. Versão fixada: `Avalonia.AvaloniaEdit` **12.0.0**, a primeira da linha 12 (as 11.x declaram Avalonia 11); o `.nuspec` exige `Avalonia >= 12.0.0`, compatível com o 12.1.x do app. Fonte: NuGet (`api.nuget.org/v3-flatcontainer/avalonia.avaloniaedit`) e repositório AvaloniaUI/AvaloniaEdit.
+
+O painel de detalhe (`LineDetailView`) usa o `TextEditor` com o `MarkerChipGenerator` (`Controls/`). A busca dos marcadores é a função pura `MarkerScanner`, com a mesma gramática do `ControlMarkers` do Core, mas tolerante a marcador incompleto enquanto o usuário digita. O chip é um `InlineObjectElement`: ocupa uma coluna visual, então o cursor o salta e Backspace o apaga inteiro. O `Border` não tem borda tracejada; o contorno é um `Rectangle` interno (tracejado para controle, contínuo para variável). O code-behind só liga `TextEditor.Text` ao ViewModel; a gravação com debounce de 400 ms (`TimeProvider`) fica no `LineDetailViewModel`, que grava o pendente ao trocar de linha, aprovar ou ser descartado (`Dispose`).
 
 ## Controles próprios
 
