@@ -8,6 +8,8 @@ namespace VNForge.Core.Tests.Review;
 
 public class ReviewRoundTripTests
 {
+    private static readonly string[] ExpectedIds = ["yst00001:000001", "yst00001:000002", "yst00001:000003"];
+
     private static ProjectFolder NovoProjeto(string raiz) => ProjectFolder.Create(raiz, new ProjectConfig(
         "Minha VN",
         new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
@@ -111,7 +113,7 @@ public class ReviewRoundTripTests
         Assert.Equal(["len"], primeira.Flags);
         Assert.Equal("anthropic", primeira.Origin?.Provider);
         Assert.Equal(812, primeira.Locator?.GetProperty("command").GetInt32());
-        Assert.Equal(new[] { "yst00001:000001", "yst00001:000002", "yst00001:000003" }, unidades.Select(u => u.Id));
+        Assert.Equal(ExpectedIds, unidades.Select(u => u.Id));
         Assert.Equal("ver com o\nrevisor", unidades[2].Notes);
         Assert.True(segundo.AsSpan().SequenceEqual(File.ReadAllBytes(projeto.TextPath("yst00002"))));
     }

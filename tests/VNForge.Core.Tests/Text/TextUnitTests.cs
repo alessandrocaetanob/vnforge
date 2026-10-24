@@ -5,6 +5,8 @@ namespace VNForge.Core.Tests.Text;
 
 public class TextUnitTests
 {
+    private static readonly int[] SingleZero = [0];
+
     private static TextUnit Unidade(
         string source = "今日は、いい天気だね。\\p",
         string? translation = null,
@@ -71,7 +73,7 @@ public class TextUnitTests
     [Fact]
     public void Ida_e_volta_json_preserva_todos_os_campos()
     {
-        var locator = JsonSerializer.SerializeToElement(new { command = 812, args = new[] { 0 } });
+        var locator = JsonSerializer.SerializeToElement(new { command = 812, args = SingleZero });
         var unidade = new TextUnit(
             "yst00123:000042",
             TextUnitKind.Dialogue,
@@ -119,7 +121,7 @@ public class TextUnitTests
     {
         var unidade = Unidade(translation: "Oi", status: TranslationStatus.Machine) with
         {
-            Locator = JsonSerializer.SerializeToElement(new { command = 812, args = new[] { 0 } }),
+            Locator = JsonSerializer.SerializeToElement(new { command = 812, args = SingleZero }),
         };
 
         var json = TextUnitJson.Serialize(unidade);
@@ -206,7 +208,7 @@ public class TextUnitTests
     {
         TextUnit[] unidades =
         [
-            Unidade() with { Locator = JsonSerializer.SerializeToElement(new { command = 1, args = new[] { 0 } }) },
+            Unidade() with { Locator = JsonSerializer.SerializeToElement(new { command = 1, args = SingleZero }) },
             Unidade(translation: "Oi", status: TranslationStatus.Translated) with { Id = "yst00123:000043" },
         ];
 

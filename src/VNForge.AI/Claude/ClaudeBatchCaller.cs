@@ -18,14 +18,14 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
         get { lock (_usageLock) return _usage; }
     }
 
-    public Task<IReadOnlyList<T>> RunAsync<T>(TranslationBatch batch, CancellationToken ct, ClaudeBatchSpec<T> spec)
+    public Task<IReadOnlyList<T>> RunAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ct.ThrowIfCancellationRequested();
-        return ClaudePromptParts.WithRefusalFallback(batch, b => OnceAsync(b, ct, spec), spec.Refused);
+        return ClaudePromptParts.WithRefusalFallback(batch, b => OnceAsync(b, spec, ct), spec.Refused);
     }
 
-    private async Task<IReadOnlyList<T>> OnceAsync<T>(TranslationBatch batch, CancellationToken ct, ClaudeBatchSpec<T> spec)
+    private async Task<IReadOnlyList<T>> OnceAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)
     {
         var request = new ClaudeRequest(options.Model, options.Effort, options.MaxTokens, spec.BuildSystem(batch), spec.BuildUser(batch), spec.Schema);
         var reply = await client.CompleteAsync(request, ct).ConfigureAwait(false);

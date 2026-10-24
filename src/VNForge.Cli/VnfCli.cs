@@ -149,14 +149,18 @@ public sealed class VnfCli
                 }
 
                 ThrowIfProjectMissing(settings);
-                logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
+                if (logger.IsEnabled(LogLevel.Debug))
+                {
+                    logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
+                }
+
                 return await parseResult.InvokeAsync(invocation, token).ConfigureAwait(false);
             },
             logger,
             error,
             logDirectory,
-            cancellationToken,
-            settings.Json ? output : null).ConfigureAwait(false);
+            settings.Json ? output : null,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private void ThrowIfProjectMissing(GlobalSettings settings)

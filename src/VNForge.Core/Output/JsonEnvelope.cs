@@ -36,7 +36,7 @@ public static class JsonEnvelope
 
     private sealed record ResultDocument(bool Ok, int ExitCode, object? Data);
 
-    private sealed record ErrorDocument(bool Ok, int ExitCode, ErrorInfo Error);
+    private sealed record ErrorDocument(bool Ok, int ExitCode, [property: JsonPropertyName("error")] ErrorInfo Info);
 
     private sealed record ErrorInfo(string Kind, string Message, string? LogDirectory, string? Detail);
 }

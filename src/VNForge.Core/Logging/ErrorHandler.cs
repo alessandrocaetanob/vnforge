@@ -13,7 +13,7 @@ namespace VNForge.Core.Logging;
 /// Uso na CLI: desligue o tratador padrão do System.CommandLine
 /// (<c>InvocationConfiguration.EnableDefaultExceptionHandler = false</c>, senão ele imprime o stack no stderr antes
 /// deste tratador) e rode a invocação inteira dentro de <see cref="ExecuteAsync"/>:
-/// <c>ErrorHandler.ExecuteAsync(ct =&gt; parseResult.InvokeAsync(configuration, ct), logger, Console.Error, logDirectory, ct)</c>.
+/// <c>ErrorHandler.ExecuteAsync(ct =&gt; parseResult.InvokeAsync(configuration, ct), logger, Console.Error, logDirectory, cancellationToken: ct)</c>.
 /// O valor devolvido é o código de saída do processo: 0 ok, 1 erro (esperado ou inesperado),
 /// 2 QA bloqueante (devolvido pelo comando) e 3 cancelado.
 /// </remarks>
@@ -54,8 +54,8 @@ public static class ErrorHandler
         ILogger logger,
         TextWriter error,
         string logDirectory,
-        CancellationToken cancellationToken = default,
-        TextWriter? jsonOutput = null)
+        TextWriter? jsonOutput = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(action);
 
@@ -114,8 +114,9 @@ public static class ErrorHandler
                 return CancelledExitCode;
 
             case VNForgeException:
-                Report(JsonEnvelope.ExpectedKind, exception.Message, humanText: $"Erro: {exception.Message}");
-                TryLog(() => logger.LogWarning(exception, "Erro esperado: {Mensagem}", exception.Message));
+                var expectedMessage = exception.Message;
+                Report(JsonEnvelope.ExpectedKind, expectedMessage, humanText: $"Erro: {expectedMessage}");
+                TryLog(() => logger.LogWarning(exception, "Erro esperado: {Mensagem}", expectedMessage));
                 return ErrorExitCode;
 
             default:

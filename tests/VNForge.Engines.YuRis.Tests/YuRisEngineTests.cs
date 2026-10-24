@@ -63,7 +63,7 @@ public sealed class YuRisEngineTests : IDisposable
     {
         Assert.Equal("yuris", _engine.Id);
         Assert.Contains(_engine.Archives, a => a.Id == "ypf");
-        Assert.IsAssignableFrom<IEngine>(_engine);
+        Assert.IsType<IEngine>(_engine, exactMatch: false);
     }
 
     [Fact]

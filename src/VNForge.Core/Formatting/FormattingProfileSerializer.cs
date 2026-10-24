@@ -7,6 +7,8 @@ namespace VNForge.Core.Formatting;
 /// <summary>Lê e grava o <c>formatting.json</c>. Campo ausente usa o padrão de <see cref="FormattingProfile.Default"/>; campo desconhecido é erro.</summary>
 public static class FormattingProfileSerializer
 {
+    private const string MaxLinesKey = "maxLines";
+
     private static readonly JsonDocumentOptions ReadOptions = new()
     {
         CommentHandling = JsonCommentHandling.Skip,
@@ -67,11 +69,11 @@ public static class FormattingProfileSerializer
             writer.WriteNumber("maxWidth", profile.Wrap.MaxWidth);
             if (profile.Wrap.MaxLines is { } maxLines)
             {
-                writer.WriteNumber("maxLines", maxLines);
+                writer.WriteNumber(MaxLinesKey, maxLines);
             }
             else
             {
-                writer.WriteNull("maxLines");
+                writer.WriteNull(MaxLinesKey);
             }
 
             writer.WriteString("charWidth", CharWidthName(profile.Wrap.CharWidth));
@@ -246,7 +248,7 @@ public static class FormattingProfileSerializer
             wrap = new WrapRule(
                 wrapReader.OptionalBool("enabled") ?? wrap.Enabled,
                 wrapReader.OptionalInt("maxWidth") ?? wrap.MaxWidth,
-                wrapReader.HasProperty("maxLines") ? wrapReader.OptionalInt("maxLines", allowNull: true) :wrap.MaxLines,
+                wrapReader.HasProperty(MaxLinesKey) ? wrapReader.OptionalInt(MaxLinesKey, allowNull: true) :wrap.MaxLines,
                 wrapReader.OptionalCharWidth("charWidth") ?? wrap.CharWidth);
             if (wrap.MaxWidth < 1)
             {
@@ -450,7 +452,7 @@ public static class FormattingProfileSerializer
                 : throw new FormattingProfileException(PathOf(name), "deve ser um único caractere, ou null para não trocar.");
         }
 
-        public IReadOnlyList<TextUnitKind>? OptionalKinds(string name)
+        public List<TextUnitKind>? OptionalKinds(string name)
         {
             if (!TryGet(name, out var value))
             {
@@ -480,7 +482,7 @@ public static class FormattingProfileSerializer
         }
 
         /// <summary>Objeto <c>{ "name": 16 }</c>: papel de linha e limite de bytes, de ao menos 1.</summary>
-        public IReadOnlyDictionary<TextUnitKind, int> ByteLimits()
+        public Dictionary<TextUnitKind, int> ByteLimits()
         {
             var limits = new Dictionary<TextUnitKind, int>();
             foreach (var property in _element.EnumerateObject())
@@ -514,7 +516,7 @@ public static class FormattingProfileSerializer
                 : throw new FormattingProfileException(PathOf(name), "deve ser texto.");
         }
 
-        public IReadOnlyList<Replacement>? OptionalReplacements(string name)
+        public List<Replacement>? OptionalReplacements(string name)
         {
             if (!TryGet(name, out var value))
             {

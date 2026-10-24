@@ -69,7 +69,7 @@ public sealed class ChangedGameGuardTests : IDisposable
     {
         SeedExtractedGame();
 
-        var plan = Injector().Plan(_project);
+        var plan = GameInjector.Plan(_project);
 
         Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
     }
@@ -80,7 +80,7 @@ public sealed class ChangedGameGuardTests : IDisposable
         SeedExtractedGame();
         Game(Bgm, "atualizado-pelo-patch");
 
-        var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Contains(Bgm, erro.Message);
         Assert.DoesNotContain(Ysbin, erro.Message);
@@ -94,7 +94,7 @@ public sealed class ChangedGameGuardTests : IDisposable
         Game(Ysbin, "versao-nova");
         File.Delete(Path.Combine(_game, Bgm));
 
-        var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Contains(Ysbin, erro.Message);
         Assert.Contains(Bgm, erro.Message);
@@ -107,7 +107,7 @@ public sealed class ChangedGameGuardTests : IDisposable
         SeedExtractedGame();
         Game(Bgm, "atualizado-pelo-patch");
 
-        Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+        Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
         Assert.Equal(OriginalYsbin, File.ReadAllText(Path.Combine(_game, Ysbin)));
@@ -118,11 +118,11 @@ public sealed class ChangedGameGuardTests : IDisposable
     {
         SeedExtractedGame();
         var injector = Injector();
-        injector.Inject(injector.Plan(_project));
+        injector.Inject(GameInjector.Plan(_project));
         Build(Ysbin, "traduzido-v2");
         _clock.Now = _clock.Now.AddMinutes(5);
 
-        var plan = injector.Plan(_project);
+        var plan = GameInjector.Plan(_project);
 
         Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
     }
@@ -132,10 +132,10 @@ public sealed class ChangedGameGuardTests : IDisposable
     {
         SeedExtractedGame();
         var injector = Injector();
-        injector.Inject(injector.Plan(_project));
-        injector.Restore(injector.PlanRestore(_project));
+        injector.Inject(GameInjector.Plan(_project));
+        injector.Restore(GameInjector.PlanRestore(_project));
 
-        var plan = injector.Plan(_project);
+        var plan = GameInjector.Plan(_project);
 
         Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
     }
@@ -146,7 +146,7 @@ public sealed class ChangedGameGuardTests : IDisposable
         Game(Ysbin, OriginalYsbin);
         Build(Ysbin, "traduzido-ysbin");
 
-        var plan = Injector().Plan(_project);
+        var plan = GameInjector.Plan(_project);
 
         Assert.Single(plan.Files);
     }

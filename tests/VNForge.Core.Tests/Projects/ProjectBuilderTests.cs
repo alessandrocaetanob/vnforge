@@ -45,7 +45,7 @@ public sealed class ProjectBuilderTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
-    private BuildResult Build() => ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]));
+    private BuildResult Build() => ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]));
 
     private void Translate(string key, params (int Index, string Text)[] changes)
     {
@@ -92,7 +92,7 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     private BuildResult BuildIncremental(string? encoding = null) =>
-        ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(OnlyChanged: true, EncodingStrategy: encoding));
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(OnlyChanged: true, EncodingStrategy: encoding));
 
     [Fact]
     public void Incremental_sem_mudanca_desde_o_build_anterior_nao_reconstroi_nenhum_script()
@@ -201,7 +201,7 @@ public sealed class ProjectBuilderTests : IDisposable
     {
         Translate("a001", (0, Hello));
 
-        var result = ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(EncodingStrategy: "fold"));
+        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(EncodingStrategy: "fold"));
 
         Assert.Equal("fold", result.Encoding.Strategy);
         Assert.Equal("sjis", _project.LoadConfig().Encoding.Strategy);
@@ -211,7 +211,7 @@ public sealed class ProjectBuilderTests : IDisposable
     public void Estrategia_desconhecida_no_build_e_recusada_em_portugues()
     {
         var ex = Assert.Throws<VNForgeException>(() =>
-            ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(EncodingStrategy: "latin9")));
+            ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(EncodingStrategy: "latin9")));
 
         Assert.Contains("latin9", ex.Message, StringComparison.Ordinal);
     }
@@ -475,7 +475,7 @@ public sealed class ProjectBuilderTests : IDisposable
         using var source = new CancellationTokenSource();
         source.Cancel();
 
-        Assert.ThrowsAny<OperationCanceledException>(() => ProjectBuilder.Build(_project, [_engine], source.Token));
+        Assert.ThrowsAny<OperationCanceledException>(() => ProjectBuilder.Build(_project, [_engine], cancellationToken: source.Token));
 
         Assert.True(File.Exists(previous));
         Assert.False(Directory.Exists(_project.BuildDirectory + ".tmp"));
@@ -527,8 +527,8 @@ public sealed class ProjectBuilderTests : IDisposable
     [Fact]
     public void Engine_desconhecida_ou_sem_suporte_ao_build_e_erro_em_portugues()
     {
-        var unknown = Assert.Throws<VNForgeException>(() => ProjectBuilder.Build(_project, [new NoRepackEngine { EngineId = "outra" }], TestContext.Current.CancellationToken));
-        var unsupported = Assert.Throws<VNForgeException>(() => ProjectBuilder.Build(_project, [new NoRepackEngine()], TestContext.Current.CancellationToken));
+        var unknown = Assert.Throws<VNForgeException>(() => ProjectBuilder.Build(_project, [new NoRepackEngine { EngineId = "outra" }], cancellationToken: TestContext.Current.CancellationToken));
+        var unsupported = Assert.Throws<VNForgeException>(() => ProjectBuilder.Build(_project, [new NoRepackEngine()], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("engine 'fake'", unknown.Message);
         Assert.Contains("ainda não suporta o build", unsupported.Message);
@@ -548,7 +548,7 @@ public sealed class ProjectBuilderTests : IDisposable
                 AiConfig.Default));
         _engine.Unpack(_game, inside.GameCacheDirectory, TestContext.Current.CancellationToken);
 
-        var ex = Assert.Throws<VNForgeException>(() => ProjectBuilder.Build(inside, [_engine], TestContext.Current.CancellationToken));
+        var ex = Assert.Throws<VNForgeException>(() => ProjectBuilder.Build(inside, [_engine], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("fica dentro da pasta do jogo", ex.Message);
         Assert.Empty(Directory.EnumerateFiles(inside.BuildDirectory, "*", SearchOption.AllDirectories));
@@ -585,7 +585,7 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     private BuildResult BuildWithQa(QaSeverity severity, bool allowWarnings = false) =>
-        ProjectBuilder.Build(_project, [_engine], TestContext.Current.CancellationToken, qa: new QaEngine([new QaEngineTests.FlagEmpty("traducao-vazia", severity)]), allowWarnings: allowWarnings);
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([new QaEngineTests.FlagEmpty("traducao-vazia", severity)]), allowWarnings: allowWarnings);
 
     private void MarkOk(string unitId)
     {

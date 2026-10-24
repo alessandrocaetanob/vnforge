@@ -18,7 +18,7 @@ public class ProjectFolderTextTests
         new EncodingConfig("fold"),
         AiConfig.Default));
 
-    private static IReadOnlyList<TextUnit> Unidades(string key, int quantidade = 2) =>
+    private static List<TextUnit> Unidades(string key, int quantidade = 2) =>
         Enumerable.Range(1, quantidade)
             .Select(i => new TextUnit($"{key}:{i:D6}", TextUnitKind.Dialogue, "美咲", $"今日は{i}\\p", null, TranslationStatus.Untranslated))
             .ToList();

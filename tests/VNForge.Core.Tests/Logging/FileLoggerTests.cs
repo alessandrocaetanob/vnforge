@@ -29,8 +29,10 @@ public sealed class FileLoggerTests : IDisposable
         using (var factory = VNForgeLogging.CreateFactory(_root))
         {
             var logger = factory.CreateLogger("Teste");
-            logger.LogInformation("Lendo {Arquivo}", "ysbin.ypf");
-            logger.LogError(new InvalidOperationException("falha interna"), "Falhou");
+            const string arquivo = "ysbin.ypf";
+            var falha = new InvalidOperationException("falha interna");
+            logger.LogInformation("Lendo {Arquivo}", arquivo);
+            logger.LogError(falha, "Falhou");
         }
 
         var files = Directory.GetFiles(VNForgeLogging.GetLogDirectory(_root), "*.log");

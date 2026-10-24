@@ -121,7 +121,7 @@ public sealed class YscmFile
         return 0;
     }
 
-    private InvalidFileException MissingCommands(IReadOnlyList<string> names)
+    private InvalidFileException MissingCommands(List<string> names)
     {
         var quoted = string.Join(", ", names.Select(n => $"'{n}'"));
         var subject = names.Count == 1

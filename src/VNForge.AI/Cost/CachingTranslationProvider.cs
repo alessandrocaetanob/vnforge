@@ -27,33 +27,9 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
         // Linhas repetidas no mesmo lote pagam uma vez só.
         ledger?.RecordCacheHits(hits + (batch.Lines.Count - hits - toSend.Count));
 
-        var refused = new HashSet<string>(StringComparer.Ordinal);
-        if (toSend.Count > 0)
-        {
-            var request = new TranslationBatch([.. toSend.Select(i => batch.Lines[i])])
-            {
-                PreviousLines = batch.PreviousLines,
-                Glossary = batch.Glossary,
-                Characters = batch.Characters,
-                StyleGuide = batch.StyleGuide,
-            };
-
-            var results = await inner.TranslateAsync(request, ct).ConfigureAwait(false);
-            var byId = new Dictionary<string, TranslationResult>(StringComparer.Ordinal);
-            foreach (var r in results)
-                byId[r.Id] = r;
-            foreach (var i in toSend)
-            {
-                if (!byId.TryGetValue(batch.Lines[i].Id, out var result))
-                    throw new InvalidOperationException($"O provedor não devolveu a linha '{batch.Lines[i].Id}'.");
-
-                // Recusa não é tradução: guardá-la no cache faria a próxima execução devolver texto vazio sem tentar de novo.
-                if (result.Refused || string.IsNullOrEmpty(result.Translation))
-                    refused.Add(keys[i]);
-                else
-                    cache.Set(keys[i], result.Translation);
-            }
-        }
+        var refused = toSend.Count > 0
+            ? await TranslateMissingAsync(batch, keys, toSend, ct).ConfigureAwait(false)
+            : [];
 
         return [.. batch.Lines.Select((u, i) =>
         {
@@ -61,5 +37,37 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
                 ? new TranslationResult(u.Id, translation)
                 : new TranslationResult(u.Id, string.Empty, Refused: refused.Contains(keys[i]));
         })];
+    }
+
+    /// <summary>Manda ao provedor só as linhas fora do cache e guarda as traduções. Devolve as chaves das linhas recusadas.</summary>
+    private async Task<HashSet<string>> TranslateMissingAsync(TranslationBatch batch, List<string> keys, List<int> toSend, CancellationToken ct)
+    {
+        var request = new TranslationBatch([.. toSend.Select(i => batch.Lines[i])])
+        {
+            PreviousLines = batch.PreviousLines,
+            Glossary = batch.Glossary,
+            Characters = batch.Characters,
+            StyleGuide = batch.StyleGuide,
+        };
+
+        var results = await inner.TranslateAsync(request, ct).ConfigureAwait(false);
+        var byId = new Dictionary<string, TranslationResult>(StringComparer.Ordinal);
+        foreach (var r in results)
+            byId[r.Id] = r;
+
+        var refused = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var i in toSend)
+        {
+            if (!byId.TryGetValue(batch.Lines[i].Id, out var result))
+                throw new InvalidOperationException($"O provedor não devolveu a linha '{batch.Lines[i].Id}'.");
+
+            // Recusa não é tradução: guardá-la no cache faria a próxima execução devolver texto vazio sem tentar de novo.
+            if (result.Refused || string.IsNullOrEmpty(result.Translation))
+                refused.Add(keys[i]);
+            else
+                cache.Set(keys[i], result.Translation);
+        }
+
+        return refused;
     }
 }

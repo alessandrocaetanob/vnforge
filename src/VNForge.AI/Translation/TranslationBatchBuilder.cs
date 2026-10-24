@@ -25,12 +25,12 @@ public sealed class TranslationBatchBuilder(
     {
         ArgumentNullException.ThrowIfNull(lines);
 
-        var glossary = _glossary
+        var matchedGlossary = _glossary
             .Where(t => t.Source.Trim().Length > 0 && lines.Any(l => l.Source.Contains(t.Source.Trim(), StringComparison.Ordinal)))
             .Select(t => new GlossaryEntry(t.Source.Trim(), t.Target, t.Notes))
             .ToList();
 
-        var characters = lines
+        var matchedCharacters = lines
             .Select(l => _characters.Find(l.Speaker))
             .OfType<CharacterEntry>()
             .DistinctBy(c => c.Source, StringComparer.Ordinal)
@@ -44,8 +44,8 @@ public sealed class TranslationBatchBuilder(
 
         return new TranslationBatch(lines)
         {
-            Glossary = glossary,
-            Characters = characters,
+            Glossary = matchedGlossary,
+            Characters = matchedCharacters,
             PreviousLines = context,
             StyleGuide = _styleGuide,
         };

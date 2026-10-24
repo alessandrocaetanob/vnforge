@@ -8,6 +8,8 @@ namespace VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 
 public class SyntheticYpfBuilderTests
 {
+    private static readonly int[] ExtraLengths = [1, 2, 3, 5, 100, 255];
+
     private const string AYbn = "a.ybn";
     private const string SmallYbn = "pequeno.ybn";
     private const string Hex03000000 = "03000000";
@@ -440,7 +442,7 @@ public class SyntheticYpfBuilderTests
     {
         var doc = DocTable(table);
         var builder = new SyntheticYpfBuilder(300).WithSwapTable(table);
-        var lengths = doc.Select(b => (int)b).Concat(new[] { 1, 2, 3, 5, 100, 255 }).Distinct().ToArray();
+        var lengths = doc.Select(b => (int)b).Concat(ExtraLengths).Distinct().ToArray();
         foreach (var length in lengths)
         {
             builder.AddFile(new string('n', length), SmallBinary);

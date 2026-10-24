@@ -52,9 +52,9 @@ public sealed class GameInjectorTests : IDisposable
 
     private string ReadGame(string relative) => File.ReadAllText(Path.Combine(_game, relative));
 
-    private InjectionResult InjectAll(GameInjector injector) => injector.Inject(injector.Plan(_project));
+    private InjectionResult InjectAll(GameInjector injector) => injector.Inject(GameInjector.Plan(_project));
 
-    private RestoreResult RestoreLatest(GameInjector injector) => injector.Restore(injector.PlanRestore(_project));
+    private RestoreResult RestoreLatest(GameInjector injector) => injector.Restore(GameInjector.PlanRestore(_project));
 
     private void SeedGameAndBuild()
     {
@@ -77,7 +77,7 @@ public sealed class GameInjectorTests : IDisposable
     {
         Directory.Delete(_project.BuildDirectory);
 
-        var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Contains("build/ não existe", erro.Message);
         Assert.Contains("vnf build", erro.Message);
@@ -86,7 +86,7 @@ public sealed class GameInjectorTests : IDisposable
     [Fact]
     public void Plan_com_build_vazio_pede_o_vnf_build()
     {
-        var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Contains("build/ está vazia", erro.Message);
     }
@@ -97,7 +97,7 @@ public sealed class GameInjectorTests : IDisposable
         Build(YsbinYpf, "x");
         Directory.Delete(_game);
 
-        var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Contains("A pasta do jogo não existe", erro.Message);
     }
@@ -109,7 +109,7 @@ public sealed class GameInjectorTests : IDisposable
         Game(YsbinYpf, OriginalYsbinDir);
         Build(YsbinYpf, TranslatedYsbinDir);
 
-        var plan = Injector().Plan(_project);
+        var plan = GameInjector.Plan(_project);
 
         Assert.Equal(_game, plan.GameDirectory);
         Assert.Single(plan.Files);
@@ -120,7 +120,7 @@ public sealed class GameInjectorTests : IDisposable
     {
         SeedGameAndBuild();
 
-        Injector().Plan(_project);
+        GameInjector.Plan(_project);
 
         AssertGameIsOriginal();
         Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
@@ -166,7 +166,7 @@ public sealed class GameInjectorTests : IDisposable
         Game(YsbinYpf, "igual");
         Build(YsbinYpf, "igual");
 
-        var plan = Injector().Plan(_project);
+        var plan = GameInjector.Plan(_project);
         var result = Injector().Inject(plan);
 
         Assert.Empty(plan.Files);
@@ -211,7 +211,7 @@ public sealed class GameInjectorTests : IDisposable
     {
         Build(BackupManifest.FileName, "{}");
 
-        var erro = Assert.Throws<InjectionException>(() => Injector().Plan(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Contains("reservado", erro.Message);
     }
@@ -273,7 +273,7 @@ public sealed class GameInjectorTests : IDisposable
     {
         Build(NewFile, "do-build");
         var injector = Injector();
-        var plan = injector.Plan(_project);
+        var plan = GameInjector.Plan(_project);
         Game(NewFile, "criado-por-outro");
 
         var erro = Assert.Throws<InjectionException>(() => injector.Inject(plan));
@@ -332,7 +332,7 @@ public sealed class GameInjectorTests : IDisposable
     {
         SeedGameAndBuild();
         var injector = Injector();
-        var plan = injector.Plan(_project);
+        var plan = GameInjector.Plan(_project);
         Game(YsbinYpf, "atualizado-pelo-jogo");
 
         var erro = Assert.Throws<InjectionException>(() => injector.Inject(plan));
@@ -373,7 +373,7 @@ public sealed class GameInjectorTests : IDisposable
     [Fact]
     public void Restore_sem_backup_diz_que_nao_ha_o_que_restaurar()
     {
-        var erro = Assert.Throws<InjectionException>(() => Injector().PlanRestore(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
 
         Assert.Contains("Não há backup", erro.Message);
     }
@@ -411,7 +411,7 @@ public sealed class GameInjectorTests : IDisposable
         var result = InjectAll(Injector());
         File.WriteAllText(Path.Combine(result.BackupDirectory!, BackupManifest.FileName), "{ não é json");
 
-        var erro = Assert.Throws<InjectionException>(() => Injector().PlanRestore(_project));
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
 
         Assert.Contains(BackupManifest.FileName, erro.Message);
     }
