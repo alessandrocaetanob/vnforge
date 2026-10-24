@@ -36,7 +36,8 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly NavItemViewModel dashboardItem = new(NavKey.Dashboard, "Painel", "Icon.Board", isEnabled: false);
-    private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
+    private EditorViewModel editor = new();
+    private readonly NavItemViewModel editorItem= new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferência", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false);
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Build", "Icon.Box", isEnabled: false);
@@ -57,7 +58,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Nav = [new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true), dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, new NavItemViewModel(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true)];
         selectedNav = Nav[0];
         CurrentPage = start;
-        Editor.CheckRequested += (_, _) => SelectedNav = conferenceItem;
+        editor.CheckRequested += OnEditorCheckRequested;
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LineRequested += (_, request) =>
         {
@@ -97,7 +98,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public DashboardViewModel Dashboard { get; } = new();
 
-    public EditorViewModel Editor { get; init; } = new();
+    /// <summary>O Editor da janela. O app o troca no inicializador de objeto, depois do construtor, então a ligação com a janela vale para o que for atribuído.</summary>
+    public EditorViewModel Editor
+    {
+        get => editor;
+        init
+        {
+            editor = value;
+            editor.CheckRequested += OnEditorCheckRequested;
+        }
+    }
+
+    private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
 
     public SettingsViewModel Settings { get; }
 

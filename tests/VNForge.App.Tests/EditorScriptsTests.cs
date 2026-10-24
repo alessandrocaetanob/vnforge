@@ -215,4 +215,19 @@ public class EditorScriptsTests
         Assert.Equal(25, vm.Distribution.Machine);
         Assert.Equal(50, vm.Distribution.Pending);
     }
+
+    [Fact]
+    public async Task Conferir_arquivo_abre_a_Conferencia_no_Editor_que_o_app_troca_depois_do_construtor()
+    {
+        using var temp = new TempFolder();
+        var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine)), new FixedClock(DateTimeOffset.UnixEpoch));
+        var main = new MainWindowViewModel(start) { Editor = new EditorViewModel(postToUi: acao => acao()) };
+        await main.Start.OpenFolderCommand.ExecuteAsync(null);
+        await main.Editor.Loading;
+        Assert.NotEqual(NavKey.Conference, main.SelectedNav!.Key);
+
+        main.Editor.CheckFileCommand.Execute(null);
+
+        Assert.Equal(NavKey.Conference, main.SelectedNav!.Key);
+    }
 }
