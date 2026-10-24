@@ -154,6 +154,53 @@ public sealed class GlossaryCharsCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Glossary_list_texto_e_uma_tabela_com_cabecalho_e_uma_linha_por_termo()
+    {
+        await Run(GlossaryVerb, "add", "先輩", Veterano, "--notes", "tratamento");
+        await Run(GlossaryVerb, "add", "後輩", "calouro");
+
+        var lines = Lines(await Run(GlossaryVerb, "list"));
+
+        Assert.Equal(["Original", "Tradução", "Notas"], lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(["先輩", Veterano, "tratamento"], lines[1].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(["後輩", "calouro"], lines[2].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(3, lines.Length);
+    }
+
+    [Fact]
+    public async Task Glossary_list_sem_termos_avisa_que_esta_vazio()
+    {
+        var result = await Run(GlossaryVerb, "list");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal("O glossário está vazio.", Lines(result).Single());
+    }
+
+    [Fact]
+    public async Task Chars_list_texto_e_uma_tabela_com_genero_e_tom()
+    {
+        await Run(CharsVerb, "set", "美咲", Misaki, GenderOption, Female, "--tone", Formal);
+        await Run(CharsVerb, "set", "健", "Ken");
+
+        var lines = Lines(await Run(CharsVerb, "list"));
+
+        Assert.Equal(["Original", "Tradução", "Gênero", "Tom"], lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(["美咲", Misaki, Female, Formal], lines[1].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(["健", "Ken", "unknown"], lines[2].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    [Fact]
+    public async Task Chars_list_sem_personagens_avisa_que_nao_ha_nenhum()
+    {
+        var result = await Run(CharsVerb, "list");
+
+        Assert.Equal("Nenhum personagem cadastrado.", Lines(result).Single());
+    }
+
+    private static string[] Lines(RunResult result) =>
+        [.. result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n').Select(l => l.TrimEnd())];
+
+    [Fact]
     public async Task Chars_list_sem_arquivo_devolve_lista_vazia()
     {
         var result = await Run(CharsVerb, "list", JsonOption);

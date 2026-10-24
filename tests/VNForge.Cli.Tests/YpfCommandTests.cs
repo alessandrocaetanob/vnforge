@@ -62,11 +62,22 @@ public sealed class YpfCommandTests : IDisposable
         var result = await _cli.RunAsync(["ypf", "info", ypf], Token);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Versão: 500", result.Output);
-        Assert.Contains("Arquivos: 3", result.Output);
-        Assert.Contains("ysbin/yst00001.ybn", result.Output);
-        Assert.Contains("bg/fundo.png", result.Output);
-        Assert.Contains("se/porta.ogg", result.Output);
+        var lines = result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n');
+        Assert.Equal("YPF · versão 500 · 3 arquivos", lines[0]);
+        Assert.Contains("├── Estrutura", lines);
+        Assert.Contains(lines, l => l.Contains("Tamanho do arquivo: ", StringComparison.Ordinal) && l.EndsWith(" bytes", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("Hash do nome: ", StringComparison.Ordinal));
+        Assert.Contains("└── Arquivos (3)", lines);
+
+        // Cada pasta é um nó e o arquivo fica sob ela, sem repetir o caminho.
+        var folder = Array.FindIndex(lines, l => l.EndsWith("── ysbin", StringComparison.Ordinal));
+        Assert.True(folder > 0);
+        Assert.Contains("── yst00001.ybn  ", lines[folder + 1]);
+        Assert.Contains(lines, l => l.EndsWith("── bg", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("── fundo.png  ", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.EndsWith("── se", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("── porta.ogg  ", StringComparison.Ordinal));
+        Assert.DoesNotContain("ysbin/yst00001.ybn", result.Output);
     }
 
     [Fact]

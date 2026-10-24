@@ -30,6 +30,9 @@ public sealed record LinePreview(
     public const string NotFormattedNotice =
         "O build não formata esta linha (papel fora de kinds do formatting.json ou tradução igual ao original); ela é gravada como está.";
 
+    /// <summary>Nome do falante da linha; nulo sem falante. A caixa do jogo o mostra na placa.</summary>
+    public string? Speaker { get; init; }
+
     /// <summary>Colunas de cada linha, por caixa.</summary>
     public IReadOnlyList<IReadOnlyList<int>> Columns { get; } = [.. Boxes.Select(box => (IReadOnlyList<int>)[.. box.Select(line => line.Columns)])];
 
@@ -90,7 +93,10 @@ public static class LinePreviewer
                 profile.Wrap.MaxWidth,
                 profile.Wrap.MaxLines,
                 profile.Wrap.Enabled,
-                result.Warnings);
+                result.Warnings)
+            {
+                Speaker = string.IsNullOrEmpty(unit.Speaker) ? null : unit.Speaker,
+            };
         }
         catch (Exception ex) when (ex is ArgumentException or FormattingException)
         {

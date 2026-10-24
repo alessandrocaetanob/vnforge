@@ -68,13 +68,13 @@ Num terminal interativo com ANSI, as operações longas desenham uma barra que s
 | Comando | O que faz |
 |---|---|
 | `vnf init <pasta> --game <dir> [--name <nome>] [--exe <arquivo>] [--source <idioma>] [--target <idioma>] [--encoding <estratégia>] [--model <modelo>]` | Cria o projeto, detecta a engine e grava engine, versão do pacote e chave XOR no `vnforge.json`. Idiomas (`ja` para `pt-BR`), codificação (`fold`) e IA (Claude Opus 5.5) começam com os padrões do exemplo de `02-arquitetura.md`; `--source`, `--target`, `--encoding` e `--model` trocam cada um. O assistente de novo projeto do app chama o mesmo `ProjectInitializer` e grava o mesmo `vnforge.json` para as mesmas escolhas. O nome padrão é o da pasta; o executável padrão é o único `.exe` da pasta do jogo, sem os `unins*.exe` (`--exe` resolve zero ou vários). Pasta que já tem `vnforge.json`, engine não reconhecida, jogo inexistente e projeto dentro da pasta do jogo saem com `1`, sem criar nem sobrescrever nada. Não grava nada na pasta do jogo. Com `--json`, `data` traz `folder`, `config`, `engine`, `version`, `scriptKey`, `summary` e `warnings` |
-| `vnf detect [--game <dir>]` | Só diagnostica, sem gravar: engine, versão, arquivos YPF, versão do YSTB, chave XOR (a codificação ainda não é detectada). Com `--json`, `data.details` usa chaves em inglês: `ypf:<caminho>` (um por pacote), `scriptsArchive`, `ypfVersion`, `scripts`, `ystbVersion`, `scriptKey`, `scriptKeyOrigin` e `warnings`; as que não se aplicam ao jogo não aparecem. Sem `--game` usa a pasta atual; pasta sem engine conhecida responde "Engine não reconhecida" e sai com 0 |
+| `vnf detect [--game <dir>]` | Só diagnostica, sem gravar: engine, versão, arquivos YPF, versão do YSTB, chave XOR (a codificação ainda não é detectada). Com `--json`, `data.details` usa chaves em inglês: `ypf:<caminho>` (um por pacote), `scriptsArchive`, `ypfVersion`, `scripts`, `ystbVersion`, `scriptKey`, `scriptKeyOrigin` e `warnings`; as que não se aplicam ao jogo não aparecem. Sem `--game` usa a pasta atual; pasta sem engine conhecida responde "Engine não reconhecida" e sai com 0. O texto sai em árvore |
 | `vnf extract` | Descompacta os pacotes do jogo para `.cache/game/` e gera `text/*.json` (detalhes abaixo). Repetido, mantém as traduções (E3.5) |
-| `vnf status` | Progresso lido de `text/*.json`: total de linhas por status (sem tradução, máquina, traduzida, revisada, aprovada) e percentual com tradução, depois a mesma contagem por arquivo (chave do script) e por personagem (campo `speaker`, mais linhas primeiro; as linhas sem falante vêm por último). Só lê, não grava nada. Com `--json`, `data` traz `total`, `files` (`key`) e `characters` (`speaker`, `null` para sem falante); cada item tem `lines`, `untranslated`, `machine`, `translated`, `reviewed`, `approved` e `percent` |
+| `vnf status` | Progresso lido de `text/*.json`: total de linhas por status (sem tradução, máquina, traduzida, revisada, aprovada) e percentual com tradução, depois a mesma contagem por arquivo (chave do script) e por personagem (campo `speaker`, mais linhas primeiro; as linhas sem falante vêm por último). Só lê, não grava nada. Em texto: barra de distribuição, legenda e duas tabelas, com o nome traduzido do personagem de `characters.json`. Com `--json`, `data` traz `total`, `files` (`key`) e `characters` (`speaker`, `null` para sem falante); cada item tem `lines`, `untranslated`, `machine`, `translated`, `reviewed`, `approved` e `percent` |
 | `vnf translate` | Traduz com IA as linhas pendentes de `text/*.json` (E6.9). Cada lote volta, é validado (reenvia só as linhas ruins), passa pelo cache por hash (`.cache/translations.json`) e é gravado na hora com `status: machine` e `origin` (`anthropic`, modelo, data UTC); cancelar com Ctrl+C mantém o que já voltou e sai com `3`. `--status` aceita `untranslated` (padrão), `machine` e `all`, que reúne sem tradução e máquina: linhas traduzidas, revisadas ou aprovadas nunca são tocadas. `--files` filtra pela chave do script (`*` e `?`, vários separados por vírgula). O modelo vem de `--model`, depois de `vnf config ai`, depois do `vnforge.json`; esforço e `--batch-size` (20 a 50) caem no `vnforge.json`. Glossário, personagens e `style.md` do projeto entram no prompt. A chave vem de `ANTHROPIC_API_KEY` ou do cofre; `--dry-run` não precisa dela, estima tokens e custo e não grava nada. O progresso (`[####------] 20%  30/150  yst00087.json`) vai para o erro padrão, uma linha por lote, e não aparece com `--json`; num terminal interativo ele vira a barra de "Progresso ao vivo". Linha recusada pelo modelo ou fora das regras de validação fica sem tradução e sai em `refused`; lote que falha depois das tentativas sai em `failed` e o comando sai com `1`. Com `--json`, `data` traz `model`, `effort`, `batchSize`, `concurrency`, `lines`, `translated`, `cached`, `refused`, `failed` (`lines`, `error`, `attempts`), `usage` e `dollars`; no `--dry-run`, `dryRun` e `estimate` (`lines`, `cachedLines`, `inputTokens`, `outputTokens`, `dollars`) |
-| `vnf check` | Roda o QA (E7.7) e lista os problemas, um por linha (`ERRO`/`AVISO`, id da linha, mensagem) e o resumo `2 erros, 37 avisos`; avisos que a linha marcou como ok não contam. Sai com `2` se houver erro e com `0` só com avisos. `--rules` filtra por id (vários separados por vírgula; id desconhecido sai com `1`), `--severity error|warn` filtra a gravidade e `--fix` corrige antes o que é seguro (`QaFixer`), grava em `text/*.json`, lista o que mudou e confere de novo: o código de saída vale depois da correção. Com `--json`, `data` traz `errors`, `warnings`, `silenced`, `fixed`, `fixes` e `issues` (`rule`, `severity`, `unit`, `script`, `message`) |
+| `vnf check` | Roda o QA (E7.7) e lista os problemas agrupados por categoria, com as categorias que têm erro primeiro (`ERRO`/`AVISO`, id da linha, mensagem, id da regra), e o resumo `2 erros, 37 avisos`. "Linha não traduzida" sai resumida em uma linha por script; `--rules nao-traduzida` lista cada linha (exemplos em "Saída dos comandos de leitura"); avisos que a linha marcou como ok não contam. Sai com `2` se houver erro e com `0` só com avisos. `--rules` filtra por id (vários separados por vírgula; id desconhecido sai com `1`), `--severity error|warn` filtra a gravidade e `--fix` corrige antes o que é seguro (`QaFixer`), grava em `text/*.json`, lista o que mudou e confere de novo: o código de saída vale depois da correção. Com `--json`, `data` traz `errors`, `warnings`, `silenced`, `fixed`, `fixes` e `issues` (`rule`, `severity`, `unit`, `script`, `message`) |
 | `vnf review` | Revisão por IA (E6.10): pede ao modelo uma sugestão por linha já traduzida e grava em `notes`, na linha `[IA] ...`; `translation`, `status`, `origin` e `source` nunca mudam. Uma nova revisão troca só a linha `[IA]` e preserva as notas humanas. Linha sem ressalva não ganha nota. `--status` aceita `machine` (padrão), `translated`, `reviewed`, `approved` e `all` (todas com tradução); `--files`, `--model`, `--effort`, `--batch-size`, `--concurrency`, `--dry-run` e `--limit` valem como em `vnf translate`. Lotes, retry, cancelamento (`3`), progresso no erro padrão, chave de API e glossário, personagens e `style.md` no prompt seguem o `vnf translate`; não há cache. Lote que falha sai em `failed` e o comando sai com `1`; linha recusada sai em `refused`. Com `--json`, `data` traz `model`, `effort`, `batchSize`, `concurrency`, `lines`, `reviewed`, `suggestions`, `clean`, `refused`, `failed` (`lines`, `error`, `attempts`), `usage` e `dollars`; no `--dry-run`, `dryRun` e `estimate` (`lines`, `inputTokens`, `outputTokens`, `dollars`) |
-| `vnf preview <id>` | Mostra a tradução da linha como o build a grava: passa pelo mesmo pipeline do `formatting.json` (`FormattingPipeline.Create` sobre o perfil do projeto) e lista, por caixa (`\p` abre outra), as linhas e as colunas de cada uma, medidas com o `wrap.charWidth` do perfil, mais os avisos do pipeline (caixa acima de `wrap.maxLines`). Só lê, não grava nada. Linha cujo papel não está em `kinds` aparece sem formatação, com um aviso. Id inexistente ou linha sem tradução saem com `1` e mensagem em português. Com `--json`, `data` traz `id`, `source`, `translation`, `text`, `formatted`, `lines`, `maxWidth`, `maxLines`, `wrapEnabled`, `boxes` (`lines`, `columns`) e `warnings` |
+| `vnf preview <id>` | Mostra a tradução da linha como o build a grava: passa pelo mesmo pipeline do `formatting.json` (`FormattingPipeline.Create` sobre o perfil do projeto) e desenha, por caixa (`\p` abre outra), a caixa de texto do jogo com as linhas e as colunas de cada uma, medidas com o `wrap.charWidth` do perfil, mais os avisos do pipeline (caixa acima de `wrap.maxLines`). Só lê, não grava nada. Linha cujo papel não está em `kinds` aparece sem formatação, com um aviso. Id inexistente ou linha sem tradução saem com `1` e mensagem em português. Com `--json`, `data` traz `id`, `source`, `translation`, `text`, `formatted`, `lines`, `maxWidth`, `maxLines`, `wrapEnabled`, `boxes` (`lines`, `columns`) e `warnings` |
 | `vnf build` | Reconstrói os scripts com as traduções de `text/*.json` e reempacota os YPF em `build/` (E8.1, E5.1 e E4.1: estratégia do `encoding.strategy` e perfil `formatting.json`; detalhes abaixo) |
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
@@ -86,12 +86,89 @@ Num terminal interativo com ANSI, as operações longas desenham uma barra que s
 |---|---|
 | `vnf export [--format csv\|xlsx]` | Exporta o texto para revisão externa em `revisao.<formato>` ou no `--output`. Sem `--format`, vale a extensão do `--output` (`.csv` ou `.xlsx`); sem nenhum dos dois, `csv`. O CSV é UTF-8 com BOM; o XLSX tem uma aba `Revisao` com todas as células em texto. As colunas são `id,kind,speaker,source,translation,status,notes` nos dois. Não troca arquivo existente sem `--force`. O formato `.po` não entra (decisão D1, #51) |
 | `vnf import <arquivo> [--format csv\|xlsx]` | Importa de volta (formato pela extensão, ou `--format`), casando por `id`. Só `translation`, `status` e `notes` mudam; id desconhecido ou repetido e status inválido são erros e, com qualquer erro, nada é importado. Só regrava o `text/<chave>.json` que teve linha alterada |
-| `vnf glossary add "先輩" "veterano" [--notes] [--force]`, `vnf glossary list` | Gerencia o glossário (`glossary.json`); termo repetido só é trocado com `--force`. Aceitam `--json` |
-| `vnf chars list`, `vnf chars set <original> <tradução> [--gender valor] [--tone texto]` | Gerencia os personagens (`characters.json`); `set` cria ou atualiza e mantém o que não foi informado. Gênero: `unknown`, `female`, `male` ou `other`. Aceitam `--json` |
+| `vnf glossary add "先輩" "veterano" [--notes] [--force]`, `vnf glossary list` | Gerencia o glossário (`glossary.json`); termo repetido só é trocado com `--force`. O `list` mostra uma tabela. Aceitam `--json` |
+| `vnf chars list`, `vnf chars set <original> <tradução> [--gender valor] [--tone texto]` | Gerencia os personagens (`characters.json`); `set` cria ou atualiza e mantém o que não foi informado. Gênero: `unknown`, `female`, `male` ou `other`. O `list` mostra uma tabela. Aceitam `--json` |
 | `vnf config ai` | Configura modelo do Claude e chave (salva fora do projeto) |
-| `vnf ypf info\|unpack\|pack` | Ferramentas baixas de arquivo YPF, úteis para pesquisa |
+| `vnf ypf info\|unpack\|pack` | Ferramentas baixas de arquivo YPF, úteis para pesquisa. O `info` mostra uma árvore |
 | `vnf ybn dump <arquivo> [--ysc <arquivo>]` | Despeja um script YSTB legível (comandos, argumentos, textos com marcadores), só leitura (E2.9) |
 | `vnf patch-exe --encoding cp1252` | Aplica o patch de codepage no executável (experimental) |
+
+## Saída dos comandos de leitura
+
+Estes comandos só leem. Em terminal interativo usam as cores do app; redirecionados, com `--no-color` ou com `NO_COLOR`, saem como texto simples com a mesma estrutura. O `--json` de cada um não muda.
+
+`vnf status`: título do projeto, total, barra de distribuição, legenda e duas tabelas. A coluna "Nome" do script entra quando o Core passar a guardar o nome do capítulo.
+
+```
+Minha VN · PT-BR
+102 linhas · 80,3 % com tradução
+████████████▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░············
+█ Aprovadas 21  ▓ Revisadas 21  ▒ Traduzidas 20  ░ IA 20  · Pendentes 20
+
+Script   Linhas Progresso                 %
+yst00001     27 ████▓▓▓▓▒▒▒▒░░░░···· 81,4 %
+yst00002     34 ████▓▓▓▓▒▒▒▒░░░░···· 79,4 %
+
+Personagem    Linhas Progresso                 %
+美咲 → Misaki     69 ████▓▓▓▓▒▒▒▒░░░░···· 81,1 %
+(sem falante)     33 ████▓▓▓▓▒▒▒▒░░░░···· 78,7 %
+```
+
+`vnf check`: problemas agrupados pelas categorias da tela Conferir do app (Marcadores, Caixa de texto, Espaços, Pontuação, Acentuação, Glossário, Consistência, Tradução, Outras). Categorias com erro vêm primeiro e, dentro de cada uma, os erros antes dos avisos. "Linha não traduzida" vira uma linha por script; `vnf check --rules nao-traduzida` lista cada linha. A categoria de cada regra vem de `QaCategories` no Core.
+
+```
+Marcadores · 1 erro
+  ERRO  yst00001:000002  marcadores diferentes do original: falta \c  [marcador-diferente]
+
+Espaços · 2 avisos
+  AVISO yst00001:000001  2 espaços seguidos na posição 8.  [espaco-duplo]
+  AVISO yst00002:000004  2 espaços seguidos na posição 8.  [espaco-duplo]
+
+Tradução · 20 avisos
+  AVISO yst00001  5 linhas sem tradução  [nao-traduzida]
+  AVISO yst00002  7 linhas sem tradução  [nao-traduzida]
+  Para listar uma a uma: vnf check --rules nao-traduzida
+
+1 erro, 22 avisos
+```
+
+`vnf preview <id>`: a caixa de texto do jogo como no app. A placa traz o falante, cada caixa é um painel, `┊` marca a coluna limite (`wrap.maxWidth`) e o que passa dela aparece depois da régua, em coral no terminal colorido. Linhas além de `wrap.maxLines` ficam abaixo de um separador `┄` e saem em coral. À direita de cada linha vão as colunas usadas e o limite.
+
+```
+Linha a001:000001
+
+ 美咲 
+╭─Caixa 1 · 3 linhas───────────────────────╮
+│  um dois   ┊   7/10 col                  │
+│  tres      ┊   4/10 col                  │
+│ ┄┄┄┄┄┄┄┄┄┄┄┄┄  limite de 2 linhas        │
+│  quatro    ┊   6/10 col  acima do limite │
+╰──────────────────────────────────────────╯
+
+Total: 3 linhas; largura máxima 10 colunas.
+Aviso: caixa 1 com 3 linhas (máximo 2).
+```
+
+`vnf detect` e `vnf ypf info` saem em árvore. No `ypf info` os arquivos ficam sob a pasta deles, com tamanho, compressão e hashes.
+
+```
+Engine detectada: yuris
+├── parece YU-RIS, pacote de scripts ysbin.ypf v500
+└── Pacotes
+    └── ysbin.ypf: v500, 41 arquivos
+
+YPF · versão 500 · 3 arquivos
+├── Estrutura
+│   ├── Tamanho do arquivo: 2.048 bytes
+│   └── Hash do nome: 0x1F3A9C52
+└── Arquivos (3)
+    ├── ysbin
+    │   └── yst00001.ybn  1.024 bytes · zlib, 512 armazenados · nome 0x1A2B3C4D · dados 0x5E6F7A8B
+    └── bg
+        └── fundo.png  512 bytes · nome 0x7C21D0AE · dados 0x33B4F9E1
+```
+
+`vnf glossary list` e `vnf chars list` saem em tabela, com as colunas Original, Tradução e Notas (glossário) ou Gênero e Tom (personagens).
 
 ## Opções principais
 
