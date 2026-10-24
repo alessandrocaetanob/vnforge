@@ -28,7 +28,7 @@ public sealed class HeadlessFixture
     // Sem Dispose: Session.Dispose() trava quando chamado da thread do xUnit; a thread da sessão não segura o processo.
     private static readonly HeadlessUnitTestSession Shared = HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry));
 
-    public HeadlessUnitTestSession Session => Shared;
+    public HeadlessUnitTestSession Session { get; } = Shared;
 }
 
 /// <summary>

@@ -44,7 +44,7 @@ public class DashboardViewModelTests
         Assert.Equal(["Extrair", "Traduzir", "Conferir", "Build", "Injetar"], vm.Stages.Select(s => s.Label));
         Assert.Equal([1, 2, 3, 4, 5], vm.Stages.Select(s => s.Number));
         Assert.Equal("2 pendentes", vm.Stages.Single(s => s.Key == PipelineStageKey.Translate).StatusText);
-        Assert.Equal("1 pendentes", vm.Stages.Single(s => s.Key == PipelineStageKey.Review).StatusText);
+        Assert.Equal("1 pendente", vm.Stages.Single(s => s.Key == PipelineStageKey.Review).StatusText);
         Assert.Equal("Pendente", vm.Stages.Single(s => s.Key == PipelineStageKey.Build).StatusText);
     }
 
@@ -77,6 +77,29 @@ public class DashboardViewModelTests
     {
         await vm.ReloadAsync();
         return vm.CostLabel;
+    }
+
+    [Fact]
+    public void Custo_sem_preco_nao_vira_zero()
+    {
+        Assert.Equal("Custo desconhecido (modelo sem preço na tabela) · 15 tokens em 1 execução", DashboardViewModel.DescribeCost(new AiUsageTotals(10, 5, 0, 0, 0m, 1, UnpricedRuns: 1)));
+        Assert.Equal("US$ 1,00 (parcial: 1 execução sem preço) · 30 tokens em 2 execuções", DashboardViewModel.DescribeCost(new AiUsageTotals(20, 10, 0, 0, 1m, 2, UnpricedRuns: 1)));
+        Assert.Equal("US$ 1,00 · 30 tokens em 2 execuções", DashboardViewModel.DescribeCost(new AiUsageTotals(20, 10, 0, 0, 1m, 2)));
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_limpa_os_numeros_do_anterior()
+    {
+        using var temp = new TempFolder();
+        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Untranslated);
+        await vm.ReloadAsync();
+        Assert.NotEmpty(vm.Files);
+
+        vm.Project = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Approved));
+
+        Assert.Empty(vm.Files);
+        Assert.Empty(vm.Stages);
+        Assert.Equal(string.Empty, vm.LinesLabel);
     }
 
     [Theory]
@@ -146,8 +169,16 @@ public class DashboardViewModelTests
 
         await main.Start.OpenFolderCommand.ExecuteAsync(null);
         Assert.True(item.IsEnabled);
+        var loaded = new TaskCompletionSource();
+        main.Dashboard.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DashboardViewModel.LinesLabel) && main.Dashboard.LinesLabel.Length > 0)
+            {
+                loaded.TrySetResult();
+            }
+        };
         main.SelectedNav = item;
-        await main.Dashboard.ReloadAsync();
+        await loaded.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Same(main.Dashboard, main.CurrentPage);
         Assert.Equal("2", main.Dashboard.LinesLabel);

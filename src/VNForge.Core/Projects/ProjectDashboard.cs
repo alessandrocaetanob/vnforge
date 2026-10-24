@@ -1,3 +1,6 @@
+using VNForge.Core.Injection;
+using VNForge.Core.Text;
+
 namespace VNForge.Core.Projects;
 
 /// <summary>Etapas do pipeline que o Painel mostra, na ordem do fluxo.</summary>
@@ -19,18 +22,19 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
     /// <summary>Etapa <see cref="PipelineStageKey.Review"/> (Conferir): linhas que a IA ou o tradutor deixaram e ninguém revisou.</summary>
     public static int AwaitingReview(StatusCounts counts) => counts.Machine + counts.Translated;
 
-    /// <exception cref="VNForge.Core.Text.TextFileException">Algum <c>text/*.json</c> inválido.</exception>
+    /// <exception cref="TextFileException">Algum <c>text/*.json</c> inválido.</exception>
     /// <exception cref="VNForgeException"><c>.cache/state.json</c> ilegível.</exception>
     public static ProjectDashboard Read(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
-        var status = ProjectStatusReporter.Create(project);
+        var texts = project.LoadAllText();
+        var status = ProjectStatusReporter.Create(texts);
         var counts = status.Total;
 
         var extracted = project.LoadState().Stages.ContainsKey(ProjectExtractor.ExtractStage);
         var awaiting = AwaitingReview(counts);
-        var built = IsBuildCurrent(project);
-        var injected = Directory.Exists(project.BackupDirectory) && Directory.EnumerateDirectories(project.BackupDirectory).Any();
+        var built = IsBuildCurrent(project, texts);
+        var injected = built && IsInjected(project);
 
         PipelineStage[] stages =
         [
@@ -43,16 +47,42 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         return new ProjectDashboard(status, stages, AiUsageLog.Load(project));
     }
 
-    /// <summary>Há um build íntegro (<see cref="BuildState.ArchivesIntact"/>) e nenhum <c>text/*.json</c> foi gravado depois dele.</summary>
-    private static bool IsBuildCurrent(ProjectFolder project)
+    /// <summary>
+    /// O último build está íntegro (<see cref="BuildState.ArchivesIntact"/>) e foi feito com os mesmos textos, formatação e estratégia de hoje
+    /// (<see cref="BuildState.FingerprintTexts"/>). Um build sem impressão digital (de uma versão anterior) conta como desatualizado até o próximo build.
+    /// </summary>
+    private static bool IsBuildCurrent(ProjectFolder project, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts)
     {
-        if (BuildState.Load(project) is not { } build || !build.ArchivesIntact(project))
+        if (BuildState.Load(project) is not { TextFingerprint: { } saved } build || !build.ArchivesIntact(project))
         {
             return false;
         }
 
-        var builtAt = File.GetLastWriteTimeUtc(Path.Combine(project.CacheDirectory, BuildState.StateFileName));
-        return !Directory.Exists(project.TextDirectory)
-            || Directory.EnumerateFiles(project.TextDirectory, "*.json").All(f => File.GetLastWriteTimeUtc(f) <= builtAt);
+        var strategy = project.LoadConfig().Encoding.Strategy;
+        return string.Equals(saved, BuildState.FingerprintTexts(texts, strategy, project.FormattingPath), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A injeção vigente corresponde ao <c>build/</c>: o backup mais recente existe e cada arquivo que ele injetou está no jogo com o tamanho do arquivo
+    /// do <c>build/</c>. Comparar tamanho é barato (hashear os pacotes do jogo a cada abertura do Painel não é); um <c>vnf restore</c> devolve os originais,
+    /// que têm outro tamanho, e a etapa volta a pendente. Sem backup legível, ou com o jogo fora do lugar, não conta como injetado.
+    /// </summary>
+    private static bool IsInjected(ProjectFolder project)
+    {
+        try
+        {
+            var plan = GameInjector.PlanRestore(project);
+            return plan.Manifest.Files.Count > 0 && plan.Manifest.Files.All(entry =>
+            {
+                var relative = entry.Path.Replace('/', Path.DirectorySeparatorChar);
+                var built = new FileInfo(Path.Combine(project.BuildDirectory, relative));
+                var injected = new FileInfo(Path.Combine(plan.GameDirectory, relative));
+                return built.Exists && injected.Exists && built.Length == injected.Length;
+            });
+        }
+        catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }

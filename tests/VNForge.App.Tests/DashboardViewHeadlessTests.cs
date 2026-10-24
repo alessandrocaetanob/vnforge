@@ -25,14 +25,20 @@ public class DashboardViewHeadlessTests(HeadlessFixture fixture) : IClassFixture
             () =>
             {
                 var window = new Window { Width = 1400, Height = 900, Content = new DashboardView { DataContext = vm } };
-                window.Show();
-                window.UpdateLayout();
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
+                try
+                {
+                    window.Show();
+                    window.UpdateLayout();
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
 
-                Assert.Equal(5, window.GetVisualDescendants().OfType<Button>().Count(b => b.DataContext is PipelineStageViewModel));
-                Assert.NotEmpty(window.GetVisualDescendants().OfType<DistributionBar>());
-                window.Close();
+                    Assert.Equal(5, window.GetVisualDescendants().OfType<Button>().Count(b => b.DataContext is PipelineStageViewModel));
+                    Assert.NotEmpty(window.GetVisualDescendants().OfType<DistributionBar>());
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             TestContext.Current.CancellationToken);
     }

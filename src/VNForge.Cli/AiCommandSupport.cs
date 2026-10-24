@@ -175,10 +175,24 @@ internal static class AiCommandSupport
     /// <summary>Soma o gasto da execução ao total do projeto (<c>.cache/ai-usage.json</c>), que o Painel do app mostra.</summary>
     public static void RecordUsage(ProjectFolder project, string model, ClaudeUsage? usage)
     {
-        if (usage is { } u)
+        if (usage is not { } u)
         {
-            AiUsageLog.TryRecord(project, new AiUsageTotals(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens, DollarsFor(model, u) ?? 0m, 1));
+            return;
         }
+
+        // Modelo sem preço na tabela não pode derrubar o comando depois de a tradução gravada: o custo fica desconhecido, nunca zero.
+        decimal? dollars = null;
+        try
+        {
+            dollars = DollarsFor(model, u);
+        }
+        catch (ArgumentException)
+        {
+            // Sem preço.
+        }
+
+        AiUsageLog.TryRecord(project, new AiUsageTotals(
+            u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens, dollars ?? 0m, 1, dollars is null ? 1 : 0));
     }
 
     /// <summary>

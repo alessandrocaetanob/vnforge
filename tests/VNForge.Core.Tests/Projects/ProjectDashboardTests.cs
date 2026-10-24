@@ -104,13 +104,13 @@ public class ProjectDashboardTests
     }
 
     [Fact]
-    public void Backup_de_injecao_completa_a_etapa_Injetar()
+    public void Pasta_de_backup_sem_manifesto_nao_completa_a_etapa_Injetar()
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
         Directory.CreateDirectory(Path.Combine(projeto.BackupDirectory, "2026-10-24_1200"));
 
-        Assert.True(ProjectDashboard.Read(projeto).Stages.Single(s => s.Key == PipelineStageKey.Inject).IsComplete);
+        Assert.False(ProjectDashboard.Read(projeto).Stages.Single(s => s.Key == PipelineStageKey.Inject).IsComplete);
     }
 
     [Fact]

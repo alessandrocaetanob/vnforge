@@ -30,12 +30,19 @@ public sealed class PipelineStageViewModel(int number, PipelineStage stage)
     public bool HasPending => !IsComplete;
 
     /// <summary>Pendências em linhas só para as etapas que contam linhas; as de tudo ou nada dizem "Pendente".</summary>
-    public string StatusText =>
-        IsComplete ? "Concluída"
-        : Pending > 0 && Key is PipelineStageKey.Translate or PipelineStageKey.Review ? $"{ProjectLabels.Number(Pending)} pendentes"
-        : "Pendente";
+    public string StatusText => IsComplete ? "Concluída" : PendingText();
 
     public bool IsActionable => Key is PipelineStageKey.Translate or PipelineStageKey.Review;
+
+    private string PendingText()
+    {
+        if (Pending == 0 || !IsActionable)
+        {
+            return "Pendente";
+        }
+
+        return Pending == 1 ? "1 pendente" : $"{ProjectLabels.Number(Pending)} pendentes";
+    }
 }
 
 /// <summary>Uma linha da tabela "Por arquivo" ou "Por personagem".</summary>
@@ -177,6 +184,40 @@ public sealed partial class DashboardViewModel : ObservableObject
         _ => string.Create(PtBr, $"{value:N0} tokens"),
     };
 
+    /// <summary>
+    /// <c>US$ 2,10 · 2,1 M tokens em 3 execuções</c>. Execução de modelo sem preço conhecido não entra no dólar: o texto avisa que o custo é parcial
+    /// (ou desconhecido, se nenhuma tinha preço) em vez de mostrar US$ 0,00.
+    /// </summary>
+    public static string DescribeCost(AiUsageTotals usage)
+    {
+        if (usage.Runs == 0)
+        {
+            return "Nenhuma chamada de IA registrada neste projeto.";
+        }
+
+        var runs = usage.Runs == 1 ? "1 execução" : $"{ProjectLabels.Number(usage.Runs)} execuções";
+        var tokens = $"{Tokens(usage.TotalTokens)} em {runs}";
+        if (usage.UnpricedRuns == 0)
+        {
+            return $"{Dollars(usage.Dollars)} · {tokens}";
+        }
+
+        if (usage.UnpricedRuns >= usage.Runs)
+        {
+            return $"Custo desconhecido (modelo sem preço na tabela) · {tokens}";
+        }
+
+        var unpriced = usage.UnpricedRuns == 1 ? "1 execução sem preço" : $"{ProjectLabels.Number(usage.UnpricedRuns)} execuções sem preço";
+        return $"{Dollars(usage.Dollars)} (parcial: {unpriced}) · {tokens}";
+    }
+
+    /// <summary>Ao trocar de projeto os números do anterior saem na hora, e uma leitura ainda em curso deixa de valer.</summary>
+    partial void OnProjectChanged(ProjectSummary? value)
+    {
+        loadVersion++;
+        Clear();
+    }
+
     private void Clear()
     {
         Stages.Clear();
@@ -224,8 +265,6 @@ public sealed partial class DashboardViewModel : ObservableObject
         Legend.Add($"Traduzidas {distribution.Translated}% · {ProjectLabels.Number(total.Translated)}");
         Legend.Add($"IA {distribution.Machine}% · {ProjectLabels.Number(total.Machine)}");
         Legend.Add($"Pendentes {distribution.Pending}% · {ProjectLabels.Number(total.Untranslated)}");
-        CostLabel = dashboard.AiUsage.Runs == 0
-            ? "Nenhuma chamada de IA registrada neste projeto."
-            : $"{Dollars(dashboard.AiUsage.Dollars)} · {Tokens(dashboard.AiUsage.TotalTokens)} em {ProjectLabels.Number(dashboard.AiUsage.Runs)} {(dashboard.AiUsage.Runs == 1 ? "execução" : "execuções")}";
+        CostLabel = DescribeCost(dashboard.AiUsage);
     }
 }

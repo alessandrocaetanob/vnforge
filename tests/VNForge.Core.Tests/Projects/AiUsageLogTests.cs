@@ -44,6 +44,40 @@ public class AiUsageLogTests
 
         AiUsageLog.TryRecord(projeto, new AiUsageTotals(1, 1, 0, 0, 0.1m, 1));
         Assert.Equal(1, AiUsageLog.Load(projeto).Runs);
+        Assert.Equal("{ não é json", File.ReadAllText(AiUsageLog.PathFor(projeto) + ".bad"));
+    }
+
+    [Fact]
+    public void Arquivo_que_nao_abre_agora_nao_perde_o_historico()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        AiUsageLog.TryRecord(projeto, new AiUsageTotals(100, 50, 0, 0, 1m, 1));
+        var antes = File.ReadAllText(AiUsageLog.PathFor(projeto));
+
+        using (new FileStream(AiUsageLog.PathFor(projeto), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            AiUsageLog.TryRecord(projeto, new AiUsageTotals(1, 1, 0, 0, 0.1m, 1));
+        }
+
+        Assert.Equal(antes, File.ReadAllText(AiUsageLog.PathFor(projeto)));
+        Assert.Equal(1, AiUsageLog.Load(projeto).Runs);
+        Assert.Empty(Directory.GetFiles(projeto.CacheDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public void Execucao_sem_preco_conta_como_sem_preco_e_nao_soma_dolar()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+
+        AiUsageLog.TryRecord(projeto, new AiUsageTotals(10, 5, 0, 0, 1m, 1));
+        AiUsageLog.TryRecord(projeto, new AiUsageTotals(10, 5, 0, 0, 0m, 1, UnpricedRuns: 1));
+
+        var total = AiUsageLog.Load(projeto);
+        Assert.Equal(2, total.Runs);
+        Assert.Equal(1, total.UnpricedRuns);
+        Assert.Equal(1m, total.Dollars);
     }
 
     [Fact]

@@ -112,6 +112,7 @@ public static class ProjectBuilder
 
         var profile = project.LoadFormatting();
         var loaded = project.LoadAllText();
+        var fingerprint = BuildState.FingerprintTexts(loaded, encoder.Id, project.FormattingPath);
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
         var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
@@ -134,6 +135,11 @@ public static class ProjectBuilder
         if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
         {
             warnings.AddRange(previous.Warnings);
+            if (previous.TextFingerprint != fingerprint)
+            {
+                (previous with { TextFingerprint = fingerprint }).TrySave(project);
+            }
+
             return new BuildResult(gameDirectory, project.BuildDirectory, [.. previous.Archives.Select(a => new RepackedArchive(a.GamePath, a.ReplacedFiles))], game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
         }
 
@@ -146,7 +152,7 @@ public static class ProjectBuilder
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            new BuildState(BuildState.CurrentVersion, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings]).TrySave(project);
+            new BuildState(BuildState.CurrentVersion, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings], fingerprint).TrySave(project);
             return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
         }
         catch
