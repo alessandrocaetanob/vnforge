@@ -32,21 +32,25 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
         ArgumentNullException.ThrowIfNull(rows);
 
         var sheetData = new SheetData();
-        sheetData.Append(MakeRow(1, Header));
+        sheetData.AppendChild(MakeRow(1, Header));
         for (var i = 0; i < rows.Count; i++)
         {
             var r = rows[i];
-            sheetData.Append(MakeRow((uint)(i + 2), [r.Id, r.Kind, r.Speaker, r.Source, r.Translation, r.Status, r.Notes]));
+            sheetData.AppendChild(MakeRow((uint)(i + 2), [r.Id, r.Kind, r.Speaker, r.Source, r.Translation, r.Status, r.Notes]));
         }
 
         using var stream = new MemoryStream();
         using (var doc = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook))
         {
             var book = doc.AddWorkbookPart();
-            book.Workbook = new Workbook(new Sheets());
+            var workbook = new Workbook();
+            var sheets = workbook.AppendChild(new Sheets());
+            book.Workbook = workbook;
             var sheet = book.AddNewPart<WorksheetPart>();
-            sheet.Worksheet = new Worksheet(sheetData);
-            book.Workbook.Sheets!.Append(new Sheet { Id = book.GetIdOfPart(sheet), SheetId = 1, Name = "Revisao" });
+            var worksheet = new Worksheet();
+            worksheet.AppendChild(sheetData);
+            sheet.Worksheet = worksheet;
+            sheets.AppendChild(new Sheet { Id = book.GetIdOfPart(sheet), SheetId = 1, Name = "Revisao" });
         }
 
         return stream.ToArray();
@@ -68,22 +72,19 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
         }
     }
 
-    private static Row MakeRow(uint index, IReadOnlyList<string> values)
+    private static Row MakeRow(uint index, string[] values)
     {
         var row = new Row { RowIndex = index };
-        for (var i = 0; i < values.Count; i++)
+        for (var i = 0; i < values.Length; i++)
         {
             if (values[i].Length == 0)
             {
                 continue;
             }
 
-            row.Append(new Cell
-            {
-                CellReference = ColumnName(i) + index,
-                DataType = CellValues.InlineString,
-                InlineString = new InlineString(new DocumentFormat.OpenXml.Spreadsheet.Text(Escape(values[i])) { Space = SpaceProcessingModeValues.Preserve }),
-            });
+            var inline = new InlineString();
+            inline.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Text(Escape(values[i])) { Space = SpaceProcessingModeValues.Preserve });
+            row.AppendChild(new Cell { CellReference = ColumnName(i) + index, DataType = CellValues.InlineString, InlineString = inline });
         }
 
         return row;
@@ -95,26 +96,7 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
         var sheet = book.WorksheetParts.FirstOrDefault()?.Worksheet ?? throw new ReviewImportException($"'{path}' não tem nenhuma aba.");
         var shared = book.SharedStringTablePart?.SharedStringTable?.Elements<SharedStringItem>().Select(PlainText).ToList() ?? [];
 
-        var records = new List<(int Line, string[] Cells)>();
-        foreach (var row in sheet.Descendants<Row>())
-        {
-            var cells = new List<string>();
-            foreach (var cell in row.Elements<Cell>())
-            {
-                var column = cell.CellReference?.Value is { } reference ? ColumnIndex(reference) : cells.Count;
-                while (cells.Count <= column)
-                {
-                    cells.Add(string.Empty);
-                }
-
-                cells[column] = CellText(cell, shared);
-            }
-
-            if (cells.Any(c => c.Length > 0))
-            {
-                records.Add(((int)(row.RowIndex?.Value ?? (uint)records.Count + 1), [.. cells]));
-            }
-        }
+        var records = ReadRecords(sheet, shared);
 
         if (records.Count == 0)
         {
@@ -137,6 +119,38 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
         return [.. records.Skip(1).Select(r => new ReviewRow(
             r.Line, Cell(r.Cells, "id").Trim(), Cell(r.Cells, "kind"), Cell(r.Cells, "speaker"), Cell(r.Cells, "source"),
             Cell(r.Cells, "translation"), Cell(r.Cells, "status"), Cell(r.Cells, "notes")))];
+    }
+
+    private static List<(int Line, string[] Cells)> ReadRecords(Worksheet sheet, List<string> shared)
+    {
+        var records = new List<(int Line, string[] Cells)>();
+        foreach (var row in sheet.Descendants<Row>())
+        {
+            var cells = ReadCells(row, shared);
+            if (cells.Any(c => c.Length > 0))
+            {
+                records.Add(((int)(row.RowIndex?.Value ?? (uint)records.Count + 1), [.. cells]));
+            }
+        }
+
+        return records;
+    }
+
+    private static List<string> ReadCells(Row row, List<string> shared)
+    {
+        var cells = new List<string>();
+        foreach (var cell in row.Elements<Cell>())
+        {
+            var column = cell.CellReference?.Value is { } reference ? ColumnIndex(reference) : cells.Count;
+            while (cells.Count <= column)
+            {
+                cells.Add(string.Empty);
+            }
+
+            cells[column] = CellText(cell, shared);
+        }
+
+        return cells;
     }
 
     /// <summary>Texto da célula sem o furigana (<c>rPh</c>) que o Excel japonês grava ao lado do texto digitado com IME.</summary>
@@ -204,13 +218,13 @@ internal sealed partial class XlsxReviewFormat : IReviewFormat
 
     private static string ColumnName(int index)
     {
-        var name = string.Empty;
+        var letters = new Stack<char>();
         for (var n = index + 1; n > 0; n = (n - 1) / 26)
         {
-            name = (char)('A' + ((n - 1) % 26)) + name;
+            letters.Push((char)('A' + ((n - 1) % 26)));
         }
 
-        return name;
+        return new string([.. letters]);
     }
 
     private static int ColumnIndex(string reference)
