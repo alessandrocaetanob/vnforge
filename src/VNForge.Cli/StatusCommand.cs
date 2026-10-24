@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Spectre.Console;
+using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -68,9 +69,7 @@ internal static class StatusCommand
         ansi.Write(scripts);
 
         ansi.WriteLine();
-        var names = project.LoadCharacters()
-            .GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal);
+        var names = CharacterNames(project);
         var characters = CliViews.NewTable(CliViews.Column("Personagem"), CliViews.Column("Linhas", right: true), CliViews.Column("Progresso"), CliViews.Column("%", right: true));
         foreach (var character in status.Characters)
         {
@@ -82,6 +81,21 @@ internal static class StatusCommand
         }
 
         ansi.Write(characters);
+    }
+
+    // characters.json inválido não derruba o status: sem ele os falantes aparecem sem tradução do nome.
+    private static Dictionary<string, string> CharacterNames(ProjectFolder project)
+    {
+        try
+        {
+            return project.LoadCharacters()
+                .GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal);
+        }
+        catch (GlossaryFileException)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
     }
 
     private static string SpeakerLabel(string? speaker, Dictionary<string, string> names)

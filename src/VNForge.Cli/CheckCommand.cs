@@ -109,8 +109,7 @@ internal static class CheckCommand
         }
 
         ansi.WriteLine();
-        var summaryColor = report.HasErrors ? CliPalette.Error : report.Warnings.Count > 0 ? CliPalette.Warning : CliPalette.Approved;
-        ansi.MarkupLine($"[{CliPalette.Hex(summaryColor)}]{QaBlockedException.Describe(report)}[/]");
+        ansi.MarkupLine($"[{CliPalette.Hex(SummaryColor(report))}]{QaBlockedException.Describe(report)}[/]");
         if (report.Silenced.Count > 0)
         {
             ansi.MarkupLine($"{report.Silenced.Count} {(report.Silenced.Count == 1 ? "aviso marcado como ok" : "avisos marcados como ok")}.");
@@ -153,6 +152,16 @@ internal static class CheckCommand
 
             yield return new CategoryGroup(category, issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning), lines);
         }
+    }
+
+    private static Color SummaryColor(QaReport report)
+    {
+        if (report.HasErrors)
+        {
+            return CliPalette.Error;
+        }
+
+        return report.Warnings.Count > 0 ? CliPalette.Warning : CliPalette.Approved;
     }
 
     private static string Label(QaSeverity severity)

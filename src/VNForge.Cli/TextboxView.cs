@@ -33,7 +33,7 @@ public static class TextboxView
         int? maxLines = preview.Formatted ? preview.MaxLines : null;
 
         // A régua fica na mesma célula do terminal em todas as linhas: o limite mais o que os marcadores da linha mais carregada ocupam.
-        var rulerAt = (limit ?? 0) + box.Max(line => line.Segments.Where(s => s.IsMarker).Sum(s => CellWidth(s.Text)));
+        var rulerAt = (limit ?? 0) + box.Select(MarkerCells).DefaultIfEmpty(0).Max();
         var rows = new List<Row>();
         for (var n = 0; n < box.Count; n++)
         {
@@ -52,6 +52,8 @@ public static class TextboxView
 
         return CliViews.NewPanel($"Caixa {index + 1} · {CliFormat.Count(box.Count, "linha", "linhas")}", content);
     }
+
+    private static int MarkerCells(MeasuredLine line) => line.Segments.Where(segment => segment.IsMarker).Sum(segment => CellWidth(segment.Text));
 
     private static Row Line(MeasuredLine line, int? limit, int rulerAt, bool overflow)
     {

@@ -121,6 +121,20 @@ public sealed class PreviewCommandTests : IDisposable
     // Kanji e kana ocupam duas células no terminal; o resto, uma.
     private static int TerminalCells(string text) => text.Sum(c => c >= '　' ? 2 : 1);
 
+    [Theory]
+    [InlineData("oi\\p\\pola", "Caixa 1")]
+    [InlineData("   ", "0 linhas")]
+    public async Task Caixa_sem_linhas_nao_derruba_o_preview(string translation, string expected)
+    {
+        var project = ProjectFolder.Open(_projectPath);
+        project.SaveText("d001", [new("d001:000001", TextUnitKind.Dialogue, null, "原文", translation, TranslationStatus.Translated)]);
+
+        var result = await _cli.RunAsync(["preview", "d001:000001", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(Lines(result.Output), l => l.Contains(expected, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Quebra_desligada_nao_desenha_a_regua()
     {

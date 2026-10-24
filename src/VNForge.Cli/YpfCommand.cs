@@ -303,10 +303,10 @@ public static class YpfCommand
         {
             var parts = entry.Path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
             var parent = files;
-            var key = string.Empty;
-            foreach (var folder in parts.Take(parts.Length - 1))
+            for (var depth = 0; depth < parts.Length - 1; depth++)
             {
-                key += folder + "/";
+                var folder = parts[depth];
+                var key = string.Join('/', parts.Take(depth + 1));
                 if (!folders.TryGetValue(key, out var node))
                 {
                     node = parent.AddNode($"[{accent}]{CliViews.Escape(folder)}[/]");

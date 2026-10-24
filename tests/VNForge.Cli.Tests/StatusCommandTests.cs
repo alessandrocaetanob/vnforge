@@ -117,6 +117,18 @@ public sealed class StatusCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Characters_json_invalido_nao_derruba_o_status_em_texto()
+    {
+        File.WriteAllText(ProjectFolder.Open(_projectPath).CharactersPath, "isto nao e json");
+
+        var result = await _cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("美咲", result.Output);
+        Assert.DoesNotContain("→", result.Output);
+    }
+
+    [Fact]
     public async Task Projeto_sem_linhas_mostra_a_barra_toda_pendente()
     {
         var empty = ProjectFolder.Create(Path.Combine(_cli.Root, "vazio"), ProjectFolder.Open(_projectPath).LoadConfig());
