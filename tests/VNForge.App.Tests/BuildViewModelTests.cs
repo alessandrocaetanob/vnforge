@@ -699,7 +699,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.Contains(seen, s => s.Progress == 0 && s.Message == "Reconstruindo a001.fake (1 de 1)");
         Assert.Contains(seen, s => s.Progress == 1 && s.Message == "Reconstruindo os scripts (1 de 1)");
         Assert.DoesNotContain(vm.Log, l => l.Message.Contains("(1 de 1)", StringComparison.Ordinal));
-        Assert.Contains(vm.Log, l => l.Message == "Reconstruindo os scripts com as traduções");
+        Assert.Single(vm.Log, l => l.Message == "Reconstruindo os scripts com as traduções");
     }
 
     [Fact]

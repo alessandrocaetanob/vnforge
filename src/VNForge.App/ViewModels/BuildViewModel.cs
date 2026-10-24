@@ -569,6 +569,8 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         T? value = default;
         Exception? failure = null;
+        // A mensagem inicial entra no log aqui, e não pelo PropertyChanged: o trabalho pode relatá-la antes de o handler ser ligado.
+        AppendLog(message);
         var item = tasks.Start(title, (reporter, ct) =>
         {
             reporter.Report(null, message);
@@ -586,7 +588,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var mine = epoch;
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && item.Progress is null && !string.IsNullOrEmpty(item.Message))
+            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && item.Progress is null && !string.IsNullOrEmpty(item.Message) && item.Message != message)
             {
                 AppendLog(item.Message);
             }
