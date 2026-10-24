@@ -405,7 +405,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.False(vm.IsConfirming);
     }
 
-    private BuildViewModel BuildableVm(QaEngine qa, TimeProvider? clock = null)
+    private BuildViewModel BuildableVm(QaEngine qa, TimeProvider? clock = null, BackgroundTaskService? tasks = null)
     {
         var scripts = Path.Combine(folder.GameCacheDirectory, "pkg");
         Directory.CreateDirectory(scripts);
@@ -416,7 +416,7 @@ public sealed class BuildViewModelTests : IDisposable
             new TextUnit("a001:000001", TextUnitKind.Dialogue, null, "さようなら", null, TranslationStatus.Untranslated),
             new TextUnit("a001:000002", TextUnitKind.Dialogue, null, "また", null, TranslationStatus.Untranslated),
         ]);
-        return new BuildViewModel(new BackgroundTaskService(), [new BuildableEngine()], starter, qa, clock)
+        return new BuildViewModel(tasks ?? new BackgroundTaskService(), [new BuildableEngine()], starter, qa, clock)
         {
             Project = ProjectSummaryReader.Read(folder.Root),
         };
@@ -659,6 +659,26 @@ public sealed class BuildViewModelTests : IDisposable
         await vm.BuildCommand.ExecuteAsync(null);
 
         Assert.Contains(vm.Log, l => l.Message == "a001.fake reconstruído · 1 texto");
+    }
+
+    [Fact]
+    public async Task O_progresso_do_core_alimenta_a_tarefa_e_nao_enche_o_log()
+    {
+        var tasks = new BackgroundTaskService();
+        var seen = new System.Collections.Concurrent.ConcurrentQueue<(double? Progress, string Message)>();
+        tasks.Tasks.CollectionChanged += (_, e) =>
+        {
+            var item = (BackgroundTaskItem)e.NewItems![0]!;
+            item.PropertyChanged += (_, _) => seen.Enqueue((item.Progress, item.Message));
+        };
+        var vm = BuildableVm(new QaEngine([]), tasks: tasks);
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Contains(seen, s => s.Progress == 0 && s.Message == "Reconstruindo a001.fake (1 de 1)");
+        Assert.Contains(seen, s => s.Progress == 1 && s.Message == "Reconstruindo os scripts (1 de 1)");
+        Assert.DoesNotContain(vm.Log, l => l.Message.Contains("(1 de 1)", StringComparison.Ordinal));
+        Assert.Contains(vm.Log, l => l.Message == "Reconstruindo os scripts com as traduções");
     }
 
     [Fact]

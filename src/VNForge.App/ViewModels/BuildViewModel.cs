@@ -271,8 +271,8 @@ public sealed partial class BuildViewModel : ObservableObject
             var options = new BuildOptions(OnlyChanged);
             var allowWarnings = AllowWarnings;
             AppendLog("Iniciando o build: conferindo a tradução e reconstruindo os scripts.");
-            var run = await RunAsync("Build de " + summary.Name, "Reconstruindo os scripts com as traduções", ct =>
-                ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: allowWarnings, options: options, cancellationToken: ct));
+            var run = await RunAsync("Build de " + summary.Name, "Reconstruindo os scripts com as traduções", (reporter, ct) =>
+                ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: allowWarnings, options: options, progress: new TaskProgress(reporter), cancellationToken: ct));
             if (mine != epoch)
             {
                 return;
@@ -429,7 +429,7 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         AppendLog($"Injetando {ProjectLabels.Number(plan.Files.Count)} arquivo(s) em {plan.GameDirectory}");
         restoredFrom = null;
-        var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", _ =>
+        var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", (_, _) =>
         {
             EnsureBuildMatchesPlan(plan);
             return new GameInjector().Inject(plan);
@@ -462,7 +462,7 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         var root = Project!.Root;
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
-        var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", _ =>
+        var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", (_, _) =>
         {
             EnsureBackupsMatchPlan(root, plan);
             return new GameInjector().Restore(plan);
@@ -534,7 +534,7 @@ public sealed partial class BuildViewModel : ObservableObject
     /// Roda o trabalho como tarefa da barra inferior e devolve o resultado ou a falha esperada, capturados dentro do trabalho:
     /// o estado da tarefa só muda quando o <c>Dispatcher</c> processa o <c>post</c>, depois de <see cref="BackgroundTaskItem.Completion"/>.
     /// </summary>
-    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<CancellationToken, T> work)
+    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<IBackgroundTaskReporter, CancellationToken, T> work)
     {
         T? value = default;
         Exception? failure = null;
@@ -543,7 +543,7 @@ public sealed partial class BuildViewModel : ObservableObject
             reporter.Report(null, message);
             try
             {
-                value = work(ct);
+                value = work(reporter, ct);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
@@ -555,7 +555,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var mine = epoch;
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && !string.IsNullOrEmpty(item.Message))
+            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && item.Progress is null && !string.IsNullOrEmpty(item.Message))
             {
                 AppendLog(item.Message);
             }
@@ -1100,6 +1100,28 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         public static ProjectState Unreadable(string message) =>
             new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], 0, 0);
+    }
+
+    /// <summary>
+    /// O progresso por script do Core vira o andamento da tarefa da barra inferior (fração e nome do script). Fica fora do log: um build de
+    /// centenas de scripts não vira centenas de linhas, e o log mostra só o que o build fez.
+    /// </summary>
+    private sealed class TaskProgress(IBackgroundTaskReporter reporter) : IProgress<ScriptWorkProgress>
+    {
+        public void Report(ScriptWorkProgress value)
+        {
+            if (value.Total <= 0)
+            {
+                return;
+            }
+
+            var fraction = (double)value.Done / value.Total;
+            reporter.Report(
+                fraction,
+                value.Name.Length == 0
+                    ? $"Reconstruindo os scripts ({ProjectLabels.Number(value.Total)} de {ProjectLabels.Number(value.Total)})"
+                    : $"Reconstruindo {value.Name} ({ProjectLabels.Number(value.Done + 1)} de {ProjectLabels.Number(value.Total)})");
+        }
     }
 
     private readonly record struct TaskRun<T>(T? Value, Exception? Failure);
