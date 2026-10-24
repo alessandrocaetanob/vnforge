@@ -41,8 +41,10 @@ jobs:
           command: |
             $ErrorActionPreference = 'Stop'
             $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile dotnet-install.ps1
-            ./dotnet-install.ps1 -JsonFile global.json -InstallDir $dir
+            # O script fica fora do checkout: dentro dele o Sonar o analisaria como código do projeto.
+            $installer = Join-Path $env:TEMP 'dotnet-install.ps1'
+            Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installer
+            & $installer -JsonFile global.json -InstallDir $dir
             $env:DOTNET_ROOT = $dir
             $env:PATH = "$dir;$env:PATH"
             dotnet --info
