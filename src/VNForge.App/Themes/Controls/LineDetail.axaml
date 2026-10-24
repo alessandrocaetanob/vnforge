@@ -2,16 +2,30 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ae="using:AvaloniaEdit">
 
-  <!-- TranslationField (docs/design/components/TranslationField): borda inferior de 2px em accent no campo ativo. -->
-  <Style Selector="Border.field">
+  <!-- Original: fundo rebaixado (bg-inset), raio sm, em volta do texto com os marcadores como chips. -->
+  <Style Selector="Border.original">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
-    <Setter Property="BorderThickness" Value="0,0,0,2"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
     <Setter Property="Padding" Value="10,8"/>
   </Style>
+
+  <!-- TranslationField (docs/design/components/TranslationField): borda de 1px em volta do campo e a de 2px em accent embaixo, sempre,
+       porque é o campo ativo da tela. -->
+  <Style Selector="Border.field">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="ClipToBounds" Value="True"/>
+  </Style>
   <Style Selector="Border.field:focus-within">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
+  <Style Selector="Border.fieldline">
+    <Setter Property="Height" Value="2"/>
+    <Setter Property="VerticalAlignment" Value="Bottom"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
   </Style>
 
   <Style Selector="ae|TextEditor.translation">
@@ -21,8 +35,37 @@
     <Setter Property="FontSize" Value="14"/>
     <Setter Property="ShowLineNumbers" Value="False"/>
     <Setter Property="WordWrap" Value="True"/>
-    <Setter Property="MinHeight" Value="96"/>
+    <Setter Property="MinHeight" Value="72"/>
     <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
     <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+  </Style>
+
+  <!-- Linha de medidas sob o campo: caracteres, linhas e colunas, e o estado dos marcadores em verde ou vermelho. -->
+  <Style Selector="TextBlock.meta">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="16"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="TextBlock.meta.marker-state">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+  <Style Selector="TextBlock.meta.marker-state.ok">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+  </Style>
+  <Style Selector="PathIcon.marker-state">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+  <Style Selector="PathIcon.marker-state.ok">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+  </Style>
+
+  <!-- A tecla dentro de um botão de destaque: contorno claro em vez do fundo rebaixado. -->
+  <Style Selector="Button.accent Border.kbd">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.OnAccent}"/>
+    <Setter Property="Opacity" Value="0.85"/>
+  </Style>
+  <Style Selector="Button.accent Border.kbd > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
   </Style>
 </Styles>

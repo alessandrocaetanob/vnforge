@@ -10,8 +10,9 @@ namespace VNForge.App.ViewModels;
 /// <summary>
 /// Uma linha da lista de resultados. <see cref="After"/> é nulo numa busca simples e traz o texto novo na prévia da substituição.
 /// <see cref="Focus"/> é onde a ocorrência (ou a troca) começa: a lista mostra um trecho em volta dele, para o que mudou nunca ficar escondido num texto longo.
+/// <see cref="ScriptKey"/> e <see cref="UnitId"/> dizem a que linha do Editor a ocorrência pertence.
 /// </summary>
-public sealed record SearchResultRow(string Location, string Before, string? After, int Count, int Focus = 0)
+public sealed record SearchResultRow(string Location, string Before, string? After, int Count, int Focus = 0, string ScriptKey = "", string UnitId = "")
 {
     private const int ExcerptWidth = 140;
     private const int ExcerptLead = 40;
@@ -49,7 +50,7 @@ public sealed record SearchResultRow(string Location, string Before, string? Aft
 }
 
 /// <summary>
-/// Página Busca: procura em todos os scripts do projeto e substitui na tradução, com regex. A substituição tem duas etapas: a prévia lista cada linha alterada
+/// Painel de busca do Editor: procura em todos os scripts do projeto e substitui na tradução, com regex. A substituição tem duas etapas: a prévia lista cada linha alterada
 /// sem gravar, e só <see cref="ApplyCommand"/> grava, exatamente a prévia mostrada. Qualquer mudança nos campos descarta a prévia.
 /// </summary>
 public sealed partial class SearchReplaceViewModel : ObservableObject
@@ -70,6 +71,9 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         this.find = find ?? ((root, options, token) => ProjectSearch.Find(ProjectFolder.Open(root), options, token));
     }
 
+    /// <summary>Disparado quando o usuário escolhe um resultado da lista, para o Editor ir à linha dele.</summary>
+    public event EventHandler<SearchResultRow>? ResultOpened;
+
     /// <summary>Disparado depois de gravar pelo menos uma linha (ou de uma gravação que falhou no meio), para o Editor reler o projeto.</summary>
     public event EventHandler<ReplaceResult>? Applied;
 
@@ -87,6 +91,10 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string Replacement { get; set; } = string.Empty;
+
+    /// <summary>O campo "Substituir por" e os botões de troca estão à mostra; fechado, o painel só busca. O Editor abre com Ctrl+H.</summary>
+    [ObservableProperty]
+    public partial bool IsReplaceVisible { get; set; }
 
     [ObservableProperty]
     public partial bool UseRegex { get; set; }
@@ -117,6 +125,10 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasResults))]
     public partial IReadOnlyList<SearchResultRow> Results { get; private set; } = [];
+
+    /// <summary>O resultado escolhido na lista; escolher um abre a linha dele no Editor (<see cref="ResultOpened"/>).</summary>
+    [ObservableProperty]
+    public partial SearchResultRow? SelectedResult { get; set; }
 
     [ObservableProperty]
     public partial string Summary { get; private set; } = string.Empty;
@@ -170,6 +182,28 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
 
     partial void OnProjectChanged(ProjectSummary? value) => Invalidate();
 
+    partial void OnSelectedResultChanged(SearchResultRow? value)
+    {
+        if (value is not null)
+        {
+            ResultOpened?.Invoke(this, value);
+        }
+    }
+
+    /// <summary>Escolhe um resultado e leva o Editor à linha dele; escolher o que já estava escolhido leva de novo.</summary>
+    public void OpenResult(SearchResultRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (ReferenceEquals(SelectedResult, row))
+        {
+            ResultOpened?.Invoke(this, row);
+        }
+        else
+        {
+            SelectedResult = row;
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanSearch))]
     private async Task FindAsync()
     {
@@ -181,7 +215,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
                 var found = await Task.Run(() => find(root, options, token), token);
                 return () =>
                 {
-                    Results = [.. found.Hits.Select(h => new SearchResultRow(Location(h.ScriptKey, h.Number), h.Text, null, h.Matches.Count, h.Matches[0].Start))];
+                    Results = [.. found.Hits.Select(h => new SearchResultRow(Location(h.ScriptKey, h.Number), h.Text, null, h.Matches.Count, h.Matches[0].Start, h.ScriptKey, h.UnitId))];
                     Summary = DescribeFind(found);
                 };
             },
@@ -201,7 +235,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
                 return () =>
                 {
                     preview = computed;
-                    Results = [.. computed.Items.Select(i => new SearchResultRow(Location(i.ScriptKey, i.Number), i.Before, i.After, i.Count, FirstDifference(i.Before, i.After)))];
+                    Results = [.. computed.Items.Select(i => new SearchResultRow(Location(i.ScriptKey, i.Number), i.Before, i.After, i.Count, FirstDifference(i.Before, i.After), i.ScriptKey, i.UnitId))];
                     Summary = DescribePreview(computed);
                     SkippedNotes = DescribeSkipped(computed);
                     OnPropertyChanged(nameof(HasPreview));
@@ -314,6 +348,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
     {
         preview = null;
         Results = [];
+        SelectedResult = null;
         Summary = string.Empty;
         SkippedNotes = [];
         OnPropertyChanged(nameof(HasPreview));

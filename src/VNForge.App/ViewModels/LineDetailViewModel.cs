@@ -64,6 +64,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         private set
         {
             field = value;
+            OnPropertyChanged(nameof(HistoryText));
             SavedChanged?.Invoke(value);
         }
     }
@@ -75,12 +76,126 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     public string? Speaker => string.IsNullOrEmpty(unit.Speaker) ? null : unit.Speaker;
 
+    /// <summary>Personagem e glossário da linha, para o contexto do inspetor; nulo quando o Editor não os carregou.</summary>
+    public LineContext? Context { get; init; }
+
+    /// <summary>O id da linha no cabeçalho do inspetor ("yst00013:0043").</summary>
+    public string FullId => unit.Id;
+
+    public string KindLabel => unit.Kind switch
+    {
+        TextUnitKind.Dialogue => "Diálogo",
+        TextUnitKind.Narration => "Narração",
+        TextUnitKind.Name => "Nome",
+        _ => unit.Kind.ToString(),
+    };
+
+    public bool HasSpeaker => Speaker is not null;
+
+    /// <summary>De onde veio a tradução gravada: a IA e o modelo, ou uma pessoa, e quando. É o conteúdo do botão de histórico do cabeçalho.</summary>
+    public string HistoryText
+    {
+        get
+        {
+            if (Saved.Origin is not { } origin)
+            {
+                return "Sem registro de origem para esta tradução.";
+            }
+
+            var age = RelativeTime.Format(origin.At, clock.GetUtcNow());
+            return origin.Provider == "manual"
+                ? $"Editada à mão ({age})."
+                : origin.Model is { Length: > 0 } model
+                    ? $"Traduzida pela IA, {ProjectLabels.Model(model)} ({age})."
+                    : $"Traduzida pela IA ({age}).";
+        }
+    }
+
+    /// <summary>Ctrl+Shift+Enter: copia o original para o campo de tradução, para linhas que ficam como estão.</summary>
+    [RelayCommand]
+    private void CopyOriginal() => Translation = Source;
+
+    /// <summary>O nome do personagem em português, quando ele está cadastrado em <c>characters.json</c>.</summary>
+    public string? SpeakerTarget => Context?.SpeakerTarget;
+
+    /// <summary>"美咲 → Misaki" no alto do original; só o nome original sem cadastro; "Narração" sem falante.</summary>
+    public string SpeakerPair => Speaker is null ? "Narração" : SpeakerTarget is null ? Speaker : $"{Speaker} → {SpeakerTarget}";
+
+    /// <summary>O tom de voz do personagem, no bloco de contexto.</summary>
+    public string? Voice => string.IsNullOrWhiteSpace(Context?.Voice) ? null : Context.Voice;
+
+    public bool HasVoice => Voice is not null;
+
+    /// <summary>O nome do personagem no bloco de contexto: o português quando cadastrado, o original quando não.</summary>
+    public string SpeakerName => SpeakerTarget ?? Speaker ?? string.Empty;
+
+    /// <summary>A voz do personagem depois do nome ("— seco e resmungão"); vazio sem voz cadastrada.</summary>
+    public string VoiceText => Voice is null ? string.Empty : $" — {Voice}";
+
+    /// <summary>Os termos do glossário que aparecem no original, ou a frase que diz que não há nenhum.</summary>
+    public string GlossaryText
+    {
+        get
+        {
+            var terms = Context?.Glossary ?? [];
+            return terms.Count == 0
+                ? "Nenhum termo do glossário nesta linha."
+                : $"Glossário: {string.Join(" · ", terms.Select(t => $"{t.Source} → {t.Target}"))}";
+        }
+    }
+
+    /// <summary>Quantos caracteres a tradução tem, sem os marcadores de pausa ("38 caracteres").</summary>
+    public string CharsText
+    {
+        get
+        {
+            var count = LineText.Length(Translation);
+            return count == 1 ? "1 caractere" : $"{ProjectLabels.Number(count)} caracteres";
+        }
+    }
+
+    /// <summary>Linhas e colunas da tradução na caixa do perfil ("2 de 3 linhas · 38/40 colunas"); vazio sem perfil legível.</summary>
+    public string FitText
+    {
+        get
+        {
+            if (Preview is null)
+            {
+                return string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(Translation))
+            {
+                return "Sem tradução";
+            }
+
+            if (Preview.Layout is not { } layout)
+            {
+                return string.Empty;
+            }
+
+            var lines = layout.Boxes.Select(b => b.Lines.Count).DefaultIfEmpty().Max();
+            var longest = layout.Boxes.SelectMany(b => b.Lines).Select(l => l.Columns).DefaultIfEmpty().Max();
+            var linesPart = layout.MaxLines is { } max ? $"{lines} de {max} linhas" : lines == 1 ? "1 linha" : $"{lines} linhas";
+            return $"{linesPart} · {longest}/{layout.Columns} colunas";
+        }
+    }
+
+    /// <summary>Os marcadores da tradução são os do original (nenhum a menos, nenhum a mais); falso sem tradução.</summary>
+    public bool MarkersMatch { get; private set; }
+
+    public string MarkerStateText =>
+        string.IsNullOrWhiteSpace(Translation) ? string.Empty
+        : MarkersMatch ? "Marcadores iguais ao original"
+        : "Marcadores diferentes do original";
+
     public string Source => unit.Source;
 
     /// <summary>O original em trechos de texto e marcadores, para mostrar os marcadores como chips.</summary>
     public IReadOnlyList<TextSegment> SourceSegments { get; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CharsText))]
     public partial string Translation { get; set; }
 
     [ObservableProperty]
@@ -160,6 +275,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         }
 
         Preview = profile is null ? null : new TextboxPreviewViewModel(unit, profile, Translation);
+        OnPropertyChanged(nameof(FitText));
     }
 
     /// <summary>Grava o que estiver pendente. Devolve falso (e preenche <see cref="ErrorMessage"/>) quando a gravação falha; a edição continua pendente.</summary>
@@ -238,6 +354,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         translationDirty = true;
         UpdateMarkers();
         Preview?.Update(value);
+        OnPropertyChanged(nameof(FitText));
         ScheduleSave();
     }
 
@@ -318,19 +435,30 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         {
             MissingMarkers = [];
             MarkerProblem = null;
+            SetMarkersMatch(false);
             return;
         }
 
         try
         {
-            MissingMarkers = FindMissingMarkers(sourceMarkers, ControlMarkers.Markers(Translation));
+            var found = ControlMarkers.Markers(Translation);
+            MissingMarkers = FindMissingMarkers(sourceMarkers, found);
             MarkerProblem = null;
+            SetMarkersMatch(MissingMarkers.Count == 0 && found.Count == sourceMarkers.Count);
         }
         catch (ArgumentException e)
         {
             MissingMarkers = [];
             MarkerProblem = e.Message;
+            SetMarkersMatch(false);
         }
+    }
+
+    private void SetMarkersMatch(bool match)
+    {
+        MarkersMatch = match;
+        OnPropertyChanged(nameof(MarkersMatch));
+        OnPropertyChanged(nameof(MarkerStateText));
     }
 
     private static IReadOnlyList<TextSegment> SplitOrPlain(string source, out IReadOnlyList<string> markers)
