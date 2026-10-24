@@ -107,23 +107,29 @@
       <TextBlock Classes="overline" Text="NOTAS"/>
       <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Notas da linha"/>
 
-      <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+      <WrapPanel ItemSpacing="8" LineSpacing="8">
+        <WrapPanel.Styles>
+          <Style Selector="Button">
+            <Setter Property="Height" Value="{DynamicResource Vnf.ControlMd}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+          </Style>
+        </WrapPanel.Styles>
         <Button Classes="icon" Command="{Binding PreviousCommand}" AutomationProperties.Name="Linha anterior" ToolTip.Tip="Linha anterior (Alt+↑)">
           <TextBlock Text="↑"/>
         </Button>
-        <Button Grid.Column="1" Classes="icon" Command="{Binding NextCommand}" AutomationProperties.Name="Próxima linha" ToolTip.Tip="Próxima linha (Alt+↓)">
+        <Button Classes="icon" Command="{Binding NextCommand}" AutomationProperties.Name="Próxima linha" ToolTip.Tip="Próxima linha (Alt+↓)">
           <TextBlock Text="↓"/>
         </Button>
-        <Button Grid.Column="2" HorizontalAlignment="Right" Command="{Binding ApproveCommand}" ToolTip.Tip="Aprova a linha e fica nela">
+        <Button Command="{Binding ApproveCommand}" ToolTip.Tip="Aprova a linha e fica nela">
           <TextBlock Text="Aprovar"/>
         </Button>
-        <Button Grid.Column="3" Classes="accent" Command="{Binding ApproveAndNextCommand}" ToolTip.Tip="Aprova e vai para a próxima linha (Ctrl+Enter)">
+        <Button Classes="accent" Command="{Binding ApproveAndNextCommand}" ToolTip.Tip="Aprova e vai para a próxima linha (Ctrl+Enter)">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
             <TextBlock Text="Aprovar e avançar" FontWeight="SemiBold"/>
           </StackPanel>
         </Button>
-      </Grid>
+      </WrapPanel>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

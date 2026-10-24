@@ -77,7 +77,12 @@
       </StackPanel>
     </Grid>
 
-    <Border Grid.Row="4" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
+    <!-- Largura máxima: em tela larga a ocorrência e as ações ficam juntas, não a metros uma da outra. -->
+    <Grid Grid.Row="4">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MaxWidth="1100"/>
+      </Grid.ColumnDefinitions>
+    <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
       <Panel>
         <ListBox Classes="projects" ItemsSource="{Binding Rows}" SelectionMode="Single" AutomationProperties.Name="Problemas por regra">
           <ListBox.ItemsPanel>
@@ -131,5 +136,6 @@
                    TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding IsEmpty}" Text="{Binding EmptyMessage}"/>
       </Panel>
     </Border>
+    </Grid>
   </Grid>
 </UserControl>
