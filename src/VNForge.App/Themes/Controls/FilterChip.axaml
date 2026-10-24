@@ -1,0 +1,56 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Chip de filtro (artboards do Editor e da Conferência): 28px, raio 4, rótulo 13/18 e a contagem em mono 11/500.
+       Marcado: accent-soft, borda accent, texto accent-text em 600. -->
+  <Style Selector="c|FilterChip">
+    <Setter Property="Height" Value="{DynamicResource Vnf.ControlSm}"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Name="PART_Label" Text="{TemplateBinding Label}" Foreground="{TemplateBinding Foreground}"
+                       FontWeight="{TemplateBinding FontWeight}" LineHeight="18" VerticalAlignment="Center"/>
+            <TextBlock Name="PART_Count" Classes="mono-xs" Text="{TemplateBinding CountText}" Foreground="{TemplateBinding Foreground}"
+                       IsVisible="{TemplateBinding CountText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|FilterChip:pointerover /template/ Border#PART_Root">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="c|FilterChip:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="c|FilterChip:checked">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="c|FilterChip:checked /template/ Border#PART_Root">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
+  <Style Selector="c|FilterChip:focus-visible /template/ Border#PART_Root">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
+    <Setter Property="BorderThickness" Value="2"/>
+  </Style>
+  <Style Selector="c|FilterChip:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+  </Style>
+</Styles>

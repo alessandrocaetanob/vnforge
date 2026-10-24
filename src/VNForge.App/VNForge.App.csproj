@@ -20,6 +20,12 @@
     <ProjectReference Include="..\VNForge.Engines.YuRis\VNForge.Engines.YuRis.csproj" />
   </ItemGroup>
 
+  <!-- A galeria de componentes (Gallery/) só existe no build Debug. -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Gallery/**" />
+    <AvaloniaXaml Remove="Gallery/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
   </ItemGroup>

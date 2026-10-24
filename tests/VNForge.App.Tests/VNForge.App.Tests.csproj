@@ -2,6 +2,10 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Headless" />
+    <!-- O render dos testes usa Skia de verdade. O libSkiaSharp padrão do Linux exige libfontconfig.so.1, que a imagem do CI não tem;
+         a variante sem dependências não precisa dela (as fontes do app são embutidas). A versão é a que o Avalonia.Skia puxa. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="all" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <ProjectReference Include="..\..\src\VNForge.App\VNForge.App.csproj" />
   </ItemGroup>
 

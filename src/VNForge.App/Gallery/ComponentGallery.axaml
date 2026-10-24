@@ -1,0 +1,247 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Gallery.ComponentGallery">
+
+  <!-- Todos os controles do design system em todos os estados. Só existe no build Debug; a ComponentGalleryWindow põe dois destes lado a lado, um em cada tema. -->
+  <UserControl.Styles>
+    <Style Selector="Border.section">
+      <Setter Property="Padding" Value="0,0,0,4"/>
+    </Style>
+    <Style Selector="TextBlock.state">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="LineHeight" Value="14"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Spacing="28" Margin="24" Background="{DynamicResource Vnf.BgLayer}">
+
+    <c:PageHeader Breadcrumb="D:\Traducoes\minha-vn-ptbr · YU-RIS 5.x · YPF v500" Title="Galeria de componentes">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+            <TextBlock Text="Abrir pasta"/>
+          </StackPanel>
+        </Button>
+        <Button Classes="accent" Content="Continuar em yst00013"/>
+      </StackPanel>
+    </c:PageHeader>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="TIPOGRAFIA"/>
+      <TextBlock Classes="title-lg" Text="Título 22/28 · Zen Kaku Gothic New"/>
+      <TextBlock Classes="title-md" Text="Título 17/24 · Zen Kaku Gothic New"/>
+      <TextBlock Classes="body" Text="Corpo 14/20 · Noto Sans"/>
+      <TextBlock Classes="body-sm" Text="Corpo pequeno 13/18"/>
+      <TextBlock Classes="caption secondary" Text="Legenda 12/16 · text-secondary"/>
+      <TextBlock Classes="mono" Text="mono 12/18 · yst00013:0038"/>
+      <TextBlock Classes="jp-body" Text="「おはよう、健太くん。今日も遅刻ギリギリだね」"/>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="BOTÕES"/>
+      <WrapPanel ItemSpacing="8" LineSpacing="8">
+        <Button Content="Padrão"/>
+        <Button Classes="accent" Content="Destaque"/>
+        <Button Classes="subtle" Content="Sutil"/>
+        <Button Classes="danger" Content="Perigo"/>
+        <Button Classes="sm" Content="Pequeno"/>
+        <Button Classes="lg" Content="Grande"/>
+        <Button Classes="icon" AutomationProperties.Name="Adicionar"><PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/></Button>
+        <Button Content="Desativado" IsEnabled="False"/>
+      </WrapPanel>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="STATUS E SEVERIDADE"/>
+      <WrapPanel ItemSpacing="8" LineSpacing="8">
+        <c:StatusBadge Status="Untranslated"/>
+        <c:StatusBadge Status="Machine"/>
+        <c:StatusBadge Status="Translated"/>
+        <c:StatusBadge Status="Reviewed"/>
+        <c:StatusBadge Status="Approved"/>
+      </WrapPanel>
+      <WrapPanel ItemSpacing="8" LineSpacing="8">
+        <c:SeverityTag Level="Error" Count="1"/>
+        <c:SeverityTag Level="Error" Count="2"/>
+        <c:SeverityTag Level="Warning" Count="1"/>
+        <c:SeverityTag Level="Warning" Count="1204"/>
+        <c:SeverityTag Level="Error"/>
+        <c:SeverityTag Level="Warning"/>
+        <c:SeverityTag Level="Ok"/>
+      </WrapPanel>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="INFOBAR"/>
+      <Border Classes="infobar">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="Informação: o build usa a acentuação do projeto."/>
+        </Grid>
+      </Border>
+      <Border Classes="infobar success">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Check}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="Sucesso: 312 scripts reconstruídos."/>
+        </Grid>
+      </Border>
+      <Border Classes="infobar warning">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="Aviso: 37 avisos de QA não bloqueiam o build."/>
+        </Grid>
+      </Border>
+      <Border Classes="infobar error">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="Erro: 2 erros bloqueiam o build."/>
+        </Grid>
+      </Border>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="PIPELINESTEPPER"/>
+      <c:PipelineStepper>
+        <c:PipelineStepItem Number="1" Title="Extrair" Subtitle="48.211 linhas em 312 scripts" State="Done"/>
+        <c:PipelineStepItem Number="2" Title="Traduzir" Subtitle="62% · 18.320 pendentes" State="Active"/>
+        <c:PipelineStepItem Number="3" Title="Conferir" Subtitle="2 erros · 37 avisos"/>
+        <c:PipelineStepItem Number="4" Title="Build" Subtitle="14 scripts alterados desde o último"/>
+        <c:PipelineStepItem Number="5" Title="Injetar" Subtitle="backup de 22/10 pronto"/>
+      </c:PipelineStepper>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="LINEROW · SELECIONADA, NARRAÇÃO, SEM TRADUÇÃO, AVISO, ERRO"/>
+      <Border Classes="panel" ClipToBounds="True">
+        <ListBox Classes="projects lines" SelectedIndex="1">
+          <ListBoxItem>
+            <c:LineRow Number="38" Status="Approved" Original="窓の外では、朝から雨が降り続いている。" Translation="Lá fora, a chuva não parou desde cedo."/>
+          </ListBoxItem>
+          <ListBoxItem>
+            <c:LineRow Number="39" Status="Approved" Speaker="Misaki" Original="「おはよう、健太くん。今日も遅刻ギリギリだね」" Translation="Bom dia, Kenta. Quase atrasado de novo, hein?"/>
+          </ListBoxItem>
+          <ListBoxItem>
+            <c:LineRow Number="40" Status="Reviewed" Speaker="Kenta" Original="「うるさいな……傘が見つからなかったんだよ」" Translation="Não enche… Eu não achava o guarda-chuva."/>
+          </ListBoxItem>
+          <ListBoxItem>
+            <c:LineRow Number="43" Status="Machine" Speaker="Kenta" Original="「……いいのか？濡れるぞ、お前」" Translation="…Tem certeza?  Você vai se molhar."
+                       Issue="Warning" IssueLabel="1 aviso do QA"/>
+          </ListBoxItem>
+          <ListBoxItem>
+            <c:LineRow Number="44" Status="Translated" Speaker="Misaki" Original="「平気平気！　ほら、行こう！」" Translation="Tranquilo! Vamos, anda !"
+                       Issue="Error" IssueLabel="1 erro do QA"/>
+          </ListBoxItem>
+          <ListBoxItem>
+            <c:LineRow Number="47" Status="Untranslated" Speaker="Misaki" Original="「えへへ……すみませーん」"/>
+          </ListBoxItem>
+        </ListBox>
+      </Border>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="SCRIPTITEM · COMPLETO, ATUAL, TRADUZINDO, SEM NOME"/>
+      <Border Classes="panel" Width="260" Padding="0,6">
+        <ListBox Classes="scripts" SelectedIndex="1">
+          <ListBoxItem><c:ScriptItem Key="yst00012" Label="Prólogo" Percent="100"/></ListBoxItem>
+          <ListBoxItem><c:ScriptItem Key="yst00013" Label="Capítulo 1 — Manhã de chuva" Percent="55"/></ListBoxItem>
+          <ListBoxItem><c:ScriptItem Key="yst00014" Label="Capítulo 1 — Sala de aula" Percent="35" IsRunning="True"/></ListBoxItem>
+          <ListBoxItem><c:ScriptItem Key="yst00015" Percent="0"/></ListBoxItem>
+        </ListBox>
+      </Border>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="TOGGLERULE · LIGADA, DESLIGADA"/>
+      <Border Classes="panel" ClipToBounds="True">
+        <StackPanel>
+          <c:ToggleRule Title="Espaço antes de pontuação" Description="“Vamos, anda !” vira “Vamos, anda!”" IsChecked="True"/>
+          <c:ToggleRule Title="Espaço duplo" Description="“Tem certeza?  Você” vira “Tem certeza? Você”" IsChecked="False"/>
+          <c:ToggleRule Title="Sem exemplo" IsChecked="True"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="CONTROLE SEGMENTADO E ABAS"/>
+      <ListBox Classes="seg" SelectedIndex="1">
+        <ListBoxItem Content="Baixo"/>
+        <ListBoxItem Content="Médio"/>
+        <ListBoxItem Content="Alto"/>
+      </ListBox>
+      <TabControl Classes="tabs" SelectedIndex="0">
+        <TabItem Header="IA"><TextBlock Classes="body-sm secondary" Margin="0,12" Text="Conteúdo da aba IA"/></TabItem>
+        <TabItem Header="Formatação"><TextBlock Classes="body-sm secondary" Margin="0,12" Text="Conteúdo da aba Formatação"/></TabItem>
+        <TabItem Header="Acentuação"><TextBlock Classes="body-sm secondary" Margin="0,12" Text="Conteúdo da aba Acentuação"/></TabItem>
+      </TabControl>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="FILTERCHIP · DESMARCADO, MARCADO, DESATIVADO"/>
+      <WrapPanel ItemSpacing="6" LineSpacing="6">
+        <c:FilterChip Label="Todas" Count="48211" IsChecked="True"/>
+        <c:FilterChip Label="Pendentes" Count="18320"/>
+        <c:FilterChip Label="IA" Count="8196"/>
+        <c:FilterChip Label="Com avisos" Count="39"/>
+        <c:FilterChip Label="Sem contagem"/>
+        <c:FilterChip Label="Desativado" Count="0" IsEnabled="False"/>
+      </WrapPanel>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="AISUGGESTION · COM DIFERENÇA, SEM TRADUÇÃO, GERANDO"/>
+      <c:AiSuggestion Model="Claude Opus 5.5" Details="· esforço médio · há 2 min"
+                      Current="Não enche… Eu não achava o guarda-chuva.\p"
+                      Suggestion="Me deixa… Não achei o guarda-chuva.\p"/>
+      <c:AiSuggestion Model="Claude Opus 5.5" Details="· esforço médio · há 2 min"
+                      Suggestion="Ehehe… Desculpaaa.\p"/>
+      <c:AiSuggestion Model="Claude Opus 5.5" Details="· esforço médio · gerando…" IsBusy="True"/>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="DISTRIBUIÇÃO E LEGENDA"/>
+      <c:DistributionBar x:Name="Bar" Height="8"/>
+      <c:Legend x:Name="DistributionLegend"/>
+      <c:Legend>
+        <c:LegendItem Tone="Machine" Content="Gasto US$ 26,40"/>
+        <c:LegendItem Tone="Pending" Content="Restante estimado US$ 21,10"/>
+        <c:LegendItem Tone="Error" Content="Erros 2"/>
+        <c:LegendItem Tone="Warning" Content="Avisos 37"/>
+        <c:LegendItem Tone="Accent" Content="Destaque"/>
+      </c:Legend>
+      <ProgressBar Classes="thin" Value="55"/>
+      <ProgressBar Classes="thin done" Value="100"/>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="STATCARD"/>
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+        <c:StatCard Title="Linhas" Value="48.211" Description="39% concluídas · 18.320 pendentes">
+          <c:StatCard.Footer><TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.AccentText}" Text="Continuar no editor"/></c:StatCard.Footer>
+          <c:DistributionBar Height="8" x:Name="CardBar"/>
+        </c:StatCard>
+        <c:StatCard Grid.Column="1" Title="Conferência" Value="39 problemas" Description="Os erros bloqueiam o build"/>
+      </Grid>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="OPTIONCARD"/>
+      <StackPanel>
+        <RadioButton x:Name="ModelOpus" Classes="option" IsChecked="True">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body-strong" Text="Claude Opus 5.5"/>
+            <TextBlock Grid.Column="1" Classes="caption secondary" Text="US$ 5 / 25 por M"/>
+          </Grid>
+        </RadioButton>
+        <RadioButton x:Name="ModelSonnet" Classes="option">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body-strong" Text="Claude Sonnet 5.5"/>
+            <TextBlock Grid.Column="1" Classes="caption secondary" Text="US$ 3 / 15 por M"/>
+          </Grid>
+        </RadioButton>
+      </StackPanel>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

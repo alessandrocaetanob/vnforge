@@ -21,6 +21,15 @@ public sealed class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+#if DEBUG
+            if (Environment.GetCommandLineArgs().Contains(Gallery.ComponentGalleryWindow.Flag))
+            {
+                desktop.MainWindow = new Gallery.ComponentGalleryWindow();
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
+#endif
+
             var configDirectory = RecentProjectsFile.DefaultDirectory();
             var window = new MainWindow();
             var picker = new AvaloniaFolderPicker(window);

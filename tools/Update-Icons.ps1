@@ -30,6 +30,9 @@ $Icons = [ordered]@{
     'Icon.Check'    = @('Checkmark Circle', 'checkmark_circle')
     'Icon.Error'    = @('Error Circle', 'error_circle')
     'Icon.Dismiss'  = @('Dismiss', 'dismiss')
+    'Icon.Checkmark' = @('Checkmark', 'checkmark')
+    'Icon.Sparkle'  = @('Sparkle', 'sparkle')
+    'Icon.ArrowSync' = @('Arrow Sync', 'arrow_sync')
 }
 
 $sb = [System.Text.StringBuilder]::new()

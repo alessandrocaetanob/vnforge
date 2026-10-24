@@ -1,0 +1,105 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Controle segmentado (artboard de Ajustes, "esforço"): ListBox de seleção única, 30px de altura, borda stroke-control de 4px de raio.
+       O segmento marcado fica em accent com texto on-accent em 600. -->
+  <Style Selector="ListBox.seg">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="ClipToBounds" Value="True"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal"/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.seg > ListBoxItem">
+    <Setter Property="Height" Value="30"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="CornerRadius" Value="0"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="0,0,1,0"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_ContentPresenter"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          Foreground="{TemplateBinding Foreground}"
+                          Padding="{TemplateBinding Padding}"
+                          HorizontalContentAlignment="Center"
+                          VerticalContentAlignment="Center"
+                          Content="{TemplateBinding Content}"
+                          ContentTemplate="{TemplateBinding ContentTemplate}"/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.seg > ListBoxItem:nth-last-child(1)">
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="ListBox.seg > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="ListBox.seg > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="ListBox.seg > ListBoxItem:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+  </Style>
+
+  <!-- Abas (artboard de Ajustes): 40px de altura, texto em text-secondary; a marcada fica em text-primary 600 com sublinhado de 3px accent. -->
+  <Style Selector="TabControl.tabs">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Padding" Value="0"/>
+  </Style>
+  <Style Selector="TabControl.tabs > TabItem">
+    <Setter Property="Height" Value="40"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Background="{TemplateBinding Background}"
+                            Foreground="{TemplateBinding Foreground}"
+                            FontWeight="{TemplateBinding FontWeight}"
+                            Padding="{TemplateBinding Padding}"
+                            VerticalContentAlignment="Center"
+                            Content="{TemplateBinding Header}"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"/>
+          <Border Name="PART_Underline" Height="3" Margin="14,0" CornerRadius="2" VerticalAlignment="Bottom"
+                  Background="{DynamicResource Vnf.Accent}" IsVisible="False"/>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="TabControl.tabs > TabItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="TabControl.tabs > TabItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="TabControl.tabs > TabItem:selected /template/ Border#PART_Underline">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <Style Selector="TabControl.tabs > TabItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+</Styles>

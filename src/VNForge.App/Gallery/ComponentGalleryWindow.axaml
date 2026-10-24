@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:g="using:VNForge.App.Gallery"
+        x:Class="VNForge.App.Gallery.ComponentGalleryWindow"
+        Title="VNForge · Galeria de componentes (Debug)"
+        Width="1440" Height="1000">
+
+  <!-- Escuro e claro lado a lado: cada coluna é um ThemeVariantScope com o seu fundo. -->
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <Grid ColumnDefinitions="*,*">
+      <ThemeVariantScope RequestedThemeVariant="Dark">
+        <Border Background="{DynamicResource Vnf.BgLayer}">
+          <g:ComponentGallery/>
+        </Border>
+      </ThemeVariantScope>
+      <ThemeVariantScope Grid.Column="1" RequestedThemeVariant="Light">
+        <Border Background="{DynamicResource Vnf.BgLayer}">
+          <g:ComponentGallery/>
+        </Border>
+      </ThemeVariantScope>
+    </Grid>
+  </ScrollViewer>
+</Window>

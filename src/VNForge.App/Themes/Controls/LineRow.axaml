@@ -1,0 +1,51 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- docs/design/components/LineRow: colunas 52 · 96 · 96 · 1* · 1* · 24 com gap de 12. Original em jp-row, o resto em body-sm, o número em mono. -->
+  <Style Selector="c|LineRow">
+    <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
+    <Setter Property="Padding" Value="16,0"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
+          <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}" VerticalAlignment="Center"/>
+          <c:StatusBadge Grid.Column="1" Status="{TemplateBinding Status}"/>
+          <TextBlock Name="PART_Speaker" Grid.Column="2" Classes="body-sm" Text="{TemplateBinding SpeakerText}"
+                     TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
+          <TextBlock Name="PART_Original" Grid.Column="3" Classes="jp-row" Text="{TemplateBinding Original}"
+                     TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
+          <TextBlock Name="PART_Translation" Grid.Column="4" Classes="body-sm" Text="{TemplateBinding TranslationText}"
+                     TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
+          <Panel Grid.Column="5" VerticalAlignment="Center">
+            <PathIcon Name="PART_Warning" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Warning}"
+                      Foreground="{DynamicResource Vnf.SignalWarningFg}" AutomationProperties.Name="{TemplateBinding IssueLabel}"/>
+            <PathIcon Name="PART_Error" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Error}"
+                      Foreground="{DynamicResource Vnf.SignalErrorFg}" AutomationProperties.Name="{TemplateBinding IssueLabel}"/>
+          </Panel>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <!-- Narração e "sem tradução" em text-secondary, sem itálico. -->
+  <Style Selector="c|LineRow:narration /template/ TextBlock#PART_Speaker">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="c|LineRow:untranslated /template/ TextBlock#PART_Translation">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="c|LineRow:warning /template/ PathIcon#PART_Warning">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <Style Selector="c|LineRow:error /template/ PathIcon#PART_Error">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+
+  <!-- A grade usa a seleção da lista de projetos (accent-soft e barra de 3px); a linha tem altura fixa para a virtualização não medir. -->
+  <Style Selector="ListBox.lines > ListBoxItem">
+    <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
+  </Style>
+  <Style Selector="ListBox.lines > ListBoxItem /template/ Border#SelectionBar">
+    <Setter Property="Margin" Value="0,6"/>
+  </Style>
+</Styles>
