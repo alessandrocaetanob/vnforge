@@ -354,7 +354,7 @@ public sealed class ProjectExtractorTests : IDisposable
         WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
 
-        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("Prologo", project.LoadScriptNames().DisplayName("a001"));
     }
@@ -364,10 +364,10 @@ public sealed class ProjectExtractorTests : IDisposable
     {
         WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
-        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
         project.RenameScript("a001", "Capítulo 1");
 
-        ProjectExtractor.Extract(project, [new FakeEngine()], TestContext.Current.CancellationToken);
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
 
         var names = project.LoadScriptNames();
         Assert.Equal("Capítulo 1", names.DisplayName("a001"));
@@ -380,7 +380,7 @@ public sealed class ProjectExtractorTests : IDisposable
         WriteGame(A001Fake, DialogueHello);
         var project = NewProject();
 
-        ProjectExtractor.Extract(project, [new FakeEngine(displayName: null)], TestContext.Current.CancellationToken);
+        ProjectExtractor.Extract(project, [new FakeEngine(displayName: null)], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(File.Exists(project.ScriptNamesPath));
     }
