@@ -188,6 +188,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"Salvo às 00:41" depois da primeira gravação do Editor nesta sessão; vazio antes.</summary>
     public string SavedAtText => Editor.LastSavedAt is { } at ? $"Salvo às {at:HH:mm}" : string.Empty;
 
+    /// <summary>"Alterações salvas automaticamente em vnforge.json" enquanto os Ajustes de um projeto estão abertos; vazio nas outras telas.</summary>
+    public string StatusNote => SelectedNav?.Key == NavKey.Settings && Settings.HasProject ? SettingsViewModel.AutosaveNote : string.Empty;
+
     /// <summary>"Acentuação: CP1252" com a estratégia do projeto.</summary>
     public string EncodingText => CurrentProject is { } project ? $"Acentuação: {ProjectLabels.EncodingShort(project.EncodingStrategy)}" : string.Empty;
 
@@ -277,6 +280,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
 
                 OnPropertyChanged(nameof(BoxLimitsText));
+                OnPropertyChanged(nameof(StatusNote));
             }
         }
     }
@@ -388,6 +392,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);
+        OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
         if (!Glossary.IsDirty || Glossary.Project?.Root != summary.Root)
         {

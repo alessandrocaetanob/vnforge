@@ -128,6 +128,8 @@
       <Border Grid.Row="2" Grid.ColumnSpan="2" Padding="14,0">
         <Grid ColumnDefinitions="Auto,*,Auto">
           <v:TaskBar VerticalAlignment="Center" DataContext="{Binding Tasks}"/>
+          <TextBlock Grid.Column="1" Classes="caption secondary" Margin="16,0" VerticalAlignment="Center" Text="{Binding StatusNote}"
+                     IsVisible="{Binding StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
             <TextBlock Classes="caption secondary" Text="{Binding SavedAtText}"

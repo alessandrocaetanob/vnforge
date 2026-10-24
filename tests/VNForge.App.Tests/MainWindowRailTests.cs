@@ -157,7 +157,7 @@ public class MainWindowRailTests
     }
 
     [Fact]
-    public async Task Salvar_os_Ajustes_do_projeto_atualiza_a_acentuacao_e_os_limites_da_caixa()
+    public async Task Mudar_os_Ajustes_do_projeto_atualiza_a_acentuacao_e_os_limites_da_caixa()
     {
         using var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
@@ -172,7 +172,6 @@ public class MainWindowRailTests
         vm.Settings.SelectedEncoding = vm.Settings.Encodings.Single(c => c.Id == "cp1252");
         vm.Settings.WrapMaxWidth = 40;
         vm.Settings.WrapMaxLines = 2;
-        vm.Settings.SaveProjectCommand.Execute(null);
 
         Assert.Equal("Acentuação: CP1252", vm.EncodingText);
         Assert.Equal("40 colunas · 2 linhas", vm.BoxLimitsText);

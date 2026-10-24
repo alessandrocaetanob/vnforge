@@ -192,4 +192,34 @@ public class CostTests
         Assert.Equal(50, ledger.Calls);
         Assert.Equal(new TokenUsage(500, 250, 50, 100), ledger.Total);
     }
+
+    [Fact]
+    public void Estimativa_por_modelo_divide_os_mesmos_tokens_pelo_preco_de_cada_modelo()
+    {
+        var lines = new[] { Unit("a", "こんにちは、元気ですか"), Unit("b", "Hello there, how are you today?") };
+
+        var byModel = CostEstimator.EstimateForModels(lines, ClaudeModels.All);
+
+        Assert.Equal(ClaudeModels.All, byModel.Keys);
+        foreach (var model in ClaudeModels.All)
+        {
+            var single = CostEstimator.Estimate(lines, model);
+            Assert.Equal(single, byModel[model]);
+        }
+
+        var opus = byModel[ClaudeModels.Opus];
+        Assert.Equal(2, opus.Lines);
+        Assert.True(opus.Dollars > 0m);
+        Assert.Equal(opus.Dollars / 2m, byModel[ClaudeModels.Sonnet].Dollars);
+        Assert.Equal(opus.Dollars * 2.5m, byModel[ClaudeModels.Fable].Dollars);
+    }
+
+    [Fact]
+    public void Estimativa_por_modelo_sem_linhas_custa_zero_em_todos_e_recusa_modelo_desconhecido()
+    {
+        var empty = CostEstimator.EstimateForModels([], ClaudeModels.All);
+
+        Assert.All(empty.Values, e => Assert.Equal(0m, e.Dollars));
+        Assert.Throws<ArgumentException>(() => CostEstimator.EstimateForModels([Unit("a", "x")], ["gpt-x"]));
+    }
 }

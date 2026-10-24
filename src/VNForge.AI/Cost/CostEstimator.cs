@@ -1,3 +1,4 @@
+using VNForge.AI.Claude;
 using VNForge.AI.Translation;
 using VNForge.Core.Text;
 
@@ -46,6 +47,23 @@ public static class CostEstimator
             input += SystemOverhead;
         var usage = new TokenUsage(input, (long)Math.Ceiling(sourceTokens * OutputPerSourceToken) + (long)pending * PerLineOutputOverhead);
         return new CostEstimate(pending, cached, usage, price.Cost(usage));
+    }
+
+    /// <summary>
+    /// Estima as mesmas linhas para vários modelos (Ajustes: "estimativa para as pendentes"). Os tokens são os mesmos em todos; só o
+    /// preço muda, então a contagem roda uma vez. A ordem do resultado é a de <paramref name="models"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">Modelo sem preço na tabela.</exception>
+    public static IReadOnlyDictionary<string, CostEstimate> EstimateForModels(IEnumerable<TextUnit> lines, IEnumerable<string> models, TranslationCache? cache = null)
+    {
+        ArgumentNullException.ThrowIfNull(models);
+        var names = models.ToList();
+        var prices = names.Select(m => (Model: m, Price: ModelPricing.For(m))).ToList();
+        var counted = Estimate(lines, ClaudeModels.Opus, cache);
+        var result = new Dictionary<string, CostEstimate>(names.Count);
+        foreach (var (model, price) in prices)
+            result[model] = counted with { Dollars = price.Cost(counted.Usage) };
+        return result;
     }
 
     /// <summary>
