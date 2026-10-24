@@ -341,4 +341,21 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.Contains("A extração não terminou", vm.ErrorMessage);
         Assert.True(vm.ExtractCommand.CanExecute(null));
     }
+
+    [Fact]
+    public async Task Extracao_pela_barra_de_tarefas_cria_a_tarefa_e_reporta_a_falha()
+    {
+        var tasks = new VNForge.App.Services.BackgroundTaskService();
+        var vm = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()], tasks);
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(ProjectPath());
+        await AdvanceAsync(vm, 4);
+
+        await vm.ExtractCommand.ExecuteAsync(null);
+
+        var item = Assert.Single(tasks.Tasks);
+        Assert.StartsWith("Extrair ", item.Title);
+        Assert.Contains("A extração não terminou", vm.ErrorMessage);
+        Assert.False(vm.IsExtracted);
+    }
 }

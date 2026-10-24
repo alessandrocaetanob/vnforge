@@ -83,10 +83,12 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 {
     private readonly IFolderPicker picker;
     private readonly IReadOnlyList<IEngine> engines;
+    private readonly BackgroundTaskService? tasks;
     private GameInspection? inspection;
 
-    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines)
+    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null)
     {
+        this.tasks = tasks;
         this.picker = picker;
         this.engines = engines;
         SourceLanguages = new ChoiceGroup(
@@ -311,7 +313,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         }
     }
 
-    /// <summary>Extrai o jogo do projeto recém-criado (roda fora da thread da tela, sem progresso nem cancelar; o segundo plano de verdade vem com a barra de tarefas, #101).</summary>
+    /// <summary>Extrai o jogo do projeto recém-criado (pela barra de tarefas quando há serviço; sem ele, em Task.Run).</summary>
     [RelayCommand(CanExecute = nameof(CanExtract))]
     private async Task ExtractAsync()
     {
@@ -324,9 +326,51 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = await Task.Run(() => ProjectExtractor.Extract(ProjectFolder.Open(created.Folder), engines));
-            IsExtracted = true;
-            ExtractionMessage = $"Extração concluída: {ProjectLabels.Number(result.TotalLines)} linhas em {ProjectLabels.Number(result.Scripts.Count)} scripts.";
+            var project = ProjectFolder.Open(created.Folder);
+            ExtractionResult? result = null;
+            Exception? failure = null;
+
+            void Run(CancellationToken ct)
+            {
+                try
+                {
+                    result = ProjectExtractor.Extract(project, engines, ct);
+                }
+                catch (Exception e) when (IsExpected(e))
+                {
+                    failure = e;
+                }
+            }
+
+            if (tasks is null)
+            {
+                await Task.Run(() => Run(CancellationToken.None));
+            }
+            else
+            {
+                // Pela barra de tarefas: o usuário vê o andamento e pode cancelar (#101).
+                var item = tasks.Start("Extrair " + created.Name, (reporter, ct) =>
+                {
+                    reporter.Report(null, "Extraindo os scripts do jogo");
+                    Run(ct);
+                    return Task.CompletedTask;
+                });
+                await item.Completion;
+            }
+
+            if (failure is not null)
+            {
+                ErrorMessage = $"{failure.Message} A extração não terminou; rode de novo no painel do projeto.";
+            }
+            else if (result is null)
+            {
+                ErrorMessage = "A extração foi cancelada. Rode de novo no painel do projeto.";
+            }
+            else
+            {
+                IsExtracted = true;
+                ExtractionMessage = $"Extração concluída: {ProjectLabels.Number(result.TotalLines)} linhas em {ProjectLabels.Number(result.Scripts.Count)} scripts.";
+            }
         }
         catch (Exception e) when (IsExpected(e))
         {

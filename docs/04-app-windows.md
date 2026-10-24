@@ -32,7 +32,7 @@ O app é uma "mesa de tradução": abre um projeto VNForge, mostra o pipeline co
 
 Quatro passos: (1) escolher a pasta do jogo → detecção automática mostra engine, versão e arquivos encontrados; (2) idiomas e nome; (3) estratégia de acentuação, com explicação curta de cada opção; (4) provedor de IA (pode pular). No fim, oferece rodar a extração.
 
-O assistente chama o mesmo `ProjectInitializer` do `vnf init` (`vnf init` ganhou `--source`, `--target`, `--encoding` e `--model` para as mesmas escolhas), então o `vnforge.json` e as pastas saem iguais; um teste compara os dois com um jogo sintético. O passo 1 usa `ProjectInitializer.Inspect`, que só lê a pasta do jogo. "Pular" no passo 4 grava o padrão do `vnf init` (Claude Opus 5.5). A extração do passo final roda fora da thread da tela, sem progresso nem cancelar; o segundo plano com barra de tarefas vem com a #101.
+O assistente chama o mesmo `ProjectInitializer` do `vnf init` (`vnf init` ganhou `--source`, `--target`, `--encoding` e `--model` para as mesmas escolhas), então o `vnforge.json` e as pastas saem iguais; um teste compara os dois com um jogo sintético. O passo 1 usa `ProjectInitializer.Inspect`, que só lê a pasta do jogo. "Pular" no passo 4 grava o padrão do `vnf init` (Claude Opus 5.5). A extração do passo final roda pela barra de tarefas (#101), com andamento e cancelar.
 
 ### 3. Painel do projeto
 
@@ -120,4 +120,5 @@ Log em tempo real, resumo do que mudou (scripts reconstruídos, tamanho do YPF n
 ## Em aberto
 
 - [x] Telas da primeira versão (D4, #97, 2026-10-24): **Início e Editor** entram no M3 (#98, #99, #100). Painel (#102), Conferência (#106), Build e injeção (#103) e Ajustes (#110) ficam no M4; até lá, o resto vai pela CLI. O trilho de navegação mostra só Início e Editor no M3.
+- [x] Ajustes (#110, 2026-10-24): provedor Claude com os outros em "em breve", modelo com preço, chave só no cofre DPAPI (`apikey.dat` em `%APPDATA%/VNForge`), esforço, lote, concorrência (`app.json`, do usuário), guia de estilo (`style.md`), acentuação e as regras de normalização, espaçamento, aspas, reticências e quebra de linha com prévia ao vivo. Modelo, esforço, lote e acentuação gravam em `vnforge.json`; as regras em `formatting.json`. Ficam para depois: estimativa de custo das linhas pendentes, "Testar conexão", substituições personalizadas e a tabela do `remap`.
 - [ ] A prévia deve usar a fonte real do jogo? (Dá para ler o nome da fonte da configuração do YU-RIS.)

@@ -115,7 +115,7 @@ Pronto quando, junto com E6: **M3** atingido.
 - Interface em Avalonia 12 (D3, #96). Telas e design em [design/](design/README.md)
 - Fase 1 (M3, D4 em #97): janela principal e Início (#98), Editor com grade e painel de detalhe (#99, #100), salvar
 - Fase 2 (M4): Painel (#102), Build e injeção (#103), tarefas em segundo plano (extrair, traduzir, build, injetar) com progresso
-- Fase 3 (M4): prévia da caixa de texto, Conferência (#106) integrada ao QA, glossário e personagens
+- Fase 3 (M4): prévia da caixa de texto, Conferência (#106) integrada ao QA, glossário e personagens (#108: tabelas editáveis na página Glossário; o aviso no editor usa `GlossaryMatcher` do Core e `GlossaryViewModel.FindTerms`, ligado ao painel da linha quando o #100 entrar)
 - Fase 4 (M4): assistente de novo projeto, Ajustes (#110), busca e substituição global
 
 ## E11 — Benchmark: a VN YU-RIS completa

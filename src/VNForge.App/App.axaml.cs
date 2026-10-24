@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
@@ -24,8 +25,10 @@ public sealed class App : Application
             var window = new MainWindow();
             var picker = new AvaloniaFolderPicker(window);
             var start = new StartViewModel(new RecentProjectsFile(configDirectory), picker, TimeProvider.System);
-            window.DataContext = new MainWindowViewModel(
-                start, ApiKeyStatus.Resolve(configDirectory), () => new NewProjectWizardViewModel(picker, [new YuRisEngine()]));
+            var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), new AppSettingsFile(configDirectory));
+            var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
+            window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
+                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks));
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();
         }
