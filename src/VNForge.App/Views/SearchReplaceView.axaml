@@ -80,9 +80,9 @@
       <Grid RowDefinitions="32,*">
         <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
           <Grid ColumnDefinitions="190,*,*" ColumnSpacing="12">
-            <TextBlock Classes="overline" Text="LINHA" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Classes="overline" Text="ANTES" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Classes="overline" Text="DEPOIS" VerticalAlignment="Center"/>
+            <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Classes="overline" Text="Antes" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Classes="overline" Text="Depois" VerticalAlignment="Center"/>
           </Grid>
         </Border>
         <ListBox x:Name="ResultsList" Grid.Row="1" Classes="projects" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedResult}"

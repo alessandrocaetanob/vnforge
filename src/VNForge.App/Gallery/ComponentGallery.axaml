@@ -30,7 +30,7 @@
     </c:PageHeader>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="TIPOGRAFIA"/>
+      <TextBlock Classes="overline" Text="Tipografia"/>
       <TextBlock Classes="title-lg" Text="Título 22/28 · Zen Kaku Gothic New"/>
       <TextBlock Classes="title-md" Text="Título 17/24 · Zen Kaku Gothic New"/>
       <TextBlock Classes="body" Text="Corpo 14/20 · Noto Sans"/>
@@ -41,7 +41,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="BOTÕES"/>
+      <TextBlock Classes="overline" Text="Botões"/>
       <WrapPanel ItemSpacing="8" LineSpacing="8">
         <Button Content="Padrão"/>
         <Button Classes="accent" Content="Destaque"/>
@@ -55,7 +55,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="STATUS E SEVERIDADE"/>
+      <TextBlock Classes="overline" Text="Status e severidade"/>
       <WrapPanel ItemSpacing="8" LineSpacing="8">
         <c:StatusBadge Status="Untranslated"/>
         <c:StatusBadge Status="Machine"/>
@@ -75,7 +75,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="INFOBAR"/>
+      <TextBlock Classes="overline" Text="InfoBar"/>
       <Border Classes="infobar">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
@@ -103,7 +103,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="PIPELINESTEPPER"/>
+      <TextBlock Classes="overline" Text="PipelineStepper"/>
       <c:PipelineStepper>
         <c:PipelineStepItem Number="1" Title="Extrair" Subtitle="48.211 linhas em 312 scripts" State="Done"/>
         <c:PipelineStepItem Number="2" Title="Traduzir" Subtitle="62% · 18.320 pendentes" State="Active"/>
@@ -114,7 +114,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="LINEROW · SELECIONADA, NARRAÇÃO, SEM TRADUÇÃO, AVISO, ERRO"/>
+      <TextBlock Classes="overline" Text="LineRow · Selecionada, narração, sem tradução, aviso, erro"/>
       <Border Classes="panel" ClipToBounds="True">
         <ListBox Classes="projects lines" SelectedIndex="1">
           <ListBoxItem>
@@ -142,7 +142,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="SCRIPTITEM · COMPLETO, ATUAL, TRADUZINDO, SEM NOME"/>
+      <TextBlock Classes="overline" Text="ScriptItem · Completo, atual, traduzindo, sem nome"/>
       <Border Classes="panel" Width="260" Padding="0,6">
         <ListBox Classes="scripts" SelectedIndex="1">
           <ListBoxItem><c:ScriptItem Key="yst00012" Label="Prólogo" Percent="100"/></ListBoxItem>
@@ -154,7 +154,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="TOGGLERULE · LIGADA, DESLIGADA"/>
+      <TextBlock Classes="overline" Text="ToggleRule · Ligada, desligada"/>
       <Border Classes="panel" ClipToBounds="True">
         <StackPanel>
           <c:ToggleRule Title="Espaço antes de pontuação" Description="“Vamos, anda !” vira “Vamos, anda!”" IsChecked="True"/>
@@ -165,7 +165,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="CONTROLE SEGMENTADO E ABAS"/>
+      <TextBlock Classes="overline" Text="Controle segmentado e abas"/>
       <ListBox Classes="seg" SelectedIndex="1">
         <ListBoxItem Content="Baixo"/>
         <ListBoxItem Content="Médio"/>
@@ -179,7 +179,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="FILTERCHIP · DESMARCADO, MARCADO, DESATIVADO"/>
+      <TextBlock Classes="overline" Text="FilterChip · Desmarcado, marcado, desativado"/>
       <WrapPanel ItemSpacing="6" LineSpacing="6">
         <c:FilterChip Label="Todas" Count="48211" IsChecked="True"/>
         <c:FilterChip Label="Pendentes" Count="18320"/>
@@ -191,7 +191,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="AISUGGESTION · COM DIFERENÇA, SEM TRADUÇÃO, GERANDO"/>
+      <TextBlock Classes="overline" Text="AiSuggestion · Com diferença, sem tradução, gerando"/>
       <c:AiSuggestion Model="Claude Opus 5.5" Details="· esforço médio · há 2 min"
                       Current="Não enche… Eu não achava o guarda-chuva.\p"
                       Suggestion="Me deixa… Não achei o guarda-chuva.\p"/>
@@ -201,7 +201,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="DISTRIBUIÇÃO E LEGENDA"/>
+      <TextBlock Classes="overline" Text="Distribuição e legenda"/>
       <c:DistributionBar x:Name="Bar" Height="8"/>
       <c:Legend x:Name="DistributionLegend"/>
       <c:Legend>
@@ -216,7 +216,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="STATCARD"/>
+      <TextBlock Classes="overline" Text="StatCard"/>
       <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
         <c:StatCard Title="Linhas" Value="48.211" Description="39% concluídas · 18.320 pendentes">
           <c:StatCard.Footer><TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.AccentText}" Text="Continuar no editor"/></c:StatCard.Footer>
@@ -227,7 +227,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="OPTIONCARD"/>
+      <TextBlock Classes="overline" Text="OptionCard"/>
       <StackPanel>
         <RadioButton x:Name="ModelOpus" Classes="option" IsChecked="True">
           <Grid ColumnDefinitions="*,Auto">

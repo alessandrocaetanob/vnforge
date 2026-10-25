@@ -8,7 +8,6 @@
 
   <UserControl.Styles>
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
-    <StyleInclude Source="avares://VNForge.App/Themes/Controls/MarkerChip.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/LineDetail.axaml"/>
     <!-- O botão "Usar sugestão" é o da linha de botões do inspetor; o do cartão fica só no controle da galeria. -->
     <Style Selector="c|AiSuggestion /template/ Button#PART_Use">
@@ -58,7 +57,7 @@
       <!-- Original em fundo rebaixado, com os marcadores como chips. -->
       <StackPanel Spacing="6">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Classes="overline" Text="ORIGINAL" VerticalAlignment="Center"/>
+          <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
           <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
                      VerticalAlignment="Center" AutomationProperties.Name="Falante"/>
         </Grid>
@@ -69,7 +68,7 @@
 
       <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
       <StackPanel Spacing="6">
-        <TextBlock Classes="overline" Text="TRADUÇÃO"/>
+        <TextBlock Classes="overline" Text="Tradução"/>
         <Border Classes="field">
           <Panel>
             <ae:TextEditor x:Name="TranslationEditor" Classes="translation" Margin="10,8" AutomationProperties.Name="Tradução"/>
@@ -132,10 +131,10 @@
 
       <!-- Prévia da caixa de texto do jogo, com o perfil de formatação do projeto. -->
       <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
-        <TextBlock Classes="overline" Text="PRÉVIA DA CAIXA DE TEXTO"/>
+        <TextBlock Classes="overline" Text="Prévia da caixa de texto"/>
         <StackPanel Spacing="6" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
           <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding HasLayout}">
-            <c:TextboxPreview HorizontalAlignment="Left" Layout="{Binding Layout}"
+            <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Layout}"
                               AutomationProperties.Name="Prévia da caixa de texto"/>
           </ScrollViewer>
           <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
@@ -174,7 +173,7 @@
       <!-- Contexto: o personagem com a voz e os termos do glossário que aparecem na linha. -->
       <Border Classes="divider-top" Padding="0,12,0,0">
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="CONTEXTO"/>
+          <TextBlock Classes="overline" Text="Contexto"/>
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" IsVisible="{Binding HasSpeaker}">
             <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Person}"/>
             <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap">
@@ -185,7 +184,7 @@
             <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Book}"/>
             <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" Classes="secondary" Text="{Binding GlossaryText}"/>
           </Grid>
-          <TextBlock Classes="overline" Text="NOTAS" Margin="0,8,0,0"/>
+          <TextBlock Classes="overline" Text="Notas" Margin="0,8,0,0"/>
           <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Notas da linha"/>
         </StackPanel>
       </Border>

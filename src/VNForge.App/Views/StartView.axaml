@@ -62,9 +62,9 @@
             <Grid RowDefinitions="32,*,40">
               <Border Classes="divider-bottom" Padding="16,0">
                 <Grid ColumnDefinitions="*,180,96" ColumnSpacing="16">
-                  <TextBlock Classes="overline" Text="PROJETO" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Classes="overline" Text="TRADUZIDO" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="2" Classes="overline" Text="ABERTO" VerticalAlignment="Center"/>
+                  <TextBlock Classes="overline" Text="Projeto" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Classes="overline" Text="Traduzido" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="2" Classes="overline" Text="Aberto" VerticalAlignment="Center"/>
                 </Grid>
               </Border>
 

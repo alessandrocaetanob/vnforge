@@ -10,8 +10,8 @@
 
   <Style Selector="TextBlock.title-lg">
     <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
-    <Setter Property="FontSize" Value="22"/>
-    <Setter Property="LineHeight" Value="28"/>
+    <Setter Property="FontSize" Value="26"/>
+    <Setter Property="LineHeight" Value="32"/>
     <Setter Property="FontWeight" Value="Bold"/>
   </Style>
   <Style Selector="TextBlock.title-md">
@@ -38,10 +38,9 @@
     <Setter Property="LineHeight" Value="16"/>
   </Style>
   <Style Selector="TextBlock.overline">
-    <Setter Property="FontSize" Value="11"/>
-    <Setter Property="LineHeight" Value="14"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="16"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
-    <Setter Property="LetterSpacing" Value="0.44"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>
   <Style Selector="TextBlock.jp-body">

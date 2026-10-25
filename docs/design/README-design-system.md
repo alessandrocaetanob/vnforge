@@ -27,7 +27,7 @@ Sistema visual do VNForge v2, o aplicativo Windows de tradução de visual novel
 - Interface em `body` (Noto Sans 14/20), igual ao tamanho padrão do Fluent. Listas densas e grade em `body-sm` (13/18).
 - Texto japonês sempre na família `jp` (Noto Sans JP): `jp-body` no inspetor, `jp-row` na grade. Não deixar o kanji cair no fallback da família `ui`.
 - Títulos de página em `title-lg` e de painel em `title-md`, na família `display` (Zen Kaku Gothic New), um título de página por tela.
-- Rótulos de campo e cabeçalhos de coluna em `overline` (11/600, caixa alta, 0,04em).
+- Rótulos de campo e cabeçalhos de coluna em `overline` (12/600, caixa normal, sem espaçamento entre letras).
 - Ids, caminhos e log em `mono` (JetBrains Mono); chips de marcador e teclas em `mono-xs`.
 
 ## Espaço, tamanho e forma

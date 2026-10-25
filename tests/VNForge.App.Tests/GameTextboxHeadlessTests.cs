@@ -14,8 +14,8 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
-/// <summary>O painel de detalhe real, com o <see cref="TextboxPreview"/> medido e desenhado a partir do perfil do projeto.</summary>
-public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>, IDisposable
+/// <summary>O painel de detalhe real, com o <see cref="GameTextbox"/> medido e desenhado a partir do perfil do projeto.</summary>
+public class GameTextboxHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>, IDisposable
 {
     private readonly TempFolder pasta = new();
 
@@ -43,7 +43,7 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 window.Show();
                 Assentar(window);
 
-                var caixa = window.GetVisualDescendants().OfType<TextboxPreview>().Single();
+                var caixa = window.GetVisualDescendants().OfType<GameTextbox>().Single();
                 var estreita = caixa.DesiredSize;
                 Assert.True(estreita.Width > 0 && estreita.Height > 0);
                 Assert.Equal(["tradução 0"], caixa.Layout!.Boxes[0].Lines.Select(l => l.Text));
@@ -118,7 +118,7 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                     new TextUnit("a:1", TextUnitKind.Dialogue, "美咲", "原文", "x", TranslationStatus.Translated),
                     FormattingProfileSerializer.Parse("""{ "wrap": { "enabled": true, "maxWidth": 8, "maxLines": 1, "charWidth": "halfWidthLatin" } }"""),
                     "日本語 {VAR:nome} um dois tres\\cquatro");
-                var caixa = new TextboxPreview { Layout = vm.Layout };
+                var caixa = new GameTextbox { Layout = vm.Layout };
                 caixa.Measure(Size.Infinity);
                 caixa.Arrange(new Rect(caixa.DesiredSize));
 
@@ -136,7 +136,7 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             {
                 var instalada = FontManager.Current.SystemFonts.Any(f => f.Name is "MS Gothic" or "ＭＳ ゴシック");
 
-                Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(new TextboxPreview().FontFamily), out var glifos));
+                Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(new GameTextbox().FontFamily), out var glifos));
                 if (instalada)
                 {
                     Assert.Contains(glifos.FamilyName, new[] { "MS Gothic", "ＭＳ ゴシック" });
@@ -172,7 +172,7 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
         await fixture.Session.Dispatch(
             () =>
             {
-                var tipo = new Typeface(new TextboxPreview().FontFamily);
+                var tipo = new Typeface(new GameTextbox().FontFamily);
                 Assert.True(FontManager.Current.TryGetGlyphTypeface(tipo, out var glifos));
                 foreach (var letra in "áãçõÉ")
                 {
@@ -193,13 +193,13 @@ public class TextboxPreviewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             new TextUnit("a:1", TextUnitKind.Dialogue, null, "原文", "x", TranslationStatus.Translated),
             FormattingProfile.Default,
             traducao);
-        var caixa = new TextboxPreview { Layout = vm.Layout };
+        var caixa = new GameTextbox { Layout = vm.Layout };
         caixa.Measure(Size.Infinity);
         return caixa.DesiredSize;
     }
 
     /// <summary>Chama <c>Render</c> direto num contexto de desenho: uma exceção no desenho apareceria aqui.</summary>
-    private static void DesenharDeVerdade(TextboxPreview caixa)
+    private static void DesenharDeVerdade(GameTextbox caixa)
     {
         using var imagem = new RenderTargetBitmap(new PixelSize(Math.Max(1, (int)caixa.DesiredSize.Width), Math.Max(1, (int)caixa.DesiredSize.Height)));
         using var contexto = imagem.CreateDrawingContext();
