@@ -179,7 +179,7 @@ jobs:
             fi
       - checkout
       - run:
-          name: Empacota a CLI (win-x64 e linux-x64)
+          name: Empacota a CLI (win-x64 e linux-x64) e o App (win-x64)
           command: |
             set -euo pipefail
             # A imagem de nuvem roda como root e não tem sudo; o zip só é instalado se faltar.
@@ -206,6 +206,19 @@ jobs:
                 tar -C pack -czf "dist/$name.tar.gz" "$name"
               fi
             done
+            # O App (Avalonia) sai só para win-x64: é o alvo do app (doc 04). Em arquivo único,
+            # as bibliotecas nativas (SkiaSharp, HarfBuzz) vão embutidas e se extraem na primeira
+            # execução; sem IncludeNativeLibrariesForSelfExtract o publish deixa DLLs soltas ao lado.
+            # Só o .exe entra no pacote: o publish também copia os .pdb nativos (100 MB).
+            dotnet publish src/VNForge.App --configuration Release --runtime win-x64 --self-contained \
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+              -p:EnableCompressionInSingleFile=true \
+              -p:DebugType=None -p:Version="$version" --output publish/app-win-x64
+            name="vnforge-app-$version-win-x64"
+            mkdir -p "pack/$name"
+            cp publish/app-win-x64/VNForge.App.exe "pack/$name/"
+            cp README.md "pack/$name/"
+            (cd pack && zip -qr "../dist/$name.zip" "$name")
             (cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - run:
           name: Executa o vnf do Linux
@@ -213,6 +226,14 @@ jobs:
             version="${CIRCLE_TAG#v}"
             dir="$(mktemp -d)"; tar -xzf "dist/vnf-$version-linux-x64.tar.gz" -C "$dir" --strip-components=1
             test "$("$dir/vnf" --version)" = "vnf $version"
+      - run:
+          name: Confere o pacote do App
+          command: |
+            version="${CIRCLE_TAG#v}"
+            # O exe do Windows não roda no container Linux: confere o conteúdo do zip e o SHA256SUMS.txt.
+            zip="dist/vnforge-app-$version-win-x64.zip"
+            zip -sf "$zip" | grep -q "vnforge-app-$version-win-x64/VNForge.App.exe"
+            grep -q "vnforge-app-$version-win-x64.zip" dist/SHA256SUMS.txt
       - run:
           name: Release do GitHub
           command: |
