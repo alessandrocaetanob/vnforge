@@ -93,7 +93,7 @@
                 <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ConnectionMessage}"
                            Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding ConnectionFailed}"/>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsChangingKey}"
-                           Text="A chave fica criptografada com o DPAPI no seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade."/>
+                           Text="A chave fica guardada no cofre do Windows, só no seu usuário. Uma variável de ambiente, se existir, tem prioridade."/>
               </StackPanel>
             </Border>
 
@@ -105,19 +105,22 @@
                   <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
                     <StackPanel Spacing="4">
                       <TextBlock Classes="body-sm" Text="Cotação do dólar"/>
-                      <TextBox Text="{Binding ExchangeRateText}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
+                      <TextBox Text="{Binding ExchangeRateText, UpdateSourceTrigger=LostFocus}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
                         <TextBox.InnerLeftContent>
                           <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </TextBox.InnerLeftContent>
                       </TextBox>
-                      <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"
-                                 IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                      <StackPanel Spacing="2" IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"/>
+                        <Button Classes="subtle sm" HorizontalAlignment="Left" Content="Confirmar hoje" Command="{Binding ConfirmRateTodayCommand}"
+                                IsVisible="{Binding HasInformedRate}" AutomationProperties.Name="Confirmar a cotação de hoje"/>
+                      </StackPanel>
                       <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RateError}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
                                  IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="4">
                       <TextBlock Classes="body-sm" Text="Limite de gasto"/>
-                      <TextBox Text="{Binding SpendLimitText}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
+                      <TextBox Text="{Binding SpendLimitText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
                         <TextBox.InnerLeftContent>
                           <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </TextBox.InnerLeftContent>
@@ -129,7 +132,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Spacing="4">
                       <TextBlock Classes="body-sm" Text="Avisar acima de"/>
-                      <TextBox Text="{Binding WarnAboveText}" PlaceholderText="Nunca" AutomationProperties.Name="Avisar acima de, em reais">
+                      <TextBox Text="{Binding WarnAboveText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Nunca" AutomationProperties.Name="Avisar acima de, em reais">
                         <TextBox.InnerLeftContent>
                           <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </TextBox.InnerLeftContent>
@@ -170,6 +173,13 @@
 
             <c:TechnicalDetails>
               <StackPanel Spacing="20" Margin="0,8,0,0">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="overline" Text="Chave"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding KeyTechnicalNote}"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ConnectionDetail}"
+                             IsVisible="{Binding ConnectionDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+
               <StackPanel Spacing="8">
                 <TextBlock Classes="overline" Text="Provedor"/>
                 <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">

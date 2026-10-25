@@ -42,6 +42,49 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
     }
 
     [Fact]
+    public async Task A_aba_IA_e_gasto_nao_mostra_modelo_variavel_nem_DPAPI_fora_dos_detalhes_tecnicos()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated);
+        var vm = Criar(temp, environmentKey: "sk-ant-chave-do-teste");
+        vm.Load(VNForge.Core.Projects.ProjectSummaryReader.Read(root));
+        await vm.EstimateLoading;
+        vm.ExchangeRateText = "5,40";
+        vm.SpendLimitText = "300";
+        await vm.TestConnectionCommand.ExecuteAsync(null);
+        vm.ChangeKeyCommand.Execute(null);
+        Assert.True(vm.ConnectionOk);
+        string[] proibidos = ["Claude ", "Haiku", "Sonnet", "Opus", "DPAPI", "ANTHROPIC", "token"];
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                var textos = window.GetVisualDescendants()
+                    .Where(v => !v.GetVisualAncestors().OfType<TechnicalDetails>().Any() && v is not TechnicalDetails)
+                    .SelectMany(TextosVisiveis)
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToList();
+
+                Assert.Contains("Conexão funcionando.", textos);
+                Assert.Contains("Qualidade padrão", textos);
+                foreach (var proibido in proibidos)
+                {
+                    Assert.DoesNotContain(textos, t => t!.Contains(proibido, StringComparison.OrdinalIgnoreCase));
+                }
+            },
+            CancellationToken.None);
+    }
+
+    private static IEnumerable<string?> TextosVisiveis(Avalonia.Visual visual) => visual switch
+    {
+        TextBlock { IsEffectivelyVisible: true } block => [block.Text],
+        TextBox { IsEffectivelyVisible: true } box => [box.PlaceholderText],
+        ContentControl { IsEffectivelyVisible: true, Content: string content } => [content],
+        _ => [],
+    };
+
+    [Fact]
     public async Task Tem_as_abas_IA_Formatacao_Acentuacao_e_Aparencia_e_trocar_de_aba_muda_o_indice_do_ViewModel()
     {
         using var temp = new TempFolder();
