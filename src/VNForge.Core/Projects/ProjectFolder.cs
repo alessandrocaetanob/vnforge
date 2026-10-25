@@ -89,7 +89,7 @@ public sealed class ProjectFolder
         string json;
         try
         {
-            json = Utf8Estrito.GetString(File.ReadAllBytes(ConfigPath));
+            json = Utf8Estrito.GetString(ProjectFileIo.ReadAllBytes(ConfigPath));
         }
         catch (DecoderFallbackException)
         {
@@ -116,7 +116,7 @@ public sealed class ProjectFolder
 
         try
         {
-            return FormattingProfileSerializer.Parse(Utf8Estrito.GetString(File.ReadAllBytes(FormattingPath)).TrimStart((char)0xFEFF));
+            return FormattingProfileSerializer.Parse(Utf8Estrito.GetString(ProjectFileIo.ReadAllBytes(FormattingPath)).TrimStart((char)0xFEFF));
         }
         catch (DecoderFallbackException)
         {
@@ -174,7 +174,7 @@ public sealed class ProjectFolder
     {
         try
         {
-            return Utf8Estrito.GetString(File.ReadAllBytes(path)).TrimStart((char)0xFEFF);
+            return Utf8Estrito.GetString(ProjectFileIo.ReadAllBytes(path)).TrimStart((char)0xFEFF);
         }
         catch (DecoderFallbackException ex)
         {
@@ -196,7 +196,7 @@ public sealed class ProjectFolder
 
         try
         {
-            return PipelineState.Parse(Utf8Estrito.GetString(File.ReadAllBytes(StatePath)).TrimStart((char)0xFEFF), StatePath);
+            return PipelineState.Parse(Utf8Estrito.GetString(ProjectFileIo.ReadAllBytes(StatePath)).TrimStart((char)0xFEFF), StatePath);
         }
         catch (DecoderFallbackException ex)
         {
@@ -210,7 +210,7 @@ public sealed class ProjectFolder
         ArgumentNullException.ThrowIfNull(state);
 
         var json = state.Serialize();
-        if (File.Exists(StatePath) && File.ReadAllBytes(StatePath).AsSpan().SequenceEqual(Utf8SemBom.GetBytes(json)))
+        if (File.Exists(StatePath) && ProjectFileIo.ReadAllBytes(StatePath).AsSpan().SequenceEqual(Utf8SemBom.GetBytes(json)))
         {
             return;
         }
@@ -320,7 +320,7 @@ public sealed class ProjectFolder
 
         try
         {
-            return Utf8Estrito.GetString(File.ReadAllBytes(path)).TrimStart((char)0xFEFF);
+            return Utf8Estrito.GetString(ProjectFileIo.ReadAllBytes(path)).TrimStart((char)0xFEFF);
         }
         catch (DecoderFallbackException ex)
         {
@@ -351,7 +351,7 @@ public sealed class ProjectFolder
         try
         {
             File.WriteAllText(temporary, content, Utf8SemBom);
-            File.Move(temporary, path, overwrite);
+            ProjectFileIo.Move(temporary, path, overwrite);
         }
         finally
         {

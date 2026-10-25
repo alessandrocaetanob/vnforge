@@ -257,7 +257,7 @@ public static class ProjectExtractor
         var backups = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         foreach (var key in plan.Changed.Concat(plan.Removed).Where(key => File.Exists(project.TextPath(key))))
         {
-            backups[key] = File.ReadAllBytes(project.TextPath(key));
+            backups[key] = ProjectFileIo.ReadAllBytes(project.TextPath(key));
         }
 
         if (backups.Count > 0)
