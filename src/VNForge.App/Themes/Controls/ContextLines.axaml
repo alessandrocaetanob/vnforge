@@ -1,0 +1,29 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- ContextLines (v3.css ".ctx"): quem fala numa coluna de 76px em 600; ao lado, o original em japonês e a tradução embaixo, em text-secondary 12/18. -->
+  <Style Selector="c|ContextLines">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="6"/>
+      </ItemsPanelTemplate>
+    </Setter>
+    <Setter Property="ItemTemplate">
+      <DataTemplate x:DataType="c:ContextLine">
+        <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2">
+          <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="{Binding Who}" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="18" Text="{Binding Original}" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="18" Text="{Binding Translation}" TextTrimming="CharacterEllipsis"
+                     IsVisible="{Binding Translation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </Grid>
+      </DataTemplate>
+    </Setter>
+  </Style>
+</Styles>

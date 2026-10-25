@@ -2,7 +2,7 @@
 
 Navegação principal à esquerda: ícone de 20px com rótulo curto embaixo, largura `navrail-width` (72px). Item atual em `bg-card` com barra de 3px `accent` e texto `accent-text`.
 
-Itens, nesta ordem: Início, Painel, Editor, Conferir (com contador de avisos + erros), Build, Glossário; Ajustes fixo no rodapé. Rótulos de uma palavra.
+Itens, nesta ordem: Início, Painel, Editor, Conferir (com contador de avisos + erros), Testar (era "Build" até a v3), Glossário; Ajustes fixo no rodapé. Rótulos de uma palavra. Sem projeto aberto, só Início e Ajustes ficam habilitados.
 
 ## Avalonia
 

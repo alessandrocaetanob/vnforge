@@ -35,7 +35,7 @@
       <Button.Flyout>
         <Flyout Placement="TopEdgeAlignedLeft">
           <StackPanel Spacing="8" MinWidth="360" MaxWidth="480">
-            <TextBlock Classes="overline secondary" Text="TAREFAS"/>
+            <TextBlock Classes="overline secondary" Text="Tarefas"/>
             <ItemsControl ItemsSource="{Binding Service.Tasks}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="sv:BackgroundTaskItem">

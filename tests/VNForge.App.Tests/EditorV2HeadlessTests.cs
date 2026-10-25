@@ -123,9 +123,9 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
             CancellationToken.None);
 
         Assert.Contains("yst00001:000001", shown);
-        Assert.Contains("ORIGINAL", shown);
-        Assert.Contains("TRADUÇÃO", shown);
-        Assert.Contains("CONTEXTO", shown);
+        Assert.Contains("Original", shown);
+        Assert.Contains("Tradução", shown);
+        Assert.Contains("Contexto", shown);
         Assert.Contains("Marcadores iguais ao original", shown);
         Assert.Contains("Nenhum termo do glossário nesta linha.", shown);
     }

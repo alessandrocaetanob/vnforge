@@ -110,11 +110,11 @@
         <Grid RowDefinitions="32,*,Auto">
           <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
             <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12">
-              <TextBlock Classes="overline" Text="LINHA" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Classes="overline" Text="STATUS" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="2" Classes="overline" Text="PERSONAGEM" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="3" Classes="overline" Text="ORIGINAL" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="4" Classes="overline" Text="TRADUÇÃO" VerticalAlignment="Center"/>
+              <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="overline" Text="Status" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="2" Classes="overline" Text="Personagem" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="3" Classes="overline" Text="Original" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" VerticalAlignment="Center"/>
             </Grid>
           </Border>
 

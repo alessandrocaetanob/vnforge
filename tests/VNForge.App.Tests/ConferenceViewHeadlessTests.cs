@@ -77,7 +77,7 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 Assert.Contains("Abrir no editor", texts);
                 Assert.Contains("Aplicar correção", texts);
                 Assert.Contains("Marcar como ok", texts);
-                Assert.Contains("CORREÇÃO PROPOSTA", texts);
+                Assert.Contains("Correção proposta", texts);
 
                 // O detalhe mostra a gravidade com o SeverityTag, e a primeira linha vem selecionada.
                 var tag = window.GetVisualDescendants().OfType<SeverityTag>().Single();

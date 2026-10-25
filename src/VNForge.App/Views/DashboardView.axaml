@@ -112,10 +112,10 @@
             </Border>
             <Border Grid.Row="1" Classes="tr h" AutomationProperties.Name="Colunas da tabela">
               <Grid ColumnSpacing="12" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/><ColumnDefinition Width="56"/><ColumnDefinition Width="*" MinWidth="120" MaxWidth="180"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                <TextBlock Classes="overline" Text="SCRIPT"/>
-                <TextBlock Grid.Column="1" Classes="overline" Text="NOME"/>
-                <TextBlock Grid.Column="2" Classes="overline" TextAlignment="Right" Text="LINHAS"/>
-                <TextBlock Grid.Column="3" Classes="overline" Text="PROGRESSO"/>
+                <TextBlock Classes="overline" Text="Script"/>
+                <TextBlock Grid.Column="1" Classes="overline" Text="Nome"/>
+                <TextBlock Grid.Column="2" Classes="overline" TextAlignment="Right" Text="Linhas"/>
+                <TextBlock Grid.Column="3" Classes="overline" Text="Progresso"/>
                 <TextBlock Grid.Column="4" Classes="overline" TextAlignment="Right" Text="%"/>
               </Grid>
             </Border>
@@ -153,9 +153,9 @@
             </Border>
             <Border Grid.Row="1" Classes="tr h" AutomationProperties.Name="Colunas da tabela">
               <Grid ColumnSpacing="12" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="56"/><ColumnDefinition Width="*" MinWidth="120" MaxWidth="180"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                <TextBlock Classes="overline" Text="PERSONAGEM"/>
-                <TextBlock Grid.Column="1" Classes="overline" TextAlignment="Right" Text="LINHAS"/>
-                <TextBlock Grid.Column="2" Classes="overline" Text="PROGRESSO"/>
+                <TextBlock Classes="overline" Text="Personagem"/>
+                <TextBlock Grid.Column="1" Classes="overline" TextAlignment="Right" Text="Linhas"/>
+                <TextBlock Grid.Column="2" Classes="overline" Text="Progresso"/>
                 <TextBlock Grid.Column="3" Classes="overline" TextAlignment="Right" Text="%"/>
               </Grid>
             </Border>

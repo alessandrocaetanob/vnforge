@@ -1,0 +1,153 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Gallery.ComponentGalleryV3">
+
+  <!-- Os controles da interface v3 (issue #302) em todos os estados. Fica no fim da galeria, sob o mesmo tema da coluna. -->
+  <StackPanel Spacing="28">
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="Ícones Fluent · Regular 20"/>
+      <WrapPanel x:Name="IconGrid" ItemSpacing="12" LineSpacing="12"/>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="MarkerChip · virar a página, quebra de linha, nome do jogador, variável, faltando"/>
+      <WrapPanel ItemSpacing="4" LineSpacing="8">
+        <c:MarkerChip Marker="\p"/>
+        <c:MarkerChip Marker="\n"/>
+        <c:MarkerChip Marker="\c"/>
+        <c:MarkerChip Marker="{}{VAR:nome}" Kind="Variable"/>
+        <c:MarkerChip Marker="{}{EF:00}" Kind="Variable"/>
+        <c:MarkerChip Marker="\p" IsMissing="True"/>
+      </WrapPanel>
+      <TextBlock Classes="body" TextWrapping="Wrap">
+        <TextBlock.Inlines>
+          <Run Text="Você não vai acreditar no que aconteceu hoje à tarde!"/>
+          <InlineUIContainer BaselineAlignment="Center"><c:MarkerChip Marker="\n"/></InlineUIContainer>
+          <Run Text="Foi incrível."/>
+          <InlineUIContainer BaselineAlignment="Center"><c:MarkerChip Marker="\p"/></InlineUIContainer>
+        </TextBlock.Inlines>
+      </TextBlock>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="GameTextbox · cabe (2 de 3 linhas), passa (4 para 3), duas páginas"/>
+      <StackPanel Spacing="28" Margin="0,12,0,0">
+        <c:GameTextbox x:Name="BoxFits" HorizontalAlignment="Left"/>
+        <c:GameTextbox x:Name="BoxOver" HorizontalAlignment="Left"/>
+        <c:GameTextbox x:Name="BoxPages" HorizontalAlignment="Left"/>
+        <c:GameTextbox x:Name="BoxLarge" Size="Large" HorizontalAlignment="Left"/>
+        <c:GameTextbox x:Name="BoxSmall" Size="Small" HorizontalAlignment="Left"/>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="ProgressRing · 62%, 100%, vazio, pequeno"/>
+      <StackPanel Orientation="Horizontal" Spacing="24">
+        <c:ProgressRing Done="18592" Review="10936" Total="48211"/>
+        <c:ProgressRing Done="100" Review="0" Total="100"/>
+        <c:ProgressRing Done="0" Review="0" Total="0"/>
+        <c:ProgressRing Classes="sm" Done="62" Review="20" Total="100"/>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="Seg3Bar · pronto, esperando revisão, em japonês"/>
+      <c:Seg3Bar Done="18592" Review="10936" Total="48211"/>
+      <c:Seg3Bar Done="100" Review="0" Total="100"/>
+      <c:Seg3Bar Done="0" Review="0" Total="100"/>
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Classes="overline" Text="ChapterRow · comum, aqui, menus e nomes"/>
+      <c:ChapterRow Number="1" Title="Manhã de chuva" Done="2840" Review="1210" Total="4100" Note="Você está aqui · 1 erro em Manhã de chuva" IsHere="True"/>
+      <c:ChapterRow Number="2" Title="O clube de leitura" Done="3100" Review="420" Total="6020" Note="A IA parou no limite de gasto"/>
+      <c:ChapterRow Title="Menus e nomes" Done="900" Review="0" Total="1200" IsExtra="True"/>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="CostLabel · só em reais, com o dólar"/>
+      <StackPanel Orientation="Horizontal" Spacing="24">
+        <c:CostLabel Brl="142.56"/>
+        <c:CostLabel Brl="142.56" Usd="26.40"/>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Spacing="12">
+      <TextBlock Classes="overline" Text="BudgetBar · dentro do limite, acima do limite"/>
+      <c:BudgetBar Spent="142.56" Ask="58.10" Limit="300"/>
+      <c:BudgetBar Spent="142.56" Ask="180" Limit="300"/>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="QualityCard · Rápida, Equilibrada (marcada), Caprichada"/>
+      <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+        <c:QualityCard x:Name="QualityFast" Title="Rápida" Model="Haiku" Price="2.92" Duration="cerca de 40 min" Description="Boa para um rascunho."/>
+        <c:QualityCard x:Name="QualityBalanced" Grid.Column="1" Title="Equilibrada" Model="Sonnet" Price="58.10" Duration="cerca de 78 min" Description="O meio-termo." IsChecked="True"/>
+        <c:QualityCard x:Name="QualityBest" Grid.Column="2" Title="Caprichada" Model="Opus" Price="116.19" Duration="cerca de 2 h" Description="A mais fiel ao tom."/>
+      </Grid>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="ContextLines e ExplainCard"/>
+      <c:ContextLines x:Name="ContextList"/>
+      <c:ExplainCard x:Name="ExplainList" Model="Claude Haiku" Footnote="Só para você ler, não entra na tradução."/>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="ScriptGroup · aberto, fechado"/>
+      <c:ScriptGroup Title="Capítulo 1" CountText="14" IsExpanded="True"><TextBlock Classes="caption secondary" Margin="24,4" Text="yst00001 · Manhã de chuva"/></c:ScriptGroup>
+      <c:ScriptGroup Title="Capítulo 2" CountText="22" IsExpanded="False"><TextBlock Text="escondido"/></c:ScriptGroup>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="GameStateBanner · traduzido, original, travado"/>
+      <c:GameStateBanner State="Translated" Title="O jogo está com a tradução de 22/10" Message="A tradução continua no projeto, mesmo se você voltar ao original.">
+        <Button Content="Voltar ao jogo original"/>
+      </c:GameStateBanner>
+      <c:GameStateBanner State="Original" Title="O jogo está como veio" Message="Nenhuma tradução foi copiada para o jogo."/>
+      <c:GameStateBanner State="Blocked" Title="Corrija 2 erros antes de testar" Message="Eles travam o teste no jogo.">
+        <Button Content="Ver os erros"/>
+      </c:GameStateBanner>
+    </StackPanel>
+
+    <StackPanel Spacing="0">
+      <TextBlock Classes="overline" Text="TodoItem · erro, aviso, pronto" Margin="0,0,0,8"/>
+      <Border Classes="panel">
+        <StackPanel>
+          <c:TodoItem Severity="Error" Title="2 erros travam o teste" Message="Marcador faltando em Manhã de chuva · linha 43" ActionText="Corrigir"/>
+          <c:TodoItem Severity="Warning" Title="3 personagens sem gênero" Message="A IA vai chutar o gênero das falas deles." ActionText="Definir agora"/>
+          <c:TodoItem Severity="Ok" Title="Chave do Claude guardada" Message="Fica no Windows, fora da pasta do projeto."/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="TechnicalDetails · fechado, aberto"/>
+      <c:TechnicalDetails><TextBlock Text="escondido"/></c:TechnicalDetails>
+      <c:TechnicalDetails IsExpanded="True">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="mono" Text="motor · YU-RIS · YPF v500"/>
+          <TextBlock Classes="mono" Text="acentos · CP1252 (página 932)"/>
+        </StackPanel>
+      </c:TechnicalDetails>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Classes="overline" Text="ScreenDialog · aberto sobre a tela (Escape fecha)"/>
+      <Grid Height="300" ClipToBounds="True">
+        <Border Classes="panel" Padding="16"><TextBlock Classes="body" Text="A tela de baixo, escurecida pelo diálogo."/></Border>
+        <c:ScreenDialog x:Name="SampleDialog" Title="Traduzir com IA" IsOpen="True">
+          <TextBlock Classes="body" TextWrapping="Wrap" Text="O que traduzir, com que qualidade e por quanto."/>
+          <c:ScreenDialog.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Content="Cancelar"/>
+              <Button Classes="accent" Content="Traduzir"/>
+            </StackPanel>
+          </c:ScreenDialog.Footer>
+        </c:ScreenDialog>
+      </Grid>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,35 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- GameStateBanner (v3.css ".gamestate"): cartão com o ponto de estado de 10px, o título, a frase e, à direita, o botão que vem em Content. -->
+  <Style Selector="c|GameStateBanner">
+    <Setter Property="Padding" Value="16,12"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" Padding="{TemplateBinding Padding}" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
+                BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
+            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Classes="body-strong" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
+              <TextBlock Classes="body-sm secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
+                         IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+            <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|GameStateBanner:translated /template/ Ellipse#PART_Dot">
+    <Setter Property="Fill" Value="{DynamicResource Vnf.SegApproved}"/>
+  </Style>
+  <Style Selector="c|GameStateBanner:blocked /template/ Ellipse#PART_Dot">
+    <Setter Property="Fill" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+  <Style Selector="c|GameStateBanner:blocked /template/ Border#PART_Root">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+</Styles>

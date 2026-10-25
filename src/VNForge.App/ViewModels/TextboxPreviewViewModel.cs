@@ -48,7 +48,7 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
 
     /// <summary>A caixa para desenhar; nula sem tradução ou quando o texto tem um marcador que o pipeline recusa (veja <see cref="Problem"/>).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasLayout))]
+    [NotifyPropertyChangedFor(nameof(HasLayout), nameof(Fit))]
     public partial TextboxLayout? Layout { get; private set; }
 
     /// <summary>Linhas e colunas, ou o que falta para a prévia aparecer.</summary>
@@ -65,6 +65,9 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
     public partial string? Problem { get; private set; }
 
     public bool HasLayout => Layout is not null;
+
+    /// <summary>"Cabe · 2 de 3 linhas" ou "Passa 1 linha", o texto que acompanha a caixa do jogo; nulo sem limite de linhas no perfil.</summary>
+    public string? Fit => FitText(Layout);
 
     public bool HasWarnings => Warnings.Count > 0;
 
@@ -114,6 +117,21 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
         return preview.WrapEnabled
             ? $"{lines} · largura máxima {Count(preview.MaxWidth, "coluna", "colunas")}"
             : $"{lines} · linha mais larga com {Count(longest, "coluna", "colunas")} · quebra desligada no perfil";
+    }
+
+    /// <summary>Diz se a tradução cabe: com mais de uma caixa vale a mais cheia, e o que passa do limite soma as linhas de todas.</summary>
+    public static string? FitText(TextboxLayout? layout)
+    {
+        if (layout is not { MaxLines: { } max })
+        {
+            return null;
+        }
+
+        var over = layout.Boxes.Sum(box => Math.Max(0, box.Lines.Count - max));
+        var used = layout.Boxes.Select(box => box.Lines.Count).DefaultIfEmpty().Max();
+        return over > 0
+            ? $"Passa {Count(over, "linha", "linhas")}"
+            : $"Cabe · {used.ToString("N0", PortugueseBrazil)} de {Count(max, "linha", "linhas")}";
     }
 
     private static string Count(int value, string singular, string plural) =>

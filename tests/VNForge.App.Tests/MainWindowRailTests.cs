@@ -31,9 +31,19 @@ public class MainWindowRailTests
         using var temp = new TempFolder();
         var vm = Create(temp, temp.SubFolder("vn"));
 
-        Assert.Equal(["Início", "Painel", "Editor", "Conferir", "Build", "Glossário"], vm.TopNav.Select(n => n.Label));
+        Assert.Equal(["Início", "Painel", "Editor", "Conferir", "Testar", "Glossário"], vm.TopNav.Select(n => n.Label));
         Assert.Equal(["Ajustes"], vm.BottomNav.Select(n => n.Label));
         Assert.DoesNotContain(vm.Nav, n => n.Label == "Busca");
+    }
+
+    [Fact]
+    public void Trilho_nao_mostra_Build_e_so_Inicio_e_Ajustes_ficam_habilitados_sem_projeto()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp, temp.SubFolder("vn"));
+
+        Assert.DoesNotContain(vm.Nav, n => n.Label == "Build");
+        Assert.Equal(["Início", "Ajustes"], vm.Nav.Where(n => n.IsEnabled).Select(n => n.Label));
     }
 
     [Fact]

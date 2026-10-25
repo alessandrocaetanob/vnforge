@@ -1,0 +1,52 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- Gatilho dos Expanders do app: uma área clicável sem o cromado do ToggleButton do Fluent. -->
+  <Style Selector="ToggleButton.disclosure">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Hit" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalContentAlignment="Center"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleButton.disclosure:pointerover /template/ Border#PART_Hit">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="ToggleButton.disclosure:focus-visible /template/ Border#PART_Hit">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <!-- ScriptGroup (v3.css ".grp"): cabeçalho de 28px com a seta, o nome do capítulo em 12/16 600 sem caixa alta e a contagem em mono à direita. -->
+  <Style Selector="c|ScriptGroup">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel>
+          <ToggleButton Name="PART_Header" Classes="disclosure" Height="28" Padding="6,0" IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                        AutomationProperties.Name="{TemplateBinding Title}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+              <PathIcon Name="PART_Chevron" Width="12" Height="12" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}"
+                        Data="{DynamicResource Icon.ChevronRight}"/>
+              <TextBlock Grid.Column="1" Name="PART_Title" Classes="caption secondary" FontWeight="SemiBold" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis"
+                         VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="2" Classes="mono-xs secondary" FontWeight="Normal" Text="{TemplateBinding CountText}" VerticalAlignment="Center"/>
+            </Grid>
+          </ToggleButton>
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            IsVisible="{TemplateBinding IsExpanded}"/>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|ScriptGroup:expanded /template/ PathIcon#PART_Chevron">
+    <Setter Property="Data" Value="{DynamicResource Icon.ChevronDown}"/>
+  </Style>
+</Styles>

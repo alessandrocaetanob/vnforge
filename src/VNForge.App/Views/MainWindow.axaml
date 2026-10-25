@@ -105,7 +105,7 @@
         </Grid>
       </Border>
 
-      <!-- Trilho: Início, Painel, Editor, Conferir (com o contador do QA) e Build no alto; Ajustes no pé. O Glossário só aparece com projeto aberto. -->
+      <!-- Trilho: Início, Painel, Editor, Conferir (com o contador do QA) e Testar no alto; Ajustes no pé. O Glossário só aparece com projeto aberto. -->
       <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="*,Auto">
         <Grid.Styles>
           <Style Selector="ListBoxItem" x:DataType="vm:NavItemViewModel">
