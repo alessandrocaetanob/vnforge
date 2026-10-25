@@ -15,9 +15,19 @@
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- ScreenDialog (v3.css ".scrim" e ".dialog"): fundo escurecido sobre a célula do Grid e um cartão de até 760px no alto, 64px abaixo da borda. Fechado, some. -->
+  <!-- ScreenDialog (v3.css ".scrim" e ".dialog"): o controle no XAML é só o ponto de partida; aberto, o cartão (ScreenDialogSurface) vai para a OverlayLayer. -->
   <Style Selector="c|ScreenDialog">
-    <Setter Property="IsVisible" Value="False"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <!-- O fundo escurecido cobre a janela e um cartão de até 760px fica no alto, 64px abaixo da borda. Tab cicla dentro dele. -->
+  <Style Selector="c|ScreenDialogSurface">
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="Cycle"/>
     <Setter Property="Template">
       <ControlTemplate>
         <Panel>
@@ -41,8 +51,5 @@
         </Panel>
       </ControlTemplate>
     </Setter>
-  </Style>
-  <Style Selector="c|ScreenDialog:open">
-    <Setter Property="IsVisible" Value="True"/>
   </Style>
 </Styles>

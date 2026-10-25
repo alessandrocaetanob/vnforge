@@ -3,7 +3,7 @@ Sistema visual do VNForge v2, o aplicativo Windows de tradução de visual novel
 ## Conteúdo
 
 - Interface em português do Brasil, caixa de frase em tudo: "Traduzir pendentes", "Build e injeção", "Conferência".
-- Botões começam com verbo no infinitivo ("Aprovar e próxima", "Restaurar originais"). Itens de navegação são substantivos de uma palavra ("Editor", "Conferir", "Build").
+- Botões começam com verbo no infinitivo ("Aprovar e próxima", "Restaurar originais"). Itens de navegação são substantivos de uma palavra ("Editor", "Conferir", "Testar").
 - Termos fixos do produto: **linha** (unidade de texto), **script** (arquivo `yst*.ybn`), **marcador** (`\p`, `\n`, `\c`, `{VAR:…}`), **perfil de formatação**, **build**, **injetar**, **restaurar**. Não alternar com sinônimos.
 - Números e moeda no formato pt-BR: `48.211 linhas`, `US$ 0,84`, `62%`. Datas relativas até 7 dias ("há 2 min", "ontem"), depois `17/10/2026`.
 - Nomes de personagem aparecem como original → tradução na primeira menção de uma tela (`美咲 → Misaki`) e só a tradução no resto.

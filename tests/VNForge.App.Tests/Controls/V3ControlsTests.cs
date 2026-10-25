@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -142,6 +143,41 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
         });
     }
 
+    private static Control CartaoDe(Window janela) =>
+        Assert.Single(OverlayLayer.GetOverlayLayer(janela)!.Children.OfType<Control>());
+
+    [Fact]
+    public async Task Dialogo_aberto_vive_na_camada_de_sobreposicao_e_cobre_a_janela_inteira()
+    {
+        await OnUi(() =>
+        {
+            var dialogo = new ScreenDialog { Title = "Traduzir com IA", Content = new TextBlock { Text = "corpo" }, IsOpen = true };
+            var janela = new Window { Width = 800, Height = 600, Content = new Grid { Margin = new Thickness(100), Children = { dialogo } } };
+            try
+            {
+                janela.Show();
+                ScreenRenderer.Settle(janela);
+
+                var camada = OverlayLayer.GetOverlayLayer(janela)!;
+                var cartao = CartaoDe(janela);
+                Assert.True(cartao.IsEffectivelyVisible);
+                Assert.Equal(camada.Bounds.Width, cartao.Bounds.Width);
+                Assert.Equal(camada.Bounds.Height, cartao.Bounds.Height);
+                Assert.True(cartao.Bounds.Width >= janela.ClientSize.Width && cartao.Bounds.Height >= janela.ClientSize.Height, "o fundo escurecido cobre além da célula do Grid");
+                Assert.Contains(cartao.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "corpo");
+                Assert.Contains(cartao.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Traduzir com IA");
+
+                dialogo.IsOpen = false;
+                ScreenRenderer.Settle(janela);
+                Assert.Empty(camada.Children);
+            }
+            finally
+            {
+                janela.Close();
+            }
+        });
+    }
+
     [Fact]
     public async Task Escape_fecha_o_dialogo_e_avisa_quem_ouve()
     {
@@ -150,21 +186,24 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             var botao = new Button { Content = "Traduzir" };
             var dialogo = new ScreenDialog { Title = "Traduzir com IA", Content = botao, IsOpen = true };
             var fechou = 0;
+            var comando = 0;
             dialogo.Closed += (_, _) => fechou++;
+            dialogo.CloseCommand = new RelayCommand(() => comando++);
             var janela = new Window { Width = 800, Height = 600, Content = new Grid { Children = { dialogo } } };
             try
             {
                 janela.Show();
                 ScreenRenderer.Settle(janela);
-                Assert.True(dialogo.IsVisible);
+                Assert.Single(OverlayLayer.GetOverlayLayer(janela)!.Children);
                 botao.Focus();
 
                 janela.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
                 ScreenRenderer.Settle(janela);
 
                 Assert.False(dialogo.IsOpen);
-                Assert.False(dialogo.IsVisible);
+                Assert.Empty(OverlayLayer.GetOverlayLayer(janela)!.Children);
                 Assert.Equal(1, fechou);
+                Assert.Equal(1, comando);
             }
             finally
             {
@@ -179,22 +218,134 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
         await OnUi(() =>
         {
             var dialogo = new ScreenDialog { Title = "Traduzir com IA", IsOpen = true };
+            var fechou = 0;
+            dialogo.Closed += (_, _) => fechou++;
             var janela = new Window { Width = 800, Height = 600, Content = new Grid { Children = { dialogo } } };
             try
             {
                 janela.Show();
                 ScreenRenderer.Settle(janela);
 
-                var fechar = dialogo.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Close");
+                var fechar = CartaoDe(janela).GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Close");
                 fechar.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
 
                 Assert.False(dialogo.IsOpen);
+                Assert.Equal(1, fechou);
             }
             finally
             {
                 janela.Close();
             }
         });
+    }
+
+    [Fact]
+    public async Task Fechar_o_dialogo_por_binding_tambem_dispara_o_evento_e_o_comando()
+    {
+        await OnUi(() =>
+        {
+            var estado = new DialogState { Aberto = true };
+            var dialogo = new ScreenDialog { Title = "Traduzir com IA" };
+            dialogo.Bind(ScreenDialog.IsOpenProperty, new Avalonia.Data.Binding(nameof(DialogState.Aberto)) { Mode = Avalonia.Data.BindingMode.TwoWay });
+            dialogo.DataContext = estado;
+            var fechou = 0;
+            var comando = 0;
+            dialogo.Closed += (_, _) => fechou++;
+            dialogo.CloseCommand = new RelayCommand(() => comando++);
+            var janela = new Window { Width = 800, Height = 600, Content = new Grid { Children = { dialogo } } };
+            try
+            {
+                janela.Show();
+                ScreenRenderer.Settle(janela);
+                Assert.True(dialogo.IsOpen);
+                Assert.Single(OverlayLayer.GetOverlayLayer(janela)!.Children);
+
+                estado.Aberto = false;
+                ScreenRenderer.Settle(janela);
+
+                Assert.False(dialogo.IsOpen);
+                Assert.Empty(OverlayLayer.GetOverlayLayer(janela)!.Children);
+                Assert.Equal(1, fechou);
+                Assert.Equal(1, comando);
+
+                estado.Aberto = true;
+                ScreenRenderer.Settle(janela);
+                Assert.Single(OverlayLayer.GetOverlayLayer(janela)!.Children);
+                Assert.Equal(1, fechou);
+            }
+            finally
+            {
+                janela.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task Tab_nao_sai_do_dialogo_para_a_tela_escurecida()
+    {
+        await OnUi(() =>
+        {
+            var atras = new Button { Content = "Atrás" };
+            var dentroA = new Button { Content = "Dentro A" };
+            var dentroB = new Button { Content = "Dentro B" };
+            var dialogo = new ScreenDialog { Title = "Traduzir com IA", Content = new StackPanel { Children = { dentroA, dentroB } } };
+            var janela = new Window { Width = 800, Height = 600, Content = new StackPanel { Children = { atras, new Button { Content = "Outro atrás" }, dialogo } } };
+            try
+            {
+                janela.Show();
+                ScreenRenderer.Settle(janela);
+                atras.Focus();
+                dialogo.IsOpen = true;
+                ScreenRenderer.Settle(janela);
+                var cartao = CartaoDe(janela);
+                dentroA.Focus();
+
+                foreach (var modifiers in new[] { RawInputModifiers.None, RawInputModifiers.Shift })
+                {
+                    for (var n = 0; n < 8; n++)
+                    {
+                        janela.KeyPress(Key.Tab, modifiers, PhysicalKey.Tab, null);
+                        ScreenRenderer.Settle(janela);
+                        var foco = Assert.IsAssignableFrom<Visual>(janela.FocusManager!.GetFocusedElement());
+                        Assert.True(foco == cartao || cartao.IsVisualAncestorOf(foco), $"o foco saiu do diálogo ({modifiers}, passo {n + 1}): {foco}");
+                    }
+                }
+            }
+            finally
+            {
+                janela.Close();
+            }
+        });
+    }
+
+    private sealed class DialogState : System.ComponentModel.INotifyPropertyChanged
+    {
+        private bool aberto;
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public bool Aberto
+        {
+            get => aberto;
+            set
+            {
+                aberto = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Aberto)));
+            }
+        }
+    }
+
+    private sealed class RelayCommand(Action execute) : System.Windows.Input.ICommand
+    {
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public bool CanExecute(object? parameter) => true;
+
+        public void Execute(object? parameter) => execute();
     }
 
     [Fact]

@@ -9,10 +9,13 @@ using Avalonia.Threading;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// O diálogo sobre a tela (v3.css, <c>.scrim</c> e <c>.dialog</c>): um fundo escurecido que cobre o que está embaixo e um cartão no alto, sem janela nova.
-/// Fica como última filha do <c>Grid</c> da página (sem <c>RowSpan</c> nem <c>ColumnSpan</c> ele cobre só a célula); fechado, não ocupa nem captura nada. <c>Escape</c> fecha e devolve o foco a quem o tinha.
-/// <c>Content</c> é o corpo, <see cref="Footer"/> a faixa de botões e <see cref="Title"/> o título.
+/// O diálogo sobre a tela (v3.css, <c>.scrim</c> e <c>.dialog</c>): um fundo escurecido que cobre a janela inteira e um cartão no alto, sem janela nova.
+/// Aberto, o cartão vive na <see cref="OverlayLayer"/> do Avalonia, acima de tudo e com o tamanho da janela; este controle fica onde o XAML o pôs,
+/// sem ocupar nem capturar nada, e leva <c>DataContext</c>, <c>Content</c>, <see cref="Footer"/> e <see cref="Title"/> para o cartão.
+/// O foco fica preso no cartão (Tab cicla entre os controles dele), <c>Escape</c> e o botão de fechar fecham, e o foco volta a quem o tinha.
+/// <see cref="Closed"/> e <see cref="CloseCommand"/> disparam sempre que <see cref="IsOpen"/> passa a falso, por <c>Escape</c>, pelo botão, por <see cref="Close"/> ou por binding.
 /// </summary>
+/// <remarks>Como o cartão sai da árvore da página, estilos declarados só dentro dela não alcançam o corpo do diálogo; os estilos do aplicativo e o tema valem.</remarks>
 public sealed class ScreenDialog : ContentControl
 {
     public static readonly StyledProperty<bool> IsOpenProperty = AvaloniaProperty.Register<ScreenDialog, bool>(nameof(IsOpen), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
@@ -20,14 +23,14 @@ public sealed class ScreenDialog : ContentControl
     public static readonly StyledProperty<object?> FooterProperty = AvaloniaProperty.Register<ScreenDialog, object?>(nameof(Footer));
     public static readonly StyledProperty<ICommand?> CloseCommandProperty = AvaloniaProperty.Register<ScreenDialog, ICommand?>(nameof(CloseCommand));
 
+    private readonly List<IDisposable> bindings = [];
     private IInputElement? previousFocus;
-    private Button? closeButton;
-
-    public ScreenDialog() => Focusable = true;
+    private ScreenDialogSurface? surface;
+    private OverlayLayer? layer;
 
     protected override Type StyleKeyOverride => typeof(ScreenDialog);
 
-    /// <summary>Disparado quando o diálogo fecha, por <c>Escape</c>, pelo botão de fechar ou por <see cref="Close"/>.</summary>
+    /// <summary>Disparado quando o diálogo fecha, por <c>Escape</c>, pelo botão de fechar, por <see cref="Close"/> ou quando <see cref="IsOpen"/> vira falso por binding.</summary>
     public event EventHandler? Closed;
 
     public bool IsOpen
@@ -48,24 +51,14 @@ public sealed class ScreenDialog : ContentControl
         set => SetValue(FooterProperty, value);
     }
 
-    /// <summary>Comando extra que roda quando o diálogo fecha (o botão de fechar, <c>Escape</c>).</summary>
+    /// <summary>Comando extra que roda quando o diálogo fecha (o botão de fechar, <c>Escape</c>, ou <see cref="IsOpen"/> falso).</summary>
     public ICommand? CloseCommand
     {
         get => GetValue(CloseCommandProperty);
         set => SetValue(CloseCommandProperty, value);
     }
 
-    public void Close()
-    {
-        if (!IsOpen)
-        {
-            return;
-        }
-
-        IsOpen = false;
-        CloseCommand?.Execute(null);
-        Closed?.Invoke(this, EventArgs.Empty);
-    }
+    public void Close() => IsOpen = false;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -78,22 +71,131 @@ public sealed class ScreenDialog : ContentControl
         PseudoClasses.Set(":open", IsOpen);
         if (IsOpen)
         {
-            previousFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
-            Dispatcher.UIThread.Post(() => Focus(), DispatcherPriority.Input);
+            Show();
+            return;
         }
-        else if (previousFocus is { } element)
+
+        Hide();
+        if (change.OldValue is true)
         {
-            previousFocus = null;
+            CloseCommand?.Execute(null);
+            Closed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (IsOpen)
+        {
+            Show();
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        Hide(restoreFocus: false);
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void Show()
+    {
+        if (surface is not null || OverlayLayer.GetOverlayLayer(this) is not { } overlay)
+        {
+            return;
+        }
+
+        previousFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        var card = new ScreenDialogSurface(Close);
+        surface = card;
+        layer = overlay;
+        bindings.Add(card.Bind(DataContextProperty, this.GetObservable(DataContextProperty)));
+        bindings.Add(card.Bind(ContentProperty, this.GetObservable(ContentProperty)));
+        bindings.Add(card.Bind(ContentTemplateProperty, this.GetObservable(ContentTemplateProperty)));
+        bindings.Add(card.Bind(ScreenDialogSurface.TitleProperty, this.GetObservable(TitleProperty)));
+        bindings.Add(card.Bind(ScreenDialogSurface.FooterProperty, this.GetObservable(FooterProperty)));
+        bindings.Add(overlay.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(bounds =>
+        {
+            card.Width = bounds.Width;
+            card.Height = bounds.Height;
+        })));
+        overlay.Children.Add(card);
+        Dispatcher.UIThread.Post(() => card.Focus(), DispatcherPriority.Input);
+    }
+
+    private void Hide(bool restoreFocus = true)
+    {
+        if (surface is not { } card)
+        {
+            return;
+        }
+
+        foreach (var binding in bindings)
+        {
+            binding.Dispose();
+        }
+
+        bindings.Clear();
+        layer?.Children.Remove(card);
+        card.Content = null;
+        card.Footer = null;
+        surface = null;
+        layer = null;
+        var element = previousFocus;
+        previousFocus = null;
+        if (restoreFocus && element is not null)
+        {
             Dispatcher.UIThread.Post(() => element.Focus(), DispatcherPriority.Input);
         }
     }
 
+    private sealed class ActionObserver<T>(Action<T> next) : IObserver<T>
+    {
+        public void OnNext(T value) => next(value);
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnCompleted()
+        {
+        }
+    }
+}
+
+/// <summary>O cartão do <see cref="ScreenDialog"/> na camada de sobreposição: o fundo escurecido, o cartão e o ciclo de Tab dentro dele.</summary>
+internal sealed class ScreenDialogSurface : ContentControl
+{
+    public static readonly StyledProperty<string?> TitleProperty = AvaloniaProperty.Register<ScreenDialogSurface, string?>(nameof(Title));
+    public static readonly StyledProperty<object?> FooterProperty = AvaloniaProperty.Register<ScreenDialogSurface, object?>(nameof(Footer));
+
+    private readonly Action close;
+    private Button? closeButton;
+
+    public ScreenDialogSurface(Action close)
+    {
+        this.close = close;
+        Focusable = true;
+    }
+
+    public string? Title
+    {
+        get => GetValue(TitleProperty);
+        set => SetValue(TitleProperty, value);
+    }
+
+    public object? Footer
+    {
+        get => GetValue(FooterProperty);
+        set => SetValue(FooterProperty, value);
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (IsOpen && e.Key == Key.Escape)
+        if (e.Key == Key.Escape)
         {
             e.Handled = true;
-            Close();
+            close();
             return;
         }
 
@@ -115,5 +217,5 @@ public sealed class ScreenDialog : ContentControl
         }
     }
 
-    private void OnCloseClicked(object? sender, RoutedEventArgs e) => Close();
+    private void OnCloseClicked(object? sender, RoutedEventArgs e) => close();
 }

@@ -197,7 +197,7 @@ public class SettingsViewModelTests
         var description = Create(temp).Encodings.Single(e => e.Id == "cp1252").Description;
 
         Assert.Contains("MS Gothic", description);
-        Assert.Contains("tela Build", description);
+        Assert.Contains("tela Testar", description);
         Assert.DoesNotContain("lead bytes", description);
         Assert.DoesNotContain("ANSI_CHARSET", description);
     }

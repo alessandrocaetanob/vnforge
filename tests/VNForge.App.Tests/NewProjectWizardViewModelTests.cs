@@ -216,7 +216,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
 
         Assert.Contains("MS Gothic", description);
         Assert.Contains("opcional", description);
-        Assert.Contains("tela Build", description);
+        Assert.Contains("tela Testar", description);
         Assert.DoesNotContain("só funciona", description);
     }
 

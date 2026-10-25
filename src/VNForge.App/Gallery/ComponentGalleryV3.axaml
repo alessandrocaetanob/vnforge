@@ -43,7 +43,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="ProgressRing · 62%, 100%, vazio, pequeno"/>
+      <TextBlock Classes="overline" Text="ProgressRing · 38%, 100%, vazio, pequeno"/>
       <StackPanel Orientation="Horizontal" Spacing="24">
         <c:ProgressRing Done="18592" Review="10936" Total="48211"/>
         <c:ProgressRing Done="100" Review="0" Total="100"/>
@@ -135,15 +135,15 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="ScreenDialog · aberto sobre a tela (Escape fecha)"/>
-      <Grid Height="300" ClipToBounds="True">
-        <Border Classes="panel" Padding="16"><TextBlock Classes="body" Text="A tela de baixo, escurecida pelo diálogo."/></Border>
-        <c:ScreenDialog x:Name="SampleDialog" Title="Traduzir com IA" IsOpen="True">
+      <TextBlock Classes="overline" Text="ScreenDialog · na camada de sobreposição, sobre a janela inteira (Escape fecha)"/>
+      <Button HorizontalAlignment="Left" Content="Abrir o diálogo" Click="OnOpenDialog"/>
+      <Grid>
+        <c:ScreenDialog x:Name="SampleDialog" Title="Traduzir com IA">
           <TextBlock Classes="body" TextWrapping="Wrap" Text="O que traduzir, com que qualidade e por quanto."/>
           <c:ScreenDialog.Footer>
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-              <Button Content="Cancelar"/>
-              <Button Classes="accent" Content="Traduzir"/>
+              <Button Content="Cancelar" Click="OnCloseDialog"/>
+              <Button Classes="accent" Content="Traduzir" Click="OnCloseDialog"/>
             </StackPanel>
           </c:ScreenDialog.Footer>
         </c:ScreenDialog>

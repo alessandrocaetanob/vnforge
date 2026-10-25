@@ -40,7 +40,6 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
         var layout = Caixa([2]);
 
         Assert.Equal([GameTextboxRowKind.Text, GameTextboxRowKind.Text, GameTextboxRowKind.Vacant], Tipos(layout));
-        Assert.Equal("Cabe · 2 de 3 linhas", TextboxPreviewViewModel.FitText(layout));
     }
 
     [Fact]
@@ -51,7 +50,6 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
 
         Assert.Equal([GameTextboxRowKind.Text, GameTextboxRowKind.Text, GameTextboxRowKind.Text, GameTextboxRowKind.Overflow], Tipos(layout));
         Assert.Equal([false, false, false, true], grade.Select(r => r.FirstOverflow));
-        Assert.Equal("Passa 1 linha", TextboxPreviewViewModel.FitText(layout));
     }
 
     [Fact]
@@ -67,19 +65,11 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
             ],
             Tipos(layout));
         Assert.Equal(1, GameTextbox.Describe(layout).Single(r => r.Kind == GameTextboxRowKind.PageBreak).Page);
-        Assert.Equal("Cabe · 3 de 3 linhas", TextboxPreviewViewModel.FitText(layout));
-    }
-
-    [Fact]
-    public void Sem_limite_de_linhas_nao_ha_veredito()
-    {
-        Assert.Null(TextboxPreviewViewModel.FitText(Caixa([2]) with { MaxLines = null }));
-        Assert.Equal("Passa 5 linhas", TextboxPreviewViewModel.FitText(Caixa([4, 5], maximo: 2) with { MaxLines = 2 }));
     }
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Cada_caso_desenha_nos_dois_temas_e_a_altura_acompanha_a_grade(string tema)
+    public async Task A_altura_acompanha_a_grade_nos_dois_temas(string tema)
     {
         await fixture.Session.Dispatch(
             () =>
@@ -93,6 +83,109 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
                 Assert.True(passa.Height > cabe.Height, "a quarta linha, abaixo do traço, aumenta a caixa");
                 Assert.True(paginas.Height > passa.Height, "a segunda página e o separador aumentam a caixa");
                 Assert.True(cabe.Height > semNome.Height, "a placa do nome sai para fora do alto da caixa");
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Duas_de_tres_linhas_pintam_duas_linhas_de_tinta_a_terceira_pontilhada_e_o_triangulo(string tema)
+    {
+        await fixture.Session.Dispatch(
+            () => Desenhar(Caixa([2]), tema, (caixa, probe) =>
+            {
+                var cores = Cores(caixa);
+                var tinta = probe.RowBands(cores.Ink, Tinta, TextoDe, TextoAte(probe), AbaixoDaPlaca);
+
+                Assert.Equal(2, tinta.Count);
+                Assert.Empty(probe.RowBands(cores.Overflow, Tinta, 0, probe.Width));
+                var triangulo = Assert.Single(probe.ColumnRuns(ColunaDoTriangulo(probe), cores.Triangle, Triangulo));
+                Assert.True(triangulo.Start > tinta[1].End, "o triângulo fica abaixo da última linha");
+                Assert.True(triangulo.Start >= probe.Height - 28, "e abaixo da terceira linha, que ficou vaga");
+
+                var pontilhado = Enumerable.Range(tinta[1].End + 1, triangulo.Start - tinta[1].End - 1)
+                    .Count(y => probe.CountInRow(y, cores.Dotted, 6, TextoDe, TextoAte(probe)) >= 10);
+                Assert.True(pontilhado >= 2, "as linhas sem texto ganham o pontilhado: a que falta da segunda e a vaga");
+            }),
+            TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Quatro_linhas_para_tres_pintam_a_quarta_na_cor_de_overflow_abaixo_do_traco(string tema)
+    {
+        await fixture.Session.Dispatch(
+            () => Desenhar(Caixa([4]), tema, (caixa, probe) =>
+            {
+                var cores = Cores(caixa);
+                var tinta = probe.RowBands(cores.Ink, Tinta, TextoDe, TextoAte(probe), AbaixoDaPlaca);
+                var largura = TextoAte(probe) - TextoDe;
+                var textoDeEstouro = Enumerable.Range(AbaixoDaPlaca, probe.Height - AbaixoDaPlaca)
+                    .Where(y =>
+                    {
+                        var pixels = probe.CountInRow(y, cores.Overflow, Tinta, TextoDe, TextoAte(probe));
+                        return pixels > 0 && pixels < largura * 0.4;
+                    })
+                    .ToArray();
+
+                Assert.Equal(3, tinta.Count);
+                Assert.NotEmpty(textoDeEstouro);
+                Assert.True(textoDeEstouro.Max() - textoDeEstouro.Min() < 14, "a quarta linha é uma só");
+                Assert.True(textoDeEstouro.Min() > tinta[2].End, "a quarta linha vem depois das três de tinta");
+
+                var traco = Enumerable.Range(tinta[2].End + 1, textoDeEstouro.Min() - tinta[2].End - 1)
+                    .Where(y => probe.CountInRow(y, cores.OverflowSteps, 10, TextoDe - 6, TextoAte(probe) + 6) >= largura / 4)
+                    .ToArray();
+                Assert.InRange(traco.Length, 1, 2);
+                Assert.True(traco.Max() < textoDeEstouro.Min(), "o traço de overflow fica entre a terceira linha e a quarta");
+                Assert.DoesNotContain(tinta, b => b.Start > traco.Min());
+                var linha = (Start: textoDeEstouro.Min(), End: textoDeEstouro.Max());
+
+                var triangulo = Assert.Single(probe.ColumnRuns(ColunaDoTriangulo(probe), cores.Triangle, Triangulo));
+                Assert.True(triangulo.Start > linha.End, "o triângulo vem depois da linha que passou");
+            }),
+            TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Duas_paginas_pintam_cinco_linhas_e_um_triangulo_ao_fim_de_cada_pagina(string tema)
+    {
+        await fixture.Session.Dispatch(
+            () => Desenhar(Caixa([3, 2]), tema, (caixa, probe) =>
+            {
+                var cores = Cores(caixa);
+                var tinta = probe.RowBands(cores.Ink, Tinta, TextoDe, TextoAte(probe), AbaixoDaPlaca);
+
+                Assert.Equal(5, tinta.Count);
+                Assert.Empty(probe.RowBands(cores.Overflow, Tinta, 0, probe.Width));
+                var triangulos = probe.ColumnRuns(ColunaDoTriangulo(probe), cores.Triangle, Triangulo);
+                Assert.Equal(2, triangulos.Count);
+                Assert.True(triangulos[0].Start > tinta[2].End && triangulos[0].End < tinta[3].Start, "o primeiro triângulo fecha a página 1");
+                Assert.True(triangulos[1].Start > tinta[4].End, "o segundo fecha a página 2");
+
+                var separador = Enumerable.Range(tinta[2].End + 1, tinta[3].Start - tinta[2].End - 1)
+                    .Count(y => probe.CountInRow(y, cores.SeparatorSteps, 4, TextoDe, TextoAte(probe)) >= 10);
+                Assert.True(separador >= 1, "o traço tracejado do separador \"página 2\" fica entre as duas páginas");
+            }),
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Os_dois_temas_desenham_os_mesmos_pixels_porque_os_tokens_da_caixa_nao_mudam()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                foreach (var layout in new[] { Caixa([2]), Caixa([4]), Caixa([3, 2]) })
+                {
+                    PixelProbe? escuro = null;
+                    PixelProbe? claro = null;
+                    Desenhar(layout, "Dark", (_, probe) => escuro = probe);
+                    Desenhar(layout, "Light", (_, probe) => claro = probe);
+
+                    Assert.True(escuro!.SameAs(claro!), "a caixa do jogo é a mesma nos dois temas");
+                }
             },
             TestContext.Current.CancellationToken);
     }
@@ -130,7 +223,15 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
                 painel.Children.Add(new GameTextbox { Layout = Caixa([2]), Size = GameTextboxSize.Large, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left });
                 painel.Children.Add(new GameTextbox { Layout = Caixa([2]), Size = GameTextboxSize.Small, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left });
                 ScreenRenderer.Render(new ScrollViewer { Content = painel }, variant, path, 700, 1500, window =>
-                    Assert.All(window.GetVisualDescendants().OfType<GameTextbox>(), c => Assert.True(c.Bounds.Height > 0)));
+                {
+                    var caixas = window.GetVisualDescendants().OfType<GameTextbox>().ToArray();
+                    Assert.All(caixas, c => Assert.True(c.Bounds.Height > 0));
+                    foreach (var (caixa, linhas) in caixas.Zip(new[] { 2, 3, 5 }))
+                    {
+                        var probe = PixelProbe.Capture(window, caixa);
+                        Assert.Equal(linhas, probe.RowBands(Cores(caixa).Ink, Tinta, TextoDe, TextoAte(probe), AbaixoDaPlaca).Count);
+                    }
+                });
             },
             TestContext.Current.CancellationToken);
 
@@ -197,6 +298,45 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
                 }
             },
             TestContext.Current.CancellationToken);
+    }
+
+    private const int Tinta = 24;
+    private const int Triangulo = 10;
+    private const int TextoDe = 20;
+    private const int AbaixoDaPlaca = 28;
+
+    private static int TextoAte(PixelProbe probe) => probe.Width - 60;
+
+    private static int ColunaDoTriangulo(PixelProbe probe) => probe.Width - 26;
+
+    private sealed record CoresDaCaixa(Avalonia.Media.Color Ink, Avalonia.Media.Color Overflow, Avalonia.Media.Color Triangle, Avalonia.Media.Color Dotted, IReadOnlyList<Avalonia.Media.Color> OverflowSteps, IReadOnlyList<Avalonia.Media.Color> SeparatorSteps);
+
+    private static CoresDaCaixa Cores(Control host)
+    {
+        Avalonia.Media.Color Token(string key)
+        {
+            Assert.True(host.TryFindResource(key, host.ActualThemeVariant, out var found), key);
+            return Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(found).Color;
+        }
+
+        var (ink, overflow, background) = (Token("Vnf.TextboxInk"), Token("Vnf.TextboxOverflow"), Token("Vnf.TextboxBg"));
+        return new CoresDaCaixa(ink, overflow, PixelProbe.Blend(ink, 0.8, background), PixelProbe.Blend(ink, 0.13, background), PixelProbe.Steps(overflow, 1, background), PixelProbe.Steps(ink, 0.22, background));
+    }
+
+    private static void Desenhar(TextboxLayout layout, string tema, Action<GameTextbox, PixelProbe> inspecionar)
+    {
+        var caixa = new GameTextbox { Layout = layout, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+        var janela = new Window { Width = 700, Height = 600, Background = Avalonia.Media.Brushes.Black, RequestedThemeVariant = Variant(tema), Content = caixa };
+        try
+        {
+            janela.Show();
+            ScreenRenderer.Settle(janela);
+            inspecionar(caixa, PixelProbe.Capture(janela, caixa));
+        }
+        finally
+        {
+            janela.Close();
+        }
     }
 
     private static Avalonia.Size Medir(TextboxLayout layout, string tema, GameTextboxSize tamanho = GameTextboxSize.Medium)

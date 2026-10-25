@@ -18,7 +18,7 @@ A janela principal (#241) segue o canvas v2:
 
 - **Barra de título**: selo 訳 em `brand-shu`, nome do app, migalha do projeto (o nome, como "Minha VN — PT-BR") e a busca central "Buscar linhas, scripts e comandos" com `Ctrl+K`. Os botões de janela são os do sistema.
 - **Paleta de comandos** (`Ctrl+K` ou clique na busca): sem texto lista comandos e telas; com texto acha comandos ("Traduzir pendentes", "Novo build", "Abrir pasta do projeto"), telas, scripts por id e linhas pelo texto do original ou da tradução. Setas navegam, `Enter` executa, `Esc` fecha. "Traduzir pendentes" leva ao Editor com o filtro Pendentes; a tradução em lote pela IA entra com o cabeçalho do Editor. A página Busca saiu do trilho: a paleta a substitui.
-- **Trilho**: Início, Painel, Editor, Conferir (com o contador de problemas do QA) e Build no alto, Ajustes no pé. O Glossário só aparece com projeto aberto. O contador vem da última conferência; antes da primeira, e depois de o Editor contar de novo (uma edição gravada ou uma releitura), vem das ocorrências do Editor, que é o número mais recente.
+- **Trilho**: Início, Painel, Editor, Conferir (com o contador de problemas do QA) e Testar no alto, Ajustes no pé. O Glossário só aparece com projeto aberto. O contador vem da última conferência; antes da primeira, e depois de o Editor contar de novo (uma edição gravada ou uma releitura), vem das ocorrências do Editor, que é o número mais recente.
 - **Barra de status**: à esquerda a tarefa em andamento (nome, barra, contagem, custo) e "Tarefas (n)", que abre a lista; à direita a hora da última gravação do Editor (zerada ao abrir outro projeto), a acentuação do projeto e os limites da caixa (colunas e linhas do `formatting.json`); salvar os Ajustes do projeto atualiza os dois últimos.
 
 ## Telas
@@ -41,7 +41,7 @@ O Início é a porta de entrada: lista os projetos recentes à esquerda e mostra
 
 O fluxo é o do canvas v2: **Início, abrir ou continuar, Painel com as cinco etapas**.
 
-1. Sem projeto, o Início mostra "Abrir projeto" e "Novo projeto". O trilho só libera Painel, Editor, Conferir e Build depois que um projeto é aberto.
+1. Sem projeto, o Início mostra "Abrir projeto" e "Novo projeto". O trilho só libera Painel, Editor, Conferir e Testar depois que um projeto é aberto.
 2. "Abrir projeto" da barra de ações escolhe uma pasta, registra o projeto nos recentes e o deixa selecionado no Início, com o detalhe pronto. Nada além disso muda de tela.
 3. "Abrir projeto" do detalhe abre o selecionado de novo (relê a pasta e sobe o projeto na lista) e leva ao **Painel**, onde as cinco etapas (extrair, traduzir, conferir, build, injetar) dizem o que falta.
 4. "Continuar em `<script>`" leva ao **Editor** direto no último script editado: o `text/*.json` gravado por último entre os que já têm alguma linha traduzida; sem tradução nenhuma, o primeiro script. Sem scripts extraídos, o botão diz "Continuar no Editor".

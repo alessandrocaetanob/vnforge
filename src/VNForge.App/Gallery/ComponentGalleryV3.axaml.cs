@@ -57,6 +57,10 @@ public sealed partial class ComponentGalleryV3 : UserControl
         }
     }
 
+    private void OnOpenDialog(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SampleDialog.IsOpen = true;
+
+    private void OnCloseDialog(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SampleDialog.IsOpen = false;
+
     /// <summary>Todo ícone de <c>Assets/Icons.axaml</c>, na ordem do arquivo.</summary>
     public static IReadOnlyList<string> IconKeys { get; } =
     [

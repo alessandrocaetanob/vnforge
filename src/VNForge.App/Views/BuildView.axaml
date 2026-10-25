@@ -9,16 +9,10 @@
     <KeyBinding Gesture="Ctrl+B" Command="{Binding BuildCommand}"/>
   </UserControl.KeyBindings>
 
-  <UserControl.Resources>
-    <!-- Ícones do artboard "Build e injeção" que ainda não estão em Assets/Icons.axaml. -->
-    <StreamGeometry x:Key="Build.Icon.Play">M17.2204 8.68703C18.2558 9.25661 18.2558 10.7434 17.2204 11.313L7.2234 16.812C6.22371 17.362 5 16.6393 5 15.4991L5 4.50093C5 3.36068 6.22371 2.63805 7.2234 3.18795L17.2204 8.68703ZM16.7381 10.4377C17.0833 10.2478 17.0833 9.7522 16.7381 9.56234L6.74113 4.06327C6.4079 3.87997 6 4.12084 6 4.50093L6 15.4991C6 15.8792 6.4079 16.12 6.74114 15.9367L16.7381 10.4377Z</StreamGeometry>
-    <StreamGeometry x:Key="Build.Icon.Undo">M5 2.5C5 2.22386 4.77614 2 4.5 2C4.22386 2 4 2.22386 4 2.5V7.4C4 7.73137 4.26863 8 4.6 8H9.5C9.77614 8 10 7.77614 10 7.5C10 7.22386 9.77614 7 9.5 7H5.90603L9.37872 3.98124C11.046 2.53191 13.5725 2.70858 15.0218 4.37584C16.4711 6.0431 16.2945 8.56959 14.6272 10.0189L6.45529 17.1226C6.24688 17.3038 6.2248 17.6196 6.40596 17.828C6.58713 18.0364 6.90294 18.0585 7.11135 17.8774L15.2833 10.7736C17.3673 8.96197 17.5882 5.80385 15.7765 3.71978C13.9648 1.63571 10.8067 1.41487 8.72266 3.22653L5 6.46259V2.5Z</StreamGeometry>
-  </UserControl.Resources>
-
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel MaxWidth="1280" Margin="24,16,24,24" Spacing="16">
 
-      <c:PageHeader Breadcrumb="{Binding GameExecutable, StringFormat='Jogo: {0}'}" Title="Build e injeção">
+      <c:PageHeader Breadcrumb="{Binding GameExecutable, StringFormat='Jogo: {0}'}" Title="Testar">
         <Button Command="{Binding BuildCommand}" AutomationProperties.Name="Novo build">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Novo build" VerticalAlignment="Center"/>
@@ -155,7 +149,7 @@
                 <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Command="{Binding LaunchCommand}" AutomationProperties.Name="Abrir jogo">
                   <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Width="16" Height="16" Data="{StaticResource Build.Icon.Play}"/>
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
                     <TextBlock Text="Abrir jogo"/>
                   </StackPanel>
                 </Button>
@@ -164,7 +158,7 @@
               <Button Grid.Row="3" Classes="danger" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                       Command="{Binding RestoreCommand}" AutomationProperties.Name="Restaurar originais">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                  <PathIcon Width="16" Height="16" Data="{StaticResource Build.Icon.Undo}"/>
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
                   <TextBlock Text="Restaurar originais"/>
                 </StackPanel>
               </Button>
