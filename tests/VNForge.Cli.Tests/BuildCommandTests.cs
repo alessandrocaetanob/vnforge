@@ -266,6 +266,55 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Caixa_acima_do_limite_aparece_uma_vez_so_na_saida_de_texto()
+    {
+        await InitAndExtract();
+        File.WriteAllText(ProjectFolder.Open(ProjectPath).FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
+        Translate(Yst1, i => i == 0 ? "aaa bbb ccc" : "Mika");
+        _cli.Cli.Qa = QaEngine.Default;
+
+        var result = await Build(AllowWarningsFlag);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("[caixa-acima-do-limite] caixa 1 com 3 linhas (máximo 2).", result.Output);
+        Assert.Equal(1, result.Output.Split(Yst00001000000).Length - 1);
+        Assert.DoesNotContain("Aviso: yst00001", result.Output);
+    }
+
+    [Fact]
+    public async Task Caixa_acima_do_limite_aparece_uma_vez_so_no_terminal_interativo()
+    {
+        await InitAndExtract();
+        File.WriteAllText(ProjectFolder.Open(ProjectPath).FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
+        Translate(Yst1, i => i == 0 ? "aaa bbb ccc" : "Mika");
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+        rich.Cli.Qa = QaEngine.Default;
+
+        var result = await rich.RunAsync([BuildVerb, AllowWarningsFlag, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(1, result.Output.Split(Yst00001000000).Length - 1);
+    }
+
+    [Fact]
+    public async Task Caixa_acima_do_limite_no_json_fica_so_na_lista_do_qa()
+    {
+        await InitAndExtract();
+        File.WriteAllText(ProjectFolder.Open(ProjectPath).FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
+        Translate(Yst1, i => i == 0 ? "aaa bbb ccc" : "Mika");
+        _cli.Cli.Qa = QaEngine.Default;
+
+        var result = await Build(JsonFlag, AllowWarningsFlag);
+
+        Assert.Equal(0, result.ExitCode);
+        using var document = JsonDocument.Parse(result.Output);
+        var data = document.RootElement.GetProperty("data");
+        Assert.Equal(0, data.GetProperty("warnings").GetArrayLength());
+        var issue = Assert.Single(data.GetProperty("qa").GetProperty("issues").EnumerateArray(), i => i.GetProperty("rule").GetString() == "caixa-acima-do-limite");
+        Assert.Equal(Yst00001000000, issue.GetProperty("unit").GetString());
+    }
+
+    [Fact]
     public async Task Linhas_sem_traducao_nao_bloqueiam_o_build_e_o_resumo_traz_a_contagem()
     {
         await InitAndExtract();
