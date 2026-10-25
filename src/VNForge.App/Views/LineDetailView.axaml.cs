@@ -5,6 +5,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 
@@ -80,7 +81,8 @@ public sealed partial class LineDetailView : UserControl
             return;
         }
 
-        var hadFocus = TranslationEditor.IsKeyboardFocusWithin;
+        var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+        var hadFocus = focused is not null && this.IsVisualAncestorOf(focused);
         tabbed = useTabs;
         WideStack.Children.Clear();
         TabbedHeaderHost.Child = null;
@@ -110,7 +112,19 @@ public sealed partial class LineDetailView : UserControl
         // Tirar o campo da árvore tira o foco dele, e sem foco os atalhos do inspetor deixam de responder.
         if (hadFocus)
         {
-            Dispatcher.UIThread.Post(FocusTranslation, DispatcherPriority.Input);
+            Dispatcher.UIThread.Post(
+                () =>
+                {
+                    if (focused is not null && this.IsVisualAncestorOf(focused) && focused.Focusable)
+                    {
+                        focused.Focus();
+                    }
+                    else
+                    {
+                        FocusTranslation();
+                    }
+                },
+                DispatcherPriority.Input);
         }
     }
 
@@ -155,6 +169,7 @@ public sealed partial class LineDetailView : UserControl
         }
 
         current = DataContext as LineDetailViewModel;
+        wasSuggesting = current?.IsSuggesting ?? false;
         SourceText.Inlines?.Clear();
         if (current is null)
         {

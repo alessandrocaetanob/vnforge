@@ -365,8 +365,11 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
                 tabs.SelectedIndex = 1;
                 Settle(window);
                 var use = detailView.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "UseSuggestionButton");
+                Assert.True(use.Command!.CanExecute(null));
+                use.Command.Execute(null);
                 use.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 Settle(window);
+                Assert.Equal("Texto sugerido", vm.Detail.FieldText);
                 indexes.Add(tabs.SelectedIndex);
                 focusInside.Add(detailView.GetVisualDescendants().OfType<TextEditor>().Single().TextArea.IsFocused);
                 window.Close();
