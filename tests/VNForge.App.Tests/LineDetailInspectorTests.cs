@@ -119,6 +119,30 @@ public sealed class LineDetailInspectorTests : IDisposable
     }
 
     [Fact]
+    public async Task Dividir_em_paginas_nao_deixa_o_inspetor_dizer_que_faltou_uma_quebra()
+    {
+        // A divisão troca por \p a quebra do autor no ponto de corte: o \p a mais paga o \n que sumiu.
+        using var vm = Abrir(Fala("健太", "一\\n二\\n三\\n四\\p", "um\\ndois\\ntres\\nquatro\\p"));
+        Assert.True(vm.Fit!.IsVisible);
+
+        await vm.Fit.SplitCommand.ExecuteAsync(null);
+
+        Assert.Equal("um\\ndois\\ntres\\pquatro\\p", vm.Translation);
+        Assert.Empty(vm.MissingMarkers);
+        Assert.True(vm.MarkersMatch);
+        Assert.Equal("Marcadores iguais ao original, com 1 página a mais", vm.MarkerStateText);
+    }
+
+    [Fact]
+    public void Quebra_que_falta_sem_pagina_a_mais_continua_diferente_do_original()
+    {
+        using var vm = Abrir(Fala("健太", "一\\n二\\p", "um dois\\p"));
+
+        Assert.False(vm.MarkersMatch);
+        Assert.Equal(["\\n"], vm.MissingMarkers);
+    }
+
+    [Fact]
     public void Virada_de_pagina_a_mais_nao_e_marcador_diferente_e_o_inspetor_diz_quantas()
     {
         using var vm = Abrir(Fala("健太", "「……いいのか？\\n濡れるぞ」\\p", "…Tem certeza?\\nVocê vai se molhar.\\p"));
@@ -131,7 +155,7 @@ public sealed class LineDetailInspectorTests : IDisposable
         Assert.True(vm.MarkersMatch);
         Assert.Equal("Marcadores iguais ao original, com 2 páginas a mais", vm.MarkerStateText);
 
-        vm.Translation = "…Tem certeza?\\p\\p\\p";
+        vm.Translation = "…Tem certeza?\\n\\c\\p\\p";
         Assert.False(vm.MarkersMatch);
         Assert.Equal("Marcadores diferentes do original", vm.MarkerStateText);
     }

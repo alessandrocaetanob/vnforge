@@ -456,10 +456,14 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         try
         {
             var found = ControlMarkers.Markers(Translation);
-            MissingMarkers = FindMissingMarkers(sourceMarkers, found);
-            MarkerProblem = null;
+            var missing = FindMissingMarkers(sourceMarkers, found);
             extraPages = Math.Max(0, CountPages(found) - CountPages(sourceMarkers));
-            SetMarkersMatch(MissingMarkers.Count == 0 && found.Count - extraPages == sourceMarkers.Count);
+
+            // A divisão em páginas troca por \p a quebra do autor no ponto de corte: cada página a mais paga uma quebra que sumiu.
+            var forgiven = Math.Min(extraPages, missing.Count(IsLineBreak));
+            MissingMarkers = [.. RemoveLineBreaks(missing, forgiven)];
+            MarkerProblem = null;
+            SetMarkersMatch(MissingMarkers.Count == 0 && found.Count - extraPages + forgiven == sourceMarkers.Count);
         }
         catch (ArgumentException e)
         {
@@ -467,6 +471,24 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             MarkerProblem = e.Message;
             extraPages = 0;
             SetMarkersMatch(false);
+        }
+    }
+
+    private static bool IsLineBreak(string marker) => string.Equals(marker, ControlMarkers.LineBreak, StringComparison.Ordinal);
+
+    private static IEnumerable<string> RemoveLineBreaks(IReadOnlyList<string> markers, int count)
+    {
+        var left = count;
+        foreach (var marker in markers)
+        {
+            if (left > 0 && IsLineBreak(marker))
+            {
+                left--;
+            }
+            else
+            {
+                yield return marker;
+            }
         }
     }
 
