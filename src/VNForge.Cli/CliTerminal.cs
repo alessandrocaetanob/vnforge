@@ -13,6 +13,9 @@ namespace VNForge.Cli;
 /// <param name="ColorSystem">Sistema de cores quando a saída é rica.</param>
 /// <param name="Animate">Pode redesenhar a tela. Falso com o erro padrão redirecionado (<c>vnf translate 2&gt; progresso.log</c>): a barra iria para o terminal e o log por lote sumiria do arquivo.</param>
 /// <param name="Interaction">Se o Spectre pode redesenhar a tela (barras ao vivo) quando a saída é rica; os testes forçam <see cref="InteractionSupport.Yes"/>.</param>
+/// <param name="QuestionOnOwnLine">As perguntas terminam em quebra de linha. Verdadeiro com o erro padrão redirecionado e a entrada no teclado
+/// (<c>vnf inject 2&gt;&amp;1 | Tee-Object</c>): quem lê o pipe linha a linha só entrega a pergunta quando chega o <c>\n</c>, e sem ele o vnf
+/// espera uma resposta que o usuário não viu.</param>
 public sealed record CliTerminal(
     bool IsInteractive,
     bool NoColorEnvironment,
@@ -20,7 +23,8 @@ public sealed record CliTerminal(
     AnsiSupport Ansi = AnsiSupport.Detect,
     ColorSystemSupport ColorSystem = ColorSystemSupport.Detect,
     InteractionSupport Interaction = InteractionSupport.Detect,
-    bool Animate = true)
+    bool Animate = true,
+    bool QuestionOnOwnLine = false)
 {
     /// <summary>Saída redirecionada: texto simples. É o que os testes usam por padrão.</summary>
     public static CliTerminal Plain(int? width = null) => new(IsInteractive: false, NoColorEnvironment: false, width);
@@ -43,6 +47,10 @@ public sealed record CliTerminal(
 
         var interactive = ReferenceEquals(output, Console.Out) && !Console.IsOutputRedirected;
         var noColor = !string.IsNullOrEmpty(getEnvironmentVariable("NO_COLOR"));
-        return new CliTerminal(interactive, noColor, Animate: !Console.IsErrorRedirected);
+        return new CliTerminal(
+            interactive,
+            noColor,
+            Animate: !Console.IsErrorRedirected,
+            QuestionOnOwnLine: Console.IsErrorRedirected && !Console.IsInputRedirected);
     }
 }

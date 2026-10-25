@@ -20,7 +20,15 @@ internal static class ConfirmationPrompt
         }
 
         var error = parseResult.InvocationConfiguration.Error;
-        error.Write($"{question} [s/N] ");
+        if (cli.QuestionOnOwnLine)
+        {
+            error.WriteLine($"{question} [s/N]");
+        }
+        else
+        {
+            error.Write($"{question} [s/N] ");
+        }
+
         error.Flush();
         var answer = cli.Input.ReadLine();
         if (answer is null)

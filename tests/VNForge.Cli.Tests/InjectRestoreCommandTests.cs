@@ -139,6 +139,37 @@ public sealed class InjectRestoreCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Inject_com_o_erro_redirecionado_entrega_a_pergunta_terminada_em_quebra_de_linha_antes_de_ler_a_resposta()
+    {
+        PutBuild();
+        var error = new StringWriter();
+        var errorWhenAnswerWasRead = new List<string>();
+        var input = new SpyReader("s\n", () => errorWhenAnswerWasRead.Add(error.ToString()));
+        var terminal = CliTerminal.Plain(width: 100) with { QuestionOnOwnLine = true };
+        var cli = VnfCli.Create(_cli.WorkingDirectory, _cli.UserLogDirectory, _cli.UserConfigDirectory, input, new InMemoryApiKeyStore(), terminal);
+
+        var code = await cli.RunAsync([Inject, "--project", _project.Root], new StringWriter(), error, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, code);
+        var seen = Assert.Single(errorWhenAnswerWasRead);
+        Assert.Equal("Gravar 1 arquivo(s) na pasta do jogo? [s/N]" + Environment.NewLine, seen);
+    }
+
+    [Fact]
+    public async Task Inject_sem_redirecionar_o_erro_mantem_a_resposta_na_linha_da_pergunta()
+    {
+        PutBuild();
+        var error = new StringWriter();
+        var errorWhenAnswerWasRead = new List<string>();
+        var input = new SpyReader("s\n", () => errorWhenAnswerWasRead.Add(error.ToString()));
+        var cli = VnfCli.Create(_cli.WorkingDirectory, _cli.UserLogDirectory, _cli.UserConfigDirectory, input, new InMemoryApiKeyStore(), CliTerminal.Plain(width: 100));
+
+        await cli.RunAsync([Inject, "--project", _project.Root], new StringWriter(), error, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Gravar 1 arquivo(s) na pasta do jogo? [s/N] ", Assert.Single(errorWhenAnswerWasRead));
+    }
+
+    [Fact]
     public async Task Inject_sem_yes_e_resposta_nao_sai_com_3_sem_gravar_nada()
     {
         PutBuild();

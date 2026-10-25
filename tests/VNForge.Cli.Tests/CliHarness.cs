@@ -79,6 +79,22 @@ internal sealed class SwitchableReader(string? text) : TextReader
     public override string ReadToEnd() => _inner.ReadToEnd();
 }
 
+/// <summary>Entrada que avisa o teste no instante em que o comando lê uma linha, para ele olhar o que já foi escrito.</summary>
+internal sealed class SpyReader(string text, Action onReadLine) : TextReader
+{
+    private readonly StringReader _inner = new(text);
+
+    public override string? ReadLine()
+    {
+        onReadLine();
+        return _inner.ReadLine();
+    }
+
+    public override int Peek() => _inner.Peek();
+
+    public override int Read() => _inner.Read();
+}
+
 internal sealed class InMemoryApiKeyStore : IApiKeyStore
 {
     private string? _key;
