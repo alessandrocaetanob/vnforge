@@ -35,6 +35,11 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
     public void Inspetor_vira_abas_na_janela_pequena(double windowWidth, bool tabs) =>
         Assert.Equal(tabs, EditorBreakpoints.UsesInspectorTabs(windowWidth));
 
+    private static readonly int[] HeaderWidths = [1366, 1440];
+    private static readonly string[] TabbedNames = ["TranslationEditor", "ExplainCard", "SceneLines", "ContextFragment", "SuggestionCard", "GameBox", "ApproveButton", "UseSuggestionButton"];
+    private static readonly double[] ResizeSteps = [1440.0, 1366.0, 1440.0];
+    private static readonly double[] CrossingSteps = [1399.0, 1440.0];
+
     private static void Settle(Window window)
     {
         for (var i = 0; i < 3; i++)
@@ -137,7 +142,7 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
         await fixture.Session.Dispatch(
             () =>
             {
-                foreach (var width in new[] { 1366, 1440 })
+                foreach (var width in HeaderWidths)
                 {
                     var window = Show(new EditorView { DataContext = vm }, width);
                     foreach (var button in window.GetVisualDescendants().OfType<Button>().Where(b => b.Command == vm.ToggleSearchCommand || b.Command == vm.CheckFileCommand))
@@ -189,7 +194,7 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
                 for (var i = 0; i < items.Count; i++)
                 {
                     var content = (Control)items[i].Content!;
-                    foreach (var name in new[] { "TranslationEditor", "ExplainCard", "SceneLines", "ContextFragment", "SuggestionCard", "GameBox", "ApproveButton", "UseSuggestionButton" })
+                    foreach (var name in TabbedNames)
                     {
                         if (content.GetLogicalDescendants().OfType<Control>().Any(c => c.Name == name))
                         {
@@ -233,7 +238,7 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
             {
                 var window = Show(new EditorView { DataContext = vm }, 1440);
                 var detailView = window.GetVisualDescendants().OfType<LineDetailView>().Single();
-                foreach (var width in new[] { 1440.0, 1366.0, 1440.0 })
+                foreach (var width in ResizeSteps)
                 {
                     window.Width = width;
                     Settle(window);
@@ -305,7 +310,7 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
                 initial = (editor.Text, editor.CaretOffset, editor.SelectionLength);
                 Assert.True(editor.TextArea.IsFocused, "o campo começa com o foco");
 
-                foreach (var width in new[] { 1399.0, 1440.0 })
+                foreach (var width in CrossingSteps)
                 {
                     window.Width = width;
                     Settle(window);
