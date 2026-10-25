@@ -32,14 +32,7 @@ public sealed class ValidatingTranslationProvider : ITranslationProvider
                 accepted[result.Id] = result;
 
             var pending = report.Problems.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
-            current = new TranslationBatch([.. current.Lines.Where(l => pending.Contains(l.Id))])
-            {
-                PreviousLines = batch.PreviousLines,
-                Glossary = batch.Glossary,
-                Characters = batch.Characters,
-                StyleGuide = batch.StyleGuide,
-                Shorten = batch.Shorten,
-            };
+            current = batch.ForLines([.. current.Lines.Where(l => pending.Contains(l.Id))]);
         }
 
         return [.. batch.Lines.Select(l => accepted.TryGetValue(l.Id, out var r) ? r : new TranslationResult(l.Id, string.Empty, Refused: true))];

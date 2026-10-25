@@ -186,7 +186,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         }
     }
 
-    private static bool IsAlwaysListed(string category) => category != QaCategories.Translation && category != QaCategories.Other;
+    private static bool IsAlwaysListed(string category) => category is not (QaCategories.Translation or QaCategories.Style or QaCategories.Other);
 
     private static string DescribeSilenced(int count)
     {

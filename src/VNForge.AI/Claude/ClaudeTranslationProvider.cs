@@ -32,7 +32,27 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     /// </summary>
     public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
-        return _caller.RunAsync(batch, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)), ct);
+        return _caller.RunAsync(batch, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, BatchContext, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)), ct);
+    }
+
+    private const string ShortenInstruction =
+        "Linhas com \"current\" já têm tradução, mas ela não cabe na caixa do jogo (\"maxLines\" linhas de \"maxWidth\" colunas). Para elas, devolva em \"translation\" uma versão mais curta, com o mesmo sentido, o mesmo tom e os mesmos marcadores de controle, que caiba na caixa.";
+
+    /// <summary>
+    /// O bloco do sistema que muda a cada lote (glossário, personagens e, num pedido de versão curta, a instrução de encurtar). Fica depois do
+    /// ponto de cache, para o bloco estável continuar igual com e sem o pedido.
+    /// </summary>
+    private static string BatchContext(TranslationBatch batch)
+    {
+        var context = ClaudePromptParts.BatchContext(batch, "Glossário (use sempre estes termos):");
+        if (batch.Shorten.Count == 0)
+        {
+            return context;
+        }
+
+        return context.Length == 0
+            ? ShortenInstruction + Environment.NewLine
+            : context + Environment.NewLine + ShortenInstruction + Environment.NewLine;
     }
 
     private static string BuildSystem(TranslationBatch batch)
@@ -41,12 +61,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         sb.AppendLine("Você traduz linhas de visual novels do japonês para o português do Brasil.");
         sb.AppendLine("Mantenha exatamente os marcadores de controle do original e devolva uma tradução por linha, com o mesmo id.");
         sb.AppendLine("Responda apenas com o JSON pedido.");
-        if (batch.Shorten.Count > 0)
-        {
-            sb.AppendLine("Linhas com \"current\" já têm tradução, mas ela não cabe na caixa do jogo (\"maxLines\" linhas de \"maxWidth\" colunas). Para elas, devolva em \"translation\" uma versão mais curta, com o mesmo sentido, o mesmo tom e os mesmos marcadores de controle, que caiba na caixa.");
-        }
-
-        ClaudePromptParts.AppendContext(sb, batch, "Glossário (use sempre estes termos):");
+        ClaudePromptParts.AppendStableContext(sb, batch);
         return sb.ToString();
     }
 
@@ -54,6 +69,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     {
         var sb = new StringBuilder();
         ClaudePromptParts.AppendPrevious(sb, batch, "Contexto anterior (não traduzir):");
+        ClaudePromptParts.AppendNext(sb, batch, "Contexto seguinte (não traduzir):");
         sb.AppendLine("Traduza estas linhas:");
         sb.AppendLine(JsonSerializer.Serialize(
             batch.Lines.Select(u => PromptLine(u, batch)),

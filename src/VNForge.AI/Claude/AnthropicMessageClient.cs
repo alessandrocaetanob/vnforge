@@ -26,11 +26,7 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
         {
             Model = request.Model,
             MaxTokens = request.MaxTokens,
-            // Prompt caching: o sistema (estilo + glossário) se repete a cada lote.
-            System = new List<BetaTextBlockParam>
-            {
-                new() { Text = request.System, CacheControl = new BetaCacheControlEphemeral() },
-            },
+            System = SystemBlocks(request),
             Thinking = new BetaThinkingConfigAdaptive(),
             OutputConfig = new BetaOutputConfig
             {
@@ -61,6 +57,21 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
             response.Usage.CacheReadInputTokens ?? 0,
             response.Usage.CacheCreationInputTokens ?? 0);
         return new ClaudeReply(ToWire(response.StopReason), text, usage);
+    }
+
+    /// <summary>
+    /// Prompt caching: o bloco estável (instrução, escolhas de estilo e guia) leva o <c>cache_control</c> e se repete a cada lote do
+    /// projeto; o glossário e os personagens, que mudam a cada lote, vão num segundo bloco sem marca, depois do ponto de cache.
+    /// </summary>
+    internal static List<BetaTextBlockParam> SystemBlocks(ClaudeRequest request)
+    {
+        List<BetaTextBlockParam> blocks = [new() { Text = request.System, CacheControl = new BetaCacheControlEphemeral() }];
+        if (!string.IsNullOrWhiteSpace(request.BatchContext))
+        {
+            blocks.Add(new() { Text = request.BatchContext });
+        }
+
+        return blocks;
     }
 
     /// <summary>

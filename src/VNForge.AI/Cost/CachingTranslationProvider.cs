@@ -49,14 +49,7 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
     /// <summary>Manda ao provedor só as linhas fora do cache e guarda as traduções. Devolve as chaves das linhas recusadas.</summary>
     private async Task<HashSet<string>> TranslateMissingAsync(TranslationBatch batch, List<string> keys, List<int> toSend, CancellationToken ct)
     {
-        var request = new TranslationBatch([.. toSend.Select(i => batch.Lines[i])])
-        {
-            PreviousLines = batch.PreviousLines,
-            Glossary = batch.Glossary,
-            Characters = batch.Characters,
-            StyleGuide = batch.StyleGuide,
-            Shorten = batch.Shorten,
-        };
+        var request = batch.ForLines([.. toSend.Select(i => batch.Lines[i])]);
 
         var results = await inner.TranslateAsync(request, ct).ConfigureAwait(false);
         var byId = new Dictionary<string, TranslationResult>(StringComparer.Ordinal);

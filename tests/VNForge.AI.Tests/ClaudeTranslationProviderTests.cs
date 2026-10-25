@@ -76,8 +76,9 @@ public class ClaudeTranslationProviderTests
         Assert.Equal(ClaudeEffort.Low, request.Effort);
         Assert.Contains("\"translations\"", request.JsonSchema);
         Assert.Contains("Tom leve.", request.System);
-        Assert.Contains("magia", request.System);
-        Assert.Contains("formal", request.System);
+        Assert.Contains("magia", request.BatchContext);
+        Assert.Contains("formal", request.BatchContext);
+        Assert.DoesNotContain("magia", request.System);
         Assert.Contains("やあ", request.User);
         Assert.Contains("\"a\"", request.User);
     }
@@ -135,7 +136,8 @@ public class ClaudeTranslationProviderTests
         var results = await provider.TranslateAsync(batch, CancellationToken.None);
 
         var request = Assert.Single(client.Requests);
-        Assert.Contains("mais curta", request.System);
+        Assert.Contains("mais curta", request.BatchContext);
+        Assert.DoesNotContain("mais curta", request.System);
         Assert.Contains("\"current\":\"Olá, como você está passando hoje?\"", request.User);
         Assert.Contains("\"maxLines\":3", request.User);
         Assert.Contains("\"maxWidth\":40", request.User);
@@ -151,7 +153,7 @@ public class ClaudeTranslationProviderTests
         await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ")]), CancellationToken.None);
 
         var request = Assert.Single(client.Requests);
-        Assert.DoesNotContain("mais curta", request.System);
+        Assert.DoesNotContain("mais curta", request.FullSystem);
         Assert.DoesNotContain("current", request.User);
         Assert.DoesNotContain("maxLines", request.User);
     }
@@ -181,7 +183,7 @@ public class ClaudeTranslationProviderTests
         await provider.TranslateAsync(batch, CancellationToken.None);
 
         Assert.Contains("\"maxLines\":2", client.Requests[^1].User);
-        Assert.Contains("mais curta", client.Requests[^1].System);
+        Assert.Contains("mais curta", client.Requests[^1].BatchContext);
     }
 
     [Fact]
