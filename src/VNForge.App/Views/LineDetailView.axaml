@@ -66,6 +66,24 @@
         </Border>
       </StackPanel>
 
+      <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
+      <StackPanel Spacing="6">
+        <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}"
+                ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
+            <TextBlock Classes="caption secondary" Text="{Binding ExplainPriceText, StringFormat='· {0}'}" VerticalAlignment="Center"
+                       IsVisible="{Binding ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </Button>
+        <TextBlock Classes="caption secondary" Text="Pedindo a explicação..." IsVisible="{Binding IsExplaining}"/>
+        <c:ExplainCard ItemsSource="{Binding ExplainParts}" Model="{Binding ExplainModel}" Footnote="Só para você ler, não entra na tradução."
+                       IsVisible="{Binding ShowExplainCard}" AutomationProperties.Name="Explicação do original"/>
+        <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding ExplainError}"
+                   IsVisible="{Binding HasExplainError}"/>
+      </StackPanel>
+
       <!-- Na cena: a fala anterior e a seguinte. -->
       <StackPanel Spacing="6" IsVisible="{Binding HasScene}">
         <TextBlock Classes="overline" Text="Na cena"/>

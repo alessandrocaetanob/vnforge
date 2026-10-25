@@ -41,7 +41,7 @@ public sealed class App : Application
             window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
             {
-                Editor = new EditorViewModel(suggester: LineSuggester.ForUser(configDirectory)),
+                Editor = new EditorViewModel(suggester: LineSuggester.ForUser(configDirectory)) { Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate) },
             };
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();

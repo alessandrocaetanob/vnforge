@@ -110,6 +110,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(ShowEmptyState))]
     public partial string? ErrorMessage { get; set; }
 
+    /// <summary>O "Entender o japonês" do inspetor; nulo deixa o botão desligado.</summary>
+    public ILineExplanations? Explanations { get; init; }
+
     public ObservableCollection<ScriptItemViewModel> Scripts { get; } = [];
 
     /// <summary>
@@ -567,8 +570,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
         detail.AttachPreview(CurrentProfile());
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
