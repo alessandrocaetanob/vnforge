@@ -56,6 +56,7 @@ public static class PageSplitter
 
         var current = translation;
         var added = 0;
+        var original = Measure(profile, formatted, Built(profile, formatted, translation)).Lines.Count;
         while (true)
         {
             var built = Built(profile, formatted, current);
@@ -64,7 +65,8 @@ public static class PageSplitter
             var next = over < 0 ? null : InsertPage(profile, formatted, current, built, laidOut, (over, maxLines));
             if (next is null)
             {
-                return new PageSplit(current, lines.Count, added);
+                // Sem ponto confiável e ainda transbordando: uma divisão pela metade não resolve, então o texto volta como veio.
+                return over >= 0 && added > 0 ? new PageSplit(translation, original, 0) : new PageSplit(current, lines.Count, added);
             }
 
             current = next;
