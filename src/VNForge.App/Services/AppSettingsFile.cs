@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using VNForge.AI.Cost;
+using VNForge.AI.Settings;
 
 namespace VNForge.App.Services;
 
@@ -21,7 +22,7 @@ public sealed record AppSettings(int Concurrency, ThemeChoice Theme = ThemeChoic
     public const int MaxConcurrency = 8;
 
     /// <summary>Teto da cotação aceita: acima disso é quase certo um erro de digitação.</summary>
-    public const decimal MaxBrlPerUsd = 100m;
+    public const decimal MaxBrlPerUsd = AppBudgetFile.MaxBrlPerUsd;
 
     public static AppSettings Default { get; } = new(2);
 
@@ -93,13 +94,13 @@ public sealed class AppSettingsFile(string directory)
                 && Enum.IsDefined(picked)
                     ? picked
                     : TranslationQuality.Careful;
-            var rate = ReadMoney(root, "exchangeRate", AppSettings.MaxBrlPerUsd);
+            var rate = AppBudgetFile.ReadMoney(root, "exchangeRate", AppSettings.MaxBrlPerUsd);
             return new AppSettings(concurrency, theme)
             {
                 BrlPerUsd = rate,
-                RateInformedOn = rate is null ? null : Date(root, "exchangeRateOn"),
-                SpendLimit = ReadMoney(root, "spendLimit", decimal.MaxValue),
-                WarnAbove = ReadMoney(root, "warnAbove", decimal.MaxValue),
+                RateInformedOn = rate is null ? null : AppBudgetFile.ReadDate(root, "exchangeRateOn"),
+                SpendLimit = AppBudgetFile.ReadMoney(root, "spendLimit", decimal.MaxValue),
+                WarnAbove = AppBudgetFile.ReadMoney(root, "warnAbove", decimal.MaxValue),
                 Quality = quality,
             };
         }
@@ -140,20 +141,4 @@ public sealed class AppSettingsFile(string directory)
 
         File.WriteAllText(Path, JsonSerializer.Serialize(data, Json));
     }
-
-    private static decimal? ReadMoney(JsonElement root, string name, decimal max) =>
-        root.TryGetProperty(name, out var element)
-        && element.ValueKind == JsonValueKind.Number
-        && element.TryGetDecimal(out var value)
-        && value <= max
-        && value > 0m
-            ? value
-            : null;
-
-    private static DateOnly? Date(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var element)
-        && element.ValueKind == JsonValueKind.String
-        && DateOnly.TryParseExact(element.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
-            ? date
-            : null;
 }

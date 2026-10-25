@@ -73,7 +73,14 @@ internal static class TranslateCommand
             : CreateClaudeProvider(cli, settings);
         var ledger = new UsageLedger();
         var chain = new CachingTranslationProvider(new ValidatingTranslationProvider(provider), cache, settings.Model, ledger);
-        var runner = new TranslationRunner(chain, new TranslationRunOptions { BatchSize = settings.BatchSize, MaxConcurrency = settings.Concurrency });
+        var budget = AppBudgetFile.Read(cli.UserConfigDirectory);
+        var spentBefore = AiUsageLog.Load(project).Dollars;
+        var guard = new BudgetGuard(
+            budget.Limits,
+            () => budget.Rate.ToBrl(spentBefore + (DollarsFor(settings.Model, (provider as ClaudeTranslationProvider)?.Usage) ?? 0m)),
+            lines => CostEstimator.Quote(lines, settings.Model, budget.Rate).Brl,
+            (question, _) => Task.FromResult(ConfirmationPrompt.Confirm(parseResult, cli, AskText(question))));
+        var runner = new TranslationRunner(chain, new TranslationRunOptions { BatchSize = settings.BatchSize, MaxConcurrency = settings.Concurrency, Budget = guard });
 
         var gate = new object();
         var summary = new RunSummary();
@@ -128,6 +135,8 @@ internal static class TranslateCommand
         }
 
         summary.Cached = ledger.CacheHits;
+        summary.Stop = run.BudgetStop;
+        summary.Budget = budget;
         summary.Failed = [.. run.Failures];
         summary.Usage = (provider as ClaudeTranslationProvider)?.Usage;
         RecordUsage(project, settings.Model, summary.Usage);
@@ -204,7 +213,7 @@ internal static class TranslateCommand
 
     private static int WriteResult(TextWriter output, bool json, AiRunSettings settings, int selected, RunSummary summary)
     {
-        var exitCode = summary.Failed.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
+        var exitCode = summary.Failed.Count > 0 || summary.Stop == BudgetStop.LimitReached ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         var dollars = DollarsFor(settings.Model, summary.Usage);
 
         if (json)
@@ -212,6 +221,12 @@ internal static class TranslateCommand
             var data = JsonBase(settings, dryRun: false, selected);
             data["translated"] = summary.Translated;
             data["cached"] = summary.Cached;
+            data["budgetStop"] = summary.Stop switch
+            {
+                BudgetStop.LimitReached => "limitReached",
+                BudgetStop.Declined => "declined",
+                _ => null,
+            };
             output.WriteLine(JsonEnvelope.Result(WithOutcome(data, summary.Refused, summary.Failed, summary.Usage, dollars), exitCode));
             return exitCode;
         }
@@ -228,6 +243,7 @@ internal static class TranslateCommand
             output.WriteLine($"{Count(summary.Cached, "linha veio", "linhas vieram")} do cache, sem custo.");
         }
 
+        WriteBudgetStop(output, summary);
         WriteOutcome(
             output,
             summary.Refused,
@@ -238,6 +254,23 @@ internal static class TranslateCommand
             dollars);
 
         return exitCode;
+    }
+
+    private static string AskText(BudgetQuestion question) =>
+        $"Este pedido custa cerca de {Brl(question.EstimatedCost)}, acima do valor de aviso de {Brl(question.WarnAbove)}. Continuar?";
+
+    private static void WriteBudgetStop(TextWriter output, RunSummary summary)
+    {
+        switch (summary.Stop)
+        {
+            case BudgetStop.LimitReached:
+                var limit = summary.Budget?.Limits.Limit;
+                output.WriteLine($"Parou no limite de gasto{(limit is { } cap ? $" de {Brl(cap)}" : string.Empty)}. As linhas que faltam seguem sem tradução; aumente o limite nos Ajustes do app para continuar.");
+                break;
+            case BudgetStop.Declined:
+                output.WriteLine("O pedido não foi confirmado: nenhuma linha foi enviada à IA.");
+                break;
+        }
     }
 
     private static ClaudeTranslationProvider CreateClaudeProvider(VnfCli cli, AiRunSettings settings)
@@ -284,5 +317,9 @@ internal static class TranslateCommand
         public IReadOnlyList<TranslationBatchFailure> Failed { get; set; } = [];
 
         public ClaudeUsage? Usage { get; set; }
+
+        public BudgetStop? Stop { get; set; }
+
+        public BudgetSettings? Budget { get; set; }
     }
 }

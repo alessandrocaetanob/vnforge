@@ -277,6 +277,8 @@ internal static class AiCommandSupport
 
     public static string Dollars(decimal value) => string.Create(PortugueseBrazil, $"US$ {value:0.00}");
 
+    public static string Brl(decimal value) => string.Create(PortugueseBrazil, $"R$ {value:N2}");
+
     private static ClaudeEffort ParseEffort(string text, bool strict)
     {
         switch (text.Trim().ToLowerInvariant())
