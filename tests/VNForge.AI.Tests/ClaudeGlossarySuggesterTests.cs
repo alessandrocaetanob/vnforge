@@ -150,6 +150,50 @@ public class ClaudeGlossarySuggesterTests
         await Assert.ThrowsAsync<ClaudeResponseException>(() => suggester.SuggestTermsAsync([new TermTranslationRequest("魔法学院", 3)], CancellationToken.None));
     }
 
+    public static TheoryData<string?, string> Falhas => new()
+    {
+        { "refusal", "" },
+        { "max_tokens", """{"characters":[""" },
+        { "end_turn", "isto não é json" },
+        { "end_turn", """{"characters":[{"name":"他人","gender":"male","voice":"z"}]}""" },
+        { "end_turn", """{"characters":[{"name":"美咲","gender":"robô","voice":"x"},{"name":"健太","gender":"male","voice":"y"}]}""" },
+        { "end_turn", """{"characters":[{"name":"美咲","gender":"female","voice":"x"},{"name":"美咲","gender":"female","voice":"x"}]}""" },
+    };
+
+    [Theory]
+    [MemberData(nameof(Falhas))]
+    public async Task A_mensagem_da_falha_e_uma_frase_para_a_pessoa_e_o_detalhe_tecnico_vai_a_parte(string? stopReason, string text)
+    {
+        var suggester = new ClaudeGlossarySuggester(new StubClient(_ => new ClaudeReply(stopReason, text)));
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(() => suggester.SuggestVoicesAsync(Voices, CancellationToken.None));
+
+        Assert.EndsWith("Tente de novo ou preencha à mão.", error.Message);
+        foreach (var technical in new[] { "stop_reason", "token", "modelo", "json", "claude", "schema" })
+        {
+            Assert.DoesNotContain(technical, error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var detail = error switch
+        {
+            ClaudeRefusalException refusal => refusal.Detail,
+            ClaudeResponseException response => response.Detail,
+            _ => null,
+        };
+        Assert.False(string.IsNullOrWhiteSpace(detail));
+    }
+
+    [Fact]
+    public async Task A_traducao_vazia_de_um_termo_nomeia_o_termo_na_frase()
+    {
+        var suggester = new ClaudeGlossarySuggester(new StubClient(_ => Ok("""{"terms":[{"source":"魔法学院","target":"","reason":"y"}]}""")));
+
+        var error = await Assert.ThrowsAsync<ClaudeResponseException>(() => suggester.SuggestTermsAsync([new TermTranslationRequest("魔法学院", 3)], CancellationToken.None));
+
+        Assert.Equal("A IA não trouxe a tradução de 魔法学院. Tente de novo ou preencha à mão.", error.Message);
+        Assert.Contains("魔法学院", error.Detail);
+    }
+
     [Fact]
     public async Task Soma_os_tokens_de_todas_as_chamadas()
     {

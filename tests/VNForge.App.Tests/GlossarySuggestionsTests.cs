@@ -377,6 +377,30 @@ public class GlossarySuggestionsTests
         Assert.True(vm.CanSuggestVoices);
     }
 
+    [Theory]
+    [InlineData("refusal", "", "A IA não quis sugerir para este lote. Tente de novo ou preencha à mão.")]
+    [InlineData("max_tokens", "", "A IA não terminou a resposta. Tente de novo ou preencha à mão.")]
+    [InlineData("end_turn", "{ lixo", "A resposta da IA veio incompleta ou fora do formato. Tente de novo ou preencha à mão.")]
+    public async Task A_tela_mostra_so_a_frase_para_a_pessoa_quando_a_ia_falha(string stopReason, string text, string expected)
+    {
+        using var temp = new TempFolder();
+        var client = new StubClaudeClient(new ClaudeReply(stopReason, text));
+        var (vm, _) = await OpenAsync(temp, new ClaudeGlossarySuggester(client));
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal(expected, vm.SuggestionError);
+        foreach (var technical in new[] { "stop_reason", "token", "modelo", "json" })
+        {
+            Assert.DoesNotContain(technical, vm.SuggestionError, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private sealed class StubClaudeClient(ClaudeReply reply) : IClaudeMessageClient
+    {
+        public Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct) => Task.FromResult(reply);
+    }
+
     [Fact]
     public async Task Resposta_invalida_da_ia_vira_mensagem()
     {

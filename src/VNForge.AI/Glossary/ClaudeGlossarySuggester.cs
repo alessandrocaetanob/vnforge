@@ -80,8 +80,8 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
 
         return reply.StopReason switch
         {
-            "refusal" => throw new ClaudeRefusalException("O modelo recusou fazer esta sugestão (stop_reason: refusal)."),
-            "max_tokens" => throw new ClaudeResponseException("A resposta foi cortada por limite de tokens; peça menos itens por vez."),
+            "refusal" => throw new ClaudeRefusalException("A IA não quis sugerir para este lote. Tente de novo ou preencha à mão.", "stop_reason: refusal"),
+            "max_tokens" => throw new ClaudeResponseException("A IA não terminou a resposta. Tente de novo ou preencha à mão.", detail: "stop_reason: max_tokens"),
             _ => reply.Text,
         };
     }
@@ -123,7 +123,7 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
         "male" => CharacterGender.Male,
         "other" => CharacterGender.Other,
         "unknown" => CharacterGender.Unknown,
-        _ => throw new ClaudeResponseException($"Gênero desconhecido na resposta: '{value}'."),
+        _ => throw Incomplete($"Gênero desconhecido na resposta: '{value}'."),
     };
 
     private static List<TermTranslationSuggestion> ParseTerms(string text, TermTranslationRequest[] chunk)
@@ -137,9 +137,12 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
     {
         var target = fields[1].Trim();
         return target.Length == 0
-            ? throw new ClaudeResponseException($"A resposta não traz a tradução do termo '{source}'.")
+            ? throw new ClaudeResponseException($"A IA não trouxe a tradução de {source}. Tente de novo ou preencha à mão.", detail: $"Tradução vazia para '{source}'.")
             : new TermTranslationSuggestion(source, target, fields[2].Trim());
     }
+
+    private static ClaudeResponseException Incomplete(string detail, Exception? inner = null) =>
+        new("A resposta da IA veio incompleta ou fora do formato. Tente de novo ou preencha à mão.", inner, detail);
 
     /// <summary>Lê <c>{ "&lt;array&gt;": [ { "&lt;campo&gt;": "texto", ... } ] }</c> e devolve os campos de cada item, na ordem pedida.</summary>
     private static List<string[]> ReadItems(string text, string arrayName, params string[] fields)
@@ -150,14 +153,14 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
             List<string[]> items = [];
             foreach (var item in doc.RootElement.GetProperty(arrayName).EnumerateArray())
             {
-                items.Add([.. fields.Select(f => item.GetProperty(f).GetString() ?? throw new ClaudeResponseException($"Resposta com o campo '{f}' vazio."))]);
+                items.Add([.. fields.Select(f => item.GetProperty(f).GetString() ?? throw Incomplete($"Resposta com o campo '{f}' nulo."))]);
             }
 
             return items;
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            throw new ClaudeResponseException("A resposta do Claude não é o JSON esperado.", e);
+            throw Incomplete("A resposta não é o JSON esperado.", e);
         }
     }
 
@@ -169,7 +172,7 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
         {
             if (!byKey.TryAdd(item[0], item))
             {
-                throw new ClaudeResponseException($"Resposta com {what} repetidos: '{item[0]}'.");
+                throw Incomplete($"Resposta com {what} repetidos: '{item[0]}'.");
             }
         }
 
@@ -180,7 +183,7 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
         {
             var sb = new StringBuilder($"A resposta não bate com os {what} pedidos.");
             sb.Append($" Faltam: [{string.Join(", ", missing)}]; sobram: [{string.Join(", ", extra)}].");
-            throw new ClaudeResponseException(sb.ToString());
+            throw Incomplete(sb.ToString());
         }
 
         return byKey;

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Claude;
@@ -362,6 +363,16 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(TermsPriceText));
     }
 
-    private static string Explain(Exception error) =>
-        error is GlossarySuggestionException ? error.Message : ClaudeErrorMessages.Describe(error);
+    // O detalhe técnico (stop_reason, o que faltou na resposta) vai para o log; a tela só recebe a frase em português.
+    private static string Explain(Exception error)
+    {
+        var detail = error switch
+        {
+            ClaudeRefusalException refusal => refusal.Detail,
+            ClaudeResponseException response => response.Detail,
+            _ => null,
+        };
+        Debug.WriteLine(detail is null ? error.ToString() : $"{error.Message} [{detail}]");
+        return error is GlossarySuggestionException ? error.Message : ClaudeErrorMessages.Describe(error);
+    }
 }
