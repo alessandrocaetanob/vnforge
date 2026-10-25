@@ -9,5 +9,9 @@ public static class Money
 
     public static string Brl(decimal value) => $"R$ {value.ToString("N2", PtBr)}";
 
+    /// <summary>Estimativa em reais: abaixo de um centavo vira "menos de R$ 0,01" em vez de um zero que parece de graça; zero fica R$ 0,00.</summary>
+    public static string BrlEstimate(decimal value) =>
+        value is > 0m and < 0.01m ? "menos de R$ 0,01" : Brl(Math.Round(value, 2, MidpointRounding.AwayFromZero));
+
     public static string Usd(decimal value) => $"US$ {value.ToString("N2", PtBr)}";
 }

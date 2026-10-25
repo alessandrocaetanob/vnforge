@@ -21,7 +21,7 @@ public class BackgroundTaskTests
 
         Assert.Equal(BackgroundTaskState.Completed, item.State);
         Assert.Equal(100, item.Percent);
-        Assert.Equal("US$ 1,35", item.CostText);
+        Assert.Equal("R$ 7,29", item.CostText);
         Assert.Equal("Concluída", item.StateText);
         Assert.False(item.IsRunning);
     }

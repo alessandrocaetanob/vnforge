@@ -3,6 +3,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.AI.Claude;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
@@ -51,7 +52,7 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             {
                 var window = Abrir(vm);
                 var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
-                Assert.Equal(["IA", "Formatação", "Acentuação", "Aparência"], tabs.Items.OfType<TabItem>().Select(t => t.Header as string));
+                Assert.Equal(["IA e gasto", "Formatação", "Acentuação", "Aparência"], tabs.Items.OfType<TabItem>().Select(t => t.Header as string));
 
                 tabs.SelectedIndex = 2;
                 Assentar(window);
@@ -75,15 +76,15 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             () =>
             {
                 var window = Abrir(vm);
-                var cards = window.GetVisualDescendants().OfType<RadioButton>().Where(r => r.Classes.Contains("option")).ToList();
-                Assert.Equal(4, cards.Count);
-                Assert.Equal([true, false, false, false], cards.Select(c => c.IsChecked == true));
+                var cards = window.GetVisualDescendants().OfType<QualityCard>().ToList();
+                Assert.Equal(["Rápida", "Equilibrada", "Caprichada"], cards.Select(c => c.Title));
+                Assert.Equal([false, false, true], cards.Select(c => c.IsChecked == true));
 
-                cards[2].IsChecked = true;
+                cards[0].IsChecked = true;
                 Assentar(window);
 
                 Assert.Equal(ClaudeModels.Haiku, vm.SelectedModel?.Id);
-                Assert.Equal([false, false, true, false], cards.Select(c => c.IsChecked == true));
+                Assert.Equal([true, false, false], cards.Select(c => c.IsChecked == true));
             },
             CancellationToken.None);
     }

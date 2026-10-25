@@ -234,8 +234,8 @@ public class SettingsViewModelTests
         Assert.Equal(2000, vm.PendingLines);
         foreach (var model in vm.Models)
         {
-            var dollars = expected[model.Id].Dollars;
-            var text = $"US$ {Math.Round(dollars, 2, MidpointRounding.AwayFromZero).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',')}";
+            var reais = CostEstimator.Brl(expected[model.Id], ExchangeRate.Placeholder);
+            var text = $"R$ {Math.Round(reais, 2, MidpointRounding.AwayFromZero).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',')}";
             Assert.Equal(text, model.Estimate);
             Assert.Equal($"{model.Use} · estimativa para as 2.000 pendentes: {text}", model.Detail);
         }
@@ -270,7 +270,7 @@ public class SettingsViewModelTests
         vm.Load(ProjectSummaryReader.Read(root));
         await vm.EstimateLoading;
 
-        Assert.Equal("menos de US$ 0,01", vm.Models.Single(m => m.Id == ClaudeModels.Haiku).Estimate);
+        Assert.Equal("menos de R$ 0,01", vm.Models.Single(m => m.Id == ClaudeModels.Haiku).Estimate);
     }
 
     [Fact]

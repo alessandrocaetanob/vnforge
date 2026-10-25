@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.AI.Cost;
 
 namespace VNForge.App.Services;
 
@@ -26,15 +26,14 @@ public interface IBackgroundTaskReporter
 /// <summary>Uma tarefa longa (extrair, traduzir, build, injetar). As propriedades só mudam na thread da interface.</summary>
 public sealed partial class BackgroundTaskItem : ObservableObject
 {
-    // Formato pt-BR fixo, como em ProjectLabels: não depende da cultura da máquina.
-    private static readonly NumberFormatInfo PtBr = new() { NumberGroupSeparator = ".", NumberDecimalSeparator = "," };
-
     private readonly CancellationTokenSource cts;
+    private readonly Func<ExchangeRate> rate;
 
-    internal BackgroundTaskItem(string title, CancellationTokenSource cts)
+    internal BackgroundTaskItem(string title, CancellationTokenSource cts, Func<ExchangeRate>? rate = null)
     {
         Title = title;
         this.cts = cts;
+        this.rate = rate ?? (() => ExchangeRate.Placeholder);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
     }
 
@@ -70,7 +69,10 @@ public sealed partial class BackgroundTaskItem : ObservableObject
     /// <summary>De 0 a 100, para a barra de progresso.</summary>
     public double Percent => Math.Round((Progress ?? 0) * 100, 1);
 
-    public string CostText => string.Create(PtBr, $"US$ {Cost:N2}");
+    /// <summary>O gasto da tarefa em reais, com a cotação que a pessoa informou nos Ajustes; a tarefa relata em dólar.</summary>
+    public string CostText => Controls.Money.BrlEstimate(rate().ToBrl(Cost));
+
+    internal void RefreshCostText() => OnPropertyChanged(nameof(CostText));
 
     public string StateText => State switch
     {
@@ -102,14 +104,29 @@ public sealed partial class BackgroundTaskItem : ObservableObject
 public sealed class BackgroundTaskService(Action<Action>? dispatch = null)
 {
     private readonly Action<Action> post = dispatch ?? (a => a());
+    private ExchangeRate rate = ExchangeRate.Placeholder;
 
     public ObservableCollection<BackgroundTaskItem> Tasks { get; } = [];
+
+    /// <summary>A cotação que converte o custo das tarefas em reais; trocá-la atualiza o texto das tarefas na lista.</summary>
+    public ExchangeRate Rate
+    {
+        get => rate;
+        set
+        {
+            rate = value ?? throw new ArgumentNullException(nameof(value));
+            foreach (var task in Tasks)
+            {
+                task.RefreshCostText();
+            }
+        }
+    }
 
     /// <summary>Inicia a tarefa e volta na hora; chame da thread da interface, que é dona de <see cref="Tasks"/>. use <see cref="BackgroundTaskItem.Completion"/> para esperar o fim.</summary>
     public BackgroundTaskItem Start(string title, Func<IBackgroundTaskReporter, CancellationToken, Task> work)
     {
         var cts = new CancellationTokenSource();
-        var item = new BackgroundTaskItem(title, cts) { State = BackgroundTaskState.Running };
+        var item = new BackgroundTaskItem(title, cts, () => rate) { State = BackgroundTaskState.Running };
         Tasks.Add(item);
         item.Completion = Task.Run(() => RunAsync(item, work, cts));
         return item;

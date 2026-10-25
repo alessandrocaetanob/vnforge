@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text.Json;
+using VNForge.AI.Cost;
 
 namespace VNForge.App.Services;
 
@@ -18,7 +20,30 @@ public sealed record AppSettings(int Concurrency, ThemeChoice Theme = ThemeChoic
     public const int MinConcurrency = 1;
     public const int MaxConcurrency = 8;
 
+    /// <summary>Teto da cotação aceita: acima disso é quase certo um erro de digitação.</summary>
+    public const decimal MaxBrlPerUsd = 100m;
+
     public static AppSettings Default { get; } = new(2);
+
+    /// <summary>Reais por dólar, como a pessoa informou; <see langword="null"/> enquanto ela não informou.</summary>
+    public decimal? BrlPerUsd { get; init; }
+
+    /// <summary>O dia em que a pessoa informou a cotação.</summary>
+    public DateOnly? RateInformedOn { get; init; }
+
+    /// <summary>Limite de gasto em reais por projeto; <see langword="null"/> não limita.</summary>
+    public decimal? SpendLimit { get; init; }
+
+    /// <summary>O app pergunta antes de um pedido que custa mais que isto, em reais; <see langword="null"/> nunca pergunta.</summary>
+    public decimal? WarnAbove { get; init; }
+
+    /// <summary>A qualidade escolhida por último; o padrão é a mais cuidadosa, que usa o modelo padrão do projeto.</summary>
+    public TranslationQuality Quality { get; init; } = TranslationQuality.Careful;
+
+    /// <summary>A cotação para converter custos; sem uma informada, o valor de exemplo (<see cref="ExchangeRate.Placeholder"/>).</summary>
+    public ExchangeRate Rate => BrlPerUsd is { } value ? new ExchangeRate(value, RateInformedOn) : ExchangeRate.Placeholder;
+
+    public BudgetLimits Budget => new(SpendLimit, WarnAbove);
 }
 
 /// <summary>
@@ -62,7 +87,21 @@ public sealed class AppSettingsFile(string directory)
                 && Enum.IsDefined(chosen)
                     ? chosen
                     : ThemeChoice.System;
-            return new AppSettings(concurrency, theme);
+            var quality = root.TryGetProperty("quality", out var qualityValue)
+                && qualityValue.ValueKind == JsonValueKind.String
+                && Enum.TryParse<TranslationQuality>(qualityValue.GetString(), ignoreCase: true, out var picked)
+                && Enum.IsDefined(picked)
+                    ? picked
+                    : TranslationQuality.Careful;
+            var rate = ReadMoney(root, "exchangeRate", AppSettings.MaxBrlPerUsd);
+            return new AppSettings(concurrency, theme)
+            {
+                BrlPerUsd = rate,
+                RateInformedOn = rate is null ? null : Date(root, "exchangeRateOn"),
+                SpendLimit = ReadMoney(root, "spendLimit", decimal.MaxValue),
+                WarnAbove = ReadMoney(root, "warnAbove", decimal.MaxValue),
+                Quality = quality,
+            };
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -74,6 +113,47 @@ public sealed class AppSettingsFile(string directory)
     {
         ArgumentNullException.ThrowIfNull(settings);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        File.WriteAllText(Path, JsonSerializer.Serialize(new Dictionary<string, object> { ["concurrency"] = settings.Concurrency, ["theme"] = settings.Theme.ToString().ToLowerInvariant() }, Json));
+        var data = new Dictionary<string, object>
+        {
+            ["concurrency"] = settings.Concurrency,
+            ["theme"] = settings.Theme.ToString().ToLowerInvariant(),
+            ["quality"] = settings.Quality.ToString().ToLowerInvariant(),
+        };
+        if (settings.BrlPerUsd is { } rate)
+        {
+            data["exchangeRate"] = rate;
+            if (settings.RateInformedOn is { } on)
+            {
+                data["exchangeRateOn"] = on.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            }
+        }
+
+        if (settings.SpendLimit is { } limit)
+        {
+            data["spendLimit"] = limit;
+        }
+
+        if (settings.WarnAbove is { } warn)
+        {
+            data["warnAbove"] = warn;
+        }
+
+        File.WriteAllText(Path, JsonSerializer.Serialize(data, Json));
     }
+
+    private static decimal? ReadMoney(JsonElement root, string name, decimal max) =>
+        root.TryGetProperty(name, out var element)
+        && element.ValueKind == JsonValueKind.Number
+        && element.TryGetDecimal(out var value)
+        && value <= max
+        && value > 0m
+            ? value
+            : null;
+
+    private static DateOnly? Date(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var element)
+        && element.ValueKind == JsonValueKind.String
+        && DateOnly.TryParseExact(element.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
 }
