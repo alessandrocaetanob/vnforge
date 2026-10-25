@@ -54,7 +54,7 @@ public sealed partial class NewProjectWizardViewModel
     private string SelectedQualityTitle =>
         QualityProfiles.ForModel(Models.Selected.Id) is { } profile
             ? Qualities.Single(q => q.Profile == profile).Title
-            : ProjectLabels.Model(Models.Selected.Id);
+            : "Modelo escolhido à mão";
 
     partial void OnRateTextChanged(string value) => RefreshRate();
 

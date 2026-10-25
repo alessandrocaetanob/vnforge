@@ -292,13 +292,15 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         start.NewProjectCommand.Execute(null);
         await wizard.SetGameFolderAsync(game);
         wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+        wizard.RateText = "5,43";
+        wizard.LimitText = "200";
+        wizard.Qualities.Single(q => q.Title == "Rápida").IsSelected = true;
         while (wizard.Step != WizardStep.Done)
         {
-            wizard.RateText = "5,43";
-            wizard.LimitText = "200";
             await wizard.NextCommand.ExecuteAsync(null);
         }
 
+        Assert.Equal(["Rápida"], settings.Qualities.Where(q => q.IsSelected).Select(q => q.Title));
         Assert.Equal("5,43", settings.ExchangeRateText);
         Assert.Equal("200,00", settings.SpendLimitText);
         Assert.Equal(5.43m, settings.Rate.BrlPerUsd);
@@ -336,6 +338,17 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         Assert.NotNull(vm.Created);
         Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task O_resumo_nao_cita_o_nome_do_modelo_escolhido_a_mao()
+    {
+        var vm = await AtAiStepAsync();
+        vm.Models.Select("claude-fable-5-1");
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal("Modelo escolhido à mão", vm.Steps[3].Subtitle);
     }
 
     [Fact]

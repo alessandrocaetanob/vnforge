@@ -776,6 +776,11 @@ public sealed partial class SettingsViewModel : ObservableObject
             RateError = null;
             LimitError = null;
             WarnError = null;
+            if (folder is null)
+            {
+                // Com projeto aberto, o modelo marcado é o do projeto; sem ele, os cartões mostram a qualidade padrão do usuário.
+                SelectedModel = Models.Single(m => m.Id == QualityProfiles.For(app.Quality).Model);
+            }
         }
         finally
         {
