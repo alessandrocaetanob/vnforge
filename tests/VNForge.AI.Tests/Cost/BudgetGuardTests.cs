@@ -100,4 +100,32 @@ public class BudgetGuardTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new BudgetLimits(-1m, null));
         Assert.Throws<ArgumentOutOfRangeException>(() => new BudgetLimits(null, -1m));
     }
+
+    [Fact]
+    public void Reserva_conta_o_que_os_lotes_em_andamento_ainda_vao_gastar()
+    {
+        var guard = Guard(5m, null, 1m);
+
+        Assert.True(guard.TryReserve(2m));
+        Assert.True(guard.TryReserve(2m));
+        Assert.False(guard.TryReserve(2m));
+
+        guard.Release(2m);
+
+        Assert.True(guard.TryReserve(2m));
+    }
+
+    [Fact]
+    public void Sem_limite_a_reserva_sempre_cabe()
+    {
+        var guard = Guard(null, null, 9999m);
+
+        Assert.True(guard.TryReserve(1000m));
+    }
+
+    [Fact]
+    public void No_limite_nem_um_lote_de_custo_zero_comeca()
+    {
+        Assert.False(Guard(5m, null, 5m).TryReserve(0m));
+    }
 }

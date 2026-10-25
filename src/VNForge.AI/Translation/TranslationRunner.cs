@@ -109,6 +109,51 @@ public sealed class TranslationRunner
         var limitReached = 0;
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
+        async ValueTask RunChunkAsync((int Index, IReadOnlyList<TextUnit> Lines) chunk, CancellationToken token)
+        {
+            TranslationBatch batch;
+            try
+            {
+                batch = buildBatch(chunk.Lines);
+            }
+            catch (Exception ex)
+            {
+                failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], ex, 0);
+                return;
+            }
+
+            var outcome = await TranslateWithRetryAsync(batch, token).ConfigureAwait(false);
+            if (outcome.Error is not null)
+            {
+                failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], outcome.Error, outcome.Attempts);
+                return;
+            }
+
+            if (outcome.Results is null)
+            {
+                // Sem resultado nem erro: cancelamento, ou o limite chegou antes de uma nova tentativa.
+                if (budget?.LimitReached == true && !token.IsCancellationRequested)
+                    Interlocked.Exchange(ref limitReached, 1);
+                return;
+            }
+
+            done[chunk.Index] = outcome.Results;
+            lock (gate)
+            {
+                try
+                {
+                    completedLines += outcome.Results.Count;
+                    onBatchTranslated?.Invoke(outcome.Results);
+                    progress?.Report(new TranslationProgress(completedLines, lines.Count));
+                }
+                catch (Exception ex)
+                {
+                    callbackError ??= ex;
+                    stop.Cancel();
+                }
+            }
+        }
+
         try
         {
             await Parallel.ForEachAsync(
@@ -116,47 +161,22 @@ public sealed class TranslationRunner
                 new ParallelOptions { MaxDegreeOfParallelism = _options.MaxConcurrency, CancellationToken = stop.Token },
                 async (chunk, token) =>
                 {
-                    // Os lotes em andamento terminam (já estão pagos); só os que ainda não começaram ficam de fora.
-                    if (budget?.LimitReached == true)
+                    // O custo estimado do lote fica reservado enquanto ele roda: sem isso, as chamadas em paralelo passariam juntas pela checagem
+                    // e o gasto ultrapassaria o limite por vários lotes. Os lotes que não cabem no que sobra do limite não começam.
+                    var reserved = budget?.EstimateRequest(chunk.Lines) ?? 0m;
+                    if (budget is not null && !budget.TryReserve(reserved))
                     {
                         Interlocked.Exchange(ref limitReached, 1);
                         return;
                     }
 
-                    TranslationBatch batch;
                     try
                     {
-                        batch = buildBatch(chunk.Lines);
+                        await RunChunkAsync(chunk, token).ConfigureAwait(false);
                     }
-                    catch (Exception ex)
+                    finally
                     {
-                        failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], ex, 0);
-                        return;
-                    }
-
-                    var outcome = await TranslateWithRetryAsync(batch, token).ConfigureAwait(false);
-                    if (outcome.Error is not null)
-                    {
-                        failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], outcome.Error, outcome.Attempts);
-                        return;
-                    }
-                    if (outcome.Results is null)
-                        return;
-
-                    done[chunk.Index] = outcome.Results;
-                    lock (gate)
-                    {
-                        try
-                        {
-                            completedLines += outcome.Results.Count;
-                            onBatchTranslated?.Invoke(outcome.Results);
-                            progress?.Report(new TranslationProgress(completedLines, lines.Count));
-                        }
-                        catch (Exception ex)
-                        {
-                            callbackError ??= ex;
-                            stop.Cancel();
-                        }
+                        budget?.Release(reserved);
                     }
                 }).ConfigureAwait(false);
         }
@@ -192,6 +212,10 @@ public sealed class TranslationRunner
                 try
                 {
                     await _options.Delay(_options.InitialBackoff * Math.Pow(2, attempts - 1), ct).ConfigureAwait(false);
+                    if (_options.Budget?.LimitReached == true)
+                    {
+                        return (null, null, attempts);
+                    }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {

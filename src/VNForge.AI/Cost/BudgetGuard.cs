@@ -52,11 +52,40 @@ public sealed class BudgetGuard(
     private readonly BudgetLimits _limits = limits ?? throw new ArgumentNullException(nameof(limits));
     private readonly Func<decimal> _spent = spent ?? throw new ArgumentNullException(nameof(spent));
     private readonly Func<IReadOnlyList<TextUnit>, decimal> _estimate = estimate ?? throw new ArgumentNullException(nameof(estimate));
+    private readonly Lock _gate = new();
+    private decimal _reserved;
 
     public bool LimitReached => _limits.Limit is { } limit && _spent() >= limit;
 
     /// <summary>O custo, em reais, de pedir a tradução de <paramref name="lines"/>.</summary>
     public decimal EstimateRequest(IReadOnlyList<TextUnit> lines) => _estimate(lines);
+
+    /// <summary>
+    /// Reserva o custo estimado de um lote que vai começar. Recusa quando o gasto, o já reservado pelos lotes em andamento e este lote passariam do
+    /// limite: é o que mantém o limite verdadeiro com chamadas em paralelo. Sem limite, sempre reserva. Quem reserva chama <see cref="Release"/> ao fim do lote.
+    /// </summary>
+    public bool TryReserve(decimal estimatedCost)
+    {
+        lock (_gate)
+        {
+            if (_limits.Limit is { } limit && (LimitReached || _spent() + _reserved + estimatedCost > limit))
+            {
+                return false;
+            }
+
+            _reserved += estimatedCost;
+            return true;
+        }
+    }
+
+    /// <summary>Devolve a reserva de um lote que terminou; o custo real já entrou no gasto lido por <c>spent</c>.</summary>
+    public void Release(decimal estimatedCost)
+    {
+        lock (_gate)
+        {
+            _reserved = Math.Max(0m, _reserved - estimatedCost);
+        }
+    }
 
     public BudgetVerdict Evaluate(decimal estimatedCost)
     {
