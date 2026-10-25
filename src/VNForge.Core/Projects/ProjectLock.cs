@@ -27,9 +27,18 @@ public sealed class ProjectLock : IDisposable
     public static ProjectLock Acquire(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
+        // Fora do try da trava: fora do Windows a IOException simples da pasta passaria por trava ocupada.
         try
         {
             Directory.CreateDirectory(project.CacheDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ProjectLockUnavailableException(ex);
+        }
+
+        try
+        {
             return new ProjectLock(new FileStream(Path.Combine(project.CacheDirectory, FileName), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
         }
         catch (IOException ex) when (IsSharingViolation(ex))
