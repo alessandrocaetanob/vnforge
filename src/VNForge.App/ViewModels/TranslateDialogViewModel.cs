@@ -1,0 +1,404 @@
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using VNForge.AI.Cost;
+using VNForge.AI.Translation;
+using VNForge.App.Controls;
+using VNForge.App.Services;
+using VNForge.Core.Projects;
+using VNForge.Core.Text;
+
+namespace VNForge.App.ViewModels;
+
+/// <summary>O que a janela precisa saber dos Ajustes: a cotação, o limite e o aviso de gasto, a qualidade padrão e se há chave.</summary>
+public sealed record TranslateDialogSettings(ExchangeRate Rate, BudgetLimits Limits, TranslationQuality DefaultQuality, bool KeyConfigured);
+
+/// <summary>Uma resposta à pergunta "o que traduzir": esta cena, o capítulo ou o jogo todo, com as linhas que ainda faltam em cada um.</summary>
+public sealed partial class ScopeChoice(TranslationScope scope, string title) : ObservableObject
+{
+    public TranslationScope Scope { get; } = scope;
+
+    public string Title { get; } = title;
+
+    [ObservableProperty]
+    public partial int Lines { get; internal set; }
+
+    [ObservableProperty]
+    public partial string Summary { get; internal set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+}
+
+/// <summary>Uma resposta à pergunta "com que qualidade": o preço e o tempo do escopo escolhido, e o modelo só em letra pequena.</summary>
+public sealed partial class QualityChoice(TranslationQuality quality, string title, string description, string model) : ObservableObject
+{
+    public TranslationQuality Quality { get; } = quality;
+
+    public string Title { get; } = title;
+
+    public string Description { get; } = description;
+
+    public string Model { get; } = model;
+
+    [ObservableProperty]
+    public partial decimal Price { get; internal set; }
+
+    [ObservableProperty]
+    public partial string Duration { get; internal set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+}
+
+/// <summary>
+/// A janela "Traduzir com IA", sobre o Editor: o que traduzir, com que qualidade e por quanto. O preço e o tempo saem do Core
+/// (<see cref="TranslationQuoter"/>); a janela só os mostra e impede o pedido que passa do limite de gasto do projeto.
+/// </summary>
+public sealed partial class TranslateDialogViewModel : ObservableObject
+{
+    private readonly Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes)> byScope = [];
+    private TranslateDialogSettings settings = new(ExchangeRate.Placeholder, BudgetLimits.None, TranslationQuality.Careful, true);
+    private TranslationContextSummary context = new(0, 0, 0, 0, false);
+    private decimal spent;
+    private int version;
+
+    public TranslateDialogViewModel()
+    {
+        Scopes =
+        [
+            new(TranslationScope.Scene, "Esta cena"),
+            new(TranslationScope.Chapter, "O capítulo"),
+            new(TranslationScope.Game, "O jogo todo"),
+        ];
+        Qualities =
+        [
+            new(TranslationQuality.Fast, "Rápida", "Rascunho barato e veloz, para ler a história e revisar com calma.", "Haiku"),
+            new(TranslationQuality.Balanced, "Equilibrada", "O meio-termo: boa para a maior parte do jogo.", "Sonnet"),
+            new(TranslationQuality.Careful, "Caprichada", "A mais fiel ao tom e aos personagens.", "Opus"),
+        ];
+        SelectedScope = Scopes[0];
+        SelectedQuality = Qualities[^1];
+        foreach (var scope in Scopes)
+        {
+            scope.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ScopeChoice.IsSelected) && scope.IsSelected)
+                {
+                    SelectedScope = scope;
+                }
+            };
+        }
+
+        foreach (var quality in Qualities)
+        {
+            quality.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(QualityChoice.IsSelected) && quality.IsSelected)
+                {
+                    SelectedQuality = quality;
+                }
+            };
+        }
+    }
+
+    /// <summary>A pessoa confirmou: quem sabe traduzir assume o pedido.</summary>
+    public event EventHandler<TranslationRequest>? StartRequested;
+
+    /// <summary>"Definir agora": a janela fecha e o app abre o Glossário na aba Personagens.</summary>
+    public event EventHandler? GlossaryRequested;
+
+    /// <summary>O link "Ajustes" do aviso de chave: a janela fecha e o app abre os Ajustes.</summary>
+    public event EventHandler? SettingsRequested;
+
+    public ReadOnlyCollection<ScopeChoice> Scopes { get; }
+
+    public ReadOnlyCollection<QualityChoice> Qualities { get; }
+
+    /// <summary>Termina quando os números da última abertura estão na tela.</summary>
+    public Task Loading { get; private set; } = Task.CompletedTask;
+
+    [ObservableProperty]
+    public partial bool IsOpen { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLoading { get; private set; }
+
+    [ObservableProperty]
+    public partial ScopeChoice SelectedScope { get; set; }
+
+    [ObservableProperty]
+    public partial QualityChoice SelectedQuality { get; set; }
+
+    /// <summary>As linhas que o pedido traduz.</summary>
+    [ObservableProperty]
+    public partial int Lines { get; private set; }
+
+    [ObservableProperty]
+    public partial decimal RequestBrl { get; private set; }
+
+    [ObservableProperty]
+    public partial double SpentBrl { get; private set; }
+
+    [ObservableProperty]
+    public partial double AskBrl { get; private set; }
+
+    /// <summary>O limite do projeto em reais; zero quando não há limite.</summary>
+    [ObservableProperty]
+    public partial double LimitBrl { get; private set; }
+
+    [ObservableProperty]
+    public partial string RequestText { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string SpentText { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string RateNote { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsOverLimit { get; private set; }
+
+    [ObservableProperty]
+    public partial string OverLimitText { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool CanSwitchToFit { get; private set; }
+
+    [ObservableProperty]
+    public partial string SwitchToFitText { get; private set; } = string.Empty;
+
+    /// <summary>O pedido passa do valor em que o app pede um cuidado a mais (Ajustes), mas cabe no limite.</summary>
+    [ObservableProperty]
+    public partial bool AboveWarning { get; private set; }
+
+    [ObservableProperty]
+    public partial string StartLabel { get; private set; } = "Traduzir";
+
+    [ObservableProperty]
+    public partial bool CanStart { get; private set; }
+
+    [ObservableProperty]
+    public partial bool NothingToTranslate { get; private set; }
+
+    [ObservableProperty]
+    public partial string ContextText { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasMissingGender { get; private set; }
+
+    [ObservableProperty]
+    public partial string MissingGenderText { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool KeyMissing { get; private set; }
+
+    [ObservableProperty]
+    public partial string KeyMissingText { get; private set; } = string.Empty;
+
+    /// <summary>Abre a janela e lê o projeto fora da thread da tela; a janela já aparece, com os números em branco, enquanto a leitura roda.</summary>
+    /// <param name="sceneKey">A chave do script aberto no editor; <see langword="null"/> deixa só o jogo todo com linhas.</param>
+    public Task OpenAsync(ProjectFolder folder, string? sceneKey, TranslateDialogSettings current)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        ArgumentNullException.ThrowIfNull(current);
+        settings = current;
+        IsOpen = true;
+        IsLoading = true;
+        Loading = LoadAsync(folder, sceneKey, ++version);
+        return Loading;
+    }
+
+    [RelayCommand]
+    private void Cancel() => IsOpen = false;
+
+    [RelayCommand(CanExecute = nameof(CanStart))]
+    private void Start()
+    {
+        var request = new TranslationRequest(SelectedScope.Scope, SelectedQuality.Quality, byScope[SelectedScope.Scope].Keys);
+        IsOpen = false;
+        StartRequested?.Invoke(this, request);
+    }
+
+    [RelayCommand]
+    private void SwitchToFit()
+    {
+        if (FitFor(SelectedScope.Scope) is { } fit)
+        {
+            SelectedQuality = Qualities.Single(q => q.Quality == fit.Quality);
+        }
+    }
+
+    [RelayCommand]
+    private void DefineGenders()
+    {
+        IsOpen = false;
+        GlossaryRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        IsOpen = false;
+        SettingsRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnSelectedScopeChanged(ScopeChoice value)
+    {
+        foreach (var scope in Scopes)
+        {
+            scope.IsSelected = scope == value;
+        }
+
+        Refresh();
+    }
+
+    partial void OnSelectedQualityChanged(QualityChoice value)
+    {
+        foreach (var quality in Qualities)
+        {
+            quality.IsSelected = quality == value;
+        }
+
+        Refresh();
+    }
+
+    private async Task LoadAsync(ProjectFolder folder, string? sceneKey, int token)
+    {
+        var rate = settings.Rate;
+        var loaded = await Task.Run(() =>
+        {
+            var texts = folder.LoadAllText();
+            var scopes = Enum.GetValues<TranslationScope>().ToDictionary(
+                scope => scope,
+                scope =>
+                {
+                    var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey);
+                    var lines = TranslationQuoter.PendingLines(texts, keys);
+                    var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
+                    return (Keys: keys, Quotes: TranslationQuoter.Quote(lines, rate), Scenes: scenes);
+                });
+            return (Scopes: scopes, Spent: rate.ToBrl(AiUsageLog.Load(folder).Dollars), Context: TranslationContextSummary.Read(folder));
+        }).ConfigureAwait(true);
+
+        if (token != version)
+        {
+            return;
+        }
+
+        byScope.Clear();
+        foreach (var (scope, value) in loaded.Scopes)
+        {
+            byScope[scope] = (value.Keys, value.Quotes);
+            var choice = Scopes.Single(s => s.Scope == scope);
+            choice.Lines = value.Quotes.Lines;
+            choice.Summary = Describe(scope, value.Quotes.Lines, value.Scenes);
+        }
+
+        spent = loaded.Spent;
+        context = loaded.Context;
+        IsLoading = false;
+        SelectedScope = Scopes.FirstOrDefault(s => s.Lines > 0) ?? Scopes[0];
+        SelectedQuality = Qualities.Single(q => q.Quality == settings.DefaultQuality);
+        Refresh();
+    }
+
+    private static string Describe(TranslationScope scope, int lines, int scenes)
+    {
+        if (lines == 0)
+        {
+            return "nenhuma linha pendente";
+        }
+
+        var text = lines == 1 ? "1 linha para traduzir" : $"{ProjectLabels.Number(lines)} linhas para traduzir";
+        return scope == TranslationScope.Scene ? text : $"{text} em {scenes} {(scenes == 1 ? "cena" : "cenas")}";
+    }
+
+    private QualityQuote? FitFor(TranslationScope scope) =>
+        byScope.TryGetValue(scope, out var value) ? value.Quotes.MostCarefulThatFits(spent, settings.Limits.Limit) : null;
+
+    private void Refresh()
+    {
+        if (!byScope.TryGetValue(SelectedScope.Scope, out var current))
+        {
+            CanStart = false;
+            StartCommand.NotifyCanExecuteChanged();
+            return;
+        }
+
+        foreach (var quality in Qualities)
+        {
+            var quote = current.Quotes.For(quality.Quality);
+            quality.Price = quote.Brl;
+            quality.Duration = current.Quotes.Lines == 0 ? "nenhuma linha para traduzir" : ProjectLabels.Duration(quote.Time);
+        }
+
+        var request = current.Quotes.For(SelectedQuality.Quality).Brl;
+        var limit = settings.Limits.Limit;
+        Lines = current.Quotes.Lines;
+        NothingToTranslate = Lines == 0;
+        RequestBrl = request;
+        AskBrl = (double)request;
+        SpentBrl = (double)spent;
+        LimitBrl = (double)(limit ?? 0m);
+        RequestText = $"Este pedido: {Money.BrlEstimate(request)}";
+        SpentText = limit is { } cap
+            ? $"Já gasto no projeto: {Money.BrlEstimate(spent)} de {Money.Brl(cap)}"
+            : $"Já gasto no projeto: {Money.BrlEstimate(spent)}";
+        RateNote = settings.Rate.IsInformed ? string.Empty : "Cotação de exemplo: informe a sua em Ajustes para ver o valor certo.";
+
+        IsOverLimit = !TranslationQuotes.Fits(request, spent, limit);
+        var fit = IsOverLimit ? FitFor(SelectedScope.Scope) : null;
+        CanSwitchToFit = fit is not null && fit.Quality != SelectedQuality.Quality;
+        SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(fit.Brl)})";
+        OverLimitText = IsOverLimit ? DescribeOverLimit(request, limit, fit) : string.Empty;
+        AboveWarning = !IsOverLimit && settings.Limits.WarnAbove is { } warn && request > warn;
+        StartLabel = AboveWarning ? "Traduzir mesmo assim" : "Traduzir";
+
+        KeyMissing = !settings.KeyConfigured;
+        KeyMissingText = KeyMissing ? "Falta a chave da IA. Informe-a em Ajustes, na aba IA e gasto." : string.Empty;
+        ContextText = DescribeContext(context);
+        HasMissingGender = context.CharactersWithoutGender > 0;
+        MissingGenderText = HasMissingGender
+            ? $"{DescribeMissing(context.CharactersWithoutGender)}: a IA pode errar a concordância nas falas deles."
+            : string.Empty;
+
+        CanStart = !IsLoading && Lines > 0 && !IsOverLimit && settings.KeyConfigured;
+        StartCommand.NotifyCanExecuteChanged();
+    }
+
+    private string DescribeOverLimit(decimal request, decimal? limit, QualityQuote? fit)
+    {
+        var over = request + spent - (limit ?? 0m);
+        var head = $"Este pedido passa do limite do projeto em {Money.BrlEstimate(over)}.";
+        return fit is null
+            ? $"{head} Aumente o limite em Ajustes ou escolha menos linhas."
+            : $"{head} A qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} cabe no que sobra.";
+    }
+
+    private static string DescribeContext(TranslationContextSummary summary)
+    {
+        var parts = new List<string>();
+        if (summary.GlossaryTerms > 0)
+        {
+            parts.Add(summary.GlossaryTerms == 1 ? "o glossário (1 termo)" : $"o glossário ({ProjectLabels.Number(summary.GlossaryTerms)} termos)");
+        }
+
+        if (summary.CharactersWithVoice > 0)
+        {
+            parts.Add("a voz dos personagens");
+        }
+
+        if (summary.HasStyleGuide)
+        {
+            parts.Add("o guia de estilo");
+        }
+
+        parts.Add("as falas em volta");
+        var list = parts.Count == 1 ? parts[0] : $"{string.Join(", ", parts[..^1])} e {parts[^1]}";
+        return $"Vai junto em cada pedido: {list}.";
+    }
+
+    private static string DescribeMissing(int count) =>
+        count == 1 ? "1 personagem sem gênero" : $"{ProjectLabels.Number(count)} personagens sem gênero";
+}
