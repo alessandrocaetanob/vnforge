@@ -35,6 +35,16 @@ public sealed partial class ChoiceOption(string id, string title, string value =
 
     public string Description { get; } = description;
 
+    /// <summary>Falso para a opção que aparece mas ainda não dá para escolher ("Em breve").</summary>
+    public bool IsAvailable { get; init; } = true;
+
+    /// <summary>A prévia do efeito da opção desenhada na caixa de texto do jogo; nula nas opções sem prévia.</summary>
+    public TextboxLayout? Layout { get; init; }
+
+    /// <summary>O selo do cartão ("Em breve", "Recomendada para este jogo"); vazio quando não há.</summary>
+    [ObservableProperty]
+    public partial string Badge { get; set; } = string.Empty;
+
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 }
@@ -88,13 +98,19 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private readonly IFolderPicker picker;
     private readonly IReadOnlyList<IEngine> engines;
     private readonly BackgroundTaskService? tasks;
+    private readonly AppSettingsFile? appSettings;
+    private readonly TimeProvider clock;
     private GameInspection? inspection;
 
-    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null)
+    /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
+    /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
+    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null)
     {
         this.tasks = tasks;
         this.picker = picker;
         this.engines = engines;
+        this.appSettings = appSettings;
+        this.clock = clock ?? TimeProvider.System;
         SourceLanguages = new ChoiceGroup(
             [new("ja", "Japonês"), new("en", "Inglês"), new("zh", "Chinês"), new("ko", "Coreano")], ProjectChoices.DefaultSourceLanguage);
         TargetLanguages = new ChoiceGroup(
@@ -107,6 +123,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             group.SelectionChanged += (_, _) => RefreshSteps();
         }
 
+        InitializeBudget();
         RefreshSteps();
     }
 
@@ -121,8 +138,18 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     /// <summary>Linhas da detecção do passo 1: engine, arquivo de scripts, chave.</summary>
     public ObservableCollection<string> DetectionLines { get; } = [];
 
-    /// <summary>Os fatos da engine detectada (arquivo de scripts, chave), abaixo de <see cref="EngineTitle"/>.</summary>
+    /// <summary>Os fatos técnicos da engine detectada (arquivo de scripts, chave, página de código); vão em "Detalhes técnicos".</summary>
     public ObservableCollection<DetectionFact> DetectionFacts { get; } = [];
+
+    /// <summary>O que o app achou, em linguagem comum (texto para traduzir, cópia de segurança).</summary>
+    public ObservableCollection<DetectionFact> FoundFacts { get; } = [];
+
+    /// <summary>"Feito com o motor YU-RIS": o título do cartão do primeiro passo; vazio até haver uma pasta reconhecida.</summary>
+    [ObservableProperty]
+    public partial string EngineHeadline { get; private set; } = string.Empty;
+
+    /// <summary>Quantos scripts a detecção contou; nulo quando a engine não diz. Base da estimativa de custo do passo de IA.</summary>
+    public int? ScriptCount { get; private set; }
 
     /// <summary>Os quatro passos para o <see cref="PipelineStepper"/>: o concluído mostra o resultado, o pendente diz o que falta.</summary>
     [ObservableProperty]
@@ -164,10 +191,6 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ProjectDirectoryLabel))]
     [NotifyCanExecuteChangedFor(nameof(NextCommand))]
     public partial string? ProjectDirectory { get; private set; }
-
-    /// <summary>No passo de IA, "pular" grava o padrão do <c>vnf init</c> em vez do modelo marcado.</summary>
-    [ObservableProperty]
-    public partial bool SkipAi { get; set; }
 
     [ObservableProperty]
     public partial string? ErrorMessage { get; private set; }
@@ -221,8 +244,8 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     {
         WizardStep.Game => "Pasta do jogo",
         WizardStep.Names => "Idiomas e nome",
-        WizardStep.Accents => "Acentuação",
-        WizardStep.Ai => "Provedor de IA",
+        WizardStep.Accents => "Acentos",
+        WizardStep.Ai => "IA e gasto",
         _ => "Projeto criado",
     };
 
@@ -251,8 +274,11 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             GameFolder = null;
             DetectionLines.Clear();
             DetectionFacts.Clear();
+            FoundFacts.Clear();
             EngineTitle = string.Empty;
+            EngineHeadline = string.Empty;
             DetectionWarning = null;
+            ShowGameSize(null, null);
             Executables.Clear();
             OnPropertyChanged(nameof(HasExecutables));
             SelectedExe = null;
@@ -441,29 +467,28 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     {
         WizardStep.Game => HasGame && SelectedExe is not null,
         WizardStep.Names => !string.IsNullOrWhiteSpace(ProjectName) && ProjectDirectory is not null,
-        WizardStep.Accents or WizardStep.Ai => true,
+        WizardStep.Accents => true,
+        WizardStep.Ai => RateError is null && LimitError is null,
         _ => false,
     };
 
     partial void OnStepChanged(WizardStep value) => RefreshSteps();
 
-    partial void OnSkipAiChanged(bool value) => RefreshSteps();
-
     partial void OnIsBusyChanged(bool value) => GoToStepCommand.NotifyCanExecuteChanged();
 
-    private static readonly string[] StepTitles = ["Pasta do jogo", "Idiomas e nome", "Acentuação", "Provedor de IA"];
+    private static readonly string[] StepTitles = ["Pasta do jogo", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Nome, pasta e idiomas", "Como tratar os acentos", "Modelo da tradução"];
+        ["Escolha a pasta instalada", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"];
 
     private void RefreshSteps()
     {
         string?[] results =
         [
-            HasDetection ? $"{EngineTitle} detectada" : null,
+            HasDetection ? EngineHeadline : null,
             $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Title}",
             EncodingStrategies.Selected.Title,
-            SkipAi ? $"{ProjectLabels.Model(ProjectChoices.DefaultAi.Model)} (padrão)" : Models.Selected.Title,
+            SelectedQualityTitle,
         ];
 
         var steps = new PipelineStep[StepTitles.Length];
@@ -491,7 +516,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         SourceLanguages.Selected.Id,
         TargetLanguages.Selected.Id,
         EncodingStrategies.Selected.Id,
-        SkipAi ? null : ProjectChoices.DefaultAi with { Model = Models.Selected.Id });
+        ProjectChoices.DefaultAi with { Model = Models.Selected.Id });
 
     private async Task CreateAsync()
     {
@@ -502,6 +527,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options));
             Created = new ProjectResultInfo(result.Config.Name, result.Folder.Root);
             Step = WizardStep.Done;
+            SaveBudget();
         }
         catch (Exception e) when (IsExpected(e))
         {
@@ -519,16 +545,19 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     {
         DetectionLines.Clear();
         DetectionFacts.Clear();
+        FoundFacts.Clear();
         DetectionWarning = null;
         var details = found.Detection.Details;
-        var version = details.TryGetValue(ProjectInitializer.VersionDetail, out var ypf) && int.TryParse(ypf, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : (int?)null;
+        var version = ReadNumber(details, ProjectInitializer.VersionDetail);
+        var scripts = ReadNumber(details, "scripts");
         EngineTitle = ProjectLabels.Engine(found.Engine.Id, version);
+        EngineHeadline = $"Feito com o motor {ProjectLabels.Engine(found.Engine.Id, null)}";
         DetectionLines.Add($"Engine: {EngineTitle}");
+        FoundFacts.Add(new DetectionFact("Texto para traduzir", scripts is { } n ? $"{ProjectLabels.Number(n)} {(n == 1 ? "arquivo" : "arquivos")} de roteiro" : "Roteiro do jogo encontrado"));
+        FoundFacts.Add(new DetectionFact("Cópia de segurança", "Feita antes de qualquer mudança no jogo"));
         if (details.TryGetValue("scriptsArchive", out var archive))
         {
-            var count = details.TryGetValue("scripts", out var n) && int.TryParse(n, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var total)
-                ? $" ({ProjectLabels.Number(total)} {(total == 1 ? "script" : "scripts")})"
-                : string.Empty;
+            var count = scripts is { } total ? $" ({ProjectLabels.Number(total)} {(total == 1 ? "script" : "scripts")})" : string.Empty;
             DetectionLines.Add($"Arquivo de scripts: {archive}{count}");
             DetectionFacts.Add(new DetectionFact("Arquivo de scripts", count.Length == 0 ? archive : $"{archive} · {count.Trim(' ', '(', ')')}"));
         }
@@ -539,20 +568,33 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             DetectionFacts.Add(new DetectionFact("Chave XOR dos scripts", key));
         }
 
+        DetectionFacts.Add(new DetectionFact("Página de código", "932 (Shift-JIS)"));
+
         if (details.TryGetValue(ProjectInitializer.WarningsDetail, out var warnings))
         {
             DetectionLines.Add($"Aviso: {warnings}");
             DetectionWarning = warnings;
         }
+
+        ShowGameSize(scripts, found.Engine);
     }
+
+    private static int? ReadNumber(IReadOnlyDictionary<string, string> details, string key) =>
+        details.TryGetValue(key, out var text) && int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : null;
 
     private static ChoiceOption EncodingOption(string id) => id switch
     {
-        "fold" => new(id, "Remover acentos", "fold", "Funciona em qualquer jogo, mas perde todos os acentos. É o padrão."),
-        "remap" => new(id, "Remapear glifos", "remap", "Boa qualidade, com fonte modificada. O build ainda não tem esse encoder."),
-        "cp1252" => new(id, "CP1252", "cp1252", "Acentos completos com o executável original. O patch da fonte (MS Gothic) é opcional: tira os vãos entre as letras e se aplica na tela Testar."),
+        "fold" => new(id, "Sem acentos", description: "Funciona em qualquer jogo. As letras acentuadas viram as sem acento, como ação que vira acao.") { Layout = AccentPreview.Layout(id) },
+        "remap" => new(id, "Com acentos, fonte modificada", description: "Troca a fonte do jogo para desenhar as letras acentuadas. Ainda não está pronta.") { Layout = AccentPreview.Layout(id), IsAvailable = false, Badge = "Em breve" },
+        "cp1252" => new(id, "Com acentos, ajuste no jogo", description: "Mantém todos os acentos ajustando o jogo, sempre com cópia de segurança. Trocar a fonte para MS Gothic é opcional, tira os vãos entre as letras e se faz na tela Testar.") { Layout = AccentPreview.Layout(id) },
         _ => new(id, id),
     };
+
+    private void RecommendAccentAdjustment(IEngine? engine)
+    {
+        var recommended = engine is IGamePatchProvider;
+        EncodingStrategies.Options.Single(o => o.Id == "cp1252").Badge = recommended ? "Recomendada para este jogo" : string.Empty;
+    }
 
     private static ChoiceOption ModelOption(string id)
     {

@@ -95,6 +95,14 @@ public sealed partial class QualityOption(QualityProfile profile, string title, 
     [ObservableProperty]
     public partial string Duration { get; private set; } = string.Empty;
 
+    /// <summary>O cartão de uma qualidade com o título e a frase que a descrevem nos Ajustes e no assistente de novo projeto.</summary>
+    internal static QualityOption Describe(QualityProfile profile) => profile.Quality switch
+    {
+        TranslationQuality.Fast => new QualityOption(profile, "Rápida", "Rascunho barato e veloz, para ler a história e revisar com calma."),
+        TranslationQuality.Balanced => new QualityOption(profile, "Equilibrada", "O meio-termo: boa para a maior parte do jogo."),
+        _ => new QualityOption(profile, "Caprichada", "A mais fiel ao tom e aos personagens."),
+    };
+
     internal void ShowEstimate(int? pendingLines, decimal brl)
     {
         HasEstimate = pendingLines is not null;
@@ -190,7 +198,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         ];
         Themes = [new(ThemeChoice.System, "Sistema"), new(ThemeChoice.Light, "Claro"), new(ThemeChoice.Dark, "Escuro")];
         Models = [.. ClaudeModels.All.Select(Describe)];
-        Qualities = [.. QualityProfiles.All.Select(DescribeQuality)];
+        Qualities = [.. QualityProfiles.All.Select(QualityOption.Describe)];
         Efforts = [new("low", "Baixo"), new("medium", "Médio"), new("high", "Alto")];
         Encodings =
         [
@@ -678,20 +686,19 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(value))
+        if (!BudgetInput.TryReadRate(value, out var rate, out var rateError))
         {
-            RateError = null;
-            ChangeRate(null, null);
-            return;
-        }
-
-        if (!MoneyParser.TryParse(value, out var rate) || rate <= 0m || rate > AppSettings.MaxBrlPerUsd)
-        {
-            RateError = "Informe quanto vale 1 dólar em reais, por exemplo 5,40.";
+            RateError = rateError;
             return;
         }
 
         RateError = null;
+        if (rate is null)
+        {
+            ChangeRate(null, null);
+            return;
+        }
+
         if (app.BrlPerUsd != rate)
         {
             ChangeRate(rate, DateOnly.FromDateTime(clock.GetLocalNow().DateTime));
@@ -705,7 +712,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        var valid = TryReadLimit(value, out var limit, out var error);
+        var valid = BudgetInput.TryReadLimit(value, out var limit, out var error);
         LimitError = error;
         if (valid)
         {
@@ -721,32 +728,12 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        var valid = TryReadLimit(value, out var warn, out var error);
+        var valid = BudgetInput.TryReadLimit(value, out var warn, out var error);
         WarnError = error;
         if (valid)
         {
             TrySaveApp(app with { WarnAbove = warn }, "Não foi possível salvar o valor de aviso");
         }
-    }
-
-    /// <summary>Vazio é "sem limite"; um valor precisa ser maior que zero.</summary>
-    private static bool TryReadLimit(string text, out decimal? value, out string? error)
-    {
-        value = null;
-        error = null;
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return true;
-        }
-
-        if (MoneyParser.TryParse(text, out var parsed) && parsed > 0m)
-        {
-            value = parsed;
-            return true;
-        }
-
-        error = "Use um valor em reais maior que zero, como 200,00, ou deixe vazio para não limitar.";
-        return false;
     }
 
     /// <summary>"Confirmar hoje": a cotação continua a mesma e a data passa a ser a de hoje, para a pessoa dizer que ela ainda vale.</summary>
@@ -761,6 +748,36 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Há uma cotação informada pela pessoa (não o valor de exemplo).</summary>
     public bool HasInformedRate => app.BrlPerUsd is not null;
+
+    /// <summary>
+    /// Relê o <c>app.json</c> depois que outra tela (o assistente de novo projeto) o gravou: sem isso, a próxima gravação daqui devolveria a
+    /// cotação e o limite antigos. Os campos de orçamento mostram o que está no arquivo.
+    /// </summary>
+    public void ReloadAppSettings()
+    {
+        loading = true;
+        try
+        {
+            app = appSettings.Load();
+            ExchangeRateText = app.BrlPerUsd is { } rate ? MoneyParser.Format(rate) : string.Empty;
+            SpendLimitText = app.SpendLimit is { } limit ? MoneyParser.Format(limit) : string.Empty;
+            WarnAboveText = app.WarnAbove is { } warn ? MoneyParser.Format(warn) : string.Empty;
+            RateError = null;
+            LimitError = null;
+            WarnError = null;
+        }
+        finally
+        {
+            loading = false;
+        }
+
+        RefreshRateNote();
+        RefreshSpent();
+        ApplyEstimates();
+        OnPropertyChanged(nameof(HasInformedRate));
+        ConfirmRateTodayCommand.NotifyCanExecuteChanged();
+        RateChanged?.Invoke(this, app.Rate);
+    }
 
     private void ChangeRate(decimal? rate, DateOnly? informedOn)
     {
@@ -829,13 +846,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private decimal BrlFor(string model) =>
         estimatedPending is not null && estimates.TryGetValue(model, out var estimate) ? CostEstimator.Brl(estimate, app.Rate) : 0m;
-
-    private static QualityOption DescribeQuality(QualityProfile profile) => profile.Quality switch
-    {
-        TranslationQuality.Fast => new QualityOption(profile, "Rápida", "Rascunho barato e veloz, para ler a história e revisar com calma."),
-        TranslationQuality.Balanced => new QualityOption(profile, "Equilibrada", "O meio-termo: boa para a maior parte do jogo."),
-        _ => new QualityOption(profile, "Caprichada", "A mais fiel ao tom e aos personagens."),
-    };
 
     partial void OnSelectedEncodingChanged(EncodingOption? value)
     {
