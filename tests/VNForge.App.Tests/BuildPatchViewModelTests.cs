@@ -36,7 +36,7 @@ public sealed class BuildPatchViewModelTests : IDisposable
     private ProjectFolder Folder => ProjectFolder.Open(projectRoot);
 
     /// <summary>Executável de mentira: cabeçalho <c>MZ</c>, enchimento, o nome japonês com terminador e o mesmo nome em UTF-16 (a caixa de diálogo).</summary>
-    private static byte[] SyntheticExe()
+    internal static byte[] SyntheticExe()
     {
         var bytes = new byte[0x1000];
         Array.Fill(bytes, (byte)0xCC);
@@ -275,6 +275,23 @@ public sealed class BuildPatchViewModelTests : IDisposable
 
         Assert.Null(vm.ErrorMessage);
         Assert.Equal(Patched(original), File.ReadAllBytes(ExePath));
+    }
+
+    [Fact]
+    public async Task Pedir_a_restauracao_com_o_patch_a_confirmar_apaga_a_copia_de_trabalho()
+    {
+        var vm = await OpenAsync();
+        await vm.PatchCommand.ExecuteAsync(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        File.WriteAllBytes(ExePath, SyntheticExe());
+        await vm.ReloadAsync();
+        await vm.PatchCommand.ExecuteAsync(null);
+        Assert.NotEmpty(StagedFiles());
+
+        vm.RestoreCommand.Execute(null);
+
+        Assert.Equal(BuildConfirmation.Restore, vm.Pending);
+        Assert.Empty(StagedFiles());
     }
 
     [Fact]

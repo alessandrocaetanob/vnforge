@@ -82,6 +82,7 @@ public sealed partial class BuildViewModel : ObservableObject
     private InjectionPlan? confirmedInject;
     private RestorePlan? confirmedRestore;
     private readonly object patchGate = new();
+    private readonly object stagingGate = new();
     private IReadOnlyList<PatchPlan>? heldPatch;
     private PatchInfo lastPatch = PatchInfo.None;
     private bool applyingPatch;
@@ -398,6 +399,7 @@ public sealed partial class BuildViewModel : ObservableObject
             return;
         }
 
+        ReleasePatch();
         var replaced = plan.Files.Count(f => f.ReplacesExisting);
         confirmedInject = plan;
         confirmedRestore = null;
@@ -414,6 +416,7 @@ public sealed partial class BuildViewModel : ObservableObject
             return;
         }
 
+        ReleasePatch();
         confirmedRestore = plan;
         confirmedInject = null;
         SetConfirmationFiles(plan.Manifest.Files.Select(DescribeRestoredFile));
@@ -1048,13 +1051,14 @@ public sealed partial class BuildViewModel : ObservableObject
 
     /// <summary>
     /// Planeja os patches da engine para o projeto e guarda os planos (com a cópia de trabalho) até a confirmação. Roda fora da thread da tela;
-    /// o trinco impede que a leitura do estado apague a cópia de trabalho de um patch que está sendo confirmado ou gravado.
+    /// <c>stagingGate</c> impede que a leitura do estado refaça a cópia de trabalho enquanto ela é preparada, e <c>patchGate</c> só protege o
+    /// campo, para a thread da tela nunca esperar uma cópia de arquivo.
     /// </summary>
     private IReadOnlyList<PatchPlan> PlanPatches(string root)
     {
         var project = ProjectFolder.Open(root);
         var patches = FindPatches(project.LoadConfig()) ?? throw new VNForgeException("Este projeto não tem patch de executável.");
-        lock (patchGate)
+        lock (stagingGate)
         {
             var plans = new List<PatchPlan>();
             try
@@ -1070,7 +1074,11 @@ public sealed partial class BuildViewModel : ObservableObject
                 throw;
             }
 
-            heldPatch = plans;
+            lock (patchGate)
+            {
+                heldPatch = plans;
+            }
+
             return plans;
         }
     }
@@ -1098,9 +1106,9 @@ public sealed partial class BuildViewModel : ObservableObject
             return PatchInfo.None;
         }
 
-        lock (patchGate)
+        lock (stagingGate)
         {
-            if (heldPatch is not null)
+            if (HeldPatch() is not null)
             {
                 return lastPatch;
             }
@@ -1118,7 +1126,7 @@ public sealed partial class BuildViewModel : ObservableObject
                     ? new PatchInfo(BuildPatchState.Applied, "Patch aplicado.", "O patch já está aplicado no executável do jogo. Nada a fazer; Restaurar originais devolve o executável.")
                     : new PatchInfo(BuildPatchState.Available, "Patch disponível.", $"{string.Join(" ", pending.Select(p => p.Patch.Description))} Faz o backup do executável antes; Restaurar originais desfaz.");
             }
-            catch (VNForgeException e)
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
             {
                 return lastPatch = new PatchInfo(BuildPatchState.Refused, "Patch recusado.", e.Message);
             }
