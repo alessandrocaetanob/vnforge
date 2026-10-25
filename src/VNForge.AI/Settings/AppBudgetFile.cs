@@ -29,11 +29,6 @@ public static class AppBudgetFile
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         var path = Path.Combine(directory, FileName);
         var none = new BudgetSettings(ExchangeRate.Placeholder, BudgetLimits.None);
-        if (!File.Exists(path))
-        {
-            return new BudgetFileReading(none, null);
-        }
-
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -41,6 +36,10 @@ public static class AppBudgetFile
             return root.ValueKind == JsonValueKind.Object
                 ? new BudgetFileReading(Read(root), null)
                 : new BudgetFileReading(none, $"{path} não é um objeto JSON.");
+        }
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return new BudgetFileReading(none, null);
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
