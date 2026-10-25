@@ -1,6 +1,6 @@
 # 06 — Notas técnicas: YU-RIS
 
-Resumo do que levantei lendo ferramentas existentes (links no fim). **Nada disso foi testado ainda contra o seu jogo**; o primeiro trabalho na sua máquina é confirmar cada item.
+Resumo do que levantei lendo ferramentas existentes (links no fim). O que já foi conferido no jogo de referência está em "Resultado no jogo de referência (M1, #88)" e "Testes da V2 no jogo de referência"; o resto continua a confirmar.
 
 ## Primeira coisa a verificar no seu jogo
 
@@ -294,9 +294,41 @@ Jogo YU-RIS testado em 2026-10-23 com `init`, `extract`, `build`, `inject` e `re
 - **Ida e volta**: build sem tradução idêntico ao original, jogo abrindo igual e `restore` devolvendo os hashes originais.
 - **Reescrita**: três narrações trocadas por texto ASCII aparecem no jogo, sem travar. O jogo aceita o texto novo no fim dos recursos.
 - **Acentos**: `ã` e `é` param o build com o id da linha, como previsto para a Shift-JIS pura do M1.
-- **Formatação**: cada letra latina ocupa uma célula fixa de meia largura e a fonte desenha o glifo estreito nela, então as letras ficam espaçadas (ver #62 e #105). O jogo quebra a linha pela largura, no meio da palavra (ver #56 e #59).
+- **Formatação**: cada letra latina ocupa uma célula fixa de meia largura e a fonte desenha o glifo estreito nela, então as letras ficam espaçadas (ver #62 e #105). O jogo quebra a linha pela largura, no meio da palavra (ver #56 e #59). A causa do espaçamento e a medida da caixa estão na seção seguinte.
 
 Ainda não conferido: `WORD` com `size` 0 (nenhuma fala de várias partes foi trocada), escolhas, nomes e strings de expressão traduzidos.
+
+## Testes da V2 no jogo de referência
+
+Roteiro em `docs/plans/2026-10-24-plano-de-testes-no-jogo.md`, rodado com `vnf 0.0.0-teste.4` (commit `02ce4da`) em 2026-10-24 e 2026-10-25. As evidências (saídas, hashes e capturas de tela) ficam na pasta de testes do usuário, fora do repositório, porque mostram o jogo. Da etapa 3 em diante o jogo rodou sem o Locale Emulator, que é o cenário de quem joga a tradução.
+
+### Pacotes e scripts (#31, #41)
+
+- **Variante do YPF**: os seis pacotes (`ysbin`, `bgm`, `cg`, `cgsys`, `se`, `voice`) estão na v485, com os parâmetros da seção anterior.
+- **Ida e volta dos YPF**: `vnf ypf unpack` seguido de `vnf ypf pack`, sem mudanças, deu os seis pacotes idênticos ao original por SHA-256.
+- **Scripts**: YSTB v485, chave 0xD36FAC96, 131 scripts e 6.855 unidades: 3.679 narração, 3.089 diálogo, 53 `other`, 30 nomes e 4 escolhas.
+- **Build sem tradução**: o `ysbin.ypf` gerado é idêntico ao original. Nesse caso o build copia o pacote sem passar pelo `YstbWriter`.
+- **Uma linha trocada**: só o `yst00114.ybn` muda dentro do pacote, e os outros 130 scripts saem iguais byte a byte.
+
+### Caixa de texto (#59)
+
+- **Largura**: o jogo quebra a fala sozinho a cada 73 colunas de meia largura, no meio da palavra. A medida é a mesma com a fonte `System` e com a MS Gothic, porque o motor conta células, não a largura do glifo.
+- **Linhas**: cabem 3. A 4ª linha é desenhada por baixo da barra de botões (SAVE, LOAD e os outros) e a 5ª fica fora da tela. O jogo não abre página nova sozinho, então uma fala com mais de 3 linhas fica cortada.
+- **Como medir**: uma régua de 520 caracteres sem espaço, com uma letra a cada 10 colunas (`A234567890B234567890…`), mostra a coluna de cada quebra. Uma fala com 6 linhas curtas separadas por `\n` mostra quantas linhas cabem. O `\n` (`EF F0`) dentro de um `WORD` vira quebra de linha no jogo.
+- **Validação**: com `wrap.maxWidth` 73 e `wrap.maxLines` 3 no `formatting.json`, uma fala de três linhas, duas delas com exatamente 73 colunas, quebrou no jogo onde o `vnf preview` mostrou. Uma fala de 5 linhas gerou o aviso `caixa-acima-do-limite` no preview e no build. Esses valores estão em `samples/formatting.json`.
+
+### Acentos e fonte (#62)
+
+- **Acentos em `cp1252` com o exe original**: a frase `Ação, coração, você é ótimo! Àquela ponte, pôr o pé.` aparece com todos os acentos certos. Não foi preciso mexer na tabela de lead bytes nem no charset da fonte.
+- **Acento no fim da fala**: `Até já, café` aparece inteira. O motor não engole o byte seguinte ao `é`, embora `0xE9` esteja na faixa de lead bytes.
+- **Tabela de lead bytes**: fica em 0xC20A0 no exe, com `01` nas posições `0x81` a `0x9F` e `0xE0` a `0xFC`. Com a tabela inteira zerada o jogo não abre e mostra `ルビ設定開始文字が不正です。` (caractere inicial de ruby inválido): o motor usa a tabela nos próprios códigos de controle, então ela fica como está. Zerar só `0xE0` a `0xFC` não foi testado, porque deixou de ser necessário.
+- **Fonte das falas**: `CreateFontIndirectA` recebe a face `System`, charset 1 (`DEFAULT_CHARSET`), peso 700 e altura 92 (84 na segunda chamada). O exe guarda os nomes de fonte em Shift-JIS a partir de 0xD5008 (`ＭＳ ゴシック`, `標準ゴシック`, `ＭＳ Ｐゴシック`, `ＭＳ 明朝` e `標準明朝`, cada um terminado em zero). Num Windows sem o japonês como idioma de programas não Unicode, nenhuma fonte responde por esses nomes, e o motor pede a `System`, que é proporcional. Como cada caractere ocupa uma célula fixa, as letras estreitas (`i`, `l`, `t`, `r`, `f`, `j`) ficam com um vão depois delas, com ou sem acento.
+- **Correção da fonte**: trocar os 13 bytes de `ＭＳ ゴシック` em 0xD5008 por `MS Gothic` em ASCII, completando com zeros até 0xD5017. Com o exe assim, as falas saem em MS Gothic, sem os vãos e com os acentos certos. É o patch do `vnf patch-exe` (#65).
+- **O que não troca a fonte**: o comando `FONT` em `yst00011:044288` e a string em `yst00011:059393` também têm `ＭＳ ゴシック`. Trocar os dois por `MS Gothic` no build não muda a fonte das falas. As duas linhas saem da extração como traduzíveis (#288).
+- **Tela de configuração**: a lista de fontes de CONFIG › MESSAGE fica vazia sem o Locale Emulator, mesmo com o exe corrigido, e a caixa da fonte mostra o nome em Shift-JIS lido como cp1252 (`‚l‚r ƒSƒVƒbƒN`). Não afeta as falas.
+- **Outro nome no exe**: o `ＭＳ ゴシック` em UTF-16 em 0x11EF02 fica junto de `コメント編集` e é a fonte de uma caixa de diálogo do Windows, não das falas.
+
+Conclusão da #62: seguir com `cp1252`, sem Locale Emulator, mais o patch do nome da fonte. O `remap` (#66) não é necessário no jogo de referência.
 
 ## Acentuação: o problema central
 
@@ -306,14 +338,14 @@ Opções, da mais simples para a melhor:
 
 1. **`fold`**: tirar acentos. Funciona em qualquer jogo, fica feio.
 2. **`remap`**: as katakanas de meia largura (`0xA1`–`0xDF`) ocupam **1 byte** em Shift-JIS e quase nunca aparecem em VN. Mapeamos `á→ｱ`, `ç→ｲ` etc. e trocamos os glifos numa fonte embutida/instalada. Truque clássico de fan-translation.
-3. **`cp1252`**: o executável do YU-RIS tem uma tabela de 256 bytes que marca quais bytes iniciam caractere duplo (lead bytes do Shift-JIS: `0x81–0x9F`, `0xE0–0xFC`). Ferramentas chinesas trocam essa tabela para GBK e usam um DLL que muda o `lfCharSet` em `CreateFontIndirectA`. Para português: zerar a tabela (todo byte vira caractere simples) e forçar `ANSI_CHARSET` na fonte. Resultado: acentos nativos com qualquer fonte do Windows. Pontos de atenção:
+3. **`cp1252`**: o texto é gravado em Windows-1252. O executável do YU-RIS tem uma tabela de 256 bytes que marca quais bytes iniciam caractere duplo (lead bytes do Shift-JIS: `0x81–0x9F`, `0xE0–0xFC`); ferramentas chinesas trocam essa tabela para GBK e usam um DLL que muda o `lfCharSet` em `CreateFontIndirectA`. No jogo de referência nada disso foi preciso: com o exe original e sem Locale Emulator os acentos aparecem certos, e o único patch é o nome da fonte (#62, seção "Testes da V2 no jogo de referência"). Pontos de atenção:
    - o byte `0xEF` (ï) colide com o prefixo de código de controle; o QA proíbe `ï`
-   - a troca de charset pode exigir um DLL pequeno de hook (C++/Detours) ou patch direto nas chamadas de fonte; precisa ser investigado no seu executável
+   - zerar a tabela inteira impede o jogo de abrir (erro de ruby), então ela fica como está
    - nomes de arquivo e strings internas continuam Shift-JIS; só o texto exibido muda
 
-Fonte do jogo: ele pede a fonte pelo nome ＭＳ ゴシック (MS Gothic, `msgothic.ttc`, largura fixa). O app não a redistribui: a prévia usa a instalada no sistema e, na falta dela, a BIZ UDGothic (SIL OFL 1.1), que é também a candidata para a fonte modificada do `remap` (#66). A decisão está em `docs/04-app-windows.md` (D6, #105).
+Fonte do jogo: ele pede a fonte pelo nome ＭＳ ゴシック (MS Gothic, `msgothic.ttc`, largura fixa). Sem o japonês como idioma de programas não Unicode, o Windows não acha a fonte por esse nome e o jogo usa a `System`, até o patch do nome (#65). O app não a redistribui: a prévia usa a instalada no sistema e, na falta dela, a BIZ UDGothic (SIL OFL 1.1), que é também a candidata para a fonte modificada do `remap` (#66). A decisão está em `docs/04-app-windows.md` (D6, #105).
 
-Plano: começar com `fold` para validar a ida e volta (M1), investigar `cp1252` no seu jogo (E5) e manter `remap` como alternativa.
+Plano: `fold` validou a ida e volta (M1). A tradução segue com `cp1252` mais o patch do nome da fonte (#62, #65). O `remap` fica como alternativa para um jogo em que o `cp1252` não funcione.
 
 ## Referências
 
