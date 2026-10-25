@@ -37,13 +37,29 @@ public sealed partial class GameInjector
         {
             var history = new BackupHistory(ReadBackups(project));
             ResetDirectory(staging);
+            var targetHashes = new Dictionary<string, string>(PathComparer);
             foreach (var relative in relatives.Where(r => File.Exists(ResolveInside(gameDirectory, r))))
             {
-                CopyInto(ResolveInside(gameDirectory, relative), ResolveInside(staging, relative));
+                // O hash do jogo vem antes da cópia e a cópia é conferida contra ele: se o arquivo mudou no meio, o plano não grava um patch feito sobre a versão antiga.
+                var target = ResolveInside(gameDirectory, relative);
+                var targetHash = FileHash.Sha256(target);
+                var stagedPath = ResolveInside(staging, relative);
+                CopyInto(target, stagedPath);
+                if (FileHash.Sha256(stagedPath) != targetHash)
+                {
+                    throw new InjectionException($"O arquivo '{relative}' do jogo mudou enquanto o patch '{patch.Id}' era preparado. Nada foi gravado no jogo; rode o comando de novo.");
+                }
+
+                targetHashes[relative] = targetHash;
             }
 
             patch.Apply(staging);
-            return new PatchPlan(patch, PlanStaged(project, gameDirectory, staging, relatives, history), staging);
+            return new PatchPlan(patch, PlanStaged(project, gameDirectory, staging, relatives, targetHashes, history), staging);
+        }
+        catch (InvalidOperationException ex)
+        {
+            TryDeleteDirectory(staging);
+            throw new InjectionException($"O patch '{patch.Id}' foi recusado e nada foi gravado no jogo: {ex.Message}", ex);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -80,7 +96,13 @@ public sealed partial class GameInjector
         TryDeleteDirectory(plan.StagingDirectory);
     }
 
-    private static InjectionPlan PlanStaged(ProjectFolder project, string gameDirectory, string staging, IReadOnlyList<string> relatives, BackupHistory history)
+    private static InjectionPlan PlanStaged(
+        ProjectFolder project,
+        string gameDirectory,
+        string staging,
+        IReadOnlyList<string> relatives,
+        IReadOnlyDictionary<string, string> targetHashes,
+        BackupHistory history)
     {
         var files = new List<PlannedFile>();
         var unchanged = 0;
@@ -94,13 +116,12 @@ public sealed partial class GameInjector
 
             var target = ResolveInside(gameDirectory, relative);
             var stagedHash = FileHash.Sha256(stagedPath);
-            if (!File.Exists(target))
+            if (!targetHashes.TryGetValue(relative, out var targetHash))
             {
                 files.Add(new PlannedFile(relative, stagedPath, target, stagedHash, null, null, null));
                 continue;
             }
 
-            var targetHash = FileHash.Sha256(target);
             if (targetHash == stagedHash)
             {
                 unchanged++;

@@ -207,6 +207,17 @@ public sealed class YuRisFontPatchTests : IDisposable
     }
 
     [Fact]
+    public void MS_Gothic_em_ASCII_sem_o_nome_japones_em_UTF16_nao_e_tomado_por_patch_ja_aplicado()
+    {
+        var bytes = SyntheticExe(name: Gothic, afterName: new byte[7]);
+        Array.Clear(bytes, 0x800, 0x20);
+        Write(bytes);
+
+        Assert.False(Patch().CanApply(_root, out var reason));
+        Assert.Contains("ＭＳ ゴシック", reason);
+    }
+
+    [Fact]
     public void Engine_YU_RIS_oferece_o_patch_para_o_executavel_do_projeto()
     {
         var provider = Assert.IsAssignableFrom<IGamePatchProvider>(new YuRisEngine());

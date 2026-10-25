@@ -200,6 +200,34 @@ public sealed class PatchInjectionTests : IDisposable
     }
 
     [Fact]
+    public void Patch_restore_e_patch_de_novo_voltam_a_fazer_backup_do_original()
+    {
+        ApplyPatch(Injector());
+        Injector().Restore(GameInjector.PlanRestore(_project));
+        _clock.Advance(TimeSpan.FromMinutes(1));
+
+        var result = ApplyPatch(Injector());
+
+        Assert.NotNull(result.BackupDirectory);
+        Assert.Equal(PatchedExe, ReadExe());
+        Assert.Equal(OriginalExe, File.ReadAllText(Path.Combine(result.BackupDirectory, GameExe)));
+        Injector().Restore(GameInjector.PlanRestore(_project));
+        Assert.Equal(OriginalExe, ReadExe());
+    }
+
+    [Fact]
+    public void Apply_que_recusa_o_arquivo_vira_recusa_do_patch_e_apaga_a_copia_de_trabalho()
+    {
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanPatch(_project, new FakePatch(applyThrows: true)));
+
+        Assert.Contains("recusado", erro.Message);
+        Assert.Contains("apply recusou", erro.Message);
+        Assert.False(Directory.Exists(StagingDirectory));
+        Assert.Equal(OriginalExe, ReadExe());
+        Assert.Empty(Directory.GetDirectories(_project.BackupDirectory));
+    }
+
+    [Fact]
     public void Gravacao_que_falha_deixa_o_executavel_como_estava()
     {
         var injector = Injector(new FailingGameWrites(_game));
@@ -238,7 +266,7 @@ public sealed class PatchInjectionTests : IDisposable
     }
 
     /// <summary>Troca <c>original-exe</c> por <c>patched--exe</c> no arquivo; reconhece os dois estados.</summary>
-    private sealed class FakePatch(string file = GameExe, IReadOnlyList<string>? files = null) : IGamePatch
+    private sealed class FakePatch(string file = GameExe, IReadOnlyList<string>? files = null, bool applyThrows = false) : IGamePatch
     {
         public const string PatchId = "fake-exe";
         public const string RefusalReason = "não é o executável esperado.";
@@ -261,6 +289,11 @@ public sealed class PatchInjectionTests : IDisposable
 
         public void Apply(string gameDir)
         {
+            if (applyThrows)
+            {
+                throw new InvalidOperationException("apply recusou o arquivo.");
+            }
+
             var path = Path.Combine(gameDir, file);
             File.WriteAllText(path, File.ReadAllText(path).Replace("original-exe", "patched--exe", StringComparison.Ordinal));
         }

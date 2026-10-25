@@ -25,6 +25,9 @@ public sealed class YuRisFontPatch : IGamePatch
     /// <summary><c>MS Gothic</c> em ASCII, seguido da folga de zeros que o espaço de 16 bytes do nome deixa quando o patch já foi aplicado.</summary>
     private static readonly byte[] PatchedSlot = [.. "MS Gothic"u8, 0, 0, 0, 0, 0, 0, 0];
 
+    /// <summary>O mesmo nome em UTF-16, a fonte de uma caixa de diálogo do Windows (0x11EF02 no jogo de referência).</summary>
+    private static readonly byte[] UnicodeName = System.Text.Encoding.Unicode.GetBytes(FontName);
+
     private readonly string _executable;
 
     /// <param name="executable">Executável relativo à pasta do jogo (<c>game.exe</c> do projeto).</param>
@@ -113,7 +116,9 @@ public sealed class YuRisFontPatch : IGamePatch
                 $"O nome da fonte {FontName} (Shift-JIS) aparece {names.Count} vezes no executável '{_executable}', e não dá para saber qual é o das falas.");
         }
 
-        if (bytes.AsSpan().Count(PatchedSlot) == 1)
+        // Já aplicado: o espaço do nome tem `MS Gothic` e o nome da caixa de diálogo, em UTF-16, que o patch não toca, continua no exe.
+        // Só a string ASCII não basta: um exe qualquer pode trazê-la.
+        if (bytes.AsSpan().Count(PatchedSlot) == 1 && bytes.AsSpan().IndexOf(UnicodeName) >= 0)
         {
             return new Inspection(null, bytes, path, null);
         }

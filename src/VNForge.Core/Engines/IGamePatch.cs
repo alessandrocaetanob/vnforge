@@ -1,15 +1,17 @@
 namespace VNForge.Core.Engines;
 
 /// <summary>
-/// Uma alteração opcional na pasta do jogo que não é script nem pacote (ex.: patch de codepage no executável).
+/// Uma alteração opcional na pasta do jogo que não é script nem pacote (ex.: troca do nome da fonte no executável).
 /// </summary>
 /// <remarks>
-/// Quem aplica é o fluxo de injeção, que faz backup de <see cref="AffectedFiles"/> antes de chamar
-/// <see cref="Apply"/> e sabe restaurá-los. Um patch nunca faz o próprio backup.
+/// Quem aplica é o fluxo de injeção (<c>GameInjector.PlanPatch</c> e <c>InjectPatch</c>). Ele chama <see cref="CanApply"/> na pasta do
+/// jogo, copia <see cref="AffectedFiles"/> para uma pasta de trabalho e chama <see cref="Apply"/> nessa cópia, nunca no jogo; só então faz o
+/// backup dos originais, grava o arquivo alterado e sabe restaurá-lo. Por isso <see cref="Apply"/> trabalha só com o <c>gameDir</c> que
+/// recebe, que tem a mesma estrutura de pastas da pasta do jogo, e um patch nunca faz o próprio backup.
 /// </remarks>
 public interface IGamePatch
 {
-    /// <summary>Identificador estável do patch, em minúsculas (ex.: <c>"exe-codepage"</c>).</summary>
+    /// <summary>Identificador estável do patch, em minúsculas (ex.: <c>"exe-font"</c>).</summary>
     string Id { get; }
 
     /// <summary>Descrição curta, em português, do que o patch altera.</summary>
@@ -31,9 +33,9 @@ public interface IGamePatch
     bool CanApply(string gameDir, out string? reason);
 
     /// <summary>
-    /// Aplica o patch. Chamar só depois do backup e de <see cref="CanApply"/> devolver verdadeiro.
-    /// É idempotente: aplicar de novo num jogo já alterado não muda nada.
+    /// Aplica o patch. Chamar só depois de <see cref="CanApply"/> devolver verdadeiro. Pode lançar <see cref="InvalidOperationException"/>
+    /// se o arquivo que recebe não é o que <see cref="CanApply"/> aceitou. É idempotente: aplicar de novo num arquivo já alterado não muda nada.
     /// </summary>
-    /// <param name="gameDir">Caminho da pasta do jogo.</param>
+    /// <param name="gameDir">Pasta com os <see cref="AffectedFiles"/> a alterar: a cópia de trabalho do fluxo de injeção, ou a pasta do jogo.</param>
     void Apply(string gameDir);
 }
