@@ -37,7 +37,7 @@ public static class Motion
     {
         ArgumentNullException.ThrowIfNull(window);
         void Apply() => window.Classes.Set(MotionClass, MotionPreferences.AnimationsEnabled);
-        void OnChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(Apply);
+        void OnChanged(object? sender, EventArgs e) => window.Dispatcher.Post(Apply);
 
         Apply();
         MotionPreferences.Changed += OnChanged;

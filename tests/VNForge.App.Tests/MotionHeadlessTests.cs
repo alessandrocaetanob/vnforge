@@ -79,6 +79,27 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
         }
     });
 
+    // Issue #283: o aviso de mudança é estático e chega a janelas de outras sessões. Se o tratador procurasse o Dispatcher.UIThread
+    // na thread de quem chamou Force, criaria um despachante nela e as sessões headless seguintes falhavam ao subir (dono errado da thread).
+    [Fact]
+    public async Task Mudar_a_preferencia_de_outra_thread_nao_cria_despachante_nela()
+    {
+        Window? window = null;
+        await OnUi(() => window = Show(new Border()));
+        try
+        {
+            using (MotionPreferences.Force(true))
+            {
+            }
+
+            Assert.Null(Avalonia.Threading.Dispatcher.FromThread(Thread.CurrentThread));
+        }
+        finally
+        {
+            await OnUi(() => window!.Close());
+        }
+    }
+
     [Fact]
     public void Transicao_de_pagina_dura_150_ms_com_8_px_de_deslocamento()
     {
