@@ -17,9 +17,19 @@ public sealed partial class LineDetailView : UserControl
     /// <summary>Abaixo desta largura os botões do inspetor largam a tecla e o ícone para o texto caber.</summary>
     private const double CompactWidth = 360;
 
+    /// <summary>
+    /// Com <c>true</c> o inspetor se divide nas abas Tradução, Sugestão e Contexto (janela abaixo de <see cref="EditorBreakpoints"/>). O Editor define o valor
+    /// e ele desce até aqui pela árvore; os mesmos blocos mudam de lugar, então o ViewModel e as ligações são os de sempre.
+    /// </summary>
+    public static readonly AttachedProperty<bool> UseTabsProperty =
+        AvaloniaProperty.RegisterAttached<LineDetailView, Control, bool>("UseTabs", inherits: true);
+
+    private const int SuggestionTabIndex = 1;
+
     private readonly DispatcherTimer ageTimer;
     private LineDetailViewModel? current;
     private bool syncing;
+    private bool tabbed;
 
     public LineDetailView()
     {
@@ -32,6 +42,10 @@ public sealed partial class LineDetailView : UserControl
         ageTimer.Tick += (_, _) => current?.RefreshSuggestionAge();
     }
 
+    public static bool GetUseTabs(Control control) => control.GetValue(UseTabsProperty);
+
+    public static void SetUseTabs(Control control, bool value) => control.SetValue(UseTabsProperty, value);
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -39,6 +53,51 @@ public sealed partial class LineDetailView : UserControl
         {
             Classes.Set("compact", Bounds.Width is > 0 and < CompactWidth);
         }
+        else if (change.Property == UseTabsProperty)
+        {
+            ApplyTabs(change.GetNewValue<bool>());
+        }
+    }
+
+    /// <summary>Na ordem do artboard, numa coluna só.</summary>
+    private Control[] WideOrder =>
+    [
+        HeaderFragment, OriginalFragment, ExplainFragment, SceneFragment, TranslationFragment, FitFragment,
+        ActionsFragment, SameSourceFragment, SuggestFragment, ProblemsFragment, ContextFragment,
+    ];
+
+    /// <summary>Muda os blocos de lugar entre a coluna única e as abas; nada é recriado, então o campo de tradução guarda o texto e o cursor.</summary>
+    private void ApplyTabs(bool useTabs)
+    {
+        if (useTabs == tabbed)
+        {
+            return;
+        }
+
+        tabbed = useTabs;
+        WideStack.Children.Clear();
+        TabbedHeaderHost.Child = null;
+        TranslationTab.Children.Clear();
+        SuggestionTab.Children.Clear();
+        ContextTab.Children.Clear();
+
+        if (useTabs)
+        {
+            TabbedHeaderHost.Child = HeaderFragment;
+            TranslationTab.Children.AddRange([OriginalFragment, TranslationFragment, FitFragment, ActionsFragment, SameSourceFragment, ProblemsFragment]);
+            SuggestionTab.Children.Add(SuggestFragment);
+            ContextTab.Children.AddRange([ExplainFragment, SceneFragment, ContextFragment]);
+        }
+        else
+        {
+            WideStack.Children.AddRange(WideOrder);
+        }
+
+        WideScroll.IsVisible = !useTabs;
+        TabbedRoot.IsVisible = useTabs;
+        InspectorTabs.SelectedIndex = 0;
+        GameBox.Size = useTabs ? GameTextboxSize.Small : GameTextboxSize.Medium;
+        Classes.Set("tabbed", useTabs);
     }
 
     /// <summary>Põe o cursor no campo de tradução.</summary>
@@ -102,6 +161,12 @@ public sealed partial class LineDetailView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // Pedir a sugestão com o atalho, de qualquer aba, leva a pessoa ao cartão da IA.
+        if (tabbed && e.PropertyName == nameof(LineDetailViewModel.ShowSuggestionCard) && current is { ShowSuggestionCard: true })
+        {
+            InspectorTabs.SelectedIndex = SuggestionTabIndex;
+        }
+
         if (e.PropertyName == nameof(LineDetailViewModel.FieldText) && current is not null && TranslationEditor.Text != current.FieldText)
         {
             SetEditorText(current.FieldText);

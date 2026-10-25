@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- ContextLines (v3.css ".ctx"): quem fala numa coluna de 76px em 600; ao lado, o original em japonês e a tradução embaixo, em text-secondary 12/18. -->
+  <!-- ContextLines (v3.css ".ctx"): quem fala numa coluna de 76px em 600; ao lado, o original em japonês e a tradução embaixo, em text-secondary 12/18; as duas quebram linha em vez de ficar sob reticências, para o inspetor de 360 px mostrar a fala inteira. -->
   <Style Selector="c|ContextLines">
     <Setter Property="Focusable" Value="False"/>
     <Setter Property="Template">
@@ -19,8 +19,8 @@
       <DataTemplate x:DataType="c:ContextLine">
         <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2">
           <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="{Binding Who}" TextTrimming="CharacterEllipsis"/>
-          <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="18" Text="{Binding Original}" TextTrimming="CharacterEllipsis"/>
-          <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="18" Text="{Binding Translation}" TextTrimming="CharacterEllipsis"
+          <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="18" Text="{Binding Original}" TextWrapping="Wrap"/>
+          <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="18" Text="{Binding Translation}" TextWrapping="Wrap"
                      IsVisible="{Binding Translation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
         </Grid>
       </DataTemplate>

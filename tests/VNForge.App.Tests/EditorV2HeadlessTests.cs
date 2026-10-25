@@ -56,7 +56,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
                 // A janela do app tira 72 px do trilho e 1 px da borda: o Editor recebe 1367 px.
                 var window = Show(new EditorView { DataContext = vm }, 1367);
                 var panels = window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible).ToList();
-                scripts = panels.Single(b => b.Name is null && b.Bounds.Height > 200 && b.Bounds.X < 40).Bounds.Width;
+                scripts = panels.Single(b => b.Name == "ScenesBorder").Bounds.Width;
                 inspector = panels.Single(b => b.Padding.Left == 16 && b.Bounds.Width > 300).Bounds.Width;
                 window.Close();
             },
@@ -83,7 +83,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
                 var window = Show(new LineDetailView { DataContext = vm.Detail }, inspectorWidth - 32, 1000);
                 var view = window.GetVisualDescendants().OfType<LineDetailView>().Single();
                 var detail = (LineDetailViewModel)view.DataContext!;
-                var buttons = view.GetVisualDescendants().OfType<Button>().Where(b => b.Command == detail.ApproveAndNextCommand || b.Command == detail.AcceptSuggestionCommand).ToList();
+                var buttons = view.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && (b.Command == detail.ApproveAndNextCommand || b.Command == detail.AcceptSuggestionCommand)).ToList();
                 Assert.Equal(2, buttons.Count);
                 rows.AddRange(buttons.Select(b => b.TranslatePoint(default, view)!.Value.Y));
                 foreach (var block in buttons.SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>()).Where(t => t.IsEffectivelyVisible))
