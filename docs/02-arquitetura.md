@@ -396,6 +396,10 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 
 `GlossaryUsage.From(units)` conta, para a página Glossário, as linhas do projeto que contêm cada termo (`LinesContaining`, mesmo critério do `GlossaryMatcher`) e as linhas faladas por cada personagem (`LinesSpokenBy`); conta linhas, não ocorrências dentro da linha.
 
+`RepeatedTerms` (`VNForge.Core.Glossary`) acha os termos que o glossário ainda não cobre, sem IA: sequências de kanji e katakana (com a barra de prolongamento) de 2 a 6 caracteres que aparecem em ao menos 5 linhas do original (`Count`), sem as que são iguais ou parte de um termo já conhecido (`Excluding`, `Find`). Uma sequência maior que 6 caracteres não entra nem se parte em pedaços. `SpeakerSamples.From(units)` guarda até 20 falas de cada falante, espalhadas pelo texto e sem repetição, para a IA sugerir voz e gênero sem ler o jogo inteiro.
+
+`IGlossarySuggester` (`VNForge.AI.Glossary`) é a fronteira das sugestões do Glossário: `SuggestVoicesAsync` devolve gênero e jeito de falar por personagem, e `SuggestTermsAsync` devolve a tradução e o motivo por termo. `ClaudeGlossarySuggester` usa `claude-haiku-5-5` com `output_config.format` em JSON, divide o pedido em blocos (20 personagens, 30 termos) e confere que a resposta traz exatamente os nomes pedidos: recusa (`stop_reason: "refusal"`) vira `ClaudeRefusalException`, JSON inválido, incompleto ou cortado por `max_tokens` vira `ClaudeResponseException`. `FakeGlossarySuggester` serve os testes, e `GlossaryCost` estima o custo antes do pedido (a tela mostra o valor em reais com `CostEstimator.Brl` e a cotação da pessoa).
+
 `CharacterEntry.Source` é o nome exatamente como a engine o extrai em `TextUnit.Speaker`. `CharacterBook.Find(speaker)` acha a entrada por comparação ordinal, ignorando espaços nas pontas; falante nulo, vazio ou desconhecido (por exemplo `？？？`, quando não há entrada) devolve `null`. `ProjectFolder` lê e grava os dois arquivos (`LoadGlossary`, `SaveGlossary`, `LoadCharacters`, `SaveCharacters`). Os comandos `vnf glossary` e `vnf chars` ficam na E9.1.
 
 ### Nome do script (`scripts.json`)
