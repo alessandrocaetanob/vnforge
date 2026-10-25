@@ -20,7 +20,8 @@ namespace VNForge.Engines.YuRis.Text;
 /// (<see cref="TextUnitKind.Name"/>), sem diferenciar maiúsculas: cada argumento depois do nome da rotina que for string literal e não
 /// vazio, até o primeiro que não for.</description></item>
 /// <item><description>Qualquer outro argumento de expressão que seja só uma string literal com japonês (<see cref="TextUnitKind.Other"/>),
-/// exceto em <c>WORD</c>, <c>_</c>, <c>RETURNCODE</c>, <c>CG</c>, <c>GOSUB</c> e nos comandos de fluxo <c>IF</c>, <c>ELSE</c> e <c>LOOP</c>.</description></item>
+/// exceto em <c>WORD</c>, <c>_</c>, <c>RETURNCODE</c>, <c>CG</c>, <c>GOSUB</c>, nos comandos de fluxo <c>IF</c>, <c>ELSE</c> e <c>LOOP</c> e em <c>FONT</c>
+/// (o argumento é o nome de uma fonte, não texto).</description></item>
 /// </list>
 /// Expressões que não são só uma string literal (concatenações, variáveis) não são extraídas.
 /// </summary>
@@ -53,6 +54,13 @@ public static class YstbTextExtractor
 
     private const int ArgumentsPerInstruction = 256;
 
+    /// <summary>
+    /// Comandos que o <see cref="TextUnitKind.Other"/> não olha, se o YSCM os tem. <c>IF</c>, <c>ELSE</c> e <c>LOOP</c> têm argumentos
+    /// cujo <c>size</c> e <c>offset</c> não apontam para recursos; <c>FONT</c> recebe o nome de uma fonte do Windows, que traduzido
+    /// pediria uma fonte que não existe (#288).
+    /// </summary>
+    private static readonly string[] SkippedCommands = ["IF", "ELSE", "LOOP", "FONT"];
+
     /// <summary>Tira as unidades de texto de <paramref name="script"/>, na ordem do arquivo.</summary>
     /// <param name="file">O mesmo script, para a chave dos ids.</param>
     /// <param name="script">Script lido do <paramref name="file"/>.</param>
@@ -74,7 +82,7 @@ public static class YstbTextExtractor
         private readonly ScriptFile _file;
         private readonly YstbFile _script;
         private readonly YuRisOpcodes _opcodes;
-        private readonly HashSet<byte> _flowOpcodes;
+        private readonly HashSet<byte> _skippedOpcodes;
         private readonly List<TextUnit> _units = [];
         private readonly List<string> _warnings = [];
         private readonly List<YstbInstruction> _words = [];
@@ -84,12 +92,12 @@ public static class YstbTextExtractor
             _file = file;
             _script = script;
             _opcodes = commands.GetOpcodes();
-            _flowOpcodes = [];
-            foreach (var name in (string[])["IF", "ELSE", "LOOP"])
+            _skippedOpcodes = [];
+            foreach (var name in SkippedCommands)
             {
                 if (commands.TryGetOpcode(name, out var opcode))
                 {
-                    _flowOpcodes.Add(opcode);
+                    _skippedOpcodes.Add(opcode);
                 }
             }
         }
@@ -120,7 +128,7 @@ public static class YstbTextExtractor
         }
 
         private bool IsSkipped(byte opcode) =>
-            opcode == _opcodes.Expression || opcode == _opcodes.ReturnCode || opcode == _opcodes.Cg || _flowOpcodes.Contains(opcode);
+            opcode == _opcodes.Expression || opcode == _opcodes.ReturnCode || opcode == _opcodes.Cg || _skippedOpcodes.Contains(opcode);
 
         private void CollectWord(YstbInstruction instruction)
         {

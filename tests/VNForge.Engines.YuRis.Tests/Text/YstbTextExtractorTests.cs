@@ -95,6 +95,25 @@ public class YstbTextExtractorTests
     }
 
     [Fact]
+    public void Extract_ArgumentoDoComandoFont_NaoViraUnidade()
+    {
+        var yscm = new SyntheticYscmBuilder().WithTextCommands().AddCommand("FONT", "NAME", "SIZE").Build();
+        var commands = YscmReader.Read(yscm.Bytes, "ysc.ybn");
+        var builder = new SyntheticYstbBuilder(yscm);
+        builder.AddCommand("FONT", 1, builder.StringExpression("ＭＳ ゴシック"), builder.StringExpression("あ"));
+        builder.AddCommand("WAIT", 2, builder.StringExpression("一行目"));
+        var bytes = builder.Build().Bytes;
+
+        var script = YstbReader.Read(bytes, ScriptName, commands);
+        var extraction = YstbTextExtractor.Extract(new ScriptFile(ScriptName, bytes), script, commands);
+
+        var unit = Assert.Single(extraction.Units);
+        Assert.Equal(Id(1), unit.Id);
+        Assert.Equal(TextUnitKind.Other, unit.Kind);
+        Assert.Equal("一行目", unit.Source);
+    }
+
+    [Fact]
     public void Extract_DoisWordSeguidosFormamUmaMensagem_ESoUmaUnidade()
     {
         var extraction = Extract(NewBuilder().AddWord("一行目", 1).AddWord("二行目", 2).AddWord("三行目", 3));
