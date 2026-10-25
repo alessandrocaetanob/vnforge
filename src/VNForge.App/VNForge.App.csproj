@@ -3,6 +3,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Ícone do exe no Explorer; Assets/VNForge.ico sai de tools/New-AppIcon.ps1 e também entra como AvaloniaResource para a janela. -->
+    <ApplicationIcon>Assets/VNForge.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

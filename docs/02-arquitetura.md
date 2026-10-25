@@ -24,7 +24,7 @@ vnforge/
 ├─ global.json                    # SDK 10.0.x e runner de testes (Microsoft.Testing.Platform)
 ├─ Directory.Build.props          # net10.0, nullable, warnings as errors, versão
 ├─ Directory.Packages.props       # versões centralizadas de pacotes
-├─ tools/                         # Generate-Tokens.ps1 (tokens.json -> Tokens.axaml), Update-Icons.ps1 (Fluent Icons -> Icons.axaml)
+├─ tools/                         # Generate-Tokens.ps1 (tokens.json -> Tokens.axaml), Update-Icons.ps1 (Fluent Icons -> Icons.axaml), New-AppIcon.ps1 (Brand.Seal -> Assets/VNForge.ico)
 ├─ src/
 │  ├─ VNForge.Core/               # modelo do projeto, pipeline, formatação, codificação, QA
 │  ├─ VNForge.Engines.YuRis/      # YPF, YSTB, YSCM, YSTL, patch do executável
