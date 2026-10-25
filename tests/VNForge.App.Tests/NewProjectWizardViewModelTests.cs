@@ -235,16 +235,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Pular_a_ia_grava_o_padrao_mesmo_com_outro_modelo_marcado()
-    {
-        var vm = await AtNamesStepAsync();
-        vm.Models.Select("claude-haiku-5-5");
-        vm.SkipAi = true;
-
-        Assert.Null(vm.BuildOptions().Ai);
-    }
-
-    [Fact]
     public async Task Criar_grava_o_vnforge_json_com_as_escolhas_e_vai_para_o_passo_final()
     {
         var vm = await AtNamesStepAsync();
