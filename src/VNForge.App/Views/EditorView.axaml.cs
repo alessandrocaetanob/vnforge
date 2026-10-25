@@ -28,10 +28,10 @@ public sealed partial class EditorView : UserControl
         SceneFlyout.Opening += (_, _) => ((ScenesPanel)SceneFlyout.Content!).DataContext = current;
     }
 
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    /// <summary>A largura que decide o layout é a da janela, não a do Editor: o trilho de navegação tira uma fatia dela.</summary>
+    private void OnTopLevelPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs change)
     {
-        base.OnPropertyChanged(change);
-        if (change.Property == BoundsProperty)
+        if (change.Property == TopLevel.ClientSizeProperty)
         {
             ApplyBreakpoints();
         }
@@ -40,14 +40,19 @@ public sealed partial class EditorView : UserControl
     /// <summary>Abaixo de 1400 px de janela: cenas num flyout do cabeçalho, botões secundários como ícones e o inspetor em abas, com 360 px.</summary>
     private void ApplyBreakpoints()
     {
-        if (Bounds.Width <= 0)
+        var windowWidth = TopLevel.GetTopLevel(this)?.ClientSize.Width ?? 0;
+        if (windowWidth <= 0)
         {
             return;
         }
 
-        var windowWidth = EditorBreakpoints.WindowWidth(Bounds.Width);
         var flyout = EditorBreakpoints.UsesSceneFlyout(windowWidth);
         var tabs = EditorBreakpoints.UsesInspectorTabs(windowWidth);
+        if (!flyout)
+        {
+            SceneFlyout.Hide();
+        }
+
         Classes.Set("scenes-flyout", flyout);
         LineDetailView.SetUseTabs(this, tabs);
 
@@ -88,6 +93,21 @@ public sealed partial class EditorView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         (DataContext as EditorViewModel)?.RefreshPreview();
+        if (TopLevel.GetTopLevel(this) is { } top)
+        {
+            top.PropertyChanged += OnTopLevelPropertyChanged;
+            ApplyBreakpoints();
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is { } top)
+        {
+            top.PropertyChanged -= OnTopLevelPropertyChanged;
+        }
+
+        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
