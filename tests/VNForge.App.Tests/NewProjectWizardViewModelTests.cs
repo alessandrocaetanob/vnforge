@@ -215,6 +215,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         var description = Create().EncodingStrategies.Options.Single(o => o.Id == "cp1252").Description;
 
         Assert.Contains("MS Gothic", description);
+        Assert.Contains("opcional", description);
         Assert.Contains("tela Build", description);
         Assert.DoesNotContain("só funciona", description);
     }

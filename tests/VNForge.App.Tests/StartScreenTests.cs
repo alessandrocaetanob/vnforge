@@ -28,7 +28,7 @@ public class StartScreenTests
         var item = vm.Selected!;
         Assert.Equal("YU-RIS 5.x · YPF v500", item.EngineLabel);
         Assert.Equal("Claude Opus 5.5 · esforço médio", item.ModelLabel);
-        Assert.Equal("CP1252 (patch da fonte)", item.EncodingLabel);
+        Assert.Equal("CP1252 (patch opcional da fonte)", item.EncodingLabel);
         Assert.Equal("3", item.Lines);
         Assert.Equal("2", item.Scripts);
         Assert.StartsWith("YU-RIS 5.x · YPF v500 · ", item.Subtitle);

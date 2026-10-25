@@ -23,7 +23,7 @@ public class ProjectLabelsTests
 
     [Theory]
     [InlineData("fold", "Remover acentos (fold)")]
-    [InlineData("cp1252", "CP1252 (patch da fonte)")]
+    [InlineData("cp1252", "CP1252 (patch opcional da fonte)")]
     [InlineData("sjis", "Shift-JIS puro")]
     [InlineData("remap", "Remapear glifos (remap)")]
     [InlineData("zzz", "zzz")]

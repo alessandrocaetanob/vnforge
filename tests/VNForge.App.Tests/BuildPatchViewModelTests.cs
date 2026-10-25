@@ -56,7 +56,7 @@ public sealed class BuildPatchViewModelTests : IDisposable
         return copy;
     }
 
-    private async Task<BuildViewModel> OpenAsync(string strategy = "cp1252", bool withPatchEngine = true)
+    private async Task<BuildViewModel> OpenAsync(string strategy = "cp1252", bool withPatchEngine = true, IGameProcessStarter? starter = null)
     {
         ProjectFolder.Create(projectRoot, new ProjectConfig(
             "Teste",
@@ -66,7 +66,7 @@ public sealed class BuildPatchViewModelTests : IDisposable
             new EncodingConfig(strategy),
             AiConfig.Default)).SaveState(new PipelineState([], new Dictionary<string, StageState>(), game));
         IReadOnlyList<VNForge.Core.Engines.IEngine> engines = withPatchEngine ? [new YuRisEngine()] : [new FakeEngine()];
-        var vm = new BuildViewModel(new BackgroundTaskService(), engines, new NoStarter());
+        var vm = new BuildViewModel(new BackgroundTaskService(), engines, starter ?? new NoStarter());
         vm.Project = ProjectSummaryReader.Read(projectRoot);
         await vm.ReloadAsync();
         return vm;
@@ -295,6 +295,38 @@ public sealed class BuildPatchViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Fechar_durante_a_confirmacao_do_patch_apaga_a_copia_de_trabalho()
+    {
+        var vm = await OpenAsync();
+        await vm.PatchCommand.ExecuteAsync(null);
+        Assert.NotEmpty(StagedFiles());
+
+        Assert.True(vm.TryCloseSafely());
+
+        Assert.Empty(StagedFiles());
+    }
+
+    [Fact]
+    public async Task O_patch_fica_desabilitado_enquanto_outra_operacao_roda()
+    {
+        var blocking = new BlockingStarter();
+        var vm = await OpenAsync(starter: blocking);
+        Assert.True(vm.PatchCommand.CanExecute(null));
+
+        var running = vm.LaunchCommand.ExecuteAsync(null);
+        Assert.True(blocking.Entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.PatchCommand.CanExecute(null));
+
+        blocking.Release.Set();
+        await running;
+
+        Assert.False(vm.IsBusy);
+        Assert.True(vm.PatchCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Trocar_de_projeto_durante_a_confirmacao_apaga_a_copia_de_trabalho()
     {
         var vm = await OpenAsync();
@@ -305,6 +337,19 @@ public sealed class BuildPatchViewModelTests : IDisposable
         Assert.False(vm.IsConfirming);
         Assert.Equal(BuildPatchState.None, vm.PatchState);
         Assert.Empty(StagedFiles());
+    }
+
+    private sealed class BlockingStarter : IGameProcessStarter
+    {
+        public ManualResetEventSlim Entered { get; } = new();
+
+        public ManualResetEventSlim Release { get; } = new();
+
+        public void Start(string executablePath, string workingDirectory)
+        {
+            Entered.Set();
+            Release.Wait(TimeSpan.FromSeconds(10));
+        }
     }
 
     private sealed class NoStarter : IGameProcessStarter

@@ -1137,11 +1137,15 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    /// <summary>Chamado ao fechar a janela: enquanto uma operação escreve no jogo, fechar a deixaria pela metade. Devolve <c>false</c> e avisa na página.</summary>
+    /// <summary>
+    /// Chamado ao fechar a janela: enquanto uma operação escreve no jogo, fechar a deixaria pela metade. Devolve <c>false</c> e avisa na página.
+    /// Ao liberar o fechamento, apaga a cópia de trabalho de um patch que estava à espera de confirmação.
+    /// </summary>
     public bool TryCloseSafely()
     {
         if (!IsBusy)
         {
+            ReleasePatch();
             return true;
         }
 
