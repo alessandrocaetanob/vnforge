@@ -382,6 +382,13 @@ public sealed partial class GlossaryViewModel : ObservableObject
         savedOnce = true;
         IsDirty = false;
         OnPropertyChanged(nameof(SaveStatus));
+
+        // Um salvamento que passou depois da falha libera o projeto que esperava: não há mais o que decidir.
+        if (PendingProject is { } next)
+        {
+            PendingProject = null;
+            Project = next;
+        }
     }
 
     private void FailSave(string message)
@@ -603,11 +610,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
     [RelayCommand]
     private void RetrySave()
     {
-        if (Flush() && PendingProject is { } next)
-        {
-            PendingProject = null;
-            Project = next;
-        }
+        // Quando a gravação passa, Save já abre o projeto que esperava.
+        Flush();
     }
 
     /// <summary>Joga fora o que não foi salvo; se havia um projeto à espera, abre-o, senão relê os arquivos do projeto atual.</summary>

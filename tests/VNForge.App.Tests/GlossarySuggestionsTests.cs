@@ -279,6 +279,26 @@ public class GlossarySuggestionsTests
     }
 
     [Fact]
+    public async Task Gravacao_automatica_que_passa_depois_da_falha_abre_o_projeto_que_esperava()
+    {
+        var clock = new FakeTimeProvider();
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, clock: clock);
+        vm.Characters[1].Tone = "casual";
+        BreakCharactersFile(folder);
+        var other = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Untranslated));
+        vm.Open(other);
+        Directory.Delete(folder.CharactersPath);
+
+        vm.Characters[1].Tone = "casual de novo";
+        clock.Advance(GlossaryViewModel.SaveDelay);
+
+        Assert.Same(other, vm.Project);
+        Assert.Null(vm.PendingProject);
+        Assert.Equal("casual de novo", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
+    }
+
+    [Fact]
     public async Task Abrir_outro_projeto_grava_o_pendente_e_abre()
     {
         using var temp = new TempFolder();
