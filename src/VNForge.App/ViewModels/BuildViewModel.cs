@@ -677,9 +677,12 @@ public sealed partial class BuildViewModel : ObservableObject
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
         var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", (_, _) =>
         {
-            using var projectLock = ProjectLock.Acquire(ProjectFolder.Open(root));
+            var project = ProjectFolder.Open(root);
+            using var projectLock = ProjectLock.Acquire(project);
             EnsureBackupsMatchPlan(root, plan);
-            return new GameInjector().Restore(plan);
+            var restored = new GameInjector().Restore(plan);
+            GameStateFile.TryClearInGame(project);
+            return restored;
         });
         if (mine != epoch)
         {
@@ -689,7 +692,6 @@ public sealed partial class BuildViewModel : ObservableObject
         if (run.Value is { } result)
         {
             restoredFrom = result.BackupDirectory;
-            GameStateFile.TryClearInGame(ProjectFolder.Open(root));
             AppendLog($"Restaurado: {ProjectLabels.Number(result.Restored.Count)} arquivo(s); removido: {ProjectLabels.Number(result.Removed.Count)} arquivo(s) criado(s) pela injeção.");
             foreach (var kept in result.Kept)
             {

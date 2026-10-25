@@ -133,12 +133,18 @@ public sealed record GameStateFile(int Version, GameInGame? InGame, GameLastTest
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(clock);
         InjectionResult result;
+        var writing = false;
         try
         {
-            result = injector.Inject(plan, phases);
+            result = injector.Inject(plan, new Relay(phase =>
+            {
+                writing |= phase == InjectionPhase.Write;
+                phases?.Report(phase);
+            }));
         }
-        catch (InjectionException)
+        catch (InjectionException) when (writing)
         {
+            // Recusas antes da primeira gravação (backup que não confere, alvo que mudou) deixam o jogo como estava e o estado vale; depois dela o jogo pode ter voltado ao original.
             TryClearInGame(project);
             throw;
         }
@@ -157,4 +163,9 @@ public sealed record GameStateFile(int Version, GameInGame? InGame, GameLastTest
     /// <summary>O jogo voltou ao original: esquece o build que estava nele e guarda o último teste.</summary>
     public static void TryClearInGame(ProjectFolder project) =>
         TryUpdate(project, state => state.InGame is null ? state : state with { InGame = null });
+
+    private sealed class Relay(Action<InjectionPhase> report) : IProgress<InjectionPhase>
+    {
+        public void Report(InjectionPhase value) => report(value);
+    }
 }

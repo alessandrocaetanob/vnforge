@@ -324,6 +324,21 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Injecao_recusada_antes_de_gravar_mantem_o_estado_que_ja_valia()
+    {
+        Translate("a001", 0, "Hello");
+        ProjectBuilder.Build(_project, [_engine], qa: new QaEngine([]), cancellationToken: TestContext.Current.CancellationToken);
+        var saved = new GameInGame(GameTestKind.AccentTest, _clock.GetUtcNow(), "2026-10-22_2316", null, null);
+        GameStateFile.Save(_project, GameStateFile.Empty with { InGame = saved });
+        var plan = GameInjector.Plan(_project);
+        File.WriteAllText(GamePackage, "o jogo foi atualizado no meio");
+
+        Assert.Throws<InjectionException>(() => GameStateFile.Inject(_project, new GameInjector(_clock), plan, GameTestKind.Translation, null, _clock));
+
+        Assert.Equal(saved, GameStateFile.Load(_project).InGame);
+    }
+
+    [Fact]
     public void Inject_de_fora_do_teste_grava_o_estado_do_jogo_e_so_quando_copiou_algo()
     {
         Translate("a001", 0, "Hello");
@@ -350,15 +365,15 @@ public sealed class GameTesterTests : IDisposable
         Assert.NotNull(GameStateFile.Load(_project).InGame?.BackupDirectory);
     }
 
+    /// <summary>Falha na segunda cópia: a primeira é a do original para o backup, e a segunda é a gravação no jogo.</summary>
     private sealed class FailsFirstCopy : IInjectionFileSystem
     {
-        private bool _failed;
+        private int _copies;
 
         public void CopyFile(string source, string destination)
         {
-            if (!_failed)
+            if (++_copies == 2)
             {
-                _failed = true;
                 throw new IOException("disco cheio");
             }
 

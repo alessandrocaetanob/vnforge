@@ -334,13 +334,12 @@ public sealed class BuildTestViewModelTests : IDisposable
 
     private sealed class FailsFirstCopy : IInjectionFileSystem
     {
-        private bool failed;
+        private int copies;
 
         public void CopyFile(string source, string destination)
         {
-            if (!failed)
+            if (++copies == 2)
             {
-                failed = true;
                 throw new IOException("disco cheio");
             }
 
