@@ -133,12 +133,163 @@ public class GlossarySuggestionsTests
         var (vm, _) = await OpenAsync(temp, new FakeGlossarySuggester());
         var cheap = vm.VoicePriceText;
 
-        vm.Rate = () => new ExchangeRate(5000m);
+        vm.Rate = () => new ExchangeRate(5000m, new DateOnly(2026, 10, 25));
         vm.AddCharacterCommand.Execute(null);
 
         Assert.StartsWith("R$ ", vm.VoicePriceText);
         Assert.NotEqual(cheap, vm.VoicePriceText);
         Assert.DoesNotContain("US$", vm.VoicePriceText);
+        Assert.DoesNotContain("cotação de exemplo", vm.VoicePriceText);
+    }
+
+    [Fact]
+    public async Task Com_a_cotacao_de_exemplo_o_preco_leva_a_marca_nos_dois_botoes()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, new FakeGlossarySuggester());
+        vm.Rate = () => new ExchangeRate(5000m);
+        vm.AddCharacterCommand.Execute(null);
+        vm.RefreshPrices();
+
+        Assert.StartsWith("≈ R$ ", vm.VoicePriceText);
+        Assert.EndsWith("(cotação de exemplo)", vm.VoicePriceText);
+        Assert.StartsWith("≈ R$ ", vm.TermsPriceText);
+        Assert.EndsWith("(cotação de exemplo)", vm.TermsPriceText);
+    }
+
+    private static void BreakCharactersFile(ProjectFolder folder)
+    {
+        File.Delete(folder.CharactersPath);
+        Directory.CreateDirectory(folder.CharactersPath);
+    }
+
+    [Fact]
+    public async Task Nome_repetido_ou_vazio_nao_impede_gravar_as_outras_linhas()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp);
+
+        vm.Characters[1].Gender = CharacterGender.Male;
+        vm.AddCharacterCommand.Execute(null);
+        vm.Characters[^1].Source = "美咲";
+        vm.AddCharacterCommand.Execute(null);
+        vm.Characters[^1].Target = "Sem nome";
+        vm.AddCharacterCommand.Execute(null);
+        vm.Characters[^1].Source = "先生";
+        vm.Characters[^1].Target = "Sensei";
+
+        Assert.True(vm.Flush());
+
+        Assert.Equal(["美咲", "健太", "先生"], folder.LoadCharacters().Select(c => c.Source));
+        Assert.Equal(CharacterGender.Male, folder.LoadCharacters().Single(c => c.Source == "健太").Gender);
+        Assert.Equal([false, false, true, true, false], vm.Characters.Select(c => c.HasProblem));
+        Assert.Equal("Já existe outra linha com este nome.", vm.Characters[2].Problem);
+        Assert.Equal("Falta o nome do personagem no jogo.", vm.Characters[3].Problem);
+        Assert.Equal(2, vm.ProblemCount);
+        Assert.StartsWith("2 linhas ainda não foram salvas", vm.ProblemsText);
+        Assert.False(vm.IsDirty);
+        Assert.False(vm.SaveFailed);
+        Assert.Equal("Salvo automaticamente", vm.SaveStatus);
+    }
+
+    [Fact]
+    public async Task Corrigir_a_linha_marcada_tira_o_aviso_e_grava_a_linha()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp);
+        vm.AddTermCommand.Execute(null);
+        vm.Terms[^1].Target = "sem original";
+        vm.Flush();
+        Assert.Equal(1, vm.ProblemCount);
+
+        vm.Terms[^1].Source = "文化祭";
+        vm.Flush();
+
+        Assert.Equal(0, vm.ProblemCount);
+        Assert.False(vm.HasProblems);
+        Assert.Contains(folder.LoadGlossary(), t => t.Source == "文化祭" && t.Target == "sem original");
+    }
+
+    [Fact]
+    public async Task Falha_ao_gravar_mantem_as_edicoes_e_diz_o_motivo_sem_caminho()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp);
+        vm.Characters[1].Tone = "casual";
+        BreakCharactersFile(folder);
+
+        Assert.False(vm.Flush());
+
+        Assert.True(vm.IsDirty);
+        Assert.True(vm.SaveFailed);
+        Assert.Equal("Não foi possível salvar", vm.SaveStatus);
+        Assert.Equal("casual", vm.Characters[1].Tone);
+        Assert.DoesNotContain(temp.Path, vm.ErrorMessage);
+        Assert.DoesNotContain("characters.json", vm.ErrorMessage);
+        Assert.Contains("Não foi possível salvar", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_com_falha_de_gravacao_mantem_as_edicoes_e_espera_a_decisao()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp);
+        var original = vm.Project;
+        vm.Characters[1].Tone = "casual";
+        BreakCharactersFile(folder);
+        var other = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Untranslated));
+
+        Assert.False(vm.Open(other));
+
+        Assert.Same(original, vm.Project);
+        Assert.Same(other, vm.PendingProject);
+        Assert.True(vm.HasPendingSwitch);
+        Assert.Equal("Descartar e abrir o outro projeto", vm.DiscardLabel);
+        Assert.Equal("casual", vm.Characters[1].Tone);
+        Assert.True(vm.IsDirty);
+
+        vm.DiscardChangesCommand.Execute(null);
+
+        Assert.Same(other, vm.Project);
+        Assert.Null(vm.PendingProject);
+        Assert.False(vm.IsDirty);
+        Assert.False(vm.SaveFailed);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Tentar_de_novo_abre_o_projeto_que_esperava_quando_a_gravacao_passa()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp);
+        vm.Characters[1].Tone = "casual";
+        BreakCharactersFile(folder);
+        var other = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Untranslated));
+        vm.Open(other);
+
+        vm.RetrySaveCommand.Execute(null);
+        Assert.NotSame(other, vm.Project);
+
+        Directory.Delete(folder.CharactersPath);
+        File.WriteAllText(folder.CharactersPath, "{\"version\":1,\"entries\":[]}");
+        vm.RetrySaveCommand.Execute(null);
+
+        Assert.Same(other, vm.Project);
+        Assert.Equal("casual", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
+    }
+
+    [Fact]
+    public async Task Abrir_outro_projeto_grava_o_pendente_e_abre()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp);
+        vm.Characters[1].Tone = "casual";
+        var other = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Untranslated));
+
+        Assert.True(vm.Open(other));
+
+        Assert.Same(other, vm.Project);
+        Assert.Equal("casual", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
     }
 
     private sealed class RemovingSuggester(Action beforeAnswer) : IGlossarySuggester
