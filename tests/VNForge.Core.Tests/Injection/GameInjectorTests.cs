@@ -217,6 +217,40 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
+    public void Pasta_de_backup_ja_marcada_por_outra_chamada_no_mesmo_minuto_fica_de_fora_e_a_injecao_usa_outro_nome()
+    {
+        SeedGameAndBuild();
+        var other = Path.Combine(_project.BackupDirectory, "2026-10-23_1020");
+        Directory.CreateDirectory(other);
+        File.WriteAllText(Path.Combine(other, ".claim"), string.Empty);
+        File.WriteAllText(Path.Combine(other, "do-outro.txt"), "backup do outro");
+
+        var result = InjectAll(Injector());
+
+        Assert.EndsWith("2026-10-23_1020-02", result.BackupDirectory);
+        Assert.True(File.Exists(Path.Combine(other, ".claim")));
+        Assert.Equal("backup do outro", File.ReadAllText(Path.Combine(other, "do-outro.txt")));
+    }
+
+    [Fact]
+    public void Falha_no_backup_apaga_so_a_pasta_que_a_propria_chamada_criou()
+    {
+        SeedGameAndBuild();
+        var other = Path.Combine(_project.BackupDirectory, "2026-10-23_1020");
+        Directory.CreateDirectory(other);
+        File.WriteAllText(Path.Combine(other, ".claim"), string.Empty);
+        File.WriteAllText(Path.Combine(other, "do-outro.txt"), "backup do outro");
+        var own = other + "-02";
+        var failing = Injector(new FlakyFileSystem(_game) { BackupDirectory = own, FailOnBackupWrite = 1 });
+
+        Assert.Throws<InjectionException>(() => InjectAll(failing));
+
+        Assert.False(Directory.Exists(own));
+        Assert.Equal("backup do outro", File.ReadAllText(Path.Combine(other, "do-outro.txt")));
+        AssertGameIsOriginal();
+    }
+
+    [Fact]
     public void Segunda_injecao_sem_restore_guarda_o_original_de_verdade_e_nao_o_build_anterior()
     {
         SeedGameAndBuild();

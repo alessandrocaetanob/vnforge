@@ -58,8 +58,7 @@ internal static class TestCommand
             parseResult.GetValue(AllowWarningsOption),
             OpenGame: !parseResult.GetValue(NoOpenOption));
 
-        var what = options.AccentTest ? "a frase dos acentos" : options.OnlyScript is { } scene ? $"a cena {scene}" : "a tradução";
-        if (!ConfirmationPrompt.Confirm(parseResult, cli, $"Gravar {what} na pasta do jogo, depois de guardar os originais?"))
+        if (!ConfirmationPrompt.Confirm(parseResult, cli, $"Gravar {WhatGoesToTheGame(options)} na pasta do jogo, depois de guardar os originais?"))
         {
             output.WriteLine("Operação cancelada. Nada foi gravado.");
             return ErrorHandler.CancelledExitCode;
@@ -101,6 +100,16 @@ internal static class TestCommand
 
         WriteSummary(output, result);
         return ErrorHandler.OkExitCode;
+    }
+
+    private static string WhatGoesToTheGame(GameTestOptions options)
+    {
+        if (options.AccentTest)
+        {
+            return "a frase dos acentos";
+        }
+
+        return options.OnlyScript is { } scene ? $"a cena {scene}" : "a tradução";
     }
 
     private static void WriteSummary(TextWriter output, GameTestResult result)

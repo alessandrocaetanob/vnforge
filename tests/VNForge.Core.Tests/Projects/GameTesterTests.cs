@@ -297,6 +297,52 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void A_trava_e_solta_depois_de_uma_excecao_dentro_do_teste()
+    {
+        Translate("a001", 0, string.Empty);
+
+        Assert.Throws<QaBlockedException>(() => Run(qa: QaEngine.Default));
+
+        ProjectLock.Acquire(_project).Dispose();
+        Translate("a001", 0, "Hello");
+        Run();
+    }
+
+    [Fact]
+    public void A_trava_e_solta_depois_de_um_cancelamento_dentro_do_teste()
+    {
+        Translate("a001", 0, "Hello");
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        Assert.ThrowsAny<OperationCanceledException>(() => Tester().Run(_project, cancellationToken: cancelled.Token));
+
+        Assert.Empty(BackupFolders());
+        ProjectLock.Acquire(_project).Dispose();
+        Run();
+    }
+
+    [Fact]
+    public void Falha_que_nao_e_de_compartilhamento_diz_que_nao_deu_para_preparar_a_pasta()
+    {
+        Directory.Delete(_project.CacheDirectory, recursive: true);
+        File.WriteAllText(_project.CacheDirectory, "isto era para ser uma pasta");
+
+        var erro = Assert.Throws<ProjectLockUnavailableException>(() => ProjectLock.Acquire(_project));
+
+        Assert.Equal("Não foi possível preparar a pasta do projeto para mexer no jogo.", erro.Message);
+        Assert.IsNotType<ProjectBusyException>(erro);
+    }
+
+    [Fact]
+    public void Sem_permissao_para_abrir_o_arquivo_da_trava_tambem_nao_vira_ocupado()
+    {
+        Directory.CreateDirectory(Path.Combine(_project.CacheDirectory, "game.lock"));
+
+        Assert.Throws<ProjectLockUnavailableException>(() => ProjectLock.Acquire(_project));
+    }
+
+    [Fact]
     public void A_trava_do_projeto_so_solta_no_fim_da_operacao()
     {
         var held = ProjectLock.Acquire(_project);

@@ -22,6 +22,8 @@ public static class QaCategories
 
     public const string Translation = "Tradução";
 
+    public const string Style = "Estilo";
+
     public const string Other = "Outras";
 
     private static readonly Dictionary<string, string> ByRule = new(StringComparer.Ordinal)
@@ -39,11 +41,13 @@ public static class QaCategories
         [UntranslatedQaRule.RuleId] = Translation,
         ["traducao-vazia"] = Translation,
         ["japones-na-traducao"] = Translation,
+        [HonorificsRule.RuleId] = Style,
+        [GenderRule.RuleId] = Style,
     };
 
     /// <summary>Categorias na ordem em que as telas as listam; <see cref="Other"/> vem por último.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Markers, TextBox, Spaces, Punctuation, Accents, Glossary, Consistency, Translation, Other];
+        [Markers, TextBox, Spaces, Punctuation, Accents, Glossary, Consistency, Translation, Style, Other];
 
     /// <summary>Categoria da regra <paramref name="ruleId"/>, ou <see cref="Other"/> quando a regra não está na tabela.</summary>
     public static string Of(string ruleId)

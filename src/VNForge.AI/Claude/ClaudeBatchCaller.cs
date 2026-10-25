@@ -27,7 +27,7 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
 
     private async Task<IReadOnlyList<T>> OnceAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)
     {
-        var request = new ClaudeRequest(options.Model, options.Effort, options.MaxTokens, spec.BuildSystem(batch), spec.BuildUser(batch), spec.Schema);
+        var request = new ClaudeRequest(options.Model, options.Effort, options.MaxTokens, spec.BuildSystem(batch), spec.BuildUser(batch), spec.Schema, spec.BuildBatchContext(batch));
         var reply = await client.CompleteAsync(request, ct).ConfigureAwait(false);
 
         if (reply.Usage is { } usage)
@@ -51,6 +51,7 @@ internal sealed record ClaudeBatchSpec<T>(
     string Schema,
     string Verb,
     Func<TranslationBatch, string> BuildSystem,
+    Func<TranslationBatch, string> BuildBatchContext,
     Func<TranslationBatch, string> BuildUser,
     Func<string, TranslationBatch, IReadOnlyList<T>> Parse,
     Func<TextUnit, T> Refused);

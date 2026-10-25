@@ -21,6 +21,9 @@ public sealed record QaContext(
     FormattingProfile Formatting,
     ITextEncoder? Encoder = null)
 {
+    /// <summary>Escolhas de estilo do <c>vnforge.json</c>, que as regras de honorífico consultam; o padrão quando o contexto não vem de um projeto.</summary>
+    public StyleConfig Style { get; init; } = StyleConfig.Default;
+
     /// <summary>Contexto só com textos, para regras que não precisam do resto.</summary>
     public static QaContext ForTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts) =>
         new(texts, [], [], FormattingProfile.Default);
@@ -30,7 +33,8 @@ public sealed record QaContext(
     public static QaContext FromProject(ProjectFolder project, TextEncoderRegistry? encoders = null)
     {
         ArgumentNullException.ThrowIfNull(project);
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
-        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder);
+        var config = project.LoadConfig();
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy);
+        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style };
     }
 }

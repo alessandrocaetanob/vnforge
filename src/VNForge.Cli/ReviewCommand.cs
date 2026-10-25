@@ -66,7 +66,8 @@ internal static class ReviewCommand
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
             new CharacterBook(project.LoadCharacters()),
-            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)));
+            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)),
+            style: project.LoadConfig().Style);
 
         if (parseResult.GetValue(Common.DryRun))
         {

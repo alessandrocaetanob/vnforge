@@ -132,7 +132,7 @@ internal static class BuildCommand
             output.WriteLine($"Codificação '{result.Encoding.Strategy}': {Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}; vnf build --report lista cada um.");
         }
 
-        foreach (var issue in result.Qa.OtherIssues)
+        foreach (var issue in result.Qa.BlockingIssues)
         {
             output.WriteLine(QaLine(issue));
         }
@@ -167,7 +167,7 @@ internal static class BuildCommand
             return exitCode;
         }
 
-        var others = blocked.Report.OtherIssues;
+        var others = blocked.Report.BlockingIssues;
         foreach (var issue in others.Take(MaxQaIssuesShown))
         {
             output.WriteLine(QaLine(issue));
@@ -198,10 +198,10 @@ internal static class BuildCommand
     private static object QaData(QaReport report) => new
     {
         errors = report.Errors.Count,
-        warnings = report.OtherIssues.Count(i => i.Severity == QaSeverity.Warning),
+        warnings = report.BlockingIssues.Count(i => i.Severity == QaSeverity.Warning),
         untranslated = report.UntranslatedCount,
         silenced = report.Silenced.Count,
-        issues = report.OtherIssues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
+        issues = report.BlockingIssues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
     };
 
     private static int RunReport(bool json, EncodingReport report, TextWriter output)

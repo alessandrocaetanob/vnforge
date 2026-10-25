@@ -164,7 +164,7 @@ public sealed class GameTester(
             : new BuildOptions(OnlyChanged: true);
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> OnlyScript(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, string key)
+    private static Dictionary<string, IReadOnlyList<TextUnit>> OnlyScript(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, string key)
     {
         var found = texts.FirstOrDefault(t => string.Equals(t.Key, key, StringComparison.OrdinalIgnoreCase));
         return found.Value is { } units
@@ -176,7 +176,7 @@ public sealed class GameTester(
     /// A primeira fala do primeiro script com a frase dos acentos, dita por <see cref="AccentSpeaker"/> quando a fala tem falante; as outras linhas desse
     /// script voltam a ficar sem tradução, para só a frase ir para o jogo.
     /// </summary>
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> AccentOnly(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts)
+    private static Dictionary<string, IReadOnlyList<TextUnit>> AccentOnly(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts)
     {
         foreach (var (key, units) in texts.OrderBy(t => t.Key, StringComparer.Ordinal))
         {
@@ -186,16 +186,17 @@ public sealed class GameTester(
                 continue;
             }
 
-            IReadOnlyList<TextUnit> only =
-            [
-                .. units.Select((u, i) => i == index
-                    ? u with { Translation = AccentPhrase, Status = TranslationStatus.Translated, Speaker = u.Speaker is null ? null : AccentSpeaker }
-                    : u with { Translation = null, Status = TranslationStatus.Untranslated }),
-            ];
+            IReadOnlyList<TextUnit> only = [.. units.Select((u, i) => i == index ? WithAccentPhrase(u) : u with { Translation = null, Status = TranslationStatus.Untranslated })];
             return new Dictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal) { [key] = only };
         }
 
         throw new VNForgeException("O projeto não tem nenhuma fala para o teste de acentos. Rode vnf extract e tente de novo.");
+    }
+
+    private static TextUnit WithAccentPhrase(TextUnit unit)
+    {
+        var speaker = unit.Speaker is null ? null : AccentSpeaker;
+        return unit with { Translation = AccentPhrase, Status = TranslationStatus.Translated, Speaker = speaker };
     }
 
     /// <summary>Marca quando cada passo começa; um passo termina quando o seguinte começa ou em <see cref="Finish"/>.</summary>

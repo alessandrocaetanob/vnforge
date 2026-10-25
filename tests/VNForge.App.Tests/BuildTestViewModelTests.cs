@@ -18,7 +18,7 @@ public sealed class BuildTestViewModelTests : IDisposable
     private readonly string root;
     private readonly DemoQaRule qaRule = new();
     private readonly Starter starter = new();
-    private readonly FakeTimeProvider clock = new(new DateTimeOffset(2026, 10, 25, 12, 0, 0, TimeSpan.Zero));
+    private FakeTimeProvider clock = new(new DateTimeOffset(2026, 10, 25, 12, 0, 0, TimeSpan.Zero));
 
     public BuildTestViewModelTests()
     {
@@ -316,9 +316,14 @@ public sealed class BuildTestViewModelTests : IDisposable
         Assert.Null(GameStateFile.Load(ProjectFolder.Open(root)).InGame);
     }
 
-    [Fact]
-    public async Task Injetar_dos_detalhes_tecnicos_atualiza_o_estado_do_jogo()
+    [Theory]
+    [InlineData(2020)]
+    [InlineData(2026)]
+    [InlineData(2030)]
+    public async Task Injetar_dos_detalhes_tecnicos_atualiza_o_estado_do_jogo_em_qualquer_data(int year)
     {
+        clock = new FakeTimeProvider(new DateTimeOffset(year, 6, 15, 12, 0, 0, TimeSpan.Zero));
+        Directory.Delete(Path.Combine(root, "backup"), recursive: true);
         File.WriteAllBytes(Path.Combine(root, "build", DemoBuild.Archive), DemoBuild.Payload(4_200_000, 9));
         var vm = await OpenAsync();
 

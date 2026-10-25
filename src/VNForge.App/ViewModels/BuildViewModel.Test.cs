@@ -75,11 +75,21 @@ public sealed partial class BuildViewModel
     public void SetOpenScene(string? key, string? name)
     {
         openSceneKey = string.IsNullOrEmpty(key) ? null : key;
-        OpenSceneName = openSceneKey is null ? string.Empty : string.IsNullOrEmpty(name) ? openSceneKey : name;
+        OpenSceneName = SceneLabel(openSceneKey, name);
         if (openSceneKey is null)
         {
             OnlyOpenScene = false;
         }
+    }
+
+    private static string SceneLabel(string? key, string? name)
+    {
+        if (key is null)
+        {
+            return string.Empty;
+        }
+
+        return string.IsNullOrEmpty(name) ? key : name;
     }
 
     private bool CanTest() => Project is not null && !IsBusy && !HasQaErrors;
@@ -265,7 +275,7 @@ public sealed partial class BuildViewModel
         switch (failure)
         {
             case QaBlockedException blocked:
-                foreach (var issue in blocked.Report.OtherIssues.Take(MaxQaIssuesLogged))
+                foreach (var issue in blocked.Report.BlockingIssues.Take(MaxQaIssuesLogged))
                 {
                     AppendLog(QaLine(issue));
                 }
@@ -303,32 +313,53 @@ public sealed partial class BuildViewModel
         gameReturnable = state?.Restore is not null;
         var inGame = state?.Restore is { } restore ? Effective(savedGame.InGame, restore.Manifest.CreatedAt, Path.GetFileName(restore.BackupDirectory)) : null;
         var lost = state is not null && state.Restore is null ? LostBackup(state) : null;
-        var title = lost is null ? DescribeGame(inGame) : DescribeGame(savedGame.InGame);
         ReturnToOriginalHint = lost is null
             ? "Devolve os arquivos originais ao jogo. A tradução continua no projeto."
             : "Sem a cópia de segurança o VNForge não consegue devolver o jogo. Reinstale o jogo ou use a verificação de arquivos da loja onde você o comprou.";
-        GameStatusText = state is null ? string.Empty : lost is not null ? "Jogo com a tradução, sem cópia de segurança" : inGame is null ? "Jogo original" : ShortGameStatus(inGame);
+        GameStatusText = StatusText(state, lost, inGame);
+        ShowBanner(state, inGame, lost);
+        ShowLastTest(state is null ? null : savedGame.LastTest);
+        UpdateTestCommands();
+    }
+
+    private static string StatusText(ProjectState? state, string? lost, GameInGame? inGame)
+    {
+        if (state is null)
+        {
+            return string.Empty;
+        }
+
+        if (lost is not null)
+        {
+            return "Jogo com a tradução, sem cópia de segurança";
+        }
+
+        return inGame is null ? "Jogo original" : ShortGameStatus(inGame);
+    }
+
+    /// <summary>A faixa: travada pela Conferência, avisando que a cópia de segurança sumiu, ou o estado do jogo (traduzido ou como veio).</summary>
+    private void ShowBanner(ProjectState? state, GameInGame? inGame, string? lost)
+    {
         if (QaErrorCount > 0)
         {
+            var title = lost is null ? DescribeGame(inGame) : DescribeGame(savedGame.InGame);
             GameBannerState = GameState.Blocked;
             GameBannerTitle = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro trava", "erros travam")} o teste no jogo";
             GameBannerMessage = $"{state?.QaErrorKinds} {title}.";
+            return;
         }
-        else if (lost is not null)
+
+        if (lost is not null)
         {
             GameBannerState = GameState.Warning;
             GameBannerTitle = "O jogo está com a tradução, mas a cópia de segurança não foi encontrada";
             GameBannerMessage = lost;
-        }
-        else
-        {
-            GameBannerState = inGame is null ? GameState.Original : GameState.Translated;
-            GameBannerTitle = title;
-            GameBannerMessage = inGame is null ? "Nenhuma tradução foi copiada para o jogo." : "A tradução continua no projeto, mesmo se você voltar ao original.";
+            return;
         }
 
-        ShowLastTest(state is null ? null : savedGame.LastTest);
-        UpdateTestCommands();
+        GameBannerState = inGame is null ? GameState.Original : GameState.Translated;
+        GameBannerTitle = DescribeGame(inGame);
+        GameBannerMessage = inGame is null ? "Nenhuma tradução foi copiada para o jogo." : "A tradução continua no projeto, mesmo se você voltar ao original.";
     }
 
     /// <summary>

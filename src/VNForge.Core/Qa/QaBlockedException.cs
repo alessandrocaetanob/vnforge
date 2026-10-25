@@ -18,7 +18,7 @@ public sealed class QaBlockedException : VNForgeException
 
     private static string BuildMessage(QaReport report, bool allowWarnings)
     {
-        var blocking = report.OtherIssues.Where(i => i.Severity == QaSeverity.Error || !allowWarnings).ToList();
+        var blocking = report.BlockingIssues.Where(i => i.Severity == QaSeverity.Error || !allowWarnings).ToList();
         var message = new StringBuilder($"O QA bloqueou o build ({DescribeBlocking(report)}); nenhum arquivo foi gravado:");
         foreach (var issue in blocking.Take(MaxLinesInMessage))
         {
@@ -50,8 +50,8 @@ public sealed class QaBlockedException : VNForgeException
         return $"QA: {number} {(count == 1 ? "linha sem tradução" : "linhas sem tradução")}; o build copiou o original {(count == 1 ? "nela" : "nelas")}.";
     }
 
-    /// <summary>Resumo "2 erros, 37 avisos" sem as linhas sem tradução, que não bloqueiam (<see cref="DescribeUntranslated"/>).</summary>
-    public static string DescribeBlocking(QaReport report) => Describe(report with { Issues = report.OtherIssues });
+    /// <summary>Resumo "2 erros, 37 avisos" sem as linhas sem tradução (<see cref="DescribeUntranslated"/>) e sem os avisos de estilo, que não bloqueiam.</summary>
+    public static string DescribeBlocking(QaReport report) => Describe(report with { Issues = report.BlockingIssues });
 
     /// <summary>Resumo "2 erros, 37 avisos".</summary>
     public static string Describe(QaReport report)

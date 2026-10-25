@@ -605,20 +605,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     Editor.ShowPendingLines();
                 }
             }));
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Testar no jogo", "Confere, injeta e abre o jogo", () =>
-            {
-                if (GoTo(buildItem) && Build.TestCommand.CanExecute(null))
-                {
-                    Build.TestCommand.Execute(null);
-                }
-            }));
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Novo build", "Gera a pasta de build do projeto", () =>
-            {
-                if (GoTo(buildItem) && Build.BuildCommand.CanExecute(null))
-                {
-                    Build.BuildCommand.Execute(null);
-                }
-            }));
+            entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));
+            entries.Add(BuildEntry("Novo build", "Gera a pasta de build do projeto", Build.BuildCommand));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));
         }
 
@@ -640,6 +628,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         return entries;
     }
+
+    /// <summary>Um comando da página Testar: leva até a página e, se o comando pode rodar agora, roda.</summary>
+    private PaletteEntry BuildEntry(string title, string subtitle, System.Windows.Input.ICommand command) =>
+        new(PaletteGroup.Command, title, subtitle, () =>
+        {
+            if (GoTo(buildItem) && command.CanExecute(null))
+            {
+                command.Execute(null);
+            }
+        });
 
     private List<PaletteEntry> PaletteLines(string text, int limit) =>
         [.. Editor.FindLines(text, limit).Select(entry => new PaletteEntry(
