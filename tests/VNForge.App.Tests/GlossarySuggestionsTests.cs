@@ -572,8 +572,7 @@ public class GlossarySuggestionsTests
         await vm.SuggestTermsCommand.ExecuteAsync(null);
 
         Assert.Equal("recusou", vm.SuggestionError);
-        Assert.Single(vm.RepeatedTermRows);
-        Assert.False(vm.RepeatedTermRows[0].HasSuggestion);
+        Assert.False(Assert.Single(vm.RepeatedTermRows).HasSuggestion);
     }
 
     [Fact]

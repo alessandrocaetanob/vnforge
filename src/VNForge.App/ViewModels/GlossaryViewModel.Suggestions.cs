@@ -103,7 +103,12 @@ public sealed partial class GlossaryViewModel
     [ObservableProperty]
     public partial string? SuggestionNotice { get; private set; }
 
-    public string SuggestingText => !IsSuggesting ? string.Empty : IsCharactersTab ? "Lendo as falas dos personagens…" : "Traduzindo os termos…";
+    public string SuggestingText => (IsSuggesting, IsCharactersTab) switch
+    {
+        (false, _) => string.Empty,
+        (true, true) => "Lendo as falas dos personagens…",
+        _ => "Traduzindo os termos…",
+    };
 
     public int MissingGenderCount => Characters.Count(c => c.NeedsGender);
 
@@ -130,11 +135,23 @@ public sealed partial class GlossaryViewModel
 
     public bool NoRepeatedTerms => RepeatedTermRows.Count == 0;
 
-    public string RepeatedSummary => !usageLoaded
-        ? "Lendo o texto do jogo…"
-        : RepeatedTermRows.Count == 0
-            ? "Nenhum termo novo aparece 5 vezes ou mais."
-            : $"{RepeatedTermRows.Count} {(RepeatedTermRows.Count == 1 ? "termo aparece" : "termos aparecem")} 5 vezes ou mais e {(RepeatedTermRows.Count == 1 ? "não está" : "não estão")} no glossário.";
+    public string RepeatedSummary
+    {
+        get
+        {
+            var count = RepeatedTermRows.Count;
+            if (!usageLoaded)
+            {
+                return "Lendo o texto do jogo…";
+            }
+
+            return count == 0
+                ? "Nenhum termo novo aparece 5 vezes ou mais."
+                : $"{count} {Plural(count, "termo aparece", "termos aparecem")} 5 vezes ou mais e {Plural(count, "não está", "não estão")} no glossário.";
+        }
+    }
+
+    private static string Plural(int count, string one, string many) => count == 1 ? one : many;
 
     private string PriceText(CostEstimate estimate)
     {
@@ -161,8 +178,7 @@ public sealed partial class GlossaryViewModel
 
     private void ResetSuggestions()
     {
-        suggestCts?.Cancel();
-        suggestCts = null;
+        ReleaseSuggestionSource();
         scan = ProjectScan.Empty;
         translated.Clear();
         voiceRequests = [];
@@ -257,7 +273,7 @@ public sealed partial class GlossaryViewModel
                 var changed = ApplyVoices(suggestions, inTable);
                 SuggestionNotice = changed == 0
                     ? "A IA não achou nada novo nas falas. Preencha o gênero à mão."
-                    : $"{changed} {(changed == 1 ? "personagem recebeu" : "personagens receberam")} gênero e jeito de falar. Confira e ajuste o que não bater.";
+                    : $"{changed} {Plural(changed, "personagem recebeu", "personagens receberam")} gênero e jeito de falar. Confira e ajuste o que não bater.";
             }
         }
         catch (OperationCanceledException)
@@ -276,7 +292,7 @@ public sealed partial class GlossaryViewModel
     }
 
     /// <param name="inTable">Os nomes que já estavam na tabela quando a sugestão foi pedida: um que sumiu no meio do pedido foi removido pela pessoa e não volta.</param>
-    private int ApplyVoices(IReadOnlyList<CharacterVoiceSuggestion> suggestions, ISet<string> inTable)
+    private int ApplyVoices(IReadOnlyList<CharacterVoiceSuggestion> suggestions, HashSet<string> inTable)
     {
         ClearSearch();
         var changed = 0;
@@ -326,7 +342,7 @@ public sealed partial class GlossaryViewModel
             if (version == usageVersion)
             {
                 ApplyTerms(suggestions);
-                SuggestionNotice = $"{suggestions.Count} {(suggestions.Count == 1 ? "termo traduzido" : "termos traduzidos")}. Adicione os que servirem.";
+                SuggestionNotice = $"{suggestions.Count} {Plural(suggestions.Count, "termo traduzido", "termos traduzidos")}. Adicione os que servirem.";
             }
         }
         catch (OperationCanceledException)
@@ -373,7 +389,7 @@ public sealed partial class GlossaryViewModel
 
     private CancellationToken BeginSuggesting()
     {
-        suggestCts?.Cancel();
+        ReleaseSuggestionSource();
         suggestCts = new CancellationTokenSource();
         SuggestionError = null;
         SuggestionNotice = null;
@@ -388,7 +404,16 @@ public sealed partial class GlossaryViewModel
         if (!token.IsCancellationRequested)
         {
             IsSuggesting = false;
+            ReleaseSuggestionSource();
         }
+    }
+
+    // Cancela o pedido em andamento (se houver) e solta a fonte do token.
+    private void ReleaseSuggestionSource()
+    {
+        suggestCts?.Cancel();
+        suggestCts?.Dispose();
+        suggestCts = null;
     }
 
     /// <summary>Refaz os preços em reais: a cotação mudou em Ajustes.</summary>

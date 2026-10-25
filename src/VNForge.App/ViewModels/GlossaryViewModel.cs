@@ -133,7 +133,13 @@ public sealed partial class GlossaryViewModel : ObservableObject
     public partial bool IsDirty { get; private set; }
 
     /// <summary>O que a página diz sobre o salvamento: nada antes da primeira gravação, "Salvando…" até gravar e "Salvo automaticamente" depois.</summary>
-    public string SaveStatus => SaveFailed ? "Não foi possível salvar" : IsDirty ? "Salvando…" : savedOnce ? "Salvo automaticamente" : string.Empty;
+    public string SaveStatus => (SaveFailed, IsDirty, savedOnce) switch
+    {
+        (true, _, _) => "Não foi possível salvar",
+        (_, true, _) => "Salvando…",
+        (_, _, true) => "Salvo automaticamente",
+        _ => string.Empty,
+    };
 
     /// <summary>A última gravação falhou: o que está na tela ainda não está no disco.</summary>
     [ObservableProperty]
@@ -218,7 +224,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         {
             try
             {
-                loaded = await Task.Run(() => ProjectScan.From(ProjectFolder.Open(root).LoadAllText().Values.SelectMany(units => units)));
+                loaded = await Task.Run(() => ProjectScan.From(ProjectFolder.Open(root).LoadAllText().Values.SelectMany(units => units)), CancellationToken.None);
             }
             catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
             {
@@ -406,7 +412,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         foreach (var row in rows)
         {
             var key = row.Key.Trim();
-            row.Problem = row.IsBlank ? null : key.Length == 0 ? missing : seen.Contains(key) ? "Já existe outra linha com este nome." : null;
+            row.Problem = ProblemOf(row, key, seen, missing);
             if (!row.IsBlank && row.Problem is null)
             {
                 seen.Add(key);
@@ -415,6 +421,21 @@ public sealed partial class GlossaryViewModel : ObservableObject
         }
 
         return valid;
+    }
+
+    private static string? ProblemOf(UsageRow row, string key, HashSet<string> seen, string missing)
+    {
+        if (row.IsBlank)
+        {
+            return null;
+        }
+
+        if (key.Length == 0)
+        {
+            return missing;
+        }
+
+        return seen.Contains(key) ? "Já existe outra linha com este nome." : null;
     }
 
     /// <summary>Quantas linhas ficaram de fora do arquivo por nome vazio ou repetido.</summary>

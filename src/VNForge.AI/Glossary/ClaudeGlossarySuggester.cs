@@ -167,14 +167,13 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
     /// <summary>Exige exatamente as chaves pedidas, sem repetição, e as indexa pelo primeiro campo.</summary>
     private static Dictionary<string, string[]> Index(List<string[]> items, IEnumerable<string> expected, string what)
     {
-        Dictionary<string, string[]> byKey = new(StringComparer.Ordinal);
-        foreach (var item in items)
+        var repeated = items.GroupBy(i => i[0], StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1);
+        if (repeated is not null)
         {
-            if (!byKey.TryAdd(item[0], item))
-            {
-                throw Incomplete($"Resposta com {what} repetidos: '{item[0]}'.");
-            }
+            throw Incomplete($"Resposta com {what} repetidos: '{repeated.Key}'.");
         }
+
+        var byKey = items.ToDictionary(i => i[0], StringComparer.Ordinal);
 
         var wanted = expected.ToHashSet(StringComparer.Ordinal);
         var missing = wanted.Where(k => !byKey.ContainsKey(k)).ToList();
