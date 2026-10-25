@@ -232,7 +232,7 @@ jobs:
             version="${CIRCLE_TAG#v}"
             # O exe do Windows não roda no container Linux: confere o conteúdo do zip e o SHA256SUMS.txt.
             zip="dist/vnforge-app-$version-win-x64.zip"
-            zip -sf "$zip" | grep -q "vnforge-app-$version-win-x64/VNForge.App.exe"
+            zip -sf "$zip" | grep -F "vnforge-app-$version-win-x64/VNForge.App.exe" >/dev/null
             grep -q "vnforge-app-$version-win-x64.zip" dist/SHA256SUMS.txt
       - run:
           name: Release do GitHub
