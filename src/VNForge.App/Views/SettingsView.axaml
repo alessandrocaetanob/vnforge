@@ -259,13 +259,114 @@
 
               </StackPanel>
             </c:TechnicalDetails>
+          </StackPanel>
+        </TabItem>
 
-            <!-- Fora do artboard: o guia de estilo (style.md) existia nos Ajustes e continua aqui, na aba da IA que o usa. -->
-            <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-              <TextBlock Classes="overline" Text="Guia de estilo (style.md)"/>
-              <TextBox Text="{Binding StyleGuide}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" MaxHeight="280"
-                       PlaceholderText="Tom, tratamento, como lidar com honoríficos…" AutomationProperties.Name="Guia de estilo"/>
-            </StackPanel>
+        <!-- Estilo: como a tradução deve soar; vai em todo pedido à IA e a Conferência confere. -->
+        <TabItem Header="Estilo">
+          <StackPanel Margin="0,16,0,0" Spacing="20" IsEnabled="{Binding HasProject}">
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left"
+                       Text="Como a tradução deve soar. A IA recebe estas regras em todo pedido e a Conferência avisa quando uma linha foge delas."/>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="overline" Text="Honoríficos (-san, -kun, -chan, senpai)"/>
+                <ItemsControl ItemsSource="{Binding Style.Honorifics}" AutomationProperties.Name="Honoríficos">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:StyleOption">
+                      <RadioButton Classes="option" Margin="0,0,0,8" GroupName="Honorificos" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                   AutomationProperties.Name="{Binding Name}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                          <TextBlock Classes="body-strong" Text="{Binding Name}"/>
+                          <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding Sample}"/>
+                          <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+                        </Grid>
+                      </RadioButton>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel Grid.Column="1" Spacing="8">
+                <TextBlock Classes="overline" Text="Como os personagens se tratam"/>
+                <ItemsControl ItemsSource="{Binding Style.Addresses}" AutomationProperties.Name="Tratamento">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:StyleOption">
+                      <RadioButton Classes="option" Margin="0,0,0,8" GroupName="Tratamento" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                   AutomationProperties.Name="{Binding Name}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                          <TextBlock Classes="body-strong" Text="{Binding Name}"/>
+                          <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding Sample}"/>
+                          <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+                        </Grid>
+                      </RadioButton>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Classes="panel">
+                  <StackPanel>
+                    <c:ToggleRule Title="Traduzir onomatopeias" Description="ドキドキ vira “tum-tum”; desligado, fica como soa em japonês (doki doki)"
+                                  IsChecked="{Binding Style.TranslateOnomatopoeia}"/>
+                    <c:ToggleRule Title="Nomes na ordem ocidental" Description="Misaki Sakura em vez de Sakura Misaki"
+                                  IsChecked="{Binding Style.WesternNameOrder}"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="overline" Text="Narrador"/>
+                <Border Classes="panel" Padding="16,12">
+                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="10">
+                    <TextBlock Classes="body-sm secondary" VerticalAlignment="Center" Text="Quem narra"/>
+                    <TextBox Grid.Column="1" Text="{Binding Style.NarratorWho}" PlaceholderText="Kenta (protagonista)" AutomationProperties.Name="Quem narra"/>
+                    <TextBlock Grid.Row="1" Classes="body-sm secondary" VerticalAlignment="Center" Text="Pessoa"/>
+                    <ListBox Grid.Row="1" Grid.Column="1" Classes="seg" HorizontalAlignment="Left" ItemsSource="{Binding Style.NarratorPersons}"
+                             SelectedItem="{Binding Style.SelectedNarratorPerson}" DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Pessoa do narrador"/>
+                    <TextBlock Grid.Row="2" Classes="body-sm secondary" VerticalAlignment="Center" Text="Gênero"/>
+                    <ListBox Grid.Row="2" Grid.Column="1" Classes="seg" HorizontalAlignment="Left" ItemsSource="{Binding Style.NarratorGenders}"
+                             SelectedItem="{Binding Style.SelectedNarratorGender}" DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Gênero do narrador"/>
+                  </Grid>
+                </Border>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                           Text="Em japonês o narrador raramente marca gênero; em português, “cansado” e “cansada” marcam. Esta escolha evita a maior parte dos erros de concordância."/>
+              </StackPanel>
+
+              <StackPanel Grid.Column="1" Spacing="8">
+                <TextBlock Classes="overline" Text="Guia de estilo"/>
+                <TextBox Text="{Binding StyleGuide}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="132" MaxHeight="280"
+                         PlaceholderText="Tom, gírias, piadas, pratos e lugares que ficam em japonês…" AutomationProperties.Name="Guia de estilo"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                           Text="Texto livre; a IA recebe como está. Fica no arquivo style.md da pasta do projeto."/>
+              </StackPanel>
+            </Grid>
+
+            <Border Classes="panel" ClipToBounds="True">
+              <StackPanel>
+                <Grid Height="48" ColumnDefinitions="*,Auto" Margin="16,0">
+                  <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Exemplo com estas regras"/>
+                  <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{x:Static vm:StyleSettingsViewModel.ExampleWhere}"/>
+                </Grid>
+                <Border Classes="divider-top" Padding="16">
+                  <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <StackPanel Spacing="8">
+                      <TextBlock Classes="overline" Text="Original"/>
+                      <Border Name="StyleExampleSource" Padding="12,10" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}">
+                        <TextBlock TextWrapping="Wrap" Text="{x:Static vm:StyleSettingsViewModel.ExampleSource}" AutomationProperties.Name="Fala do exemplo, no original"/>
+                      </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="8">
+                      <TextBlock Classes="overline" Text="Como a IA vai traduzir"/>
+                      <Border Name="StyleExampleTarget" Padding="12,10" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}"
+                              BorderBrush="{DynamicResource Vnf.Accent}" BorderThickness="1">
+                        <TextBlock TextWrapping="Wrap" Text="{Binding Style.ExampleTranslation}" AutomationProperties.Name="Fala do exemplo, traduzida com as escolhas"/>
+                      </Border>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </TabItem>
 

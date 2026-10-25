@@ -39,6 +39,8 @@ public sealed class QaEngine
         new UnencodableCharacterRule(),
         new BoxLineLimitRule(),
         new FieldByteLimitRule(),
+        new HonorificsRule(),
+        new GenderRule(),
     ]);
 
     /// <summary>Regras registradas, na ordem em que rodam.</summary>

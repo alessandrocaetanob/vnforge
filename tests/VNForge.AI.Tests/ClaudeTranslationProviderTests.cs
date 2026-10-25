@@ -76,8 +76,9 @@ public class ClaudeTranslationProviderTests
         Assert.Equal(ClaudeEffort.Low, request.Effort);
         Assert.Contains("\"translations\"", request.JsonSchema);
         Assert.Contains("Tom leve.", request.System);
-        Assert.Contains("magia", request.System);
-        Assert.Contains("formal", request.System);
+        Assert.Contains("magia", request.BatchContext);
+        Assert.Contains("formal", request.BatchContext);
+        Assert.DoesNotContain("magia", request.System);
         Assert.Contains("やあ", request.User);
         Assert.Contains("\"a\"", request.User);
     }

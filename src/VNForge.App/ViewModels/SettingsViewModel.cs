@@ -125,9 +125,9 @@ public sealed partial class EncodingOption(string id, string name, string sample
 }
 
 /// <summary>
-/// Tela Ajustes, em três abas (IA, Formatação, Acentuação): a chave da API (só no cofre do usuário), o modelo e os limites da IA, o guia
-/// de estilo, o perfil de formatação com prévia ao vivo e a estratégia de acentuação. Modelo, esforço, lote, acentuação, guia e formatação
-/// valem para o projeto aberto e são gravados a cada mudança (<see cref="ProjectSaved"/>); chave e paralelismo valem para o usuário.
+/// Tela Ajustes, em abas (IA, Estilo, Formatação, Acentuação, Aparência): a chave da API (só no cofre do usuário), o modelo e os limites
+/// da IA, o estilo da tradução (<see cref="Style"/> e o guia), o perfil de formatação com prévia ao vivo e a estratégia de acentuação.
+/// Modelo, esforço, lote, acentuação, estilo, guia e formatação valem para o projeto aberto e são gravados a cada mudança (<see cref="ProjectSaved"/>); chave e paralelismo valem para o usuário.
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
@@ -217,6 +217,14 @@ public sealed partial class SettingsViewModel : ObservableObject
             LinkSelection(encoding, () => encoding.IsSelected, () => SelectedEncoding = encoding);
         }
 
+        Style.Changed += (_, _) =>
+        {
+            if (folder is not null)
+            {
+                Persist(SaveConfig);
+            }
+        };
+
         loading = true;
         var saved = appSettings.Load();
         app = saved;
@@ -253,6 +261,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Uma mudança foi gravada no projeto (<c>vnforge.json</c>, <c>formatting.json</c> ou <c>style.md</c>): a barra de status mostra <see cref="AutosaveNote"/>.</summary>
     public event EventHandler? ProjectSaved;
+
+    /// <summary>A aba Estilo: honoríficos, tratamento, narrador, onomatopeias, ordem dos nomes e o exemplo.</summary>
+    public StyleSettingsViewModel Style { get; } = new();
 
     public ReadOnlyCollection<ProviderOption> Providers { get; }
 
@@ -300,7 +311,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Termina quando a estimativa das linhas pendentes foi calculada (ou descartada por outro projeto).</summary>
     public Task EstimateLoading { get; private set; } = Task.CompletedTask;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Formatação, 2 Acentuação); a seção "Aparência" do tema entra como mais uma aba no merge.</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentuação, 4 Aparência).</summary>
     [ObservableProperty]
     public partial int SelectedTab { get; set; }
 
@@ -925,6 +936,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         BatchSize = project.Ai.BatchSize;
         SelectedEncoding = Encodings.FirstOrDefault(e => e.Id == project.Encoding.Strategy) ?? Encodings[0];
         StyleGuide = style;
+        Style.Load(project.Style);
         Nfc = profile.Normalization.Nfc;
         InvisibleSpaces = profile.Normalization.InvisibleSpaces;
         Nbsp = profile.Normalization.Nbsp;
@@ -971,6 +983,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 BatchSize = BatchSize,
             },
             Encoding = new EncodingConfig(SelectedEncoding?.Id ?? config.Encoding.Strategy),
+            Style = Style.ToConfig(),
         };
         folder.SaveConfig(updated);
         config = updated;
