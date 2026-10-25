@@ -393,6 +393,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string KeyStatus { get; private set; } = string.Empty;
 
+    /// <summary>Como o cofre e a variável de ambiente funcionam (DPAPI, nome da variável); só aparece em "Detalhes técnicos".</summary>
+    [ObservableProperty]
+    public partial string KeyTechnicalNote { get; private set; } = string.Empty;
+
+    /// <summary>O que o teste de conexão usou (o modelo que respondeu); só aparece em "Detalhes técnicos".</summary>
+    [ObservableProperty]
+    public partial string? ConnectionDetail { get; private set; }
+
     /// <summary>A linha de baixo do cartão da chave: configurada ou não, e onde ela fica.</summary>
     [ObservableProperty]
     public partial string KeyDetail { get; private set; } = string.Empty;
@@ -546,7 +554,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         NewApiKey = string.Empty;
         IsChangingKey = false;
-        KeyMessage = "Chave guardada no Cofre do Windows (DPAPI), fora do projeto.";
+        KeyMessage = "Chave guardada no cofre do Windows, fora do projeto.";
         RefreshKey();
         KeyChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -589,13 +597,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         IsTestingConnection = true;
         ConnectionMessage = null;
+        ConnectionDetail = null;
         ConnectionOk = false;
         try
         {
             using var timeout = new CancellationTokenSource(ConnectionTimeout);
             var result = await ClaudeConnectionTest.RunAsync(clientFactory(key), timeout.Token);
             ConnectionOk = result.Success;
-            ConnectionMessage = result.Message;
+            ConnectionMessage = result.Success ? "Conexão funcionando." : result.Message;
+            ConnectionDetail = result.Success ? result.Message : null;
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
@@ -1022,12 +1032,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         KeyConfigured = resolved.Source != ApiKeySource.None;
         KeyDetail = resolved.Source switch
         {
-            ApiKeySource.Environment => $"Configurada · variável de ambiente {ApiKeyResolver.EnvironmentVariable}, que vale mais que o cofre",
-            ApiKeySource.Vault => "Configurada · guardada no Cofre do Windows (DPAPI), fora do projeto",
-            _ => "Não configurada · use Adicionar chave para guardá-la no Cofre do Windows",
+            ApiKeySource.Environment => "Configurada · lida de uma variável de ambiente, que vale mais que o cofre",
+            ApiKeySource.Vault => "Configurada · guardada no cofre do Windows, fora do projeto",
+            _ => "Não configurada · use Adicionar chave para guardá-la no cofre do Windows",
+        };
+        KeyTechnicalNote = resolved.Source switch
+        {
+            ApiKeySource.Environment => $"A chave vem da variável de ambiente {ApiKeyResolver.EnvironmentVariable}, que vale mais que o cofre.",
+            ApiKeySource.Vault => "A chave fica criptografada com o DPAPI no seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade.",
+            _ => "O cofre usa o DPAPI do seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade.",
         };
         ChangeKeyLabel = KeyConfigured ? "Trocar chave" : "Adicionar chave";
         ConnectionMessage = null;
+        ConnectionDetail = null;
         ConnectionOk = false;
     }
 

@@ -93,7 +93,7 @@
                 <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ConnectionMessage}"
                            Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding ConnectionFailed}"/>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsChangingKey}"
-                           Text="A chave fica criptografada com o DPAPI no seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade."/>
+                           Text="A chave fica guardada no cofre do Windows, só no seu usuário. Uma variável de ambiente, se existir, tem prioridade."/>
               </StackPanel>
             </Border>
 
@@ -170,6 +170,13 @@
 
             <c:TechnicalDetails>
               <StackPanel Spacing="20" Margin="0,8,0,0">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="overline" Text="Chave"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding KeyTechnicalNote}"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ConnectionDetail}"
+                             IsVisible="{Binding ConnectionDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+
               <StackPanel Spacing="8">
                 <TextBlock Classes="overline" Text="Provedor"/>
                 <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">
