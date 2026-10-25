@@ -282,6 +282,21 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Caixa_acima_do_limite_aparece_uma_vez_so_no_terminal_interativo()
+    {
+        await InitAndExtract();
+        File.WriteAllText(ProjectFolder.Open(ProjectPath).FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
+        Translate(Yst1, i => i == 0 ? "aaa bbb ccc" : "Mika");
+        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
+        rich.Cli.Qa = QaEngine.Default;
+
+        var result = await rich.RunAsync([BuildVerb, AllowWarningsFlag, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(1, result.Output.Split(Yst00001000000).Length - 1);
+    }
+
+    [Fact]
     public async Task Caixa_acima_do_limite_no_json_fica_so_na_lista_do_qa()
     {
         await InitAndExtract();

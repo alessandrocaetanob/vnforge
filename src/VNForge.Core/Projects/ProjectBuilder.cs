@@ -219,7 +219,7 @@ public static class ProjectBuilder
             return;
         }
 
-        var covered = qa.Issues.Concat(qa.Silenced).Select(i => $"{i.UnitId}: {i.Message}").ToHashSet(StringComparer.Ordinal);
+        var covered = qa.OtherIssues.Concat(qa.Silenced).Select(i => $"{i.UnitId}: {i.Message}").ToHashSet(StringComparer.Ordinal);
         warnings.RemoveAll(covered.Contains);
     }
 
