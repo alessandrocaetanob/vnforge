@@ -85,6 +85,7 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/ScriptGroup.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/TechnicalDetails.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/ScreenDialog.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/FitWarning.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/Motion.axaml"/>
   </Application.Styles>
 </Application>

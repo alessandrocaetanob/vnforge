@@ -28,6 +28,25 @@ public class CostTests
     }
 
     [Fact]
+    public async Task Pedido_de_versao_curta_passa_direto_e_nao_entra_no_cache_da_traducao()
+    {
+        var fake = new FakeTranslationProvider(u => "curta");
+        var cache = new TranslationCache();
+        var provider = new CachingTranslationProvider(fake, cache, ClaudeModels.Opus);
+        var line = Unit("a", "こんにちは");
+        var shorten = new TranslationBatch([line]) { Shorten = new Dictionary<string, ShortenRequest> { ["a"] = new("longa demais", 3, 40) } };
+
+        var shortened = await provider.TranslateAsync(shorten, CancellationToken.None);
+        var normal = await provider.TranslateAsync(new TranslationBatch([line]), CancellationToken.None);
+
+        Assert.Equal("curta", Assert.Single(shortened).Translation);
+        Assert.Equal(2, fake.ReceivedBatches.Count);
+        Assert.Equal(shorten.Shorten, fake.ReceivedBatches.First().Shorten);
+        Assert.Equal("curta", Assert.Single(normal).Translation);
+        Assert.Empty(fake.ReceivedBatches.Last().Shorten);
+    }
+
+    [Fact]
     public async Task So_as_linhas_novas_vao_ao_provedor_e_a_ordem_do_lote_e_mantida()
     {
         var fake = new FakeTranslationProvider();

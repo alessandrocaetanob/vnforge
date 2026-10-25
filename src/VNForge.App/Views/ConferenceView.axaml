@@ -207,6 +207,13 @@
                       <TextBlock FontSize="14" LineHeight="22" Text="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="Tradução atual"/>
                     </Border>
                   </StackPanel>
+                  <!-- Caixa que não cabe: as duas saídas do Editor, dividir em páginas ou encurtar com a IA. -->
+                  <Panel IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).HasSelectedFit}">
+                    <c:FitWarning DataContext="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).SelectedFit}" x:DataType="vm:FitWarningViewModel"
+                                  Message="{Binding Message}" SplitText="{Binding SplitText}" ShortenText="{Binding ShortenText}"
+                                  SplitCommand="{Binding SplitCommand}" ShortenCommand="{Binding ShortenCommand}" ShowShorten="{Binding HasShortener}"
+                                  ErrorText="{Binding Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
+                  </Panel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasProposal}">
                     <TextBlock Classes="overline" Text="Correção proposta"/>
                     <Border Classes="original proposal">
