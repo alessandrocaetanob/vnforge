@@ -587,10 +587,13 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         AppendLog($"Injetando {ProjectLabels.Number(plan.Files.Count)} arquivo(s) em {plan.GameDirectory}");
         restoredFrom = null;
+        var root = Project!.Root;
         var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", (_, _) =>
         {
+            var project = ProjectFolder.Open(root);
+            using var projectLock = ProjectLock.Acquire(project);
             EnsureBuildMatchesPlan(plan);
-            return new GameInjector().Inject(plan);
+            return GameStateFile.Inject(project, new GameInjector(), plan, GameTestKind.Translation, null, clock);
         });
         if (mine != epoch)
         {
@@ -624,8 +627,10 @@ public sealed partial class BuildViewModel : ObservableObject
             var pending = plans.Where(p => p.Injection.Files.Count > 0).ToList();
             AppendLog($"Aplicando o patch em {pending[0].Injection.GameDirectory}");
             restoredFrom = null;
+            var patchRoot = Project!.Root;
             var run = await RunAsync("Aplicar patch no executável", "Fazendo o backup e gravando o executável", (_, _) =>
             {
+                using var projectLock = ProjectLock.Acquire(ProjectFolder.Open(patchRoot));
                 foreach (var plan in pending)
                 {
                     EnsureBuildMatchesPlan(plan.Injection);
@@ -672,6 +677,7 @@ public sealed partial class BuildViewModel : ObservableObject
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
         var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", (_, _) =>
         {
+            using var projectLock = ProjectLock.Acquire(ProjectFolder.Open(root));
             EnsureBackupsMatchPlan(root, plan);
             return new GameInjector().Restore(plan);
         });

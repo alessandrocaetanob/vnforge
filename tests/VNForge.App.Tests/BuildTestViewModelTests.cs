@@ -4,6 +4,8 @@ using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
+using VNForge.Core;
+using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 
@@ -189,10 +191,179 @@ public sealed class BuildTestViewModelTests : IDisposable
         Assert.Null(starter.Executable);
     }
 
+    private static void AssertPlain(string? shown)
+    {
+        Assert.False(string.IsNullOrEmpty(shown));
+        Assert.DoesNotContain(@":\", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain("/", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain("vnf ", shown, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SaveInGame(DateTimeOffset at, string? backup) =>
+        GameStateFile.Save(ProjectFolder.Open(root), GameStateFile.Empty with { InGame = new GameInGame(GameTestKind.Translation, at, backup, null, null) });
+
+    [Fact]
+    public async Task Falha_que_o_Core_descreve_com_caminho_aparece_na_barra_sem_caminho_e_vai_inteira_para_o_registro()
+    {
+        starter.Failure = new VNForgeException(@"Não foi possível abrir o jogo: C:\Jogos\MinhaVN.exe. Rode vnf run depois.");
+        var vm = await OpenAsync();
+
+        await vm.TestCommand.ExecuteAsync(null);
+
+        AssertPlain(vm.ErrorMessage);
+        Assert.Contains("recebeu a tradução, mas não abriu", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(vm.Log, l => l.Message.Contains(@"C:\Jogos\MinhaVN.exe", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Erro_qualquer_do_teste_mostra_uma_frase_fixa_e_o_resto_vai_para_o_registro()
+    {
+        var vm = await OpenAsync();
+        Directory.Delete(Path.Combine(root, ".cache", "game"), recursive: true);
+
+        await vm.TestCommand.ExecuteAsync(null);
+
+        AssertPlain(vm.ErrorMessage);
+        Assert.Contains("Detalhes técnicos", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("O teste parou: ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Com_outra_operacao_no_jogo_a_barra_diz_que_esta_ocupado_sem_caminho()
+    {
+        var vm = await OpenAsync();
+        var before = File.ReadAllBytes(GameFile);
+        using var held = ProjectLock.Acquire(ProjectFolder.Open(root));
+
+        await vm.TestCommand.ExecuteAsync(null);
+        await vm.ReturnToOriginalCommand.ExecuteAsync(null);
+
+        AssertPlain(vm.ErrorMessage);
+        Assert.Contains("Outra operação do VNForge", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal(before, await File.ReadAllBytesAsync(GameFile, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Estado_diz_que_o_jogo_tem_a_traducao_mas_o_backup_sumiu_a_faixa_avisa_e_nao_diz_como_veio()
+    {
+        SaveInGame(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero), "2026-10-22_2316");
+        Directory.Delete(Path.Combine(root, "backup"), recursive: true);
+
+        var vm = await OpenAsync();
+
+        Assert.Equal(GameState.Warning, vm.GameBannerState);
+        Assert.Equal("O jogo está com a tradução, mas a cópia de segurança não foi encontrada", vm.GameBannerTitle);
+        Assert.Contains("não está mais no projeto", vm.GameBannerMessage, StringComparison.Ordinal);
+        Assert.Contains("reinstale o jogo", vm.GameBannerMessage, StringComparison.Ordinal);
+        Assert.Contains("sem cópia de segurança", vm.GameStatusText, StringComparison.Ordinal);
+        Assert.False(vm.ReturnToOriginalCommand.CanExecute(null));
+        Assert.Contains("Reinstale o jogo", vm.ReturnToOriginalHint, StringComparison.Ordinal);
+        AssertPlain(vm.GameBannerMessage.Replace("/", string.Empty, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Estado_com_manifesto_ilegivel_tambem_avisa_com_o_motivo()
+    {
+        SaveInGame(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero), "2026-10-22_2316");
+        var manifest = Directory.GetFiles(Path.Combine(root, "backup"), BackupManifest.FileName, SearchOption.AllDirectories);
+        foreach (var file in manifest)
+        {
+            File.WriteAllText(file, "{ não é json");
+        }
+
+        var vm = await OpenAsync();
+
+        Assert.Equal(GameState.Warning, vm.GameBannerState);
+        Assert.Contains("não consegue ler", vm.GameBannerMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Backup_restaurado_por_fora_nao_gera_aviso_e_a_faixa_diz_como_veio()
+    {
+        SaveInGame(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero), "2026-10-22_2316");
+        new GameInjector().Restore(GameInjector.PlanRestore(ProjectFolder.Open(root)));
+
+        var vm = await OpenAsync();
+
+        Assert.Equal(GameState.Original, vm.GameBannerState);
+    }
+
+    [Fact]
+    public async Task Estado_mais_velho_que_o_backup_mais_novo_perde_para_o_backup()
+    {
+        SaveInGame(new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero), "2026-10-01_0900");
+
+        var vm = await OpenAsync();
+
+        Assert.Equal(GameState.Translated, vm.GameBannerState);
+        Assert.Equal($"O jogo está com a tradução de {DateText(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero))}", vm.GameBannerTitle);
+        Assert.Equal($"Jogo com a tradução de {DateText(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero))}", vm.GameStatusText);
+    }
+
+    [Fact]
+    public async Task Injecao_que_falhou_e_foi_desfeita_deixa_a_faixa_em_como_veio()
+    {
+        Directory.Delete(Path.Combine(root, "backup"), recursive: true);
+        File.WriteAllBytes(Path.Combine(root, "build", DemoBuild.Archive), DemoBuild.Payload(4_200_000, 9));
+        var plan = GameInjector.Plan(ProjectFolder.Open(root));
+
+        Assert.Throws<InjectionException>(() =>
+            GameStateFile.Inject(ProjectFolder.Open(root), new GameInjector(clock, new FailsFirstCopy()), plan, GameTestKind.Translation, null, clock));
+        var vm = await OpenAsync();
+
+        Assert.Equal(GameState.Original, vm.GameBannerState);
+        Assert.Equal("O jogo está como veio", vm.GameBannerTitle);
+        Assert.Null(GameStateFile.Load(ProjectFolder.Open(root)).InGame);
+    }
+
+    [Fact]
+    public async Task Injetar_dos_detalhes_tecnicos_atualiza_o_estado_do_jogo()
+    {
+        File.WriteAllBytes(Path.Combine(root, "build", DemoBuild.Archive), DemoBuild.Payload(4_200_000, 9));
+        var vm = await OpenAsync();
+
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        var inGame = GameStateFile.Load(ProjectFolder.Open(root)).InGame;
+        Assert.NotNull(inGame?.BackupDirectory);
+        Assert.Equal(GameState.Translated, vm.GameBannerState);
+        Assert.Equal($"O jogo está com a tradução de {DateText(clock.GetUtcNow())}", vm.GameBannerTitle);
+    }
+
+    private sealed class FailsFirstCopy : IInjectionFileSystem
+    {
+        private bool failed;
+
+        public void CopyFile(string source, string destination)
+        {
+            if (!failed)
+            {
+                failed = true;
+                throw new IOException("disco cheio");
+            }
+
+            File.Copy(source, destination, overwrite: true);
+        }
+
+        public void DeleteFile(string path) => File.Delete(path);
+    }
+
     private sealed class Starter : IGameProcessStarter
     {
         public string? Executable { get; private set; }
 
-        public void Start(string executablePath, string workingDirectory) => Executable = executablePath;
+        public VNForgeException? Failure { get; set; }
+
+        public void Start(string executablePath, string workingDirectory)
+        {
+            if (Failure is not null)
+            {
+                throw Failure;
+            }
+
+            Executable = executablePath;
+        }
     }
 }

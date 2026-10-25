@@ -20,6 +20,9 @@ public sealed record TestStepRow(string Label, string TimeText);
 /// </summary>
 public sealed partial class BuildViewModel
 {
+    private const string StoppedText = "O teste parou antes de terminar. Os detalhes estão em Detalhes técnicos, no registro.";
+    private const string ReturnStoppedText = "Não foi possível voltar ao jogo original. Os detalhes estão em Detalhes técnicos, no registro.";
+
     private GameStateFile savedGame = GameStateFile.Empty;
     private bool gameReturnable;
     private string? openSceneKey;
@@ -33,6 +36,10 @@ public sealed partial class BuildViewModel
 
     [ObservableProperty]
     public partial GameState GameBannerState { get; private set; } = GameState.Original;
+
+    /// <summary>O que "Voltar ao jogo original" faz, ou por que não dá para fazer.</summary>
+    [ObservableProperty]
+    public partial string ReturnToOriginalHint { get; private set; } = "Devolve os arquivos originais ao jogo. A tradução continua no projeto.";
 
     /// <summary>"Jogo com a tradução de 22/10" ou "Jogo original", para a barra de status.</summary>
     [ObservableProperty]
@@ -196,7 +203,7 @@ public sealed partial class BuildViewModel
             }
             else if (run.Failure is not null)
             {
-                Fail("Não foi possível voltar ao jogo original", run.Failure.Message);
+                FailQuietly("Não foi possível voltar ao jogo original", run.Failure, ReturnStoppedText);
             }
             else
             {
@@ -207,7 +214,7 @@ public sealed partial class BuildViewModel
         {
             if (mine == epoch)
             {
-                Fail("Não foi possível voltar ao jogo original", e.Message);
+                FailQuietly("Não foi possível voltar ao jogo original", e, ReturnStoppedText);
             }
         }
         finally
@@ -268,37 +275,56 @@ public sealed partial class BuildViewModel
                     $"A Conferência travou o teste ({QaBlockedException.DescribeBlocking(blocked.Report)}) e nada foi copiado para o jogo. Corrija em Conferir a tradução, ou ligue “Testar mesmo com avisos” para liberar só os avisos.");
                 break;
             case GameExecutableNotFoundException:
-                AppendLog(failure.Message);
-                ErrorMessage = "O VNForge não encontrou o programa do jogo, e nada foi copiado. Confira a pasta do jogo nos Ajustes.";
+                FailQuietly("Programa do jogo não encontrado", failure, "O VNForge não encontrou o programa do jogo, e nada foi copiado. Confira a pasta do jogo nos Ajustes.");
+                break;
+            case GameOpenException:
+                FailQuietly("O jogo recebeu a tradução, mas não abriu", failure, "O jogo recebeu a tradução, mas não abriu. Abra o jogo por conta própria; para desfazer, use “Voltar ao jogo original”.");
                 break;
             default:
-                Fail("O teste parou", failure.Message);
+                FailQuietly("O teste parou", failure, StoppedText);
                 break;
         }
+    }
+
+    /// <summary>
+    /// A barra da tela leva uma frase fixa em linguagem comum; a mensagem do Core, que pode ter caminho de pasta e nome de comando, vai só para o registro.
+    /// A trava de "outra operação em andamento" já é uma frase sem caminho e aparece como está.
+    /// </summary>
+    private void FailQuietly(string logTitle, Exception failure, string shown)
+    {
+        AppendLog($"{logTitle}: {failure.Message}");
+        ErrorMessage = failure is ProjectBusyException ? failure.Message : shown;
     }
 
     /// <summary>Lê o estado do jogo e do último teste e põe a faixa, a barra de status e a lista de passos no lugar.</summary>
     private void ShowGameState(ProjectState? state)
     {
         savedGame = state?.Saved ?? GameStateFile.Empty;
-        // O arquivo pode estar atrasado (um vnf restore à mão, por exemplo): só vale o que ainda tem backup para devolver.
-        // Backup sem arquivo de estado é de uma injeção feita pelo vnf inject: o jogo está trocado do mesmo jeito.
         gameReturnable = state?.Restore is not null;
-        var inGame = state?.Restore is { } restore ? savedGame.InGame ?? FromBackup(restore) : null;
-        var title = DescribeGame(inGame);
-        var message = inGame is null ? "Nenhuma tradução foi copiada para o jogo." : "A tradução continua no projeto, mesmo se você voltar ao original.";
-        GameStatusText = state is null ? string.Empty : inGame is null ? "Jogo original" : ShortGameStatus(inGame);
+        var inGame = state?.Restore is { } restore ? Effective(savedGame.InGame, restore.Manifest.CreatedAt, Path.GetFileName(restore.BackupDirectory)) : null;
+        var lost = state is not null && state.Restore is null ? LostBackup(state) : null;
+        var title = lost is null ? DescribeGame(inGame) : DescribeGame(savedGame.InGame);
+        ReturnToOriginalHint = lost is null
+            ? "Devolve os arquivos originais ao jogo. A tradução continua no projeto."
+            : "Sem a cópia de segurança o VNForge não consegue devolver o jogo. Reinstale o jogo ou use a verificação de arquivos da loja onde você o comprou.";
+        GameStatusText = state is null ? string.Empty : lost is not null ? "Jogo com a tradução, sem cópia de segurança" : inGame is null ? "Jogo original" : ShortGameStatus(inGame);
         if (QaErrorCount > 0)
         {
             GameBannerState = GameState.Blocked;
             GameBannerTitle = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro trava", "erros travam")} o teste no jogo";
             GameBannerMessage = $"{state?.QaErrorKinds} {title}.";
         }
+        else if (lost is not null)
+        {
+            GameBannerState = GameState.Warning;
+            GameBannerTitle = "O jogo está com a tradução, mas a cópia de segurança não foi encontrada";
+            GameBannerMessage = lost;
+        }
         else
         {
             GameBannerState = inGame is null ? GameState.Original : GameState.Translated;
             GameBannerTitle = title;
-            GameBannerMessage = message;
+            GameBannerMessage = inGame is null ? "Nenhuma tradução foi copiada para o jogo." : "A tradução continua no projeto, mesmo se você voltar ao original.";
         }
 
         ShowLastTest(state is null ? null : savedGame.LastTest);
@@ -306,24 +332,62 @@ public sealed partial class BuildViewModel
     }
 
     /// <summary>
+    /// O estado do arquivo só vale se não houve injeção depois dele: uma injeção mais nova (<c>vnf inject</c> de uma versão antiga, um patch do executável)
+    /// deixa um backup com data maior que a do estado, e então a faixa descreve o jogo pelo backup. Sem arquivo de estado vale o backup também.
+    /// </summary>
+    private static GameInGame Effective(GameInGame? saved, DateTimeOffset newestBackupAt, string backupName) =>
+        saved is not null && saved.AppliedAt >= newestBackupAt
+            ? saved
+            : new GameInGame(GameTestKind.Translation, newestBackupAt, backupName, null, null);
+
+    /// <summary>
+    /// O estado diz que o jogo tem uma tradução, mas não há backup que o devolva (a pasta sumiu ou o manifesto não lê): o motivo em português simples.
+    /// Nulo quando não é o caso, inclusive quando o backup do estado já foi restaurado por fora.
+    /// </summary>
+    private string? LostBackup(ProjectState state)
+    {
+        if (savedGame.InGame is not { BackupDirectory: { } name } saved)
+        {
+            return null;
+        }
+
+        var backup = state.Backups.FirstOrDefault(b => string.Equals(b.Name, name, StringComparison.Ordinal));
+        if (backup is { Restored: true })
+        {
+            return null;
+        }
+
+        var when = DateText(saved.AppliedAt);
+        return backup is null
+            ? $"A pasta com os originais trocados em {when} não está mais no projeto, então o VNForge não consegue devolver o jogo sozinho. Para voltar ao original, reinstale o jogo ou use a verificação de arquivos da loja onde você o comprou."
+            : $"A cópia de segurança de {when} existe, mas o VNForge não consegue ler um dos arquivos dela, então não dá para devolver o jogo sozinho. Para voltar ao original, reinstale o jogo ou use a verificação de arquivos da loja onde você o comprou.";
+    }
+
+    /// <summary>
     /// Ao abrir o projeto a barra de status já mostra o que o último teste deixou no jogo, sem esperar a tela Testar ler o disco inteiro.
-    /// O arquivo pode estar atrasado; a leitura completa da tela corrige.
+    /// Confere o estado com o backup mais novo; a leitura completa da tela corrige o resto.
     /// </summary>
     private void ShowSavedGameStatus(ProjectSummary? project)
     {
         try
         {
-            var inGame = project is null ? null : GameStateFile.Load(ProjectFolder.Open(project.Root)).InGame;
-            GameStatusText = inGame is null ? string.Empty : ShortGameStatus(inGame);
+            GameStatusText = string.Empty;
+            if (project is null)
+            {
+                return;
+            }
+
+            var folder = ProjectFolder.Open(project.Root);
+            if (GameInjector.ListBackups(folder).FirstOrDefault(b => b.Manifest is not null && !b.Restored) is { Manifest: { } manifest } newest)
+            {
+                GameStatusText = ShortGameStatus(Effective(GameStateFile.Load(folder).InGame, manifest.CreatedAt, newest.Name));
+            }
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
             GameStatusText = string.Empty;
         }
     }
-
-    private static GameInGame FromBackup(RestorePlan restore) =>
-        new(GameTestKind.Translation, restore.Manifest.CreatedAt, Path.GetFileName(restore.BackupDirectory), null, null);
 
     private string DescribeGame(GameInGame? inGame)
     {
