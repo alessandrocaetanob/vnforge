@@ -85,9 +85,19 @@ public sealed class TranslationRunner
         ArgumentNullException.ThrowIfNull(buildBatch);
 
         var budget = _options.Budget;
-        if (budget is not null && await budget.AuthorizeAsync(budget.EstimateRequest(lines), ct).ConfigureAwait(false) is { } refusal)
+        if (budget is not null)
         {
-            return new TranslationRunResult([], [], ct.IsCancellationRequested, BudgetStop: refusal);
+            try
+            {
+                if (await budget.AuthorizeAsync(budget.EstimateRequest(lines), ct).ConfigureAwait(false) is { } refusal)
+                {
+                    return new TranslationRunResult([], [], ct.IsCancellationRequested, BudgetStop: refusal);
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return new TranslationRunResult([], [], Canceled: true);
+            }
         }
 
         var chunks = lines.Chunk(_options.BatchSize).Select((chunk, index) => (Index: index, Lines: (IReadOnlyList<TextUnit>)chunk)).ToList();

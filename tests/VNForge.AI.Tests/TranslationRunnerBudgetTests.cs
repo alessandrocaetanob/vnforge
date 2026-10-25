@@ -140,4 +140,23 @@ public class TranslationRunnerBudgetTests
         Assert.Equal(45, run.Results.Count);
         Assert.Null(run.BudgetStop);
     }
+
+    [Fact]
+    public async Task Cancelar_enquanto_a_pergunta_espera_devolve_cancelado_sem_lancar()
+    {
+        var wallet = new Wallet();
+        using var cts = new CancellationTokenSource();
+        var (runner, provider) = Create(wallet, new BudgetLimits(null, 5m), async (_, token) =>
+        {
+            await cts.CancelAsync();
+            token.ThrowIfCancellationRequested();
+            return true;
+        });
+
+        var run = await runner.RunAsync(Units(60), Build, ct: cts.Token);
+
+        Assert.True(run.Canceled);
+        Assert.Empty(provider.ReceivedBatches);
+        Assert.Null(run.BudgetStop);
+    }
 }

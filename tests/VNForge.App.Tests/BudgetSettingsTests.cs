@@ -100,6 +100,9 @@ public class MoneyFormattingTests
     [InlineData("-5")]
     [InlineData("5,4,3")]
     [InlineData("US$ 5")]
+    [InlineData("12.34,56")]
+    [InlineData("1.2.3")]
+    [InlineData("1234.567,00")]
     public void Recusa_o_que_nao_e_valor(string text)
     {
         Assert.False(MoneyParser.TryParse(text, out _));

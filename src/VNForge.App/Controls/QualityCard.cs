@@ -76,7 +76,7 @@ public sealed class QualityCard : RadioButton
         base.OnPropertyChanged(change);
         if (change.Property == PriceProperty)
         {
-            PriceText = Money.Brl(Price);
+            PriceText = Money.BrlEstimate(Price);
         }
     }
 }
