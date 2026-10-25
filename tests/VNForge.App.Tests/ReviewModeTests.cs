@@ -263,6 +263,21 @@ public sealed class ReviewModeTests : IDisposable
     }
 
     [Fact]
+    public async Task Depois_nao_marca_a_linha_quando_a_gravacao_pendente_impede_de_sair_dela()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        vm.Review!.Detail!.Translation = "Bom dia, Misaki.\\p";
+        File.Delete(Path.Combine(raiz, "text", "yst00001.json"));
+
+        vm.Review.LaterCommand.Execute(null);
+
+        Assert.Equal(0, vm.Review.Position);
+        Assert.False(vm.Review.Blocks[0].IsLater);
+        Assert.Equal(0, vm.Review.LaterCount);
+    }
+
+    [Fact]
     public async Task Mostra_quem_fala_e_como_fala_e_a_fala_anterior_e_a_seguinte_do_script()
     {
         var vm = await Abrir();

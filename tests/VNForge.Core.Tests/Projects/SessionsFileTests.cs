@@ -90,6 +90,18 @@ public sealed class SessionsFileTests : IDisposable
     }
 
     [Fact]
+    public void Itens_nulos_da_lista_sao_ignorados_na_leitura()
+    {
+        Directory.CreateDirectory(_project.CacheDirectory);
+        File.WriteAllText(SessionsFile.PathFor(_project), "{\"version\": 1, \"approvals\": [null, {\"scriptKey\": \"yst00013\", \"unitId\": \"yst00013:000001\", \"at\": \"2026-10-25T15:00:00+00:00\"}]}");
+
+        var loaded = SessionsFile.Load(_project);
+
+        Assert.Equal([Approval("yst00013:000001", Noon)], loaded.Approvals);
+        Assert.Equal(1, loaded.ReviewedOn(Noon, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
     public void Registro_ilegivel_nao_impede_de_gravar_a_proxima_aprovacao()
     {
         Directory.CreateDirectory(_project.CacheDirectory);

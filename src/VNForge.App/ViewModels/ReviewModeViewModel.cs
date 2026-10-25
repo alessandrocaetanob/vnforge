@@ -230,11 +230,18 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Blocks[Position].State = state;
+        var block = Blocks[Position];
+        var before = block.State;
+        block.State = state;
         NotifyCounts();
         if (Position + 1 < queue.Count)
         {
-            Show(Position + 1);
+            // Aprovada a linha já está gravada, haja o que houver; Depois e Pular só valem se a próxima linha abrir.
+            if (!Show(Position + 1) && state != ReviewBlockState.Approved)
+            {
+                block.State = before;
+                NotifyCounts();
+            }
         }
         else
         {
@@ -243,12 +250,12 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void Show(int index)
+    private bool Show(int index)
     {
         if (!editor.ShowLine(queue[index]))
         {
             // A linha anterior não gravou: o painel dela mostra o erro e a pessoa continua nela.
-            return;
+            return false;
         }
 
         foreach (var block in Blocks.Where(b => b.IsCurrent))
@@ -262,6 +269,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(Detail));
         NotifyLineChanged();
+        return true;
     }
 
     private void NotifyCounts()

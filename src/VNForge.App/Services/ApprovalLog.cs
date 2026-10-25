@@ -28,6 +28,12 @@ public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
         lock (gate)
         {
             var current = Current();
+            if (folder is not null)
+            {
+                // Relê o arquivo antes de acrescentar: outro processo (a CLI, outra janela) pode ter gravado desde a última vez.
+                current = SessionsFile.Load(folder);
+            }
+
             sessions = current.With(new ApprovalRecord(scriptKey, unitId, at));
             if (folder is not null)
             {

@@ -37,7 +37,7 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
         {
             var path = PathFor(project);
             var read = File.Exists(path) ? JsonSerializer.Deserialize<SessionsFile>(Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path)), Json) : null;
-            return read is { Version: CurrentVersion, Approvals: not null } ? read : Empty;
+            return read is { Version: CurrentVersion, Approvals: not null } ? read with { Approvals = [.. read.Approvals.Where(a => a is not null)] } : Empty;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
