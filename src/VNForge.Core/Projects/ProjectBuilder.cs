@@ -52,7 +52,7 @@ public sealed record BuildResult(
 /// O <see cref="ITextEncoder"/> vem do <c>encoding.strategy</c> do <c>vnforge.json</c> (<see cref="TextEncoderRegistry"/>). Antes de reconstruir, o
 /// build roda o QA (<see cref="QaEngine"/>) e recusa com <see cref="QaBlockedException"/> se achar erro, ou aviso (exceto linha sem tradução) sem <c>allowWarnings</c>; os avisos que a linha marcou como "ok" não contam. Depois confere todas as traduções e, se a estratégia não representa algum caractere, recusa com o relatório completo
 /// (<see cref="EncodingReportException"/>). Antes disso o texto passa pelo pipeline do <c>formatting.json</c> (<see cref="FormattingPipeline"/>), então
-/// a codificação confere o texto já formatado; os avisos do pipeline (caixa acima do limite de linhas) vão para <see cref="BuildResult.Warnings"/>. Scripts sem tradução não são reconstruídos. Cada pacote descompactado
+/// a codificação confere o texto já formatado; os avisos do pipeline vão para <see cref="BuildResult.Warnings"/>, menos os que o QA já aponta (caixa acima do limite de linhas), que ficam só em <see cref="BuildResult.Qa"/>. Scripts sem tradução não são reconstruídos. Cada pacote descompactado
 /// sai em <c>build/</c>: o que não teve script alterado é copiado idêntico, e o <c>vnf inject</c> ignora o arquivo igual ao do jogo.
 /// </remarks>
 public static class ProjectBuilder
@@ -130,6 +130,8 @@ public static class ProjectBuilder
             throw new QaBlockedException(qaReport, allowWarnings);
         }
 
+        DropWarningsReportedByQa(warnings, qaReport);
+
         var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;
         var (rebuilt, built, state, reused) = RebuildScripts(project, game, texts, encoder, previous, warnings, progress, cancellationToken);
 
@@ -204,6 +206,21 @@ public static class ProjectBuilder
         }
 
         return formatted;
+    }
+
+    /// <summary>
+    /// A caixa acima do limite de linhas sai do pipeline como aviso do build e da regra <see cref="BoxLineLimitRule"/> como ocorrência de QA, com o mesmo
+    /// texto. Fica só a do QA, que o revisor pode marcar como "ok"; o aviso do build sobra apenas quando nenhuma regra de QA o cobre (QA sem a regra).
+    /// </summary>
+    private static void DropWarningsReportedByQa(List<string> warnings, QaReport qa)
+    {
+        if (warnings.Count == 0)
+        {
+            return;
+        }
+
+        var covered = qa.OtherIssues.Concat(qa.Silenced).Select(i => $"{i.UnitId}: {i.Message}").ToHashSet(StringComparer.Ordinal);
+        warnings.RemoveAll(covered.Contains);
     }
 
     private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings)

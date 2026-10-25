@@ -30,7 +30,7 @@ src/VNForge.App/
 └─ Assets/
    ├─ Fonts/                # NotoSans, NotoSansJP, ZenKakuGothicNew, JetBrainsMono (OFL)
    ├─ Icons.axaml           # StreamGeometry x:Key="Icon.Sparkle" …
-   └─ vnforge.ico
+   └─ VNForge.ico
 ```
 
 ## Tokens → recursos

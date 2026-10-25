@@ -84,6 +84,9 @@ public sealed class VnfCli
     /// </summary>
     public bool CanAnimate => RichOutput && _animationAllowed && Ansi.Profile.Capabilities is { Ansi: true, Interactive: true };
 
+    /// <summary>As perguntas da invocação em andamento terminam em quebra de linha (ver <see cref="CliTerminal.QuestionOnOwnLine"/>).</summary>
+    public bool QuestionOnOwnLine { get; private set; }
+
     /// <summary>Cofre da chave de API do usuário.</summary>
     public IApiKeyStore ApiKeyStore { get; }
 
@@ -153,6 +156,7 @@ public sealed class VnfCli
         var terminal = _terminal ?? CliTerminal.ForWriter(output);
         RichOutput = CliConsole.IsRich(settings, terminal);
         _animationAllowed = terminal.Animate;
+        QuestionOnOwnLine = terminal.QuestionOnOwnLine;
         Ansi = CliConsole.Create(output, settings, terminal);
 
         var logDirectory = VNForgeLogging.ResolveLogDirectory(settings.Project, _currentDirectory, _userLogDirectory);
