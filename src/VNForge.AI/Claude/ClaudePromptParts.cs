@@ -10,16 +10,21 @@ namespace VNForge.AI.Claude;
 internal static class ClaudePromptParts
 {
     /// <summary>
-    /// Acrescenta ao prompt de sistema as escolhas de estilo, o guia de estilo, o glossário e os personagens do lote. As escolhas e o
-    /// guia vêm primeiro e não mudam entre lotes do mesmo projeto, para o prefixo do prompt continuar valendo no cache da API.
+    /// Acrescenta ao bloco estável do prompt de sistema as escolhas de estilo e o guia de estilo, que não mudam entre lotes do mesmo
+    /// projeto: é o bloco que leva o <c>cache_control</c> (ver <see cref="AnthropicMessageClient"/>).
     /// </summary>
-    public static void AppendContext(StringBuilder sb, TranslationBatch batch, string glossaryHeading)
+    public static void AppendStableContext(StringBuilder sb, TranslationBatch batch)
     {
         AppendStyleChoices(sb, batch.Style);
 
         if (!string.IsNullOrWhiteSpace(batch.StyleGuide))
             sb.AppendLine().AppendLine("Guia de estilo:").AppendLine(batch.StyleGuide.Trim());
+    }
 
+    /// <summary>O glossário e os personagens do lote, que mudam a cada lote: vão no bloco do sistema sem <c>cache_control</c>.</summary>
+    public static string BatchContext(TranslationBatch batch, string glossaryHeading)
+    {
+        var sb = new StringBuilder();
         if (batch.Glossary.Count > 0)
         {
             sb.AppendLine().AppendLine(glossaryHeading);
@@ -33,6 +38,8 @@ internal static class ClaudePromptParts
             foreach (var c in batch.Characters)
                 sb.AppendLine(CharacterLine(c));
         }
+
+        return sb.ToString().TrimStart();
     }
 
     /// <summary>Acrescenta ao prompt do usuário o contexto anterior, que o modelo lê mas não processa.</summary>

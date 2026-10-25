@@ -145,7 +145,8 @@ public class StylePromptTests
     public async Task O_prompt_de_sistema_nao_muda_entre_lotes_do_mesmo_projeto()
     {
         var script = Script();
-        var builder = new TranslationBatchBuilder([], Cast, "Tom leve.", style: StyleConfig.Default with { Address = AddressForm.Tu });
+        var glossary = new[] { new GlossaryTerm("四行目", "quarta linha"), new GlossaryTerm("五行目", "quinta linha") };
+        var builder = new TranslationBatchBuilder(glossary, Cast, "Tom leve.", style: StyleConfig.Default with { Address = AddressForm.Tu });
         var client = new StubClient();
         var provider = new ClaudeTranslationProvider(client);
 
@@ -153,12 +154,23 @@ public class StylePromptTests
         await provider.TranslateAsync(builder.Build([script[4]], script[..4], script[5..]), CancellationToken.None);
 
         Assert.Equal(2, client.Requests.Count);
-        // Personagens e glossário mudam com as linhas do lote e vêm depois; tudo até o guia de estilo é igual.
-        var stable = client.Requests[0].System[..(client.Requests[0].System.IndexOf("Tom leve.", StringComparison.Ordinal) + "Tom leve.".Length)];
-        Assert.StartsWith(stable, client.Requests[1].System, StringComparison.Ordinal);
-        Assert.StartsWith("Você traduz", stable);
-        Assert.Contains("Estilo da tradução:", stable);
-        Assert.NotEqual(client.Requests[0].User, client.Requests[1].User);
+        var (first, second) = (client.Requests[0], client.Requests[1]);
+
+        // O bloco estável (instrução, escolhas, guia) é igual byte a byte, mesmo com glossário e personagens diferentes.
+        Assert.Equal(first.System, second.System);
+        Assert.StartsWith("Você traduz", first.System);
+        Assert.Contains("Estilo da tradução:", first.System);
+        Assert.EndsWith("Tom leve." + Environment.NewLine, first.System);
+        Assert.DoesNotContain("quarta linha", first.System);
+        Assert.DoesNotContain("Personagens:", first.System);
+
+        // O que muda por lote fica no segundo bloco.
+        Assert.NotEqual(first.BatchContext, second.BatchContext);
+        Assert.Contains("quarta linha", first.BatchContext);
+        Assert.Contains("Misaki", first.BatchContext);
+        Assert.Contains("quinta linha", second.BatchContext);
+        Assert.DoesNotContain("Misaki", second.BatchContext);
+        Assert.NotEqual(first.User, second.User);
     }
 
     [Fact]

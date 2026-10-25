@@ -7,7 +7,12 @@ public sealed record ClaudeRequest(
     int MaxTokens,
     string System,
     string User,
-    string JsonSchema);
+    string JsonSchema,
+    string BatchContext = "")
+{
+    /// <summary>O sistema inteiro: <see cref="System"/> (igual em todo lote do projeto) e <see cref="BatchContext"/> (glossário e personagens do lote).</summary>
+    public string FullSystem => System + BatchContext;
+}
 
 /// <summary>Tokens de uma chamada; <see cref="CacheReadInputTokens"/> são os lidos do cache de prompt (cobrados mais barato).</summary>
 public sealed record ClaudeUsage(long InputTokens, long OutputTokens, long CacheReadInputTokens, long CacheCreationInputTokens)
