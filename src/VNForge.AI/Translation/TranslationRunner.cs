@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using VNForge.AI.Cost;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Translation;
@@ -26,6 +27,9 @@ public sealed record TranslationRunOptions
 
     /// <summary>Espera entre tentativas; os testes trocam por uma que não espera.</summary>
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (time, ct) => Task.Delay(time, ct);
+
+    /// <summary>Guarda de gasto: pergunta antes de um pedido acima do aviso e deixa de começar lotes quando o gasto chega ao limite. Sem ela, nada limita o gasto.</summary>
+    public BudgetGuard? Budget { get; init; }
 }
 
 /// <summary>Avanço da tradução: linhas já traduzidas do total.</summary>
@@ -37,11 +41,13 @@ public sealed record TranslationBatchFailure(IReadOnlyList<string> LineIds, Exce
 /// <summary>Resultado de uma execução: o que voltou, o que falhou e se foi cancelada.</summary>
 /// <param name="CallbackError">Erro lançado por <c>onBatchTranslated</c> ou pelo progresso; a execução para ali, e <paramref name="Results"/> mantém o que já voltou.</param>
 /// <param name="Results">Traduções recebidas, na ordem das linhas de entrada; inclui as dos lotes concluídos antes de um cancelamento.</param>
+/// <param name="BudgetStop">Por que o <see cref="BudgetGuard"/> parou a execução; <see langword="null"/> quando ele não interveio. Os lotes que não começaram não são falhas.</param>
 public sealed record TranslationRunResult(
     IReadOnlyList<TranslationResult> Results,
     IReadOnlyList<TranslationBatchFailure> Failures,
     bool Canceled,
-    Exception? CallbackError = null);
+    Exception? CallbackError = null,
+    BudgetStop? BudgetStop = null);
 
 /// <summary>
 /// Traduz uma lista de linhas em lotes, com chamadas em paralelo e retry com backoff exponencial. Cancelar não lança: a execução
@@ -78,12 +84,19 @@ public sealed class TranslationRunner
         ArgumentNullException.ThrowIfNull(lines);
         ArgumentNullException.ThrowIfNull(buildBatch);
 
+        var budget = _options.Budget;
+        if (budget is not null && await budget.AuthorizeAsync(budget.EstimateRequest(lines), ct).ConfigureAwait(false) is { } refusal)
+        {
+            return new TranslationRunResult([], [], ct.IsCancellationRequested, BudgetStop: refusal);
+        }
+
         var chunks = lines.Chunk(_options.BatchSize).Select((chunk, index) => (Index: index, Lines: (IReadOnlyList<TextUnit>)chunk)).ToList();
         var done = new ConcurrentDictionary<int, IReadOnlyList<TranslationResult>>();
         var failed = new ConcurrentDictionary<int, TranslationBatchFailure>();
         var gate = new object();
         var completedLines = 0;
         Exception? callbackError = null;
+        var limitReached = 0;
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         try
@@ -93,6 +106,13 @@ public sealed class TranslationRunner
                 new ParallelOptions { MaxDegreeOfParallelism = _options.MaxConcurrency, CancellationToken = stop.Token },
                 async (chunk, token) =>
                 {
+                    // Os lotes em andamento terminam (já estão pagos); só os que ainda não começaram ficam de fora.
+                    if (budget?.LimitReached == true)
+                    {
+                        Interlocked.Exchange(ref limitReached, 1);
+                        return;
+                    }
+
                     TranslationBatch batch;
                     try
                     {
@@ -139,7 +159,8 @@ public sealed class TranslationRunner
             [.. done.OrderBy(p => p.Key).SelectMany(p => p.Value)],
             [.. failed.OrderBy(p => p.Key).Select(p => p.Value)],
             ct.IsCancellationRequested,
-            callbackError);
+            callbackError,
+            Volatile.Read(ref limitReached) == 1 ? BudgetStop.LimitReached : null);
     }
 
     private async Task<(IReadOnlyList<TranslationResult>? Results, Exception? Error, int Attempts)> TranslateWithRetryAsync(TranslationBatch batch, CancellationToken ct)
