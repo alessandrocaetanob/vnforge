@@ -48,6 +48,7 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
             Glossary = batch.Glossary,
             Characters = batch.Characters,
             StyleGuide = batch.StyleGuide,
+            Shorten = batch.Shorten,
         };
 
         var results = await inner.TranslateAsync(request, ct).ConfigureAwait(false);
