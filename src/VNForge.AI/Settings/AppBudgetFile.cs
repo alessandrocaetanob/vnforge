@@ -50,19 +50,14 @@ public static class AppBudgetFile
         }
     }
 
-    /// <summary>O primeiro campo de dinheiro que existe no arquivo mas não vale (texto, zero, negativo, fora da faixa); <see langword="null"/> quando todos valem ou faltam.</summary>
-    private static string? InvalidMoneyField(JsonElement root)
-    {
-        foreach (var (name, max) in new[] { ("exchangeRate", MaxBrlPerUsd), ("spendLimit", decimal.MaxValue), ("warnAbove", decimal.MaxValue) })
-        {
-            if (root.TryGetProperty(name, out var element) && element.ValueKind != JsonValueKind.Null && ReadMoney(root, name, max) is null)
-            {
-                return name;
-            }
-        }
-
-        return null;
-    }
+    /// <summary>
+    /// O limite de gasto existe no arquivo mas não vale (texto, zero, negativo, fora da faixa): o orçamento seguiria sem limite sem a pessoa saber.
+    /// A cotação e o valor de aviso inválidos só caem no padrão, porque não deixam o gasto sem freio. Devolve o nome do campo, ou <see langword="null"/>.
+    /// </summary>
+    private static string? InvalidMoneyField(JsonElement root) =>
+        root.TryGetProperty("spendLimit", out var element) && element.ValueKind != JsonValueKind.Null && ReadMoney(root, "spendLimit", decimal.MaxValue) is null
+            ? "spendLimit"
+            : null;
 
     /// <summary>Lê os campos de dinheiro e a data do <c>app.json</c> já aberto.</summary>
     public static BudgetSettings Read(JsonElement root)
