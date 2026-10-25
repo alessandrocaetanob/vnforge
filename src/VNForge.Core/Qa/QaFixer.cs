@@ -122,6 +122,14 @@ public static class QaFixer
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engine);
+        lock (ProjectTextLock.For(project))
+        {
+            return ApplyOneLocked(project, engine, scriptKey, unitId, ruleId);
+        }
+    }
+
+    private static QaFix? ApplyOneLocked(ProjectFolder project, QaEngine engine, string scriptKey, string unitId, string ruleId)
+    {
         var rule = engine.Find(ruleId) ?? throw new VNForgeException($"Regra de QA desconhecida: {ruleId}.");
         if (rule is not IQaFixer fixer)
         {
@@ -171,6 +179,16 @@ public static class QaFixer
     public static QaFixResult Apply(ProjectFolder project, QaEngine engine, IReadOnlyCollection<string>? rules = null, bool dryRun = false)
     {
         ArgumentNullException.ThrowIfNull(project);
+
+        // Os textos são relidos dentro da trava: um lote da IA gravado antes não pode ser desfeito por uma leitura velha.
+        lock (ProjectTextLock.For(project))
+        {
+            return ApplyLocked(project, engine, rules, dryRun);
+        }
+    }
+
+    private static QaFixResult ApplyLocked(ProjectFolder project, QaEngine engine, IReadOnlyCollection<string>? rules, bool dryRun)
+    {
         var result = Plan(project.LoadAllText(), engine, rules);
         if (!dryRun)
         {
