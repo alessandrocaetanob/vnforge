@@ -12,6 +12,8 @@ namespace VNForge.App.Tests.Rendering;
 /// </summary>
 internal sealed class PixelProbe
 {
+    private static readonly double[] StepFractions = [1.0, 0.75, 0.5, 0.25];
+
     private readonly Color[,] pixels;
 
     private PixelProbe(Color[,] pixels)
@@ -163,7 +165,22 @@ internal sealed class PixelProbe
 
     /// <summary>A cor com 100%, 75%, 50% e 25% da opacidade: o mesmo traço quando cai inteiro numa linha de pixels ou dividido entre duas.</summary>
     public static IReadOnlyList<Color> Steps(Color ink, double opacity, Color background) =>
-        [.. new[] { 1.0, 0.75, 0.5, 0.25 }.Select(fraction => Blend(ink, opacity * fraction, background))];
+        [.. StepFractions.Select(fraction => Blend(ink, opacity * fraction, background))];
+
+    /// <summary>Quantos pixels da área têm uma das cores. A área é cortada nas bordas do controle.</summary>
+    public int CountInArea(Rect area, IReadOnlyList<Color> colors, int tolerance)
+    {
+        var count = 0;
+        for (var y = Math.Max(0, (int)Math.Floor(area.Top)); y < Math.Min(Height, (int)Math.Ceiling(area.Bottom)); y++)
+        {
+            count += CountInRow(y, colors, tolerance, Math.Max(0, (int)Math.Floor(area.Left)), Math.Min(Width, (int)Math.Ceiling(area.Right)));
+        }
+
+        return count;
+    }
+
+    /// <summary>Quantos pixels da área têm a cor.</summary>
+    public int CountInArea(Rect area, Color color, int tolerance) => CountInArea(area, [color], tolerance);
 
     private static int Distance(Color a, Color b) => Math.Max(Math.Abs(a.R - b.R), Math.Max(Math.Abs(a.G - b.G), Math.Abs(a.B - b.B)));
 }

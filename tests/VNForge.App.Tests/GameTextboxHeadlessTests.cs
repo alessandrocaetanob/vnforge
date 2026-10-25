@@ -17,6 +17,9 @@ namespace VNForge.App.Tests;
 /// <summary>O painel de detalhe real, com o <see cref="GameTextbox"/> medido e desenhado a partir do perfil do projeto.</summary>
 public class GameTextboxHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>, IDisposable
 {
+    private static readonly string[] MsGothic = ["MS Gothic", "ＭＳ ゴシック"];
+    private static readonly string[] BizUdGothic = ["BIZ UDGothic", "BIZ UDゴシック"];
+
     private readonly TempFolder pasta = new();
 
     public void Dispose()
@@ -139,11 +142,11 @@ public class GameTextboxHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
                 Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(new GameTextbox().FontFamily), out var glifos));
                 if (instalada)
                 {
-                    Assert.Contains(glifos.FamilyName, new[] { "MS Gothic", "ＭＳ ゴシック" });
+                    Assert.Contains(glifos.FamilyName, MsGothic);
                 }
                 else
                 {
-                    Assert.Contains(glifos.FamilyName, new[] { "BIZ UDGothic", "BIZ UDゴシック" });
+                    Assert.Contains(glifos.FamilyName, BizUdGothic);
                 }
             },
             CancellationToken.None);
@@ -157,7 +160,7 @@ public class GameTextboxHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
             {
                 var embutida = new FontFamily("avares://VNForge.App/Assets/Fonts#BIZ UDGothic");
                 Assert.True(FontManager.Current.TryGetGlyphTypeface(new Typeface(embutida), out var glifos));
-                Assert.Contains(glifos.FamilyName, new[] { "BIZ UDGothic", "BIZ UDゴシック" });
+                Assert.Contains(glifos.FamilyName, BizUdGothic);
                 foreach (var letra in "áãçõÉ")
                 {
                     Assert.True(glifos.CharacterToGlyphMap.TryGetGlyph(letra, out var glifo) && glifo != 0, $"sem glifo para {letra}");

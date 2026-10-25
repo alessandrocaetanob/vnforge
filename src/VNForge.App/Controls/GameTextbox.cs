@@ -33,6 +33,9 @@ public enum GameTextboxRowKind
 /// <summary>Uma linha da grade da caixa. <paramref name="Line"/> é o índice da linha na página; nulo na linha vaga e no separador.</summary>
 public sealed record GameTextboxRow(GameTextboxRowKind Kind, int Page, int? Line = null, bool FirstOverflow = false);
 
+/// <summary>Onde uma linha da grade fica na caixa, em pixels a partir do canto do controle. <paramref name="GapAbove"/> é o espaço do traço de overflow acima da linha.</summary>
+public sealed record GameTextboxRowBounds(GameTextboxRow Row, Rect Bounds, double GapAbove);
+
 /// <summary>
 /// A caixa de texto do jogo (docs/design/components/TextboxPreview): placa do nome, as linhas que o perfil permite com as vagas pontilhadas,
 /// o que passa do limite abaixo de um traço, o triângulo onde o jogo espera o clique e, com mais de uma caixa, o separador "página N".
@@ -142,6 +145,33 @@ public sealed class GameTextbox : Control
         return rows;
     }
 
+    /// <summary>
+    /// O retângulo de cada linha da grade, na mesma conta do desenho: o miolo do texto, sem a placa nem as bordas. Serve para conferir o que foi pintado
+    /// em cada linha sem depender de como a fonte desenha os glifos.
+    /// </summary>
+    public IReadOnlyList<GameTextboxRowBounds> RowBounds()
+    {
+        if (Layout is not { } layout)
+        {
+            return [];
+        }
+
+        var m = Metrics.For(Size);
+        var (columnWidth, textHeight) = Cell(m);
+        var rowHeight = Math.Max(m.RowHeight, textHeight);
+        var y = (layout.Speaker is null ? 0 : m.PlateOverhang) + m.PadTop;
+        var bounds = new List<GameTextboxRowBounds>();
+        foreach (var row in Describe(layout))
+        {
+            var gap = row.FirstOverflow ? OverflowGap : 0;
+            var height = row.Kind == GameTextboxRowKind.PageBreak ? PageTail + PageSeparatorHeight : rowHeight;
+            bounds.Add(new GameTextboxRowBounds(row, new Rect(m.PadX, y + gap, layout.Columns * columnWidth, height), gap));
+            y += gap + height;
+        }
+
+        return bounds;
+    }
+
     protected override Size MeasureOverride(Size availableSize)
     {
         if (Layout is not { } layout)
@@ -167,57 +197,67 @@ public sealed class GameTextbox : Control
         var m = Metrics.For(Size);
         var (columnWidth, textHeight) = Cell(m);
         var rowHeight = Math.Max(m.RowHeight, textHeight);
-        var width = (layout.Columns * columnWidth) + (m.PadX * 2);
-        var typeface = new Typeface(FontFamily);
         var ink = Brush("Vnf.TextboxInk", Brushes.White);
-        var overflow = Brush("Vnf.TextboxOverflow", Brushes.Salmon);
-        var dotted = new DashStyle([1, 2], 0);
-        var dashed = new DashStyle([4, 3], 0);
+        var paint = new Paint(
+            m,
+            columnWidth,
+            textHeight,
+            rowHeight,
+            (layout.Columns * columnWidth) + (m.PadX * 2),
+            new Typeface(FontFamily),
+            ink,
+            Brush("Vnf.TextboxOverflow", Brushes.Salmon),
+            new DashStyle([1, 2], 0),
+            new DashStyle([4, 3], 0));
 
         var top = layout.Speaker is null ? 0 : m.PlateOverhang;
-        var frame = new Rect(0, top, width, HeightOf(layout, m, rowHeight) - top);
+        var frame = new Rect(0, top, paint.Width, HeightOf(layout, m, rowHeight) - top);
         context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), new Pen(Tint(ink, 0.16), 1), new RoundedRect(frame.Deflate(0.5), 12));
         context.DrawRectangle(null, new Pen(Tint(ink, 0.07), 1), new RoundedRect(frame.Deflate(5.5), 8));
 
         var y = top + m.PadTop;
-        var rows = Describe(layout);
-        for (var i = 0; i < rows.Count; i++)
+        foreach (var row in Describe(layout))
         {
-            var row = rows[i];
-            if (row.Kind == GameTextboxRowKind.PageBreak)
-            {
-                DrawNext(context, ink, width, y + m.NextTop, m);
-                DrawPageBreak(context, row.Page, typeface, ink, dashed, width, y + PageTail, m);
-                y += PageTail + PageSeparatorHeight;
-                continue;
-            }
-
-            if (row.FirstOverflow)
-            {
-                var line = y + (OverflowGap / 2);
-                context.DrawLine(new Pen(overflow, 1, dashed), new Point(m.PadX - 6, line), new Point(width - m.PadX + 6, line));
-                y += OverflowGap;
-            }
-
-            var isOverflow = row.Kind == GameTextboxRowKind.Overflow;
-            if (row.Line is { } n)
-            {
-                DrawLine(context, layout.Boxes[row.Page].Lines[n], typeface, isOverflow ? overflow : ink, columnWidth, new Point(m.PadX, y + ((rowHeight - textHeight) / 2)), m);
-            }
-
-            var rule = y + rowHeight - 0.5;
-            context.DrawLine(new Pen(Tint(isOverflow ? overflow : ink, isOverflow ? 0.35 : 0.13), 1, dotted), new Point(m.PadX, rule), new Point(m.PadX + (layout.Columns * columnWidth), rule));
-            y += rowHeight;
+            y = DrawRow(context, layout, row, y, paint);
         }
 
-        DrawNext(context, ink, width, y + m.NextTop, m);
+        DrawNext(context, ink, paint.Width, y + m.NextTop, m);
         if (layout.Speaker is { } speaker)
         {
-            DrawPlate(context, speaker, typeface, ink, m);
+            DrawPlate(context, speaker, paint.Typeface, ink, m);
         }
     }
 
-    private double HeightOf(TextboxLayout layout, Metrics m, double rowHeight)
+    /// <summary>Desenha uma linha da grade em <paramref name="y"/> e devolve onde começa a próxima.</summary>
+    private double DrawRow(DrawingContext context, TextboxLayout layout, GameTextboxRow row, double y, Paint p)
+    {
+        var m = p.M;
+        if (row.Kind == GameTextboxRowKind.PageBreak)
+        {
+            DrawNext(context, p.Ink, p.Width, y + m.NextTop, m);
+            DrawPageBreak(context, row.Page, y + PageTail, p);
+            return y + PageTail + PageSeparatorHeight;
+        }
+
+        if (row.FirstOverflow)
+        {
+            var line = y + (OverflowGap / 2);
+            context.DrawLine(new Pen(p.Overflow, 1, p.Dashed), new Point(m.PadX - 6, line), new Point(p.Width - m.PadX + 6, line));
+            y += OverflowGap;
+        }
+
+        var isOverflow = row.Kind == GameTextboxRowKind.Overflow;
+        if (row.Line is { } n)
+        {
+            DrawLine(context, layout.Boxes[row.Page].Lines[n], p.Typeface, isOverflow ? p.Overflow : p.Ink, p.ColumnWidth, new Point(m.PadX, y + ((p.RowHeight - p.TextHeight) / 2)), m);
+        }
+
+        var rule = y + p.RowHeight - 0.5;
+        context.DrawLine(new Pen(Tint(isOverflow ? p.Overflow : p.Ink, isOverflow ? 0.35 : 0.13), 1, p.Dotted), new Point(m.PadX, rule), new Point(m.PadX + (layout.Columns * p.ColumnWidth), rule));
+        return y + p.RowHeight;
+    }
+
+    private static double HeightOf(TextboxLayout layout, Metrics m, double rowHeight)
     {
         var height = (layout.Speaker is null ? 0 : m.PlateOverhang) + m.PadTop + m.PadBottom;
         foreach (var row in Describe(layout))
@@ -247,7 +287,7 @@ public sealed class GameTextbox : Control
     }
 
     /// <summary>Cada trecho vai para a coluna dele na régua do perfil, não para onde a fonte o poria: glifo largo ocupa as colunas da tabela (encolhido se a fonte o fizer maior) e marcador não avança a coluna.</summary>
-    private void DrawLine(DrawingContext context, TextboxLine line, Typeface typeface, IBrush ink, double columnWidth, Point origin, Metrics m)
+    private static void DrawLine(DrawingContext context, TextboxLine line, Typeface typeface, IBrush ink, double columnWidth, Point origin, Metrics m)
     {
         foreach (var segment in line.Segments)
         {
@@ -310,12 +350,12 @@ public sealed class GameTextbox : Control
     }
 
     /// <summary>"página N" e um traço tracejado até a borda direita.</summary>
-    private void DrawPageBreak(DrawingContext context, int page, Typeface typeface, IBrush ink, DashStyle dashed, double width, double y, Metrics m)
+    private static void DrawPageBreak(DrawingContext context, int page, double y, Paint p)
     {
-        var label = Format($"página {page + 1}", typeface, Tint(ink, 0.55), 10);
-        context.DrawText(label, new Point(m.PadX, y + 10));
+        var label = Format($"página {page + 1}", p.Typeface, Tint(p.Ink, 0.55), 10);
+        context.DrawText(label, new Point(p.M.PadX, y + 10));
         var line = y + 10 + (label.Height / 2);
-        context.DrawLine(new Pen(Tint(ink, 0.22), 1, dashed), new Point(m.PadX + label.Width + 8, line), new Point(width - m.PadX, line));
+        context.DrawLine(new Pen(Tint(p.Ink, 0.22), 1, p.Dashed), new Point(p.M.PadX + label.Width + 8, line), new Point(p.Width - p.M.PadX, line));
     }
 
     private static FormattedText Format(string text, Typeface typeface, IBrush brush, double size) =>
@@ -326,6 +366,19 @@ public sealed class GameTextbox : Control
 
     private IBrush Brush(string key, IBrush fallback) =>
         this.TryFindResource(key, ActualThemeVariant, out var found) && found is IBrush brush ? brush : fallback;
+
+    /// <summary>O que o desenho de uma passada precisa: medidas, fonte, tintas e traços.</summary>
+    private readonly record struct Paint(
+        Metrics M,
+        double ColumnWidth,
+        double TextHeight,
+        double RowHeight,
+        double Width,
+        Typeface Typeface,
+        IBrush Ink,
+        IBrush Overflow,
+        DashStyle Dotted,
+        DashStyle Dashed);
 
     /// <summary>As medidas do desenho da caixa em cada tamanho (v3.css, <c>.gbox</c>, <c>.gbox.sm</c> e <c>.gbox.lg</c>).</summary>
     private readonly record struct Metrics(

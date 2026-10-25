@@ -34,7 +34,12 @@ public static class MarkerLabels
     public static string? Glyph(string marker, MarkerKind kind)
     {
         ArgumentNullException.ThrowIfNull(marker);
-        return kind == MarkerKind.Variable ? "✱" : marker == @"\n" ? "↵" : null;
+        if (kind == MarkerKind.Variable)
+        {
+            return "✱";
+        }
+
+        return marker == @"\n" ? "↵" : null;
     }
 
     /// <summary>Nome acessível do marcador, para o leitor de tela: o nome em português e, entre parênteses, o marcador como está no texto.</summary>

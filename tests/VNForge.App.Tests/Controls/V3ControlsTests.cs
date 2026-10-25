@@ -306,7 +306,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
                     {
                         janela.KeyPress(Key.Tab, modifiers, PhysicalKey.Tab, null);
                         ScreenRenderer.Settle(janela);
-                        var foco = Assert.IsAssignableFrom<Visual>(janela.FocusManager!.GetFocusedElement());
+                        var foco = Assert.IsType<Visual>(janela.FocusManager!.GetFocusedElement(), exactMatch: false);
                         Assert.True(foco == cartao || cartao.IsVisualAncestorOf(foco), $"o foco saiu do diálogo ({modifiers}, passo {n + 1}): {foco}");
                     }
                 }
@@ -513,7 +513,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
     private static Color Token(Control host, string key)
     {
         Assert.True(host.TryFindResource(key, host.ActualThemeVariant, out var found));
-        return Assert.IsAssignableFrom<ISolidColorBrush>(found).Color;
+        return Assert.IsType<ISolidColorBrush>(found, exactMatch: false).Color;
     }
 
     private static Color PixelAt(Avalonia.Media.Imaging.WriteableBitmap frame, PixelPoint point)

@@ -83,6 +83,6 @@ public sealed class ChapterRow : ThreeStateProgress
     private void Refresh()
     {
         PercentText = $"{Percent}%";
-        LinesText = $"{Total.ToString("N0", PtBr)} {(Total == 1 ? "linha" : "linhas")}";
+        LinesText = $"{Total.ToString("N0", PtBr)} {(Math.Abs(Total - 1) < 0.5 ? "linha" : "linhas")}";
     }
 }
