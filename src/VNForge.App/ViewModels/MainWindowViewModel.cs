@@ -340,8 +340,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void ShowLineSaved(LineSavedEventArgs saved)
     {
-        var text = saved.IsApproval ? $"Linha {saved.Number} aprovada." : $"Linha {saved.Number} gravada.";
-        Toasts.Show(text, ToastKind.Success, key: "line-save", undo: () => UndoLineSave(saved));
+        Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => UndoLineSave(saved));
+    }
+
+    private static string SavedText(LineSavedEventArgs saved)
+    {
+        if (saved.IsBatch)
+        {
+            return saved.Batch.Count == 1 ? "Tradução aplicada a 1 linha." : $"Tradução aplicada a {saved.Batch.Count} linhas.";
+        }
+
+        return saved.IsApproval ? $"Linha {saved.Number} aprovada." : $"Linha {saved.Number} gravada.";
     }
 
     private void UndoLineSave(LineSavedEventArgs saved)

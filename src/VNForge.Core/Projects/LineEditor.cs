@@ -6,12 +6,28 @@ namespace VNForge.Core.Projects;
 /// Edição manual de uma linha de <c>text/&lt;script&gt;.json</c>: tradução, notas e aprovação. Cada operação lê o script, troca a unidade pelo
 /// <c>id</c> e grava de volta com <see cref="ProjectFolder.SaveText"/> (atômico); se nada mudou, o arquivo não é regravado.
 /// </summary>
-public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
+public sealed class LineEditor
 {
     internal const string ManualProvider = "manual";
 
-    private readonly ProjectFolder project = project ?? throw new ArgumentNullException(nameof(project));
-    private readonly TimeProvider clock = clock ?? throw new ArgumentNullException(nameof(clock));
+    private readonly ProjectFolder project;
+    private readonly TimeProvider clock;
+    private readonly Action<string, IReadOnlyList<TextUnit>> save;
+
+    public LineEditor(ProjectFolder project, TimeProvider clock)
+        : this(project, clock, (key, units) => (project ?? throw new ArgumentNullException(nameof(project))).SaveText(key, units))
+    {
+    }
+
+    /// <param name="project">A pasta do projeto.</param>
+    /// <param name="clock">O relógio da origem <c>manual</c>.</param>
+    /// <param name="save">Como um script é gravado; o padrão é <see cref="ProjectFolder.SaveText"/>. Os testes passam uma gravação que falha.</param>
+    public LineEditor(ProjectFolder project, TimeProvider clock, Action<string, IReadOnlyList<TextUnit>> save)
+    {
+        this.project = project ?? throw new ArgumentNullException(nameof(project));
+        this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        this.save = save ?? throw new ArgumentNullException(nameof(save));
+    }
 
     /// <summary>
     /// Grava a tradução digitada. Texto nulo, vazio ou só de espaços deixa a linha sem tradução (<see cref="TranslationStatus.Untranslated"/>, sem origem).
@@ -43,21 +59,23 @@ public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
 
     /// <summary>
     /// "Usar em todos": grava <paramref name="translation"/> nas linhas indicadas, como <see cref="SetTranslation"/> faria em cada uma, com um arquivo gravado por script.
-    /// Linhas que já têm exatamente esse texto ficam como estão e não voltam na lista. Se alguma linha não existir, nada é gravado.
+    /// Linhas que já têm exatamente esse texto ficam como estão (vêm em <see cref="BatchTranslationResult.Unchanged"/>, para quem mostra a lista se atualizar numa nova tentativa).
+    /// Se um script não grava, os anteriores já estão no disco: o resultado traz o que foi gravado e a falha, em vez de perder a lista.
     /// </summary>
-    /// <returns>As unidades que mudaram, na ordem de <paramref name="targets"/>.</returns>
-    /// <exception cref="KeyNotFoundException">Alguma linha não existe no script indicado.</exception>
-    public IReadOnlyList<TextUnit> SetTranslationFor(IEnumerable<(string ScriptKey, string Id)> targets, string translation)
+    /// <exception cref="KeyNotFoundException">Alguma linha não existe no script indicado; nesse caso nada é gravado.</exception>
+    public BatchTranslationResult SetTranslationFor(IEnumerable<(string ScriptKey, string Id)> targets, string translation)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
 
         var origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow());
         var scripts = new Dictionary<string, List<TextUnit>>(StringComparer.Ordinal);
-        var changedIds = new List<(string ScriptKey, string Id)>();
-        var changed = new Dictionary<(string, string), TextUnit>();
+        var pending = new Dictionary<string, List<LineChange>>(StringComparer.Ordinal);
+        var unchanged = new List<(string ScriptKey, TextUnit Unit)>();
+        var requested = 0;
         foreach (var (scriptKey, id) in targets)
         {
+            requested++;
             if (!scripts.TryGetValue(scriptKey, out var units))
             {
                 scripts[scriptKey] = units = [.. project.LoadText(scriptKey)];
@@ -69,22 +87,38 @@ public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
                 throw new KeyNotFoundException($"A linha '{id}' não existe no script '{scriptKey}'. Reabra o projeto e tente de novo.");
             }
 
-            if (string.Equals(units[index].Translation, translation, StringComparison.Ordinal))
+            var previous = units[index];
+            if (string.Equals(previous.Translation, translation, StringComparison.Ordinal))
             {
+                unchanged.Add((scriptKey, previous));
                 continue;
             }
 
-            units[index] = units[index] with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin };
-            changedIds.Add((scriptKey, id));
-            changed[(scriptKey, id)] = units[index];
+            units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin };
+            if (!pending.TryGetValue(scriptKey, out var list))
+            {
+                pending[scriptKey] = list = [];
+            }
+
+            list.Add(new LineChange(scriptKey, previous, units[index]));
         }
 
-        foreach (var scriptKey in changedIds.Select(c => c.ScriptKey).Distinct(StringComparer.Ordinal))
+        var saved = new List<LineChange>();
+        foreach (var (scriptKey, changes) in pending)
         {
-            project.SaveText(scriptKey, scripts[scriptKey]);
+            try
+            {
+                save(scriptKey, scripts[scriptKey]);
+            }
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+            {
+                return new BatchTranslationResult(saved, unchanged, requested, e);
+            }
+
+            saved.AddRange(changes);
         }
 
-        return [.. changedIds.Select(c => changed[c])];
+        return new BatchTranslationResult(saved, unchanged, requested, null);
     }
 
     /// <summary>Grava as notas da linha, sem mexer na tradução nem no status.</summary>
@@ -163,4 +197,18 @@ public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
         project.SaveText(scriptKey, all);
         return updated;
     }
+}
+
+/// <summary>Uma linha trocada pelo "Usar em todos": a unidade de antes e a de depois, para desfazer.</summary>
+public sealed record LineChange(string ScriptKey, TextUnit Previous, TextUnit Saved);
+
+/// <summary>O que o "Usar em todos" fez.</summary>
+/// <param name="Changes">As linhas gravadas agora.</param>
+/// <param name="Unchanged">As linhas que já tinham exatamente o texto (de uma tentativa anterior, por exemplo).</param>
+/// <param name="Requested">Quantas linhas foram pedidas.</param>
+/// <param name="Failure">Por que um script não gravou; nulo quando tudo foi gravado.</param>
+public sealed record BatchTranslationResult(IReadOnlyList<LineChange> Changes, IReadOnlyList<(string ScriptKey, TextUnit Unit)> Unchanged, int Requested, Exception? Failure)
+{
+    /// <summary>Quantas linhas passam a ter o texto: as gravadas agora e as que já o tinham.</summary>
+    public int Applied => Changes.Count + Unchanged.Count;
 }

@@ -36,9 +36,9 @@ public sealed class EditorSceneTests : IDisposable
     private static TextUnit Fala(int script, int n, string? falante, string original, string? traducao, TranslationStatus status) =>
         new($"yst0000{script}:{n:D6}", falante is null ? TextUnitKind.Narration : TextUnitKind.Dialogue, falante, original, traducao, status);
 
-    private async Task<EditorViewModel> Abrir()
+    private async Task<EditorViewModel> Abrir(Func<string, LineEditor?>? gravador = null)
     {
-        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao());
+        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao()) { EditorFactory = gravador };
         vm.Project = EditorFixtures.Summary("Teste", raiz);
         await vm.Loading;
         return vm;
@@ -114,6 +114,13 @@ public sealed class EditorSceneTests : IDisposable
 
         vm.Detail.UseForAllCommand.Execute(null);
 
+        Assert.True(vm.Detail.IsUseForAllConfirmOpen);
+        Assert.Equal("2 destas linhas já têm outra tradução (1 aprovada). Substituir todas?", vm.Detail.UseForAllConfirmText);
+        Assert.Equal("Aham.\\p", Gravada("yst00001", 2).Translation);
+
+        vm.Detail.ConfirmUseForAllCommand.Execute(null);
+
+        Assert.False(vm.Detail.IsUseForAllConfirmOpen);
         Assert.Equal("Tá bom.\\p", Gravada("yst00001", 3).Translation);
         Assert.Equal("Tá bom.\\p", Gravada("yst00001", 2).Translation);
         Assert.Equal("Tá bom.\\p", Gravada("yst00002", 0).Translation);
@@ -132,6 +139,7 @@ public sealed class EditorSceneTests : IDisposable
         vm.Detail!.FieldText = "Tá bom.";
 
         vm.Detail.UseForAllCommand.Execute(null);
+        vm.Detail.ConfirmUseForAllCommand.Execute(null);
 
         Assert.Equal("Tá bom.", vm.Lines[2].TranslationPlain);
         Assert.Equal(TranslationStatus.Translated, vm.Lines[2].Status);
@@ -158,9 +166,99 @@ public sealed class EditorSceneTests : IDisposable
         vm.SelectedLine = vm.Lines[3];
         vm.Detail!.FieldText = "Tá bom.";
         vm.Detail.UseForAllCommand.Execute(null);
+        vm.Detail.ConfirmUseForAllCommand.Execute(null);
 
         vm.SelectedLine = vm.Lines[2];
 
         Assert.Equal("Tá bom.\\p", vm.Detail!.Translation);
+    }
+
+    [Fact]
+    public async Task Cancelar_a_pergunta_nao_grava_nada_nas_outras_linhas()
+    {
+        var vm = await Abrir();
+        vm.SelectedLine = vm.Lines[3];
+        vm.Detail!.FieldText = "Tá bom.";
+
+        vm.Detail.UseForAllCommand.Execute(null);
+        vm.Detail.CancelUseForAllCommand.Execute(null);
+
+        Assert.False(vm.Detail.IsUseForAllConfirmOpen);
+        Assert.Equal("Aham.\\p", Gravada("yst00001", 2).Translation);
+        Assert.Equal("Sim.\\p", Gravada("yst00002", 0).Translation);
+    }
+
+    [Fact]
+    public async Task Sem_traducao_diferente_nas_outras_linhas_grava_sem_perguntar()
+    {
+        var projeto = ProjectFolder.Open(raiz);
+        projeto.SaveText("yst00001",
+        [
+            Fala(1, 0, "美咲", "「やあ」\\p", null, TranslationStatus.Untranslated),
+            Fala(1, 1, "美咲", "「やあ」\\p", null, TranslationStatus.Untranslated),
+        ]);
+        var vm = await Abrir();
+        vm.Detail!.FieldText = "Oi.";
+
+        vm.Detail.UseForAllCommand.Execute(null);
+
+        Assert.False(vm.Detail.IsUseForAllConfirmOpen);
+        Assert.Equal("Oi.\\p", Gravada("yst00001", 1).Translation);
+        Assert.Equal("Aplicada a 1 linha.", vm.Detail.SameSourceResult);
+    }
+
+    [Fact]
+    public async Task Usar_em_todos_registra_o_desfazer_do_lote_e_desfazer_volta_todas()
+    {
+        var vm = await Abrir();
+        LineSavedEventArgs? lote = null;
+        vm.LineSaved += (_, e) => lote = e.IsBatch ? e : lote;
+        vm.SelectedLine = vm.Lines[3];
+        vm.Detail!.FieldText = "Tá bom.";
+        vm.Detail.UseForAllCommand.Execute(null);
+        vm.Detail.ConfirmUseForAllCommand.Execute(null);
+
+        Assert.NotNull(lote);
+        Assert.Equal(2, lote.Batch.Count);
+        Assert.False(lote.IsApproval);
+
+        Assert.True(vm.Undo(lote));
+
+        Assert.Equal("Aham.\\p", Gravada("yst00001", 2).Translation);
+        Assert.Equal(TranslationStatus.Approved, Gravada("yst00001", 2).Status);
+        Assert.Equal("Sim.\\p", Gravada("yst00002", 0).Translation);
+        Assert.Equal(TranslationStatus.Machine, Gravada("yst00002", 0).Status);
+    }
+
+    [Fact]
+    public async Task Se_um_script_nao_grava_a_grade_mostra_o_que_ja_foi_gravado_e_a_mensagem_e_sem_caminho()
+    {
+        var falhar = true;
+        var vm = await Abrir(root => new LineEditor(ProjectFolder.Open(root), relogio, (chave, unidades) =>
+        {
+            if (falhar && chave == "yst00002")
+            {
+                throw new IOException("H:\\Projetos\\segredo\\text\\yst00002.json");
+            }
+
+            ProjectFolder.Open(root).SaveText(chave, unidades);
+        }));
+        vm.SelectedLine = vm.Lines[3];
+        vm.Detail!.FieldText = "Tá bom.";
+        vm.Detail.UseForAllCommand.Execute(null);
+
+        vm.Detail.ConfirmUseForAllCommand.Execute(null);
+
+        Assert.Equal("Aplicada a 1 de 2 linhas; as outras não foram gravadas. Tente de novo.", vm.Detail.ErrorMessage);
+        Assert.Equal("Tá bom.", vm.Lines[2].TranslationPlain);
+        Assert.Equal(TranslationStatus.Translated, vm.Lines[2].Status);
+        Assert.Equal("Sim.", ProjectFolder.Open(raiz).LoadText("yst00002")[0].Translation?.Replace("\\p", string.Empty, StringComparison.Ordinal));
+
+        falhar = false;
+        vm.Detail.UseForAllCommand.Execute(null);
+        vm.Detail.ConfirmUseForAllCommand.Execute(null);
+
+        Assert.Null(vm.Detail.ErrorMessage);
+        Assert.Equal("Tá bom.\\p", Gravada("yst00002", 0).Translation);
     }
 }

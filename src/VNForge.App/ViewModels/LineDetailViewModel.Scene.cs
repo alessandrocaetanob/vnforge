@@ -25,7 +25,15 @@ public sealed partial class LineDetailViewModel
     [ObservableProperty]
     public partial string? SameSourceResult { get; private set; }
 
-    /// <summary>Grava a tradução do campo em todas as outras linhas com o mesmo original. A linha aberta é gravada antes.</summary>
+    /// <summary>O diálogo "Substituir todas?" está aberto: alguma das outras linhas já tem outra tradução.</summary>
+    [ObservableProperty]
+    public partial bool IsUseForAllConfirmOpen { get; set; }
+
+    /// <summary>A pergunta do diálogo, com quantas linhas seriam substituídas e quantas delas já estão aprovadas ou revisadas.</summary>
+    [ObservableProperty]
+    public partial string UseForAllConfirmText { get; private set; } = string.Empty;
+
+    /// <summary>Grava a tradução do campo em todas as outras linhas com o mesmo original. A linha aberta é gravada antes; se outras linhas já têm outra tradução, pergunta primeiro.</summary>
     [RelayCommand(CanExecute = nameof(HasSameSource))]
     private void UseForAll()
     {
@@ -36,15 +44,63 @@ public sealed partial class LineDetailViewModel
             return;
         }
 
-        var applied = 0;
-        if (Flush() && TrySave(() => applied = SameSource!.Apply(Translation)))
+        var preview = new SameSourcePreview(0, 0);
+        if (!Flush() || !TrySave(() => preview = SameSource!.Inspect(Translation)))
         {
-            SameSourceResult = applied switch
-            {
-                0 => "As outras linhas já tinham esta tradução.",
-                1 => "Aplicada a 1 linha.",
-                _ => $"Aplicada a {applied} linhas.",
-            };
+            return;
         }
+
+        if (preview.Differing == 0)
+        {
+            ApplyToAll();
+            return;
+        }
+
+        UseForAllConfirmText = ConfirmText(preview);
+        IsUseForAllConfirmOpen = true;
+    }
+
+    [RelayCommand]
+    private void ConfirmUseForAll()
+    {
+        IsUseForAllConfirmOpen = false;
+        ApplyToAll();
+    }
+
+    [RelayCommand]
+    private void CancelUseForAll() => IsUseForAllConfirmOpen = false;
+
+    private void ApplyToAll()
+    {
+        var outcome = new SameSourceOutcome(0, 0, 0, Failed: false);
+        if (!Flush() || !TrySave(() => outcome = SameSource!.Apply(Translation)))
+        {
+            return;
+        }
+
+        if (outcome.Failed)
+        {
+            ErrorMessage = $"Aplicada a {outcome.Applied} de {outcome.Requested} linhas; as outras não foram gravadas. Tente de novo.";
+            return;
+        }
+
+        SameSourceResult = outcome.Changed switch
+        {
+            0 => "As outras linhas já tinham esta tradução.",
+            1 => "Aplicada a 1 linha.",
+            _ => $"Aplicada a {outcome.Changed} linhas.",
+        };
+    }
+
+    private static string ConfirmText(SameSourcePreview preview)
+    {
+        var lines = preview.Differing == 1 ? "1 destas linhas já tem" : $"{preview.Differing} destas linhas já têm";
+        var strong = preview.Strong switch
+        {
+            0 => string.Empty,
+            1 => " (1 aprovada)",
+            _ => $" ({preview.Strong} aprovadas)",
+        };
+        return $"{lines} outra tradução{strong}. Substituir todas?";
     }
 }

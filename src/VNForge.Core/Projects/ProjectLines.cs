@@ -187,15 +187,10 @@ public sealed class ProjectLines
         var index = new Dictionary<string, List<(string Key, int Index)>>(StringComparer.Ordinal);
         foreach (var script in Scripts)
         {
-            var lines = byScript[script.Key];
-            for (var i = 0; i < lines.Length; i++)
+            var withSource = byScript[script.Key].Select((line, i) => (line, i)).Where(x => x.line.Unit.Source.Length > 0);
+            foreach (var (line, i) in withSource)
             {
-                if (lines[i].Unit.Source.Length == 0)
-                {
-                    continue;
-                }
-
-                var hash = SourceHash.Of(lines[i].Unit.Source);
+                var hash = SourceHash.Of(line.Unit.Source);
                 if (!index.TryGetValue(hash, out var list))
                 {
                     index[hash] = list = [];
