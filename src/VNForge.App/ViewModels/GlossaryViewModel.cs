@@ -118,7 +118,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     public string AddLabel => IsTermsTab ? "Adicionar termo" : "Adicionar personagem";
 
-    public string SearchHint => IsTermsTab ? "Buscar termo, tradução ou observação" : "Buscar personagem, tradução ou jeito de falar";
+    public string SearchHint => IsTermsTab ? "Buscar termo, tradução ou observação" : "Buscar por nome ou jeito de falar";
 
     [ObservableProperty]
     public partial string? ErrorMessage { get; private set; }
