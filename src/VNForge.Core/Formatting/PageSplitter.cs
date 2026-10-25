@@ -49,29 +49,43 @@ public static class PageSplitter
 
     private static PageSplit SplitCore(FormattingProfile profile, bool formatted, string translation)
     {
+        var original = Measure(profile, formatted, Built(profile, formatted, translation)).Lines.Count;
         if (profile.Wrap.MaxLines is not { } maxLines)
         {
-            return new PageSplit(translation, Measure(profile, formatted, Built(profile, formatted, translation)).Lines.Count, 0);
+            return new PageSplit(translation, original, 0);
         }
 
         var current = translation;
         var added = 0;
-        var original = Measure(profile, formatted, Built(profile, formatted, translation)).Lines.Count;
         while (true)
         {
-            var built = Built(profile, formatted, current);
-            var (laidOut, lines) = Measure(profile, formatted, built);
-            var over = lines.FindIndex(count => count > maxLines);
-            var next = over < 0 ? null : InsertPage(profile, formatted, current, built, laidOut, (over, maxLines));
-            if (next is null)
+            var step = NextPage(profile, formatted, current, maxLines);
+            if (step.Text is not null)
             {
-                // Sem ponto confiável e ainda transbordando: uma divisão pela metade não resolve, então o texto volta como veio.
-                return over >= 0 && added > 0 ? new PageSplit(translation, original, 0) : new PageSplit(current, lines.Count, added);
+                current = step.Text;
+                added++;
+                continue;
             }
 
-            current = next;
-            added++;
+            // Sem ponto confiável e ainda transbordando: uma divisão pela metade não resolve, então o texto volta como veio.
+            return step.Overflows && added > 0
+                ? new PageSplit(translation, original, 0)
+                : new PageSplit(current, step.Boxes, added);
         }
+    }
+
+    /// <param name="Text">O texto com mais uma virada de página; nulo quando cabe ou não há como dividir.</param>
+    /// <param name="Overflows">Alguma caixa ainda passa do limite.</param>
+    /// <param name="Boxes">Quantas caixas o texto atual tem.</param>
+    private readonly record struct Step(string? Text, bool Overflows, int Boxes);
+
+    private static Step NextPage(FormattingProfile profile, bool formatted, string current, int maxLines)
+    {
+        var built = Built(profile, formatted, current);
+        var (laidOut, lines) = Measure(profile, formatted, built);
+        var over = lines.FindIndex(count => count > maxLines);
+        var next = over < 0 ? null : InsertPage(profile, formatted, current, built, laidOut, (over, maxLines));
+        return new Step(next, over >= 0, lines.Count);
     }
 
     /// <summary>O que o build mediria: a tradução depois das etapas do perfil que antecedem a quebra, quando o papel da linha é formatado.</summary>

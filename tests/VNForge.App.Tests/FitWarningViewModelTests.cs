@@ -82,7 +82,7 @@ public sealed class FitWarningViewModelTests
         var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => Task.FromResult("x")));
 
         Assert.True(cenario.Aviso.IsVisible);
-        Assert.Equal("Não cabe na caixa do jogo", cenario.Aviso.Title);
+        Assert.Equal("Não cabe na caixa do jogo", FitWarningViewModel.TitleText);
         Assert.Equal("Passa 1 linha: a caixa do jogo tem 3 linhas.", cenario.Aviso.Message);
         Assert.Equal("Dividir em 2 páginas", cenario.Aviso.SplitText);
         Assert.True(cenario.Aviso.SplitCommand.CanExecute(null));

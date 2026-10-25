@@ -69,7 +69,7 @@ public sealed class ConferenceFitTests : IDisposable
         folder.SaveText("yst00001", [Linha("olá  mundo")]);
         await vm.RefreshAsync();
 
-        vm.SelectedRow = vm.Rows.First();
+        vm.SelectedRow = vm.Rows[0];
 
         Assert.Null(vm.SelectedFit);
         Assert.False(vm.HasSelectedFit);

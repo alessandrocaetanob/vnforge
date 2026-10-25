@@ -49,8 +49,6 @@ public sealed partial class FitWarningViewModel : ObservableObject
         this.applyShortened = applyShortened ?? throw new ArgumentNullException(nameof(applyShortened));
     }
 
-    public string Title => TitleText;
-
     /// <summary>A tradução passa do limite de linhas da caixa; o aviso só aparece então.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ShortenCommand))]
