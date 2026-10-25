@@ -1054,7 +1054,7 @@ public sealed partial class BuildViewModel : ObservableObject
     /// <c>stagingGate</c> impede que a leitura do estado refaça a cópia de trabalho enquanto ela é preparada, e <c>patchGate</c> só protege o
     /// campo, para a thread da tela nunca esperar uma cópia de arquivo.
     /// </summary>
-    private IReadOnlyList<PatchPlan> PlanPatches(string root)
+    private List<PatchPlan> PlanPatches(string root)
     {
         var project = ProjectFolder.Open(root);
         var patches = FindPatches(project.LoadConfig()) ?? throw new VNForgeException("Este projeto não tem patch de executável.");
