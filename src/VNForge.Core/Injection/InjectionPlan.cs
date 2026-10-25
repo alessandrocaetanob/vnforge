@@ -1,3 +1,5 @@
+using VNForge.Core.Engines;
+
 namespace VNForge.Core.Injection;
 
 /// <summary>O que <see cref="GameInjector.Inject"/> vai fazer: os arquivos do build que diferem do jogo. Calculado sem gravar nada.</summary>
@@ -24,6 +26,12 @@ public sealed record PlannedFile(
 {
     public bool ReplacesExisting => OriginalSha256 is not null;
 }
+
+/// <summary>O que <see cref="GameInjector.InjectPatch"/> vai fazer: o patch já aplicado numa cópia de trabalho, comparado com o jogo. Calculado sem gravar nada no jogo.</summary>
+/// <param name="Patch">O patch que gerou a cópia.</param>
+/// <param name="Injection">Os arquivos alterados que serão gravados no jogo; vazio quando o jogo já está com o patch.</param>
+/// <param name="StagingDirectory">Pasta com a cópia de trabalho (<c>.cache/patch/&lt;id&gt;</c>), apagada por <see cref="GameInjector.InjectPatch"/> e por <see cref="GameInjector.DiscardPatch"/>.</param>
+public sealed record PatchPlan(IGamePatch Patch, InjectionPlan Injection, string StagingDirectory);
 
 /// <param name="BackupDirectory">Pasta <c>backup/AAAA-MM-DD_HHmm</c> criada; nula quando não havia o que injetar.</param>
 public sealed record InjectionResult(string GameDirectory, string? BackupDirectory, IReadOnlyList<string> Written, int UnchangedCount);

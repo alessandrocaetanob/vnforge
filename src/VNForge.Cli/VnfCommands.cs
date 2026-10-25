@@ -16,7 +16,7 @@ public static class VnfCommands
     [
         new("Pipeline", ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore"]),
         new("Projeto", ["status", "preview", "export", "import", "glossary", "chars", "config", "detect"]),
-        new("Baixo nível", ["ypf", "ybn"]),
+        new("Baixo nível", ["ypf", "ybn", "patch-exe"]),
     ];
 
     public static void Register(VnfCli cli)
@@ -41,5 +41,6 @@ public static class VnfCommands
         cli.Root.Subcommands.Add(DetectCommand.Create(cli));
         cli.Root.Subcommands.Add(YpfCommand.Create(cli));
         cli.Root.Subcommands.Add(YbnCommand.Create(cli));
+        cli.Root.Subcommands.Add(PatchExeCommand.Create(cli));
     }
 }

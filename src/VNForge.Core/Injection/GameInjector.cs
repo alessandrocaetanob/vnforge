@@ -16,7 +16,7 @@ namespace VNForge.Core.Injection;
 /// Quando o jogo ainda está com o build de uma injeção anterior (sem restore no meio), o original vem do backup anterior,
 /// para que cada backup guarde sempre os arquivos originais e nunca uma versão já traduzida.
 /// </remarks>
-public sealed class GameInjector
+public sealed partial class GameInjector
 {
     private static readonly StringComparison PathComparison =
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

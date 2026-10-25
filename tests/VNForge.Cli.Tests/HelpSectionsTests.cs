@@ -7,7 +7,7 @@ public sealed class HelpSectionsTests : IDisposable
 {
     private static readonly string[] Pipeline = ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore"];
     private static readonly string[] Projeto = ["status", "preview", "export", "import", "glossary", "chars", "config", "detect"];
-    private static readonly string[] BaixoNivel = ["ypf", "ybn"];
+    private static readonly string[] BaixoNivel = ["ypf", "ybn", "patch-exe"];
 
     private readonly CliHarness _cli = new();
 
@@ -65,14 +65,15 @@ public sealed class HelpSectionsTests : IDisposable
     }
 
     [Fact]
-    public async Task Patch_exe_esta_planejado_e_nao_e_um_comando_registrado()
+    public async Task Patch_exe_e_um_comando_de_baixo_nivel_marcado_como_experimental()
     {
-        Assert.DoesNotContain(_cli.Cli.Root.Subcommands, c => c.Name == "patch-exe");
+        Assert.Contains(_cli.Cli.Root.Subcommands, c => c.Name == "patch-exe");
 
-        var result = await _cli.RunAsync(["patch-exe"], Token);
+        var lines = await RootHelpLines();
 
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("patch-exe", result.Error);
+        var line = lines.Single(l => l.TrimStart().StartsWith("patch-exe", StringComparison.Ordinal));
+        Assert.Contains("Experimental", line);
+        Assert.Contains("patch-exe", CommandsUnder(lines, "Baixo nível:"));
     }
 
     [Fact]
