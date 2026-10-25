@@ -270,6 +270,21 @@ public sealed class LineDetailInspectorTests : IDisposable
     }
 
     [Fact]
+    public void Texto_que_nao_volta_igual_avisa_que_os_marcadores_estao_a_mostra()
+    {
+        using var cru = Abrir(Fala("美咲", "「ふふっ」\\p", "Duas\\n\\nquebras\\p"));
+        using var normal = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+
+        Assert.True(cru.FieldIsRaw);
+        Assert.Equal("Este texto está com os marcadores à mostra.", cru.FieldRawNotice);
+        Assert.False(normal.FieldIsRaw);
+
+        cru.FieldText = "Uma\nDuas";
+
+        Assert.Equal("Uma\\nDuas", cru.Translation);
+    }
+
+    [Fact]
     public void Apagar_o_campo_e_digitar_de_novo_usa_o_fim_do_original()
     {
         using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi."));

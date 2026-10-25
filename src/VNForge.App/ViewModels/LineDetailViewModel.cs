@@ -182,15 +182,15 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
             if (OverflowLines > 0)
             {
-                return OverflowLines == 1 ? "Passa 1 linha" : $"Passa {OverflowLines} linhas";
+                return $"Passa {LinesOf(OverflowLines)}";
             }
 
             var lines = layout.Boxes.Select(b => b.Lines.Count).DefaultIfEmpty().Max();
-            return layout.MaxLines is { } max
-                ? $"Cabe · {lines} de {max} {(max == 1 ? "linha" : "linhas")}"
-                : $"Cabe · {lines} {(lines == 1 ? "linha" : "linhas")}";
+            return layout.MaxLines is { } max ? $"Cabe · {lines} de {LinesOf(max)}" : $"Cabe · {LinesOf(lines)}";
         }
     }
+
+    private static string LinesOf(int count) => count == 1 ? "1 linha" : $"{count} linhas";
 
     /// <summary>Quantas linhas passam do limite do perfil, somadas as páginas; zero quando cabe ou não há perfil.</summary>
     public int OverflowLines => Preview?.Layout is { } layout ? layout.Boxes.Sum(b => b.Lines.Count(l => l.Overflow)) : 0;
@@ -221,6 +221,11 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     public partial string FieldText { get; set; }
+
+    /// <summary>O campo mostra o texto com os marcadores à mostra, porque ele não volta igual pela conversão (<see cref="TranslationFieldText.IsRaw"/>).</summary>
+    public bool FieldIsRaw => translationField.IsRaw;
+
+    public string FieldRawNotice => "Este texto está com os marcadores à mostra.";
 
     [ObservableProperty]
     public partial string Notes { get; set; }
@@ -384,6 +389,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             {
                 // Campo esvaziado: o fim da fala volta a vir do original, não da tradução que se apagou.
                 translationField = TranslationFieldText.Open(string.Empty, unit.Source);
+                OnPropertyChanged(nameof(FieldIsRaw));
             }
         }
         finally
@@ -414,6 +420,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     private void ReopenField(string stored)
     {
         translationField = TranslationFieldText.Open(stored, unit.Source);
+        OnPropertyChanged(nameof(FieldIsRaw));
         syncingField = true;
         try
         {

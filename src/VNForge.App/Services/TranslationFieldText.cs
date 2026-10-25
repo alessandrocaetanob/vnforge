@@ -58,12 +58,13 @@ public sealed class TranslationFieldText
     {
         ArgumentNullException.ThrowIfNull(fieldText);
 
-        if (IsRaw || fieldText.Length == 0)
+        if (fieldText.Length == 0)
         {
             return fieldText;
         }
 
-        return Decode(fieldText) + Tail;
+        // Cru, a quebra digitada (Enter) também vira o marcador: uma quebra de linha de verdade nunca vai para o arquivo do jogo.
+        return IsRaw ? NormalizeBreaks(fieldText).Replace("\n", LineBreak, StringComparison.Ordinal) : Decode(fieldText) + Tail;
     }
 
     /// <summary>Os marcadores de virada de página no fim do texto; nulo quando o texto tem barra ou chave fora da gramática.</summary>
@@ -90,23 +91,19 @@ public sealed class TranslationFieldText
 
     private static string Encode(string body)
     {
-        var text = new StringBuilder(body.Length);
-        foreach (var segment in ControlMarkers.Split(body))
+        return string.Concat(ControlMarkers.Split(body).Select(segment => segment.Text switch
         {
-            text.Append(segment.Text switch
-            {
-                LineBreak => "\n",
-                PageTurn => "\n\n",
-                _ => segment.Text,
-            });
-        }
-
-        return text.ToString();
+            LineBreak => "\n",
+            PageTurn => "\n\n",
+            _ => segment.Text,
+        }));
     }
+
+    private static string NormalizeBreaks(string field) => field.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
     private static string Decode(string field)
     {
-        var text = field.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var text = NormalizeBreaks(field);
         var result = new StringBuilder(text.Length);
         var i = 0;
         while (i < text.Length)

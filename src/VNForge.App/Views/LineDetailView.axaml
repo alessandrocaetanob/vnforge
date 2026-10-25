@@ -100,6 +100,7 @@
             <Border Classes="fieldline"/>
           </Panel>
         </Border>
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding FieldRawNotice}" IsVisible="{Binding FieldIsRaw}"/>
         <!-- A caixa do jogo logo abaixo do campo, com o que cabe ou o quanto passa. -->
         <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
           <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding Preview.HasLayout}">

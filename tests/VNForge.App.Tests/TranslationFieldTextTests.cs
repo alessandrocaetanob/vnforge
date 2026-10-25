@@ -111,6 +111,15 @@ public sealed class TranslationFieldTextTests
     }
 
     [Fact]
+    public void No_modo_cru_a_quebra_digitada_vira_o_marcador_e_nao_um_caractere_de_quebra()
+    {
+        var campo = TranslationFieldText.Open("Duas\\n\\nquebras\\p", Original);
+
+        Assert.True(campo.IsRaw);
+        Assert.Equal("a\\nb\\nc\\nd", campo.ToStored("a\nb\r\nc\rd"));
+    }
+
+    [Fact]
     public void Campo_vazio_grava_vazio_mesmo_com_marcador_no_fim()
     {
         var campo = TranslationFieldText.Open("Oi.\\p", Original);
