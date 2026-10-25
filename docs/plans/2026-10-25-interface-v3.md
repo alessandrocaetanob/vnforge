@@ -116,24 +116,24 @@ Os números do canvas são de exemplo e seguem a v2: projeto "Minha VN · PT-BR"
 
 ## Issues
 
-Uma issue por item, criadas antes de qualquer branch, depois de o plano ser aprovado. U10 vem primeiro porque as outras usam os controles dele; U11 vem antes de U12 e U17 porque as duas mostram o orçamento.
+Uma issue por item. O plano foi aprovado em 25/10/2026 e as issues são as #302 a #315. U10 vem primeiro porque as outras usam os controles dele; U11 vem antes de U12 e U17 porque as duas mostram o orçamento.
 
 | # | Issue | Depende de | Core e IA novos |
 |---|---|---|---|
-| U10 | Base v3: ícones, controles novos e textos do trilho | | |
-| U11 | Custo em reais e limite de gasto (Ajustes, barra de status, cache) | U10 | cotação, `BudgetGuard` |
-| U12 | Janela "Traduzir com IA": três perguntas, qualidade em vez de modelo | U11 | custo por escopo e qualidade |
-| U13 | Editor: entender o japonês, "Na cena", copiar, dicionário, usar em todos | U10 | `LineExplainer`, índice por original |
-| U14 | Editor: dividir em páginas, encurtar com a IA, página extra no QA | U10 | `PageSplitter`, regra de marcadores |
-| U15 | Modo revisão em sequência | U13, U14 | registro de aprovações |
-| U16 | Testar no jogo com um clique, estado do jogo, só a cena aberta, teste de acentuação | U10 | `vnf test`, `game-state.json` |
-| U17 | Painel: mapa por capítulo, "Precisa de você" e gasto | U11, U15 | prontidão, ritmo, grupos de scripts e totais por capítulo |
-| U18 | Estilo: honoríficos, tratamento, narrador, onomatopeias, guia; regras Honoríficos e Gênero | U10 | prompt, duas regras do QA |
-| U19 | Glossário: termos que se repetem, voz e gênero sugeridos | U10 | frequência de termos, Haiku |
-| U20 | Novo projeto: acentuação com prévia, custo e limite | U11 | |
-| U21 | Início: primeira vez e próximo passo | U17 | |
-| U22 | Editor compacto em 1366×768 | U13 | |
-| U23 | Documentação: termos novos, cópia das telas em `docs/design/telas`, README do design system | U10 | |
+| U10 · #302 | Base v3: ícones, controles novos e textos do trilho | | |
+| U11 · #303 | Custo em reais e limite de gasto (Ajustes, barra de status, cache) | U10 | cotação, `BudgetGuard` |
+| U12 · #304 | Janela "Traduzir com IA": três perguntas, qualidade em vez de modelo | U11 | custo por escopo e qualidade |
+| U13 · #305 | Editor: entender o japonês, "Na cena", copiar, dicionário, usar em todos | U10 | `LineExplainer`, índice por original |
+| U14 · #306 | Editor: dividir em páginas, encurtar com a IA, página extra no QA | U10 | `PageSplitter`, regra de marcadores |
+| U15 · #307 | Modo revisão em sequência | U13, U14 | registro de aprovações |
+| U16 · #308 | Testar no jogo com um clique, estado do jogo, só a cena aberta, teste de acentuação | U10 | `vnf test`, `game-state.json` |
+| U17 · #309 | Painel: mapa por capítulo, "Precisa de você" e gasto | U11, U15 | prontidão, ritmo, grupos de scripts e totais por capítulo |
+| U18 · #310 | Estilo: honoríficos, tratamento, narrador, onomatopeias, guia; regras Honoríficos e Gênero | U10 | prompt, duas regras do QA |
+| U19 · #311 | Glossário: termos que se repetem, voz e gênero sugeridos | U10 | frequência de termos, Haiku |
+| U20 · #312 | Novo projeto: acentuação com prévia, custo e limite | U11 | |
+| U21 · #313 | Início: primeira vez e próximo passo | U17 | |
+| U22 · #314 | Editor compacto em 1366×768 | U13 | |
+| U23 · #315 | Documentação: termos novos, cópia das telas em `docs/design/telas`, README do design system | U10 | |
 
 ## Fora deste plano
 
