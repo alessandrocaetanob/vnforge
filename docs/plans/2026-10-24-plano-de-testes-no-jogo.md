@@ -60,6 +60,8 @@ function Compare-Pasta([string]$a, [string]$b) {
 
 `Vnf-Ev 03-caixa status.txt status` roda `vnf status --project $proj` e grava a saída e o código de saída em `evidencias\03-caixa\status.txt`.
 
+Rode um bloco por vez e leia a última linha: `saída: 0` é sucesso. Com outro código, pare e leia a evidência antes do próximo comando. Onde um comando depende do anterior (um `inject` depois do `build`), o bloco só segue com `saída: 0`.
+
 ### Chave da Anthropic
 
 A chave só é usada a partir da etapa 6. Grave-a no cofre do Windows uma vez, digitando-a na entrada padrão:
@@ -238,8 +240,8 @@ Se outro script além do editado diferir, pare aqui e abra a issue com o `diff-s
 
    ```powershell
    Vnf-Ev 03-caixa build.txt build
-   Vnf-Ev 03-caixa inject.txt inject
-   Vnf-Ev 03-caixa run.txt run
+   if ($LASTEXITCODE -eq 0) { Vnf-Ev 03-caixa inject.txt inject }
+   if ($LASTEXITCODE -eq 0) { Vnf-Ev 03-caixa run.txt run }
    ```
 
    O `inject` pede confirmação e grava o backup em `$proj\backup`. Se o jogo precisar de Locale Emulator ou de outro jeito de abrir, abra-o como de costume em vez do `vnf run` e anote no registro.
@@ -317,15 +319,19 @@ A busca leva até um minuto num executável de alguns MB. Esperado: um endereço
 
 ### 4D · Teste dos acentos
 
+Se a 4B não achou a tabela, pule a 4D: registre "tabela não encontrada" e a conclusão "precisa de investigação", e a etapa 5 roda com `fold`.
+
 1. Na cópia `$raiz\tmp\exe\jogo.exe`, zere os 256 bytes da tabela achada na 4B. Grave como `jogo.exe` em `$raiz\jogo` por cima do original da cópia de trabalho (a cópia intacta está em `jogo-original`).
 2. No Editor, ponha na linha da etapa 3 a fala `Ação, coração, você é ótimo! Àquela ponte, pôr o pé.`
 3. Construa com `cp1252` só neste build e injete:
 
    ```powershell
    Vnf-Ev 04-fonte build-report.txt build --report --encoding cp1252
-   Vnf-Ev 04-fonte build-cp1252.txt build --encoding cp1252
-   Vnf-Ev 04-fonte inject.txt inject
+   if ($LASTEXITCODE -eq 0) { Vnf-Ev 04-fonte build-cp1252.txt build --encoding cp1252 }
+   if ($LASTEXITCODE -eq 0) { Vnf-Ev 04-fonte inject.txt inject }
    ```
+
+   O `--report` sai com 2 se algum caractere da fala não existir em `cp1252`; nesse caso nada é construído nem injetado.
 
 4. Abra o jogo, vá até a fala e tire uma captura (`4D-acentos.png`). Esperado, se a hipótese do doc 06 valer: os acentos aparecem certos. Se aparecerem como outro caractere, o charset da fonte (4C) também precisa mudar, e isso pede patch na chamada ou DLL de hook.
 5. Restaure (`Vnf-Ev 04-fonte restore.txt restore`) e copie de volta o `jogo.exe` de `jogo-original` para `jogo`. Confira com `Compare-Pasta` como na etapa 3.
