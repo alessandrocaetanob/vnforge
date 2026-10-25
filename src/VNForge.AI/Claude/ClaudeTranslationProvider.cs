@@ -32,7 +32,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     /// </summary>
     public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
-        return _caller.RunAsync(batch, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)), ct);
+        return _caller.RunAsync(batch, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, b => ClaudePromptParts.BatchContext(b, "Glossário (use sempre estes termos):"), BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)), ct);
     }
 
     private static string BuildSystem(TranslationBatch batch)
@@ -41,7 +41,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         sb.AppendLine("Você traduz linhas de visual novels do japonês para o português do Brasil.");
         sb.AppendLine("Mantenha exatamente os marcadores de controle do original e devolva uma tradução por linha, com o mesmo id.");
         sb.AppendLine("Responda apenas com o JSON pedido.");
-        ClaudePromptParts.AppendContext(sb, batch, "Glossário (use sempre estes termos):");
+        ClaudePromptParts.AppendStableContext(sb, batch);
         return sb.ToString();
     }
 
@@ -49,6 +49,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     {
         var sb = new StringBuilder();
         ClaudePromptParts.AppendPrevious(sb, batch, "Contexto anterior (não traduzir):");
+        ClaudePromptParts.AppendNext(sb, batch, "Contexto seguinte (não traduzir):");
         sb.AppendLine("Traduza estas linhas:");
         sb.AppendLine(JsonSerializer.Serialize(
             batch.Lines.Select(u => new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source }),

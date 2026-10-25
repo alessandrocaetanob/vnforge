@@ -7,7 +7,11 @@ public sealed record ProjectConfig(
     EngineConfig Engine,
     LanguagesConfig Languages,
     EncodingConfig Encoding,
-    AiConfig Ai);
+    AiConfig Ai)
+{
+    /// <summary>Escolhas de estilo da tradução; o padrão vale para quem nunca as definiu e não é gravado.</summary>
+    public StyleConfig Style { get; init; } = StyleConfig.Default;
+}
 
 public sealed record GameConfig(string Path, string Exe);
 

@@ -86,6 +86,11 @@ public static class ProjectConfigSerializer
             writer.WriteNumber("batchSize", config.Ai.BatchSize);
             writer.WriteEndObject();
 
+            if (config.Style != StyleConfig.Default)
+            {
+                WriteStyle(writer, config.Style);
+            }
+
             writer.WriteEndObject();
         }
 
@@ -129,6 +134,8 @@ public static class ProjectConfigSerializer
             aiReader.EnsureNoUnknownProperties();
         }
 
+        var style = reader.OptionalObject("style") is { } styleReader ? ReadStyle(styleReader) : StyleConfig.Default;
+
         reader.EnsureNoUnknownProperties();
 
         return new ProjectConfig(
@@ -137,7 +144,56 @@ public static class ProjectConfigSerializer
             new EngineConfig(engineId, engineVersion, scriptKey),
             new LanguagesConfig(source, target),
             new EncodingConfig(strategy),
-            ai);
+            ai)
+        {
+            Style = style,
+        };
+    }
+
+    private static void WriteStyle(Utf8JsonWriter writer, StyleConfig style)
+    {
+        writer.WriteStartObject("style");
+        writer.WriteString("honorifics", StyleNames.Of(style.Honorifics));
+        writer.WriteString("address", StyleNames.Of(style.Address));
+        writer.WriteStartObject("narrator");
+        if (style.Narrator.WhoOrNull is { } who)
+        {
+            writer.WriteString("who", who);
+        }
+
+        writer.WriteString("person", StyleNames.Of(style.Narrator.Person));
+        writer.WriteString("gender", StyleNames.Of(style.Narrator.Gender));
+        writer.WriteEndObject();
+        writer.WriteBoolean("onomatopoeia", style.TranslateOnomatopoeia);
+        writer.WriteBoolean("westernNameOrder", style.WesternNameOrder);
+        writer.WriteEndObject();
+    }
+
+    private static StyleConfig ReadStyle(ObjectReader reader)
+    {
+        var defaults = StyleConfig.Default;
+        var narrator = defaults.Narrator;
+        if (reader.OptionalObject("narrator") is { } narratorReader)
+        {
+            narrator = new NarratorStyle
+            {
+                Who = narratorReader.OptionalString("who"),
+                Person = narratorReader.OptionalChoice("person", StyleNames.Persons, narrator.Person),
+                Gender = narratorReader.OptionalChoice("gender", StyleNames.Genders, narrator.Gender),
+            };
+            narratorReader.EnsureNoUnknownProperties();
+        }
+
+        var style = new StyleConfig
+        {
+            Honorifics = reader.OptionalChoice("honorifics", StyleNames.Honorifics, defaults.Honorifics),
+            Address = reader.OptionalChoice("address", StyleNames.Addresses, defaults.Address),
+            Narrator = narrator,
+            TranslateOnomatopoeia = reader.OptionalBool("onomatopoeia") ?? defaults.TranslateOnomatopoeia,
+            WesternNameOrder = reader.OptionalBool("westernNameOrder") ?? defaults.WesternNameOrder,
+        };
+        reader.EnsureNoUnknownProperties();
+        return style;
     }
 
     private sealed class ObjectReader
@@ -188,6 +244,33 @@ public static class ProjectConfigSerializer
             }
 
             return number;
+        }
+
+        public bool? OptionalBool(string name)
+        {
+            if (!TryGet(name, out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            {
+                throw new ProjectConfigException(PathOf(name), "deve ser verdadeiro ou falso.");
+            }
+
+            return value.GetBoolean();
+        }
+
+        public T OptionalChoice<T>(string name, IReadOnlyDictionary<string, T> choices, T fallback)
+        {
+            if (OptionalString(name) is not { } text)
+            {
+                return fallback;
+            }
+
+            return choices.TryGetValue(text, out var choice)
+                ? choice
+                : throw new ProjectConfigException(PathOf(name), $"valor não aceito; use um destes: {string.Join(", ", choices.Keys)}.");
         }
 
         public ObjectReader RequiredObject(string name) =>
