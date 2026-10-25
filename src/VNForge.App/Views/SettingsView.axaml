@@ -152,7 +152,7 @@
             <!-- Qualidade padrão: o preço e o tempo valem para as linhas que faltam no projeto aberto; o modelo exato fica em "Detalhes técnicos". -->
             <StackPanel Spacing="8">
               <TextBlock Classes="overline" Text="Qualidade padrão"/>
-              <ItemsControl ItemsSource="{Binding Qualities}" AutomationProperties.Name="Qualidade padrão">
+              <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-8,0" AutomationProperties.Name="Qualidade padrão">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <UniformGrid Rows="1"/>
