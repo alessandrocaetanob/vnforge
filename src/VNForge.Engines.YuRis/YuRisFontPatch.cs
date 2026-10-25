@@ -9,7 +9,8 @@ namespace VNForge.Engines.YuRis;
 /// </summary>
 /// <remarks>
 /// O endereço do nome muda de um executável para outro, então o patch procura o nome e só segue quando acha exatamente um. A busca
-/// confere o cabeçalho <c>MZ</c> e o zero que termina o nome, e recusa um executável em que o nome some ou se repete.
+/// confere o cabeçalho <c>MZ</c>, que o nome começa uma string (início do arquivo ou depois de um zero) e termina em zero, e recusa
+/// um executável em que o nome some ou se repete.
 /// Muda só os bytes do nome (13 no jogo de referência); o resto do arquivo fica igual.
 /// </remarks>
 public sealed class YuRisFontPatch : IGamePatch
@@ -22,8 +23,11 @@ public sealed class YuRisFontPatch : IGamePatch
     /// <summary><c>ＭＳ ゴシック</c> em Shift-JIS (página 932), 13 bytes.</summary>
     private static readonly byte[] JapaneseName = [0x82, 0x6C, 0x82, 0x72, 0x20, 0x83, 0x53, 0x83, 0x56, 0x83, 0x62, 0x83, 0x4E];
 
-    /// <summary><c>MS Gothic</c> em ASCII, seguido da folga de zeros que o espaço de 16 bytes do nome deixa quando o patch já foi aplicado.</summary>
-    private static readonly byte[] PatchedSlot = [.. "MS Gothic"u8, 0, 0, 0, 0, 0, 0, 0];
+    /// <summary>
+    /// <c>MS Gothic</c> em ASCII e 5 zeros: o que o patch deixa, pelo menos, no lugar do nome. Os 4 bytes que sobram dos 13 do nome viram zero
+    /// e o terminador que a busca exigiu depois do nome continua lá, então vale para qualquer exe aceito, com um ou mais zeros depois do nome.
+    /// </summary>
+    private static readonly byte[] PatchedSlot = [.. "MS Gothic"u8, 0, 0, 0, 0, 0];
 
     /// <summary>O mesmo nome em UTF-16, a fonte de uma caixa de diálogo do Windows (0x11EF02 no jogo de referência).</summary>
     private static readonly byte[] UnicodeName = System.Text.Encoding.Unicode.GetBytes(FontName);
@@ -104,7 +108,7 @@ public sealed class YuRisFontPatch : IGamePatch
             return Inspection.Refuse($"'{_executable}' não é um executável do Windows (falta a assinatura MZ no início).");
         }
 
-        var names = FindTerminated(bytes, JapaneseName);
+        var names = FindStandalone(bytes, JapaneseName, zeroAfter: true);
         if (names.Count == 1)
         {
             return new Inspection(null, bytes, path, names[0]);
@@ -118,7 +122,7 @@ public sealed class YuRisFontPatch : IGamePatch
 
         // Já aplicado: o espaço do nome tem `MS Gothic` e o nome da caixa de diálogo, em UTF-16, que o patch não toca, continua no exe.
         // Só a string ASCII não basta: um exe qualquer pode trazê-la.
-        if (bytes.AsSpan().Count(PatchedSlot) == 1 && bytes.AsSpan().IndexOf(UnicodeName) >= 0)
+        if (FindStandalone(bytes, PatchedSlot, zeroAfter: false).Count == 1 && bytes.AsSpan().IndexOf(UnicodeName) >= 0)
         {
             return new Inspection(null, bytes, path, null);
         }
@@ -127,21 +131,26 @@ public sealed class YuRisFontPatch : IGamePatch
             $"Não achei o nome da fonte {FontName} (Shift-JIS) no executável '{_executable}': ele não é o jogo para o qual o patch foi feito.");
     }
 
-    /// <summary>Posições do nome seguido de um byte zero, o terminador da string; um trecho igual no meio de um texto maior não conta.</summary>
-    private static List<int> FindTerminated(byte[] bytes, byte[] name)
+    /// <summary>
+    /// Posições de <paramref name="pattern"/> que são uma string inteira: começam no início do arquivo ou depois de um byte zero e,
+    /// com <paramref name="zeroAfter"/>, terminam num byte zero. Um trecho igual no meio de um texto maior não conta.
+    /// </summary>
+    private static List<int> FindStandalone(byte[] bytes, byte[] pattern, bool zeroAfter)
     {
         var found = new List<int>();
         var from = 0;
-        while (from <= bytes.Length - name.Length)
+        while (from <= bytes.Length - pattern.Length)
         {
-            var at = bytes.AsSpan(from).IndexOf(name);
+            var at = bytes.AsSpan(from).IndexOf(pattern);
             if (at < 0)
             {
                 break;
             }
 
             var offset = from + at;
-            if (offset + name.Length < bytes.Length && bytes[offset + name.Length] == 0)
+            var end = offset + pattern.Length;
+            var startsString = offset == 0 || bytes[offset - 1] == 0;
+            if (startsString && (!zeroAfter || (end < bytes.Length && bytes[end] == 0)))
             {
                 found.Add(offset);
             }

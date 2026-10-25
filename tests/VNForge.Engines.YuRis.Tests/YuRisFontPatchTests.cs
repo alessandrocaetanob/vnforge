@@ -44,7 +44,7 @@ public sealed class YuRisFontPatchTests : IDisposable
         for (var i = 0; i < nameCount; i++)
         {
             var at = NameOffset + (i * 0x40);
-            Array.Clear(bytes, at, 0x20);
+            Array.Clear(bytes, at - 1, 0x21);
             (name ?? JapaneseName).CopyTo(bytes, at);
             (afterName ?? [0x00, 0x00, 0x00]).CopyTo(bytes, at + (name ?? JapaneseName).Length);
         }
@@ -154,6 +154,37 @@ public sealed class YuRisFontPatchTests : IDisposable
 
         Assert.False(Patch().CanApply(_root, out var reason));
         Assert.NotNull(reason);
+    }
+
+    [Fact]
+    public void Nome_no_fim_de_uma_string_maior_nao_conta()
+    {
+        var bytes = SyntheticExe();
+        bytes[NameOffset - 1] = (byte)'X';
+        Write(bytes);
+
+        Assert.False(Patch().CanApply(_root, out var reason));
+        Assert.Contains("ＭＳ ゴシック", reason);
+        Assert.Throws<InvalidOperationException>(() => Patch().Apply(_root));
+        Assert.Equal(bytes, File.ReadAllBytes(ExePath));
+    }
+
+    [Fact]
+    public void Nome_com_um_unico_terminador_e_trocado_e_depois_reconhecido_como_ja_aplicado()
+    {
+        Write(SyntheticExe(afterName: [0x00, 0x41, 0x42]));
+        Assert.True(Patch().CanApply(_root, out _));
+
+        Patch().Apply(_root);
+        var once = File.ReadAllBytes(ExePath);
+
+        Assert.Equal(Gothic, once[NameOffset..(NameOffset + 9)]);
+        Assert.All(once[(NameOffset + 9)..(NameOffset + 14)], b => Assert.Equal(0, b));
+        Assert.Equal((byte)'A', once[NameOffset + 14]);
+        Assert.True(Patch().CanApply(_root, out var reason));
+        Assert.Null(reason);
+        Patch().Apply(_root);
+        Assert.Equal(once, File.ReadAllBytes(ExePath));
     }
 
     [Fact]

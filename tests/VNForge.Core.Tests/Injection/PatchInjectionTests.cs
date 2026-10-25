@@ -73,6 +73,22 @@ public sealed class PatchInjectionTests : IDisposable
     }
 
     [Fact]
+    public void Projeto_dentro_da_pasta_do_jogo_e_recusado_sem_criar_a_copia_de_trabalho()
+    {
+        var jogo = _temp.Path;
+        File.WriteAllText(Path.Combine(jogo, GameExe), OriginalExe);
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(jogo, GameExe) });
+
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanPatch(_project, new FakePatch()));
+
+        Assert.Contains("fica dentro da pasta do jogo", erro.Message);
+        Assert.Contains("fora da injeção com backup", erro.Message);
+        Assert.False(Directory.Exists(StagingDirectory));
+        Assert.Equal(OriginalExe, File.ReadAllText(Path.Combine(jogo, GameExe)));
+        Assert.Empty(Directory.GetDirectories(_project.BackupDirectory));
+    }
+
+    [Fact]
     public void Executavel_ausente_e_recusado()
     {
         File.Delete(ExePath);

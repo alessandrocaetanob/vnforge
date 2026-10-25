@@ -47,7 +47,7 @@ public sealed class PatchExeCommandTests : IDisposable
         Array.Fill(bytes, (byte)0xCC);
         bytes[0] = (byte)'M';
         bytes[1] = (byte)'Z';
-        Array.Clear(bytes, NameOffset, 0x20);
+        Array.Clear(bytes, NameOffset - 1, 0x21);
         JapaneseName.CopyTo(bytes, NameOffset);
         Encoding.Unicode.GetBytes("ＭＳ ゴシック").CopyTo(bytes, 0x800);
         return bytes;

@@ -27,12 +27,18 @@ public sealed partial class GameInjector
             throw new InjectionException($"O patch '{patch.Id}' não declara nenhum arquivo para alterar.");
         }
 
+        var staging = Path.Combine(project.CacheDirectory, "patch", patch.Id);
+        if (ProjectExtractor.IsInside(ProjectExtractor.ResolveLinks(gameDirectory), ProjectExtractor.ResolveLinks(staging)))
+        {
+            throw new InjectionException(
+                $"O .cache do projeto ('{project.CacheDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
+        }
+
         if (!patch.CanApply(gameDirectory, out var reason))
         {
             throw new InjectionException($"O patch '{patch.Id}' foi recusado e nada foi gravado no jogo: {reason}");
         }
 
-        var staging = Path.Combine(project.CacheDirectory, "patch", patch.Id);
         try
         {
             var history = new BackupHistory(ReadBackups(project));
