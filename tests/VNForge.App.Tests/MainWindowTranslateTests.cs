@@ -178,6 +178,7 @@ public sealed class MainWindowTranslateTests : IDisposable
             post();
         }
 
+        await vm.Editor.Loading;
         vm.Editor.TranslatePendingCommand.Execute(null);
         await vm.TranslateOpening;
         vm.Translate.StartCommand.Execute(null);

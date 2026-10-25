@@ -12,6 +12,20 @@ namespace VNForge.App.Tests;
 public class BudgetAppSettingsFileTests
 {
     [Fact]
+    public void Gravar_troca_o_arquivo_por_inteiro_e_nao_deixa_temporario()
+    {
+        using var temp = new TempFolder();
+        var directory = temp.SubFolder("config");
+        var file = new AppSettingsFile(directory);
+        file.Save(AppSettings.Default with { Concurrency = 3 });
+
+        file.Save(new AppSettings(4) { SpendLimit = 80m });
+
+        Assert.Equal(80m, file.Load().SpendLimit);
+        Assert.Equal([file.Path], Directory.GetFiles(directory));
+    }
+
+    [Fact]
     public void Cotacao_limite_aviso_e_qualidade_vao_e_voltam_do_app_json()
     {
         using var temp = new TempFolder();
