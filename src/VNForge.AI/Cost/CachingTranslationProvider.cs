@@ -12,6 +12,13 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
     public async Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
+
+        // Pedir uma versão mais curta de uma tradução que já existe não é traduzir de novo: a resposta não pode sair do cache nem entrar nele.
+        if (batch.Shorten.Count > 0)
+        {
+            return await inner.TranslateAsync(batch, ct).ConfigureAwait(false);
+        }
+
         var context = TranslationCache.ContextFor(model, batch);
         var keys = batch.Lines.Select(u => TranslationCache.KeyFor(u, context)).ToList();
 
