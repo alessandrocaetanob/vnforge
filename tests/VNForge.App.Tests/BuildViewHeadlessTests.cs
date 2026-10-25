@@ -13,7 +13,7 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
 {
     private static Window Abrir(BuildViewModel vm)
     {
-        var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm } };
+        var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm, TechnicalExpanded = true } };
         window.Show();
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();

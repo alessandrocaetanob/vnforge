@@ -74,6 +74,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         TaskService = taskService ?? new BackgroundTaskService();
         Tasks = new TaskBarViewModel(TaskService);
         Build = new BuildViewModel(TaskService);
+        Build.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BuildViewModel.GameStatusText))
+            {
+                OnPropertyChanged(nameof(GameStatusText));
+            }
+        };
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
@@ -213,6 +220,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"Salvo às 00:41" depois da primeira gravação do Editor nesta sessão; vazio antes.</summary>
     public string SavedAtText => Editor.LastSavedAt is { } at ? $"Salvo às {at:HH:mm}" : string.Empty;
 
+    /// <summary>"Jogo com a tradução de 22/10" ou "Jogo original", como o último teste no jogo deixou; vazio antes de a tela Testar ler o estado.</summary>
+    public string GameStatusText => Build.GameStatusText;
+
     /// <summary>"Alterações salvas automaticamente em vnforge.json" enquanto os Ajustes de um projeto estão abertos; vazio nas outras telas.</summary>
     public string StatusNote => SelectedNav?.Key == NavKey.Settings && Settings.HasProject ? SettingsViewModel.AutosaveNote : string.Empty;
 
@@ -301,6 +311,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
                 else if (value.Key == NavKey.Build)
                 {
+                    Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Display);
                     _ = Build.ReloadAsync();
                 }
 
@@ -352,6 +363,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public void ShowBuildNotice(BuildNotice notice)
     {
+        if (notice.Kind == BuildNoticeKind.Tested)
+        {
+            Toasts.Show(notice.Message, ToastKind.Success, key: "build", undo: () =>
+            {
+                if (Build.ReturnToOriginalCommand.CanExecute(null))
+                {
+                    Build.ReturnToOriginalCommand.Execute(null);
+                }
+                else
+                {
+                    Toasts.Show("Não dá para voltar ao jogo original agora. Espere o que está em andamento terminar e use “Voltar ao jogo original” na tela Testar no jogo.", ToastKind.Warning, key: "build-restore");
+                }
+            });
+            return;
+        }
+
         if (notice.Kind == BuildNoticeKind.Injected)
         {
             // Desfazer a injeção é restaurar os originais, e a restauração pede confirmação na tela Testar, como sempre.
@@ -574,6 +601,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 if (GoTo(editorItem))
                 {
                     Editor.ShowPendingLines();
+                }
+            }));
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Testar no jogo", "Confere, injeta e abre o jogo", () =>
+            {
+                if (GoTo(buildItem) && Build.TestCommand.CanExecute(null))
+                {
+                    Build.TestCommand.Execute(null);
                 }
             }));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Novo build", "Gera a pasta de build do projeto", () =>

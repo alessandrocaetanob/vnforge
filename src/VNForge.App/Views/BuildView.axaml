@@ -6,33 +6,36 @@
              x:DataType="vm:BuildViewModel">
 
   <UserControl.KeyBindings>
-    <KeyBinding Gesture="Ctrl+B" Command="{Binding BuildCommand}"/>
+    <KeyBinding Gesture="Ctrl+B" Command="{Binding TestCommand}"/>
   </UserControl.KeyBindings>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel MaxWidth="1280" Margin="24,16,24,24" Spacing="16">
 
-      <c:PageHeader Breadcrumb="{Binding GameExecutable, StringFormat='Jogo: {0}'}" Title="Testar">
-        <Button Command="{Binding BuildCommand}" AutomationProperties.Name="Novo build">
+      <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Testar no jogo">
+        <Button Classes="accent" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="Novo build" VerticalAlignment="Center"/>
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+            <TextBlock Text="Testar no jogo" VerticalAlignment="Center"/>
             <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+B"/></Border>
           </StackPanel>
         </Button>
       </c:PageHeader>
 
-      <!-- Erros novos de QA: o build recusaria, então "Novo build" fica travado; o build que já existe segue válido para injetar. -->
-      <Border Classes="infobar warning" IsVisible="{Binding HasQaErrors}">
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center">
-            <Run FontWeight="SemiBold" Text="{Binding QaBannerTitle, Mode=OneWay}"/>
-            <Run Text="{Binding QaBannerDetail, Mode=OneWay}"/>
-          </TextBlock>
-          <Button Grid.Column="2" Classes="sm accent" Command="{Binding ShowErrorsCommand}" Content="Ver erros"
-                  VerticalAlignment="Center" AutomationProperties.Name="Ver erros"/>
-        </Grid>
-      </Border>
+      <!-- O estado do jogo. "Voltar ao jogo original" fica sempre à vista e neutro: não apaga a tradução, que continua no projeto. -->
+      <c:GameStateBanner State="{Binding GameBannerState}" Title="{Binding GameBannerTitle}" Message="{Binding GameBannerMessage}"
+                         AutomationProperties.Name="Estado do jogo">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="sm accent" Command="{Binding ShowErrorsCommand}" Content="Ver os erros" IsVisible="{Binding HasQaErrors}"
+                  AutomationProperties.Name="Ver os erros"/>
+          <Button Command="{Binding ReturnToOriginalCommand}" AutomationProperties.Name="Voltar ao jogo original">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
+              <TextBlock Text="Voltar ao jogo original"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:GameStateBanner>
 
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -40,6 +43,59 @@
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
         </Grid>
       </Border>
+
+      <Grid ColumnDefinitions="*,400" ColumnSpacing="12">
+        <!-- Opções, em linguagem comum. Os acentos vêm de Ajustes. -->
+        <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do teste">
+          <StackPanel>
+            <Border Classes="divider-bottom" Height="48" Padding="16,0">
+              <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Opções"/>
+            </Border>
+            <c:ToggleRule Title="Só a cena aberta no editor"
+                          Description="{Binding OpenSceneDescription}"
+                          IsEnabled="{Binding HasOpenScene}"
+                          IsChecked="{Binding OnlyOpenScene}"/>
+            <c:ToggleRule Title="Testar mesmo com avisos"
+                          Description="{Binding AllowWarningsDescription}"
+                          IsChecked="{Binding AllowWarnings}"/>
+            <Border Classes="divider-top" Padding="16,12">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Classes="body-strong" Text="Testar só os acentos"/>
+                  <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                             Text="Copia uma frase com ç, ã, é e ô para a primeira fala do jogo. Serve para conferir os acentos antes de traduzir."/>
+                </StackPanel>
+                <Button Grid.Column="1" Command="{Binding TestAccentsCommand}" Content="Testar só os acentos"
+                        VerticalAlignment="Center" AutomationProperties.Name="Testar só os acentos"/>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Último teste: os cinco passos e o tempo de cada um. -->
+        <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Último teste">
+          <StackPanel>
+            <Border Classes="divider-bottom" MinHeight="48" Padding="16,12">
+              <TextBlock Classes="title-md" VerticalAlignment="Center" TextWrapping="Wrap"
+                         Text="{Binding LastTestTitle}" IsVisible="{Binding HasLastTest}"/>
+            </Border>
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,12" IsVisible="{Binding !HasLastTest}"
+                       Text="Ainda não houve teste neste projeto. O botão Testar no jogo faz tudo de uma vez."/>
+            <ItemsControl ItemsSource="{Binding LastTestSteps}" IsVisible="{Binding HasLastTest}" Margin="16,8,16,12"
+                          AutomationProperties.Name="Passos do último teste">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TestStepRow">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,5">
+                    <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding Label}"/>
+                    <TextBlock Grid.Column="2" Classes="body-sm secondary" Text="{Binding TimeText}"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </Grid>
 
       <!-- Injetar, aplicar o patch e restaurar escrevem no jogo: esperam um segundo clique, com a lista do que vai ser gravado à vista. -->
       <Border Classes="infobar warning" IsVisible="{Binding IsConfirming}">
@@ -65,165 +121,187 @@
         </StackPanel>
       </Border>
 
-      <Grid ColumnDefinitions="*,400" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
-
-        <StackPanel Spacing="12">
-          <!-- Opções -->
-          <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do build">
-            <StackPanel>
-              <Border Classes="divider-bottom" Height="48" Padding="16,0">
-                <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Opções"/>
-              </Border>
-              <c:ToggleRule Title="Reconstruir só scripts alterados"
-                            Description="Os demais arquivos do pacote são copiados byte a byte do original."
-                            IsChecked="{Binding OnlyChanged}"/>
-              <c:ToggleRule Title="Permitir avisos do QA"
-                            Description="{Binding AllowWarningsDescription}"
-                            IsChecked="{Binding AllowWarnings}"/>
-            </StackPanel>
+      <!-- Build, injeção, patch do executável, registro e cópias de segurança: o que a pessoa que só quer testar não precisa ver. -->
+      <c:TechnicalDetails x:Name="Technical" AutomationProperties.Name="Detalhes técnicos">
+        <StackPanel Spacing="16" Margin="0,8,0,0">
+          <!-- Erros novos de QA: o build recusaria, então "Novo build" fica travado; o build que já existe segue válido para injetar. -->
+          <Border Classes="infobar warning" IsVisible="{Binding HasQaErrors}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run FontWeight="SemiBold" Text="{Binding QaBannerTitle, Mode=OneWay}"/>
+                <Run Text="{Binding QaBannerDetail, Mode=OneWay}"/>
+              </TextBlock>
+              <Button Grid.Column="2" Classes="sm accent" Command="{Binding ShowErrorsCommand}" Content="Ver erros"
+                      VerticalAlignment="Center" AutomationProperties.Name="Ver erros"/>
+            </Grid>
           </Border>
 
-          <!-- Patch do executável (cp1252): troca o nome da fonte das falas. Mesmo fluxo da injeção: confirmação, backup e hash conferido. -->
-          <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasPatch}" AutomationProperties.Name="Patch do executável">
-            <StackPanel>
-              <Border Classes="divider-bottom" Height="48" Padding="16,0">
-                <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Patch da fonte no executável"/>
-              </Border>
-              <StackPanel Margin="16" Spacing="12">
-                <Border Classes="infobar" Classes.success="{Binding IsPatchApplied}" Classes.warning="{Binding IsPatchRefused}"
-                        AutomationProperties.Name="Estado do patch">
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
-                              Data="{Binding PatchIconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
-                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-                      <Run FontWeight="SemiBold" Text="{Binding PatchTitle, Mode=OneWay}"/>
-                      <Run Text="{Binding PatchText, Mode=OneWay}"/>
-                    </TextBlock>
-                  </Grid>
-                </Border>
-                <Button Classes="accent" HorizontalAlignment="Left" Command="{Binding PatchCommand}"
-                        Content="Aplicar patch da fonte" AutomationProperties.Name="Aplicar patch da fonte"/>
-              </StackPanel>
-            </StackPanel>
-          </Border>
-        </StackPanel>
+          <Grid ColumnDefinitions="*,400" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
 
-        <!-- Resultado e ações -->
-        <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Resultado">
-          <Grid RowDefinitions="Auto,*">
-            <Border Classes="divider-bottom" Height="48" Padding="16,0">
-              <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Resultado"/>
-            </Border>
-            <Grid Grid.Row="1" Margin="16" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="14">
-              <Border Classes="infobar" Classes.success="{Binding IsResultSuccess}" Classes.warning="{Binding IsResultWarning}"
-                      AutomationProperties.Name="Estado do build">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                  <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
-                            Data="{Binding ResultIconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
-                  <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-                    <Run FontWeight="SemiBold" Text="{Binding ResultTitle, Mode=OneWay}"/>
-                    <Run Text="{Binding ResultText, Mode=OneWay}"/>
-                  </TextBlock>
-                </Grid>
-              </Border>
-
-              <ItemsControl Grid.Row="1" ItemsSource="{Binding Facts}" IsVisible="{Binding HasFacts}" Grid.IsSharedSizeScope="True"
-                            AutomationProperties.Name="Números do último build">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:ResultFact">
-                    <Grid ColumnSpacing="16" Margin="0,3">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="FactLabel"/>
-                        <ColumnDefinition Width="*"/>
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Classes="body-sm secondary" Text="{Binding Label}"/>
-                      <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Value}"/>
-                    </Grid>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-
-              <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                        Command="{Binding InjectCommand}" Content="Injetar no jogo" AutomationProperties.Name="Injetar no jogo"/>
-                <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                        Command="{Binding LaunchCommand}" AutomationProperties.Name="Abrir jogo">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-                    <TextBlock Text="Abrir jogo"/>
-                  </StackPanel>
-                </Button>
-              </Grid>
-
-              <Button Grid.Row="3" Classes="danger" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                      Command="{Binding RestoreCommand}" AutomationProperties.Name="Restaurar originais">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
-                  <TextBlock Text="Restaurar originais"/>
+            <StackPanel Spacing="12">
+              <!-- Opções -->
+              <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do build">
+                <StackPanel>
+                  <Border Classes="divider-bottom" Height="48" Padding="16,0">
+                    <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Opções"/>
+                  </Border>
+                  <c:ToggleRule Title="Reconstruir só scripts alterados"
+                                Description="Os demais arquivos do pacote são copiados byte a byte do original."
+                                IsChecked="{Binding OnlyChanged}"/>
+                  <Border Classes="divider-top" Padding="16,12">
+                    <Button Command="{Binding BuildCommand}" HorizontalAlignment="Left" AutomationProperties.Name="Novo build">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Novo build" VerticalAlignment="Center"/>
+                      </StackPanel>
+                    </Button>
+                  </Border>
                 </StackPanel>
-              </Button>
-            </Grid>
-          </Grid>
-        </Border>
+              </Border>
 
-        <!-- Log -->
-        <Border Grid.Row="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Log do build">
-          <Grid RowDefinitions="Auto,*">
-            <Grid ColumnDefinitions="*,Auto" Height="48" Margin="16,0">
-              <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Log"/>
-              <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LogSummary}"/>
-            </Grid>
-            <Border Grid.Row="1" Background="{DynamicResource Vnf.BgInset}">
-              <Panel>
-                <TextBlock Classes="body-sm secondary" Margin="16,12" Text="Nada executado ainda neste projeto."
-                           IsVisible="{Binding !HasLog}"/>
-                <ScrollViewer x:Name="LogScroll" MaxHeight="280" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasLog}">
-                  <ItemsControl ItemsSource="{Binding Log}" Margin="16,12" AutomationProperties.Name="Linhas do log">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:BuildLogLine">
-                        <TextBlock Classes="mono secondary" LineHeight="20" TextWrapping="Wrap">
-                          <Run FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Time, Mode=OneWay}"/>
-                          <Run Text="{Binding Message, StringFormat='  {0}', Mode=OneWay}"/>
+              <!-- Patch do executável (cp1252): troca o nome da fonte das falas. Mesmo fluxo da injeção: confirmação, backup e hash conferido. -->
+              <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasPatch}" AutomationProperties.Name="Patch do executável">
+                <StackPanel>
+                  <Border Classes="divider-bottom" Height="48" Padding="16,0">
+                    <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Patch da fonte no executável"/>
+                  </Border>
+                  <StackPanel Margin="16" Spacing="12">
+                    <Border Classes="infobar" Classes.success="{Binding IsPatchApplied}" Classes.warning="{Binding IsPatchRefused}"
+                            AutomationProperties.Name="Estado do patch">
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
+                                  Data="{Binding PatchIconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+                          <Run FontWeight="SemiBold" Text="{Binding PatchTitle, Mode=OneWay}"/>
+                          <Run Text="{Binding PatchText, Mode=OneWay}"/>
                         </TextBlock>
+                      </Grid>
+                    </Border>
+                    <Button Classes="accent" HorizontalAlignment="Left" Command="{Binding PatchCommand}"
+                            Content="Aplicar patch da fonte" AutomationProperties.Name="Aplicar patch da fonte"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <!-- Resultado e ações -->
+            <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Resultado">
+              <Grid RowDefinitions="Auto,*">
+                <Border Classes="divider-bottom" Height="48" Padding="16,0">
+                  <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Resultado"/>
+                </Border>
+                <Grid Grid.Row="1" Margin="16" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="14">
+                  <Border Classes="infobar" Classes.success="{Binding IsResultSuccess}" Classes.warning="{Binding IsResultWarning}"
+                          AutomationProperties.Name="Estado do build">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                      <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
+                                Data="{Binding ResultIconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+                      <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+                        <Run FontWeight="SemiBold" Text="{Binding ResultTitle, Mode=OneWay}"/>
+                        <Run Text="{Binding ResultText, Mode=OneWay}"/>
+                      </TextBlock>
+                    </Grid>
+                  </Border>
+
+                  <ItemsControl Grid.Row="1" ItemsSource="{Binding Facts}" IsVisible="{Binding HasFacts}" Grid.IsSharedSizeScope="True"
+                                AutomationProperties.Name="Números do último build">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ResultFact">
+                        <Grid ColumnSpacing="16" Margin="0,3">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="FactLabel"/>
+                            <ColumnDefinition Width="*"/>
+                          </Grid.ColumnDefinitions>
+                          <TextBlock Classes="body-sm secondary" Text="{Binding Label}"/>
+                          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Value}"/>
+                        </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                </ScrollViewer>
-              </Panel>
+
+                  <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding InjectCommand}" Content="Injetar no jogo" AutomationProperties.Name="Injetar no jogo"/>
+                    <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding LaunchCommand}" AutomationProperties.Name="Abrir jogo">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+                        <TextBlock Text="Abrir jogo"/>
+                      </StackPanel>
+                    </Button>
+                  </Grid>
+
+                  <Button Grid.Row="3" Classes="danger" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                          Command="{Binding RestoreCommand}" AutomationProperties.Name="Restaurar originais">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
+                      <TextBlock Text="Restaurar originais"/>
+                    </StackPanel>
+                  </Button>
+                </Grid>
+              </Grid>
+            </Border>
+
+            <!-- Log -->
+            <Border Grid.Row="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Log do build">
+              <Grid RowDefinitions="Auto,*">
+                <Grid ColumnDefinitions="*,Auto" Height="48" Margin="16,0">
+                  <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Log"/>
+                  <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LogSummary}"/>
+                </Grid>
+                <Border Grid.Row="1" Background="{DynamicResource Vnf.BgInset}">
+                  <Panel>
+                    <TextBlock Classes="body-sm secondary" Margin="16,12" Text="Nada executado ainda neste projeto."
+                               IsVisible="{Binding !HasLog}"/>
+                    <ScrollViewer x:Name="LogScroll" MaxHeight="280" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasLog}">
+                      <ItemsControl ItemsSource="{Binding Log}" Margin="16,12" AutomationProperties.Name="Linhas do log">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:BuildLogLine">
+                            <TextBlock Classes="mono secondary" LineHeight="20" TextWrapping="Wrap">
+                              <Run FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Time, Mode=OneWay}"/>
+                              <Run Text="{Binding Message, StringFormat='  {0}', Mode=OneWay}"/>
+                            </TextBlock>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </Panel>
+                </Border>
+              </Grid>
+            </Border>
+
+            <!-- Backups -->
+            <Border Grid.Row="1" Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Backups">
+              <DockPanel>
+                <Border DockPanel.Dock="Top" Height="48" Padding="16,0">
+                  <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Backups"/>
+                </Border>
+                <Border DockPanel.Dock="Bottom" Classes="divider-top" Height="40" Padding="16,0">
+                  <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding BackupFooter}"
+                             ToolTip.Tip="{Binding BackupLocation}" AutomationProperties.Name="Pasta do backup"/>
+                </Border>
+                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,0,16,12" Text="{Binding BackupMessage}"
+                           IsVisible="{Binding !HasBackups}"/>
+                <TextBlock DockPanel.Dock="Bottom" Classes="caption secondary" TextWrapping="Wrap" Margin="16,8,16,12" Text="{Binding BackupMessage}"
+                           IsVisible="{Binding HasRestoreProblem}" AutomationProperties.Name="Por que não dá para restaurar"/>
+                <ItemsControl ItemsSource="{Binding Backups}" IsVisible="{Binding HasBackups}" AutomationProperties.Name="Lista de backups">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BackupRow">
+                      <Border Classes="divider-top" Padding="16,10">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                          <TextBlock Classes="mono" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SizeText}"/>
+                          <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Note}"/>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </DockPanel>
             </Border>
           </Grid>
-        </Border>
-
-        <!-- Backups -->
-        <Border Grid.Row="1" Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Backups">
-          <DockPanel>
-            <Border DockPanel.Dock="Top" Height="48" Padding="16,0">
-              <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Backups"/>
-            </Border>
-            <Border DockPanel.Dock="Bottom" Classes="divider-top" Height="40" Padding="16,0">
-              <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding BackupFooter}"
-                         ToolTip.Tip="{Binding BackupLocation}" AutomationProperties.Name="Pasta do backup"/>
-            </Border>
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,0,16,12" Text="{Binding BackupMessage}"
-                       IsVisible="{Binding !HasBackups}"/>
-            <TextBlock DockPanel.Dock="Bottom" Classes="caption secondary" TextWrapping="Wrap" Margin="16,8,16,12" Text="{Binding BackupMessage}"
-                       IsVisible="{Binding HasRestoreProblem}" AutomationProperties.Name="Por que não dá para restaurar"/>
-            <ItemsControl ItemsSource="{Binding Backups}" IsVisible="{Binding HasBackups}" AutomationProperties.Name="Lista de backups">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:BackupRow">
-                  <Border Classes="divider-top" Padding="16,10">
-                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
-                      <TextBlock Classes="mono" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SizeText}"/>
-                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Note}"/>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </DockPanel>
-        </Border>
-      </Grid>
+        </StackPanel>
+      </c:TechnicalDetails>
     </StackPanel>
   </ScrollViewer>
 </UserControl>
