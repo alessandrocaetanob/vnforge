@@ -16,7 +16,7 @@ public sealed class MainWindowTranslateTests : IDisposable
 
     public void Dispose() => temp.Dispose();
 
-    private async Task<(MainWindowViewModel Vm, string Root)> OpenAsync(bool key = true, string? spendLimit = null, Func<string, VNForge.AI.Claude.ClaudeEffort, ITranslationProvider>? factory = null)
+    private async Task<(MainWindowViewModel Vm, string Root)> OpenAsync(bool key = true, string? spendLimit = null, Func<string, VNForge.AI.Claude.ClaudeEffort, ITranslationProvider>? factory = null, BackgroundTaskService? tasks = null)
     {
         var root = StartFixtures.Create(
             temp.SubFolder("vn"),
@@ -32,7 +32,8 @@ public sealed class MainWindowTranslateTests : IDisposable
         var vm = new MainWindowViewModel(
             start,
             new ResolvedApiKey(key ? "chave" : null, key ? ApiKeySource.Vault : ApiKeySource.None),
-            settings: settings)
+            tasks,
+            settings)
         {
             TranslationProviderFactory = factory ?? ((_, _) => new FakeTranslationProvider()),
         };
@@ -148,6 +149,99 @@ public sealed class MainWindowTranslateTests : IDisposable
         release.SetResult();
         await first;
         Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+    }
+
+    [Fact]
+    public async Task Cancelar_avisa_cancelada_mesmo_com_o_estado_da_tarefa_ainda_por_chegar_e_libera_novo_pedido()
+    {
+        var posts = new List<Action>();
+        var started = new TaskCompletionSource();
+        var calls = 0;
+        var (vm, root) = await OpenAsync(
+            tasks: new BackgroundTaskService(posts.Add),
+            factory: (_, _) => Interlocked.Increment(ref calls) == 1 ? new BlockingProvider(started) : new FakeTranslationProvider());
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await started.Task;
+
+        vm.TaskService.Tasks.Single().CancelCommand.Execute(null);
+        await vm.TranslationRun;
+
+        var toast = Assert.Single(vm.Toasts.Toasts);
+        Assert.Equal(ToastKind.Warning, toast.Kind);
+        Assert.Contains("cancelada", toast.Message);
+        Assert.Equal(BackgroundTaskState.Running, vm.TaskService.Tasks.Single().State);
+
+        foreach (var post in posts.ToArray())
+        {
+            post();
+        }
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        Assert.DoesNotContain(vm.Toasts.Toasts, t => t.Message.Contains("Já há uma tradução", StringComparison.Ordinal));
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+    }
+
+    [Fact]
+    public async Task Falha_da_execucao_vira_aviso_de_erro_com_o_estado_da_tarefa_ainda_por_chegar()
+    {
+        var posts = new List<Action>();
+        var (vm, _) = await OpenAsync(
+            tasks: new BackgroundTaskService(posts.Add),
+            factory: (_, _) => throw new InvalidOperationException("Falta a chave da IA."));
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        var toast = Assert.Single(vm.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, toast.Kind);
+    }
+
+    [Fact]
+    public void O_aviso_diz_as_linhas_recusadas_as_que_falharam_e_as_que_a_pessoa_mudou()
+    {
+        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(10, 0, 3, null, 1m, null, Skipped: 2));
+
+        Assert.Equal(ToastKind.Warning, kind);
+        Assert.Contains("10 linhas traduzidas pela IA", text);
+        Assert.Contains("3 linhas não passaram na validação e seguem sem tradução", text);
+        Assert.Contains("2 linhas mudaram durante a execução e ficaram como você deixou", text);
+    }
+
+    [Fact]
+    public void Parar_no_limite_nao_esconde_as_linhas_que_falharam()
+    {
+        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(30, 30, 0, BudgetStop.LimitReached, 5m, "Sem rede."));
+
+        Assert.Equal(ToastKind.Warning, kind);
+        Assert.Contains("parou no limite de gasto", text);
+        Assert.Contains("30 linhas ficaram sem tradução porque o lote não voltou. Sem rede.", text);
+    }
+
+    [Fact]
+    public void Sem_nenhum_problema_o_aviso_e_de_sucesso()
+    {
+        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(1, 0, 0, null, 0.1m, null));
+
+        Assert.Equal(ToastKind.Success, kind);
+        Assert.Contains("1 linha traduzida pela IA", text);
+    }
+
+    private sealed class BlockingProvider(TaskCompletionSource started) : ITranslationProvider
+    {
+        public async Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
+        {
+            started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            return [];
+        }
     }
 
     private sealed class GatedProvider(Task gate) : ITranslationProvider

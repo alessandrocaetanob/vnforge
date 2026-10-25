@@ -182,6 +182,77 @@ public sealed class TranslationJobTests
         Assert.Equal(0, result.Translated);
         Assert.Equal(30, result.Failed);
         Assert.Equal("Erro inesperado ao falar com a IA.", result.Problem);
+        Assert.All(folder.LoadText("yst00001"), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
+    }
+
+    [Fact]
+    public async Task Edicao_feita_no_Editor_no_meio_do_lote_sobrevive_e_a_IA_nao_sobrescreve_a_linha_traduzida_a_mao()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProjects.Create(temp.Path, "Teste", Untranslated(30)));
+        var editor = new LineEditor(folder, TimeProvider.System);
+        var provider = new UsageProvider
+        {
+            DuringCall = () =>
+            {
+                editor.SetTranslation("yst00001", "yst00001:000005", "à mão");
+                editor.SetNotes("yst00001", "yst00001:000006", "nota da pessoa");
+            },
+        };
+
+        var result = await Job(folder, provider).RunAsync(Request(), new Reporter(), TestContext.Current.CancellationToken);
+
+        var saved = folder.LoadText("yst00001");
+        Assert.Equal(29, result.Translated);
+        Assert.Equal(1, result.Skipped);
+        Assert.Equal("à mão", saved[5].Translation);
+        Assert.Equal(TranslationStatus.Translated, saved[5].Status);
+        Assert.Equal(TranslationStatus.Machine, saved[6].Status);
+        Assert.Equal("nota da pessoa", saved[6].Notes);
+        Assert.Equal(29, saved.Count(u => u.Status == TranslationStatus.Machine));
+    }
+
+    [Fact]
+    public async Task Linha_aprovada_no_meio_da_execucao_nao_e_desfeita_pela_gravacao_do_lote()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProjects.Create(temp.Path, "Teste", Untranslated(60)));
+        var editor = new LineEditor(folder, TimeProvider.System);
+        var calls = 0;
+        var provider = new UsageProvider
+        {
+            DuringCall = () =>
+            {
+                if (Interlocked.Increment(ref calls) == 1)
+                {
+                    editor.SetTranslation("yst00001", "yst00001:000040", "revisada");
+                    editor.Approve("yst00001", "yst00001:000040");
+                }
+            },
+        };
+
+        var result = await Job(folder, provider).RunAsync(Request(), new Reporter(), TestContext.Current.CancellationToken);
+
+        var saved = folder.LoadText("yst00001");
+        Assert.Equal(1, result.Skipped);
+        Assert.Equal(TranslationStatus.Approved, saved[40].Status);
+        Assert.Equal("revisada", saved[40].Translation);
+        Assert.Equal(59, result.Translated);
+    }
+
+    [Fact]
+    public async Task Cancelar_interrompe_registra_o_gasto_e_deixa_o_que_voltou()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProjects.Create(temp.Path, "Teste", Untranslated(90)));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var provider = new UsageProvider { OutputTokensPerCall = 100_000, DuringCall = cts.Cancel };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Job(folder, provider).RunAsync(Request(), new Reporter(), cts.Token));
+
+        Assert.True(AiUsageLog.Load(folder).Dollars > 0m);
+        Assert.Equal(1, AiUsageLog.Load(folder).Runs);
+        Assert.NotEqual(0, folder.LoadText("yst00001").Count(u => u.Status == TranslationStatus.Untranslated));
     }
 
     private sealed class Reporter : IBackgroundTaskReporter
@@ -208,6 +279,8 @@ public sealed class TranslationJobTests
 
         public long OutputTokensPerCall { get; init; }
 
+        public Action? DuringCall { get; init; }
+
         public int Calls => Volatile.Read(ref calls);
 
         public ClaudeUsage Usage => new(0, Interlocked.Read(ref output), 0, 0);
@@ -216,6 +289,7 @@ public sealed class TranslationJobTests
         {
             Interlocked.Increment(ref calls);
             Interlocked.Add(ref output, OutputTokensPerCall);
+            DuringCall?.Invoke();
             IReadOnlyList<TranslationResult> results = [.. batch.Lines.Select(u => new TranslationResult(u.Id, $"[PT] {u.Source}"))];
             return Task.FromResult(results);
         }

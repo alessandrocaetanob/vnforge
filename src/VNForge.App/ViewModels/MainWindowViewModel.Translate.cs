@@ -143,7 +143,7 @@ public sealed partial class MainWindowViewModel
         }
     }
 
-    internal static (string Text, ToastKind Kind) DescribeOutcome(TranslationJobResult result)
+    public static (string Text, ToastKind Kind) DescribeOutcome(TranslationJobResult result)
     {
         var done = Lines(result.Translated, "linha traduzida pela IA", "linhas traduzidas pela IA");
         var stoppedAtLimit = result.Stopped == BudgetStop.LimitReached;

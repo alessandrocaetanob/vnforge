@@ -388,7 +388,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         AskBrl = (double)request;
         SpentBrl = (double)spent;
         LimitBrl = (double)(limit ?? 0m);
-        RequestText = $"Este pedido: {Money.BrlEstimate(request)}";
+        RequestText = $"Este pedido (aproximado): {Money.BrlEstimate(request)}";
         SpentText = limit is { } cap
             ? $"Já gasto no projeto: {Money.BrlEstimate(spent)} de {Money.Brl(cap)}"
             : $"Já gasto no projeto: {Money.BrlEstimate(spent)}";
@@ -417,7 +417,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     private string DescribeOverLimit(decimal request, decimal? limit, QualityQuote? fit)
     {
         var over = request + spent - (limit ?? 0m);
-        var head = $"Este pedido passa do limite do projeto em {Money.BrlEstimate(over)}.";
+        var head = $"Este pedido, pelo valor aproximado, passa do limite do projeto em {Money.BrlEstimate(over)}.";
         return fit is null
             ? $"{head} Aumente o limite em Ajustes ou escolha menos linhas."
             : $"{head} A qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} cabe no que sobra.";

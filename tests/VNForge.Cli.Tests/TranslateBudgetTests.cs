@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.Core.Projects;
@@ -62,7 +63,7 @@ public sealed class TranslateBudgetTests : IDisposable
 
         var result = await _cli.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
 
-        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(1, result.ExitCode);
         Assert.Contains("não foi confirmado", result.Output);
         Assert.Contains("[s/N]", result.Error);
         Assert.Equal(0, _client.Calls);
@@ -118,16 +119,85 @@ public sealed class TranslateBudgetTests : IDisposable
         Assert.Equal(0, _client.Calls);
     }
 
+    [Fact]
+    public async Task O_limite_estourado_pela_primeira_chamada_impede_a_segunda()
+    {
+        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 50 }""");
+        _project.SaveText("yst00001", [.. Enumerable.Range(0, 45).Select(i => new TextUnit($"yst00001:{i:D6}", TextUnitKind.Dialogue, null, $"原文{i}", null, TranslationStatus.Untranslated))]);
+        _client.OutputTokensPerCall = 1_000_000;
+
+        var result = await _cli.RunAsync(["translate", "--project", _projectPath, "--batch-size", "20", "--concurrency", "1"], TestContext.Current.CancellationToken);
+
+        var saved = _project.LoadText("yst00001");
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Equal(1, _client.Calls);
+        Assert.Equal(20, saved.Count(u => u.Status == TranslationStatus.Machine));
+        Assert.Equal(25, saved.Count(u => u.Status == TranslationStatus.Untranslated));
+        Assert.Contains("Parou no limite de gasto", result.Output);
+    }
+
+    [Fact]
+    public async Task App_json_ilegivel_avisa_e_so_segue_com_yes()
+    {
+        WriteAppJson("{ isto não é json");
+
+        var refused = await _cli.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.NotEqual(0, refused.ExitCode);
+        Assert.Contains("app.json", refused.Error);
+        Assert.Equal(0, _client.Calls);
+        Assert.Equal(TranslationStatus.Untranslated, Saved().Status);
+
+        var allowed = await _cli.RunAsync(["translate", "--project", _projectPath, "--yes"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, allowed.ExitCode);
+        Assert.Contains("app.json", allowed.Error);
+        Assert.Equal(TranslationStatus.Machine, Saved().Status);
+    }
+
+    [Fact]
+    public async Task Linha_traduzida_a_mao_durante_a_execucao_nao_e_sobrescrita()
+    {
+        var editor = new LineEditor(_project, TimeProvider.System);
+        _client.DuringCall = () => editor.SetTranslation("yst00001", UnitId, "à mão");
+
+        var result = await _cli.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal("à mão", Saved().Translation);
+        Assert.Equal(TranslationStatus.Translated, Saved().Status);
+        Assert.Contains("durante a execução", result.Output);
+    }
+
+    [Fact]
+    public async Task O_uso_e_registrado_mesmo_quando_a_execucao_para_no_limite()
+    {
+        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 50 }""");
+        _project.SaveText("yst00001", [.. Enumerable.Range(0, 45).Select(i => new TextUnit($"yst00001:{i:D6}", TextUnitKind.Dialogue, null, $"原文{i}", null, TranslationStatus.Untranslated))]);
+        _client.OutputTokensPerCall = 1_000_000;
+
+        await _cli.RunAsync(["translate", "--project", _projectPath, "--batch-size", "20", "--concurrency", "1"], TestContext.Current.CancellationToken);
+
+        Assert.True(AiUsageLog.Load(_project).Dollars > 0m);
+    }
+
     private sealed class CountingClient : IClaudeMessageClient
     {
         private int _calls;
 
         public int Calls => Volatile.Read(ref _calls);
 
+        public long OutputTokensPerCall { get; set; } = 50;
+
+        public Action? DuringCall { get; set; }
+
         public Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct)
         {
             Interlocked.Increment(ref _calls);
-            return Task.FromResult(new ClaudeReply("end_turn", $$"""{"translations":[{"id":"{{UnitId}}","translation":"Texto"}]}""", new ClaudeUsage(100, 50, 0, 0)));
+            DuringCall?.Invoke();
+            var ids = Regex.Matches(request.User, "\"id\":\"([^\"]+)\"").Select(m => m.Groups[1].Value).Distinct();
+            var items = string.Join(',', ids.Select(id => $$"""{"id":"{{id}}","translation":"Texto"}"""));
+            return Task.FromResult(new ClaudeReply("end_turn", $$"""{"translations":[{{items}}]}""", new ClaudeUsage(100, OutputTokensPerCall, 0, 0)));
         }
     }
 }
