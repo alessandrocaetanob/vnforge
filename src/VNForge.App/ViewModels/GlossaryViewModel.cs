@@ -49,6 +49,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         {
             RefreshVisible();
             NotifyVoices();
+            RefreshRepeatedTerms();
             MarkCharactersDirty();
         };
     }
@@ -379,7 +380,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
             {
                 NotifyVoices();
             }
-            else if (e.PropertyName == nameof(GlossaryTermRow.Source))
+
+            if (e.PropertyName == nameof(GlossaryTermRow.Source))
             {
                 RefreshRepeatedTerms();
             }

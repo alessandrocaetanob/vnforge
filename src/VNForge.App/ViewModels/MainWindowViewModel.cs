@@ -75,6 +75,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         TaskService.Rate = Settings.Rate;
         Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Glossary.Rate = () => Settings.Rate;
+        Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
         Tasks = new TaskBarViewModel(TaskService);
         Build = new BuildViewModel(TaskService);
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);

@@ -141,6 +141,59 @@ public class GlossarySuggestionsTests
         Assert.DoesNotContain("US$", vm.VoicePriceText);
     }
 
+    private sealed class RemovingSuggester(Action beforeAnswer) : IGlossarySuggester
+    {
+        public Task<IReadOnlyList<CharacterVoiceSuggestion>> SuggestVoicesAsync(IReadOnlyList<CharacterVoiceRequest> characters, CancellationToken ct)
+        {
+            beforeAnswer();
+            IReadOnlyList<CharacterVoiceSuggestion> all = [.. characters.Select(c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "x"))];
+            return Task.FromResult(all);
+        }
+
+        public Task<IReadOnlyList<TermTranslationSuggestion>> SuggestTermsAsync(IReadOnlyList<TermTranslationRequest> terms, CancellationToken ct) =>
+            throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task Personagem_removido_durante_o_pedido_nao_volta_com_a_sugestao()
+    {
+        using var temp = new TempFolder();
+        GlossaryViewModel? page = null;
+        var (vm, _) = await OpenAsync(temp, new RemovingSuggester(() => page!.Characters.Remove(page.Characters.Single(c => c.Source == "健太"))));
+        page = vm;
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(vm.Characters, c => c.Source == "健太");
+        Assert.Contains(vm.Characters, c => c.Source == "先生");
+    }
+
+    [Fact]
+    public async Task Nome_de_personagem_igual_ao_termo_tira_o_termo_do_painel()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp);
+        Assert.Single(vm.RepeatedTermRows);
+
+        vm.Characters.Add(new CharacterRow("魔法学院", "Academia"));
+
+        Assert.Empty(vm.RepeatedTermRows);
+    }
+
+    [Fact]
+    public async Task Mudar_a_cotacao_refaz_o_preco_mostrado()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, new FakeGlossarySuggester());
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.RefreshPrices();
+
+        Assert.Contains(nameof(GlossaryViewModel.VoicePriceText), changed);
+        Assert.Contains(nameof(GlossaryViewModel.TermsPriceText), changed);
+    }
+
     [Fact]
     public async Task Sem_provedor_ou_sem_o_que_sugerir_o_botao_fica_desligado()
     {

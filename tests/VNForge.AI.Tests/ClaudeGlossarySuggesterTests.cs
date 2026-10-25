@@ -139,6 +139,7 @@ public class ClaudeGlossarySuggesterTests
 
     [Theory]
     [InlineData("""{"terms":[{"source":"魔法学院","target":"x"}]}""")]
+    [InlineData("""{"terms":[{"source":"魔法学院","target":" ","reason":"y"}]}""")]
     [InlineData("""{"terms":[]}""")]
     [InlineData("""{"terms":[{"source":"outro","target":"x","reason":"y"}]}""")]
     [InlineData("""[1,2]""")]

@@ -204,6 +204,7 @@ public sealed partial class GlossaryViewModel
     private async Task SuggestVoicesAsync()
     {
         var requests = voiceRequests;
+        var inTable = Characters.Select(c => c.Source.Trim()).ToHashSet(StringComparer.Ordinal);
         var token = BeginSuggesting();
         var version = usageVersion;
         try
@@ -211,7 +212,7 @@ public sealed partial class GlossaryViewModel
             var suggestions = await Suggester!.SuggestVoicesAsync(requests, token).ConfigureAwait(true);
             if (version == usageVersion)
             {
-                var changed = ApplyVoices(suggestions);
+                var changed = ApplyVoices(suggestions, inTable);
                 SuggestionNotice = changed == 0
                     ? "A IA não achou nada novo nas falas. Preencha o gênero à mão."
                     : $"{changed} {(changed == 1 ? "personagem recebeu" : "personagens receberam")} gênero e jeito de falar. Confira e ajuste o que não bater.";
@@ -227,12 +228,13 @@ public sealed partial class GlossaryViewModel
         }
         finally
         {
-            IsSuggesting = false;
+            EndSuggesting(token);
             NotifyVoices();
         }
     }
 
-    private int ApplyVoices(IReadOnlyList<CharacterVoiceSuggestion> suggestions)
+    /// <param name="inTable">Os nomes que já estavam na tabela quando a sugestão foi pedida: um que sumiu no meio do pedido foi removido pela pessoa e não volta.</param>
+    private int ApplyVoices(IReadOnlyList<CharacterVoiceSuggestion> suggestions, ISet<string> inTable)
     {
         ClearSearch();
         var changed = 0;
@@ -241,6 +243,11 @@ public sealed partial class GlossaryViewModel
             var row = Characters.FirstOrDefault(c => c.Source.Trim() == suggestion.Name);
             if (row is null)
             {
+                if (inTable.Contains(suggestion.Name))
+                {
+                    continue;
+                }
+
                 Characters.Add(Watch(new CharacterRow(suggestion.Name, string.Empty, suggestion.Gender, suggestion.Voice), MarkCharactersDirty));
                 changed++;
                 continue;
@@ -290,7 +297,7 @@ public sealed partial class GlossaryViewModel
         }
         finally
         {
-            IsSuggesting = false;
+            EndSuggesting(token);
             RefreshRepeatedTerms();
         }
     }
@@ -331,6 +338,22 @@ public sealed partial class GlossaryViewModel
         IsSuggesting = true;
         NotifySuggestionState();
         return suggestCts.Token;
+    }
+
+    // Um pedido que perdeu para outro (ou para a troca de projeto) não mexe no estado do que está em andamento.
+    private void EndSuggesting(CancellationToken token)
+    {
+        if (!token.IsCancellationRequested)
+        {
+            IsSuggesting = false;
+        }
+    }
+
+    /// <summary>Refaz os preços em reais: a cotação mudou em Ajustes.</summary>
+    public void RefreshPrices()
+    {
+        OnPropertyChanged(nameof(VoicePriceText));
+        OnPropertyChanged(nameof(TermsPriceText));
     }
 
     private static string Explain(Exception error) =>

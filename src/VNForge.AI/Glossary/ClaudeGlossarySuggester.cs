@@ -130,7 +130,15 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
     {
         var items = ReadItems(text, "terms", "source", "target", "reason");
         var bySource = Index(items, chunk.Select(t => t.Source), "termos");
-        return [.. chunk.Select(t => new TermTranslationSuggestion(t.Source, bySource[t.Source][1].Trim(), bySource[t.Source][2].Trim()))];
+        return [.. chunk.Select(t => ToTerm(t.Source, bySource[t.Source]))];
+    }
+
+    private static TermTranslationSuggestion ToTerm(string source, string[] fields)
+    {
+        var target = fields[1].Trim();
+        return target.Length == 0
+            ? throw new ClaudeResponseException($"A resposta não traz a tradução do termo '{source}'.")
+            : new TermTranslationSuggestion(source, target, fields[2].Trim());
     }
 
     /// <summary>Lê <c>{ "&lt;array&gt;": [ { "&lt;campo&gt;": "texto", ... } ] }</c> e devolve os campos de cada item, na ordem pedida.</summary>
