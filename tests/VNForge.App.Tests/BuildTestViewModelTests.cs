@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
@@ -15,6 +16,7 @@ public sealed class BuildTestViewModelTests : IDisposable
     private readonly string root;
     private readonly DemoQaRule qaRule = new();
     private readonly Starter starter = new();
+    private readonly FakeTimeProvider clock = new(new DateTimeOffset(2026, 10, 25, 12, 0, 0, TimeSpan.Zero));
 
     public BuildTestViewModelTests()
     {
@@ -27,7 +29,7 @@ public sealed class BuildTestViewModelTests : IDisposable
 
     private async Task<BuildViewModel> OpenAsync()
     {
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new DemoBuildEngine()], starter, new QaEngine([qaRule]))
+        var vm = new BuildViewModel(new BackgroundTaskService(), [new DemoBuildEngine()], starter, new QaEngine([qaRule]), clock)
         {
             Project = DemoProject.Summary(root),
         };
@@ -94,7 +96,7 @@ public sealed class BuildTestViewModelTests : IDisposable
         Assert.Equal(before + 1, Directory.GetDirectories(Path.Combine(root, "backup")).Length);
         Assert.Equal(Path.GetFullPath(Path.Combine(root, "..", "jogo", "MinhaVN.exe")), Path.GetFullPath(starter.Executable!));
         Assert.Equal(GameState.Translated, vm.GameBannerState);
-        Assert.Equal($"O jogo está com a tradução de {DateText(DateTimeOffset.UtcNow)}", vm.GameBannerTitle);
+        Assert.Equal($"O jogo está com a tradução de {DateText(clock.GetUtcNow())}", vm.GameBannerTitle);
         Assert.Equal(
             ["Conferir a tradução", "Preparar os arquivos", "Guardar a cópia de segurança", "Copiar para o jogo", "Abrir o jogo"],
             vm.LastTestSteps.Select(s => s.Label));
