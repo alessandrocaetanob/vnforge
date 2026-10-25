@@ -7,9 +7,10 @@ using VNForge.Core.Text;
 namespace VNForge.AI.Cost;
 
 /// <summary>
-/// Cache de traduções pelo hash da linha (tipo, falante e original) mais um contexto (modelo, guia de estilo, glossário,
+/// Cache de traduções pelo hash da linha (tipo, falante e original) mais um contexto (modelo, guia e escolhas de estilo, glossário,
 /// personagens). Mudar o original ou o contexto muda a chave, então a linha é traduzida de novo; repetir a mesma tradução
-/// não chama a API.
+/// não chama a API. As falas vizinhas (contexto anterior e seguinte) não entram na chave: uma tradução em cache vale
+/// enquanto a linha e o contexto fixo do projeto não mudarem.
 /// </summary>
 public sealed class TranslationCache
 {
@@ -33,7 +34,7 @@ public sealed class TranslationCache
     public static string ContextFor(string model, TranslationBatch batch)
     {
         ArgumentNullException.ThrowIfNull(batch);
-        var sb = new StringBuilder(model).Append('\u001e').Append(batch.StyleGuide.Trim());
+        var sb = new StringBuilder(model).Append('\u001e').Append(batch.StyleGuide.Trim()).Append('\u001e').Append(batch.Style.CacheKey());
         foreach (var g in batch.Glossary)
             sb.Append('\u001e').Append(g.Source).Append('>').Append(g.Target);
         foreach (var c in batch.Characters)

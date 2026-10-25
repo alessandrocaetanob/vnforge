@@ -85,7 +85,7 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
     };
 
     [Fact]
-    public async Task Tem_as_abas_IA_Formatacao_Acentuacao_e_Aparencia_e_trocar_de_aba_muda_o_indice_do_ViewModel()
+    public async Task Tem_as_abas_IA_Estilo_Formatacao_Acentuacao_e_Aparencia_e_trocar_de_aba_muda_o_indice_do_ViewModel()
     {
         using var temp = new TempFolder();
         var vm = Criar(temp);
@@ -95,12 +95,12 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             {
                 var window = Abrir(vm);
                 var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
-                Assert.Equal(["IA e gasto", "Formatação", "Acentuação", "Aparência"], tabs.Items.OfType<TabItem>().Select(t => t.Header as string));
+                Assert.Equal(["IA e gasto", "Estilo", "Formatação", "Acentuação", "Aparência"], tabs.Items.OfType<TabItem>().Select(t => t.Header as string));
 
-                tabs.SelectedIndex = 2;
+                tabs.SelectedIndex = 3;
                 Assentar(window);
 
-                Assert.Equal(2, vm.SelectedTab);
+                Assert.Equal(3, vm.SelectedTab);
                 Assert.Equal(4, window.GetVisualDescendants().OfType<RadioButton>().Count(r => r.Classes.Contains("option")));
             },
             CancellationToken.None);
