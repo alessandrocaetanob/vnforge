@@ -270,6 +270,17 @@ public sealed class LineDetailInspectorTests : IDisposable
     }
 
     [Fact]
+    public void Apagar_o_campo_e_digitar_de_novo_usa_o_fim_do_original()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi."));
+
+        vm.FieldText = string.Empty;
+        vm.FieldText = "Olá";
+
+        Assert.Equal("Olá\\p", vm.Translation);
+    }
+
+    [Fact]
     public void Linha_sem_traducao_ganha_a_virada_de_pagina_do_original_ao_digitar()
     {
         using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", null, TranslationStatus.Untranslated));

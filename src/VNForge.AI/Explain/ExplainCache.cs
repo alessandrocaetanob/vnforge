@@ -67,23 +67,22 @@ internal sealed class ExplainCache
     /// <summary>Grava num arquivo temporário e o move por cima do destino, para uma queda no meio não corromper o anterior.</summary>
     public void Save(string path)
     {
-        SortedDictionary<string, object> snapshot;
         lock (gate)
         {
-            snapshot = new(entries.ToDictionary(
+            var snapshot = new SortedDictionary<string, object>(entries.ToDictionary(
                 e => e.Key,
                 e => (object)new { model = e.Value.Model, parts = e.Value.Parts.Select(p => new { source = p.Source, meaning = p.Meaning }) },
                 StringComparer.Ordinal), StringComparer.Ordinal);
-        }
 
-        if (Path.GetDirectoryName(Path.GetFullPath(path)) is { } directory)
-        {
-            Directory.CreateDirectory(directory);
-        }
+            if (Path.GetDirectoryName(Path.GetFullPath(path)) is { } directory)
+            {
+                Directory.CreateDirectory(directory);
+            }
 
-        var temporary = path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(snapshot), new UTF8Encoding(false));
-        File.Move(temporary, path, overwrite: true);
+            var temporary = path + ".tmp";
+            File.WriteAllText(temporary, JsonSerializer.Serialize(snapshot), new UTF8Encoding(false));
+            File.Move(temporary, path, overwrite: true);
+        }
     }
 
     private static LineExplanation? Read(JsonElement element)

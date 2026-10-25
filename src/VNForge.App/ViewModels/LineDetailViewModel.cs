@@ -380,6 +380,11 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         try
         {
             Translation = translationField.ToStored(value);
+            if (value.Length == 0)
+            {
+                // Campo esvaziado: o fim da fala volta a vir do original, não da tradução que se apagou.
+                translationField = TranslationFieldText.Open(string.Empty, unit.Source);
+            }
         }
         finally
         {
