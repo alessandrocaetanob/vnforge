@@ -173,6 +173,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A última abertura de projeto criado pelo assistente; os testes a aguardam.</summary>
     public Task ProjectOpening { get; private set; } = Task.CompletedTask;
 
+    /// <summary>As leituras em segundo plano que abrir um projeto dispara (Editor, Glossário, estimativa dos Ajustes); os testes a aguardam antes de gravar.</summary>
+    public Task ProjectLoading { get; private set; } = Task.CompletedTask;
+
     /// <summary>A última conferência pedida ao abrir a página; os testes a aguardam.</summary>
     public Task ConferenceLoading { get; private set; } = Task.CompletedTask;
 
@@ -506,6 +509,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         glossaryItem.IsVisible = true;
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));
+        ProjectLoading = Task.WhenAll(Editor.Loading, Glossary.Loading, Settings.EstimateLoading);
     }
 
     private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;

@@ -161,7 +161,7 @@ public class ToastsFromPagesTests : IDisposable
             Editor = new EditorViewModel(clock: relogio, postToUi: a => a()),
         };
         await start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
+        await vm.ProjectLoading;
         return (vm, raiz);
     }
 
