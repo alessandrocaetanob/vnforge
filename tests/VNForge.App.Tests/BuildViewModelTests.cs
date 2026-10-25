@@ -736,7 +736,7 @@ public sealed class BuildViewModelTests : IDisposable
         var latest = vm.Backups[0];
         Assert.StartsWith($"backup{separator}", latest.Name, StringComparison.Ordinal);
         Assert.Equal("8 B", latest.SizeText);
-        Assert.Equal($"{Ysbin} original · 1 arquivo criado · injeção de {DateTime.Now:dd/MM}", latest.Note);
+        Assert.Equal($"{Ysbin} original · 1 arquivo criado · injeção de {Now.ToLocalTime():dd/MM}", latest.Note);
         Assert.Equal($"backup{separator}2020-01-02_0304", vm.Backups[1].Name);
         Assert.Contains("manifesto", vm.Backups[1].Note);
         Assert.Equal($"Pasta backup{separator} do projeto · fora do git · 2 backups", vm.BackupFooter);

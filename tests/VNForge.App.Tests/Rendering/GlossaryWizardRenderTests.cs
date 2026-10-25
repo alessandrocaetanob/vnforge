@@ -49,15 +49,15 @@ public sealed class GlossaryWizardRenderTests(HeadlessFixture fixture, DemoFolde
                     await vm.Glossary.Loading;
 
                     ScreenRenderer.Settle(window);
-                    var terms = RenderOutput.PathFor(ScreenRenderer.FileName("glossario", theme));
-                    ScreenRenderer.Save(window, terms);
-                    Check(terms);
-
-                    vm.Glossary.SelectedTab = GlossaryTab.Characters;
-                    ScreenRenderer.Settle(window);
                     var characters = RenderOutput.PathFor(ScreenRenderer.FileName("glossario-personagens", theme));
                     ScreenRenderer.Save(window, characters);
                     Check(characters);
+
+                    vm.Glossary.SelectedTab = GlossaryTab.Terms;
+                    ScreenRenderer.Settle(window);
+                    var terms = RenderOutput.PathFor(ScreenRenderer.FileName("glossario", theme));
+                    ScreenRenderer.Save(window, terms);
+                    Check(terms);
                 }
                 finally
                 {

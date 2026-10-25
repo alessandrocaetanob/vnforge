@@ -140,6 +140,8 @@
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
             <TextBlock Classes="caption secondary" Text="{Binding SavedAtText}"
                        IsVisible="{Binding SavedAtText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            <TextBlock Classes="caption secondary" Text="{Binding GameStatusText}"
+                       IsVisible="{Binding GameStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <TextBlock Classes="caption secondary" Text="{Binding EncodingText}"
                        IsVisible="{Binding EncodingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <TextBlock Classes="caption secondary" Text="{Binding BoxLimitsText}"

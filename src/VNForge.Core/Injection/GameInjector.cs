@@ -26,6 +26,8 @@ public sealed partial class GameInjector
 
     private const string StampFormat = "yyyy-MM-dd_HHmm";
 
+    private const string ClaimFileName = ".claim";
+
     private readonly TimeProvider _timeProvider;
     private readonly IInjectionFileSystem _fileSystem;
 
@@ -89,11 +91,12 @@ public sealed partial class GameInjector
     }
 
     /// <summary>Faz o backup, confere as cópias e grava o build no jogo. Sem arquivos no plano, não cria backup nem toca no jogo.</summary>
+    /// <param name="phases">Recebe <see cref="InjectionPhase.Backup"/> antes de copiar os originais e <see cref="InjectionPhase.Write"/> antes da primeira gravação no jogo; nada quando não há o que injetar.</param>
     /// <exception cref="InjectionException">
     /// Backup que não confere (nada foi gravado no jogo) ou gravação que falhou. A mensagem diz se o jogo voltou ao estado original
     /// ou se é preciso rodar <c>vnf restore</c>.
     /// </exception>
-    public InjectionResult Inject(InjectionPlan plan)
+    public InjectionResult Inject(InjectionPlan plan, IProgress<InjectionPhase>? phases = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
@@ -102,6 +105,7 @@ public sealed partial class GameInjector
             return new InjectionResult(plan.GameDirectory, null, [], plan.UnchangedCount);
         }
 
+        phases?.Report(InjectionPhase.Backup);
         var backupDirectory = CreateBackupDirectory(plan.BackupRoot);
         BackupManifest manifest;
         try
@@ -113,14 +117,17 @@ public sealed partial class GameInjector
                 plan.GameDirectory,
                 plan.Files.Select(f => new BackupEntry(f.RelativePath, f.ReplacesExisting, f.OriginalSha256, f.BuildSha256)).ToList());
             WriteManifest(backupDirectory, manifest);
+            ReleaseClaim(backupDirectory);
         }
         catch (Exception ex) when (ex is InjectionException or IOException or UnauthorizedAccessException)
         {
+            // Só a pasta que esta chamada criou (CreateBackupDirectory a marcou) chega aqui.
             TryDeleteDirectory(backupDirectory);
             throw ex as InjectionException
                 ?? new InjectionException($"Não foi possível fazer o backup dos originais: {ex.Message} Nada foi gravado no jogo.", ex);
         }
 
+        phases?.Report(InjectionPhase.Write);
         var written = new List<string>();
         foreach (var file in plan.Files)
         {
@@ -270,6 +277,19 @@ public sealed partial class GameInjector
         }
 
         return new RestoreResult(plan.GameDirectory, plan.BackupDirectory, outcome.Restored, outcome.Removed, outcome.Kept) { Warnings = warnings };
+    }
+
+    /// <summary>Depois de uma injeção desfeita o backup não tem mais o que devolver; sem a marca ele pareceria uma injeção que ainda vale.</summary>
+    private void TryMarkRestored(string backupDirectory)
+    {
+        try
+        {
+            MarkRestored(backupDirectory);
+        }
+        catch (Exception ex) when (ex is InjectionException or IOException or UnauthorizedAccessException)
+        {
+            // O jogo já voltou ao original; sobra um backup que o plano de restauração ainda lista.
+        }
     }
 
     /// <summary>Grava <see cref="BackupManifest.RestoredAt"/> no manifesto: o backup já devolveu os originais e não deve bloquear restaurações nem injeções futuras.</summary>
@@ -422,6 +442,7 @@ public sealed partial class GameInjector
         var outcome = RestoreEntries(gameDirectory, _ => backupDirectory, entries, removeModifiedCreations: true);
         if (outcome.Failures.Count == 0)
         {
+            TryMarkRestored(backupDirectory);
             return new InjectionException(
                 $"A injeção falhou em '{failedFile}': {cause.Message} O jogo voltou ao estado original; o backup está em '{backupDirectory}'.",
                 cause);
@@ -519,26 +540,37 @@ public sealed partial class GameInjector
     {
         var stamp = _timeProvider.GetLocalNow().ToString(StampFormat, CultureInfo.InvariantCulture);
         var attempt = 1;
-        string path;
-        do
+        while (true)
         {
             var name = attempt == 1 ? stamp : $"{stamp}-{attempt:D2}";
-            path = Path.Combine(backupRoot, name);
+            var path = Path.Combine(backupRoot, name);
             attempt++;
-        }
-        while (Directory.Exists(path));
+            if (Directory.Exists(path))
+            {
+                continue;
+            }
 
-        try
-        {
-            Directory.CreateDirectory(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            throw new InjectionException($"Não foi possível criar a pasta de backup '{path}': {ex.Message}", ex);
-        }
+            try
+            {
+                Directory.CreateDirectory(path);
+                // CreateDirectory não falha se a pasta já existe; a criação exclusiva do arquivo de marca é o que decide quem é o dono dela.
+                File.Open(Path.Combine(path, ClaimFileName), FileMode.CreateNew, FileAccess.Write, FileShare.None).Dispose();
+            }
+            catch (IOException) when (File.Exists(Path.Combine(path, ClaimFileName)))
+            {
+                continue;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InjectionException($"Não foi possível criar a pasta de backup '{path}': {ex.Message}", ex);
+            }
 
-        return path;
+            return path;
+        }
     }
+
+    /// <summary>A pasta de backup é desta chamada até o manifesto estar gravado: depois a marca sai e a pasta vira um backup comum.</summary>
+    private static void ReleaseClaim(string backupDirectory) => File.Delete(Path.Combine(backupDirectory, ClaimFileName));
 
     private static void WriteManifest(string backupDirectory, BackupManifest manifest)
     {

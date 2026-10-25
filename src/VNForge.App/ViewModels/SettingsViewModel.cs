@@ -844,7 +844,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         var summary = app.SpendLimit is { } limit
             ? $"{Controls.Money.BrlEstimate(spent)} de {Controls.Money.Brl(limit)}"
             : $"{Controls.Money.BrlEstimate(spent)} neste projeto";
-        SpentSummary = app.Rate.IsInformed || spent <= 0m ? summary : $"≈ {summary} (cotação de exemplo)";
+        SpentSummary = Controls.Money.WithRateMark(summary, spent, app.Rate);
     }
 
     private void ApplyEstimates()

@@ -76,8 +76,7 @@ public sealed partial class BackgroundTaskItem : ObservableObject
         get
         {
             var current = rate();
-            var text = Controls.Money.BrlEstimate(current.ToBrl(Cost));
-            return current.IsInformed || Cost <= 0m ? text : $"≈ {text} (cotação de exemplo)";
+            return Controls.Money.BrlEstimate(current.ToBrl(Cost), current);
         }
     }
 
