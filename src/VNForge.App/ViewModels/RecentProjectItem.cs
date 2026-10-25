@@ -57,8 +57,8 @@ public sealed class RecentProjectItem
         _ => EngineLabel,
     };
 
-    /// <summary>A engine em caixa alta, como o design escreve o <c>overline</c> do detalhe.</summary>
-    public string EngineOverline => EngineLabel.ToUpperInvariant();
+    /// <summary>A engine como rótulo do detalhe; a v3 escreve os rótulos em caixa normal.</summary>
+    public string EngineOverline => EngineLabel;
 
     /// <summary>Engine e caminho, a segunda linha da lista.</summary>
     public string Subtitle => Summary is null ? Path : $"{EngineLabel} · {Path}";

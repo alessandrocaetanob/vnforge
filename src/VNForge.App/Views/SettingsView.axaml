@@ -63,7 +63,7 @@
           <StackPanel Margin="0,16,0,0" Spacing="20">
 
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="PROVEDOR"/>
+              <TextBlock Classes="overline" Text="Provedor"/>
               <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -128,7 +128,7 @@
             </Border>
 
             <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-              <TextBlock Classes="overline" Text="MODELO"/>
+              <TextBlock Classes="overline" Text="Modelo"/>
               <ItemsControl ItemsSource="{Binding Models}" AutomationProperties.Name="Modelo">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ModelOption">
@@ -147,17 +147,17 @@
 
             <WrapPanel ItemSpacing="24" LineSpacing="16">
               <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-                <TextBlock Classes="overline" Text="ESFORÇO"/>
+                <TextBlock Classes="overline" Text="Esforço"/>
                 <ListBox Classes="seg" ItemsSource="{Binding Efforts}" SelectedItem="{Binding SelectedEffort}"
                          AutomationProperties.Name="Esforço" DisplayMemberBinding="{Binding Label}"/>
               </StackPanel>
               <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-                <TextBlock Classes="overline" Text="LINHAS POR LOTE"/>
+                <TextBlock Classes="overline" Text="Linhas por lote"/>
                 <NumericUpDown Width="112" Value="{Binding BatchSize}" Minimum="{Binding MinBatchSize}" Maximum="{Binding MaxBatchSize}"
                                FormatString="0" AutomationProperties.Name="Linhas por lote"/>
               </StackPanel>
               <StackPanel Spacing="8">
-                <TextBlock Classes="overline" Text="CHAMADAS EM PARALELO"/>
+                <TextBlock Classes="overline" Text="Chamadas em paralelo"/>
                 <NumericUpDown Width="112" Value="{Binding Concurrency}" Minimum="{Binding MinConcurrency}" Maximum="{Binding MaxConcurrency}"
                                FormatString="0" AutomationProperties.Name="Chamadas em paralelo"/>
               </StackPanel>
@@ -176,7 +176,7 @@
 
             <!-- Fora do artboard: o guia de estilo (style.md) existia nos Ajustes e continua aqui, na aba da IA que o usa. -->
             <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-              <TextBlock Classes="overline" Text="GUIA DE ESTILO (STYLE.MD)"/>
+              <TextBlock Classes="overline" Text="Guia de estilo (style.md)"/>
               <TextBox Text="{Binding StyleGuide}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" MaxHeight="280"
                        PlaceholderText="Tom, tratamento, como lidar com honoríficos…" AutomationProperties.Name="Guia de estilo"/>
             </StackPanel>
@@ -236,18 +236,18 @@
                   <StackPanel Spacing="12">
                     <WrapPanel ItemSpacing="16" IsEnabled="{Binding WrapEnabled}">
                       <StackPanel Spacing="8">
-                        <TextBlock Classes="overline" Text="COLUNAS"/>
+                        <TextBlock Classes="overline" Text="Colunas"/>
                         <NumericUpDown Width="112" Value="{Binding WrapMaxWidth}" Minimum="1" Maximum="200" FormatString="0" AutomationProperties.Name="Colunas"/>
                       </StackPanel>
                       <StackPanel Spacing="8">
-                        <TextBlock Classes="overline" Text="LINHAS POR CAIXA"/>
+                        <TextBlock Classes="overline" Text="Linhas por caixa"/>
                         <NumericUpDown Width="112" Value="{Binding WrapMaxLines}" Minimum="1" Maximum="20" FormatString="0" AutomationProperties.Name="Linhas por caixa"/>
                       </StackPanel>
                     </WrapPanel>
-                    <TextBlock Classes="overline" Text="ANTES"/>
+                    <TextBlock Classes="overline" Text="Antes"/>
                     <TextBox Classes="mono" Text="{Binding PreviewBefore}" AcceptsReturn="False" TextWrapping="Wrap"
                              Background="{DynamicResource Vnf.BgInset}" BorderThickness="0" Padding="12,10" AutomationProperties.Name="Texto de exemplo"/>
-                    <TextBlock Classes="overline" Text="DEPOIS, NO BUILD"/>
+                    <TextBlock Classes="overline" Text="Depois, no build"/>
                     <Border Padding="12,10" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}"
                             BorderBrush="{DynamicResource Vnf.Accent}" BorderThickness="1">
                       <TextBlock Classes="mono" Text="{Binding PreviewAfter}" TextWrapping="Wrap" AutomationProperties.Name="Texto depois das regras"/>
@@ -270,7 +270,7 @@
         <!-- Acentuação -->
         <TabItem Header="Acentuação">
           <StackPanel Margin="0,16,0,0" Spacing="8" IsEnabled="{Binding HasProject}">
-            <TextBlock Classes="overline" Text="ESTRATÉGIA DE ACENTUAÇÃO"/>
+            <TextBlock Classes="overline" Text="Estratégia de acentuação"/>
             <ItemsControl ItemsSource="{Binding Encodings}" AutomationProperties.Name="Estratégia de acentuação">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:EncodingOption">
@@ -301,7 +301,7 @@
         <!-- Aparência: vale para o app todo e fica nas preferências do usuário, não no projeto. -->
         <TabItem Header="Aparência">
           <StackPanel Margin="0,16,0,0" Spacing="8">
-            <TextBlock Classes="overline" Text="TEMA"/>
+            <TextBlock Classes="overline" Text="Tema"/>
             <ListBox Classes="seg" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tema"/>
             <TextBlock Classes="caption secondary" Text="Sistema segue o tema do Windows."/>

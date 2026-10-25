@@ -3,7 +3,7 @@ Sistema visual do VNForge v2, o aplicativo Windows de tradução de visual novel
 ## Conteúdo
 
 - Interface em português do Brasil, caixa de frase em tudo: "Traduzir pendentes", "Build e injeção", "Conferência".
-- Botões começam com verbo no infinitivo ("Aprovar e próxima", "Restaurar originais"). Itens de navegação são substantivos de uma palavra ("Editor", "Conferir", "Build").
+- Botões começam com verbo no infinitivo ("Aprovar e próxima", "Restaurar originais"). Itens de navegação são substantivos de uma palavra ("Editor", "Conferir", "Testar").
 - Termos fixos do produto: **linha** (unidade de texto), **script** (arquivo `yst*.ybn`), **marcador** (`\p`, `\n`, `\c`, `{VAR:…}`), **perfil de formatação**, **build**, **injetar**, **restaurar**. Não alternar com sinônimos.
 - Números e moeda no formato pt-BR: `48.211 linhas`, `US$ 0,84`, `62%`. Datas relativas até 7 dias ("há 2 min", "ontem"), depois `17/10/2026`.
 - Nomes de personagem aparecem como original → tradução na primeira menção de uma tela (`美咲 → Misaki`) e só a tradução no resto.
@@ -27,7 +27,7 @@ Sistema visual do VNForge v2, o aplicativo Windows de tradução de visual novel
 - Interface em `body` (Noto Sans 14/20), igual ao tamanho padrão do Fluent. Listas densas e grade em `body-sm` (13/18).
 - Texto japonês sempre na família `jp` (Noto Sans JP): `jp-body` no inspetor, `jp-row` na grade. Não deixar o kanji cair no fallback da família `ui`.
 - Títulos de página em `title-lg` e de painel em `title-md`, na família `display` (Zen Kaku Gothic New), um título de página por tela.
-- Rótulos de campo e cabeçalhos de coluna em `overline` (11/600, caixa alta, 0,04em).
+- Rótulos de campo e cabeçalhos de coluna em `overline` (12/600, caixa normal, sem espaçamento entre letras).
 - Ids, caminhos e log em `mono` (JetBrains Mono); chips de marcador e teclas em `mono-xs`.
 
 ## Espaço, tamanho e forma

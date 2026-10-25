@@ -131,8 +131,8 @@
       <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
         <Grid RowDefinitions="Auto,*,Auto">
           <Grid ColumnDefinitions="20,128,*" ColumnSpacing="12" Margin="16,0" Height="32">
-            <TextBlock Grid.Column="1" Classes="overline" Text="LINHA" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Classes="overline" Text="PROBLEMA" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Classes="overline" Text="Linha" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Classes="overline" Text="Problema" VerticalAlignment="Center"/>
           </Grid>
           <Border Grid.Row="1" Classes="divider-top">
             <Panel>
@@ -196,19 +196,19 @@
                   <TextBlock Classes="title-md" Text="{Binding DetailTitle}" TextWrapping="Wrap"/>
                   <TextBlock Classes="body-sm secondary" Text="{Binding Explanation}" TextWrapping="Wrap"/>
                   <StackPanel Spacing="6" IsVisible="{Binding HasOriginal}">
-                    <TextBlock Classes="overline" Text="ORIGINAL"/>
+                    <TextBlock Classes="overline" Text="Original"/>
                     <Border Classes="original">
                       <TextBlock Classes="jp-body" Text="{Binding Original}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasTranslation}">
-                    <TextBlock Classes="overline" Text="TRADUÇÃO ATUAL"/>
+                    <TextBlock Classes="overline" Text="Tradução atual"/>
                     <Border Classes="original">
                       <TextBlock FontSize="14" LineHeight="22" Text="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="Tradução atual"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasProposal}">
-                    <TextBlock Classes="overline" Text="CORREÇÃO PROPOSTA"/>
+                    <TextBlock Classes="overline" Text="Correção proposta"/>
                     <Border Classes="original proposal">
                       <TextBlock FontSize="14" LineHeight="22" Text="{Binding ProposedText}" TextWrapping="Wrap" AutomationProperties.Name="Correção proposta"/>
                     </Border>

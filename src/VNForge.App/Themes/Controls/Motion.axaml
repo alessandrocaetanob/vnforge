@@ -58,6 +58,20 @@
     </Style.Animations>
   </Style>
 
+  <!-- Triângulo de virar a página da caixa do jogo: sobe e desce 3 px. Sem a classe "motion" (o Windows pediu menos movimento) fica parado. -->
+  <Style Selector="Window.motion c|GameTextbox">
+    <Style.Animations>
+      <Animation Duration="0:0:0.8" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%">
+          <Setter Property="NextOffset" Value="0"/>
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="NextOffset" Value="3"/>
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
   <!-- Esqueleto: as faixas pulsam devagar. -->
   <Style Selector="Window.motion c|Skeleton">
     <Style.Animations>

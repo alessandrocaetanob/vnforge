@@ -1,0 +1,18 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- CostLabel (v3.css ".money"): o real, com números de largura fixa, e o dólar em 12px ao lado só quando há. -->
+  <Style Selector="c|CostLabel">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Name="PART_Brl" Text="{TemplateBinding BrlText}" FontFeatures="tnum" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          <TextBlock Name="PART_Usd" Classes="caption secondary" Text="{TemplateBinding UsdText}" VerticalAlignment="Center"
+                     IsVisible="{TemplateBinding UsdText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

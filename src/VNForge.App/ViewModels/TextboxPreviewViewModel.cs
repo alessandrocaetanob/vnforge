@@ -13,7 +13,7 @@ public sealed record TextboxLine(string Text, int Columns, bool Overflow, IReadO
 /// <summary>Uma caixa de texto do jogo (o texto entre dois <c>\p</c>).</summary>
 public sealed record TextboxBox(IReadOnlyList<TextboxLine> Lines);
 
-/// <summary>O que o controle <c>TextboxPreview</c> desenha.</summary>
+/// <summary>O que o controle <c>GameTextbox</c> desenha.</summary>
 /// <param name="Speaker">Nome da placa; nulo quando a linha não tem falante.</param>
 /// <param name="Columns">Largura da caixa em colunas.</param>
 /// <param name="MaxLines">Limite de linhas por caixa do perfil; nulo sem limite.</param>

@@ -28,7 +28,7 @@ public class FontsHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headles
     }
 
     [Theory]
-    [InlineData("title-lg", 22, 28)]
+    [InlineData("title-lg", 26, 32)]
     [InlineData("title-md", 17, 24)]
     public async Task Titulo_usa_a_fonte_de_exibicao(string cssClass, double size, double lineHeight)
     {

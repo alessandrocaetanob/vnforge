@@ -550,7 +550,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     {
         "fold" => new(id, "Remover acentos", "fold", "Funciona em qualquer jogo, mas perde todos os acentos. É o padrão."),
         "remap" => new(id, "Remapear glifos", "remap", "Boa qualidade, com fonte modificada. O build ainda não tem esse encoder."),
-        "cp1252" => new(id, "CP1252", "cp1252", "Acentos completos com o executável original. O patch da fonte (MS Gothic) é opcional: tira os vãos entre as letras e se aplica na tela Build."),
+        "cp1252" => new(id, "CP1252", "cp1252", "Acentos completos com o executável original. O patch da fonte (MS Gothic) é opcional: tira os vãos entre as letras e se aplica na tela Testar."),
         _ => new(id, id),
     };
 

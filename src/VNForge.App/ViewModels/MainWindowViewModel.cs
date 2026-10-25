@@ -54,7 +54,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferir", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false) { IsVisible = false };
-    private readonly NavItemViewModel buildItem = new(NavKey.Build, "Build", "Icon.Box", isEnabled: false);
+    private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
     private readonly Action<string> openFolder;
     private readonly FormattingProfileCache profiles = new();
@@ -354,7 +354,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (notice.Kind == BuildNoticeKind.Injected)
         {
-            // Desfazer a injeção é restaurar os originais, e a restauração pede confirmação na página Build, como sempre.
+            // Desfazer a injeção é restaurar os originais, e a restauração pede confirmação na tela Testar, como sempre.
             Toasts.Show(notice.Message, ToastKind.Success, key: "build", undo: () =>
             {
                 SelectedNav = buildItem;
@@ -364,7 +364,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
                 else
                 {
-                    Toasts.Show("Não dá para restaurar os originais agora. Espere a operação em andamento terminar e use Restaurar na página Build.", ToastKind.Warning, key: "build-restore");
+                    Toasts.Show("Não dá para restaurar os originais agora. Espere a operação em andamento terminar e use Restaurar na tela Testar.", ToastKind.Warning, key: "build-restore");
                 }
             });
             return;
@@ -468,7 +468,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a página Build com o aviso.</summary>
+    /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a tela Testar com o aviso.</summary>
     public bool TryClose()
     {
         if (Build.TryCloseSafely())

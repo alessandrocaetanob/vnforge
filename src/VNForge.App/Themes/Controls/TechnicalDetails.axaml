@@ -1,0 +1,29 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- TechnicalDetails (v3.css ".tech"): contorno de 1px em stroke-subtle, raio 8, cabeçalho de 40px em 13/600 e, aberto, uma divisória embaixo dele. Fechado por padrão. -->
+  <Style Selector="c|TechnicalDetails">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,0">
+          <StackPanel>
+            <ToggleButton Name="PART_Header" Classes="disclosure" Height="40" IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}">
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <PathIcon Name="PART_Chevron" Width="12" Height="12" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{DynamicResource Icon.ChevronRight}"/>
+                <ContentPresenter Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" FontSize="13" FontWeight="SemiBold"
+                                  VerticalAlignment="Center"/>
+              </StackPanel>
+            </ToggleButton>
+            <Border Name="PART_Body" Classes="divider-top" Padding="0,12" IsVisible="{TemplateBinding IsExpanded}">
+              <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+            </Border>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|TechnicalDetails:expanded /template/ PathIcon#PART_Chevron">
+    <Setter Property="Data" Value="{DynamicResource Icon.ChevronDown}"/>
+  </Style>
+</Styles>

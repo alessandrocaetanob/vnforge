@@ -1,0 +1,55 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Vnf.Scrim" Color="#8C05080E"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Vnf.Scrim" Color="#59141C2C"/>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- ScreenDialog (v3.css ".scrim" e ".dialog"): o controle no XAML é só o ponto de partida; aberto, o cartão (ScreenDialogSurface) vai para a OverlayLayer. -->
+  <Style Selector="c|ScreenDialog">
+    <Setter Property="IsHitTestVisible" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <!-- O fundo escurecido cobre a janela e um cartão de até 760px fica no alto, 64px abaixo da borda. Tab cicla dentro dele. -->
+  <Style Selector="c|ScreenDialogSurface">
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="Cycle"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border Name="PART_Scrim" Background="{DynamicResource Vnf.Scrim}"/>
+          <Border Name="PART_Dialog" MaxWidth="760" Margin="24,64,24,24" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                  Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+                  CornerRadius="{DynamicResource Vnf.RadiusMd}" BoxShadow="{DynamicResource Vnf.ShadowFlyout}">
+            <Grid RowDefinitions="Auto,*,Auto">
+              <Grid ColumnDefinitions="*,Auto" Margin="20,16,16,12" ColumnSpacing="12">
+                <TextBlock Classes="title-md" Text="{TemplateBinding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <Button Name="PART_Close" Grid.Column="1" Classes="icon subtle" AutomationProperties.Name="Fechar">
+                  <PathIcon Width="16" Height="16" Data="{DynamicResource Icon.Dismiss}"/>
+                </Button>
+              </Grid>
+              <ContentPresenter Name="PART_ContentPresenter" Grid.Row="1" Margin="20,0,20,16" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+              <Border Name="PART_Footer" Grid.Row="2" Classes="divider-top" Padding="20,12" IsVisible="{TemplateBinding Footer, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <ContentPresenter Content="{TemplateBinding Footer}"/>
+              </Border>
+            </Grid>
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

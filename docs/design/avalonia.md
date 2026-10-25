@@ -137,7 +137,15 @@ Cada controle fica em `src/VNForge.App/Controls` e a aparência em `Themes/Contr
 | Componente | Base | Mapeamento |
 |---|---|---|
 | `StatusBadge` | `TemplatedControl` | Propriedade `Status` (enum); estilos por `[Status=…]`; ponto vazado só no pendente |
-| `TextboxPreview` | `Control` com `Render` | Usa o `LinePreviewer` do `VNForge.Core` (o mesmo do build e do `vnf preview`); nada de quebra duplicada na UI |
+| `GameTextbox` (era `TextboxPreview`) | `Control` com `Render` | Usa o `LinePreviewer` do `VNForge.Core` (o mesmo do build e do `vnf preview`); nada de quebra duplicada na UI. Desenha a placa do nome, todas as linhas que o perfil permite (as vagas só com o pontilhado), o que passa do limite abaixo de um traço, o triângulo de virar a página (oscila só sob a classe `motion` da janela, parado quando o Windows pede menos movimento) e, com várias caixas, o separador "página N". `Size`: `Small`, `Medium` (padrão) e `Large`. `GameTextbox.Describe(layout)` devolve a grade de linhas (`Text`, `Vacant`, `Overflow`, `PageBreak`); a redação "Cabe · 2 de 3 linhas" fica para a #305 |
+| `MarkerChip` | `TemplatedControl` | `Marker` e `Kind`. Selo em pílula de 20 px com o nome em português (`\p` "virar a página", `\n` "quebra de linha", `{VAR:nome}` "nome do jogador"); `IsMissing` pinta de erro. No AvaloniaEdit entra pelo `MarkerChipGenerator`; nos textos só de leitura, num `InlineUIContainer` |
+| `ProgressRing`, `Seg3Bar`, `ChapterRow` | `TemplatedControl` com `Done`, `Review`, `Total` | O progresso em três estados (pronto, esperando revisão, em japonês) a partir da mesma base (`ThreeStateProgress`). `ChapterRow` junta número, nome, `Seg3Bar`, porcentagem, linhas e nota; `:here` e `:extra` |
+| `CostLabel`, `BudgetBar` | `TemplatedControl` | `CostLabel`: `Brl` e, opcional, `Usd`, em pt-BR fixo. `BudgetBar`: `Spent`, `Ask`, `Limit`, marca do limite e `:over` |
+| `QualityCard` | `RadioButton` | O `OptionCard` com `Title`, `Description`, `Model`, `Price` (reais) e `Duration` |
+| `ContextLines`, `ExplainCard` | `ItemsControl` | Itens `ContextLine(Who, Original, Translation)` e `ExplainPart(Source, Meaning)` |
+| `ScriptGroup`, `TechnicalDetails` | `Expander` | Cabeçalho próprio; "Detalhes técnicos" começa fechado |
+| `GameStateBanner`, `TodoItem` | `ContentControl` e `TemplatedControl` | Estado do jogo (`:original`, `:translated`, `:blocked`) e item de "Precisa de você" (`:error`, `:warning`, `:ok`) |
+| `ScreenDialog` | `ContentControl` | Diálogo na `OverlayLayer` do Avalonia, sobre a janela inteira: fundo escurecido, `IsOpen`, `Title`, `Footer`; Tab cicla dentro do cartão, `Escape` e o botão fechar fecham, e `Closed`/`CloseCommand` disparam também quando `IsOpen` vira falso por binding. O cartão sai da árvore da página, então estilos declarados só nela não alcançam o corpo |
 | `InfoBar` | `Border.infobar` + classes `warning`, `error`, `success` | O Fluent do Avalonia não tem InfoBar |
 | `OptionCard` | `RadioButton.option` | Template em `Border`; marcado, a borda vira accent de 2px |
 | `PipelineStepper` | `ItemsControl` com `UniformGrid Rows=1`; itens `PipelineStepItem : Button` | Itens são `PipelineStep(Number, Title, Subtitle, State, Command?)`. `State` vira `:done` (círculo cheio em `seg-approved` com ✓) ou `:active` (número em `accent-text`, sublinhado de 2px). `PipelineStepper.Resolve(bool[])` marca a atual como a primeira não concluída. Cantos arredondados só na primeira e na última etapa (`:nth-child(1)`, `:nth-last-child(1)`) |
@@ -166,7 +174,7 @@ $env:VNFORGE_RENDER_DIR = "$PWD\artifacts\render"
 dotnet test --project tests/VNForge.App.Tests --filter-class "*ScreenRenderTests"
 ```
 
-  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` e `title-md` resolvem para a Zen Kaku Gothic New embutida.
+  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` (26/32) e `title-md` resolvem para a Zen Kaku Gothic New embutida.
 
 ## Ícones
 

@@ -76,13 +76,26 @@ public class MarkerScannerTests
 
     [Theory]
     [InlineData(@"\n", MarkerKind.Control, "quebra de linha")]
-    [InlineData(@"\p", MarkerKind.Control, "nova página")]
-    [InlineData(@"\c", MarkerKind.Control, "esperar clique")]
-    [InlineData(@"\u", MarkerKind.Control, "desconhecido")]
+    [InlineData(@"\p", MarkerKind.Control, "virar a página")]
+    [InlineData(@"\c", MarkerKind.Control, "esperar o clique")]
+    [InlineData(@"\u", MarkerKind.Control, "código do jogo")]
     [InlineData(@"\\", MarkerKind.Control, "barra invertida")]
-    [InlineData(@"\{", MarkerKind.Control, "chave literal")]
-    [InlineData("{VAR:nome}", MarkerKind.Variable, "Variável")]
-    [InlineData(@"\z", MarkerKind.Control, @"\z")]
-    public void Nome_acessivel_descreve_o_marcador(string marcador, MarkerKind tipo, string trecho) =>
-        Assert.Contains(trecho, MarkerLabels.Describe(marcador, tipo));
+    [InlineData(@"\{", MarkerKind.Control, "chave")]
+    [InlineData("{VAR:nome}", MarkerKind.Variable, "nome do jogador")]
+    [InlineData("{VAR:Name}", MarkerKind.Variable, "nome do jogador")]
+    [InlineData("{EF:00}", MarkerKind.Variable, "variável do jogo")]
+    [InlineData(@"\z", MarkerKind.Control, "código do jogo")]
+    public void Nome_em_portugues_descreve_o_marcador(string marcador, MarkerKind tipo, string nome)
+    {
+        Assert.Equal(nome, MarkerLabels.Name(marcador, tipo));
+        Assert.Equal($"Marcador {nome} ({marcador})", MarkerLabels.Describe(marcador, tipo));
+    }
+
+    [Theory]
+    [InlineData(@"\n", MarkerKind.Control, "↵")]
+    [InlineData("{VAR:nome}", MarkerKind.Variable, "✱")]
+    [InlineData(@"\p", MarkerKind.Control, null)]
+    [InlineData(@"\c", MarkerKind.Control, null)]
+    public void Desenho_do_selo_e_o_triangulo_exceto_na_quebra_de_linha_e_na_variavel(string marcador, MarkerKind tipo, string? desenho) =>
+        Assert.Equal(desenho, MarkerLabels.Glyph(marcador, tipo));
 }

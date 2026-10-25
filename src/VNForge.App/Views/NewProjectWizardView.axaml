@@ -60,7 +60,7 @@
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <PathIcon Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,8">
-                  <TextBlock Classes="overline" Text="ENGINE DETECTADA"/>
+                  <TextBlock Classes="overline" Text="Engine detectada"/>
                   <TextBlock Classes="title-md" Text="{Binding EngineTitle}"/>
                 </StackPanel>
                 <Border Grid.Column="2" VerticalAlignment="Center" Padding="8,2" CornerRadius="{DynamicResource Vnf.RadiusSm}"
@@ -104,11 +104,11 @@
       <!-- 2. Idiomas e nome -->
       <StackPanel Spacing="20" IsVisible="{Binding IsNamesStep}">
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="NOME DO PROJETO"/>
+          <TextBlock Classes="overline" Text="Nome do projeto"/>
           <TextBox Text="{Binding ProjectName}" AutomationProperties.Name="Nome do projeto"/>
         </StackPanel>
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="PASTA DO PROJETO"/>
+          <TextBlock Classes="overline" Text="Pasta do projeto"/>
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <TextBlock Classes="mono secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding ProjectDirectoryLabel}"/>
             <Button Grid.Column="1" Command="{Binding BrowseProjectCommand}">
@@ -121,7 +121,7 @@
           <TextBlock Classes="caption secondary" Text="Fora da pasta do jogo. Texto, cache e backups ficam aqui."/>
         </StackPanel>
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="IDIOMA DO JOGO"/>
+          <TextBlock Classes="overline" Text="Idioma do jogo"/>
           <ItemsControl ItemsSource="{Binding SourceLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -131,7 +131,7 @@
           </ItemsControl>
         </StackPanel>
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="IDIOMA DA TRADUÇÃO"/>
+          <TextBlock Classes="overline" Text="Idioma da tradução"/>
           <ItemsControl ItemsSource="{Binding TargetLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -146,14 +146,14 @@
       <StackPanel Spacing="8" IsVisible="{Binding IsAccentsStep}">
         <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
                    Text="O jogo lê o texto em Shift-JIS, que não tem letras acentuadas. A estratégia decide o que acontece com elas no build. Dá para trocar depois nos Ajustes."/>
-        <TextBlock Classes="overline" Margin="0,8,0,0" Text="ESTRATÉGIA DE ACENTUAÇÃO"/>
+        <TextBlock Classes="overline" Margin="0,8,0,0" Text="Estratégia de acentuação"/>
         <ItemsControl ItemsSource="{Binding EncodingStrategies.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>
       </StackPanel>
 
       <!-- 4. IA -->
       <StackPanel Spacing="16" IsVisible="{Binding IsAiStep}">
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="PROVEDOR"/>
+          <TextBlock Classes="overline" Text="Provedor"/>
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Border Padding="10,4" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.StatusApprovedBg}">
               <TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Claude (Anthropic)"/>
@@ -168,7 +168,7 @@
                         IsChecked="{Binding SkipAi, Mode=TwoWay}"/>
         </Border>
         <StackPanel Spacing="8" IsEnabled="{Binding !SkipAi}">
-          <TextBlock Classes="overline" Text="MODELO"/>
+          <TextBlock Classes="overline" Text="Modelo"/>
           <ItemsControl ItemsSource="{Binding Models.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>
         </StackPanel>
         <Border Classes="infobar">

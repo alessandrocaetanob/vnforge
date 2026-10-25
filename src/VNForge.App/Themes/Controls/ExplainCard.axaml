@@ -1,0 +1,42 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- ExplainCard (v3.css ".explain"): cartão de contorno tracejado, 10/12 de respiro, o cabeçalho com o modelo em cor de IA, os pedaços do original com o significado e a nota.
+       O Border não tem borda tracejada: o contorno é um Rectangle, como no MarkerChip da v2. -->
+  <Style Selector="c|ExplainCard">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Rectangle Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,2" RadiusX="8" RadiusY="8" IsHitTestVisible="False"/>
+          <StackPanel Spacing="6" Margin="12,10">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Width="14" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Data="{DynamicResource Icon.Sparkle}"/>
+              <TextBlock Classes="caption secondary" Text="{TemplateBinding Title}" VerticalAlignment="Center"/>
+              <TextBlock Name="PART_Model" Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{TemplateBinding Model}" VerticalAlignment="Center"
+                         IsVisible="{TemplateBinding Model, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+            <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Footnote}"
+                       IsVisible="{TemplateBinding Footnote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="2"/>
+      </ItemsPanelTemplate>
+    </Setter>
+    <Setter Property="ItemTemplate">
+      <DataTemplate x:DataType="c:ExplainPart">
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
+          <TextBlock Classes="body-sm" FontFamily="{DynamicResource Vnf.FontJp}" Text="{Binding Source}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="·"/>
+          <TextBlock Grid.Column="2" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Meaning}"/>
+        </Grid>
+      </DataTemplate>
+    </Setter>
+  </Style>
+</Styles>

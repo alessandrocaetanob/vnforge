@@ -1,0 +1,70 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- ProgressRing (v3.css ".ringwrap"): 120px, o número em 26/28 bold na fonte de exibição e a palavra embaixo em 11/14. Com a classe "sm": 56px e só o número em 13/16.
+       Os arcos são desenhados pelo controle; o template só põe o texto no centro. -->
+  <Style Selector="c|ProgressRing">
+    <Setter Property="Width" Value="120"/>
+    <Setter Property="Height" Value="120"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2" IsHitTestVisible="False">
+          <TextBlock Name="PART_Percent" Text="{TemplateBinding PercentText}" HorizontalAlignment="Center" FontFamily="{DynamicResource Vnf.FontDisplay}"
+                     FontSize="26" LineHeight="32" FontWeight="Bold" Foreground="{DynamicResource Vnf.TextPrimary}"/>
+          <TextBlock Name="PART_Caption" Text="{TemplateBinding Caption}" HorizontalAlignment="Center" FontSize="11" LineHeight="14"
+                     Foreground="{DynamicResource Vnf.TextSecondary}"
+                     IsVisible="{TemplateBinding Caption, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|ProgressRing.sm">
+    <Setter Property="Width" Value="56"/>
+    <Setter Property="Height" Value="56"/>
+  </Style>
+  <Style Selector="c|ProgressRing.sm /template/ TextBlock#PART_Percent">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontUi}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="LineHeight" Value="16"/>
+  </Style>
+  <Style Selector="c|ProgressRing.sm /template/ TextBlock#PART_Caption">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+
+  <!-- ChapterRow (v3.css ".chrow"): número, nome, barra de três estados, parte pronta, linhas e nota. O capítulo aberto (:here) ganha o fundo e a barra de
+       accent; "Menus e nomes" (:extra) fica sem número e com o nome em cinza. -->
+  <Style Selector="c|ChapterRow">
+    <Setter Property="Height" Value="44"/>
+    <Setter Property="Padding" Value="12,0"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" Padding="{TemplateBinding Padding}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="Transparent">
+          <Grid ColumnDefinitions="28,200,160,48,96,*" ColumnSpacing="12" VerticalAlignment="Center">
+            <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding Number}" HorizontalAlignment="Right"/>
+            <TextBlock Name="PART_Title" Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis"/>
+            <c:Seg3Bar Grid.Column="2" VerticalAlignment="Center" Done="{TemplateBinding Done}" Review="{TemplateBinding Review}" Total="{TemplateBinding Total}"/>
+            <TextBlock Grid.Column="3" Classes="body-sm" Text="{TemplateBinding PercentText}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="4" Classes="mono secondary" Text="{TemplateBinding LinesText}" TextAlignment="Right"/>
+            <TextBlock Name="PART_Note" Grid.Column="5" Classes="caption secondary" Text="{TemplateBinding Note}" TextTrimming="CharacterEllipsis"/>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|ChapterRow:here /template/ Border#PART_Root">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+  </Style>
+  <Style Selector="c|ChapterRow:here /template/ TextBlock#PART_Note">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <Style Selector="c|ChapterRow:extra /template/ TextBlock#PART_Number">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="c|ChapterRow:extra /template/ TextBlock#PART_Title">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="FontWeight" Value="Normal"/>
+  </Style>
+</Styles>
