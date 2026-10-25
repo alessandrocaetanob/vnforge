@@ -7,7 +7,8 @@ namespace VNForge.Core.Qa;
 
 /// <summary>
 /// Confere os honoríficos da tradução contra a escolha da aba Estilo: "manter" exige que o honorífico do original apareça,
-/// "remover" não aceita nenhum e "adaptar" aceita só senpai (que segue o glossário). Só avisa; quem decide como reescrever é a pessoa.
+/// "remover" não aceita nenhum e "adaptar" aceita só senpai (que segue o glossário). Só avisa; quem decide como reescrever é a pessoa,
+/// e o aviso não trava o build (<see cref="QaReport.Blocks"/>).
 /// </summary>
 public sealed partial class HonorificsRule : UnitQaRule
 {

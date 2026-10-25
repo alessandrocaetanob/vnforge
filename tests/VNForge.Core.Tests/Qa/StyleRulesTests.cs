@@ -188,6 +188,22 @@ public sealed class StyleRulesTests
     }
 
     [Fact]
+    public void Os_avisos_de_estilo_nao_travam_o_build_mas_os_outros_avisos_e_os_erros_travam()
+    {
+        QaReport Report(params QaIssue[] issues) => new(issues, [], []);
+        var honorific = new QaIssue(HonorificsRule.RuleId, QaSeverity.Warning, "a:1", "a", "x");
+        var gender = new QaIssue(GenderRule.RuleId, QaSeverity.Warning, "a:2", "a", "y");
+        var spaces = new QaIssue("espaco-duplo", QaSeverity.Warning, "a:3", "a", "z");
+        var error = new QaIssue("traducao-vazia", QaSeverity.Error, "a:4", "a", "w");
+
+        Assert.False(Report(honorific, gender).Blocks(allowWarnings: false));
+        Assert.True(Report(honorific, spaces).Blocks(allowWarnings: false));
+        Assert.False(Report(honorific, spaces).Blocks(allowWarnings: true));
+        Assert.True(Report(honorific, error).Blocks(allowWarnings: true));
+        Assert.Equal(2, Report(honorific, gender).OtherIssues.Count);
+    }
+
+    [Fact]
     public void O_motor_silencia_o_aviso_de_honorifico_marcado_como_ok()
     {
         var unit = Unit("a:1", WithHonorific, "Misaki-chan, espera!") with { Flags = [HonorificsRule.RuleId] };
