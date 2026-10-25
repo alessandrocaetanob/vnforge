@@ -224,7 +224,7 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
                 Assert.Equal(20, ia.Height);
 
                 var pendente = selos[TranslationStatus.Untranslated];
-                Assert.Equal("Pendente", pendente.Label);
+                Assert.Equal("Em japonês", pendente.Label);
                 Assert.Equal(Cor(pendente, "Vnf.StatusPendingBg"), (pendente.Background as ISolidColorBrush)?.Color);
                 Assert.Equal(Cor(selos[TranslationStatus.Approved], "Vnf.StatusApprovedFg"), (selos[TranslationStatus.Approved].Foreground as ISolidColorBrush)?.Color);
             },

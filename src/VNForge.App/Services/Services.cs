@@ -105,11 +105,10 @@ public static class ProjectLabels
 
     public static string Status(TranslationStatus status) => status switch
     {
-        TranslationStatus.Untranslated => "Pendente",
+        TranslationStatus.Untranslated => "Em japonês",
         TranslationStatus.Machine => "IA",
-        TranslationStatus.Translated => "Traduzida",
-        TranslationStatus.Reviewed => "Revisada",
-        TranslationStatus.Approved => "Aprovada",
+        TranslationStatus.Translated => "Sua",
+        TranslationStatus.Reviewed or TranslationStatus.Approved => "Pronta",
         _ => status.ToString(),
     };
 

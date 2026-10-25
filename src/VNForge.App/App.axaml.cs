@@ -43,7 +43,7 @@ public sealed class App : Application
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings))
             {
-                Editor = new EditorViewModel(suggester: suggester),
+                Editor = new EditorViewModel(suggester: suggester) { Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate) },
                 Glossary = { AutosaveClock = TimeProvider.System, Suggester = UserGlossarySuggester.ForUser(configDirectory) },
             };
             main.Conference.Shortener = suggester;

@@ -27,6 +27,8 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     private ITimer? timer;
     private bool loading = true;
     private bool disposed;
+    private TranslationFieldText translationField;
+    private bool syncingField;
     private bool translationDirty;
     private bool notesDirty;
 
@@ -49,6 +51,8 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         Saved = unit;
         SourceSegments = SplitOrPlain(unit.Source, out sourceMarkers);
         Translation = unit.Translation ?? string.Empty;
+        translationField = TranslationFieldText.Open(Translation, unit.Source);
+        FieldText = translationField.Text;
         Notes = unit.Notes;
         Status = unit.Status;
         loading = false;
@@ -154,7 +158,9 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Linhas e colunas da tradução na caixa do perfil ("2 de 3 linhas · 38/40 colunas"); vazio sem perfil legível.</summary>
+    /// <summary>
+    /// Se a tradução cabe na caixa do perfil: "Cabe · 2 de 3 linhas" ou "Passa 1 linha". Vazio sem perfil legível; "Sem tradução" sem texto.
+    /// </summary>
     public string FitText
     {
         get
@@ -174,12 +180,23 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
                 return string.Empty;
             }
 
+            if (OverflowLines > 0)
+            {
+                return $"Passa {LinesOf(OverflowLines)}";
+            }
+
             var lines = layout.Boxes.Select(b => b.Lines.Count).DefaultIfEmpty().Max();
-            var longest = layout.Boxes.SelectMany(b => b.Lines).Select(l => l.Columns).DefaultIfEmpty().Max();
-            var linesPart = layout.MaxLines is { } max ? $"{lines} de {max} linhas" : lines == 1 ? "1 linha" : $"{lines} linhas";
-            return $"{linesPart} · {longest}/{layout.Columns} colunas";
+            return layout.MaxLines is { } max ? $"Cabe · {lines} de {LinesOf(max)}" : $"Cabe · {LinesOf(lines)}";
         }
     }
+
+    private static string LinesOf(int count) => count == 1 ? "1 linha" : $"{count} linhas";
+
+    /// <summary>Quantas linhas passam do limite do perfil, somadas as páginas; zero quando cabe ou não há perfil.</summary>
+    public int OverflowLines => Preview?.Layout is { } layout ? layout.Boxes.Sum(b => b.Lines.Count(l => l.Overflow)) : 0;
+
+    /// <summary>A tradução passa da caixa do jogo; o texto da medida fica em aviso.</summary>
+    public bool DoesNotFit => OverflowLines > 0;
 
     /// <summary>Os marcadores da tradução são os do original (nenhum a menos, nenhum a mais); falso sem tradução.</summary>
     public bool MarkersMatch { get; private set; }
@@ -207,6 +224,18 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CharsText))]
     public partial string Translation { get; set; }
+
+    /// <summary>
+    /// O texto do campo da tradução: sem marcadores de quebra de linha e de virada de página (<see cref="TranslationFieldText"/>). Editar o campo atualiza
+    /// <see cref="Translation"/>, que continua sendo o texto como vai para o arquivo.
+    /// </summary>
+    [ObservableProperty]
+    public partial string FieldText { get; set; }
+
+    /// <summary>O campo mostra o texto com os marcadores à mostra, porque ele não volta igual pela conversão (<see cref="TranslationFieldText.IsRaw"/>).</summary>
+    public bool FieldIsRaw => translationField.IsRaw;
+
+    public const string FieldRawNotice = "Este texto está com os marcadores à mostra.";
 
     [ObservableProperty]
     public partial string Notes { get; set; }
@@ -286,7 +315,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
         Preview = profile is null ? null : new TextboxPreviewViewModel(unit, profile, Translation);
         AttachFit(profile);
-        OnPropertyChanged(nameof(FitText));
+        NotifyFitChanged();
     }
 
     /// <summary>Grava o que estiver pendente. Devolve falso (e preenche <see cref="ErrorMessage"/>) quando a gravação falha; a edição continua pendente.</summary>
@@ -351,9 +380,34 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         Flush();
         disposed = true;
         CancelSuggestion();
+        CancelExplanation();
         Fit?.Cancel();
         timer?.Dispose();
         timer = null;
+    }
+
+    partial void OnFieldTextChanged(string value)
+    {
+        if (loading || syncingField)
+        {
+            return;
+        }
+
+        syncingField = true;
+        try
+        {
+            Translation = translationField.ToStored(value);
+            if (value.Length == 0)
+            {
+                // Campo esvaziado: o fim da fala volta a vir do original, não da tradução que se apagou.
+                translationField = TranslationFieldText.Open(string.Empty, unit.Source);
+                OnPropertyChanged(nameof(FieldIsRaw));
+            }
+        }
+        finally
+        {
+            syncingField = false;
+        }
     }
 
     partial void OnTranslationChanged(string value)
@@ -363,12 +417,39 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (!syncingField)
+        {
+            ReopenField(value);
+        }
+
         translationDirty = true;
         UpdateMarkers();
         Preview?.Update(value);
         Fit?.Update();
-        OnPropertyChanged(nameof(FitText));
+        NotifyFitChanged();
         ScheduleSave();
+    }
+
+    private void ReopenField(string stored)
+    {
+        translationField = TranslationFieldText.Open(stored, unit.Source);
+        OnPropertyChanged(nameof(FieldIsRaw));
+        syncingField = true;
+        try
+        {
+            FieldText = translationField.Text;
+        }
+        finally
+        {
+            syncingField = false;
+        }
+    }
+
+    private void NotifyFitChanged()
+    {
+        OnPropertyChanged(nameof(FitText));
+        OnPropertyChanged(nameof(OverflowLines));
+        OnPropertyChanged(nameof(DoesNotFit));
     }
 
     partial void OnNotesChanged(string value)

@@ -146,6 +146,7 @@ public sealed class ProjectLines
     private static readonly LineEntry[] NoLines = [];
 
     private readonly Dictionary<string, LineEntry[]> byScript;
+    private Dictionary<string, List<(string Key, int Index)>>? bySource;
 
     private ProjectLines(List<ScriptProgress> scripts, Dictionary<string, LineEntry[]> byScript)
     {
@@ -158,6 +159,49 @@ public sealed class ProjectLines
 
     /// <summary>Linhas do script na ordem do arquivo; vazio para uma chave desconhecida.</summary>
     public IReadOnlyList<LineEntry> LinesOf(string key) => byScript.TryGetValue(key, out var lines) ? lines : NoLines;
+
+    /// <summary>
+    /// As outras linhas do projeto com o mesmo original (comparação exata, entre todos os scripts), na ordem dos scripts e das linhas; a própria
+    /// <paramref name="entry"/> não entra. Original vazio não agrupa. O índice é por <see cref="SourceHash"/> e é montado na primeira chamada.
+    /// </summary>
+    public IReadOnlyList<LineEntry> SameSourceAs(LineEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (entry.Unit.Source.Length == 0 || !SourceIndex().TryGetValue(SourceHash.Of(entry.Unit.Source), out var positions))
+        {
+            return NoLines;
+        }
+
+        return [.. positions
+            .Select(p => byScript[p.Key][p.Index])
+            .Where(l => !(l.ScriptKey == entry.ScriptKey && l.Number == entry.Number) && string.Equals(l.Unit.Source, entry.Unit.Source, StringComparison.Ordinal))];
+    }
+
+    private Dictionary<string, List<(string Key, int Index)>> SourceIndex()
+    {
+        if (bySource is not null)
+        {
+            return bySource;
+        }
+
+        var index = new Dictionary<string, List<(string Key, int Index)>>(StringComparer.Ordinal);
+        foreach (var key in Scripts.Select(script => script.Key))
+        {
+            var withSource = byScript[key].Select((line, i) => (line, i)).Where(x => x.line.Unit.Source.Length > 0);
+            foreach (var (line, i) in withSource)
+            {
+                var hash = SourceHash.Of(line.Unit.Source);
+                if (!index.TryGetValue(hash, out var list))
+                {
+                    index[hash] = list = [];
+                }
+
+                list.Add((key, i));
+            }
+        }
+
+        return bySource = index;
+    }
 
     /// <summary>
     /// Troca a linha <see cref="LineEntry.Number"/> do script pela versão editada, para que <see cref="LinesOf"/> devolva a edição

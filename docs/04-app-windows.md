@@ -112,6 +112,13 @@ O custo de IA é o total de `.cache/ai-usage.json` (tokens e dólares), que `vnf
 - O filtro por personagem saiu da tela (o ViewModel ainda o mantém); o design v2 filtra por chip e pela busca.
 - **Prévia da caixa de texto**: renderiza com a fonte, a largura em colunas e o limite de linhas do perfil de formatação. É aqui que ajustes de espaçamento ficam visíveis antes do build.
 - Marcadores de controle (`\p`, `\n`) aparecem como "chips" não editáveis por engano.
+- **Interface v3 do inspetor** (#305, plano `docs/plans/2026-10-25-interface-v3.md`):
+  - **Campo da tradução sem marcadores crus.** `\n` vira quebra de linha, `\p` no meio vira linha em branco e a virada de página do fim (`\p`, `\c`) fica fora do campo e volta ao gravar; sem tradução, o fim vem do original. A conversão está em `TranslationFieldText` e tem teste de ida e volta: texto que não volta igual (duas quebras seguidas, barra solta) fica cru no campo, e abrir e gravar sem tocar no campo não muda um byte. Os demais marcadores (`{nome}`) seguem como selos.
+  - **Caixa do jogo** logo abaixo do campo, com "Cabe · 2 de 3 linhas" ou "Passa 1 linha" no lugar das medidas de colunas.
+  - **Entender o japonês**: botão fechado por padrão, com o preço em reais ("menos de R$ 0,01") e "só para você ler, não entra na tradução". O clique pede ao Claude Haiku a quebra do original em partes (`LineExplainer`, JSON por `output_config.format`) e guarda em `.cache/explain.json` pelo hash do original (`SourceHash`); repetir a fala não chama a API. Sem chave, a mensagem manda para Ajustes.
+  - **Na cena**: a fala anterior e a seguinte do script, sem marcadores, mesmo com filtro ativo na grade.
+  - **Usar em todos**: quando o mesmo original aparece em outras linhas do projeto (índice por hash em `ProjectLines.SameSourceAs`), o inspetor oferece gravar a tradução do campo nelas (`LineEditor.SetTranslationFor`), só nas linhas com o mesmo original e que ainda não têm esse texto.
+  - A lista de scripts chama-se **Cenas** e a coluna da grade, **Situação**, com Pronta (revisada ou aprovada), Sua, IA e Em japonês. O agrupamento por capítulo (`ScriptGroup`) espera os grupos do Core da #309.
 
 ### 5. Conferência (QA)
 
