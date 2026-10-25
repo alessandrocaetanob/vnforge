@@ -306,7 +306,7 @@ public class EditorViewModelTests
         var vm = await Carregado();
 
         var pendente = vm.Lines[0];
-        Assert.Equal("Pendente", pendente.StatusLabel);
+        Assert.Equal("Em japonês", pendente.StatusLabel);
         Assert.Equal("sem tradução", pendente.TranslationLabel);
         Assert.False(pendente.HasTranslation);
         Assert.Equal("原文1", pendente.Source);

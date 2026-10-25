@@ -37,11 +37,11 @@ public class ProjectLabelsTests
         Assert.Equal(esperado, ProjectLabels.Number(n));
 
     [Theory]
-    [InlineData(TranslationStatus.Untranslated, "Pendente")]
+    [InlineData(TranslationStatus.Untranslated, "Em japonês")]
     [InlineData(TranslationStatus.Machine, "IA")]
-    [InlineData(TranslationStatus.Translated, "Traduzida")]
-    [InlineData(TranslationStatus.Reviewed, "Revisada")]
-    [InlineData(TranslationStatus.Approved, "Aprovada")]
+    [InlineData(TranslationStatus.Translated, "Sua")]
+    [InlineData(TranslationStatus.Reviewed, "Pronta")]
+    [InlineData(TranslationStatus.Approved, "Pronta")]
     public void Status_em_portugues(TranslationStatus status, string esperado) =>
         Assert.Equal(esperado, ProjectLabels.Status(status));
 

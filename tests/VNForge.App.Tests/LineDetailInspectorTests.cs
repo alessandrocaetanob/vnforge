@@ -69,7 +69,7 @@ public sealed class LineDetailInspectorTests : IDisposable
         using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Lá fora, a chuva não parou desde cedo.\\p"));
 
         Assert.Equal("38 caracteres", vm.CharsText);
-        Assert.Equal("1 de 3 linhas · 38/40 colunas", vm.FitText);
+        Assert.Equal("Cabe · 1 de 3 linhas", vm.FitText);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class LineDetailInspectorTests : IDisposable
 
         vm.Translation = "Hehe. Quer dividir o meu, então? Eu cabo aqui com você, sem problema algum.\\p";
 
-        Assert.Equal("2 de 3 linhas · 40/40 colunas", vm.FitText);
+        Assert.Equal("Cabe · 2 de 3 linhas", vm.FitText);
         Assert.Equal("75 caracteres", vm.CharsText);
     }
 
@@ -248,6 +248,103 @@ public sealed class LineDetailInspectorTests : IDisposable
 
         Assert.Equal(1, nav.Proximas);
         Assert.Equal(TranslationStatus.Approved, vm.Status);
+    }
+
+    [Fact]
+    public void Quando_passa_da_caixa_a_medida_diz_quantas_linhas_passam()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+
+        vm.Translation = "Hehe. Quer dividir o meu, então? Eu cabo aqui com você, sem problema algum. Pode ficar tranquilo que a chuva logo passa e a gente sai.\\p";
+
+        Assert.Equal("Passa 1 linha", vm.FitText);
+        Assert.True(vm.DoesNotFit);
+        Assert.Equal(1, vm.OverflowLines);
+    }
+
+    [Fact]
+    public void Campo_da_traducao_nao_mostra_marcadores_do_fim_nem_de_quebra()
+    {
+        using var vm = Abrir(Fala("健太", "「……いいのか？\\n濡れるぞ」\\p", "…Tem certeza?\\nVocê vai se molhar.\\p"));
+
+        Assert.Equal("…Tem certeza?\nVocê vai se molhar.", vm.FieldText);
+        Assert.Equal("…Tem certeza?\\nVocê vai se molhar.\\p", vm.Translation);
+    }
+
+    [Fact]
+    public void Editar_o_campo_atualiza_a_traducao_com_os_marcadores_e_grava_no_arquivo()
+    {
+        var unidade = Fala("健太", "「……いいのか？\\n濡れるぞ」\\p", "…Tem certeza?\\nVocê vai se molhar.\\p");
+        ProjectFolder.Open(raiz).SaveText("yst00013", [unidade]);
+        using var vm = Abrir(unidade);
+
+        vm.FieldText = "…Tem certeza?\nVai se molhar.\n\nCorra!";
+        Assert.True(vm.Flush());
+
+        Assert.Equal("…Tem certeza?\\nVai se molhar.\\pCorra!\\p", vm.Translation);
+        Assert.Equal("…Tem certeza?\\nVai se molhar.\\pCorra!\\p", ProjectFolder.Open(raiz).LoadText("yst00013")[0].Translation);
+    }
+
+    [Fact]
+    public void Abrir_e_gravar_sem_tocar_no_campo_nao_muda_a_traducao()
+    {
+        const string gravada = "Uma.\\pDuas.\\nTrês.\\p";
+        var unidade = Fala("美咲", "「ふふっ」\\p", gravada);
+        ProjectFolder.Open(raiz).SaveText("yst00013", [unidade]);
+        using var vm = Abrir(unidade);
+
+        Assert.True(vm.Flush());
+        vm.FieldText = vm.FieldText;
+
+        Assert.Equal(gravada, vm.Translation);
+        Assert.Equal(gravada, ProjectFolder.Open(raiz).LoadText("yst00013")[0].Translation);
+    }
+
+    [Fact]
+    public void Traducao_trocada_por_fora_refaz_o_campo()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", null, TranslationStatus.Untranslated));
+
+        vm.CopyOriginalCommand.Execute(null);
+
+        Assert.Equal("「ふふっ」", vm.FieldText);
+        Assert.Equal("「ふふっ」\\p", vm.Translation);
+    }
+
+    [Fact]
+    public void Texto_que_nao_volta_igual_avisa_que_os_marcadores_estao_a_mostra()
+    {
+        using var cru = Abrir(Fala("美咲", "「ふふっ」\\p", "Duas\\n\\nquebras\\p"));
+        using var normal = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+
+        Assert.True(cru.FieldIsRaw);
+        Assert.Equal("Este texto está com os marcadores à mostra.", LineDetailViewModel.FieldRawNotice);
+        Assert.False(normal.FieldIsRaw);
+
+        cru.FieldText = "Uma\nDuas";
+
+        Assert.Equal("Uma\\nDuas", cru.Translation);
+    }
+
+    [Fact]
+    public void Apagar_o_campo_e_digitar_de_novo_usa_o_fim_do_original()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi."));
+
+        vm.FieldText = string.Empty;
+        vm.FieldText = "Olá";
+
+        Assert.Equal("Olá\\p", vm.Translation);
+    }
+
+    [Fact]
+    public void Linha_sem_traducao_ganha_a_virada_de_pagina_do_original_ao_digitar()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", null, TranslationStatus.Untranslated));
+
+        vm.FieldText = "Hehe.";
+
+        Assert.Equal("Hehe.\\p", vm.Translation);
     }
 
     private sealed class SugestorFixo(LineSuggestion resposta) : ILineSuggester
