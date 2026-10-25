@@ -105,7 +105,8 @@ public class ProjectFolderConcurrencyTests
 
         using (new FileStream(projeto.TextPath(Key), FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            Assert.ThrowsAny<Exception>(() => projeto.SaveText(Key, Unidades(3)));
+            var erro = Record.Exception(() => projeto.SaveText(Key, Unidades(3)));
+            Assert.True(erro is UnauthorizedAccessException or IOException, $"Esperava falha de acesso ao arquivo, veio {erro?.GetType().Name ?? "nenhuma"}.");
         }
 
         Assert.Equal(antes, File.ReadAllBytes(projeto.TextPath(Key)));

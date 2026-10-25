@@ -14,11 +14,11 @@ internal static class ProjectFileIo
 
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(2);
 
-    /// <summary>Lê o arquivo inteiro sem impedir que outro leitor, gravador ou a troca por rename o alcance.</summary>
+    /// <summary>Lê o arquivo inteiro sem impedir que outro leitor ou a troca por rename o alcance.</summary>
     internal static byte[] ReadAllBytes(string path) =>
         Retry(() =>
         {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
             var bytes = new byte[checked((int)stream.Length)];
             stream.ReadExactly(bytes);
             return bytes;
