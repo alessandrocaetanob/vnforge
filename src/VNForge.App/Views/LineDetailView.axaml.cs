@@ -67,7 +67,7 @@ public sealed partial class LineDetailView : UserControl
         }
 
         current.PropertyChanged += OnViewModelPropertyChanged;
-        SetEditorText(current.Translation);
+        SetEditorText(current.FieldText);
         foreach (var segment in current.SourceSegments)
         {
             if (!segment.IsMarker)
@@ -96,15 +96,15 @@ public sealed partial class LineDetailView : UserControl
     {
         if (!syncing && current is not null)
         {
-            current.Translation = TranslationEditor.Text ?? string.Empty;
+            current.FieldText = TranslationEditor.Text ?? string.Empty;
         }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(LineDetailViewModel.Translation) && current is not null && TranslationEditor.Text != current.Translation)
+        if (e.PropertyName == nameof(LineDetailViewModel.FieldText) && current is not null && TranslationEditor.Text != current.FieldText)
         {
-            SetEditorText(current.Translation);
+            SetEditorText(current.FieldText);
         }
     }
 

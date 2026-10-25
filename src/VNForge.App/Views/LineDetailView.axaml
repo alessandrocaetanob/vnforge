@@ -66,6 +66,31 @@
         </Border>
       </StackPanel>
 
+      <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
+      <StackPanel Spacing="6">
+        <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}"
+                ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
+            <TextBlock Classes="caption secondary" Text="{Binding ExplainPriceText, StringFormat='· {0}'}" VerticalAlignment="Center"
+                       IsVisible="{Binding ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </Button>
+        <TextBlock Classes="caption secondary" Text="Pedindo a explicação..." IsVisible="{Binding IsExplaining}"/>
+        <c:ExplainCard ItemsSource="{Binding ExplainParts}" Footnote="Só para você ler, não entra na tradução."
+                       IsVisible="{Binding ShowExplainCard}" AutomationProperties.Name="Explicação do original"/>
+        <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding ExplainError}"
+                   IsVisible="{Binding HasExplainError}"/>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding ExplainNotice}" IsVisible="{Binding HasExplainNotice}"/>
+      </StackPanel>
+
+      <!-- Na cena: a fala anterior e a seguinte. -->
+      <StackPanel Spacing="6" IsVisible="{Binding HasScene}">
+        <TextBlock Classes="overline" Text="Na cena"/>
+        <c:ContextLines ItemsSource="{Binding Scene}" AutomationProperties.Name="Na cena"/>
+      </StackPanel>
+
       <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
       <StackPanel Spacing="6">
         <TextBlock Classes="overline" Text="Tradução"/>
@@ -75,9 +100,32 @@
             <Border Classes="fieldline"/>
           </Panel>
         </Border>
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{x:Static vm:LineDetailViewModel.FieldRawNotice}" IsVisible="{Binding FieldIsRaw}"/>
+        <!-- A caixa do jogo logo abaixo do campo, com o que cabe ou o quanto passa. -->
+        <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding Preview.HasLayout}">
+            <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
+          </ScrollViewer>
+          <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
+            <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
+            <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}" AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
+          </StackPanel>
+          <StackPanel Spacing="4" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
+            <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Problem}"
+                       IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </StackPanel>
         <WrapPanel ItemSpacing="12" LineSpacing="2" AutomationProperties.Name="Medidas da tradução">
           <TextBlock Classes="meta" Text="{Binding CharsText}"/>
-          <TextBlock Classes="meta" Text="{Binding FitText}" IsVisible="{Binding FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
           <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding MarkerStateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
             <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding MarkersMatch}" Data="{StaticResource Icon.Check}" IsVisible="{Binding MarkersMatch}"/>
             <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding !MarkersMatch}"/>
@@ -108,6 +156,26 @@
         </Button>
       </Grid>
 
+      <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
+      <StackPanel Spacing="6" IsVisible="{Binding HasSameSource}">
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}"/>
+        <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}"
+                ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
+          <TextBlock Text="Usar em todos"/>
+        </Button>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceResult}"
+                   IsVisible="{Binding SameSourceResult, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        <c:ScreenDialog Title="Substituir as outras traduções?" IsOpen="{Binding IsUseForAllConfirmOpen, Mode=TwoWay}">
+          <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding UseForAllConfirmText}"/>
+          <c:ScreenDialog.Footer>
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Content="Cancelar" Command="{Binding CancelUseForAllCommand}"/>
+              <Button Classes="accent" Content="Substituir todas" Command="{Binding ConfirmUseForAllCommand}"/>
+            </StackPanel>
+          </c:ScreenDialog.Footer>
+        </c:ScreenDialog>
+      </StackPanel>
+
       <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding SuggestCommand}" IsVisible="{Binding !ShowSuggestionCard}"
               ToolTip.Tip="Pede à IA uma sugestão para esta linha (Ctrl+Espaço)">
         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -133,28 +201,6 @@
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding SuggestionError}"/>
         </Grid>
       </Border>
-
-      <!-- Prévia da caixa de texto do jogo, com o perfil de formatação do projeto. -->
-      <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
-        <TextBlock Classes="overline" Text="Prévia da caixa de texto"/>
-        <StackPanel Spacing="6" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
-          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding HasLayout}">
-            <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Layout}"
-                              AutomationProperties.Name="Prévia da caixa de texto"/>
-          </ScrollViewer>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
-          <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="x:String">
-                <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding}"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Problem}"
-                     IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-        </StackPanel>
-      </StackPanel>
 
       <Border Classes="infobar error" IsVisible="{Binding HasMissingMarkers}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">

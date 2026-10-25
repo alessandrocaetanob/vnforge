@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
@@ -12,7 +13,12 @@ namespace VNForge.App.ViewModels;
 /// <summary>Uma gravação de linha que mudou a tradução ou o status: a unidade de antes e a de depois, para o aviso "Desfazer".</summary>
 public sealed record LineSavedEventArgs(string? ProjectRoot, string ScriptKey, int Number, TextUnit Previous, TextUnit Saved)
 {
-    public bool IsApproval => Saved.Status == TranslationStatus.Approved && Previous.Status != TranslationStatus.Approved;
+    /// <summary>As linhas de um "Usar em todos" desfeito de uma vez; vazio numa gravação de uma linha só.</summary>
+    public IReadOnlyList<LineSavedEventArgs> Batch { get; init; } = [];
+
+    public bool IsBatch => Batch.Count > 0;
+
+    public bool IsApproval => !IsBatch && Saved.Status == TranslationStatus.Approved && Previous.Status != TranslationStatus.Approved;
 }
 
 /// <summary>Uma opção do seletor de personagem. <see cref="Value"/> é o <see cref="LineFilter.Speaker"/>: nulo para todos, <see cref="LineFilter.Narration"/> para a narração.</summary>
@@ -111,6 +117,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(ShowEmptyState))]
     public partial string? ErrorMessage { get; set; }
+
+    /// <summary>Cria o gravador de linhas do projeto aberto; os testes trocam por um que falha. O padrão grava em <c>text/*.json</c>.</summary>
+    public Func<string, LineEditor?>? EditorFactory { get; init; }
+
+    /// <summary>O "Entender o japonês" do inspetor; nulo deixa o botão desligado.</summary>
+    public ILineExplanations? Explanations { get; init; }
 
     public ObservableCollection<ScriptItemViewModel> Scripts { get; } = [];
 
@@ -256,7 +268,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         IsLoading = false;
         ErrorMessage = error;
-        lineEditor = loaded is null ? null : TryCreateEditor(root);
+        lineEditor = CreateLineEditor(loaded, root);
         context = loadedContext;
         Apply(loaded);
     }
@@ -569,12 +581,104 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
         var lineContext = context.For(unit.Speaker, unit.Source);
+        var scene = SceneAround(line);
+        var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
         detail.AttachPreview(CurrentProfile());
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
+    }
+
+    /// <summary>A fala anterior e a seguinte no script, mesmo que o filtro da grade as esconda.</summary>
+    private List<ContextLine> SceneAround(LineViewModel line)
+    {
+        var scene = new List<ContextLine>(2);
+        var index = line.Number - 1;
+        if (index < 0 || index >= scriptLines.Length || !ReferenceEquals(scriptLines[index], line))
+        {
+            return scene;
+        }
+
+        foreach (var neighbour in new[] { index - 1, index + 1 })
+        {
+            if (neighbour >= 0 && neighbour < scriptLines.Length)
+            {
+                var other = scriptLines[neighbour];
+                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null));
+            }
+        }
+
+        return scene;
+    }
+
+    /// <summary>"Usar em todos": o que gravar a tradução nas outras linhas com o mesmo original sobrescreveria.</summary>
+    private SameSourcePreview InspectSameSource(LineViewModel line, string translation)
+    {
+        var differing = (data?.SameSourceAs(line.Entry) ?? [])
+            .Where(o => o.Unit.HasTranslation && !string.Equals(o.Unit.Translation, translation, StringComparison.Ordinal))
+            .ToList();
+        return new SameSourcePreview(differing.Count, differing.Count(o => o.Unit.Status is TranslationStatus.Reviewed or TranslationStatus.Approved));
+    }
+
+    /// <summary>
+    /// "Usar em todos": grava a tradução nas outras linhas com o mesmo original e atualiza a grade, o QA e os contadores do que está aberto, mesmo quando um
+    /// script não grava (as linhas dos scripts anteriores já estão no disco). Registra o "Desfazer" do lote.
+    /// </summary>
+    private SameSourceOutcome ApplyToSameSource(LineViewModel line, string translation)
+    {
+        if (data is null || lineEditor is null)
+        {
+            return new SameSourceOutcome(0, 0, 0, Failed: false);
+        }
+
+        var others = data.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
+        var result = lineEditor.SetTranslationFor(others.Values.Select(o => (o.ScriptKey, o.Unit.Id)), translation);
+        var current = result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit));
+        foreach (var unit in current)
+        {
+            ShowSavedUnit(others[unit.Id], unit);
+        }
+
+        if (result.Changes.Count > 0)
+        {
+            UpdateCounts();
+            LastSavedAt = clock.GetLocalNow();
+            var batch = result.Changes.Select(c => new LineSavedEventArgs(Project?.Root, c.ScriptKey, others[c.Saved.Id].Number, c.Previous, c.Saved)).ToList();
+            LineSaved?.Invoke(this, batch[0] with { Batch = batch });
+        }
+
+        return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null);
+    }
+
+    /// <summary>Leva uma unidade gravada por fora do painel (o "Usar em todos") para os dados, o QA e a grade do script aberto.</summary>
+    private void ShowSavedUnit(LineEntry entry, TextUnit unit)
+    {
+        if (entry.Unit.Translation == unit.Translation && entry.Unit.Status == unit.Status)
+        {
+            return;
+        }
+
+        var updated = entry.WithUnit(unit);
+        IssueCount += updated.Issues.Count - entry.Issues.Count;
+        data?.Replace(updated);
+        savedUnits.Remove(unit.Id);
+        var index = entry.Number - 1;
+        if (entry.ScriptKey == SelectedScript?.Key && index < scriptLines.Length)
+        {
+            scriptLines[index].Update(updated);
+            entries[index] = updated;
+        }
+    }
+
+    private sealed class SameSourceBinding(EditorViewModel editor, LineViewModel line) : ISameSourceLines
+    {
+        public int Count => editor.data?.SameSourceAs(line.Entry).Count ?? 0;
+
+        public SameSourcePreview Inspect(string translation) => editor.InspectSameSource(line, translation);
+
+        public SameSourceOutcome Apply(string translation) => editor.ApplyToSameSource(line, translation);
     }
 
     /// <summary>
@@ -612,7 +716,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ArgumentNullException.ThrowIfNull(saved);
         if (lineEditor is null || Project?.Root != saved.ProjectRoot)
         {
-            ErrorMessage = $"Não foi possível desfazer a gravação da linha {saved.Number}: o projeto aberto mudou.";
+            ErrorMessage = $"Não foi possível desfazer {(saved.IsBatch ? "a gravação das linhas" : $"a gravação da linha {saved.Number}")}: o projeto aberto mudou.";
             return false;
         }
 
@@ -623,11 +727,14 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         try
         {
-            lineEditor.Restore(saved.ScriptKey, saved.Previous, saved.Saved);
+            foreach (var item in saved.IsBatch ? saved.Batch : [saved])
+            {
+                lineEditor.Restore(item.ScriptKey, item.Previous, item.Saved);
+            }
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException)
         {
-            ErrorMessage = $"Não foi possível desfazer a gravação da linha {saved.Number}: {e.Message}";
+            ErrorMessage = $"Não foi possível desfazer {(saved.IsBatch ? "a gravação das linhas" : $"a gravação da linha {saved.Number}")}: {e.Message}";
             return false;
         }
 
@@ -643,6 +750,16 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
     private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;
+
+    private LineEditor? CreateLineEditor(ProjectLines? loaded, string root)
+    {
+        if (loaded is null)
+        {
+            return null;
+        }
+
+        return EditorFactory is { } factory ? factory(root) : TryCreateEditor(root);
+    }
 
     private LineEditor? TryCreateEditor(string root)
     {

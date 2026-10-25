@@ -80,21 +80,21 @@
         <ColumnDefinition Width="1.69*" MinWidth="320" MaxWidth="420"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Scripts -->
-      <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Scripts">
+      <!-- Cenas -->
+      <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Cenas">
         <Grid RowDefinitions="48,Auto,*">
           <Grid ColumnDefinitions="*,Auto" Margin="12,0">
-            <TextBlock Classes="title-md" Text="Scripts" VerticalAlignment="Center"/>
+            <TextBlock Classes="title-md" Text="Cenas" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
           </Grid>
           <TextBox Grid.Row="1" Margin="12,0,12,8" MinHeight="28" Height="28" FontSize="13" Padding="8,0" VerticalContentAlignment="Center"
-                   PlaceholderText="Filtrar scripts" Text="{Binding ScriptFilter}" AutomationProperties.Name="Filtrar scripts">
+                   PlaceholderText="Filtrar cenas" Text="{Binding ScriptFilter}" AutomationProperties.Name="Filtrar cenas">
             <TextBox.InnerLeftContent>
               <PathIcon Width="16" Height="16" Margin="8,0,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
             </TextBox.InnerLeftContent>
           </TextBox>
           <ListBox Grid.Row="2" Classes="scripts" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
-                   AutomationProperties.Name="Lista de scripts">
+                   AutomationProperties.Name="Lista de cenas">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ScriptItemViewModel">
                 <c:ScriptItem Key="{Binding Key}" Label="{Binding Label}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
@@ -111,7 +111,7 @@
           <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
             <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12">
               <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Classes="overline" Text="Status" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="overline" Text="Personagem" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="3" Classes="overline" Text="Original" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" VerticalAlignment="Center"/>

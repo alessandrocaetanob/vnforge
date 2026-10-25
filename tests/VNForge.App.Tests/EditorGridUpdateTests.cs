@@ -55,7 +55,7 @@ public class EditorGridUpdateTests : IDisposable
         vm.Detail.ApproveCommand.Execute(null);
 
         Assert.Equal(TranslationStatus.Approved, linha.Status);
-        Assert.Equal("Aprovada", linha.StatusLabel);
+        Assert.Equal("Pronta", linha.StatusLabel);
         Assert.Equal("Confirmar", linha.TranslationLabel);
         Assert.Equal(TranslationStatus.Approved, Gravada(0).Status);
         Assert.Equal("Confirmar", Gravada(0).Translation);
