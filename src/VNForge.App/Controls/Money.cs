@@ -6,6 +6,9 @@ namespace VNForge.App.Controls;
 /// <summary>Valores em reais e em dólar no formato pt-BR fixo (<c>R$ 142,56</c>, <c>US$ 26,40</c>), sem depender da cultura nem do ICU da máquina.</summary>
 public static class Money
 {
+    /// <summary>A marca que acompanha um valor calculado com a cotação de exemplo.</summary>
+    public const string ExampleRateMark = "cotação de exemplo";
+
     private static readonly NumberFormatInfo PtBr = new() { NumberGroupSeparator = ".", NumberDecimalSeparator = "," };
 
     public static string Brl(decimal value) => $"R$ {value.ToString("N2", PtBr)}";
@@ -22,7 +25,7 @@ public static class Money
 
     /// <summary>Põe a marca de cotação de exemplo em um texto de valor já formatado; com a cotação informada, ou sem valor, devolve o texto como veio.</summary>
     public static string WithRateMark(string text, decimal brl, ExchangeRate rate) =>
-        rate.IsInformed || brl <= 0m ? text : $"≈ {text} (cotação de exemplo)";
+        rate.IsInformed || brl <= 0m ? text : $"≈ {text} ({ExampleRateMark})";
 
     public static string Usd(decimal value) => $"US$ {value.ToString("N2", PtBr)}";
 }

@@ -39,7 +39,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         var vm = Create();
 
         Assert.Equal([1, 2, 3, 4], vm.Steps.Select(s => s.Number));
-        Assert.Equal(["Pasta do jogo", "Idiomas e nome", "Acentuação", "Provedor de IA"], vm.Steps.Select(s => s.Title));
+        Assert.Equal(["Pasta do jogo", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
         Assert.Equal([PipelineStepState.Active, PipelineStepState.Pending, PipelineStepState.Pending, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
     }
 
@@ -49,7 +49,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         var vm = Create();
 
         Assert.Equal(
-            ["Escolha a pasta instalada", "Nome, pasta e idiomas", "Como tratar os acentos", "Modelo da tradução"],
+            ["Escolha a pasta instalada", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -63,9 +63,9 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.True(vm.HasDetection);
         Assert.Equal("YU-RIS · YPF v500", vm.EngineTitle);
-        Assert.Equal("YU-RIS · YPF v500 detectada", vm.Steps[0].Subtitle);
+        Assert.Equal("Feito com o motor YU-RIS", vm.Steps[0].Subtitle);
         Assert.Equal(
-            [("Arquivo de scripts", "ysbin.ypf · 2 scripts"), ("Chave XOR dos scripts", "0xD36FAC96")],
+            [("Arquivo de scripts", "ysbin.ypf · 2 scripts"), ("Chave XOR dos scripts", "0xD36FAC96"), ("Página de código", "932 (Shift-JIS)")],
             vm.DetectionFacts.Select(f => (f.Label, f.Value)));
     }
 
@@ -88,7 +88,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.Equal([PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Active, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
         Assert.Equal("Japonês → Português do Brasil", vm.Steps[1].Subtitle);
-        Assert.Equal("YU-RIS · YPF v500 detectada", vm.Steps[0].Subtitle);
+        Assert.Equal("Feito com o motor YU-RIS", vm.Steps[0].Subtitle);
     }
 
     [Fact]
@@ -100,31 +100,21 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         vm.EncodingStrategies.Select("cp1252");
 
         Assert.Equal("Inglês → Espanhol", vm.Steps[1].Subtitle);
-        Assert.Equal("CP1252", vm.Steps[2].Subtitle);
+        Assert.Equal("Com acentos, ajuste no jogo", vm.Steps[2].Subtitle);
     }
 
     [Fact]
-    public async Task O_resumo_da_ia_diz_o_modelo_ou_que_ficou_o_padrao()
+    public async Task O_resumo_da_ia_diz_a_qualidade_escolhida()
     {
         var vm = await AtStepAsync(WizardStep.Ai);
         vm.Models.Select("claude-sonnet-5-5");
-        Assert.Equal("Modelo da tradução", vm.Steps[3].Subtitle);
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[3].Subtitle);
 
         await vm.NextCommand.ExecuteAsync(null);
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.All(vm.Steps, s => Assert.Equal(PipelineStepState.Done, s.State));
-        Assert.Equal("Claude Sonnet 5.5", vm.Steps[3].Subtitle);
-    }
-
-    [Fact]
-    public async Task Pular_a_ia_resume_como_modelo_padrao()
-    {
-        var vm = await AtStepAsync(WizardStep.Ai);
-        vm.SkipAi = true;
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.Equal("Claude Opus 5.5 (padrão)", vm.Steps[3].Subtitle);
+        Assert.Equal("Equilibrada", vm.Steps[3].Subtitle);
     }
 
     [Fact]
