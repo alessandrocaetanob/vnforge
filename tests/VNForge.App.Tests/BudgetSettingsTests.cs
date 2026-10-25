@@ -361,7 +361,7 @@ public class BudgetSettingsViewModelTests
     }
 
     [Fact]
-    public void A_janela_repassa_a_cotacao_as_tarefas_e_o_gasto_da_barra_de_status_sai_em_reais()
+    public async Task A_janela_repassa_a_cotacao_as_tarefas_e_o_gasto_da_barra_de_status_sai_em_reais()
     {
         using var temp = new TempFolder();
         var settings = Create(temp);
@@ -369,9 +369,44 @@ public class BudgetSettingsViewModelTests
         var window = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("recentes")), new NoPicker(), TimeProvider.System), taskService: tasks, settings: settings);
         Assert.NotNull(window);
 
+        var started = new TaskCompletionSource();
+        var gate = new TaskCompletionSource();
+        var item = tasks.Start("Traduzir", async (reporter, _) =>
+        {
+            reporter.AddCost(2m);
+            started.SetResult();
+            await gate.Task;
+        });
+        await started.Task;
+
         settings.ExchangeRateText = "5,00";
 
         Assert.Equal(5.00m, tasks.Rate.BrlPerUsd);
+        Assert.Equal("R$ 10,00", window.Tasks.Current!.CostText);
+        Assert.Equal("R$ 10,00", item.CostText);
+        gate.SetResult();
+        await item.Completion;
+    }
+
+    [Fact]
+    public void Confirmar_hoje_renova_a_data_com_o_mesmo_valor()
+    {
+        using var temp = new TempFolder();
+        var clock = new FakeTimeProvider(Today);
+        var vm = Create(temp, clock);
+        Assert.False(vm.ConfirmRateTodayCommand.CanExecute(null));
+        vm.ExchangeRateText = "5,43";
+        Assert.True(vm.ConfirmRateTodayCommand.CanExecute(null));
+        clock.Advance(TimeSpan.FromDays(3));
+        ExchangeRate? raised = null;
+        vm.RateChanged += (_, rate) => raised = rate;
+
+        vm.ConfirmRateTodayCommand.Execute(null);
+
+        var expected = new ExchangeRate(5.43m, new DateOnly(2026, 10, 28));
+        Assert.Equal(expected, raised);
+        Assert.Equal(expected, Saved(temp).Rate);
+        Assert.Contains("28/10/2026", vm.RateNote);
     }
 
     [Fact]
@@ -395,6 +430,36 @@ public class BudgetSettingsViewModelTests
 
         Assert.Equal("R$ 12,00", item.CostText);
         Assert.Contains(nameof(BackgroundTaskItem.CostText), changed);
+        gate.SetResult();
+        await item.Completion;
+    }
+
+    [Fact]
+    public async Task Com_a_cotacao_de_exemplo_o_custo_da_tarefa_e_o_gasto_saem_marcados()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, 10);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(1000, 500, 0, 0, 10m, 1));
+        vm.Load(ProjectSummaryReader.Read(folder.Root));
+        var tasks = new BackgroundTaskService();
+        var started = new TaskCompletionSource();
+        var gate = new TaskCompletionSource();
+        var item = tasks.Start("Traduzir", async (reporter, _) =>
+        {
+            reporter.AddCost(2m);
+            started.SetResult();
+            await gate.Task;
+        });
+        await started.Task;
+
+        Assert.Equal("≈ R$ 10,80 (cotação de exemplo)", item.CostText);
+        Assert.Equal("≈ R$ 54,00 neste projeto (cotação de exemplo)", vm.SpentSummary);
+
+        vm.ExchangeRateText = "5,00";
+        tasks.Rate = vm.Rate;
+
+        Assert.Equal("R$ 10,00", item.CostText);
+        Assert.Equal("R$ 50,00 neste projeto", vm.SpentSummary);
         gate.SetResult();
         await item.Completion;
     }

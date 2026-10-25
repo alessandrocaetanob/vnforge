@@ -757,12 +757,27 @@ public sealed partial class SettingsViewModel : ObservableObject
         return false;
     }
 
+    /// <summary>"Confirmar hoje": a cotação continua a mesma e a data passa a ser a de hoje, para a pessoa dizer que ela ainda vale.</summary>
+    [RelayCommand(CanExecute = nameof(HasInformedRate))]
+    private void ConfirmRateToday()
+    {
+        if (app.BrlPerUsd is { } rate)
+        {
+            ChangeRate(rate, DateOnly.FromDateTime(clock.GetLocalNow().DateTime));
+        }
+    }
+
+    /// <summary>Há uma cotação informada pela pessoa (não o valor de exemplo).</summary>
+    public bool HasInformedRate => app.BrlPerUsd is not null;
+
     private void ChangeRate(decimal? rate, DateOnly? informedOn)
     {
         TrySaveApp(app with { BrlPerUsd = rate, RateInformedOn = informedOn }, "Não foi possível salvar a cotação");
         RefreshRateNote();
         RefreshSpent();
         ApplyEstimates();
+        OnPropertyChanged(nameof(HasInformedRate));
+        ConfirmRateTodayCommand.NotifyCanExecuteChanged();
         RateChanged?.Invoke(this, app.Rate);
     }
 
@@ -801,9 +816,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         var spent = app.Rate.ToBrl(AiUsageLog.Load(folder).Dollars);
         SpentBrl = (double)spent;
-        SpentSummary = app.SpendLimit is { } limit
+        var summary = app.SpendLimit is { } limit
             ? $"{Controls.Money.BrlEstimate(spent)} de {Controls.Money.Brl(limit)}"
             : $"{Controls.Money.BrlEstimate(spent)} neste projeto";
+        SpentSummary = app.Rate.IsInformed || spent <= 0m ? summary : $"≈ {summary} (cotação de exemplo)";
     }
 
     private void ApplyEstimates()
