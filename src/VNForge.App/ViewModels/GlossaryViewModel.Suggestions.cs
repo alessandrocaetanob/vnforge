@@ -86,7 +86,7 @@ public sealed partial class GlossaryViewModel
     /// <summary>O preço da sugestão de voz e gênero em reais; vazio enquanto não há o que sugerir ou o texto não foi lido.</summary>
     public string VoicePriceText => voiceRequests.Count == 0
         ? string.Empty
-        : Controls.Money.BrlEstimate(CostEstimator.Brl(GlossaryCost.Voices(voiceRequests, ClaudeModels.Haiku), Rate()));
+        : PriceText(GlossaryCost.Voices(voiceRequests, ClaudeModels.Haiku));
 
     public bool CanSuggestVoices => CanEdit && usageLoaded && !IsSuggesting && Suggester is not null && voiceRequests.Count > 0;
 
@@ -100,6 +100,12 @@ public sealed partial class GlossaryViewModel
             ? "Nenhum termo novo aparece 5 vezes ou mais."
             : $"{RepeatedTermRows.Count} {(RepeatedTermRows.Count == 1 ? "termo aparece" : "termos aparecem")} 5 vezes ou mais e {(RepeatedTermRows.Count == 1 ? "não está" : "não estão")} no glossário.";
 
+    private string PriceText(CostEstimate estimate)
+    {
+        var rate = Rate();
+        return Controls.Money.BrlEstimate(CostEstimator.Brl(estimate, rate), rate);
+    }
+
     private List<TermTranslationRequest> PendingTermRequests() =>
         [.. RepeatedTermRows.Where(r => !r.HasSuggestion).Select(r => new TermTranslationRequest(r.Source, r.Lines, scan.ExampleOf(r.Source)))];
 
@@ -109,7 +115,7 @@ public sealed partial class GlossaryViewModel
         get
         {
             var pending = PendingTermRequests();
-            return pending.Count == 0 ? string.Empty : Controls.Money.BrlEstimate(CostEstimator.Brl(GlossaryCost.Terms(pending, ClaudeModels.Haiku), Rate()));
+            return pending.Count == 0 ? string.Empty : PriceText(GlossaryCost.Terms(pending, ClaudeModels.Haiku));
         }
     }
 
