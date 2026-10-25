@@ -5,6 +5,7 @@ Cópia local do design do aplicativo, para a implementação em Avalonia ter a f
 | Origem | Link |
 |---|---|
 | Canvas das telas "VNForge v2 · App Windows" | https://claude.ai/artifact/97EhvQiUBs3pcHUqUFBkEc |
+| Canvas das telas "VNForge v3 · App Windows" (proposta, plano [2026-10-25-interface-v3.md](../plans/2026-10-25-interface-v3.md); as telas vêm para `telas/` na implementação) | https://claude.ai/artifact/X4z2JK2pfKH9zZSeBGkfUW |
 | Design system "VNForge v2" | https://claude.ai/artifact/TvsKGRUc1BFYezZdfydrh6 |
 
 ## Conteúdo
