@@ -212,17 +212,6 @@ public sealed partial class SettingsViewModel : ObservableObject
             LinkSelection(quality, () => quality.IsSelected, () => SelectedQuality = quality);
         }
 
-        foreach (var quality in Qualities)
-        {
-            quality.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(QualityOption.IsSelected) && quality.IsSelected)
-                {
-                    SelectedQuality = quality;
-                }
-            };
-        }
-
         foreach (var encoding in Encodings)
         {
             LinkSelection(encoding, () => encoding.IsSelected, () => SelectedEncoding = encoding);
