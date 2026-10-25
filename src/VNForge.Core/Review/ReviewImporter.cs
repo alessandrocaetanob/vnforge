@@ -123,7 +123,7 @@ public static class ReviewImporter
 
     private static void SaveAll(ProjectFolder project, Dictionary<string, List<TextUnit>> scripts, List<string> keys)
     {
-        var originals = keys.ToDictionary(k => k, k => File.ReadAllBytes(project.TextPath(k)));
+        var originals = keys.ToDictionary(k => k, k => ProjectFileIo.ReadAllBytes(project.TextPath(k)));
         var written = new List<string>();
         try
         {
