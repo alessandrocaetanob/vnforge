@@ -204,35 +204,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         foreach (var model in Models)
         {
-            model.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(ModelOption.IsSelected) && model.IsSelected)
-                {
-                    SelectedModel = model;
-                }
-            };
+            LinkSelection(model, () => model.IsSelected, () => SelectedModel = model);
         }
 
         foreach (var quality in Qualities)
         {
-            quality.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(QualityOption.IsSelected) && quality.IsSelected)
-                {
-                    SelectedQuality = quality;
-                }
-            };
+            LinkSelection(quality, () => quality.IsSelected, () => SelectedQuality = quality);
         }
 
         foreach (var encoding in Encodings)
         {
-            encoding.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(EncodingOption.IsSelected) && encoding.IsSelected)
-                {
-                    SelectedEncoding = encoding;
-                }
-            };
+            LinkSelection(encoding, () => encoding.IsSelected, () => SelectedEncoding = encoding);
         }
 
         loading = true;
@@ -255,6 +237,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshKey();
         RefreshRateNote();
     }
+
+    /// <summary>Quando o cartão passa a marcado (<c>IsSelected</c> ligado ao <c>RadioButton</c>), a seleção da tela o acompanha.</summary>
+    private static void LinkSelection(INotifyPropertyChanged option, Func<bool> isSelected, Action select) =>
+        option.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == "IsSelected" && isSelected())
+            {
+                select();
+            }
+        };
 
     /// <summary>A chave foi guardada ou apagada: a janela atualiza a barra de status.</summary>
     public event EventHandler? KeyChanged;
