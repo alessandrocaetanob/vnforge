@@ -42,6 +42,7 @@ public sealed class App : Application
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
             {
                 Editor = new EditorViewModel(suggester: LineSuggester.ForUser(configDirectory)),
+                Glossary = { AutosaveClock = TimeProvider.System, Suggester = UserGlossarySuggester.ForUser(configDirectory) },
             };
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();

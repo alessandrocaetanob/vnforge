@@ -11,17 +11,23 @@ namespace VNForge.App.ViewModels;
 /// <summary>As duas tabelas da página Glossário.</summary>
 public enum GlossaryTab
 {
-    Terms,
     Characters,
+    Terms,
 }
 
 /// <summary>
 /// Página Glossário: as tabelas editáveis de <c>glossary.json</c> e <c>characters.json</c>, com busca e a contagem de linhas do projeto que usam cada uma.
-/// Nada é gravado até <see cref="SaveCommand"/>; só o arquivo que mudou é reescrito, e um arquivo ilegível trava a edição para o salvamento não sobrescrevê-lo.
+/// Com <see cref="AutosaveClock"/> definido, grava sozinha <see cref="SaveDelay"/> depois da última edição (e ao sair da página ou trocar de projeto); sem ele
+/// só <see cref="SaveCommand"/> grava. Só o arquivo que mudou é reescrito, e um arquivo ilegível trava a edição para o salvamento não sobrescrevê-lo.
 /// A busca só esconde linhas da tela: <see cref="Terms"/> e <see cref="Characters"/> seguem completos e são eles que vão para o arquivo.
 /// </summary>
 public sealed partial class GlossaryViewModel : ObservableObject
 {
+    /// <summary>Quanto a página espera sem edição antes de gravar.</summary>
+    public static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(600);
+
+    private ITimer? saveTimer;
+    private bool savedOnce;
     private bool termsDirty;
     private bool charactersDirty;
     private bool loadFailed;
@@ -36,14 +42,22 @@ public sealed partial class GlossaryViewModel : ObservableObject
         Terms.CollectionChanged += (_, _) =>
         {
             RefreshVisible();
+            RefreshRepeatedTerms();
             MarkTermsDirty();
         };
         Characters.CollectionChanged += (_, _) =>
         {
             RefreshVisible();
+            NotifyVoices();
             MarkCharactersDirty();
         };
     }
+
+    /// <summary>Relógio do salvamento automático; nulo desliga o automático (os testes e a galeria não gravam sozinhos).</summary>
+    public TimeProvider? AutosaveClock { get; set; }
+
+    /// <summary>Roda a gravação agendada na thread da interface; o padrão é o contexto de quem criou a página.</summary>
+    public Action<Action> PostToUi { get; set; } = CaptureContext();
 
     public ObservableCollection<GlossaryTermRow> Terms { get; } = [];
 
@@ -72,7 +86,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     public string TermsEmptyText => HasSearch ? NoMatchText : "Nenhum termo ainda. Adicione o primeiro.";
 
-    public string CharactersEmptyText => HasSearch ? NoMatchText : "Nenhum personagem ainda. O nome original é o falante extraído do jogo.";
+    public string CharactersEmptyText => HasSearch ? NoMatchText : "Nenhum personagem ainda. Peça sugestões pelas falas ou adicione o primeiro.";
 
     /// <summary>Termina quando a contagem de linhas do projeto foi lida (ou falhou); a tela não espera por ela.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
@@ -104,7 +118,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     public string AddLabel => IsTermsTab ? "Adicionar termo" : "Adicionar personagem";
 
-    public string SearchHint => IsTermsTab ? "Buscar termo, tradução ou observação" : "Buscar personagem";
+    public string SearchHint => IsTermsTab ? "Buscar termo, tradução ou observação" : "Buscar personagem, tradução ou jeito de falar";
 
     [ObservableProperty]
     public partial string? ErrorMessage { get; private set; }
@@ -116,6 +130,9 @@ public sealed partial class GlossaryViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     public partial bool IsDirty { get; private set; }
 
+    /// <summary>O que a página diz sobre o salvamento: nada antes da primeira gravação, "Salvando…" até gravar e "Salvo automaticamente" depois.</summary>
+    public string SaveStatus => IsDirty ? "Salvando…" : savedOnce ? "Salvo automaticamente" : string.Empty;
+
     /// <summary>Falso sem projeto ou quando um dos arquivos não pôde ser lido: as tabelas ficam fechadas para edição.</summary>
     public bool CanEdit => Project is not null && !loadFailed;
 
@@ -123,7 +140,12 @@ public sealed partial class GlossaryViewModel : ObservableObject
     public IReadOnlyList<GlossaryTerm> FindTerms(string? source) =>
         GlossaryMatcher.Find(source, Terms.Where(t => !t.IsBlank).Select(t => t.ToTerm()));
 
+    // Trocar de projeto descarta as tabelas: o que ainda estava no ar do projeto antigo grava antes.
+    partial void OnProjectChanging(ProjectSummary? value) => Flush();
+
     partial void OnProjectChanged(ProjectSummary? value) => Reload();
+
+    partial void OnIsDirtyChanged(bool value) => OnPropertyChanged(nameof(SaveStatus));
 
     partial void OnSearchChanged(string value) => RefreshVisible();
 
@@ -131,6 +153,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     public void Reload()
     {
         loading = true;
+        CancelSaveTimer();
         try
         {
             Terms.Clear();
@@ -140,6 +163,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
             loadFailed = false;
             usage = GlossaryUsage.Empty;
             usageLoaded = false;
+            ResetSuggestions();
+            savedOnce = false;
             Search = string.Empty;
             if (Project is not null)
             {
@@ -150,6 +175,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
         {
             loading = false;
             RefreshVisible();
+            RefreshRepeatedTerms();
+            NotifyVoices();
             termsDirty = false;
             charactersDirty = false;
             IsDirty = false;
@@ -168,12 +195,12 @@ public sealed partial class GlossaryViewModel : ObservableObject
     {
         var version = ++usageVersion;
         var root = Project?.Root;
-        var loaded = GlossaryUsage.Empty;
+        var loaded = ProjectScan.Empty;
         if (root is not null)
         {
             try
             {
-                loaded = await Task.Run(() => GlossaryUsage.From(ProjectFolder.Open(root).LoadAllText().Values.SelectMany(units => units)));
+                loaded = await Task.Run(() => ProjectScan.From(ProjectFolder.Open(root).LoadAllText().Values.SelectMany(units => units)));
             }
             catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
             {
@@ -186,7 +213,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
             return;
         }
 
-        usage = loaded;
+        usage = loaded.Usage;
+        scan = loaded;
         usageLoaded = true;
         bulkUpdate = true;
         foreach (var row in Terms)
@@ -201,6 +229,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
         bulkUpdate = false;
         NotifySummaries();
+        RefreshRepeatedTerms();
+        NotifyVoices();
     }
 
     private void ApplyUses(UsageRow row) =>
@@ -322,8 +352,9 @@ public sealed partial class GlossaryViewModel : ObservableObject
             return;
         }
 
+        savedOnce = true;
         IsDirty = false;
-        NoticeMessage = "Alterações salvas.";
+        OnPropertyChanged(nameof(SaveStatus));
     }
 
     private T Watch<T>(T row, Action markDirty)
@@ -333,7 +364,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         row.PropertyChanged += (_, e) =>
         {
             // A contagem não é dado do arquivo: mexer nela não suja a página.
-            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused))
+            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion))
             {
                 NotifySummaries();
                 return;
@@ -342,6 +373,15 @@ public sealed partial class GlossaryViewModel : ObservableObject
             if (e.PropertyName == nameof(GlossaryTermRow.Source))
             {
                 ApplyUses(row);
+            }
+
+            if (row is CharacterRow)
+            {
+                NotifyVoices();
+            }
+            else if (e.PropertyName == nameof(GlossaryTermRow.Source))
+            {
+                RefreshRepeatedTerms();
             }
 
             markDirty();
@@ -431,5 +471,41 @@ public sealed partial class GlossaryViewModel : ObservableObject
     {
         NoticeMessage = null;
         IsDirty = true;
+        ScheduleSave();
+    }
+
+    private void ScheduleSave()
+    {
+        if (AutosaveClock is not { } clock || !CanEdit)
+        {
+            return;
+        }
+
+        if (saveTimer is null)
+        {
+            saveTimer = clock.CreateTimer(_ => PostToUi(Flush), null, SaveDelay, Timeout.InfiniteTimeSpan);
+        }
+        else
+        {
+            saveTimer.Change(SaveDelay, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void CancelSaveTimer() => saveTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+
+    /// <summary>Grava já o que estiver pendente, sem esperar o <see cref="SaveDelay"/>: sair da página, trocar de projeto e fechar a janela chamam isto.</summary>
+    public void Flush()
+    {
+        CancelSaveTimer();
+        if (CanSave())
+        {
+            Save();
+        }
+    }
+
+    private static Action<Action> CaptureContext()
+    {
+        var context = SynchronizationContext.Current;
+        return context is null ? action => action() : action => context.Post(_ => action(), null);
     }
 }

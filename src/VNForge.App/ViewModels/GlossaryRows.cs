@@ -65,16 +65,23 @@ public sealed partial class CharacterRow : UsageRow
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeedsGender))]
     public partial string Source { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeedsGender))]
     public partial string Target { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeedsGender))]
     public partial CharacterGender Gender { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeedsGender))]
     public partial string Tone { get; set; }
+
+    /// <summary>Personagem preenchido e sem gênero: o seletor fica em destaque, porque a IA precisa dele para concordar o texto.</summary>
+    public bool NeedsGender => Gender == CharacterGender.Unknown && !IsBlank;
 
     public override string Key => Source;
 
@@ -83,4 +90,32 @@ public sealed partial class CharacterRow : UsageRow
 
     public CharacterEntry ToEntry() =>
         new(Source.Trim(), Target.Trim(), Gender, string.IsNullOrWhiteSpace(Tone) ? null : Tone.Trim());
+}
+
+/// <summary>
+/// Uma linha do painel "Termos que se repetem": a sequência, em quantas linhas aparece e, depois de a IA traduzir o lote, a tradução e o motivo.
+/// Não vai para o arquivo: só vira termo do glossário quando a pessoa clica em Adicionar.
+/// </summary>
+public sealed partial class RepeatedTermRow : ObservableObject
+{
+    public RepeatedTermRow(string source, int lines)
+    {
+        Source = source;
+        Lines = lines;
+    }
+
+    public string Source { get; }
+
+    public int Lines { get; }
+
+    public string LinesLabel => $"{ProjectLabels.Number(Lines)} {(Lines == 1 ? "linha" : "linhas")}";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSuggestion))]
+    public partial string? Target { get; set; }
+
+    [ObservableProperty]
+    public partial string? Reason { get; set; }
+
+    public bool HasSuggestion => !string.IsNullOrWhiteSpace(Target);
 }
