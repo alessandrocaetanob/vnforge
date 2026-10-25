@@ -6,10 +6,12 @@ using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
+using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using AvaloniaEdit;
 
 namespace VNForge.App.Tests;
 
@@ -33,13 +35,6 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
     public void Inspetor_vira_abas_na_janela_pequena(double windowWidth, bool tabs) =>
         Assert.Equal(tabs, EditorBreakpoints.UsesInspectorTabs(windowWidth));
 
-    [Fact]
-    public void A_largura_da_janela_soma_o_trilho_ao_Editor()
-    {
-        Assert.Equal(1440, EditorBreakpoints.WindowWidth(1367));
-        Assert.Equal(1366, EditorBreakpoints.WindowWidth(1293));
-    }
-
     private static void Settle(Window window)
     {
         for (var i = 0; i < 3; i++)
@@ -49,27 +44,31 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
         }
     }
 
-    private static async Task<(EditorViewModel Vm, TempFolder Temp)> Abrir()
+    private static async Task<(EditorViewModel Vm, TempFolder Temp)> Abrir(ILineSuggester? suggester = null, bool twoScripts = false)
     {
         var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Machine, TranslationStatus.Untranslated, TranslationStatus.Translated);
-        var vm = new EditorViewModel(postToUi: acao => acao());
+        if (twoScripts)
+        {
+            var folder = ProjectFolder.Open(root);
+            folder.SaveText("yst00002", [.. folder.LoadText("yst00001").Select(u => u with { Id = u.Id.Replace("yst00001", "yst00002", StringComparison.Ordinal) })]);
+        }
+
+        var vm = new EditorViewModel(postToUi: acao => acao(), suggester: suggester);
         vm.Project = EditorFixtures.Summary("Minha VN", root);
         await vm.Loading;
         vm.SelectedLine = vm.Lines[1];
         return (vm, temp);
     }
 
-    /// <summary>Uma janela do tamanho do app: o Editor recebe a largura menos o trilho.</summary>
+    /// <summary>Uma janela da largura pedida: o Editor decide o layout pela largura do cliente da janela.</summary>
     private static Window Show(Control content, double windowWidth)
     {
-        var window = new Window { Width = EditorWidth(windowWidth), Height = 768, Content = content };
+        var window = new Window { Width = windowWidth, Height = 768, Content = content };
         window.Show();
         Settle(window);
         return window;
     }
-
-    private static double EditorWidth(double windowWidth) => windowWidth - EditorBreakpoints.WindowChrome;
 
     [Fact]
     public async Task A_1366_a_lista_de_cenas_sai_da_grade_e_abre_num_flyout_do_cabecalho()
@@ -236,7 +235,7 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
                 var detailView = window.GetVisualDescendants().OfType<LineDetailView>().Single();
                 foreach (var width in new[] { 1440.0, 1366.0, 1440.0 })
                 {
-                    window.Width = EditorWidth(width);
+                    window.Width = width;
                     Settle(window);
                     var editor = detailView.GetLogicalDescendants().OfType<AvaloniaEdit.TextEditor>().Distinct().Single();
                     var tabs = detailView.GetVisualDescendants().OfType<TabControl>().Any(t => t.IsEffectivelyVisible);
@@ -250,5 +249,189 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
         Assert.Equal([false, true, false], states.Select(s => s.Tabs));
         Assert.All(states, s => Assert.Equal(vm.Detail!.FieldText, s.Text));
         Assert.Equal([GameTextboxSize.Medium, GameTextboxSize.Small, GameTextboxSize.Medium], states.Select(s => s.Size));
+    }
+
+    [Theory]
+    [InlineData(1440, false)]
+    [InlineData(1400, false)]
+    [InlineData(1399, true)]
+    [InlineData(1366, true)]
+    public async Task Na_MainWindow_o_layout_segue_a_largura_da_janela(int windowWidth, bool compact)
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Machine);
+        var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch));
+        var main = new MainWindowViewModel(start);
+        await start.OpenFolderCommand.ExecuteAsync(null);
+        await main.Editor.Loading;
+        bool tabs = !compact, flyout = !compact;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = new MainWindow { Width = windowWidth, Height = 768, DataContext = main };
+                window.Show();
+                main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Editor);
+                Settle(window);
+                tabs = window.GetVisualDescendants().OfType<TabControl>().Any(t => t.IsEffectivelyVisible);
+                flyout = window.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("scenes-trigger")).IsEffectivelyVisible;
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.Equal(compact, tabs);
+        Assert.Equal(compact, flyout);
+    }
+
+    [Fact]
+    public async Task Cruzar_os_1400_px_e_voltar_mantem_o_mesmo_campo_com_texto_cursor_selecao_e_foco()
+    {
+        var (vm, temp) = await Abrir();
+        using var _ = temp;
+        var states = new List<(bool Same, string? Text, int Caret, int Selection, bool Focused)>();
+        var initial = (Text: string.Empty, Caret: 0, Selection: 0);
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Show(new EditorView { DataContext = vm }, 1440);
+                var detailView = window.GetVisualDescendants().OfType<LineDetailView>().Single();
+                var editor = detailView.GetVisualDescendants().OfType<TextEditor>().Single();
+                editor.Text = "uma tradução editada";
+                editor.Select(4, 7);
+                editor.CaretOffset = 11;
+                editor.TextArea.Focus();
+                Settle(window);
+                initial = (editor.Text, editor.CaretOffset, editor.SelectionLength);
+                Assert.True(editor.TextArea.IsFocused, "o campo começa com o foco");
+
+                foreach (var width in new[] { 1399.0, 1440.0 })
+                {
+                    window.Width = width;
+                    Settle(window);
+                    var now = detailView.GetLogicalDescendants().OfType<TextEditor>().Distinct().Single();
+                    states.Add((ReferenceEquals(now, editor), now.Text, now.CaretOffset, now.SelectionLength, now.TextArea.IsFocused));
+                }
+
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.Equal("uma tradução editada", initial.Text);
+        Assert.Equal(2, states.Count);
+        Assert.All(states, st =>
+        {
+            Assert.True(st.Same);
+            Assert.Equal(initial, (st.Text, st.Caret, st.Selection));
+            Assert.True(st.Focused);
+        });
+    }
+
+    private sealed class GatedSuggester : ILineSuggester
+    {
+        public TaskCompletionSource<LineSuggestion> Gate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<LineSuggestion> SuggestAsync(TextUnit unit, CancellationToken ct) => Gate.Task;
+    }
+
+    [Fact]
+    public async Task Pedir_a_sugestao_leva_a_aba_Sugestao_uma_vez_e_a_resposta_nao_puxa_de_volta()
+    {
+        var gated = new GatedSuggester();
+        var (vm, temp) = await Abrir(gated);
+        using var _ = temp;
+        var indexes = new List<int>();
+        var focusInside = new List<bool>();
+
+        await fixture.Session.Dispatch(
+            async () =>
+            {
+                var window = Show(new EditorView { DataContext = vm }, 1366);
+                var detailView = window.GetVisualDescendants().OfType<LineDetailView>().Single();
+                var tabs = detailView.GetVisualDescendants().OfType<TabControl>().Single();
+                var task = vm.Detail!.SuggestCommand.ExecuteAsync(null);
+                Settle(window);
+                indexes.Add(tabs.SelectedIndex);
+                focusInside.Add(window.FocusManager?.GetFocusedElement() is Visual focused && detailView.IsVisualAncestorOf(focused));
+
+                tabs.SelectedIndex = 0;
+                Settle(window);
+                gated.Gate.SetResult(new LineSuggestion("Texto sugerido", FromFakeProvider: true));
+                await task;
+                Settle(window);
+                indexes.Add(tabs.SelectedIndex);
+                Assert.True(vm.Detail.HasSuggestion);
+
+                tabs.SelectedIndex = 1;
+                Settle(window);
+                var use = detailView.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "UseSuggestionButton");
+                use.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Settle(window);
+                indexes.Add(tabs.SelectedIndex);
+                focusInside.Add(detailView.GetVisualDescendants().OfType<TextEditor>().Single().TextArea.IsFocused);
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.Equal([1, 0, 0], indexes);
+        Assert.Equal([true, true], focusInside);
+    }
+
+    [Fact]
+    public async Task Escolher_uma_cena_no_flyout_fecha_o_flyout_e_troca_a_cena()
+    {
+        var (vm, temp) = await Abrir(twoScripts: true);
+        using var _ = temp;
+        bool open = false, closed = false;
+        var before = vm.SelectedScript?.Key;
+        string? after = null;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Show(new EditorView { DataContext = vm }, 1366);
+                var trigger = window.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("scenes-trigger"));
+                var flyout = (Flyout)trigger.Flyout!;
+                flyout.ShowAt(trigger);
+                Settle(window);
+                open = flyout.IsOpen;
+                var list = ((ScenesPanel)flyout.Content!).GetVisualDescendants().OfType<ListBox>().Single();
+                list.SelectedIndex = list.SelectedIndex == 0 ? 1 : 0;
+                Settle(window);
+                closed = !flyout.IsOpen;
+                after = vm.SelectedScript?.Key;
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.True(open);
+        Assert.True(closed);
+        Assert.NotEqual(before, after);
+    }
+
+    [Fact]
+    public async Task O_flyout_aberto_fecha_quando_a_janela_cresce_alem_dos_1400_px()
+    {
+        var (vm, temp) = await Abrir();
+        using var _ = temp;
+        var open = new List<bool>();
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Show(new EditorView { DataContext = vm }, 1366);
+                var trigger = window.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("scenes-trigger"));
+                var flyout = (Flyout)trigger.Flyout!;
+                flyout.ShowAt(trigger);
+                Settle(window);
+                open.Add(flyout.IsOpen);
+                window.Width = 1440;
+                Settle(window);
+                open.Add(flyout.IsOpen);
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.Equal([true, false], open);
     }
 }

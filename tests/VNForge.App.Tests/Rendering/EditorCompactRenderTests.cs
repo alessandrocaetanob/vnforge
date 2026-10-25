@@ -153,6 +153,7 @@ public sealed class EditorCompactRenderTests(HeadlessFixture fixture, DemoFolder
 
         Assert.True(caixa.IsEffectivelyVisible);
         Assert.Equal(GameTextboxSize.Small, caixa.Size);
+        Assert.Contains(inspector.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("kbd") && b.IsEffectivelyVisible);
         Assert.True(caixa.Bounds.Width <= rolagem.Viewport.Width + Tolerance, $"a caixa do jogo inteira cabe sem rolagem horizontal ({caixa.Bounds.Width:0.#} de {rolagem.Viewport.Width:0.#})");
         Assert.True(rolagem.Extent.Width <= rolagem.Viewport.Width + Tolerance, "sem rolagem horizontal na caixa");
 
