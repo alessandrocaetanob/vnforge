@@ -190,8 +190,8 @@ public sealed class StyleRulesTests
     [Fact]
     public void Honorificos_so_avisa_e_nao_tem_corretor()
     {
-        Assert.IsNotAssignableFrom<IQaFixer>(new HonorificsRule());
-        Assert.IsNotAssignableFrom<IQaFixer>(new GenderRule());
+        Assert.IsNotType<IQaFixer>(new HonorificsRule(), exactMatch: false);
+        Assert.IsNotType<IQaFixer>(new GenderRule(), exactMatch: false);
     }
 
     private static readonly CharacterEntry[] Cast =

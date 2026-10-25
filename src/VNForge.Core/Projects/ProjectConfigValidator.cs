@@ -58,19 +58,19 @@ internal static partial class ProjectConfigValidator
         OneOf(style.Narrator.Gender, StyleNames.Genders, "$.style.narrator.gender");
     }
 
-    private static void OneOf<T>(T value, IReadOnlyDictionary<string, T> allowed, string field)
-    {
-        if (!allowed.Values.Contains(value))
-        {
-            throw new ProjectConfigException(field, $"valor não aceito; use um destes: {string.Join(", ", allowed.Keys)}.");
-        }
-    }
-
     private static void NotBlank(string? value, string field)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ProjectConfigException(field, "não pode ser vazio.");
+        }
+    }
+
+    private static void OneOf<T>(T value, IReadOnlyDictionary<string, T> allowed, string field)
+    {
+        if (!allowed.Values.Contains(value))
+        {
+            throw new ProjectConfigException(field, $"valor não aceito; use um destes: {string.Join(", ", allowed.Keys)}.");
         }
     }
 

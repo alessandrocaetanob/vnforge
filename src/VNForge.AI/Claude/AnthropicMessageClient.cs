@@ -60,7 +60,7 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
     }
 
     /// <summary>
-    /// Prompt caching: o bloco estável (instrução, escolhas de estilo e guia) leva o <c>cache_control</c> e se repete em todo lote do
+    /// Prompt caching: o bloco estável (instrução, escolhas de estilo e guia) leva o <c>cache_control</c> e se repete a cada lote do
     /// projeto; o glossário e os personagens, que mudam a cada lote, vão num segundo bloco sem marca, depois do ponto de cache.
     /// </summary>
     internal static List<BetaTextBlockParam> SystemBlocks(ClaudeRequest request)

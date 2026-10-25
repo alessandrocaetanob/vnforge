@@ -10,7 +10,7 @@ public sealed record ClaudeRequest(
     string JsonSchema,
     string BatchContext = "")
 {
-    /// <summary>O sistema inteiro: <see cref="System"/> (igual em todo lote do projeto) e <see cref="BatchContext"/> (glossário e personagens do lote).</summary>
+    /// <summary>O sistema inteiro: <see cref="System"/> (igual a cada lote do projeto) e <see cref="BatchContext"/> (glossário e personagens do lote).</summary>
     public string FullSystem => System + BatchContext;
 }
 

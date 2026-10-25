@@ -7,8 +7,11 @@ using VNForge.Core.Text;
 
 namespace VNForge.AI.Tests;
 
-public class StylePromptTests
+public partial class StylePromptTests
 {
+    [System.Text.RegularExpressions.GeneratedRegex("\"id\":\"([^\"]+)\"")]
+    private static partial System.Text.RegularExpressions.Regex RequestId();
+
     private sealed class StubClient : IClaudeMessageClient
     {
         public List<ClaudeRequest> Requests { get; } = [];
@@ -16,7 +19,7 @@ public class StylePromptTests
         public Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct)
         {
             Requests.Add(request);
-            var ids = System.Text.RegularExpressions.Regex.Matches(request.User, "\"id\":\"([^\"]+)\"").Select(m => m.Groups[1].Value).Distinct();
+            var ids = RequestId().Matches(request.User).Select(m => m.Groups[1].Value).Distinct();
             var items = string.Join(",", ids.Select(id => $"{{\"id\":\"{id}\",\"translation\":\"T-{id}\"}}"));
             return Task.FromResult(new ClaudeReply("end_turn", $"{{\"translations\":[{items}]}}"));
         }

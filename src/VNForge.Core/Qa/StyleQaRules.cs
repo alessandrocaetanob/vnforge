@@ -17,6 +17,8 @@ public sealed partial class HonorificsRule : UnitQaRule
 
     private static readonly string[] NameSuffixes = ["さん", "さま", "様", "ちゃん", "くん"];
 
+    private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(1);
+
     private static readonly ConditionalWeakTable<QaContext, Regex> SourceMatchers = new();
 
     /// <inheritdoc />
@@ -95,14 +97,14 @@ public sealed partial class HonorificsRule : UnitQaRule
     {
         var escaped = names.Where(n => n.Length > 0).Distinct(StringComparer.Ordinal).OrderByDescending(n => n.Length).Select(Regex.Escape).ToList();
         var named = escaped.Count == 0 ? string.Empty : $"|(?:{string.Join('|', escaped)})(?:さん(?!ぽ)|さま|様|ちゃん|くん)";
-        return new Regex(GenericSourceHonorific + named, RegexOptions.CultureInvariant);
+        return new Regex(GenericSourceHonorific + named, RegexOptions.CultureInvariant, MatchTimeout);
     }
 
     // Nome em kanji ou katakana + ちゃん/くん, fora os termos de parentesco (赤ちゃん, お母ちゃん...) e o advérbio ちゃんと; ou 先輩.
     private const string GenericSourceHonorific =
         @"(?<=[一-鿿゠-ヿ])(?<![赤婆爺兄姉母父叔伯祖妹弟嬢])(?:ちゃん(?!と)|くん)|先輩|せんぱい|センパイ";
 
-    [GeneratedRegex(@"-(?:san|kun|chan|sama)(?!\p{L})|(?<!\p{L})se[nm]pai(?!\p{L})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"-(?:san|kun|chan|sama)(?!\p{L})|(?<!\p{L})se[nm]pai(?!\p{L})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex TranslatedHonorific();
 }
 
@@ -125,6 +127,11 @@ public sealed class GenderRule : IQaRule
     public IEnumerable<QaIssue> Check(QaContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        return CheckCharacters(context);
+    }
+
+    private static IEnumerable<QaIssue> CheckCharacters(QaContext context)
+    {
         var book = new CharacterBook(context.Characters);
         var byCharacter = new Dictionary<string, (CharacterEntry Character, TextUnit First, string Key, int Count)>(StringComparer.Ordinal);
         foreach (var (key, units) in context.Texts)

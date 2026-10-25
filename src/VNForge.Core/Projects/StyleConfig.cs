@@ -53,7 +53,7 @@ public sealed record NarratorStyle
 }
 
 /// <summary>
-/// As escolhas de estilo da tradução, gravadas em <c>vnforge.json</c> (<c>style</c>). Vão em todo pedido à IA, e as regras de QA
+/// As escolhas de estilo da tradução, gravadas em <c>vnforge.json</c> (<c>style</c>). Vão em cada pedido à IA, e as regras de QA
 /// <c>honorifico-fora-do-estilo</c> e <c>personagem-sem-genero</c> conferem a tradução contra elas.
 /// </summary>
 public sealed record StyleConfig
