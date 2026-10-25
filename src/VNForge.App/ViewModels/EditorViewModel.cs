@@ -394,7 +394,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>Disparado por "Conferir arquivo": a janela abre a Conferência. Leva a chave do script aberto.</summary>
     public event EventHandler<string>? CheckRequested;
 
-    /// <summary>Disparado por "Traduzir pendentes": quem sabe traduzir em lote assume. Leva a chave do script aberto.</summary>
+    /// <summary>Disparado por "Traduzir com IA": a janela com as três perguntas abre. Leva a chave do script aberto.</summary>
     public event EventHandler<string>? TranslateRequested;
 
     [RelayCommand(CanExecute = nameof(HasScript))]
@@ -405,7 +405,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     private bool HasScript() => SelectedScript is not null;
 
-    private bool CanTranslatePending() => SelectedScript is not null && PendingLines > 0;
+    // A janela oferece também o capítulo e o jogo inteiro, então abre mesmo quando a cena aberta não tem pendentes.
+    private bool CanTranslatePending() => SelectedScript is not null;
 
     /// <summary>O painel de busca e substituição do projeto, que abre dentro do Editor.</summary>
     public SearchReplaceViewModel Search { get; }

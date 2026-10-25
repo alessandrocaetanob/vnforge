@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.TranslateDialogView"
+             x:DataType="vm:TranslateDialogViewModel">
+
+  <!-- Traduzir com IA (U12): o diálogo vive na camada de sobreposição, sobre o Editor; Escape e o X fecham. Três perguntas: o que, com que qualidade e por quanto. -->
+  <c:ScreenDialog Title="Traduzir com IA" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
+
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="O que traduzir"/>
+          <ItemsControl ItemsSource="{Binding Scopes}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="3"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ScopeChoice">
+                <RadioButton Classes="option" GroupName="TranslateScope" VerticalAlignment="Stretch" VerticalContentAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                             AutomationProperties.Name="{Binding Title}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}"/>
+                    <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
+                  </StackPanel>
+                </RadioButton>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="Com que qualidade"/>
+          <ItemsControl ItemsSource="{Binding Qualities}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="3"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:QualityChoice">
+                <c:QualityCard GroupName="TranslateQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
+                               Model="{Binding Model}" Price="{Binding Price}" Duration="{Binding Duration}"
+                               IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="Quanto custa"/>
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="title-md" Text="{Binding RequestText}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SpentText}" VerticalAlignment="Center"/>
+              </Grid>
+              <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}"
+                           AutomationProperties.Name="Gasto do projeto, este pedido e o limite"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"
+                         IsVisible="{Binding RateNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <Border Classes="infobar error" IsVisible="{Binding LoadError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding LoadError}"/>
+          </Grid>
+        </Border>
+
+        <Border Classes="infobar warning" IsVisible="{Binding IsOverLimit}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding OverLimitText}"/>
+            <Button Grid.Column="2" Classes="sm accent" Command="{Binding SwitchToFitCommand}" Content="{Binding SwitchToFitText}"
+                    IsVisible="{Binding CanSwitchToFit}" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+
+        <Border Classes="infobar warning" IsVisible="{Binding HasBudgetProblem}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding BudgetProblemText}"/>
+          </Grid>
+        </Border>
+
+        <Border Classes="infobar warning" IsVisible="{Binding AboveWarning}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center"
+                       Text="Este pedido custa mais que o valor de aviso que você definiu em Ajustes. Confira o valor antes de seguir."/>
+          </Grid>
+        </Border>
+
+        <Border Classes="infobar warning" IsVisible="{Binding HasMissingGender}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding MissingGenderText}"/>
+            <Button Grid.Column="2" Classes="sm" Command="{Binding DefineGendersCommand}" Content="Definir agora" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+
+        <Border Classes="infobar error" IsVisible="{Binding KeyMissing}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding KeyMissingText}"/>
+            <Button Grid.Column="2" Classes="sm" Command="{Binding OpenSettingsCommand}" Content="Abrir Ajustes" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="Não há linhas sem tradução neste escopo." IsVisible="{Binding NothingToTranslate}"/>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding ContextText}"/>
+      </StackPanel>
+    </ScrollViewer>
+
+    <c:ScreenDialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Cancelar" Command="{Binding CancelCommand}"/>
+        <Button Classes="accent" Command="{Binding StartCommand}" AutomationProperties.Name="{Binding StartLabel}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="{Binding StartLabel}" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </c:ScreenDialog.Footer>
+  </c:ScreenDialog>
+</UserControl>

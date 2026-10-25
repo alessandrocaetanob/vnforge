@@ -161,5 +161,6 @@
     <c:ToastHost ItemsSource="{Binding Toasts.Toasts}"/>
     <v:ShortcutMapView/>
     <v:CommandPaletteView DataContext="{Binding Palette}"/>
+    <v:TranslateDialogView DataContext="{Binding Translate}"/>
   </Panel>
 </Window>

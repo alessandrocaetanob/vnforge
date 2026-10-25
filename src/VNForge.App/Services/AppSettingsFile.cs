@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using VNForge.AI.Cost;
+using VNForge.AI.Settings;
 
 namespace VNForge.App.Services;
 
@@ -21,7 +22,7 @@ public sealed record AppSettings(int Concurrency, ThemeChoice Theme = ThemeChoic
     public const int MaxConcurrency = 8;
 
     /// <summary>Teto da cotação aceita: acima disso é quase certo um erro de digitação.</summary>
-    public const decimal MaxBrlPerUsd = 100m;
+    public const decimal MaxBrlPerUsd = AppBudgetFile.MaxBrlPerUsd;
 
     public static AppSettings Default { get; } = new(2);
 
@@ -58,6 +59,9 @@ public sealed class AppSettingsFile(string directory)
 
     public string Path { get; } = System.IO.Path.Combine(directory, FileName);
 
+    /// <summary>Por que o <c>app.json</c> existe e não foi lido (ou tem um valor de dinheiro inválido), em português; <see langword="null"/> quando está bem ou não existe.</summary>
+    public string? ReadProblem() => AppBudgetFile.Load(System.IO.Path.GetDirectoryName(Path)!).Problem;
+
     public AppSettings Load()
     {
         if (!File.Exists(Path))
@@ -93,13 +97,13 @@ public sealed class AppSettingsFile(string directory)
                 && Enum.IsDefined(picked)
                     ? picked
                     : TranslationQuality.Careful;
-            var rate = ReadMoney(root, "exchangeRate", AppSettings.MaxBrlPerUsd);
+            var rate = AppBudgetFile.ReadMoney(root, "exchangeRate", AppSettings.MaxBrlPerUsd);
             return new AppSettings(concurrency, theme)
             {
                 BrlPerUsd = rate,
-                RateInformedOn = rate is null ? null : Date(root, "exchangeRateOn"),
-                SpendLimit = ReadMoney(root, "spendLimit", decimal.MaxValue),
-                WarnAbove = ReadMoney(root, "warnAbove", decimal.MaxValue),
+                RateInformedOn = rate is null ? null : AppBudgetFile.ReadDate(root, "exchangeRateOn"),
+                SpendLimit = AppBudgetFile.ReadMoney(root, "spendLimit", decimal.MaxValue),
+                WarnAbove = AppBudgetFile.ReadMoney(root, "warnAbove", decimal.MaxValue),
                 Quality = quality,
             };
         }
@@ -113,6 +117,13 @@ public sealed class AppSettingsFile(string directory)
     {
         ArgumentNullException.ThrowIfNull(settings);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+
+        // Um arquivo que não pôde ser lido pode ter um limite de gasto da pessoa: guarda uma cópia antes de gravar o padrão por cima.
+        if (File.Exists(Path) && ReadProblem() is not null)
+        {
+            File.Copy(Path, Path + ".bad", overwrite: true);
+        }
+
         var data = new Dictionary<string, object>
         {
             ["concurrency"] = settings.Concurrency,
@@ -138,22 +149,17 @@ public sealed class AppSettingsFile(string directory)
             data["warnAbove"] = warn;
         }
 
-        File.WriteAllText(Path, JsonSerializer.Serialize(data, Json));
+        // Por arquivo temporário e troca: uma queda no meio da gravação não deixa um app.json pela metade, que esconderia o limite de gasto.
+        var temp = $"{Path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(data, Json));
+            File.Move(temp, Path, overwrite: true);
+        }
+        catch
+        {
+            File.Delete(temp);
+            throw;
+        }
     }
-
-    private static decimal? ReadMoney(JsonElement root, string name, decimal max) =>
-        root.TryGetProperty(name, out var element)
-        && element.ValueKind == JsonValueKind.Number
-        && element.TryGetDecimal(out var value)
-        && value <= max
-        && value > 0m
-            ? value
-            : null;
-
-    private static DateOnly? Date(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var element)
-        && element.ValueKind == JsonValueKind.String
-        && DateOnly.TryParseExact(element.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
-            ? date
-            : null;
 }

@@ -153,6 +153,37 @@ public sealed class QaFixerTests : IDisposable
     }
 
     [Fact]
+    public void Apply_espera_a_gravacao_em_andamento_e_corrige_o_que_ela_gravou()
+    {
+        _project.SaveText("a", [Unit("a:1", "limpo")]);
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var writer = new Thread(() =>
+        {
+            lock (ProjectTextLock.For(_project))
+            {
+                entered.Set();
+                release.Wait();
+                _project.SaveText("a", [Unit("a:1", "Olá,  mundo")]);
+            }
+        });
+        writer.Start();
+        entered.Wait(TestContext.Current.CancellationToken);
+        QaFixResult? result = null;
+        var fixer = new Thread(() => result = QaFixer.Apply(_project, QaEngine.Default));
+        fixer.Start();
+
+        // Quem não espera a trava termina sem nunca bloquear; quem espera fica bloqueado até a gravação acabar.
+        SpinWait.SpinUntil(() => fixer.ThreadState.HasFlag(ThreadState.WaitSleepJoin) || fixer.ThreadState.HasFlag(ThreadState.Stopped));
+        release.Set();
+        writer.Join();
+        fixer.Join();
+
+        Assert.Single(result!.Fixes);
+        Assert.Equal("Olá, mundo", _project.LoadText("a")[0].Translation);
+    }
+
+    [Fact]
     public void Apply_a_seco_lista_sem_gravar()
     {
         _project.SaveText("a", [Unit("a:1", "Olá,  mundo")]);

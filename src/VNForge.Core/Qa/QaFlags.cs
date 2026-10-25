@@ -24,6 +24,15 @@ public static class QaFlags
     private static bool Update(ProjectFolder project, QaEngine engine, string unitId, string ruleId, bool add)
     {
         ArgumentNullException.ThrowIfNull(project);
+        lock (ProjectTextLock.For(project))
+        {
+            return UpdateLocked(project, engine, unitId, ruleId, add);
+        }
+    }
+
+    private static bool UpdateLocked(ProjectFolder project, QaEngine engine, string unitId, string ruleId, bool add)
+    {
+        ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentException.ThrowIfNullOrEmpty(unitId);
         ArgumentException.ThrowIfNullOrEmpty(ruleId);
