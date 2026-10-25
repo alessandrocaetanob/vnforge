@@ -19,6 +19,7 @@ public sealed class ProjectBuilderTests : IDisposable
     private const string FirstUnit = "a001:000000";
 
     private const string ThreeWords = "aaa bbb ccc";
+    private const string OverflowProfile = """{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""";
 
     private readonly TempFolder _temp = new();
     private readonly string _game;
@@ -378,6 +379,32 @@ public sealed class ProjectBuilderTests : IDisposable
 
         Assert.Contains(result.Warnings, w => w.StartsWith("a001:000000: caixa 1 com 3 linhas (máximo 2)", StringComparison.Ordinal));
         Assert.StartsWith(@"dialogue|aaa\nbbb\nccc", BuiltContent());
+    }
+
+    [Fact]
+    public void Caixa_acima_do_limite_que_o_qa_ja_aponta_nao_repete_nos_avisos_do_build()
+    {
+        SaveProfile(OverflowProfile);
+        Translate("a001", (0, ThreeWords));
+
+        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, allowWarnings: true);
+
+        var issue = Assert.Single(result.Qa.OtherIssues, i => i.RuleId == BoxLineLimitRule.RuleId);
+        Assert.Equal("a001:000000", issue.UnitId);
+        Assert.DoesNotContain(result.Warnings, w => w.Contains("caixa 1 com 3 linhas", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Caixa_acima_do_limite_marcada_como_ok_nao_volta_nos_avisos_do_build()
+    {
+        SaveProfile(OverflowProfile);
+        Translate("a001", (0, ThreeWords));
+        _project.SaveText("a001", [.. _project.LoadText("a001").Select(u => u.Id == "a001:000000" ? u with { Flags = [BoxLineLimitRule.RuleId] } : u)]);
+
+        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, allowWarnings: true);
+
+        Assert.Single(result.Qa.Silenced, i => i.RuleId == BoxLineLimitRule.RuleId);
+        Assert.DoesNotContain(result.Warnings, w => w.Contains("caixa 1 com 3 linhas", StringComparison.Ordinal));
     }
 
     [Fact]
