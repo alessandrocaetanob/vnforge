@@ -105,8 +105,9 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
     {
         try
         {
-            var encoder = TextEncoderRegistry.Default.Create(project.LoadConfig().Encoding.Strategy);
-            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder);
+            var config = project.LoadConfig();
+            var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy);
+            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style };
             var issues = QaEngine.Default.Run(context).OtherIssues;
             return new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning));
         }

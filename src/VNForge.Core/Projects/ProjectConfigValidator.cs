@@ -46,6 +46,24 @@ internal static partial class ProjectConfigValidator
         {
             throw new ProjectConfigException("$.ai.batchSize", $"deve estar entre 1 e {MaxBatchSize}.");
         }
+
+        ValidateStyle(config.Style);
+    }
+
+    private static void ValidateStyle(StyleConfig style)
+    {
+        OneOf(style.Honorifics, StyleNames.Honorifics, "$.style.honorifics");
+        OneOf(style.Address, StyleNames.Addresses, "$.style.address");
+        OneOf(style.Narrator.Person, StyleNames.Persons, "$.style.narrator.person");
+        OneOf(style.Narrator.Gender, StyleNames.Genders, "$.style.narrator.gender");
+    }
+
+    private static void OneOf<T>(T value, IReadOnlyDictionary<string, T> allowed, string field)
+    {
+        if (!allowed.Values.Contains(value))
+        {
+            throw new ProjectConfigException(field, $"valor não aceito; use um destes: {string.Join(", ", allowed.Keys)}.");
+        }
     }
 
     private static void NotBlank(string? value, string field)
