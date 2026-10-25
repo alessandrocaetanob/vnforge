@@ -6,6 +6,7 @@
         x:Class="VNForge.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="VNForge"
+        Icon="/Assets/VNForge.ico"
         Width="1440" Height="900" MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         ExtendClientAreaToDecorationsHint="True"
