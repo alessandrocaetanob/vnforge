@@ -102,6 +102,7 @@ internal static class ReviewCommand
             lock (gate)
             {
                 var saved = selection.ApplyAndSave(project, results, (result, unit) => Annotate(summary, result, unit));
+                summary.Skipped += saved.Skipped;
                 summary.Handled += results.Count;
                 if (reporter.IsLive)
                 {
@@ -119,15 +120,22 @@ internal static class ReviewCommand
             cli.Ansi.MarkupLine($"Revisando com [{CliPalette.Hex(CliPalette.Accent)}]{CliViews.Escape(settings.Model)}[/] · esforço {settings.Effort.ToString().ToLowerInvariant()}");
         }
 
-        var run = await reporter.RunAsync(
-            cli.Ansi,
-            cli.CanAnimate,
-            "Revisando",
-            () => runner.RunAsync(pending, BuildBatch, OnBatchReviewed, null, token)).ConfigureAwait(false);
+        TranslationRunResult run;
+        try
+        {
+            run = await reporter.RunAsync(
+                cli.Ansi,
+                cli.CanAnimate,
+                "Revisando",
+                () => runner.RunAsync(pending, BuildBatch, OnBatchReviewed, null, token)).ConfigureAwait(false);
+        }
+        finally
+        {
+            RunCostTracker.Record(project, settings.Model, (provider as ClaudeReviewProvider)?.Usage);
+        }
 
         summary.Failed = [.. run.Failures];
         summary.Usage = (provider as ClaudeReviewProvider)?.Usage;
-        RunCostTracker.Record(project, settings.Model, summary.Usage);
 
         if (run.CallbackError is { } callbackError)
         {
@@ -201,6 +209,7 @@ internal static class ReviewCommand
             data["reviewed"] = summary.Reviewed;
             data["suggestions"] = summary.Suggestions;
             data["clean"] = summary.Clean;
+            data["skipped"] = summary.Skipped;
             output.WriteLine(JsonEnvelope.Result(WithOutcome(data, summary.Refused, summary.Failed, summary.Usage, dollars), exitCode));
             return exitCode;
         }
@@ -213,6 +222,10 @@ internal static class ReviewCommand
 
         output.WriteLine($"{Count(summary.Reviewed, "linha revisada", "linhas revisadas")} de {Number(selected)}, modelo {settings.Model}: {Count(summary.Suggestions, "sugestão gravada", "sugestões gravadas")} em 'notes', {Count(summary.Clean, "linha sem ressalva", "linhas sem ressalva")}.");
         output.WriteLine("As traduções e os status não foram alterados.");
+        if (summary.Skipped > 0)
+        {
+            output.WriteLine($"{Count(summary.Skipped, "linha foi mudada", "linhas foram mudadas")} durante a execução e ficou sem a sugestão, que era sobre o texto de antes; rode 'vnf review' de novo para ela.");
+        }
 
         WriteOutcome(
             output,
@@ -265,6 +278,8 @@ internal static class ReviewCommand
         public int Clean { get; set; }
 
         public int Handled { get; set; }
+
+        public int Skipped { get; set; }
 
         public List<string> Refused { get; } = [];
 

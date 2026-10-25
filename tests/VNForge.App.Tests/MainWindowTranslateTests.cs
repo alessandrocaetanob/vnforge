@@ -227,12 +227,36 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public void Nada_traduzido_porque_a_pessoa_mudou_as_linhas_e_aviso()
+    {
+        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(0, 0, 0, null, 0m, null, Skipped: 4));
+
+        Assert.Equal(ToastKind.Warning, kind);
+        Assert.Contains("4 linhas mudaram durante a execução", text);
+    }
+
+    [Fact]
     public void Sem_nenhum_problema_o_aviso_e_de_sucesso()
     {
         var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(1, 0, 0, null, 0.1m, null));
 
         Assert.Equal(ToastKind.Success, kind);
         Assert.Contains("1 linha traduzida pela IA", text);
+    }
+
+    [Fact]
+    public void App_json_ilegivel_avisa_ao_abrir_o_app()
+    {
+        var ajustes = temp.SubFolder("ajustes-quebrados");
+        File.WriteAllText(Path.Combine(ajustes, "app.json"), "{ quebrado");
+        var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config2")), new FakeFolderPicker(null), new FixedClock(Now));
+        var settings = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(ajustes), _ => null);
+
+        var vm = new MainWindowViewModel(start, settings: settings);
+
+        var toast = Assert.Single(vm.Toasts.Toasts);
+        Assert.Equal(ToastKind.Warning, toast.Kind);
+        Assert.Contains("limite de gasto", toast.Message);
     }
 
     private sealed class BlockingProvider(TaskCompletionSource started) : ITranslationProvider

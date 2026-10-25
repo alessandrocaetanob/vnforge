@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.Core.Projects;
@@ -195,7 +194,7 @@ public sealed class TranslateBudgetTests : IDisposable
         {
             Interlocked.Increment(ref _calls);
             DuringCall?.Invoke();
-            var ids = Regex.Matches(request.User, "\"id\":\"([^\"]+)\"").Select(m => m.Groups[1].Value).Distinct();
+            var ids = request.User.Split("\"id\":\"").Skip(1).Select(part => part[..part.IndexOf('"', StringComparison.Ordinal)]).Distinct();
             var items = string.Join(',', ids.Select(id => $$"""{"id":"{{id}}","translation":"Texto"}"""));
             return Task.FromResult(new ClaudeReply("end_turn", $$"""{"translations":[{{items}}]}""", new ClaudeUsage(100, OutputTokensPerCall, 0, 0)));
         }

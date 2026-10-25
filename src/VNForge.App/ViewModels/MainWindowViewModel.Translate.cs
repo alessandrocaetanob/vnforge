@@ -50,7 +50,7 @@ public sealed partial class MainWindowViewModel
             TranslateOpening = Translate.OpenAsync(
                 folder,
                 scriptKey,
-                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured));
+                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured, Settings.BudgetProblem));
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -168,8 +168,8 @@ public sealed partial class MainWindowViewModel
             parts.Add($"{Lines(result.Skipped, "linha mudou", "linhas mudaram")} durante a execução e {(result.Skipped == 1 ? "ficou" : "ficaram")} como você deixou.");
         }
 
-        var needsAttention = stoppedAtLimit || result.Failed > 0 || result.Refused > 0;
-        if (result.Translated == 0 && !needsAttention && result.Skipped == 0)
+        var needsAttention = stoppedAtLimit || result.Failed > 0 || result.Refused > 0 || (result.Translated == 0 && result.Skipped > 0);
+        if (result.Translated == 0 && !needsAttention)
         {
             return ("Nenhuma linha foi traduzida.", ToastKind.Info);
         }
