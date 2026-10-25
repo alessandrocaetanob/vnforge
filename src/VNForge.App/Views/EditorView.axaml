@@ -51,10 +51,10 @@
             <TextBlock Text="Conferir arquivo" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="accent sm" Command="{Binding TranslatePendingCommand}" ToolTip.Tip="Traduz com a IA as linhas pendentes deste script">
+        <Button Classes="accent sm" Command="{Binding TranslatePendingCommand}" ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
-            <TextBlock Text="Traduzir pendentes" TextWrapping="NoWrap"/>
+            <TextBlock Text="Traduzir com IA" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
       </WrapPanel>

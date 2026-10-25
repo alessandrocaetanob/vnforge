@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
@@ -42,6 +43,9 @@ public sealed class App : Application
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
             {
                 Editor = new EditorViewModel(suggester: LineSuggester.ForUser(configDirectory)),
+                TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
+                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    new ClaudeOptions { Model = model, Effort = effort }),
             };
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();

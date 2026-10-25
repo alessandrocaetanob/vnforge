@@ -87,6 +87,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines);
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
+        Editor.TranslateRequested += OnEditorTranslateRequested;
+        HookTranslateDialog();
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Conference.TextsChanged += (_, _) => editorStale = true;
@@ -154,10 +156,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             DetachEditor(editor);
             editor.PropertyChanged -= OnEditorChanged;
             editor.CheckRequested -= OnEditorCheckRequested;
+            editor.TranslateRequested -= OnEditorTranslateRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
             editor.CheckRequested += OnEditorCheckRequested;
+            editor.TranslateRequested += OnEditorTranslateRequested;
         }
     }
 

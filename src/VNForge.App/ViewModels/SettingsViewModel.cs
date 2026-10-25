@@ -278,6 +278,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>A cotação que converte os custos; sem uma informada, o valor de exemplo.</summary>
     public ExchangeRate Rate => app.Rate;
 
+    /// <summary>A qualidade que a janela "Traduzir com IA" marca ao abrir.</summary>
+    public TranslationQuality DefaultQuality => app.Quality;
+
     /// <summary>Limite de gasto e valor de aviso do orçamento, em reais.</summary>
     public BudgetLimits Budget => app.Budget;
 
