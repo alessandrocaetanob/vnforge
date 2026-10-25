@@ -106,6 +106,7 @@ public sealed class StyleRulesTests
     [InlineData("おはよう", false)]
     [InlineData("さんぽ", false)]
     [InlineData("赤ちゃんが泣いている", false)]
+    [InlineData("お嬢ちゃん、こちらへ", false)]
     [InlineData("ちゃんと食べなさい", false)]
     [InlineData("お母さん、模様が変だよ", false)]
     [InlineData("お客様、どうぞ", false)]
@@ -124,6 +125,7 @@ public sealed class StyleRulesTests
     [InlineData("美咲さんの席", true)]
     [InlineData("お母さん、田中を見た?", false)]
     [InlineData("お客様、田中は不在です", false)]
+    [InlineData("田中さんぽ", false)]
     public void Com_o_nome_conhecido_antes_o_sufixo_conta(string source, bool expected)
     {
         Assert.Equal(expected, HonorificsRule.HasHonorificInSource(source, ["田中", "美咲"]));

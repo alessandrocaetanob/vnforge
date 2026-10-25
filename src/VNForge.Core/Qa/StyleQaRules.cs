@@ -94,13 +94,13 @@ public sealed partial class HonorificsRule : UnitQaRule
     private static Regex BuildSourceMatcher(IEnumerable<string> names)
     {
         var escaped = names.Where(n => n.Length > 0).Distinct(StringComparer.Ordinal).OrderByDescending(n => n.Length).Select(Regex.Escape).ToList();
-        var named = escaped.Count == 0 ? string.Empty : $"|(?:{string.Join('|', escaped)})(?:さん|さま|様|ちゃん|くん)";
+        var named = escaped.Count == 0 ? string.Empty : $"|(?:{string.Join('|', escaped)})(?:さん(?!ぽ)|さま|様|ちゃん|くん)";
         return new Regex(GenericSourceHonorific + named, RegexOptions.CultureInvariant);
     }
 
     // Nome em kanji ou katakana + ちゃん/くん, fora os termos de parentesco (赤ちゃん, お母ちゃん...) e o advérbio ちゃんと; ou 先輩.
     private const string GenericSourceHonorific =
-        @"(?<=[一-鿿゠-ヿ])(?<![赤婆爺兄姉母父叔伯祖妹弟])(?:ちゃん(?!と)|くん)|先輩|せんぱい|センパイ";
+        @"(?<=[一-鿿゠-ヿ])(?<![赤婆爺兄姉母父叔伯祖妹弟嬢])(?:ちゃん(?!と)|くん)|先輩|せんぱい|センパイ";
 
     [GeneratedRegex(@"-(?:san|kun|chan|sama)(?!\p{L})|(?<!\p{L})se[nm]pai(?!\p{L})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TranslatedHonorific();
