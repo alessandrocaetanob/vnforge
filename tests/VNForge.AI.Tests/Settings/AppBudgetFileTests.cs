@@ -36,6 +36,30 @@ public sealed class AppBudgetFileTests : IDisposable
     }
 
     [Theory]
+    [InlineData("""{ "spendLimit": "muito" }""", "spendLimit")]
+    [InlineData("""{ "spendLimit": -5 }""", "spendLimit")]
+    [InlineData("""{ "warnAbove": 0 }""", "warnAbove")]
+    [InlineData("""{ "spendLimit": 1e40 }""", "spendLimit")]
+    [InlineData("""{ "exchangeRate": 500 }""", "exchangeRate")]
+    public void Valor_de_dinheiro_invalido_vira_problema(string content, string field)
+    {
+        Write(content);
+
+        var reading = AppBudgetFile.Load(_dir);
+
+        Assert.NotNull(reading.Problem);
+        Assert.Contains(field, reading.Problem);
+    }
+
+    [Fact]
+    public void Campo_nulo_ou_ausente_nao_e_problema()
+    {
+        Write("""{ "spendLimit": null, "concurrency": 3 }""");
+
+        Assert.Null(AppBudgetFile.Load(_dir).Problem);
+    }
+
+    [Theory]
     [InlineData("{ isto não é json")]
     [InlineData("[1, 2]")]
     public void Arquivo_ilegivel_diz_o_motivo_em_vez_de_valer_como_sem_limite(string content)

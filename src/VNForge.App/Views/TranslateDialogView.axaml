@@ -82,6 +82,13 @@
           </Grid>
         </Border>
 
+        <Border Classes="infobar warning" IsVisible="{Binding HasBudgetProblem}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding BudgetProblemText}"/>
+          </Grid>
+        </Border>
+
         <Border Classes="infobar warning" IsVisible="{Binding AboveWarning}">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
             <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>

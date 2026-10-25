@@ -33,9 +33,12 @@ public static class AppBudgetFile
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path));
             var root = document.RootElement;
-            return root.ValueKind == JsonValueKind.Object
-                ? new BudgetFileReading(Read(root), null)
-                : new BudgetFileReading(none, $"{path} não é um objeto JSON.");
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return new BudgetFileReading(none, $"{path} não é um objeto JSON.");
+            }
+
+            return new BudgetFileReading(Read(root), InvalidMoneyField(root) is { } field ? $"{path}: o campo '{field}' não é um valor válido." : null);
         }
         catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
         {
@@ -45,6 +48,20 @@ public static class AppBudgetFile
         {
             return new BudgetFileReading(none, $"{path} não pôde ser lido: {e.Message}");
         }
+    }
+
+    /// <summary>O primeiro campo de dinheiro que existe no arquivo mas não vale (texto, zero, negativo, fora da faixa); <see langword="null"/> quando todos valem ou faltam.</summary>
+    private static string? InvalidMoneyField(JsonElement root)
+    {
+        foreach (var (name, max) in new[] { ("exchangeRate", MaxBrlPerUsd), ("spendLimit", decimal.MaxValue), ("warnAbove", decimal.MaxValue) })
+        {
+            if (root.TryGetProperty(name, out var element) && element.ValueKind != JsonValueKind.Null && ReadMoney(root, name, max) is null)
+            {
+                return name;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Lê os campos de dinheiro e a data do <c>app.json</c> já aberto.</summary>

@@ -13,8 +13,8 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>O que a janela precisa saber dos Ajustes: a cotação, o limite e o aviso de gasto, a qualidade padrão e se há chave.</summary>
-public sealed record TranslateDialogSettings(ExchangeRate Rate, BudgetLimits Limits, TranslationQuality DefaultQuality, bool KeyConfigured);
+/// <summary>O que a janela precisa saber dos Ajustes: a cotação, o limite e o aviso de gasto, a qualidade padrão, se há chave e por que o <c>app.json</c> não leu (o limite fica desconhecido).</summary>
+public sealed record TranslateDialogSettings(ExchangeRate Rate, BudgetLimits Limits, TranslationQuality DefaultQuality, bool KeyConfigured, string? BudgetProblem = null);
 
 /// <summary>Uma resposta à pergunta "o que traduzir": esta cena, o capítulo ou o jogo inteiro, com as linhas que ainda faltam em cada um.</summary>
 public sealed partial class ScopeChoice(TranslationScope scope, string title) : ObservableObject
@@ -174,6 +174,13 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     /// <summary>O pedido passa do valor em que o app pede um cuidado a mais (Ajustes), mas cabe no limite.</summary>
     [ObservableProperty]
     public partial bool AboveWarning { get; private set; }
+
+    /// <summary>O <c>app.json</c> não pôde ser lido: o limite de gasto é desconhecido e a pessoa confirma antes de seguir.</summary>
+    [ObservableProperty]
+    public partial bool HasBudgetProblem { get; private set; }
+
+    [ObservableProperty]
+    public partial string BudgetProblemText { get; private set; } = string.Empty;
 
     [ObservableProperty]
     public partial string StartLabel { get; private set; } = "Traduzir";
@@ -400,7 +407,11 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(fit.Brl)})";
         OverLimitText = IsOverLimit ? DescribeOverLimit(request, limit, fit) : string.Empty;
         AboveWarning = !IsOverLimit && settings.Limits.WarnAbove is { } warn && request > warn;
-        StartLabel = AboveWarning ? "Traduzir mesmo assim" : "Traduzir";
+        HasBudgetProblem = settings.BudgetProblem is not null;
+        BudgetProblemText = HasBudgetProblem
+            ? "Não foi possível conferir o limite de gasto: o arquivo de Ajustes não pôde ser lido. Esta tradução não para num limite. Salve os Ajustes de novo para consertar, ou siga mesmo assim."
+            : string.Empty;
+        StartLabel = AboveWarning || HasBudgetProblem ? "Traduzir mesmo assim" : "Traduzir";
 
         KeyMissing = !settings.KeyConfigured;
         KeyMissingText = KeyMissing ? "Falta a chave da IA. Informe-a em Ajustes, na aba IA e gasto." : string.Empty;

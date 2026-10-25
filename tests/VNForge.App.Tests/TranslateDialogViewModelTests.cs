@@ -53,6 +53,17 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Limite_desconhecido_porque_o_app_json_nao_leu_pede_confirmacao_no_botao()
+    {
+        var vm = await OpenAsync(Project(), Settings() with { BudgetProblem = "app.json ilegível" });
+
+        Assert.True(vm.HasBudgetProblem);
+        Assert.Contains("limite de gasto", vm.BudgetProblemText);
+        Assert.Equal("Traduzir mesmo assim", vm.StartLabel);
+        Assert.True(vm.CanStart);
+    }
+
+    [Fact]
     public async Task Cena_sem_linhas_pendentes_abre_no_capitulo()
     {
         var vm = await OpenAsync(Project(), Settings(), scene: "yst00003");

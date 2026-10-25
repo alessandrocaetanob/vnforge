@@ -26,6 +26,34 @@ public class BudgetAppSettingsFileTests
     }
 
     [Fact]
+    public void Gravar_por_cima_de_um_app_json_ilegivel_guarda_uma_copia()
+    {
+        using var temp = new TempFolder();
+        var directory = temp.SubFolder("config");
+        var file = new AppSettingsFile(directory);
+        File.WriteAllText(file.Path, "{ spendLimit: 50, quebrado");
+
+        Assert.NotNull(file.ReadProblem());
+        file.Save(AppSettings.Default);
+
+        Assert.Equal("{ spendLimit: 50, quebrado", File.ReadAllText(file.Path + ".bad"));
+        Assert.Null(file.ReadProblem());
+    }
+
+    [Fact]
+    public void App_json_ausente_ou_valido_nao_tem_problema()
+    {
+        using var temp = new TempFolder();
+        var file = new AppSettingsFile(temp.SubFolder("config"));
+        Assert.Null(file.ReadProblem());
+
+        file.Save(new AppSettings(2) { SpendLimit = 80m });
+
+        Assert.Null(file.ReadProblem());
+        Assert.False(File.Exists(file.Path + ".bad"));
+    }
+
+    [Fact]
     public void Cotacao_limite_aviso_e_qualidade_vao_e_voltam_do_app_json()
     {
         using var temp = new TempFolder();

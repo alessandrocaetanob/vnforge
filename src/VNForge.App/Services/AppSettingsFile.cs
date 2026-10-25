@@ -59,6 +59,9 @@ public sealed class AppSettingsFile(string directory)
 
     public string Path { get; } = System.IO.Path.Combine(directory, FileName);
 
+    /// <summary>Por que o <c>app.json</c> existe e não foi lido (ou tem um valor de dinheiro inválido), em português; <see langword="null"/> quando está bem ou não existe.</summary>
+    public string? ReadProblem() => AppBudgetFile.Load(System.IO.Path.GetDirectoryName(Path)!).Problem;
+
     public AppSettings Load()
     {
         if (!File.Exists(Path))
@@ -114,6 +117,13 @@ public sealed class AppSettingsFile(string directory)
     {
         ArgumentNullException.ThrowIfNull(settings);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+
+        // Um arquivo que não pôde ser lido pode ter um limite de gasto da pessoa: guarda uma cópia antes de gravar o padrão por cima.
+        if (File.Exists(Path) && ReadProblem() is not null)
+        {
+            File.Copy(Path, Path + ".bad", overwrite: true);
+        }
+
         var data = new Dictionary<string, object>
         {
             ["concurrency"] = settings.Concurrency,
