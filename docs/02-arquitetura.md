@@ -261,7 +261,7 @@ O texto do YU-RIS é Shift-JIS (CP932), que **não tem** á, ã, ç, é, õ etc.
 |---|---|---|---|
 | `fold` | Remove acentos (ação → acao) e troca por equivalentes os sinais que o Shift-JIS não tem (`«»` → `"`, `ª º` → `a o`, travessões → `-`, `¿ ¡` → `? !`); o que sobra fora do Shift-JIS é recusado e vai para o QA | Perde todos os acentos; funciona em qualquer jogo | Nenhum |
 | `remap` | Troca cada letra acentuada por um caractere Shift-JIS pouco usado (ex.: katakana de meia largura) e uma fonte modificada desenha a letra certa | Boa | Precisa editar/embutir fonte |
-| `cp1252` | Patch no executável para tratar o texto como Latin-1 (Windows-1252) + troca do charset da fonte | Ótima, acentos nativos | Patch binário no .exe, depende da versão |
+| `cp1252` | Grava o texto em Latin-1 (Windows-1252). No jogo de referência o exe original já mostra os acentos sem Locale Emulator; o patch só troca o nome da fonte para MS Gothic (#62, #65) | Acentos exibidos sem Locale Emulator | Sem o patch da fonte o jogo usa a `System` e as letras ficam espaçadas; o endereço do patch depende do exe |
 
 `Cp1252TextEncoder` (`VNForge.Core.Text`, id `cp1252`) implementa o lado do Core da estratégia `cp1252`: grava em Windows-1252 com fallback de exceção, então nada é trocado ou descartado em silêncio. O byte `0xEF` (`ï`) colide com o prefixo dos códigos de controle, por isso `ï` é recusado: `FindUnencodable` o aponta e `Encode` lança `EncoderFallbackException`. O patch no executável não faz parte do encoder.
 
@@ -405,5 +405,5 @@ A escolha foi Avalonia (D3, #96). A lógica fica no Core e nos ViewModels, entã
 
 - [x] WPF ou Avalonia: **Avalonia 12** sobre .NET 10, tema `FluentTheme`, CommunityToolkit.Mvvm (#96, 2026-10-24).
 - [x] Provedor de IA: Claude primeiro, modelo selecionável; outros provedores depois (E12).
-- [x] Estratégia de codificação padrão: `fold` (#63, 2026-10-23). O jogo lê Shift-JIS, e `cp1252` só funciona com o patch do executável (#65), ainda não validado. Projetos passam para `cp1252` à mão depois disso.
+- [x] Estratégia de codificação padrão: `fold` (#63, 2026-10-23). O jogo lê Shift-JIS, e `cp1252` só funciona com o patch do executável (#65), ainda não validado. Projetos passam para `cp1252` à mão depois disso. Atualização de 2026-10-25 (#62): no jogo de referência o `cp1252` mostra os acentos com o exe original; o patch da #65 passa a ser só o nome da fonte. A troca do padrão fica para outra decisão.
 - [x] Formatos de exportação para revisores: CSV e XLSX; `.po` fica de fora (D1, #51, 2026-10-24). O XLSX usa o `DocumentFormat.OpenXml` 3.5.1 (MIT, mantido pela Microsoft), a mesma base do ClosedXML, sem a camada de planilha. O ClosedXML foi descartado porque depende do `SixLabors.Fonts`, cuja versão 2.x tem licença dividida (paga para uso comercial); o EPPlus é comercial. Fontes: [NuGet do ClosedXML 0.105.1](https://www.nuget.org/packages/closedxml), [discussão ClosedXML#2665](https://github.com/ClosedXML/ClosedXML/discussions/2665) e [licença do Open XML SDK](https://github.com/dotnet/Open-XML-SDK/blob/main/LICENSE). O formato novo implementa `IReviewFormat` e entra em `ReviewFormats.All` (E3.10, #52).
