@@ -19,9 +19,19 @@ internal sealed class TempFolder : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(Path))
+        // Os ViewModels leem o projeto em segundo plano (Editor, Glossário, estimativa dos Ajustes) e um teste pode terminar com uma leitura ainda
+        // aberta. Esperar o arquivo ser liberado é legítimo; um handle que nunca fecha estoura o prazo e a IOException original sobe.
+        var deadline = Environment.TickCount64 + 10_000;
+        while (Directory.Exists(Path))
         {
-            Directory.Delete(Path, recursive: true);
+            try
+            {
+                Directory.Delete(Path, recursive: true);
+            }
+            catch (IOException) when (Environment.TickCount64 < deadline)
+            {
+                Thread.Sleep(25);
+            }
         }
     }
 }
