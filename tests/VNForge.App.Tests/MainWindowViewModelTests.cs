@@ -147,6 +147,9 @@ public class MainWindowViewModelTests
         vm.Start.ProjectOpened += (_, _) => throw new ProjectConfigException("glossary.json ilegível.");
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        await vm.Glossary.Loading;
+        await vm.Settings.EstimateLoading;
 
         Assert.Contains("glossary.json ilegível.", vm.Start.ErrorMessage);
     }
