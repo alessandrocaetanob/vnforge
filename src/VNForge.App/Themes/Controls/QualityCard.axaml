@@ -24,7 +24,7 @@
             </Grid>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0" IsVisible="{TemplateBinding ShowPrice}">
               <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="20" LineHeight="26" FontWeight="Bold"
                          VerticalAlignment="Bottom"/>
               <TextBlock Name="PART_Duration" Classes="caption secondary" Text="{TemplateBinding Duration}" VerticalAlignment="Bottom" Margin="0,0,0,2"

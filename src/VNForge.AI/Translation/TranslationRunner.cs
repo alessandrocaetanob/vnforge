@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using VNForge.AI.Cost;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Translation;
@@ -26,6 +27,9 @@ public sealed record TranslationRunOptions
 
     /// <summary>Espera entre tentativas; os testes trocam por uma que não espera.</summary>
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (time, ct) => Task.Delay(time, ct);
+
+    /// <summary>Guarda de gasto: pergunta antes de um pedido acima do aviso e deixa de começar lotes quando o gasto chega ao limite. Sem ela, nada limita o gasto.</summary>
+    public BudgetGuard? Budget { get; init; }
 }
 
 /// <summary>Avanço da tradução: linhas já traduzidas do total.</summary>
@@ -37,11 +41,13 @@ public sealed record TranslationBatchFailure(IReadOnlyList<string> LineIds, Exce
 /// <summary>Resultado de uma execução: o que voltou, o que falhou e se foi cancelada.</summary>
 /// <param name="CallbackError">Erro lançado por <c>onBatchTranslated</c> ou pelo progresso; a execução para ali, e <paramref name="Results"/> mantém o que já voltou.</param>
 /// <param name="Results">Traduções recebidas, na ordem das linhas de entrada; inclui as dos lotes concluídos antes de um cancelamento.</param>
+/// <param name="BudgetStop">Por que o <see cref="BudgetGuard"/> parou a execução; <see langword="null"/> quando ele não interveio. Os lotes que não começaram não são falhas.</param>
 public sealed record TranslationRunResult(
     IReadOnlyList<TranslationResult> Results,
     IReadOnlyList<TranslationBatchFailure> Failures,
     bool Canceled,
-    Exception? CallbackError = null);
+    Exception? CallbackError = null,
+    BudgetStop? BudgetStop = null);
 
 /// <summary>
 /// Traduz uma lista de linhas em lotes, com chamadas em paralelo e retry com backoff exponencial. Cancelar não lança: a execução
@@ -78,68 +84,152 @@ public sealed class TranslationRunner
         ArgumentNullException.ThrowIfNull(lines);
         ArgumentNullException.ThrowIfNull(buildBatch);
 
+        if (await AuthorizeRequestAsync(lines, ct).ConfigureAwait(false) is { } early)
+        {
+            return early;
+        }
+
         var chunks = lines.Chunk(_options.BatchSize).Select((chunk, index) => (Index: index, Lines: (IReadOnlyList<TextUnit>)chunk)).ToList();
-        var done = new ConcurrentDictionary<int, IReadOnlyList<TranslationResult>>();
-        var failed = new ConcurrentDictionary<int, TranslationBatchFailure>();
-        var gate = new object();
-        var completedLines = 0;
-        Exception? callbackError = null;
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var state = new RunState(lines.Count, buildBatch, onBatchTranslated, progress, stop);
 
         try
         {
             await Parallel.ForEachAsync(
                 chunks,
                 new ParallelOptions { MaxDegreeOfParallelism = _options.MaxConcurrency, CancellationToken = stop.Token },
-                async (chunk, token) =>
-                {
-                    TranslationBatch batch;
-                    try
-                    {
-                        batch = buildBatch(chunk.Lines);
-                    }
-                    catch (Exception ex)
-                    {
-                        failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], ex, 0);
-                        return;
-                    }
-
-                    var outcome = await TranslateWithRetryAsync(batch, token).ConfigureAwait(false);
-                    if (outcome.Error is not null)
-                    {
-                        failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], outcome.Error, outcome.Attempts);
-                        return;
-                    }
-                    if (outcome.Results is null)
-                        return;
-
-                    done[chunk.Index] = outcome.Results;
-                    lock (gate)
-                    {
-                        try
-                        {
-                            completedLines += outcome.Results.Count;
-                            onBatchTranslated?.Invoke(outcome.Results);
-                            progress?.Report(new TranslationProgress(completedLines, lines.Count));
-                        }
-                        catch (Exception ex)
-                        {
-                            callbackError ??= ex;
-                            stop.Cancel();
-                        }
-                    }
-                }).ConfigureAwait(false);
+                (chunk, token) => RunChunkWithBudgetAsync(state, chunk, token)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
             // A parada veio de um erro no callback (guardado em callbackError): o resultado parcial é devolvido abaixo.
         }
 
-        return new TranslationRunResult(
-            [.. done.OrderBy(p => p.Key).SelectMany(p => p.Value)],
-            [.. failed.OrderBy(p => p.Key).Select(p => p.Value)],
-            ct.IsCancellationRequested,
-            callbackError);
+        return state.ToResult(ct.IsCancellationRequested);
+    }
+
+    /// <summary>Resolve o pedido inteiro no <see cref="BudgetGuard"/> antes de começar; devolve o resultado vazio quando ele não deixa seguir.</summary>
+    private async Task<TranslationRunResult?> AuthorizeRequestAsync(IReadOnlyList<TextUnit> lines, CancellationToken ct)
+    {
+        if (_options.Budget is not { } budget)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await budget.AuthorizeAsync(budget.EstimateRequest(lines), ct).ConfigureAwait(false) is { } refusal
+                ? new TranslationRunResult([], [], ct.IsCancellationRequested, BudgetStop: refusal)
+                : null;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return new TranslationRunResult([], [], Canceled: true);
+        }
+    }
+
+    /// <summary>
+    /// Reserva o custo estimado do lote enquanto ele roda: sem isso, as chamadas em paralelo passariam juntas pela checagem e o gasto ultrapassaria o
+    /// limite por vários lotes. Os lotes que não cabem no que sobra do limite não começam.
+    /// </summary>
+    private async ValueTask RunChunkWithBudgetAsync(RunState state, (int Index, IReadOnlyList<TextUnit> Lines) chunk, CancellationToken token)
+    {
+        var budget = _options.Budget;
+        var reserved = budget?.EstimateRequest(chunk.Lines) ?? 0m;
+        if (budget is not null && !budget.TryReserve(reserved))
+        {
+            state.MarkLimitReached();
+            return;
+        }
+
+        try
+        {
+            await RunChunkAsync(state, chunk, token).ConfigureAwait(false);
+        }
+        finally
+        {
+            budget?.Release(reserved);
+        }
+    }
+
+    private async ValueTask RunChunkAsync(RunState state, (int Index, IReadOnlyList<TextUnit> Lines) chunk, CancellationToken token)
+    {
+        TranslationBatch batch;
+        try
+        {
+            batch = state.BuildBatch(chunk.Lines);
+        }
+        catch (Exception ex)
+        {
+            state.Failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], ex, 0);
+            return;
+        }
+
+        var outcome = await TranslateWithRetryAsync(batch, token).ConfigureAwait(false);
+        if (outcome.Error is not null)
+        {
+            state.Failed[chunk.Index] = new TranslationBatchFailure([.. chunk.Lines.Select(l => l.Id)], outcome.Error, outcome.Attempts);
+        }
+        else if (outcome.Results is null)
+        {
+            // Sem resultado nem erro: cancelamento, ou o limite chegou antes de uma nova tentativa.
+            if (_options.Budget is not null && !token.IsCancellationRequested)
+            {
+                state.MarkLimitReached();
+            }
+        }
+        else
+        {
+            state.Deliver(chunk.Index, outcome.Results);
+        }
+    }
+
+    /// <summary>O que uma execução acumula enquanto os lotes rodam em paralelo.</summary>
+    private sealed class RunState(
+        int totalLines,
+        Func<IReadOnlyList<TextUnit>, TranslationBatch> buildBatch,
+        Action<IReadOnlyList<TranslationResult>>? onBatchTranslated,
+        IProgress<TranslationProgress>? progress,
+        CancellationTokenSource stop)
+    {
+        private readonly ConcurrentDictionary<int, IReadOnlyList<TranslationResult>> _done = new();
+        private readonly object _gate = new();
+        private int _completedLines;
+        private Exception? _callbackError;
+        private int _limitReached;
+
+        public ConcurrentDictionary<int, TranslationBatchFailure> Failed { get; } = new();
+
+        public TranslationBatch BuildBatch(IReadOnlyList<TextUnit> lines) => buildBatch(lines);
+
+        public void MarkLimitReached() => Interlocked.Exchange(ref _limitReached, 1);
+
+        /// <summary>Guarda o lote e chama o callback e o progresso, um lote por vez; um erro neles para a execução.</summary>
+        public void Deliver(int index, IReadOnlyList<TranslationResult> results)
+        {
+            _done[index] = results;
+            lock (_gate)
+            {
+                try
+                {
+                    _completedLines += results.Count;
+                    onBatchTranslated?.Invoke(results);
+                    progress?.Report(new TranslationProgress(_completedLines, totalLines));
+                }
+                catch (Exception ex)
+                {
+                    _callbackError ??= ex;
+                    stop.Cancel();
+                }
+            }
+        }
+
+        public TranslationRunResult ToResult(bool canceled) => new(
+            [.. _done.OrderBy(p => p.Key).SelectMany(p => p.Value)],
+            [.. Failed.OrderBy(p => p.Key).Select(p => p.Value)],
+            canceled,
+            _callbackError,
+            Volatile.Read(ref _limitReached) == 1 ? BudgetStop.LimitReached : null);
     }
 
     private async Task<(IReadOnlyList<TranslationResult>? Results, Exception? Error, int Attempts)> TranslateWithRetryAsync(TranslationBatch batch, CancellationToken ct)
@@ -161,6 +251,10 @@ public sealed class TranslationRunner
                 try
                 {
                     await _options.Delay(_options.InitialBackoff * Math.Pow(2, attempts - 1), ct).ConfigureAwait(false);
+                    if (_options.Budget?.AllowsRetry() == false)
+                    {
+                        return (null, null, attempts);
+                    }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {

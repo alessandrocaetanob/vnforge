@@ -1,12 +1,16 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using VNForge.AI.Settings;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core.Projects;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using Avalonia.VisualTree;
 
 namespace VNForge.App.Tests.Rendering;
 
@@ -46,6 +50,10 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     await vm.Settings.EstimateLoading;
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Settings);
 
+                    vm.Settings.ExchangeRateText = "5,40";
+                    vm.Settings.SpendLimitText = "300";
+                    vm.Settings.WarnAboveText = "25";
+
                     foreach (var (tab, name) in Tabs)
                     {
                         vm.Settings.SelectedTab = tab;
@@ -61,6 +69,11 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                         using var png = new Bitmap(path);
                         Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
                         Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
+
+                        if (tab == 0)
+                        {
+                            ConferirAbaIaEGasto(window, theme);
+                        }
                     }
                 }
                 finally
@@ -71,5 +84,37 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// Confere a aba "IA e gasto" pela tinta em retângulos conhecidos, sem contar faixas de texto (a fonte muda de um sistema para outro): os três cartões
+    /// de qualidade lado a lado e dentro da janela, o marcado com a borda do accent, a barra do orçamento com o gasto e a marca do limite.
+    /// </summary>
+    private static void ConferirAbaIaEGasto(Window window, ThemeVariant theme)
+    {
+        var cards = window.GetVisualDescendants().OfType<QualityCard>().Where(c => c.IsEffectivelyVisible).OrderBy(c => c.TranslatePoint(default, window)!.Value.X).ToList();
+        Assert.Equal(3, cards.Count);
+        Assert.All(cards, c => Assert.True(c.Bounds.Width > 100 && c.Bounds.Height > 60, $"{c.Title}: {c.Bounds}"));
+        var lefts = cards.Select(c => c.TranslatePoint(default, window)!.Value).ToList();
+        Assert.True(lefts[0].X + cards[0].Bounds.Width <= lefts[1].X + 1 && lefts[1].X + cards[1].Bounds.Width <= lefts[2].X + 1, "cartões sobrepostos");
+        Assert.True(lefts[2].X + cards[2].Bounds.Width <= window.Bounds.Width);
+        Assert.All(cards, c => Assert.True(c.ShowPrice, $"{c.Title} sem estimativa"));
+
+        Assert.True(window.TryFindResource("Vnf.Accent", theme, out var found));
+        var accent = ((ISolidColorBrush)found!).Color;
+        var marked = cards.Single(c => c.IsChecked == true);
+        var cardProbe = PixelProbe.Capture(window, marked);
+        var borderTop = new Rect(8, 0, marked.Bounds.Width - 16, 3);
+        Assert.True(cardProbe.CountInArea(borderTop, accent, 24) > marked.Bounds.Width / 2, "borda do accent no cartão marcado");
+        var unmarked = cards.First(c => c.IsChecked != true);
+        Assert.Equal(0, PixelProbe.Capture(window, unmarked).CountInArea(borderTop, accent, 24));
+
+        var bar = window.GetVisualDescendants().OfType<BudgetBar>().Single(b => b.IsEffectivelyVisible);
+        Assert.Equal(300.0, bar.Limit);
+        Assert.True(bar.Bounds.Width > 200 && bar.Bounds.Height >= BudgetBar.BarHeight);
+        Assert.True(window.TryFindResource("Vnf.TextPrimary", theme, out var textBrush));
+        var mark = ((ISolidColorBrush)textBrush!).Color;
+        var markArea = new Rect(0, 0, bar.Bounds.Width, bar.Bounds.Height);
+        Assert.True(PixelProbe.Capture(window, bar).CountInArea(markArea, mark, 24) >= BudgetBar.BarHeight, "marca do limite na barra");
     }
 }
