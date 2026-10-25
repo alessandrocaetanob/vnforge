@@ -173,7 +173,7 @@ public sealed class TranslationRunner
         else if (outcome.Results is null)
         {
             // Sem resultado nem erro: cancelamento, ou o limite chegou antes de uma nova tentativa.
-            if (_options.Budget?.LimitReached == true && !token.IsCancellationRequested)
+            if (_options.Budget is not null && !token.IsCancellationRequested)
             {
                 state.MarkLimitReached();
             }
@@ -251,7 +251,7 @@ public sealed class TranslationRunner
                 try
                 {
                     await _options.Delay(_options.InitialBackoff * Math.Pow(2, attempts - 1), ct).ConfigureAwait(false);
-                    if (_options.Budget?.LimitReached == true)
+                    if (_options.Budget?.AllowsRetry() == false)
                     {
                         return (null, null, attempts);
                     }

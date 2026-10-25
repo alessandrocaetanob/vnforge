@@ -78,6 +78,18 @@ public sealed class BudgetGuard(
         }
     }
 
+    /// <summary>
+    /// Se o lote que já falhou pode ser repetido: o gasto (que inclui o que a tentativa que falhou cobrou) mais tudo o que está reservado, a reserva deste lote
+    /// incluída como custo da nova tentativa, tem de caber no limite.
+    /// </summary>
+    public bool AllowsRetry()
+    {
+        lock (_gate)
+        {
+            return _limits.Limit is not { } limit || _spent() + _reserved <= limit;
+        }
+    }
+
     /// <summary>Devolve a reserva de um lote que terminou; o custo real já entrou no gasto lido por <c>spent</c>.</summary>
     public void Release(decimal estimatedCost)
     {

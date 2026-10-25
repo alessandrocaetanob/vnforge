@@ -128,4 +128,22 @@ public class BudgetGuardTests
     {
         Assert.False(Guard(5m, null, 5m).TryReserve(0m));
     }
+
+    [Fact]
+    public void Nova_tentativa_so_cabe_se_gasto_mais_reservas_ficam_no_limite()
+    {
+        var spent = 0m;
+        var guard = new BudgetGuard(new BudgetLimits(5m, null), () => spent, _ => 0m);
+        Assert.True(guard.TryReserve(2m));
+        Assert.True(guard.TryReserve(2m));
+
+        // O lote 1 falhou depois de cobrar 2 e o lote 2 terminou cobrando 2: o gasto é 4 e a reserva do lote 1, que seria a nova tentativa, mais 2.
+        spent = 4m;
+        guard.Release(2m);
+
+        Assert.False(guard.AllowsRetry());
+
+        spent = 2m;
+        Assert.True(guard.AllowsRetry());
+    }
 }
