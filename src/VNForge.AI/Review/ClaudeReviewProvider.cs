@@ -29,7 +29,7 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
     /// <summary>Revisa o lote. Uma recusa refaz o lote linha a linha, e só as linhas recusadas voltam com <see cref="ReviewResult.Refused"/>.</summary>
     public Task<IReadOnlyList<ReviewResult>> ReviewAsync(TranslationBatch batch, CancellationToken ct)
     {
-        return _caller.RunAsync(batch, new ClaudeBatchSpec<ReviewResult>(Schema, "revisar", BuildSystem, BuildUser, Parse, line => new ReviewResult(line.Id, string.Empty, Refused: true)), ct);
+        return _caller.RunAsync(batch, new ClaudeBatchSpec<ReviewResult>(Schema, "revisar", BuildSystem, b => ClaudePromptParts.BatchContext(b, "Glossário (termos obrigatórios):"), BuildUser, Parse, line => new ReviewResult(line.Id, string.Empty, Refused: true)), ct);
     }
 
     private static string BuildSystem(TranslationBatch batch)
@@ -39,7 +39,7 @@ public sealed class ClaudeReviewProvider(IClaudeMessageClient client, ClaudeOpti
         sb.AppendLine("Para cada linha, confira sentido, naturalidade, tom do personagem, glossário e marcadores de controle.");
         sb.AppendLine("Devolva uma sugestão curta (uma ou duas frases, em português) por linha, com o mesmo id; se a tradução está boa, devolva a sugestão vazia.");
         sb.AppendLine("Não reescreva a tradução inteira nem altere os marcadores. Responda apenas com o JSON pedido.");
-        ClaudePromptParts.AppendContext(sb, batch, "Glossário (termos obrigatórios):");
+        ClaudePromptParts.AppendStableContext(sb, batch);
         return sb.ToString();
     }
 

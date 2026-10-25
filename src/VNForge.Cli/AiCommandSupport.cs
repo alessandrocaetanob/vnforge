@@ -302,6 +302,8 @@ internal sealed class LineSelection
 {
     private const int PreviousLinesWindow = 30;
 
+    private const int NextLinesWindow = 10;
+
     public Dictionary<string, List<TextUnit>> Files { get; } = new(StringComparer.Ordinal);
 
     public Dictionary<string, string> KeyById { get; } = new(StringComparer.Ordinal);
@@ -370,11 +372,13 @@ internal sealed class LineSelection
         return touched.LastOrDefault() ?? KeyById[results[0].Id];
     }
 
-    /// <summary>Monta o lote com as linhas anteriores do script como contexto; chame sob o lock que protege <see cref="Files"/>.</summary>
+    /// <summary>Monta o lote com as linhas anteriores e as seguintes do script como contexto; chame sob o lock que protege <see cref="Files"/>.</summary>
     public TranslationBatch BuildBatch(TranslationBatchBuilder builder, IReadOnlyList<TextUnit> lines)
     {
         var first = lines[0].Id;
+        var last = lines[^1].Id;
         var previous = Files[KeyById[first]].Take(IndexById[first]).TakeLast(PreviousLinesWindow).ToList();
-        return builder.Build(lines, previous);
+        var next = Files[KeyById[last]].Skip(IndexById[last] + 1).Take(NextLinesWindow).ToList();
+        return builder.Build(lines, previous, next);
     }
 }

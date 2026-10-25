@@ -43,6 +43,7 @@ public sealed class TranslationJob(
     private const string ProviderName = "anthropic";
     private const string CacheFileName = "translations.json";
     private const int PreviousLinesWindow = 30;
+    private const int NextLinesWindow = 10;
 
     private readonly Func<ITranslationProvider, ClaudeUsage?> usageOf = usageOf ?? (provider => (provider as ClaudeTranslationProvider)?.Usage);
     private readonly TimeProvider clock = clock ?? TimeProvider.System;
@@ -59,12 +60,14 @@ public sealed class TranslationJob(
             return new TranslationJobResult(0, 0, 0, null, 0m, null);
         }
 
-        var config = project.LoadConfig().Ai;
+        var projectConfig = project.LoadConfig();
+        var config = projectConfig.Ai;
         var batchSize = Math.Clamp(config.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize);
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
             new CharacterBook(project.LoadCharacters()),
-            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, TranslationContextSummary.StyleGuideFileName)));
+            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, TranslationContextSummary.StyleGuideFileName)),
+            style: projectConfig.Style);
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
         var raw = providerFactory(profile.Model, ParseEffort(config.Effort));
@@ -205,8 +208,10 @@ public sealed class TranslationJob(
         public TranslationBatch BuildBatch(TranslationBatchBuilder builder, IReadOnlyList<TextUnit> lines)
         {
             var first = lines[0].Id;
+            var last = lines[^1].Id;
             var previous = files[keyById[first]].Take(indexById[first]).TakeLast(PreviousLinesWindow).ToList();
-            return builder.Build(lines, previous);
+            var next = files[keyById[last]].Skip(indexById[last] + 1).Take(NextLinesWindow).ToList();
+            return builder.Build(lines, previous, next);
         }
 
         public void ApplyAndSave(ProjectFolder folder, IReadOnlyList<TranslationResult> results, TranslationOrigin origin, Counters counters)

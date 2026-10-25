@@ -25,6 +25,8 @@ public static class ConferenceRuleTexts
         ["japones-na-traducao"] = ("Japonês na tradução", "Há hiragana, katakana ou kanji na tradução. Costuma ser um trecho que ficou sem traduzir."),
         [BoxLineLimitRule.RuleId] = ("Não cabe na caixa", @"A tradução ocupa mais linhas que o máximo do perfil de formatação. Encurte a frase ou divida a fala em duas páginas com \p."),
         [FieldByteLimitRule.RuleId] = ("Passa do limite do campo", "O campo tem um limite de bytes no jogo e a tradução passa dele. Encurte o texto."),
+        [HonorificsRule.RuleId] = ("Honorífico fora do estilo", "A tradução trata -san, -kun, -chan, -sama ou senpai de um jeito diferente do estilo do projeto. Mude o texto ou a escolha em Ajustes, aba Estilo; marque como ok se a exceção for de propósito."),
+        [GenderRule.RuleId] = ("Personagem sem gênero", "A fala é de um personagem sem gênero no Glossário. Sem ele, a concordância (cansado ou cansada) é um palpite. Defina o gênero do personagem no Glossário antes de traduzir as falas dele."),
     };
 
     /// <summary>Título curto da regra; sem entrada, a descrição do Core (ou o id).</summary>

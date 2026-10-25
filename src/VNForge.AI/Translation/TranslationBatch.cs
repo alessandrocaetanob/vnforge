@@ -1,3 +1,4 @@
+using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Translation;
@@ -22,6 +23,9 @@ public sealed record TranslationBatch
     /// <summary>Linhas anteriores já traduzidas, só como contexto; não entram na resposta.</summary>
     public IReadOnlyList<TextUnit> PreviousLines { get; init; } = [];
 
+    /// <summary>Falas seguintes às do lote, só como contexto (o original, ainda sem tradução); não entram na resposta.</summary>
+    public IReadOnlyList<TextUnit> NextLines { get; init; } = [];
+
     /// <summary>Termos do glossário filtrados para este lote.</summary>
     public IReadOnlyList<GlossaryEntry> Glossary { get; init; } = [];
 
@@ -30,6 +34,20 @@ public sealed record TranslationBatch
 
     /// <summary>Guia de estilo livre do projeto (<c>style.md</c>); vazio quando não há.</summary>
     public string StyleGuide { get; init; } = string.Empty;
+
+    /// <summary>Escolhas de estilo do projeto (honoríficos, tratamento, narrador, onomatopeias, ordem dos nomes).</summary>
+    public StyleConfig Style { get; init; } = StyleConfig.Default;
+
+    /// <summary>Um lote de <paramref name="lines"/> com o mesmo contexto deste.</summary>
+    public TranslationBatch ForLines(IReadOnlyList<TextUnit> lines) => new(lines)
+    {
+        PreviousLines = PreviousLines,
+        NextLines = NextLines,
+        Glossary = Glossary,
+        Characters = Characters,
+        StyleGuide = StyleGuide,
+        Style = Style,
+    };
 }
 
 /// <summary>A tradução de uma linha do lote.</summary>

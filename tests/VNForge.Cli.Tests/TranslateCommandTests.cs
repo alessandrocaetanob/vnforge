@@ -383,6 +383,22 @@ public sealed class TranslateCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Estilo_do_vnforge_json_e_as_falas_vizinhas_chegam_ao_lote()
+    {
+        var style = StyleConfig.Default with { Honorifics = HonorificsPolicy.Keep, Address = AddressForm.Tu };
+        _project.SaveConfig(_project.LoadConfig() with { Style = style });
+        _project.SaveText(Grande, Enumerable.Range(1, 40).Select(n => Unit(Grande, n, TranslationStatus.Untranslated)).ToList());
+
+        var result = await Run(FilesOption, Grande, "--batch-size", "20", "--concurrency", "1");
+
+        Assert.Equal(0, result.ExitCode);
+        var first = _provider.ReceivedBatches.First();
+        Assert.All(_provider.ReceivedBatches, b => Assert.Equal(style, b.Style));
+        Assert.Equal([$"{Grande}:000021", $"{Grande}:000022"], first.NextLines.Select(u => u.Id));
+        Assert.Empty(first.PreviousLines);
+    }
+
+    [Fact]
     public async Task Pasta_que_nao_e_projeto_sai_com_1()
     {
         var result = await _cli.RunAsync(["translate", "--project", _cli.WorkingDirectory], TestContext.Current.CancellationToken);

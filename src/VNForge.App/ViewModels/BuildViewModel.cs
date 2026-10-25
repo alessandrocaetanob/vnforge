@@ -808,7 +808,7 @@ public sealed partial class BuildViewModel : ObservableObject
             AppendLog($"Acentuação {EncodingName(result.Encoding.Strategy)}: {ProjectLabels.Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}");
         }
 
-        foreach (var issue in result.Qa.OtherIssues)
+        foreach (var issue in result.Qa.BlockingIssues)
         {
             AppendLog(QaLine(issue));
         }
@@ -844,7 +844,7 @@ public sealed partial class BuildViewModel : ObservableObject
                 ? $"{EncodingName(result.Encoding.Strategy)} · nenhum caractere substituído"
                 : $"{EncodingName(result.Encoding.Strategy)} · {ProjectLabels.Number(replaced)} {Plural(replaced, "caractere substituído", "caracteres substituídos")}"));
 
-        if (result.Qa.OtherIssues.Count > 0)
+        if (result.Qa.BlockingIssues.Count > 0)
         {
             facts.Add(new ResultFact("QA", $"{QaBlockedException.DescribeBlocking(result.Qa)}, liberados por 'Permitir avisos do QA'."));
         }
@@ -895,7 +895,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
     private void DescribeQaBlocked(QaBlockedException blocked)
     {
-        var others = blocked.Report.OtherIssues;
+        var others = blocked.Report.BlockingIssues;
         foreach (var issue in others.Take(MaxQaIssuesLogged))
         {
             AppendLog(QaLine(issue));
@@ -1430,7 +1430,7 @@ public sealed partial class BuildViewModel : ObservableObject
         try
         {
             var report = engine.Run(QaContext.FromProject(project));
-            return (report.Errors.Count, report.OtherIssues.Count(i => i.Severity == QaSeverity.Warning));
+            return (report.Errors.Count, report.BlockingIssues.Count(i => i.Severity == QaSeverity.Warning));
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

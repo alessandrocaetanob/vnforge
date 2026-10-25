@@ -54,7 +54,8 @@ internal static class TranslateCommand
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
             new CharacterBook(project.LoadCharacters()),
-            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)));
+            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)),
+            style: project.LoadConfig().Style);
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
 
