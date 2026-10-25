@@ -190,7 +190,7 @@ public class MainWindowRailTests
             Editor = new EditorViewModel(clock: new FixedClock(Now), postToUi: a => a()),
         };
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
+        await vm.ProjectLoading;
         vm.Editor.SelectedLine = vm.Editor.Lines[0];
         vm.Editor.Detail!.Translation = "Bom dia.";
         vm.Editor.Detail.Flush();
