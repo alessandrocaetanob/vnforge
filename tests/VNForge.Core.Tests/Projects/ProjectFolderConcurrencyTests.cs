@@ -82,7 +82,7 @@ public class ProjectFolderConcurrencyTests
         var aberto = new FileStream(projeto.TextPath(Key), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         var liberar = Task.Run(async () =>
         {
-            await Task.Delay(300, TestContext.Current.CancellationToken);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
             await aberto.DisposeAsync();
         }, TestContext.Current.CancellationToken);
 
@@ -110,6 +110,36 @@ public class ProjectFolderConcurrencyTests
         }
 
         Assert.Equal(antes, File.ReadAllBytes(projeto.TextPath(Key)));
+        Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public void SaveText_com_destino_somente_leitura_falha_na_hora_e_deixa_o_original()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS o rename troca o arquivo somente leitura.");
+
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        projeto.SaveText(Key, Unidades(2));
+        var caminho = projeto.TextPath(Key);
+        var antes = File.ReadAllBytes(caminho);
+        File.SetAttributes(caminho, FileAttributes.ReadOnly);
+
+        try
+        {
+            var relogio = System.Diagnostics.Stopwatch.StartNew();
+            var erro = Record.Exception(() => projeto.SaveText(Key, Unidades(3)));
+            relogio.Stop();
+
+            Assert.IsType<UnauthorizedAccessException>(erro);
+            Assert.True(relogio.ElapsedMilliseconds < 150, $"A falha permanente esperou {relogio.ElapsedMilliseconds} ms.");
+        }
+        finally
+        {
+            File.SetAttributes(caminho, FileAttributes.Normal);
+        }
+
+        Assert.Equal(antes, File.ReadAllBytes(caminho));
         Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
     }
 
