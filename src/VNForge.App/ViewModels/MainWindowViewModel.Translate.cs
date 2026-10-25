@@ -22,6 +22,8 @@ public sealed partial class MainWindowViewModel
     /// <summary>Termina quando a última tradução pedida acabou e o resultado foi mostrado.</summary>
     public Task TranslationRun { get; private set; } = Task.CompletedTask;
 
+    private bool translating;
+
     private void HookTranslateDialog()
     {
         Translate.StartRequested += (_, request) => TranslationRun = StartTranslation(request);
@@ -61,6 +63,13 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        // Duas execuções somariam o gasto cada uma por conta própria e poderiam passar do limite juntas.
+        if (translating)
+        {
+            Toasts.Show("Já há uma tradução em andamento. Espere ela terminar para pedir outra.", ToastKind.Warning, key: "translate");
+            return;
+        }
+
         ProjectFolder folder;
         try
         {
@@ -79,6 +88,7 @@ public sealed partial class MainWindowViewModel
             new TranslationJobSettings(Settings.Rate, Settings.Budget, Settings.Concurrency),
             (_, _) => Task.FromResult(true));
         TranslationJobResult? result = null;
+        translating = true;
         var task = TaskService.Start(TranslationTitle(request.Scope), async (reporter, ct) =>
         {
             try
@@ -92,6 +102,7 @@ public sealed partial class MainWindowViewModel
         });
 
         await task.Completion;
+        translating = false;
         Editor.Reload();
         ShowTranslationOutcome(task, result);
     }

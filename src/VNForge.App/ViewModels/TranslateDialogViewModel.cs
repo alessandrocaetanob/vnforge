@@ -5,6 +5,7 @@ using VNForge.AI.Cost;
 using VNForge.AI.Translation;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -178,6 +179,10 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     [ObservableProperty]
     public partial bool CanStart { get; private set; }
 
+    /// <summary>Por que o projeto não pôde ser lido; vazio quando a leitura deu certo.</summary>
+    [ObservableProperty]
+    public partial string LoadError { get; private set; } = string.Empty;
+
     [ObservableProperty]
     public partial bool NothingToTranslate { get; private set; }
 
@@ -203,6 +208,10 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(folder);
         ArgumentNullException.ThrowIfNull(current);
         settings = current;
+        byScope.Clear();
+        LoadError = string.Empty;
+        CanStart = false;
+        StartCommand.NotifyCanExecuteChanged();
         IsOpen = true;
         IsLoading = true;
         Loading = LoadAsync(folder, sceneKey, ++version);
@@ -266,20 +275,22 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     private async Task LoadAsync(ProjectFolder folder, string? sceneKey, int token)
     {
         var rate = settings.Rate;
-        var loaded = await Task.Run(() =>
+        ProjectRead loaded;
+        try
         {
-            var texts = folder.LoadAllText();
-            var scopes = Enum.GetValues<TranslationScope>().ToDictionary(
-                scope => scope,
-                scope =>
-                {
-                    var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey);
-                    var lines = TranslationQuoter.PendingLines(texts, keys);
-                    var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
-                    return (Keys: keys, Quotes: TranslationQuoter.Quote(lines, rate), Scenes: scenes);
-                });
-            return (Scopes: scopes, Spent: rate.ToBrl(AiUsageLog.Load(folder).Dollars), Context: TranslationContextSummary.Read(folder));
-        }).ConfigureAwait(true);
+            loaded = await Task.Run(() => ReadProject(folder, sceneKey, rate)).ConfigureAwait(true);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            if (token == version)
+            {
+                IsLoading = false;
+                LoadError = $"Não foi possível ler o projeto: {e.Message}";
+                Refresh();
+            }
+
+            return;
+        }
 
         if (token != version)
         {
@@ -301,6 +312,26 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         SelectedScope = Scopes.FirstOrDefault(s => s.Lines > 0) ?? Scopes[0];
         SelectedQuality = Qualities.Single(q => q.Quality == settings.DefaultQuality);
         Refresh();
+    }
+
+    private sealed record ProjectRead(
+        Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes, int Scenes)> Scopes,
+        decimal Spent,
+        TranslationContextSummary Context);
+
+    private static ProjectRead ReadProject(ProjectFolder folder, string? sceneKey, ExchangeRate rate)
+    {
+        var texts = folder.LoadAllText();
+        var scopes = Enum.GetValues<TranslationScope>().ToDictionary(
+            scope => scope,
+            scope =>
+            {
+                var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey);
+                var lines = TranslationQuoter.PendingLines(texts, keys);
+                var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
+                return (Keys: keys, Quotes: TranslationQuoter.Quote(lines, rate), Scenes: scenes);
+            });
+        return new ProjectRead(scopes, rate.ToBrl(AiUsageLog.Load(folder).Dollars), TranslationContextSummary.Read(folder));
     }
 
     private static string Describe(TranslationScope scope, int lines, int scenes)

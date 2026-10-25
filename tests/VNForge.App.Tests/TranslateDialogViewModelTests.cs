@@ -273,6 +273,35 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Projeto_ilegivel_mostra_o_erro_em_vez_de_ficar_carregando()
+    {
+        var folder = Project();
+        File.WriteAllText(folder.TextPath("yst00001"), "{ isto não é JSON");
+
+        var vm = await OpenAsync(folder, Settings());
+
+        Assert.False(vm.IsLoading);
+        Assert.False(vm.CanStart);
+        Assert.StartsWith("Não foi possível ler o projeto", vm.LoadError);
+    }
+
+    [Fact]
+    public async Task Reabrir_desliga_o_botao_ate_a_nova_leitura_terminar()
+    {
+        var folder = Project();
+        var vm = await OpenAsync(folder, Settings());
+        Assert.True(vm.CanStart);
+
+        var reopening = vm.OpenAsync(folder, "yst00002", Settings());
+        var duringLoad = vm.CanStart;
+        await reopening;
+
+        Assert.False(duringLoad);
+        Assert.True(vm.CanStart);
+        Assert.Equal(50, vm.Lines);
+    }
+
+    [Fact]
     public async Task Sem_cotacao_informada_o_aviso_diz_que_o_valor_e_de_exemplo()
     {
         var vm = new TranslateDialogViewModel();

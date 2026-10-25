@@ -66,6 +66,13 @@
           </Border>
         </StackPanel>
 
+        <Border Classes="infobar error" IsVisible="{Binding LoadError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding LoadError}"/>
+          </Grid>
+        </Border>
+
         <Border Classes="infobar warning" IsVisible="{Binding IsOverLimit}">
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
             <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>

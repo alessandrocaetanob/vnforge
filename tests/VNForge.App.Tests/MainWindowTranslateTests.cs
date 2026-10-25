@@ -16,7 +16,7 @@ public sealed class MainWindowTranslateTests : IDisposable
 
     public void Dispose() => temp.Dispose();
 
-    private async Task<(MainWindowViewModel Vm, string Root)> OpenAsync(bool key = true, string? spendLimit = null)
+    private async Task<(MainWindowViewModel Vm, string Root)> OpenAsync(bool key = true, string? spendLimit = null, Func<string, VNForge.AI.Claude.ClaudeEffort, ITranslationProvider>? factory = null)
     {
         var root = StartFixtures.Create(
             temp.SubFolder("vn"),
@@ -34,7 +34,7 @@ public sealed class MainWindowTranslateTests : IDisposable
             new ResolvedApiKey(key ? "chave" : null, key ? ApiKeySource.Vault : ApiKeySource.None),
             settings: settings)
         {
-            TranslationProviderFactory = (_, _) => new FakeTranslationProvider(),
+            TranslationProviderFactory = factory ?? ((_, _) => new FakeTranslationProvider()),
         };
         await start.OpenAsync(root);
         start.OpenSelectedInEditorCommand.Execute(null);
@@ -127,5 +127,35 @@ public sealed class MainWindowTranslateTests : IDisposable
 
         Assert.False(vm.Translate.IsOpen);
         Assert.Equal(NavKey.Settings, vm.SelectedNav?.Key);
+    }
+
+    [Fact]
+    public async Task Segundo_pedido_durante_uma_traducao_em_andamento_e_recusado()
+    {
+        var release = new TaskCompletionSource();
+        var (vm, root) = await OpenAsync(factory: (_, _) => new GatedProvider(release.Task));
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        var first = vm.TranslationRun;
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        Assert.Contains("Já há uma tradução em andamento", Assert.Single(vm.Toasts.Toasts).Message);
+        release.SetResult();
+        await first;
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+    }
+
+    private sealed class GatedProvider(Task gate) : ITranslationProvider
+    {
+        public async Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
+        {
+            await gate;
+            return [.. batch.Lines.Select(u => new TranslationResult(u.Id, "x"))];
+        }
     }
 }
