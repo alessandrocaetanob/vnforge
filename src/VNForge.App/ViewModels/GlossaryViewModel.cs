@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
@@ -132,7 +133,21 @@ public sealed partial class GlossaryViewModel : ObservableObject
     public partial bool IsDirty { get; private set; }
 
     /// <summary>O que a página diz sobre o salvamento: nada antes da primeira gravação, "Salvando…" até gravar e "Salvo automaticamente" depois.</summary>
-    public string SaveStatus => IsDirty ? "Salvando…" : savedOnce ? "Salvo automaticamente" : string.Empty;
+    public string SaveStatus => SaveFailed ? "Não foi possível salvar" : IsDirty ? "Salvando…" : savedOnce ? "Salvo automaticamente" : string.Empty;
+
+    /// <summary>A última gravação falhou: o que está na tela ainda não está no disco.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SaveStatus))]
+    public partial bool SaveFailed { get; private set; }
+
+    /// <summary>O projeto que a pessoa abriu enquanto este tinha alterações que não puderam ser salvas; a página espera a decisão dela.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPendingSwitch), nameof(DiscardLabel))]
+    public partial ProjectSummary? PendingProject { get; private set; }
+
+    public bool HasPendingSwitch => PendingProject is not null;
+
+    public string DiscardLabel => PendingProject is null ? "Descartar alterações" : "Descartar e abrir o outro projeto";
 
     /// <summary>Falso sem projeto ou quando um dos arquivos não pôde ser lido: as tabelas ficam fechadas para edição.</summary>
     public bool CanEdit => Project is not null && !loadFailed;
@@ -166,6 +181,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
             usageLoaded = false;
             ResetSuggestions();
             savedOnce = false;
+            SaveFailed = false;
+            PendingProject = null;
             Search = string.Empty;
             if (Project is not null)
             {
@@ -256,7 +273,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
             Terms.Clear();
             Characters.Clear();
             loadFailed = true;
-            ErrorMessage = $"{e.Message} Corrija o arquivo para editar aqui.";
+            Debug.WriteLine(e);
+            ErrorMessage = $"Um dos arquivos do glossário está inválido: {e.Reason} Corrija-o para editar aqui.";
         }
     }
 
@@ -311,15 +329,21 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private bool CanSave() => IsDirty && CanEdit;
 
+    /// <summary>
+    /// Grava os dois arquivos. Linha com o nome vazio ou repetido não trava a gravação das outras: fica de fora, marcada na tela, até a pessoa corrigi-la.
+    /// Se a gravação falha, as edições continuam na tela e <see cref="SaveFailed"/> fica verdadeiro.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanSave))]
     private void Save()
     {
         var folder = ProjectFolder.Open(Project!.Root);
         ErrorMessage = null;
         NoticeMessage = null;
+        var terms = ValidRows(Terms, "Falta o termo em japonês.").Select(t => t.ToTerm()).ToList();
+        var characters = ValidRows(Characters, "Falta o nome do personagem no jogo.").Select(c => c.ToEntry()).ToList();
+        NotifyProblems();
         try
         {
-            var terms = Terms.Where(t => !t.IsBlank).Select(t => t.ToTerm()).ToList();
             if (termsDirty)
             {
                 // Só linhas em branco e arquivo ausente: não cria um glossary.json vazio no projeto.
@@ -331,7 +355,6 @@ public sealed partial class GlossaryViewModel : ObservableObject
                 termsDirty = false;
             }
 
-            var characters = Characters.Where(c => !c.IsBlank).Select(c => c.ToEntry()).ToList();
             if (charactersDirty)
             {
                 if (characters.Count > 0 || File.Exists(folder.CharactersPath))
@@ -344,18 +367,66 @@ public sealed partial class GlossaryViewModel : ObservableObject
         }
         catch (GlossaryFileException e)
         {
-            ErrorMessage = $"{e.Reason} Nada foi gravado neste arquivo.";
+            Debug.WriteLine(e);
+            FailSave($"{e.Reason} Nada foi gravado neste arquivo.");
             return;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            ErrorMessage = $"Não foi possível gravar: {e.Message}";
+            Debug.WriteLine(e);
+            FailSave("Não foi possível salvar. Confira se a pasta do projeto está acessível e se há espaço no disco; o que você escreveu continua na tela.");
             return;
         }
 
+        SaveFailed = false;
         savedOnce = true;
         IsDirty = false;
         OnPropertyChanged(nameof(SaveStatus));
+    }
+
+    private void FailSave(string message)
+    {
+        ErrorMessage = message;
+        SaveFailed = true;
+    }
+
+    /// <summary>As linhas que podem ir para o arquivo, na ordem da tabela. As incompletas e as repetidas (da segunda em diante) recebem o <see cref="UsageRow.Problem"/>.</summary>
+    private static List<T> ValidRows<T>(IEnumerable<T> rows, string missing)
+        where T : UsageRow
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var valid = new List<T>();
+        foreach (var row in rows)
+        {
+            var key = row.Key.Trim();
+            row.Problem = row.IsBlank ? null : key.Length == 0 ? missing : seen.Contains(key) ? "Já existe outra linha com este nome." : null;
+            if (!row.IsBlank && row.Problem is null)
+            {
+                seen.Add(key);
+                valid.Add(row);
+            }
+        }
+
+        return valid;
+    }
+
+    /// <summary>Quantas linhas ficaram de fora do arquivo por nome vazio ou repetido.</summary>
+    public int ProblemCount => Terms.Count(t => t.HasProblem) + Characters.Count(c => c.HasProblem);
+
+    public bool HasProblems => ProblemCount > 0;
+
+    public string ProblemsText => ProblemCount switch
+    {
+        0 => string.Empty,
+        1 => "1 linha ainda não foi salva porque falta o nome ou ele se repete. As outras já foram. Corrija a linha marcada.",
+        var n => $"{n} linhas ainda não foram salvas porque falta o nome ou ele se repete. As outras já foram. Corrija as linhas marcadas.",
+    };
+
+    private void NotifyProblems()
+    {
+        OnPropertyChanged(nameof(ProblemCount));
+        OnPropertyChanged(nameof(HasProblems));
+        OnPropertyChanged(nameof(ProblemsText));
     }
 
     private T Watch<T>(T row, Action markDirty)
@@ -365,7 +436,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         row.PropertyChanged += (_, e) =>
         {
             // A contagem não é dado do arquivo: mexer nela não suja a página.
-            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion))
+            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem))
             {
                 NotifySummaries();
                 return;
@@ -474,6 +545,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         NoticeMessage = null;
         IsDirty = true;
         ScheduleSave();
+        NotifyProblems();
     }
 
     private void ScheduleSave()
@@ -485,7 +557,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
         if (saveTimer is null)
         {
-            saveTimer = clock.CreateTimer(_ => PostToUi(Flush), null, SaveDelay, Timeout.InfiniteTimeSpan);
+            saveTimer = clock.CreateTimer(_ => PostToUi(() => Flush()), null, SaveDelay, Timeout.InfiniteTimeSpan);
         }
         else
         {
@@ -495,13 +567,66 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private void CancelSaveTimer() => saveTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 
-    /// <summary>Grava já o que estiver pendente, sem esperar o <see cref="SaveDelay"/>: sair da página, trocar de projeto e fechar a janela chamam isto.</summary>
-    public void Flush()
+    /// <summary>
+    /// Grava já o que estiver pendente, sem esperar o <see cref="SaveDelay"/>: sair da página, trocar de projeto e fechar a janela chamam isto.
+    /// Devolve falso quando a gravação falhou e há edições que só existem na tela.
+    /// </summary>
+    public bool Flush()
     {
         CancelSaveTimer();
         if (CanSave())
         {
             Save();
+        }
+
+        return !(IsDirty && CanEdit);
+    }
+
+    /// <summary>
+    /// Abre outro projeto na página. Antes grava o que está pendente; se não conseguir, o projeto novo fica em <see cref="PendingProject"/> e as edições
+    /// continuam na tela até a pessoa tentar salvar de novo ou descartar. Devolve verdadeiro quando o projeto foi aberto.
+    /// </summary>
+    public bool Open(ProjectSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        if (Project?.Root != summary.Root && !Flush())
+        {
+            PendingProject = summary;
+            return false;
+        }
+
+        Project = summary;
+        return true;
+    }
+
+    /// <summary>Tenta gravar de novo; se der certo e havia um projeto à espera, abre-o.</summary>
+    [RelayCommand]
+    private void RetrySave()
+    {
+        if (Flush() && PendingProject is { } next)
+        {
+            PendingProject = null;
+            Project = next;
+        }
+    }
+
+    /// <summary>Joga fora o que não foi salvo; se havia um projeto à espera, abre-o, senão relê os arquivos do projeto atual.</summary>
+    [RelayCommand]
+    private void DiscardChanges()
+    {
+        CancelSaveTimer();
+        termsDirty = false;
+        charactersDirty = false;
+        IsDirty = false;
+        var next = PendingProject;
+        PendingProject = null;
+        if (next is not null)
+        {
+            Project = next;
+        }
+        else
+        {
+            Reload();
         }
     }
 

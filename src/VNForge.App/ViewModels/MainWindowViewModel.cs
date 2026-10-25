@@ -475,13 +475,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a tela Testar com o aviso.</summary>
     public bool TryClose()
     {
-        if (Build.TryCloseSafely())
+        if (!Build.TryCloseSafely())
         {
-            return true;
+            SelectedNav = buildItem;
+            return false;
         }
 
-        SelectedNav = buildItem;
-        return false;
+        // Fechar com edições do Glossário que não foram para o disco as perderia: a página mostra o erro e deixa tentar de novo ou descartar.
+        if (!Glossary.Flush())
+        {
+            SelectedNav = glossaryItem;
+            return false;
+        }
+
+        return true;
     }
 
     private void SetProject(ProjectSummary summary)
@@ -496,10 +503,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.Project = summary;
         Settings.Load(summary);
         OnPropertyChanged(nameof(StatusNote));
-        // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou.
-        if (!Glossary.IsDirty || Glossary.Project?.Root != summary.Root)
+        // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
+        if (Glossary.Project?.Root == summary.Root)
         {
-            Glossary.Project = summary;
+            if (!Glossary.IsDirty)
+            {
+                Glossary.Project = summary;
+            }
+        }
+        else if (!Glossary.Open(summary))
+        {
+            Toasts.Show("Há alterações no Glossário que não foram salvas. Abra o Glossário para tentar de novo ou descartar.", ToastKind.Error, key: "glossary-unsaved");
         }
 
         Build.Project = summary;
