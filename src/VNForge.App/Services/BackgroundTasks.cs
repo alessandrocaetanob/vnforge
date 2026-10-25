@@ -70,7 +70,16 @@ public sealed partial class BackgroundTaskItem : ObservableObject
     public double Percent => Math.Round((Progress ?? 0) * 100, 1);
 
     /// <summary>O gasto da tarefa em reais, com a cotação que a pessoa informou nos Ajustes; a tarefa relata em dólar.</summary>
-    public string CostText => Controls.Money.BrlEstimate(rate().ToBrl(Cost));
+    /// <remarks>Com a cotação de exemplo (a pessoa ainda não informou a dela) o valor sai com "≈" e a marca "cotação de exemplo".</remarks>
+    public string CostText
+    {
+        get
+        {
+            var current = rate();
+            var text = Controls.Money.BrlEstimate(current.ToBrl(Cost));
+            return current.IsInformed || Cost <= 0m ? text : $"≈ {text} (cotação de exemplo)";
+        }
+    }
 
     internal void RefreshCostText() => OnPropertyChanged(nameof(CostText));
 
