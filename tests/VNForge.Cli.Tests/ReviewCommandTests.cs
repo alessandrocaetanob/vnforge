@@ -57,6 +57,29 @@ public sealed class ReviewCommandTests : IDisposable
         string.Concat(_project.LoadAllText().OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => TextUnitJson.SerializeList(p.Value)));
 
     [Fact]
+    public async Task Linha_traduzida_de_novo_durante_a_revisao_fica_sem_a_nota_e_a_saida_diz_isso()
+    {
+        var inner = _provider;
+        _cli.Cli.ReviewProviderFactory = (_, _) => new EditingReviewProvider(inner, () =>
+            new LineEditor(_project, TimeProvider.System).SetTranslation(Script1, $"{Script1}:000002", "nova tradução"));
+
+        var result = await Run("--files", Script1);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal("nova tradução", Line(Script1, 1).Translation);
+        Assert.Contains("durante a execução", result.Output);
+    }
+
+    private sealed class EditingReviewProvider(IReviewProvider inner, Action edit) : IReviewProvider
+    {
+        public Task<IReadOnlyList<ReviewResult>> ReviewAsync(TranslationBatch batch, CancellationToken ct)
+        {
+            edit();
+            return inner.ReviewAsync(batch, ct);
+        }
+    }
+
+    [Fact]
     public async Task Em_terminal_interativo_a_barra_substitui_o_log_do_erro_padrao()
     {
         using var rich = new CliHarness(terminal: TestTerminals.InteractiveAnsi());

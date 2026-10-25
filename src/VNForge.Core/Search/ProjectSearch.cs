@@ -152,37 +152,40 @@ public static class ProjectSearch
 
         var applied = 0;
         var stale = new List<ReplaceItem>();
-        foreach (var script in preview.Items.GroupBy(i => i.ScriptKey, StringComparer.Ordinal))
+        lock (ProjectTextLock.For(project))
         {
-            var units = project.LoadText(script.Key).ToList();
-            var indexById = new Dictionary<string, int>(units.Count, StringComparer.Ordinal);
-            for (var i = 0; i < units.Count; i++)
+            foreach (var script in preview.Items.GroupBy(i => i.ScriptKey, StringComparer.Ordinal))
             {
-                indexById[units[i].Id] = i;
-            }
-
-            var changed = false;
-            foreach (var item in script)
-            {
-                if (!indexById.TryGetValue(item.UnitId, out var index) || !string.Equals(units[index].Translation, item.Before, StringComparison.Ordinal) || !units[index].HasTranslation)
+                var units = project.LoadText(script.Key).ToList();
+                var indexById = new Dictionary<string, int>(units.Count, StringComparer.Ordinal);
+                for (var i = 0; i < units.Count; i++)
                 {
-                    stale.Add(item);
-                    continue;
+                    indexById[units[i].Id] = i;
                 }
 
-                units[index] = units[index] with
+                var changed = false;
+                foreach (var item in script)
                 {
-                    Translation = item.After,
-                    Status = TranslationStatus.Translated,
-                    Origin = new TranslationOrigin(LineEditor.ManualProvider, null, now),
-                };
-                applied++;
-                changed = true;
-            }
+                    if (!indexById.TryGetValue(item.UnitId, out var index) || !string.Equals(units[index].Translation, item.Before, StringComparison.Ordinal) || !units[index].HasTranslation)
+                    {
+                        stale.Add(item);
+                        continue;
+                    }
 
-            if (changed)
-            {
-                project.SaveText(script.Key, units);
+                    units[index] = units[index] with
+                    {
+                        Translation = item.After,
+                        Status = TranslationStatus.Translated,
+                        Origin = new TranslationOrigin(LineEditor.ManualProvider, null, now),
+                    };
+                    applied++;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    project.SaveText(script.Key, units);
+                }
             }
         }
 

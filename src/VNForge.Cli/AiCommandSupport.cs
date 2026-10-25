@@ -6,7 +6,6 @@ using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Projects;
-using VNForge.Core.Text;
 
 namespace VNForge.Cli;
 
@@ -119,7 +118,12 @@ internal static class AiCommandSupport
             throw new UsageException($"Modelo desconhecido: '{model}'. Use um de: {string.Join(", ", ClaudeModels.All)}.");
         }
 
-        var effort = ParseEffort(effortOption ?? ai.Effort, strict: effortOption is not null);
+        var effortText = effortOption ?? ai.Effort;
+        if (!ClaudeEffortText.TryParse(effortText, out var effort) && effortOption is not null)
+        {
+            throw new UsageException($"Esforço desconhecido: '{effortText}'. Use low, medium ou high.");
+        }
+
 
         var batchSize = batchSizeOption ?? ai.BatchSize;
         if (batchSize < TranslationRunOptions.MinBatchSize || batchSize > TranslationRunOptions.MaxBatchSize)
@@ -165,34 +169,6 @@ internal static class AiCommandSupport
         {
             output.WriteLine($"Lote com falha ({Count(failure.LineIds.Count, "linha", "linhas")}, {Count(failure.Attempts, "tentativa", "tentativas")}): {failure.Error.Message}");
         }
-    }
-
-    public static decimal? DollarsFor(string model, ClaudeUsage? usage) =>
-        usage is { } u
-            ? ModelPricing.For(model).Cost(new TokenUsage(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens))
-            : null;
-
-    /// <summary>Soma o gasto da execução ao total do projeto (<c>.cache/ai-usage.json</c>), que o Painel do app mostra.</summary>
-    public static void RecordUsage(ProjectFolder project, string model, ClaudeUsage? usage)
-    {
-        if (usage is not { } u)
-        {
-            return;
-        }
-
-        // Modelo sem preço na tabela não pode derrubar o comando depois de a tradução gravada: o custo fica desconhecido, nunca zero.
-        decimal? dollars = null;
-        try
-        {
-            dollars = DollarsFor(model, u);
-        }
-        catch (ArgumentException)
-        {
-            // Sem preço.
-        }
-
-        AiUsageLog.TryRecord(project, new AiUsageTotals(
-            u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens, dollars ?? 0m, 1, dollars is null ? 1 : 0));
     }
 
     /// <summary>
@@ -277,106 +253,8 @@ internal static class AiCommandSupport
 
     public static string Dollars(decimal value) => string.Create(PortugueseBrazil, $"US$ {value:0.00}");
 
-    private static ClaudeEffort ParseEffort(string text, bool strict)
-    {
-        switch (text.Trim().ToLowerInvariant())
-        {
-            case "low": return ClaudeEffort.Low;
-            case "medium": return ClaudeEffort.Medium;
-            case "high": return ClaudeEffort.High;
-            default:
-                return strict
-                    ? throw new UsageException($"Esforço desconhecido: '{text}'. Use low, medium ou high.")
-                    : ClaudeEffort.Medium;
-        }
-    }
-}
+    public static string Brl(decimal value) => string.Create(PortugueseBrazil, $"R$ {value:N2}");
 
-/// <summary>
-/// As linhas que um comando de IA vai processar e o mapa para gravá-las de volta: o conteúdo de cada <c>text/*.json</c> tocado
-/// e, por id, a chave do arquivo e o índice da linha.
-/// </summary>
-internal sealed class LineSelection
-{
-    private const int PreviousLinesWindow = 30;
-
-    private const int NextLinesWindow = 10;
-
-    public Dictionary<string, List<TextUnit>> Files { get; } = new(StringComparer.Ordinal);
-
-    public Dictionary<string, string> KeyById { get; } = new(StringComparer.Ordinal);
-
-    public Dictionary<string, int> IndexById { get; } = new(StringComparer.Ordinal);
-
-    public List<TextUnit> Pending { get; } = [];
-
-    /// <param name="filter">Glob sobre a chave do script; <c>null</c> aceita todas.</param>
-    /// <param name="limit">Máximo de linhas; <c>null</c> sem limite.</param>
-    /// <param name="wanted">Quais linhas de um script entram.</param>
-    public static LineSelection Build(
-        IEnumerable<KeyValuePair<string, IReadOnlyList<TextUnit>>> texts, Regex? filter, int? limit, Func<TextUnit, bool> wanted)
-    {
-        var selection = new LineSelection();
-        foreach (var (key, units) in texts)
-        {
-            if (filter is not null && !filter.IsMatch(key))
-            {
-                continue;
-            }
-
-            var selected = units.Where(wanted).ToList();
-            if (selected.Count == 0 || (limit is { } max && selection.Pending.Count >= max))
-            {
-                continue;
-            }
-
-            selection.Files[key] = [.. units];
-            for (var i = 0; i < units.Count; i++)
-            {
-                selection.KeyById[units[i].Id] = key;
-                selection.IndexById[units[i].Id] = i;
-            }
-
-            selection.Pending.AddRange(limit is { } cap ? selected.Take(cap - selection.Pending.Count) : selected);
-        }
-
-        return selection;
-    }
-
-    /// <summary>
-    /// Aplica <paramref name="update"/> a cada resultado (devolve a linha nova, ou <c>null</c> para deixá-la como está), grava só os
-    /// <c>text/*.json</c> que mudaram e devolve a chave do último script gravado (ou a do lote, se nenhum mudou), para o progresso.
-    /// </summary>
-    public string ApplyAndSave(ProjectFolder project, IReadOnlyList<TranslationResult> results, Func<TranslationResult, TextUnit, TextUnit?> update)
-    {
-        var touched = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var result in results)
-        {
-            var key = KeyById[result.Id];
-            var list = Files[key];
-            var index = IndexById[result.Id];
-            if (update(result, list[index]) is { } changed)
-            {
-                list[index] = changed;
-                touched.Add(key);
-            }
-        }
-
-        foreach (var key in touched)
-        {
-            project.SaveText(key, Files[key]);
-        }
-
-        return touched.LastOrDefault() ?? KeyById[results[0].Id];
-    }
-
-    /// <summary>Monta o lote com as linhas anteriores e as seguintes do script como contexto; chame sob o lock que protege <see cref="Files"/>.</summary>
-    public TranslationBatch BuildBatch(TranslationBatchBuilder builder, IReadOnlyList<TextUnit> lines)
-    {
-        var first = lines[0].Id;
-        var last = lines[^1].Id;
-        var previous = Files[KeyById[first]].Take(IndexById[first]).TakeLast(PreviousLinesWindow).ToList();
-        var next = Files[KeyById[last]].Skip(IndexById[last] + 1).Take(NextLinesWindow).ToList();
-        return builder.Build(lines, previous, next);
-    }
+    /// <summary>Glob da opção <c>--files</c> como filtro de chave de script; <see langword="null"/> aceita todos.</summary>
+    public static Func<string, bool>? ScriptFilter(Regex? filter) => filter is null ? null : filter.IsMatch;
 }
