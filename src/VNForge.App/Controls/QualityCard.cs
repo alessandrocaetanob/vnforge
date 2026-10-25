@@ -15,6 +15,8 @@ public sealed class QualityCard : RadioButton
     public static readonly StyledProperty<string?> DurationProperty = AvaloniaProperty.Register<QualityCard, string?>(nameof(Duration));
     public static readonly StyledProperty<decimal> PriceProperty = AvaloniaProperty.Register<QualityCard, decimal>(nameof(Price));
 
+    public static readonly StyledProperty<bool> ShowPriceProperty = AvaloniaProperty.Register<QualityCard, bool>(nameof(ShowPrice), defaultValue: true);
+
     public static readonly DirectProperty<QualityCard, string> PriceTextProperty =
         AvaloniaProperty.RegisterDirect<QualityCard, string>(nameof(PriceText), o => o.PriceText);
 
@@ -56,6 +58,13 @@ public sealed class QualityCard : RadioButton
         set => SetValue(PriceProperty, value);
     }
 
+    /// <summary>Esconde o preço e o tempo quando ainda não há linhas para estimar (Ajustes sem projeto aberto).</summary>
+    public bool ShowPrice
+    {
+        get => GetValue(ShowPriceProperty);
+        set => SetValue(ShowPriceProperty, value);
+    }
+
     public string PriceText
     {
         get => priceText;
@@ -67,7 +76,7 @@ public sealed class QualityCard : RadioButton
         base.OnPropertyChanged(change);
         if (change.Property == PriceProperty)
         {
-            PriceText = Money.Brl(Price);
+            PriceText = Money.BrlEstimate(Price);
         }
     }
 }

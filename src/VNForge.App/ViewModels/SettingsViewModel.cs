@@ -8,6 +8,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
@@ -46,7 +47,7 @@ public sealed partial class ModelOption(string id, string name, string price, st
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
-    /// <summary>Custo estimado das linhas pendentes neste modelo; <see langword="null"/> sem projeto ou enquanto a conta roda.</summary>
+    /// <summary>Custo estimado em reais das linhas pendentes neste modelo; <see langword="null"/> sem projeto ou enquanto a conta roda.</summary>
     [ObservableProperty]
     public partial string? Estimate { get; private set; }
 
@@ -54,15 +55,55 @@ public sealed partial class ModelOption(string id, string name, string price, st
     [ObservableProperty]
     public partial string Detail { get; private set; } = use;
 
-    internal void ShowEstimate(int? pendingLines, decimal dollars)
+    internal void ShowEstimate(int? pendingLines, decimal brl)
     {
-        Estimate = pendingLines is > 0 ? SettingsViewModel.Money(dollars) : null;
+        Estimate = pendingLines is > 0 ? Controls.Money.BrlEstimate(brl) : null;
         Detail = pendingLines switch
         {
             null => Use,
             0 => $"{Use} · nenhuma linha pendente",
             1 => $"{Use} · estimativa para a linha pendente: {Estimate}",
             _ => $"{Use} · estimativa para as {ProjectLabels.Number(pendingLines.Value)} pendentes: {Estimate}",
+        };
+    }
+}
+
+/// <summary>
+/// Cartão de qualidade padrão (Rápida, Equilibrada, Caprichada): o gasto em reais e o tempo para as linhas que faltam, sem o nome do modelo, que
+/// fica nos detalhes técnicos. <see cref="IsSelected"/> liga o cartão ao <see cref="SettingsViewModel.SelectedQuality"/>.
+/// </summary>
+public sealed partial class QualityOption(QualityProfile profile, string title, string description) : ObservableObject
+{
+    public QualityProfile Profile { get; } = profile;
+
+    public string Title { get; } = title;
+
+    public string Description { get; } = description;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
+    /// <summary>O gasto estimado em reais das linhas que faltam; só vale com <see cref="HasEstimate"/>.</summary>
+    [ObservableProperty]
+    public partial decimal Price { get; private set; }
+
+    /// <summary>Há projeto aberto e a conta das linhas pendentes terminou.</summary>
+    [ObservableProperty]
+    public partial bool HasEstimate { get; private set; }
+
+    /// <summary>O tempo para as linhas que faltam ("cerca de 6 min"); vazio sem estimativa.</summary>
+    [ObservableProperty]
+    public partial string Duration { get; private set; } = string.Empty;
+
+    internal void ShowEstimate(int? pendingLines, decimal brl)
+    {
+        HasEstimate = pendingLines is not null;
+        Price = pendingLines is null ? 0m : brl;
+        Duration = pendingLines switch
+        {
+            null => string.Empty,
+            0 => "nenhuma linha para traduzir",
+            { } lines => ProjectLabels.Duration(Profile.TimeFor(lines)),
         };
     }
 }
@@ -99,8 +140,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private static readonly NumberFormatInfo PriceFormat = new() { NumberDecimalSeparator = "," };
 
-    private static readonly NumberFormatInfo MoneyFormat = new() { NumberDecimalSeparator = ",", NumberGroupSeparator = "." };
-
     private static readonly HashSet<string> ConfigInputs =
     [
         nameof(SelectedModel), nameof(SelectedEffort), nameof(BatchSize), nameof(SelectedEncoding),
@@ -117,6 +156,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly AppSettingsFile appSettings;
     private readonly Func<string, string?> readEnvironment;
     private readonly Func<string, IClaudeMessageClient> clientFactory;
+    private readonly TimeProvider clock;
+    private AppSettings app;
+    private IReadOnlyDictionary<string, CostEstimate> estimates = new Dictionary<string, CostEstimate>();
+    private int? estimatedPending;
     private ProjectFolder? folder;
     private ProjectConfig? config;
     private FormattingProfile baseProfile = FormattingProfile.Default;
@@ -127,7 +170,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         IApiKeyStore vault,
         AppSettingsFile appSettings,
         Func<string, string?>? readEnvironment = null,
-        Func<string, IClaudeMessageClient>? clientFactory = null)
+        Func<string, IClaudeMessageClient>? clientFactory = null,
+        TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(vault);
         ArgumentNullException.ThrowIfNull(appSettings);
@@ -135,6 +179,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         this.appSettings = appSettings;
         this.readEnvironment = readEnvironment ?? Environment.GetEnvironmentVariable;
         this.clientFactory = clientFactory ?? ClaudeProviderFactory.CreateClient;
+        this.clock = clock ?? TimeProvider.System;
 
         Providers =
         [
@@ -145,6 +190,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         ];
         Themes = [new(ThemeChoice.System, "Sistema"), new(ThemeChoice.Light, "Claro"), new(ThemeChoice.Dark, "Escuro")];
         Models = [.. ClaudeModels.All.Select(Describe)];
+        Qualities = [.. QualityProfiles.All.Select(DescribeQuality)];
         Efforts = [new("low", "Baixo"), new("medium", "Médio"), new("high", "Alto")];
         Encodings =
         [
@@ -158,31 +204,28 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         foreach (var model in Models)
         {
-            model.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(ModelOption.IsSelected) && model.IsSelected)
-                {
-                    SelectedModel = model;
-                }
-            };
+            LinkSelection(model, () => model.IsSelected, () => SelectedModel = model);
+        }
+
+        foreach (var quality in Qualities)
+        {
+            LinkSelection(quality, () => quality.IsSelected, () => SelectedQuality = quality);
         }
 
         foreach (var encoding in Encodings)
         {
-            encoding.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(EncodingOption.IsSelected) && encoding.IsSelected)
-                {
-                    SelectedEncoding = encoding;
-                }
-            };
+            LinkSelection(encoding, () => encoding.IsSelected, () => SelectedEncoding = encoding);
         }
 
         loading = true;
         var saved = appSettings.Load();
+        app = saved;
         Concurrency = saved.Concurrency;
         SelectedTheme = Themes.Single(t => t.Value == saved.Theme);
-        SelectedModel = Models[0];
+        SelectedModel = Models.Single(m => m.Id == QualityProfiles.For(saved.Quality).Model);
+        ExchangeRateText = saved.BrlPerUsd is { } rate ? MoneyParser.Format(rate) : string.Empty;
+        SpendLimitText = saved.SpendLimit is { } limit ? MoneyParser.Format(limit) : string.Empty;
+        WarnAboveText = saved.WarnAbove is { } warn ? MoneyParser.Format(warn) : string.Empty;
         SelectedEffort = Efforts[1];
         SelectedEncoding = Encodings[0];
         SelectedQuotes = QuoteStyles[0];
@@ -192,7 +235,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         loading = false;
         RefreshPreview();
         RefreshKey();
+        RefreshRateNote();
     }
+
+    /// <summary>Quando o cartão passa a marcado (<c>IsSelected</c> ligado ao <c>RadioButton</c>), a seleção da tela o acompanha.</summary>
+    private static void LinkSelection(INotifyPropertyChanged option, Func<bool> isSelected, Action select) =>
+        option.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == "IsSelected" && isSelected())
+            {
+                select();
+            }
+        };
 
     /// <summary>A chave foi guardada ou apagada: a janela atualiza a barra de status.</summary>
     public event EventHandler? KeyChanged;
@@ -203,6 +257,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     public ReadOnlyCollection<ProviderOption> Providers { get; }
 
     public ReadOnlyCollection<ModelOption> Models { get; }
+
+    public ReadOnlyCollection<QualityOption> Qualities { get; }
 
     public ReadOnlyCollection<ChoiceItem> Efforts { get; }
 
@@ -218,6 +274,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Sistema, Claro e Escuro; o padrão segue o Windows.</summary>
     public ReadOnlyCollection<ChoiceItem<ThemeChoice>> Themes { get; }
+
+    /// <summary>A cotação que converte os custos; sem uma informada, o valor de exemplo.</summary>
+    public ExchangeRate Rate => app.Rate;
+
+    /// <summary>Limite de gasto e valor de aviso do orçamento, em reais.</summary>
+    public BudgetLimits Budget => app.Budget;
+
+    /// <summary>A cotação foi informada ou trocada: a janela repassa às tarefas para o gasto da barra de status sair em reais.</summary>
+    public event EventHandler<ExchangeRate>? RateChanged;
 
     /// <summary>Disparado quando o usuário troca o tema; o <c>App</c> aplica o <c>RequestedThemeVariant</c>.</summary>
     public event EventHandler<ThemeChoice>? ThemeChanged;
@@ -250,6 +315,46 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial ChoiceItem<ThemeChoice>? SelectedTheme { get; set; }
 
     [ObservableProperty]
+    public partial QualityOption? SelectedQuality { get; set; }
+
+    /// <summary>A cotação como a pessoa a digita ("5,40"); vazia enquanto ela não informou.</summary>
+    [ObservableProperty]
+    public partial string ExchangeRateText { get; set; } = string.Empty;
+
+    /// <summary>"Informada em 25/10/2026" ou o aviso de que o valor é de exemplo.</summary>
+    [ObservableProperty]
+    public partial string RateNote { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string? RateError { get; private set; }
+
+    /// <summary>O limite de gasto como a pessoa o digita; vazio não limita.</summary>
+    [ObservableProperty]
+    public partial string SpendLimitText { get; set; } = string.Empty;
+
+    /// <summary>O valor acima do qual o app pergunta antes de um pedido; vazio nunca pergunta.</summary>
+    [ObservableProperty]
+    public partial string WarnAboveText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string? LimitError { get; private set; }
+
+    [ObservableProperty]
+    public partial string? WarnError { get; private set; }
+
+    /// <summary>O gasto do projeto aberto em reais, para a barra do orçamento.</summary>
+    [ObservableProperty]
+    public partial double SpentBrl { get; private set; }
+
+    /// <summary>O limite em reais para a barra do orçamento; zero sem limite.</summary>
+    [ObservableProperty]
+    public partial double LimitBrl { get; private set; }
+
+    /// <summary>"R$ 142,56 de R$ 300,00" com projeto e limite; "R$ 142,56 neste projeto" sem limite; vazio sem projeto.</summary>
+    [ObservableProperty]
+    public partial string SpentSummary { get; private set; } = string.Empty;
+
+    [ObservableProperty]
     public partial ModelOption? SelectedModel { get; set; }
 
     [ObservableProperty]
@@ -279,6 +384,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>De onde vem a chave, sem o valor dela (barra de status).</summary>
     [ObservableProperty]
     public partial string KeyStatus { get; private set; } = string.Empty;
+
+    /// <summary>Como o cofre e a variável de ambiente funcionam (DPAPI, nome da variável); só aparece em "Detalhes técnicos".</summary>
+    [ObservableProperty]
+    public partial string KeyTechnicalNote { get; private set; } = string.Empty;
+
+    /// <summary>O que o teste de conexão usou (o modelo que respondeu); só aparece em "Detalhes técnicos".</summary>
+    [ObservableProperty]
+    public partial string? ConnectionDetail { get; private set; }
 
     /// <summary>A linha de baixo do cartão da chave: configurada ou não, e onde ela fica.</summary>
     [ObservableProperty]
@@ -366,10 +479,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string? ErrorMessage { get; private set; }
 
-    /// <summary>Dólares no formato da tela: <c>US$ 21,10</c>; abaixo de um centavo vira "menos de US$ 0,01".</summary>
-    internal static string Money(decimal dollars) =>
-        dollars < 0.01m ? "menos de US$ 0,01" : $"US$ {Math.Round(dollars, 2, MidpointRounding.AwayFromZero).ToString("N2", MoneyFormat)}";
-
     /// <summary>Lê os ajustes do projeto; <see langword="null"/> deixa só os ajustes do usuário.</summary>
     public void Load(ProjectSummary? project)
     {
@@ -403,6 +512,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         OnPropertyChanged(nameof(HasProject));
         RefreshPreview();
+        RefreshSpent();
         StartEstimate(folder);
     }
 
@@ -436,7 +546,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         NewApiKey = string.Empty;
         IsChangingKey = false;
-        KeyMessage = "Chave guardada no Cofre do Windows (DPAPI), fora do projeto.";
+        KeyMessage = "Chave guardada no cofre do Windows, fora do projeto.";
         RefreshKey();
         KeyChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -479,13 +589,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         IsTestingConnection = true;
         ConnectionMessage = null;
+        ConnectionDetail = null;
         ConnectionOk = false;
         try
         {
             using var timeout = new CancellationTokenSource(ConnectionTimeout);
             var result = await ClaudeConnectionTest.RunAsync(clientFactory(key), timeout.Token);
             ConnectionOk = result.Success;
-            ConnectionMessage = result.Message;
+            ConnectionMessage = result.Success ? "Conexão funcionando." : result.Message;
+            ConnectionDetail = result.Success ? result.Message : null;
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
@@ -536,7 +648,194 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             model.IsSelected = model == value;
         }
+
+        // O modelo exato manda: a qualidade marcada é a que usa esse modelo, e nenhuma quando é o Fable, que só existe nos detalhes técnicos.
+        var profile = value is null ? null : QualityProfiles.ForModel(value.Id);
+        SelectedQuality = profile is null ? null : Qualities.Single(q => q.Profile == profile);
+        if (profile is not null && !loading && app.Quality != profile.Quality)
+        {
+            TrySaveApp(app with { Quality = profile.Quality }, "Não foi possível salvar a qualidade padrão");
+        }
     }
+
+    partial void OnSelectedQualityChanged(QualityOption? value)
+    {
+        foreach (var quality in Qualities)
+        {
+            quality.IsSelected = quality == value;
+        }
+
+        if (value is not null)
+        {
+            SelectedModel = Models.Single(m => m.Id == value.Profile.Model);
+        }
+    }
+
+    partial void OnExchangeRateTextChanged(string value)
+    {
+        if (loading)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            RateError = null;
+            ChangeRate(null, null);
+            return;
+        }
+
+        if (!MoneyParser.TryParse(value, out var rate) || rate <= 0m || rate > AppSettings.MaxBrlPerUsd)
+        {
+            RateError = "Informe quanto vale 1 dólar em reais, por exemplo 5,40.";
+            return;
+        }
+
+        RateError = null;
+        if (app.BrlPerUsd != rate)
+        {
+            ChangeRate(rate, DateOnly.FromDateTime(clock.GetLocalNow().DateTime));
+        }
+    }
+
+    partial void OnSpendLimitTextChanged(string value)
+    {
+        if (loading)
+        {
+            return;
+        }
+
+        var valid = TryReadLimit(value, out var limit, out var error);
+        LimitError = error;
+        if (valid)
+        {
+            TrySaveApp(app with { SpendLimit = limit }, "Não foi possível salvar o limite de gasto");
+            RefreshSpent();
+        }
+    }
+
+    partial void OnWarnAboveTextChanged(string value)
+    {
+        if (loading)
+        {
+            return;
+        }
+
+        var valid = TryReadLimit(value, out var warn, out var error);
+        WarnError = error;
+        if (valid)
+        {
+            TrySaveApp(app with { WarnAbove = warn }, "Não foi possível salvar o valor de aviso");
+        }
+    }
+
+    /// <summary>Vazio é "sem limite"; um valor precisa ser maior que zero.</summary>
+    private static bool TryReadLimit(string text, out decimal? value, out string? error)
+    {
+        value = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (MoneyParser.TryParse(text, out var parsed) && parsed > 0m)
+        {
+            value = parsed;
+            return true;
+        }
+
+        error = "Use um valor em reais maior que zero, como 200,00, ou deixe vazio para não limitar.";
+        return false;
+    }
+
+    /// <summary>"Confirmar hoje": a cotação continua a mesma e a data passa a ser a de hoje, para a pessoa dizer que ela ainda vale.</summary>
+    [RelayCommand(CanExecute = nameof(HasInformedRate))]
+    private void ConfirmRateToday()
+    {
+        if (app.BrlPerUsd is { } rate)
+        {
+            ChangeRate(rate, DateOnly.FromDateTime(clock.GetLocalNow().DateTime));
+        }
+    }
+
+    /// <summary>Há uma cotação informada pela pessoa (não o valor de exemplo).</summary>
+    public bool HasInformedRate => app.BrlPerUsd is not null;
+
+    private void ChangeRate(decimal? rate, DateOnly? informedOn)
+    {
+        TrySaveApp(app with { BrlPerUsd = rate, RateInformedOn = informedOn }, "Não foi possível salvar a cotação");
+        RefreshRateNote();
+        RefreshSpent();
+        ApplyEstimates();
+        OnPropertyChanged(nameof(HasInformedRate));
+        ConfirmRateTodayCommand.NotifyCanExecuteChanged();
+        RateChanged?.Invoke(this, app.Rate);
+    }
+
+    private void SaveApp(AppSettings updated)
+    {
+        app = updated;
+        appSettings.Save(updated);
+    }
+
+    private void TrySaveApp(AppSettings updated, string failure)
+    {
+        try
+        {
+            SaveApp(updated);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"{failure}: {e.Message}";
+        }
+    }
+
+    private void RefreshRateNote() =>
+        RateNote = app.RateInformedOn is { } on
+            ? $"Informada em {on.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)}. O app não consulta a cotação na internet."
+            : $"Ainda não informada: os valores em reais usam {Controls.Money.Brl(ExchangeRate.Placeholder.BrlPerUsd)} por dólar, só como exemplo.";
+
+    private void RefreshSpent()
+    {
+        LimitBrl = (double)(app.SpendLimit ?? 0m);
+        if (folder is null)
+        {
+            SpentBrl = 0;
+            SpentSummary = string.Empty;
+            return;
+        }
+
+        var spent = app.Rate.ToBrl(AiUsageLog.Load(folder).Dollars);
+        SpentBrl = (double)spent;
+        var summary = app.SpendLimit is { } limit
+            ? $"{Controls.Money.BrlEstimate(spent)} de {Controls.Money.Brl(limit)}"
+            : $"{Controls.Money.BrlEstimate(spent)} neste projeto";
+        SpentSummary = app.Rate.IsInformed || spent <= 0m ? summary : $"≈ {summary} (cotação de exemplo)";
+    }
+
+    private void ApplyEstimates()
+    {
+        foreach (var model in Models)
+        {
+            model.ShowEstimate(estimatedPending, BrlFor(model.Id));
+        }
+
+        foreach (var quality in Qualities)
+        {
+            quality.ShowEstimate(estimatedPending, BrlFor(quality.Profile.Model));
+        }
+    }
+
+    private decimal BrlFor(string model) =>
+        estimatedPending is not null && estimates.TryGetValue(model, out var estimate) ? CostEstimator.Brl(estimate, app.Rate) : 0m;
+
+    private static QualityOption DescribeQuality(QualityProfile profile) => profile.Quality switch
+    {
+        TranslationQuality.Fast => new QualityOption(profile, "Rápida", "Rascunho barato e veloz, para ler a história e revisar com calma."),
+        TranslationQuality.Balanced => new QualityOption(profile, "Equilibrada", "O meio-termo: boa para a maior parte do jogo."),
+        _ => new QualityOption(profile, "Caprichada", "A mais fiel ao tom e aos personagens."),
+    };
 
     partial void OnSelectedEncodingChanged(EncodingOption? value)
     {
@@ -561,7 +860,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         try
         {
-            appSettings.Save(new AppSettings(Concurrency, value.Value));
+            SaveApp(app with { Theme = value.Value });
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -587,7 +886,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         try
         {
-            appSettings.Save(new AppSettings(clamped, SelectedTheme?.Value ?? ThemeChoice.System));
+            SaveApp(app with { Concurrency = clamped });
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -614,10 +913,10 @@ public sealed partial class SettingsViewModel : ObservableObject
             ClaudeModels.Fable => "Cenas difíceis e revisão fina",
             _ => string.Empty,
         };
-        return new ModelOption(id, ProjectLabels.Model(id), $"US$ {Rate(price.Input)} / {Rate(price.Output)} / M tokens", use);
+        return new ModelOption(id, ProjectLabels.Model(id), $"US$ {PerMillion(price.Input)} / {PerMillion(price.Output)} / M tokens", use);
     }
 
-    private static string Rate(decimal value) => value == decimal.Truncate(value) ? value.ToString("0", PriceFormat) : value.ToString("0.00", PriceFormat);
+    private static string PerMillion(decimal value) => value == decimal.Truncate(value) ? value.ToString("0", PriceFormat) : value.ToString("0.00", PriceFormat);
 
     private void Apply(ProjectConfig project, FormattingProfile profile, string style)
     {
@@ -741,12 +1040,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         KeyConfigured = resolved.Source != ApiKeySource.None;
         KeyDetail = resolved.Source switch
         {
-            ApiKeySource.Environment => $"Configurada · variável de ambiente {ApiKeyResolver.EnvironmentVariable}, que vale mais que o cofre",
-            ApiKeySource.Vault => "Configurada · guardada no Cofre do Windows (DPAPI), fora do projeto",
-            _ => "Não configurada · use Adicionar chave para guardá-la no Cofre do Windows",
+            ApiKeySource.Environment => "Configurada · lida de uma variável de ambiente, que vale mais que o cofre",
+            ApiKeySource.Vault => "Configurada · guardada no cofre do Windows, fora do projeto",
+            _ => "Não configurada · use Adicionar chave para guardá-la no cofre do Windows",
+        };
+        KeyTechnicalNote = resolved.Source switch
+        {
+            ApiKeySource.Environment => $"A chave vem da variável de ambiente {ApiKeyResolver.EnvironmentVariable}, que vale mais que o cofre.",
+            ApiKeySource.Vault => "A chave fica criptografada com o DPAPI no seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade.",
+            _ => "O cofre usa o DPAPI do seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade.",
         };
         ChangeKeyLabel = KeyConfigured ? "Trocar chave" : "Adicionar chave";
         ConnectionMessage = null;
+        ConnectionDetail = null;
         ConnectionOk = false;
     }
 
@@ -755,10 +1061,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var version = ++estimateVersion;
         PendingLines = 0;
-        foreach (var model in Models)
-        {
-            model.ShowEstimate(null, 0m);
-        }
+        estimatedPending = null;
+        estimates = new Dictionary<string, CostEstimate>();
+        ApplyEstimates();
 
         EstimateLoading = opened is null ? Task.CompletedTask : EstimateAsync(opened, version);
     }
@@ -787,9 +1092,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         PendingLines = result.Pending;
-        foreach (var model in Models)
-        {
-            model.ShowEstimate(result.Pending, result.ByModel[model.Id].Dollars);
-        }
+        estimates = result.ByModel;
+        estimatedPending = result.Pending;
+        ApplyEstimates();
     }
 }

@@ -234,8 +234,8 @@ public class SettingsViewModelTests
         Assert.Equal(2000, vm.PendingLines);
         foreach (var model in vm.Models)
         {
-            var dollars = expected[model.Id].Dollars;
-            var text = $"US$ {Math.Round(dollars, 2, MidpointRounding.AwayFromZero).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',')}";
+            var reais = CostEstimator.Brl(expected[model.Id], ExchangeRate.Placeholder);
+            var text = $"R$ {Math.Round(reais, 2, MidpointRounding.AwayFromZero).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',')}";
             Assert.Equal(text, model.Estimate);
             Assert.Equal($"{model.Use} · estimativa para as 2.000 pendentes: {text}", model.Detail);
         }
@@ -270,7 +270,7 @@ public class SettingsViewModelTests
         vm.Load(ProjectSummaryReader.Read(root));
         await vm.EstimateLoading;
 
-        Assert.Equal("menos de US$ 0,01", vm.Models.Single(m => m.Id == ClaudeModels.Haiku).Estimate);
+        Assert.Equal("menos de R$ 0,01", vm.Models.Single(m => m.Id == ClaudeModels.Haiku).Estimate);
     }
 
     [Fact]
@@ -529,16 +529,16 @@ public class SettingsViewModelTests
         using var temp = new TempFolder();
         var vault = new MemoryApiKeyStore();
         var vm = Create(temp, vault);
-        Assert.Equal("Não configurada · use Adicionar chave para guardá-la no Cofre do Windows", vm.KeyDetail);
+        Assert.Equal("Não configurada · use Adicionar chave para guardá-la no cofre do Windows", vm.KeyDetail);
         Assert.Equal("Adicionar chave", vm.ChangeKeyLabel);
 
         vault.Save(SecretKey);
         vm = Create(temp, vault);
-        Assert.Equal("Configurada · guardada no Cofre do Windows (DPAPI), fora do projeto", vm.KeyDetail);
+        Assert.Equal("Configurada · guardada no cofre do Windows, fora do projeto", vm.KeyDetail);
         Assert.Equal("Trocar chave", vm.ChangeKeyLabel);
 
         vm = Create(temp, vault, environmentKey: SecretKey);
-        Assert.Equal("Configurada · variável de ambiente ANTHROPIC_API_KEY, que vale mais que o cofre", vm.KeyDetail);
+        Assert.Equal("Configurada · lida de uma variável de ambiente, que vale mais que o cofre", vm.KeyDetail);
         Assert.DoesNotContain(SecretKey, vm.KeyDetail);
     }
 
@@ -561,7 +561,7 @@ public class SettingsViewModelTests
         vm.SaveKeyCommand.Execute(null);
 
         Assert.False(vm.IsChangingKey);
-        Assert.Equal("Configurada · guardada no Cofre do Windows (DPAPI), fora do projeto", vm.KeyDetail);
+        Assert.Equal("Configurada · guardada no cofre do Windows, fora do projeto", vm.KeyDetail);
     }
 
     [Fact]
