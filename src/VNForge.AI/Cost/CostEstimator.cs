@@ -116,7 +116,7 @@ public static class CostEstimator
         return EstimateForModels(lines, models, cache).ToDictionary(p => p.Key, p => new CostQuote(p.Value, rate));
     }
 
-    private static long Tokens(string text)
+    internal static long Tokens(string text)
     {
         long ascii = 0, other = 0;
         foreach (var c in text)

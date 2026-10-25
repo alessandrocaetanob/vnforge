@@ -1,0 +1,41 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:VNForge.App.Controls">
+
+  <!-- FitWarning (v3.css ".fitwarn"): o infobar de aviso com o título, quanto passa e as duas saídas em botões; o erro do pedido à IA fica sob eles. -->
+  <Style Selector="c|FitWarning">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Classes="infobar warning">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{DynamicResource Icon.Warning}"/>
+            <StackPanel Grid.Column="1" Spacing="8">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
+                <TextBlock Classes="body-sm secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
+                           IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+              </StackPanel>
+              <WrapPanel ItemSpacing="8" LineSpacing="8">
+                <Button Name="PART_Split" Classes="sm" Command="{TemplateBinding SplitCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="14" Height="14" Data="{DynamicResource Icon.Split}"/>
+                    <TextBlock Text="{TemplateBinding SplitText}" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
+                <Button Name="PART_Shorten" Classes="sm" Command="{TemplateBinding ShortenCommand}" IsVisible="{TemplateBinding ShowShorten}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="14" Height="14" Data="{DynamicResource Icon.Sparkle}"/>
+                    <TextBlock Text="{TemplateBinding ShortenText}" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
+              </WrapPanel>
+              <TextBlock Name="PART_Error" Classes="body-sm" Foreground="{DynamicResource Vnf.SignalErrorFg}" TextWrapping="Wrap" Text="{TemplateBinding ErrorText}"
+                         IsVisible="{TemplateBinding ErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

@@ -39,14 +39,18 @@ public sealed class App : Application
             RequestedThemeVariant = (settings.SelectedTheme?.Value ?? ThemeChoice.System).ToVariant();
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
-            window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
+            var suggester = LineSuggester.ForUser(configDirectory);
+            var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
             {
-                Editor = new EditorViewModel(suggester: LineSuggester.ForUser(configDirectory)),
+                Editor = new EditorViewModel(suggester: suggester),
+                Glossary = { AutosaveClock = TimeProvider.System, Suggester = UserGlossarySuggester.ForUser(configDirectory) },
                 TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = effort }),
             };
+            main.Conference.Shortener = suggester;
+            window.DataContext = main;
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();
         }

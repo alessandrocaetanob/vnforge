@@ -54,6 +54,7 @@ public enum BuildNoticeKind
 {
     Built,
     Injected,
+    Tested,
 }
 
 /// <summary>Uma operação terminou bem: o aviso curto "Build pronto" ou "Injetado no jogo".</summary>
@@ -286,6 +287,7 @@ public sealed partial class BuildViewModel : ObservableObject
         ClearConfirmation();
         refreshVersion++;
         Apply(null);
+        ShowSavedGameStatus(value);
     }
 
     partial void OnIsBusyChanged(bool value) => UpdateCommands();
@@ -300,6 +302,7 @@ public sealed partial class BuildViewModel : ObservableObject
         RestoreCommand.NotifyCanExecuteChanged();
         LaunchCommand.NotifyCanExecuteChanged();
         ConfirmCommand.NotifyCanExecuteChanged();
+        UpdateTestCommands();
     }
 
     private bool CanBuild() => Project is not null && !IsBusy && !HasQaErrors;
@@ -584,10 +587,13 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         AppendLog($"Injetando {ProjectLabels.Number(plan.Files.Count)} arquivo(s) em {plan.GameDirectory}");
         restoredFrom = null;
+        var root = Project!.Root;
         var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", (_, _) =>
         {
+            var project = ProjectFolder.Open(root);
+            using var projectLock = ProjectLock.Acquire(project);
             EnsureBuildMatchesPlan(plan);
-            return new GameInjector().Inject(plan);
+            return GameStateFile.Inject(project, new GameInjector(clock), plan, GameTestKind.Translation, null, clock);
         });
         if (mine != epoch)
         {
@@ -621,14 +627,16 @@ public sealed partial class BuildViewModel : ObservableObject
             var pending = plans.Where(p => p.Injection.Files.Count > 0).ToList();
             AppendLog($"Aplicando o patch em {pending[0].Injection.GameDirectory}");
             restoredFrom = null;
+            var patchRoot = Project!.Root;
             var run = await RunAsync("Aplicar patch no executável", "Fazendo o backup e gravando o executável", (_, _) =>
             {
+                using var projectLock = ProjectLock.Acquire(ProjectFolder.Open(patchRoot));
                 foreach (var plan in pending)
                 {
                     EnsureBuildMatchesPlan(plan.Injection);
                 }
 
-                var injector = new GameInjector();
+                var injector = new GameInjector(clock);
                 return pending.Select(injector.InjectPatch).ToList();
             });
             if (mine != epoch)
@@ -669,8 +677,12 @@ public sealed partial class BuildViewModel : ObservableObject
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
         var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", (_, _) =>
         {
+            var project = ProjectFolder.Open(root);
+            using var projectLock = ProjectLock.Acquire(project);
             EnsureBackupsMatchPlan(root, plan);
-            return new GameInjector().Restore(plan);
+            var restored = new GameInjector(clock).Restore(plan);
+            GameStateFile.TryClearInGame(project);
+            return restored;
         });
         if (mine != epoch)
         {
@@ -1207,6 +1219,7 @@ public sealed partial class BuildViewModel : ObservableObject
         ShowQaBanner(state);
         ShowBackups(state);
         ShowResult(state);
+        ShowGameState(state);
         UpdateCommands();
     }
 
@@ -1403,8 +1416,12 @@ public sealed partial class BuildViewModel : ObservableObject
             backupMessage = hasBackups ? e.Message : "Nenhum backup ainda. O primeiro Injetar cria um nesta pasta.";
         }
 
-        var (qaErrors, qaWarnings) = CountQaIssues(project, engine);
-        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaErrors, qaWarnings, config.Game.Exe, ReadPatch(project, config));
+        var qaCounts = CountQaIssues(project, engine);
+        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaCounts.Errors, qaCounts.Warnings, config.Game.Exe, ReadPatch(project, config))
+        {
+            Saved = GameStateFile.Load(project),
+            QaErrorKinds = qaCounts.ErrorKinds,
+        };
     }
 
     /// <summary>O <c>.gitignore</c> do projeto lista <c>backup/</c>: só então o rodapé garante que os originais ficam fora do git.</summary>
@@ -1425,17 +1442,26 @@ public sealed partial class BuildViewModel : ObservableObject
     /// Os erros e avisos que o QA acha agora, os mesmos que a Conferência lista e que o <c>vnf build</c> usa para recusar. Um QA que não roda
     /// (texto ilegível, regra que lança) não trava o build aqui: o Core recusa com a mensagem certa se for o caso.
     /// </summary>
-    private static (int Errors, int Warnings) CountQaIssues(ProjectFolder project, QaEngine engine)
+    private static (int Errors, int Warnings, string ErrorKinds) CountQaIssues(ProjectFolder project, QaEngine engine)
     {
         try
         {
             var report = engine.Run(QaContext.FromProject(project));
-            return (report.Errors.Count, report.BlockingIssues.Count(i => i.Severity == QaSeverity.Warning));
+            return (report.Errors.Count, report.BlockingIssues.Count(i => i.Severity == QaSeverity.Warning), DescribeErrorKinds(report));
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            return (0, 0);
+            return (0, 0, string.Empty);
         }
+    }
+
+    /// <summary>"Tradução vazia (1), Não cabe na caixa (2). Corrija em Conferir a tradução.": o que a faixa diz que trava o teste.</summary>
+    private static string DescribeErrorKinds(QaReport report)
+    {
+        var kinds = report.Errors
+            .GroupBy(i => i.RuleId, StringComparer.Ordinal)
+            .Select(g => $"{ConferenceRuleTexts.Title(g.Key)} ({ProjectLabels.Number(g.Count())})");
+        return report.Errors.Count == 0 ? string.Empty : $"{string.Join(", ", kinds)}. Corrija em Conferir a tradução.";
     }
 
     private static string DescribePlan(InjectionPlan plan)
@@ -1475,6 +1501,12 @@ public sealed partial class BuildViewModel : ObservableObject
         string GameExecutableRelative,
         PatchInfo Patch)
     {
+        /// <summary>O <c>.cache/game-state.json</c>: o build que está no jogo e o último teste.</summary>
+        public GameStateFile? Saved { get; init; }
+
+        /// <summary>Os tipos de erro da Conferência, em português, para a faixa de "Testar no jogo".</summary>
+        public string QaErrorKinds { get; init; } = string.Empty;
+
         public static ProjectState Unreadable(string message) =>
             new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], false, 0, 0, string.Empty, PatchInfo.None);
     }

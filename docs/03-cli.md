@@ -83,7 +83,7 @@ Num terminal interativo com ANSI, as operações longas desenham uma barra que s
 
 ## Comandos do pipeline
 
-Seção "Pipeline" da ajuda: `init`, `extract`, `translate`, `review`, `check`, `build`, `inject`, `run`, `restore`.
+Seção "Pipeline" da ajuda: `init`, `extract`, `translate`, `review`, `check`, `build`, `inject`, `run`, `restore`, `test`.
 
 | Comando | O que faz |
 |---|---|
@@ -96,6 +96,7 @@ Seção "Pipeline" da ajuda: `init`, `extract`, `translate`, `review`, `check`, 
 | `vnf inject` | Faz backup dos originais e copia o build para a pasta do jogo (E8.2) |
 | `vnf run` | Abre o `game.exe` do `vnforge.json` (atalho para testar depois do inject). `game.path` tem de ser a pasta que o projeto registrou na extração (ou numa injeção), e `game.exe` um `.exe` relativo a ela e dentro dela (caminho absoluto, `..` e `.bat`/atalhos são recusados). Se o executável não existe, o erro mostra o caminho procurado (E8.6) |
 | `vnf restore` | Volta os arquivos originais do backup mais recente (E8.2) |
+| `vnf test [--only-script <chave>] [--accent-test] [--allow-warnings] [--no-open]` | Teste no jogo num comando só (#308): confere a tradução (QA e codificação), reconstrói o `build/`, guarda o backup, injeta e abre o `game.exe`, nessa ordem, com o `GameTester` do Core, o mesmo serviço da tela "Testar no jogo". Pergunta `[s/N]` antes de gravar no jogo (`--yes` pula). Erros da Conferência (e avisos, sem `--allow-warnings`) saem com `2` e não gravam nada nem criam backup; o executável é procurado antes de qualquer gravação, e o jogo só é escrito pelo fluxo de injeção, com backup. `--only-script` testa só uma cena (a chave do script, como `yst00012`); as outras ficam como no jogo original. `--accent-test` ignora a tradução do projeto e injeta só a frase `Teste de acentos: ação, coração, é, avô, não.` na primeira fala do primeiro script (o falante dessa fala vira `Teste`); não combina com `--only-script`. `--no-open` não abre o jogo. Desfaz com `vnf restore`. `vnf test`, `inject`, `restore` e `patch-exe` seguram a trava `.cache/game.lock` enquanto escrevem no jogo; com outra operação em andamento (o app ou outro comando) saem com `1` e a mensagem "Outra operação do VNForge está mexendo no jogo deste projeto", sem gravar nada. A pasta de backup é criada com um arquivo de marca exclusivo, e uma falha apaga só a pasta que a própria chamada criou. Grava o estado em `.cache/game-state.json`: o build que está no jogo (tipo, data, pasta do backup, cena, impressão digital dos textos) e o último teste com o tempo de cada um dos cinco passos (`check`, `build`, `backup`, `inject`, `open`); `vnf inject` também grava o primeiro (só quando copiou algo), uma injeção que falha e é desfeita o apaga, e `vnf restore` o limpa. Com `--json`, `data` traz `kind` (`translation` ou `accent-test`), `gameDirectory`, `backupDirectory` (nulo se o jogo já estava igual), `written`, `unchanged`, `executable` e `steps` (`step`, `milliseconds`) |
 
 ## Comandos do projeto
 
