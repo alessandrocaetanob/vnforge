@@ -156,6 +156,23 @@ public sealed class InjectRestoreCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Restore_com_o_erro_redirecionado_entrega_a_pergunta_terminada_em_quebra_de_linha_antes_de_ler_a_resposta()
+    {
+        PutBuild();
+        await Run(Inject, YesOption);
+        var error = new StringWriter();
+        var errorWhenAnswerWasRead = new List<string>();
+        var input = new SpyReader("s\n", () => errorWhenAnswerWasRead.Add(error.ToString()));
+        var terminal = CliTerminal.Plain(width: 100) with { QuestionOnOwnLine = true };
+        var cli = VnfCli.Create(_cli.WorkingDirectory, _cli.UserLogDirectory, _cli.UserConfigDirectory, input, new InMemoryApiKeyStore(), terminal);
+
+        var code = await cli.RunAsync([Restore, "--project", _project.Root], new StringWriter(), error, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, code);
+        Assert.Equal("Restaurar 1 arquivo(s) do backup?" + " [s/N]" + Environment.NewLine, Assert.Single(errorWhenAnswerWasRead));
+    }
+
+    [Fact]
     public async Task Inject_sem_redirecionar_o_erro_mantem_a_resposta_na_linha_da_pergunta()
     {
         PutBuild();
