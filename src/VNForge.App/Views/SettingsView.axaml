@@ -58,39 +58,9 @@
 
       <TabControl Classes="tabs" SelectedIndex="{Binding SelectedTab}" AutomationProperties.Name="Seções de ajustes">
 
-        <!-- IA -->
-        <TabItem Header="IA">
+        <!-- IA e gasto -->
+        <TabItem Header="IA e gasto">
           <StackPanel Margin="0,16,0,0" Spacing="20">
-
-            <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="Provedor"/>
-              <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel ItemSpacing="8" LineSpacing="8"/>
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:ProviderOption">
-                    <Panel>
-                      <!-- Provedor disponível: pílula verde como o selo "Aprovada". -->
-                      <Border Height="20" Padding="8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}" IsVisible="{Binding IsAvailable}"
-                              Background="{DynamicResource Vnf.StatusApprovedBg}" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource Vnf.StatusApprovedFg}"/>
-                      </Border>
-                      <!-- Provedor que ainda não existe: contorno tracejado. -->
-                      <Panel Height="28" IsVisible="{Binding !IsAvailable}">
-                        <Rectangle RadiusX="4" RadiusY="4" StrokeThickness="1" StrokeDashArray="3,3"
-                                   Stroke="{DynamicResource Vnf.StrokeControl}"/>
-                        <TextBlock Text="{Binding Label}" Margin="10,0" FontSize="13" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource Vnf.TextSecondary}"/>
-                      </Panel>
-                    </Panel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
 
             <!-- Cartão da chave: estado, Trocar chave e Testar conexão. A chave nunca aparece depois de guardada. -->
             <Border Classes="panel" Padding="16,14">
@@ -98,7 +68,7 @@
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
                   <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Key}" Foreground="{DynamicResource Vnf.TextSecondary}"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Classes="body" Text="Chave da API"/>
+                    <TextBlock Classes="body" Text="Chave do Claude"/>
                     <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding KeyDetail}"
                                Foreground="{DynamicResource Vnf.SignalWarningFg}" IsVisible="{Binding !KeyConfigured}"/>
                     <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding KeyDetail}"
@@ -123,56 +93,172 @@
                 <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ConnectionMessage}"
                            Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding ConnectionFailed}"/>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsChangingKey}"
-                           Text="A chave fica criptografada com o DPAPI no seu usuário do Windows. A variável ANTHROPIC_API_KEY, se existir, tem prioridade."/>
+                           Text="A chave fica guardada no cofre do Windows, só no seu usuário. Uma variável de ambiente, se existir, tem prioridade."/>
               </StackPanel>
             </Border>
 
-            <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-              <TextBlock Classes="overline" Text="Modelo"/>
-              <ItemsControl ItemsSource="{Binding Models}" AutomationProperties.Name="Modelo">
+            <!-- Orçamento: a cotação é informada pela pessoa (o app não consulta a internet); o limite para a IA e o app pergunta acima do aviso. -->
+            <StackPanel Spacing="8">
+              <TextBlock Classes="overline" Text="Orçamento"/>
+              <Border Classes="panel" Padding="16,14">
+                <StackPanel Spacing="14">
+                  <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="body-sm" Text="Cotação do dólar"/>
+                      <TextBox Text="{Binding ExchangeRateText, UpdateSourceTrigger=LostFocus}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
+                        <TextBox.InnerLeftContent>
+                          <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </TextBox.InnerLeftContent>
+                      </TextBox>
+                      <StackPanel Spacing="2" IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"/>
+                        <Button Classes="subtle sm" HorizontalAlignment="Left" Content="Confirmar hoje" Command="{Binding ConfirmRateTodayCommand}"
+                                IsVisible="{Binding HasInformedRate}" AutomationProperties.Name="Confirmar a cotação de hoje"/>
+                      </StackPanel>
+                      <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RateError}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                                 IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                      <TextBlock Classes="body-sm" Text="Limite de gasto"/>
+                      <TextBox Text="{Binding SpendLimitText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
+                        <TextBox.InnerLeftContent>
+                          <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </TextBox.InnerLeftContent>
+                      </TextBox>
+                      <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A IA para quando o gasto do projeto chega aqui."
+                                 IsVisible="{Binding LimitError, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                      <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding LimitError}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                                 IsVisible="{Binding LimitError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="4">
+                      <TextBlock Classes="body-sm" Text="Avisar acima de"/>
+                      <TextBox Text="{Binding WarnAboveText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Nunca" AutomationProperties.Name="Avisar acima de, em reais">
+                        <TextBox.InnerLeftContent>
+                          <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </TextBox.InnerLeftContent>
+                      </TextBox>
+                      <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="O app pergunta antes de um pedido que custa mais que isto."
+                                 IsVisible="{Binding WarnError, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                      <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding WarnError}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                                 IsVisible="{Binding WarnError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                  </Grid>
+
+                  <StackPanel Spacing="6" IsVisible="{Binding HasProject}">
+                    <c:BudgetBar Spent="{Binding SpentBrl}" Limit="{Binding LimitBrl}" AutomationProperties.Name="Gasto do projeto contra o limite"/>
+                    <TextBlock Classes="caption secondary" Text="{Binding SpentSummary}"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <!-- Qualidade padrão: o preço e o tempo valem para as linhas que faltam no projeto aberto; o modelo exato fica em "Detalhes técnicos". -->
+            <StackPanel Spacing="8">
+              <TextBlock Classes="overline" Text="Qualidade padrão"/>
+              <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-8,0" AutomationProperties.Name="Qualidade padrão">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <UniformGrid Rows="1"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:ModelOption">
-                    <RadioButton Classes="option" Margin="0,0,0,8" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                 AutomationProperties.Name="{Binding Name}">
-                      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
-                        <TextBlock Classes="body-strong" Text="{Binding Name}"/>
-                        <TextBlock Grid.Column="1" Classes="mono secondary" Text="{Binding Price}"/>
-                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Detail}"/>
-                      </Grid>
-                    </RadioButton>
+                  <DataTemplate x:DataType="vm:QualityOption">
+                    <c:QualityCard GroupName="DefaultQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
+                                   Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}"
+                                   IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </StackPanel>
 
-            <WrapPanel ItemSpacing="24" LineSpacing="16">
-              <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-                <TextBlock Classes="overline" Text="Esforço"/>
-                <ListBox Classes="seg" ItemsSource="{Binding Efforts}" SelectedItem="{Binding SelectedEffort}"
-                         AutomationProperties.Name="Esforço" DisplayMemberBinding="{Binding Label}"/>
-              </StackPanel>
-              <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-                <TextBlock Classes="overline" Text="Linhas por lote"/>
-                <NumericUpDown Width="112" Value="{Binding BatchSize}" Minimum="{Binding MinBatchSize}" Maximum="{Binding MaxBatchSize}"
-                               FormatString="0" AutomationProperties.Name="Linhas por lote"/>
-              </StackPanel>
-              <StackPanel Spacing="8">
-                <TextBlock Classes="overline" Text="Chamadas em paralelo"/>
-                <NumericUpDown Width="112" Value="{Binding Concurrency}" Minimum="{Binding MinConcurrency}" Maximum="{Binding MaxConcurrency}"
-                               FormatString="0" AutomationProperties.Name="Chamadas em paralelo"/>
-              </StackPanel>
-            </WrapPanel>
-
-            <Border Classes="infobar">
-              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
-                <StackPanel Grid.Column="1" Spacing="2">
-                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Prompt de sistema e glossário vão em cache."/>
-                  <TextBlock Classes="body-sm" TextWrapping="Wrap"
-                             Text="Eles se repetem em todo lote; linhas já traduzidas não são enviadas de novo (cache por hash)."/>
+            <c:TechnicalDetails>
+              <StackPanel Spacing="20" Margin="0,8,0,0">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="overline" Text="Chave"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding KeyTechnicalNote}"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ConnectionDetail}"
+                             IsVisible="{Binding ConnectionDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                 </StackPanel>
-              </Grid>
-            </Border>
+
+              <StackPanel Spacing="8">
+                <TextBlock Classes="overline" Text="Provedor"/>
+                <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel ItemSpacing="8" LineSpacing="8"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ProviderOption">
+                      <Panel>
+                        <!-- Provedor disponível: pílula verde como o selo "Aprovada". -->
+                        <Border Height="20" Padding="8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}" IsVisible="{Binding IsAvailable}"
+                                Background="{DynamicResource Vnf.StatusApprovedBg}" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                                     Foreground="{DynamicResource Vnf.StatusApprovedFg}"/>
+                        </Border>
+                        <!-- Provedor que ainda não existe: contorno tracejado. -->
+                        <Panel Height="28" IsVisible="{Binding !IsAvailable}">
+                          <Rectangle RadiusX="4" RadiusY="4" StrokeThickness="1" StrokeDashArray="3,3"
+                                     Stroke="{DynamicResource Vnf.StrokeControl}"/>
+                          <TextBlock Text="{Binding Label}" Margin="10,0" FontSize="13" VerticalAlignment="Center"
+                                     Foreground="{DynamicResource Vnf.TextSecondary}"/>
+                        </Panel>
+                      </Panel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
+                <TextBlock Classes="overline" Text="Modelo"/>
+                <ItemsControl ItemsSource="{Binding Models}" AutomationProperties.Name="Modelo">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ModelOption">
+                      <RadioButton Classes="option" Margin="0,0,0,8" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                   AutomationProperties.Name="{Binding Name}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                          <TextBlock Classes="body-strong" Text="{Binding Name}"/>
+                          <TextBlock Grid.Column="1" Classes="mono secondary" Text="{Binding Price}"/>
+                          <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                        </Grid>
+                      </RadioButton>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <WrapPanel ItemSpacing="24" LineSpacing="16">
+                <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
+                  <TextBlock Classes="overline" Text="Esforço"/>
+                  <ListBox Classes="seg" ItemsSource="{Binding Efforts}" SelectedItem="{Binding SelectedEffort}"
+                           AutomationProperties.Name="Esforço" DisplayMemberBinding="{Binding Label}"/>
+                </StackPanel>
+                <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
+                  <TextBlock Classes="overline" Text="Linhas por lote"/>
+                  <NumericUpDown Width="112" Value="{Binding BatchSize}" Minimum="{Binding MinBatchSize}" Maximum="{Binding MaxBatchSize}"
+                                 FormatString="0" AutomationProperties.Name="Linhas por lote"/>
+                </StackPanel>
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="overline" Text="Chamadas em paralelo"/>
+                  <NumericUpDown Width="112" Value="{Binding Concurrency}" Minimum="{Binding MinConcurrency}" Maximum="{Binding MaxConcurrency}"
+                                 FormatString="0" AutomationProperties.Name="Chamadas em paralelo"/>
+                </StackPanel>
+              </WrapPanel>
+
+              <Border Classes="infobar">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+                  <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Prompt de sistema e glossário vão em cache."/>
+                    <TextBlock Classes="body-sm" TextWrapping="Wrap"
+                               Text="Eles se repetem em todo lote; linhas já traduzidas não são enviadas de novo (cache por hash)."/>
+                  </StackPanel>
+                </Grid>
+              </Border>
+
+              </StackPanel>
+            </c:TechnicalDetails>
           </StackPanel>
         </TabItem>
 
