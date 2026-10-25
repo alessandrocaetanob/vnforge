@@ -43,6 +43,7 @@ public sealed class App : Application
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
             {
                 Editor = new EditorViewModel(suggester: suggester),
+                Glossary = { AutosaveClock = TimeProvider.System, Suggester = UserGlossarySuggester.ForUser(configDirectory) },
             };
             main.Conference.Shortener = suggester;
             window.DataContext = main;

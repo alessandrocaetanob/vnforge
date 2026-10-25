@@ -126,7 +126,7 @@ public class GlossaryViewModelTests
     }
 
     [Fact]
-    public void Termo_repetido_nao_grava_e_mostra_o_erro_em_portugues()
+    public void Termo_repetido_grava_o_primeiro_e_marca_a_segunda_linha()
     {
         using var temp = new TempFolder();
         var (vm, folder) = Open(temp);
@@ -140,13 +140,14 @@ public class GlossaryViewModelTests
 
         vm.SaveCommand.Execute(null);
 
-        Assert.Contains("先輩", vm.ErrorMessage);
-        Assert.True(vm.IsDirty);
-        Assert.False(File.Exists(folder.GlossaryPath));
+        Assert.Null(vm.ErrorMessage);
+        Assert.False(vm.IsDirty);
+        Assert.Equal([false, true], vm.Terms.Select(t => t.HasProblem));
+        Assert.Equal(["先輩"], folder.LoadGlossary().Select(t => t.Source));
     }
 
     [Fact]
-    public void Original_vazio_com_traducao_preenchida_e_erro()
+    public void Original_vazio_com_traducao_preenchida_fica_de_fora_e_marcado()
     {
         using var temp = new TempFolder();
         var (vm, folder) = Open(temp);
@@ -155,7 +156,8 @@ public class GlossaryViewModelTests
 
         vm.SaveCommand.Execute(null);
 
-        Assert.NotNull(vm.ErrorMessage);
+        Assert.True(vm.Terms[0].HasProblem);
+        Assert.Equal("Falta o termo em japonês.", vm.Terms[0].Problem);
         Assert.False(File.Exists(folder.GlossaryPath));
     }
 

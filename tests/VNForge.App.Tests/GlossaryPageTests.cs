@@ -194,7 +194,7 @@ public class GlossaryPageTests
         var vm = new GlossaryViewModel();
 
         Assert.Equal("Nenhum termo ainda. Adicione o primeiro.", vm.TermsEmptyText);
-        Assert.Equal("Nenhum personagem ainda. O nome original é o falante extraído do jogo.", vm.CharactersEmptyText);
+        Assert.Equal("Nenhum personagem ainda. Peça sugestões pelas falas ou adicione o primeiro.", vm.CharactersEmptyText);
     }
 
     [Fact]
@@ -228,16 +228,16 @@ public class GlossaryPageTests
     {
         using var temp = new TempFolder();
         var (vm, _) = await OpenAsync(temp);
-        Assert.True(vm.IsTermsTab);
-        Assert.False(vm.IsCharactersTab);
-        Assert.Equal("Adicionar termo", vm.AddLabel);
-
-        vm.SelectedTab = GlossaryTab.Characters;
-
-        Assert.False(vm.IsTermsTab);
         Assert.True(vm.IsCharactersTab);
+        Assert.False(vm.IsTermsTab);
         Assert.Equal("Adicionar personagem", vm.AddLabel);
-        Assert.Equal("Buscar personagem", vm.SearchHint);
+
+        vm.SelectedTab = GlossaryTab.Terms;
+
+        Assert.False(vm.IsCharactersTab);
+        Assert.True(vm.IsTermsTab);
+        Assert.Equal("Adicionar termo", vm.AddLabel);
+        Assert.Equal("Buscar termo, tradução ou observação", vm.SearchHint);
     }
 
     [Fact]
@@ -247,10 +247,10 @@ public class GlossaryPageTests
         var (vm, _) = await OpenAsync(temp);
 
         vm.AddCommand.Execute(null);
-        Assert.Equal(4, vm.Terms.Count);
-        Assert.Equal(2, vm.Characters.Count);
+        Assert.Equal(3, vm.Terms.Count);
+        Assert.Equal(3, vm.Characters.Count);
 
-        vm.SelectedTab = GlossaryTab.Characters;
+        vm.SelectedTab = GlossaryTab.Terms;
         vm.AddCommand.Execute(null);
         Assert.Equal(4, vm.Terms.Count);
         Assert.Equal(3, vm.Characters.Count);

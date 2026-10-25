@@ -34,7 +34,15 @@ public interface IClaudeMessageClient
 }
 
 /// <summary>O modelo recusou o pedido (<c>stop_reason: "refusal"</c>).</summary>
-public sealed class ClaudeRefusalException(string message) : Exception(message);
+public sealed class ClaudeRefusalException(string message, string? detail = null) : Exception(message)
+{
+    /// <summary>O detalhe técnico (o <c>stop_reason</c>, por exemplo), para o log; a <see cref="Exception.Message"/> é a frase para a pessoa quando o chamador a dá.</summary>
+    public string? Detail { get; } = detail;
+}
 
 /// <summary>A resposta não é o JSON esperado, ou não bate com os ids do lote.</summary>
-public sealed class ClaudeResponseException(string message, Exception? inner = null) : Exception(message, inner);
+public sealed class ClaudeResponseException(string message, Exception? inner = null, string? detail = null) : Exception(message, inner)
+{
+    /// <summary>O detalhe técnico (o que faltou ou sobrou na resposta), para o log; a <see cref="Exception.Message"/> é a frase para a pessoa quando o chamador a dá.</summary>
+    public string? Detail { get; } = detail;
+}
