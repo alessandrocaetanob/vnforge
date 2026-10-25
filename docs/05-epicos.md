@@ -73,7 +73,7 @@ Pronto quando: **M1** atingido no seu jogo.
 - Interface `ITextEncoder` com `fold`, `remap`, `cp1252`
 - Relatório de caracteres não codificáveis
 - **Pesquisa no seu jogo**: o patch da tabela de lead bytes funciona? A fonte precisa de troca de charset? Resposta da #62: nenhum dos dois; o `cp1252` funciona com o exe original e só o nome da fonte precisa de patch (doc 06)
-- `vnf patch-exe` (experimental): troca o nome da fonte no exe, com backup e verificação
+- `vnf patch-exe` (experimental, #65, feito): troca o nome da fonte no exe, com backup e verificação. O patch acha o nome `ＭＳ ゴシック` em Shift-JIS no exe e recusa o exe em que ele não aparece uma só vez; o `vnf restore` devolve o exe original
 - Se `cp1252` não der certo: `remap` com geração de fonte modificada (não foi preciso no jogo de referência)
 
 Pronto quando: **M2** atingido.

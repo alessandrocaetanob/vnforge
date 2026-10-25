@@ -5,7 +5,7 @@ using VNForge.Engines.YuRis.Ystb;
 namespace VNForge.Engines.YuRis;
 
 /// <summary>A engine YU-RIS: pacotes YPF e scripts YSTB.</summary>
-public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker
+public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePatchProvider
 {
     /// <summary>Valor de <see cref="Id"/>, também o <see cref="EngineContext.EngineId"/> do <see cref="YuRisContext"/>.</summary>
     public const string EngineId = "yuris";
@@ -25,7 +25,15 @@ public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker
 
     public IReadOnlyList<IScriptFormat> Scripts { get; }
 
+    /// <summary>Vazia: os patches do YU-RIS dependem do executável do projeto e saem de <see cref="CreatePatches"/>.</summary>
     public IReadOnlyList<IGamePatch> Patches { get; } = [];
+
+    /// <summary>O patch do nome da fonte (<see cref="YuRisFontPatch"/>) para o executável do projeto.</summary>
+    public IReadOnlyList<IGamePatch> CreatePatches(string executable)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
+        return [new YuRisFontPatch(executable)];
+    }
 
     /// <summary>
     /// Procura pacotes <c>.ypf</c> na pasta do jogo e na subpasta <c>pac</c>, só lendo. Reconhece a pasta quando algum

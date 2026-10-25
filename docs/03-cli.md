@@ -114,13 +114,13 @@ Seção "Projeto" da ajuda: `status`, `preview`, `export`, `import`, `glossary`,
 
 ## Comandos de baixo nível
 
-Seção "Baixo nível" da ajuda: `ypf` e `ybn`. O `patch-exe` está planejado e não aparece na ajuda.
+Seção "Baixo nível" da ajuda: `ypf`, `ybn` e `patch-exe`.
 
 | Comando | O que faz |
 |---|---|
 | `vnf ypf info\|unpack\|pack` | Ferramentas de baixo nível sobre arquivos YPF, úteis para pesquisa. O `info` mostra uma árvore. `unpack` e `pack` perguntam antes de gravar por cima de algo, como o `inject` (detalhes abaixo) |
 | `vnf ybn dump <arquivo> [--ysc <arquivo>]` | Despeja um script YSTB legível (comandos, argumentos, textos com marcadores), só leitura (E2.9) |
-| `vnf patch-exe --encoding cp1252` | **Planejado (#65), ainda não existe**: aplicaria o patch de codepage no executável. Hoje o comando não está registrado e `vnf patch-exe` sai com `1` ("não é um comando, opção ou argumento conhecido") |
+| `vnf patch-exe` | **Experimental** (E5.5, #65). Troca no `game.exe` do projeto o nome da fonte das falas, `ＭＳ ゴシック` em Shift-JIS, por `MS Gothic` em ASCII. Passa pelo mesmo fluxo do `inject`: mostra o que muda, pede `[s/N]`, faz o backup do original, grava e confere o SHA-256. Detalhes abaixo |
 
 ## Saída dos comandos de leitura
 
@@ -296,6 +296,13 @@ O `inject` lista o que vai gravar e pede confirmação antes de tocar no jogo. R
 Antes de tudo, o `inject` confere (E8.5) cada arquivo que o `vnf extract` leu contra o SHA-256 gravado em `.cache/state.json`. Se algum mudou ou sumiu, por exemplo depois de uma atualização do jogo, ele recusa, não grava nada, lista os arquivos alterados e manda rodar `vnf extract` de novo. O build de um `inject` anterior não conta como mudança. Projeto sem estado de extração não é verificado.
 
 Se uma gravação falha no meio, o `inject` devolve na hora os arquivos já trocados e diz que o jogo voltou ao estado original. Se nem isso for possível, a mensagem manda rodar `vnf restore`, que lê o manifesto (já gravado antes da primeira escrita no jogo) e termina o serviço. Antes de copiar, o `inject` confere de novo que cada arquivo do jogo continua como no plano; se o jogo mudou nesse intervalo, aborta sem gravar. Se o jogo ainda está com o build de um `inject` anterior, o original vem do backup mais recente que mexeu naquele arquivo, então todo backup guarda os arquivos originais e nunca uma versão já traduzida. O `restore` grava na pasta do jogo registrada no manifesto (a do `inject`, mesmo que o `game.path` tenha mudado; se ela não existe mais, usa o `game.path` atual), confere o hash de todas as cópias do backup antes de escrever, apaga os arquivos que a injeção criou (os que mudaram depois dela ficam, listados como mantidos) e pode ser repetido. `build/` ausente ou vazia, pasta do jogo inexistente e backup inexistente são erros em português. Com `--json`, o `inject` devolve `gameDirectory`, `backupDirectory` (nulo sem mudanças), `written` e `unchanged`; o `restore` devolve `gameDirectory`, `backupDirectory`, `restored`, `removed` e `kept`. O `restore` não segue links simbólicos além do que o sistema de arquivos já faz: não aponte subpastas do jogo para fora dele.
+
+`vnf patch-exe` (E5.5, experimental; aceita `--json`, `--project` e `--yes`)
+```
+  patch-exe                troca o nome da fonte no executável do jogo, com backup (desfaça com vnf restore)
+  --yes                    pula a confirmação "Alterar N arquivo(s) na pasta do jogo?" (obrigatório com --json)
+```
+O executável é o `game.exe` do `vnforge.json`. O comando procura o nome `ＭＳ ゴシック` em Shift-JIS no arquivo, porque o endereço muda de um jogo para outro, e recusa o executável em que o nome não aparece uma só vez, que não tem o cabeçalho `MZ` ou que não existe: sai com `1`, diz o motivo e não grava nada nem cria backup. Aceito o executável, a ordem é a do `inject`: aplica o patch numa cópia em `.cache/patch/`, lista o arquivo, pede confirmação (recusar sai com `3` e não grava nada), copia o original para `backup/AAAA-MM-DD_HHmm/`, grava `vnforge-backup.json`, escreve o executável alterado no jogo e confere o SHA-256. Muda só os bytes do nome (13 no jogo de referência). Executável que já está com o patch dá "O jogo já está com o patch" e sai com `0`, sem outro backup. O `vnf restore` devolve o executável original, também quando houve um `inject` antes ou depois do patch. Com `--json`, `data` traz `gameDirectory` e `patches`, com `id`, `backupDirectory` (nulo sem mudanças), `written` e `unchanged` de cada patch. O patch resolve a fonte das falas sem o Locale Emulator, mas não a da tela CONFIG › MESSAGE (doc 06).
 
 `vnf extract` (E3.4; aceita `--json` e `--project`)
 ```

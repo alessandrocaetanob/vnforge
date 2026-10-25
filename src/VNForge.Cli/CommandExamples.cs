@@ -36,6 +36,7 @@ public static class CommandExamples
         ["ypf unpack"] = ["vnf ypf unpack ysbin.ypf ysbin"],
         ["ypf pack"] = ["vnf ypf pack ysbin --original ysbin.ypf --output novo.ypf"],
         ["ybn dump"] = ["vnf ybn dump ysbin/yst00001.ybn"],
+        ["patch-exe"] = ["vnf patch-exe"],
     };
 
     /// <summary>Caminhos que têm exemplo.</summary>

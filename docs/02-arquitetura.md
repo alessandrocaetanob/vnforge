@@ -72,7 +72,12 @@ public interface IEngine
     EngineDetection Detect(string gameDir);             // "parece YU-RIS 5.x, ysbin.ypf v500"
     IReadOnlyList<IArchiveFormat> Archives { get; }     // YPF
     IReadOnlyList<IScriptFormat> Scripts { get; }       // YSTB
-    IReadOnlyList<IGamePatch> Patches { get; }          // ex.: patch de codepage no .exe
+    IReadOnlyList<IGamePatch> Patches { get; }          // patches que não dependem do executável do projeto
+}
+
+public interface IGamePatchProvider                     // opcional, como IGameUnpacker; o YU-RIS implementa
+{
+    IReadOnlyList<IGamePatch> CreatePatches(string executable);   // executable: game.exe do projeto, relativo à pasta do jogo
 }
 
 public sealed record EngineDetection(bool IsMatch, string Summary, IReadOnlyDictionary<string, string> Details);
@@ -139,6 +144,8 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
 - `ArchiveEntry` não é selada: cada formato deriva dela (`YpfEntry`) para guardar os campos internos da reescrita. `Path` é único no pacote.
 - `OpenEntry` falha na hora quando o hash diverge. A verificação é do formato: o algoritmo de hash por versão está como não testado no doc 06, com ambiguidade nas versões 477 e 478.
 - `CanApply` devolve verdadeiro com o patch já aplicado, e `Apply` é idempotente.
+- Patch de executável (E5.5, #65): `GameInjector.PlanPatch(project, patch)` chama `CanApply` na pasta do jogo (recusa com `InjectionException` e nada é gravado), copia os `AffectedFiles` para `.cache/patch/<id>` e chama `Apply` nessa cópia, nunca no jogo. A cópia vira um `InjectionPlan` comum (`PatchPlan.Injection`): `InjectPatch` faz o backup do original, grava o manifesto, copia o arquivo alterado e confere o SHA-256, e `DiscardPatch` apaga a cópia de trabalho. O `vnf restore` devolve o exe como devolve qualquer arquivo injetado, inclusive junto com os pacotes de um `inject` de outro backup. Jogo já com o patch dá plano sem arquivos e não cria backup. Como `AffectedFiles` não tem acesso à pasta do jogo, o patch que depende do exe nasce de `IGamePatchProvider.CreatePatches(game.exe)`; `YuRisFontPatch` (id `exe-font`) é o do YU-RIS.
+- `YuRisFontPatch` procura o nome em vez de usar um endereço fixo: confere o cabeçalho `MZ` e exige exatamente uma ocorrência de `ＭＳ ゴシック` em Shift-JIS que comece uma string (início do arquivo ou depois de um byte zero) e termine num byte zero. Sem ocorrência, ou com mais de uma, recusa; com zero ocorrências, um espaço `MS Gothic` + 5 zeros (o mínimo que o patch deixa, com um ou mais zeros depois do nome original) e o nome japonês em UTF-16 (a caixa de diálogo, que o patch não toca) ainda no exe, considera o patch já aplicado. O `PlanPatch` recusa o projeto cujo `.cache` fica dentro da pasta do jogo, como o extract e o build, porque a cópia de trabalho seria criada e apagada dentro do jogo sem backup (regra 2). Ele também confere que a cópia de trabalho tem o mesmo hash do arquivo do jogo lido antes dela, para não gravar um patch feito sobre uma versão que mudou no meio. Troca só os bytes do nome. Não há hash fixo do exe, porque o arquivo do jogo não entra no repositório; a conferência é pelo conteúdo, e o manifesto do backup guarda o SHA-256 do original e do exe alterado.
 - `IScriptFormat` e `IEngine.Scripts` entraram na E2.1 (`namespace VNForge.Core.Engines`). Além do que o doc original listava, `IScriptFormat` ganhou `Id` e `FileExtensions`, como `IArchiveFormat`, para a CLI escolher o formato pela extensão.
 - `Extract` e `Rebuild` são puros: não gravam em disco, não guardam estado e não alteram `file` nem `units`. `Extract` devolve as unidades na ordem do arquivo, com status `untranslated`, tradução nula e `locator` preenchido. Formato inválido lança `InvalidDataException`, contexto de outra engine lança `ArgumentException`. O `locator` guarda o que o `Rebuild` precisa para reinjetar sem reinterpretar os comandos do script.
 - Validação do `Rebuild`, antes de gravar: unidade cujo `id` não começa com `file.Key + ":"` lança `ArgumentException`; `id` duplicado lança `ArgumentException` (`ScriptFile.ValidateUnits` faz as duas conferências); unidade a reescrever confere que o trecho apontado pelo `locator` ainda decodifica para o `source`, senão `InvalidDataException` (arquivo desatualizado). Nada parcial é devolvido, e as mensagens citam o `id`.
