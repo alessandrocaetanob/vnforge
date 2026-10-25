@@ -26,6 +26,9 @@ public static class GameTestStepLabels
     };
 }
 
+/// <summary>O jogo recebeu o build, mas o executável não abriu. O estado do jogo já está gravado.</summary>
+public sealed class GameOpenException(string message, Exception inner) : VNForgeException(message, inner);
+
 /// <summary>Quanto um passo levou.</summary>
 public sealed record GameTestStepResult(GameTestStep Step, TimeSpan Elapsed);
 
@@ -72,6 +75,7 @@ public sealed class GameTester(
             throw new VNForgeException("O teste de acentos usa a primeira fala do primeiro script; não dá para combinar com a escolha de uma cena.");
         }
 
+        using var projectLock = ProjectLock.Acquire(project);
         var executable = options.OpenGame ? ResolveExecutable(project) : null;
         var kind = options.AccentTest ? GameTestKind.AccentTest : GameTestKind.Translation;
         var timeline = new StepTimeline(_clock, steps);
@@ -94,20 +98,21 @@ public sealed class GameTester(
 
         timeline.Begin(GameTestStep.Backup);
         var plan = GameInjector.Plan(project);
-        var injection = new GameInjector(_clock).Inject(plan, new ActionProgress<InjectionPhase>(phase => timeline.Begin(phase == InjectionPhase.Backup ? GameTestStep.Backup : GameTestStep.Inject)));
+        // O estado do jogo é gravado dentro da injeção, antes de abrir o executável: uma falha ao abrir não esconde o que está na pasta.
+        var injection = GameStateFile.Inject(
+            project,
+            new GameInjector(_clock),
+            plan,
+            kind,
+            options.OnlyScript,
+            _clock,
+            new ActionProgress<InjectionPhase>(phase => timeline.Begin(phase == InjectionPhase.Backup ? GameTestStep.Backup : GameTestStep.Inject)));
         timeline.Begin(GameTestStep.Inject);
-
-        // O jogo já tem o build: o estado é gravado antes de abrir o executável, para uma falha ao abrir não esconder o que está na pasta.
-        GameStateFile.TryUpdate(project, saved =>
-        {
-            var backup = injection.BackupDirectory is null ? saved.InGame?.BackupDirectory : Path.GetFileName(injection.BackupDirectory);
-            return saved with { InGame = new GameInGame(kind, _clock.GetUtcNow(), backup, options.OnlyScript, BuildState.Load(project)?.TextFingerprint) };
-        });
 
         if (executable is not null)
         {
             timeline.Begin(GameTestStep.Open);
-            new GameLauncher(_starter).Launch(project);
+            Open(project);
         }
 
         var results = timeline.Finish();
@@ -123,9 +128,22 @@ public sealed class GameTester(
     public RestoreResult ReturnToOriginal(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
+        using var projectLock = ProjectLock.Acquire(project);
         var result = new GameInjector(_clock).Restore(GameInjector.PlanRestore(project));
         GameStateFile.TryClearInGame(project);
         return result;
+    }
+
+    private void Open(ProjectFolder project)
+    {
+        try
+        {
+            new GameLauncher(_starter).Launch(project);
+        }
+        catch (VNForgeException ex)
+        {
+            throw new GameOpenException(ex.Message, ex);
+        }
     }
 
     private static string ResolveExecutable(ProjectFolder project)

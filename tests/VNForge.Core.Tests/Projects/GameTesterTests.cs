@@ -13,6 +13,8 @@ public sealed class GameTesterTests : IDisposable
     private const string GameExe = "Jogo.exe";
     private const string OriginalPackage = "dialogue|Olá\nname|Ana\u0001narration|Chovia.";
 
+    private const string OriginalAfterTest = "dialogue|Hello\nname|Ana\u0001narration|Chovia.";
+
     private readonly TempFolder _temp = new();
     private readonly string _game;
     private readonly ProjectFolder _project;
@@ -245,7 +247,7 @@ public sealed class GameTesterTests : IDisposable
         Translate("a001", 0, "Hello");
         _starter.Failure = new VNForgeException("sem permissão");
 
-        Assert.Throws<VNForgeException>(() => Run());
+        Assert.Throws<GameOpenException>(() => Run());
 
         Assert.NotNull(GameStateFile.Load(_project).InGame);
         Assert.Null(GameStateFile.Load(_project).LastTest);
@@ -264,8 +266,112 @@ public sealed class GameTesterTests : IDisposable
         Assert.Equal(first, GameStateFile.Load(_project).InGame!.BackupDirectory);
     }
 
+    [Fact]
+    public async Task Dois_testes_ao_mesmo_tempo_o_segundo_recusa_e_o_backup_do_primeiro_fica_intacto()
+    {
+        Translate("a001", 0, "Hello");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var proceed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _starter.OnStart = () =>
+        {
+            entered.SetResult();
+            proceed.Task.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        };
+
+        var first = Task.Run(() => Run(), TestContext.Current.CancellationToken);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        var backup = Assert.Single(BackupFolders());
+
+        Assert.Throws<ProjectBusyException>(() => Run());
+        Assert.Throws<ProjectBusyException>(() => Tester().ReturnToOriginal(_project));
+        Assert.Equal(OriginalPackage, File.ReadAllText(Path.Combine(backup, Package)));
+        Assert.True(File.Exists(Path.Combine(backup, BackupManifest.FileName)));
+
+        proceed.SetResult();
+        await first;
+
+        Assert.Equal(backup, Assert.Single(BackupFolders()));
+        Assert.Equal(OriginalPackage, File.ReadAllText(Path.Combine(backup, Package)));
+        Assert.Equal(OriginalAfterTest, File.ReadAllText(GamePackage));
+        Run(new GameTestOptions(OpenGame: false));
+    }
+
+    [Fact]
+    public void A_trava_do_projeto_so_solta_no_fim_da_operacao()
+    {
+        var held = ProjectLock.Acquire(_project);
+
+        Assert.Throws<ProjectBusyException>(() => ProjectLock.Acquire(_project));
+        held.Dispose();
+
+        ProjectLock.Acquire(_project).Dispose();
+    }
+
+    [Fact]
+    public void Injecao_que_falha_e_e_desfeita_nao_deixa_estado_do_jogo_nem_backup_pendente()
+    {
+        Translate("a001", 0, "Hello");
+        ProjectBuilder.Build(_project, [_engine], qa: new QaEngine([]), cancellationToken: TestContext.Current.CancellationToken);
+        GameStateFile.Save(_project, GameStateFile.Empty with { InGame = new GameInGame(GameTestKind.Translation, _clock.GetUtcNow(), "antigo", null, null) });
+
+        var failing = new GameInjector(_clock, new FailsFirstCopy());
+        Assert.Throws<InjectionException>(() => GameStateFile.Inject(_project, failing, GameInjector.Plan(_project), GameTestKind.Translation, null, _clock));
+
+        Assert.Null(GameStateFile.Load(_project).InGame);
+        Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
+        Assert.All(GameInjector.ListBackups(_project), backup => Assert.True(backup.Restored));
+        Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
+    }
+
+    [Fact]
+    public void Inject_de_fora_do_teste_grava_o_estado_do_jogo_e_so_quando_copiou_algo()
+    {
+        Translate("a001", 0, "Hello");
+        ProjectBuilder.Build(_project, [_engine], qa: new QaEngine([]), cancellationToken: TestContext.Current.CancellationToken);
+
+        GameStateFile.Inject(_project, new GameInjector(_clock), GameInjector.Plan(_project), GameTestKind.Translation, null, _clock);
+        var first = GameStateFile.Load(_project).InGame;
+        GameStateFile.Inject(_project, new GameInjector(_clock), GameInjector.Plan(_project), GameTestKind.Translation, null, _clock);
+
+        Assert.NotNull(first?.BackupDirectory);
+        Assert.Equal(first, GameStateFile.Load(_project).InGame);
+    }
+
+    [Fact]
+    public void Teste_sem_nada_a_copiar_nao_regrava_o_estado_com_backup_nulo()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var first = GameStateFile.Load(_project).InGame;
+
+        Run();
+
+        Assert.Equal(first, GameStateFile.Load(_project).InGame);
+        Assert.NotNull(GameStateFile.Load(_project).InGame?.BackupDirectory);
+    }
+
+    private sealed class FailsFirstCopy : IInjectionFileSystem
+    {
+        private bool _failed;
+
+        public void CopyFile(string source, string destination)
+        {
+            if (!_failed)
+            {
+                _failed = true;
+                throw new IOException("disco cheio");
+            }
+
+            File.Copy(source, destination, overwrite: true);
+        }
+
+        public void DeleteFile(string path) => File.Delete(path);
+    }
+
     private sealed class RecordingStarter : IGameProcessStarter
     {
+        public Action? OnStart { get; set; }
+
         public string? Executable { get; private set; }
 
         public string? WorkingDirectory { get; private set; }
@@ -281,6 +387,7 @@ public sealed class GameTesterTests : IDisposable
 
             Executable = executablePath;
             WorkingDirectory = workingDirectory;
+            OnStart?.Invoke();
         }
     }
 

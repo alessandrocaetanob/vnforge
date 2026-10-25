@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VNForge.Core.Injection;
 
 namespace VNForge.Core.Projects;
 
@@ -118,6 +119,39 @@ public sealed record GameStateFile(int Version, GameInGame? InGame, GameLastTest
         {
             // O estado se corrige no próximo teste.
         }
+    }
+
+    /// <summary>
+    /// Injeta o <paramref name="plan"/> e mantém o estado em dia: só uma injeção que copiou algo (com backup) passa a ser "o que está no jogo", e uma que
+    /// falhou e foi desfeita devolve o jogo ao original, então o estado antigo deixa de valer. Quem injeta fora do <see cref="GameTester"/> (<c>vnf inject</c>,
+    /// o Injetar do app) usa este método para a faixa de "Testar no jogo" não descrever um jogo que já mudou.
+    /// </summary>
+    /// <param name="scriptKey">A cena, quando o build é de uma cena só.</param>
+    public static InjectionResult Inject(ProjectFolder project, GameInjector injector, InjectionPlan plan, GameTestKind kind, string? scriptKey, TimeProvider clock, IProgress<InjectionPhase>? phases = null)
+    {
+        ArgumentNullException.ThrowIfNull(injector);
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(clock);
+        InjectionResult result;
+        try
+        {
+            result = injector.Inject(plan, phases);
+        }
+        catch (InjectionException)
+        {
+            TryClearInGame(project);
+            throw;
+        }
+
+        if (result.BackupDirectory is { } backup)
+        {
+            TryUpdate(project, saved => saved with
+            {
+                InGame = new GameInGame(kind, clock.GetUtcNow(), Path.GetFileName(backup), scriptKey, BuildState.Load(project)?.TextFingerprint),
+            });
+        }
+
+        return result;
     }
 
     /// <summary>O jogo voltou ao original: esquece o build que estava nele e guarda o último teste.</summary>

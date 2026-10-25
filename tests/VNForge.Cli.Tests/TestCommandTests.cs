@@ -206,6 +206,27 @@ public sealed class TestCommandTests : IDisposable
         Assert.Empty(_starter.Started);
     }
 
+    [Theory]
+    [InlineData("test")]
+    [InlineData("inject")]
+    [InlineData("restore")]
+    public async Task Com_outra_operacao_no_jogo_o_comando_recusa_sem_gravar_nada(string verb)
+    {
+        await InitAndExtract();
+        Translate(Yst1, i => $"Traduzido {i}");
+        await Test(YesOption, "--no-open");
+        var injected = await File.ReadAllBytesAsync(GameYpf, TestContext.Current.CancellationToken);
+        var backups = Backups().Length;
+        using var held = ProjectLock.Acquire(ProjectFolder.Open(ProjectPath));
+
+        var result = await _cli.RunAsync([verb, YesOption, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("Outra operação do VNForge", result.Error);
+        Assert.Equal(injected, await File.ReadAllBytesAsync(GameYpf, TestContext.Current.CancellationToken));
+        Assert.Equal(backups, Backups().Length);
+    }
+
     private sealed class Starter : IGameProcessStarter
     {
         public List<(string Executable, string WorkingDirectory)> Started { get; } = [];
