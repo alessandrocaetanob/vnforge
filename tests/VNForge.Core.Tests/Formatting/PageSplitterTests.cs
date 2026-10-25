@@ -168,6 +168,19 @@ public sealed class PageSplitterTests
     }
 
     [Fact]
+    public void Regra_de_substituicao_que_nao_e_idempotente_descarta_a_divisao()
+    {
+        // "a" vira "aa": o texto dividido seria expandido de novo pelo build e passaria do limite.
+        var profile = Box with { Replacements = new ReplacementRules([new Replacement("a", "aa")], []) };
+        var text = Words(8);
+
+        var split = Split(text, profile);
+
+        Assert.Equal(text, split.Text);
+        Assert.False(split.Changed);
+    }
+
+    [Fact]
     public void Texto_vazio_nao_muda()
     {
         var split = Split(string.Empty);

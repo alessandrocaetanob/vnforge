@@ -63,13 +63,22 @@ public static class PageSplitter
             var next = over < 0 ? null : InsertPage(current, laidOut, over, maxLines);
             if (next is null)
             {
-                return new PageSplit(added == 0 ? translation : current, lines.Count, added);
+                return added == 0 || BuildFits(profile, formatted, current, maxLines)
+                    ? new PageSplit(added == 0 ? translation : current, lines.Count, added)
+                    : new PageSplit(translation, Measure(profile, formatted, formatted ? Prepare(profile, translation) : translation).Lines.Count, 0);
             }
 
             current = next;
             added++;
         }
     }
+
+    /// <summary>
+    /// Confere o texto dividido como o build o trataria: as etapas anteriores à quebra rodam de novo sobre ele. Uma regra de substituição que não
+    /// é idempotente (<c>a</c> vira <c>aa</c>) faria a fala passar do limite de novo, e nesse caso a divisão é descartada.
+    /// </summary>
+    private static bool BuildFits(FormattingProfile profile, bool formatted, string text, int maxLines) =>
+        Measure(profile, formatted, formatted ? Prepare(profile, text) : text).Lines.All(count => count <= maxLines);
 
     /// <summary>As etapas do perfil até antes da quebra de linha, que é a última do pipeline.</summary>
     private static string Prepare(FormattingProfile profile, string text) =>

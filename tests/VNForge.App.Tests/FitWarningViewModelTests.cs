@@ -228,6 +228,22 @@ public sealed class FitWarningViewModelTests
     }
 
     [Fact]
+    public async Task Resposta_que_chega_depois_do_cancelamento_nao_e_entregue()
+    {
+        var resposta = new TaskCompletionSource<string>();
+        var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => resposta.Task));
+
+        var pedido = cenario.Aviso.ShortenCommand.ExecuteAsync(null);
+        cenario.Aviso.Cancel();
+        resposta.SetResult("Cabe.");
+        await pedido;
+
+        Assert.Empty(cenario.Encurtados);
+        Assert.Null(cenario.Aviso.Error);
+        Assert.False(cenario.Aviso.IsBusy);
+    }
+
+    [Fact]
     public async Task Sem_encurtador_so_a_divisao_fica_disponivel()
     {
         var cenario = new Cenario(Palavras(16), null);

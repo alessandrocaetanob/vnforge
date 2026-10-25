@@ -143,6 +143,7 @@ public sealed partial class FitWarningViewModel : ObservableObject
         try
         {
             var shorter = await shortener.ShortenAsync(unit, translation(), profile.Wrap, source.Token);
+            source.Token.ThrowIfCancellationRequested();
             if (Measure(shorter) is not null)
             {
                 Error = "A versão mais curta da IA ainda não cabe na caixa. Tente de novo ou corte o texto à mão.";
