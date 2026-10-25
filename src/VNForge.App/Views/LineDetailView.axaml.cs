@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using VNForge.App.Controls;
@@ -24,12 +25,14 @@ public sealed partial class LineDetailView : UserControl
     public static readonly AttachedProperty<bool> UseTabsProperty =
         AvaloniaProperty.RegisterAttached<LineDetailView, Control, bool>("UseTabs", inherits: true);
 
+    private const int TranslationTabIndex = 0;
     private const int SuggestionTabIndex = 1;
 
     private readonly DispatcherTimer ageTimer;
     private LineDetailViewModel? current;
     private bool syncing;
     private bool tabbed;
+    private bool wasSuggesting;
 
     public LineDetailView()
     {
@@ -51,13 +54,16 @@ public sealed partial class LineDetailView : UserControl
         base.OnPropertyChanged(change);
         if (change.Property == BoundsProperty)
         {
-            Classes.Set("compact", Bounds.Width is > 0 and < CompactWidth);
+            UpdateCompact();
         }
         else if (change.Property == UseTabsProperty)
         {
             ApplyTabs(change.GetNewValue<bool>());
         }
     }
+
+    /// <summary>Nas abas o inspetor tem 328 px de conteúdo e as teclas dos botões cabem; só a janela mínima, em coluna única, as tira.</summary>
+    private void UpdateCompact() => Classes.Set("compact", !tabbed && Bounds.Width is > 0 and < CompactWidth);
 
     /// <summary>Na ordem do artboard, numa coluna só.</summary>
     private Control[] WideOrder =>
@@ -74,6 +80,7 @@ public sealed partial class LineDetailView : UserControl
             return;
         }
 
+        var hadFocus = TranslationEditor.IsKeyboardFocusWithin;
         tabbed = useTabs;
         WideStack.Children.Clear();
         TabbedHeaderHost.Child = null;
@@ -95,10 +102,39 @@ public sealed partial class LineDetailView : UserControl
 
         WideScroll.IsVisible = !useTabs;
         TabbedRoot.IsVisible = useTabs;
-        InspectorTabs.SelectedIndex = 0;
+        InspectorTabs.SelectedIndex = TranslationTabIndex;
         GameBox.Size = useTabs ? GameTextboxSize.Small : GameTextboxSize.Medium;
         Classes.Set("tabbed", useTabs);
+        UpdateCompact();
+
+        // Tirar o campo da árvore tira o foco dele, e sem foco os atalhos do inspetor deixam de responder.
+        if (hadFocus)
+        {
+            Dispatcher.UIThread.Post(FocusTranslation, DispatcherPriority.Input);
+        }
     }
+
+    /// <summary>Troca de aba por código e deixa o foco dentro do inspetor, para Ctrl+Enter, Alt+Cima, Alt+Baixo e Ctrl+Espaço continuarem valendo.</summary>
+    private void SelectTab(int index)
+    {
+        InspectorTabs.SelectedIndex = index;
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (index == TranslationTabIndex)
+                {
+                    FocusTranslation();
+                }
+                else
+                {
+                    (InspectorTabs.ContainerFromIndex(index) as TabItem)?.Focus();
+                }
+            },
+            DispatcherPriority.Input);
+    }
+
+    /// <summary>"Usar esta sugestão" da aba Sugestão: a tradução mudou, então a pessoa volta ao campo.</summary>
+    private void OnUseSuggestionClick(object? sender, RoutedEventArgs e) => SelectTab(TranslationTabIndex);
 
     /// <summary>Põe o cursor no campo de tradução.</summary>
     public void FocusTranslation() => TranslationEditor.TextArea.Focus();
@@ -161,10 +197,15 @@ public sealed partial class LineDetailView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Pedir a sugestão com o atalho, de qualquer aba, leva a pessoa ao cartão da IA.
-        if (tabbed && e.PropertyName == nameof(LineDetailViewModel.ShowSuggestionCard) && current is { ShowSuggestionCard: true })
+        // Pedir a sugestão, de qualquer aba, leva a pessoa ao cartão da IA, uma vez por pedido: a resposta que chega depois não puxa de volta quem já saiu da aba.
+        if (e.PropertyName == nameof(LineDetailViewModel.IsSuggesting) && current is { } model)
         {
-            InspectorTabs.SelectedIndex = SuggestionTabIndex;
+            var started = model.IsSuggesting && !wasSuggesting;
+            wasSuggesting = model.IsSuggesting;
+            if (started && tabbed)
+            {
+                SelectTab(SuggestionTabIndex);
+            }
         }
 
         if (e.PropertyName == nameof(LineDetailViewModel.FieldText) && current is not null && TranslationEditor.Text != current.FieldText)

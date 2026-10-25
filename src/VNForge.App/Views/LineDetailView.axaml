@@ -210,7 +210,7 @@
           </StackPanel>
           <!-- Nas abas: "Usar" e "Pedir outra" ficam junto do cartão. -->
           <StackPanel Classes="tab-only" Orientation="Horizontal" Spacing="8">
-            <Button x:Name="UseSuggestionButton" Classes="accent" IsVisible="{Binding HasSuggestion}" Command="{Binding AcceptSuggestionCommand}"
+            <Button x:Name="UseSuggestionButton" Classes="accent" Click="OnUseSuggestionClick" IsVisible="{Binding HasSuggestion}" Command="{Binding AcceptSuggestionCommand}"
                     ToolTip.Tip="Troca a tradução pela sugestão da IA">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
