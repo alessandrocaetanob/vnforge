@@ -99,17 +99,73 @@ public sealed class StyleRulesTests
     }
 
     [Theory]
-    [InlineData("田中さん、どうも", true)]
     [InlineData("カイトくん", true)]
     [InlineData("美咲ちゃん", true)]
-    [InlineData("お嬢様", true)]
     [InlineData("先輩", true)]
     [InlineData("センパイ", true)]
     [InlineData("おはよう", false)]
     [InlineData("さんぽ", false)]
-    public void Honorifico_no_original_segue_o_nome_ou_e_senpai(string source, bool expected)
+    [InlineData("赤ちゃんが泣いている", false)]
+    [InlineData("ちゃんと食べなさい", false)]
+    [InlineData("お母さん、模様が変だよ", false)]
+    [InlineData("お客様、どうぞ", false)]
+    [InlineData("同様に仕様も多様で異様だ", false)]
+    [InlineData("ごちそうさま、ご馳走さまでした", false)]
+    [InlineData("父さんと母さん", false)]
+    public void Honorifico_no_original_sem_nome_conhecido_so_conta_ChanKun_depois_de_nome_ou_senpai(string source, bool expected)
     {
         Assert.Equal(expected, HonorificsRule.HasHonorificInSource(source));
+    }
+
+    [Theory]
+    [InlineData("田中さん、どうも", true)]
+    [InlineData("田中様がお見えです", true)]
+    [InlineData("田中さまは?", true)]
+    [InlineData("美咲さんの席", true)]
+    [InlineData("お母さん、田中を見た?", false)]
+    [InlineData("お客様、田中は不在です", false)]
+    public void Com_o_nome_conhecido_antes_o_sufixo_conta(string source, bool expected)
+    {
+        Assert.Equal(expected, HonorificsRule.HasHonorificInSource(source, ["田中", "美咲"]));
+    }
+
+    [Fact]
+    public void Nome_completo_de_characters_json_vale_pelo_sobrenome_e_pelo_nome()
+    {
+        var cast = new[] { new CharacterEntry("佐藤 健太", "Kenta") };
+        var rule = new HonorificsRule();
+
+        var givenName = Context(HonorificsPolicy.Keep, cast, Unit("a:1", "健太さん、こんにちは", "Oi."));
+        var family = Context(HonorificsPolicy.Keep, cast, Unit("a:2", "佐藤様、こんにちは", "Oi."));
+        var stranger = Context(HonorificsPolicy.Keep, cast, Unit("a:3", "山田さん、こんにちは", "Oi."));
+
+        Assert.Single(rule.Check(givenName));
+        Assert.Single(rule.Check(family));
+        Assert.Empty(rule.Check(stranger));
+    }
+
+    [Fact]
+    public void Nome_do_glossario_e_do_falante_tambem_valem()
+    {
+        var withGlossary = new QaContext(
+            new Dictionary<string, IReadOnlyList<TextUnit>> { ["a"] = [Unit("a:1", "ルナさん、おいで", "Venha.")] },
+            [new GlossaryTerm("ルナ", "Luna")], [], FormattingProfile.Default) { Style = StyleConfig.Default with { Honorifics = HonorificsPolicy.Keep } };
+        var bySpeaker = Context(HonorificsPolicy.Keep, [], Unit("a:2", "ルナさん、おいで", "Venha.", speaker: "ルナ"));
+        var withoutName = Context(HonorificsPolicy.Keep, [], Unit("a:3", "ルナさん、おいで", "Venha."));
+
+        Assert.Single(new HonorificsRule().Check(withGlossary));
+        Assert.Single(new HonorificsRule().Check(bySpeaker));
+        Assert.Empty(new HonorificsRule().Check(withoutName));
+    }
+
+    [Theory]
+    [InlineData("「お母さん、模様が変だよ」")]
+    [InlineData("「お客様、こちらへどうぞ」")]
+    [InlineData("「同様の仕様です」")]
+    [InlineData("「ごちそうさま!」")]
+    public void Manter_nao_avisa_de_palavra_comum_traduzida_sem_honorifico(string source)
+    {
+        Assert.Empty(Honorifics(HonorificsPolicy.Keep, "Mãe, o padrão está estranho.", source));
     }
 
     [Fact]
@@ -144,15 +200,34 @@ public sealed class StyleRulesTests
     ];
 
     [Fact]
-    public void Genero_avisa_da_fala_de_personagem_sem_genero()
+    public void Genero_da_um_aviso_por_personagem_com_a_contagem_de_falas()
     {
-        var context = Context(HonorificsPolicy.Adapt, Cast, Unit("a:1", "こんにちは", "Oi", "春花"), Unit("a:2", "やあ", "Olá", "凛"));
+        var context = Context(
+            HonorificsPolicy.Adapt, Cast,
+            Unit("a:1", "こんにちは", "Oi", "春花"),
+            Unit("a:2", "やあ", "Olá", "凛"),
+            Unit("a:3", "またね", "Tchau", "春花"),
+            Unit("b:1", "じゃあ", "Então", "春花"));
 
         var issue = Assert.Single(new GenderRule().Check(context));
 
         Assert.Equal((GenderRule.RuleId, QaSeverity.Warning, "a:1", "a"), (issue.RuleId, issue.Severity, issue.UnitId, issue.ScriptKey));
         Assert.Contains("春花", issue.Message);
+        Assert.Contains("3 falas traduzidas", issue.Message);
         Assert.Contains("characters.json", issue.Message);
+    }
+
+    [Fact]
+    public void Genero_com_uma_fala_diz_1_fala_e_cada_personagem_tem_o_seu_aviso()
+    {
+        var cast = new[] { new CharacterEntry("春花", "Haruka"), new CharacterEntry("秋人", "Akito") };
+        var context = Context(HonorificsPolicy.Adapt, cast, Unit("a:1", "x", "x", "春花"), Unit("a:2", "y", "y", "秋人"), Unit("a:3", "z", "z", "秋人"));
+
+        var issues = new GenderRule().Check(context).ToList();
+
+        Assert.Equal(["春花", "秋人"], issues.Select(i => i.Message.Split('\'')[1]));
+        Assert.Contains("1 fala traduzida", issues[0].Message);
+        Assert.Contains("2 falas traduzidas", issues[1].Message);
     }
 
     [Fact]
@@ -201,6 +276,26 @@ public sealed class StyleRulesTests
         Assert.False(Report(honorific, spaces).Blocks(allowWarnings: true));
         Assert.True(Report(honorific, error).Blocks(allowWarnings: true));
         Assert.Equal(2, Report(honorific, gender).OtherIssues.Count);
+    }
+
+    [Fact]
+    public void A_mensagem_de_bloqueio_conta_so_os_avisos_que_travam()
+    {
+        var spaces = new QaIssue("espaco-duplo", QaSeverity.Warning, "a:1", "a", "dois espaços");
+        var style = Enumerable.Range(0, 30)
+            .Select(n => new QaIssue(n % 2 == 0 ? HonorificsRule.RuleId : GenderRule.RuleId, QaSeverity.Warning, $"a:{n + 2}", "a", "estilo"))
+            .ToList();
+        var report = new QaReport([spaces, .. style], [], []);
+
+        var message = new QaBlockedException(report, allowWarnings: false).Message;
+
+        Assert.Equal("0 erros, 1 aviso", QaBlockedException.DescribeBlocking(report));
+        Assert.Contains("(0 erros, 1 aviso)", message);
+        Assert.Contains("[espaco-duplo]", message);
+        Assert.DoesNotContain(HonorificsRule.RuleId, message);
+        Assert.DoesNotContain(GenderRule.RuleId, message);
+        Assert.Equal([spaces], report.BlockingIssues);
+        Assert.Equal(30, report.StyleAdviceCount);
     }
 
     [Fact]
