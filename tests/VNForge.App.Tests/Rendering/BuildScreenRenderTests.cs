@@ -54,8 +54,8 @@ public sealed class BuildScreenRenderTests(HeadlessFixture fixture) : IClassFixt
                 await vm.ReloadAsync();
                 Assert.True(vm.HasQaErrors);
 
-                var path = RenderOutput.PathFor(ScreenRenderer.FileName("build-pagina", theme));
-                ScreenRenderer.Render(new BuildView { DataContext = vm }, theme, path, inspect: window => Inspect(window, vm));
+                var path = RenderOutput.PathFor(ScreenRenderer.FileName("testar-no-jogo-detalhes", theme));
+                ScreenRenderer.Render(new BuildView { DataContext = vm, TechnicalExpanded = true }, theme, path, inspect: window => Inspect(window, vm));
                 Assert.True(new FileInfo(path).Length > 10_000);
                 return 0;
             },

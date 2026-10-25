@@ -76,8 +76,11 @@
         <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Último teste">
           <StackPanel>
             <Border Classes="divider-bottom" MinHeight="48" Padding="16,12">
-              <TextBlock Classes="title-md" VerticalAlignment="Center" TextWrapping="Wrap"
-                         Text="{Binding LastTestTitle}" IsVisible="{Binding HasLastTest}"/>
+              <Panel>
+                <TextBlock Classes="title-md" VerticalAlignment="Center" TextWrapping="Wrap"
+                           Text="{Binding LastTestTitle}" IsVisible="{Binding HasLastTest}"/>
+                <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Último teste" IsVisible="{Binding !HasLastTest}"/>
+              </Panel>
             </Border>
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,12" IsVisible="{Binding !HasLastTest}"
                        Text="Ainda não houve teste neste projeto. O botão Testar no jogo faz tudo de uma vez."/>
