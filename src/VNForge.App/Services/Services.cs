@@ -64,6 +64,26 @@ public static class ProjectLabels
         return $"Claude {family} {string.Join('.', parts[2..])}";
     }
 
+    /// <summary>"menos de 1 min", "cerca de 6 min", "cerca de 1 h 30 min": o tempo de uma estimativa, sem falsa precisão.</summary>
+    public static string Duration(TimeSpan time)
+    {
+        var minutes = (int)Math.Round(time.TotalMinutes, MidpointRounding.AwayFromZero);
+        if (minutes < 1)
+        {
+            return "menos de 1 min";
+        }
+
+        if (minutes < 60)
+        {
+            return $"cerca de {minutes} min";
+        }
+
+        var rounded = (int)Math.Round(minutes / 5.0, MidpointRounding.AwayFromZero) * 5;
+        var hours = rounded / 60;
+        var rest = rounded % 60;
+        return rest == 0 ? $"cerca de {hours} h" : $"cerca de {hours} h {rest} min";
+    }
+
     public static string Encoding(string strategy) => strategy switch
     {
         "fold" => "Remover acentos (fold)",

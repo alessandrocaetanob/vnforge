@@ -72,6 +72,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
+        TaskService.Rate = Settings.Rate;
+        Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Tasks = new TaskBarViewModel(TaskService);
         Build = new BuildViewModel(TaskService);
         Build.PropertyChanged += (_, e) =>

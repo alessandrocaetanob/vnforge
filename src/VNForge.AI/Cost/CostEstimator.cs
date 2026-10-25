@@ -9,6 +9,14 @@ namespace VNForge.AI.Cost;
 /// <param name="CachedLines">Linhas já no cache, que não custam nada.</param>
 public sealed record CostEstimate(int Lines, int CachedLines, TokenUsage Usage, decimal Dollars);
 
+/// <summary>Uma estimativa em dólar e em real, convertida com a cotação que a pessoa informou.</summary>
+public sealed record CostQuote(CostEstimate Estimate, ExchangeRate Rate)
+{
+    public decimal Dollars => Estimate.Dollars;
+
+    public decimal Brl => Rate.ToBrl(Estimate.Dollars);
+}
+
 /// <summary>
 /// Estima tokens por heurística, porque a contagem exata exige chamar a API: caractere fora do ASCII (japonês) conta 1
 /// token, ASCII conta 1 a cada 4 caracteres, e cada linha soma uma sobrecarga fixa do JSON. A saída em português
@@ -81,6 +89,31 @@ public static class CostEstimator
         }
 
         return total;
+    }
+
+    /// <summary>O valor em reais de uma estimativa, com a cotação informada pela pessoa.</summary>
+    public static decimal Brl(CostEstimate estimate, ExchangeRate rate)
+    {
+        ArgumentNullException.ThrowIfNull(estimate);
+        ArgumentNullException.ThrowIfNull(rate);
+        return rate.ToBrl(estimate.Dollars);
+    }
+
+    public static CostQuote Quote(CostEstimate estimate, ExchangeRate rate)
+    {
+        ArgumentNullException.ThrowIfNull(estimate);
+        ArgumentNullException.ThrowIfNull(rate);
+        return new CostQuote(estimate, rate);
+    }
+
+    public static CostQuote Quote(IEnumerable<TextUnit> lines, string model, ExchangeRate rate, TranslationCache? cache = null, string context = "") =>
+        Quote(Estimate(lines, model, cache, context), rate);
+
+    /// <summary>Como <see cref="EstimateForModels"/>, em dólar e em real.</summary>
+    public static IReadOnlyDictionary<string, CostQuote> QuoteForModels(IEnumerable<TextUnit> lines, IEnumerable<string> models, ExchangeRate rate, TranslationCache? cache = null)
+    {
+        ArgumentNullException.ThrowIfNull(rate);
+        return EstimateForModels(lines, models, cache).ToDictionary(p => p.Key, p => new CostQuote(p.Value, rate));
     }
 
     private static long Tokens(string text)
