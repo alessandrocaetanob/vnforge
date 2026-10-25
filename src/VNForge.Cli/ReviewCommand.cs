@@ -59,8 +59,7 @@ internal static class ReviewCommand
         var (output, error, json, project, settings, filter, limit) = AiCommandContext.Open(cli, parseResult, Common);
         var statuses = ParseStatuses(parseResult.GetValue(StatusOption));
 
-        var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && u.HasTranslation);
-        var files = selection.Files;
+        var selection = LineSelection.Build(project.LoadAllText(), ScriptFilter(filter), limit, u => statuses.Contains(u.Status) && u.HasTranslation);
         var pending = selection.Pending;
 
         var builder = new TranslationBatchBuilder(
@@ -71,7 +70,7 @@ internal static class ReviewCommand
 
         if (parseResult.GetValue(Common.DryRun))
         {
-            return WriteDryRun(output, json, settings, files.Count, pending);
+            return WriteDryRun(output, json, settings, selection.FileCount, pending);
         }
 
         if (pending.Count == 0)
@@ -102,7 +101,7 @@ internal static class ReviewCommand
         {
             lock (gate)
             {
-                var lastKey = selection.ApplyAndSave(project, results, (result, unit) => Annotate(summary, result, unit));
+                var saved = selection.ApplyAndSave(project, results, (result, unit) => Annotate(summary, result, unit));
                 summary.Handled += results.Count;
                 if (reporter.IsLive)
                 {
@@ -110,7 +109,7 @@ internal static class ReviewCommand
                 }
                 else if (!json)
                 {
-                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
+                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, saved.LastKey));
                 }
             }
         }
@@ -128,7 +127,7 @@ internal static class ReviewCommand
 
         summary.Failed = [.. run.Failures];
         summary.Usage = (provider as ClaudeReviewProvider)?.Usage;
-        RecordUsage(project, settings.Model, summary.Usage);
+        RunCostTracker.Record(project, settings.Model, summary.Usage);
 
         if (run.CallbackError is { } callbackError)
         {
@@ -169,7 +168,7 @@ internal static class ReviewCommand
         return unit with { Notes = MergeNote(unit.Notes, result.Translation) };
     }
 
-    private static int WriteDryRun(TextWriter output, bool json, AiRunSettings settings, int fileCount, List<TextUnit> pending)
+    private static int WriteDryRun(TextWriter output, bool json, AiRunSettings settings, int fileCount, IReadOnlyList<TextUnit> pending)
     {
         // A revisão manda original e tradução; a saída é só a nota curta.
         var source = CostEstimator.Estimate(pending, settings.Model);
@@ -194,7 +193,7 @@ internal static class ReviewCommand
     private static int WriteResult(TextWriter output, bool json, AiRunSettings settings, int selected, RunSummary summary)
     {
         var exitCode = summary.Failed.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
-        var dollars = DollarsFor(settings.Model, summary.Usage);
+        var dollars = RunCostTracker.DollarsFor(settings.Model, summary.Usage);
 
         if (json)
         {

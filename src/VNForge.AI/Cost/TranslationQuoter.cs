@@ -1,3 +1,5 @@
+using VNForge.AI.Claude;
+using VNForge.AI.Translation;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Cost;
@@ -47,6 +49,9 @@ public static class TranslationQuoter
     /// <summary>Scripts por capítulo enquanto o projeto não tem os grupos de scripts que a pessoa define; o capítulo é a faixa numérica em que a cena cai.</summary>
     public const int ChapterSize = 20;
 
+    /// <summary>Linhas por chamada quando o chamador não informa o lote do projeto.</summary>
+    public const int DefaultBatchSize = 30;
+
     /// <summary>As chaves dos scripts do escopo, na ordem. Vazio quando o escopo depende de uma cena que não existe.</summary>
     public static IReadOnlyList<string> KeysFor(TranslationScope scope, IEnumerable<string> allKeys, string? sceneKey)
     {
@@ -62,29 +67,50 @@ public static class TranslationQuoter
         };
     }
 
+    /// <summary>Linha que a janela e o <c>TranslationJob</c> traduzem: sem tradução e com original.</summary>
+    public static bool IsPending(TextUnit unit)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        return unit.Status == TranslationStatus.Untranslated && !string.IsNullOrWhiteSpace(unit.Source);
+    }
+
     /// <summary>As linhas dos scripts <paramref name="keys"/> que ainda não têm tradução e têm original.</summary>
     public static IReadOnlyList<TextUnit> PendingLines(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, IEnumerable<string> keys)
     {
         ArgumentNullException.ThrowIfNull(texts);
         ArgumentNullException.ThrowIfNull(keys);
-        return
-        [
-            .. keys
-                .Where(texts.ContainsKey)
-                .SelectMany(key => texts[key])
-                .Where(u => u.Status == TranslationStatus.Untranslated && !string.IsNullOrWhiteSpace(u.Source)),
-        ];
+        return [.. keys.Where(texts.ContainsKey).SelectMany(key => texts[key]).Where(IsPending)];
     }
 
-    /// <summary>O preço em reais e o tempo de cada qualidade para <paramref name="lines"/>.</summary>
+    /// <summary>
+    /// Os lotes que a execução montaria para as linhas pendentes dos scripts <paramref name="keys"/>, cada um com o glossário, os personagens,
+    /// o <c>style.md</c> e as falas em volta, para que o preço some o que cada chamada leva além das linhas.
+    /// </summary>
+    public static IReadOnlyList<TranslationBatch> BatchesFor(
+        IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, IReadOnlyCollection<string> keys, TranslationBatchBuilder builder, int batchSize)
+    {
+        ArgumentNullException.ThrowIfNull(texts);
+        ArgumentNullException.ThrowIfNull(keys);
+        var selection = LineSelection.Build(texts, keys.Contains, null, IsPending);
+        return [.. selection.Pending.Chunk(batchSize).Select(chunk => selection.BuildBatch(builder, chunk))];
+    }
+
+    /// <summary>O preço em reais e o tempo de cada qualidade para <paramref name="lines"/>, sem contexto de glossário nem de falas em volta.</summary>
     public static TranslationQuotes Quote(IReadOnlyList<TextUnit> lines, ExchangeRate rate, TranslationCache? cache = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
+        return Quote([.. lines.Chunk(DefaultBatchSize).Select(chunk => new TranslationBatch(chunk))], rate, ClaudeEffort.Medium, cache);
+    }
+
+    /// <summary>O preço em reais, aproximado, e o tempo de cada qualidade para os lotes que a execução faria.</summary>
+    public static TranslationQuotes Quote(IReadOnlyList<TranslationBatch> batches, ExchangeRate rate, ClaudeEffort effort, TranslationCache? cache = null)
+    {
+        ArgumentNullException.ThrowIfNull(batches);
         ArgumentNullException.ThrowIfNull(rate);
-        var byModel = CostEstimator.QuoteForModels(lines, QualityProfiles.All.Select(p => p.Model), rate, cache);
-        var pending = byModel.Values.First().Estimate.Lines;
+        var estimates = QualityProfiles.All.ToDictionary(p => p.Model, p => CostEstimator.EstimateBatches(batches, p.Model, cache, effort));
+        var pending = estimates.Values.First().Lines;
         return new TranslationQuotes(
             pending,
-            [.. QualityProfiles.All.Select(p => new QualityQuote(p, byModel[p.Model], p.TimeFor(pending)))]);
+            [.. QualityProfiles.All.Select(p => new QualityQuote(p, CostEstimator.Quote(estimates[p.Model], rate), p.TimeFor(pending)))]);
     }
 }

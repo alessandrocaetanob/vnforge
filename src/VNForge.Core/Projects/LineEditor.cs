@@ -89,6 +89,14 @@ public sealed class LineEditor(ProjectFolder project, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(id);
 
+        lock (ProjectTextLock.For(project))
+        {
+            return UpdateLocked(scriptKey, id, change);
+        }
+    }
+
+    private TextUnit UpdateLocked(string scriptKey, string id, Func<TextUnit, TextUnit> change)
+    {
         var units = project.LoadText(scriptKey);
         var index = -1;
         for (var i = 0; i < units.Count; i++)

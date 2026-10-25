@@ -7,9 +7,15 @@ namespace VNForge.AI.Settings;
 /// <summary>A cotação, o limite de gasto e o valor de aviso que a pessoa guardou em <c>app.json</c>.</summary>
 public sealed record BudgetSettings(ExchangeRate Rate, BudgetLimits Limits);
 
+/// <summary>O que <see cref="AppBudgetFile.Load"/> encontrou.</summary>
+/// <param name="Settings">O orçamento lido; "sem limite e cotação de exemplo" quando o arquivo não existe ou não pôde ser lido.</param>
+/// <param name="Problem">Por que o arquivo existe mas não pôde ser lido, em português; <see langword="null"/> quando ele foi lido ou não existe.</param>
+public sealed record BudgetFileReading(BudgetSettings Settings, string? Problem);
+
 /// <summary>
 /// Lê do <c>app.json</c> da pasta de configuração do usuário só o que o orçamento usa. O app grava esse arquivo (Ajustes) e a CLI o lê, para que
-/// <c>vnf translate</c> respeite o mesmo limite. Um arquivo ausente ou ilegível vale como "sem limite e cotação de exemplo".
+/// <c>vnf translate</c> respeite o mesmo limite. Arquivo ausente vale como "sem limite e cotação de exemplo"; arquivo que existe e não pode ser
+/// lido também, mas o resultado traz o motivo, porque ele pode esconder um limite que a pessoa pôs e quem gasta precisa saber.
 /// </summary>
 public static class AppBudgetFile
 {
@@ -18,25 +24,27 @@ public static class AppBudgetFile
     /// <summary>Teto da cotação aceita: acima disso é quase certo um erro de digitação.</summary>
     public const decimal MaxBrlPerUsd = 100m;
 
-    public static BudgetSettings Read(string directory)
+    public static BudgetFileReading Load(string directory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         var path = Path.Combine(directory, FileName);
         var none = new BudgetSettings(ExchangeRate.Placeholder, BudgetLimits.None);
         if (!File.Exists(path))
         {
-            return none;
+            return new BudgetFileReading(none, null);
         }
 
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path));
             var root = document.RootElement;
-            return root.ValueKind == JsonValueKind.Object ? Read(root) : none;
+            return root.ValueKind == JsonValueKind.Object
+                ? new BudgetFileReading(Read(root), null)
+                : new BudgetFileReading(none, $"{path} não é um objeto JSON.");
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
-            return none;
+            return new BudgetFileReading(none, $"{path} não pôde ser lido: {e.Message}");
         }
     }
 

@@ -139,6 +139,17 @@ public sealed class AppSettingsFile(string directory)
             data["warnAbove"] = warn;
         }
 
-        File.WriteAllText(Path, JsonSerializer.Serialize(data, Json));
+        // Por arquivo temporário e troca: uma queda no meio da gravação não deixa um app.json pela metade, que esconderia o limite de gasto.
+        var temp = $"{Path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(data, Json));
+            File.Move(temp, Path, overwrite: true);
+        }
+        catch
+        {
+            File.Delete(temp);
+            throw;
+        }
     }
 }

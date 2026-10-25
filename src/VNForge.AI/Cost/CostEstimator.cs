@@ -1,3 +1,4 @@
+using System.Text;
 using VNForge.AI.Claude;
 using VNForge.AI.Translation;
 using VNForge.Core.Text;
@@ -28,6 +29,7 @@ public static class CostEstimator
     private const int PerLineOutputOverhead = 8;
     private const int SystemOverhead = 300;
     private const double OutputPerSourceToken = 1.5;
+    private const int InstructionOverhead = 40;
 
     /// <param name="context">O mesmo contexto que o <see cref="CachingTranslationProvider"/> usa nas chaves (<see cref="TranslationCache.ContextFor"/>).</param>
     public static CostEstimate Estimate(IEnumerable<TextUnit> lines, string model, TranslationCache? cache = null, string context = "")
@@ -77,19 +79,56 @@ public static class CostEstimator
     /// <summary>
     /// Estima a partir dos lotes que a execução montaria, para que as chaves de cache usem o mesmo contexto (modelo,
     /// estilo, glossário, personagens) do <see cref="CachingTranslationProvider"/> e o <c>--dry-run</c> não superestime.
+    /// Cada lote soma o que a chamada leva além das linhas (ver <see cref="EstimateBatch"/>).
     /// </summary>
-    public static CostEstimate EstimateBatches(IEnumerable<TranslationBatch> batches, string model, TranslationCache? cache = null)
+    public static CostEstimate EstimateBatches(IEnumerable<TranslationBatch> batches, string model, TranslationCache? cache = null, ClaudeEffort effort = ClaudeEffort.Medium)
     {
         ArgumentNullException.ThrowIfNull(batches);
         var total = new CostEstimate(0, 0, default, 0m);
         foreach (var batch in batches)
         {
-            var e = Estimate(batch.Lines, model, cache, TranslationCache.ContextFor(model, batch));
+            var e = EstimateBatch(batch, model, effort, cache);
             total = new CostEstimate(total.Lines + e.Lines, total.CachedLines + e.CachedLines, total.Usage + e.Usage, total.Dollars + e.Dollars);
         }
 
         return total;
     }
+
+    /// <summary>
+    /// Estima uma chamada: as linhas pendentes do lote (as que o cache não tem) mais o que cada chamada repete, que é o sistema, as
+    /// escolhas de estilo, o <c>style.md</c>, o glossário, os personagens e as falas de contexto, e o raciocínio do modelo, que a API cobra
+    /// como saída. É uma ordem de grandeza: o raciocínio varia com o trecho e com o <paramref name="effort"/>. Lote sem linha pendente custa zero.
+    /// </summary>
+    public static CostEstimate EstimateBatch(TranslationBatch batch, string model, ClaudeEffort effort, TranslationCache? cache = null)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        var lines = Estimate(batch.Lines, model, cache, TranslationCache.ContextFor(model, batch));
+        if (lines.Lines == 0)
+        {
+            return lines;
+        }
+
+        var usage = lines.Usage + new TokenUsage(PromptContextTokens(batch), ReasoningTokens(effort));
+        return lines with { Usage = usage, Dollars = ModelPricing.For(model).Cost(usage) };
+    }
+
+    private static long PromptContextTokens(TranslationBatch batch)
+    {
+        var sb = new StringBuilder();
+        ClaudePromptParts.AppendStableContext(sb, batch);
+        sb.Append(ClaudePromptParts.BatchContext(batch, "Glossário (use sempre estes termos):"));
+        ClaudePromptParts.AppendPrevious(sb, batch, "Contexto anterior (não traduzir):");
+        ClaudePromptParts.AppendNext(sb, batch, "Contexto seguinte (não traduzir):");
+        return Tokens(sb.ToString()) + InstructionOverhead;
+    }
+
+    private static long ReasoningTokens(ClaudeEffort effort) => effort switch
+    {
+        ClaudeEffort.Low => 200,
+        ClaudeEffort.Medium => 800,
+        ClaudeEffort.High => 2500,
+        _ => 6000,
+    };
 
     /// <summary>O valor em reais de uma estimativa, com a cotação informada pela pessoa.</summary>
     public static decimal Brl(CostEstimate estimate, ExchangeRate rate)

@@ -47,8 +47,7 @@ internal static class TranslateCommand
         var (output, error, json, project, settings, filter, limit) = AiCommandContext.Open(cli, parseResult, Common);
         var statuses = ParseStatuses(parseResult.GetValue(StatusOption));
 
-        var selection = LineSelection.Build(project.LoadAllText(), filter, limit, u => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source));
-        var files = selection.Files;
+        var selection = LineSelection.Build(project.LoadAllText(), ScriptFilter(filter), limit, u => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source));
         var pending = selection.Pending;
 
         var builder = new TranslationBatchBuilder(
@@ -61,7 +60,7 @@ internal static class TranslateCommand
 
         if (parseResult.GetValue(Common.DryRun))
         {
-            return WriteDryRun(output, json, settings, files.Count, pending, builder, cache);
+            return WriteDryRun(output, json, settings, selection, builder, cache);
         }
 
         if (pending.Count == 0)
@@ -69,38 +68,38 @@ internal static class TranslateCommand
             return WriteResult(output, json, settings, pending.Count, new RunSummary());
         }
 
+        var budget = ReadBudget(parseResult, cli, error);
         var provider = cli.TranslationProviderFactory is { } factory
             ? factory(settings.Model, settings.Effort)
             : CreateClaudeProvider(cli, settings);
+        ClaudeUsage? UsageOf() => (provider as ClaudeTranslationProvider)?.Usage;
         var ledger = new UsageLedger();
         var chain = new CachingTranslationProvider(new ValidatingTranslationProvider(provider), cache, settings.Model, ledger);
-        var budget = AppBudgetFile.Read(cli.UserConfigDirectory);
-        var spentBefore = AiUsageLog.Load(project).Dollars;
-        var guard = new BudgetGuard(
-            budget.Limits,
-            () => budget.Rate.ToBrl(spentBefore + (DollarsFor(settings.Model, (provider as ClaudeTranslationProvider)?.Usage) ?? 0m)),
-            lines => CostEstimator.Quote(lines, settings.Model, budget.Rate).Brl,
-            (question, _) => Task.FromResult(ConfirmationPrompt.Confirm(parseResult, cli, AskText(question))));
+        var tracker = new RunCostTracker(project, settings.Model, budget.Rate, UsageOf);
+        var estimator = new RequestEstimator(selection, builder, settings.Model, settings.Effort, settings.BatchSize, budget.Rate, cache);
+        var summary = new RunSummary { Budget = budget };
+
+        // A pergunta do valor de aviso vem antes da barra de progresso: dentro dela o Spectre redesenharia a tela por cima da resposta.
+        var asker = tracker.CreateGuard(budget.Limits, estimator.Brl, (question, _) => Task.FromResult(ConfirmationPrompt.Confirm(parseResult, cli, AskText(question))));
+        if (await asker.AuthorizeAsync(asker.EstimateRequest(pending), token).ConfigureAwait(false) is { } refusal)
+        {
+            summary.Stop = refusal;
+            return WriteResult(output, json, settings, pending.Count, summary);
+        }
+
+        var guard = tracker.CreateGuard(new BudgetLimits(budget.Limits.Limit, null), estimator.Brl, null);
         var runner = new TranslationRunner(chain, new TranslationRunOptions { BatchSize = settings.BatchSize, MaxConcurrency = settings.Concurrency, Budget = guard });
 
         var gate = new object();
-        var summary = new RunSummary();
-        var reporter = new BatchReporter(settings.Model, pending.Count, settings.BatchSize, () => (provider as ClaudeTranslationProvider)?.Usage);
-
-        TranslationBatch BuildBatch(IReadOnlyList<TextUnit> lines)
-        {
-            lock (gate)
-            {
-                return selection.BuildBatch(builder, lines);
-            }
-        }
+        var reporter = new BatchReporter(settings.Model, pending.Count, settings.BatchSize, UsageOf);
 
         void OnBatchTranslated(IReadOnlyList<TranslationResult> results)
         {
             lock (gate)
             {
                 var origin = new TranslationOrigin(ProviderName, settings.Model, DateTimeOffset.UtcNow);
-                var lastKey = selection.ApplyAndSave(project, results, (result, unit) => Apply(summary, origin, result, unit));
+                var saved = selection.ApplyAndSave(project, results, (result, unit) => Apply(summary, origin, result, unit));
+                summary.Skipped += saved.Skipped;
                 summary.Handled += results.Count;
                 if (reporter.IsLive)
                 {
@@ -108,7 +107,7 @@ internal static class TranslateCommand
                 }
                 else if (!json)
                 {
-                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, lastKey));
+                    error.WriteLine(ProgressLine(summary.Handled, pending.Count, saved.LastKey));
                 }
             }
         }
@@ -125,7 +124,7 @@ internal static class TranslateCommand
                 cli.Ansi,
                 cli.CanAnimate,
                 "Traduzindo",
-                () => runner.RunAsync(pending, BuildBatch, OnBatchTranslated, null, token)).ConfigureAwait(false);
+                () => runner.RunAsync(pending, lines => selection.BuildBatch(builder, lines), OnBatchTranslated, null, token)).ConfigureAwait(false);
         }
         finally
         {
@@ -133,14 +132,14 @@ internal static class TranslateCommand
             {
                 cache.Save(cachePath);
             }
+
+            tracker.Record();
         }
 
         summary.Cached = ledger.CacheHits;
         summary.Stop = run.BudgetStop;
-        summary.Budget = budget;
         summary.Failed = [.. run.Failures];
-        summary.Usage = (provider as ClaudeTranslationProvider)?.Usage;
-        RecordUsage(project, settings.Model, summary.Usage);
+        summary.Usage = tracker.Usage;
 
         if (run.CallbackError is { } callbackError)
         {
@@ -183,18 +182,17 @@ internal static class TranslateCommand
         TextWriter output,
         bool json,
         AiRunSettings settings,
-        int fileCount,
-        List<TextUnit> pending,
+        LineSelection selection,
         TranslationBatchBuilder builder,
         TranslationCache cache)
     {
-        var batches = pending.Chunk(settings.BatchSize).Select(chunk => builder.Build(chunk));
-        var estimate = CostEstimator.EstimateBatches(batches, settings.Model, cache);
+        var batches = selection.Pending.Chunk(settings.BatchSize).Select(chunk => selection.BuildBatch(builder, chunk));
+        var estimate = CostEstimator.EstimateBatches(batches, settings.Model, cache, settings.Effort);
 
         if (json)
         {
-            var data = JsonBase(settings, dryRun: true, pending.Count);
-            data["files"] = fileCount;
+            var data = JsonBase(settings, dryRun: true, selection.Pending.Count);
+            data["files"] = selection.FileCount;
             data["estimate"] = new
             {
                 lines = estimate.Lines,
@@ -214,14 +212,15 @@ internal static class TranslateCommand
 
     private static int WriteResult(TextWriter output, bool json, AiRunSettings settings, int selected, RunSummary summary)
     {
-        var exitCode = summary.Failed.Count > 0 || summary.Stop == BudgetStop.LimitReached ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
-        var dollars = DollarsFor(settings.Model, summary.Usage);
+        var exitCode = summary.Failed.Count > 0 || summary.Stop is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
+        var dollars = RunCostTracker.DollarsFor(settings.Model, summary.Usage);
 
         if (json)
         {
             var data = JsonBase(settings, dryRun: false, selected);
             data["translated"] = summary.Translated;
             data["cached"] = summary.Cached;
+            data["skipped"] = summary.Skipped;
             data["budgetStop"] = summary.Stop switch
             {
                 BudgetStop.LimitReached => "limitReached",
@@ -244,6 +243,11 @@ internal static class TranslateCommand
             output.WriteLine($"{Count(summary.Cached, "linha veio", "linhas vieram")} do cache, sem custo.");
         }
 
+        if (summary.Skipped > 0)
+        {
+            output.WriteLine($"{Count(summary.Skipped, "linha foi mudada", "linhas foram mudadas")} durante a execução e ficou como a deixaram; a tradução da IA não a sobrescreveu.");
+        }
+
         WriteBudgetStop(output, summary);
         WriteOutcome(
             output,
@@ -255,6 +259,21 @@ internal static class TranslateCommand
             dollars);
 
         return exitCode;
+    }
+
+    /// <summary>O orçamento do <c>app.json</c>. Arquivo ilegível avisa no erro padrão e só segue com <c>--yes</c>: ele pode esconder um limite que a pessoa pôs.</summary>
+    private static BudgetSettings ReadBudget(ParseResult parseResult, VnfCli cli, TextWriter error)
+    {
+        var reading = AppBudgetFile.Load(cli.UserConfigDirectory);
+        if (reading.Problem is not { } problem)
+        {
+            return reading.Settings;
+        }
+
+        error.WriteLine($"Aviso: {problem} O limite de gasto e o valor de aviso do app não puderam ser conferidos.");
+        return parseResult.GetValue(cli.Options.Yes)
+            ? reading.Settings
+            : throw new UsageException("Corrija ou apague o app.json, ou use --yes para traduzir sem conferir o limite de gasto.");
     }
 
     private static string AskText(BudgetQuestion question) =>
@@ -310,6 +329,8 @@ internal static class TranslateCommand
         public int Translated { get; set; }
 
         public int Handled { get; set; }
+
+        public int Skipped { get; set; }
 
         public int Cached { get; set; }
 
