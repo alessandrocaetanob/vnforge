@@ -380,12 +380,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             return;
         }
 
-        foreach (var quality in Qualities)
-        {
-            var quote = current.Quotes.For(quality.Quality);
-            quality.Price = quote.Brl;
-            quality.Duration = current.Quotes.Lines == 0 ? "nenhuma linha para traduzir" : ProjectLabels.Duration(quote.Time);
-        }
+        RefreshQualities(current.Quotes);
 
         var request = current.Quotes.For(SelectedQuality.Quality).Brl;
         var limit = settings.Limits.Limit;
@@ -395,11 +390,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         AskBrl = (double)request;
         SpentBrl = (double)spent;
         LimitBrl = (double)(limit ?? 0m);
-        RequestText = $"Este pedido (aproximado): {Money.BrlEstimate(request)}";
-        SpentText = limit is { } cap
-            ? $"Já gasto no projeto: {Money.BrlEstimate(spent)} de {Money.Brl(cap)}"
-            : $"Já gasto no projeto: {Money.BrlEstimate(spent)}";
-        RateNote = settings.Rate.IsInformed ? string.Empty : "Cotação de exemplo: informe a sua em Ajustes para ver o valor certo.";
+        RefreshAmounts(request, limit);
 
         IsOverLimit = !TranslationQuotes.Fits(request, spent, limit);
         var fit = IsOverLimit ? FitFor(SelectedScope.Scope) : null;
@@ -407,12 +398,43 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(fit.Brl)})";
         OverLimitText = IsOverLimit ? DescribeOverLimit(request, limit, fit) : string.Empty;
         AboveWarning = !IsOverLimit && settings.Limits.WarnAbove is { } warn && request > warn;
+        RefreshBudgetProblem();
+        RefreshNotices();
+
+        CanStart = !IsLoading && Lines > 0 && !IsOverLimit && settings.KeyConfigured;
+        StartCommand.NotifyCanExecuteChanged();
+    }
+
+    private void RefreshAmounts(decimal request, decimal? limit)
+    {
+        RequestText = $"Este pedido (aproximado): {Money.BrlEstimate(request)}";
+        SpentText = limit is { } cap
+            ? $"Já gasto no projeto: {Money.BrlEstimate(spent)} de {Money.Brl(cap)}"
+            : $"Já gasto no projeto: {Money.BrlEstimate(spent)}";
+        RateNote = settings.Rate.IsInformed ? string.Empty : "Cotação de exemplo: informe a sua em Ajustes para ver o valor certo.";
+    }
+
+    private void RefreshQualities(TranslationQuotes quotes)
+    {
+        foreach (var quality in Qualities)
+        {
+            var quote = quotes.For(quality.Quality);
+            quality.Price = quote.Brl;
+            quality.Duration = quotes.Lines == 0 ? "nenhuma linha para traduzir" : ProjectLabels.Duration(quote.Time);
+        }
+    }
+
+    private void RefreshBudgetProblem()
+    {
         HasBudgetProblem = settings.BudgetProblem is not null;
         BudgetProblemText = HasBudgetProblem
             ? "Não foi possível conferir o limite de gasto: o arquivo de Ajustes não pôde ser lido. Esta tradução não para num limite. Salve os Ajustes de novo para consertar, ou siga mesmo assim."
             : string.Empty;
         StartLabel = AboveWarning || HasBudgetProblem ? "Traduzir mesmo assim" : "Traduzir";
+    }
 
+    private void RefreshNotices()
+    {
         KeyMissing = !settings.KeyConfigured;
         KeyMissingText = KeyMissing ? "Falta a chave da IA. Informe-a em Ajustes, na aba IA e gasto." : string.Empty;
         ContextText = DescribeContext(context);
@@ -420,9 +442,6 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         MissingGenderText = HasMissingGender
             ? $"{DescribeMissing(context.CharactersWithoutGender)}: a IA pode errar a concordância nas falas deles."
             : string.Empty;
-
-        CanStart = !IsLoading && Lines > 0 && !IsOverLimit && settings.KeyConfigured;
-        StartCommand.NotifyCanExecuteChanged();
     }
 
     private string DescribeOverLimit(decimal request, decimal? limit, QualityQuote? fit)

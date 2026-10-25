@@ -153,20 +153,7 @@ public sealed partial class MainWindowViewModel
             parts.Add("As outras seguem pendentes.");
         }
 
-        if (result.Failed > 0)
-        {
-            parts.Add($"{Lines(result.Failed, "linha ficou", "linhas ficaram")} sem tradução porque o lote não voltou. {result.Problem}".TrimEnd());
-        }
-
-        if (result.Refused > 0)
-        {
-            parts.Add($"{Lines(result.Refused, "linha não passou", "linhas não passaram")} na validação e {(result.Refused == 1 ? "segue" : "seguem")} sem tradução.");
-        }
-
-        if (result.Skipped > 0)
-        {
-            parts.Add($"{Lines(result.Skipped, "linha mudou", "linhas mudaram")} durante a execução e {(result.Skipped == 1 ? "ficou" : "ficaram")} como você deixou.");
-        }
+        parts.AddRange(UnfinishedNotes(result));
 
         var needsAttention = stoppedAtLimit || result.Failed > 0 || result.Refused > 0 || (result.Translated == 0 && result.Skipped > 0);
         if (result.Translated == 0 && !needsAttention)
@@ -180,6 +167,25 @@ public sealed partial class MainWindowViewModel
         }
 
         return (string.Join(' ', parts), needsAttention ? ToastKind.Warning : ToastKind.Success);
+    }
+
+    /// <summary>As frases sobre as linhas que não foram traduzidas: lote que não voltou, recusadas na validação e mudadas pela pessoa durante a execução.</summary>
+    private static IEnumerable<string> UnfinishedNotes(TranslationJobResult result)
+    {
+        if (result.Failed > 0)
+        {
+            yield return $"{Lines(result.Failed, "linha ficou", "linhas ficaram")} sem tradução porque o lote não voltou. {result.Problem}".TrimEnd();
+        }
+
+        if (result.Refused > 0)
+        {
+            yield return $"{Lines(result.Refused, "linha não passou", "linhas não passaram")} na validação e {(result.Refused == 1 ? "segue" : "seguem")} sem tradução.";
+        }
+
+        if (result.Skipped > 0)
+        {
+            yield return $"{Lines(result.Skipped, "linha mudou", "linhas mudaram")} durante a execução e {(result.Skipped == 1 ? "ficou" : "ficaram")} como você deixou.";
+        }
     }
 
     private static string Lines(int count, string singular, string plural) =>
