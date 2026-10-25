@@ -18,6 +18,24 @@
         </Grid>
       </RadioButton>
     </DataTemplate>
+
+    <!-- Cartão de acentos (.enc): nome e selo na primeira linha, a explicação e a frase de teste desenhada na caixa de texto do jogo. -->
+    <DataTemplate x:Key="AccentCard" x:DataType="vm:ChoiceOption">
+      <RadioButton Classes="option" GroupName="WizardAccents" Margin="0,0,8,0" VerticalAlignment="Stretch" IsEnabled="{Binding IsAvailable}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                   AutomationProperties.Name="{Binding Title}">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Classes="body-strong" Text="{Binding Title}" VerticalAlignment="Center"/>
+            <Border Grid.Column="1" Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
+                    Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding Badge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+              <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Badge}"/>
+            </Border>
+          </Grid>
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+          <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
+        </StackPanel>
+      </RadioButton>
+    </DataTemplate>
   </UserControl.Resources>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -54,39 +72,59 @@
           </Grid>
         </Border>
 
-        <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasDetection}" AutomationProperties.Name="Engine detectada">
+        <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasDetection}" AutomationProperties.Name="Motor do jogo">
           <StackPanel>
             <Border Classes="divider-bottom" Padding="16,0" MinHeight="56">
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <PathIcon Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,8">
-                  <TextBlock Classes="overline" Text="Engine detectada"/>
-                  <TextBlock Classes="title-md" Text="{Binding EngineTitle}"/>
+                  <TextBlock Classes="overline" Text="Jogo reconhecido"/>
+                  <TextBlock Classes="title-md" Text="{Binding EngineHeadline}"/>
                 </StackPanel>
                 <Border Grid.Column="2" VerticalAlignment="Center" Padding="8,2" CornerRadius="{DynamicResource Vnf.RadiusSm}"
                         Background="{DynamicResource Vnf.StatusApprovedBg}">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportada"/>
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportado"/>
                 </Border>
               </Grid>
             </Border>
             <StackPanel Margin="16" Spacing="8">
-              <ItemsControl ItemsSource="{Binding DetectionFacts}">
+              <ItemsControl ItemsSource="{Binding FoundFacts}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:DetectionFact">
                     <Grid ColumnDefinitions="180,*" ColumnSpacing="16" Margin="0,0,0,8">
                       <TextBlock Classes="body-sm secondary" Text="{Binding Label}"/>
-                      <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Value}"/>
+                      <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding Value}"/>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
-                <TextBlock Classes="body-sm secondary" Text="Executável do jogo" VerticalAlignment="Center"/>
+                <TextBlock Classes="body-sm secondary" Text="Arquivo que abre o jogo" VerticalAlignment="Center"/>
                 <ComboBox Grid.Column="1" ItemsSource="{Binding Executables}" SelectedItem="{Binding SelectedExe}" MinWidth="280"
-                          IsVisible="{Binding HasExecutables}" AutomationProperties.Name="Executável do jogo"/>
-                <TextBlock Grid.Column="1" Classes="mono" Text="{Binding SelectedExe}" VerticalAlignment="Center" IsVisible="{Binding !HasExecutables}"/>
+                          IsVisible="{Binding HasExecutables}" AutomationProperties.Name="Arquivo que abre o jogo"/>
+                <TextBlock Grid.Column="1" Text="{Binding SelectedExe}" VerticalAlignment="Center" IsVisible="{Binding !HasExecutables}"/>
               </Grid>
             </StackPanel>
+            <Border Classes="divider-top" Padding="16,0,16,8">
+              <c:TechnicalDetails>
+                <StackPanel Spacing="8" Margin="0,8,0,0">
+                  <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
+                    <TextBlock Classes="body-sm secondary" Text="Motor e formato"/>
+                    <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding EngineTitle}"/>
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding DetectionFacts}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:DetectionFact">
+                        <Grid ColumnDefinitions="180,*" ColumnSpacing="16" Margin="0,0,0,8">
+                          <TextBlock Classes="body-sm secondary" Text="{Binding Label}"/>
+                          <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Value}"/>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </c:TechnicalDetails>
+            </Border>
           </StackPanel>
         </Border>
 
@@ -98,7 +136,7 @@
         </Border>
 
         <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                   Text="O VNForge só lê esta pasta. Nada é gravado nela fora da injeção, com backup."/>
+                   Text="O VNForge só lê esta pasta. Antes de mexer no jogo, ele sempre faz uma cópia de segurança."/>
       </StackPanel>
 
       <!-- 2. Idiomas e nome -->
@@ -145,42 +183,89 @@
       <!-- 3. Acentuação -->
       <StackPanel Spacing="8" IsVisible="{Binding IsAccentsStep}">
         <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
-                   Text="O jogo lê o texto em Shift-JIS, que não tem letras acentuadas. A estratégia decide o que acontece com elas no build. Dá para trocar depois nos Ajustes."/>
-        <TextBlock Classes="overline" Margin="0,8,0,0" Text="Estratégia de acentuação"/>
-        <ItemsControl ItemsSource="{Binding EncodingStrategies.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>
+                   Text="O jogo foi feito para o japonês e não desenha as letras acentuadas do português por conta própria. Cada cartão mostra a frase de teste na caixa de texto do jogo do jeito que vai sair. Dá para trocar depois nos Ajustes."/>
+        <TextBlock Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
+        <ItemsControl ItemsSource="{Binding EncodingStrategies.Options}" ItemTemplate="{StaticResource AccentCard}" Margin="0,0,-8,0" AutomationProperties.Name="Como ficam os acentos">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
       </StackPanel>
 
       <!-- 4. IA -->
       <StackPanel Spacing="16" IsVisible="{Binding IsAiStep}">
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Provedor"/>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Border Padding="10,4" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.StatusApprovedBg}">
-              <TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Claude (Anthropic)"/>
-            </Border>
-            <Border Padding="10,4" CornerRadius="{DynamicResource Vnf.RadiusSm}" BorderThickness="1" BorderBrush="{DynamicResource Vnf.StrokeControl}">
-              <TextBlock Classes="body-sm secondary" Text="Outros provedores · em breve"/>
-            </Border>
-          </StackPanel>
+          <TextBlock Classes="overline" Text="Qualidade da tradução"/>
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left" Text="{Binding EstimateNote}"/>
+          <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-8,0" AutomationProperties.Name="Qualidade da tradução">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Rows="1"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:QualityOption">
+                <c:QualityCard GroupName="WizardQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
+                               Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}" ExampleRate="{Binding ExampleRate}"
+                               IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
         </StackPanel>
-        <Border Classes="panel" ClipToBounds="True">
-          <c:ToggleRule Title="Usar o modelo padrão" Description="Claude Opus 5.5. Dá para escolher outro depois, nos Ajustes."
-                        IsChecked="{Binding SkipAi, Mode=TwoWay}"/>
-        </Border>
-        <StackPanel Spacing="8" IsEnabled="{Binding !SkipAi}">
-          <TextBlock Classes="overline" Text="Modelo"/>
-          <ItemsControl ItemsSource="{Binding Models.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>
+
+        <!-- Orçamento: a cotação é informada pela pessoa (o app não consulta a internet) e o limite para a IA de gastar. -->
+        <StackPanel Spacing="8">
+          <TextBlock Classes="overline" Text="Orçamento"/>
+          <Border Classes="panel" Padding="16,14">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="body-sm" Text="Cotação do dólar"/>
+                <TextBox Text="{Binding RateText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
+                  <TextBox.InnerLeftContent>
+                    <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                  </TextBox.InnerLeftContent>
+                </TextBox>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"
+                           IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RateError}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                           IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Classes="body-sm" Text="Limite de gasto"/>
+                <TextBox Text="{Binding LimitText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
+                  <TextBox.InnerLeftContent>
+                    <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                  </TextBox.InnerLeftContent>
+                </TextBox>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A IA para quando o gasto do projeto chega aqui. Vale para todos os seus projetos."
+                           IsVisible="{Binding LimitError, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding LimitError}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                           IsVisible="{Binding LimitError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+              </StackPanel>
+            </Grid>
+          </Border>
         </StackPanel>
+
         <Border Classes="infobar">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
             <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
             <StackPanel Grid.Column="1">
-              <TextBlock Classes="body-strong" Text="A chave da API não entra no projeto."/>
-              <TextBlock Classes="body-sm" TextWrapping="Wrap"
-                         Text="Ela fica na variável de ambiente ANTHROPIC_API_KEY ou no cofre do Windows (DPAPI). Configure em Ajustes."/>
+              <TextBlock Classes="body-strong" Text="Onde fica a chave"/>
+              <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{x:Static vm:NewProjectWizardViewModel.KeyNote}"/>
             </StackPanel>
           </Grid>
         </Border>
+
+        <c:TechnicalDetails>
+          <StackPanel Spacing="8" Margin="0,8,0,0">
+            <TextBlock Classes="overline" Text="Modelo exato"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                       Text="Cada qualidade usa um modelo do Claude. Aqui dá para escolher o modelo à mão; os preços são por milhão de tokens, em dólar (entrada / saída)."/>
+            <ItemsControl ItemsSource="{Binding Models.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>
+          </StackPanel>
+        </c:TechnicalDetails>
       </StackPanel>
 
       <!-- Fim: projeto criado, oferece extrair -->

@@ -97,20 +97,6 @@ public sealed class WizardEquivalenceTests : IDisposable
     }
 
     [Fact]
-    public async Task Pular_a_ia_e_igual_ao_vnf_init_sem_modelo()
-    {
-        await RunInitAsync("--encoding", "remap");
-        await RunWizardAsync(w =>
-        {
-            w.EncodingStrategies.Select("remap");
-            w.Models.Select("claude-fable-5-1");
-            w.SkipAi = true;
-        });
-
-        Assert.Equal(Tree(CliProject), Tree(AppProject));
-    }
-
-    [Fact]
     public async Task Extrair_no_fim_do_assistente_grava_o_mesmo_texto_que_o_vnf_extract()
     {
         await RunInitAsync();

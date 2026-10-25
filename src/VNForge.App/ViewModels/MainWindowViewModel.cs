@@ -489,6 +489,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         var wizard = create();
+        wizard.BudgetSaved += (_, _) => Settings.ReloadAppSettings();
         wizard.Cancelled += (_, _) => CurrentPage = Start;
         wizard.Completed += (_, root) =>
         {

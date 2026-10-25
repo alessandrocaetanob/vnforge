@@ -35,13 +35,14 @@ public sealed class App : Application
             var window = new MainWindow();
             var picker = new AvaloniaFolderPicker(window);
             var start = new StartViewModel(new RecentProjectsFile(configDirectory), picker, TimeProvider.System);
-            var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), new AppSettingsFile(configDirectory));
+            var appSettings = new AppSettingsFile(configDirectory);
+            var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), appSettings);
             RequestedThemeVariant = (settings.SelectedTheme?.Value ?? ThemeChoice.System).ToVariant();
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
             var suggester = LineSuggester.ForUser(configDirectory);
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
-                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
+                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings))
             {
                 Editor = new EditorViewModel(suggester: suggester) { Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate) },
                 Glossary = { AutosaveClock = TimeProvider.System, Suggester = UserGlossarySuggester.ForUser(configDirectory) },

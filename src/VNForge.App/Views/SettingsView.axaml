@@ -164,7 +164,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:QualityOption">
                     <c:QualityCard GroupName="DefaultQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
-                                   Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}"
+                                   Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}" ExampleRate="{Binding ExampleRate}"
                                    IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
