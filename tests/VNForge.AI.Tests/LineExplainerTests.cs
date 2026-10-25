@@ -131,7 +131,8 @@ public sealed class LineExplainerTests : IDisposable
     {
         var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"parts":[{"source":"今日は"""));
 
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => new LineExplainer(client, Cache).ExplainAsync(Original, CancellationToken.None));
+        var erro = await Assert.ThrowsAsync<ClaudeResponseException>(() => new LineExplainer(client, Cache).ExplainAsync(Original, CancellationToken.None));
+        Assert.Equal("A explicação veio incompleta. Tente de novo.", erro.Message);
     }
 
     [Theory]
@@ -143,7 +144,8 @@ public sealed class LineExplainerTests : IDisposable
     {
         var client = new StubClient(_ => Ok(texto));
 
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => new LineExplainer(client, Cache).ExplainAsync(Original, CancellationToken.None));
+        var erro = await Assert.ThrowsAsync<ClaudeResponseException>(() => new LineExplainer(client, Cache).ExplainAsync(Original, CancellationToken.None));
+        Assert.Equal("A explicação veio incompleta. Tente de novo.", erro.Message);
         Assert.False(File.Exists(Cache));
     }
 

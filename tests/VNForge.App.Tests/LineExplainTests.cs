@@ -58,7 +58,6 @@ public sealed class LineExplainTests : IDisposable
 
         Assert.True(vm.IsExplainOpen);
         Assert.Equal([new ExplainPart("今日は", "hoje (tema)"), new ExplainPart("雨が", "a chuva (sujeito)")], vm.ExplainParts);
-        Assert.Equal("Claude Haiku 5.5", vm.ExplainModel);
         Assert.Equal("今日は雨が降っている。\\p", servico.UltimoOriginal);
         Assert.Equal(raiz, servico.UltimaPasta);
         Assert.Null(vm.ExplainError);
@@ -106,10 +105,31 @@ public sealed class LineExplainTests : IDisposable
         servico.Erro = null;
         servico.Resposta = Resposta;
         await vm.ToggleExplainCommand.ExecuteAsync(null);
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
 
         Assert.Null(vm.ExplainError);
+        Assert.True(vm.IsExplainOpen);
         Assert.Equal(2, vm.ExplainParts.Count);
+        Assert.Equal(2, servico.Pedidos);
+
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsExplainOpen);
+    }
+
+    [Fact]
+    public async Task Fala_sem_japones_mostra_um_aviso_que_o_clique_seguinte_fecha()
+    {
+        using var vm = Abrir(new ServicoFalso(new LineExplanation([], ClaudeModels.Haiku, FromCache: false)));
+
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.Equal("Esta fala não tem texto em japonês para explicar.", vm.ExplainNotice);
+        Assert.Null(vm.ExplainError);
+
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsExplainOpen);
+        Assert.Null(vm.ExplainNotice);
     }
 
     [Fact]
@@ -147,7 +167,8 @@ public sealed class LineExplainTests : IDisposable
     {
         string? chave = null;
         var criados = new List<(string Pasta, string Chave)>();
-        var servico = new LineExplanations(() => chave, () => new ExchangeRate(5.40m), (pastaProjeto, k) =>
+        var cotacao = new ExchangeRate(5.40m);
+        var servico = new LineExplanations(() => chave, () => cotacao, (pastaProjeto, k) =>
         {
             criados.Add((pastaProjeto, k));
             return new ExplicadorFalso(Resposta);
@@ -163,6 +184,10 @@ public sealed class LineExplainTests : IDisposable
         Assert.True(servico.IsAvailable);
         Assert.Equal(Resposta, resposta);
         Assert.Equal([(raiz, "sk-ant-teste")], criados);
+        Assert.Equal("menos de R$ 0,01 (cotação de exemplo)", servico.PriceText);
+
+        cotacao = new ExchangeRate(5.40m, new DateOnly(2026, 10, 25));
+
         Assert.Equal("menos de R$ 0,01", servico.PriceText);
     }
 

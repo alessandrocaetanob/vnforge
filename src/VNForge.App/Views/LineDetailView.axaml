@@ -78,10 +78,11 @@
           </StackPanel>
         </Button>
         <TextBlock Classes="caption secondary" Text="Pedindo a explicação..." IsVisible="{Binding IsExplaining}"/>
-        <c:ExplainCard ItemsSource="{Binding ExplainParts}" Model="{Binding ExplainModel}" Footnote="Só para você ler, não entra na tradução."
+        <c:ExplainCard ItemsSource="{Binding ExplainParts}" Footnote="Só para você ler, não entra na tradução."
                        IsVisible="{Binding ShowExplainCard}" AutomationProperties.Name="Explicação do original"/>
         <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding ExplainError}"
                    IsVisible="{Binding HasExplainError}"/>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding ExplainNotice}" IsVisible="{Binding HasExplainNotice}"/>
       </StackPanel>
 
       <!-- Na cena: a fala anterior e a seguinte. -->

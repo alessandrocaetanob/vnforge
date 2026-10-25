@@ -48,7 +48,16 @@ public sealed class LineExplanations : ILineExplanations
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(readKey());
 
-    public string PriceText => Controls.Money.BrlEstimate(rate().ToBrl(LineExplainer.EstimateDollars()));
+    /// <summary>O preço em reais; com a cotação de exemplo (a pessoa ainda não informou a dela) leva a marca "cotação de exemplo", como o gasto das tarefas.</summary>
+    public string PriceText
+    {
+        get
+        {
+            var current = rate();
+            var text = Controls.Money.BrlEstimate(current.ToBrl(LineExplainer.EstimateDollars()));
+            return current.IsInformed ? text : $"{text} (cotação de exemplo)";
+        }
+    }
 
     public async Task<LineExplanation> ExplainAsync(string projectRoot, string source, CancellationToken ct)
     {

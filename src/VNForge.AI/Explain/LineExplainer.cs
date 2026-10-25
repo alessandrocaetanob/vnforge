@@ -11,7 +11,7 @@ public interface ILineExplainer
 {
     /// <summary>O original quebrado em partes com significado. Vazio quando a fala só tem marcadores.</summary>
     /// <exception cref="ClaudeRefusalException">O modelo recusou explicar a fala.</exception>
-    /// <exception cref="ClaudeResponseException">A resposta veio cortada ou fora do formato.</exception>
+    /// <exception cref="ClaudeResponseException">A resposta veio cortada ou ilegível.</exception>
     Task<LineExplanation> ExplainAsync(string source, CancellationToken ct);
 }
 
@@ -103,7 +103,7 @@ public sealed class LineExplainer : ILineExplainer
 
         if (reply.StopReason == "max_tokens")
         {
-            throw new ClaudeResponseException("A explicação foi cortada por limite de tokens; tente de novo.");
+            throw new ClaudeResponseException("A explicação veio incompleta. Tente de novo.");
         }
 
         var explanation = new LineExplanation(Parse(reply.Text), model, FromCache: false);
@@ -145,10 +145,10 @@ public sealed class LineExplainer : ILineExplainer
         }
         catch (JsonException e)
         {
-            throw new ClaudeResponseException("A IA não devolveu a explicação no formato esperado.", e);
+            throw new ClaudeResponseException("A explicação veio incompleta. Tente de novo.", e);
         }
 
-        return list.Count > 0 ? list : throw new ClaudeResponseException("A IA não devolveu a explicação no formato esperado.");
+        return list.Count > 0 ? list : throw new ClaudeResponseException("A explicação veio incompleta. Tente de novo.");
     }
 
     private static ExplainedPart? ReadPart(JsonElement part)

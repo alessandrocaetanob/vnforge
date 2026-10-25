@@ -34,10 +34,6 @@ public sealed partial class LineDetailViewModel
     [NotifyPropertyChangedFor(nameof(ShowExplainCard))]
     public partial IReadOnlyList<ExplainPart> ExplainParts { get; private set; } = [];
 
-    /// <summary>Quem explicou, para o cabeçalho do cartão ("Claude Haiku 5.5").</summary>
-    [ObservableProperty]
-    public partial string ExplainModel { get; private set; } = string.Empty;
-
     /// <summary>Por que não foi possível explicar, em português; nulo quando deu certo.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasExplainError))]
@@ -46,18 +42,28 @@ public sealed partial class LineDetailViewModel
     /// <summary>O cartão aparece aberto e com a explicação pronta.</summary>
     public bool ShowExplainCard => IsExplainOpen && ExplainParts.Count > 0;
 
+    /// <summary>Um aviso que não é falha (a fala só tem marcadores, sem japonês para explicar); fechar o cartão o limpa.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasExplainNotice))]
+    public partial string? ExplainNotice { get; private set; }
+
+    public bool HasExplainNotice => !string.IsNullOrEmpty(ExplainNotice);
+
     public bool HasExplainError => !string.IsNullOrEmpty(ExplainError);
 
-    /// <summary>Abre o cartão (pedindo a explicação na primeira vez) ou o fecha. Uma explicação que falhou é pedida de novo na próxima abertura.</summary>
+    /// <summary>Abre o cartão (pedindo a explicação na primeira vez) ou o fecha. Depois de uma falha, o clique repete o pedido.</summary>
     [RelayCommand(CanExecute = nameof(CanExplain))]
     private async Task ToggleExplainAsync()
     {
-        if (IsExplainOpen)
+        if (IsExplainOpen && !HasExplainError)
         {
             IsExplainOpen = false;
+            ExplainError = null;
+            ExplainNotice = null;
             return;
         }
 
+        // Depois de uma falha o cartão fica aberto com o erro e o clique repete o pedido.
         IsExplainOpen = true;
         if (ExplainParts.Count == 0 && Explanations is { } explanations && ProjectRoot is { } root && !disposed)
         {
@@ -70,6 +76,7 @@ public sealed partial class LineDetailViewModel
         using var cancellation = new CancellationTokenSource();
         explainCancellation = cancellation;
         ExplainError = null;
+        ExplainNotice = null;
         IsExplaining = true;
         try
         {
@@ -80,8 +87,7 @@ public sealed partial class LineDetailViewModel
             }
 
             ExplainParts = [.. result.Parts.Select(p => new ExplainPart(p.Source, p.Meaning))];
-            ExplainModel = ProjectLabels.Model(result.Model);
-            ExplainError = ExplainParts.Count == 0 ? "Esta fala não tem texto em japonês para explicar." : null;
+            ExplainNotice = ExplainParts.Count == 0 ? "Esta fala não tem texto em japonês para explicar." : null;
         }
         catch (Exception e)
         {
