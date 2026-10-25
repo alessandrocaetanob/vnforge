@@ -61,6 +61,26 @@ public class RepeatedTermsTests
         Assert.Equal("魔法ランプ", Assert.Single(found).Source);
     }
 
+    [Theory]
+    [InlineData("ーー")]
+    [InlineData("ッッ")]
+    [InlineData("ァァ")]
+    [InlineData("ッー")]
+    [InlineData("々々")]
+    public void Sequencia_so_de_barra_ou_katakana_pequeno_nao_e_termo(string run)
+    {
+        Assert.Empty(RepeatedTerms.Count(Repeat($"あ{run}あ", 5)));
+    }
+
+    [Theory]
+    [InlineData("ッソ")]
+    [InlineData("ソー")]
+    [InlineData("魔々")]
+    public void Sequencia_com_ao_menos_um_caractere_de_verdade_continua_termo(string run)
+    {
+        Assert.Equal(run, Assert.Single(RepeatedTerms.Count(Repeat($"あ{run}あ", 5))).Source);
+    }
+
     [Fact]
     public void A_barra_de_prolongamento_fica_na_sequencia_de_katakana()
     {

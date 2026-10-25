@@ -64,25 +64,34 @@ public static class RepeatedTerms
     private static void CollectRuns(string text, HashSet<string> into)
     {
         var start = -1;
+        var real = false;
         for (var i = 0; i <= text.Length; i++)
         {
             var inRun = i < text.Length && IsTermChar(text[i]);
             if (inRun && start < 0)
             {
                 start = i;
+                real = false;
             }
             else if (!inRun && start >= 0)
             {
                 var length = i - start;
-                if (length is >= MinLength and <= MaxLength)
+                if (real && length is >= MinLength and <= MaxLength)
                 {
                     into.Add(text.Substring(start, length));
                 }
 
                 start = -1;
             }
+
+            real |= inRun && IsRealChar(text[i]);
         }
     }
+
+    // "ーー", "ッッ" e "ァァ" não são termo: a sequência precisa de ao menos um kanji ou um katakana de verdade (não a barra de prolongamento, nem os pequenos).
+    private static bool IsRealChar(char c) =>
+        c is >= '一' and <= '鿿' or >= '㐀' and <= '䶿'
+            || (c is >= 'ァ' and <= 'ヺ' && !"ァィゥェォッャュョヮヵヶ".Contains(c, StringComparison.Ordinal));
 
     private static bool IsTermChar(char c) =>
         c is >= '一' and <= '鿿'

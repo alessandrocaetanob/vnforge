@@ -494,6 +494,27 @@ public class GlossarySuggestionsTests
     }
 
     [Fact]
+    public async Task O_exemplo_enviado_e_uma_janela_em_volta_do_termo_sem_partir_par_substituto()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("longa"), "Longa", TranslationStatus.Untranslated);
+        var longLine = new string('あ', 29) + "𠮷" + new string('あ', 29) + "魔法学院" + new string('あ', 29) + "𠮷" + new string('あ', 20);
+        ProjectFolder.Open(root).SaveText("yst00001", Enumerable.Range(0, 5).Select(n => Line(n, longLine)).ToList());
+        var fake = new FakeGlossarySuggester();
+        var vm = new GlossaryViewModel { Project = ProjectSummaryReader.Read(root), Suggester = fake };
+        await vm.Loading;
+
+        await vm.SuggestTermsCommand.ExecuteAsync(null);
+
+        var example = Assert.Single(Assert.Single(fake.ReceivedTerms)).Example!;
+        Assert.Contains("魔法学院", example);
+        Assert.True(example.Length <= 4 + (2 * (30 + 1)));
+        Assert.False(char.IsLowSurrogate(example[0]));
+        Assert.False(char.IsHighSurrogate(example[^1]));
+        Assert.Equal(0, example.Count(char.IsSurrogate) % 2);
+    }
+
+    [Fact]
     public async Task Adicionar_poe_o_termo_na_tabela_com_a_traducao_sugerida_e_tira_do_painel()
     {
         var fake = new FakeGlossarySuggester(term: t => new TermTranslationSuggestion(t.Source, "Academia de Magia", "Nome da escola."));

@@ -27,11 +27,46 @@ internal sealed record ProjectScan(
         return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources);
     }
 
-    /// <summary>A primeira linha em que o termo aparece, curta, para dar contexto à IA.</summary>
+    private const int ExampleContext = 30;
+    private readonly Dictionary<string, string?> examples = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Um trecho da primeira linha em que o termo aparece, com até <see cref="ExampleContext"/> caracteres de cada lado, para dar contexto à IA.
+    /// Guarda a resposta por termo: a tela pergunta de novo a cada tecla e a busca varre o texto do projeto inteiro.
+    /// </summary>
     public string? ExampleOf(string term)
     {
-        var line = Sources.FirstOrDefault(s => s.Contains(term, StringComparison.Ordinal))?.Trim();
-        return line is { Length: > 80 } ? line[..80] : line;
+        if (!examples.TryGetValue(term, out var example))
+        {
+            example = Excerpt(Sources.FirstOrDefault(s => s.Contains(term, StringComparison.Ordinal)), term);
+            examples[term] = example;
+        }
+
+        return example;
+    }
+
+    private static string? Excerpt(string? line, string term)
+    {
+        if (line is null)
+        {
+            return null;
+        }
+
+        var at = line.IndexOf(term, StringComparison.Ordinal);
+        var from = Math.Max(0, at - ExampleContext);
+        var to = Math.Min(line.Length, at + term.Length + ExampleContext);
+        // Cortar no meio de um par substituto deixaria meio caractere no texto.
+        if (from > 0 && char.IsLowSurrogate(line[from]))
+        {
+            from--;
+        }
+
+        if (to < line.Length && char.IsLowSurrogate(line[to]))
+        {
+            to++;
+        }
+
+        return line[from..to].Trim();
     }
 }
 
