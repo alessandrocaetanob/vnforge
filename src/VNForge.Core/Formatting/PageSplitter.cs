@@ -17,9 +17,9 @@ public sealed record PageSplit(string Text, int Pages, int Added)
 /// o <c>wrap.maxLines</c> do perfil. Mede com o mesmo pipeline e a mesma quebra de linha do build e do <see cref="Projects.LinePreviewer"/>.
 /// </summary>
 /// <remarks>
-/// O texto devolvido é a tradução depois das etapas do perfil que antecedem a quebra (espaços, tipografia), sem as quebras automáticas: elas
-/// ficam por conta do build, que as refaz com a largura da caixa. As quebras <c>\n</c> do autor são mantidas, e a que termina a última linha
-/// que cabe vira a virada de página.
+/// O texto devolvido é a tradução como está gravada, com o <c>\p</c> a mais: o pipeline do perfil roda só para medir, e a posição do corte volta ao
+/// texto original (o build aplica as etapas do perfil na hora). O <c>\p</c> ocupa o lugar do espaço da emenda ou da quebra de linha do autor que
+/// termina a última linha que cabe. Sem como achar o ponto no texto original, a divisão é recusada e o texto volta igual.
 /// </remarks>
 public static class PageSplitter
 {
@@ -49,23 +49,22 @@ public static class PageSplitter
 
     private static PageSplit SplitCore(FormattingProfile profile, bool formatted, string translation)
     {
-        var current = formatted ? Prepare(profile, translation) : translation;
         if (profile.Wrap.MaxLines is not { } maxLines)
         {
-            return new PageSplit(translation, Measure(profile, formatted, current).Lines.Count, 0);
+            return new PageSplit(translation, Measure(profile, formatted, Built(profile, formatted, translation)).Lines.Count, 0);
         }
 
+        var current = translation;
         var added = 0;
         while (true)
         {
-            var (laidOut, lines) = Measure(profile, formatted, current);
+            var built = Built(profile, formatted, current);
+            var (laidOut, lines) = Measure(profile, formatted, built);
             var over = lines.FindIndex(count => count > maxLines);
-            var next = over < 0 ? null : InsertPage(current, laidOut, over, maxLines);
+            var next = over < 0 ? null : InsertPage(profile, formatted, current, built, laidOut, (over, maxLines));
             if (next is null)
             {
-                return added == 0 || BuildFits(profile, formatted, current, maxLines)
-                    ? new PageSplit(added == 0 ? translation : current, lines.Count, added)
-                    : new PageSplit(translation, Measure(profile, formatted, formatted ? Prepare(profile, translation) : translation).Lines.Count, 0);
+                return new PageSplit(current, lines.Count, added);
             }
 
             current = next;
@@ -73,12 +72,8 @@ public static class PageSplitter
         }
     }
 
-    /// <summary>
-    /// Confere o texto dividido como o build o trataria: as etapas anteriores à quebra rodam de novo sobre ele. Uma regra de substituição que não
-    /// é idempotente (<c>a</c> vira <c>aa</c>) faria a fala passar do limite de novo, e nesse caso a divisão é descartada.
-    /// </summary>
-    private static bool BuildFits(FormattingProfile profile, bool formatted, string text, int maxLines) =>
-        Measure(profile, formatted, formatted ? Prepare(profile, text) : text).Lines.All(count => count <= maxLines);
+    /// <summary>O que o build mediria: a tradução depois das etapas do perfil que antecedem a quebra, quando o papel da linha é formatado.</summary>
+    private static string Built(FormattingProfile profile, bool formatted, string text) => formatted ? Prepare(profile, text) : text;
 
     /// <summary>As etapas do perfil até antes da quebra de linha, que é a última do pipeline.</summary>
     private static string Prepare(FormattingProfile profile, string text) =>
@@ -93,27 +88,50 @@ public static class PageSplitter
     }
 
     /// <summary>
-    /// Coloca <c>\p</c> em <paramref name="text"/> onde <paramref name="laidOut"/> (o mesmo texto com as quebras automáticas) termina a linha
-    /// <paramref name="maxLines"/> da caixa <paramref name="box"/>. Nulo quando não acha o ponto.
+    /// Coloca <c>\p</c> em <paramref name="raw"/>, a tradução como está gravada, onde <paramref name="laidOut"/> (o texto medido com as quebras
+    /// automáticas) termina a última linha que cabe na caixa. O ponto é achado em <paramref name="built"/> e levado de volta a <paramref name="raw"/>;
+    /// sem um ponto confiável nos dois textos, devolve nulo e a divisão é recusada.
     /// </summary>
-    private static string? InsertPage(string text, string laidOut, int box, int maxLines)
+    private static string? InsertPage(FormattingProfile profile, bool formatted, string raw, string built, string laidOut, (int Box, int MaxLines) target)
     {
-        var end = FindLineEnd(laidOut, box, maxLines);
-        if (end < 0)
-        {
-            return null;
-        }
-
-        var at = MapPosition(text, laidOut, end);
+        var end = FindLineEnd(laidOut, target.Box, target.MaxLines);
+        var inBuilt = end < 0 ? -1 : MapPosition(built, laidOut, end);
+        var at = inBuilt < 0 || !formatted ? inBuilt : RawPosition(profile, raw, built[..inBuilt]);
         if (at < 0)
         {
             return null;
         }
 
-        var afterSpaces = SkipSpaces(text, at);
-        var userBreak = string.CompareOrdinal(text, afterSpaces, LineBreak, 0, LineBreak.Length) == 0;
+        var afterSpaces = SkipSpaces(raw, at);
+        var userBreak = IsAt(raw, afterSpaces, LineBreak);
         var resume = afterSpaces + (userBreak ? LineBreak.Length : 0);
-        return string.Concat(text.AsSpan(0, at), PageBreak, text.AsSpan(resume));
+        return string.Concat(raw.AsSpan(0, at), PageBreak, raw.AsSpan(resume));
+    }
+
+    /// <summary>
+    /// O índice em <paramref name="raw"/> onde o texto preparado chega a <paramref name="builtPrefix"/>: o primeiro ponto cujo começo, depois
+    /// das mesmas etapas do perfil, é igual a ele (sem os espaços do fim). Nulo quando nenhum limite bate, por exemplo numa regra que muda o texto
+    /// de um jeito que não se desfaz.
+    /// </summary>
+    private static int RawPosition(FormattingProfile profile, string raw, string builtPrefix)
+    {
+        var wanted = builtPrefix.TrimEnd(' ');
+        for (var i = 0; i <= raw.Length; i++)
+        {
+            try
+            {
+                if (string.Equals(Prepare(profile, raw[..i]).TrimEnd(' '), wanted, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+            catch (Exception ex) when (ex is ArgumentException or FormattingException)
+            {
+                // O corte caiu dentro de um marcador: não é um ponto válido.
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Posição, em <paramref name="laidOut"/>, do <c>\n</c> que termina a linha <paramref name="line"/> da caixa <paramref name="box"/>.</summary>

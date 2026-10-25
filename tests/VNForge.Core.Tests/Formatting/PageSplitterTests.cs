@@ -145,15 +145,73 @@ public sealed class PageSplitterTests
         Assert.Equal(@"um\ndois\ntres\pquatro", Split(@"um\ndois\ntres\nquatro", kind: TextUnitKind.Name).Text);
     }
 
+    // O texto gravado é a tradução como a pessoa a escreveu: a divisão só acrescenta o marcador de página, no lugar do espaço da emenda ou de uma quebra do autor.
+    private static void AssertSoAcrescentouPaginas(string original, PageSplit split, FormattingProfile profile)
+    {
+        Assert.True(split.Changed);
+        Assert.Equal(original, split.Text.Replace(@"\p", " ", StringComparison.Ordinal));
+        Assert.All(LinePreviewer.Create(profile, Unit(), split.Text).Boxes, box => Assert.True(box.Count <= 3));
+    }
+
     [Fact]
-    public void Aplica_o_pipeline_antes_de_medir()
+    public void Reticencias_do_perfil_nao_sao_gravadas_na_traducao()
+    {
+        var profile = Box with { Typography = new TypographyRule(Ellipsis: EllipsisStyle.Character) };
+        var text = $"bbbbbbbbb... {Words(15)}...";
+
+        var split = Split(text, profile);
+
+        AssertSoAcrescentouPaginas(text, split, profile);
+        Assert.DoesNotContain("…", split.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Espacos_colapsados_pelo_perfil_continuam_como_a_pessoa_escreveu()
     {
         var profile = Box with { Spacing = new SpacingRule(CollapseSpaces: true) };
+        var text = $"aaaaaaaaa   aaaaaaaaa  {Words(14)}";
 
-        var split = Split($"{Words(16)}   fim", profile);
+        var split = Split(text, profile);
+
+        AssertSoAcrescentouPaginas(text, split, profile);
+        Assert.StartsWith("aaaaaaaaa   aaaaaaaaa  ", split.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Largura_cheia_do_perfil_nao_e_gravada_na_traducao()
+    {
+        var profile = Box with { Wrap = Box.Wrap with { CharWidth = CharWidthMode.HalfWidthLatin }, Width = new WidthRule(WidthMode.Full) };
+        var text = Words(8);
+
+        var split = Split(text, profile);
+
+        AssertSoAcrescentouPaginas(text, split, profile);
+        Assert.Equal(2, split.Pages);
+    }
+
+    [Fact]
+    public void Substituicao_do_perfil_nao_e_gravada_na_traducao()
+    {
+        var profile = Box with { Replacements = new ReplacementRules([new Replacement("Tokyo", "Tóquio")], []) };
+        var text = $"Tokyo {Words(15)}";
+
+        var split = Split(text, profile);
+
+        AssertSoAcrescentouPaginas(text, split, profile);
+        Assert.StartsWith("Tokyo ", split.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Regra_de_substituicao_que_expande_e_aplicada_so_uma_vez_na_medida()
+    {
+        // "a" vira "aa" no build; como a tradução gravada continua com "a", o texto dividido é medido uma vez só e cabe.
+        var profile = Box with { Replacements = new ReplacementRules([new Replacement("a", "aa")], []) };
+        var text = Words(8);
+
+        var split = Split(text, profile);
 
         Assert.True(split.Changed);
-        Assert.DoesNotContain("  ", split.Text, StringComparison.Ordinal);
+        Assert.Equal(text, split.Text.Replace(@"\p", " ", StringComparison.Ordinal));
         Assert.All(LinePreviewer.Create(profile, Unit(), split.Text).Boxes, box => Assert.True(box.Count <= 3));
     }
 
@@ -164,19 +222,6 @@ public sealed class PageSplitterTests
 
         var split = Split(Words(40), profile);
 
-        Assert.False(split.Changed);
-    }
-
-    [Fact]
-    public void Regra_de_substituicao_que_nao_e_idempotente_descarta_a_divisao()
-    {
-        // "a" vira "aa": o texto dividido seria expandido de novo pelo build e passaria do limite.
-        var profile = Box with { Replacements = new ReplacementRules([new Replacement("a", "aa")], []) };
-        var text = Words(8);
-
-        var split = Split(text, profile);
-
-        Assert.Equal(text, split.Text);
         Assert.False(split.Changed);
     }
 
