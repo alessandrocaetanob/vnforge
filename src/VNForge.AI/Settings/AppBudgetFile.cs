@@ -24,6 +24,8 @@ public static class AppBudgetFile
     /// <summary>Teto da cotação aceita: acima disso é quase certo um erro de digitação.</summary>
     public const decimal MaxBrlPerUsd = 100m;
 
+    private const string SpendLimitField = "spendLimit";
+
     public static BudgetFileReading Load(string directory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
@@ -55,8 +57,8 @@ public static class AppBudgetFile
     /// A cotação e o valor de aviso inválidos só caem no padrão, porque não deixam o gasto sem freio. Devolve o nome do campo, ou <see langword="null"/>.
     /// </summary>
     private static string? InvalidMoneyField(JsonElement root) =>
-        root.TryGetProperty("spendLimit", out var element) && element.ValueKind != JsonValueKind.Null && ReadMoney(root, "spendLimit", decimal.MaxValue) is null
-            ? "spendLimit"
+        root.TryGetProperty(SpendLimitField, out var element) && element.ValueKind != JsonValueKind.Null && ReadMoney(root, SpendLimitField, decimal.MaxValue) is null
+            ? SpendLimitField
             : null;
 
     /// <summary>Lê os campos de dinheiro e a data do <c>app.json</c> já aberto.</summary>
@@ -66,7 +68,7 @@ public static class AppBudgetFile
         var informedOn = rate is null ? null : ReadDate(root, "exchangeRateOn");
         return new BudgetSettings(
             rate is { } value ? new ExchangeRate(value, informedOn) : ExchangeRate.Placeholder,
-            new BudgetLimits(ReadMoney(root, "spendLimit", decimal.MaxValue), ReadMoney(root, "warnAbove", decimal.MaxValue)));
+            new BudgetLimits(ReadMoney(root, SpendLimitField, decimal.MaxValue), ReadMoney(root, "warnAbove", decimal.MaxValue)));
     }
 
     /// <summary>Um valor positivo até <paramref name="max"/>; qualquer outra coisa (zero, texto, negativo, grande demais) vale como "não informado".</summary>
