@@ -126,6 +126,65 @@ public class ClaudeTranslationProviderTests
     }
 
     [Fact]
+    public async Task Pedido_de_versao_curta_leva_a_traducao_de_hoje_e_o_tamanho_da_caixa()
+    {
+        var client = new StubClient(_ => Ok("""{"translations":[{"id":"a","translation":"Oi, tudo bem?"}]}"""));
+        var provider = new ClaudeTranslationProvider(client);
+        var batch = new TranslationBatch([Unit("a", "やあ")]) { Shorten = new Dictionary<string, ShortenRequest> { ["a"] = new("Olá, como você está passando hoje?", 3, 40) } };
+
+        var results = await provider.TranslateAsync(batch, CancellationToken.None);
+
+        var request = Assert.Single(client.Requests);
+        Assert.Contains("mais curta", request.System);
+        Assert.Contains("\"current\":\"Olá, como você está passando hoje?\"", request.User);
+        Assert.Contains("\"maxLines\":3", request.User);
+        Assert.Contains("\"maxWidth\":40", request.User);
+        Assert.Equal([new TranslationResult("a", "Oi, tudo bem?")], results);
+    }
+
+    [Fact]
+    public async Task Pedido_comum_nao_leva_nada_de_versao_curta()
+    {
+        var client = new StubClient(_ => Ok("""{"translations":[{"id":"a","translation":"Oi"}]}"""));
+        var provider = new ClaudeTranslationProvider(client);
+
+        await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ")]), CancellationToken.None);
+
+        var request = Assert.Single(client.Requests);
+        Assert.DoesNotContain("mais curta", request.System);
+        Assert.DoesNotContain("current", request.User);
+        Assert.DoesNotContain("maxLines", request.User);
+    }
+
+    [Fact]
+    public async Task Recusa_no_pedido_de_versao_curta_marca_a_linha_como_recusada()
+    {
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("refusal", string.Empty)));
+        var batch = new TranslationBatch([Unit("a", "x")]) { Shorten = new Dictionary<string, ShortenRequest> { ["a"] = new("texto longo", 3, 40) } };
+
+        var result = Assert.Single(await provider.TranslateAsync(batch, CancellationToken.None));
+
+        Assert.True(result.Refused);
+        Assert.Equal(string.Empty, result.Translation);
+    }
+
+    [Fact]
+    public async Task Pedido_de_versao_curta_continua_na_linha_isolada_depois_de_uma_recusa_do_lote()
+    {
+        var client = new StubClient(r => r.User.Contains("\"id\":\"a\"") && r.User.Contains("\"id\":\"b\"")
+            ? new ClaudeReply("refusal", string.Empty)
+            : r.User.Contains("\"id\":\"a\"") ? Ok("""{"translations":[{"id":"a","translation":"A"}]}""")
+            : Ok("""{"translations":[{"id":"b","translation":"B"}]}"""));
+        var provider = new ClaudeTranslationProvider(client);
+        var batch = new TranslationBatch([Unit("a", "x"), Unit("b", "y")]) { Shorten = new Dictionary<string, ShortenRequest> { ["b"] = new("longo", 2, 30) } };
+
+        await provider.TranslateAsync(batch, CancellationToken.None);
+
+        Assert.Contains("\"maxLines\":2", client.Requests[^1].User);
+        Assert.Contains("mais curta", client.Requests[^1].System);
+    }
+
+    [Fact]
     public async Task Tokens_lidos_do_cache_entram_na_contagem()
     {
         var reply = new ClaudeReply("end_turn", """{"translations":[{"id":"a","translation":"Oi"}]}""", new ClaudeUsage(100, 20, 800, 50));

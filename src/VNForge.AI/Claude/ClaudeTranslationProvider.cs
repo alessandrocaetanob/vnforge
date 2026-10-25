@@ -41,6 +41,11 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         sb.AppendLine("Você traduz linhas de visual novels do japonês para o português do Brasil.");
         sb.AppendLine("Mantenha exatamente os marcadores de controle do original e devolva uma tradução por linha, com o mesmo id.");
         sb.AppendLine("Responda apenas com o JSON pedido.");
+        if (batch.Shorten.Count > 0)
+        {
+            sb.AppendLine("Linhas com \"current\" já têm tradução, mas ela não cabe na caixa do jogo (\"maxLines\" linhas de \"maxWidth\" colunas). Para elas, devolva em \"translation\" uma versão mais curta, com o mesmo sentido, o mesmo tom e os mesmos marcadores de controle, que caiba na caixa.");
+        }
+
         ClaudePromptParts.AppendContext(sb, batch, "Glossário (use sempre estes termos):");
         return sb.ToString();
     }
@@ -51,10 +56,15 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         ClaudePromptParts.AppendPrevious(sb, batch, "Contexto anterior (não traduzir):");
         sb.AppendLine("Traduza estas linhas:");
         sb.AppendLine(JsonSerializer.Serialize(
-            batch.Lines.Select(u => new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source }),
+            batch.Lines.Select(u => PromptLine(u, batch)),
             PromptJson));
         return sb.ToString();
     }
+
+    private static object PromptLine(TextUnit u, TranslationBatch batch) =>
+        batch.Shorten.TryGetValue(u.Id, out var shorten)
+            ? new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source, current = shorten.Current, maxLines = shorten.MaxLines, maxWidth = shorten.MaxWidth }
+            : new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source };
 
     private static IReadOnlyList<TranslationResult> Parse(string text, TranslationBatch batch)
     {

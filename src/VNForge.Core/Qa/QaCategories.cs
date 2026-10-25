@@ -27,6 +27,7 @@ public static class QaCategories
     private static readonly Dictionary<string, string> ByRule = new(StringComparer.Ordinal)
     {
         ["marcador-diferente"] = Markers,
+        [ExtraPageQaRule.RuleId] = Markers,
         [BoxLineLimitRule.RuleId] = TextBox,
         [FieldByteLimitRule.RuleId] = TextBox,
         ["espaco-duplo"] = Spaces,

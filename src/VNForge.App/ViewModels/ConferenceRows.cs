@@ -23,7 +23,8 @@ public static class ConferenceRuleTexts
         ["aspas-desbalanceadas"] = ("Aspas ou parênteses sem par", "Falta fechar ou abrir um par de aspas ou parênteses. Confira se a fala termina onde o original termina."),
         [UnencodableCharacterRule.RuleId] = ("Caractere fora da codificação", "A estratégia de acentuação do projeto não grava este caractere no jogo. Troque por um que ela aceite."),
         ["japones-na-traducao"] = ("Japonês na tradução", "Há hiragana, katakana ou kanji na tradução. Costuma ser um trecho que ficou sem traduzir."),
-        [BoxLineLimitRule.RuleId] = ("Não cabe na caixa", @"A tradução ocupa mais linhas que o máximo do perfil de formatação. Encurte a frase ou divida a fala em duas páginas com \p."),
+        [BoxLineLimitRule.RuleId] = ("Não cabe na caixa", "A tradução ocupa mais linhas que a caixa do jogo. Divida a fala em páginas ou peça à IA uma versão mais curta."),
+        [ExtraPageQaRule.RuleId] = ("Página a mais", "A tradução vira a página mais vezes que o original: a fala foi dividida em páginas. Confira se a divisão está no lugar certo; se foi de propósito, marque como ok."),
         [FieldByteLimitRule.RuleId] = ("Passa do limite do campo", "O campo tem um limite de bytes no jogo e a tradução passa dele. Encurte o texto."),
     };
 

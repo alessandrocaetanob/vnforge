@@ -14,6 +14,9 @@ public static class ControlMarkers
     /// <summary>Quebra de linha dentro da caixa.</summary>
     public const string LineBreak = @"\n";
 
+    /// <summary>Virada de página: o jogo espera o clique e abre uma caixa nova.</summary>
+    public const string PageBreak = @"\p";
+
     /// <summary>Divide <paramref name="text"/> em texto comum e marcadores; juntar os trechos devolve o texto original.</summary>
     /// <exception cref="ArgumentException">Barra no fim, marcador desconhecido ou chave sem fechamento.</exception>
     public static IReadOnlyList<TextSegment> Split(string text)

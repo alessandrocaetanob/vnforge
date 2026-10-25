@@ -38,6 +38,7 @@ public sealed class ValidatingTranslationProvider : ITranslationProvider
                 Glossary = batch.Glossary,
                 Characters = batch.Characters,
                 StyleGuide = batch.StyleGuide,
+                Shorten = batch.Shorten,
             };
         }
 

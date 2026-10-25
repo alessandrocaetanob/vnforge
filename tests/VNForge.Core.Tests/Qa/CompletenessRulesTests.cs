@@ -143,6 +143,69 @@ public sealed class CompletenessRulesTests
     }
 
     [Fact]
+    public void Marcador_nao_dispara_quando_so_sobra_uma_virada_de_pagina()
+    {
+        // A fala dividida em duas páginas tem um \p a mais que o original: é a página extra, que tem regra própria e é só aviso.
+        Assert.Empty(Run(new MarkerMismatchQaRule(), Unit(@"こんにちは\p", @"Olá\p tudo bem?\p", TranslationStatus.Translated)));
+    }
+
+    [Fact]
+    public void Marcador_continua_erro_quando_falta_a_virada_de_pagina_ou_sobra_outro_marcador()
+    {
+        Assert.Single(Run(new MarkerMismatchQaRule(), Unit(@"こんにちは\p", "Olá", TranslationStatus.Translated)));
+        Assert.Single(Run(new MarkerMismatchQaRule(), Unit(@"こんにちは\p", @"Olá\c\p\p", TranslationStatus.Translated)));
+    }
+
+    [Fact]
+    public void Marcador_com_pagina_extra_e_marcador_perdido_aponta_so_o_que_falta()
+    {
+        var issue = Assert.Single(Run(new MarkerMismatchQaRule(), Unit(@"{VAR:name}さん\p", @"Olá\p x\p", TranslationStatus.Translated)));
+
+        Assert.Contains("falta {VAR:name}", issue.Message);
+        Assert.DoesNotContain("sobra", issue.Message);
+    }
+
+    [Fact]
+    public void PaginaExtra_avisa_quando_a_traducao_tem_um_p_a_mais()
+    {
+        var issue = Assert.Single(Run(new ExtraPageQaRule(), Unit(@"こんにちは\p", @"Olá\p tudo bem?\p", TranslationStatus.Translated)));
+
+        Assert.Equal("pagina-extra", issue.RuleId);
+        Assert.Equal(QaSeverity.Warning, issue.Severity);
+        Assert.Equal("a:000001", issue.UnitId);
+        Assert.Contains("1 virada de página a mais", issue.Message);
+    }
+
+    [Fact]
+    public void PaginaExtra_conta_todas_as_viradas_que_sobram()
+    {
+        var issue = Assert.Single(Run(new ExtraPageQaRule(), Unit("こんにちは", @"a\pb\pc", TranslationStatus.Translated)));
+
+        Assert.Contains("2 viradas de página a mais", issue.Message);
+    }
+
+    [Fact]
+    public void PaginaExtra_nao_dispara_com_as_mesmas_viradas_nem_com_menos()
+    {
+        Assert.Empty(Run(new ExtraPageQaRule(), Unit(@"a\pb\p", @"x\py\p", TranslationStatus.Translated)));
+        Assert.Empty(Run(new ExtraPageQaRule(), Unit(@"a\pb\p", "x y", TranslationStatus.Translated)));
+    }
+
+    [Fact]
+    public void PaginaExtra_nao_dispara_sem_traducao_nem_com_marcador_invalido()
+    {
+        Assert.Empty(Run(new ExtraPageQaRule(), Unit(@"こんにちは\p", null, TranslationStatus.Untranslated)));
+        Assert.Empty(Run(new ExtraPageQaRule(), Unit(@"こんにちは\p", @"Olá\p\x\p", TranslationStatus.Translated)));
+        Assert.Empty(Run(new ExtraPageQaRule(), Unit(@"quebrado\x", @"ok\p", TranslationStatus.Translated)));
+    }
+
+    [Fact]
+    public void Default_registra_a_pagina_extra()
+    {
+        Assert.NotNull(QaEngine.Default.Find("pagina-extra"));
+    }
+
+    [Fact]
     public void Marcador_nao_dispara_em_linha_sem_traducao()
     {
         Assert.Empty(Run(new MarkerMismatchQaRule(), Unit(@"こんにちは\p", null, TranslationStatus.Untranslated)));
