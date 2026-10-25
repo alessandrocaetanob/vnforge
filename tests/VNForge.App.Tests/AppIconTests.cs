@@ -133,7 +133,7 @@ public class AppIconTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixtu
     {
         var csproj = Path.Combine(RepoRoot(), "src", "VNForge.App", "VNForge.App.csproj");
         var icon = XDocument.Load(csproj).Descendants("ApplicationIcon").Single().Value;
-        Assert.Equal(@"Assets\VNForge.ico", icon);
+        Assert.Equal("Assets/VNForge.ico", icon);
         Assert.True(File.Exists(Path.Combine(RepoRoot(), "src", "VNForge.App", icon)));
     }
 
