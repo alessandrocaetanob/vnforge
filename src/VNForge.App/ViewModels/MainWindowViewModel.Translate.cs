@@ -22,6 +22,8 @@ public sealed partial class MainWindowViewModel
     /// <summary>Termina quando a última tradução pedida acabou e o resultado foi mostrado.</summary>
     public Task TranslationRun { get; private set; } = Task.CompletedTask;
 
+    private const string ToastKey = "translate";
+
     private bool translating;
 
     private void HookTranslateDialog()
@@ -52,7 +54,7 @@ public sealed partial class MainWindowViewModel
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
-            Toasts.Show($"Não foi possível abrir a janela de tradução: {e.Message}", ToastKind.Error, key: "translate");
+            Toasts.Show($"Não foi possível abrir a janela de tradução: {e.Message}", ToastKind.Error, key: ToastKey);
         }
     }
 
@@ -66,7 +68,7 @@ public sealed partial class MainWindowViewModel
         // Duas execuções somariam o gasto cada uma por conta própria e poderiam passar do limite juntas.
         if (translating)
         {
-            Toasts.Show("Já há uma tradução em andamento. Espere ela terminar para pedir outra.", ToastKind.Warning, key: "translate");
+            Toasts.Show("Já há uma tradução em andamento. Espere ela terminar para pedir outra.", ToastKind.Warning, key: ToastKey);
             return;
         }
 
@@ -77,7 +79,7 @@ public sealed partial class MainWindowViewModel
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
-            Toasts.Show($"Não foi possível começar a tradução: {e.Message}", ToastKind.Error, key: "translate");
+            Toasts.Show($"Não foi possível começar a tradução: {e.Message}", ToastKind.Error, key: ToastKey);
             return;
         }
 
@@ -88,6 +90,8 @@ public sealed partial class MainWindowViewModel
             new TranslationJobSettings(Settings.Rate, Settings.Budget, Settings.Concurrency),
             (_, _) => Task.FromResult(true));
         TranslationJobResult? result = null;
+        var canceled = false;
+        string? failure = null;
         translating = true;
         var task = TaskService.Start(TranslationTitle(request.Scope), async (reporter, ct) =>
         {
@@ -95,16 +99,24 @@ public sealed partial class MainWindowViewModel
             {
                 result = await job.RunAsync(request, reporter, ct).ConfigureAwait(false);
             }
-            catch (Exception e) when (e is not (OperationCanceledException or IOException or UnauthorizedAccessException))
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                throw new InvalidOperationException(ClaudeErrorMessages.Describe(e), e);
+                canceled = true;
+                throw;
+            }
+            catch (Exception e)
+            {
+                failure = e is IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
+                throw new InvalidOperationException(failure, e);
             }
         });
 
         await task.Completion;
         translating = false;
         Editor.Reload();
-        ShowTranslationOutcome(task, result);
+
+        // O estado da tarefa chega por post depois do Completion: o que decide o aviso é o que a própria tarefa guardou.
+        ShowTranslationOutcome(canceled, failure, result);
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch
@@ -114,39 +126,62 @@ public sealed partial class MainWindowViewModel
         _ => "Traduzindo o jogo",
     };
 
-    private void ShowTranslationOutcome(BackgroundTaskItem task, TranslationJobResult? result)
+    private void ShowTranslationOutcome(bool canceled, string? failure, TranslationJobResult? result)
     {
-        if (task.State == BackgroundTaskState.Cancelled)
+        if (canceled)
         {
-            Toasts.Show("Tradução cancelada. O que já voltou ficou salvo.", ToastKind.Warning, key: "translate");
+            Toasts.Show("Tradução cancelada. O que já voltou ficou salvo.", ToastKind.Warning, key: ToastKey);
         }
-        else if (task.State == BackgroundTaskState.Failed || result is null)
+        else if (failure is not null || result is null)
         {
-            Toasts.Show(task.Error ?? "A tradução não terminou.", ToastKind.Error, key: "translate");
+            Toasts.Show(failure ?? "A tradução não terminou.", ToastKind.Error, key: ToastKey);
         }
         else
         {
             var (text, kind) = DescribeOutcome(result);
-            Toasts.Show(text, kind, key: "translate");
+            Toasts.Show(text, kind, key: ToastKey);
         }
     }
 
-    private static (string Text, ToastKind Kind) DescribeOutcome(TranslationJobResult result)
+    internal static (string Text, ToastKind Kind) DescribeOutcome(TranslationJobResult result)
     {
-        var done = result.Translated == 1 ? "1 linha traduzida pela IA" : $"{ProjectLabels.Number(result.Translated)} linhas traduzidas pela IA";
-        if (result.Stopped == BudgetStop.LimitReached)
+        var done = Lines(result.Translated, "linha traduzida pela IA", "linhas traduzidas pela IA");
+        var stoppedAtLimit = result.Stopped == BudgetStop.LimitReached;
+        var parts = new List<string> { stoppedAtLimit ? $"A tradução parou no limite de gasto: {done}." : $"{done}." };
+        if (stoppedAtLimit)
         {
-            return ($"A tradução parou no limite de gasto: {done}. As outras seguem pendentes.", ToastKind.Warning);
+            parts.Add("As outras seguem pendentes.");
         }
 
         if (result.Failed > 0)
         {
-            var left = result.Failed == 1 ? "1 linha ficou sem tradução" : $"{ProjectLabels.Number(result.Failed)} linhas ficaram sem tradução";
-            return ($"{done}, mas {left}. {result.Problem}", ToastKind.Warning);
+            parts.Add($"{Lines(result.Failed, "linha ficou", "linhas ficaram")} sem tradução porque o lote não voltou. {result.Problem}".TrimEnd());
         }
 
-        return result.Translated == 0
-            ? ("Nenhuma linha foi traduzida.", ToastKind.Info)
-            : ($"{done}. Elas aparecem como IA no Editor, para você revisar.", ToastKind.Success);
+        if (result.Refused > 0)
+        {
+            parts.Add($"{Lines(result.Refused, "linha não passou", "linhas não passaram")} na validação e {(result.Refused == 1 ? "segue" : "seguem")} sem tradução.");
+        }
+
+        if (result.Skipped > 0)
+        {
+            parts.Add($"{Lines(result.Skipped, "linha mudou", "linhas mudaram")} durante a execução e {(result.Skipped == 1 ? "ficou" : "ficaram")} como você deixou.");
+        }
+
+        var needsAttention = stoppedAtLimit || result.Failed > 0 || result.Refused > 0;
+        if (result.Translated == 0 && !needsAttention && result.Skipped == 0)
+        {
+            return ("Nenhuma linha foi traduzida.", ToastKind.Info);
+        }
+
+        if (!needsAttention && result.Translated > 0)
+        {
+            parts.Add("Elas aparecem como IA no Editor, para você revisar.");
+        }
+
+        return (string.Join(' ', parts), needsAttention ? ToastKind.Warning : ToastKind.Success);
     }
+
+    private static string Lines(int count, string singular, string plural) =>
+        count == 1 ? $"1 {singular}" : $"{ProjectLabels.Number(count)} {plural}";
 }

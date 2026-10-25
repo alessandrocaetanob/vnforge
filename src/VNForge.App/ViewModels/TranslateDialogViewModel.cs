@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Translation;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -14,7 +16,7 @@ namespace VNForge.App.ViewModels;
 /// <summary>O que a janela precisa saber dos Ajustes: a cotação, o limite e o aviso de gasto, a qualidade padrão e se há chave.</summary>
 public sealed record TranslateDialogSettings(ExchangeRate Rate, BudgetLimits Limits, TranslationQuality DefaultQuality, bool KeyConfigured);
 
-/// <summary>Uma resposta à pergunta "o que traduzir": esta cena, o capítulo ou o jogo todo, com as linhas que ainda faltam em cada um.</summary>
+/// <summary>Uma resposta à pergunta "o que traduzir": esta cena, o capítulo ou o jogo inteiro, com as linhas que ainda faltam em cada um.</summary>
 public sealed partial class ScopeChoice(TranslationScope scope, string title) : ObservableObject
 {
     public TranslationScope Scope { get; } = scope;
@@ -202,7 +204,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     public partial string KeyMissingText { get; private set; } = string.Empty;
 
     /// <summary>Abre a janela e lê o projeto fora da thread da tela; a janela já aparece, com os números em branco, enquanto a leitura roda.</summary>
-    /// <param name="sceneKey">A chave do script aberto no editor; <see langword="null"/> deixa só o jogo todo com linhas.</param>
+    /// <param name="sceneKey">A chave do script aberto no editor; <see langword="null"/> deixa só o jogo inteiro com linhas.</param>
     public Task OpenAsync(ProjectFolder folder, string? sceneKey, TranslateDialogSettings current)
     {
         ArgumentNullException.ThrowIfNull(folder);
@@ -322,14 +324,22 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     private static ProjectRead ReadProject(ProjectFolder folder, string? sceneKey, ExchangeRate rate)
     {
         var texts = folder.LoadAllText();
+        var config = folder.LoadConfig();
+        var builder = new TranslationBatchBuilder(
+            folder.LoadGlossary(),
+            new CharacterBook(folder.LoadCharacters()),
+            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(folder.Root, TranslationContextSummary.StyleGuideFileName)),
+            style: config.Style);
+        var batchSize = Math.Clamp(config.Ai.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize);
+        var effort = ClaudeEffortText.ParseOrDefault(config.Ai.Effort);
         var scopes = Enum.GetValues<TranslationScope>().ToDictionary(
             scope => scope,
             scope =>
             {
                 var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey);
-                var lines = TranslationQuoter.PendingLines(texts, keys);
+                var batches = TranslationQuoter.BatchesFor(texts, keys, builder, batchSize);
                 var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
-                return (Keys: keys, Quotes: TranslationQuoter.Quote(lines, rate), Scenes: scenes);
+                return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes);
             });
         return new ProjectRead(scopes, rate.ToBrl(AiUsageLog.Load(folder).Dollars), TranslationContextSummary.Read(folder));
     }
@@ -342,7 +352,13 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         }
 
         var text = lines == 1 ? "1 linha para traduzir" : $"{ProjectLabels.Number(lines)} linhas para traduzir";
-        return scope == TranslationScope.Scene ? text : $"{text} em {scenes} {(scenes == 1 ? "cena" : "cenas")}";
+        if (scope == TranslationScope.Scene)
+        {
+            return text;
+        }
+
+        var sceneWord = scenes == 1 ? "cena" : "cenas";
+        return $"{text} em {scenes} {sceneWord}";
     }
 
     private QualityQuote? FitFor(TranslationScope scope) =>

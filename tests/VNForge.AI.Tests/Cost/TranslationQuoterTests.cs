@@ -11,7 +11,7 @@ public class TranslationQuoterTests
     private static TextUnit Line(string id, string source = "こんにちは、世界のみなさん", TranslationStatus status = TranslationStatus.Untranslated) =>
         new(id, TextUnitKind.Dialogue, null, source, status == TranslationStatus.Untranslated ? null : "ok", status);
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts(int scripts, int linesEach)
+    private static Dictionary<string, IReadOnlyList<TextUnit>> Texts(int scripts, int linesEach)
     {
         var result = new Dictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal);
         for (var s = 1; s <= scripts; s++)

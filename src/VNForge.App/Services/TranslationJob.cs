@@ -20,11 +20,13 @@ public sealed record TranslationJobSettings(ExchangeRate Rate, BudgetLimits Limi
 /// <param name="Stopped">Por que o limite de gasto parou o pedido; <see langword="null"/> quando não parou.</param>
 /// <param name="SpentBrl">O que a execução gastou, em reais.</param>
 /// <param name="Problem">A primeira falha, em português comum; <see langword="null"/> quando todos os lotes voltaram.</param>
-public sealed record TranslationJobResult(int Translated, int Failed, int Refused, BudgetStop? Stopped, decimal SpentBrl, string? Problem);
+/// <param name="Skipped">Linhas que a pessoa mudou durante a execução (traduziu, aprovou, trocou o original) e que a IA não tocou.</param>
+public sealed record TranslationJobResult(int Translated, int Failed, int Refused, BudgetStop? Stopped, decimal SpentBrl, string? Problem, int Skipped = 0);
 
 /// <summary>
-/// Traduz com a IA as linhas pendentes dos scripts pedidos e grava cada lote em <c>text/*.json</c> assim que volta, como <c>vnf translate</c>.
-/// O <see cref="BudgetGuard"/> para o pedido quando o gasto do projeto mais o desta execução chega ao limite.
+/// Traduz com a IA as linhas pendentes dos scripts pedidos e grava cada lote em <c>text/*.json</c> assim que volta, como <c>vnf translate</c>
+/// (mesmos <see cref="LineSelection"/>, <see cref="RunCostTracker"/> e estimativa por lote). O <see cref="BudgetGuard"/> para o pedido quando o
+/// gasto do projeto mais o desta execução chega ao limite.
 /// </summary>
 /// <param name="project">O projeto aberto.</param>
 /// <param name="providerFactory">Monta o provedor para (modelo, esforço); os testes passam o provedor falso.</param>
@@ -42,8 +44,6 @@ public sealed class TranslationJob(
 {
     private const string ProviderName = "anthropic";
     private const string CacheFileName = "translations.json";
-    private const int PreviousLinesWindow = 30;
-    private const int NextLinesWindow = 10;
 
     private readonly Func<ITranslationProvider, ClaudeUsage?> usageOf = usageOf ?? (provider => (provider as ClaudeTranslationProvider)?.Usage);
     private readonly TimeProvider clock = clock ?? TimeProvider.System;
@@ -54,14 +54,17 @@ public sealed class TranslationJob(
         ArgumentNullException.ThrowIfNull(reporter);
 
         var profile = QualityProfiles.For(request.Quality);
-        var selection = Selection.Build(project.LoadAllText(), request.ScriptKeys);
-        if (selection.Pending.Count == 0)
+        var scriptKeys = request.ScriptKeys.ToHashSet(StringComparer.Ordinal);
+        var selection = LineSelection.Build(project.LoadAllText(), scriptKeys.Contains, null, TranslationQuoter.IsPending);
+        var pending = selection.Pending;
+        if (pending.Count == 0)
         {
             return new TranslationJobResult(0, 0, 0, null, 0m, null);
         }
 
         var projectConfig = project.LoadConfig();
         var config = projectConfig.Ai;
+        var effort = ClaudeEffortText.ParseOrDefault(config.Effort);
         var batchSize = Math.Clamp(config.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize);
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
@@ -70,22 +73,18 @@ public sealed class TranslationJob(
             style: projectConfig.Style);
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
-        var raw = providerFactory(profile.Model, ParseEffort(config.Effort));
+        var raw = providerFactory(profile.Model, effort);
         var chain = new CachingTranslationProvider(new ValidatingTranslationProvider(raw), cache, profile.Model);
 
-        var baseline = AiUsageLog.Load(project).Dollars;
-        var guard = new BudgetGuard(
-            settings.Limits,
-            () => settings.Rate.ToBrl(baseline + RunDollars(raw, profile.Model)),
-            lines => CostEstimator.Quote(lines, profile.Model, settings.Rate).Brl,
-            confirm);
+        var tracker = new RunCostTracker(project, profile.Model, settings.Rate, () => usageOf(raw));
+        var estimator = new RequestEstimator(selection, builder, profile.Model, effort, batchSize, settings.Rate, cache);
         var runner = new TranslationRunner(
             chain,
             new TranslationRunOptions
             {
                 BatchSize = batchSize,
                 MaxConcurrency = Math.Max(1, settings.Concurrency),
-                Budget = guard,
+                Budget = tracker.CreateGuard(settings.Limits, estimator.Brl, confirm),
                 Delay = settings.Delay ?? new TranslationRunOptions().Delay,
             });
 
@@ -99,18 +98,19 @@ public sealed class TranslationJob(
         {
             lock (gate)
             {
-                selection.ApplyAndSave(project, results, origin, counters);
-                var now = RunDollars(raw, profile.Model);
+                var saved = selection.ApplyAndSave(project, results, (result, unit) => Apply(counters, origin, result, unit));
+                counters.Skipped += saved.Skipped;
+                var now = tracker.RunDollars() ?? 0m;
                 reporter.AddCost(now - reportedDollars);
                 reportedDollars = now;
-                reporter.Report((double)(counters.Translated + counters.Refused) / selection.Pending.Count, "Traduzindo");
+                reporter.Report((double)(counters.Translated + counters.Refused + counters.Skipped) / pending.Count, "Traduzindo");
             }
         }
 
         TranslationRunResult run;
         try
         {
-            run = await runner.RunAsync(selection.Pending, lines => BuildBatch(selection, builder, lines, gate), OnBatch, null, ct).ConfigureAwait(false);
+            run = await runner.RunAsync(pending, lines => selection.BuildBatch(builder, lines), OnBatch, null, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -119,7 +119,7 @@ public sealed class TranslationJob(
                 cache.Save(cachePath);
             }
 
-            RecordUsage(raw, profile.Model);
+            tracker.Record();
         }
 
         if (run.CallbackError is { } callbackError)
@@ -130,119 +130,33 @@ public sealed class TranslationJob(
         ct.ThrowIfCancellationRequested();
         var failed = run.Failures.Sum(f => f.LineIds.Count);
         var problem = run.Failures.Count > 0 ? ClaudeErrorMessages.Describe(run.Failures[0].Error) : null;
-        return new TranslationJobResult(counters.Translated, failed, counters.Refused, run.BudgetStop, settings.Rate.ToBrl(RunDollars(raw, profile.Model)), problem);
+        return new TranslationJobResult(counters.Translated, failed, counters.Refused, run.BudgetStop, tracker.RunBrl, problem, counters.Skipped);
     }
 
-    private static TranslationBatch BuildBatch(Selection selection, TranslationBatchBuilder builder, IReadOnlyList<TextUnit> lines, object gate)
+    private static TextUnit? Apply(Counters counters, TranslationOrigin origin, TranslationResult result, TextUnit unit)
     {
-        lock (gate)
+        if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
         {
-            return selection.BuildBatch(builder, lines);
-        }
-    }
-
-    private decimal RunDollars(ITranslationProvider provider, string model) =>
-        usageOf(provider) is { } u
-            ? ModelPricing.For(model).Cost(new TokenUsage(u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens))
-            : 0m;
-
-    private void RecordUsage(ITranslationProvider provider, string model)
-    {
-        if (usageOf(provider) is not { } u)
-        {
-            return;
+            counters.Refused++;
+            return null;
         }
 
-        AiUsageLog.TryRecord(project, new AiUsageTotals(
-            u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens, RunDollars(provider, model), 1));
+        counters.Translated++;
+        return unit with
+        {
+            Translation = result.Translation,
+            Status = TranslationStatus.Machine,
+            Origin = origin,
+            PreviousSource = null,
+        };
     }
-
-    private static ClaudeEffort ParseEffort(string text) => text.Trim().ToLowerInvariant() switch
-    {
-        "low" => ClaudeEffort.Low,
-        "high" => ClaudeEffort.High,
-        _ => ClaudeEffort.Medium,
-    };
 
     private sealed class Counters
     {
         public int Translated { get; set; }
 
         public int Refused { get; set; }
-    }
 
-    /// <summary>As linhas pendentes e o mapa para gravá-las de volta no <c>text/*.json</c> de origem.</summary>
-    private sealed class Selection
-    {
-        private readonly Dictionary<string, List<TextUnit>> files = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, string> keyById = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, int> indexById = new(StringComparer.Ordinal);
-
-        public List<TextUnit> Pending { get; } = [];
-
-        public static Selection Build(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, IEnumerable<string> keys)
-        {
-            var selection = new Selection();
-            foreach (var key in keys.Where(texts.ContainsKey))
-            {
-                var units = texts[key];
-                var wanted = units.Where(u => u.Status == TranslationStatus.Untranslated && !string.IsNullOrWhiteSpace(u.Source)).ToList();
-                if (wanted.Count == 0)
-                {
-                    continue;
-                }
-
-                selection.files[key] = [.. units];
-                for (var i = 0; i < units.Count; i++)
-                {
-                    selection.keyById[units[i].Id] = key;
-                    selection.indexById[units[i].Id] = i;
-                }
-
-                selection.Pending.AddRange(wanted);
-            }
-
-            return selection;
-        }
-
-        public TranslationBatch BuildBatch(TranslationBatchBuilder builder, IReadOnlyList<TextUnit> lines)
-        {
-            var first = lines[0].Id;
-            var last = lines[^1].Id;
-            var previous = files[keyById[first]].Take(indexById[first]).TakeLast(PreviousLinesWindow).ToList();
-            var next = files[keyById[last]].Skip(indexById[last] + 1).Take(NextLinesWindow).ToList();
-            return builder.Build(lines, previous, next);
-        }
-
-        public void ApplyAndSave(ProjectFolder folder, IReadOnlyList<TranslationResult> results, TranslationOrigin origin, Counters counters)
-        {
-            var touched = new SortedSet<string>(StringComparer.Ordinal);
-            foreach (var result in results)
-            {
-                if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
-                {
-                    counters.Refused++;
-                    continue;
-                }
-
-                var key = keyById[result.Id];
-                var list = files[key];
-                var index = indexById[result.Id];
-                list[index] = list[index] with
-                {
-                    Translation = result.Translation,
-                    Status = TranslationStatus.Machine,
-                    Origin = origin,
-                    PreviousSource = null,
-                };
-                touched.Add(key);
-                counters.Translated++;
-            }
-
-            foreach (var key in touched)
-            {
-                folder.SaveText(key, files[key]);
-            }
-        }
+        public int Skipped { get; set; }
     }
 }

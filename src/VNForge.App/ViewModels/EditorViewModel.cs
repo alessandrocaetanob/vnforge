@@ -405,7 +405,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     private bool HasScript() => SelectedScript is not null;
 
-    // A janela oferece também o capítulo e o jogo todo, então abre mesmo quando a cena aberta não tem pendentes.
+    // A janela oferece também o capítulo e o jogo inteiro, então abre mesmo quando a cena aberta não tem pendentes.
     private bool CanTranslatePending() => SelectedScript is not null;
 
     /// <summary>O painel de busca e substituição do projeto, que abre dentro do Editor.</summary>

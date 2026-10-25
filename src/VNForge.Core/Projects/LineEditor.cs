@@ -68,6 +68,14 @@ public sealed class LineEditor
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
 
+        lock (ProjectTextLock.For(project))
+        {
+            return SetTranslationForLocked(targets, translation);
+        }
+    }
+
+    private BatchTranslationResult SetTranslationForLocked(IEnumerable<(string ScriptKey, string Id)> targets, string translation)
+    {
         var origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow());
         var scripts = new Dictionary<string, List<TextUnit>>(StringComparer.Ordinal);
         var pending = new Dictionary<string, List<LineChange>>(StringComparer.Ordinal);
