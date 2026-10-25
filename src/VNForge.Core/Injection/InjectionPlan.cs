@@ -33,6 +33,13 @@ public sealed record PlannedFile(
 /// <param name="StagingDirectory">Pasta com a cópia de trabalho (<c>.cache/patch/&lt;id&gt;</c>), apagada por <see cref="GameInjector.InjectPatch"/> e por <see cref="GameInjector.DiscardPatch"/>.</param>
 public sealed record PatchPlan(IGamePatch Patch, InjectionPlan Injection, string StagingDirectory);
 
+/// <summary>As duas etapas de <see cref="GameInjector.Inject"/>; o jogo só é escrito na segunda, depois do backup conferido.</summary>
+public enum InjectionPhase
+{
+    Backup,
+    Write,
+}
+
 /// <param name="BackupDirectory">Pasta <c>backup/AAAA-MM-DD_HHmm</c> criada; nula quando não havia o que injetar.</param>
 public sealed record InjectionResult(string GameDirectory, string? BackupDirectory, IReadOnlyList<string> Written, int UnchangedCount);
 

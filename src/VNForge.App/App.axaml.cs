@@ -38,11 +38,14 @@ public sealed class App : Application
             RequestedThemeVariant = (settings.SelectedTheme?.Value ?? ThemeChoice.System).ToVariant();
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
-            window.DataContext = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
+            var suggester = LineSuggester.ForUser(configDirectory);
+            var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks))
             {
-                Editor = new EditorViewModel(suggester: LineSuggester.ForUser(configDirectory)) { Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate) },
+                Editor = new EditorViewModel(suggester: suggester) { Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate) },
             };
+            main.Conference.Shortener = suggester;
+            window.DataContext = main;
             desktop.MainWindow = window;
             window.Opened += async (_, _) => await start.LoadAsync();
         }

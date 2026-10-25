@@ -185,9 +185,9 @@ public sealed class ProjectLines
         }
 
         var index = new Dictionary<string, List<(string Key, int Index)>>(StringComparer.Ordinal);
-        foreach (var script in Scripts)
+        foreach (var key in Scripts.Select(script => script.Key))
         {
-            var withSource = byScript[script.Key].Select((line, i) => (line, i)).Where(x => x.line.Unit.Source.Length > 0);
+            var withSource = byScript[key].Select((line, i) => (line, i)).Where(x => x.line.Unit.Source.Length > 0);
             foreach (var (line, i) in withSource)
             {
                 var hash = SourceHash.Of(line.Unit.Source);
@@ -196,7 +196,7 @@ public sealed class ProjectLines
                     index[hash] = list = [];
                 }
 
-                list.Add((script.Key, i));
+                list.Add((key, i));
             }
         }
 

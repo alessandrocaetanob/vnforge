@@ -40,7 +40,9 @@ internal static class RestoreCommand
             return ErrorHandler.CancelledExitCode;
         }
 
+        using var projectLock = ProjectLock.Acquire(project);
         var result = injector.Restore(plan);
+        GameStateFile.TryClearInGame(project);
         if (json)
         {
             output.WriteLine(JsonEnvelope.Result(new

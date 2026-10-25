@@ -103,6 +103,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>A carga das linhas em andamento (ou a última); os testes a aguardam.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
 
+    /// <summary>Quem encurta a fala a pedido do aviso "Não cabe na caixa do jogo"; nulo usa o próprio sugestor quando ele sabe encurtar.</summary>
+    public ILineShortener? Shortener { get; init; }
+
     /// <summary>Disparado a cada gravação que mudou a tradução ou o status de uma linha (o aviso "Linha 12 gravada").</summary>
     public event EventHandler<LineSavedEventArgs>? LineSaved;
 
@@ -265,7 +268,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         IsLoading = false;
         ErrorMessage = error;
-        lineEditor = loaded is null ? null : EditorFactory is { } factory ? factory(root) : TryCreateEditor(root);
+        lineEditor = CreateLineEditor(loaded, root);
         context = loadedContext;
         Apply(loaded);
     }
@@ -573,13 +576,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return null;
         }
 
+        var shortener = Shortener ?? suggester as ILineShortener;
+
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
         var lineContext = context.For(unit.Speaker, unit.Source);
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
         detail.AttachPreview(CurrentProfile());
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
@@ -744,6 +749,16 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
     private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;
+
+    private LineEditor? CreateLineEditor(ProjectLines? loaded, string root)
+    {
+        if (loaded is null)
+        {
+            return null;
+        }
+
+        return EditorFactory is { } factory ? factory(root) : TryCreateEditor(root);
+    }
 
     private LineEditor? TryCreateEditor(string root)
     {

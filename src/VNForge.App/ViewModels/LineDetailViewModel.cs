@@ -203,8 +203,18 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     public string MarkerStateText =>
         string.IsNullOrWhiteSpace(Translation) ? string.Empty
-        : MarkersMatch ? "Marcadores iguais ao original"
+        : MarkersMatch ? "Marcadores iguais ao original" + ExtraPagesText
         : "Marcadores diferentes do original";
+
+    /// <summary>Quantas viradas de página a tradução tem a mais que o original; é a fala dividida em páginas, e não conta como marcador diferente.</summary>
+    private int extraPages;
+
+    private string ExtraPagesText => extraPages switch
+    {
+        0 => string.Empty,
+        1 => ", com 1 página a mais",
+        _ => $", com {extraPages} páginas a mais",
+    };
 
     public string Source => unit.Source;
 
@@ -225,7 +235,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     /// <summary>O campo mostra o texto com os marcadores à mostra, porque ele não volta igual pela conversão (<see cref="TranslationFieldText.IsRaw"/>).</summary>
     public bool FieldIsRaw => translationField.IsRaw;
 
-    public string FieldRawNotice => "Este texto está com os marcadores à mostra.";
+    public const string FieldRawNotice = "Este texto está com os marcadores à mostra.";
 
     [ObservableProperty]
     public partial string Notes { get; set; }
@@ -304,6 +314,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         }
 
         Preview = profile is null ? null : new TextboxPreviewViewModel(unit, profile, Translation);
+        AttachFit(profile);
         NotifyFitChanged();
     }
 
@@ -370,6 +381,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         disposed = true;
         CancelSuggestion();
         CancelExplanation();
+        Fit?.Cancel();
         timer?.Dispose();
         timer = null;
     }
@@ -413,6 +425,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         translationDirty = true;
         UpdateMarkers();
         Preview?.Update(value);
+        Fit?.Update();
         NotifyFitChanged();
         ScheduleSave();
     }
@@ -516,6 +529,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         {
             MissingMarkers = [];
             MarkerProblem = null;
+            extraPages = 0;
             SetMarkersMatch(false);
             return;
         }
@@ -523,17 +537,43 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         try
         {
             var found = ControlMarkers.Markers(Translation);
-            MissingMarkers = FindMissingMarkers(sourceMarkers, found);
+            var missing = FindMissingMarkers(sourceMarkers, found);
+            extraPages = Math.Max(0, CountPages(found) - CountPages(sourceMarkers));
+
+            // A divisão em páginas troca por \p a quebra do autor no ponto de corte: cada página a mais paga uma quebra que sumiu.
+            var forgiven = Math.Min(extraPages, missing.Count(IsLineBreak));
+            MissingMarkers = [.. RemoveLineBreaks(missing, forgiven)];
             MarkerProblem = null;
-            SetMarkersMatch(MissingMarkers.Count == 0 && found.Count == sourceMarkers.Count);
+            SetMarkersMatch(MissingMarkers.Count == 0 && found.Count - extraPages + forgiven == sourceMarkers.Count);
         }
         catch (ArgumentException e)
         {
             MissingMarkers = [];
             MarkerProblem = e.Message;
+            extraPages = 0;
             SetMarkersMatch(false);
         }
     }
+
+    private static bool IsLineBreak(string marker) => string.Equals(marker, ControlMarkers.LineBreak, StringComparison.Ordinal);
+
+    private static IEnumerable<string> RemoveLineBreaks(IReadOnlyList<string> markers, int count)
+    {
+        var left = count;
+        foreach (var marker in markers)
+        {
+            if (left > 0 && IsLineBreak(marker))
+            {
+                left--;
+            }
+            else
+            {
+                yield return marker;
+            }
+        }
+    }
+
+    private static int CountPages(IReadOnlyList<string> markers) => markers.Count(m => string.Equals(m, ControlMarkers.PageBreak, StringComparison.Ordinal));
 
     private void SetMarkersMatch(bool match)
     {

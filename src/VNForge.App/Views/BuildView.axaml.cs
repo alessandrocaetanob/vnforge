@@ -19,6 +19,13 @@ public sealed partial class BuildView : UserControl
         DataContextChanged += (_, _) => FollowLog();
     }
 
+    /// <summary>Abre ou fecha "Detalhes técnicos" por código; os testes de tela usam para alcançar o build, a injeção e o registro.</summary>
+    public bool TechnicalExpanded
+    {
+        get => Technical.IsExpanded;
+        set => Technical.IsExpanded = value;
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);

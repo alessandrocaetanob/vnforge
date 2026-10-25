@@ -15,7 +15,7 @@ public sealed class LineEditor
     private readonly Action<string, IReadOnlyList<TextUnit>> save;
 
     public LineEditor(ProjectFolder project, TimeProvider clock)
-        : this(project, clock, (key, units) => (project ?? throw new ArgumentNullException(nameof(project))).SaveText(key, units))
+        : this(project, clock, (key, units) => project.SaveText(key, units))
     {
     }
 

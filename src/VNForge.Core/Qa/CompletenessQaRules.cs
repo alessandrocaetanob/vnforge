@@ -6,8 +6,8 @@ namespace VNForge.Core.Qa;
 /// <summary>As regras de completude (E7.2), na ordem em que entram em <see cref="QaEngine.Default"/>.</summary>
 public static class CompletenessQaRules
 {
-    /// <summary>Linha não traduzida, tradução vazia e marcador de controle diferente do original.</summary>
-    public static IReadOnlyList<IQaRule> All { get; } = [new UntranslatedQaRule(), new EmptyTranslationQaRule(), new MarkerMismatchQaRule()];
+    /// <summary>Linha não traduzida, tradução vazia, marcador de controle diferente do original e página a mais.</summary>
+    public static IReadOnlyList<IQaRule> All { get; } = [new UntranslatedQaRule(), new EmptyTranslationQaRule(), new MarkerMismatchQaRule(), new ExtraPageQaRule()];
 }
 
 /// <summary>
@@ -123,7 +123,7 @@ public sealed class MarkerMismatchQaRule : UnitQaRule
         }
 
         var missing = Subtract(expected, actual);
-        var extra = Subtract(actual, expected);
+        var extra = Subtract(actual, expected).Where(marker => !IsPageBreak(marker)).ToList();
         if (missing.Count == 0 && extra.Count == 0)
         {
             yield break;
@@ -163,5 +163,57 @@ public sealed class MarkerMismatchQaRule : UnitQaRule
         return result;
     }
 
+    private static bool IsPageBreak(string marker) => string.Equals(marker, ControlMarkers.PageBreak, StringComparison.Ordinal);
+
     private static bool IsCompared(string marker) => !string.Equals(marker, ControlMarkers.LineBreak, StringComparison.Ordinal);
+}
+
+/// <summary>
+/// A tradução tem mais viradas de página (<c>\p</c>) que o original: a fala foi dividida em páginas. Não quebra o script, então é aviso, e o
+/// revisor confirma que a divisão foi de propósito. Falta de <c>\p</c> e qualquer outro marcador a mais seguem sendo erro em
+/// <see cref="MarkerMismatchQaRule"/>.
+/// </summary>
+public sealed class ExtraPageQaRule : UnitQaRule
+{
+    /// <summary>Id da regra.</summary>
+    public const string RuleId = "pagina-extra";
+
+    /// <inheritdoc />
+    public override string Id => RuleId;
+
+    /// <inheritdoc />
+    public override string Description => @"Tradução com mais viradas de página (\p) que o original: a fala foi dividida em páginas.";
+
+    /// <inheritdoc />
+    public override QaSeverity Severity => QaSeverity.Warning;
+
+    /// <inheritdoc />
+    protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
+    {
+        if (string.IsNullOrWhiteSpace(unit.Translation))
+        {
+            yield break;
+        }
+
+        int extra;
+        try
+        {
+            extra = CountPageBreaks(unit.Translation) - CountPageBreaks(unit.Source);
+        }
+        catch (ArgumentException)
+        {
+            // Marcador inválido no original ou na tradução: quem aponta é a regra de marcadores.
+            yield break;
+        }
+
+        if (extra > 0)
+        {
+            yield return extra == 1
+                ? @"1 virada de página a mais que o original; confira se a divisão foi de propósito"
+                : $@"{extra} viradas de página a mais que o original; confira se a divisão foi de propósito";
+        }
+    }
+
+    private static int CountPageBreaks(string text) =>
+        ControlMarkers.Markers(text).Count(marker => string.Equals(marker, ControlMarkers.PageBreak, StringComparison.Ordinal));
 }
