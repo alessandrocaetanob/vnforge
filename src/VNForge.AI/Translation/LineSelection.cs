@@ -15,7 +15,8 @@ public readonly record struct LineSaveResult(string LastKey, int Skipped);
 /// <remarks>
 /// O retrato lido na seleção só serve de contexto para montar os lotes. Cada gravação relê o script, sob a trava do projeto
 /// (<see cref="ProjectTextLock"/>, a mesma do <see cref="LineEditor"/>), e só muda a linha que continua como estava na seleção: uma edição ou
-/// aprovação feita durante a execução não se perde, e uma tradução feita à mão não é sobrescrita pela IA.
+/// aprovação feita durante a execução não se perde, e uma tradução feita à mão não é sobrescrita pela IA. A trava vale só dentro do processo:
+/// outro processo (o <c>vnf</c> com o app aberto) ainda pode gravar entre a leitura e a gravação de um lote.
 /// </remarks>
 public sealed class LineSelection
 {
