@@ -15,7 +15,7 @@ public class BuildPatchHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
     /// <summary>Abre a tela, roda as conferências e fecha a janela: uma janela esquecida no Headless estraga os testes de render seguintes.</summary>
     private static void Abrir(BuildViewModel vm, Action<Window> check)
     {
-        var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm } };
+        var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm, TechnicalExpanded = true } };
         try
         {
             window.Show();

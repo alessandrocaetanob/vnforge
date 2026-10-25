@@ -44,7 +44,7 @@ internal static class PatchExeCommand
 
             return plans.Count == 0
                 ? throw new VNForgeException($"A engine {engine.DisplayName} não tem patch para o executável '{config.Game.Exe}'.")
-                : Apply(cli, parseResult, plans, output, json);
+                : Apply(cli, parseResult, project, plans, output, json);
         }
         finally
         {
@@ -52,7 +52,7 @@ internal static class PatchExeCommand
         }
     }
 
-    private static int Apply(VnfCli cli, ParseResult parseResult, List<PatchPlan> plans, TextWriter output, bool json)
+    private static int Apply(VnfCli cli, ParseResult parseResult, ProjectFolder project, List<PatchPlan> plans, TextWriter output, bool json)
     {
         var pending = plans.Where(p => p.Injection.Files.Count > 0).ToList();
         if (!json)
@@ -69,6 +69,7 @@ internal static class PatchExeCommand
             return ErrorHandler.CancelledExitCode;
         }
 
+        using var projectLock = ProjectLock.Acquire(project);
         var injector = new GameInjector();
         var results = plans.Select(plan => (plan.Patch, Result: injector.InjectPatch(plan))).ToList();
         if (json)

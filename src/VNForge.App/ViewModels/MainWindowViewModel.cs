@@ -76,6 +76,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Tasks = new TaskBarViewModel(TaskService);
         Build = new BuildViewModel(TaskService);
+        Build.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BuildViewModel.GameStatusText))
+            {
+                OnPropertyChanged(nameof(GameStatusText));
+            }
+        };
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
@@ -215,6 +222,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"Salvo às 00:41" depois da primeira gravação do Editor nesta sessão; vazio antes.</summary>
     public string SavedAtText => Editor.LastSavedAt is { } at ? $"Salvo às {at:HH:mm}" : string.Empty;
 
+    /// <summary>"Jogo com a tradução de 22/10" ou "Jogo original", como o último teste no jogo deixou; vazio antes de a tela Testar ler o estado.</summary>
+    public string GameStatusText => Build.GameStatusText;
+
     /// <summary>"Alterações salvas automaticamente em vnforge.json" enquanto os Ajustes de um projeto estão abertos; vazio nas outras telas.</summary>
     public string StatusNote => SelectedNav?.Key == NavKey.Settings && Settings.HasProject ? SettingsViewModel.AutosaveNote : string.Empty;
 
@@ -303,6 +313,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
                 else if (value.Key == NavKey.Build)
                 {
+                    Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Display);
                     _ = Build.ReloadAsync();
                 }
 
@@ -354,6 +365,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public void ShowBuildNotice(BuildNotice notice)
     {
+        if (notice.Kind == BuildNoticeKind.Tested)
+        {
+            Toasts.Show(notice.Message, ToastKind.Success, key: "build", undo: () =>
+            {
+                if (Build.ReturnToOriginalCommand.CanExecute(null))
+                {
+                    Build.ReturnToOriginalCommand.Execute(null);
+                }
+                else
+                {
+                    Toasts.Show("Não dá para voltar ao jogo original agora. Espere o que está em andamento terminar e use “Voltar ao jogo original” na tela Testar no jogo.", ToastKind.Warning, key: "build-restore");
+                }
+            });
+            return;
+        }
+
         if (notice.Kind == BuildNoticeKind.Injected)
         {
             // Desfazer a injeção é restaurar os originais, e a restauração pede confirmação na tela Testar, como sempre.
@@ -578,13 +605,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     Editor.ShowPendingLines();
                 }
             }));
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Novo build", "Gera a pasta de build do projeto", () =>
-            {
-                if (GoTo(buildItem) && Build.BuildCommand.CanExecute(null))
-                {
-                    Build.BuildCommand.Execute(null);
-                }
-            }));
+            entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));
+            entries.Add(BuildEntry("Novo build", "Gera a pasta de build do projeto", Build.BuildCommand));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));
         }
 
@@ -606,6 +628,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         return entries;
     }
+
+    /// <summary>Um comando da página Testar: leva até a página e, se o comando pode rodar agora, roda.</summary>
+    private PaletteEntry BuildEntry(string title, string subtitle, System.Windows.Input.ICommand command) =>
+        new(PaletteGroup.Command, title, subtitle, () =>
+        {
+            if (GoTo(buildItem) && command.CanExecute(null))
+            {
+                command.Execute(null);
+            }
+        });
 
     private List<PaletteEntry> PaletteLines(string text, int limit) =>
         [.. Editor.FindLines(text, limit).Select(entry => new PaletteEntry(

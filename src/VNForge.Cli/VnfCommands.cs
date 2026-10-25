@@ -14,7 +14,7 @@ public static class VnfCommands
     /// <summary>Seções do <c>vnf --help</c>: o pipeline na ordem de uso, os comandos do projeto e as ferramentas de baixo nível.</summary>
     public static IReadOnlyList<HelpSection> Sections { get; } =
     [
-        new("Pipeline", ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore"]),
+        new("Pipeline", ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore", "test"]),
         new("Projeto", ["status", "preview", "export", "import", "glossary", "chars", "config", "detect"]),
         new("Baixo nível", ["ypf", "ybn", "patch-exe"]),
     ];
@@ -31,6 +31,7 @@ public static class VnfCommands
         cli.Root.Subcommands.Add(InjectCommand.Create(cli));
         cli.Root.Subcommands.Add(RunCommand.Create(cli));
         cli.Root.Subcommands.Add(RestoreCommand.Create(cli));
+        cli.Root.Subcommands.Add(TestCommand.Create(cli));
         cli.Root.Subcommands.Add(StatusCommand.Create(cli));
         cli.Root.Subcommands.Add(PreviewCommand.Create(cli));
         cli.Root.Subcommands.Add(ExportCommand.Create(cli));

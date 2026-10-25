@@ -43,7 +43,8 @@ internal static class InjectCommand
             return ErrorHandler.CancelledExitCode;
         }
 
-        var result = injector.Inject(plan);
+        using var projectLock = ProjectLock.Acquire(project);
+        var result = GameStateFile.Inject(project, injector, plan, GameTestKind.Translation, null, TimeProvider.System);
         if (json)
         {
             output.WriteLine(JsonEnvelope.Result(new
