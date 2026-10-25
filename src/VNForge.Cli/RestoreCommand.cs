@@ -41,6 +41,7 @@ internal static class RestoreCommand
         }
 
         var result = injector.Restore(plan);
+        GameStateFile.TryClearInGame(project);
         if (json)
         {
             output.WriteLine(JsonEnvelope.Result(new

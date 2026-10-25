@@ -73,6 +73,34 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
+    public void Relata_o_backup_antes_da_gravacao_no_jogo()
+    {
+        SeedGameAndBuild();
+        var phases = new List<(InjectionPhase Phase, bool BackupExists)>();
+        var progress = new PhaseLog(phase => phases.Add((phase, Directory.Exists(_project.BackupDirectory) && Directory.GetDirectories(_project.BackupDirectory).Length > 0)));
+
+        var result = Injector().Inject(GameInjector.Plan(_project), progress);
+
+        Assert.Equal([InjectionPhase.Backup, InjectionPhase.Write], phases.Select(p => p.Phase));
+        Assert.False(phases[0].BackupExists);
+        Assert.True(phases[1].BackupExists);
+        Assert.Equal(TranslatedYsbinDir, ReadGame(YsbinYpf));
+        Assert.NotNull(result.BackupDirectory);
+    }
+
+    [Fact]
+    public void Sem_arquivos_a_injetar_nao_relata_fase_nenhuma()
+    {
+        Game(YsbinYpf, TranslatedYsbinDir);
+        Build(YsbinYpf, TranslatedYsbinDir);
+        var phases = new List<InjectionPhase>();
+
+        Injector().Inject(GameInjector.Plan(_project), new PhaseLog(phases.Add));
+
+        Assert.Empty(phases);
+    }
+
+    [Fact]
     public void Plan_sem_pasta_build_pede_o_vnf_build()
     {
         Directory.Delete(_project.BuildDirectory);
@@ -658,5 +686,10 @@ public sealed class GameInjectorTests : IDisposable
 
             return false;
         }
+    }
+
+    private sealed class PhaseLog(Action<InjectionPhase> add) : IProgress<InjectionPhase>
+    {
+        public void Report(InjectionPhase value) => add(value);
     }
 }

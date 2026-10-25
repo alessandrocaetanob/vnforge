@@ -15,7 +15,11 @@ public sealed record BuiltScript(string Key, string Name, int Lines);
 /// <summary>Opções do build que não são injeção de dependência (<see cref="ProjectBuilder.Build"/>).</summary>
 /// <param name="OnlyChanged">Build incremental (<c>--only-changed</c>): reaproveita o resultado do build anterior dos scripts cujas entradas não mudaram (<see cref="BuildState"/>) e, se nenhum mudou e <c>build/</c> está como o anterior o deixou, nem regrava os pacotes. <c>false</c> reconstrói tudo.</param>
 /// <param name="EncodingStrategy">Estratégia de codificação só deste build (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>, que não é alterado.</param>
-public sealed record BuildOptions(bool OnlyChanged = false, string? EncodingStrategy = null);
+/// <param name="SelectTexts">Troca os textos de <c>text/*.json</c> que o build e o QA veem (o teste no jogo usa para reconstruir só uma cena ou só a frase dos acentos); os arquivos em disco não mudam. <c>null</c> usa todos.</param>
+public sealed record BuildOptions(
+    bool OnlyChanged = false,
+    string? EncodingStrategy = null,
+    Func<IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>>? SelectTexts = null);
 
 /// <summary>Resultado de <see cref="ProjectBuilder.Build"/>.</summary>
 /// <param name="GameDirectory">Pasta do jogo cujos pacotes serviram de base.</param>
@@ -113,6 +117,11 @@ public static class ProjectBuilder
 
         var profile = project.LoadFormatting();
         var loaded = project.LoadAllText();
+        if (options?.SelectTexts is { } select)
+        {
+            loaded = select(loaded);
+        }
+
         var fingerprint = BuildState.FingerprintTexts(loaded, encoder.Id, project.FormattingPath);
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);

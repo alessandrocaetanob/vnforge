@@ -158,7 +158,7 @@ internal static class BuildCommand
         }
     }
 
-    private static int RunQaBlocked(bool json, QaBlockedException blocked, TextWriter output)
+    internal static int RunQaBlocked(bool json, QaBlockedException blocked, TextWriter output)
     {
         var exitCode = ErrorHandler.QaBlockedExitCode;
         if (json)

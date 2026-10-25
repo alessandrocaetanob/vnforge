@@ -89,11 +89,12 @@ public sealed partial class GameInjector
     }
 
     /// <summary>Faz o backup, confere as cópias e grava o build no jogo. Sem arquivos no plano, não cria backup nem toca no jogo.</summary>
+    /// <param name="phases">Recebe <see cref="InjectionPhase.Backup"/> antes de copiar os originais e <see cref="InjectionPhase.Write"/> antes da primeira gravação no jogo; nada quando não há o que injetar.</param>
     /// <exception cref="InjectionException">
     /// Backup que não confere (nada foi gravado no jogo) ou gravação que falhou. A mensagem diz se o jogo voltou ao estado original
     /// ou se é preciso rodar <c>vnf restore</c>.
     /// </exception>
-    public InjectionResult Inject(InjectionPlan plan)
+    public InjectionResult Inject(InjectionPlan plan, IProgress<InjectionPhase>? phases = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
@@ -102,6 +103,7 @@ public sealed partial class GameInjector
             return new InjectionResult(plan.GameDirectory, null, [], plan.UnchangedCount);
         }
 
+        phases?.Report(InjectionPhase.Backup);
         var backupDirectory = CreateBackupDirectory(plan.BackupRoot);
         BackupManifest manifest;
         try
@@ -121,6 +123,7 @@ public sealed partial class GameInjector
                 ?? new InjectionException($"Não foi possível fazer o backup dos originais: {ex.Message} Nada foi gravado no jogo.", ex);
         }
 
+        phases?.Report(InjectionPhase.Write);
         var written = new List<string>();
         foreach (var file in plan.Files)
         {
