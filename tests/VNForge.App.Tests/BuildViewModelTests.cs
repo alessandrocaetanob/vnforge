@@ -117,6 +117,7 @@ public sealed class BuildViewModelTests : IDisposable
 
         Assert.True(vm.IsConfirming);
         Assert.Contains("1 arquivo(s)", vm.ConfirmationText);
+        Assert.Equal(new PlannedChange(Ysbin, "Substitui o original"), Assert.Single(vm.ConfirmationFiles));
         Assert.Equal(Original, File.ReadAllText(GameFile));
 
         await vm.ConfirmCommand.ExecuteAsync(null);
@@ -182,6 +183,7 @@ public sealed class BuildViewModelTests : IDisposable
 
         Assert.True(vm.IsConfirming);
         Assert.Contains("Restaurar", vm.ConfirmationText);
+        Assert.Equal(new PlannedChange(Ysbin, "Devolve o original"), Assert.Single(vm.ConfirmationFiles));
         Assert.Equal(Traduzido, File.ReadAllText(GameFile));
 
         await vm.ConfirmCommand.ExecuteAsync(null);
@@ -203,6 +205,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.True(File.Exists(extra));
 
         vm.RestoreCommand.Execute(null);
+        Assert.Equal(new PlannedChange("pac/extra.ypf", "Remove o arquivo criado pela injeção"), Assert.Single(vm.ConfirmationFiles));
         await vm.ConfirmCommand.ExecuteAsync(null);
 
         Assert.False(File.Exists(extra));

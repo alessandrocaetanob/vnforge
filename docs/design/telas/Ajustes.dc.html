@@ -189,7 +189,7 @@ class Component extends DCLogic {
     const ENCS = [
       { name: 'Remover acentos (fold)', sample: 'ação → acao', desc: 'Funciona em qualquer jogo sem mexer no executável. Bom para validar a ida e volta.' },
       { name: 'Remapear para meia largura (remap)', sample: 'ação → aｱｲo', desc: 'Usa katakanas de 1 byte como substitutos e uma fonte modificada que desenha as letras certas.' },
-      { name: 'Latin-1 nativo (cp1252)', sample: 'ação → ação', desc: 'Patch na tabela de lead bytes do executável e fonte com ANSI_CHARSET. Acentos com qualquer fonte do Windows; experimental.' }
+      { name: 'Latin-1 nativo (cp1252)', sample: 'ação → ação', desc: 'Acentos completos com o executável original. O patch opcional troca o nome da fonte para MS Gothic; aplique na tela Build. Experimental.' }
     ];
     const before = '«Tranquilo , tranquilo!  Vamos... anda !»';
     let after = before;
