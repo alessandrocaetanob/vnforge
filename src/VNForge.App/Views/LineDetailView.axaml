@@ -75,9 +75,31 @@
             <Border Classes="fieldline"/>
           </Panel>
         </Border>
+        <!-- A caixa do jogo logo abaixo do campo, com o que cabe ou o quanto passa. -->
+        <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding Preview.HasLayout}">
+            <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
+          </ScrollViewer>
+          <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
+            <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
+            <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}" AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
+          </StackPanel>
+          <StackPanel Spacing="4" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
+            <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Problem}"
+                       IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </StackPanel>
         <WrapPanel ItemSpacing="12" LineSpacing="2" AutomationProperties.Name="Medidas da tradução">
           <TextBlock Classes="meta" Text="{Binding CharsText}"/>
-          <TextBlock Classes="meta" Text="{Binding FitText}" IsVisible="{Binding FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
           <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding MarkerStateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
             <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding MarkersMatch}" Data="{StaticResource Icon.Check}" IsVisible="{Binding MarkersMatch}"/>
             <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding !MarkersMatch}"/>
@@ -128,28 +150,6 @@
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding SuggestionError}"/>
         </Grid>
       </Border>
-
-      <!-- Prévia da caixa de texto do jogo, com o perfil de formatação do projeto. -->
-      <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
-        <TextBlock Classes="overline" Text="Prévia da caixa de texto"/>
-        <StackPanel Spacing="6" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
-          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding HasLayout}">
-            <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Layout}"
-                              AutomationProperties.Name="Prévia da caixa de texto"/>
-          </ScrollViewer>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
-          <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="x:String">
-                <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding}"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Problem}"
-                     IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-        </StackPanel>
-      </StackPanel>
 
       <Border Classes="infobar error" IsVisible="{Binding HasMissingMarkers}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
