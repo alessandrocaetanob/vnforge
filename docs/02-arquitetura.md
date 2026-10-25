@@ -357,7 +357,7 @@ minha-vn-ptbr/
 ├─ text/                   # UMA unidade de texto por linha, um arquivo por script
 │  ├─ yst00012.json
 │  └─ ...
-├─ .cache/                 # (gitignored) game/ (pacotes descompactados pelo vnf extract, um por subpasta: game/ysbin.ypf/...), cache de IA, logs (logs/), state.json (estado do pipeline), ai-usage.json (gasto acumulado de IA)
+├─ .cache/                 # (gitignored) game/ (pacotes descompactados pelo vnf extract, um por subpasta: game/ysbin.ypf/...), cache de IA, logs (logs/), state.json (estado do pipeline), ai-usage.json (gasto acumulado de IA), sessions.json (aprovações com hora, para as linhas revisadas hoje e o ritmo)
 ├─ build/                  # (gitignored) arquivos reconstruídos (ysbin.ypf, .exe patchado)
 └─ backup/                 # (gitignored) cópia dos originais antes da injeção
 ```

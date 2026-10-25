@@ -528,6 +528,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     partial void OnProjectChanged(ProjectSummary? value)
     {
+        StopReview();
         Search.Project = value;
         Loading = LoadAsync();
     }
@@ -703,6 +704,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             UpdateCounts();
         }
 
+        RecordApproval(line.Entry.ScriptKey, previous, saved);
         if (previous.Translation != saved.Translation || previous.Status != saved.Status)
         {
             LineSaved?.Invoke(this, new LineSavedEventArgs(Project?.Root, line.Entry.ScriptKey, line.Number, previous, saved));
@@ -791,6 +793,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     private void Apply(ProjectLines? loaded)
     {
+        // As linhas da fila do modo revisão são as de antes da releitura (um "Desfazer", uma busca com substituição): a fila já não vale.
+        StopReview();
         applying = true;
         try
         {

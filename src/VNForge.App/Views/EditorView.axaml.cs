@@ -65,10 +65,11 @@ public sealed partial class EditorView : UserControl
         }
     }
 
-    /// <summary>Fechar o painel tira o foco do campo que sumiu; ele volta para o texto da linha, para os atalhos do Editor continuarem valendo.</summary>
+    /// <summary>Fechar o painel de busca ou o modo revisão tira o foco do campo que sumiu; ele volta para o texto da linha, para os atalhos do Editor continuarem valendo.</summary>
     private void OnEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(EditorViewModel.IsSearchOpen) && current is { IsSearchOpen: false })
+        if ((e.PropertyName == nameof(EditorViewModel.IsSearchOpen) && current is { IsSearchOpen: false })
+            || (e.PropertyName == nameof(EditorViewModel.IsReviewing) && current is { IsReviewing: false }))
         {
             Dispatcher.UIThread.Post(
                 () =>

@@ -29,7 +29,7 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
     public LineContext For(string? speaker, string source)
     {
         var character = Characters.Find(speaker);
-        return new LineContext(character?.Target, character?.Tone, GlossaryMatcher.Find(source, Glossary));
+        return new LineContext(character?.Target, character?.Tone, GlossaryMatcher.Find(source, Glossary), character is { Gender: CharacterGender.Unknown });
     }
 
     private static IReadOnlyList<T> Try<T>(Func<IReadOnlyList<T>> read)
@@ -49,4 +49,5 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
 /// <param name="SpeakerTarget">O nome do falante em português; nulo quando o personagem não está cadastrado.</param>
 /// <param name="Voice">O tom de voz do personagem (<c>characters.json</c>); nulo quando não há.</param>
 /// <param name="Glossary">Os termos do glossário que aparecem no original, na ordem do glossário.</param>
-public sealed record LineContext(string? SpeakerTarget, string? Voice, IReadOnlyList<GlossaryTerm> Glossary);
+/// <param name="GenderMissing">O falante está cadastrado sem gênero definido, e a concordância da tradução pode sair errada.</param>
+public sealed record LineContext(string? SpeakerTarget, string? Voice, IReadOnlyList<GlossaryTerm> Glossary, bool GenderMissing = false);

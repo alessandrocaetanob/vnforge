@@ -17,6 +17,15 @@ public static class ShortcutMap
             new(["Alt", "↓"], "Próxima linha"),
             new(["Alt", "↑"], "Linha anterior"),
         ]),
+        new("Modo revisão",
+        [
+            new(["Enter"], "Está boa: aprovar a tradução e ir para a próxima fala"),
+            new(["E"], "Corrigir: abrir a fala no editor"),
+            new(["M"], "Depois: deixar a fala para mais tarde e ir para a próxima"),
+            new(["→"], "Pular: ir para a próxima fala sem marcar esta"),
+            new(["←"], "Voltar para a fala anterior da revisão"),
+            new(["Esc"], "Voltar ao editor"),
+        ]),
         new("Geral",
         [
             new(["?"], "Abrir ou fechar este mapa"),
