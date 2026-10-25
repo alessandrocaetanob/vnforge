@@ -97,6 +97,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>A carga das linhas em andamento (ou a última); os testes a aguardam.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
 
+    /// <summary>Quem encurta a fala a pedido do aviso "Não cabe na caixa do jogo"; nulo usa o próprio sugestor quando ele sabe encurtar.</summary>
+    public ILineShortener? Shortener { get; init; }
+
     /// <summary>Disparado a cada gravação que mudou a tradução ou o status de uma linha (o aviso "Linha 12 gravada").</summary>
     public event EventHandler<LineSavedEventArgs>? LineSaved;
 
@@ -561,11 +564,13 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return null;
         }
 
+        var shortener = Shortener ?? suggester as ILineShortener;
+
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
         var lineContext = context.For(unit.Speaker, unit.Source);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Context = lineContext }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Context = lineContext };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext };
         detail.AttachPreview(CurrentProfile());
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;

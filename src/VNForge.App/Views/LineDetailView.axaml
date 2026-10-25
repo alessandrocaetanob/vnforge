@@ -86,6 +86,11 @@
         </WrapPanel>
       </StackPanel>
 
+      <!-- "Não cabe na caixa do jogo": dividir em páginas ou pedir uma versão mais curta à IA. -->
+      <c:FitWarning IsVisible="{Binding Fit.IsVisible, FallbackValue=False}" Message="{Binding Fit.Message}" SplitText="{Binding Fit.SplitText}" ShortenText="{Binding Fit.ShortenText}"
+                    SplitCommand="{Binding Fit.SplitCommand}" ShortenCommand="{Binding Fit.ShortenCommand}" ShowShorten="{Binding Fit.HasShortener}"
+                    ErrorText="{Binding Fit.Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
+
       <!-- Aprovar e próxima ocupa o que sobra da linha; "Usar sugestão" tem a largura do texto. Nada quebra com o inspetor em 400 px. -->
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
         <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveAndNextCommand}"

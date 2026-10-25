@@ -110,12 +110,30 @@ public sealed class LineDetailInspectorTests : IDisposable
         Assert.False(vm.MarkersMatch);
         Assert.Equal("Marcadores diferentes do original", vm.MarkerStateText);
 
-        vm.Translation = "…Tem certeza?\\nVocê vai se molhar.\\p\\p";
+        vm.Translation = "…Tem certeza?\\nVocê vai se molhar.\\c\\p";
         Assert.False(vm.MarkersMatch);
         Assert.Equal("Marcadores diferentes do original", vm.MarkerStateText);
 
         vm.Translation = "…Tem certeza?\\nVocê vai se molhar.\\p";
         Assert.True(vm.MarkersMatch);
+    }
+
+    [Fact]
+    public void Virada_de_pagina_a_mais_nao_e_marcador_diferente_e_o_inspetor_diz_quantas()
+    {
+        using var vm = Abrir(Fala("健太", "「……いいのか？\\n濡れるぞ」\\p", "…Tem certeza?\\nVocê vai se molhar.\\p"));
+
+        vm.Translation = "…Tem certeza?\\nVocê vai se molhar.\\p\\p";
+        Assert.True(vm.MarkersMatch);
+        Assert.Equal("Marcadores iguais ao original, com 1 página a mais", vm.MarkerStateText);
+
+        vm.Translation = "…Tem certeza?\\n\\p\\p\\p";
+        Assert.True(vm.MarkersMatch);
+        Assert.Equal("Marcadores iguais ao original, com 2 páginas a mais", vm.MarkerStateText);
+
+        vm.Translation = "…Tem certeza?\\p\\p\\p";
+        Assert.False(vm.MarkersMatch);
+        Assert.Equal("Marcadores diferentes do original", vm.MarkerStateText);
     }
 
     [Fact]

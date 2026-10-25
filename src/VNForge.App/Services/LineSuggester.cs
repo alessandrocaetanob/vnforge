@@ -1,6 +1,7 @@
 using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
+using VNForge.Core.Formatting;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Services;
@@ -22,13 +23,21 @@ public interface ILineSuggester
     Task<LineSuggestion> SuggestAsync(TextUnit unit, CancellationToken ct);
 }
 
+/// <summary>Pede à IA uma versão mais curta da tradução de uma linha que não cabe na caixa do jogo. Atrás de uma interface para os painéis rodarem nos testes sem rede.</summary>
+public interface ILineShortener
+{
+    /// <summary>A tradução <paramref name="current"/> da linha em uma versão que a IA diz caber na caixa <paramref name="box"/>; quem chama confere se coube.</summary>
+    /// <exception cref="LineSuggestionException">Sem chave de API, recusa do modelo ou resposta sem uma versão aproveitável.</exception>
+    Task<string> ShortenAsync(TextUnit unit, string current, WrapRule box, CancellationToken ct);
+}
+
 /// <summary>
 /// Sugere a tradução de uma linha pelo mesmo <see cref="ITranslationProvider"/> do fluxo de tradução. Sem chave de API usa o
 /// <see cref="FakeTranslationProvider"/>, para o Editor funcionar (e ser testado) sem rede.
 /// </summary>
 /// <param name="openProvider">Abre o provedor real a cada pedido (a chave pode mudar em Ajustes); nulo quando não há chave.</param>
 /// <param name="currentModel">Diz qual modelo o provedor real usa, para o cartão da sugestão; nulo não informa o modelo.</param>
-public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func<string>? currentModel = null) : ILineSuggester
+public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func<string>? currentModel = null) : ILineSuggester, ILineShortener
 {
     private readonly Func<ITranslationProvider?> openProvider = openProvider ?? throw new ArgumentNullException(nameof(openProvider));
 
@@ -92,6 +101,32 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func
         return real is null
             ? new LineSuggestion(result.Translation, FromFakeProvider: true)
             : new LineSuggestion(result.Translation, FromFakeProvider: false, currentModel?.Invoke() is { Length: > 0 } model ? model : null, Effort: "baixo");
+    }
+
+    /// <summary>
+    /// Pede a versão curta pelo mesmo provedor da sugestão. Sem chave de API não há o que pedir: o provedor falso só repetiria o texto, então a
+    /// mensagem manda configurar a chave.
+    /// </summary>
+    public async Task<string> ShortenAsync(TextUnit unit, string current, WrapRule box, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(box);
+
+        var real = await Task.Run(openProvider, ct).ConfigureAwait(false)
+            ?? throw new LineSuggestionException("Encurtar com a IA precisa da chave do Claude. Informe a chave em Ajustes.");
+        var batch = new TranslationBatch([unit])
+        {
+            Shorten = new Dictionary<string, ShortenRequest> { [unit.Id] = new(current, box.MaxLines ?? WrapRule.DefaultMaxLines, box.MaxWidth) },
+        };
+        var results = await new ValidatingTranslationProvider(real).TranslateAsync(batch, ct).ConfigureAwait(false);
+        var result = results.FirstOrDefault(r => r.Id == unit.Id);
+        if (result is null || result.Refused || string.IsNullOrWhiteSpace(result.Translation))
+        {
+            throw new LineSuggestionException("A IA recusou encurtar esta fala. Corte o texto à mão ou divida a fala em páginas.");
+        }
+
+        return result.Translation;
     }
 
     private static string ReadModel(string configDirectory)

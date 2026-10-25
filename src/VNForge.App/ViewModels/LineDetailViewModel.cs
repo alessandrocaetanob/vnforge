@@ -186,8 +186,18 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     public string MarkerStateText =>
         string.IsNullOrWhiteSpace(Translation) ? string.Empty
-        : MarkersMatch ? "Marcadores iguais ao original"
+        : MarkersMatch ? "Marcadores iguais ao original" + ExtraPagesText
         : "Marcadores diferentes do original";
+
+    /// <summary>Quantas viradas de página a tradução tem a mais que o original; é a fala dividida em páginas, e não conta como marcador diferente.</summary>
+    private int extraPages;
+
+    private string ExtraPagesText => extraPages switch
+    {
+        0 => string.Empty,
+        1 => ", com 1 página a mais",
+        _ => $", com {extraPages} páginas a mais",
+    };
 
     public string Source => unit.Source;
 
@@ -275,6 +285,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         }
 
         Preview = profile is null ? null : new TextboxPreviewViewModel(unit, profile, Translation);
+        AttachFit(profile);
         OnPropertyChanged(nameof(FitText));
     }
 
@@ -340,6 +351,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         Flush();
         disposed = true;
         CancelSuggestion();
+        Fit?.Cancel();
         timer?.Dispose();
         timer = null;
     }
@@ -354,6 +366,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         translationDirty = true;
         UpdateMarkers();
         Preview?.Update(value);
+        Fit?.Update();
         OnPropertyChanged(nameof(FitText));
         ScheduleSave();
     }
@@ -435,6 +448,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         {
             MissingMarkers = [];
             MarkerProblem = null;
+            extraPages = 0;
             SetMarkersMatch(false);
             return;
         }
@@ -444,15 +458,19 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             var found = ControlMarkers.Markers(Translation);
             MissingMarkers = FindMissingMarkers(sourceMarkers, found);
             MarkerProblem = null;
-            SetMarkersMatch(MissingMarkers.Count == 0 && found.Count == sourceMarkers.Count);
+            extraPages = Math.Max(0, CountPages(found) - CountPages(sourceMarkers));
+            SetMarkersMatch(MissingMarkers.Count == 0 && found.Count - extraPages == sourceMarkers.Count);
         }
         catch (ArgumentException e)
         {
             MissingMarkers = [];
             MarkerProblem = e.Message;
+            extraPages = 0;
             SetMarkersMatch(false);
         }
     }
+
+    private static int CountPages(IReadOnlyList<string> markers) => markers.Count(m => string.Equals(m, ControlMarkers.PageBreak, StringComparison.Ordinal));
 
     private void SetMarkersMatch(bool match)
     {
