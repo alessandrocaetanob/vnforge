@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
@@ -563,12 +564,77 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
         var lineContext = context.For(unit.Speaker, unit.Source);
+        var scene = SceneAround(line);
+        var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Context = lineContext }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Context = lineContext };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Context = lineContext, Scene = scene, SameSource = sameSource };
         detail.AttachPreview(CurrentProfile());
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
+    }
+
+    /// <summary>A fala anterior e a seguinte no script, mesmo que o filtro da grade as esconda.</summary>
+    private List<ContextLine> SceneAround(LineViewModel line)
+    {
+        var scene = new List<ContextLine>(2);
+        var index = line.Number - 1;
+        if (index < 0 || index >= scriptLines.Length || !ReferenceEquals(scriptLines[index], line))
+        {
+            return scene;
+        }
+
+        foreach (var neighbour in new[] { index - 1, index + 1 })
+        {
+            if (neighbour >= 0 && neighbour < scriptLines.Length)
+            {
+                var other = scriptLines[neighbour];
+                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null));
+            }
+        }
+
+        return scene;
+    }
+
+    /// <summary>"Usar em todos": grava a tradução nas outras linhas com o mesmo original e atualiza a grade, o QA e os contadores do que está aberto.</summary>
+    private int ApplyToSameSource(LineViewModel line, string translation)
+    {
+        if (data is null || lineEditor is null)
+        {
+            return 0;
+        }
+
+        var others = data.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
+        var changed = lineEditor.SetTranslationFor(others.Values.Select(o => (o.ScriptKey, o.Unit.Id)), translation);
+        foreach (var unit in changed)
+        {
+            var entry = others[unit.Id];
+            var updated = entry.WithUnit(unit);
+            IssueCount += updated.Issues.Count - entry.Issues.Count;
+            data.Replace(updated);
+            savedUnits.Remove(unit.Id);
+            var index = entry.Number - 1;
+            if (entry.ScriptKey == SelectedScript?.Key && index < scriptLines.Length)
+            {
+                scriptLines[index].Update(updated);
+                entries[index] = updated;
+            }
+        }
+
+        if (changed.Count > 0)
+        {
+            UpdateCounts();
+            LastSavedAt = clock.GetLocalNow();
+        }
+
+        return changed.Count;
+    }
+
+    private sealed class SameSourceBinding(EditorViewModel editor, LineViewModel line) : ISameSourceLines
+    {
+        public int Count => editor.data?.SameSourceAs(line.Entry).Count ?? 0;
+
+        public int Apply(string translation) => editor.ApplyToSameSource(line, translation);
     }
 
     /// <summary>

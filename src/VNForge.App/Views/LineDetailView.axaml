@@ -66,6 +66,12 @@
         </Border>
       </StackPanel>
 
+      <!-- Na cena: a fala anterior e a seguinte. -->
+      <StackPanel Spacing="6" IsVisible="{Binding HasScene}">
+        <TextBlock Classes="overline" Text="Na cena"/>
+        <c:ContextLines ItemsSource="{Binding Scene}" AutomationProperties.Name="Na cena"/>
+      </StackPanel>
+
       <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
       <StackPanel Spacing="6">
         <TextBlock Classes="overline" Text="Tradução"/>
@@ -124,6 +130,17 @@
           </StackPanel>
         </Button>
       </Grid>
+
+      <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
+      <StackPanel Spacing="6" IsVisible="{Binding HasSameSource}">
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}"/>
+        <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}"
+                ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
+          <TextBlock Text="Usar em todos"/>
+        </Button>
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceResult}"
+                   IsVisible="{Binding SameSourceResult, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      </StackPanel>
 
       <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding SuggestCommand}" IsVisible="{Binding !ShowSuggestionCard}"
               ToolTip.Tip="Pede à IA uma sugestão para esta linha (Ctrl+Espaço)">
