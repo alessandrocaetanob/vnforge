@@ -81,6 +81,60 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
             TestContext.Current.CancellationToken);
     }
 
+    [Fact]
+    public async Task Os_detalhes_tecnicos_abertos_mostram_o_formato_a_chave_a_pagina_de_codigo_e_o_modelo()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                var game = temp.SubFolder("jogo");
+                File.WriteAllText(Path.Combine(game, "Game.exe"), "MZ");
+                var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new PatchableEngine(312)], appSettings: new AppSettingsFile(temp.SubFolder("config")), clock: new FixedClock(Now));
+                var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start, newProjectWizard: () => wizard);
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    start.NewProjectCommand.Execute(null);
+                    await wizard.SetGameFolderAsync(game);
+                    ScreenRenderer.Settle(window);
+                    OpenTechnicalDetails(window);
+                    var gameTexts = VisibleTexts(window);
+                    Assert.Contains(gameTexts, t => t.Contains("YPF", StringComparison.Ordinal));
+                    Assert.Contains("Chave XOR dos scripts", gameTexts);
+                    Assert.Contains(gameTexts, t => t.StartsWith("932", StringComparison.Ordinal));
+
+                    wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+                    await wizard.NextCommand.ExecuteAsync(null);
+                    wizard.ProjectName = "Minha VN";
+                    await wizard.NextCommand.ExecuteAsync(null);
+                    await wizard.NextCommand.ExecuteAsync(null);
+                    ScreenRenderer.Settle(window);
+                    OpenTechnicalDetails(window);
+                    Assert.Contains(VisibleTexts(window), t => t.Contains("Opus", StringComparison.Ordinal));
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    private static void OpenTechnicalDetails(MainWindow window)
+    {
+        foreach (var details in window.GetVisualDescendants().OfType<TechnicalDetails>().Where(d => d.IsEffectivelyVisible))
+        {
+            details.IsExpanded = true;
+        }
+
+        ScreenRenderer.Settle(window);
+    }
+
     private static void Render(MainWindow window, string name, ThemeVariant theme)
     {
         ScreenRenderer.Settle(window);
@@ -138,6 +192,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         var cards = window.GetVisualDescendants().OfType<QualityCard>().ToArray();
         Assert.Equal(["Rápida", "Equilibrada", "Caprichada"], cards.Select(c => c.Title));
         Assert.All(cards, card => Assert.StartsWith("R$", card.PriceText));
+        Assert.All(cards, card => Assert.False(card.ExampleRate));
         Assert.Equal(wizard.Qualities.Select(q => q.Price), cards.Select(c => c.Price));
 
         var fields = window.GetVisualDescendants().OfType<TextBox>().ToDictionary(t => Avalonia.Automation.AutomationProperties.GetName(t) ?? string.Empty, t => t.Text);

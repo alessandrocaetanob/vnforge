@@ -11,6 +11,8 @@ namespace VNForge.App.ViewModels;
 public sealed partial class NewProjectWizardViewModel
 {
     private AppSettings saved = AppSettings.Default;
+    private string initialRateText = string.Empty;
+    private string initialLimitText = string.Empty;
     private IReadOnlyDictionary<string, decimal> dollarsByModel = new Dictionary<string, decimal>();
 
     /// <summary>Rápida, Equilibrada e Caprichada; marcar uma troca o modelo do projeto e o contrário também.</summary>
@@ -46,7 +48,7 @@ public sealed partial class NewProjectWizardViewModel
     [ObservableProperty]
     public partial string EstimateNote { get; private set; } = string.Empty;
 
-    public string KeyNote => "A chave de uso do Claude não entra no projeto. Ela fica guardada no Windows, só no seu usuário, e você a cadastra em Ajustes.";
+    public const string KeyNote = "A chave de uso do Claude não entra no projeto. Ela fica guardada no Windows, só no seu usuário, e você a cadastra em Ajustes.";
 
     /// <summary>A cotação, o limite e a qualidade foram gravados no <c>app.json</c>; quem guarda uma cópia dos ajustes do usuário deve relê-los.</summary>
     public event EventHandler? BudgetSaved;
@@ -81,8 +83,10 @@ public sealed partial class NewProjectWizardViewModel
         Models.SelectionChanged += (_, _) => MarkQualityOfModel();
 
         saved = appSettings?.Load() ?? AppSettings.Default;
-        RateText = saved.BrlPerUsd is { } rate ? MoneyParser.Format(rate) : string.Empty;
-        LimitText = saved.SpendLimit is { } limit ? MoneyParser.Format(limit) : string.Empty;
+        initialRateText = saved.BrlPerUsd is { } rate ? MoneyParser.Format(rate) : string.Empty;
+        initialLimitText = saved.SpendLimit is { } limit ? MoneyParser.Format(limit) : string.Empty;
+        RateText = initialRateText;
+        LimitText = initialLimitText;
         Models.Select(QualityProfiles.For(saved.Quality).Model);
         MarkQualityOfModel();
         RefreshRate();
@@ -108,6 +112,8 @@ public sealed partial class NewProjectWizardViewModel
         }
 
         RateError = null;
+        // Enquanto a pessoa não mexe no campo, vale o número salvo, não o texto arredondado em duas casas.
+        rate = RateText == initialRateText ? saved.BrlPerUsd : rate;
         Rate = rate is { } value ? new ExchangeRate(value, KeepsSavedDate(value) ?? Today()) : ExchangeRate.Placeholder;
         RateNote = Rate.IsInformed
             ? "Fica salva nos Ajustes e vale para as contas em reais do app. O app não consulta a cotação na internet."
@@ -128,7 +134,7 @@ public sealed partial class NewProjectWizardViewModel
             ? GameCostEstimator.DollarsByModel(lines, QualityProfiles.All.Select(p => p.Model))
             : new Dictionary<string, decimal>();
         EstimateNote = EstimatedLines is { } expected && scripts is { } count
-            ? $"Estimativa para o jogo inteiro, a partir de {ProjectLabels.Number(count)} {(count == 1 ? "script" : "scripts")} (cerca de {ProjectLabels.Number(expected)} linhas). O valor certo aparece depois da extração do texto."
+            ? $"Estimativa para o jogo inteiro, a partir de {ProjectLabels.ScriptFiles(count)} (cerca de {ProjectLabels.Number(expected)} linhas). O valor certo aparece depois da extração do texto."
             : "O gasto do jogo inteiro aparece depois da extração do texto.";
         RecommendAccentAdjustment(engine);
         ApplyEstimates();
@@ -139,11 +145,14 @@ public sealed partial class NewProjectWizardViewModel
         foreach (var quality in Qualities)
         {
             var dollars = dollarsByModel.TryGetValue(quality.Profile.Model, out var found) ? found : 0m;
-            quality.ShowEstimate(EstimatedLines, Rate.ToBrl(dollars));
+            quality.ShowEstimate(EstimatedLines, Rate.ToBrl(dollars), Rate);
         }
     }
 
-    /// <summary>Grava a cotação, o limite e a qualidade escolhida no <c>app.json</c> do usuário, pelo mesmo arquivo dos Ajustes; sem ele, não grava nada.</summary>
+    /// <summary>
+    /// Grava a cotação, o limite e a qualidade escolhida no <c>app.json</c> do usuário, pelo mesmo arquivo dos Ajustes; sem ele, não grava nada.
+    /// Cotação e limite que a pessoa não mexeu ficam como estavam no arquivo: o texto do campo tem duas casas e não pode arredondar o valor salvo.
+    /// </summary>
     private void SaveBudget()
     {
         if (appSettings is null)
@@ -151,24 +160,44 @@ public sealed partial class NewProjectWizardViewModel
             return;
         }
 
-        BudgetInput.TryReadRate(RateText, out var rate, out _);
-        BudgetInput.TryReadLimit(LimitText, out var limit, out _);
-        var quality = QualityProfiles.ForModel(Models.Selected.Id)?.Quality;
         try
         {
             var current = appSettings.Load();
-            appSettings.Save(current with
+            var quality = QualityProfiles.ForModel(Models.Selected.Id)?.Quality;
+            var updated = current with { Quality = quality ?? current.Quality };
+            if (RateText != initialRateText)
             {
-                BrlPerUsd = rate,
-                RateInformedOn = rate is null ? null : Rate.InformedOn,
-                SpendLimit = limit,
-                Quality = quality ?? current.Quality,
-            });
-            BudgetSaved?.Invoke(this, EventArgs.Empty);
+                BudgetInput.TryReadRate(RateText, out var rate, out _);
+                updated = updated with { BrlPerUsd = rate, RateInformedOn = rate is null ? null : Rate.InformedOn };
+            }
+
+            if (LimitText != initialLimitText)
+            {
+                BudgetInput.TryReadLimit(LimitText, out var limit, out _);
+                updated = updated with { SpendLimit = limit };
+            }
+
+            appSettings.Save(updated);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             ErrorMessage = $"O projeto foi criado, mas não deu para salvar a cotação e o limite: {e.Message} Ajuste em Ajustes.";
+            return;
+        }
+
+        NotifyBudgetSaved();
+    }
+
+    /// <summary>O arquivo já foi gravado e o projeto já existe: uma falha ao reler os ajustes não volta a pessoa ao passo do nome.</summary>
+    private void NotifyBudgetSaved()
+    {
+        try
+        {
+            BudgetSaved?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception e) when (IsExpected(e))
+        {
+            ErrorMessage = $"O projeto foi criado e a cotação e o limite foram salvos, mas o app não conseguiu recarregar os Ajustes: {e.Message} Feche e abra o app.";
         }
     }
 }

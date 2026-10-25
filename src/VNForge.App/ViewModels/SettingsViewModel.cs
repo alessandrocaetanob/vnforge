@@ -91,6 +91,10 @@ public sealed partial class QualityOption(QualityProfile profile, string title, 
     [ObservableProperty]
     public partial bool HasEstimate { get; private set; }
 
+    /// <summary>O preço saiu da cotação de exemplo (a pessoa ainda não informou a dela); o cartão mostra a marca <see cref="Controls.Money.ExampleRateMark"/>.</summary>
+    [ObservableProperty]
+    public partial bool ExampleRate { get; private set; }
+
     /// <summary>O tempo para as linhas que faltam ("cerca de 6 min"); vazio sem estimativa.</summary>
     [ObservableProperty]
     public partial string Duration { get; private set; } = string.Empty;
@@ -103,10 +107,11 @@ public sealed partial class QualityOption(QualityProfile profile, string title, 
         _ => new QualityOption(profile, "Caprichada", "A mais fiel ao tom e aos personagens."),
     };
 
-    internal void ShowEstimate(int? pendingLines, decimal brl)
+    internal void ShowEstimate(int? pendingLines, decimal brl, ExchangeRate rate)
     {
         HasEstimate = pendingLines is not null;
         Price = pendingLines is null ? 0m : brl;
+        ExampleRate = pendingLines is not null && brl > 0m && !rate.IsInformed;
         Duration = pendingLines switch
         {
             null => string.Empty,
@@ -856,7 +861,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         foreach (var quality in Qualities)
         {
-            quality.ShowEstimate(estimatedPending, BrlFor(quality.Profile.Model));
+            quality.ShowEstimate(estimatedPending, BrlFor(quality.Profile.Model), app.Rate);
         }
     }
 

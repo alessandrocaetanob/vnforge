@@ -122,4 +122,9 @@ public static class ProjectLabels
     };
 
     public static string Number(int value) => value.ToString("N0", PtBr);
+
+    public static string Scripts(int count) => $"{Number(count)} {(count == 1 ? "script" : "scripts")}";
+
+    /// <summary>"1 arquivo de roteiro", "1.254 arquivos de roteiro": o mesmo termo do passo da pasta e da estimativa de gasto.</summary>
+    public static string ScriptFiles(int count) => $"{Number(count)} {(count == 1 ? "arquivo" : "arquivos")} de roteiro";
 }

@@ -30,6 +30,7 @@
               <TextBlock Name="PART_Duration" Classes="caption secondary" Text="{TemplateBinding Duration}" VerticalAlignment="Bottom" Margin="0,0,0,2"
                          IsVisible="{TemplateBinding Duration, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
+            <TextBlock Name="PART_RateMark" Classes="caption secondary" Text="(cotação de exemplo)" IsVisible="{TemplateBinding ExampleRate}"/>
           </StackPanel>
         </Border>
       </ControlTemplate>

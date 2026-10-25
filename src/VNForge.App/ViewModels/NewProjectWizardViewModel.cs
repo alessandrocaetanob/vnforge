@@ -553,13 +553,13 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         EngineTitle = ProjectLabels.Engine(found.Engine.Id, version);
         EngineHeadline = $"Feito com o motor {ProjectLabels.Engine(found.Engine.Id, null)}";
         DetectionLines.Add($"Engine: {EngineTitle}");
-        FoundFacts.Add(new DetectionFact("Texto para traduzir", scripts is { } n ? $"{ProjectLabels.Number(n)} {(n == 1 ? "arquivo" : "arquivos")} de roteiro" : "Roteiro do jogo encontrado"));
+        FoundFacts.Add(new DetectionFact("Texto para traduzir", scripts is { } n ? ProjectLabels.ScriptFiles(n) : "Roteiro do jogo encontrado"));
         FoundFacts.Add(new DetectionFact("Cópia de segurança", "Feita antes de qualquer mudança no jogo"));
         if (details.TryGetValue("scriptsArchive", out var archive))
         {
-            var count = scripts is { } total ? $" ({ProjectLabels.Number(total)} {(total == 1 ? "script" : "scripts")})" : string.Empty;
-            DetectionLines.Add($"Arquivo de scripts: {archive}{count}");
-            DetectionFacts.Add(new DetectionFact("Arquivo de scripts", count.Length == 0 ? archive : $"{archive} · {count.Trim(' ', '(', ')')}"));
+            var count = scripts is { } total ? ProjectLabels.Scripts(total) : null;
+            DetectionLines.Add(count is null ? $"Arquivo de scripts: {archive}" : $"Arquivo de scripts: {archive} ({count})");
+            DetectionFacts.Add(new DetectionFact("Arquivo de scripts", count is null ? archive : $"{archive} · {count}"));
         }
 
         if (details.TryGetValue(ProjectInitializer.ScriptKeyDetail, out var key))

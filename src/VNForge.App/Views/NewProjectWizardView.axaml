@@ -208,7 +208,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:QualityOption">
                 <c:QualityCard GroupName="WizardQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
-                               Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}"
+                               Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}" ExampleRate="{Binding ExampleRate}"
                                IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -253,7 +253,7 @@
             <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
             <StackPanel Grid.Column="1">
               <TextBlock Classes="body-strong" Text="Onde fica a chave"/>
-              <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding KeyNote}"/>
+              <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{x:Static vm:NewProjectWizardViewModel.KeyNote}"/>
             </StackPanel>
           </Grid>
         </Border>

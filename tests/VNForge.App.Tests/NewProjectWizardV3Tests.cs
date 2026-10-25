@@ -1,4 +1,5 @@
 using VNForge.AI.Cost;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Engines;
@@ -168,7 +169,8 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         Assert.True(vm.Qualities[1].Price < vm.Qualities[2].Price);
         Assert.All(vm.Qualities, q => Assert.StartsWith("cerca de", q.Duration));
         Assert.Equal(2 * GameCostEstimator.LinesPerScript, vm.EstimatedLines);
-        Assert.Contains("2 scripts", vm.EstimateNote);
+        Assert.Contains("2 arquivos de roteiro", vm.EstimateNote);
+        Assert.DoesNotContain("scripts", vm.EstimateNote);
     }
 
     [Fact]
@@ -193,6 +195,31 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         Assert.False(vm.Rate.IsInformed);
         Assert.Equal(ExchangeRate.Placeholder.BrlPerUsd, vm.Rate.BrlPerUsd);
         Assert.Contains("só como exemplo", vm.RateNote);
+    }
+
+    [Fact]
+    public async Task Sem_cotacao_informada_o_preco_de_cada_qualidade_leva_a_marca_de_exemplo_e_com_ela_nao()
+    {
+        var vm = await AtAiStepAsync();
+
+        Assert.All(vm.Qualities, q => Assert.True(q.ExampleRate));
+        var price = vm.Qualities[0].Price;
+        Assert.Equal($"≈ {Money.BrlEstimate(price)} (cotação de exemplo)", Money.WithRateMark(Money.BrlEstimate(price), price, vm.Rate));
+
+        vm.RateText = "5,40";
+
+        Assert.All(vm.Qualities, q => Assert.False(q.ExampleRate));
+    }
+
+    [Fact]
+    public async Task Com_cotacao_salva_nos_Ajustes_o_preco_nao_leva_a_marca_de_exemplo()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { BrlPerUsd = 5.43m, RateInformedOn = new DateOnly(2026, 1, 2) });
+
+        var vm = await AtAiStepAsync(file: file);
+
+        Assert.All(vm.Qualities, q => Assert.False(q.ExampleRate));
     }
 
     [Theory]
@@ -282,6 +309,103 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     }
 
     [Fact]
+    public async Task Cotacao_e_limite_que_a_pessoa_nao_mexeu_voltam_ao_arquivo_como_estavam()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { BrlPerUsd = 5.4321m, RateInformedOn = new DateOnly(2026, 1, 2), SpendLimit = 123.456m });
+        var vm = await AtAiStepAsync(file: file);
+
+        Assert.Equal("5,43", vm.RateText);
+        Assert.Equal(5.4321m, vm.Rate.BrlPerUsd);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        var saved = file.Load();
+        Assert.Equal(5.4321m, saved.BrlPerUsd);
+        Assert.Equal(new DateOnly(2026, 1, 2), saved.RateInformedOn);
+        Assert.Equal(123.456m, saved.SpendLimit);
+    }
+
+    [Fact]
+    public async Task Mexer_so_no_limite_nao_renova_nem_arredonda_a_cotacao()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { BrlPerUsd = 5.4321m, RateInformedOn = new DateOnly(2026, 1, 2), SpendLimit = 123.456m });
+        var onlyLimit = await AtAiStepAsync(file: file);
+        onlyLimit.LimitText = "200";
+
+        await onlyLimit.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(5.4321m, file.Load().BrlPerUsd);
+        Assert.Equal(new DateOnly(2026, 1, 2), file.Load().RateInformedOn);
+        Assert.Equal(200m, file.Load().SpendLimit);
+    }
+
+    [Fact]
+    public async Task Mexer_so_na_cotacao_renova_a_data_e_nao_arredonda_o_limite()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { BrlPerUsd = 5.4321m, RateInformedOn = new DateOnly(2026, 1, 2), SpendLimit = 123.456m });
+        var onlyRate = await AtAiStepAsync(file: file);
+        onlyRate.RateText = "6,00";
+
+        await onlyRate.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(6m, file.Load().BrlPerUsd);
+        Assert.Equal(new DateOnly(2026, 10, 25), file.Load().RateInformedOn);
+        Assert.Equal(123.456m, file.Load().SpendLimit);
+    }
+
+    [Fact]
+    public async Task Escolher_o_Fable_mantem_a_qualidade_que_estava_salva()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { Quality = TranslationQuality.Balanced });
+        var vm = await AtAiStepAsync(file: file);
+        vm.Models.Select("claude-fable-5-1");
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.Equal(TranslationQuality.Balanced, file.Load().Quality);
+    }
+
+    [Fact]
+    public async Task Se_o_app_json_nao_grava_o_projeto_fica_criado_e_a_tela_avisa()
+    {
+        var blocker = Path.Combine(temp.Path, "arquivo-no-lugar-da-pasta");
+        File.WriteAllText(blocker, "x");
+        var vm = await AtAiStepAsync(file: new AppSettingsFile(Path.Combine(blocker, "config")));
+        vm.RateText = "5,43";
+        var reloaded = false;
+        vm.BudgetSaved += (_, _) => reloaded = true;
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.NotNull(vm.Created);
+        Assert.StartsWith("O projeto foi criado, mas não deu para salvar", vm.ErrorMessage);
+        Assert.False(reloaded);
+    }
+
+    [Fact]
+    public async Task Se_reler_os_Ajustes_falha_depois_de_gravar_a_pessoa_nao_volta_ao_passo_do_nome()
+    {
+        var file = SettingsFile();
+        var vm = await AtAiStepAsync(file: file);
+        vm.RateText = "5,43";
+        vm.BudgetSaved += (_, _) => throw new IOException("sem acesso");
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.NotNull(vm.Created);
+        Assert.Equal(5.43m, file.Load().BrlPerUsd);
+        Assert.Contains("recarregar os Ajustes", vm.ErrorMessage);
+        Assert.DoesNotContain("Ajuste o nome", vm.ErrorMessage);
+    }
+
+    [Fact]
     public async Task Os_Ajustes_ja_abertos_leem_de_novo_o_que_o_assistente_gravou()
     {
         var file = SettingsFile();
@@ -357,10 +481,10 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         var vm = await AtAiStepAsync();
 
         var texts = vm.Qualities.SelectMany(q => new[] { q.Title, q.Description, q.Duration })
-            .Append(vm.KeyNote).Append(vm.RateNote).Append(vm.EstimateNote);
+            .Append(NewProjectWizardViewModel.KeyNote).Append(vm.RateNote).Append(vm.EstimateNote);
 
         Assert.All(texts, text => Assert.DoesNotMatch("(?i)claude-|opus|sonnet|haiku|token|DPAPI|ANTHROPIC", text));
-        Assert.Contains("Ajustes", vm.KeyNote);
+        Assert.Contains("Ajustes", NewProjectWizardViewModel.KeyNote);
     }
 
     [Fact]

@@ -17,6 +17,8 @@ public sealed class QualityCard : RadioButton
 
     public static readonly StyledProperty<bool> ShowPriceProperty = AvaloniaProperty.Register<QualityCard, bool>(nameof(ShowPrice), defaultValue: true);
 
+    public static readonly StyledProperty<bool> ExampleRateProperty = AvaloniaProperty.Register<QualityCard, bool>(nameof(ExampleRate));
+
     public static readonly DirectProperty<QualityCard, string> PriceTextProperty =
         AvaloniaProperty.RegisterDirect<QualityCard, string>(nameof(PriceText), o => o.PriceText);
 
@@ -65,6 +67,13 @@ public sealed class QualityCard : RadioButton
         set => SetValue(ShowPriceProperty, value);
     }
 
+    /// <summary>O preço saiu da cotação de exemplo: ele ganha o "≈" e a marca "(cotação de exemplo)" embaixo.</summary>
+    public bool ExampleRate
+    {
+        get => GetValue(ExampleRateProperty);
+        set => SetValue(ExampleRateProperty, value);
+    }
+
     public string PriceText
     {
         get => priceText;
@@ -74,9 +83,10 @@ public sealed class QualityCard : RadioButton
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == PriceProperty)
+        if (change.Property == PriceProperty || change.Property == ExampleRateProperty)
         {
-            PriceText = Money.BrlEstimate(Price);
+            var text = Money.BrlEstimate(Price);
+            PriceText = ExampleRate && Price > 0m ? $"≈ {text}" : text;
         }
     }
 }
