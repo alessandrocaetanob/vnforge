@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using VNForge.AI.Translation;
+using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Claude;
@@ -8,9 +9,14 @@ namespace VNForge.AI.Claude;
 /// <summary>Trechos de prompt e de resposta que o provedor de tradução e o de revisão dividem.</summary>
 internal static class ClaudePromptParts
 {
-    /// <summary>Acrescenta ao prompt de sistema o guia de estilo, o glossário e os personagens do lote.</summary>
+    /// <summary>
+    /// Acrescenta ao prompt de sistema as escolhas de estilo, o guia de estilo, o glossário e os personagens do lote. As escolhas e o
+    /// guia vêm primeiro e não mudam entre lotes do mesmo projeto, para o prefixo do prompt continuar valendo no cache da API.
+    /// </summary>
     public static void AppendContext(StringBuilder sb, TranslationBatch batch, string glossaryHeading)
     {
+        AppendStyleChoices(sb, batch.Style);
+
         if (!string.IsNullOrWhiteSpace(batch.StyleGuide))
             sb.AppendLine().AppendLine("Guia de estilo:").AppendLine(batch.StyleGuide.Trim());
 
@@ -30,25 +36,71 @@ internal static class ClaudePromptParts
     }
 
     /// <summary>Acrescenta ao prompt do usuário o contexto anterior, que o modelo lê mas não processa.</summary>
-    public static void AppendPrevious(StringBuilder sb, TranslationBatch batch, string heading)
+    public static void AppendPrevious(StringBuilder sb, TranslationBatch batch, string heading) =>
+        AppendContextLines(sb, batch.PreviousLines, heading);
+
+    /// <summary>Acrescenta ao prompt do usuário as falas seguintes ao lote, só para o modelo entender o que vem depois.</summary>
+    public static void AppendNext(StringBuilder sb, TranslationBatch batch, string heading) =>
+        AppendContextLines(sb, batch.NextLines, heading);
+
+    /// <summary>As escolhas de estilo em frases para o modelo, uma por linha, sempre na mesma ordem e com o mesmo texto.</summary>
+    public static IReadOnlyList<string> StyleLines(StyleConfig style)
     {
-        if (batch.PreviousLines.Count == 0)
+        ArgumentNullException.ThrowIfNull(style);
+        return
+        [
+            style.Honorifics switch
+            {
+                HonorificsPolicy.Keep => "Honoríficos: mantenha -san, -kun, -chan, -sama e senpai como no original (Misaki-chan, senpai).",
+                HonorificsPolicy.Remove => "Honoríficos: remova -san, -kun, -chan, -sama e senpai; use só o nome ou um termo comum (Misaki, veterano).",
+                _ => "Honoríficos: adapte. -chan e -kun saem; -san vira \"senhor\" ou \"senhora\" só em fala formal; senpai segue o glossário.",
+            },
+            style.Address == AddressForm.Tu
+                ? "Tratamento: os personagens se tratam por \"tu\", com a conjugação de segunda pessoa (tu vais, te molhas)."
+                : "Tratamento: os personagens se tratam por \"você\" (você vai se molhar).",
+            NarratorLine(style.Narrator),
+            style.TranslateOnomatopoeia
+                ? "Onomatopeias: traduza para o equivalente em português (ドキドキ vira \"tum-tum\")."
+                : "Onomatopeias: mantenha como soam em japonês, em letras latinas (doki doki).",
+            style.WesternNameOrder
+                ? "Nomes: escreva na ordem ocidental, nome antes do sobrenome (Misaki Sakura)."
+                : "Nomes: mantenha a ordem japonesa, sobrenome antes do nome (Sakura Misaki).",
+        ];
+    }
+
+    private static void AppendStyleChoices(StringBuilder sb, StyleConfig style)
+    {
+        sb.AppendLine().AppendLine("Estilo da tradução:");
+        foreach (var line in StyleLines(style))
+            sb.Append("- ").AppendLine(line);
+    }
+
+    private static string NarratorLine(NarratorStyle narrator)
+    {
+        var who = narrator.WhoOrNull is { } name ? $"{name}, em" : "em";
+        var person = narrator.Person == NarratorPerson.Third ? "terceira pessoa" : "primeira pessoa";
+        var gender = narrator.Gender switch
+        {
+            NarratorGender.Male => "gênero masculino (concorde adjetivos e particípios no masculino)",
+            NarratorGender.Female => "gênero feminino (concorde adjetivos e particípios no feminino)",
+            _ => "gênero neutro (prefira construções sem marca de gênero)",
+        };
+        return $"Narrador: {who} {person}; {gender}.";
+    }
+
+    private static void AppendContextLines(StringBuilder sb, IReadOnlyList<TextUnit> lines, string heading)
+    {
+        if (lines.Count == 0)
             return;
 
         sb.AppendLine(heading);
-        foreach (var u in batch.PreviousLines)
+        foreach (var u in lines)
             sb.AppendLine($"{(u.Speaker is null ? string.Empty : u.Speaker + ": ")}{u.Source}");
         sb.AppendLine();
     }
 
     /// <summary>Um lote só com <paramref name="line"/>, no mesmo contexto de <paramref name="batch"/>.</summary>
-    public static TranslationBatch SingleLine(TranslationBatch batch, TextUnit line) => new([line])
-    {
-        PreviousLines = batch.PreviousLines,
-        Glossary = batch.Glossary,
-        Characters = batch.Characters,
-        StyleGuide = batch.StyleGuide,
-    };
+    public static TranslationBatch SingleLine(TranslationBatch batch, TextUnit line) => batch.ForLines([line]);
 
     /// <summary>
     /// Lê <c>{ "&lt;array&gt;": [ { "id": ..., "&lt;value&gt;": ... } ] }</c> e devolve os valores na ordem do lote. Exige exatamente os

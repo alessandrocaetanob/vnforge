@@ -49,6 +49,7 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
     {
         var sb = new StringBuilder();
         ClaudePromptParts.AppendPrevious(sb, batch, "Contexto anterior (não traduzir):");
+        ClaudePromptParts.AppendNext(sb, batch, "Contexto seguinte (não traduzir):");
         sb.AppendLine("Traduza estas linhas:");
         sb.AppendLine(JsonSerializer.Serialize(
             batch.Lines.Select(u => new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source }),
