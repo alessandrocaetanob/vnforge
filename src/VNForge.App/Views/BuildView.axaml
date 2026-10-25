@@ -47,7 +47,7 @@
         </Grid>
       </Border>
 
-      <!-- Injetar e restaurar escrevem no jogo: esperam um segundo clique, com a lista do que vai ser gravado à vista. -->
+      <!-- Injetar, aplicar o patch e restaurar escrevem no jogo: esperam um segundo clique, com a lista do que vai ser gravado à vista. -->
       <Border Classes="infobar warning" IsVisible="{Binding IsConfirming}">
         <StackPanel Spacing="8">
           <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
@@ -58,7 +58,7 @@
             <Button Grid.Column="3" Command="{Binding CancelConfirmationCommand}" Content="Cancelar"
                     AutomationProperties.Name="Cancelar"/>
           </Grid>
-          <ItemsControl ItemsSource="{Binding Changes}" Margin="26,0,0,0" AutomationProperties.Name="Arquivos que serão gravados no jogo">
+          <ItemsControl ItemsSource="{Binding ConfirmationFiles}" Margin="26,0,0,0" AutomationProperties.Name="Arquivos que serão alterados no jogo">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:PlannedChange">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,1">
@@ -73,20 +73,46 @@
 
       <Grid ColumnDefinitions="*,400" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
 
-        <!-- Opções -->
-        <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do build">
-          <StackPanel>
-            <Border Classes="divider-bottom" Height="48" Padding="16,0">
-              <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Opções"/>
-            </Border>
-            <c:ToggleRule Title="Reconstruir só scripts alterados"
-                          Description="Os demais arquivos do pacote são copiados byte a byte do original."
-                          IsChecked="{Binding OnlyChanged}"/>
-            <c:ToggleRule Title="Permitir avisos do QA"
-                          Description="{Binding AllowWarningsDescription}"
-                          IsChecked="{Binding AllowWarnings}"/>
-          </StackPanel>
-        </Border>
+        <StackPanel Spacing="12">
+          <!-- Opções -->
+          <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do build">
+            <StackPanel>
+              <Border Classes="divider-bottom" Height="48" Padding="16,0">
+                <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Opções"/>
+              </Border>
+              <c:ToggleRule Title="Reconstruir só scripts alterados"
+                            Description="Os demais arquivos do pacote são copiados byte a byte do original."
+                            IsChecked="{Binding OnlyChanged}"/>
+              <c:ToggleRule Title="Permitir avisos do QA"
+                            Description="{Binding AllowWarningsDescription}"
+                            IsChecked="{Binding AllowWarnings}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Patch do executável (cp1252): troca o nome da fonte das falas. Mesmo fluxo da injeção: confirmação, backup e hash conferido. -->
+          <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasPatch}" AutomationProperties.Name="Patch do executável">
+            <StackPanel>
+              <Border Classes="divider-bottom" Height="48" Padding="16,0">
+                <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Patch da fonte no executável"/>
+              </Border>
+              <StackPanel Margin="16" Spacing="12">
+                <Border Classes="infobar" Classes.success="{Binding IsPatchApplied}" Classes.warning="{Binding IsPatchRefused}"
+                        AutomationProperties.Name="Estado do patch">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
+                              Data="{Binding PatchIconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+                      <Run FontWeight="SemiBold" Text="{Binding PatchTitle, Mode=OneWay}"/>
+                      <Run Text="{Binding PatchText, Mode=OneWay}"/>
+                    </TextBlock>
+                  </Grid>
+                </Border>
+                <Button Classes="accent" HorizontalAlignment="Left" Command="{Binding PatchCommand}"
+                        Content="Aplicar patch da fonte" AutomationProperties.Name="Aplicar patch da fonte"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
 
         <!-- Resultado e ações -->
         <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Resultado">

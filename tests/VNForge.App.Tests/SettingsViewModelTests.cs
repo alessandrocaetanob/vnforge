@@ -191,6 +191,18 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public void O_cartao_do_cp1252_descreve_o_patch_da_fonte_e_diz_onde_aplicar()
+    {
+        using var temp = new TempFolder();
+        var description = Create(temp).Encodings.Single(e => e.Id == "cp1252").Description;
+
+        Assert.Contains("MS Gothic", description);
+        Assert.Contains("tela Build", description);
+        Assert.DoesNotContain("lead bytes", description);
+        Assert.DoesNotContain("ANSI_CHARSET", description);
+    }
+
+    [Fact]
     public void Acentuacao_tem_quatro_cartoes_com_exemplo_e_o_aviso_do_cp1252_so_aparece_com_ele()
     {
         using var temp = new TempFolder();

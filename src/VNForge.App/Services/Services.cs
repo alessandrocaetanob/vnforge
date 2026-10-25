@@ -68,7 +68,7 @@ public static class ProjectLabels
     {
         "fold" => "Remover acentos (fold)",
         "remap" => "Remapear glifos (remap)",
-        "cp1252" => "CP1252 (patch no executável)",
+        "cp1252" => "CP1252 (patch da fonte)",
         "sjis" => "Shift-JIS puro",
         _ => strategy,
     };

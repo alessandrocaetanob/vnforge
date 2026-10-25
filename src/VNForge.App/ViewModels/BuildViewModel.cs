@@ -12,12 +12,22 @@ using VNForge.Engines.YuRis;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>O que o botão Confirmar vai fazer; injetar e restaurar escrevem na pasta do jogo, então esperam um segundo clique.</summary>
+/// <summary>O que o botão Confirmar vai fazer; injetar, aplicar o patch e restaurar escrevem na pasta do jogo, então esperam um segundo clique.</summary>
 public enum BuildConfirmation
 {
     None,
     Inject,
     Restore,
+    Patch,
+}
+
+/// <summary>Em que pé está o patch do executável: sem patch para este projeto, por aplicar, já aplicado ou recusado pelo Core.</summary>
+public enum BuildPatchState
+{
+    None,
+    Available,
+    Applied,
+    Refused,
 }
 
 /// <summary>Uma linha do log: o horário (<c>HH:mm:ss</c>, em mono na tela) e o que aconteceu.</summary>
@@ -50,8 +60,8 @@ public enum BuildNoticeKind
 public sealed record BuildNotice(BuildNoticeKind Kind, string Message);
 
 /// <summary>
-/// Página Build e injeção: roda o build, injeta o <c>build/</c> na pasta do jogo e restaura os originais com os mesmos serviços do
-/// <c>vnf build</c>, <c>vnf inject</c> e <c>vnf restore</c>. Cada operação é uma tarefa da barra inferior; o jogo só é escrito pelo
+/// Página Build e injeção: roda o build, injeta o <c>build/</c> na pasta do jogo, aplica o patch do executável e restaura os originais com os
+/// mesmos serviços do <c>vnf build</c>, <c>vnf inject</c>, <c>vnf patch-exe</c> e <c>vnf restore</c>. Cada operação é uma tarefa da barra inferior; o jogo só é escrito pelo
 /// fluxo de injeção, com backup, depois de o usuário confirmar o que o plano mostrou.
 /// </summary>
 public sealed partial class BuildViewModel : ObservableObject
@@ -71,6 +81,11 @@ public sealed partial class BuildViewModel : ObservableObject
     private RestorePlan? restorePlan;
     private InjectionPlan? confirmedInject;
     private RestorePlan? confirmedRestore;
+    private readonly object patchGate = new();
+    private IReadOnlyList<PatchPlan>? heldPatch;
+    private PatchInfo lastPatch = PatchInfo.None;
+    private bool applyingPatch;
+    private string gameExecutableRelative = string.Empty;
     private int refreshVersion;
     private int epoch;
     private BuildNotice? notice;
@@ -96,6 +111,9 @@ public sealed partial class BuildViewModel : ObservableObject
 
     /// <summary>Os arquivos de <c>build/</c> que a injeção gravaria agora no jogo.</summary>
     public ObservableCollection<PlannedChange> Changes { get; } = [];
+
+    /// <summary>Os arquivos que a confirmação pendente vai mexer na pasta do jogo: os da injeção, os do patch ou os que a restauração devolve.</summary>
+    public ObservableCollection<PlannedChange> ConfirmationFiles { get; } = [];
 
     /// <summary>Os números do último build desta sessão, um fato por linha do cartão Resultado.</summary>
     public ObservableCollection<ResultFact> Facts { get; } = [];
@@ -177,6 +195,20 @@ public sealed partial class BuildViewModel : ObservableObject
     [ObservableProperty]
     public partial bool AllowWarnings { get; set; }
 
+    /// <summary>O patch do executável: só existe com a acentuação <c>cp1252</c> e uma engine que o ofereça.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPatch))]
+    [NotifyPropertyChangedFor(nameof(IsPatchApplied))]
+    [NotifyPropertyChangedFor(nameof(IsPatchRefused))]
+    [NotifyPropertyChangedFor(nameof(PatchIconKey))]
+    public partial BuildPatchState PatchState { get; private set; }
+
+    [ObservableProperty]
+    public partial string PatchTitle { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string PatchText { get; private set; } = string.Empty;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConfirming))]
     public partial BuildConfirmation Pending { get; private set; }
@@ -185,6 +217,20 @@ public sealed partial class BuildViewModel : ObservableObject
     public partial string ConfirmationText { get; private set; } = string.Empty;
 
     public bool IsConfirming => Pending != BuildConfirmation.None;
+
+    public bool HasPatch => PatchState != BuildPatchState.None;
+
+    public bool IsPatchApplied => PatchState == BuildPatchState.Applied;
+
+    public bool IsPatchRefused => PatchState == BuildPatchState.Refused;
+
+    /// <summary>A chave do ícone do InfoBar do patch, para o <c>IconKeyConverter</c>.</summary>
+    public string PatchIconKey => PatchState switch
+    {
+        BuildPatchState.Applied => "Icon.Check",
+        BuildPatchState.Refused => "Icon.Warning",
+        _ => "Icon.Info",
+    };
 
     public bool HasFacts => Facts.Count > 0;
 
@@ -249,6 +295,7 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         BuildCommand.NotifyCanExecuteChanged();
         InjectCommand.NotifyCanExecuteChanged();
+        PatchCommand.NotifyCanExecuteChanged();
         RestoreCommand.NotifyCanExecuteChanged();
         LaunchCommand.NotifyCanExecuteChanged();
         ConfirmCommand.NotifyCanExecuteChanged();
@@ -257,6 +304,8 @@ public sealed partial class BuildViewModel : ObservableObject
     private bool CanBuild() => Project is not null && !IsBusy && !HasQaErrors;
 
     private bool CanInject() => !IsBusy && injectionPlan is { Files.Count: > 0 };
+
+    private bool CanPatch() => !IsBusy && PatchState == BuildPatchState.Available;
 
     private bool CanRestore() => !IsBusy && restorePlan is not null;
 
@@ -352,6 +401,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var replaced = plan.Files.Count(f => f.ReplacesExisting);
         confirmedInject = plan;
         confirmedRestore = null;
+        SetConfirmationFiles(plan.Files.Select(DescribePlannedFile));
         ConfirmationText = $"Gravar {ProjectLabels.Number(plan.Files.Count)} arquivo(s) na pasta do jogo? Os {ProjectLabels.Number(replaced)} original(is) que serão trocados vão primeiro para o backup, em {plan.BackupRoot}.";
         Pending = BuildConfirmation.Inject;
     }
@@ -366,8 +416,75 @@ public sealed partial class BuildViewModel : ObservableObject
 
         confirmedRestore = plan;
         confirmedInject = null;
+        SetConfirmationFiles(plan.Manifest.Files.Select(DescribeRestoredFile));
         ConfirmationText = $"Restaurar os originais na pasta do jogo? Devolve {ProjectLabels.Number(plan.Manifest.Files.Count)} arquivo(s) dos backups (o mais recente é {plan.BackupDirectory}) e apaga os que a injeção criou.";
         Pending = BuildConfirmation.Restore;
+    }
+
+    /// <summary>
+    /// Prepara o patch do executável como o <c>vnf patch-exe</c>: o Core aplica o patch numa cópia de trabalho e compara com o jogo, sem gravar
+    /// nele. A cópia fica guardada até o usuário confirmar ou cancelar; só então o fluxo de injeção faz o backup e grava o executável.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanPatch))]
+    private async Task PatchAsync()
+    {
+        if (Project is not { } summary)
+        {
+            return;
+        }
+
+        ClearConfirmation();
+        ErrorMessage = null;
+        var mine = epoch;
+        IsBusy = true;
+        try
+        {
+            var plans = await Task.Run(() => PlanPatches(summary.Root));
+            if (mine != epoch)
+            {
+                ReleasePatch();
+                return;
+            }
+
+            var pending = plans.Where(p => p.Injection.Files.Count > 0).ToList();
+            if (pending.Count == 0)
+            {
+                ReleasePatch();
+                AppendLog("O executável já está com o patch. Nada a fazer.");
+            }
+            else
+            {
+                ConfirmPatch(pending);
+            }
+        }
+        catch (Exception e) when (IsExpected(e))
+        {
+            ReleasePatch();
+            if (mine == epoch)
+            {
+                Fail("Patch recusado", e.Message);
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        if (!IsConfirming && mine == epoch)
+        {
+            await RefreshAsync();
+        }
+    }
+
+    private void ConfirmPatch(List<PatchPlan> pending)
+    {
+        var files = pending.SelectMany(p => p.Injection.Files).ToList();
+        confirmedInject = null;
+        confirmedRestore = null;
+        SetConfirmationFiles(files.Select(DescribePlannedFile));
+        var descriptions = string.Join(" ", pending.Select(p => p.Patch.Description));
+        ConfirmationText = $"Alterar {ProjectLabels.Number(files.Count)} arquivo(s) na pasta do jogo? {descriptions} O original vai primeiro para o backup, em {pending[0].Injection.BackupRoot}.";
+        Pending = BuildConfirmation.Patch;
     }
 
     [RelayCommand(CanExecute = nameof(CanConfirm))]
@@ -376,6 +493,8 @@ public sealed partial class BuildViewModel : ObservableObject
         var action = Pending;
         var inject = confirmedInject;
         var restore = confirmedRestore;
+        var patch = action == BuildConfirmation.Patch ? HeldPatch() : null;
+        applyingPatch = patch is not null;
         ClearConfirmation();
         ErrorMessage = null;
         var mine = epoch;
@@ -390,6 +509,9 @@ public sealed partial class BuildViewModel : ObservableObject
                     break;
                 case BuildConfirmation.Restore when restore is not null:
                     await RestoreAsync(restore, mine);
+                    break;
+                case BuildConfirmation.Patch when patch is not null:
+                    await ApplyPatchAsync(patch, mine);
                     break;
             }
         }
@@ -489,6 +611,55 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
+    private async Task ApplyPatchAsync(IReadOnlyList<PatchPlan> plans, int mine)
+    {
+        try
+        {
+            var pending = plans.Where(p => p.Injection.Files.Count > 0).ToList();
+            AppendLog($"Aplicando o patch em {pending[0].Injection.GameDirectory}");
+            restoredFrom = null;
+            var run = await RunAsync("Aplicar patch no executável", "Fazendo o backup e gravando o executável", (_, _) =>
+            {
+                foreach (var plan in pending)
+                {
+                    EnsureBuildMatchesPlan(plan.Injection);
+                }
+
+                var injector = new GameInjector();
+                return pending.Select(injector.InjectPatch).ToList();
+            });
+            if (mine != epoch)
+            {
+                return;
+            }
+
+            if (run.Value is { } results)
+            {
+                foreach (var result in results.Where(r => r.BackupDirectory is not null))
+                {
+                    AppendLog($"Backup: {result.BackupDirectory}");
+                }
+
+                var written = results.SelectMany(r => r.Written).ToList();
+                AppendLog($"Patch aplicado: {string.Join(", ", written)} (hashes conferidos). Restaurar originais desfaz.");
+                notice = new BuildNotice(BuildNoticeKind.Injected, $"Patch aplicado no executável: {ProjectLabels.Number(written.Count)} arquivo(s), com backup.");
+            }
+            else if (run.Failure is not null)
+            {
+                Fail("Patch falhou", run.Failure.Message);
+            }
+            else
+            {
+                ReportStopped("Patch");
+            }
+        }
+        finally
+        {
+            applyingPatch = false;
+            ReleasePatch();
+        }
+    }
+
     private async Task RestoreAsync(RestorePlan plan, int mine)
     {
         var root = Project!.Root;
@@ -527,7 +698,7 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    /// <summary>Recusa a injeção se um arquivo de <c>build/</c> mudou depois do plano que o usuário confirmou: o jogo não recebe conteúdo que a tela não mostrou.</summary>
+    /// <summary>Recusa a injeção se um arquivo de <c>build/</c> (ou a cópia de trabalho de um patch) mudou depois do plano que o usuário confirmou: o jogo não recebe conteúdo que a tela não mostrou.</summary>
     private static void EnsureBuildMatchesPlan(InjectionPlan plan)
     {
         foreach (var file in plan.Files)
@@ -820,8 +991,142 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         Pending = BuildConfirmation.None;
         ConfirmationText = string.Empty;
+        ConfirmationFiles.Clear();
         confirmedInject = null;
         confirmedRestore = null;
+        if (!applyingPatch)
+        {
+            ReleasePatch();
+        }
+    }
+
+    private void SetConfirmationFiles(IEnumerable<PlannedChange> files)
+    {
+        ConfirmationFiles.Clear();
+        foreach (var file in files)
+        {
+            ConfirmationFiles.Add(file);
+        }
+    }
+
+    private static PlannedChange DescribePlannedFile(PlannedFile file) =>
+        new(file.RelativePath, file.ReplacesExisting ? "Substitui o original" : "Arquivo novo");
+
+    private PlannedChange DescribeRestoredFile(BackupEntry entry)
+    {
+        if (!entry.Existed)
+        {
+            return new PlannedChange(entry.Path, "Remove o arquivo criado pela injeção");
+        }
+
+        var isExecutable = string.Equals(entry.Path.Replace('\\', '/'), gameExecutableRelative.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase);
+        return new PlannedChange(entry.Path, isExecutable ? "Devolve o executável original" : "Devolve o original");
+    }
+
+    private IReadOnlyList<PatchPlan>? HeldPatch()
+    {
+        lock (patchGate)
+        {
+            return heldPatch;
+        }
+    }
+
+    /// <summary>Apaga as cópias de trabalho do patch que o usuário viu e deixa o estado do patch ser lido de novo.</summary>
+    private void ReleasePatch()
+    {
+        lock (patchGate)
+        {
+            if (heldPatch is null)
+            {
+                return;
+            }
+
+            heldPatch.ToList().ForEach(GameInjector.DiscardPatch);
+            heldPatch = null;
+        }
+    }
+
+    /// <summary>
+    /// Planeja os patches da engine para o projeto e guarda os planos (com a cópia de trabalho) até a confirmação. Roda fora da thread da tela;
+    /// o trinco impede que a leitura do estado apague a cópia de trabalho de um patch que está sendo confirmado ou gravado.
+    /// </summary>
+    private IReadOnlyList<PatchPlan> PlanPatches(string root)
+    {
+        var project = ProjectFolder.Open(root);
+        var patches = FindPatches(project.LoadConfig()) ?? throw new VNForgeException("Este projeto não tem patch de executável.");
+        lock (patchGate)
+        {
+            var plans = new List<PatchPlan>();
+            try
+            {
+                foreach (var patch in patches)
+                {
+                    plans.Add(GameInjector.PlanPatch(project, patch));
+                }
+            }
+            catch
+            {
+                plans.ForEach(GameInjector.DiscardPatch);
+                throw;
+            }
+
+            heldPatch = plans;
+            return plans;
+        }
+    }
+
+    /// <summary>Os patches do executável do projeto: só com a acentuação <c>cp1252</c> e uma engine que ofereça <see cref="IGamePatchProvider"/>.</summary>
+    private IReadOnlyList<IGamePatch>? FindPatches(ProjectConfig config)
+    {
+        if (!string.Equals(config.Encoding.Strategy, "cp1252", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var engine = engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal));
+        return engine is IGamePatchProvider provider && provider.CreatePatches(config.Game.Exe) is { Count: > 0 } patches ? patches : null;
+    }
+
+    /// <summary>
+    /// O estado do patch para a tela. Planeja e apaga a cópia de trabalho na hora: é a única forma de o Core dizer se o executável já está com o
+    /// patch. Com uma confirmação em andamento devolve o último estado lido, para não mexer na cópia que o usuário está conferindo.
+    /// </summary>
+    private PatchInfo ReadPatch(ProjectFolder project, ProjectConfig config)
+    {
+        if (FindPatches(config) is not { } patches)
+        {
+            return PatchInfo.None;
+        }
+
+        lock (patchGate)
+        {
+            if (heldPatch is not null)
+            {
+                return lastPatch;
+            }
+
+            var plans = new List<PatchPlan>();
+            try
+            {
+                foreach (var patch in patches)
+                {
+                    plans.Add(GameInjector.PlanPatch(project, patch));
+                }
+
+                var pending = plans.Where(p => p.Injection.Files.Count > 0).ToList();
+                return lastPatch = pending.Count == 0
+                    ? new PatchInfo(BuildPatchState.Applied, "Patch aplicado.", "O patch já está aplicado no executável do jogo. Nada a fazer; Restaurar originais devolve o executável.")
+                    : new PatchInfo(BuildPatchState.Available, "Patch disponível.", $"{string.Join(" ", pending.Select(p => p.Patch.Description))} Faz o backup do executável antes; Restaurar originais desfaz.");
+            }
+            catch (VNForgeException e)
+            {
+                return lastPatch = new PatchInfo(BuildPatchState.Refused, "Patch recusado.", e.Message);
+            }
+            finally
+            {
+                plans.ForEach(GameInjector.DiscardPatch);
+            }
+        }
     }
 
     /// <summary>Chamado ao fechar a janela: enquanto uma operação escreve no jogo, fechar a deixaria pela metade. Devolve <c>false</c> e avisa na página.</summary>
@@ -871,6 +1176,11 @@ public sealed partial class BuildViewModel : ObservableObject
         DropStaleConfirmation();
         GameFolder = state?.GameFolder ?? string.Empty;
         GameExecutable = state?.GameExecutable ?? string.Empty;
+        gameExecutableRelative = state?.GameExecutableRelative ?? string.Empty;
+        var patch = state?.Patch ?? PatchInfo.None;
+        PatchState = patch.State;
+        PatchTitle = patch.Title;
+        PatchText = patch.Text;
         PlanMessage = state?.PlanMessage ?? string.Empty;
         BackupLocation = state?.BackupLocation ?? string.Empty;
         BackupMessage = state?.BackupMessage ?? string.Empty;
@@ -1035,7 +1345,7 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    private static ProjectState ReadState(string root, QaEngine engine)
+    private ProjectState ReadState(string root, QaEngine engine)
     {
         var project = ProjectFolder.Open(root);
         var config = project.LoadConfig();
@@ -1082,7 +1392,7 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         var (qaErrors, qaWarnings) = CountQaIssues(project, engine);
-        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaErrors, qaWarnings);
+        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaErrors, qaWarnings, config.Game.Exe, ReadPatch(project, config));
     }
 
     /// <summary>O <c>.gitignore</c> do projeto lista <c>backup/</c>: só então o rodapé garante que os originais ficam fora do git.</summary>
@@ -1149,10 +1459,17 @@ public sealed partial class BuildViewModel : ObservableObject
         IReadOnlyList<BackupInfo> Backups,
         bool BackupIgnored,
         int QaErrors,
-        int QaWarnings)
+        int QaWarnings,
+        string GameExecutableRelative,
+        PatchInfo Patch)
     {
         public static ProjectState Unreadable(string message) =>
-            new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], false, 0, 0);
+            new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], false, 0, 0, string.Empty, PatchInfo.None);
+    }
+
+    private sealed record PatchInfo(BuildPatchState State, string Title, string Text)
+    {
+        public static PatchInfo None { get; } = new(BuildPatchState.None, string.Empty, string.Empty);
     }
 
     /// <summary>

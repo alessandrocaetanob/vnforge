@@ -150,7 +150,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         [
             new("fold", "Remover acentos (fold)", "ação → acao", "Funciona em qualquer jogo sem mexer no executável. Bom para validar a ida e volta."),
             new("remap", "Remapear para meia largura (remap)", "ação → aｱｲo", "Usa katakanas de 1 byte como substitutos e uma fonte modificada que desenha as letras certas."),
-            new("cp1252", "Latin-1 nativo (cp1252)", "ação → ação", "Patch na tabela de lead bytes do executável e fonte com ANSI_CHARSET. Acentos com qualquer fonte do Windows; experimental."),
+            new("cp1252", "Latin-1 nativo (cp1252)", "ação → ação", "Acentos completos com o executável original. O patch opcional troca o nome da fonte para MS Gothic; aplique na tela Build. Experimental."),
             new("sjis", "Shift-JIS puro (sjis)", "ação → recusado", "Não trata acentos: o build recusa o que o Shift-JIS não representa. Serve de base e para texto sem acentos."),
         ];
         QuoteStyles = [new(QuoteStyle.None, "Manter"), new(QuoteStyle.Ascii, "Aspas retas"), new(QuoteStyle.Corner, "Aspas 「 」")];

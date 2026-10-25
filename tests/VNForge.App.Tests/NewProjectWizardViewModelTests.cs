@@ -210,6 +210,16 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void A_opcao_cp1252_diz_que_o_patch_da_fonte_se_aplica_na_tela_Build()
+    {
+        var description = Create().EncodingStrategies.Options.Single(o => o.Id == "cp1252").Description;
+
+        Assert.Contains("MS Gothic", description);
+        Assert.Contains("tela Build", description);
+        Assert.DoesNotContain("só funciona", description);
+    }
+
+    [Fact]
     public void Padroes_sao_os_do_vnf_init()
     {
         var vm = Create();
