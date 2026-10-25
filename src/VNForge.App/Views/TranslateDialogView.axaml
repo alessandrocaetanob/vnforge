@@ -20,7 +20,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ScopeChoice">
-                <RadioButton Classes="option" GroupName="TranslateScope" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                <RadioButton Classes="option" GroupName="TranslateScope" VerticalAlignment="Stretch" VerticalContentAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                              AutomationProperties.Name="{Binding Title}">
                   <StackPanel Spacing="2">
                     <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}"/>
