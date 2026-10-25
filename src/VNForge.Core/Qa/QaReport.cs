@@ -24,8 +24,20 @@ public sealed record QaReport(IReadOnlyList<QaIssue> Issues, IReadOnlyList<QaIss
     /// <summary>As ocorrências que não são de linha sem tradução; só estas entram no que o build pode bloquear.</summary>
     public IReadOnlyList<QaIssue> OtherIssues => [.. Issues.Where(i => !IsUntranslated(i))];
 
-    /// <summary>Verdadeiro quando o <c>vnf build</c> deve parar: há erro, ou há aviso (que não seja de linha sem tradução) e o <paramref name="allowWarnings"/> é falso.</summary>
-    public bool Blocks(bool allowWarnings) => Issues.Any(i => i.Severity == QaSeverity.Error || (!allowWarnings && !IsUntranslated(i)));
+    /// <summary>
+    /// As ocorrências que o build pode recusar: erros e avisos, sem as linhas sem tradução e sem os avisos de estilo
+    /// (<see cref="HonorificsRule"/> e <see cref="GenderRule"/>), que são sugestões de revisão. Sem essa exceção, um projeto antigo com
+    /// personagens sem gênero deixaria de compilar. É a lista que a mensagem de bloqueio, o Build e o Painel contam.
+    /// </summary>
+    public IReadOnlyList<QaIssue> BlockingIssues => [.. Issues.Where(i => !IsUntranslated(i) && !IsStyleAdvice(i))];
+
+    /// <summary>Quantos avisos de estilo (<see cref="HonorificsRule"/> e <see cref="GenderRule"/>) há; aparecem na Conferência e no <c>vnf check</c>, mas não travam nada.</summary>
+    public int StyleAdviceCount => Issues.Count(IsStyleAdvice);
+
+    /// <summary>Verdadeiro quando o <c>vnf build</c> deve parar: há erro, ou há aviso em <see cref="BlockingIssues"/> e o <paramref name="allowWarnings"/> é falso.</summary>
+    public bool Blocks(bool allowWarnings) => Issues.Any(i => i.Severity == QaSeverity.Error) || (!allowWarnings && BlockingIssues.Count > 0);
 
     private static bool IsUntranslated(QaIssue issue) => issue.RuleId == UntranslatedQaRule.RuleId;
+
+    private static bool IsStyleAdvice(QaIssue issue) => issue.RuleId is HonorificsRule.RuleId or GenderRule.RuleId;
 }

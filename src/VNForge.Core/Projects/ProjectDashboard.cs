@@ -31,6 +31,9 @@ public enum BuildStatus
 public sealed record QaTotals(int Errors, int Warnings)
 {
     public int Total => Errors + Warnings;
+
+    /// <summary>Avisos de estilo (honoríficos e gênero): aparecem na Conferência, mas não entram em <see cref="Warnings"/> nem em <see cref="Total"/>, porque não pedem revisão antes do build.</summary>
+    public int StyleAdvice { get; init; }
 }
 
 /// <summary>Tudo que o Painel do projeto mostra. O progresso é o mesmo <see cref="ProjectStatus"/> que o <c>vnf status</c> imprime.</summary>
@@ -105,10 +108,12 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
     {
         try
         {
-            var encoder = TextEncoderRegistry.Default.Create(project.LoadConfig().Encoding.Strategy);
-            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder);
-            var issues = QaEngine.Default.Run(context).OtherIssues;
-            return new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning));
+            var config = project.LoadConfig();
+            var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy);
+            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style };
+            var report = QaEngine.Default.Run(context);
+            var issues = report.BlockingIssues;
+            return new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning)) { StyleAdvice = report.StyleAdviceCount };
         }
         catch (VNForgeException)
         {

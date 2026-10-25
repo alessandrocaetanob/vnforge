@@ -150,6 +150,25 @@ public class ProjectDashboardTests
     }
 
     [Fact]
+    public void So_avisos_de_estilo_nao_pedem_revisao_no_painel_mas_ficam_contados()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        projeto.SaveConfig(projeto.LoadConfig() with { Style = StyleConfig.Default with { Honorifics = HonorificsPolicy.Remove } });
+        projeto.SaveCharacters([new VNForge.Core.Glossary.CharacterEntry("美咲", "Misaki")]);
+        projeto.SaveText("yst00001",
+        [
+            new TextUnit("yst00001:000001", TextUnitKind.Dialogue, "美咲", "原文", "Misaki-chan, espera!", TranslationStatus.Translated),
+            new TextUnit("yst00001:000002", TextUnitKind.Dialogue, "美咲", "原文二", "Vamos.", TranslationStatus.Translated),
+        ]);
+
+        var qa = ProjectDashboard.Read(projeto).Qa;
+
+        Assert.Equal(new QaTotals(0, 0) { StyleAdvice = 2 }, qa);
+        Assert.Equal(0, qa!.Total);
+    }
+
+    [Fact]
     public void Projeto_sem_textos_nao_tem_problemas_de_conferencia()
     {
         using var temp = new TempFolder();
