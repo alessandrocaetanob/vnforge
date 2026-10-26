@@ -11,6 +11,7 @@ using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Engines;
 using VNForge.Core.Projects;
+using Xunit.Sdk;
 
 namespace VNForge.App.Tests.Rendering;
 
@@ -41,7 +42,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         await fixture.Session.Dispatch<int>(
             async () =>
             {
-                using var temp = new TempFolder($"932-0xAB-{themeName}");
+                using var temp = new TempFolder($"932-0xAB-{themeName}-");
                 var game = temp.SubFolder("jogo");
                 File.WriteAllText(Path.Combine(game, "Game.exe"), "MZ");
                 var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new PatchableEngine(312)], appSettings: new AppSettingsFile(temp.SubFolder("config")), clock: new FixedClock(Now));
@@ -148,7 +149,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
     private static string[] VisibleTexts(Control root) =>
         [.. root.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!)];
 
-    internal static void AssertPlain(IEnumerable<string> texts, string pathToIgnore) =>
+    private static void AssertPlain(IEnumerable<string> texts, string pathToIgnore) =>
         Assert.All(texts, text => Assert.DoesNotMatch(PlainForbidden, text.Replace(pathToIgnore, string.Empty, StringComparison.OrdinalIgnoreCase)));
 
     [Theory]
@@ -161,7 +162,8 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
 
         AssertPlain([folder], folder);
         AssertPlain([$"{folder} é a pasta do jogo"], folder);
-        Assert.ThrowsAny<Exception>(() => AssertPlain([text, folder], folder));
+        Assert.Throws<AllException>(() => AssertPlain([text, folder], folder));
+        Assert.Throws<AllException>(() => AssertPlain([$"{folder} · {text}"], folder));
     }
 
     private static void CheckGamePlain(Window window, string tempRoot)
