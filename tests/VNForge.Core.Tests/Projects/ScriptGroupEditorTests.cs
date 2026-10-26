@@ -167,6 +167,45 @@ public class ScriptGroupEditorTests
     }
 
     [Fact]
+    public void Agrupamentos_ao_mesmo_tempo_nao_perdem_a_mudanca_um_do_outro()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoCom(temp.Path, 40);
+
+        Parallel.For(1, 41, n => ScriptGroupEditor.Group(ProjectFolder.Open(temp.Path), [Key(n)], $"Grupo {n}"));
+
+        var nomes = ProjectFolder.Open(temp.Path).LoadScriptNames();
+        Assert.Equal(Enumerable.Range(1, 40).Select(n => $"Grupo {n}"), Enumerable.Range(1, 40).Select(n => nomes.Group(Key(n))));
+    }
+
+    [Fact]
+    public void Sem_mudanca_o_scripts_json_nao_e_regravado()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/02_cap2"));
+        ScriptGroupEditor.Group(projeto, [Key(1)], "Prólogo");
+        var escrito = File.ReadAllText(projeto.ScriptNamesPath);
+        File.WriteAllText(projeto.ScriptNamesPath, escrito.Replace("\n", "\n\n", StringComparison.Ordinal));
+        var manual = File.ReadAllText(projeto.ScriptNamesPath);
+
+        ScriptGroupEditor.Group(projeto, [Key(1)], "Prólogo");
+        ScriptGroupEditor.Ungroup(projeto, [Key(3)]);
+
+        Assert.Equal(manual, File.ReadAllText(projeto.ScriptNamesPath));
+    }
+
+    [Fact]
+    public void Desagrupar_sem_scripts_json_nao_cria_o_arquivo()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoCom(temp.Path, 2);
+
+        ScriptGroupEditor.Ungroup(projeto, [Key(1)]);
+
+        Assert.False(File.Exists(projeto.ScriptNamesPath));
+    }
+
+    [Fact]
     public void Menus_e_nomes_nao_se_renomeia()
     {
         using var temp = new TempFolder();

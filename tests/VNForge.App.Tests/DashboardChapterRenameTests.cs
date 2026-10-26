@@ -193,6 +193,21 @@ public class DashboardChapterRenameTests
     }
 
     [Fact]
+    public async Task Pasta_somente_leitura_mostra_o_erro_na_linha_em_vez_de_derrubar_o_comando()
+    {
+        var (fixture, vm) = await Open();
+        fixture.Failure = new UnauthorizedAccessException("Acesso negado ao scripts.json.");
+        var row = vm.Chapters[0];
+        vm.BeginRenameChapterCommand.Execute(row);
+        row.EditText = "Novo";
+
+        await vm.CommitRenameChapterCommand.ExecuteAsync(row);
+
+        Assert.True(row.IsEditing);
+        Assert.Equal("Acesso negado ao scripts.json.", row.EditError);
+    }
+
+    [Fact]
     public async Task Renomear_de_verdade_grava_o_scripts_json_do_projeto()
     {
         using var temp = new TempFolder();

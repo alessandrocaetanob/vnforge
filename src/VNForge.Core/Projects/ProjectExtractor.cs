@@ -143,21 +143,14 @@ public static class ProjectExtractor
     /// <summary>Grava no <c>scripts.json</c> os nomes que a engine leu do jogo, sem tocar nos que o usuário deu. Sem nome nenhum e sem arquivo antes, não cria o arquivo.</summary>
     private static void SaveScriptNames(ProjectFolder project, IReadOnlyList<Extracted> extracted)
     {
-        ScriptNames current;
+        var detected = extracted.ToDictionary(e => e.Key, e => new DetectedScript(e.Name, e.Folder), StringComparer.Ordinal);
         try
         {
-            current = project.LoadScriptNames();
+            project.UpdateScriptNames(current => current.WithDetected(detected));
         }
         catch (GlossaryFileException)
         {
             // Um scripts.json que o usuário quebrou à mão não bloqueia a extração; fica como está, para ele consertar sem perder os nomes.
-            return;
-        }
-
-        var updated = current.WithDetected(extracted.ToDictionary(e => e.Key, e => new DetectedScript(e.Name, e.Folder), StringComparer.Ordinal));
-        if (updated.Entries.Count > 0 || File.Exists(project.ScriptNamesPath))
-        {
-            project.SaveScriptNames(updated);
         }
     }
 

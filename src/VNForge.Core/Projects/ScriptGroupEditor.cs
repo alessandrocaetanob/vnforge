@@ -59,31 +59,30 @@ public static class ScriptGroupEditor
             throw new ScriptGroupingException("O novo nome do capítulo não pode ser vazio.");
         }
 
-        var names = project.LoadScriptNames();
         var files = ProjectStatusReporter.Create(project).Files;
-        var chapters = ScriptGrouping.Build(names, files);
         var wanted = group.Trim();
-        var found = chapters.FirstOrDefault(c => string.Equals(c.Name, wanted, StringComparison.OrdinalIgnoreCase))
-            ?? (int.TryParse(wanted, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? chapters.FirstOrDefault(c => c.Number == number) : null)
-            ?? throw new ScriptGroupingException($"Não há capítulo chamado '{wanted}'. Use `vnf scripts list` para ver os capítulos.");
-
-        if (found.IsExtra)
+        ScriptGroupTotals? found = null;
+        var renamed = project.UpdateScriptNames(names =>
         {
-            throw new ScriptGroupingException($"'{ScriptGrouping.ExtraName}' não se renomeia: ele reúne o que fica fora da história. Para mudar as cenas de lugar use `vnf scripts group`.");
-        }
+            var chapters = ScriptGrouping.Build(names, files);
+            found = chapters.FirstOrDefault(c => string.Equals(c.Name, wanted, StringComparison.OrdinalIgnoreCase))
+                ?? (int.TryParse(wanted, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? chapters.FirstOrDefault(c => c.Number == number) : null)
+                ?? throw new ScriptGroupingException($"Não há capítulo chamado '{wanted}'. Use `vnf scripts list` para ver os capítulos.");
+            if (found.IsExtra)
+            {
+                throw new ScriptGroupingException($"'{ScriptGrouping.ExtraName}' não se renomeia: ele reúne o que fica fora da história. Para mudar as cenas de lugar use `vnf scripts group`.");
+            }
 
-        var renamed = ScriptGrouping.RenameGroup(names, files, found.Name, newName);
-        project.SaveScriptNames(renamed);
-        return new ScriptGroupChange(found.ScriptKeys, newName.Trim(), ScriptGrouping.Build(renamed, files));
+            return ScriptGrouping.RenameGroup(names, files, found.Name, newName);
+        });
+        return new ScriptGroupChange(found!.ScriptKeys, newName.Trim(), ScriptGrouping.Build(renamed, files));
     }
 
     private static ScriptGroupChange Apply(ProjectFolder project, IReadOnlyList<string> specs, string? groupName)
     {
-        var names = project.LoadScriptNames();
         var files = ProjectStatusReporter.Create(project).Files;
         var keys = Resolve(specs, files.Select(f => f.Key));
-        var changed = ScriptGrouping.Regroup(names, keys, groupName);
-        project.SaveScriptNames(changed);
+        var changed = project.UpdateScriptNames(names => ScriptGrouping.Regroup(names, keys, groupName));
         return new ScriptGroupChange(keys, groupName, ScriptGrouping.Build(changed, files));
     }
 
