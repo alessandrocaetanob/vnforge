@@ -119,7 +119,7 @@ public sealed class ApprovalLogTests : IDisposable
     }
 
     [Fact]
-    public async Task Contagem_de_hoje_rele_o_arquivo_que_estava_bloqueado_na_abertura_sem_nova_aprovacao()
+    public void Contagem_de_hoje_rele_o_arquivo_que_estava_bloqueado_na_abertura_sem_nova_aprovacao()
     {
         SessionsFile.Save(Projeto, SessionsFile.Empty.With(Approval("yst00001:000010", -5)));
         var relogio = new FakeTimeProvider(Noon);
@@ -136,7 +136,25 @@ public sealed class ApprovalLogTests : IDisposable
         relogio.Advance(ProjectApprovalLog.RetryInterval);
 
         Assert.Equal(1, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
+    public async Task Releitura_pela_contagem_grava_o_que_foi_aprovado_enquanto_o_arquivo_estava_bloqueado()
+    {
+        SessionsFile.Save(Projeto, SessionsFile.Empty.With(Approval("yst00001:000010", -5)));
+        var relogio = new FakeTimeProvider(Noon);
+        var log = new ProjectApprovalLog(raiz, relogio);
+
+        using (new FileStream(SessionsFile.PathFor(Projeto), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            log.Record("yst00001", "yst00001:000011", Noon);
+        }
+
+        relogio.Advance(ProjectApprovalLog.RetryInterval);
+        Assert.Equal(2, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
         await log.Saving;
+
+        Assert.Equal(["yst00001:000010", "yst00001:000011"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
     }
 
     [Fact]

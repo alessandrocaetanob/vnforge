@@ -181,12 +181,22 @@ public sealed class ProjectApprovalLog : IApprovalLog
         nextRetry = status == SessionsLoadStatus.Unreadable ? clock.GetUtcNow() + RetryInterval : default;
     }
 
-    /// <summary>Relê o arquivo que estava ilegível quando já passou o <see cref="RetryInterval"/> desde a última tentativa.</summary>
+    /// <summary>
+    /// Relê o arquivo que estava ilegível quando já passou o <see cref="RetryInterval"/> desde a última tentativa. Se havia aprovações só na memória e a leitura
+    /// deu certo, grava o histórico mesclado: quem chama pode ser a contagem, que não grava nada depois.
+    /// </summary>
     private void RetryUnreadable()
     {
-        if (folder is not null && loaded && status == SessionsLoadStatus.Unreadable && clock.GetUtcNow() >= nextRetry)
+        if (folder is null || !loaded || status != SessionsLoadStatus.Unreadable || clock.GetUtcNow() < nextRetry)
         {
-            Merge(SessionsFile.Read(folder));
+            return;
+        }
+
+        var hadJournal = journal.Count > 0;
+        Merge(SessionsFile.Read(folder));
+        if (hadJournal)
+        {
+            Persist(new SessionsLoad(sessions, status).CanOverwrite);
         }
     }
 
