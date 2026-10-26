@@ -45,17 +45,15 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 {
     private readonly EditorViewModel editor;
     private readonly IReadOnlyList<LineViewModel> queue;
-    private readonly TimeProvider clock;
     private bool disposed;
+    private bool navigating;
 
     /// <param name="editor">O Editor dono da lista de linhas e do painel de detalhe.</param>
     /// <param name="queue">As linhas a rever, na ordem do script.</param>
-    /// <param name="clock">O relógio do texto "hoje"; o padrão é o do sistema.</param>
-    public ReviewModeViewModel(EditorViewModel editor, IReadOnlyList<LineViewModel> queue, TimeProvider? clock = null)
+    public ReviewModeViewModel(EditorViewModel editor, IReadOnlyList<LineViewModel> queue)
     {
         this.editor = editor ?? throw new ArgumentNullException(nameof(editor));
         this.queue = queue ?? throw new ArgumentNullException(nameof(queue));
-        this.clock = clock ?? TimeProvider.System;
         Blocks = [.. queue.Select((_, i) => new ReviewBlock(i + 1))];
         editor.PropertyChanged += OnEditorChanged;
         if (queue.Count == 0)
@@ -84,7 +82,8 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
     public int Total => queue.Count;
 
-    public int ApprovedCount => Count(ReviewBlockState.Approved);
+    /// <summary>Quantas linhas da fila estão aprovadas de fato, pelo status que o Editor gravou, e não pelo que a tela marcou.</summary>
+    public int ApprovedCount => queue.Count(l => l.Status == TranslationStatus.Approved);
 
     public int LaterCount => Count(ReviewBlockState.Later);
 
@@ -119,7 +118,18 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     public bool HasNext => Next is not null;
 
     /// <summary>Quem fala e como fala: o nome em português quando o personagem está cadastrado, seguido da voz ("美咲 → Misaki · seco e resmungão"); "Narração" sem falante.</summary>
-    public string SpeakerText => Detail is not { } detail ? string.Empty : detail.HasVoice ? $"{detail.SpeakerPair} · {detail.Voice}" : detail.SpeakerPair;
+    public string SpeakerText
+    {
+        get
+        {
+            if (Detail is not { } detail)
+            {
+                return string.Empty;
+            }
+
+            return detail.HasVoice ? $"{detail.SpeakerPair} · {detail.Voice}" : detail.SpeakerPair;
+        }
+    }
 
     /// <summary>O preço de "Outra sugestão" em reais; vazio quando o app não sabe estimar.</summary>
     public string SuggestionPriceText { get; private set; } = string.Empty;
@@ -131,12 +141,29 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
     public string FinishedTitle => Total == 0 ? "Nenhuma linha da IA para revisar" : "Revisão da cena concluída";
 
-    public string FinishedText => Total == 0
-        ? "Esta cena não tem linhas traduzidas pela IA esperando revisão."
-        : $"{Plural(ApprovedCount, "linha aprovada", "linhas aprovadas")}"
-            + (LaterCount > 0 ? $", {Plural(LaterCount, "deixada para depois", "deixadas para depois")}" : string.Empty)
-            + (SkippedCount > 0 ? $" e {Plural(SkippedCount, "pulada", "puladas")}" : string.Empty)
-            + ".";
+    public string FinishedText
+    {
+        get
+        {
+            if (Total == 0)
+            {
+                return "Esta cena não tem linhas traduzidas pela IA esperando revisão.";
+            }
+
+            var text = Plural(ApprovedCount, "linha aprovada", "linhas aprovadas");
+            if (LaterCount > 0)
+            {
+                text += $", {Plural(LaterCount, "deixada para depois", "deixadas para depois")}";
+            }
+
+            if (SkippedCount > 0)
+            {
+                text += $" e {Plural(SkippedCount, "pulada", "puladas")}";
+            }
+
+            return text + ".";
+        }
+    }
 
     /// <summary>A próxima cena com linhas da IA para revisar; nulo na última.</summary>
     public string? NextSceneName => editor.NextScriptToReview()?.Display;
@@ -151,7 +178,8 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void Approve()
     {
-        if (Detail is not { } detail || Current is null)
+        // O painel tem de ser o da linha em exibição: uma troca por fora (Ctrl+K, a paleta) que passasse despercebida aprovaria a linha errada.
+        if (Detail is not { } detail || Current is not { } line || detail.Id != line.Id)
         {
             return;
         }
@@ -202,7 +230,16 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     {
         if (editor.NextScriptToReview() is { } next)
         {
-            editor.OpenScript(next);
+            navigating = true;
+            try
+            {
+                editor.OpenScript(next);
+            }
+            finally
+            {
+                navigating = false;
+            }
+
             editor.StartReview();
         }
     }
@@ -232,6 +269,13 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         var block = Blocks[Position];
         var before = block.State;
+
+        // Uma linha já aprovada (a pessoa voltou a ela) só segue adiante: Depois e Pular não desfazem a aprovação.
+        if (Current!.Status == TranslationStatus.Approved)
+        {
+            state = ReviewBlockState.Approved;
+        }
+
         block.State = state;
         NotifyCounts();
         if (Position + 1 < queue.Count)
@@ -252,7 +296,18 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
     private bool Show(int index)
     {
-        if (!editor.ShowLine(queue[index]))
+        navigating = true;
+        bool shown;
+        try
+        {
+            shown = editor.ShowLine(queue[index]);
+        }
+        finally
+        {
+            navigating = false;
+        }
+
+        if (!shown)
         {
             // A linha anterior não gravou: o painel dela mostra o erro e a pessoa continua nela.
             return false;
@@ -287,6 +342,18 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasSuggestionPrice));
     }
 
+    /// <summary>
+    /// Ctrl+K, "Traduzir pendentes" da paleta, os botões do Painel e a busca mudam a linha, o script ou o filtro do Editor por fora. A fila guarda as linhas do script de
+    /// antes e a tela mostraria uma fala enquanto o Enter aprovaria outra, então o modo revisão fecha e o Editor fica onde a pessoa pediu.
+    /// </summary>
+    private void StopWhenNavigatedAway()
+    {
+        if (!navigating && !disposed)
+        {
+            editor.StopReview();
+        }
+    }
+
     private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
     {
         switch (e.PropertyName)
@@ -295,6 +362,11 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(Detail));
                 OnPropertyChanged(nameof(SpeakerText));
                 NotifyLineChanged();
+                break;
+            case nameof(EditorViewModel.SelectedLine):
+            case nameof(EditorViewModel.SelectedScript):
+            case nameof(EditorViewModel.Lines):
+                StopWhenNavigatedAway();
                 break;
             case nameof(EditorViewModel.ReviewedToday):
                 OnPropertyChanged(nameof(TodayText));

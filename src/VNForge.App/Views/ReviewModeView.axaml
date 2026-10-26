@@ -3,8 +3,7 @@
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.ReviewModeView"
-             x:DataType="vm:ReviewModeViewModel"
-             Focusable="True">
+             x:DataType="vm:ReviewModeViewModel">
 
   <UserControl.Styles>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/LineDetail.axaml"/>
@@ -57,16 +56,8 @@
     </Style>
   </UserControl.Styles>
 
-  <UserControl.KeyBindings>
-    <KeyBinding Gesture="Enter" Command="{Binding ApproveCommand}"/>
-    <KeyBinding Gesture="E" Command="{Binding CorrectCommand}"/>
-    <KeyBinding Gesture="M" Command="{Binding LaterCommand}"/>
-    <KeyBinding Gesture="Right" Command="{Binding SkipCommand}"/>
-    <KeyBinding Gesture="Left" Command="{Binding BackCommand}"/>
-    <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}"/>
-  </UserControl.KeyBindings>
-
-  <Grid RowDefinitions="Auto,*" RowSpacing="16" AutomationProperties.Name="Modo revisão">
+  <!-- As teclas (Enter, E, M, setas e Esc) são tratadas em ReviewModeView.axaml.cs: o KeyBinding age antes de qualquer filtro e não deixa ignorar a tecla segurada. -->
+  <Grid x:Name="Root" RowDefinitions="Auto,*" RowSpacing="16" Focusable="True" AutomationProperties.Name="Modo revisão">
 
     <!-- Topo: voltar ao Editor, "Linha 1 de 6" com um bloco por linha e as linhas revisadas hoje. -->
     <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">

@@ -477,6 +477,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             editorStale = false;
             Editor.Reload();
         }
+        else if (target == NavKey.Editor && Editor.IsReviewing)
+        {
+            // O gênero definido no Glossário a partir do modo revisão: grava o que está pendente e refaz o painel da fala com o contexto novo.
+            Glossary.Flush();
+            Editor.RefreshContext();
+        }
     }
 
     /// <summary>Troca a página pelo assistente de novo projeto; ao terminar ou cancelar volta ao Início, e um projeto criado é aberto.</summary>

@@ -431,6 +431,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenSearch()
     {
+        if (IsReviewing)
+        {
+            return;
+        }
+
         IsSearchOpen = true;
         SearchOpened?.Invoke(this, false);
     }
@@ -439,6 +444,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenReplace()
     {
+        if (IsReviewing)
+        {
+            return;
+        }
+
         IsSearchOpen = true;
         IsReplaceVisible = true;
         SearchOpened?.Invoke(this, true);
@@ -739,6 +749,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return false;
         }
 
+        ForgetApprovals(saved);
         Reload();
         return true;
     }

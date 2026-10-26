@@ -2,6 +2,8 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using VNForge.App.Controls;
@@ -12,12 +14,50 @@ namespace VNForge.App.Views;
 /// <summary>Só monta o original com os marcadores em selos (um <c>TextBlock</c> não faz isso por binding) e leva o foco à tela, para as teclas valerem; a lógica fica no <see cref="ReviewModeViewModel"/>.</summary>
 public sealed partial class ReviewModeView : UserControl
 {
+    private readonly HashSet<Key> held = [];
     private ReviewModeViewModel? current;
 
     public ReviewModeView()
     {
         InitializeComponent();
+
+        // Segurar Enter, M ou uma seta repete o KeyDown: sem o filtro de held a revisão aprovaria ou pularia uma fala atrás da outra.
+        AddHandler(KeyDownEvent, OnKeyDownTunnel, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyUpEvent, OnKeyUpTunnel, RoutingStrategies.Tunnel);
+        LostFocus += (_, _) => held.Clear();
     }
+
+    /// <summary>Enter aprova, E corrige, M deixa para depois, a seta para a direita pula, a da esquerda volta e Esc sai. Só a primeira batida de cada tecla vale.</summary>
+    private void OnKeyDownTunnel(object? sender, KeyEventArgs e)
+    {
+        if (current is null || e.KeyModifiers != KeyModifiers.None)
+        {
+            return;
+        }
+
+        var command = e.Key switch
+        {
+            Key.Enter => current.ApproveCommand,
+            Key.E => current.CorrectCommand,
+            Key.M => current.LaterCommand,
+            Key.Right => current.SkipCommand,
+            Key.Left => current.BackCommand,
+            Key.Escape => current.CloseCommand,
+            _ => null,
+        };
+        if (command is null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if (held.Add(e.Key) && command.CanExecute(null))
+        {
+            command.Execute(null);
+        }
+    }
+
+    private void OnKeyUpTunnel(object? sender, KeyEventArgs e) => held.Remove(e.Key);
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -38,13 +78,19 @@ public sealed partial class ReviewModeView : UserControl
         FocusScreen();
     }
 
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        held.Clear();
+        base.OnDetachedFromVisualTree(e);
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         FocusScreen();
     }
 
-    private void FocusScreen() => Dispatcher.UIThread.Post(() => Focus(), DispatcherPriority.Input);
+    private void FocusScreen() => Dispatcher.UIThread.Post(() => Root.Focus(), DispatcherPriority.Input);
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

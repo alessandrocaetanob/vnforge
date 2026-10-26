@@ -48,7 +48,7 @@ public sealed partial class EditorViewModel
         Review?.Dispose();
         var queue = scriptLines.Where(l => l.Status == TranslationStatus.Machine).ToList();
         RefreshReviewedToday();
-        Review = new ReviewModeViewModel(this, queue, clock);
+        Review = new ReviewModeViewModel(this, queue);
     }
 
     /// <summary>Fecha o modo revisão e volta à grade com a linha de agora selecionada.</summary>
@@ -62,6 +62,32 @@ public sealed partial class EditorViewModel
 
         Review = null;
         review.Dispose();
+    }
+
+    /// <summary>
+    /// Relê os personagens e o glossário do projeto e refaz o painel da linha aberta, sem trocar de linha. O Glossário grava <c>characters.json</c> por fora do Editor
+    /// (o gênero definido a partir do modo revisão), e o aviso da linha só some com o contexto novo.
+    /// </summary>
+    public void RefreshContext()
+    {
+        if (Project?.Root is not { } root || lineEditor is null)
+        {
+            return;
+        }
+
+        context = contextLoader(root);
+        if (SelectedLine is not { } line || Detail is not { } panel || !panel.Flush())
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(panel.Saved, line.Entry.Unit))
+        {
+            savedUnits[panel.Id] = panel.Saved;
+        }
+
+        panel.Dispose();
+        Detail = CreateDetail(line);
     }
 
     internal void RequestDefineGender() => DefineGenderRequested?.Invoke(this, EventArgs.Empty);
@@ -107,6 +133,25 @@ public sealed partial class EditorViewModel
         }
 
         log.Record(scriptKey, saved.Id, clock.GetUtcNow());
+        RefreshReviewedToday();
+    }
+
+    /// <summary>Uma aprovação desfeita sai do registro e da contagem de hoje.</summary>
+    private void ForgetApprovals(LineSavedEventArgs undone)
+    {
+        if (OpenApprovalLog() is not { } log)
+        {
+            return;
+        }
+
+        foreach (var item in undone.IsBatch ? undone.Batch : [undone])
+        {
+            if (item.Saved.Status == TranslationStatus.Approved && item.Previous.Status != TranslationStatus.Approved)
+            {
+                log.Remove(item.ScriptKey, item.Saved.Id);
+            }
+        }
+
         RefreshReviewedToday();
     }
 

@@ -97,12 +97,14 @@ public sealed class ReviewModeTests : IDisposable
     [Fact]
     public async Task Esta_boa_registra_a_aprovacao_com_a_hora_do_relogio_em_sessions_json()
     {
-        var vm = await Abrir();
+        var log = new ProjectApprovalLog(raiz);
+        var vm = await Abrir(log);
         vm.StartReview();
 
         vm.Review!.ApproveCommand.Execute(null);
         relogio.Advance(TimeSpan.FromMinutes(2));
         vm.Review.ApproveCommand.Execute(null);
+        await log.Saving;
 
         var registro = SessionsFile.Load(ProjectFolder.Open(raiz));
         Assert.Equal(
@@ -345,16 +347,194 @@ public sealed class ReviewModeTests : IDisposable
     [Fact]
     public async Task Desfazer_uma_aprovacao_recarrega_as_linhas_e_fecha_o_modo_revisao()
     {
-        var vm = await Abrir();
+        var log = new ProjectApprovalLog(raiz);
+        var vm = await Abrir(log);
         LineSavedEventArgs? aprovada = null;
         vm.LineSaved += (_, e) => aprovada = e;
         vm.StartReview();
         vm.Review!.ApproveCommand.Execute(null);
+        Assert.Equal(1, vm.ReviewedToday);
 
         Assert.True(vm.Undo(aprovada!));
+        await log.Saving;
 
         Assert.False(vm.IsReviewing);
         Assert.Equal(TranslationStatus.Machine, Gravada("yst00001", 0).Status);
+        Assert.Equal(0, vm.ReviewedToday);
+        Assert.Empty(SessionsFile.Load(ProjectFolder.Open(raiz)).Approvals);
+    }
+
+    [Fact]
+    public async Task Ctrl_K_para_outra_linha_fecha_o_modo_revisao_e_deixa_o_Editor_onde_a_pessoa_pediu()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+
+        Assert.True(await vm.GoToLineAsync("yst00001", "yst00001:000002"));
+
+        Assert.False(vm.IsReviewing);
+        Assert.Equal("yst00001:000002", vm.SelectedLine!.Id);
+    }
+
+    [Fact]
+    public async Task Ctrl_K_para_outro_script_fecha_o_modo_revisao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+
+        Assert.True(await vm.GoToLineAsync("yst00002", "yst00002:000001"));
+
+        Assert.False(vm.IsReviewing);
+        Assert.Equal("yst00002", vm.SelectedScript!.Key);
+    }
+
+    [Fact]
+    public async Task Mostrar_as_pendentes_muda_o_filtro_e_fecha_o_modo_revisao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+
+        vm.ShowPendingLines();
+
+        Assert.False(vm.IsReviewing);
+        Assert.True(vm.HasStatusFilter);
+    }
+
+    [Fact]
+    public async Task Trocar_o_script_aberto_por_fora_fecha_o_modo_revisao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00002");
+
+        Assert.False(vm.IsReviewing);
+    }
+
+    [Fact]
+    public async Task A_proxima_cena_da_tela_final_nao_fecha_o_modo_revisao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            vm.Review!.SkipCommand.Execute(null);
+        }
+
+        vm.Review!.GoToNextSceneCommand.Execute(null);
+
+        Assert.True(vm.IsReviewing);
+        Assert.Equal("yst00002", vm.SelectedScript!.Key);
+    }
+
+    [Fact]
+    public async Task Voltar_a_uma_linha_aprovada_e_pular_nao_desfaz_a_aprovacao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        var revisao = vm.Review!;
+        revisao.ApproveCommand.Execute(null);
+        revisao.BackCommand.Execute(null);
+
+        revisao.SkipCommand.Execute(null);
+
+        Assert.True(revisao.Blocks[0].IsApproved);
+        Assert.False(revisao.Blocks[0].IsSkipped);
+        Assert.Equal(1, revisao.Position);
+        Assert.Equal(1, revisao.ApprovedCount);
+        Assert.Equal(0, revisao.SkippedCount);
+    }
+
+    [Fact]
+    public async Task Voltar_a_uma_linha_aprovada_e_deixar_para_depois_nao_desfaz_a_aprovacao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        var revisao = vm.Review!;
+        revisao.ApproveCommand.Execute(null);
+        revisao.BackCommand.Execute(null);
+
+        revisao.LaterCommand.Execute(null);
+        revisao.SkipCommand.Execute(null);
+        revisao.SkipCommand.Execute(null);
+
+        Assert.True(revisao.Blocks[0].IsApproved);
+        Assert.Equal(0, revisao.LaterCount);
+        Assert.Equal("1 linha aprovada e 2 puladas.", revisao.FinishedText);
+    }
+
+    [Fact]
+    public async Task O_resumo_conta_as_aprovadas_pelo_status_das_linhas()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        var revisao = vm.Review!;
+        revisao.ApproveCommand.Execute(null);
+        revisao.SkipCommand.Execute(null);
+        revisao.SkipCommand.Execute(null);
+
+        Assert.True(revisao.IsFinished);
+        Assert.Equal("1 linha aprovada e 2 puladas.", revisao.FinishedText);
+        Assert.Equal(1, revisao.ApprovedCount);
+    }
+
+    [Fact]
+    public async Task Ctrl_F_e_Ctrl_H_nao_abrem_a_busca_por_baixo_do_modo_revisao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+
+        vm.OpenSearchCommand.Execute(null);
+        vm.OpenReplaceCommand.Execute(null);
+        vm.ToggleSearchCommand.Execute(null);
+
+        Assert.False(vm.IsSearchOpen);
+        Assert.False(vm.IsReplaceVisible);
+    }
+
+    [Fact]
+    public async Task A_busca_volta_a_abrir_depois_que_o_modo_revisao_fecha()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        vm.StopReview();
+
+        vm.OpenSearchCommand.Execute(null);
+
+        Assert.True(vm.IsSearchOpen);
+    }
+
+    [Fact]
+    public async Task Definido_o_genero_o_contexto_relido_apaga_o_aviso_sem_fechar_a_revisao()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        var revisao = vm.Review!;
+        revisao.SkipCommand.Execute(null);
+        revisao.SkipCommand.Execute(null);
+        Assert.True(revisao.GenderMissing);
+        var idAntes = revisao.Detail!.Id;
+
+        ProjectFolder.Open(raiz).SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada"), new CharacterEntry("健太", "Kenta", CharacterGender.Male)]);
+        vm.RefreshContext();
+
+        Assert.True(vm.IsReviewing);
+        Assert.False(revisao.GenderMissing);
+        Assert.Equal(idAntes, revisao.Detail!.Id);
+        Assert.Equal(2, revisao.Position);
+    }
+
+    [Fact]
+    public async Task Atualizar_o_contexto_grava_o_que_estava_pendente_na_linha()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        vm.Review!.Detail!.Translation = "Bom dia, Misaki.\\p";
+
+        vm.RefreshContext();
+
+        Assert.Equal("Bom dia, Misaki.\\p", Gravada("yst00001", 0).Translation);
+        Assert.Equal("Bom dia, Misaki.\\p", vm.Review!.Detail!.Translation);
     }
 
     [Fact]
@@ -388,6 +568,15 @@ public sealed class ReviewModeTests : IDisposable
         public List<ApprovalRecord> Records { get; } = [];
 
         public void Record(string scriptKey, string unitId, DateTimeOffset at) => Records.Add(new ApprovalRecord(scriptKey, unitId, at));
+
+        public void Remove(string scriptKey, string unitId)
+        {
+            var index = Records.FindLastIndex(r => r.ScriptKey == scriptKey && r.UnitId == unitId);
+            if (index >= 0)
+            {
+                Records.RemoveAt(index);
+            }
+        }
 
         public int ReviewedOn(DateTimeOffset now, TimeZoneInfo zone) => Records.Select(r => r.UnitId).Distinct().Count();
     }
