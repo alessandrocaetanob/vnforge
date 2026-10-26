@@ -250,7 +250,9 @@ O leitor foi escrito a partir das fontes acima e de arquivos sintéticos (`tests
 A extração foi escrita a partir das fontes acima e de scripts sintéticos (`tests/VNForge.Engines.YuRis.Tests/Text/YstbTextExtractorTests.cs`); nenhum `yst*.ybn` real foi extraído.
 
 1. **Mensagens**: se o `RETURNCODE` entre linhas separa as mensagens como o esperado, ou se o jogo usa `_` com string literal no meio da fala (o VNTextPatch junta esse caso).
-2. **Falantes**: quantas mensagens saem como `dialogue` com `speaker`, e se aparece falso positivo (nome com pontuação que o filtro não pega) ou falante perdido (nome com `。` ou colchete).
+2. **Falantes**: quantas mensagens saem como `dialogue` com `speaker`, e se aparece falso positivo (nome com pontuação que o filtro não pega) ou falante perdido (nome com `。` ou colchete). Num projeto real, falas com nome saíram como narração; de onde o nome vem nesse jogo está em #364.
+
+Falantes feitos só de sinais (`？？？`) saem da extração como `speaker`, mas não viram personagem: `SpeakerNames.IsSignsOnly` os tira da sugestão de vozes do glossário e do bloco "Personagens" do prompt de tradução, e a sugestão só considera falantes com pelo menos 3 falas (#355).
 3. **`ES.SEL.SET` e `ES.CHAR.NAME`**: se os argumentos de texto vêm antes dos outros, já que a extração para no primeiro que não é string literal.
 4. **`other`**: a lista de comandos que geram strings com japonês e se alguma é código ou nome de arquivo que não se traduz.
 5. **Strings fora do padrão**: quantos avisos de escape desconhecido e quantas expressões com `$_CHR` ou concatenação ficam sem unidade.

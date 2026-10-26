@@ -32,7 +32,13 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated);
         var folder = ProjectFolder.Open(root);
-        List<TextUnit> units = [Line(0, "「先輩、遅刻です」", "美咲"), Line(1, "遅いぞ", "健太"), Line(2, "静かにしなさい", "先生")];
+        List<TextUnit> units =
+        [
+            Line(0, "「先輩、遅刻です」", "美咲"),
+            Line(1, "遅いぞ", "健太"), Line(2, "静かにしなさい", "先生"),
+            Line(3, "早くしろ", "健太"), Line(4, "行くぞ", "健太"),
+            Line(5, "席に着きなさい", "先生"), Line(6, "宿題を出しなさい", "先生"),
+        ];
         units.AddRange(Enumerable.Range(10, 9).Select(n => Line(n, $"魔法学院の噂その{n}")));
         units.AddRange(Enumerable.Range(30, 7).Select(n => Line(n, $"生徒会長の命令その{n}")));
         units.AddRange(Enumerable.Range(50, 5).Select(n => Line(n, $"ラムネを買った{n}")));

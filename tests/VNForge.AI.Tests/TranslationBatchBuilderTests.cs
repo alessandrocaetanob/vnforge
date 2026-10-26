@@ -73,6 +73,20 @@ public class TranslationBatchBuilderTests
         Assert.Equal(new CharacterInfo("アリス", "Alice", "formal", "female"), alice);
     }
 
+    [Theory]
+    [InlineData("？？？")]
+    [InlineData("???")]
+    [InlineData("…")]
+    public void Falante_so_de_sinais_nao_leva_entrada_de_personagem_mesmo_se_estiver_no_livro(string speaker)
+    {
+        var book = new CharacterBook([new CharacterEntry(speaker, "Desconhecido", CharacterGender.Male, "rude"), new CharacterEntry("アリス", "Alice")]);
+        var builder = new TranslationBatchBuilder(Terms, book);
+
+        var batch = builder.Build([Unit("a", "x", speaker), Unit("b", "y", "アリス")]);
+
+        Assert.Equal(["アリス"], batch.Characters.Select(c => c.Source));
+    }
+
     [Fact]
     public void Contexto_anterior_so_com_linhas_traduzidas_e_limitado_as_ultimas()
     {

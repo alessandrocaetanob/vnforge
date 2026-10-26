@@ -27,7 +27,13 @@ public class GlossarySuggestionsTests
             Line(1, "遅いぞ", "健太"),
             Line(2, "静かにしなさい", "先生"),
             Line(3, "narração"),
+            Line(4, "早くしろ", "健太"),
+            Line(5, "行くぞ", "健太"),
+            Line(6, "席に着きなさい", "先生"),
+            Line(7, "宿題を出しなさい", "先生"),
         ];
+        // Um rótulo de desconhecido que fala bastante: não é personagem e não vai à IA.
+        units.AddRange(Enumerable.Range(40, 5).Select(n => Line(n, $"誰かの声その{n}", "？？？")));
         units.AddRange(Enumerable.Range(10, 6).Select(n => Line(n, $"魔法学院の噂その{n}")));
         folder.SaveText("yst00001", units);
         folder.SaveGlossary([new GlossaryTerm("先輩", "veterano")]);
@@ -100,7 +106,8 @@ public class GlossarySuggestionsTests
 
         var asked = Assert.Single(fake.ReceivedVoices);
         Assert.Equal(["健太", "先生"], asked.Select(r => r.Name));
-        Assert.Equal(["遅いぞ"], asked[0].Lines);
+        Assert.Equal(["遅いぞ", "早くしろ", "行くぞ"], asked[0].Lines);
+        Assert.DoesNotContain(vm.Characters, c => c.Source == "？？？");
         Assert.Equal(CharacterGender.Female, vm.Characters.Single(c => c.Source == "美咲").Gender);
         var kenta = vm.Characters.Single(c => c.Source == "健太");
         Assert.Equal(CharacterGender.Male, kenta.Gender);
