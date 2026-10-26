@@ -73,6 +73,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
         TaskService.Rate = Settings.Rate;
+        if (Settings.BudgetProblem is not null)
+        {
+            Toasts.Show("Os Ajustes não puderam ser lidos, então o limite de gasto não vale. Salve os Ajustes de novo para consertar.", ToastKind.Warning, key: "app-json");
+        }
+
         Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Glossary.Rate = () => Settings.Rate;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
@@ -97,6 +102,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
+        Editor.TranslateRequested += OnEditorTranslateRequested;
+        HookTranslateDialog();
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Conference.TextsChanged += (_, _) => editorStale = true;
@@ -165,11 +172,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
             editor.PropertyChanged -= OnEditorChanged;
             editor.CheckRequested -= OnEditorCheckRequested;
             editor.DefineGenderRequested -= OnEditorDefineGenderRequested;
+            editor.TranslateRequested -= OnEditorTranslateRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
             editor.CheckRequested += OnEditorCheckRequested;
             editor.DefineGenderRequested += OnEditorDefineGenderRequested;
+            editor.TranslateRequested += OnEditorTranslateRequested;
         }
     }
 

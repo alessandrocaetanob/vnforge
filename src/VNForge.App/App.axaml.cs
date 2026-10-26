@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
@@ -49,6 +50,9 @@ public sealed class App : Application
                     SuggestionPrice = unit => LineSuggester.PriceText(unit, LineSuggester.ReadModel(configDirectory), settings.Rate),
                 },
                 Glossary = { AutosaveClock = TimeProvider.System, Suggester = UserGlossarySuggester.ForUser(configDirectory) },
+                TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
+                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    new ClaudeOptions { Model = model, Effort = effort }),
             };
             main.Conference.Shortener = suggester;
             window.DataContext = main;

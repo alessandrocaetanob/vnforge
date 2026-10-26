@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.ScenesPanel"
+             x:DataType="vm:EditorViewModel">
+
+  <UserControl.Styles>
+    <!-- Os scripts que o filtro da lista não aceita ficam escondidos, mas continuam na lista: o script aberto não perde a seleção. -->
+    <Style Selector="ListBox.scripts > ListBoxItem" x:DataType="vm:ScriptItemViewModel">
+      <Setter Property="IsVisible" Value="{Binding IsShown}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <!-- A lista de cenas do Editor: na coluna da esquerda a partir de 1400 px, e dentro do flyout do cabeçalho abaixo disso. -->
+  <Grid RowDefinitions="48,Auto,*">
+    <Grid ColumnDefinitions="*,Auto" Margin="12,0">
+      <TextBlock Classes="title-md" Text="Cenas" VerticalAlignment="Center"/>
+      <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
+    </Grid>
+    <TextBox Grid.Row="1" Margin="12,0,12,8" MinHeight="28" Height="28" FontSize="13" Padding="8,0" VerticalContentAlignment="Center"
+             PlaceholderText="Filtrar cenas" Text="{Binding ScriptFilter}" AutomationProperties.Name="Filtrar cenas">
+      <TextBox.InnerLeftContent>
+        <PathIcon Width="16" Height="16" Margin="8,0,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+      </TextBox.InnerLeftContent>
+    </TextBox>
+    <ListBox Grid.Row="2" Classes="scripts" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+             AutomationProperties.Name="Lista de cenas">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:ScriptItemViewModel">
+          <c:ScriptItem Key="{Binding Key}" Label="{Binding Label}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
+                        ToolTip.Tip="{Binding Tooltip}"/>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </Grid>
+</UserControl>

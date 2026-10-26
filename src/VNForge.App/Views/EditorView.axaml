@@ -13,9 +13,15 @@
   </UserControl.KeyBindings>
 
   <UserControl.Styles>
-    <!-- Os scripts que o filtro da lista não aceita ficam escondidos, mas continuam na lista: o script aberto não perde a seleção. -->
-    <Style Selector="ListBox.scripts > ListBoxItem" x:DataType="vm:ScriptItemViewModel">
-      <Setter Property="IsVisible" Value="{Binding IsShown}"/>
+    <!-- Janela abaixo de 1400 px (EditorBreakpoints): o botão das cenas aparece e os botões secundários largam o texto. -->
+    <Style Selector="Button.scenes-trigger">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector=":is(UserControl).scenes-flyout Button.scenes-trigger">
+      <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector=":is(UserControl).scenes-flyout TextBlock.btn-label">
+      <Setter Property="IsVisible" Value="False"/>
     </Style>
   </UserControl.Styles>
 
@@ -24,6 +30,19 @@
     <!-- Cabeçalho: chave em mono, nome do capítulo, filtros com contagem e as duas ações do arquivo. -->
     <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding !IsReviewing}">
       <WrapPanel ItemSpacing="6" LineSpacing="8" MaxWidth="960" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+        <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
+        <Button x:Name="ScenesTrigger" Classes="scenes-trigger sm" AutomationProperties.Name="Cenas" ToolTip.Tip="Abre a lista de cenas">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+            <TextBlock Text="Cenas" TextWrapping="NoWrap"/>
+            <PathIcon Width="12" Height="12" Data="{StaticResource Icon.ChevronDown}"/>
+          </StackPanel>
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <v:ScenesPanel Width="300" Height="440"/>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
         <ItemsControl ItemsSource="{Binding Filters}" AutomationProperties.Name="Filtro de linhas" VerticalAlignment="Center">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -42,26 +61,26 @@
                 ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
-            <TextBlock Text="Buscar" TextWrapping="NoWrap"/>
+            <TextBlock Classes="btn-label" Text="Buscar" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="sm" Command="{Binding CheckFileCommand}" ToolTip.Tip="Abre a Conferência">
+        <Button Classes="sm" Command="{Binding CheckFileCommand}" AutomationProperties.Name="Conferir arquivo" ToolTip.Tip="Conferir arquivo: abre a Conferência">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Shield}"/>
-            <TextBlock Text="Conferir arquivo" TextWrapping="NoWrap"/>
+            <TextBlock Classes="btn-label" Text="Conferir arquivo" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
         <Button Classes="sm" Command="{Binding StartReviewCommand}" AutomationProperties.Name="Modo revisão"
-                ToolTip.Tip="Passa pelas linhas traduzidas pela IA, uma a uma, com a caixa do jogo ao lado">
+                ToolTip.Tip="Modo revisão: passa pelas linhas traduzidas pela IA, uma a uma, com a caixa do jogo ao lado">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
-            <TextBlock Text="Modo revisão" TextWrapping="NoWrap"/>
+            <TextBlock Classes="btn-label" Text="Modo revisão" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="accent sm" Command="{Binding TranslatePendingCommand}" ToolTip.Tip="Traduz com a IA as linhas pendentes deste script">
+        <Button Classes="accent sm" Command="{Binding TranslatePendingCommand}" ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
-            <TextBlock Text="Traduzir pendentes" TextWrapping="NoWrap"/>
+            <TextBlock Text="Traduzir com IA" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
       </WrapPanel>
@@ -79,8 +98,9 @@
       <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
     </Border>
 
-    <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,69* (320 a 420): a 1440 px de janela dá 248 · 628 · 420, como o artboard. -->
-    <Grid Grid.Row="3" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
+    <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,69* (320 a 420): a 1440 px de janela dá 248 · 628 · 420, como o artboard.
+         Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
+    <Grid Grid.Row="3" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="248"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
@@ -88,28 +108,8 @@
       </Grid.ColumnDefinitions>
 
       <!-- Cenas -->
-      <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Cenas">
-        <Grid RowDefinitions="48,Auto,*">
-          <Grid ColumnDefinitions="*,Auto" Margin="12,0">
-            <TextBlock Classes="title-md" Text="Cenas" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
-          </Grid>
-          <TextBox Grid.Row="1" Margin="12,0,12,8" MinHeight="28" Height="28" FontSize="13" Padding="8,0" VerticalContentAlignment="Center"
-                   PlaceholderText="Filtrar cenas" Text="{Binding ScriptFilter}" AutomationProperties.Name="Filtrar cenas">
-            <TextBox.InnerLeftContent>
-              <PathIcon Width="16" Height="16" Margin="8,0,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
-            </TextBox.InnerLeftContent>
-          </TextBox>
-          <ListBox Grid.Row="2" Classes="scripts" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
-                   AutomationProperties.Name="Lista de cenas">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:ScriptItemViewModel">
-                <c:ScriptItem Key="{Binding Key}" Label="{Binding Label}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
-                              ToolTip.Tip="{Binding Tooltip}"/>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </Grid>
+      <Border x:Name="ScenesBorder" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Cenas">
+        <v:ScenesPanel/>
       </Border>
 
       <!-- Grade de linhas: somente leitura; a edição acontece no inspetor. -->
@@ -120,8 +120,8 @@
               <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="overline" Text="Personagem" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="3" Classes="overline" Text="Original" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="3" Classes="overline" Text="Original" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
           </Border>
 

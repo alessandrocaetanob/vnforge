@@ -302,8 +302,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>A cotação que converte os custos; sem uma informada, o valor de exemplo.</summary>
     public ExchangeRate Rate => app.Rate;
 
+    /// <summary>A qualidade que a janela "Traduzir com IA" marca ao abrir.</summary>
+    public TranslationQuality DefaultQuality => app.Quality;
+
     /// <summary>Limite de gasto e valor de aviso do orçamento, em reais.</summary>
     public BudgetLimits Budget => app.Budget;
+
+    /// <summary>Por que o <c>app.json</c> não pôde ser lido (e o limite de gasto, por isso, é desconhecido); <see langword="null"/> quando está bem. Relido a cada acesso: gravar os Ajustes conserta o arquivo.</summary>
+    public string? BudgetProblem => appSettings.ReadProblem();
 
     /// <summary>A cotação foi informada ou trocada: a janela repassa às tarefas para o gasto da barra de status sair em reais.</summary>
     public event EventHandler<ExchangeRate>? RateChanged;

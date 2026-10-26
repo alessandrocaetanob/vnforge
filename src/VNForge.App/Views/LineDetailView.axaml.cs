@@ -2,8 +2,10 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 
@@ -17,9 +19,21 @@ public sealed partial class LineDetailView : UserControl
     /// <summary>Abaixo desta largura os botões do inspetor largam a tecla e o ícone para o texto caber.</summary>
     private const double CompactWidth = 360;
 
+    /// <summary>
+    /// Com <c>true</c> o inspetor se divide nas abas Tradução, Sugestão e Contexto (janela abaixo de <see cref="EditorBreakpoints"/>). O Editor define o valor
+    /// e ele desce até aqui pela árvore; os mesmos blocos mudam de lugar, então o ViewModel e as ligações são os de sempre.
+    /// </summary>
+    public static readonly AttachedProperty<bool> UseTabsProperty =
+        AvaloniaProperty.RegisterAttached<LineDetailView, Control, bool>("UseTabs", inherits: true);
+
+    private const int TranslationTabIndex = 0;
+    private const int SuggestionTabIndex = 1;
+
     private readonly DispatcherTimer ageTimer;
     private LineDetailViewModel? current;
     private bool syncing;
+    private bool tabbed;
+    private bool wasSuggesting;
 
     public LineDetailView()
     {
@@ -32,14 +46,109 @@ public sealed partial class LineDetailView : UserControl
         ageTimer.Tick += (_, _) => current?.RefreshSuggestionAge();
     }
 
+    public static bool GetUseTabs(Control control) => control.GetValue(UseTabsProperty);
+
+    public static void SetUseTabs(Control control, bool value) => control.SetValue(UseTabsProperty, value);
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == BoundsProperty)
         {
-            Classes.Set("compact", Bounds.Width is > 0 and < CompactWidth);
+            UpdateCompact();
+        }
+        else if (change.Property == UseTabsProperty)
+        {
+            ApplyTabs(change.GetNewValue<bool>());
         }
     }
+
+    /// <summary>Nas abas o inspetor tem 328 px de conteúdo e as teclas dos botões cabem; só a janela mínima, em coluna única, as tira.</summary>
+    private void UpdateCompact() => Classes.Set("compact", !tabbed && Bounds.Width is > 0 and < CompactWidth);
+
+    /// <summary>Na ordem do artboard, numa coluna só.</summary>
+    private Control[] WideOrder =>
+    [
+        HeaderFragment, OriginalFragment, ExplainFragment, SceneFragment, TranslationFragment, FitFragment,
+        ActionsFragment, SameSourceFragment, SuggestFragment, ProblemsFragment, ContextFragment,
+    ];
+
+    /// <summary>Muda os blocos de lugar entre a coluna única e as abas; nada é recriado, então o campo de tradução guarda o texto e o cursor.</summary>
+    private void ApplyTabs(bool useTabs)
+    {
+        if (useTabs == tabbed)
+        {
+            return;
+        }
+
+        var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+        var hadFocus = focused is not null && this.IsVisualAncestorOf(focused);
+        tabbed = useTabs;
+        WideStack.Children.Clear();
+        TabbedHeaderHost.Child = null;
+        TranslationTab.Children.Clear();
+        SuggestionTab.Children.Clear();
+        ContextTab.Children.Clear();
+
+        if (useTabs)
+        {
+            TabbedHeaderHost.Child = HeaderFragment;
+            TranslationTab.Children.AddRange([OriginalFragment, TranslationFragment, FitFragment, ActionsFragment, SameSourceFragment, ProblemsFragment]);
+            SuggestionTab.Children.Add(SuggestFragment);
+            ContextTab.Children.AddRange([ExplainFragment, SceneFragment, ContextFragment]);
+        }
+        else
+        {
+            WideStack.Children.AddRange(WideOrder);
+        }
+
+        WideScroll.IsVisible = !useTabs;
+        TabbedRoot.IsVisible = useTabs;
+        InspectorTabs.SelectedIndex = TranslationTabIndex;
+        GameBox.Size = useTabs ? GameTextboxSize.Small : GameTextboxSize.Medium;
+        Classes.Set("tabbed", useTabs);
+        UpdateCompact();
+
+        // Tirar o campo da árvore tira o foco dele, e sem foco os atalhos do inspetor deixam de responder.
+        if (hadFocus)
+        {
+            Dispatcher.UIThread.Post(
+                () =>
+                {
+                    if (focused is not null && this.IsVisualAncestorOf(focused) && focused.Focusable)
+                    {
+                        focused.Focus();
+                    }
+                    else
+                    {
+                        FocusTranslation();
+                    }
+                },
+                DispatcherPriority.Input);
+        }
+    }
+
+    /// <summary>Troca de aba por código e deixa o foco dentro do inspetor, para Ctrl+Enter, Alt+Cima, Alt+Baixo e Ctrl+Espaço continuarem valendo.</summary>
+    private void SelectTab(int index)
+    {
+        InspectorTabs.SelectedIndex = index;
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (index == TranslationTabIndex)
+                {
+                    FocusTranslation();
+                }
+                else
+                {
+                    (InspectorTabs.ContainerFromIndex(index) as TabItem)?.Focus();
+                }
+            },
+            DispatcherPriority.Input);
+    }
+
+    /// <summary>"Usar esta sugestão" da aba Sugestão: a tradução mudou, então a pessoa volta ao campo.</summary>
+    private void OnUseSuggestionClick(object? sender, RoutedEventArgs e) => SelectTab(TranslationTabIndex);
 
     /// <summary>Põe o cursor no campo de tradução.</summary>
     public void FocusTranslation() => TranslationEditor.TextArea.Focus();
@@ -60,6 +169,7 @@ public sealed partial class LineDetailView : UserControl
         }
 
         current = DataContext as LineDetailViewModel;
+        wasSuggesting = current?.IsSuggesting ?? false;
         SourceText.Inlines?.Clear();
         if (current is null)
         {
@@ -102,6 +212,17 @@ public sealed partial class LineDetailView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // Pedir a sugestão, de qualquer aba, leva a pessoa ao cartão da IA, uma vez por pedido: a resposta que chega depois não puxa de volta quem já saiu da aba.
+        if (e.PropertyName == nameof(LineDetailViewModel.IsSuggesting) && current is { } model)
+        {
+            var started = model.IsSuggesting && !wasSuggesting;
+            wasSuggesting = model.IsSuggesting;
+            if (started && tabbed)
+            {
+                SelectTab(SuggestionTabIndex);
+            }
+        }
+
         if (e.PropertyName == nameof(LineDetailViewModel.FieldText) && current is not null && TranslationEditor.Text != current.FieldText)
         {
             SetEditorText(current.FieldText);

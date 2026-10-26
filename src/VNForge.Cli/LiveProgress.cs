@@ -2,6 +2,7 @@ using System.Globalization;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using VNForge.AI.Claude;
+using VNForge.AI.Cost;
 using VNForge.Core.Projects;
 
 namespace VNForge.Cli;
@@ -175,7 +176,7 @@ internal sealed class BatchReporter(string model, int totalLines, int batchSize,
         {
             try
             {
-                dollars = AiCommandSupport.DollarsFor(model, snapshot);
+                dollars = RunCostTracker.DollarsFor(model, snapshot);
             }
             catch (ArgumentException)
             {

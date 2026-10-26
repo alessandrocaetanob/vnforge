@@ -86,7 +86,7 @@ A regra da v2 vale: tokens em `Vnf.*`, listas em `ListBox` com `VirtualizingStac
 | `GameStateBanner` (`.gamestate`) | `TemplatedControl` com ponto de estado, título, texto e botão | Testar no jogo |
 | Diálogo (`.scrim`, `.dialog`) | `OverlayLayer` com `ContentDialog` próprio, sem janela nova, `Escape` fecha | Traduzir com IA |
 | Modo revisão | `UserControl` próprio ligado ao `EditorViewModel` (mesma lista, mesmo comando de aprovar); `KeyBinding` para as teclas | Editor |
-| Editor compacto | `SplitView` com a lista de scripts como `Flyout` abaixo de 1400 px; inspetor em `TabControl` abaixo de 1500 px | Editor |
+| Editor compacto | `Flyout` com a lista de scripts e inspetor em `TabControl` abaixo de 1400 px de janela (a 1440 o artboard mostra o inspetor inteiro; ver `EditorBreakpoints`) | Editor |
 | Cartões de acentuação (`.enc`) | `OptionCard` existente com um `TextboxPreview` dentro; os selos ficam numa linha própria abaixo do nome | Novo projeto, Ajustes |
 | Detalhes técnicos (`.tech`) | `Expander` fechado por padrão, com título e conteúdo livre | Início, Novo projeto, Testar no jogo, Ajustes |
 | Barra de três estados (`.seg3`) | `TemplatedControl` com `Done`, `Review` e `Total`, a mesma fonte do `ProgressRing` | Início, Editor |

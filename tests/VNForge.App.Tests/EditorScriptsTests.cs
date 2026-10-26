@@ -148,7 +148,7 @@ public class EditorScriptsTests
     }
 
     [Fact]
-    public async Task Traduzir_pendentes_so_vale_quando_o_script_tem_pendentes()
+    public async Task Traduzir_com_IA_abre_a_janela_mesmo_quando_o_script_nao_tem_pendentes()
     {
         var vm = await Carregado();
         var pedidos = new List<string>();
@@ -161,7 +161,7 @@ public class EditorScriptsTests
 
         vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00012");
         Assert.Equal(0, vm.PendingLines);
-        Assert.False(vm.TranslatePendingCommand.CanExecute(null));
+        Assert.True(vm.TranslatePendingCommand.CanExecute(null));
     }
 
     [Fact]

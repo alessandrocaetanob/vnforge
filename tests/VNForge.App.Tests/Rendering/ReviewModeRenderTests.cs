@@ -124,7 +124,30 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         });
     }
 
-    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar)
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task A_1366_por_768_a_tela_cobre_o_Editor_e_a_caixa_do_jogo_cabe_na_janela(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var origin = view.TranslatePoint(default, window) ?? throw new InvalidOperationException("a tela não está na janela");
+            Assert.True(view.Bounds.Width > 1100 && view.Bounds.Height > 500, $"a tela ocupa o Editor ({view.Bounds.Width}x{view.Bounds.Height})");
+            Assert.True(origin.X + view.Bounds.Width <= window.Width && origin.Y + view.Bounds.Height <= window.Height, "a tela cabe na janela");
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<PageHeader>(), h => h.IsEffectivelyVisible);
+
+            var box = Assert.Single(view.GetVisualDescendants().OfType<GameTextbox>());
+            var boxOrigin = box.TranslatePoint(default, window) ?? throw new InvalidOperationException("a caixa não está na janela");
+            Assert.True(boxOrigin.X + box.Bounds.Width <= window.Width && boxOrigin.Y + box.Bounds.Height <= window.Height, "a caixa cabe na janela");
+            Salvar(window, "modo-revisao-1366", theme);
+        }, 1366, 768);
+    }
+
+    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
@@ -132,7 +155,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();
