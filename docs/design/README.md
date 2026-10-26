@@ -44,9 +44,9 @@ O tamanho é o do canvas, **1440×1000** (`ScreenRenderer.Width` e `Height`), e 
 
 | Artboard do canvas | Arquivos em `telas/v3/` | Observação |
 |---|---|---|
-| 1 · Início | | Ainda no desenho da v2 (`capturas/inicio`); o Início v3 vem na #313 |
-| 2 · Novo projeto | `novo-projeto-v3-1-jogo`, `novo-projeto-v3-3-acentos`, `novo-projeto-v3-4-ia-e-gasto` | Os passos 2 (idiomas) e 5 (pronto) não mudaram: `telas/prints/novo-projeto-2-idiomas-*` e `-5-pronto-*` |
-| 3 · Painel | | Ainda no desenho da v2 (`prints/painel-*`); o Painel v3 vem na #309 |
+| 1 · Início | | Ainda no desenho da v2 (`docs/design/capturas/inicio`); o Início v3 vem na #313 |
+| 2 · Novo projeto | `novo-projeto-v3-1-jogo`, `novo-projeto-v3-3-acentos`, `novo-projeto-v3-4-ia-e-gasto` | Os passos 2 (idiomas) e 5 (pronto) não mudaram: `docs/design/telas/prints/novo-projeto-2-idiomas-*` e `-5-pronto-*` |
+| 3 · Painel | | Ainda no desenho da v2 (`docs/design/prints/painel-*`); o Painel v3 vem na #309 |
 | 4, 5 · Editor | `editor-1440`, `editor-inspetor` (com "Entender o japonês" aberto), `editor-caixa-nao-cabe`, `editor-caixa-dividida` | |
 | 6 · Editor em 1366×768 | `editor-compacto-traducao`, `editor-compacto-sugestao`, `editor-compacto-contexto` | Abas do inspetor de 360 px |
 | 7 · Modo revisão | `modo-revisao-cabe`, `modo-revisao-passa`, `modo-revisao-fim`, `modo-revisao-1366` | |
@@ -57,4 +57,4 @@ O tamanho é o do canvas, **1440×1000** (`ScreenRenderer.Width` e `Height`), e 
 | 12 · Glossário | `glossario-v3-personagens`, `glossario-v3-termos` | |
 | Componentes | `galeria-v3` | Galeria de controles (800×5200) |
 
-As capturas em `telas/prints`, `telas/render`, `renders`, `render`, `prints` e `u9` são de etapas anteriores (v2 e PRs de acabamento) e ficam como registro.
+As capturas em `docs/design/telas/prints`, `docs/design/telas/render`, `docs/design/renders`, `docs/design/render`, `docs/design/prints`, `docs/design/capturas` e `docs/design/u9` são de etapas anteriores (v2 e PRs de acabamento) e ficam como registro.

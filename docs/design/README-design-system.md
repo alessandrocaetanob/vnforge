@@ -2,7 +2,7 @@ Sistema visual do VNForge, o aplicativo Windows de tradução de visual novels, 
 
 ## Conteúdo
 
-- Interface em português do Brasil, caixa de frase em tudo: "Traduzir pendentes", "Build e injeção", "Conferência".
+- Interface em português do Brasil, caixa de frase em tudo: "Traduzir com IA", "Testar no jogo", "Voltar ao jogo original".
 - Botões começam com verbo no infinitivo ("Aprovar e próxima", "Restaurar originais"). Itens de navegação são substantivos de uma palavra ("Editor", "Conferir", "Testar").
 - Termos fixos do produto: **linha** (unidade de texto), **script** (arquivo `yst*.ybn`), **marcador** (`\p`, `\n`, `\c`, `{VAR:…}`), **perfil de formatação**, **build**, **injetar**, **restaurar**. Não alternar com sinônimos. Na v3, build, injetar, restaurar e o marcador cru saem das telas de uso (ver **Termos da v3**) e seguem no log, na CLI e na documentação técnica, onde são as palavras certas.
 - Números e moeda no formato pt-BR: `48.211 linhas`, `R$ 142,56`, `62%`. As telas de uso mostram dinheiro só em reais; o dólar e a cotação aparecem nos Ajustes e no Novo projeto, onde a pessoa informa a cotação. Valor abaixo de um centavo é "menos de R$ 0,01", nunca R$ 0,00. Datas relativas até 7 dias ("há 2 min", "ontem"), depois `17/10/2026`.
@@ -19,7 +19,7 @@ A interface v3 fala a língua de quem traduz pela primeira vez (plano, seção "
 | **Testar** | Build, no trilho | Item do trilho; a tela abre com o título "Testar no jogo" | No app (#308) |
 | **Testar no jogo** | Build e injeção | Botão principal da tela (`Ctrl+B`), o mesmo passo a passo do `vnf test` | No app (#308) |
 | **Ler o texto** | Extrair | Etapa da jornada do Painel e passo da primeira vez no Início | Ainda não: o Painel diz "Extrair" até a #309 e o Início v3 vem na #313 |
-| **Conferir a tradução** | Conferência (QA) | Título da tela 9 do canvas | Ainda não: o trilho diz "Conferir" e a tela, "Conferência". Nenhuma issue da v3 cobre a tela 9 inteira (filtros em linguagem comum, "O que é isso", "Corrigir e ir para o próximo") |
+| **Conferir a tradução** | Conferência (QA) | Título da tela 9 do canvas | Em parte: já é o nome do primeiro passo do teste no jogo (`GameTestStep.Check`) e da mensagem "Corrija em Conferir a tradução" da tela Testar, mas a tela em si ainda se chama "Conferência" e o trilho diz "Conferir". Nenhuma issue da v3 cobre a tela 9 inteira (filtros em linguagem comum, "O que é isso", "Corrigir e ir para o próximo") |
 | **Voltar ao jogo original** | Restaurar originais | Botão neutro, sempre visível, da faixa de estado do jogo | No app (#308); em "Detalhes técnicos" da mesma tela o botão ainda é "Restaurar originais" |
 | **Está certo assim** | Marcar como ok | Botão da Conferência que silencia um aviso de uma linha | Ainda não: a tela diz "Marcar como ok" |
 | **virar a página** | `\p` | Selo dentro do texto (`MarkerLabels.Name`) | No app (#302) |
@@ -110,24 +110,24 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 
 | Componente | Canvas | Propriedades principais | O que faz | Onde aparece |
 |---|---|---|---|---|
-| `ProgressRing` | `.ringwrap` | `Done`, `Review`, `Total`, `Caption` | Anel de três arcos (pronto, esperando revisão, em japonês) com a parte pronta no centro; a classe `sm` dá 56 px e só o número | Painel, Início (#309, #313) |
-| `Seg3Bar` | `.seg3` | `Done`, `Review`, `Total` | Barra de três estados de 8 px, da mesma fonte do anel (`ThreeStateProgress`) | Editor, Painel, Início |
+| `ProgressRing` | `.ringwrap` | `Done`, `Review`, `Total`, `Caption` | Anel de três arcos (pronto, esperando revisão, em japonês) com a parte pronta no centro; a classe `sm` dá 56 px e só o número | Painel, Início (#309/#313) |
+| `Seg3Bar` | `.seg3` | `Done`, `Review`, `Total` | Barra de três estados de 8 px, da mesma fonte do anel (`ThreeStateProgress`) | Editor, Painel, Início (#309/#313) |
 | `ChapterRow` | `.chrow` | `Number`, `Title`, `Note`, `IsHere`, `IsExtra` | Linha do sumário de capítulos: número, nome, `Seg3Bar`, parte pronta, linhas e nota; `IsExtra` é "Menus e nomes", sem número | Painel (#309) |
-| `TodoItem` | `.ready` | `Severity`, `Title`, `Message`, `ActionText`, `Command` | Item de "Precisa de você": ícone de gravidade, frase e o botão que resolve | Painel, Início (#309, #313) |
-| `GameTextbox` | `.gbox` | `Layout`, `Size` (`Small`, `Medium`, `Large`), `FontFamily` | Caixa do jogo com a placa do nome, as linhas vagas pontilhadas, o que passa abaixo de um traço e o triângulo de virar a página; aceita várias páginas | Editor, modo revisão, Conferência, cartões de acentos |
-| `FitWarning` | `.fitwarn` | `Message`, `SplitCommand`, `ShortenCommand`, `ShowShorten`, `ErrorText` | Aviso "Não cabe na caixa do jogo" com "Dividir em N páginas" e "Encurtar com a IA" | Inspetor, modo revisão, Conferência |
-| `MarkerChip` | `.mk` | `Marker`, `Kind`, `IsMissing` | Selo com o nome em português no lugar do marcador; no AvaloniaEdit entra pelo `MarkerChipGenerator` e ocupa uma coluna do cursor | Editor, modo revisão, Conferência |
-| `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso, Ajustes |
-| `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o gasto mais o pedido (zero, sem pedido) passa dele | Traduzir com IA, Painel |
+| `TodoItem` | `.ready` | `Severity`, `Title`, `Message`, `ActionText`, `Command` | Item de "Precisa de você": ícone de gravidade, frase e o botão que resolve | Painel, Início (#309/#313) |
+| `GameTextbox` | `.gbox` | `Layout`, `Size` (`Small`, `Medium`, `Large`), `FontFamily` | Caixa do jogo com a placa do nome, as linhas vagas pontilhadas, o que passa abaixo de um traço e o triângulo de virar a página; aceita várias páginas | Inspetor do Editor, modo revisão, cartões de acentos do Novo projeto |
+| `FitWarning` | `.fitwarn` | `Message`, `SplitCommand`, `ShortenCommand`, `ShowShorten`, `ErrorText` | Aviso "Não cabe na caixa do jogo" com "Dividir em N páginas" e "Encurtar com a IA" | Inspetor do Editor, modo revisão, Conferência |
+| `MarkerChip` | `.mk` | `Marker`, `Kind`, `IsMissing` | Selo com o nome em português no lugar do marcador; no AvaloniaEdit entra pelo `MarkerChipGenerator` e ocupa uma coluna do cursor | Campo da tradução e original do inspetor do Editor, modo revisão |
+| `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso e Ajustes (#309/#313) |
+| `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o gasto mais o pedido (zero, sem pedido) passa dele | Traduzir com IA, Ajustes; Painel (#309) |
 | `QualityCard` | `.opt` | `Title`, `Price`, `Duration`, `Model`, `ExampleRate` | `OptionCard` com preço em reais e tempo em destaque e o modelo em letra pequena; é um `RadioButton` de grupo | Traduzir com IA, Novo projeto, Ajustes |
-| `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor, modo revisão |
-| `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor, modo revisão |
+| `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor do Editor, modo revisão |
+| `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor do Editor, modo revisão |
 | `ScriptGroup` | `.grp` | `Title`, `CountText` | `Expander` de um capítulo na lista de cenas | Editor (quando o Core entregar os grupos, #309) |
 | `GameStateBanner` | `.gamestate` | `State` (`Original`, `Translated`, `Blocked`, `Warning`), `Title`, `Message` | Faixa do que o jogo tem hoje, com "Voltar ao jogo original" sempre visível | Testar no jogo |
-| `ScreenDialog` | `.scrim`, `.dialog` | `IsOpen`, `Title`, `Footer`, `CloseCommand` | Diálogo sobre a tela, na camada de sobreposição e sem janela nova; `Esc` fecha | Traduzir com IA |
-| `TechnicalDetails` | `.tech` | `Header` | `Expander` fechado por padrão para o que a pessoa não precisa ver | Novo projeto, Testar no jogo, Ajustes, Início |
+| `ScreenDialog` | `.scrim`, `.dialog` | `IsOpen`, `Title`, `Footer`, `CloseCommand` | Diálogo sobre a tela, na camada de sobreposição e sem janela nova; `Esc` fecha | Traduzir com IA, "Usar em todos" no inspetor do Editor |
+| `TechnicalDetails` | `.tech` | `Header` | `Expander` fechado por padrão para o que a pessoa não precisa ver | Novo projeto, Testar no jogo, Ajustes; Início (#313) |
 
-`ProgressRing`, `Seg3Bar`, `ChapterRow`, `TodoItem` e `ScriptGroup` só aparecem na galeria por enquanto: as telas que os usam vêm com o Painel (#309) e o Início (#313). O `PipelineStepper` da v2 troca "Build" e "Injetar" por "Testar no jogo" e "Extrair" por "Ler o texto" quando o Painel v3 chegar. O `OptionCard` é a base do `QualityCard` e dos cartões de acentos (`.enc`, com um `GameTextbox` pequeno dentro).
+`ProgressRing`, `Seg3Bar`, `ChapterRow`, `TodoItem`, `ScriptGroup` e `CostLabel` só aparecem na galeria por enquanto: as telas que os usam vêm com o Painel (#309) e o Início (#313). O `PipelineStepper` da v2 troca "Build" e "Injetar" por "Testar no jogo" e "Extrair" por "Ler o texto" quando o Painel v3 chegar. O `OptionCard` é a base do `QualityCard` e dos cartões de acentos (`.enc`, com um `GameTextbox` pequeno dentro).
 
 ## Telas copiadas
 

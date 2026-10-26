@@ -363,11 +363,11 @@ A interface v3 ([plano](plans/2026-10-25-interface-v3.md), telas em [04-app-wind
 | `StyleConfig` e as regras `honorifico-fora-do-estilo` e `personagem-sem-genero` | `VNForge.Core.Projects`, `VNForge.Core.Qa` | As escolhas de estilo entram no prompt de tradução e na chave do cache; as duas regras só avisam e não travam o build (ver a seção 5) (#310) | Bloco `style` do `vnforge.json` |
 | `GlossaryUsage`, `RepeatedTerms`, `SpeakerSamples`, `IGlossarySuggester` | `VNForge.Core.Glossary`, `VNForge.AI.Glossary` | Termos que se repetem, voz e gênero sugeridos (ver "Glossário e personagens") (#311) | `glossary.json`, `characters.json` |
 | `TranslationFieldText` | `VNForge.App.Services` | Converte a tradução para o campo de edição sem marcadores crus (`\n` vira quebra de linha, `\p` no meio vira linha em branco, a virada de página do fim volta ao gravar) e de volta, com teste de ida e volta (#305) | |
-| `MarkerLabels` | `VNForge.App.Controls` | O nome em português de cada marcador: `\p` "virar a página", `\n` "quebra de linha", `\c` "esperar o clique", variável de nome "nome do jogador" e as demais "variável do jogo" | |
+| `MarkerLabels` | `VNForge.App.Controls` | O nome em português de cada marcador: `\p` "virar a página", `\n` "quebra de linha", `\c` "esperar o clique", `\u` e os códigos que o app não conhece "código do jogo", `\\` "barra invertida", `\{` "chave"; uma variável `{VAR:…}` é "nome do jogador" quando o nome é `nome`, `name`, `player`, `playername`, `myname` ou `hero`, e "variável do jogo" nas outras | |
 
 **Marcadores nas telas.** O texto gravado em `text/*.json` não muda: os marcadores continuam `\p`, `\n`, `\c` e `{VAR:…}`, e o build os lê como antes. Só a tela os mostra como selos (`MarkerChip`), e o nome acessível do selo traz o marcador cru entre parênteses ("Marcador virar a página (\p)") para o leitor de tela.
 
-**O que fica fora do Core.** A janela Traduzir com IA monta o `BudgetGuard` e roda o `TranslationJob` no App, como tarefa da barra de status; a regra de orçamento e a conta de preço estão no Core e na IA, e a tela só liga as duas. O `vnf translate` monta o mesmo guarda com o limite do `app.json` e sem valor de aviso, então a CLI para no limite mas não pergunta antes de um pedido caro.
+**O que fica fora do Core.** A janela Traduzir com IA monta o `BudgetGuard` e roda o `TranslationJob` no App, como tarefa da barra de status; a regra de orçamento e a conta de preço estão no Core e na IA, e a tela só liga as duas. O `vnf translate` pergunta antes de um pedido acima do valor de aviso (`--yes` dispensa) e para no limite durante a execução, com o mesmo `BudgetGuard`.
 
 ## Projeto de tradução no disco
 
