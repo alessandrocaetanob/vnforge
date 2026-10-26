@@ -118,7 +118,7 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 | `FitWarning` | `.fitwarn` | `Message`, `SplitCommand`, `ShortenCommand`, `ShowShorten`, `ErrorText` | Aviso "Não cabe na caixa do jogo" com "Dividir em N páginas" e "Encurtar com a IA" | Inspetor, modo revisão, Conferência |
 | `MarkerChip` | `.mk` | `Marker`, `Kind`, `IsMissing` | Selo com o nome em português no lugar do marcador; no AvaloniaEdit entra pelo `MarkerChipGenerator` e ocupa uma coluna do cursor | Editor, modo revisão, Conferência |
 | `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso, Ajustes |
-| `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o pedido passa dele | Traduzir com IA, Painel |
+| `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o gasto mais o pedido (zero, sem pedido) passa dele | Traduzir com IA, Painel |
 | `QualityCard` | `.opt` | `Title`, `Price`, `Duration`, `Model`, `ExampleRate` | `OptionCard` com preço em reais e tempo em destaque e o modelo em letra pequena; é um `RadioButton` de grupo | Traduzir com IA, Novo projeto, Ajustes |
 | `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor, modo revisão |
 | `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor, modo revisão |

@@ -21,7 +21,7 @@ A v2 deixou cada tela igual ao desenho. A v3 pergunta se uma pessoa que nunca tr
 | **Início** | 1 | Ainda é o da v2; a primeira vez e o "Próximo passo" vêm na #313 | 1 |
 | **Novo projeto** | 2 | Acentos em três cartões com a frase na caixa do jogo, qualidade, cotação e limite de gasto | 2 |
 | **Painel** | 3 | Ainda é o da v2; o mapa por capítulo e "Precisa de você" vêm na #309 | 3 |
-| **Editor** | 4, 5, 6 | Cenas, Situação (Pronta, Sua, IA, Em japonês), campo sem marcadores, caixa do jogo, Entender o japonês, Na cena, Usar em todos, Dividir em páginas, compacto em 1366×768 | 4 |
+| **Editor** | 4, 5, 6 | Cenas, Situação (Pronta, Sua, IA, Em japonês), campo sem marcadores, caixa do jogo, Entender o japonês, Na cena, Usar em todos, Dividir em 2 páginas, compacto em 1366×768 | 4 |
 | **Modo revisão** | 7 | Passagem em sequência pelas linhas da IA, com a caixa do jogo grande | 4 |
 | **Traduzir com IA** | 8 | Janela com três perguntas: o que, com que qualidade, por quanto | 9 |
 | **Conferir** | 9 | Só o aviso "Não cabe na caixa do jogo" da v3; filtros, "O que é isso" e "Está certo assim" ainda não existem | 5 |
@@ -29,7 +29,7 @@ A v2 deixou cada tela igual ao desenho. A v3 pergunta se uma pessoa que nunca tr
 | **Ajustes** | 11 | Abas IA e gasto, Estilo, Formatação, Acentuação e Aparência | 7 |
 | **Glossário** | 12 | Personagens primeiro, "Termos que se repetem", salvamento automático | 6 |
 
-Os nomes da tabela são os do trilho, dos títulos e dos botões no app e no canvas. Onde o app ainda usa o nome da v2 (Conferência, Extrair, Marcar como ok, Marcadores diferentes do original), a tabela de [termos da v3](design/README-design-system.md#termos-da-v3) diz qual issue o troca.
+Os nomes da tabela são os do canvas v3 e, na maior parte, os do trilho, dos títulos e dos botões do app. Onde o app ainda usa o nome da v2 (Conferência, Extrair, Marcar como ok, Marcadores diferentes do original), a tabela de [termos da v3](design/README-design-system.md#termos-da-v3) diz qual issue o troca.
 
 **Regras que valem para todas as telas.** Uma pergunta e um botão principal por tela. Dinheiro só em reais nas telas de uso (o dólar e a cotação ficam nos Ajustes e no Novo projeto). Os marcadores do jogo aparecem como selos ("virar a página", "quebra de linha"), nunca crus. YPF, página de código e nome de modelo ficam em "Detalhes técnicos". Qualidade (Rápida, Equilibrada, Caprichada) no lugar do nome do modelo.
 
