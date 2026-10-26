@@ -168,7 +168,7 @@ public sealed partial class EditorViewModel
 
         if (approvalLog is null || approvalLogRoot != root)
         {
-            approvalLog = (ApprovalLogFactory ?? (folder => new ProjectApprovalLog(folder)))(root);
+            approvalLog = (ApprovalLogFactory ?? (folder => ProjectApprovalLog.For(folder)))(root);
             approvalLogRoot = root;
         }
 

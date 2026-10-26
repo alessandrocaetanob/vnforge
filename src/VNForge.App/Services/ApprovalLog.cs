@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using VNForge.Core;
 using VNForge.Core.Projects;
 
@@ -23,6 +24,8 @@ public interface IApprovalLog
 /// </summary>
 public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
 {
+    private static readonly ConcurrentDictionary<string, ProjectApprovalLog> Shared = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly Lock gate = new();
     private readonly List<ApprovalRecord> unsaved = [];
     private SessionsFile sessions = SessionsFile.Empty;
@@ -32,6 +35,16 @@ public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
     private SessionsFile? pending;
     private bool writing;
     private Task saving = Task.CompletedTask;
+
+    /// <summary>
+    /// O registro compartilhado da pasta do projeto: trocar de projeto e voltar não cria um registro novo que leria o arquivo antes de a gravação pendente do
+    /// anterior terminar e a deixaria sobrescrever as aprovações novas.
+    /// </summary>
+    public static ProjectApprovalLog For(string projectRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
+        return Shared.GetOrAdd(Path.GetFullPath(projectRoot), root => new ProjectApprovalLog(root));
+    }
 
     /// <summary>A gravação em andamento, ou uma tarefa já concluída quando não há nenhuma; os testes a aguardam.</summary>
     public Task Saving

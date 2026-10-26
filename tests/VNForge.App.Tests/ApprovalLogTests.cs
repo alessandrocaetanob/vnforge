@@ -127,6 +127,15 @@ public sealed class ApprovalLogTests : IDisposable
     }
 
     [Fact]
+    public void For_devolve_o_mesmo_registro_para_a_mesma_pasta_mesmo_escrita_de_outro_jeito()
+    {
+        var a = ProjectApprovalLog.For(raiz);
+        var b = ProjectApprovalLog.For(raiz.ToUpperInvariant() + Path.DirectorySeparatorChar + ".");
+
+        Assert.Same(a, b);
+    }
+
+    [Fact]
     public async Task Pasta_que_nao_e_projeto_conta_na_memoria_sem_gravar_nada()
     {
         var log = new ProjectApprovalLog(Path.Combine(pasta.Path, "nao-existe"));

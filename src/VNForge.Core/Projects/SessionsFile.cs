@@ -42,13 +42,11 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
         string text;
         try
         {
-            var path = PathFor(project);
-            if (!File.Exists(path))
-            {
-                return new SessionsLoad(Empty, SessionsLoadStatus.Missing);
-            }
-
-            text = Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path));
+            text = Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(PathFor(project)));
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return new SessionsLoad(Empty, SessionsLoadStatus.Missing);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
