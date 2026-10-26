@@ -112,6 +112,8 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
                       <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
                       <TextBlock Classes="caption secondary" Text="{Binding Where}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Classes="caption secondary" Text="{Binding OriginNote}" TextTrimming="CharacterEllipsis"
+                                 IsVisible="{Binding IsMachineDraft}"/>
                       <TextBlock Classes="body-sm secondary" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" MaxLines="1"
                                  ToolTip.Tip="{Binding Detail}"/>
                     </StackPanel>
@@ -163,9 +165,9 @@
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasTranslation}">
-                    <TextBlock Classes="overline" Text="Tradução de hoje"/>
+                    <TextBlock Classes="overline" Text="{Binding TranslationLabel}"/>
                     <Border Classes="original">
-                      <TextBlock FontSize="14" LineHeight="26" c:MarkedText.Source="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="Tradução de hoje"/>
+                      <TextBlock FontSize="14" LineHeight="26" c:MarkedText.Source="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="{Binding TranslationLabel}"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasProposal}">

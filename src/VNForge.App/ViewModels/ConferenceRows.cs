@@ -236,6 +236,20 @@ public sealed class ConferenceIssueRowViewModel
 
     public bool HasTranslation => Translation.Length > 0;
 
+    private const string MachineDraftNote = "Rascunho da IA, ainda não revisado";
+
+    /// <summary>
+    /// O texto da linha é um rascunho da IA que ninguém revisou. O build grava esse texto mesmo assim, então o problema vale;
+    /// a lista e o detalhe dizem de onde ele veio para a pessoa não procurar uma tradução que nunca fez.
+    /// </summary>
+    public bool IsMachineDraft => HasTranslation && Unit is { Status: TranslationStatus.Machine };
+
+    /// <summary>A nota da lista sob a cena; vazia quando a linha não é um rascunho da IA.</summary>
+    public string OriginNote => IsMachineDraft ? MachineDraftNote : string.Empty;
+
+    /// <summary>O título da tradução no detalhe: "Tradução de hoje", ou a origem quando é rascunho da IA.</summary>
+    public string TranslationLabel => IsMachineDraft ? MachineDraftNote : "Tradução de hoje";
+
     /// <summary>Título do detalhe: o da regra; no resumo, o script e a contagem.</summary>
     public string DetailTitle => IsScriptSummary ? $"{Title} em {SceneLabel}" : Title;
 
