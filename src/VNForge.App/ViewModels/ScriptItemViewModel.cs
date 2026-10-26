@@ -9,7 +9,8 @@ namespace VNForge.App.ViewModels;
 /// <param name="label">O nome legível do script; nulo mostra só a chave.</param>
 public sealed partial class ScriptItemViewModel(ScriptProgress progress, string? label = null) : ObservableObject
 {
-    public ScriptProgress Progress { get; } = progress;
+    /// <summary>O retrato do progresso; <see cref="Update"/> o troca quando as linhas do script mudam sem o projeto ser relido.</summary>
+    public ScriptProgress Progress { get; private set; } = progress;
 
     public string Key => Progress.Key;
 
@@ -33,7 +34,7 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
     [ObservableProperty]
     public partial bool IsShown { get; set; } = true;
 
-    public StatusDistribution Distribution { get; } = StatusDistribution.Of(progress.Counts);
+    public StatusDistribution Distribution { get; private set; } = StatusDistribution.Of(progress.Counts);
 
     /// <summary>O percentual de IA aparece só aqui; o de "concluído" conta Revisadas e Aprovadas.</summary>
     public string Tooltip => $"IA {Progress.MachinePercent}%";
@@ -43,6 +44,30 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
     /// <summary>Descrição da barra de distribuição para leitor de tela.</summary>
     public string DistributionDescription =>
         $"Aprovadas {Distribution.Approved}%, revisadas {Distribution.Reviewed}%, traduzidas {Distribution.Translated}%, IA {Distribution.Machine}%, pendentes {Distribution.Pending}%";
+
+    /// <summary>
+    /// Troca as contagens do script (uma linha gravada, aprovada ou aplicada por "Usar em todos") e avisa a lista e o rodapé, que não esperam
+    /// a próxima leitura do projeto. Contagens iguais às de agora não notificam.
+    /// </summary>
+    public void Update(StatusCounts counts)
+    {
+        ArgumentNullException.ThrowIfNull(counts);
+        if (Progress.Counts == counts)
+        {
+            return;
+        }
+
+        Progress = Progress with { Counts = counts };
+        Distribution = StatusDistribution.Of(counts);
+        OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(CompletedPercent));
+        OnPropertyChanged(nameof(PercentLabel));
+        OnPropertyChanged(nameof(IsComplete));
+        OnPropertyChanged(nameof(Distribution));
+        OnPropertyChanged(nameof(DistributionDescription));
+        OnPropertyChanged(nameof(Tooltip));
+        OnPropertyChanged(nameof(LinesLabel));
+    }
 
     /// <summary>Casa o texto do filtro da lista com a chave ou o nome, sem diferenciar maiúsculas.</summary>
     public bool Matches(string filter) =>
