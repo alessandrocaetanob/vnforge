@@ -4,7 +4,19 @@ using VNForge.Core.Qa;
 namespace VNForge.App.ViewModels;
 
 /// <summary>Uma ocorrência do QA na linha aberta: a regra pelo título da tela Conferir e a mensagem dela.</summary>
-public sealed record LineIssueViewModel(string Title, string Message, bool IsError);
+public sealed record LineIssueViewModel(string Title, string Message, bool IsError)
+{
+    /// <summary>Uma linha por ocorrência, erros antes de avisos, na ordem do QA dentro de cada gravidade.</summary>
+    public static IReadOnlyList<LineIssueViewModel> From(IEnumerable<QaIssue> issues) =>
+    [
+        .. issues
+            .OrderByDescending(i => i.Severity)
+            .Select(i => new LineIssueViewModel(ConferenceRuleTexts.Title(i.RuleId), i.Message, i.Severity == QaSeverity.Error)),
+    ];
+
+    /// <summary>"Título: mensagem", como a dica do ícone da grade mostra.</summary>
+    public string Tip => $"{Title}: {Message}";
+}
 
 /// <summary>Os avisos do QA da linha aberta e o estado da quebra de linha do perfil.</summary>
 public sealed partial class LineDetailViewModel
@@ -26,7 +38,7 @@ public sealed partial class LineDetailViewModel
     public bool WrapIsOff => Preview is { } preview && !preview.Profile.Wrap.Enabled;
 
     /// <summary>A medida diz só que a quebra está desligada: vai em tom neutro, sem o verde de "cabe" nem o vermelho de "passa".</summary>
-    public bool FitIsNeutral => string.Equals(FitText, WrapOffText, StringComparison.Ordinal);
+    public bool FitIsNeutral => WrapIsOff && !DoesNotFit && Preview?.Layout is not null && !string.IsNullOrWhiteSpace(Translation);
 
     /// <summary>A medida da caixa tem algo a dizer em verde ou vermelho (cabe, passa ou sem tradução).</summary>
     public bool FitIsShown => FitText.Length > 0 && !FitIsNeutral;
@@ -36,11 +48,6 @@ public sealed partial class LineDetailViewModel
     {
         ArgumentNullException.ThrowIfNull(issues);
 
-        QaIssues =
-        [
-            .. issues
-                .OrderByDescending(i => i.Severity)
-                .Select(i => new LineIssueViewModel(ConferenceRuleTexts.Title(i.RuleId), i.Message, i.Severity == QaSeverity.Error)),
-        ];
+        QaIssues = LineIssueViewModel.From(issues);
     }
 }
