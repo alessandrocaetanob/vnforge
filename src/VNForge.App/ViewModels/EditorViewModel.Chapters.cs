@@ -135,10 +135,12 @@ public sealed partial class EditorViewModel
             return false;
         }
 
-        // Outro projeto abriu (ou o atual foi relido) enquanto o arquivo era gravado: a lista nova já cuida dos capítulos.
+        // Outro projeto abriu (ou o atual foi relido) enquanto o arquivo era gravado: a lista nova já cuida dos capítulos,
+        // mas o Painel ainda precisa saber que o scripts.json mudou.
         if (version != loadVersion)
         {
-            return false;
+            ChaptersChanged?.Invoke(this, change);
+            return true;
         }
 
         scriptNames = names;

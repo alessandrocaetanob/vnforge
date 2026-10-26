@@ -234,6 +234,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             // A hora da última gravação é do projeto aberto; só um Reload do mesmo projeto a mantém.
             LastSavedAt = null;
             loadedRoot = root;
+            closedChapters.Clear();
+            ChapterMessage = null;
         }
 
         if (root is null)
