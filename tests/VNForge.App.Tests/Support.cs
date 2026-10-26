@@ -7,9 +7,13 @@ namespace VNForge.App.Tests;
 
 internal sealed class TempFolder : IDisposable
 {
-    public TempFolder()
+    public TempFolder() : this(string.Empty)
     {
-        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "vnforge-app-tests", Guid.NewGuid().ToString("N"));
+    }
+
+    public TempFolder(string prefix)
+    {
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "vnforge-app-tests", prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path);
     }
 

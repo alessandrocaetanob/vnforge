@@ -11,6 +11,7 @@ using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Engines;
 using VNForge.Core.Projects;
+using Xunit.Sdk;
 
 namespace VNForge.App.Tests.Rendering;
 
@@ -41,7 +42,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         await fixture.Session.Dispatch<int>(
             async () =>
             {
-                using var temp = new TempFolder();
+                using var temp = new TempFolder($"932-0xAB-{themeName}-");
                 var game = temp.SubFolder("jogo");
                 File.WriteAllText(Path.Combine(game, "Game.exe"), "MZ");
                 var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new PatchableEngine(312)], appSettings: new AppSettingsFile(temp.SubFolder("config")), clock: new FixedClock(Now));
@@ -56,20 +57,20 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
 
                     await wizard.SetGameFolderAsync(game);
                     Render(window, "novo-projeto-v3-1-jogo", theme);
-                    CheckGamePlain(window);
+                    CheckGamePlain(window, temp.Path);
 
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
                     await wizard.NextCommand.ExecuteAsync(null);
                     wizard.ProjectName = "Minha VN";
                     await wizard.NextCommand.ExecuteAsync(null);
                     Render(window, "novo-projeto-v3-3-acentos", theme);
-                    CheckAccents(window);
+                    CheckAccents(window, temp.Path);
 
                     await wizard.NextCommand.ExecuteAsync(null);
                     wizard.RateText = "5,40";
                     wizard.LimitText = "300";
                     Render(window, "novo-projeto-v3-4-ia-e-gasto", theme);
-                    CheckAi(window, wizard);
+                    CheckAi(window, wizard, temp.Path);
                 }
                 finally
                 {
@@ -148,15 +149,32 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
     private static string[] VisibleTexts(Control root) =>
         [.. root.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!)];
 
-    private static void CheckGamePlain(Window window)
+    private static void AssertPlain(IEnumerable<string> texts, string pathToIgnore) =>
+        Assert.All(texts, text => Assert.DoesNotMatch(PlainForbidden, text.Replace(pathToIgnore, string.Empty, StringComparison.OrdinalIgnoreCase)));
+
+    [Theory]
+    [InlineData("932 (Shift-JIS)")]
+    [InlineData("Página de código 932")]
+    [InlineData("Chave 0xD36FAC96")]
+    public void A_deteccao_de_jargao_continua_pegando_o_termo_fora_do_caminho_da_pasta(string text)
+    {
+        const string folder = "/tmp/vnforge-app-tests/932-0xAB/jogo";
+
+        AssertPlain([folder], folder);
+        AssertPlain([$"{folder} é a pasta do jogo"], folder);
+        Assert.Throws<AllException>(() => AssertPlain([text, folder], folder));
+        Assert.Throws<AllException>(() => AssertPlain([$"{folder} · {text}"], folder));
+    }
+
+    private static void CheckGamePlain(Window window, string tempRoot)
     {
         var texts = VisibleTexts(window);
         Assert.Contains("Feito com o motor YU-RIS", texts);
         Assert.Contains("312 arquivos de roteiro", texts);
-        Assert.All(texts, text => Assert.DoesNotMatch(PlainForbidden, text));
+        AssertPlain(texts, tempRoot);
     }
 
-    private static void CheckAccents(Window window)
+    private static void CheckAccents(Window window, string tempRoot)
     {
         var texts = VisibleTexts(window);
         Assert.Contains("Sem acentos", texts);
@@ -164,7 +182,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         Assert.Contains("Com acentos, ajuste no jogo", texts);
         Assert.Contains("Em breve", texts);
         Assert.Contains("Recomendada para este jogo", texts);
-        Assert.All(texts, text => Assert.DoesNotMatch(PlainForbidden, text));
+        AssertPlain(texts, tempRoot);
 
         var cards = window.GetVisualDescendants().OfType<RadioButton>().Where(r => r.GroupName == "WizardAccents").ToArray();
         Assert.Equal([true, false, true], cards.Select(c => c.IsEnabled));
@@ -181,13 +199,13 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         }
     }
 
-    private static void CheckAi(Window window, NewProjectWizardViewModel wizard)
+    private static void CheckAi(Window window, NewProjectWizardViewModel wizard, string tempRoot)
     {
         var texts = VisibleTexts(window);
         Assert.Contains("Rápida", texts);
         Assert.Contains("Equilibrada", texts);
         Assert.Contains("Caprichada", texts);
-        Assert.All(texts, text => Assert.DoesNotMatch(PlainForbidden, text));
+        AssertPlain(texts, tempRoot);
 
         var cards = window.GetVisualDescendants().OfType<QualityCard>().ToArray();
         Assert.Equal(["Rápida", "Equilibrada", "Caprichada"], cards.Select(c => c.Title));
