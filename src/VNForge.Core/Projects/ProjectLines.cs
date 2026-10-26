@@ -29,9 +29,10 @@ public sealed record LineEntry(string ScriptKey, int Number, TextUnit Unit, IRea
 
     /// <summary>
     /// A mesma linha com <paramref name="unit"/> no lugar da unidade, depois de uma edição. Refaz as ocorrências das regras de completude
-    /// (<see cref="CompletenessQaRules"/>), que olham a linha isolada; as demais, que dependem do glossário e do resto do projeto, ficam como estavam
-    /// e voltam a valer na próxima leitura. Com <paramref name="context"/> (o encoder e o perfil do projeto, <see cref="ProjectLines.LineContext"/>)
-    /// refaz também as regras que só olham a linha e dependem deles: caractere não codificável, caixa acima do limite e tamanho em bytes.
+    /// (<see cref="CompletenessQaRules"/>), que olham a linha isolada; as que olham o projeto inteiro (<c>traducao-inconsistente</c>,
+    /// <c>personagem-sem-genero</c>) ficam como estavam e voltam a valer em <see cref="ProjectLines.BeginRecheck"/>. Com <paramref name="context"/>
+    /// (glossário, personagens, estilo, perfil e encoder do projeto, <see cref="ProjectLines.LineContext"/>) refaz todas as regras que olham uma
+    /// linha de cada vez (<see cref="UnitQaRule"/>): nome de personagem e termo do glossário, honorífico, caractere não codificável, caixa, bytes e texto.
     /// </summary>
     public LineEntry WithUnit(TextUnit unit, QaContext? context = null)
     {
@@ -47,8 +48,8 @@ public sealed record LineEntry(string ScriptKey, int Number, TextUnit Unit, IRea
 
     private static QaEngine CompletenessEngine { get; } = new(CompletenessQaRules.All);
 
-    /// <summary>As regras que olham só a linha: a completude e as que dependem do encoder e do perfil do projeto.</summary>
-    private static QaEngine LineEngine { get; } = new([.. CompletenessQaRules.All, new UnencodableCharacterRule(), new BoxLineLimitRule(), new FieldByteLimitRule()]);
+    /// <summary>Todas as regras que olham uma linha de cada vez (<see cref="UnitQaRule"/>): a completude e as que dependem do contexto do projeto.</summary>
+    internal static QaEngine LineEngine { get; } = new(QaEngine.Default.Rules.OfType<UnitQaRule>());
 }
 
 /// <summary>Filtro de status da grade.</summary>
@@ -158,18 +159,25 @@ public sealed class ProjectLines
     private readonly Dictionary<string, LineEntry[]> byScript;
     private Dictionary<string, List<(string Key, int Index)>>? bySource;
 
-    private ProjectLines(List<ScriptProgress> scripts, Dictionary<string, LineEntry[]> byScript, QaContext? lineContext)
+    private readonly QaContext? fixedContext;
+    private readonly ProjectLineContext? contextSource;
+    private readonly QaEngine? projectEngine;
+
+    private ProjectLines(List<ScriptProgress> scripts, Dictionary<string, LineEntry[]> byScript, QaContext? lineContext, ProjectLineContext? contextSource, QaEngine? projectEngine)
     {
         Scripts = scripts;
         this.byScript = byScript;
-        LineContext = lineContext;
+        fixedContext = lineContext;
+        this.contextSource = contextSource;
+        this.projectEngine = projectEngine;
     }
 
     /// <summary>
-    /// O encoder e o perfil de formatação do projeto, sem os textos: o que <see cref="LineEntry.WithUnit"/> precisa para refazer as regras de uma linha
-    /// depois da edição. Nulo quando as linhas não vieram de um projeto (<see cref="Create"/>).
+    /// O glossário, os personagens, o estilo, o perfil de formatação e o encoder do projeto, sem os textos: o que <see cref="LineEntry.WithUnit"/>
+    /// precisa para refazer as regras de uma linha depois da edição. Num projeto lido por <see cref="Read"/> acompanha os arquivos (cada um só é
+    /// lido de novo quando muda); nulo quando as linhas não vieram de um projeto (<see cref="Create"/> sem contexto).
     /// </summary>
-    public QaContext? LineContext { get; }
+    public QaContext? LineContext => contextSource?.Current() ?? fixedContext;
 
     /// <summary>A <paramref name="entry"/> com a <paramref name="unit"/> editada e as ocorrências da linha refeitas com o <see cref="LineContext"/>.</summary>
     public LineEntry WithUnit(LineEntry entry, TextUnit unit)
@@ -245,14 +253,73 @@ public sealed class ProjectLines
     public static ProjectLines Read(ProjectFolder project, QaEngine? qa = null)
     {
         ArgumentNullException.ThrowIfNull(project);
+        var stamps = ProjectLineContext.StampsOf(project);
         var context = QaContext.FromProject(project);
-        var lineContext = new QaContext(new Dictionary<string, IReadOnlyList<TextUnit>>(), [], [], context.Formatting, context.Encoder);
-        return Create(context.Texts, (qa ?? QaEngine.Default).Run(context), lineContext);
+        var engine = qa ?? QaEngine.Default;
+        return Build(context.Texts, engine.Run(context), null, new ProjectLineContext(project, context, stamps), engine);
+    }
+
+    /// <summary>
+    /// Pede um instantâneo das linhas para refazer o QA fora da thread da tela com o glossário, os personagens e o estilo de agora:
+    /// <see cref="LineRecheck.Run"/> roda longe da tela e <see cref="Apply"/> leva o resultado de volta. Sem as regras do projeto só as regras
+    /// que olham uma linha de cada vez rodam; com elas rodam também as que olham o projeto inteiro (<c>traducao-inconsistente</c>,
+    /// <c>personagem-sem-genero</c>). Chame na thread que grava as linhas; linhas que não vieram de um projeto não têm contexto e não mudam.
+    /// </summary>
+    public LineRecheck BeginRecheck(bool includeProjectRules)
+    {
+        if (LineContext is not { } context)
+        {
+            return new LineRecheck(null, null, []);
+        }
+
+        var texts = new Dictionary<string, IReadOnlyList<TextUnit>>(byScript.Count, StringComparer.Ordinal);
+        var entries = new List<LineEntry>();
+        foreach (var key in Scripts.Select(script => script.Key))
+        {
+            var lines = byScript[key];
+            texts[key] = [.. lines.Select(l => l.Unit)];
+            entries.AddRange(lines);
+        }
+
+        var engine = includeProjectRules ? projectEngine ?? QaEngine.Default : LineEntry.LineEngine;
+        return new LineRecheck(engine, context with { Texts = texts }, entries);
+    }
+
+    /// <summary>
+    /// Leva o resultado de <see cref="LineRecheck.Run"/> para as linhas e devolve as que mudaram. A linha gravada depois do instantâneo
+    /// fica de fora: as ocorrências dela já foram refeitas na gravação, e a próxima releitura confere o resto.
+    /// </summary>
+    public IReadOnlyList<LineEntry> Apply(RecheckResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var applied = new List<LineEntry>(result.Changes.Count);
+        foreach (var (original, issues) in result.Changes)
+        {
+            if (!byScript.TryGetValue(original.ScriptKey, out var lines) || original.Number < 1 || original.Number > lines.Length)
+            {
+                continue;
+            }
+
+            var current = lines[original.Number - 1];
+            if (!ReferenceEquals(current.Unit, original.Unit) && current.Unit != original.Unit)
+            {
+                continue;
+            }
+
+            var updated = current with { Issues = issues };
+            lines[original.Number - 1] = updated;
+            applied.Add(updated);
+        }
+
+        return applied;
     }
 
     /// <summary>Monta as linhas de <paramref name="texts"/>; as ocorrências de <paramref name="report"/> casam por chave do script e id da linha.</summary>
-    /// <param name="lineContext">O encoder e o perfil do projeto, para refazer as regras da linha depois de uma edição (<see cref="LineContext"/>).</param>
-    public static ProjectLines Create(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaReport? report = null, QaContext? lineContext = null)
+    /// <param name="lineContext">O contexto do projeto, para refazer as regras da linha depois de uma edição (<see cref="LineContext"/>).</param>
+    public static ProjectLines Create(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaReport? report = null, QaContext? lineContext = null) =>
+        Build(texts, report, lineContext, null, null);
+
+    private static ProjectLines Build(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaReport? report, QaContext? lineContext, ProjectLineContext? contextSource, QaEngine? engine)
     {
         ArgumentNullException.ThrowIfNull(texts);
 
@@ -282,7 +349,7 @@ public sealed class ProjectLines
             scripts.Add(new ScriptProgress(key, StatusCounts.Of(units)));
         }
 
-        return new ProjectLines(scripts, byScript, lineContext);
+        return new ProjectLines(scripts, byScript, lineContext, contextSource, engine);
     }
 
     /// <summary>Falantes distintos e não vazios, o que mais fala primeiro; empates em ordem ordinal.</summary>

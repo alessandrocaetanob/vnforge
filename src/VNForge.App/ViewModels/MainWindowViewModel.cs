@@ -107,6 +107,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         HookTranslateDialog();
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
+        Glossary.Saved += (_, _) => RecheckEditor();
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         AttachEditor(editor);
@@ -201,6 +202,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>A última conferência pedida ao abrir a página; os testes a aguardam.</summary>
     public Task ConferenceLoading { get; private set; } = Task.CompletedTask;
+
+    /// <summary>A última releitura pedida pelo comando "Reler o projeto" (Editor, Painel e Conferência); os testes a aguardam.</summary>
+    public Task ProjectReloading { get; private set; } = Task.CompletedTask;
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
@@ -368,7 +372,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        return target != NavKey.Conference || Editor.Detail?.Flush() != false;
+        // As páginas que leem os textos do disco (Conferência, Painel, Início e Testar) precisam da edição pendente já gravada.
+        return target is not (NavKey.Conference or NavKey.Dashboard or NavKey.Start or NavKey.Build) || Editor.Detail?.Flush() != false;
     }
 
     private void AttachEditor(EditorViewModel value) => value.LineSaved += OnLineSaved;
@@ -670,6 +675,54 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(BoxLimitsText));
+
+        // O estilo e a acentuação mudam o que as regras de QA acham: o Editor refaz os avisos em segundo plano.
+        Editor.RequestRecheck();
+    }
+
+    /// <summary>O Glossário gravou glossário ou personagens: o Editor refaz já os avisos de termo, de nome e de gênero.</summary>
+    private void RecheckEditor() => _ = Editor.RecheckAsync();
+
+    /// <summary>
+    /// "Reler o projeto": para o caso de os arquivos terem mudado fora da app (a CLI, outro editor). Grava o que está pendente e lê de novo
+    /// o Editor, o Painel, a Conferência e o Glossário.
+    /// </summary>
+    private async Task ReloadProjectAsync()
+    {
+        if (CurrentProject is null)
+        {
+            return;
+        }
+
+        if (Conference.IsBusy)
+        {
+            Toasts.Show("A Conferência está trabalhando. Espere ela terminar para reler o projeto.", ToastKind.Warning, key: "project-reload");
+            return;
+        }
+
+        if (!Editor.FlushPendingEdits() || !Glossary.Flush())
+        {
+            Toasts.Show("Há alterações que não foram gravadas. Resolva o erro na tela e tente reler de novo.", ToastKind.Warning, key: "project-reload");
+            return;
+        }
+
+        if (!Glossary.IsDirty)
+        {
+            Glossary.Reload();
+        }
+
+        ReloadProjectSettings();
+        editorStale = false;
+        Editor.Reload();
+        await Task.WhenAll(Editor.Loading, Dashboard.ReloadAsync(), Conference.RefreshAsync());
+        if (Editor.ErrorMessage is null && Conference.ErrorMessage is null)
+        {
+            Toasts.Show("Projeto relido.", ToastKind.Success, key: "project-reload");
+        }
+        else
+        {
+            Toasts.Show("O projeto foi relido, mas houve erro ao ler os textos. Veja o aviso na tela.", ToastKind.Warning, key: "project-reload");
+        }
     }
 
     private List<PaletteEntry> PaletteNamedEntries()
@@ -684,6 +737,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     Editor.ShowPendingLines();
                 }
             }));
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
             entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));
             entries.Add(BuildEntry("Novo build", "Gera a pasta de build do projeto", Build.BuildCommand));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));
