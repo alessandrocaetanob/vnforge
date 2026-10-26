@@ -77,6 +77,32 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
         });
     }
 
+    [Fact]
+    public async Task Renomear_troca_a_linha_do_capitulo_pelo_campo_de_nome_e_cancelar_a_devolve()
+    {
+        await Abrir(ThemeVariant.Dark, ScreenRenderer.Height, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
+            var first = vm.Dashboard.Chapters[0];
+            var rows = view.GetVisualDescendants().OfType<ChapterRow>().ToList();
+            Assert.All(rows, r => Assert.True(r.IsEffectivelyVisible));
+
+            vm.Dashboard.BeginRenameChapterCommand.Execute(first);
+            ScreenRenderer.Settle(window);
+
+            var field = Assert.Single(view.GetVisualDescendants().OfType<TextBox>(), t => t.IsEffectivelyVisible);
+            Assert.Equal(first.Name, field.Text);
+            Assert.False(rows[0].IsEffectivelyVisible);
+            Assert.True(rows[1].IsEffectivelyVisible);
+
+            vm.Dashboard.CancelRenameChapterCommand.Execute(first);
+            ScreenRenderer.Settle(window);
+
+            Assert.True(rows[0].IsEffectivelyVisible);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBox>(), t => t.IsEffectivelyVisible);
+        });
+    }
+
     private async Task Abrir(ThemeVariant theme, int height, Action<MainWindow, MainWindowViewModel> verificar)
     {
         Prepare(demoFolder.Root);

@@ -39,7 +39,7 @@ public static partial class ScriptGrouping
         ArgumentNullException.ThrowIfNull(names);
         ArgumentNullException.ThrowIfNull(files);
         var counts = files.ToDictionary(f => f.Key, f => f.Counts, StringComparer.Ordinal);
-        var keys = counts.Keys.OrderBy(NumberOf).ThenBy(k => k, StringComparer.Ordinal).ToList();
+        var keys = InStoryOrder(counts.Keys);
         var assigned = Assign(names, keys);
 
         var groups = new List<(string Name, List<string> Keys)>();
@@ -70,6 +70,13 @@ public static partial class ScriptGrouping
         }
 
         return result;
+    }
+
+    /// <summary>As chaves na ordem numérica dos scripts (<c>yst2</c> antes de <c>yst10</c>), a ordem em que a história corre.</summary>
+    public static IReadOnlyList<string> InStoryOrder(IEnumerable<string> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        return [.. keys.OrderBy(NumberOf).ThenBy(k => k, StringComparer.Ordinal)];
     }
 
     /// <summary>Dá um novo nome ao grupo: todos os scripts dele passam a ter o grupo escolhido pela pessoa. Um nome vazio devolve os nomes como estavam.</summary>

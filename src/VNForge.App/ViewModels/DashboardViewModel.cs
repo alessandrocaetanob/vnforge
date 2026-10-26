@@ -29,8 +29,11 @@ public sealed record DashboardContext(ExchangeRate Rate, BudgetLimits Limits, bo
     public static DashboardContext Default { get; } = new(ExchangeRate.Placeholder, BudgetLimits.None, true);
 }
 
-/// <summary>Uma linha do sumário de capítulos: o grupo de scripts com os três totais e a nota. Clicar nela abre o editor na primeira cena que pede trabalho.</summary>
-public sealed class ChapterRowViewModel(ScriptGroupTotals group, string note, bool isHere, string? scriptKey)
+/// <summary>
+/// Uma linha do sumário de capítulos: o grupo de scripts com os três totais e a nota. Clicar nela abre o editor na primeira cena que pede trabalho;
+/// Renomear (F2 ou o menu da linha) troca a linha por um campo com o nome, que vira o <c>group</c> dos scripts dela.
+/// </summary>
+public sealed partial class ChapterRowViewModel(ScriptGroupTotals group, string note, bool isHere, string? scriptKey) : ObservableObject
 {
     public string Name { get; } = group.Name;
 
@@ -51,6 +54,21 @@ public sealed class ChapterRowViewModel(ScriptGroupTotals group, string note, bo
 
     /// <summary>A primeira cena do capítulo com linhas para revisar, senão com linhas em japonês, senão a primeira.</summary>
     public string? ScriptKey { get; } = scriptKey;
+
+    /// <summary>"Menus e nomes" fica de fora da história e do renomear: dar-lhe outro nome o traria para a história.</summary>
+    public bool CanRename => !IsExtra;
+
+    /// <summary>A linha virou o campo de nome.</summary>
+    [ObservableProperty]
+    public partial bool IsEditing { get; set; }
+
+    /// <summary>O que está escrito no campo de nome.</summary>
+    [ObservableProperty]
+    public partial string EditText { get; set; } = string.Empty;
+
+    /// <summary>Por que o nome não foi aceito; nulo quando nada deu errado.</summary>
+    [ObservableProperty]
+    public partial string? EditError { get; set; }
 }
 
 /// <summary>Um item de "Precisa de você": a gravidade, o que falta, o porquê e o botão que leva à tela que resolve.</summary>
@@ -82,16 +100,19 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private readonly Func<string, ProjectDashboard> loader;
     private readonly TimeProvider clock;
+    private readonly Action<string, string, string> renamer;
     private int loadVersion;
     private bool loaded;
     private DashboardNavigation? nextStep;
 
     /// <param name="loader">Lê o painel de uma pasta de projeto; o padrão lê o disco.</param>
     /// <param name="clock">O relógio do ritmo de revisão (o "hoje" e a janela de sete dias); o padrão é o do sistema.</param>
-    public DashboardViewModel(Func<string, ProjectDashboard>? loader = null, TimeProvider? clock = null)
+    /// <param name="renamer">Grava o novo nome de um capítulo (pasta do projeto, nome atual, nome novo); o padrão grava o <c>scripts.json</c>.</param>
+    public DashboardViewModel(Func<string, ProjectDashboard>? loader = null, TimeProvider? clock = null, Action<string, string, string>? renamer = null)
     {
         this.loader = loader ?? (root => ProjectDashboard.Read(ProjectFolder.Open(root)));
         this.clock = clock ?? TimeProvider.System;
+        this.renamer = renamer ?? ((root, group, name) => ScriptGroupEditor.RenameGroup(ProjectFolder.Open(root), group, name));
     }
 
     /// <summary>Pedido para ir ao Início (a ação do estado vazio "sem projeto").</summary>
@@ -287,6 +308,68 @@ public sealed partial class DashboardViewModel : ObservableObject
         {
             NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Editor, chapter.ScriptKey));
         }
+    }
+
+    [RelayCommand]
+    private void BeginRenameChapter(ChapterRowViewModel? chapter)
+    {
+        if (chapter is not { CanRename: true })
+        {
+            return;
+        }
+
+        foreach (var other in Chapters.Where(c => c.IsEditing))
+        {
+            other.IsEditing = false;
+        }
+
+        chapter.EditError = null;
+        chapter.EditText = chapter.Name;
+        chapter.IsEditing = true;
+    }
+
+    [RelayCommand]
+    private static void CancelRenameChapter(ChapterRowViewModel? chapter)
+    {
+        if (chapter is not null)
+        {
+            chapter.IsEditing = false;
+            chapter.EditError = null;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CommitRenameChapterAsync(ChapterRowViewModel? chapter)
+    {
+        if (chapter is null || Project is not { } project)
+        {
+            return;
+        }
+
+        var name = chapter.EditText.Trim();
+        if (name.Length == 0)
+        {
+            chapter.EditError = "Escreva um nome para o capítulo.";
+            return;
+        }
+
+        if (string.Equals(name, chapter.Name, StringComparison.Ordinal))
+        {
+            CancelRenameChapter(chapter);
+            return;
+        }
+
+        try
+        {
+            renamer(project.Root, chapter.Name, name);
+        }
+        catch (Exception ex) when (ex is ScriptGroupingException or Core.Glossary.GlossaryFileException or IOException)
+        {
+            chapter.EditError = ex.Message;
+            return;
+        }
+
+        await ReloadAsync();
     }
 
     [RelayCommand]
