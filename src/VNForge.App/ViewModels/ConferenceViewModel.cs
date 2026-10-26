@@ -279,7 +279,8 @@ public sealed partial class ConferenceViewModel : ObservableObject
                     group.Count(),
                     engine.Find(issue.RuleId)?.Description,
                     scenes.DisplayName(issue.ScriptKey),
-                    positions.GetValueOrDefault(issue.UnitId));
+                    positions.GetValueOrDefault(issue.UnitId),
+                    group.ToList());
             })
             .OrderBy(r => r.IsError ? 0 : 1)
             .ThenBy(r => r.ScriptKey, StringComparer.Ordinal)

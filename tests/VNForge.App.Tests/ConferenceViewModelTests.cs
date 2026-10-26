@@ -187,6 +187,99 @@ public class ConferenceViewModelTests
         Assert.Equal("yst00013:0137", row.LineLabel);
     }
 
+    private static QaIssue Unencodable(int codePoint, string unitId = "yst00001:000001")
+    {
+        var text = char.ConvertFromUtf32(codePoint);
+        return new QaIssue("caractere-nao-codificavel", QaSeverity.Error, unitId, "yst00001", $"o caractere '{text}' (U+{codePoint:X4}) não existe na estratégia 'cp1252'.");
+    }
+
+    [Fact]
+    public void Linha_com_varios_caracteres_fora_da_acentuacao_lista_todos_e_nao_so_o_primeiro()
+    {
+        QaIssue[] issues = [Unencodable(0x3002), Unencodable(0xFF5E), Unencodable(0x2605)];
+
+        var row = new ConferenceIssueRowViewModel(issues[0], count: 3, occurrences: issues);
+
+        Assert.Equal("O 。, o ～ e o ★ não existem na acentuação do projeto.", row.Detail);
+        Assert.DoesNotContain("(+", row.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Dois_caracteres_fora_da_acentuacao_ligam_com_e()
+    {
+        QaIssue[] issues = [Unencodable(0x3002), Unencodable(0xFF5E)];
+
+        var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
+
+        Assert.Equal("O 。 e o ～ não existem na acentuação do projeto.", row.Detail);
+    }
+
+    [Fact]
+    public void Caractere_repetido_na_linha_aparece_uma_vez_so()
+    {
+        QaIssue[] issues = [Unencodable(0x3002), Unencodable(0x3002)];
+
+        var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
+
+        Assert.Equal("O 。 não existe na acentuação do projeto.", row.Detail);
+    }
+
+    [Theory]
+    [InlineData(0x200B)] // espaço de largura zero
+    [InlineData(0x00A0)] // espaço sem quebra
+    [InlineData(0x0007)] // controle
+    [InlineData(0x3000)] // espaço ideográfico
+    public void Caractere_invisivel_aparece_pelo_codigo(int codePoint)
+    {
+        var issue = Unencodable(codePoint);
+
+        var row = new ConferenceIssueRowViewModel(issue);
+
+        Assert.Equal($"O U+{codePoint:X4} não existe na acentuação do projeto.", row.Detail);
+    }
+
+    [Fact]
+    public void Invisivel_junto_de_visivel_mistura_o_caractere_e_o_codigo()
+    {
+        QaIssue[] issues = [Unencodable(0x3002), Unencodable(0x200B)];
+
+        var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
+
+        Assert.Equal("O 。 e o U+200B não existem na acentuação do projeto.", row.Detail);
+    }
+
+    [Fact]
+    public void Emoji_de_dois_chars_aparece_inteiro()
+    {
+        var issue = Unencodable(0x1F600);
+
+        var row = new ConferenceIssueRowViewModel(issue);
+
+        Assert.Equal("O 😀 não existe na acentuação do projeto.", row.Detail);
+    }
+
+    [Fact]
+    public async Task Pela_tela_a_linha_agrupada_mostra_todos_os_caracteres_do_grupo()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveConfig(folder.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        folder.SaveText("yst00001", [Unit("yst00001", 0, "Oi。 ok～ ​", TranslationStatus.Translated)]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.RefreshAsync();
+
+        var row = Assert.Single(IssueRows(vm), r => r.RuleId == "caractere-nao-codificavel");
+        Assert.Equal(3, row.Count);
+        Assert.Equal("O 。, o ～ e o U+200B não existem na acentuação do projeto.", row.Detail);
+        Assert.True(row.HasCharacterList);
+
+        // O Painel e o filtro "Travam o teste" contam o mesmo: erros do QA, sem agrupar.
+        vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Kind == ConferenceFilterKind.Blocking));
+        Assert.Equal(ProjectDashboard.Read(folder).Qa!.Errors, IssueRows(vm).Sum(r => r.Count));
+    }
+
     [Fact]
     public void Caractere_fora_da_acentuacao_vira_frase_sem_o_detalhe_tecnico()
     {

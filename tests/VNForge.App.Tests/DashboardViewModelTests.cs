@@ -64,6 +64,28 @@ public class DashboardViewModelTests
     }
 
     [Fact]
+    public async Task O_passo_Conferir_diz_o_que_a_conta_deixa_de_fora()
+    {
+        using var temp = new TempFolder();
+        var vm = Open(temp, TranslationStatus.Untranslated, TranslationStatus.Untranslated, TranslationStatus.Approved);
+
+        await vm.ReloadAsync();
+
+        Assert.Equal("Nenhum problema · sem contar 2 linhas sem tradução", vm.Steps[3].Subtitle);
+    }
+
+    [Fact]
+    public async Task O_passo_Conferir_nao_acrescenta_nada_quando_tudo_esta_na_conta()
+    {
+        using var temp = new TempFolder();
+        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Reviewed);
+
+        await vm.ReloadAsync();
+
+        Assert.Equal("Nenhum problema", vm.Steps[3].Subtitle);
+    }
+
+    [Fact]
     public async Task A_jornada_tem_cinco_passos_e_nenhum_e_Build_ou_Injetar()
     {
         using var temp = new TempFolder();

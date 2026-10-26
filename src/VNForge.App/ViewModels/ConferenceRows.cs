@@ -50,6 +50,7 @@ public static class ConferenceRuleTexts
 public sealed class ConferenceIssueRowViewModel
 {
     private readonly string? ruleDescription;
+    private readonly IReadOnlyList<QaIssue> occurrences;
 
     /// <param name="issue">A ocorrência; no resumo de um script, a primeira dele.</param>
     /// <param name="proposal">A correção proposta pelo <see cref="IQaFixer"/> da regra, quando há.</param>
@@ -58,9 +59,11 @@ public sealed class ConferenceIssueRowViewModel
     /// <param name="ruleDescription">Descrição da regra no Core, usada quando o título não está na tabela.</param>
     /// <param name="linePosition">A posição da linha no script (de 1 em diante); o id da unidade é opaco e não serve de número.</param>
     /// <param name="sceneName">O nome da cena (<c>scripts.json</c>); sem ele a linha se localiza pelo id do script.</param>
-    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null)
+    /// <param name="occurrences">Todas as ocorrências que a linha agrupa (a mesma regra na mesma linha); a lista usa isso para nomear cada caractere em vez de só o primeiro.</param>
+    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null, IReadOnlyList<QaIssue>? occurrences = null)
     {
         Issue = issue;
+        this.occurrences = occurrences is { Count: > 0 } ? occurrences : [issue];
         Proposal = proposal;
         Unit = unit;
         Count = count;
@@ -161,12 +164,55 @@ public sealed class ConferenceIssueRowViewModel
         }
     }
 
-    /// <summary>"O ★ não existe na acentuação do projeto."; o caractere vem da mensagem do Core, e o detalhe técnico fica fora da lista.</summary>
+    /// <summary>A linha lista os caracteres que a acentuação não grava (todos os do grupo); o detalhe mostra a mesma frase.</summary>
+    public bool HasCharacterList => RuleId == UnencodableCharacterRule.RuleId;
+
+    private static readonly Regex UnencodablePattern = new(@"'[^']+' \(U\+(?<code>[0-9A-Fa-f]{4,6})\)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    /// <summary>
+    /// "O ★ não existe na acentuação do projeto."; com vários caracteres na linha, "O 。, o ～ e o ★ não existem…". Caractere invisível
+    /// (espaço de largura zero, controle) sai como <c>U+200B</c>. O detalhe técnico (a estratégia) fica fora da lista.
+    /// </summary>
     private string UnencodableSentence()
     {
-        var match = Regex.Match(Message, "'([^']+)'", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
-        var more = Count > 1 ? $" (+{Count - 1})" : string.Empty;
-        return (match.Success ? $"O {match.Groups[1].Value} não existe na acentuação do projeto." : "Há um caractere que a acentuação do projeto não grava.") + more;
+        var labels = new List<string>();
+        foreach (var occurrence in occurrences)
+        {
+            var match = UnencodablePattern.Match(occurrence.Message);
+            if (match.Success && int.TryParse(match.Groups["code"].ValueSpan, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var codePoint))
+            {
+                var label = CodePointLabel(codePoint);
+                if (!labels.Contains(label))
+                {
+                    labels.Add(label);
+                }
+            }
+        }
+
+        if (labels.Count == 0)
+        {
+            return "Há um caractere que a acentuação do projeto não grava.";
+        }
+
+        var named = labels.Count == 1
+            ? $"O {labels[0]} não existe"
+            : $"O {string.Join(", o ", labels.Take(labels.Count - 1))} e o {labels[^1]} não existem";
+        return $"{named} na acentuação do projeto.";
+    }
+
+    /// <summary>O caractere, ou <c>U+XXXX</c> quando ele não aparece na tela (controle, espaço, formato, substituto solto).</summary>
+    private static string CodePointLabel(int codePoint)
+    {
+        if (codePoint is >= 0xD800 and <= 0xDFFF or > 0x10FFFF)
+        {
+            return $"U+{codePoint:X4}";
+        }
+
+        var category = CharUnicodeInfo.GetUnicodeCategory(codePoint);
+        return category is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator
+            or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse or UnicodeCategory.OtherNotAssigned
+            ? $"U+{codePoint:X4}"
+            : char.ConvertFromUtf32(codePoint);
     }
 
     private static readonly Regex MarkerPattern = new(@"\\[npcu\\{]|\{[^{}]*\}", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));

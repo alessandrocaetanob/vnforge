@@ -152,6 +152,10 @@
                     <TextBlock Classes="overline" Text="O que é isso"/>
                     <TextBlock Classes="body-sm secondary" Text="{Binding Explanation}" TextWrapping="Wrap"/>
                   </StackPanel>
+                  <StackPanel Spacing="6" IsVisible="{Binding HasCharacterList}">
+                    <TextBlock Classes="overline" Text="Nesta fala"/>
+                    <TextBlock Classes="body-sm" Text="{Binding Detail}" TextWrapping="Wrap"/>
+                  </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasOriginal}">
                     <TextBlock Classes="overline" Text="Original"/>
                     <Border Classes="original">
