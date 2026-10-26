@@ -10,19 +10,29 @@ public static class SpeakerSamples
 {
     public const int DefaultLines = 20;
 
-    /// <summary>Falas por falante, na ordem em que os falantes aparecem. A narração (sem falante) fica de fora.</summary>
-    public static IReadOnlyDictionary<string, IReadOnlyList<string>> From(IEnumerable<TextUnit> units, int maxLines = DefaultLines)
+    /// <summary>Menos falas que isso e o falante provavelmente é um rótulo avulso, não uma pessoa: não vale pedir voz e gênero à IA.</summary>
+    public const int DefaultMinLines = 3;
+
+    /// <summary>
+    /// Falas por falante, na ordem em que os falantes aparecem. A narração (sem falante) fica de fora, assim como os falantes feitos só de
+    /// sinais (<see cref="SpeakerNames.IsSignsOnly"/>, como <c>？？？</c>) e os que têm menos de <paramref name="minLines"/> falas com texto
+    /// (a mesma fala repetida conta cada vez).
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> From(
+        IEnumerable<TextUnit> units, int maxLines = DefaultLines, int minLines = DefaultMinLines)
     {
         ArgumentNullException.ThrowIfNull(units);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxLines, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLines, 1);
 
         var bySpeaker = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         var seen = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var spoken = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var unit in units)
         {
             var speaker = unit.Speaker?.Trim();
             var line = unit.Source.Trim();
-            if (string.IsNullOrEmpty(speaker) || line.Length == 0)
+            if (string.IsNullOrEmpty(speaker) || line.Length == 0 || SpeakerNames.IsSignsOnly(speaker))
             {
                 continue;
             }
@@ -33,13 +43,16 @@ public static class SpeakerSamples
                 seen[speaker] = new HashSet<string>(StringComparer.Ordinal);
             }
 
+            spoken[speaker] = spoken.GetValueOrDefault(speaker) + 1;
             if (seen[speaker].Add(line))
             {
                 lines.Add(line);
             }
         }
 
-        return bySpeaker.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)Spread(p.Value, maxLines), StringComparer.Ordinal);
+        return bySpeaker
+            .Where(p => spoken[p.Key] >= minLines)
+            .ToDictionary(p => p.Key, p => (IReadOnlyList<string>)Spread(p.Value, maxLines), StringComparer.Ordinal);
     }
 
     private static List<string> Spread(List<string> lines, int max)

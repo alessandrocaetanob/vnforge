@@ -39,7 +39,10 @@ public sealed class TranslationBatchBuilder(
             .Select(t => new GlossaryEntry(t.Source.Trim(), t.Target, t.Notes))
             .ToList();
 
+        // "？？？" é um rótulo que serve a várias pessoas: nenhuma entrada de personagem descreve todas, e uma existente (de uma sugestão
+        // antiga) daria gênero e jeito de falar errados a quem fala sob esse nome.
         var matchedCharacters = lines
+            .Where(l => !SpeakerNames.IsSignsOnly(l.Speaker))
             .Select(l => _characters.Find(l.Speaker))
             .OfType<CharacterEntry>()
             .DistinctBy(c => c.Source, StringComparer.Ordinal)
