@@ -14,9 +14,11 @@
           <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
             <PathIcon Classes="spin" Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusAiFg}" Data="{StaticResource Icon.ArrowSync}"
                       IsVisible="{Binding IsRunning}" AutomationProperties.AccessibilityView="Raw"/>
-            <TextBlock Classes="caption" Text="{Binding Title}" VerticalAlignment="Center"/>
+            <TextBlock Classes="caption" Text="{Binding Title}" MaxWidth="240"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             <Grid Width="120" Height="4" VerticalAlignment="Center" IsVisible="{Binding IsRunning}">
-              <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
+              <!-- O FluentTheme dá à barra um MinWidth de 200; sem zerar, ela passa da célula de 120 e cobre o título e a mensagem. -->
+              <ProgressBar Classes="thin" MinWidth="0" Minimum="0" Maximum="100" Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
                            AutomationProperties.Name="Progresso da tarefa"/>
               <Border Classes="static-working" Classes.indeterminate="{Binding IsIndeterminate}" AutomationProperties.AccessibilityView="Raw"/>
             </Grid>
