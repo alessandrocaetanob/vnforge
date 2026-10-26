@@ -13,7 +13,9 @@ public class DashboardChapterRenameTests
 
     private static readonly ProjectSummary Summary = new("Minha VN PT-BR", Root, "yuris", 500, "cp1252", "claude-opus-5-5", 3, new StatusCounts(0, 0, 0, 0, 0));
 
-    private static ProjectStatus Status() => ProjectStatusReporter.Create(new[] { "yst00001", "yst00002", "yst00003", "yst00004" }.ToDictionary(
+    private static readonly string[] ScriptKeys = ["yst00001", "yst00002", "yst00003", "yst00004"];
+
+    private static ProjectStatus Status() => ProjectStatusReporter.Create(ScriptKeys.ToDictionary(
         k => k,
         k => (IReadOnlyList<TextUnit>)[new TextUnit($"{k}:000001", TextUnitKind.Dialogue, null, "原文", "tradução", TranslationStatus.Machine)],
         StringComparer.Ordinal));
