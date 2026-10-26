@@ -32,6 +32,7 @@ public sealed class App : Application
 #endif
 
             var configDirectory = RecentProjectsFile.DefaultDirectory();
+            _ = TechnicalDetailsMemory.Install(new TechnicalDetailsMemory(configDirectory));
             var window = new MainWindow();
             var picker = new AvaloniaFolderPicker(window);
             var start = new StartViewModel(new RecentProjectsFile(configDirectory), picker, TimeProvider.System);

@@ -127,7 +127,7 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 | `ScriptGroup` | `.grp` | `Title`, `CountText` | `Expander` de um capítulo na lista de cenas | Editor (quando o Core entregar os grupos, #309) |
 | `GameStateBanner` | `.gamestate` | `State` (`Original`, `Translated`, `Blocked`, `Warning`), `Title`, `Message` | Faixa do que o jogo tem hoje, com "Voltar ao jogo original" sempre visível | Testar no jogo |
 | `ScreenDialog` | `.scrim`, `.dialog` | `IsOpen`, `Title`, `Footer`, `CloseCommand` | Diálogo sobre a tela, na camada de sobreposição e sem janela nova; `Esc` fecha | Traduzir com IA, "Usar em todos" no inspetor do Editor |
-| `TechnicalDetails` | `.tech` | `Header` | `Expander` fechado por padrão para o que a pessoa não precisa ver | Novo projeto, Testar no jogo, Ajustes; Início (#313) |
+| `TechnicalDetails` | `.tech` | `Header`, `Key` | `Expander` fechado por padrão para o que a pessoa não precisa ver; com `Key`, o estado aberto ou fechado volta ao revisitar a página (#382) | Novo projeto, Testar no jogo, Ajustes; Início (#313) |
 
 `ProgressRing`, `Seg3Bar`, `ChapterRow`, `TodoItem`, `ScriptGroup` e `CostLabel` só aparecem na galeria por enquanto: as telas que os usam vêm com o Painel (#309) e o Início (#313). O `PipelineStepper` da v2 troca "Build" e "Injetar" por "Testar no jogo" e "Extrair" por "Ler o texto" quando o Painel v3 chegar. O `OptionCard` é a base do `QualityCard` e dos cartões de acentos (`.enc`, com um `GameTextbox` pequeno dentro).
 

@@ -145,7 +145,7 @@ Cada controle fica em `src/VNForge.App/Controls` e a aparência em `Themes/Contr
 | `CostLabel`, `BudgetBar` | `TemplatedControl` | `CostLabel`: `Brl` e, opcional, `Usd`, em pt-BR fixo. `BudgetBar`: `Spent`, `Ask`, `Limit`, marca do limite e `:over` |
 | `QualityCard` | `RadioButton` | O `OptionCard` com `Title`, `Description`, `Model`, `Price` (reais) e `Duration` |
 | `ContextLines`, `ExplainCard` | `ItemsControl` | Itens `ContextLine(Who, Original, Translation)` e `ExplainPart(Source, Meaning)` |
-| `ScriptGroup`, `TechnicalDetails` | `Expander` | Cabeçalho próprio; "Detalhes técnicos" começa fechado |
+| `ScriptGroup`, `TechnicalDetails` | `Expander` | Cabeçalho próprio; "Detalhes técnicos" começa fechado; com `Key` (`build`, `conference`, `start`) lembra aberto ou fechado entre visitas, em `technical-details.json` nas preferências do usuário (#382) |
 | `GameStateBanner`, `TodoItem` | `ContentControl` e `TemplatedControl` | Estado do jogo (`:original`, `:translated`, `:blocked`) e item de "Precisa de você" (`:error`, `:warning`, `:ok`) |
 | `ScreenDialog` | `ContentControl` | Diálogo na `OverlayLayer` do Avalonia, sobre a janela inteira: fundo escurecido, `IsOpen`, `Title`, `Footer`; Tab cicla dentro do cartão, `Escape` e o botão fechar fecham, e `Closed`/`CloseCommand` disparam também quando `IsOpen` vira falso por binding. O cartão sai da árvore da página, então estilos declarados só nela não alcançam o corpo |
 | `InfoBar` | `Border.infobar` + classes `warning`, `error`, `success` | O Fluent do Avalonia não tem InfoBar |
