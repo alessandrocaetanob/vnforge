@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Time.Testing;
+using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -19,7 +21,7 @@ public class MainWindowRecheckTests
             new TextUnit("yst00001:000000", TextUnitKind.Dialogue, null, "そう言いながら亀島は…", "Ele olhou para Kamejima.", TranslationStatus.Approved),
             new TextUnit("yst00001:000001", TextUnitKind.Dialogue, null, "おはよう", "duas  palavras", TranslationStatus.Approved),
         ]);
-        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)));
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)), toasts: new ToastService(new FakeTimeProvider(), a => a()));
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
         return (vm, folder);
@@ -105,7 +107,7 @@ public class MainWindowRecheckTests
     [Fact]
     public void O_comando_Reler_o_projeto_nao_aparece_sem_projeto()
     {
-        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-recentes")), new FakeFolderPicker(null), new FixedClock(Now)));
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-recentes")), new FakeFolderPicker(null), new FixedClock(Now)), toasts: new ToastService(new FakeTimeProvider(), a => a()));
 
         vm.Palette.Open();
         vm.Palette.Query = "Reler";
