@@ -1,6 +1,8 @@
 using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.ViewModels;
@@ -24,6 +26,30 @@ public sealed partial class BuildView : UserControl
     {
         get => Technical.IsExpanded;
         set => Technical.IsExpanded = value;
+    }
+
+    /// <summary>Copia o log inteiro, com data e hora, para a área de transferência; é o que o usuário cola ao relatar um problema.</summary>
+    private async void CopyLog_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BuildViewModel vm && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(vm.LogText);
+        }
+    }
+
+    /// <summary>Troca o menu de contexto padrão do Avalonia (em inglês) por um "Copiar" em português; Ctrl+C já vem do controle.</summary>
+    private void Selectable_Loaded(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not SelectableTextBlock block)
+        {
+            return;
+        }
+
+        var copy = new MenuItem { Header = "Copiar" };
+        copy.Click += (_, _) => block.Copy();
+        var flyout = new MenuFlyout { Items = { copy } };
+        flyout.Opening += (_, _) => copy.IsEnabled = !string.IsNullOrEmpty(block.SelectedText);
+        block.ContextFlyout = flyout;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
