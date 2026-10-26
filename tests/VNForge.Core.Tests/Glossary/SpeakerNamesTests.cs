@@ -23,6 +23,8 @@ public class SpeakerNamesTests
     [InlineData("A")]
     [InlineData("？？？の声")]
     [InlineData("生徒1")]
+    [InlineData("\U00020BB7")] // 𠮷, kanji fora do plano básico (par substituto)
+    [InlineData("？\U00020BB7")]
     public void Falante_com_letra_ou_digito_e_nome(string speaker)
     {
         Assert.False(SpeakerNames.IsSignsOnly(speaker));

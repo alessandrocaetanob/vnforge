@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace VNForge.Core.Glossary;
 
 /// <summary>Regras sobre o que serve como nome de falante.</summary>
@@ -11,6 +13,6 @@ public static class SpeakerNames
     public static bool IsSignsOnly(string? speaker)
     {
         var name = speaker?.Trim();
-        return !string.IsNullOrEmpty(name) && !name.Any(char.IsLetterOrDigit);
+        return !string.IsNullOrEmpty(name) && !name.EnumerateRunes().Any(Rune.IsLetterOrDigit);
     }
 }
