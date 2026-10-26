@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -64,6 +65,34 @@ public class MainWindowFrameHeadlessTests(HeadlessFixture fixture) : IClassFixtu
                     Settle(window);
                     Assert.False(vm.Palette.IsOpen);
                     Assert.Equal(NavKey.Dashboard, vm.SelectedNav?.Key);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+    }
+
+    /// <summary>#366: sem o hint o Windows pinta a faixa do sistema na altura padrão (~32 px) e ela termina no meio da busca de 40 px.</summary>
+    [Fact]
+    public async Task Barra_de_titulo_tem_a_mesma_altura_do_token_na_faixa_do_sistema_e_na_linha_do_app()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = new MainWindow { Width = 1440, Height = 900 };
+                try
+                {
+                    window.Show();
+                    Settle(window);
+                    var token = (double)window.FindResource("Vnf.TitlebarHeight")!;
+                    var titleBar = window.GetVisualDescendants().OfType<Border>()
+                        .Single(b => WindowDecorationProperties.GetElementRole(b) == WindowDecorationsElementRole.TitleBar);
+
+                    Assert.Equal(40, token);
+                    Assert.Equal(token, window.ExtendClientAreaTitleBarHeightHint);
+                    Assert.Equal(token, titleBar.Bounds.Height);
                 }
                 finally
                 {

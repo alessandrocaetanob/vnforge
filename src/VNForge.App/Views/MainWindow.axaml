@@ -10,6 +10,7 @@
         Width="1440" Height="900" MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="{StaticResource Vnf.TitlebarHeight}"
         WindowDecorations="Full"
         TransparencyLevelHint="Mica"
         Background="Transparent">
@@ -60,10 +61,15 @@
   <Panel>
     <Border Name="MicaFallback" Background="{DynamicResource Vnf.BgBase}"/>
 
-    <Grid RowDefinitions="40,*,28" ColumnDefinitions="72,*">
+    <Grid ColumnDefinitions="72,*">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="28"/>
+      </Grid.RowDefinitions>
 
       <!-- Barra de título própria: selo, nome do app, migalha do projeto e a busca que abre a paleta. Os botões de janela são os do sistema. -->
-      <Border Grid.Row="0" Grid.ColumnSpan="2" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar">
+      <Border Grid.Row="0" Grid.ColumnSpan="2" Height="{StaticResource Vnf.TitlebarHeight}" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar">
         <Grid ColumnDefinitions="*,Auto,*" Margin="14,0,0,0">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <Viewbox Width="22" Height="22" VerticalAlignment="Center" AutomationProperties.Name="VNForge">
