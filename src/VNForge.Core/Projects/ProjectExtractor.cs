@@ -154,7 +154,7 @@ public static class ProjectExtractor
             return;
         }
 
-        var updated = current.WithDetected(extracted.ToDictionary(e => e.Key, e => e.Name, StringComparer.Ordinal));
+        var updated = current.WithDetected(extracted.ToDictionary(e => e.Key, e => new DetectedScript(e.Name, e.Folder), StringComparer.Ordinal));
         if (updated.Entries.Count > 0 || File.Exists(project.ScriptNamesPath))
         {
             project.SaveScriptNames(updated);
@@ -210,7 +210,7 @@ public static class ProjectExtractor
         return result;
     }
 
-    private sealed record Extracted(string Key, string? Name, IReadOnlyList<TextUnit> Units);
+    private sealed record Extracted(string Key, string? Name, string? Folder, IReadOnlyList<TextUnit> Units);
 
     private static List<Extracted> ReadScripts(UnpackedGame game, List<string> warnings, IProgress<ScriptWorkProgress>? progress, CancellationToken cancellationToken)
     {
@@ -239,7 +239,7 @@ public static class ProjectExtractor
             }
 
             warnings.AddRange(extraction.Warnings.Select(w => $"{script.Name}: {w}"));
-            result.Add(new Extracted(file.Key, script.DisplayName, extraction.Units));
+            result.Add(new Extracted(file.Key, script.DisplayName, script.Folder, extraction.Units));
         }
 
         progress?.Report(new ScriptWorkProgress(game.Scripts.Count, game.Scripts.Count, string.Empty));

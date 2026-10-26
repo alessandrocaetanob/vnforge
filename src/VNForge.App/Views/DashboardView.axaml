@@ -6,52 +6,25 @@
              x:DataType="vm:DashboardViewModel">
 
   <UserControl.Styles>
-    <!-- Linha das tabelas (artboard Painel, ".tr"): 36px, divisor de stroke-subtle e fundo de hover. -->
-    <Style Selector="Border.tr">
-      <Setter Property="Height" Value="36"/>
-      <Setter Property="Padding" Value="16,0"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
-      <Setter Property="BorderThickness" Value="0,0,0,1"/>
-      <Setter Property="Background" Value="Transparent"/>
-    </Style>
-    <Style Selector="Border.tr:pointerover">
-      <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
-    </Style>
-    <Style Selector="Border.tr.h">
-      <Setter Property="Height" Value="32"/>
-    </Style>
-    <Style Selector="Border.tr.h:pointerover">
-      <Setter Property="Background" Value="Transparent"/>
-    </Style>
-    <Style Selector="TextBlock.num">
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="LineHeight" Value="18"/>
-      <Setter Property="TextAlignment" Value="Right"/>
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
-    </Style>
-    <Style Selector="TextBlock.num.strong">
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    <!-- Linha de capítulo: o botão não desenha nada além do fundo de hover; quem desenha é a ChapterRow. -->
+    <Style Selector="Button.chapter">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
     </Style>
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel MaxWidth="1280" Margin="24" Spacing="20" HorizontalAlignment="Stretch">
 
-      <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding Title}" IsVisible="{Binding HasProject}">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Command="{Binding OpenFolderCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
-              <TextBlock Text="Abrir pasta"/>
-            </StackPanel>
-          </Button>
-          <Button Classes="accent" Command="{Binding ContinueCommand}" IsVisible="{Binding CanContinue}">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
-              <TextBlock Text="{Binding ContinueLabel}"/>
-            </StackPanel>
-          </Button>
-        </StackPanel>
+      <c:PageHeader Breadcrumb="Painel" Title="{Binding Title}" IsVisible="{Binding HasProject}">
+        <Button Classes="accent" Command="{Binding OpenNextStepCommand}" IsVisible="{Binding HasNextStep}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
+            <TextBlock Text="{Binding NextStepLabel}"/>
+          </StackPanel>
+        </Button>
       </c:PageHeader>
 
       <!-- Sem projeto (ou projeto sem texto): o selo 訳, uma frase e a ação. -->
@@ -65,139 +38,83 @@
         </Grid>
       </Border>
 
-      <c:PipelineStepper ItemsSource="{Binding Steps}" AutomationProperties.Name="Etapas do pipeline"/>
+      <c:PipelineStepper ItemsSource="{Binding Steps}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Etapas da tradução"/>
 
-      <!-- Três cartões de número -->
-      <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
-        <c:StatCard Title="Linhas" Value="{Binding LinesLabel}" Description="{Binding LinesDescription}" AutomationProperties.Name="Linhas">
-          <c:StatCard.Footer>
-            <Button Classes="link" Command="{Binding OpenEditorCommand}" Content="Continuar no editor"/>
-          </c:StatCard.Footer>
-          <StackPanel Spacing="8">
-            <c:DistributionBar Height="8" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
-            <c:Legend Value="{Binding Distribution}"/>
-          </StackPanel>
-        </c:StatCard>
+      <Grid ColumnDefinitions="*,380" ColumnSpacing="20" IsVisible="{Binding !ShowEmptyState}">
 
-        <c:StatCard Grid.Column="1" Title="Uso da IA" Value="{Binding AiValue}" Description="{Binding AiDescription}" AutomationProperties.Name="Uso da IA">
-          <c:StatCard.Footer>
-            <Button Classes="link" Command="{Binding OpenSettingsCommand}" Content="Ajustes de IA"/>
-          </c:StatCard.Footer>
-          <StackPanel Spacing="8">
-            <c:DistributionBar Height="8" Value="{Binding AiDistribution}" AutomationProperties.Name="{Binding AiBarDescription}"/>
-            <c:Legend ItemsSource="{Binding AiLegend}"/>
-          </StackPanel>
-        </c:StatCard>
+        <!-- O mapa do jogo: o anel do jogo inteiro e uma linha por capítulo. -->
+        <Border Classes="panel" Padding="20" VerticalAlignment="Top">
+          <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="24">
+              <c:ProgressRing Done="{Binding ReadyLines}" Review="{Binding ReviewLines}" Total="{Binding TotalLines}"
+                              AutomationProperties.Name="{Binding MapSummary}"/>
+              <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                <TextBlock Classes="title-md" Text="O jogo inteiro"/>
+                <TextBlock Classes="body" Text="{Binding MapSummary}"/>
+                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding PaceText}"/>
+                <c:Legend ItemsSource="{Binding MapLegend}"/>
+              </StackPanel>
+            </Grid>
 
-        <c:StatCard Grid.Column="2" Title="Conferência" Value="{Binding ConferenceValue}" Description="{Binding ConferenceDescription}" AutomationProperties.Name="Conferência">
-          <c:StatCard.Footer>
-            <Button Classes="link" Command="{Binding OpenConferenceCommand}" Content="Abrir a conferência"/>
-          </c:StatCard.Footer>
-          <StackPanel Spacing="8">
-            <c:SignalBar Height="8" Errors="{Binding ConferenceErrors}" Warnings="{Binding ConferenceWarnings}" AutomationProperties.Name="{Binding ConferenceBarDescription}"/>
-            <c:Legend ItemsSource="{Binding ConferenceLegend}"/>
-          </StackPanel>
-        </c:StatCard>
-      </Grid>
+            <Border Classes="divider-bottom"/>
 
-      <!-- Duas tabelas -->
-      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-        <Border Classes="panel" ClipToBounds="True">
-          <Grid RowDefinitions="Auto,Auto,*,Auto">
-            <Border Classes="divider-bottom" Height="48" Padding="16,0">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="title-md" Text="Por script" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Classes="caption secondary" Text="ordem do jogo" VerticalAlignment="Center"/>
-              </Grid>
-            </Border>
-            <Border Grid.Row="1" Classes="tr h" AutomationProperties.Name="Colunas da tabela">
-              <Grid ColumnSpacing="12" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/><ColumnDefinition Width="56"/><ColumnDefinition Width="*" MinWidth="120" MaxWidth="180"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                <TextBlock Classes="overline" Text="Script"/>
-                <TextBlock Grid.Column="1" Classes="overline" Text="Nome"/>
-                <TextBlock Grid.Column="2" Classes="overline" TextAlignment="Right" Text="Linhas"/>
-                <TextBlock Grid.Column="3" Classes="overline" Text="Progresso"/>
-                <TextBlock Grid.Column="4" Classes="overline" TextAlignment="Right" Text="%"/>
-              </Grid>
-            </Border>
-            <c:Skeleton Grid.Row="2" Margin="16,12" Rows="6" IsVisible="{Binding ShowFilesSkeleton}" AutomationProperties.Name="Carregando o progresso por script"/>
-            <ItemsControl Grid.Row="2" ItemsSource="{Binding Scripts}" AutomationProperties.Name="Progresso por script" VerticalAlignment="Top">
+            <TextBlock Classes="title-md" Text="Capítulos"/>
+            <c:Skeleton Rows="6" IsVisible="{Binding ShowChaptersSkeleton}" AutomationProperties.Name="Carregando os capítulos"/>
+            <ItemsControl ItemsSource="{Binding Chapters}" AutomationProperties.Name="Capítulos do jogo">
               <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:ScriptRowViewModel">
-                  <Border Classes="tr">
-                    <Grid ColumnSpacing="12" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/><ColumnDefinition Width="56"/><ColumnDefinition Width="*" MinWidth="120" MaxWidth="180"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                      <TextBlock Classes="mono" Text="{Binding Key}" VerticalAlignment="Center"/>
-                      <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                      <TextBlock Grid.Column="2" Classes="num" Text="{Binding LinesLabel}" VerticalAlignment="Center"/>
-                      <c:DistributionBar Grid.Column="3" Height="6" Value="{Binding Distribution}" VerticalAlignment="Center"
-                                         AutomationProperties.Name="{Binding DistributionDescription}"/>
-                      <TextBlock Grid.Column="4" Classes="num strong" Text="{Binding PercentLabel}" VerticalAlignment="Center"/>
-                    </Grid>
-                  </Border>
+                <DataTemplate x:DataType="vm:ChapterRowViewModel">
+                  <Button Classes="subtle chapter" Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).OpenChapterCommand}"
+                          CommandParameter="{Binding}">
+                    <c:ChapterRow Number="{Binding Number}" Title="{Binding Name}" Done="{Binding Ready}" Review="{Binding ToReview}" Total="{Binding Total}"
+                                  Note="{Binding Note}" IsHere="{Binding IsHere}" IsExtra="{Binding IsExtra}"/>
+                  </Button>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Height="40" Margin="16,0" VerticalAlignment="Bottom">
-              <TextBlock Classes="caption secondary" Text="{Binding ScriptsFooter}" VerticalAlignment="Center"/>
-              <Button Grid.Column="1" Classes="link" Command="{Binding OpenEditorCommand}" Content="Ver todos no editor" FontSize="12" VerticalAlignment="Center"/>
-            </Grid>
-          </Grid>
+          </StackPanel>
         </Border>
 
-        <Border Grid.Column="1" Classes="panel" ClipToBounds="True">
-          <Grid RowDefinitions="Auto,Auto,*,Auto">
-            <Border Classes="divider-bottom" Height="48" Padding="16,0">
+        <StackPanel Grid.Column="1" Spacing="20" VerticalAlignment="Top">
+
+          <Border Classes="panel" ClipToBounds="True">
+            <StackPanel>
+              <Border Classes="divider-bottom" Height="48" Padding="16,0">
+                <TextBlock Classes="title-md" Text="Precisa de você" VerticalAlignment="Center"/>
+              </Border>
+              <ItemsControl ItemsSource="{Binding Todos}" AutomationProperties.Name="O que precisa de você">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TodoRowViewModel">
+                    <c:TodoItem Severity="{Binding Severity}" Title="{Binding Title}" Message="{Binding Message}"
+                                ActionText="{Binding ActionText}" Command="{Binding Command}"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="caption secondary" Margin="16,8" Text="{Binding MoreTodosText}" IsVisible="{Binding HasMoreTodos}"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="8">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="title-md" Text="Por personagem" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Classes="caption secondary" Text="por número de linhas" VerticalAlignment="Center"/>
+                <TextBlock Classes="title-md" Text="Gasto com a IA" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Classes="link" Command="{Binding OpenSettingsCommand}" Content="Ajustes" FontSize="12"/>
               </Grid>
-            </Border>
-            <Border Grid.Row="1" Classes="tr h" AutomationProperties.Name="Colunas da tabela">
-              <Grid ColumnSpacing="12" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="56"/><ColumnDefinition Width="*" MinWidth="120" MaxWidth="180"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                <TextBlock Classes="overline" Text="Personagem"/>
-                <TextBlock Grid.Column="1" Classes="overline" TextAlignment="Right" Text="Linhas"/>
-                <TextBlock Grid.Column="2" Classes="overline" Text="Progresso"/>
-                <TextBlock Grid.Column="3" Classes="overline" TextAlignment="Right" Text="%"/>
-              </Grid>
-            </Border>
-            <c:Skeleton Grid.Row="2" Margin="16,12" Rows="6" IsVisible="{Binding ShowCharactersSkeleton}" AutomationProperties.Name="Carregando o progresso por personagem"/>
-            <ItemsControl Grid.Row="2" ItemsSource="{Binding Characters}" AutomationProperties.Name="Progresso por personagem" VerticalAlignment="Top">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:CharacterRowViewModel">
-                  <Border Classes="tr">
-                    <Grid ColumnSpacing="12" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="56"/><ColumnDefinition Width="*" MinWidth="120" MaxWidth="180"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                      <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" ClipToBounds="True">
-                        <TextBlock Classes="jp-body" FontSize="13" Text="{Binding Source}" IsVisible="{Binding HasSource}" VerticalAlignment="Center"/>
-                        <TextBlock Classes="body-sm secondary" Text="→" IsVisible="{Binding HasSource}" VerticalAlignment="Center"/>
-                        <TextBlock Classes="body-sm" Classes.secondary="{Binding IsNarration}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                      </StackPanel>
-                      <TextBlock Grid.Column="1" Classes="num" Text="{Binding LinesLabel}" VerticalAlignment="Center"/>
-                      <c:DistributionBar Grid.Column="2" Height="6" Value="{Binding Distribution}" VerticalAlignment="Center"
-                                         AutomationProperties.Name="{Binding DistributionDescription}"/>
-                      <TextBlock Grid.Column="3" Classes="num strong" Text="{Binding PercentLabel}" VerticalAlignment="Center"/>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Height="40" Margin="16,0" VerticalAlignment="Bottom">
-              <TextBlock Classes="caption secondary" Text="{Binding CharactersFooter}" VerticalAlignment="Center"/>
-              <Button Grid.Column="1" Classes="link" Command="{Binding OpenGlossaryCommand}" Content="Editar nomes" FontSize="12" VerticalAlignment="Center"/>
-            </Grid>
-          </Grid>
-        </Border>
-      </Grid>
+              <TextBlock Classes="body" Text="{Binding SpentText}"/>
+              <c:BudgetBar Spent="{Binding SpentBrl}" Limit="{Binding LimitBrl}" AutomationProperties.Name="{Binding SpentText}"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SpendHint}"/>
+            </StackPanel>
+          </Border>
 
-      <!-- Legenda de progresso -->
-      <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Right">
-        <TextBlock Classes="caption secondary" Text="Progresso:" VerticalAlignment="Center"/>
-        <c:Legend>
-          <c:LegendItem Tone="Approved" Content="Aprovadas"/>
-          <c:LegendItem Tone="Reviewed" Content="Revisadas"/>
-          <c:LegendItem Tone="Machine" Content="IA"/>
-          <c:LegendItem Tone="Pending" Content="Pendentes"/>
-        </c:Legend>
-        <TextBlock Classes="caption secondary" Text="· % = aprovadas + revisadas" VerticalAlignment="Center"/>
-      </StackPanel>
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="title-md" Text="O jogo"/>
+              <c:GameStateBanner State="{Binding GameState}" Title="{Binding GameTitle}" Message="{Binding GameMessage}">
+                <Button Classes="sm" Command="{Binding OpenTestCommand}" Content="{Binding GameActionText}"/>
+              </c:GameStateBanner>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
 
     </StackPanel>
   </ScrollViewer>

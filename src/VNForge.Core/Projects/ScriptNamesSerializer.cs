@@ -6,8 +6,8 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Projects;
 
 /// <summary>
-/// Lê e grava <c>scripts.json</c>: <c>{ "version": 1, "entries": [...] }</c> com um <see cref="ScriptNameEntry"/> por linha (<c>key</c>, <c>detected</c> e <c>name</c>,
-/// os dois últimos opcionais), ordenadas pela chave, no estilo dos outros arquivos do projeto.
+/// Lê e grava <c>scripts.json</c>: <c>{ "version": 1, "entries": [...] }</c> com um <see cref="ScriptNameEntry"/> por linha (<c>key</c>, <c>detected</c>, <c>name</c>,
+/// <c>folder</c> e <c>group</c>, os quatro últimos opcionais), ordenadas pela chave, no estilo dos outros arquivos do projeto.
 /// </summary>
 public static class ScriptNamesSerializer
 {
@@ -43,6 +43,16 @@ public static class ScriptNamesSerializer
             if (entry.Name is not null)
             {
                 sb.Append(", \"name\": ").Append(Quote(entry.Name));
+            }
+
+            if (entry.Folder is not null)
+            {
+                sb.Append(", \"folder\": ").Append(Quote(entry.Folder));
+            }
+
+            if (entry.Group is not null)
+            {
+                sb.Append(", \"group\": ").Append(Quote(entry.Group));
             }
 
             sb.Append(" }").Append(i < names.Entries.Count - 1 ? ",\n" : "\n");
@@ -137,6 +147,8 @@ public static class ScriptNamesSerializer
         string? key = null;
         string? detected = null;
         string? name = null;
+        string? folder = null;
+        string? group = null;
         foreach (var property in item.EnumerateObject())
         {
             switch (property.Name)
@@ -149,6 +161,12 @@ public static class ScriptNamesSerializer
                     break;
                 case "name":
                     name = ReadString(property.Value, $"{where}.name", filePath);
+                    break;
+                case "folder":
+                    folder = ReadString(property.Value, $"{where}.folder", filePath);
+                    break;
+                case "group":
+                    group = ReadString(property.Value, $"{where}.group", filePath);
                     break;
                 default:
                     throw new GlossaryFileException(filePath, $"{where}: campo desconhecido '{property.Name}'.");
@@ -165,13 +183,16 @@ public static class ScriptNamesSerializer
             throw new GlossaryFileException(filePath, $"{where}.key: a chave '{key}' deve estar em minúsculas e sem espaços nas pontas.");
         }
 
-        if (string.IsNullOrWhiteSpace(detected) && string.IsNullOrWhiteSpace(name))
+        var entry = new ScriptNameEntry(key, Blank(detected), Blank(name)) { Folder = Blank(folder), Group = Blank(group) };
+        if (entry.IsEmpty)
         {
-            throw new GlossaryFileException(filePath, $"{where}: o script '{key}' está sem nome ('detected' ou 'name').");
+            throw new GlossaryFileException(filePath, $"{where}: o script '{key}' está sem nome ('detected', 'name', 'folder' ou 'group').");
         }
 
-        return new ScriptNameEntry(key, string.IsNullOrWhiteSpace(detected) ? null : detected, string.IsNullOrWhiteSpace(name) ? null : name);
+        return entry;
     }
+
+    private static string? Blank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text;
 
     private static string ReadString(JsonElement value, string path, string filePath) =>
         value.ValueKind == JsonValueKind.String

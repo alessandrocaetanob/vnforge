@@ -38,6 +38,18 @@ public sealed record YstlScript(
         }
     }
 
+    /// <summary>
+    /// A pasta do caminho original, com <c>/</c> (<c>userscript\01_cap1\manha.yst</c> vira <c>userscript/01_cap1</c>); vazia quando o caminho é só o arquivo.
+    /// </summary>
+    public string Folder
+    {
+        get
+        {
+            var end = Path.AsSpan().LastIndexOfAny('\\', '/');
+            return end <= 0 ? string.Empty : Path.AsSpan(0, end).ToString().Replace('\\', '/');
+        }
+    }
+
     /// <summary>Data de modificação em UTC, ou nulo se o <c>FILETIME</c> está fora do intervalo de <see cref="DateTime"/>.</summary>
     public DateTime? ModifiedUtc =>
         ModifiedFileTime <= (ulong)DateTime.MaxValue.ToFileTimeUtc() ? DateTime.FromFileTimeUtc((long)ModifiedFileTime) : null;

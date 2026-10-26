@@ -1,9 +1,11 @@
+using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
+/// <summary>O Painel lendo um projeto de verdade em disco: os números do anel, a jornada, o gasto e a troca de projeto.</summary>
 public class DashboardViewModelTests
 {
     private static DashboardViewModel Open(TempFolder temp, params TranslationStatus[] statuses)
@@ -13,26 +15,28 @@ public class DashboardViewModelTests
     }
 
     [Fact]
-    public async Task Os_numeros_batem_com_o_status_do_projeto()
+    public async Task Os_numeros_do_anel_batem_com_o_status_do_projeto()
     {
         using var temp = new TempFolder();
-        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Reviewed, TranslationStatus.Machine, TranslationStatus.Untranslated);
+        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Reviewed, TranslationStatus.Machine, TranslationStatus.Translated, TranslationStatus.Untranslated);
 
         await vm.ReloadAsync();
 
         var status = ProjectStatusReporter.Create(ProjectFolder.Open(vm.Project!.Root));
-        Assert.Equal(4, status.Total.Total);
-        Assert.Equal("4", vm.LinesLabel);
-        Assert.Equal("75% com tradução", vm.ProgressLabel);
-        var file = Assert.Single(vm.Scripts);
-        Assert.Equal("yst00001", file.Key);
-        Assert.Equal("4", file.LinesLabel);
-        Assert.Equal("50%", file.PercentLabel);
-        Assert.Equal(new StatusDistribution(25, 25, 0, 25, 25), vm.Distribution);
+        Assert.Equal(5, status.Total.Total);
+        Assert.Equal(2, vm.ReadyLines);
+        Assert.Equal(2, vm.ReviewLines);
+        Assert.Equal(5, vm.TotalLines);
+        Assert.Equal("2 de 5 linhas prontas", vm.MapSummary);
+        Assert.Equal(["Pronto 2", "Esperando revisão 2", "Ainda em japonês 1"], vm.MapLegend.Select(l => l.Text));
+        var chapter = Assert.Single(vm.Chapters);
+        Assert.Equal("Parte 1", chapter.Name);
+        Assert.Equal(1, chapter.Number);
+        Assert.Equal("yst00001", chapter.ScriptKey);
     }
 
     [Fact]
-    public async Task Esqueleto_so_aparece_enquanto_nao_ha_linhas_para_mostrar()
+    public async Task Esqueleto_so_aparece_enquanto_nao_ha_capitulos_para_mostrar()
     {
         using var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Untranslated);
@@ -47,64 +51,51 @@ public class DashboardViewModelTests
         };
 
         var primeira = vm.ReloadAsync();
-        Assert.True(vm.ShowFilesSkeleton);
-        Assert.True(vm.ShowCharactersSkeleton);
+        Assert.True(vm.ShowChaptersSkeleton);
         gate.Release();
         await primeira;
-        Assert.False(vm.ShowFilesSkeleton);
+        Assert.False(vm.ShowChaptersSkeleton);
 
         var segunda = vm.ReloadAsync();
         Assert.True(vm.IsLoading);
-        Assert.False(vm.ShowFilesSkeleton);
-        Assert.False(vm.ShowCharactersSkeleton);
+        Assert.False(vm.ShowChaptersSkeleton);
         gate.Release();
         await segunda;
     }
 
     [Fact]
-    public async Task Etapas_mostram_as_pendencias_em_linhas()
+    public async Task A_jornada_tem_cinco_passos_e_nenhum_e_Build_ou_Injetar()
     {
         using var temp = new TempFolder();
         var vm = Open(temp, TranslationStatus.Untranslated, TranslationStatus.Untranslated, TranslationStatus.Machine, TranslationStatus.Approved);
 
         await vm.ReloadAsync();
 
-        Assert.Equal(["Extrair", "Traduzir", "Conferir", "Build", "Injetar"], vm.Stages.Select(s => s.Label));
-        Assert.Equal([1, 2, 3, 4, 5], vm.Stages.Select(s => s.Number));
-        Assert.Equal("2 pendentes", vm.Stages.Single(s => s.Key == PipelineStageKey.Translate).StatusText);
-        Assert.Equal("1 pendente", vm.Stages.Single(s => s.Key == PipelineStageKey.Review).StatusText);
-        Assert.Equal("50% · 2 pendentes", vm.Stages.Single(s => s.Key == PipelineStageKey.Translate).Subtitle);
-        Assert.Equal("Pendente", vm.Stages.Single(s => s.Key == PipelineStageKey.Build).StatusText);
+        Assert.Equal(["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", "Testar no jogo"], vm.Steps.Select(s => s.Title));
+        Assert.Equal([1, 2, 3, 4, 5], vm.Steps.Select(s => s.Number));
+        Assert.Equal("50% traduzido · faltam 2 linhas", vm.Steps[1].Subtitle);
+        Assert.Equal("1 linha da IA espera você", vm.Steps[2].Subtitle);
+        Assert.Equal("O texto do jogo ainda não foi lido", vm.Steps[0].Subtitle);
+        Assert.Equal(PipelineStepState.Active, vm.Steps[0].State);
+        Assert.Equal(PipelineStepState.Pending, vm.Steps[1].State);
     }
 
     [Fact]
-    public async Task Personagens_listam_o_falante_e_as_linhas_sem_falante()
-    {
-        using var temp = new TempFolder();
-        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Untranslated);
-
-        await vm.ReloadAsync();
-
-        var row = Assert.Single(vm.Characters);
-        Assert.Equal("Narração", row.Name);
-        Assert.True(row.IsNarration);
-        Assert.Equal("2", row.LinesLabel);
-    }
-
-    [Fact]
-    public async Task Gasto_de_IA_vem_do_registro_do_projeto()
+    public async Task O_gasto_vem_do_registro_do_projeto_em_reais_pela_cotacao_dos_ajustes()
     {
         using var temp = new TempFolder();
         var vm = Open(temp, TranslationStatus.Machine);
+        vm.Context = () => new DashboardContext(new VNForge.AI.Cost.ExchangeRate(5.40m, new DateOnly(2026, 10, 22)), new VNForge.AI.Cost.BudgetLimits(300m, null), true);
         await vm.ReloadAsync();
-        Assert.Equal("US$ 0,00", vm.AiValue);
-        Assert.Equal("Nenhuma chamada de IA registrada · Claude Opus 5.5", vm.AiDescription);
+        Assert.Equal("R$ 0,00 de R$ 300,00", vm.SpentText);
 
-        AiUsageLog.TryRecord(ProjectFolder.Open(vm.Project!.Root), new AiUsageTotals(1_500_000, 600_000, 0, 0, 2.1m, 1));
+        AiUsageLog.TryRecord(ProjectFolder.Open(vm.Project!.Root), new AiUsageTotals(1_500_000, 600_000, 0, 0, 26.40m, 1));
         await vm.ReloadAsync();
 
-        Assert.Equal("US$ 2,10", vm.AiValue);
-        Assert.Equal("1,5 M tokens de entrada · 600 mil de saída · Claude Opus 5.5", vm.AiDescription);
+        Assert.Equal("R$ 142,56 de R$ 300,00", vm.SpentText);
+        Assert.Equal(142.56, vm.SpentBrl, 2);
+        Assert.Equal(300, vm.LimitBrl);
+        Assert.Equal("Faltam R$ 157,44 para o limite.", vm.SpendHint);
     }
 
     [Fact]
@@ -113,29 +104,17 @@ public class DashboardViewModelTests
         using var temp = new TempFolder();
         var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Untranslated);
         await vm.ReloadAsync();
-        Assert.NotEmpty(vm.Scripts);
+        Assert.NotEmpty(vm.Chapters);
 
         vm.Project = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Approved));
 
-        Assert.Empty(vm.Scripts);
-        Assert.Empty(vm.Stages);
+        Assert.Empty(vm.Chapters);
         Assert.Empty(vm.Steps);
-        Assert.Equal(string.Empty, vm.LinesLabel);
-        Assert.Equal(string.Empty, vm.ContinueLabel);
-        Assert.False(vm.CanContinue);
+        Assert.Empty(vm.Todos);
+        Assert.Equal(string.Empty, vm.MapSummary);
+        Assert.Equal(string.Empty, vm.NextStepLabel);
+        Assert.False(vm.HasNextStep);
     }
-
-    [Theory]
-    [InlineData(0, "US$ 0,00")]
-    [InlineData(0.004, "US$ 0,0040")]
-    [InlineData(1234.5, "US$ 1.234,50")]
-    public void Dolares_em_pt_BR(double value, string expected) => Assert.Equal(expected, DashboardViewModel.Dollars((decimal)value));
-
-    [Theory]
-    [InlineData(420, "420 tokens")]
-    [InlineData(850_000, "850 mil tokens")]
-    [InlineData(2_100_000, "2,1 M tokens")]
-    public void Tokens_em_pt_BR(long value, string expected) => Assert.Equal(expected, DashboardViewModel.Tokens(value));
 
     [Fact]
     public async Task Projeto_ilegivel_mostra_o_erro_e_limpa_a_tela()
@@ -148,8 +127,8 @@ public class DashboardViewModelTests
         await vm.ReloadAsync();
 
         Assert.StartsWith("Não foi possível ler o projeto", vm.ErrorMessage);
-        Assert.Empty(vm.Scripts);
-        Assert.Empty(vm.Stages);
+        Assert.Empty(vm.Chapters);
+        Assert.Empty(vm.Steps);
     }
 
     [Fact]
@@ -160,58 +139,9 @@ public class DashboardViewModelTests
         await vm.ReloadAsync();
 
         Assert.False(vm.HasProject);
-        Assert.Empty(vm.Stages);
-        Assert.Equal(string.Empty, vm.AiValue);
-    }
-
-    [Fact]
-    public async Task Etapas_com_trabalho_pendente_pedem_a_tela_delas_e_Extrair_nao()
-    {
-        using var temp = new TempFolder();
-        var vm = Open(temp, TranslationStatus.Machine);
-        await vm.ReloadAsync();
-        var requested = new List<PipelineStageKey>();
-        vm.StageRequested += (_, key) => requested.Add(key);
-
-        foreach (var stage in vm.Stages)
-        {
-            vm.OpenStageCommand.Execute(stage);
-        }
-
-        Assert.Equal([PipelineStageKey.Translate, PipelineStageKey.Review, PipelineStageKey.Build, PipelineStageKey.Inject], requested);
-        Assert.False(vm.Stages.Single(s => s.Key == PipelineStageKey.Extract).IsActionable);
-    }
-
-    [Fact]
-    public void Build_e_Injetar_levam_a_tela_delas_mesmo_concluidos()
-    {
-        var done = new PipelineStageViewModel(4, new PipelineStage(PipelineStageKey.Build, true, 0));
-        var pending = new PipelineStageViewModel(5, new PipelineStage(PipelineStageKey.Inject, false, 1));
-
-        Assert.True(done.IsActionable);
-        Assert.True(pending.IsActionable);
-        Assert.Equal("Pendente", pending.StatusText);
-    }
-
-    [Theory]
-    [InlineData(PipelineStageKey.Translate, NavKey.Editor)]
-    [InlineData(PipelineStageKey.Review, NavKey.Conference)]
-    [InlineData(PipelineStageKey.Build, NavKey.Build)]
-    [InlineData(PipelineStageKey.Inject, NavKey.Build)]
-    public async Task O_pedido_de_uma_etapa_navega_para_a_tela_dela(PipelineStageKey stage, NavKey expected)
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine);
-        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)));
-        await main.Start.OpenFolderCommand.ExecuteAsync(null);
-        await main.Editor.Loading;
-        await main.Dashboard.ReloadAsync();
-
-        main.Dashboard.OpenStageCommand.Execute(main.Dashboard.Stages.Single(s => s.Key == stage));
-        await main.ConferenceLoading;
-        await main.Build.Loading;
-
-        Assert.Equal(expected, main.SelectedNav!.Key);
+        Assert.Empty(vm.Steps);
+        Assert.Equal(string.Empty, vm.SpentText);
+        Assert.True(vm.ShowEmptyState);
     }
 
     [Fact]
@@ -229,7 +159,7 @@ public class DashboardViewModelTests
         var loaded = new TaskCompletionSource();
         main.Dashboard.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(DashboardViewModel.LinesLabel) && main.Dashboard.LinesLabel.Length > 0)
+            if (e.PropertyName == nameof(DashboardViewModel.MapSummary) && main.Dashboard.MapSummary.Length > 0)
             {
                 loaded.TrySetResult();
             }
@@ -238,6 +168,21 @@ public class DashboardViewModelTests
         await loaded.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.Same(main.Dashboard, main.CurrentPage);
-        Assert.Equal("2", main.Dashboard.LinesLabel);
+        Assert.Equal("1 de 2 linhas prontas", main.Dashboard.MapSummary);
+    }
+
+    [Fact]
+    public async Task A_janela_principal_passa_a_chave_e_o_limite_dos_ajustes_ao_Painel()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine);
+        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)));
+        await main.Start.OpenFolderCommand.ExecuteAsync(null);
+        await main.Editor.Loading;
+
+        await main.Dashboard.ReloadAsync();
+
+        Assert.False(main.ApiKeyConfigured);
+        Assert.Contains(main.Dashboard.Todos, t => t.Title == "Falta a chave do Claude");
     }
 }

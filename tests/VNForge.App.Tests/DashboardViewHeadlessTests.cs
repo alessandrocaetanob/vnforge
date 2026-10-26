@@ -33,10 +33,12 @@ public class DashboardViewHeadlessTests(HeadlessFixture fixture) : IClassFixture
                     window.UpdateLayout();
 
                     var steps = window.GetVisualDescendants().OfType<PipelineStepItem>().ToList();
-                    Assert.Equal(["Extrair", "Traduzir", "Conferir", "Build", "Injetar"], steps.Select(s => s.Title));
-                    Assert.Equal(3, window.GetVisualDescendants().OfType<StatCard>().Count());
-                    Assert.NotEmpty(window.GetVisualDescendants().OfType<DistributionBar>());
-                    Assert.Single(window.GetVisualDescendants().OfType<SignalBar>());
+                    Assert.Equal(["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", "Testar no jogo"], steps.Select(s => s.Title));
+                    Assert.Single(window.GetVisualDescendants().OfType<ProgressRing>());
+                    Assert.Single(window.GetVisualDescendants().OfType<ChapterRow>());
+                    Assert.NotEmpty(window.GetVisualDescendants().OfType<TodoItem>());
+                    Assert.Single(window.GetVisualDescendants().OfType<BudgetBar>());
+                    Assert.Single(window.GetVisualDescendants().OfType<GameStateBanner>());
                     Assert.Equal("Minha VN", window.GetVisualDescendants().OfType<PageHeader>().Single().Title);
                 }
                 finally

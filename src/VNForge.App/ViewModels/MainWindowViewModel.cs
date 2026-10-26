@@ -117,12 +117,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
-        Dashboard.StageRequested += (_, stage) => SelectedNav = stage switch
-        {
-            PipelineStageKey.Review => conferenceItem,
-            PipelineStageKey.Build or PipelineStageKey.Inject => buildItem,
-            _ => editorItem,
-        };
+        Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured);
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         start.EditorRequested += (_, summary) =>
