@@ -13,6 +13,8 @@ public sealed class LineEditor
     private readonly ProjectFolder project;
     private readonly TimeProvider clock;
     private readonly Action<string, IReadOnlyList<TextUnit>> save;
+    private readonly object punctuationGate = new();
+    private (DateTime Stamp, long Length, KeyboardPunctuation? Value)? punctuation;
 
     public LineEditor(ProjectFolder project, TimeProvider clock)
         : this(project, clock, (key, units) => project.SaveText(key, units))
@@ -40,7 +42,7 @@ public sealed class LineEditor
     /// <exception cref="TextFileException">Arquivo do script ausente ou inválido.</exception>
     public TextUnit SetTranslation(string scriptKey, string id, string? translation)
     {
-        translation = translation is null ? null : KeyboardPunctuation.For(project)?.Apply(translation) ?? translation;
+        translation = translation is null ? null : PunctuationOption()?.Apply(translation) ?? translation;
         return Update(scriptKey, id, unit =>
         {
             if (string.IsNullOrWhiteSpace(translation))
@@ -71,7 +73,7 @@ public sealed class LineEditor
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
-        translation = KeyboardPunctuation.For(project)?.Apply(translation) ?? translation;
+        translation = PunctuationOption()?.Apply(translation) ?? translation;
 
         lock (ProjectTextLock.For(project))
         {
@@ -176,6 +178,32 @@ public sealed class LineEditor
             var restored = unit with { Translation = previous.Translation, Status = previous.Status, Origin = previous.Origin };
             return restored == unit ? unit : restored;
         });
+    }
+
+    /// <summary>
+    /// A troca da pontuação do projeto, lida do <c>vnforge.json</c> só quando o arquivo muda (data e tamanho): gravar uma linha não relê nem reinterpreta a configuração.
+    /// Config inválida ou estratégia sem encoder falham aqui, com a mensagem de sempre, em vez de gravar sem a troca.
+    /// </summary>
+    private KeyboardPunctuation? PunctuationOption()
+    {
+        var file = new FileInfo(project.ConfigPath);
+        if (!file.Exists)
+        {
+            return KeyboardPunctuation.For(project);
+        }
+
+        var (stamp, length) = (file.LastWriteTimeUtc, file.Length);
+        lock (punctuationGate)
+        {
+            if (punctuation is { } cached && cached.Stamp == stamp && cached.Length == length)
+            {
+                return cached.Value;
+            }
+
+            var value = KeyboardPunctuation.For(project);
+            punctuation = (stamp, length, value);
+            return value;
+        }
     }
 
     private TextUnit Update(string scriptKey, string id, Func<TextUnit, TextUnit> change)

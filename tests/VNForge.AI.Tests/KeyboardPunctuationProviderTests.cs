@@ -1,4 +1,5 @@
 using VNForge.AI.Translation;
+using VNForge.Core;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -61,12 +62,21 @@ public sealed class KeyboardPunctuationProviderTests
     }
 
     [Fact]
-    public async Task Estrategia_sem_encoder_pronto_ainda_troca_a_pontuacao_ascii()
+    public void Estrategia_sem_encoder_pronto_falha_com_a_mensagem_de_sempre_em_vez_de_trocar_sem_conferir()
     {
-        var provider = KeyboardPunctuationProvider.Wrap(new Canned(new TranslationResult("a:1", "Oi。")), Config("remap", option: true));
+        var ex = Assert.Throws<VNForgeException>(() => KeyboardPunctuationProvider.Wrap(new Canned(), Config("remap", option: true)));
 
-        var results = await provider.TranslateAsync(Batch(), CancellationToken.None);
+        Assert.Contains("remap", ex.Message, StringComparison.Ordinal);
+    }
 
-        Assert.Equal("Oi.", results[0].Translation);
+    [Fact]
+    public async Task Estrategia_sem_encoder_pronto_com_a_opcao_desligada_nao_falha()
+    {
+        var inner = new Canned(new TranslationResult("a:1", "Oi。"));
+
+        var provider = KeyboardPunctuationProvider.Wrap(inner, Config("remap", option: false));
+
+        Assert.Same(inner, provider);
+        Assert.Equal("Oi。", (await provider.TranslateAsync(Batch(), CancellationToken.None))[0].Translation);
     }
 }

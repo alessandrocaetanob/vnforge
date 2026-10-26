@@ -166,7 +166,10 @@ public static class ProjectConfigSerializer
         writer.WriteEndObject();
         writer.WriteBoolean("onomatopoeia", style.TranslateOnomatopoeia);
         writer.WriteBoolean("westernNameOrder", style.WesternNameOrder);
-        writer.WriteBoolean("keyboardPunctuation", style.KeyboardPunctuation);
+        if (style.KeyboardPunctuation != StyleConfig.Default.KeyboardPunctuation)
+        {
+            writer.WriteBoolean("keyboardPunctuation", style.KeyboardPunctuation);
+        }
         writer.WriteEndObject();
     }
 

@@ -61,6 +61,47 @@ public class LineEditorTests
     }
 
     [Fact]
+    public void A_troca_nao_toca_o_falante_nem_os_marcadores_de_controle()
+    {
+        using var pasta = new TempFolder();
+        var linha = new TextUnit("yst00001:000001", TextUnitKind.Dialogue, "美咲。", "原文", "x", TranslationStatus.Machine);
+        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, linha);
+
+        var gravada = editor.SetTranslation("yst00001", linha.Id, @"Oi。\n{VAR:名前。}～\p");
+
+        Assert.Equal(@"Oi.\n{VAR:名前。}~\p", gravada.Translation);
+        Assert.Equal("美咲。", gravada.Speaker);
+        Assert.Equal("原文", gravada.Source);
+    }
+
+    [Fact]
+    public void A_opcao_e_lida_do_vnforge_json_quando_ele_muda_e_nao_a_cada_gravacao()
+    {
+        using var pasta = new TempFolder();
+        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Machine, "x"));
+        var projeto = ProjectFolder.Open(pasta.Path);
+        Assert.Equal("a.", editor.SetTranslation("yst00001", "yst00001:000001", "a。").Translation);
+
+        projeto.SaveConfig(projeto.LoadConfig() with { Style = StyleConfig.Default with { KeyboardPunctuation = false } });
+
+        Assert.Equal("b。", editor.SetTranslation("yst00001", "yst00001:000001", "b。").Translation);
+    }
+
+    [Fact]
+    public void Estrategia_sem_encoder_pronto_faz_a_gravacao_falhar_com_a_mensagem_da_estrategia()
+    {
+        using var pasta = new TempFolder();
+        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Machine, "x"));
+        var projeto = ProjectFolder.Open(pasta.Path);
+        projeto.SaveConfig(projeto.LoadConfig() with { Encoding = new EncodingConfig("remap") });
+
+        var ex = Assert.Throws<VNForgeException>(() => editor.SetTranslation("yst00001", "yst00001:000001", "a。"));
+
+        Assert.Contains("remap", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("x", Gravada(projeto, 1).Translation);
+    }
+
+    [Fact]
     public void SetTranslation_com_a_opcao_desligada_grava_o_texto_como_veio()
     {
         using var pasta = new TempFolder();

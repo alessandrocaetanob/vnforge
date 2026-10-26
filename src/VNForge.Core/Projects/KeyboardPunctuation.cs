@@ -8,9 +8,9 @@ namespace VNForge.Core.Projects;
 /// </summary>
 public sealed class KeyboardPunctuation
 {
-    private readonly ITextEncoder? encoder;
+    private readonly ITextEncoder encoder;
 
-    private KeyboardPunctuation(ITextEncoder? encoder) => this.encoder = encoder;
+    private KeyboardPunctuation(ITextEncoder encoder) => this.encoder = encoder;
 
     /// <summary>A troca do projeto, ou nulo quando a opção está desligada.</summary>
     /// <exception cref="ProjectConfigException">O <c>vnforge.json</c> é inválido.</exception>
@@ -20,7 +20,8 @@ public sealed class KeyboardPunctuation
         return For(project.LoadConfig());
     }
 
-    /// <summary>A troca descrita por <paramref name="config"/>, ou nulo quando a opção está desligada. Estratégia sem encoder pronto troca sem conferir o que ela grava.</summary>
+    /// <summary>A troca descrita por <paramref name="config"/>, ou nulo quando a opção está desligada.</summary>
+    /// <exception cref="VNForgeException">A estratégia de codificação é desconhecida ou ainda não tem encoder; o projeto também não abre nem compila nesse estado.</exception>
     public static KeyboardPunctuation? For(ProjectConfig config, TextEncoderRegistry? encoders = null)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -29,15 +30,7 @@ public sealed class KeyboardPunctuation
             return null;
         }
 
-        try
-        {
-            return new KeyboardPunctuation((encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy));
-        }
-        catch (VNForgeException)
-        {
-            // A estratégia desconhecida é problema da Conferência e do build; a troca da pontuação ASCII não depende dela.
-            return new KeyboardPunctuation(null);
-        }
+        return new KeyboardPunctuation((encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy));
     }
 
     /// <summary>O <paramref name="text"/> com a pontuação japonesa trocada pela do teclado.</summary>

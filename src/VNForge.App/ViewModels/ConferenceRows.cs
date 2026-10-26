@@ -177,40 +177,48 @@ public sealed class ConferenceIssueRowViewModel
 
     private string UnencodableSentence()
     {
-        var labels = new List<string>();
-        var replacements = new List<string>();
-        foreach (var occurrence in occurrences)
-        {
-            var match = UnencodablePattern.Match(occurrence.Message);
-            if (match.Success && int.TryParse(match.Groups["code"].ValueSpan, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var codePoint))
-            {
-                var label = CodePointLabel(codePoint);
-                if (!labels.Contains(label))
-                {
-                    labels.Add(label);
-                    if (JapanesePunctuation.KeyboardFor(codePoint) is { } keyboard)
-                    {
-                        replacements.Add($"{(keyboard == " " ? "um espaço comum" : keyboard)} no lugar do {label.Split(' ')[0]}");
-                    }
-                }
-            }
-        }
-
-        if (labels.Count == 0)
+        var codePoints = UnencodableCodePoints();
+        if (codePoints.Count == 0)
         {
             return "Há um caractere que a acentuação do projeto não grava.";
         }
 
+        var labels = codePoints.Select(CodePointLabel).ToList();
         var named = labels.Count == 1
             ? $"O {labels[0]} não existe"
             : $"O {string.Join(", o ", labels.Take(labels.Count - 1))} e o {labels[^1]} não existem";
-        var hint = replacements.Count switch
-        {
-            0 => string.Empty,
-            1 => $" Use {replacements[0]}.",
-            _ => $" Use {string.Join(", ", replacements)}.",
-        };
+        var replacements = codePoints.Zip(labels, ReplacementHint).OfType<string>().ToList();
+        var hint = replacements.Count == 0 ? string.Empty : $" Use {string.Join(", ", replacements)}.";
         return $"{named} na acentuação do projeto.{hint}";
+    }
+
+    /// <summary>Os caracteres distintos que as ocorrências da linha apontam, na ordem em que aparecem.</summary>
+    private List<int> UnencodableCodePoints()
+    {
+        var codePoints = new List<int>();
+        foreach (var occurrence in occurrences)
+        {
+            var match = UnencodablePattern.Match(occurrence.Message);
+            if (match.Success
+                && int.TryParse(match.Groups["code"].ValueSpan, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var codePoint)
+                && !codePoints.Contains(codePoint))
+            {
+                codePoints.Add(codePoint);
+            }
+        }
+
+        return codePoints;
+    }
+
+    /// <summary>"~ no lugar do ～" para o que a tabela de <see cref="JapanesePunctuation"/> cobre; nulo para o resto.</summary>
+    private static string? ReplacementHint(int codePoint, string label)
+    {
+        if (JapanesePunctuation.KeyboardFor(codePoint) is not { } keyboard)
+        {
+            return null;
+        }
+
+        return $"{(keyboard == " " ? "um espaço comum" : keyboard)} no lugar do {label.Split(' ')[0]}";
     }
 
     /// <summary>O caractere, ou <c>U+XXXX</c> quando ele não aparece na tela (controle, espaço, formato, substituto solto).</summary>

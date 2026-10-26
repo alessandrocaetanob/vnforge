@@ -20,6 +20,8 @@ public static class JapanesePunctuation
     private const int FullwidthOffset = 0xFEE0;
 
     private const string Triple = "・・・";
+    private const string JapaneseQuotes = "aspas japonesas";
+    private const string JapaneseBracket = "colchete japonês";
 
     // Barra invertida e chaves formariam marcador de controle se o texto trocado fosse relido: ficam como estão.
     private static readonly HashSet<int> NotFolded = [0xFF3C, 0xFF5B, 0xFF5D];
@@ -53,18 +55,18 @@ public static class JapanesePunctuation
         [0x3002] = "ponto final japonês",
         [0x3001] = "vírgula japonesa",
         [0x30FB] = "ponto médio japonês",
-        [0x300C] = "aspas japonesas", [0x300D] = "aspas japonesas",
-        [0x300E] = "aspas japonesas", [0x300F] = "aspas japonesas",
-        [0x301D] = "aspas japonesas", [0x301F] = "aspas japonesas",
-        [0x3010] = "colchete japonês", [0x3011] = "colchete japonês",
-        [0x3014] = "colchete japonês", [0x3015] = "colchete japonês",
+        [0x300C] = JapaneseQuotes, [0x300D] = JapaneseQuotes,
+        [0x300E] = JapaneseQuotes, [0x300F] = JapaneseQuotes,
+        [0x301D] = JapaneseQuotes, [0x301F] = JapaneseQuotes,
+        [0x3010] = JapaneseBracket, [0x3011] = JapaneseBracket,
+        [0x3014] = JapaneseBracket, [0x3015] = JapaneseBracket,
         [0x301C] = "til japonês",
         [0xFF5E] = "til japonês",
         [0x2025] = "reticências de dois pontos",
         [0x2026] = "reticências",
         [0x3000] = "espaço de largura dupla",
         [0xFF61] = "ponto final japonês", [0xFF64] = "vírgula japonesa",
-        [0xFF62] = "aspas japonesas", [0xFF63] = "aspas japonesas",
+        [0xFF62] = JapaneseQuotes, [0xFF63] = JapaneseQuotes,
         [0xFF65] = "ponto médio japonês",
         [0xFF01] = "ponto de exclamação de largura dupla",
         [0xFF1F] = "ponto de interrogação de largura dupla",

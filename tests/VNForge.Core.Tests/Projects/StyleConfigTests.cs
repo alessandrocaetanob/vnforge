@@ -65,6 +65,20 @@ public class StyleConfigTests
     }
 
     [Fact]
+    public void Vnforge_json_antigo_sem_o_campo_vale_o_padrao_e_nao_ganha_o_campo_ao_salvar()
+    {
+        var antigo = Parse("""
+            , "style": { "honorifics": "remove", "address": "tu", "onomatopoeia": false, "westernNameOrder": false }
+            """);
+
+        Assert.True(antigo.Style.KeyboardPunctuation);
+        var json = ProjectConfigSerializer.Serialize(antigo);
+
+        Assert.DoesNotContain("keyboardPunctuation", json, StringComparison.Ordinal);
+        Assert.Equal(antigo.Style, ProjectConfigSerializer.Parse(json).Style);
+    }
+
+    [Fact]
     public void Bloco_style_parcial_completa_o_resto_com_o_padrao()
     {
         var config = Parse("""

@@ -34,6 +34,36 @@ public sealed class JapanesePunctuationTests
     }
 
     [Fact]
+    public void Pontos_medios_no_fim_do_texto_trocam_um_a_um_e_tres_viram_reticencias()
+    {
+        Assert.Equal("Hum·", JapanesePunctuation.FixUnencodable("Hum・", Cp1252));
+        Assert.Equal("Hum··", JapanesePunctuation.FixUnencodable("Hum・・", Cp1252));
+        Assert.Equal("Hum…", JapanesePunctuation.FixUnencodable("Hum・・・", Cp1252));
+        Assert.Equal("Hum… ·", JapanesePunctuation.FixUnencodable("Hum・・・ ・", Cp1252));
+        Assert.Equal("Hum……", JapanesePunctuation.FixUnencodable("Hum・・・…", Cp1252));
+        Assert.Equal("Hum..", JapanesePunctuation.FixUnencodable("Hum‥", Cp1252));
+    }
+
+    [Theory]
+    [InlineData("Hum・")]
+    [InlineData("Hum・・")]
+    [InlineData("Hum・・・")]
+    [InlineData("Hum・・・…")]
+    [InlineData("Hum…・・・")]
+    [InlineData("・・・・")]
+    public void Reticencias_e_pontos_medios_sao_idempotentes_em_toda_estrategia(string texto)
+    {
+        foreach (var encoder in new ITextEncoder[] { Cp1252, Sjis, new OnlyAsciiEncoder() })
+        {
+            var corrigido = JapanesePunctuation.FixUnencodable(texto, encoder);
+            Assert.Equal(corrigido, JapanesePunctuation.FixUnencodable(corrigido, encoder));
+            var trocado = JapanesePunctuation.ToKeyboard(texto, encoder);
+            Assert.Equal(trocado, JapanesePunctuation.ToKeyboard(trocado, encoder));
+            Assert.Empty(encoder.FindUnencodable(JapanesePunctuation.FixUnencodable(texto, encoder).Replace("★", string.Empty)));
+        }
+    }
+
+    [Fact]
     public void Reticencias_so_trocam_quando_a_estrategia_nao_as_grava()
     {
         var semReticencias = new OnlyAsciiEncoder();

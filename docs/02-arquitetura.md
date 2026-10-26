@@ -410,7 +410,7 @@ minha-vn-ptbr/
     "narrator": { "who": "Kenta (protagonista)", "person": "first", "gender": "neutral" },  // person: first | third; gender: neutral | male | female
     "onomatopoeia": true,
     "westernNameOrder": true,
-    "keyboardPunctuation": true            // troca 。 ～ （ pela pontuação do teclado na tradução da IA e na que você grava
+    "keyboardPunctuation": false           // padrão true e só é gravado quando false: troca 。 ～ （ pela pontuação do teclado na tradução da IA e na que você grava
   }
 }
 ```
