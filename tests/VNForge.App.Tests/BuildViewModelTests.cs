@@ -228,6 +228,17 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Falha_ao_copiar_o_log_vira_mensagem_na_tela()
+    {
+        var vm = await OpenAsync();
+
+        vm.ReportCopyFailure("clipboard travado");
+
+        Assert.Contains("clipboard travado", vm.ErrorMessage);
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("Não foi possível copiar o log: ", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Build_que_mudou_depois_do_plano_confirmado_nao_e_gravado_no_jogo()
     {
         PutBuild();

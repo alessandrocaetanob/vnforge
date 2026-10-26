@@ -985,6 +985,9 @@ public sealed partial class BuildViewModel : ObservableObject
         AppendLog($"{title}: {message}");
     }
 
+    /// <summary>A área de transferência recusou o texto (travada por outro programa); a tela avisa em vez de deixar o clique sem resposta.</summary>
+    public void ReportCopyFailure(string message) => Fail("Não foi possível copiar o log", message);
+
     private void AppendLog(string line)
     {
         if (Log.Count > 0 && Log[^1].Message == line)
