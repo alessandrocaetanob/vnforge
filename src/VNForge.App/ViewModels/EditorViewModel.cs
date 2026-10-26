@@ -258,7 +258,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         string? error = null;
         try
         {
-            (loaded, loadedContext, loadedNames) = await Task.Run(() => (loader(root), contextLoader(root), ReadNames(root)));
+            (loaded, loadedContext, loadedNames) = await Task.Run<(ProjectLines, EditorContext, ScriptNames)>(() => (loader(root), contextLoader(root), ReadNames(root)));
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {

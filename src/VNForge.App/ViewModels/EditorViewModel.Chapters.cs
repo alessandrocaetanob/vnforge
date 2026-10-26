@@ -164,7 +164,7 @@ public sealed partial class EditorViewModel
     {
         try
         {
-            return NamesLoader is { } loader ? loader(root) : ProjectFolder.Open(root).LoadScriptNames();
+            return NamesLoader is { } custom ? custom(root) : ProjectFolder.Open(root).LoadScriptNames();
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
