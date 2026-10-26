@@ -53,4 +53,39 @@ public class MainWindowChaptersTests
         Assert.Equal(row.ScriptKey, main.Editor.SelectedScript?.Key);
         Assert.True(main.Editor.IsNamingChapter);
     }
+
+    [Fact]
+    public async Task Renomear_o_capitulo_no_Painel_atualiza_a_lista_do_Editor_e_o_mover_usa_o_nome_novo()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+        var row = main.Dashboard.Chapters[0];
+        main.Dashboard.BeginRenameChapterCommand.Execute(row);
+        row.EditText = "Noite";
+
+        await main.Dashboard.CommitRenameChapterCommand.ExecuteAsync(row);
+        await main.Editor.ChapterRefresh;
+
+        Assert.Equal(["Noite"], main.Editor.Chapters.Select(c => c.Name));
+        main.Editor.SelectedScript = main.Editor.Scripts.Single(s => s.Key == "yst00003");
+        await main.Editor.MoveToChapterCommand.ExecuteAsync(main.Editor.Chapters[0]);
+        Assert.Equal(["Noite"], main.Editor.Chapters.Select(c => c.Name));
+        Assert.Equal("Noite", ProjectFolder.Open(main.Editor.Project!.Root).LoadScriptNames().Group("yst00003"));
+    }
+
+    [Fact]
+    public async Task Novo_capitulo_do_Painel_limpa_as_marcas_antigas_e_leva_so_a_cena_aberta()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+        main.Editor.ChosenScripts.Add(main.Editor.Scripts.Single(s => s.Key == "yst00001"));
+        var row = main.Dashboard.Chapters[0];
+
+        main.Dashboard.NewChapterCommand.Execute(row);
+        await main.LineNavigation;
+
+        Assert.True(main.Editor.IsNamingChapter);
+        Assert.Equal([row.ScriptKey], main.Editor.ChosenScripts.Select(s => s.Key));
+        Assert.Equal("Nome do capítulo novo, com 1 cena.", main.Editor.NewChapterHint);
+    }
 }

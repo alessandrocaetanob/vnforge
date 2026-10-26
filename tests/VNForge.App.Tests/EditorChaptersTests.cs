@@ -49,7 +49,7 @@ public class EditorChaptersTests
         public void Dispose() => temp.Dispose();
     }
 
-    private static async Task<Opened> Open(Func<string, IReadOnlyList<string>, string?, ScriptGroupChange>? grouper = null)
+    private static async Task<Opened> Open(Func<string, IReadOnlyList<string>, string?, ScriptGroupChange>? grouper = null, Func<string, ScriptNames>? namesLoader = null)
     {
         var temp = new TempFolder();
         var folder = ProjectFolder.Create(temp.SubFolder("vn"), new ProjectConfig(
@@ -68,7 +68,7 @@ public class EditorChaptersTests
         folder.SaveScriptNames(InitialNames());
         var summary = Summary("Minha VN", folder.Root);
         var opened = new Opened(temp, folder.Root);
-        opened.Editor = new EditorViewModel(postToUi: a => a()) { Grouper = grouper };
+        opened.Editor = new EditorViewModel(postToUi: a => a()) { Grouper = grouper, NamesLoader = namesLoader };
         opened.Editor.Project = summary;
         await opened.Editor.Loading;
 
@@ -351,5 +351,85 @@ public class EditorChaptersTests
 
         Assert.False(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2").IsExpanded);
         Assert.True(open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").IsExpanded);
+    }
+
+    [Fact]
+    public async Task Novo_capitulo_leva_as_cenas_marcadas_na_hora_de_abrir_o_campo_e_nao_as_do_Enter()
+    {
+        using var open = await Open();
+        open.Editor.SelectedScript = open.Scene("yst00003");
+        open.Editor.BeginNewChapterCommand.Execute(null);
+        open.Editor.ChosenScripts.Add(open.Scene("yst00004"));
+        open.Editor.NewChapterName = "Noite";
+
+        await open.Editor.CommitNewChapterCommand.ExecuteAsync(null);
+
+        Assert.Equal(["yst00003"], open.ChapterKeys("Noite"));
+        Assert.Equal(["yst00004", "yst00005"], open.ChapterKeys("Capítulo 2"));
+    }
+
+    [Fact]
+    public async Task Cenas_de_um_capitulo_fechado_nao_entram_no_mover_e_sem_cena_a_vista_vale_a_aberta()
+    {
+        using var open = await Open();
+        open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").IsExpanded = false;
+        open.Editor.SelectedScript = open.Scene("yst00005");
+        open.Editor.ChosenScripts.Add(open.Scene("yst00002"));
+        open.Editor.ChosenScripts.Add(open.Scene("yst00003"));
+        open.Editor.ChosenScripts.Add(open.Scene("yst00006"));
+
+        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2"));
+
+        Assert.Equal(["yst00001", "yst00002", "yst00003"], open.ChapterKeys("Capítulo 1"));
+        Assert.Equal(["yst00004", "yst00005", "yst00006"], open.ChapterKeys("Capítulo 2"));
+
+        open.Editor.ChosenScripts.Clear();
+        open.Editor.ChosenScripts.Add(open.Scene("yst00002"));
+        await open.Editor.ResetChaptersCommand.ExecuteAsync(null);
+
+        // A marcada escondida (yst00002) não conta: o pedido cai na aberta (yst00005), que volta ao automático.
+        Assert.Equal("Capítulo 2", open.OnDisk.Group("yst00006"));
+        Assert.Null(open.OnDisk.Group("yst00005"));
+        Assert.Null(open.OnDisk.Group("yst00002"));
+    }
+
+    [Fact]
+    public async Task Falha_ao_reler_o_scripts_json_mantem_os_capitulos_e_avisa()
+    {
+        var fail = false;
+        using var open = await Open(namesLoader: root => fail ? throw new IOException("disco cheio") : ProjectFolder.Open(root).LoadScriptNames());
+        fail = true;
+
+        open.Editor.Reload();
+        await open.Editor.Loading;
+
+        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], open.Editor.Chapters.Select(c => c.Name));
+        Assert.Contains("disco cheio", open.Editor.ChapterMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_fecha_o_campo_do_nome_do_capitulo()
+    {
+        using var open = await Open();
+        open.Editor.SelectedScript = open.Scene("yst00003");
+        open.Editor.BeginNewChapterCommand.Execute(null);
+        Assert.True(open.Editor.IsNamingChapter);
+
+        open.Editor.Project = Summary("Outra", Path.Combine(open.Root, "outra"));
+        await open.Editor.Loading;
+
+        Assert.False(open.Editor.IsNamingChapter);
+        Assert.Equal(string.Empty, open.Editor.NewChapterName);
+    }
+
+    [Fact]
+    public async Task O_Painel_ignora_capitulos_que_nao_sao_do_projeto_dele()
+    {
+        using var open = await Open();
+        var before = open.Dashboard.Chapters.Select(c => c.Name).ToList();
+
+        open.Dashboard.ApplyGrouping(new ScriptGroupChange(["zzz"], "X", [new ScriptGroupTotals("X", 1, ["zzz"], 0, 0, 1)]));
+
+        Assert.Equal(before, open.Dashboard.Chapters.Select(c => c.Name));
     }
 }

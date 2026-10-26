@@ -28,7 +28,7 @@
     <!-- "Novo capítulo...": o nome do capítulo que recebe as cenas marcadas (ou a aberta). Enter cria, Esc cancela. -->
     <StackPanel Grid.Row="2">
       <StackPanel Margin="12,0,12,8" Spacing="6" IsVisible="{Binding IsNamingChapter}">
-        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Nome do capítulo novo. Ele recebe as cenas marcadas na lista."/>
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding NewChapterHint}"/>
         <TextBox x:Name="ChapterNameBox" Text="{Binding NewChapterName}" PlaceholderText="Nome do capítulo" MaxLength="80" AutomationProperties.Name="Nome do capítulo novo">
           <TextBox.KeyBindings>
             <KeyBinding Gesture="Enter" Command="{Binding CommitNewChapterCommand}"/>

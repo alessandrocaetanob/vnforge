@@ -117,6 +117,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         this.renamer = renamer ?? ((root, group, name) => ScriptGroupEditor.RenameGroup(ProjectFolder.Open(root), group, name));
     }
 
+    /// <summary>Disparado depois de o renomear da linha gravar o <c>scripts.json</c>: o Editor relê os nomes dos capítulos.</summary>
+    public event EventHandler? ChaptersRenamed;
+
     /// <summary>Pedido para ir ao Início (a ação do estado vazio "sem projeto").</summary>
     public event EventHandler? StartRequested;
 
@@ -334,6 +337,13 @@ public sealed partial class DashboardViewModel : ObservableObject
             return;
         }
 
+        // Os capítulos de outro projeto (a pessoa trocou de projeto durante a gravação) citam scripts que esta página não conhece.
+        var known = current.Status.Files.Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
+        if (change.Chapters.SelectMany(c => c.ScriptKeys).Any(k => !known.Contains(k)))
+        {
+            return;
+        }
+
         ApplyChapters(project, current, change.Chapters, currentLimitReached);
         ApplyNextStep(current, change.Chapters);
     }
@@ -397,6 +407,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             return;
         }
 
+        ChaptersRenamed?.Invoke(this, EventArgs.Empty);
         await ReloadAsync();
     }
 

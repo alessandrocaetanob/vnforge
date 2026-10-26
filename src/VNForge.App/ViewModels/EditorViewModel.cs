@@ -236,7 +236,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             LastSavedAt = null;
             loadedRoot = root;
             closedChapters.Clear();
-            ChapterMessage = null;
+            scriptNames = ScriptNames.Empty;
+            CancelNewChapter();
         }
 
         if (root is null)
@@ -254,11 +255,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         IsLoading = true;
         ProjectLines? loaded = null;
         var loadedContext = EditorContext.Empty;
-        var loadedNames = ScriptNames.Empty;
+        NamesRead? loadedNames = null;
         string? error = null;
         try
         {
-            (loaded, loadedContext, loadedNames) = await Task.Run<(ProjectLines, EditorContext, ScriptNames)>(() => (loader(root), contextLoader(root), ReadNames(root)));
+            (loaded, loadedContext, loadedNames) = await Task.Run<(ProjectLines, EditorContext, NamesRead)>(() => (loader(root), contextLoader(root), ReadNames(root)));
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -274,7 +275,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorMessage = error;
         lineEditor = CreateLineEditor(loaded, root);
         context = loadedContext;
-        scriptNames = loadedNames;
+        scriptNames = loadedNames?.Names ?? scriptNames;
+        if (loadedNames?.Error is { } namesError)
+        {
+            ChapterMessage = namesError;
+        }
+
         Apply(loaded);
     }
 

@@ -15,6 +15,7 @@ public sealed partial class EditorViewModel
 {
     private readonly HashSet<string> closedChapters = new(StringComparer.OrdinalIgnoreCase);
     private ScriptNames scriptNames = ScriptNames.Empty;
+    private IReadOnlyList<string> pendingChapterKeys = [];
 
     /// <summary>Lê o <c>scripts.json</c> do projeto; os testes trocam por um que devolve nomes fixos. O padrão lê o disco e, sem o arquivo, devolve nomes vazios.</summary>
     public Func<string, ScriptNames>? NamesLoader { get; init; }
@@ -43,6 +44,13 @@ public sealed partial class EditorViewModel
     [ObservableProperty]
     public partial string NewChapterName { get; set; } = string.Empty;
 
+    /// <summary>A frase sobre o campo do nome: quantas cenas o capítulo novo recebe.</summary>
+    [ObservableProperty]
+    public partial string NewChapterHint { get; private set; } = string.Empty;
+
+    /// <summary>Termina quando a última releitura dos nomes pedida por <see cref="RefreshChaptersAsync"/> acaba; os testes a aguardam.</summary>
+    public Task ChapterRefresh { get; private set; } = Task.CompletedTask;
+
     /// <summary>Por que o agrupamento não foi feito; nulo quando nada deu errado.</summary>
     [ObservableProperty]
     public partial string? ChapterMessage { get; private set; }
@@ -51,14 +59,30 @@ public sealed partial class EditorViewModel
     [RelayCommand]
     private void BeginNewChapter()
     {
-        if (ChapterTargets().Count == 0)
+        var keys = ChapterTargets();
+        if (keys.Count == 0)
         {
             return;
         }
 
+        // As cenas valem como estavam ao abrir o campo: marcar outra enquanto a pessoa escreve o nome não muda o pedido.
+        pendingChapterKeys = keys;
         ChapterMessage = null;
         NewChapterName = string.Empty;
+        NewChapterHint = keys.Count == 1 ? "Nome do capítulo novo, com 1 cena." : $"Nome do capítulo novo, com {keys.Count} cenas.";
         IsNamingChapter = true;
+    }
+
+    /// <summary>"Novo capítulo..." vindo do Painel: as marcas antigas saem, a cena aberta fica como a única marcada e o campo do nome abre.</summary>
+    public void BeginNewChapterOnOpenScene()
+    {
+        ChosenScripts.Clear();
+        if (SelectedScript is { } open)
+        {
+            ChosenScripts.Add(open);
+        }
+
+        BeginNewChapterCommand.Execute(null);
     }
 
     [RelayCommand]
@@ -66,6 +90,8 @@ public sealed partial class EditorViewModel
     {
         IsNamingChapter = false;
         NewChapterName = string.Empty;
+        NewChapterHint = string.Empty;
+        pendingChapterKeys = [];
         ChapterMessage = null;
     }
 
@@ -79,10 +105,12 @@ public sealed partial class EditorViewModel
             return;
         }
 
-        if (await GroupAsync(name))
+        if (await GroupAsync(name, pendingChapterKeys))
         {
             IsNamingChapter = false;
             NewChapterName = string.Empty;
+            NewChapterHint = string.Empty;
+            pendingChapterKeys = [];
         }
     }
 
@@ -100,11 +128,11 @@ public sealed partial class EditorViewModel
         }
     }
 
-    /// <summary>As cenas que um agrupamento move: as marcadas na lista que passam pelo filtro ou, sem marcação, a aberta.</summary>
+    /// <summary>As cenas que um agrupamento move: as marcadas que a pessoa vê na lista (passam pelo filtro e não estão num capítulo fechado) ou, sem marcação à vista, a aberta.</summary>
     private List<string> ChapterTargets()
     {
         var marked = ChosenScripts.ToHashSet();
-        var keys = Scripts.Where(s => s.IsShown && marked.Contains(s)).Select(s => s.Key).ToList();
+        var keys = Scripts.Where(s => s.IsListed && s.Chapter is not { IsExpanded: false } && marked.Contains(s)).Select(s => s.Key).ToList();
         if (keys.Count == 0 && SelectedScript is { } open)
         {
             keys.Add(open.Key);
@@ -113,9 +141,9 @@ public sealed partial class EditorViewModel
         return keys;
     }
 
-    private async Task<bool> GroupAsync(string? group)
+    private async Task<bool> GroupAsync(string? group, IReadOnlyList<string>? chosen = null)
     {
-        var keys = ChapterTargets();
+        var keys = chosen is { Count: > 0 } ? chosen : ChapterTargets();
         if (Project?.Root is not { } root || keys.Count == 0)
         {
             return false;
@@ -124,10 +152,10 @@ public sealed partial class EditorViewModel
         var version = loadVersion;
         ChapterMessage = null;
         ScriptGroupChange change;
-        ScriptNames names;
+        NamesRead read;
         try
         {
-            (change, names) = await Task.Run(() => (WriteGroup(root, keys, group), ReadNames(root)));
+            (change, read) = await Task.Run(() => (WriteGroup(root, keys, group), ReadNames(root)));
         }
         catch (Exception e) when (e is ScriptGroupingException or VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -135,15 +163,21 @@ public sealed partial class EditorViewModel
             return false;
         }
 
-        // Outro projeto abriu (ou o atual foi relido) enquanto o arquivo era gravado: a lista nova já cuida dos capítulos,
-        // mas o Painel ainda precisa saber que o scripts.json mudou.
+        // Outro projeto abriu (ou o atual foi relido) enquanto o arquivo era gravado: a lista nova já cuida dos capítulos.
+        // Num Reload do mesmo projeto o Painel ainda precisa saber que o scripts.json mudou; noutro projeto a mudança não é dele.
         if (version != loadVersion)
         {
-            ChaptersChanged?.Invoke(this, change);
+            if (string.Equals(Project?.Root, root, StringComparison.Ordinal))
+            {
+                ChaptersChanged?.Invoke(this, change);
+            }
+
             return true;
         }
 
-        scriptNames = names;
+        // Sem conseguir reler o arquivo que acabou de gravar, a lista segue o que se gravou em vez de voltar ao agrupamento automático.
+        scriptNames = read.Names ?? ScriptGrouping.Regroup(scriptNames, keys, group);
+        ChapterMessage = read.Error;
         RebuildChapters();
         ChaptersChanged?.Invoke(this, change);
         return true;
@@ -160,17 +194,48 @@ public sealed partial class EditorViewModel
         return group is null ? ScriptGroupEditor.Ungroup(project, keys) : ScriptGroupEditor.Group(project, keys, group);
     }
 
-    private ScriptNames ReadNames(string root)
+    /// <summary>Os nomes lidos do <c>scripts.json</c> ou, quando a leitura falha, o porquê em português e nenhum nome (quem chama mantém os que já tinha).</summary>
+    private sealed record NamesRead(ScriptNames? Names, string? Error);
+
+    private NamesRead ReadNames(string root)
     {
         try
         {
-            return NamesLoader is { } custom ? custom(root) : ProjectFolder.Open(root).LoadScriptNames();
+            return new NamesRead(NamesLoader is { } custom ? custom(root) : ProjectFolder.Open(root).LoadScriptNames(), null);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
-            // Sem scripts.json legível os capítulos saem só da contagem das cenas; o erro aparece onde o arquivo é gravado.
-            return ScriptNames.Empty;
+            return new NamesRead(null, $"Não foi possível ler os capítulos do scripts.json: {e.Message.TrimEnd('.', ' ')}. A lista mantém os capítulos que já tinha.");
         }
+    }
+
+    /// <summary>
+    /// Relê os nomes de <c>scripts.json</c> e refaz os capítulos, para quando outra tela mudou o arquivo (o renomear do Painel). A lista mantém a cena aberta e as marcadas.
+    /// </summary>
+    public Task RefreshChaptersAsync() => ChapterRefresh = RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        if (Project?.Root is not { } root)
+        {
+            return;
+        }
+
+        var version = loadVersion;
+        var read = await Task.Run(() => ReadNames(root));
+        if (version != loadVersion)
+        {
+            return;
+        }
+
+        if (read.Names is null)
+        {
+            ChapterMessage = read.Error;
+            return;
+        }
+
+        scriptNames = read.Names;
+        RebuildChapters();
     }
 
     /// <summary>
@@ -202,7 +267,9 @@ public sealed partial class EditorViewModel
 
         Chapters = chapters;
         var open = SelectedScript is { } selected && byKey.ContainsValue(selected) ? selected : null;
-        var marked = ChosenScripts.Where(byKey.ContainsValue).ToList();
+
+        // A cena aberta vai primeiro: a lista toma o primeiro item marcado como o selecionado.
+        var marked = ChosenScripts.Where(byKey.ContainsValue).OrderBy(item => !ReferenceEquals(item, open)).ToList();
         var wasApplying = applying;
         applying = true;
         try
@@ -222,6 +289,11 @@ public sealed partial class EditorViewModel
             foreach (var item in marked)
             {
                 ChosenScripts.Add(item);
+            }
+
+            if (open is not null && !ReferenceEquals(SelectedScript, open))
+            {
+                SelectedScript = open;
             }
         }
         finally

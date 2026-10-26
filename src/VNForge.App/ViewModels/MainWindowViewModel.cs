@@ -126,6 +126,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         start.NextStepRequested += (_, request) => OpenFromDashboard(request);
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
+        Dashboard.ChaptersRenamed += (_, _) => _ = Editor.RefreshChaptersAsync();
         start.EditorRequested += (_, summary) =>
         {
             try
@@ -505,7 +506,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private async Task BeginNewChapterAfterAsync(Task opening)
     {
         await opening;
-        Editor.BeginNewChapterCommand.Execute(null);
+        Editor.BeginNewChapterOnOpenScene();
     }
 
     private async Task ShowLineAsync(LineRequest request)

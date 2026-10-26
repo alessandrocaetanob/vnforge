@@ -78,4 +78,36 @@ public sealed class EditorChaptersHeadlessTests(HeadlessFixture fixture) : IClas
         Assert.Equal(["Capítulo 1", "Capítulo 2"], submenu);
         Assert.Equal(["Mover para o capítulo", "Novo capítulo...", "Voltar ao agrupamento automático"], menu);
     }
+
+    [Fact]
+    public async Task Mover_com_a_cena_aberta_depois_de_uma_marcada_mantem_a_aberta_e_as_marcas()
+    {
+        var (vm, temp) = await Abrir();
+        using var _ = temp;
+        string? open = null;
+        string[] marked = [];
+
+        await fixture.Session.Dispatch(
+            async () =>
+            {
+                var window = new Window { Width = 1440, Height = 1000, Content = new EditorView { DataContext = vm } };
+                window.Show();
+                Settle(window);
+                var list = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name is null && l.Classes.Contains("scripts"));
+                vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00003");
+                list.SelectedItems!.Add(vm.Scripts.Single(s => s.Key == "yst00001"));
+                Settle(window);
+
+                await vm.MoveToChapterCommand.ExecuteAsync(vm.Chapters.Single(c => c.Name == "Capítulo 2"));
+                Settle(window);
+                open = vm.SelectedScript?.Key;
+                marked = [.. vm.ChosenScripts.Select(s => s.Key).Order()];
+                window.Close();
+                return true;
+            },
+            CancellationToken.None);
+
+        Assert.Equal("yst00003", open);
+        Assert.Equal(["yst00001", "yst00003"], marked);
+    }
 }
