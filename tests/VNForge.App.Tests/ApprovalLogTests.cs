@@ -119,6 +119,64 @@ public sealed class ApprovalLogTests : IDisposable
     }
 
     [Fact]
+    public void Contagem_de_hoje_rele_o_arquivo_que_estava_bloqueado_na_abertura_sem_nova_aprovacao()
+    {
+        SessionsFile.Save(Projeto, SessionsFile.Empty.With(Approval("yst00001:000010", -5)));
+        var relogio = new FakeTimeProvider(Noon);
+        var log = new ProjectApprovalLog(raiz, relogio);
+
+        using (new FileStream(SessionsFile.PathFor(Projeto), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.Equal(0, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+        }
+
+        // Dentro dos 5 s a releitura não é tentada.
+        Assert.Equal(0, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+
+        relogio.Advance(ProjectApprovalLog.RetryInterval);
+
+        Assert.Equal(1, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
+    public async Task Releitura_pela_contagem_grava_o_que_foi_aprovado_enquanto_o_arquivo_estava_bloqueado()
+    {
+        SessionsFile.Save(Projeto, SessionsFile.Empty.With(Approval("yst00001:000010", -5)));
+        var relogio = new FakeTimeProvider(Noon);
+        var log = new ProjectApprovalLog(raiz, relogio);
+
+        using (new FileStream(SessionsFile.PathFor(Projeto), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            log.Record("yst00001", "yst00001:000011", Noon);
+        }
+
+        relogio.Advance(ProjectApprovalLog.RetryInterval);
+        Assert.Equal(2, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+        await log.Saving;
+
+        Assert.Equal(["yst00001:000010", "yst00001:000011"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
+    }
+
+    [Fact]
+    public async Task Pasta_do_projeto_movida_antes_da_gravacao_nao_e_recriada()
+    {
+        using var liberar = new ManualResetEventSlim();
+        var log = new ProjectApprovalLog(raiz, save: (pasta, registro) =>
+        {
+            liberar.Wait(TestContext.Current.CancellationToken);
+            SessionsFile.Save(pasta, registro);
+        });
+
+        log.Record("yst00001", "yst00001:000001", Noon);
+        Directory.Delete(raiz, recursive: true);
+        liberar.Set();
+        await log.Saving;
+
+        Assert.False(Directory.Exists(raiz));
+        Assert.Equal(1, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
     public async Task Aprovacao_desfeita_com_o_arquivo_ilegivel_e_reaplicada_sobre_o_arquivo_relido()
     {
         SessionsFile.Save(Projeto, SessionsFile.Empty.With(Approval("yst00001:000010", -5)));

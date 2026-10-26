@@ -133,6 +133,24 @@ public sealed class TranslateCommandTests : IDisposable
         Assert.Equal(PT1, Line(Yst00002, 0).Translation);
     }
 
+    [Theory]
+    [InlineData("untranslated")]
+    [InlineData("all")]
+    public async Task Linha_nao_traduzir_nao_e_enviada_a_IA_nem_alterada(string status)
+    {
+        TextUnit[] keep = [Unit("fonte", 1, TranslationStatus.Keep) with { Source = "ＭＳ ゴシック", Translation = null }, Unit("fonte", 2, TranslationStatus.Untranslated)];
+        _project.SaveText("fonte", keep);
+
+        var result = await Run("--status", status, "--files", "fonte", JsonOption);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(1, JsonDocument.Parse(result.Output).RootElement.GetProperty("data").GetProperty("lines").GetInt32());
+        Assert.Equal(TranslationStatus.Keep, Line("fonte", 0).Status);
+        Assert.Null(Line("fonte", 0).Translation);
+        Assert.Equal(TranslationStatus.Machine, Line("fonte", 1).Status);
+        Assert.DoesNotContain(_provider.ReceivedBatches.SelectMany(b => b.Lines), l => l.Source == "ＭＳ ゴシック");
+    }
+
     [Fact]
     public async Task Padrao_nao_toca_em_linhas_machine_nem_revisadas()
     {

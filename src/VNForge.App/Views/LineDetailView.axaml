@@ -33,6 +33,7 @@
     <KeyBinding Gesture="Ctrl+Enter" Command="{Binding ApproveAndNextCommand}"/>
     <KeyBinding Gesture="Ctrl+Space" Command="{Binding SuggestCommand}"/>
     <KeyBinding Gesture="Ctrl+Shift+Enter" Command="{Binding CopyOriginalCommand}"/>
+    <KeyBinding Gesture="Ctrl+Shift+N" Command="{Binding KeepCommand}"/>
     <KeyBinding Gesture="Alt+Up" Command="{Binding PreviousCommand}"/>
     <KeyBinding Gesture="Alt+Down" Command="{Binding NextCommand}"/>
   </UserControl.KeyBindings>
@@ -61,6 +62,10 @@
               <MenuFlyout Placement="BottomEdgeAlignedRight">
                 <MenuItem Header="Copiar o original para a tradução" InputGesture="Ctrl+Shift+Enter" Command="{Binding CopyOriginalCommand}"/>
                 <MenuItem Header="Pedir sugestão à IA" InputGesture="Ctrl+Space" Command="{Binding SuggestCommand}"/>
+                <MenuItem Header="Não traduzir" InputGesture="Ctrl+Shift+N" Command="{Binding KeepCommand}" IsVisible="{Binding !IsKeep}"
+                          ToolTip.Tip="A linha fica como no original e conta como pronta"/>
+                <MenuItem Header="Traduzir" Command="{Binding TranslateCommand}" IsVisible="{Binding IsKeep}"
+                          ToolTip.Tip="Desfaz o Não traduzir: a linha volta a ficar sem tradução"/>
               </MenuFlyout>
             </Button.Flyout>
           </Button>

@@ -92,6 +92,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Pending, "Pendentes"),
             new FilterChipViewModel(LineStatusFilter.Machine, "IA"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
+            new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
         ];
         SelectedSpeaker = Speakers[0];
     }
@@ -698,6 +699,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var updated = data?.WithUnit(entry, unit) ?? entry.WithUnit(unit);
         IssueCount += updated.Issues.Count - entry.Issues.Count;
         data?.Replace(updated);
+        RequestRecheck();
         savedUnits.Remove(unit.Id);
         var index = entry.Number - 1;
         if (entry.ScriptKey == SelectedScript?.Key && index < scriptLines.Length)
@@ -734,6 +736,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
         data?.Replace(updated);
+        RequestRecheck();
         RefreshScriptProgress(updated.ScriptKey);
 
         // O painel descartado ao trocar de script grava por último; a linha dele já não é a do script atual.
@@ -840,7 +843,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
-            IssueCount = loaded is null ? 0 : loaded.Scripts.Sum(script => loaded.LinesOf(script.Key).Sum(line => line.Issues.Count));
+            IssueCount = loaded is null ? 0 : CountIssues(loaded);
             Scripts.Clear();
             foreach (var script in loaded?.Scripts ?? [])
             {

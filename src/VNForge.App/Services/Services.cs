@@ -109,6 +109,7 @@ public static class ProjectLabels
         TranslationStatus.Machine => "IA",
         TranslationStatus.Translated => "Sua",
         TranslationStatus.Reviewed or TranslationStatus.Approved => "Pronta",
+        TranslationStatus.Keep => "Não traduzir",
         _ => status.ToString(),
     };
 

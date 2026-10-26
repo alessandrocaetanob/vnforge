@@ -47,6 +47,11 @@ public sealed class LineEditor
         {
             if (string.IsNullOrWhiteSpace(translation))
             {
+                if (unit.Status == TranslationStatus.Keep)
+                {
+                    return unit;
+                }
+
                 return string.IsNullOrEmpty(unit.Translation) && unit.Status == TranslationStatus.Untranslated && unit.Origin is null
                     ? unit
                     : unit with { Translation = null, Status = TranslationStatus.Untranslated, Origin = null };
@@ -135,6 +140,62 @@ public sealed class LineEditor
 
         return new BatchTranslationResult(saved, unchanged, requested, null);
     }
+
+    /// <summary>
+    /// "Não traduzir": marca a linha como <see cref="TranslationStatus.Keep"/> (<paramref name="keep"/> verdadeiro), sem tradução nem origem, ou a devolve a
+    /// <see cref="TranslationStatus.Untranslated"/> (falso). Desfazer só mexe em linha <c>keep</c>; as outras ficam como estão. Linha já no estado pedido não regrava o arquivo.
+    /// </summary>
+    /// <returns>A unidade como ficou no arquivo.</returns>
+    /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>
+    public TextUnit SetKeep(string scriptKey, string id, bool keep) => Update(scriptKey, id, unit => WithKeep(unit, keep));
+
+    /// <summary>
+    /// <see cref="SetKeep(string, string, bool)"/> para várias linhas de um script, com uma só gravação do arquivo. Devolve só as linhas que mudaram.
+    /// Se alguma não existe, nada é gravado.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">Alguma linha não existe no script.</exception>
+    public IReadOnlyList<LineChange> SetKeepMany(string scriptKey, IEnumerable<string> ids, bool keep)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var wanted = ids.ToHashSet(StringComparer.Ordinal);
+
+        lock (ProjectTextLock.For(project))
+        {
+            var units = project.LoadText(scriptKey).ToList();
+            var missing = wanted.Except(units.Select(u => u.Id), StringComparer.Ordinal).FirstOrDefault();
+            if (missing is not null)
+            {
+                throw new KeyNotFoundException($"A linha '{missing}' não existe no script '{scriptKey}'. Reabra o projeto e tente de novo.");
+            }
+
+            var changes = new List<LineChange>();
+            for (var i = 0; i < units.Count; i++)
+            {
+                if (!wanted.Contains(units[i].Id))
+                {
+                    continue;
+                }
+
+                var updated = WithKeep(units[i], keep);
+                if (!ReferenceEquals(updated, units[i]))
+                {
+                    changes.Add(new LineChange(scriptKey, units[i], updated));
+                    units[i] = updated;
+                }
+            }
+
+            if (changes.Count > 0)
+            {
+                save(scriptKey, units);
+            }
+
+            return changes;
+        }
+    }
+
+    private static TextUnit WithKeep(TextUnit unit, bool keep) => keep
+        ? unit.Status == TranslationStatus.Keep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null }
+        : unit.Status == TranslationStatus.Keep ? unit with { Status = TranslationStatus.Untranslated } : unit;
 
     /// <summary>Grava as notas da linha, sem mexer na tradução nem no status.</summary>
     /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>

@@ -7,7 +7,7 @@ namespace VNForge.App.Tests;
 /// <summary>Linhas sintéticas do Editor, geradas em código: nenhum arquivo de jogo entra nos testes.</summary>
 internal static class EditorFixtures
 {
-    private static readonly TranslationStatus[] Statuses = Enum.GetValues<TranslationStatus>();
+    private static readonly TranslationStatus[] Statuses = [.. Enum.GetValues<TranslationStatus>().Where(s => s != TranslationStatus.Keep)];
 
     public static ProjectSummary Summary(string name = "Minha VN", string root = "C:\\Projetos\\MinhaVN") =>
         new(name, root, "yuris", 500, "fold", "claude-opus-5-5", 1, new StatusCounts(0, 0, 0, 0, 0));

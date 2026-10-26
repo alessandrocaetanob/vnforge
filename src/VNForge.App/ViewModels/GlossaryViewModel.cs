@@ -335,6 +335,9 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private bool CanSave() => IsDirty && CanEdit;
 
+    /// <summary>Disparado depois de uma gravação que chegou ao disco: o Editor refaz os avisos do QA com o glossário e os personagens novos.</summary>
+    public event EventHandler? Saved;
+
     /// <summary>
     /// Grava os dois arquivos. Linha com o nome vazio ou repetido não trava a gravação das outras: fica de fora, marcada na tela, até a pessoa corrigi-la.
     /// Se a gravação falha, as edições continuam na tela e <see cref="SaveFailed"/> fica verdadeiro.
@@ -388,6 +391,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         savedOnce = true;
         IsDirty = false;
         OnPropertyChanged(nameof(SaveStatus));
+        Saved?.Invoke(this, EventArgs.Empty);
 
         // Um salvamento que passou depois da falha libera o projeto que esperava: não há mais o que decidir.
         if (PendingProject is { } next)

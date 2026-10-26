@@ -71,6 +71,16 @@ public sealed class SessionsFileTests : IDisposable
     }
 
     [Fact]
+    public void Gravar_com_a_pasta_do_projeto_movida_falha_como_IOException_e_nao_recria_a_pasta()
+    {
+        Directory.Delete(_project.Root, recursive: true);
+
+        Assert.ThrowsAny<IOException>(() => SessionsFile.Save(_project, SessionsFile.Empty.With(Approval("yst00013:000001", Noon))));
+
+        Assert.False(Directory.Exists(_project.Root));
+    }
+
+    [Fact]
     public void Gravar_de_novo_acrescenta_ao_que_ja_estava_gravado()
     {
         Gravar(Approval("yst00013:000001", Noon));

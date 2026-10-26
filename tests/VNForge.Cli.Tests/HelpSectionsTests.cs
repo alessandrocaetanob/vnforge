@@ -6,7 +6,7 @@ namespace VNForge.Cli.Tests;
 public sealed class HelpSectionsTests : IDisposable
 {
     private static readonly string[] Pipeline = ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore", "test"];
-    private static readonly string[] Projeto = ["status", "preview", "export", "import", "glossary", "chars", "scripts", "config", "detect"];
+    private static readonly string[] Projeto = ["status", "preview", "export", "import", "glossary", "chars", "scripts", "lines", "config", "detect"];
     private static readonly string[] BaixoNivel = ["ypf", "ybn", "patch-exe"];
 
     private readonly CliHarness _cli = new();

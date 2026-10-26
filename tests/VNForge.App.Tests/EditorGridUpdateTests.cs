@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -46,6 +47,25 @@ public class EditorGridUpdateTests : IDisposable
     }
 
     [Fact]
+    public async Task Nao_traduzir_atualiza_a_linha_da_grade_o_aviso_e_o_filtro()
+    {
+        var vm = await Abrir();
+        var linha = vm.Lines[0];
+        Assert.True(linha.HasWarning);
+        var pendentes = vm.Filters.Single(f => f.Filter == LineStatusFilter.Pending).Count;
+
+        vm.Detail!.KeepCommand.Execute(null);
+
+        Assert.Equal(TranslationStatus.Keep, linha.Status);
+        Assert.Equal("Não traduzir", linha.StatusLabel);
+        Assert.Equal(LineRow.KeepLabel, linha.TranslationLabel);
+        Assert.False(linha.HasWarning);
+        Assert.Equal(TranslationStatus.Keep, Gravada(0).Status);
+        Assert.Equal(1, vm.Filters.Single(f => f.Filter == LineStatusFilter.Keep).Count);
+        Assert.Equal(pendentes - 1, vm.Filters.Single(f => f.Filter == LineStatusFilter.Pending).Count);
+    }
+
+    [Fact]
     public async Task Aprovar_atualiza_o_status_da_linha_da_grade_e_grava_no_arquivo()
     {
         var vm = await Abrir();
@@ -75,7 +95,8 @@ public class EditorGridUpdateTests : IDisposable
         Assert.NotEqual("sem tradução", linha.TranslationLabel);
         Assert.Equal(vm.Detail.Translation, linha.TranslationLabel);
         Assert.Equal(TranslationStatus.Translated, linha.Status);
-        Assert.False(linha.HasWarning);
+        // O provedor falso devolve o original com "[PT]" na frente, então o aviso de japonês na tradução é o certo; o de "sem tradução" tem de ter saído.
+        Assert.DoesNotContain(linha.Entry.Issues, i => i.RuleId == "nao-traduzida");
     }
 
     [Fact]

@@ -23,6 +23,9 @@ public sealed class LineRow : TemplatedControl
     public const string NarrationLabel = "Narração";
     public const string NoTranslationLabel = "sem tradução";
 
+    /// <summary>O que a coluna da tradução diz numa linha "Não traduzir": o build a copia como está.</summary>
+    public const string KeepLabel = "fica como no original";
+
     public static readonly StyledProperty<int> NumberProperty = AvaloniaProperty.Register<LineRow, int>(nameof(Number));
     public static readonly StyledProperty<TranslationStatus> StatusProperty = AvaloniaProperty.Register<LineRow, TranslationStatus>(nameof(Status));
     public static readonly StyledProperty<string?> SpeakerProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Speaker));
@@ -122,7 +125,7 @@ public sealed class LineRow : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == TranslationProperty
-            || change.Property == IssueProperty)
+            || change.Property == IssueProperty || change.Property == StatusProperty)
         {
             Apply();
         }
@@ -134,7 +137,7 @@ public sealed class LineRow : TemplatedControl
         var untranslated = string.IsNullOrEmpty(Translation);
         NumberText = Number.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
         SpeakerText = narration ? NarrationLabel : Speaker!;
-        TranslationText = untranslated ? NoTranslationLabel : Translation!;
+        TranslationText = !untranslated ? Translation! : Status == TranslationStatus.Keep ? KeepLabel : NoTranslationLabel;
         PseudoClasses.Set(":narration", narration);
         PseudoClasses.Set(":untranslated", untranslated);
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);

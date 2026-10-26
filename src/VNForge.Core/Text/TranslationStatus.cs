@@ -28,4 +28,12 @@ public enum TranslationStatus
     /// <summary>Aprovada para o build final.</summary>
     [JsonStringEnumMemberName("approved")]
     Approved,
+
+    /// <summary>
+    /// "Não traduzir": a linha fica como no original de propósito (nome de fonte, código, marca). O build copia o original byte a byte, como em
+    /// <see cref="Untranslated"/>, mas a linha conta como pronta e fica fora do QA de completude e dos pedidos à IA. Vem depois de
+    /// <see cref="Approved"/> para não mudar os valores numéricos dos outros; não é uma etapa do fluxo, então <c>status &gt;= Reviewed</c> não a significa.
+    /// </summary>
+    [JsonStringEnumMemberName("keep")]
+    Keep,
 }

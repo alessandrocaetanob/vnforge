@@ -97,6 +97,21 @@ public class TranslationQuoterTests
     }
 
     [Fact]
+    public void Linha_nao_traduzir_fica_fora_do_pedido_e_do_orcamento()
+    {
+        var texts = new Dictionary<string, IReadOnlyList<TextUnit>>
+        {
+            ["a"] = [Line("a:1"), Line("a:2", source: "ＭＳ ゴシック", status: TranslationStatus.Keep)],
+        };
+
+        var pending = TranslationQuoter.PendingLines(texts, ["a"]);
+
+        Assert.Equal(["a:1"], pending.Select(l => l.Id));
+        Assert.False(TranslationQuoter.IsPending(texts["a"][1]));
+        Assert.Equal(1, TranslationQuoter.Quote(pending, Rate).Lines);
+    }
+
+    [Fact]
     public void O_custo_sobe_da_rapida_para_a_caprichada_e_o_tempo_tambem()
     {
         var lines = TranslationQuoter.PendingLines(Texts(1, 400), ["yst00001"]);

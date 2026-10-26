@@ -97,8 +97,21 @@ public sealed class ToastService
             Dismiss(Toasts[0]);
         }
 
-        toast.Timer = clock.CreateTimer(_ => postToUi(() => Dismiss(toast)), null, Lifetime, Timeout.InfiniteTimeSpan);
+        toast.Timer = clock.CreateTimer(_ => DismissLater(toast), null, Lifetime, Timeout.InfiniteTimeSpan);
         return toast;
+    }
+
+    private void DismissLater(ToastItem toast)
+    {
+        try
+        {
+            postToUi(() => Dismiss(toast));
+        }
+        catch (Exception e) when (e is NullReferenceException or InvalidOperationException)
+        {
+            // O timer roda na thread do pool: com o dispatcher já desmontado (a janela fechou) a exceção derrubaria o processo, e o aviso some junto com a janela.
+            System.Diagnostics.Debug.WriteLine(e);
+        }
     }
 
     public void Dismiss(ToastItem toast)
