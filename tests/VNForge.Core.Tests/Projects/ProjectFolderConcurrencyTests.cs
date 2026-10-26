@@ -30,6 +30,8 @@ public class ProjectFolderConcurrencyTests
         var tamanhosValidos = new HashSet<int> { 50, 80 };
         using var parar = new CancellationTokenSource();
 
+        // Os leitores respiram 1 ms entre as leituras: em laço fechado, dois leitores mantêm o arquivo aberto quase o tempo todo e o
+        // escritor, que no Windows só troca o arquivo quando ninguém o segura, esgota a janela de novas tentativas sob carga.
         var leitor = Task.Run(() =>
         {
             var leituras = 0;
@@ -37,6 +39,7 @@ public class ProjectFolderConcurrencyTests
             {
                 Assert.Contains(projeto.LoadText(Key).Count, tamanhosValidos);
                 leituras++;
+                Thread.Sleep(1);
             }
 
             return leituras;
@@ -47,6 +50,7 @@ public class ProjectFolderConcurrencyTests
             while (!parar.IsCancellationRequested)
             {
                 Assert.Contains(projeto.LoadAllText()[Key].Count, tamanhosValidos);
+                Thread.Sleep(1);
             }
         }, TestContext.Current.CancellationToken);
 
@@ -73,22 +77,45 @@ public class ProjectFolderConcurrencyTests
     }
 
     [Fact]
-    public async Task SaveText_espera_uma_leitura_externa_que_segura_o_arquivo_por_pouco_tempo()
+    public void SaveText_espera_uma_leitura_externa_que_segura_o_arquivo_por_pouco_tempo()
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
         projeto.SaveText(Key, Unidades(2));
 
         var aberto = new FileStream(projeto.TextPath(Key), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        var liberar = Task.Run(async () =>
+        var gravou = false;
+        var liberar = new Thread(() =>
         {
-            await Task.Delay(100, TestContext.Current.CancellationToken);
-            await aberto.DisposeAsync();
-        }, TestContext.Current.CancellationToken);
+            // Solta o arquivo 100 ms depois que o SaveText gravou o temporário e entrou no Move. Contar a espera a partir daí, numa
+            // thread própria (e não numa tarefa do pool), mantém a liberação dentro da janela de novas tentativas mesmo com a máquina carregada.
+            while (!Volatile.Read(ref gravou) && !Directory.EnumerateFiles(projeto.TextDirectory, "*.tmp").Any())
+            {
+                Thread.Sleep(1);
+            }
 
-        projeto.SaveText(Key, Unidades(3));
+            if (!Volatile.Read(ref gravou))
+            {
+                Thread.Sleep(100);
+            }
 
-        await liberar;
+            aberto.Dispose();
+        })
+        {
+            IsBackground = true,
+        };
+        liberar.Start();
+
+        try
+        {
+            projeto.SaveText(Key, Unidades(3));
+        }
+        finally
+        {
+            Volatile.Write(ref gravou, true);
+            liberar.Join();
+        }
+
         Assert.Equal(3, projeto.LoadText(Key).Count);
         Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
     }
