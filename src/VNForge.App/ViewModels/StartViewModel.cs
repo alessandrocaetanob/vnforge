@@ -12,7 +12,7 @@ namespace VNForge.App.ViewModels;
 public sealed record FirstStep(int Number, string Title, string Description);
 
 /// <summary>Tela Início: abrir um projeto, ver os recentes e o progresso do projeto selecionado.</summary>
-public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock) : ObservableObject
+public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock) : ObservableObject, IDisposable
 {
     private readonly SemaphoreSlim loadGate = new(1, 1);
 
@@ -106,13 +106,13 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     public async Task LoadAsync(string? selectPath = null)
     {
         // Duas cargas ao mesmo tempo (abertura da janela e um projeto aberto logo em seguida) embaralhariam a lista.
-        await loadGate.WaitAsync();
+        await loadGate.WaitAsync(CancellationToken.None);
         try
         {
             var keep = selectPath ?? Selected?.Path;
             var now = clock.GetUtcNow();
             var list = recents.Read();
-            var items = await Task.WhenAll(list.Projects.Select(recent => Task.Run(() => Describe(recent, now))));
+            var items = await Task.WhenAll(list.Projects.Select(recent => Task.Run(() => Describe(recent, now), CancellationToken.None)));
             RecentsProblem = list.Problem is { } problem
                 ? $"{problem.Replace($"'{recents.Path}'", $"'{System.IO.Path.GetFileName(recents.Path)}'", StringComparison.Ordinal)} A lista aparece vazia; abrir um projeto a recria."
                 : null;
@@ -158,7 +158,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         ProjectSummary summary;
         try
         {
-            summary = await Task.Run(() => ProjectSummaryReader.Read(path));
+            summary = await Task.Run(() => ProjectSummaryReader.Read(path), CancellationToken.None);
         }
         catch (Exception e) when (IsExpected(e))
         {
@@ -316,7 +316,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
             return;
         }
 
-        detailDebounce?.Cancel();
+        CancelDetailDebounce();
 
         var rapid = lastSelectionAt != 0 && Stopwatch.GetElapsedTime(lastSelectionAt) < TimeSpan.FromMilliseconds(500);
         lastSelectionAt = Stopwatch.GetTimestamp();
@@ -329,6 +329,20 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
         var source = detailDebounce = new CancellationTokenSource();
         DetailLoading = ReloadDetailAsync(rapid && !force ? DetailDebounce : TimeSpan.Zero, source.Token);
+    }
+
+    /// <summary>Cancela e descarta a espera anterior; quem a usa já guardou o token, que continua válido depois do descarte.</summary>
+    private void CancelDetailDebounce()
+    {
+        var previous = detailDebounce;
+        detailDebounce = null;
+        previous?.Cancel();
+        previous?.Dispose();
+    }
+
+    public void Dispose()
+    {
+        CancelDetailDebounce();
     }
 
     private async Task ReloadDetailAsync(TimeSpan wait, CancellationToken token)

@@ -82,21 +82,37 @@ public sealed class RecentProjectItem
     public double TotalLines => Summary?.Counts.Total ?? 0;
 
     /// <summary>A parte pronta como a lista e o anel a escrevem, arredondada para baixo: "42%". "—" quando o projeto não abriu.</summary>
-    public string ReadyLabel => Summary is null ? "—" : $"{(Summary.Counts.Total == 0 ? 0 : (int)Math.Floor(100.0 * Summary.Counts.Ready / Summary.Counts.Total))}%";
+    public string ReadyLabel => Summary is null ? "—" : $"{ReadyPercent(Summary.Counts)}%";
 
     /// <summary>"48.211 linhas", a segunda linha da lista.</summary>
-    public string LinesLabel => Summary is null ? string.Empty : Summary.Counts.Total == 1 ? "1 linha" : $"{Lines} linhas";
+    public string LinesLabel => Summary is null ? string.Empty : LinesText(Summary.Counts.Total);
 
     /// <summary>A coluna "Pronto" da lista: a parte pronta, ou o aviso quando o projeto não abre.</summary>
-    public string ReadyColumnLabel => HasProblem ? "Indisponível" : IsUnsupported ? "Sem suporte" : ReadyLabel;
+    public string ReadyColumnLabel => ReadyColumnText();
 
     /// <summary>Descrição do anel e da barra para leitor de tela.</summary>
     public string ReadyDescription => $"{ReadyLabel} pronto: {ProjectLabels.Number((int)ReadyLines)} de {LinesLabel}";
 
     /// <summary>"Rápida", "Equilibrada" ou "Caprichada" nos detalhes técnicos; o nome do modelo quando ele não é de nenhuma qualidade.</summary>
-    public string QualityLabel => Summary is null
-        ? "—"
-        : QualityProfiles.ForModel(Summary.Model) is { } profile ? QualityOption.Describe(profile).Title : ProjectLabels.Model(Summary.Model);
+    public string QualityLabel => Summary is null ? "—" : QualityText(Summary.Model);
+
+    private string ReadyColumnText()
+    {
+        if (HasProblem)
+        {
+            return "Indisponível";
+        }
+
+        return IsUnsupported ? "Sem suporte" : ReadyLabel;
+    }
+
+    private static int ReadyPercent(StatusCounts counts) =>
+        counts.Total == 0 ? 0 : (int)Math.Floor(100.0 * counts.Ready / counts.Total);
+
+    private static string LinesText(int total) => total == 1 ? "1 linha" : $"{ProjectLabels.Number(total)} linhas";
+
+    private static string QualityText(string model) =>
+        QualityProfiles.ForModel(model) is { } profile ? QualityOption.Describe(profile).Title : ProjectLabels.Model(model);
 
     public string Scripts => Summary is null ? "—" : ProjectLabels.Number(Summary.Scripts);
 
