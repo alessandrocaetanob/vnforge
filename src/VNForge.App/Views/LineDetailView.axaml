@@ -118,10 +118,14 @@
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding Preview.HasLayout}">
               <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Left" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
             </ScrollViewer>
-            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
               <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
               <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
               <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}" AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
+            </StackPanel>
+            <StackPanel x:Name="WrapOffRow" Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsNeutral}">
+              <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
+              <TextBlock Classes="meta secondary" Text="{Binding FitText}" AutomationProperties.Name="A quebra de linha está desligada no perfil"/>
             </StackPanel>
             <StackPanel Spacing="4" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
               <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
@@ -230,6 +234,28 @@
 
         </StackPanel>
         <StackPanel x:Name="ProblemsFragment" Spacing="16">
+          <!-- Os avisos e erros do QA desta linha: os mesmos que dão o ícone na grade, com o nome da regra e a mensagem. -->
+          <ItemsControl x:Name="QaIssuesList" ItemsSource="{Binding QaIssues}" IsVisible="{Binding HasQaIssues}" AutomationProperties.Name="Avisos do QA desta linha">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="8"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LineIssueViewModel">
+                <Border Classes="infobar" Classes.error="{Binding IsError}" Classes.warning="{Binding !IsError}">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}" IsVisible="{Binding !IsError}"/>
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsError}"/>
+                    <StackPanel Grid.Column="1" Spacing="2">
+                      <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Title}"/>
+                      <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Message}"/>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
           <Border Classes="infobar error" IsVisible="{Binding HasMissingMarkers}">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
               <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>

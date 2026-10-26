@@ -610,6 +610,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
             : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
         detail.AttachPreview(CurrentProfile());
+        detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
     }
@@ -720,6 +721,10 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
         line.Update(updated);
+        if (Detail is { } open && string.Equals(open.Id, line.Id, StringComparison.Ordinal))
+        {
+            open.ShowIssues(updated.Issues);
+        }
 
         // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
         data?.Replace(updated);

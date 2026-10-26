@@ -30,6 +30,7 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<string?> TranslationProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Translation));
     public static readonly StyledProperty<LineIssue> IssueProperty = AvaloniaProperty.Register<LineRow, LineIssue>(nameof(Issue));
     public static readonly StyledProperty<string?> IssueLabelProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueLabel));
+    public static readonly StyledProperty<string?> IssueTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueTip));
 
     public static readonly DirectProperty<LineRow, string> NumberTextProperty =
         AvaloniaProperty.RegisterDirect<LineRow, string>(nameof(NumberText), o => o.NumberText);
@@ -89,6 +90,13 @@ public sealed class LineRow : TemplatedControl
     {
         get => GetValue(IssueLabelProperty);
         set => SetValue(IssueLabelProperty, value);
+    }
+
+    /// <summary>Dica do ícone do QA: o nome da regra e a mensagem de cada ocorrência.</summary>
+    public string? IssueTip
+    {
+        get => GetValue(IssueTipProperty);
+        set => SetValue(IssueTipProperty, value);
     }
 
     /// <summary>O número da linha em mono, com zeros à esquerda (<c>0038</c>).</summary>

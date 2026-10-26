@@ -43,6 +43,34 @@ public class EditorDetailTests : IDisposable
     }
 
     [Fact]
+    public async Task Linha_com_aviso_do_QA_mostra_o_mesmo_aviso_no_painel_e_ele_some_ao_gravar()
+    {
+        var vm = await Abrir();
+        Assert.True(vm.Lines[0].HasWarning);
+        var aviso = Assert.Single(vm.Detail!.QaIssues);
+        Assert.Equal(vm.Lines[0].Entry.Issues[0].Message, aviso.Message);
+        Assert.False(aviso.IsError);
+        Assert.Contains(vm.Lines[0].Entry.Issues[0].Message, vm.Lines[0].IssueTip);
+
+        vm.Detail.Translation = "Bom dia.";
+        vm.Detail.Flush();
+
+        Assert.False(vm.Lines[0].HasWarning);
+        Assert.False(vm.Detail.HasQaIssues);
+    }
+
+    [Fact]
+    public async Task Linha_sem_aviso_nao_mostra_bloco_de_avisos()
+    {
+        var vm = await Abrir();
+
+        vm.SelectedLine = vm.Lines[1];
+
+        Assert.False(vm.Lines[1].HasWarning);
+        Assert.False(vm.Detail!.HasQaIssues);
+    }
+
+    [Fact]
     public async Task Sem_linha_selecionada_nao_ha_painel()
     {
         var vm = await Abrir();

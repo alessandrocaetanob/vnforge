@@ -1,5 +1,6 @@
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -153,6 +154,7 @@ public class MainWindowRailTests
     {
         using var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        ProjectFolder.Open(root).SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(true, 54, 3) });
         var vm = Create(temp, root);
         Assert.Equal(string.Empty, vm.EncodingText);
         Assert.Equal("Nenhum projeto aberto", vm.ProjectTitle);
@@ -167,10 +169,24 @@ public class MainWindowRailTests
     }
 
     [Fact]
+    public async Task Barra_de_status_diz_que_a_quebra_esta_desligada_e_nao_mostra_limites_que_nao_valem()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        var vm = Create(temp, root);
+
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+
+        Assert.Equal("Quebra de linha desligada", vm.BoxLimitsText);
+    }
+
+    [Fact]
     public async Task Mudar_os_Ajustes_do_projeto_atualiza_a_acentuacao_e_os_limites_da_caixa()
     {
         using var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        ProjectFolder.Open(root).SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(true, 54, 3) });
         var vm = Create(temp, root);
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;

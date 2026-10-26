@@ -255,7 +255,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"Acentos: ajuste no jogo" com a estratégia do projeto.</summary>
     public string EncodingText => CurrentProject is { } project ? $"Acentos: {ProjectLabels.EncodingShort(project.EncodingStrategy)}" : string.Empty;
 
-    /// <summary>"40 colunas · 3 linhas": os limites da caixa de texto do <c>formatting.json</c>; vazio sem projeto ou sem perfil legível.</summary>
+    /// <summary>"40 colunas · 3 linhas": os limites da caixa de texto do <c>formatting.json</c>; "Quebra de linha desligada" quando o perfil não quebra linhas, porque os limites não valem; vazio sem projeto ou sem perfil legível.</summary>
     public string BoxLimitsText
     {
         get
@@ -263,6 +263,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (CurrentProject is not { } project || profiles.Get(project.Root) is not { } profile)
             {
                 return string.Empty;
+            }
+
+            if (!profile.Wrap.Enabled)
+            {
+                return "Quebra de linha desligada";
             }
 
             var columns = $"{profile.Wrap.MaxWidth} colunas";

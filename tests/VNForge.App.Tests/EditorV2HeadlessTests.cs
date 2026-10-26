@@ -131,6 +131,37 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task Inspetor_mostra_os_avisos_do_QA_e_que_a_quebra_esta_desligada()
+    {
+        var (vm, temp) = await Abrir();
+        using var _ = temp;
+        var traduzida = new List<string>();
+        var semTraducao = new List<string>();
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                vm.SelectedLine = vm.Lines[3];
+                traduzida.AddRange(VisibleTexts(vm.Detail));
+                vm.SelectedLine = vm.Lines[2];
+                semTraducao.AddRange(VisibleTexts(vm.Detail));
+            },
+            CancellationToken.None);
+
+        Assert.Contains("Quebra desligada no perfil", traduzida);
+        Assert.DoesNotContain(traduzida, t => t.StartsWith("Cabe", StringComparison.Ordinal));
+        Assert.Contains("Não traduzida", semTraducao);
+    }
+
+    private static List<string> VisibleTexts(LineDetailViewModel? detail)
+    {
+        var window = Show(new LineDetailView { DataContext = detail }, 388);
+        var shown = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!).ToList();
+        window.Close();
+        return shown;
+    }
+
+    [Fact]
     public async Task Ctrl_F_e_Ctrl_H_abrem_o_painel_de_busca_dentro_do_Editor()
     {
         var (vm, temp) = await Abrir();
