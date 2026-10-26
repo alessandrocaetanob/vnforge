@@ -110,6 +110,122 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
         });
     }
 
+    [Fact]
+    public async Task Esc_que_fecha_o_mapa_de_atalhos_nao_fecha_tambem_a_revisao()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Rodar(
+            root,
+            (window, vm) =>
+            {
+                vm.ToggleShortcutMapCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+                Assert.True(vm.IsShortcutMapOpen);
+
+                Teclar(window, [(Key.Escape, PhysicalKey.Escape, true)]);
+            },
+            (vm, _) =>
+            {
+                Assert.False(vm.IsShortcutMapOpen);
+                Assert.True(vm.Editor.IsReviewing);
+            });
+    }
+
+    [Fact]
+    public async Task Com_o_mapa_de_atalhos_aberto_as_teclas_da_revisao_nao_agem_na_fala_escondida()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Rodar(
+            root,
+            (window, vm) =>
+            {
+                vm.ToggleShortcutMapCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, true), (Key.M, PhysicalKey.M, true), (Key.Right, PhysicalKey.ArrowRight, true), (Key.E, PhysicalKey.E, true)]);
+            },
+            (vm, review) =>
+            {
+                Assert.True(vm.Editor.IsReviewing);
+                Assert.Equal(0, review.Position);
+                Assert.Equal(0, review.ApprovedCount);
+                Assert.Equal(0, review.LaterCount);
+            });
+    }
+
+    [Fact]
+    public async Task Com_a_janela_Traduzir_com_IA_aberta_as_teclas_da_revisao_nao_agem()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Rodar(
+            root,
+            (window, vm) =>
+            {
+                vm.Translate.IsOpen = true;
+                ScreenRenderer.Settle(window);
+
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, true), (Key.Right, PhysicalKey.ArrowRight, true)]);
+            },
+            (vm, review) =>
+            {
+                Assert.True(vm.Editor.IsReviewing);
+                Assert.Equal(0, review.Position);
+                Assert.Equal(0, review.ApprovedCount);
+            });
+    }
+
+    [Fact]
+    public async Task Tecla_presa_de_uma_revisao_anterior_nao_trava_a_revisao_nova()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Rodar(
+            root,
+            (window, vm) =>
+            {
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
+                vm.Editor.StartReview();
+                ScreenRenderer.Settle(window);
+
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
+            },
+            (vm, _) =>
+            {
+                Assert.Equal(1, vm.Editor.Review!.ApprovedCount);
+                Assert.Equal(1, vm.Editor.Review.Position);
+            });
+    }
+
+    [Fact]
+    public async Task Janela_que_perde_a_ativacao_com_a_tecla_segurada_libera_a_tecla()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Rodar(
+            root,
+            (window, _) =>
+            {
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
+                var deactivated = (MulticastDelegate)typeof(WindowBase).GetField("Deactivated", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+                deactivated.DynamicInvoke(window, EventArgs.Empty);
+
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
+            },
+            (_, review) =>
+            {
+                Assert.Equal(2, review.Position);
+                Assert.Equal(2, review.ApprovedCount);
+            });
+    }
+
     private Task Pressionar(string root, Key key, PhysicalKey physical, Action<MainWindowViewModel, ReviewModeViewModel> verificar) =>
         Pressionar(root, [(key, physical, true)], verificar);
 
@@ -139,7 +255,24 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
         });
     }
 
-    private async Task Pressionar(string root, (Key Key, PhysicalKey Physical, bool Release)[] teclas, Action<MainWindowViewModel, ReviewModeViewModel> verificar)
+    private Task Pressionar(string root, (Key Key, PhysicalKey Physical, bool Release)[] teclas, Action<MainWindowViewModel, ReviewModeViewModel> verificar) =>
+        Rodar(root, (window, _) => Teclar(window, teclas), verificar);
+
+    private static void Teclar(MainWindow window, (Key Key, PhysicalKey Physical, bool Release)[] teclas)
+    {
+        foreach (var (key, physical, release) in teclas)
+        {
+            window.KeyPress(key, RawInputModifiers.None, physical, null);
+            if (release)
+            {
+                window.KeyRelease(key, RawInputModifiers.None, physical, null);
+            }
+
+            ScreenRenderer.Settle(window);
+        }
+    }
+
+    private async Task Rodar(string root, Action<MainWindow, MainWindowViewModel> acao, Action<MainWindowViewModel, ReviewModeViewModel> verificar)
     {
         var log = new ProjectApprovalLog(root);
         await fixture.Session.Dispatch<int>(
@@ -164,16 +297,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
                     var view = window.GetVisualDescendants().OfType<ReviewModeView>().Single(v => v.IsEffectivelyVisible);
                     Assert.True(view.FindControl<Grid>("Root")!.IsFocused, "a tela do modo revisão recebe o foco ao abrir");
 
-                    foreach (var (key, physical, release) in teclas)
-                    {
-                        window.KeyPress(key, RawInputModifiers.None, physical, null);
-                        if (release)
-                        {
-                            window.KeyRelease(key, RawInputModifiers.None, physical, null);
-                        }
-
-                        ScreenRenderer.Settle(window);
-                    }
+                    acao(window, vm);
 
                     log.Saving.GetAwaiter().GetResult();
                     verificar(vm, review);

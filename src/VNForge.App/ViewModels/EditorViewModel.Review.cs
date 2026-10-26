@@ -21,6 +21,7 @@ public sealed partial class EditorViewModel
     /// <summary>O modo revisão aberto; nulo no Editor normal. A tela do Editor mostra o modo revisão no lugar da grade enquanto houver um.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReviewing))]
+    [NotifyCanExecuteChangedFor(nameof(CloseSearchCommand))]
     public partial ReviewModeViewModel? Review { get; private set; }
 
     public bool IsReviewing => Review is not null;

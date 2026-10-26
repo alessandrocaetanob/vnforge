@@ -22,7 +22,7 @@ public sealed partial class ReviewModeView : UserControl
         InitializeComponent();
 
         // Segurar Enter, M ou uma seta repete o KeyDown: sem o filtro de held a revisão aprovaria ou pularia uma fala atrás da outra.
-        AddHandler(KeyDownEvent, OnKeyDownTunnel, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyDownEvent, OnKeyDownTunnel, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnKeyUpTunnel, RoutingStrategies.Tunnel);
         LostFocus += (_, _) => held.Clear();
     }
@@ -30,7 +30,7 @@ public sealed partial class ReviewModeView : UserControl
     /// <summary>Enter aprova, E corrige, M deixa para depois, a seta para a direita pula, a da esquerda volta e Esc sai. Só a primeira batida de cada tecla vale.</summary>
     private void OnKeyDownTunnel(object? sender, KeyEventArgs e)
     {
-        if (current is null || e.KeyModifiers != KeyModifiers.None)
+        if (current is null || e.KeyModifiers != KeyModifiers.None || IsModalOpen())
         {
             return;
         }
@@ -57,6 +57,10 @@ public sealed partial class ReviewModeView : UserControl
         }
     }
 
+    /// <summary>O mapa de atalhos e a janela Traduzir com IA ficam por cima da tela: as teclas são deles enquanto estão abertos.</summary>
+    private bool IsModalOpen() =>
+        TopLevel.GetTopLevel(this)?.DataContext is MainWindowViewModel { IsShortcutMapOpen: true } or MainWindowViewModel { Translate.IsOpen: true };
+
     private void OnKeyUpTunnel(object? sender, KeyEventArgs e) => held.Remove(e.Key);
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -67,6 +71,7 @@ public sealed partial class ReviewModeView : UserControl
             current.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
+        held.Clear();
         current = DataContext as ReviewModeViewModel;
         if (current is null)
         {
@@ -81,14 +86,27 @@ public sealed partial class ReviewModeView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         held.Clear();
+        if (TopLevel.GetTopLevel(this) is WindowBase window)
+        {
+            window.Deactivated -= OnWindowDeactivated;
+        }
+
         base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (TopLevel.GetTopLevel(this) is WindowBase window)
+        {
+            window.Deactivated += OnWindowDeactivated;
+        }
+
         FocusScreen();
     }
+
+    /// <summary>A janela perdeu a ativação com uma tecla segurada: o KeyUp não vem, e a tecla ficaria presa como "já apertada".</summary>
+    private void OnWindowDeactivated(object? sender, EventArgs e) => held.Clear();
 
     private void FocusScreen() => Dispatcher.UIThread.Post(() => Root.Focus(), DispatcherPriority.Input);
 
