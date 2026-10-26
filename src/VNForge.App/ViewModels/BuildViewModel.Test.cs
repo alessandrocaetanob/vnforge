@@ -287,6 +287,9 @@ public sealed partial class BuildViewModel
             case GameExecutableNotFoundException:
                 FailQuietly("Programa do jogo não encontrado", failure, "O VNForge não encontrou o programa do jogo, e nada foi copiado. Confira a pasta do jogo nos Ajustes.");
                 break;
+            case GamePatchRefusedException:
+                FailQuietly("Ajuste da fonte recusado", failure, "O VNForge não conseguiu ajustar a fonte no programa do jogo, e nada foi copiado. Os detalhes estão em Detalhes técnicos, no registro.");
+                break;
             case GameOpenException:
                 FailQuietly("O jogo recebeu a tradução, mas não abriu", failure, "O jogo recebeu a tradução, mas não abriu. Abra o jogo por conta própria; para desfazer, use “Voltar ao jogo original”.");
                 break;
