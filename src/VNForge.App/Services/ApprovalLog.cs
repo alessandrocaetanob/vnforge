@@ -20,30 +20,61 @@ public interface IApprovalLog
 /// <summary>
 /// O registro do disco. O arquivo é lido uma vez, na primeira vez que o registro é usado, e a memória passa a ser a fonte: aprovar acrescenta na memória, o
 /// contador do dia sai dela, e a gravação roda fora da thread da tela, uma por vez, a última vencendo. Um arquivo que não abriu (disco ocupado) ou que é
-/// de uma versão mais nova nunca é sobrescrito: o registro continua na memória, sem gravar, até o arquivo voltar a abrir.
+/// de uma versão mais nova nunca é sobrescrito: o registro continua na memória, sem gravar. Com o arquivo ilegível, uma releitura é tentada a cada
+/// <see cref="RetryInterval"/>; ao dar certo, o que foi aprovado e desfeito nesse meio tempo é reaplicado sobre o histórico lido.
 /// </summary>
-public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
+public sealed class ProjectApprovalLog : IApprovalLog
 {
-    private static readonly ConcurrentDictionary<string, ProjectApprovalLog> Shared = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>De quanto em quanto tempo um arquivo ilegível é relido; cada tentativa pode esperar até 300 ms na thread da tela.</summary>
+    public static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(5);
 
+    private static readonly ConcurrentDictionary<string, ProjectApprovalLog> Shared =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
+    private readonly string projectRoot;
+    private readonly TimeProvider clock;
+    private readonly Action<ProjectFolder, SessionsFile> save;
     private readonly Lock gate = new();
-    private readonly List<ApprovalRecord> unsaved = [];
+    private readonly List<(bool Added, ApprovalRecord Record)> journal = [];
     private SessionsFile sessions = SessionsFile.Empty;
     private SessionsLoadStatus status = SessionsLoadStatus.Missing;
     private ProjectFolder? folder;
     private bool loaded;
+    private DateTimeOffset nextRetry;
     private SessionsFile? pending;
     private bool writing;
     private Task saving = Task.CompletedTask;
+
+    /// <param name="projectRoot">A pasta do projeto.</param>
+    /// <param name="clock">O relógio da espera entre releituras; o padrão é o do sistema.</param>
+    /// <param name="save">Grava o registro; os testes trocam por um que falha ou espera. O padrão é <see cref="SessionsFile.Save"/>.</param>
+    public ProjectApprovalLog(string projectRoot, TimeProvider? clock = null, Action<ProjectFolder, SessionsFile>? save = null)
+    {
+        this.projectRoot = projectRoot;
+        this.clock = clock ?? TimeProvider.System;
+        this.save = save ?? SessionsFile.Save;
+    }
 
     /// <summary>
     /// O registro compartilhado da pasta do projeto: trocar de projeto e voltar não cria um registro novo que leria o arquivo antes de a gravação pendente do
     /// anterior terminar e a deixaria sobrescrever as aprovações novas.
     /// </summary>
-    public static ProjectApprovalLog For(string projectRoot)
+    public static ProjectApprovalLog For(string projectRoot) => For(projectRoot, root => new ProjectApprovalLog(root));
+
+    /// <summary>O registro compartilhado da pasta; <paramref name="create"/> só roda na primeira vez que a pasta aparece.</summary>
+    public static ProjectApprovalLog For(string projectRoot, Func<string, ProjectApprovalLog> create)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
-        return Shared.GetOrAdd(Path.GetFullPath(projectRoot), root => new ProjectApprovalLog(root));
+        ArgumentNullException.ThrowIfNull(create);
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectRoot));
+        return Shared.GetOrAdd(full, create);
+    }
+
+    /// <summary>Espera as gravações pendentes de todos os registros, até <paramref name="timeout"/>; o app chama ao fechar. Falso quando alguma não terminou.</summary>
+    public static bool FlushAll(TimeSpan timeout)
+    {
+        var tasks = Shared.Values.Select(log => log.Saving).Where(task => !task.IsCompleted).ToArray();
+        return tasks.Length == 0 || Task.WaitAll(tasks, timeout);
     }
 
     /// <summary>A gravação em andamento, ou uma tarefa já concluída quando não há nenhuma; os testes a aguardam.</summary>
@@ -62,13 +93,12 @@ public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
     {
         lock (gate)
         {
-            Load();
             var writable = CanWrite();
             var record = new ApprovalRecord(scriptKey, unitId, at);
             sessions = sessions.With(record);
             if (!writable)
             {
-                unsaved.Add(record);
+                journal.Add((true, record));
             }
 
             Persist(writable);
@@ -79,13 +109,11 @@ public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
     {
         lock (gate)
         {
-            Load();
             var writable = CanWrite();
             sessions = sessions.Without(scriptKey, unitId);
-            var index = unsaved.FindLastIndex(a => a.ScriptKey == scriptKey && a.UnitId == unitId);
-            if (index >= 0)
+            if (!writable)
             {
-                unsaved.RemoveAt(index);
+                journal.Add((false, new ApprovalRecord(scriptKey, unitId, default)));
             }
 
             Persist(writable);
@@ -101,6 +129,7 @@ public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
         }
     }
 
+    /// <summary>Abre a pasta e lê o arquivo na primeira vez. Sem pasta de projeto ainda não há o que ler, e a próxima chamada tenta de novo.</summary>
     private void Load()
     {
         if (loaded)
@@ -108,38 +137,39 @@ public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
             return;
         }
 
-        loaded = true;
         try
         {
             folder = ProjectFolder.Open(projectRoot);
         }
         catch (VNForgeException)
         {
-            // Sem pasta de projeto não há onde gravar: o registro vale só até o app fechar.
             status = SessionsLoadStatus.Unreadable;
             return;
         }
 
-        var read = SessionsFile.Read(folder);
-        sessions = read.File;
+        loaded = true;
+        Merge(SessionsFile.Read(folder));
+    }
+
+    /// <summary>Junta o histórico lido com o que foi aprovado ou desfeito enquanto ele não estava legível. Arquivo ainda ilegível agenda a próxima tentativa.</summary>
+    private void Merge(SessionsLoad read)
+    {
         status = read.Status;
+        sessions = journal.Aggregate(read.File, (file, step) => step.Added ? file.With(step.Record) : file.Without(step.Record.ScriptKey, step.Record.UnitId));
+        if (read.CanOverwrite)
+        {
+            journal.Clear();
+        }
+
+        nextRetry = status == SessionsLoadStatus.Unreadable ? clock.GetUtcNow() + RetryInterval : default;
     }
 
     private bool CanWrite()
     {
-        if (folder is not null && status == SessionsLoadStatus.Unreadable)
+        Load();
+        if (folder is not null && loaded && status == SessionsLoadStatus.Unreadable && clock.GetUtcNow() >= nextRetry)
         {
-            // O arquivo pode ter voltado a abrir: junta o histórico dele com o que já foi aprovado desde então.
-            var again = SessionsFile.Read(folder);
-            if (again.Status != SessionsLoadStatus.Unreadable)
-            {
-                status = again.Status;
-                sessions = unsaved.Aggregate(again.File, (file, approval) => file.With(approval));
-                if (again.CanOverwrite)
-                {
-                    unsaved.Clear();
-                }
-            }
+            Merge(SessionsFile.Read(folder));
         }
 
         return folder is not null && new SessionsLoad(sessions, status).CanOverwrite;
@@ -164,29 +194,68 @@ public sealed class ProjectApprovalLog(string projectRoot) : IApprovalLog
 
     private void WriteLoop()
     {
-        while (true)
+        var drained = false;
+        try
         {
-            SessionsFile next;
-            lock (gate)
+            while (TakePending() is { } next)
             {
-                if (pending is null)
+                if (!TrySave(next))
                 {
-                    writing = false;
                     return;
                 }
-
-                next = pending;
-                pending = null;
             }
 
-            try
+            drained = true;
+        }
+        finally
+        {
+            if (!drained)
             {
-                SessionsFile.Save(folder!, next);
+                lock (gate)
+                {
+                    writing = false;
+                }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        }
+    }
+
+    /// <summary>O próximo registro a gravar. Quando não há mais nenhum, a gravação termina na mesma passada do lock, para uma aprovação nova não ficar sem quem a grave.</summary>
+    private SessionsFile? TakePending()
+    {
+        lock (gate)
+        {
+            var next = pending;
+            pending = null;
+            if (next is null)
             {
-                // O registro é só do contador; a aprovação já está no texto do projeto, e a próxima aprovação grava de novo.
+                writing = false;
             }
+
+            return next;
+        }
+    }
+
+    /// <summary>Grava o registro. Falha de disco só perde esta gravação (a próxima aprovação grava de novo); qualquer outra falha também devolve o registro à fila e para o laço.</summary>
+    private bool TrySave(SessionsFile next)
+    {
+        try
+        {
+            save(folder!, next);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // O registro é só do contador; a aprovação já está no texto do projeto.
+            return true;
+        }
+        catch (Exception)
+        {
+            lock (gate)
+            {
+                pending ??= next;
+            }
+
+            return false;
         }
     }
 }

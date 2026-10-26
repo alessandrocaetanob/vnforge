@@ -536,6 +536,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
+        // A última aprovação ainda pode estar sendo gravada em segundo plano; espera um pouco para a contagem do dia não perdê-la.
+        ProjectApprovalLog.FlushAll(TimeSpan.FromMilliseconds(500));
+
         // Fechar com edições do Glossário que não foram para o disco as perderia: a página mostra o erro e deixa tentar de novo ou descartar.
         if (!Glossary.Flush())
         {

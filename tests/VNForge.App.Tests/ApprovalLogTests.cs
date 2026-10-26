@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Services;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -85,7 +86,8 @@ public sealed class ApprovalLogTests : IDisposable
     {
         SessionsFile.Save(Projeto, SessionsFile.Empty.With(Approval("yst00001:000010", -5)));
         var original = File.ReadAllText(SessionsFile.PathFor(Projeto));
-        var log = new ProjectApprovalLog(raiz);
+        var relogio = new FakeTimeProvider(Noon);
+        var log = new ProjectApprovalLog(raiz, relogio);
 
         FileStream? bloqueio = new(SessionsFile.PathFor(Projeto), FileMode.Open, FileAccess.Read, FileShare.None);
         try
@@ -103,11 +105,102 @@ public sealed class ApprovalLogTests : IDisposable
 
         Assert.Equal(original, File.ReadAllText(SessionsFile.PathFor(Projeto)));
 
+        // Dentro dos 5 s a releitura não é tentada de novo: o arquivo continua como estava.
         log.Record("yst00001", "yst00001:000012", Noon.AddMinutes(1));
         await log.Saving;
+        Assert.Equal(original, File.ReadAllText(SessionsFile.PathFor(Projeto)));
 
-        Assert.Equal(["yst00001:000010", "yst00001:000011", "yst00001:000012"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
+        relogio.Advance(ProjectApprovalLog.RetryInterval);
+        log.Record("yst00001", "yst00001:000013", Noon.AddMinutes(2));
+        await log.Saving;
+
+        Assert.Equal(["yst00001:000010", "yst00001:000011", "yst00001:000012", "yst00001:000013"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
+        Assert.Equal(4, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
+    public async Task Aprovacao_desfeita_com_o_arquivo_ilegivel_e_reaplicada_sobre_o_arquivo_relido()
+    {
+        SessionsFile.Save(Projeto, SessionsFile.Empty.With(Approval("yst00001:000010", -5)));
+        var relogio = new FakeTimeProvider(Noon);
+        var log = new ProjectApprovalLog(raiz, relogio);
+
+        using (new FileStream(SessionsFile.PathFor(Projeto), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            log.Record("yst00001", "yst00001:000011", Noon);
+            log.Remove("yst00001", "yst00001:000010");
+            log.Remove("yst00001", "yst00001:000011");
+            log.Record("yst00001", "yst00001:000012", Noon);
+        }
+
+        relogio.Advance(ProjectApprovalLog.RetryInterval);
+        log.Record("yst00001", "yst00001:000013", Noon);
+        await log.Saving;
+
+        Assert.Equal(["yst00001:000012", "yst00001:000013"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
+        Assert.Equal(2, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
+    public async Task Falha_inesperada_na_gravacao_nao_trava_o_registro_e_a_proxima_aprovacao_grava_tudo()
+    {
+        var falhas = 1;
+        var log = new ProjectApprovalLog(raiz, save: (pasta, registro) =>
+        {
+            if (Interlocked.Exchange(ref falhas, 0) == 1)
+            {
+                throw new InvalidOperationException("falha de teste");
+            }
+
+            SessionsFile.Save(pasta, registro);
+        });
+
+        log.Record("yst00001", "yst00001:000001", Noon);
+        await log.Saving;
+        Assert.Empty(SessionsFile.Load(Projeto).Approvals);
+
+        log.Record("yst00001", "yst00001:000002", Noon);
+        await log.Saving;
+
+        Assert.Equal(["yst00001:000001", "yst00001:000002"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
+    }
+
+    [Fact]
+    public async Task Pasta_que_ainda_nao_e_projeto_nao_marca_o_registro_como_lido()
+    {
+        var destino = Path.Combine(pasta.Path, "depois");
+        var log = new ProjectApprovalLog(destino);
+        log.Record("yst00001", "yst00001:000001", Noon);
+        await log.Saving;
+
+        SampleProjects.Create(destino, "Depois", TranslationStatus.Machine);
+        SessionsFile.Save(ProjectFolder.Open(destino), SessionsFile.Empty.With(Approval("yst00001:000010", -5)));
+        log.Record("yst00001", "yst00001:000002", Noon);
+        await log.Saving;
+
+        Assert.Equal(["yst00001:000010", "yst00001:000001", "yst00001:000002"], SessionsFile.Load(ProjectFolder.Open(destino)).Approvals.Select(a => a.UnitId));
         Assert.Equal(3, log.ReviewedOn(Noon, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
+    public async Task FlushAll_espera_a_gravacao_pendente_e_diz_quando_ela_nao_terminou()
+    {
+        using var liberar = new ManualResetEventSlim();
+        var log = ProjectApprovalLog.For(raiz, root => new ProjectApprovalLog(root, save: (pasta, registro) =>
+        {
+            liberar.Wait(TestContext.Current.CancellationToken);
+            SessionsFile.Save(pasta, registro);
+        }));
+        log.Record("yst00001", "yst00001:000001", Noon);
+
+        Assert.False(ProjectApprovalLog.FlushAll(TimeSpan.Zero));
+
+        var espera = Task.Run(() => ProjectApprovalLog.FlushAll(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken);
+        liberar.Set();
+
+        Assert.True(await espera);
+        Assert.Equal(["yst00001:000001"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
+        Assert.True(ProjectApprovalLog.FlushAll(TimeSpan.Zero));
     }
 
     [Fact]
@@ -130,9 +223,11 @@ public sealed class ApprovalLogTests : IDisposable
     public void For_devolve_o_mesmo_registro_para_a_mesma_pasta_mesmo_escrita_de_outro_jeito()
     {
         var a = ProjectApprovalLog.For(raiz);
-        var b = ProjectApprovalLog.For(raiz.ToUpperInvariant() + Path.DirectorySeparatorChar + ".");
+        var b = ProjectApprovalLog.For(raiz + Path.DirectorySeparatorChar + ".");
+        var c = ProjectApprovalLog.For(OperatingSystem.IsWindows() ? raiz.ToUpperInvariant() : raiz);
 
         Assert.Same(a, b);
+        Assert.Same(a, c);
     }
 
     [Fact]
