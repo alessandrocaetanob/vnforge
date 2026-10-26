@@ -2,7 +2,6 @@ using VNForge.App.Services;
 
 namespace VNForge.App.Tests;
 
-[Collection("TechnicalDetailsMemory")]
 public class TechnicalDetailsMemoryTests
 {
     [Fact]
@@ -65,19 +64,5 @@ public class TechnicalDetailsMemoryTests
         memory.Set("build", true);
 
         Assert.True(memory.Get("build"));
-    }
-
-    [Fact]
-    public void Install_troca_a_memoria_atual_e_descartar_devolve_a_anterior()
-    {
-        var before = TechnicalDetailsMemory.Current;
-        var other = new TechnicalDetailsMemory();
-
-        using (TechnicalDetailsMemory.Install(other))
-        {
-            Assert.Same(other, TechnicalDetailsMemory.Current);
-        }
-
-        Assert.Same(before, TechnicalDetailsMemory.Current);
     }
 }

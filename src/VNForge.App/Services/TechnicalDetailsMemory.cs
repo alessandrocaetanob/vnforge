@@ -27,18 +27,6 @@ public sealed class TechnicalDetailsMemory
         Load();
     }
 
-    /// <summary>A memória que os controles consultam; o app troca por uma gravada em disco ao abrir. Os testes isolam com <see cref="Install"/>.</summary>
-    public static TechnicalDetailsMemory Current { get; private set; } = new();
-
-    /// <summary>Troca <see cref="Current"/>. Descartar o retorno volta à memória de antes.</summary>
-    public static IDisposable Install(TechnicalDetailsMemory memory)
-    {
-        ArgumentNullException.ThrowIfNull(memory);
-        var before = Current;
-        Current = memory;
-        return new Release(before);
-    }
-
     /// <summary>Como a pessoa deixou a página; <see langword="null"/> quando ela nunca mexeu, e vale o que a tela define.</summary>
     public bool? Get(string key) => states.TryGetValue(key, out var open) ? open : null;
 
@@ -98,10 +86,5 @@ public sealed class TechnicalDetailsMemory
         {
             // Sem gravar, o estado continua valendo até o app fechar.
         }
-    }
-
-    private sealed class Release(TechnicalDetailsMemory before) : IDisposable
-    {
-        public void Dispose() => Current = before;
     }
 }
