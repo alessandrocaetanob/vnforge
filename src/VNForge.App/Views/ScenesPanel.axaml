@@ -6,14 +6,14 @@
              x:DataType="vm:EditorViewModel">
 
   <UserControl.Styles>
-    <!-- Os scripts que o filtro da lista não aceita ficam escondidos, mas continuam na lista: o script aberto não perde a seleção. -->
+    <!-- Os scripts que o filtro da lista não aceita (ou que um capítulo fechado esconde) ficam escondidos, mas continuam na lista: o script aberto não perde a seleção. -->
     <Style Selector="ListBox.scripts > ListBoxItem" x:DataType="vm:ScriptItemViewModel">
-      <Setter Property="IsVisible" Value="{Binding IsShown}"/>
+      <Setter Property="IsVisible" Value="{Binding IsListed}"/>
     </Style>
   </UserControl.Styles>
 
   <!-- A lista de cenas do Editor: na coluna da esquerda a partir de 1400 px, e dentro do flyout do cabeçalho abaixo disso. -->
-  <Grid RowDefinitions="48,Auto,*">
+  <Grid RowDefinitions="48,Auto,Auto,*">
     <Grid ColumnDefinitions="*,Auto" Margin="12,0">
       <TextBlock Classes="title-md" Text="Cenas" VerticalAlignment="Center"/>
       <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
@@ -24,13 +24,43 @@
         <PathIcon Width="16" Height="16" Margin="8,0,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
       </TextBox.InnerLeftContent>
     </TextBox>
-    <ListBox Grid.Row="2" Classes="scripts" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+
+    <!-- "Novo capítulo...": o nome do capítulo que recebe as cenas marcadas (ou a aberta). Enter cria, Esc cancela. -->
+    <StackPanel Grid.Row="2">
+      <StackPanel Margin="12,0,12,8" Spacing="6" IsVisible="{Binding IsNamingChapter}">
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Nome do capítulo novo. Ele recebe as cenas marcadas na lista."/>
+        <TextBox x:Name="ChapterNameBox" Text="{Binding NewChapterName}" PlaceholderText="Nome do capítulo" MaxLength="80" AutomationProperties.Name="Nome do capítulo novo">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding CommitNewChapterCommand}"/>
+            <KeyBinding Gesture="Escape" Command="{Binding CancelNewChapterCommand}"/>
+          </TextBox.KeyBindings>
+        </TextBox>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Classes="sm" Content="Cancelar" Command="{Binding CancelNewChapterCommand}"/>
+          <Button Classes="accent sm" Content="Criar" Command="{Binding CommitNewChapterCommand}"/>
+        </StackPanel>
+      </StackPanel>
+      <TextBlock Margin="12,0,12,8" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ChapterMessage}"
+                 IsVisible="{Binding ChapterMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+    </StackPanel>
+
+    <!-- Cada capítulo abre com o cabeçalho (ScriptGroup) na primeira cena dele; o menu da cena move as marcadas entre capítulos (montado em ScenesPanel.axaml.cs). -->
+    <ListBox Grid.Row="3" Classes="scripts" ItemsSource="{Binding SceneList}" SelectedItem="{Binding SelectedScript}"
              SelectionMode="Multiple" SelectedItems="{Binding ChosenScripts}"
              AutomationProperties.Name="Lista de cenas">
+      <ListBox.ContextMenu>
+        <ContextMenu Opening="OnSceneMenuOpening"/>
+      </ListBox.ContextMenu>
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="vm:ScriptItemViewModel">
-          <c:ScriptItem Key="{Binding Key}" Label="{Binding Label}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
-                        ToolTip.Tip="{Binding Tooltip}"/>
+          <StackPanel>
+            <c:ScriptGroup Margin="6,0" IsVisible="{Binding IsGroupStart}" Title="{Binding Chapter.Name}" CountText="{Binding Chapter.CountText}"
+                           IsExpanded="{Binding Chapter.IsExpanded, Mode=TwoWay}"/>
+            <Border Classes="scene" IsVisible="{Binding Chapter.IsExpanded}">
+              <c:ScriptItem Key="{Binding Key}" Label="{Binding Label}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
+                            ToolTip.Tip="{Binding Tooltip}"/>
+            </Border>
+          </StackPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>

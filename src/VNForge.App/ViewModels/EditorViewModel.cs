@@ -251,10 +251,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         IsLoading = true;
         ProjectLines? loaded = null;
         var loadedContext = EditorContext.Empty;
+        var loadedNames = ScriptNames.Empty;
         string? error = null;
         try
         {
-            (loaded, loadedContext) = await Task.Run(() => (loader(root), contextLoader(root)));
+            (loaded, loadedContext, loadedNames) = await Task.Run(() => (loader(root), contextLoader(root), ReadNames(root)));
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -270,6 +271,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorMessage = error;
         lineEditor = CreateLineEditor(loaded, root);
         context = loadedContext;
+        scriptNames = loadedNames;
         Apply(loaded);
     }
 
@@ -389,6 +391,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         {
             script.IsShown = script.Matches(ScriptFilter);
         }
+
+        RefreshChapterList();
     }
 
     /// <summary>Disparado por "Conferir arquivo": a janela abre Conferir a tradução. Leva a chave do script aberto.</summary>
@@ -841,6 +845,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
                 Scripts.Add(new ScriptItemViewModel(script, scriptLabel(script.Key)) { IsRunning = script.Key == RunningScriptKey });
             }
 
+            RebuildChapters();
             ApplyScriptFilter();
 
             SelectedScript = Scripts.FirstOrDefault();

@@ -75,6 +75,9 @@
                           <MenuItem Header="Renomear capítulo" InputGesture="F2" IsEnabled="{Binding CanRename}"
                                     Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).BeginRenameChapterCommand}"
                                     CommandParameter="{Binding}"/>
+                          <MenuItem Header="Novo capítulo..."
+                                    Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).NewChapterCommand}"
+                                    CommandParameter="{Binding}"/>
                         </ContextMenu>
                       </Button.ContextMenu>
                       <c:ChapterRow Number="{Binding Number}" Title="{Binding Name}" Done="{Binding Ready}" Review="{Binding ToReview}" Total="{Binding Total}"

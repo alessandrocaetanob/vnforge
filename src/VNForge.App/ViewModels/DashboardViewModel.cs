@@ -85,8 +85,8 @@ public sealed class TodoRowViewModel(SeverityLevel severity, string title, strin
     public ICommand? Command { get; } = command;
 }
 
-/// <summary>Para onde um botão do Painel leva: a tela e, no Editor, o script a abrir.</summary>
-public sealed record DashboardNavigation(NavKey Target, string? ScriptKey = null);
+/// <summary>Para onde um botão do Painel leva: a tela e, no Editor, o script a abrir e, com <paramref name="NewChapter"/>, o campo do nome de um capítulo novo já aberto.</summary>
+public sealed record DashboardNavigation(NavKey Target, string? ScriptKey = null, bool NewChapter = false);
 
 /// <summary>
 /// Página Painel: onde o projeto está e o que fazer agora. Um botão com o próximo passo, a jornada em cinco passos, o mapa do jogo (anel e sumário de capítulos
@@ -104,6 +104,8 @@ public sealed partial class DashboardViewModel : ObservableObject
     private int loadVersion;
     private bool loaded;
     private DashboardNavigation? nextStep;
+    private ProjectDashboard? current;
+    private bool currentLimitReached;
 
     /// <param name="loader">Lê o painel de uma pasta de projeto; o padrão lê o disco.</param>
     /// <param name="clock">O relógio do ritmo de revisão (o "hoje" e a janela de sete dias); o padrão é o do sistema.</param>
@@ -310,6 +312,32 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
     }
 
+    /// <summary>"Novo capítulo...": abre o Editor na primeira cena que pede trabalho do capítulo, com o campo do nome aberto; as cenas do capítulo novo se marcam lá.</summary>
+    [RelayCommand]
+    private void NewChapter(ChapterRowViewModel? chapter)
+    {
+        if (chapter is not null)
+        {
+            NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Editor, chapter.ScriptKey, NewChapter: true));
+        }
+    }
+
+    /// <summary>
+    /// Mostra os capítulos como o Editor acabou de gravá-los, sem reler o projeto: os totais já vêm do Core, e o resto da página (anel, passos, gasto) não
+    /// depende do agrupamento. Antes da primeira leitura não faz nada; a leitura ao abrir a página traz os capítulos.
+    /// </summary>
+    public void ApplyGrouping(ScriptGroupChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        if (Project is not { } project || current is null || !loaded)
+        {
+            return;
+        }
+
+        ApplyChapters(project, current, change.Chapters, currentLimitReached);
+        ApplyNextStep(current, change.Chapters);
+    }
+
     [RelayCommand]
     private void BeginRenameChapter(ChapterRowViewModel? chapter)
     {
@@ -490,6 +518,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private void Clear()
     {
         loaded = false;
+        current = null;
         IsLoading = false;
         OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(EmptyMessage));
@@ -517,6 +546,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         var limitReached = context.Limits.Limit is { } limit && limit > 0m && spent >= limit;
         var pace = ReviewPace.Compute(dashboard.Sessions, total.ToReview, clock.GetUtcNow(), clock.LocalTimeZone);
 
+        current = dashboard;
+        currentLimitReached = limitReached;
         ErrorMessage = null;
         ReadyLines = total.Ready;
         ReviewLines = total.ToReview;
