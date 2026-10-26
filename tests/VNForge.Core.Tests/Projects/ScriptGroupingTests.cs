@@ -206,6 +206,65 @@ public class ScriptGroupingTests
     }
 
     [Fact]
+    public void Um_unico_script_com_prefixo_numerico_nao_tira_a_historia_das_faixas()
+    {
+        var names = Names((1, "00_global", null));
+
+        var groups = ScriptGrouping.Build(names, Files(131));
+
+        AssertOnlyRanges(groups, 131);
+        Assert.Equal(4, groups.Count);
+    }
+
+    [Fact]
+    public void Um_unico_script_numerado_numa_pasta_do_yst_list_tambem_deixa_a_historia_nas_faixas()
+    {
+        var names = Names((1, "a", "userscript/00_sistema"));
+
+        var groups = ScriptGrouping.Build(names, Files(131));
+
+        AssertOnlyRanges(groups, 131);
+    }
+
+    [Fact]
+    public void Poucos_capitulos_numerados_no_meio_de_scripts_sem_rotulo_nao_mandam_a_historia_para_menus_e_nomes()
+    {
+        var names = Names((1, "a", "userscript/01_cap1"), (2, "b", "userscript/01_cap1"), (3, "c", "userscript/02_cap2"));
+
+        var groups = ScriptGrouping.Build(names, Files(20));
+
+        AssertOnlyRanges(groups, 20);
+    }
+
+    [Fact]
+    public void Pastas_sem_numero_entre_muitos_scripts_sem_pasta_nao_viram_capitulos()
+    {
+        var names = Names((1, "a", "userscript/system"), (2, "b", "userscript/menu"));
+
+        var groups = ScriptGrouping.Build(names, Files(30));
+
+        AssertOnlyRanges(groups, 30);
+    }
+
+    [Fact]
+    public void Dois_capitulos_numerados_que_cobrem_a_maioria_continuam_e_o_resto_vai_para_menus_e_nomes()
+    {
+        var names = Names((1, "a", "userscript/01_cap1"), (2, "b", "userscript/01_cap1"), (3, "c", "userscript/02_cap2"));
+
+        var groups = ScriptGrouping.Build(names, Files(5));
+
+        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], groups.Select(g => g.Name));
+        Assert.Equal([Key(4), Key(5)], groups[2].ScriptKeys);
+    }
+
+    private static void AssertOnlyRanges(IReadOnlyList<ScriptGroupTotals> groups, int scripts)
+    {
+        Assert.All(groups, g => Assert.StartsWith("Parte ", g.Name, StringComparison.Ordinal));
+        Assert.DoesNotContain(groups, g => g.IsExtra);
+        Assert.Equal(scripts, groups.Sum(g => g.ScriptKeys.Count));
+    }
+
+    [Fact]
     public void Dois_scripts_com_o_mesmo_grupo_escolhido_ficam_juntos_sem_diferenciar_caixa()
     {
         var names = ScriptNames.Empty.WithGroup(Key(1), "Festa").WithGroup(Key(3), "festa");
