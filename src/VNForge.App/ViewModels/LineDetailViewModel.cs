@@ -160,7 +160,9 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Se a tradução cabe na caixa do perfil: "Cabe · 2 de 3 linhas" ou "Passa 1 linha". Vazio sem perfil legível; "Sem tradução" sem texto;
-    /// "Quebra desligada no perfil" quando <c>wrap.enabled</c> é falso, porque sem a quebra a medida das colunas não vale.
+    /// um texto neutro quando a medida não vale: "Quebra desligada no perfil" com <c>wrap.enabled</c> falso, ou "O build grava esta linha como está" quando o
+    /// papel da linha está fora de <c>kinds</c> (ou a tradução é igual ao original). Linhas explícitas acima do <c>maxLines</c> seguem como "Passa N linhas",
+    /// porque a regra <c>caixa-acima-do-limite</c> do QA também confere esse limite com a quebra desligada.
     /// </summary>
     public string FitText
     {
@@ -186,9 +188,9 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
                 return $"Passa {LinesOf(OverflowLines)}";
             }
 
-            if (WrapIsOff)
+            if (NeutralFitText is { } neutral)
             {
-                return WrapOffText;
+                return neutral;
             }
 
             var lines = layout.Boxes.Select(b => b.Lines.Count).DefaultIfEmpty().Max();

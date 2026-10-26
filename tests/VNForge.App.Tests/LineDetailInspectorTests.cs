@@ -107,6 +107,36 @@ public sealed class LineDetailInspectorTests : IDisposable
     }
 
     [Fact]
+    public void Com_a_quebra_desligada_linhas_explicitas_acima_do_limite_seguem_como_passa_e_o_QA_concorda()
+    {
+        var perfil = FormattingProfileSerializer.Parse(PerfilSemQuebra);
+        var unidade = Fala("美咲", "「ふふっ」\\p", "um\\ndois\\ntres\\nquatro\\p");
+        using var vm = Abrir(unidade);
+        vm.AttachPreview(perfil);
+
+        var texts = new Dictionary<string, IReadOnlyList<TextUnit>> { ["yst00013"] = [unidade] };
+        var aviso = Assert.Single(new BoxLineLimitRule().Check(new QaContext(texts, [], [], perfil)));
+
+        Assert.Equal("Passa 1 linha", vm.FitText);
+        Assert.True(vm.DoesNotFit);
+        Assert.False(vm.FitIsNeutral);
+        Assert.Contains("4 linhas (máximo 3)", aviso.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Linha_que_o_build_nao_formata_diz_isso_em_vez_de_cabe()
+    {
+        var perfil = FormattingProfile.Default with { Kinds = [TextUnitKind.Narration], Wrap = new WrapRule(true, 40, 3, CharWidthMode.Uniform) };
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+
+        vm.AttachPreview(perfil);
+
+        Assert.Equal(LineDetailViewModel.NotFormattedText, vm.FitText);
+        Assert.True(vm.FitIsNeutral);
+        Assert.False(vm.FitIsShown);
+    }
+
+    [Fact]
     public void Trocar_o_perfil_para_sem_quebra_atualiza_o_texto_das_medidas()
     {
         using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
