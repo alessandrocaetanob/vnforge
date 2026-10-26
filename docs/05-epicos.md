@@ -118,7 +118,7 @@ Pronto quando, junto com E6: **M3** atingido.
 - Fase 3 (M4): prévia da caixa de texto, Conferência (#106) integrada ao QA, glossário e personagens (#108: tabelas editáveis na página Glossário; o aviso no editor usa `GlossaryMatcher` do Core e `GlossaryViewModel.FindTerms`, ligado ao painel da linha quando o #100 entrar)
 - Fase 4 (M4): assistente de novo projeto, Ajustes (#110), busca e substituição global
 - V2 (concluída em 24/10/2026, plano [2026-10-24-polimento-ui-e-cli.md](plans/2026-10-24-polimento-ui-e-cli.md)): cada tela no nível do design v2 (#239, #241 a #248), paleta de comandos no lugar da página Busca, busca dentro do Editor (#234), movimento, estados vazios, avisos e tema (#249); a CLI ganhou saída rica, progresso ao vivo e ajuda em seções (#240, #250 a #252)
-- Testes no jogo que faltam para M2, M3 e M4: [plano de testes no jogo](plans/2026-10-24-plano-de-testes-no-jogo.md)
+- Testes no jogo que faltam para M2, M3 e M4: [plano de testes no jogo](plans/2026-10-24-plano-de-testes-no-jogo.md); M2 e M3 pela interface v3 e pela CLI: [roteiro do teste de um capítulo](plans/2026-10-26-roteiro-capitulo-v3.md)
 
 ## E11 — Benchmark: a VN YU-RIS completa
 
