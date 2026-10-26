@@ -262,7 +262,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     /// <summary>Marca a linha em exibição e passa para a seguinte; depois da última, a fila acaba.</summary>
     private void Finish(ReviewBlockState state)
     {
-        if (Current is null)
+        if (Current is not { } line)
         {
             return;
         }
@@ -271,7 +271,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         var before = block.State;
 
         // Uma linha já aprovada (a pessoa voltou a ela) só segue adiante: Depois e Pular não desfazem a aprovação.
-        if (Current!.Status == TranslationStatus.Approved)
+        if (line.Status == TranslationStatus.Approved)
         {
             state = ReviewBlockState.Approved;
         }
