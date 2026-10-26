@@ -52,7 +52,7 @@ public sealed record ReviewPace(int Today, int? PerHour, int? HoursLeft)
         return new ReviewPace(today, perHour, left);
     }
 
-    private static TimeSpan WorkedTime(IReadOnlyList<DateTimeOffset> times)
+    private static TimeSpan WorkedTime(List<DateTimeOffset> times)
     {
         var worked = FirstLineTime;
         for (var i = 1; i < times.Count; i++)
