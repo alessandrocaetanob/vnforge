@@ -167,6 +167,16 @@ public class ScriptGroupEditorTests
     }
 
     [Fact]
+    public void Menus_e_nomes_nao_se_renomeia()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/02_cap2"), (3, "userscript/system"));
+
+        Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.RenameGroup(projeto, ScriptGrouping.ExtraName, "Extras"));
+        Assert.Null(ProjectFolder.Open(temp.Path).LoadScriptNames().Group(Key(3)));
+    }
+
+    [Fact]
     public void Renomear_grupo_inexistente_ou_para_nome_vazio_recusa_sem_gravar()
     {
         using var temp = new TempFolder();

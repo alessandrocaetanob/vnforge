@@ -361,7 +361,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         try
         {
-            renamer(project.Root, chapter.Name, name);
+            await Task.Run(() => renamer(project.Root, chapter.Name, name));
         }
         catch (Exception ex) when (ex is ScriptGroupingException or Core.Glossary.GlossaryFileException or IOException)
         {

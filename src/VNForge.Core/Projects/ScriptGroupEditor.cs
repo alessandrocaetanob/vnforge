@@ -48,7 +48,7 @@ public static class ScriptGroupEditor
     /// Dá um novo nome ao capítulo. <paramref name="group"/> é o nome atual (sem diferenciar maiúsculas) ou o número do capítulo no Painel; um nome que já
     /// existe junta os dois capítulos.
     /// </summary>
-    /// <exception cref="ScriptGroupingException">Nome novo vazio ou capítulo que não existe.</exception>
+    /// <exception cref="ScriptGroupingException">Nome novo vazio, capítulo que não existe ou o grupo <see cref="ScriptGrouping.ExtraName"/>.</exception>
     /// <exception cref="Glossary.GlossaryFileException">O <c>scripts.json</c> atual é inválido.</exception>
     public static ScriptGroupChange RenameGroup(ProjectFolder project, string group, string? newName)
     {
@@ -66,6 +66,11 @@ public static class ScriptGroupEditor
         var found = chapters.FirstOrDefault(c => string.Equals(c.Name, wanted, StringComparison.OrdinalIgnoreCase))
             ?? (int.TryParse(wanted, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? chapters.FirstOrDefault(c => c.Number == number) : null)
             ?? throw new ScriptGroupingException($"Não há capítulo chamado '{wanted}'. Use `vnf scripts list` para ver os capítulos.");
+
+        if (found.IsExtra)
+        {
+            throw new ScriptGroupingException($"'{ScriptGrouping.ExtraName}' não se renomeia: ele reúne o que fica fora da história. Para mudar as cenas de lugar use `vnf scripts group`.");
+        }
 
         var renamed = ScriptGrouping.RenameGroup(names, files, found.Name, newName);
         project.SaveScriptNames(renamed);
