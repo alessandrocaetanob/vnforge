@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
@@ -77,6 +78,35 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 Click(window, CenterOf(line, window, "Build falhou"));
 
                 Assert.Equal(0, requests);
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Id_seguido_de_dois_pontos_num_texto_solto_e_link_com_a_cor_de_destaque()
+    {
+        const string text = "yst00112:033792: tradução inválida";
+        LineRequest? requested = null;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var block = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+                LineLinks.SetCommand(block, new RelayCommand<LineRequest?>(r => requested = r));
+                LineLinks.SetSource(block, text);
+                var window = new Window { Width = 600, Height = 200, Content = block };
+                window.Show();
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                var link = Assert.IsType<Avalonia.Controls.Documents.Run>(block.Inlines![0]);
+                Assert.NotNull(link.Foreground);
+                var first = block.TextLayout.HitTestTextPosition(0);
+                var click = block.TranslatePoint(new Point(first.Left + 4, first.Top + (first.Height / 2)), window)!.Value;
+                Click(window, click);
+
+                Assert.Equal(new LineRequest("yst00112", "yst00112:033792"), requested);
             },
             CancellationToken.None);
     }

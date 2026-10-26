@@ -97,4 +97,38 @@ public class LineIdsTests
         Assert.Empty(LineIds.Find("20:19:08  Build falhou: 4 caracteres, posição 0"));
         Assert.Empty(LineIds.Find(""));
     }
+
+    [Fact]
+    public void Find_acha_o_id_seguido_de_dois_pontos_e_ignora_hora_colada()
+    {
+        Assert.Equal(["yst00112:033792"], LineIds.Find("yst00112:033792: tradução inválida").Select(c => c.UnitId));
+        Assert.Empty(LineIds.Find("ab:12:30"));
+    }
+
+    [Fact]
+    public void Consulta_com_cara_de_id_que_nao_existe_ainda_procura_como_texto()
+    {
+        var linhas = new[] { Entrada("yst00112", 1, "Veja Cap:1 do livro") };
+
+        Assert.Single(new LineFilter(Query: "Cap:1").Apply(linhas));
+    }
+
+    [Fact]
+    public void Texto_com_espaco_na_ponta_procura_o_espaco()
+    {
+        var linhas = new[] { Entrada("yst00112", 1, "casa"), Entrada("yst00112", 2, "uma casa grande") };
+
+        Assert.Equal(["yst00112:002000"], new LineFilter(Query: "casa ").Apply(linhas).Select(l => l.Unit.Id));
+    }
+
+    [Fact]
+    public void Filtros_iguais_continuam_iguais_depois_de_usados()
+    {
+        var a = new LineFilter(Query: "yst00112");
+        var b = new LineFilter(Query: "yst00112");
+        a.Apply(Linhas);
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
 }

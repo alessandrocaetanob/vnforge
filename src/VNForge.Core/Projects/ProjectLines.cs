@@ -88,7 +88,8 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
 
     private bool IsNone => Status == LineStatusFilter.All && Speaker is null && string.IsNullOrWhiteSpace(Query);
 
-    private (string? Query, ParsedQuery Parsed) cachedQuery;
+    // Fora do record para não entrar na igualdade nem numa corrida entre threads: a chave é a instância, e um "with" ganha a sua.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LineFilter, ParsedQuery> ParsedQueries = [];
 
     public bool Matches(LineEntry line)
     {
@@ -153,24 +154,20 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
             return true;
         }
 
-        var cached = cachedQuery;
-        if (!ReferenceEquals(cached.Query, Query))
-        {
-            cachedQuery = cached = (Query, ParsedQuery.Parse(Query));
-        }
-
-        return cached.Parsed.Matches(line);
+        return ParsedQueries.GetValue(this, static filter => ParsedQuery.Parse(filter.Query!)).Matches(line);
     }
 
     private sealed class ParsedQuery
     {
         private readonly string text;
         private readonly string folded;
+        private readonly string trimmed;
         private readonly string? unitId;
 
-        private ParsedQuery(string text, string? unitId)
+        private ParsedQuery(string text, string trimmed, string? unitId)
         {
             this.text = text;
+            this.trimmed = trimmed;
             this.unitId = unitId;
             folded = SearchText.Fold(text);
         }
@@ -178,17 +175,14 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         public static ParsedQuery Parse(string query)
         {
             var trimmed = query.Trim();
-            return new ParsedQuery(trimmed, LineIds.TryParse(trimmed, out var id) ? id.UnitId : null);
+            return new ParsedQuery(query, trimmed, LineIds.TryParse(trimmed, out var id) ? id.UnitId : null);
         }
 
         public bool Matches(LineEntry line)
         {
-            if (unitId is not null)
-            {
-                return string.Equals(line.Unit.Id, unitId, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (string.Equals(line.ScriptKey, text, StringComparison.OrdinalIgnoreCase))
+            // O id vale como id e também como texto: "Cap:1" pode ser um trecho da fala, e um id que ninguém tem não deve calar a busca.
+            if ((unitId is not null && string.Equals(line.Unit.Id, unitId, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(line.ScriptKey, trimmed, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }

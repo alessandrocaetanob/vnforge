@@ -15,7 +15,7 @@ public sealed record LineIdMention(int Start, int Length, string ScriptKey, stri
 /// </summary>
 public static partial class LineIds
 {
-    [GeneratedRegex(@"(?<![\w:.\-])(?<key>[A-Za-z_][\w.\-]*):(?<position>\d+)(?![\w:])", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    [GeneratedRegex(@"(?<![\w:.\-])(?<key>[A-Za-z_][\w.\-]*):(?<position>\d+)(?!\w|:\d)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex Pattern();
 
     /// <summary>Os ids citados em <paramref name="text"/>, na ordem em que aparecem; vazio quando não há nenhum.</summary>

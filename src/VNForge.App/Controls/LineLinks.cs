@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
@@ -19,6 +20,11 @@ public static class LineLinks
 
     public static readonly AttachedProperty<ICommand?> CommandProperty = AvaloniaProperty.RegisterAttached<TextBlock, ICommand?>("Command", typeof(LineLinks));
 
+    // Os ids de cada texto, achados uma vez em Fill: o mouse passa por eles a cada movimento.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, IReadOnlyList<LineIdMention>> Mentions = [];
+
+    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+
     static LineLinks() => SourceProperty.Changed.AddClassHandler<TextBlock>((block, e) => Fill(block, e.NewValue as string));
 
     public static string? GetSource(TextBlock block) => block.GetValue(SourceProperty);
@@ -29,14 +35,11 @@ public static class LineLinks
 
     public static void SetCommand(TextBlock block, ICommand? value) => block.SetValue(CommandProperty, value);
 
-    /// <summary>O id citado no caractere <paramref name="index"/> de <paramref name="text"/>; nulo quando ali não há id.</summary>
-    internal static LineIdMention? MentionAt(string? text, int index) =>
-        LineIds.Find(text).FirstOrDefault(m => index >= m.Start && index < m.Start + m.Length);
-
     private static void Fill(TextBlock block, string? text)
     {
         block.PointerPressed -= OnPressed;
         block.PointerMoved -= OnMoved;
+        Mentions.Remove(block);
         block.Text = null;
         block.Inlines?.Clear();
         if (string.IsNullOrEmpty(text))
@@ -44,21 +47,25 @@ public static class LineLinks
             return;
         }
 
-        block.PointerPressed += OnPressed;
-        block.PointerMoved += OnMoved;
+        var mentions = LineIds.Find(text);
+        if (mentions.Count > 0)
+        {
+            Mentions.Add(block, mentions);
+            block.PointerPressed += OnPressed;
+            block.PointerMoved += OnMoved;
+        }
+
         var position = 0;
-        foreach (var mention in LineIds.Find(text))
+        foreach (var mention in mentions)
         {
             if (mention.Start > position)
             {
                 block.Inlines?.Add(new Run(text[position..mention.Start]));
             }
 
-            block.Inlines?.Add(new Run(mention.UnitId)
-            {
-                Foreground = block.TryFindResource("Vnf.AccentText", block.ActualThemeVariant, out var brush) ? brush as IBrush : null,
-                TextDecorations = TextDecorations.Underline,
-            });
+            var link = new Run(mention.UnitId) { TextDecorations = TextDecorations.Underline };
+            link.Bind(TextElement.ForegroundProperty, new DynamicResourceExtension("Vnf.AccentText"));
+            block.Inlines?.Add(link);
             position = mention.Start + mention.Length;
         }
 
@@ -70,22 +77,21 @@ public static class LineLinks
 
     private static LineIdMention? MentionUnder(TextBlock block, PointerEventArgs e)
     {
-        var text = GetSource(block);
-        if (string.IsNullOrEmpty(text))
+        if (!Mentions.TryGetValue(block, out var mentions))
         {
             return null;
         }
 
         var point = e.GetPosition(block) - new Point(block.Padding.Left, block.Padding.Top);
         var hit = block.TextLayout.HitTestPoint(point);
-        return hit.IsInside ? MentionAt(text, hit.TextPosition) : null;
+        return hit.IsInside ? mentions.FirstOrDefault(m => hit.TextPosition >= m.Start && hit.TextPosition < m.Start + m.Length) : null;
     }
 
     private static void OnMoved(object? sender, PointerEventArgs e)
     {
         if (sender is TextBlock block)
         {
-            block.Cursor = MentionUnder(block, e) is null ? null : new Cursor(StandardCursorType.Hand);
+            block.Cursor = MentionUnder(block, e) is null ? null : HandCursor;
         }
     }
 
