@@ -342,6 +342,33 @@ public interface ITranslationProvider
 
 Cada etapa é idempotente e grava o estado em `.cache/state.json`, então a CLI e o app podem continuar de onde o outro parou. O `vnforge.json` guarda só a configuração, descrita em "Projeto de tradução no disco"; o estado fica em outro arquivo porque muda a cada execução, e o `vnforge.json` é escrito à mão e vai para o git.
 
+### Interface v3: o que o Core e a IA ganharam
+
+A interface v3 ([plano](plans/2026-10-25-interface-v3.md), telas em [04-app-windows.md](04-app-windows.md)) não mudou a regra de dependência: o Core continua sem conhecer engine nem provedor de IA, e tudo abaixo é testável com o provedor falso. A tela de cada item está em [04-app-windows.md](04-app-windows.md), na entrada de "Em aberto" que cita a issue.
+
+| Peça | Projeto e namespace | O que faz | Arquivo em disco |
+|---|---|---|---|
+| `ExchangeRate`, `CostEstimator.Quote`, `Brl` e `QuoteForModels` | `VNForge.AI.Cost` | Converte a estimativa de dólar em real com a cotação que a pessoa informou; sem cotação, o `Placeholder` de R$ 5,40 mantém as telas com números. Nada consulta a internet | `app.json` do usuário (`%APPDATA%/VNForge`): cotação e a data em que foi informada, limite de gasto, valor de aviso e qualidade (#303) |
+| `QualityProfiles` | `VNForge.AI.Cost` | Liga Rápida, Equilibrada e Caprichada a um modelo (Haiku, Sonnet, Opus) e a um ritmo de linhas por minuto, um chute de ordem de grandeza | `quality` no `app.json` |
+| `BudgetGuard` | `VNForge.AI.Cost` | Entra no `TranslationRunner` por `TranslationRunOptions.Budget`: pergunta antes de um pedido acima do valor de aviso e deixa de começar lotes quando o gasto chega ao limite; o resultado diz o motivo em `BudgetStop` (`LimitReached` ou `Declined`) | Gasto acumulado em `.cache/ai-usage.json` |
+| `TranslationQuoter`, `TranslationQuotes` | `VNForge.AI.Cost` | Preço e tempo de cada qualidade para um escopo (esta cena, o capítulo, o jogo) e a mais cara que ainda cabe no limite; alimenta a janela Traduzir com IA (#304) | |
+| `RequestEstimator` | `VNForge.AI.Cost` | Estima o custo de um lote antes de enviá-lo (sistema, estilo, glossário, personagens, falas de contexto e raciocínio) | |
+| `LineExplainer`, `ExplainCache` | `VNForge.AI.Explain` | "Entender o japonês": pede ao Claude Haiku a quebra do original em partes, em JSON por `output_config.format`; a explicação é só para ler e nunca entra na tradução. Recusa vira `ClaudeRefusalException` e resposta cortada ou ilegível, `ClaudeResponseException` (#305) | `.cache/explain.json`, pelo hash do original (`SourceHash`). Um cache que não abre vale como vazio |
+| `ProjectLines.SameSourceAs`, `LineEditor.SetTranslationFor` | `VNForge.Core.Projects` | Índice por hash do original para "Usar em todos": acha as linhas com o mesmo original e grava a tradução nas que ainda não a têm, sob a `ProjectTextLock` | |
+| `PageSplitter` | `VNForge.Core.Formatting` | "Dividir em 2 páginas": insere `\p` no fim da última linha que cabe em cada caixa, medindo com o mesmo pipeline e a mesma quebra do build e do `LinePreviewer` (#306) | |
+| `ILineShortener` (`LineSuggester`) | `VNForge.App.Services` | "Encurtar com a IA": pede uma versão mais curta de uma fala que não cabe; quem chama confere se coube | |
+| Regra `pagina-extra` | `VNForge.Core.Qa` | Um `\p` a mais que o original é aviso, não erro de marcador (ver a seção 5) | |
+| `GameTester`, `GameStateFile` | `VNForge.Core.Projects` | O teste no jogo com um clique (`vnf test` e a tela Testar no jogo): conferir, preparar `build/`, guardar a cópia de segurança, copiar para o jogo e abrir o executável. Opções: só uma cena, só a frase dos acentos (`GameTester.AccentPhrase`), seguir com avisos, abrir ou não o jogo. A gravação no jogo é só a do `GameInjector` (regra 2 do `CLAUDE.md`) (#308) | `.cache/game-state.json`: qual build está no jogo, a pasta do backup, a data e o tempo de cada um dos cinco passos do último teste |
+| `SessionsFile` | `VNForge.Core.Projects` | Registro de aprovações com hora: quantas linhas foram revisadas hoje (`ReviewedOn`, dia no fuso do computador, uma vez por linha). Gravação atômica; aprovações com mais de 90 dias saem na gravação; um arquivo que não abriu agora ou é de versão mais nova não é sobrescrito. Hoje só o app grava (#307). O ritmo (média por hora, horas que faltam) é da #309 | `.cache/sessions.json` |
+| `StyleConfig` e as regras `honorifico-fora-do-estilo` e `personagem-sem-genero` | `VNForge.Core.Projects`, `VNForge.Core.Qa` | As escolhas de estilo entram no prompt de tradução e na chave do cache; as duas regras só avisam e não travam o build (ver a seção 5) (#310) | Bloco `style` do `vnforge.json` |
+| `GlossaryUsage`, `RepeatedTerms`, `SpeakerSamples`, `IGlossarySuggester` | `VNForge.Core.Glossary`, `VNForge.AI.Glossary` | Termos que se repetem, voz e gênero sugeridos (ver "Glossário e personagens") (#311) | `glossary.json`, `characters.json` |
+| `TranslationFieldText` | `VNForge.App.Services` | Converte a tradução para o campo de edição sem marcadores crus (`\n` vira quebra de linha, `\p` no meio vira linha em branco, a virada de página do fim volta ao gravar) e de volta, com teste de ida e volta (#305) | |
+| `MarkerLabels` | `VNForge.App.Controls` | O nome em português de cada marcador: `\p` "virar a página", `\n` "quebra de linha", `\c` "esperar o clique", `\u` e os códigos que o app não conhece "código do jogo", `\\` "barra invertida", `\{` "chave"; uma variável `{VAR:…}` é "nome do jogador" quando o nome é `nome`, `name`, `player`, `playername`, `myname` ou `hero`, e "variável do jogo" nas outras | |
+
+**Marcadores nas telas.** O texto gravado em `text/*.json` não muda: os marcadores continuam `\p`, `\n`, `\c` e `{VAR:…}`, e o build os lê como antes. Só a tela os mostra como selos (`MarkerChip`), e o nome acessível do selo traz o marcador cru entre parênteses ("Marcador virar a página (\p)") para o leitor de tela.
+
+**O que fica fora do Core.** A janela Traduzir com IA monta o `BudgetGuard` e roda o `TranslationJob` no App, como tarefa da barra de status; a regra de orçamento e a conta de preço estão no Core e na IA, e a tela só liga as duas. O `vnf translate` pergunta antes de um pedido acima do valor de aviso (`--yes` dispensa) e para no limite durante a execução, com o mesmo `BudgetGuard`.
+
 ## Projeto de tradução no disco
 
 Um projeto é uma pasta. Ela vai para o git; os arquivos do jogo não.

@@ -23,6 +23,7 @@ Design do app (telas, tokens e componentes): [design/](design/README.md).
 | Runtime | .NET 10 |
 | IA | Só Claude na primeira versão, modelo selecionável; outros provedores depois |
 | Interface do app | Avalonia 12, tema `FluentTheme`, design system "VNForge v2" (D3, #96) |
+| Interface v3 | Vocabulário comum, custo em reais, modo revisão e testar no jogo, sobre o mesmo design system; [plano](plans/2026-10-25-interface-v3.md), termos e componentes em [design/](design/README-design-system.md) (U23, #315) |
 | Telas do M3 | Início e Editor; o resto no M4 (D4, #97) |
 
 ## Visão em uma frase

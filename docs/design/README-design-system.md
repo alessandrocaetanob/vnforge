@@ -1,14 +1,59 @@
-Sistema visual do VNForge v2, o aplicativo Windows de tradução de visual novels, implementado em Avalonia 12 sobre .NET 10. Os valores daqui viram recursos XAML (ver a seção **Implementação no Avalonia**); as prévias em HTML são a referência visual de cada controle.
+Sistema visual do VNForge, o aplicativo Windows de tradução de visual novels, implementado em Avalonia 12 sobre .NET 10. A base é a v2 (tokens, tipografia, componentes); a interface v3 (plano [2026-10-25-interface-v3.md](../plans/2026-10-25-interface-v3.md)) acrescenta termos, regras de tela e os componentes da seção **Componentes da v3**. Os valores daqui viram recursos XAML (ver `avalonia.md`); as prévias em HTML são a referência visual de cada controle e as capturas em `telas/v3/` mostram o app renderizado.
 
 ## Conteúdo
 
-- Interface em português do Brasil, caixa de frase em tudo: "Traduzir pendentes", "Build e injeção", "Conferência".
+- Interface em português do Brasil, caixa de frase em tudo: "Traduzir com IA", "Testar no jogo", "Voltar ao jogo original".
 - Botões começam com verbo no infinitivo ("Aprovar e próxima", "Restaurar originais"). Itens de navegação são substantivos de uma palavra ("Editor", "Conferir", "Testar").
-- Termos fixos do produto: **linha** (unidade de texto), **script** (arquivo `yst*.ybn`), **marcador** (`\p`, `\n`, `\c`, `{VAR:…}`), **perfil de formatação**, **build**, **injetar**, **restaurar**. Não alternar com sinônimos.
-- Números e moeda no formato pt-BR: `48.211 linhas`, `US$ 0,84`, `62%`. Datas relativas até 7 dias ("há 2 min", "ontem"), depois `17/10/2026`.
+- Termos fixos do produto: **linha** (unidade de texto), **script** (arquivo `yst*.ybn`), **marcador** (`\p`, `\n`, `\c`, `{VAR:…}`), **perfil de formatação**, **build**, **injetar**, **restaurar**. Não alternar com sinônimos. Na v3, build, injetar, restaurar e o marcador cru saem das telas de uso (ver **Termos da v3**) e seguem no log, na CLI e na documentação técnica, onde são as palavras certas.
+- Números e moeda no formato pt-BR: `48.211 linhas`, `R$ 142,56`, `62%`. As telas de uso mostram dinheiro só em reais; o dólar e a cotação aparecem nos Ajustes e no Novo projeto, onde a pessoa informa a cotação. Valor abaixo de um centavo é "menos de R$ 0,01", nunca R$ 0,00. Datas relativas até 7 dias ("há 2 min", "ontem"), depois `17/10/2026`.
 - Nomes de personagem aparecem como original → tradução na primeira menção de uma tela (`美咲 → Misaki`) e só a tradução no resto.
 - Mensagens dizem o fato e a consequência: "2 erros bloqueiam o build." Sem exclamação, sem emoji, sem "Ops".
 - Atalhos escritos como no Windows: `Ctrl+Enter`, `Alt+↓`, `Ctrl+Espaço`.
+
+### Termos da v3
+
+A interface v3 fala a língua de quem traduz pela primeira vez (plano, seção "Textos"). A coluna **Estado** diz onde o nome está hoje: "No app" quer dizer que o texto da tela ou a classe já usa esse nome; "Ainda não" aponta a issue que o traz. Os nomes em código continuam os do Core (`QaFlags.MarkOk`, `GameInjector.Restore`, `TranslationStatus`): só o texto que a pessoa lê muda.
+
+| Termo | Substitui | Onde aparece | Estado |
+|---|---|---|---|
+| **Testar** | Build, no trilho | Item do trilho; a tela abre com o título "Testar no jogo" | No app (#308) |
+| **Testar no jogo** | Build e injeção | Botão principal da tela (`Ctrl+B`), o mesmo passo a passo do `vnf test` | No app (#308) |
+| **Ler o texto** | Extrair | Etapa da jornada do Painel e passo da primeira vez no Início | Ainda não: o Painel diz "Extrair" até a #309 e o Início v3 vem na #313 |
+| **Conferir a tradução** | Conferência (QA) | Título da tela 9 do canvas | Em parte: já é o nome do primeiro passo do teste no jogo (`GameTestStep.Check`) e da mensagem "Corrija em Conferir a tradução" da tela Testar, mas a tela em si ainda se chama "Conferência" e o trilho diz "Conferir". Nenhuma issue da v3 cobre a tela 9 inteira (filtros em linguagem comum, "O que é isso", "Corrigir e ir para o próximo") |
+| **Voltar ao jogo original** | Restaurar originais | Botão neutro, sempre visível, da faixa de estado do jogo | No app (#308); em "Detalhes técnicos" da mesma tela o botão ainda é "Restaurar originais" |
+| **Está certo assim** | Marcar como ok | Botão da Conferência que silencia um aviso de uma linha | Ainda não: a tela diz "Marcar como ok" |
+| **virar a página** | `\p` | Selo dentro do texto (`MarkerLabels.Name`) | No app (#302) |
+| **quebra de linha** | `\n` | Selo dentro do texto, com o desenho ↵ | No app (#302) |
+| **esperar o clique**, **nome do jogador**, **código do jogo** | `\c`, variável de nome, outros códigos | Selos do `MarkerChip` | No app (#302) |
+| **Falta uma quebra do original** | Marcadores diferentes do original | Aviso de marcador que falta | Ainda não: o inspetor e a Conferência dizem "Marcadores diferentes do original" |
+| **Pronta** | Revisada ou aprovada | Coluna **Situação** da grade do Editor | No app (#302) |
+| **Sua** | Traduzida | Coluna Situação | No app (#302) |
+| **IA** | Traduzida por IA | Coluna Situação | No app (#302) |
+| **Em japonês** | Pendente | Coluna Situação e filtro do Editor | No app (#302) |
+| **Cenas** | Scripts, na lista do Editor | Lista à esquerda do Editor; o agrupamento por capítulo (`ScriptGroup`) espera os grupos do Core da #309 | No app (#305), sem os grupos |
+| **Caixa do jogo** | Prévia da caixa de texto | `GameTextbox`, com "Cabe · 2 de 3 linhas" ou "Passa 1 linha" | No app (#305) |
+| **Dividir em 2 páginas**, **Encurtar com a IA** | | Saídas do aviso "Não cabe na caixa do jogo" (`FitWarning`) | No app (#306) |
+| **Entender o japonês**, **Na cena**, **Usar em todos** | | Inspetor do Editor e modo revisão | No app (#305) |
+| **Modo revisão** | | Botão do cabeçalho do Editor, com **Está boa**, **Corrigir**, **Depois** e **Pular** | No app (#307) |
+| **Traduzir com IA** | Traduzir pendentes | Botão do cabeçalho do Editor e a janela das três perguntas | No app (#304) |
+| **Rápida**, **Equilibrada**, **Caprichada** | Nome do modelo | `QualityCard`, com o modelo em letra pequena | No app (#303, #304, #312) |
+| **Detalhes técnicos** | | `TechnicalDetails`, fechado por padrão: motor, pacote, página de código, modelo exato, registro | No app (#302) |
+| **Precisa de você** | | Lista de pendências do Painel (`TodoItem`) | Ainda não: Painel na #309 |
+
+O plano chama o botão do inspetor de "Aprovar e ir para a próxima"; o app diz **Aprovar e próxima**, que cabe nos 360 px do editor compacto. Vale o do app.
+
+### Regras das telas da v3
+
+Toda tela nova é medida por estas regras (plano, seção "Regras das telas"):
+
+- Uma tela responde a uma pergunta e tem um botão principal.
+- Linguagem comum: YPF, tokens, nome de modelo, página de código e caminho de pasta ficam em "Detalhes técnicos", nos Ajustes ou na CLI.
+- No máximo três números em destaque por tela.
+- Progresso em três estados (pronto, esperando revisão, em japonês), pela mesma fonte no anel e na barra; os cinco estados internos ficam no Core e na grade do Editor.
+- Qualidade no lugar de modelo: Rápida (Haiku), Equilibrada (Sonnet), Caprichada (Opus, padrão).
+- Marcadores do jogo nunca aparecem crus, e a caixa do jogo fica ao lado de toda tradução que a pessoa edita.
+- Os números de exemplo são os mesmos em todas as telas (48.211 linhas em 312 scripts, 62% traduzido, R$ 142,56 gastos).
+- Toda tela é conferida renderizada, a 1440×1000 nos dois temas, antes de ir para o canvas.
 
 ## Cores
 
@@ -58,6 +103,35 @@ Sistema visual do VNForge v2, o aplicativo Windows de tradução de visual novel
 
 - O selo 訳 ("tradução") em quadrado inclinado -4° é a marca. Use `vnforge-seal-dark.svg` sobre os temas escuros e `vnforge-seal-light.svg` sobre os claros; `vnforge-appicon.svg` (selo cheio) é o ícone da janela e da barra de tarefas.
 - O nome é escrito **VNForge**, em uma palavra; a CLI é `vnf`.
+
+## Componentes da v3
+
+Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.App/Themes/Controls` (estilo e template), com tokens `Vnf.*`. A galeria `Gallery/ComponentGalleryV3.axaml` mostra todos nos dois temas (`telas/v3/galeria-v3-escuro.png` e `galeria-v3-claro.png`). A coluna **Canvas** diz a classe de `v3.css` que o desenho usa. Os componentes da v2 seguem em `components/`; o `TextboxPreview` virou `GameTextbox`.
+
+| Componente | Canvas | Propriedades principais | O que faz | Onde aparece |
+|---|---|---|---|---|
+| `ProgressRing` | `.ringwrap` | `Done`, `Review`, `Total`, `Caption` | Anel de três arcos (pronto, esperando revisão, em japonês) com a parte pronta no centro; a classe `sm` dá 56 px e só o número | Painel, Início (#309/#313) |
+| `Seg3Bar` | `.seg3` | `Done`, `Review`, `Total` | Barra de três estados de 8 px, da mesma fonte do anel (`ThreeStateProgress`) | Editor, Painel, Início (#309/#313) |
+| `ChapterRow` | `.chrow` | `Number`, `Title`, `Note`, `IsHere`, `IsExtra` | Linha do sumário de capítulos: número, nome, `Seg3Bar`, parte pronta, linhas e nota; `IsExtra` é "Menus e nomes", sem número | Painel (#309) |
+| `TodoItem` | `.ready` | `Severity`, `Title`, `Message`, `ActionText`, `Command` | Item de "Precisa de você": ícone de gravidade, frase e o botão que resolve | Painel, Início (#309/#313) |
+| `GameTextbox` | `.gbox` | `Layout`, `Size` (`Small`, `Medium`, `Large`), `FontFamily` | Caixa do jogo com a placa do nome, as linhas vagas pontilhadas, o que passa abaixo de um traço e o triângulo de virar a página; aceita várias páginas | Inspetor do Editor, modo revisão, cartões de acentos do Novo projeto |
+| `FitWarning` | `.fitwarn` | `Message`, `SplitCommand`, `ShortenCommand`, `ShowShorten`, `ErrorText` | Aviso "Não cabe na caixa do jogo" com "Dividir em N páginas" e "Encurtar com a IA" | Inspetor do Editor, modo revisão, Conferência |
+| `MarkerChip` | `.mk` | `Marker`, `Kind`, `IsMissing` | Selo com o nome em português no lugar do marcador; no AvaloniaEdit entra pelo `MarkerChipGenerator` e ocupa uma coluna do cursor | Campo da tradução e original do inspetor do Editor, modo revisão |
+| `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso e Ajustes (#309/#313) |
+| `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o gasto mais o pedido (zero, sem pedido) passa dele | Traduzir com IA, Ajustes; Painel (#309) |
+| `QualityCard` | `.opt` | `Title`, `Price`, `Duration`, `Model`, `ExampleRate` | `OptionCard` com preço em reais e tempo em destaque e o modelo em letra pequena; é um `RadioButton` de grupo | Traduzir com IA, Novo projeto, Ajustes |
+| `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor do Editor, modo revisão |
+| `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor do Editor, modo revisão |
+| `ScriptGroup` | `.grp` | `Title`, `CountText` | `Expander` de um capítulo na lista de cenas | Editor (quando o Core entregar os grupos, #309) |
+| `GameStateBanner` | `.gamestate` | `State` (`Original`, `Translated`, `Blocked`, `Warning`), `Title`, `Message` | Faixa do que o jogo tem hoje, com "Voltar ao jogo original" sempre visível | Testar no jogo |
+| `ScreenDialog` | `.scrim`, `.dialog` | `IsOpen`, `Title`, `Footer`, `CloseCommand` | Diálogo sobre a tela, na camada de sobreposição e sem janela nova; `Esc` fecha | Traduzir com IA, "Usar em todos" no inspetor do Editor |
+| `TechnicalDetails` | `.tech` | `Header` | `Expander` fechado por padrão para o que a pessoa não precisa ver | Novo projeto, Testar no jogo, Ajustes; Início (#313) |
+
+`ProgressRing`, `Seg3Bar`, `ChapterRow`, `TodoItem`, `ScriptGroup` e `CostLabel` só aparecem na galeria por enquanto: as telas que os usam vêm com o Painel (#309) e o Início (#313). O `PipelineStepper` da v2 troca "Build" e "Injetar" por "Testar no jogo" e "Extrair" por "Ler o texto" quando o Painel v3 chegar. O `OptionCard` é a base do `QualityCard` e dos cartões de acentos (`.enc`, com um `GameTextbox` pequeno dentro).
+
+## Telas copiadas
+
+As capturas de `telas/v3/` saem do app renderizado sem janela (Avalonia.Headless com Skia), com o projeto de demonstração, nos dois temas, a 1440×1000 (o Editor e o modo revisão compactos, a 1366×768). Cada arquivo termina em `-escuro` ou `-claro`. O índice, tela a tela, está em [README.md](README.md#telas-da-v3).
 
 ## Uso em canvas de design
 
