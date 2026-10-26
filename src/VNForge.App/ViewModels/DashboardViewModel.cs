@@ -390,7 +390,7 @@ public sealed partial class DashboardViewModel : ObservableObject
                 ? $"{Plural(total.Total, "linha", "linhas")} em {Plural(dashboard.Status.Files.Count, "cena", "cenas")}"
                 : "O texto do jogo ainda não foi lido",
             translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido · faltam {Plural(total.Untranslated, "linha", "linhas")}",
-            reviewed ? "Tudo revisado" : total.ToReview == 0 ? "Espera a tradução" : total.ToReview == 1 ? "1 linha da IA espera você" : $"{ProjectLabels.Number(total.ToReview)} linhas da IA esperam você",
+            reviewed ? "Tudo revisado" : total.ToReview == 0 ? "Espera a tradução" : total.ToReview == 1 ? "1 linha espera você" : $"{ProjectLabels.Number(total.ToReview)} linhas esperam você",
             dashboard.Qa switch
             {
                 null => "A conferência não pôde rodar",
@@ -412,7 +412,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         if (tested && dashboard.GameState.InGame is { } inGame)
         {
-            return $"O jogo está com a tradução de {DateText(inGame.AppliedAt)}";
+            return DescribeGame(inGame);
         }
 
         return dashboard.Build == BuildStatus.Stale ? "Os textos mudaram desde o último teste" : "Ainda não testado no jogo";

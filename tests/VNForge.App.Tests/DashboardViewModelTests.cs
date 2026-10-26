@@ -74,7 +74,7 @@ public class DashboardViewModelTests
         Assert.Equal(["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", "Testar no jogo"], vm.Steps.Select(s => s.Title));
         Assert.Equal([1, 2, 3, 4, 5], vm.Steps.Select(s => s.Number));
         Assert.Equal("50% traduzido · faltam 2 linhas", vm.Steps[1].Subtitle);
-        Assert.Equal("1 linha da IA espera você", vm.Steps[2].Subtitle);
+        Assert.Equal("1 linha espera você", vm.Steps[2].Subtitle);
         Assert.Equal("O texto do jogo ainda não foi lido", vm.Steps[0].Subtitle);
         Assert.Equal(PipelineStepState.Active, vm.Steps[0].State);
         Assert.Equal(PipelineStepState.Pending, vm.Steps[1].State);
