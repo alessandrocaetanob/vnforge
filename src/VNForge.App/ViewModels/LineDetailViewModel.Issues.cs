@@ -53,7 +53,12 @@ public sealed partial class LineDetailViewModel
                 return null;
             }
 
-            return Preview.Notice is not null ? NotFormattedText : WrapIsOff ? WrapOffText : null;
+            if (Preview.Notice is not null)
+            {
+                return NotFormattedText;
+            }
+
+            return WrapIsOff ? WrapOffText : null;
         }
     }
 
