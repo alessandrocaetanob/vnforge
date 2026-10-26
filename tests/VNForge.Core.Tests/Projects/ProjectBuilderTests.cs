@@ -89,6 +89,22 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Linha_nao_traduzir_gera_o_mesmo_pacote_que_a_linha_sem_traducao()
+    {
+        var semMarca = Build();
+        var esperado = File.ReadAllBytes(Path.Combine(_project.BuildDirectory, PackageFake));
+        var units = _engine.Scripts[0].Extract(new ScriptFile("a001.fake", File.ReadAllBytes(Path.Combine(_project.GameCacheDirectory, PackageFake, "a001.fake"))), new FakeContext()).Units;
+        _project.SaveText("a001", [.. units.Select((u, i) => i == 0 ? u with { Status = TranslationStatus.Keep } : u)]);
+
+        var result = Build();
+
+        Assert.Empty(result.RebuiltScripts);
+        Assert.Equal(0, _engine.RebuildCalls);
+        Assert.Equal(esperado, File.ReadAllBytes(Path.Combine(_project.BuildDirectory, PackageFake)));
+        Assert.Empty(semMarca.RebuiltScripts);
+    }
+
+    [Fact]
     public void Resumo_do_projeto_informa_o_ultimo_build_com_os_scripts_trocados()
     {
         Assert.Null(ProjectSummaryReader.Read(_project.Root).LastBuild);

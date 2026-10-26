@@ -44,6 +44,7 @@ public class TextUnitTests
             [TranslationStatus.Translated] = "translated",
             [TranslationStatus.Reviewed] = "reviewed",
             [TranslationStatus.Approved] = "approved",
+            [TranslationStatus.Keep] = "keep",
         };
 
         Assert.Equal(esperado.Keys.Order(), Enum.GetValues<TranslationStatus>().Order());

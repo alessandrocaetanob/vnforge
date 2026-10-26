@@ -251,6 +251,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
     [NotifyPropertyChangedFor(nameof(IsApproved))]
+    [NotifyPropertyChangedFor(nameof(IsKeep))]
     public partial TranslationStatus Status { get; set; }
 
     /// <summary>Marcadores do original que a tradução não tem (cada ocorrência que falta conta uma vez).</summary>
@@ -276,6 +277,9 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     public bool IsApproved => Status == TranslationStatus.Approved;
 
+    /// <summary>A linha está em "Não traduzir": o build a copia como no original e ela conta como pronta.</summary>
+    public bool IsKeep => Status == TranslationStatus.Keep;
+
     public string StatusText => Status switch
     {
         TranslationStatus.Untranslated => "Sem tradução",
@@ -283,6 +287,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         TranslationStatus.Translated => "Traduzida",
         TranslationStatus.Reviewed => "Revisada",
         TranslationStatus.Approved => "Aprovada",
+        TranslationStatus.Keep => "Não traduzir",
         _ => Status.ToString(),
     };
 
@@ -351,6 +356,56 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void Approve() => ApproveCore();
+
+    /// <summary>
+    /// "Não traduzir": a linha fica como no original (nome de fonte, código). Grava o que estiver pendente, marca a linha e esvazia o campo da tradução;
+    /// o Editor oferece desfazer pelo mesmo caminho das outras gravações.
+    /// </summary>
+    [RelayCommand]
+    private void Keep() => SetKeep(true);
+
+    /// <summary>Desfaz o "Não traduzir": a linha volta a ficar sem tradução, para a IA ou a pessoa traduzirem.</summary>
+    [RelayCommand]
+    private void Translate() => SetKeep(false);
+
+    private void SetKeep(bool keep)
+    {
+        if (!Flush())
+        {
+            return;
+        }
+
+        TrySave(() =>
+        {
+            Saved = editor.SetKeep(scriptKey, unit.Id, keep);
+            Status = Saved.Status;
+            if (keep)
+            {
+                ClearTranslationField();
+            }
+        });
+    }
+
+    // O campo esvaziado aqui não é uma edição: o arquivo já está sem tradução.
+    private void ClearTranslationField()
+    {
+        loading = true;
+        try
+        {
+            Translation = string.Empty;
+            ReopenField(string.Empty);
+        }
+        finally
+        {
+            loading = false;
+        }
+
+        translationDirty = false;
+        UpdateMarkers();
+        Preview?.Update(string.Empty);
+        Fit?.Update();
+        NotifyFitChanged();
+    }
 
     [RelayCommand]
     private void ApproveAndNext()

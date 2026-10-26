@@ -6,8 +6,8 @@ namespace VNForge.Core.Projects;
 /// <summary>Progresso de um script (<c>text/&lt;Key&gt;.json</c>) para a lista de scripts do Editor.</summary>
 public sealed record ScriptProgress(string Key, StatusCounts Counts)
 {
-    /// <summary>Percentual concluído (Revisadas e Aprovadas sobre o total), de 0 a 100, truncado; 0 quando o script não tem linhas.</summary>
-    public int CompletedPercent => Percent(Counts.Reviewed + Counts.Approved);
+    /// <summary>Percentual concluído (Revisadas, Aprovadas e "Não traduzir" sobre o total), de 0 a 100, truncado; 0 quando o script não tem linhas.</summary>
+    public int CompletedPercent => Percent(Counts.Ready);
 
     /// <summary>Percentual de linhas só com tradução da IA, de 0 a 100, truncado; 0 quando o script não tem linhas.</summary>
     public int MachinePercent => Percent(Counts.Machine);
@@ -65,6 +65,9 @@ public enum LineStatusFilter
 
     /// <summary>Linhas com ocorrência do QA.</summary>
     Warnings,
+
+    /// <summary>Linhas "Não traduzir" (<see cref="TranslationStatus.Keep"/>).</summary>
+    Keep,
 }
 
 /// <summary>Filtro da grade: um status e, opcionalmente, um personagem. Os dois valem juntos.</summary>
@@ -132,6 +135,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         LineStatusFilter.Pending => line.Unit.Status == TranslationStatus.Untranslated,
         LineStatusFilter.Machine => line.Unit.Status == TranslationStatus.Machine,
         LineStatusFilter.Warnings => line.HasIssues,
+        LineStatusFilter.Keep => line.Unit.Status == TranslationStatus.Keep,
         _ => true,
     };
 

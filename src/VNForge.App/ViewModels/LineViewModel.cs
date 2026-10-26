@@ -60,7 +60,7 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
 
     public bool HasTranslation => Entry.Unit.HasTranslation;
 
-    public string TranslationLabel => Entry.Unit.HasTranslation ? Entry.Unit.Translation : "sem tradução";
+    public string TranslationLabel => Entry.Unit.HasTranslation ? Entry.Unit.Translation : Status == TranslationStatus.Keep ? LineRow.KeepLabel : "sem tradução";
 
     public bool HasWarning => Entry.Severity == QaSeverity.Warning;
 

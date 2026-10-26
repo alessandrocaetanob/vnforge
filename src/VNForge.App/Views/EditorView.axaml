@@ -127,6 +127,14 @@
 
           <ListBox Grid.Row="1" x:Name="LinesList" Classes="projects lines" ItemsSource="{Binding Lines}"
                    SelectedItem="{Binding SelectedLine}" SelectionMode="Single" AutomationProperties.Name="Linhas do script">
+            <ListBox.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Não traduzir" Command="{Binding Detail.KeepCommand}"
+                          IsVisible="{Binding !Detail.IsKeep, FallbackValue=True}"/>
+                <MenuItem Header="Traduzir" Command="{Binding Detail.TranslateCommand}"
+                          IsVisible="{Binding Detail.IsKeep, FallbackValue=False}"/>
+              </ContextMenu>
+            </ListBox.ContextMenu>
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
                 <VirtualizingStackPanel/>

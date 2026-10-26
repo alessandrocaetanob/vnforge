@@ -38,6 +38,7 @@ public class ProjectLabelsTests
 
     [Theory]
     [InlineData(TranslationStatus.Untranslated, "Em japonês")]
+    [InlineData(TranslationStatus.Keep, "Não traduzir")]
     [InlineData(TranslationStatus.Machine, "IA")]
     [InlineData(TranslationStatus.Translated, "Sua")]
     [InlineData(TranslationStatus.Reviewed, "Pronta")]

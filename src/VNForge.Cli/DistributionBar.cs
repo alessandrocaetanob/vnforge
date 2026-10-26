@@ -113,8 +113,9 @@ public static class DistributionBar
         return new Markup(string.Join("  ", items));
     }
 
+    // "Não traduzir" está pronta e não é pendente: entra no primeiro segmento, como na barra do app.
     private static int[] Values(StatusCounts counts) =>
-        [counts.Approved, counts.Reviewed, counts.Translated, counts.Machine, counts.Untranslated];
+        [counts.Approved + counts.Keep, counts.Reviewed, counts.Translated, counts.Machine, counts.Untranslated];
 
     // Maior sobra de arredondamento entre os status com linhas.
     private static int LargestRemainder(double[] remainders, IReadOnlyList<int> counts)

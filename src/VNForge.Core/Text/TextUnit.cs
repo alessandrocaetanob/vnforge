@@ -57,10 +57,13 @@ public sealed record TextUnit(
     /// </remarks>
     public JsonElement? Locator { get; init => field = value?.Clone(); }
 
-    /// <summary>Verdadeiro quando há uma tradução utilizável: <see cref="Translation"/> não vazia e <see cref="Status"/> diferente de <see cref="TranslationStatus.Untranslated"/>.</summary>
+    /// <summary>
+    /// Verdadeiro quando há uma tradução utilizável: <see cref="Translation"/> não vazia e <see cref="Status"/> diferente de
+    /// <see cref="TranslationStatus.Untranslated"/> e de <see cref="TranslationStatus.Keep"/> (a linha que fica como no original não tem tradução a gravar).
+    /// </summary>
     [JsonIgnore]
     [MemberNotNullWhen(true, nameof(Translation))]
-    public bool HasTranslation => Status != TranslationStatus.Untranslated && !string.IsNullOrEmpty(Translation);
+    public bool HasTranslation => Status is not (TranslationStatus.Untranslated or TranslationStatus.Keep) && !string.IsNullOrEmpty(Translation);
 
     /// <summary>
     /// Verdadeiro quando a reconstrução precisa gravar texto novo: há tradução (<see cref="HasTranslation"/>) e ela difere do
