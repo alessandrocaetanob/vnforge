@@ -1,3 +1,4 @@
+using VNForge.AI.Cost;
 using VNForge.App.Services;
 using VNForge.Core.Projects;
 using VNForge.Engines.YuRis;
@@ -7,7 +8,7 @@ namespace VNForge.App.ViewModels;
 /// <summary>Uma linha da lista de recentes: um projeto legível ou um que não abriu (<see cref="Problem"/>).</summary>
 public sealed class RecentProjectItem
 {
-    private const string UnsupportedEngineConsequence = "O suporte entra depois do benchmark com YU-RIS.";
+    private const string UnsupportedEngineConsequence = "Ele ainda não pode ser traduzido por aqui.";
 
     private readonly string lastBuildLabel;
 
@@ -72,6 +73,30 @@ public sealed class RecentProjectItem
     public string UnsupportedDetail => $"A pasta foi reconhecida como {EngineFamily}. {UnsupportedEngineConsequence}";
 
     public string Lines => Summary is null ? "—" : ProjectLabels.Number(Summary.Counts.Total);
+
+    /// <summary>Linhas prontas (revisadas ou aprovadas), esperando revisão e total: os números do anel e da barra de três estados, os mesmos do Painel.</summary>
+    public double ReadyLines => Summary?.Counts.Ready ?? 0;
+
+    public double ReviewLines => Summary?.Counts.ToReview ?? 0;
+
+    public double TotalLines => Summary?.Counts.Total ?? 0;
+
+    /// <summary>A parte pronta como a lista e o anel a escrevem, arredondada para baixo: "42%". "—" quando o projeto não abriu.</summary>
+    public string ReadyLabel => Summary is null ? "—" : $"{(Summary.Counts.Total == 0 ? 0 : (int)Math.Floor(100.0 * Summary.Counts.Ready / Summary.Counts.Total))}%";
+
+    /// <summary>"48.211 linhas", a segunda linha da lista.</summary>
+    public string LinesLabel => Summary is null ? string.Empty : Summary.Counts.Total == 1 ? "1 linha" : $"{Lines} linhas";
+
+    /// <summary>A coluna "Pronto" da lista: a parte pronta, ou o aviso quando o projeto não abre.</summary>
+    public string ReadyColumnLabel => HasProblem ? "Indisponível" : IsUnsupported ? "Sem suporte" : ReadyLabel;
+
+    /// <summary>Descrição do anel e da barra para leitor de tela.</summary>
+    public string ReadyDescription => $"{ReadyLabel} pronto: {ProjectLabels.Number((int)ReadyLines)} de {LinesLabel}";
+
+    /// <summary>"Rápida", "Equilibrada" ou "Caprichada" nos detalhes técnicos; o nome do modelo quando ele não é de nenhuma qualidade.</summary>
+    public string QualityLabel => Summary is null
+        ? "—"
+        : QualityProfiles.ForModel(Summary.Model) is { } profile ? QualityOption.Describe(profile).Title : ProjectLabels.Model(Summary.Model);
 
     public string Scripts => Summary is null ? "—" : ProjectLabels.Number(Summary.Scripts);
 

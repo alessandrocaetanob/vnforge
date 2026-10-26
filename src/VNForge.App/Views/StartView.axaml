@@ -12,7 +12,6 @@
     </Style>
   </UserControl.Styles>
 
-  <!-- Artboard "Início" do canvas v2: o contêiner tem 1180 de largura contando o respiro (box-sizing: border-box). -->
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <Border MaxWidth="1180" Padding="24,32,24,40">
       <StackPanel Spacing="16">
@@ -55,142 +54,205 @@
           </Grid>
         </Border>
 
-        <!-- Painéis lado a lado: Grid com colunas, para os dois terem a mesma altura. A coluna do detalhe é a do artboard (360, no máximo 400). -->
-        <Grid ColumnDefinitions="*,360" ColumnSpacing="12">
+        <Grid ColumnDefinitions="*,380" ColumnSpacing="16">
 
-          <Border Classes="panel" ClipToBounds="True" MinHeight="261">
-            <Grid RowDefinitions="32,*,40">
-              <Border Classes="divider-bottom" Padding="16,0">
-                <Grid ColumnDefinitions="*,180,96" ColumnSpacing="16">
-                  <TextBlock Classes="overline" Text="Projeto" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Classes="overline" Text="Traduzido" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="2" Classes="overline" Text="Aberto" VerticalAlignment="Center"/>
+          <StackPanel Spacing="12">
+
+            <!-- Com projetos: nome, linhas, a parte pronta (a mesma do anel) e a barra de três estados. -->
+            <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasRecents}">
+              <Grid RowDefinitions="32,Auto,40">
+                <Border Classes="divider-bottom" Padding="16,0">
+                  <Grid ColumnDefinitions="*,180,96" ColumnSpacing="16">
+                    <TextBlock Classes="overline" Text="Projeto" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Classes="overline" Text="Pronto" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="2" Classes="overline" Text="Aberto" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+
+                <ListBox Grid.Row="1" Classes="projects" ItemsSource="{Binding Recents}" SelectedItem="{Binding Selected}"
+                         AutomationProperties.Name="Projetos recentes">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RecentProjectItem">
+                      <Grid ColumnDefinitions="*,180,96" ColumnSpacing="16" Margin="16,12">
+                        <Grid.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Remover da lista"
+                                      Command="{Binding $parent[ListBox].((vm:StartViewModel)DataContext).RemoveRecentCommand}"
+                                      CommandParameter="{Binding}"/>
+                          </ContextMenu>
+                        </Grid.ContextMenu>
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="body-strong" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Classes="body-sm secondary" LineHeight="16" Text="{Binding LinesLabel}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                          <TextBlock Classes="body-sm" LineHeight="18" Text="{Binding ReadyColumnLabel}" Classes.warn="{Binding HasStatusWarning}"/>
+                          <c:Seg3Bar Done="{Binding ReadyLines}" Review="{Binding ReviewLines}" Total="{Binding TotalLines}" IsVisible="{Binding !HasProblem}"
+                                     AutomationProperties.Name="{Binding ReadyDescription}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Classes="body-sm secondary" Text="{Binding WhenLabel}" VerticalAlignment="Center"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Row="2" Classes="divider-top" Padding="16,0">
+                  <TextBlock Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding RecentsSummary}"/>
+                </Border>
+              </Grid>
+            </Border>
+
+            <!-- Primeira vez: os quatro passos do caminho inteiro. -->
+            <Border Classes="panel" Padding="20" IsVisible="{Binding !HasRecents}" AutomationProperties.Name="Como começar">
+              <StackPanel Spacing="16">
+                <TextBlock Classes="title-md" Text="Como começar"/>
+                <ItemsControl ItemsSource="{x:Static vm:StartViewModel.FirstSteps}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FirstStep">
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,14">
+                        <Border Width="28" Height="28" CornerRadius="14" Background="{DynamicResource Vnf.AccentSoft}" VerticalAlignment="Top">
+                          <TextBlock Classes="body-strong" Text="{Binding Number}" Foreground="{DynamicResource Vnf.AccentText}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="2">
+                          <TextBlock Classes="body-strong" Text="{Binding Title}"/>
+                          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+                        </StackPanel>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- Soltar a pasta de outro jogo abre o Novo projeto com ela preenchida. -->
+            <Border x:Name="DropArea" DragDrop.AllowDrop="True" MinHeight="72" Padding="16" CornerRadius="8" Background="Transparent"
+                    AutomationProperties.Name="Soltar a pasta de um jogo">
+              <Panel>
+                <Rectangle Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,3" RadiusX="8" RadiusY="8"
+                           Margin="-16" IsHitTestVisible="False"/>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                  <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Folder}" Foreground="{DynamicResource Vnf.TextSecondary}"/>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="body-strong" Text="{Binding DropTitle}"/>
+                    <TextBlock Classes="body-sm secondary" Text="Solte a pasta aqui para começar uma tradução nova."/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Command="{Binding ChooseGameFolderCommand}" Content="Escolher a pasta" VerticalAlignment="Center"/>
                 </Grid>
-              </Border>
-
-              <ListBox Grid.Row="1" Classes="projects" ItemsSource="{Binding Recents}" SelectedItem="{Binding Selected}"
-                       IsVisible="{Binding HasRecents}" AutomationProperties.Name="Projetos recentes">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:RecentProjectItem">
-                    <Grid ColumnDefinitions="*,180,96" ColumnSpacing="16" Margin="16,12">
-                      <Grid.ContextMenu>
-                        <ContextMenu>
-                          <MenuItem Header="Remover da lista"
-                                    Command="{Binding $parent[ListBox].((vm:StartViewModel)DataContext).RemoveRecentCommand}"
-                                    CommandParameter="{Binding}"/>
-                        </ContextMenu>
-                      </Grid.ContextMenu>
-                      <StackPanel Spacing="2">
-                        <TextBlock Classes="body-strong" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Classes="mono secondary" LineHeight="16" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis"/>
-                      </StackPanel>
-                      <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                        <TextBlock Classes="body-sm" LineHeight="18" Text="{Binding RowStatusLabel}" Classes.warn="{Binding HasStatusWarning}"/>
-                        <c:DistributionBar Height="8" Value="{Binding Distribution}" IsVisible="{Binding !HasProblem}"
-                                           AutomationProperties.Name="{Binding DistributionDescription}"/>
-                      </StackPanel>
-                      <TextBlock Grid.Column="2" Classes="body-sm secondary" Text="{Binding WhenLabel}" VerticalAlignment="Center"/>
-                    </Grid>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-
-              <!-- Tela vazia: o selo 訳, uma frase e as duas ações da tela. -->
-              <c:EmptyState Grid.Row="1" IsVisible="{Binding !HasRecents}"
-                            Message="Nenhum projeto recente. Abra uma pasta criada com vnf init ou crie um projeto novo a partir da pasta do jogo; ele aparece aqui na próxima vez."
-                            ActionText="Abrir projeto" ActionCommand="{Binding OpenFolderCommand}">
-                <Button Classes="lg" Command="{Binding NewProjectCommand}" Content="Novo projeto" HorizontalAlignment="Center"/>
-              </c:EmptyState>
-
-              <Border Grid.Row="2" Classes="divider-top" Padding="16,0">
-                <TextBlock Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding RecentsSummary}"/>
-              </Border>
-            </Grid>
-          </Border>
+              </Panel>
+            </Border>
+          </StackPanel>
 
           <!-- Projeto selecionado -->
-          <Border Grid.Column="1" Classes="panel" Padding="16" AutomationProperties.Name="Projeto selecionado">
+          <Border Grid.Column="1" Classes="panel" Padding="20" VerticalAlignment="Top" IsVisible="{Binding HasRecents}" AutomationProperties.Name="Projeto selecionado">
             <Panel>
-              <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16" IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <StackPanel Spacing="4">
-                  <TextBlock Classes="overline" Text="{Binding Selected.EngineOverline}"/>
-                  <TextBlock Classes="title-md" Text="{Binding Selected.Name}" TextWrapping="Wrap"/>
-                  <TextBlock Classes="mono secondary" LineHeight="16" Text="{Binding Selected.Path}" TextWrapping="Wrap"/>
-                </StackPanel>
+              <StackPanel Spacing="16" IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <TextBlock Classes="title-md" Text="{Binding Selected.Name}" TextWrapping="Wrap"/>
 
-                <StackPanel Grid.Row="1" Spacing="16">
-                  <!-- Projeto aberto, motor com suporte -->
-                  <StackPanel Spacing="16" IsVisible="{Binding Selected.IsSupported}">
-                    <StackPanel Spacing="8">
-                      <c:DistributionBar Height="8" Value="{Binding Selected.Distribution}" AutomationProperties.Name="{Binding Selected.DistributionDescription}"/>
-                      <c:Legend Value="{Binding Selected.Distribution}"/>
+                <!-- Projeto aberto, motor com suporte -->
+                <StackPanel Spacing="16" IsVisible="{Binding Selected.IsSupported}">
+                  <c:ProgressRing HorizontalAlignment="Center" Done="{Binding Selected.ReadyLines}" Review="{Binding Selected.ReviewLines}" Total="{Binding Selected.TotalLines}"
+                                  AutomationProperties.Name="{Binding Selected.ReadyDescription}"/>
+
+                  <Border Classes="panel" Padding="16" IsVisible="{Binding Detail.HasNextStep}" AutomationProperties.Name="Próximo passo">
+                    <StackPanel Spacing="10">
+                      <TextBlock Classes="overline" Text="Próximo passo"/>
+                      <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                              Command="{Binding OpenNextStepCommand}" Content="{Binding Detail.NextStepLabel}"/>
+                      <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Detail.PaceText}"/>
                     </StackPanel>
-                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
-                      <TextBlock Classes="body-sm secondary" LineHeight="20" Text="Linhas"/>
-                      <TextBlock Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Selected.Lines}"/>
-                      <TextBlock Grid.Row="1" Classes="body-sm secondary" LineHeight="20" Text="Scripts"/>
-                      <TextBlock Grid.Row="1" Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Selected.Scripts}"/>
-                      <TextBlock Grid.Row="2" Classes="body-sm secondary" LineHeight="20" Text="Acentuação"/>
-                      <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Selected.EncodingLabel}" TextWrapping="Wrap"/>
-                      <TextBlock Grid.Row="3" Classes="body-sm secondary" LineHeight="20" Text="Modelo"/>
-                      <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Selected.ModelLabel}" TextWrapping="Wrap"/>
-                      <TextBlock Grid.Row="4" Classes="body-sm secondary" LineHeight="20" Text="Último build"/>
-                      <TextBlock Grid.Row="4" Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Selected.LastBuildLabel}" TextWrapping="Wrap"/>
+                  </Border>
+
+                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+                    <TextBlock Classes="body-sm secondary" LineHeight="20" Text="Linhas"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Selected.Lines}"/>
+                    <TextBlock Grid.Row="1" Classes="body-sm secondary" LineHeight="20" Text="Gasto"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Detail.SpentText}" TextWrapping="Wrap"/>
+                    <TextBlock Grid.Row="2" Classes="body-sm secondary" LineHeight="20" Text="Último teste no jogo"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Detail.GameTitle}" TextWrapping="Wrap"/>
+                  </Grid>
+
+                  <c:TechnicalDetails AutomationProperties.Name="Detalhes técnicos">
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" Margin="0,8,0,0">
+                      <TextBlock Classes="body-sm secondary" Text="Motor"/>
+                      <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.EngineLabel}"/>
+                      <TextBlock Grid.Row="1" Classes="body-sm secondary" Text="Pasta"/>
+                      <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.Path}"/>
+                      <TextBlock Grid.Row="2" Classes="body-sm secondary" Text="Acentos"/>
+                      <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.EncodingLabel}"/>
+                      <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Qualidade"/>
+                      <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.QualityLabel}"/>
                     </Grid>
-                  </StackPanel>
+                  </c:TechnicalDetails>
 
-                  <!-- Motor ainda sem suporte: a pasta foi reconhecida, mas não abre -->
-                  <StackPanel Spacing="16" IsVisible="{Binding Selected.IsUnsupported}">
-                    <Border Classes="infobar warning">
-                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Warning}"/>
-                        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-                          <Run FontWeight="SemiBold" Text="Motor ainda sem suporte. "/>
-                          <Run Text="{Binding Selected.UnsupportedDetail}"/>
-                        </TextBlock>
-                      </Grid>
-                    </Border>
-                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding OpenSelectedCommand}" Content="Abrir projeto"/>
-                  </StackPanel>
-
-                  <!-- Pasta que sumiu ou que não abre -->
-                  <StackPanel Spacing="16" IsVisible="{Binding Selected.HasProblem}">
-                    <Border Classes="infobar warning">
-                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Warning}"/>
-                        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-                          <Run FontWeight="SemiBold" Text="Projeto indisponível. "/>
-                          <Run Text="{Binding Selected.Problem}"/>
-                        </TextBlock>
-                      </Grid>
-                    </Border>
-                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding OpenSelectedCommand}" Content="Abrir projeto"/>
-                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding RemoveSelectedCommand}" Content="Remover da lista"/>
-                  </StackPanel>
+                  <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding OpenSelectedCommand}" Content="Abrir projeto"/>
                 </StackPanel>
 
-                <StackPanel Grid.Row="2" Spacing="8" IsVisible="{Binding Selected.IsSupported}">
-                  <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                          Command="{Binding OpenSelectedCommand}" Content="Abrir projeto"/>
-                  <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                          Command="{Binding OpenSelectedInEditorCommand}" Content="{Binding Selected.ResumeLabel}"/>
+                <!-- Motor ainda sem suporte: a pasta foi reconhecida, mas não abre -->
+                <StackPanel Spacing="16" IsVisible="{Binding Selected.IsUnsupported}">
+                  <Border Classes="infobar warning">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                      <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Warning}"/>
+                      <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+                        <Run FontWeight="SemiBold" Text="O VNForge ainda não sabe ler este jogo. "/>
+                        <Run Text="{Binding Selected.UnsupportedDetail}"/>
+                      </TextBlock>
+                    </Grid>
+                  </Border>
+                  <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding OpenSelectedCommand}" Content="Abrir projeto"/>
                 </StackPanel>
-              </Grid>
+
+                <!-- Pasta que sumiu ou que não abre -->
+                <StackPanel Spacing="16" IsVisible="{Binding Selected.HasProblem}">
+                  <Border Classes="infobar warning">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                      <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Warning}"/>
+                      <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+                        <Run FontWeight="SemiBold" Text="Projeto indisponível. "/>
+                        <Run Text="{Binding Selected.Problem}"/>
+                      </TextBlock>
+                    </Grid>
+                  </Border>
+                  <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding OpenSelectedCommand}" Content="Abrir projeto"/>
+                  <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding RemoveSelectedCommand}" Content="Remover da lista"/>
+                </StackPanel>
+              </StackPanel>
               <TextBlock Classes="body-sm secondary" Text="Selecione um projeto da lista para ver o progresso." TextWrapping="Wrap"
                          IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNull}}"/>
             </Panel>
           </Border>
-        </Grid>
 
-        <Border Classes="infobar">
-          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Info}"/>
-            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-              <Run FontWeight="SemiBold" Text="Um projeto é uma pasta. "/>
-              <Run Text="Texto, glossário e perfil de formatação ficam em JSON versionável; os arquivos do jogo nunca entram nela."/>
-            </TextBlock>
-          </Grid>
-        </Border>
+          <!-- Primeira vez: o que ter à mão antes do primeiro passo. -->
+          <Border Grid.Column="1" Classes="panel" Padding="20" VerticalAlignment="Top" IsVisible="{Binding !HasRecents}" AutomationProperties.Name="O que você precisa">
+            <StackPanel Spacing="16">
+              <TextBlock Classes="title-md" Text="O que você precisa"/>
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <PathIcon Width="16" Height="16" Margin="0,2,0,0" VerticalAlignment="Top" Data="{StaticResource Icon.Folder}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-strong" Text="O jogo instalado"/>
+                  <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A pasta onde ele está no computador, com o executável dentro."/>
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Panel Width="16" Height="16" Margin="0,2,0,0" VerticalAlignment="Top">
+                  <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding ApiKeyConfigured}"/>
+                  <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}" Data="{StaticResource Icon.Warning}" IsVisible="{Binding !ApiKeyConfigured}"/>
+                </Panel>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-strong" Text="Uma chave do Claude"/>
+                  <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding ApiKeyNeedText}"/>
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <PathIcon Width="16" Height="16" Margin="0,2,0,0" VerticalAlignment="Top" Data="{StaticResource Icon.Box}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-strong" Text="Espaço para a cópia de segurança"/>
+                  <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="O app guarda uma cópia do jogo original antes de mexer nele."/>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Grid>
       </StackPanel>
     </Border>
   </ScrollViewer>
