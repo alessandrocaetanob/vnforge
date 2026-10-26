@@ -89,6 +89,7 @@ public class MainWindowFrameHeadlessTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch(
             () =>
             {
+                vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
                 var window = new MainWindow { Width = 1440, Height = 900, DataContext = vm };
                 try
                 {

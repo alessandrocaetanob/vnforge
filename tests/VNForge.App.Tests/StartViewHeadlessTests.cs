@@ -49,7 +49,7 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Content is string)];
 
     [Fact]
-    public async Task Projeto_aberto_mostra_Abrir_projeto_e_Continuar_em_o_ultimo_script()
+    public async Task Projeto_aberto_mostra_Abrir_projeto_e_o_botao_do_proximo_passo()
     {
         using var temp = new TempFolder();
         var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN", lines: [("yst00013", TranslationStatus.Approved)]);
@@ -58,7 +58,7 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         var labels = await ShowAsync(vm, w => DetailButtons(w).Where(b => b.IsEffectivelyEnabled).Select(b => (string)b.Content!).ToArray());
 
         Assert.Contains("Abrir projeto", labels);
-        Assert.Contains("Continuar em yst00013", labels);
+        Assert.Contains("Testar no jogo", labels);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
             string.Join(' ', w.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Inlines is { Count: > 0 } ? string.Concat(t.Inlines.OfType<Avalonia.Controls.Documents.Run>().Select(r => r.Text)) : t.Text))));
 
         Assert.Contains("Abrir projeto", disabled);
-        Assert.Contains("Motor ainda sem suporte.", text);
+        Assert.Contains("O VNForge ainda não sabe ler este jogo.", text);
         Assert.Contains("Sem suporte", text);
     }
 
@@ -108,15 +108,15 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     }
 
     [Fact]
-    public async Task Detalhe_usa_a_legenda_e_a_barra_de_distribuicao()
+    public async Task Detalhe_usa_o_anel_e_a_lista_a_barra_de_tres_estados()
     {
         using var temp = new TempFolder();
         var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN", lines: [("yst00001", TranslationStatus.Approved)]);
         var vm = await OpenAsync(temp, root);
 
-        var (legends, bars) = await ShowAsync(vm, w => (w.GetVisualDescendants().OfType<Legend>().Count(), w.GetVisualDescendants().OfType<DistributionBar>().Count()));
+        var (rings, bars) = await ShowAsync(vm, w => (w.GetVisualDescendants().OfType<ProgressRing>().Count(r => r.IsEffectivelyVisible), w.GetVisualDescendants().OfType<Seg3Bar>().Count(b => b.IsEffectivelyVisible)));
 
-        Assert.Equal(1, legends);
-        Assert.True(bars >= 2);
+        Assert.Equal(1, rings);
+        Assert.Equal(1, bars);
     }
 }

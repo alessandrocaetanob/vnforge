@@ -135,7 +135,7 @@
                   <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Folder}" Foreground="{DynamicResource Vnf.TextSecondary}"/>
                   <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                     <TextBlock Classes="body-strong" Text="{Binding DropTitle}"/>
-                    <TextBlock Classes="body-sm secondary" Text="Solte a pasta aqui para começar uma tradução nova."/>
+                    <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="Solte a pasta aqui para começar uma tradução nova."/>
                   </StackPanel>
                   <Button Grid.Column="2" Command="{Binding ChooseGameFolderCommand}" Content="Escolher a pasta" VerticalAlignment="Center"/>
                 </Grid>

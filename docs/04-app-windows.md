@@ -18,7 +18,7 @@ A v2 deixou cada tela igual ao desenho. A v3 pergunta se uma pessoa que nunca tr
 
 | Tela (nome no app) | Artboard v3 | O que mudou | Seção |
 |---|---|---|---|
-| **Início** | 1 | Ainda é o da v2; a primeira vez e o "Próximo passo" vêm na #313 | 1 |
+| **Início** | 1 | Lista com a parte pronta e a barra de três estados, anel, "Próximo passo" com as horas no ritmo da pessoa, soltar a pasta de outro jogo, "Detalhes técnicos" fechado e a primeira vez com quatro passos | 1 |
 | **Novo projeto** | 2 | Acentos em três cartões com a frase na caixa do jogo, qualidade, cotação e limite de gasto | 2 |
 | **Painel** | 3 | Ainda é o da v2; o mapa por capítulo e "Precisa de você" vêm na #309 | 3 |
 | **Editor** | 4, 5, 6 | Cenas, Situação (Pronta, Sua, IA, Em japonês), campo sem marcadores, caixa do jogo, Entender o japonês, Na cena, Usar em todos, Dividir em 2 páginas, compacto em 1366×768 | 4 |
@@ -48,15 +48,21 @@ A janela principal (#241) segue o canvas v2:
 
 ### 1. Início
 
-O Início é a porta de entrada: lista os projetos recentes à esquerda e mostra o projeto selecionado à direita (artboard "Início" do canvas v2).
+O Início responde "o que eu faço agora" (artboard 1 do canvas v3): lista os projetos à esquerda e mostra o projeto selecionado à direita. Texto para a pessoa não traz YPF, token, nome de modelo nem caminho de pasta fora de "Detalhes técnicos".
 
-**Lista.** Cada linha traz nome, motor e caminho, porcentagem traduzida com a barra de distribuição e quando o projeto foi aberto. O rodapé diz quantos projetos há e a pasta padrão, que é a pasta que contém o projeto aberto por último (o app não tem uma configuração de pasta padrão). Botão direito numa linha oferece "Remover da lista"; a pasta do projeto não é tocada.
+**Lista.** Cada linha traz o nome, as linhas, a parte pronta (revisadas e aprovadas sobre o total, a mesma porcentagem do anel, arredondada para baixo) com a `Seg3Bar` de três estados e quando o projeto foi aberto. O rodapé diz quantos projetos há. Botão direito numa linha oferece "Remover da lista"; a pasta do projeto não é tocada.
 
-**Detalhe.** Motor e formato, nome, caminho, a barra com a legenda (aprovadas, revisadas, traduzidas, IA, pendentes), linhas, scripts, acentuação, modelo com esforço (o Haiku aparece sem esforço, como no artboard) e último build. O último build vem da pasta `build/` do projeto: a data é a do arquivo mais novo e a quantidade de scripts, a que o `.cache/build-state.json` registrou (só vale se os pacotes de `build/` ainda conferem em tamanho); sem build, o campo diz "Nenhum build ainda".
+**Área para soltar.** Abaixo da lista, "Traduzir outro jogo" aceita a pasta (ou um arquivo dela) arrastada do Explorer e tem o botão "Escolher a pasta". As duas vias abrem o Novo projeto com a pasta do jogo já preenchida e detectada (`StartViewModel.DropFolder`, `MainWindowViewModel.WizardPreparing`). Uma pasta que não existe mais vira um aviso e não abre o assistente.
+
+**Detalhe.** O anel com a parte pronta, o cartão "Próximo passo" com um botão (o mesmo texto e destino do botão do Painel: o `DashboardViewModel` do Início é uma segunda instância da lógica do Painel, então "Revisar o capítulo 1" e a frase "No seu ritmo, faltam cerca de 3 horas" saem do mesmo código), três fatos (linhas, gasto em reais contra o limite e último teste no jogo) e "Detalhes técnicos" fechado (motor, pasta, acentos e qualidade). O botão do próximo passo abre o projeto e vai direto à tela do passo; "Abrir projeto" leva ao Painel. O último build e o esforço do modelo saíram do detalhe; o `.cache/build-state.json` continua sendo lido pelo Core.
+
+**Primeira vez.** Sem projetos, o Início mostra "Como começar" (quatro passos numerados: apontar a pasta do jogo, escolher os acentos, traduzir, testar no jogo) e "O que você precisa" (o jogo instalado, uma chave do Claude, que aparece marcada quando já está guardada, e espaço para a cópia de segurança), com a mesma área para soltar a pasta.
+
+**Barra de status.** No Início ela mostra só a versão do app e se a chave do Claude está guardada; nas outras telas a versão fica e voltam a gravação, a acentuação e os limites da caixa. O trilho segue desabilitado, exceto Início e Ajustes, até um projeto abrir.
 
 **Estados.**
 
-- *Motor sem suporte* (por exemplo KiriKiri/KAG): a linha mostra "Sem suporte" em cor de alerta e o detalhe, um aviso e o botão "Abrir projeto" desabilitado.
+- *Motor sem suporte* (por exemplo KiriKiri/KAG): a linha mostra "Sem suporte" em cor de alerta e o detalhe diz "O VNForge ainda não sabe ler este jogo".
 - *Indisponível* (pasta que sumiu ou não abre): a linha mostra "Indisponível"; o detalhe explica o motivo e oferece "Remover da lista".
 - *Lista de recentes ilegível* (`recent.json` corrompido): um aviso no alto diz o caminho do arquivo e que a lista aparece vazia até um projeto ser aberto.
 
@@ -67,7 +73,7 @@ O fluxo é o do canvas v2: **Início, abrir ou continuar, Painel com as cinco et
 1. Sem projeto, o Início mostra "Abrir projeto" e "Novo projeto". O trilho só libera Painel, Editor, Conferir e Testar depois que um projeto é aberto.
 2. "Abrir projeto" da barra de ações escolhe uma pasta, registra o projeto nos recentes e o deixa selecionado no Início, com o detalhe pronto. Nada além disso muda de tela.
 3. "Abrir projeto" do detalhe abre o selecionado de novo (relê a pasta e sobe o projeto na lista) e leva ao **Painel**, onde as cinco etapas (extrair, traduzir, conferir, build, injetar) dizem o que falta.
-4. "Continuar em `<script>`" leva ao **Editor** direto no último script editado: o `text/*.json` gravado por último entre os que já têm alguma linha traduzida; sem tradução nenhuma, o primeiro script. Sem scripts extraídos, o botão diz "Continuar no Editor".
+4. O botão do "Próximo passo" leva direto à tela do passo (Editor no capítulo, Conferir ou Testar). O "Continuar em `<script>`" do Início v2 saiu da tela; `StartViewModel.OpenSelectedInEditorCommand` continua no código.
 5. "Novo projeto" abre o assistente; ao terminar, o projeto criado fica selecionado no Início, como no passo 2.
 
 ### 2. Novo projeto (assistente)

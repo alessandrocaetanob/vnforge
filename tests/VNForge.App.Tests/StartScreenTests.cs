@@ -167,7 +167,7 @@ public class StartScreenTests
         Assert.Equal("KiriKiri/KAG · XP3", item.EngineLabel);
         Assert.Equal("Sem suporte", item.RowStatusLabel);
         Assert.True(item.HasStatusWarning);
-        Assert.Equal("A pasta foi reconhecida como KiriKiri/KAG. O suporte entra depois do benchmark com YU-RIS.", item.UnsupportedDetail);
+        Assert.Equal("A pasta foi reconhecida como KiriKiri/KAG. Ele ainda não pode ser traduzido por aqui.", item.UnsupportedDetail);
         Assert.False(vm.OpenSelectedCommand.CanExecute(null));
         Assert.False(vm.OpenSelectedInEditorCommand.CanExecute(null));
     }
@@ -206,7 +206,7 @@ public class StartScreenTests
     }
 
     [Fact]
-    public async Task Rodape_diz_quantos_projetos_e_a_pasta_do_mais_recente()
+    public async Task Rodape_diz_quantos_projetos_sem_citar_pasta()
     {
         using var temp = new TempFolder();
         var parent = temp.SubFolder("Traducoes");
@@ -218,7 +218,7 @@ public class StartScreenTests
         await vm.OpenAsync(b);
 
         Assert.Equal(parent, vm.DefaultFolder);
-        Assert.Equal($"2 projetos · pasta padrão {parent}", vm.RecentsSummary);
+        Assert.Equal("2 projetos", vm.RecentsSummary);
     }
 
     [Fact]
