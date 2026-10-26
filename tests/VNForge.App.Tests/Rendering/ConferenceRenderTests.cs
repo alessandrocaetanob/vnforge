@@ -25,7 +25,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Renderiza_a_Conferencia_do_artboard_com_erro_selecionado_e_com_correcao_proposta(string themeName)
+    public async Task Renderiza_Conferir_a_traducao_com_erro_selecionado_e_com_correcao_de_um_clique(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         using var temp = new TempFolder();
@@ -48,12 +48,12 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
 
                     // O primeiro problema da lista: erro, sem correção automática.
                     Assert.Equal("marcador-diferente", vm.Conference.SelectedRow?.RuleId);
-                    Save(window, "conferir-artboard", theme);
+                    Save(window, "conferir-v3-problemas", theme);
 
                     // O espaço duplo da mesma linha traz a correção proposta e o botão "Aplicar correção".
                     vm.Conference.SelectedRow = vm.Conference.Rows.First(r => r.RuleId == "espaco-duplo");
                     Assert.True(vm.Conference.SelectedRow.HasProposal);
-                    Save(window, "conferir-correcao", theme);
+                    Save(window, "conferir-v3-um-clique", theme);
                 }
                 finally
                 {
@@ -89,6 +89,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                 AiConfig.Default));
             folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3) });
             folder.SaveGlossary([new GlossaryTerm("先輩", "veterano"), new GlossaryTerm("担任の先生", "professor responsável")]);
+            folder.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("yst00013", null, "Manhã de chuva"), new ScriptNameEntry("yst00014", null, "Hora do almoço")]));
             folder.SaveText("yst00012", [Line("yst00012", 42, @"「本当に、いいの？」\p", "De verdade, tudo bem?")]);
             folder.SaveText(
                 "yst00013",

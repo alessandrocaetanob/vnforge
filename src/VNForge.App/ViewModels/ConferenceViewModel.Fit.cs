@@ -20,6 +20,9 @@ public sealed partial class ConferenceViewModel
 
     public bool HasSelectedFit => SelectedFit is not null;
 
+    /// <summary>O botão "Corrigir e ir para o próximo" aparece quando o problema tem correção proposta ou a fala pode ser dividida em páginas.</summary>
+    public bool ShowFixAndNext => SelectedRow is { HasProposal: true } || SelectedFit is { CanSplit: true };
+
     /// <summary>A caixa do jogo com a tradução de hoje, para o problema "Não cabe na caixa"; nula nos outros.</summary>
     [ObservableProperty]
     public partial TextboxLayout? SelectedLayout { get; private set; }
@@ -29,6 +32,7 @@ public sealed partial class ConferenceViewModel
         SelectedFit?.Cancel();
         (SelectedFit, SelectedLayout) = CreateFit(value);
         FixAndNextCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(ShowFixAndNext));
     }
 
     private (FitWarningViewModel? Fit, TextboxLayout? Layout) CreateFit(ConferenceIssueRowViewModel? row)

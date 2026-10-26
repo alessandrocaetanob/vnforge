@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.App.Controls;
 using VNForge.App.Services;
@@ -153,12 +154,18 @@ public sealed class ConferenceIssueRowViewModel
 
             if (Proposal is { } p)
             {
-                return Excerpt(p.Before, p.After);
+                return PlainMarkers(Excerpt(p.Before, p.After));
             }
 
-            return Count > 1 ? $"{Message} (+{Count - 1})" : Message;
+            return PlainMarkers(Count > 1 ? $"{Message} (+{Count - 1})" : Message);
         }
     }
+
+    private static readonly Regex MarkerPattern = new(@"\\[npcu\\]|\{[^{}]*\}", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    /// <summary>Troca cada marcador cru do texto pelo nome em português, entre parênteses: <c>anda !\p</c> vira <c>anda !(virar a página)</c>.</summary>
+    public static string PlainMarkers(string text) =>
+        MarkerPattern.Replace(text, m => $"({MarkerLabels.Name(m.Value, m.Value.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control)})");
 
     /// <summary>"Um clique" quando a regra propõe uma correção para a linha; vazio nas outras.</summary>
     public string Tag => HasProposal ? "Um clique" : string.Empty;

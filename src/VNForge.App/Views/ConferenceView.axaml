@@ -195,7 +195,7 @@
                 </StackPanel>
               </ScrollViewer>
               <WrapPanel Grid.Row="1" Margin="0,14,0,0" ItemSpacing="8" LineSpacing="8">
-                <Button Classes="accent" IsVisible="{Binding HasProposal}"
+                <Button Classes="accent" IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).ShowFixAndNext}"
                         Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).FixAndNextCommand}"
                         AutomationProperties.Name="Corrigir e ir para o próximo problema">
                   <StackPanel Orientation="Horizontal" Spacing="8">

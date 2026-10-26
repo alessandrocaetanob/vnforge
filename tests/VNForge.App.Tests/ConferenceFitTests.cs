@@ -57,7 +57,10 @@ public sealed class ConferenceFitTests : IDisposable
 
         var aviso = Assert.IsType<FitWarningViewModel>(vm.SelectedFit);
         Assert.True(vm.HasSelectedFit);
-        Assert.True(aviso.IsVisible);
+        Assert.Equal("Dividir em 2 páginas", aviso.SplitText);
+        Assert.NotNull(vm.SelectedLayout);
+        Assert.True(vm.ShowFixAndNext);
+        Assert.True(vm.FixAndNextCommand.CanExecute(null));
         Assert.Equal("Dividir em 2 páginas", aviso.SplitText);
         Assert.True(aviso.HasShortener);
     }

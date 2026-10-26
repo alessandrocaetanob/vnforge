@@ -35,7 +35,7 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
-                var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "yst00001:0000");
+                var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "yst00001 · linha 0");
                 var center = cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
                 window.MouseDown(center, MouseButton.Left);
                 window.MouseUp(center, MouseButton.Left);
@@ -48,7 +48,7 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
     }
 
     [Fact]
-    public async Task Tela_desenha_as_tres_colunas_com_regras_problemas_e_detalhe()
+    public async Task Tela_desenha_filtros_problemas_e_o_painel_com_o_que_e_isso()
     {
         using var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
@@ -67,17 +67,18 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 window.UpdateLayout();
 
                 var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains("Regras", texts);
-                Assert.Contains("Marcadores", texts);
+                Assert.Contains("Conferir a tradução", texts);
+                Assert.Contains("Travam o teste", texts);
                 Assert.Contains("Espaço duplo", texts);
-                Assert.Contains("yst00001:0000", texts);
-                Assert.Contains("Corrigível", texts);
-                Assert.Contains("Corrigir 1 automaticamente", texts);
+                Assert.Contains("yst00001 · linha 0", texts);
+                Assert.Contains("Um clique", texts);
+                Assert.Contains("Corrigir 1 com um clique", texts);
                 Assert.Contains("Conferir de novo", texts);
                 Assert.Contains("Abrir no editor", texts);
-                Assert.Contains("Aplicar correção", texts);
-                Assert.Contains("Marcar como ok", texts);
-                Assert.Contains("Correção proposta", texts);
+                Assert.Contains("Corrigir e ir para o próximo", texts);
+                Assert.Contains("Está certo assim", texts);
+                Assert.Contains("Como vai ficar", texts);
+                Assert.Contains("O que é isso", texts);
 
                 // O detalhe mostra a gravidade com o SeverityTag, e a primeira linha vem selecionada.
                 var tag = window.GetVisualDescendants().OfType<SeverityTag>().Single();

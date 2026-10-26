@@ -526,7 +526,8 @@ public sealed partial class ConferenceViewModel : ObservableObject
         // Os totais dos filtros e do cabeçalho são do projeto inteiro, não da lista à vista: trocar de filtro não os muda.
         foreach (var filter in filters)
         {
-            filter.Count = all.Where(filter.Passes).Sum(r => r.Count);
+            // "Um clique" conta as correções (uma por linha e regra), as mesmas do botão "Corrigir N com um clique"; os outros contam as ocorrências.
+            filter.Count = filter.Kind == ConferenceFilterKind.OneClick ? all.Count(filter.Passes) : all.Where(filter.Passes).Sum(r => r.Count);
         }
 
         IssueCount = checkedAt is null ? null : filters[0].Count;

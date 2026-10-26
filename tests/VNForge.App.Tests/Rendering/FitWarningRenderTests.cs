@@ -105,6 +105,8 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.True(fit.IsVisible);
                     ScreenRenderer.Settle(window);
                     ConferirAviso(window, theme, fit.Message);
+                    Assert.NotNull(vm.Conference.SelectedLayout);
+                    Assert.Single(window.GetVisualDescendants().OfType<GameTextbox>(), g => g.IsEffectivelyVisible && g.Layout is not null);
                     Save(window, "conferir-caixa-nao-cabe", theme);
                 }
                 finally
