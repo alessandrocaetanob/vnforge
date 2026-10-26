@@ -307,6 +307,17 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
+    public async Task A_linha_do_capitulo_todo_traduzido_pela_IA_diz_quantas_faltam_revisar()
+    {
+        var vm = await Load(Dashboard(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 200))))));
+        var chapter = vm.Chapters[0];
+
+        var row = new VNForge.App.Controls.ChapterRow { Done = chapter.Ready, Review = chapter.ToReview, Total = chapter.Total };
+
+        Assert.Equal("200 a revisar", row.PercentText);
+    }
+
+    [Fact]
     public async Task O_passo_Revisar_sem_nada_revisado_ainda_diz_de_quantas()
     {
         var status = StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 200))));

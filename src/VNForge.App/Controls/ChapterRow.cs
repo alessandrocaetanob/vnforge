@@ -84,7 +84,8 @@ public sealed class ChapterRow : ThreeStateProgress
     private void Refresh()
     {
         // A barra pinta de roxo o que a IA traduziu; "0%" ao lado dela esconderia o que falta. Com linhas a revisar, o texto diz quantas.
-        PercentText = Review >= 0.5 ? $"{Review.ToString("N0", PtBr)} a revisar" : DonePercentText();
+        var toReview = Math.Min(Review, Math.Max(Total - Done, 0));
+        PercentText = toReview >= 0.5 ? $"{toReview.ToString("N0", PtBr)} a revisar" : DonePercentText();
         LinesText = $"{Total.ToString("N0", PtBr)} {(Math.Abs(Total - 1) < 0.5 ? "linha" : "linhas")}";
     }
 }

@@ -82,6 +82,8 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
         capitulo.Total = 1;
         Assert.Equal("1 a revisar", capitulo.PercentText);
 
+        Assert.Equal("300 a revisar", new ChapterRow { Done = 900, Review = 500, Total = 1200 }.PercentText);
+
         capitulo.Review = 0;
         capitulo.Done = 1;
         Assert.Equal("100%", capitulo.PercentText);
