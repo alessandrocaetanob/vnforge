@@ -226,6 +226,42 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             });
     }
 
+    [Fact]
+    public async Task Sair_da_arvore_desinscreve_os_eventos_da_janela()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+        var inscritosAntes = (Review: 0, Editor: 0);
+        var inscritosDepois = (Review: 0, Editor: 0);
+
+        await Rodar(
+            root,
+            (window, vm) =>
+            {
+                inscritosAntes = (Inscritos(window, "Deactivated", typeof(WindowBase), typeof(ReviewModeView)), InscritosPropertyChanged(window, typeof(EditorView)));
+
+                vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
+                ScreenRenderer.Settle(window);
+
+                inscritosDepois = (Inscritos(window, "Deactivated", typeof(WindowBase), typeof(ReviewModeView)), InscritosPropertyChanged(window, typeof(EditorView)));
+            },
+            (_, _) =>
+            {
+                Assert.Equal((1, 1), inscritosAntes);
+                Assert.Equal((0, 0), inscritosDepois);
+            });
+    }
+
+    private static int Inscritos(object alvo, string evento, Type dono, Type ouvinte) =>
+        ((MulticastDelegate?)dono.GetField(evento, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(alvo))?
+        .GetInvocationList().Count(d => d.Target?.GetType() == ouvinte) ?? 0;
+
+    private static int InscritosPropertyChanged(object alvo, Type ouvinte) =>
+        typeof(Avalonia.AvaloniaObject).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Where(f => f.FieldType == typeof(EventHandler<Avalonia.AvaloniaPropertyChangedEventArgs>))
+            .Select(f => (MulticastDelegate?)f.GetValue(alvo))
+            .Sum(d => d?.GetInvocationList().Count(h => h.Target?.GetType() == ouvinte) ?? 0);
+
     private Task Pressionar(string root, Key key, PhysicalKey physical, Action<MainWindowViewModel, ReviewModeViewModel> verificar) =>
         Pressionar(root, [(key, physical, true)], verificar);
 

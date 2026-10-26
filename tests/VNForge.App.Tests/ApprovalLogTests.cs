@@ -200,7 +200,30 @@ public sealed class ApprovalLogTests : IDisposable
 
         Assert.True(await espera);
         Assert.Equal(["yst00001:000001"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
-        Assert.True(ProjectApprovalLog.FlushAll(TimeSpan.Zero));
+        Assert.True(log.Saving.IsCompleted);
+    }
+
+    [Fact]
+    public async Task FlushAll_tenta_gravar_de_novo_o_que_ficou_pendente_depois_de_uma_falha()
+    {
+        var falhas = 1;
+        var log = ProjectApprovalLog.For(raiz, root => new ProjectApprovalLog(root, save: (pasta, registro) =>
+        {
+            if (Interlocked.Exchange(ref falhas, 0) == 1)
+            {
+                throw new InvalidOperationException("falha de teste");
+            }
+
+            SessionsFile.Save(pasta, registro);
+        }));
+        log.Record("yst00001", "yst00001:000001", Noon);
+        await log.Saving;
+        Assert.Empty(SessionsFile.Load(Projeto).Approvals);
+
+        ProjectApprovalLog.FlushAll(TimeSpan.FromSeconds(30));
+        await log.Saving;
+
+        Assert.Equal(["yst00001:000001"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
     }
 
     [Fact]

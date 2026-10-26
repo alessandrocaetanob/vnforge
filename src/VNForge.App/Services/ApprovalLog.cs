@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using VNForge.Core;
 using VNForge.Core.Projects;
 
@@ -70,10 +71,10 @@ public sealed class ProjectApprovalLog : IApprovalLog
         return Shared.GetOrAdd(full, create);
     }
 
-    /// <summary>Espera as gravações pendentes de todos os registros, até <paramref name="timeout"/>; o app chama ao fechar. Falso quando alguma não terminou.</summary>
+    /// <summary>Espera as gravações pendentes de todos os registros, até <paramref name="timeout"/>; o app chama ao fechar. Um registro que ficou com algo a gravar sem gravação ativa (a anterior falhou) tenta de novo uma vez. Falso quando alguma não terminou.</summary>
     public static bool FlushAll(TimeSpan timeout)
     {
-        var tasks = Shared.Values.Select(log => log.Saving).Where(task => !task.IsCompleted).ToArray();
+        var tasks = Shared.Values.Select(log => log.RetryPending()).Where(task => !task.IsCompleted).ToArray();
         return tasks.Length == 0 || Task.WaitAll(tasks, timeout);
     }
 
@@ -86,6 +87,21 @@ public sealed class ProjectApprovalLog : IApprovalLog
             {
                 return saving;
             }
+        }
+    }
+
+    /// <summary>Retoma a gravação do que ficou em <c>pending</c> sem tarefa ativa, e devolve a gravação em andamento (ou concluída).</summary>
+    private Task RetryPending()
+    {
+        lock (gate)
+        {
+            if (!writing && pending is not null)
+            {
+                writing = true;
+                saving = Task.Run(WriteLoop);
+            }
+
+            return saving;
         }
     }
 
@@ -246,10 +262,12 @@ public sealed class ProjectApprovalLog : IApprovalLog
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // O registro é só do contador; a aprovação já está no texto do projeto.
+            Debug.WriteLine(ex);
             return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Debug.WriteLine(ex);
             lock (gate)
             {
                 pending ??= next;

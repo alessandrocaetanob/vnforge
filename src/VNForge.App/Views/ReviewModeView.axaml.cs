@@ -16,6 +16,7 @@ public sealed partial class ReviewModeView : UserControl
 {
     private readonly HashSet<Key> held = [];
     private ReviewModeViewModel? current;
+    private WindowBase? watchedWindow;
 
     public ReviewModeView()
     {
@@ -86,9 +87,10 @@ public sealed partial class ReviewModeView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         held.Clear();
-        if (TopLevel.GetTopLevel(this) is WindowBase window)
+        if (watchedWindow is not null)
         {
-            window.Deactivated -= OnWindowDeactivated;
+            watchedWindow.Deactivated -= OnWindowDeactivated;
+            watchedWindow = null;
         }
 
         base.OnDetachedFromVisualTree(e);
@@ -99,6 +101,7 @@ public sealed partial class ReviewModeView : UserControl
         base.OnAttachedToVisualTree(e);
         if (TopLevel.GetTopLevel(this) is WindowBase window)
         {
+            watchedWindow = window;
             window.Deactivated += OnWindowDeactivated;
         }
 

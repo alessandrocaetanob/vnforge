@@ -12,6 +12,7 @@ namespace VNForge.App.Views;
 public sealed partial class EditorView : UserControl
 {
     private EditorViewModel? current;
+    private TopLevel? watchedTopLevel;
 
     private Flyout SceneFlyout => (Flyout)ScenesTrigger.Flyout!;
 
@@ -95,6 +96,7 @@ public sealed partial class EditorView : UserControl
         (DataContext as EditorViewModel)?.RefreshPreview();
         if (TopLevel.GetTopLevel(this) is { } top)
         {
+            watchedTopLevel = top;
             top.PropertyChanged += OnTopLevelPropertyChanged;
             ApplyBreakpoints();
         }
@@ -102,9 +104,10 @@ public sealed partial class EditorView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this) is { } top)
+        if (watchedTopLevel is not null)
         {
-            top.PropertyChanged -= OnTopLevelPropertyChanged;
+            watchedTopLevel.PropertyChanged -= OnTopLevelPropertyChanged;
+            watchedTopLevel = null;
         }
 
         base.OnDetachedFromVisualTree(e);
