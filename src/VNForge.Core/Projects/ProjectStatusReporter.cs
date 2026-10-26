@@ -9,6 +9,12 @@ public sealed record StatusCounts(int Untranslated, int Machine, int Translated,
 
     public int Done => Total - Untranslated;
 
+    /// <summary>Linhas prontas: revisadas ou aprovadas. É o "pronto" do Painel.</summary>
+    public int Ready => Reviewed + Approved;
+
+    /// <summary>Linhas que a IA ou o tradutor deixaram e ninguém revisou: o "para revisar" do Painel.</summary>
+    public int ToReview => Machine + Translated;
+
     /// <summary>Percentual de <see cref="Done"/> sobre <see cref="Total"/>, de 0 a 100, truncado em uma casa (só chega a 100 quando nada está pendente); 0 quando não há linhas.</summary>
     public double Percent => Total == 0 ? 0 : Math.Floor(1000.0 * Done / Total) / 10;
 

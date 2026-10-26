@@ -118,6 +118,8 @@ public sealed class SessionsFileTests : IDisposable
     [Theory]
     [InlineData("não é json", SessionsLoadStatus.Corrupt, true)]
     [InlineData("{\"version\": 1}", SessionsLoadStatus.Corrupt, true)]
+    [InlineData("{\"version\": \"1\", \"approvals\": []}", SessionsLoadStatus.Ok, true)]
+    [InlineData("{\"version\": null, \"approvals\": []}", SessionsLoadStatus.Corrupt, true)]
     [InlineData("{\"version\": 2, \"approvals\": [], \"extra\": 1}", SessionsLoadStatus.NewerVersion, false)]
     [InlineData("{\"version\": 1, \"approvals\": []}", SessionsLoadStatus.Ok, true)]
     public void Read_diz_se_da_para_gravar_por_cima_do_arquivo(string content, SessionsLoadStatus status, bool canOverwrite)

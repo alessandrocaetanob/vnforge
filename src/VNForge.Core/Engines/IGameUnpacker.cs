@@ -50,7 +50,11 @@ public sealed record GameUnpackResult(IReadOnlyList<UnpackedArchive> Archives)
 /// <param name="Path">Caminho completo do arquivo na pasta descompactada.</param>
 /// <param name="Format">Formato que lê e reconstrói o script.</param>
 /// <param name="DisplayName">Nome legível que a engine conhece (no YU-RIS, o do <c>yst_list.ybn</c>), ou nulo.</param>
-public sealed record UnpackedScript(string Name, string Path, IScriptFormat Format, string? DisplayName);
+public sealed record UnpackedScript(string Name, string Path, IScriptFormat Format, string? DisplayName)
+{
+    /// <summary>Pasta do script no jogo, com <c>/</c> (no YU-RIS, a do caminho na <c>yst_list.ybn</c>, como <c>userscript/01_cap1</c>), ou nulo quando a engine não a conhece. Os capítulos do Painel saem dela.</summary>
+    public string? Folder { get; init; }
+}
 
 /// <summary>Scripts e contexto de uma pasta descompactada (<see cref="IGameUnpacker.Open"/>).</summary>
 /// <param name="Context">Contexto da engine para <see cref="IScriptFormat.Extract"/> e <see cref="IScriptFormat.Rebuild"/>.</param>

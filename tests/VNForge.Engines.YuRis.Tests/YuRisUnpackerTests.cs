@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using VNForge.Core;
 using VNForge.Core.Engines;
+using VNForge.Core.Projects;
 using VNForge.Core.Text;
 using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
@@ -162,8 +163,58 @@ public sealed class YuRisUnpackerTests : IDisposable
         Assert.IsType<YuRisContext>(game.Context);
         Assert.Equal([Yst1Ybn, "yst00002.ybn"], game.Scripts.Select(s => s.Name));
         Assert.Equal(["01_prologo", null], game.Scripts.Select(s => s.DisplayName));
+        Assert.Equal(["userscript", null], game.Scripts.Select(s => s.Folder));
         Assert.All(game.Scripts, s => Assert.Same(Assert.Single(_engine.Scripts), s.Format));
         Assert.Empty(game.Warnings);
+    }
+
+    private ScriptNames NamesOfOpenedGame() =>
+        ScriptNames.Empty.WithDetected(_engine.Open(_cache).Scripts.ToDictionary(
+            s => Path.GetFileNameWithoutExtension(s.Name),
+            s => new DetectedScript(s.DisplayName, s.Folder),
+            StringComparer.Ordinal));
+
+    private static IReadOnlyList<FileStatus> OneLineEach(params string[] keys) =>
+        [.. keys.Select(k => new FileStatus(k, new StatusCounts(1, 0, 0, 0, 0)))];
+
+    [Fact]
+    public void Os_capitulos_saem_das_pastas_do_yst_list()
+    {
+        var list = new SyntheticYstlBuilder().WithVersion(500)
+            .AddScript(@"userscript\global.yst")
+            .AddScript(@"userscript\01_cap1\manha.yst")
+            .AddScript(@"userscript\01_cap1\tarde.yst")
+            .AddScript(@"userscript\02_cap2\noite.yst")
+            .AddScript(@"userscript\system\menu.yst")
+            .Build().Bytes;
+        Write(YsbinYpf, Archive(
+            (YscYbn, Yscm.Bytes),
+            ("yst_list.ybn", list),
+            ("ybin/yst00001.ybn", Script("a")),
+            ("ybin/yst00002.ybn", Script("b")),
+            ("ybin/yst00003.ybn", Script("c")),
+            ("ybin/yst00004.ybn", Script("d"))));
+        _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
+
+        var groups = ScriptGrouping.Build(NamesOfOpenedGame(), OneLineEach("yst00001", "yst00002", "yst00003", "yst00004"));
+
+        Assert.Equal(["Capítulo 1", "Capítulo 2", "Menus e nomes"], groups.Select(g => g.Name));
+        Assert.Equal([1, 2, null], groups.Select(g => g.Number));
+        Assert.Equal(["yst00001", "yst00002"], groups[0].ScriptKeys);
+        Assert.Equal(["yst00004"], groups[2].ScriptKeys);
+    }
+
+    [Fact]
+    public void Sem_yst_list_os_capitulos_saem_de_faixas_na_ordem_dos_scripts()
+    {
+        Write(YsbinYpf, Archive((YscYbn, Yscm.Bytes), (Yst1Ybn, Script("a")), ("yst00002.ybn", Script("b"))));
+        _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
+
+        var groups = ScriptGrouping.Build(NamesOfOpenedGame(), OneLineEach("yst00001", "yst00002"));
+
+        var group = Assert.Single(groups);
+        Assert.Equal("Parte 1", group.Name);
+        Assert.Equal(["yst00001", "yst00002"], group.ScriptKeys);
     }
 
     [Fact]

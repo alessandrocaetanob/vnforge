@@ -72,7 +72,7 @@ internal static class YuRisUnpacker
             .Select(f => new { Path = f, Name = Path.GetFileName(f) })
             .OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(f => f.Path, StringComparer.OrdinalIgnoreCase)
-            .Select(f => new UnpackedScript(f.Name, f.Path, scriptFormat, NameOf(scriptList, f.Name)))
+            .Select(f => new UnpackedScript(f.Name, f.Path, scriptFormat, NameOf(scriptList, f.Name)) { Folder = FolderOf(scriptList, f.Name) })
             .ToList();
 
         return new UnpackedGame(new YuRisContext(commands, scriptList), scripts) { Warnings = warnings };
@@ -151,6 +151,9 @@ internal static class YuRisUnpacker
 
     private static string? NameOf(YstlFile? list, string fileName) =>
         list is not null && list.TryGetByBinaryName(fileName, out var script) ? script.ReadableName : null;
+
+    private static string? FolderOf(YstlFile? list, string fileName) =>
+        list is not null && list.TryGetByBinaryName(fileName, out var script) && script.Folder.Length > 0 ? script.Folder : null;
 
     private static bool IsNamed(string path, string name) =>
         string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase);

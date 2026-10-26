@@ -106,6 +106,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         HookTranslateDialog();
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
+        Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         AttachEditor(editor);
         Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);
@@ -117,12 +118,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
-        Dashboard.StageRequested += (_, stage) => SelectedNav = stage switch
-        {
-            PipelineStageKey.Review => conferenceItem,
-            PipelineStageKey.Build or PipelineStageKey.Inject => buildItem,
-            _ => editorItem,
-        };
+        Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured);
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         start.EditorRequested += (_, summary) =>
@@ -242,8 +238,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"Alterações salvas automaticamente em vnforge.json" enquanto os Ajustes de um projeto estão abertos; vazio nas outras telas.</summary>
     public string StatusNote => SelectedNav?.Key == NavKey.Settings && Settings.HasProject ? SettingsViewModel.AutosaveNote : string.Empty;
 
-    /// <summary>"Acentuação: CP1252" com a estratégia do projeto.</summary>
-    public string EncodingText => CurrentProject is { } project ? $"Acentuação: {ProjectLabels.EncodingShort(project.EncodingStrategy)}" : string.Empty;
+    /// <summary>"Acentos: ajuste no jogo" com a estratégia do projeto.</summary>
+    public string EncodingText => CurrentProject is { } project ? $"Acentos: {ProjectLabels.EncodingShort(project.EncodingStrategy)}" : string.Empty;
 
     /// <summary>"40 colunas · 3 linhas": os limites da caixa de texto do <c>formatting.json</c>; vazio sem projeto ou sem perfil legível.</summary>
     public string BoxLimitsText

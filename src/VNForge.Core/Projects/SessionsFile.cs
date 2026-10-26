@@ -62,7 +62,7 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
         {
             using var document = JsonDocument.Parse(text);
             var root = document.RootElement;
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("version", out var version) && version.TryGetInt32(out var number) && number > CurrentVersion)
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("version", out var version) && version.ValueKind == JsonValueKind.Number && version.TryGetInt32(out var number) && number > CurrentVersion)
             {
                 return new SessionsLoad(Empty, SessionsLoadStatus.NewerVersion);
             }

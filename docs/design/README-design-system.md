@@ -37,7 +37,8 @@ A interface v3 fala a língua de quem traduz pela primeira vez (plano, seção "
 | **Modo revisão** | | Botão do cabeçalho do Editor, com **Está boa**, **Corrigir**, **Depois** e **Pular** | No app (#307) |
 | **Traduzir com IA** | Traduzir pendentes | Botão do cabeçalho do Editor e a janela das três perguntas | No app (#304) |
 | **Rápida**, **Equilibrada**, **Caprichada** | Nome do modelo | `QualityCard`, com o modelo em letra pequena | No app (#303, #304, #312) |
-| **Detalhes técnicos** | | `TechnicalDetails`, fechado por padrão: motor, pacote, página de código, modelo exato, registro | No app (#302) |
+| **Detalhes técnicos** | | `TechnicalDetails`, fechado por padrão: motor, pacote, página de código, modelo exato, registro, os nomes técnicos das estratégias de acentos | No app (#302) |
+| **Acentos**, **Sem acentos**, **Com acentos, fonte modificada**, **Com acentos, ajuste no jogo** | Acentuação, "Remover acentos (fold)", "Remapear para meia largura (remap)", "Latin-1 nativo (cp1252)" | Aba dos Ajustes e passo do Novo projeto, os mesmos três cartões (`AccentCards`); o `sjis` não é cartão | No app (#312, #335) |
 | **Precisa de você** | | Lista de pendências do Painel (`TodoItem`) | Ainda não: Painel na #309 |
 
 O plano chama o botão do inspetor de "Aprovar e ir para a próxima"; o app diz **Aprovar e próxima**, que cabe nos 360 px do editor compacto. Vale o do app.
@@ -119,6 +120,7 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 | `MarkerChip` | `.mk` | `Marker`, `Kind`, `IsMissing` | Selo com o nome em português no lugar do marcador; no AvaloniaEdit entra pelo `MarkerChipGenerator` e ocupa uma coluna do cursor | Campo da tradução e original do inspetor do Editor, modo revisão |
 | `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso e Ajustes (#309/#313) |
 | `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o gasto mais o pedido (zero, sem pedido) passa dele | Traduzir com IA, Ajustes; Painel (#309) |
+| `AccentCards` | `.enc` | `Options` (`ChoiceOption`), `GroupName` | Os três cartões de acentos, cada um um `RadioButton` com nome, selo ("Em breve", "Recomendada para este jogo"), explicação e a frase de teste num `GameTextbox` pequeno; a seleção única fica no `ChoiceGroup` da tela, montado por `AccentChoices` | Novo projeto, Ajustes (aba Acentos) |
 | `QualityCard` | `.opt` | `Title`, `Price`, `Duration`, `Model`, `ExampleRate` | `OptionCard` com preço em reais e tempo em destaque e o modelo em letra pequena; é um `RadioButton` de grupo | Traduzir com IA, Novo projeto, Ajustes |
 | `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor do Editor, modo revisão |
 | `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor do Editor, modo revisão |

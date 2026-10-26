@@ -77,7 +77,7 @@ internal static class DemoProject
         }
 
         folder.SaveState(new PipelineState([], new Dictionary<string, StageState> { [ProjectExtractor.ExtractStage] = new(StageStatus.Completed) }));
-        folder.SaveScriptNames(ScriptNames.Empty.WithDetected(Named.ToDictionary(n => n.Key, n => (string?)n.Label)));
+        folder.SaveScriptNames(ChapterNames());
         // O gasto do cartão "Uso da IA" do Painel: US$ 26,40 em 2,1 M tokens de entrada e 0,9 M de saída.
         AiUsageLog.TryRecord(folder, new AiUsageTotals(2_100_000, 900_000, 0, 0, 26.40m, 1));
         folder.SaveCharacters([.. Characters.Where(c => c.Japanese is not null).Select(c => new CharacterEntry(c.Japanese!, c.Portuguese))]);
@@ -89,6 +89,29 @@ internal static class DemoProject
             new GlossaryTerm("校門", "portão da escola"),
         ]);
         return folder.Root;
+    }
+
+    /// <summary>Os sete capítulos do Painel, que a pessoa do artboard já renomeou; os scripts de menus e nomes ficam de fora, na pasta do sistema.</summary>
+    public static readonly IReadOnlyList<string> ChapterTitles =
+        ["Manhã de chuva", "O clube de leitura", "Festival da escola", "Depois da aula", "A promessa", "A volta para casa", "Último dia"];
+
+    /// <summary>
+    /// O <c>scripts.json</c> do projeto: o nome legível dos oito scripts da tabela, a pasta de cada um no jogo (<c>userscript/NN_capN</c>, como o
+    /// <c>yst_list.ybn</c> as traz; <c>userscript/system</c> para menus e nomes) e o nome dos sete capítulos.
+    /// </summary>
+    public static ScriptNames ChapterNames()
+    {
+        var keys = Enumerable.Range(1, ScriptCount).Select(n => $"yst{n:D5}").ToList();
+        var system = new HashSet<string>(["yst00090", "yst00091"], StringComparer.Ordinal);
+        var story = keys.Where(k => !system.Contains(k)).ToList();
+        var chapterOf = story.Select((k, i) => (k, chapter: i * ChapterTitles.Count / story.Count)).ToDictionary(p => p.k, p => p.chapter, StringComparer.Ordinal);
+        var names = ScriptNames.Empty.WithDetected(keys.ToDictionary(
+            k => k,
+            k => new DetectedScript(
+                Named.FirstOrDefault(s => s.Key == k)?.Label,
+                chapterOf.TryGetValue(k, out var chapter) ? $"userscript/{chapter + 1:D2}_cap{chapter + 1}" : "userscript/system"),
+            StringComparer.Ordinal));
+        return story.Aggregate(names, (current, key) => current.WithGroup(key, ChapterTitles[chapterOf[key]]));
     }
 
     private static List<DemoCharacter> BuildCharacters()

@@ -53,7 +53,7 @@ O tamanho é o do canvas, **1440×1000** (`ScreenRenderer.Width` e `Height`), e 
 | 8 · Traduzir com IA | `traduzir-com-ia`, `traduzir-com-ia-acima-do-limite` | |
 | 9 · Conferir | `conferir-caixa-nao-cabe` | Tela Conferir a tradução (#334); `conferir-caixa-nao-cabe` mostra a caixa do jogo e o aviso, `conferir-v3-problemas` e `conferir-v3-um-clique` a lista com o painel |
 | 10 · Testar no jogo | `testar-no-jogo-traduzido`, `testar-no-jogo-travado`, `testar-no-jogo-detalhes` | |
-| 11 · Ajustes | `ajustes-ia`, `ajustes-estilo`, `ajustes-formatacao`, `ajustes-acentuacao` | A aba Aparência não tem captura |
+| 11 · Ajustes | `ajustes-ia`, `ajustes-estilo`, `ajustes-formatacao`, `ajustes-acentos` | A aba Aparência não tem captura |
 | 12 · Glossário | `glossario-v3-personagens`, `glossario-v3-termos` | |
 | Componentes | `galeria-v3` | Galeria de controles (800×5200) |
 

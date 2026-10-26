@@ -82,6 +82,18 @@ public class YstlReaderTests
         Assert.Equal(expected, script.ReadableName);
     }
 
+    [Theory]
+    [InlineData(@"userscript\01_cap1\manha.yst", "userscript/01_cap1")]
+    [InlineData("userscript/01_prologo.yst", "userscript")]
+    [InlineData("global.yst", "")]
+    [InlineData(@"\global.yst", "")]
+    public void Folder_ChegaComBarraNormal(string path, string expected)
+    {
+        var script = new YstlScript(0, path, 0, 0, 0, null);
+
+        Assert.Equal(expected, script.Folder);
+    }
+
     [Fact]
     public void ModifiedUtc_ConverteOFileTime()
     {

@@ -11,9 +11,11 @@ using VNForge.AI.Translation;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using VNForge.Engines.YuRis;
 
 namespace VNForge.App.ViewModels;
 
@@ -121,24 +123,11 @@ public sealed partial class QualityOption(QualityProfile profile, string title, 
     }
 }
 
-/// <summary>Cartão de estratégia de acentuação: nome, um exemplo do efeito e a explicação.</summary>
-public sealed partial class EncodingOption(string id, string name, string sample, string description) : ObservableObject
-{
-    public string Id { get; } = id;
-
-    public string Name { get; } = name;
-
-    /// <summary>"ação → acao": o que acontece com um texto acentuado.</summary>
-    public string Sample { get; } = sample;
-
-    public string Description { get; } = description;
-
-    [ObservableProperty]
-    public partial bool IsSelected { get; set; }
-}
+/// <summary>Uma estratégia de acentos pelo nome técnico (<see cref="Id"/> do <c>vnforge.json</c>), com um exemplo e a explicação; só aparece em "Detalhes técnicos".</summary>
+public sealed record EncodingTechnicalRow(string Id, string Name, string Sample, string Description);
 
 /// <summary>
-/// Tela Ajustes, em abas (IA, Estilo, Formatação, Acentuação, Aparência): a chave da API (só no cofre do usuário), o modelo e os limites
+/// Tela Ajustes, em abas (IA, Estilo, Formatação, Acentos, Aparência): a chave da API (só no cofre do usuário), o modelo e os limites
 /// da IA, o estilo da tradução (<see cref="Style"/> e o guia), o perfil de formatação com prévia ao vivo e a estratégia de acentuação.
 /// Modelo, esforço, lote, acentuação, estilo, guia e formatação valem para o projeto aberto e são gravados a cada mudança (<see cref="ProjectSaved"/>); chave e paralelismo valem para o usuário.
 /// </summary>
@@ -155,7 +144,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private static readonly HashSet<string> ConfigInputs =
     [
-        nameof(SelectedModel), nameof(SelectedEffort), nameof(BatchSize), nameof(SelectedEncoding),
+        nameof(SelectedModel), nameof(SelectedEffort), nameof(BatchSize), nameof(EncodingStrategy),
     ];
 
     private static readonly HashSet<string> FormattingInputs =
@@ -170,6 +159,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Func<string, string?> readEnvironment;
     private readonly Func<string, IClaudeMessageClient> clientFactory;
     private readonly TimeProvider clock;
+    private readonly IReadOnlyList<IEngine> engines;
     private AppSettings app;
     private IReadOnlyDictionary<string, CostEstimate> estimates = new Dictionary<string, CostEstimate>();
     private int? estimatedPending;
@@ -184,7 +174,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         AppSettingsFile appSettings,
         Func<string, string?>? readEnvironment = null,
         Func<string, IClaudeMessageClient>? clientFactory = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        IReadOnlyList<IEngine>? engines = null)
     {
         ArgumentNullException.ThrowIfNull(vault);
         ArgumentNullException.ThrowIfNull(appSettings);
@@ -193,6 +184,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         this.readEnvironment = readEnvironment ?? Environment.GetEnvironmentVariable;
         this.clientFactory = clientFactory ?? ClaudeProviderFactory.CreateClient;
         this.clock = clock ?? TimeProvider.System;
+        this.engines = engines ?? [new YuRisEngine()];
 
         Providers =
         [
@@ -205,13 +197,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         Models = [.. ClaudeModels.All.Select(Describe)];
         Qualities = [.. QualityProfiles.All.Select(QualityOption.Describe)];
         Efforts = [new("low", "Baixo"), new("medium", "Médio"), new("high", "Alto")];
-        Encodings =
-        [
-            new("fold", "Remover acentos (fold)", "ação → acao", "Funciona em qualquer jogo sem mexer no executável. Bom para validar a ida e volta."),
-            new("remap", "Remapear para meia largura (remap)", "ação → aｱｲo", "Usa katakanas de 1 byte como substitutos e uma fonte modificada que desenha as letras certas."),
-            new("cp1252", "Latin-1 nativo (cp1252)", "ação → ação", "Acentos completos com o executável original. O patch opcional troca o nome da fonte para MS Gothic; aplique na tela Testar. Experimental."),
-            new("sjis", "Shift-JIS puro (sjis)", "ação → recusado", "Não trata acentos: o build recusa o que o Shift-JIS não representa. Serve de base e para texto sem acentos."),
-        ];
+        EncodingStrategies = AccentChoices.CreateGroup();
+        EncodingStrategies.SelectionChanged += (_, _) => EncodingStrategy = EncodingStrategies.Selected.Id;
         QuoteStyles = [new(QuoteStyle.None, "Manter"), new(QuoteStyle.Ascii, "Aspas retas"), new(QuoteStyle.Corner, "Aspas 「 」")];
         EllipsisStyles = [new(EllipsisStyle.None, "Manter"), new(EllipsisStyle.Character, "Caractere …"), new(EllipsisStyle.Dots, "Três pontos")];
 
@@ -223,11 +210,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         foreach (var quality in Qualities)
         {
             LinkSelection(quality, () => quality.IsSelected, () => SelectedQuality = quality);
-        }
-
-        foreach (var encoding in Encodings)
-        {
-            LinkSelection(encoding, () => encoding.IsSelected, () => SelectedEncoding = encoding);
         }
 
         Style.Changed += (_, _) =>
@@ -248,7 +230,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         SpendLimitText = saved.SpendLimit is { } limit ? MoneyParser.Format(limit) : string.Empty;
         WarnAboveText = saved.WarnAbove is { } warn ? MoneyParser.Format(warn) : string.Empty;
         SelectedEffort = Efforts[1];
-        SelectedEncoding = Encodings[0];
         SelectedQuotes = QuoteStyles[0];
         SelectedEllipsis = EllipsisStyles[0];
         BatchSize = AiConfig.Default.BatchSize;
@@ -269,6 +250,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
         };
 
+    /// <summary>A aba Acentos pediu o teste de acentos: a janela abre Testar no jogo, onde fica "Testar só os acentos".</summary>
+    public event EventHandler? TestAccentsRequested;
+
     /// <summary>A chave foi guardada ou apagada: a janela atualiza a barra de status.</summary>
     public event EventHandler? KeyChanged;
 
@@ -286,7 +270,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public ReadOnlyCollection<ChoiceItem> Efforts { get; }
 
-    public ReadOnlyCollection<EncodingOption> Encodings { get; }
+    /// <summary>Os três cartões de acentos, os mesmos do Novo projeto; o <c>sjis</c> não é cartão.</summary>
+    public ChoiceGroup EncodingStrategies { get; }
+
+    /// <summary>Os quatro nomes técnicos das estratégias, para "Detalhes técnicos" (fechado) da aba Acentos.</summary>
+    public IReadOnlyList<EncodingTechnicalRow> EncodingTechnicalRows { get; } =
+    [
+        new("fold", "Remover acentos", "ação → acao", "Funciona em qualquer jogo sem mexer no executável. Bom para validar a ida e volta."),
+        new("remap", "Remapear para meia largura", "ação → aｱｲo", "Usa katakanas de 1 byte como substitutos e uma fonte modificada que desenha as letras certas."),
+        new("cp1252", "Latin-1 nativo", "ação → ação", "Acentos completos com o executável original. O patch opcional troca o nome da fonte para MS Gothic; aplique na tela Testar. Experimental."),
+        new("sjis", "Shift-JIS puro", "ação → recusado", "Não trata acentos: o build recusa o que o Shift-JIS não representa. Não é escolha no app; aparece em projetos criados com sjis pela linha de comando."),
+    ];
 
     public ReadOnlyCollection<ChoiceItem<QuoteStyle>> QuoteStyles { get; }
 
@@ -330,7 +324,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Termina quando a estimativa das linhas pendentes foi calculada (ou descartada por outro projeto).</summary>
     public Task EstimateLoading { get; private set; } = Task.CompletedTask;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentuação, 4 Aparência).</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Aparência).</summary>
     [ObservableProperty]
     public partial int SelectedTab { get; set; }
 
@@ -396,12 +390,25 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial int Concurrency { get; set; }
 
+    /// <summary>A estratégia de acentos gravada no <c>vnforge.json</c> (<c>fold</c>, <c>remap</c>, <c>cp1252</c> ou <c>sjis</c>); os cartões em <see cref="EncodingStrategies"/> acompanham.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowCp1252Warning))]
-    public partial EncodingOption? SelectedEncoding { get; set; }
+    [NotifyPropertyChangedFor(nameof(ShowCp1252Warning), nameof(ShowLegacyEncodingNote), nameof(ShowUnavailableEncodingNote), nameof(CanTestAccents), nameof(EncodingCurrentNote))]
+    public partial string EncodingStrategy { get; set; } = ProjectChoices.DefaultEncoding;
 
     /// <summary>Com cp1252 o byte 0xEF (ï) é o prefixo dos códigos de controle do YU-RIS: a aba mostra o aviso.</summary>
-    public bool ShowCp1252Warning => SelectedEncoding?.Id == "cp1252";
+    public bool ShowCp1252Warning => EncodingStrategy == AccentChoices.AdjustInGame;
+
+    /// <summary>Projeto gravado com uma estratégia que não é cartão (o <c>sjis</c>): nenhum cartão fica marcado e a aba pede a escolha.</summary>
+    public bool ShowLegacyEncodingNote => !AccentChoices.CardIds.Contains(EncodingStrategy);
+
+    /// <summary>O cartão marcado ainda não dá para usar (a fonte modificada, <c>remap</c>): o build recusa a estratégia, então a aba avisa.</summary>
+    public bool ShowUnavailableEncodingNote => EncodingStrategies.Options.FirstOrDefault(o => o.Id == EncodingStrategy) is { IsAvailable: false };
+
+    /// <summary>Só uma estratégia que o build aceita pode ir para o teste de acentos no jogo.</summary>
+    public bool CanTestAccents => EncodingStrategies.Options.FirstOrDefault(o => o.Id == EncodingStrategy) is { IsAvailable: true };
+
+    /// <summary>A estratégia gravada no projeto, pelo nome técnico; só aparece em "Detalhes técnicos".</summary>
+    public string EncodingCurrentNote => $"Gravada no projeto: {EncodingStrategy}";
 
     [ObservableProperty]
     public partial string StyleGuide { get; set; } = string.Empty;
@@ -545,6 +552,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshSpent();
         StartEstimate(folder);
     }
+
+    [RelayCommand]
+    private void OpenAccentTest() => TestAccentsRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand]
     private void ChangeKey() => IsChangingKey = true;
@@ -874,11 +884,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     private decimal BrlFor(string model) =>
         estimatedPending is not null && estimates.TryGetValue(model, out var estimate) ? CostEstimator.Brl(estimate, app.Rate) : 0m;
 
-    partial void OnSelectedEncodingChanged(EncodingOption? value)
+    // A fonte da verdade é EncodingStrategy: com uma estratégia sem cartão (sjis) nenhum cartão fica marcado e EncodingStrategies.Selected guarda só o último cartão escolhido.
+    partial void OnEncodingStrategyChanged(string value)
     {
-        foreach (var encoding in Encodings)
+        var card = EncodingStrategies.Options.FirstOrDefault(o => o.Id == value);
+        if (card is null)
         {
-            encoding.IsSelected = encoding == value;
+            foreach (var option in EncodingStrategies.Options)
+            {
+                option.IsSelected = false;
+            }
+        }
+        else if (!card.IsSelected)
+        {
+            card.IsSelected = true;
         }
     }
 
@@ -960,7 +979,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         SelectedModel = Models.FirstOrDefault(m => m.Id == project.Ai.Model) ?? Models[0];
         SelectedEffort = Efforts.FirstOrDefault(e => e.Id == project.Ai.Effort) ?? Efforts[1];
         BatchSize = project.Ai.BatchSize;
-        SelectedEncoding = Encodings.FirstOrDefault(e => e.Id == project.Encoding.Strategy) ?? Encodings[0];
+        EncodingStrategy = project.Encoding.Strategy;
+        AccentChoices.Recommend(EncodingStrategies, engines.FirstOrDefault(e => string.Equals(e.Id, project.Engine.Id, StringComparison.Ordinal)));
         StyleGuide = style;
         Style.Load(project.Style);
         Nfc = profile.Normalization.Nfc;
@@ -1008,7 +1028,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 Effort = SelectedEffort?.Id ?? config.Ai.Effort,
                 BatchSize = BatchSize,
             },
-            Encoding = new EncodingConfig(SelectedEncoding?.Id ?? config.Encoding.Strategy),
+            Encoding = new EncodingConfig(EncodingStrategy),
             Style = Style.ToConfig(),
         };
         folder.SaveConfig(updated);
