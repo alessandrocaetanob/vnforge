@@ -195,7 +195,7 @@ public sealed class GameTester(
     /// Junta os arquivos dos patches ao plano do build para o backup e a gravação saírem numa injeção só: um backup, um manifesto e o hash de cada arquivo
     /// conferido. Um patch que o jogo já tem não traz arquivo, e então nada muda.
     /// </summary>
-    private static InjectionPlan WithPatches(InjectionPlan build, IReadOnlyList<PatchPlan> patches) =>
+    private static InjectionPlan WithPatches(InjectionPlan build, List<PatchPlan> patches) =>
         patches.Count == 0
             ? build
             : build with
