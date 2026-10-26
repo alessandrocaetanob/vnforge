@@ -29,6 +29,8 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
 
     public int RebuildCalls => _format.Calls;
 
+    public IReadOnlyList<TextUnit> LastRebuiltUnits => _format.LastUnits;
+
     public IReadOnlyList<RebuiltScript> LastRebuilt { get; private set; } = [];
 
     public int RepackCalls { get; private set; }
@@ -80,6 +82,9 @@ internal sealed class FakeFormat : IScriptFormat
 {
     public int Calls { get; private set; }
 
+    /// <summary>As unidades da última chamada de <see cref="Rebuild"/>, como o build as entregou.</summary>
+    public IReadOnlyList<TextUnit> LastUnits { get; private set; } = [];
+
     public string Id => "fake";
 
     public IReadOnlyList<string> FileExtensions => [".fake"];
@@ -97,6 +102,7 @@ internal sealed class FakeFormat : IScriptFormat
     public byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext ctx)
     {
         Calls++;
+        LastUnits = units;
         var lines = Encoding.UTF8.GetString(file.Content.Span).Split('\n');
         foreach (var unit in units.Where(u => u.NeedsRewrite))
         {

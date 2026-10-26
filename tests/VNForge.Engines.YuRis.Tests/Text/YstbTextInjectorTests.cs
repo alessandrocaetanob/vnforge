@@ -159,6 +159,93 @@ public class YstbTextInjectorTests
         Assert.Equal(("美咲", "（Tired.）"), (read.Speaker, read.Source));
     }
 
+    private static readonly ITextEncoder Cp1252 = TextEncoderRegistry.Default.Create("cp1252");
+
+    private static byte[] FirstMessage(byte[] raw)
+    {
+        var reloaded = YstbReader.Read(raw, ScriptName, Commands);
+        return reloaded.GetResource(reloaded.Instructions[0].Arguments[0]).ToArray();
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComFalanteTraduzido_GravaNomeEAspasCurvas()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Bom dia!") with { Speaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        Assert.Equal(GameEncodings.Windows1252.GetBytes("Inui“Bom dia!”"), FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComFalanteDeSinaisLargosNormalizado_GravaOsSinaisComuns()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Quem?") with { Speaker = "???" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        Assert.Equal(GameEncodings.Windows1252.GetBytes("???“Quem?”"), FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComFalanteAcentuado_GravaOsAcentos()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Olá, ação!") with { Speaker = "Teste ç ã é ô" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        Assert.Equal(GameEncodings.Windows1252.GetBytes("Teste ç ã é ô“Olá, ação!”"), FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_ShiftJisComFalante_MantemOsColchetesJaponeses()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Hello.") with { Speaker = "Misaki" };
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("Misaki「Hello.」"), FirstMessage(Inject(loaded, unit)));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComNomeJaponesDoScript_LancaCitandoOFalanteEAUnidade()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Bom dia!") with { Speaker = null };
+
+        var ex = Assert.Throws<EncoderFallbackException>(() => YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252));
+
+        Assert.Contains(UnitId(0), ex.Message, StringComparison.Ordinal);
+        Assert.Contains("美咲", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("'美' (U+7F8E)", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Glossário > Personagens", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComTraducaoForaDaCodificacao_CitaOCaractereETrecho()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Bom dia, 犬!") with { Speaker = "Inui" };
+
+        var ex = Assert.Throws<EncoderFallbackException>(() => YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252));
+
+        Assert.Contains(UnitId(0), ex.Message, StringComparison.Ordinal);
+        Assert.Contains("'犬' (U+72AC)", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Bom dia, 犬!", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComFalanteESemTraducao_CopiaOsBytesCrus()
+    {
+        var built = FullScript().Build();
+        var loaded = Load(built.Bytes);
+        Assert.Contains(loaded.Extraction.Units, u => u.Speaker is not null);
+
+        Assert.Equal(built.Bytes, YstbTextInjector.Inject(loaded.File, loaded.Script, loaded.Extraction.Units, Cp1252));
+    }
+
     [Fact]
     public void Inject_FalanteTraduzidoNaUnidade_ValeOdaUnidade()
     {

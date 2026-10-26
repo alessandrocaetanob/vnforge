@@ -90,6 +90,7 @@ internal sealed record BuildState(
         {
             Append(hash, unit.Id);
             Append(hash, unit.Kind.ToString());
+            Append(hash, unit.Speaker);
             Append(hash, unit.Source);
             Append(hash, unit.Translation);
             Append(hash, unit.Locator?.GetRawText());

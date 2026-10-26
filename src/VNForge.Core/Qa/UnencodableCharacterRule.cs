@@ -43,11 +43,9 @@ public sealed class UnencodableCharacterRule : UnitQaRule, IQaFixer
         {
             foreach (var index in encoder.FindUnencodable(text))
             {
-                // Substituto solto não forma um Rune: usa o valor do próprio char.
                 var length = index + 1 < text.Length && char.IsSurrogatePair(text[index], text[index + 1]) ? 2 : 1;
-                var character = text.Substring(index, length);
                 var codePoint = length == 2 ? char.ConvertToUtf32(text[index], text[index + 1]) : text[index];
-                yield return $"o caractere '{character}' (U+{codePoint:X4}) não existe na estratégia '{encoder.Id}'.{Suggestion(codePoint)}";
+                yield return $"{EncodingMessages.Character(text, index)} em «{EncodingMessages.Excerpt(text, index)}» não existe na estratégia '{encoder.Id}'.{Suggestion(codePoint)}";
             }
         }
     }

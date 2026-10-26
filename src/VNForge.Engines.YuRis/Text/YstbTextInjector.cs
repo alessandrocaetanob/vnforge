@@ -78,7 +78,7 @@ public static class YstbTextInjector
             ? ReadWordOriginal(script, locator, targets, unit)
             : ReadExpressionOriginal(script, targets, unit);
 
-        var encoded = Encode(unit, ComposeText(locator, unit), encoder);
+        var encoded = Encode(unit, ComposeText(locator, unit, encoder), encoder);
 
         var rewritten = locator.Command == WordCommand ? encoded : BuildExpression(unit, encoded, original);
         if (rewritten.AsSpan().SequenceEqual(original))
@@ -95,7 +95,11 @@ public static class YstbTextInjector
         }
     }
 
-    private static string ComposeText(Locator locator, TextUnit unit)
+    /// <summary>
+    /// <c>nome + abertura + tradução + fechamento</c>. O nome é o <see cref="TextUnit.Speaker"/> que o Core já resolveu (<see cref="SpeakerText.Resolve"/>); os
+    /// delimitadores trocam por aspas curvas quando a estratégia não grava os japoneses (<see cref="SpeakerText.Delimiter"/>).
+    /// </summary>
+    private static string ComposeText(Locator locator, TextUnit unit, ITextEncoder encoder)
     {
         if (locator.Speaker is not { } speaker)
         {
@@ -103,7 +107,13 @@ public static class YstbTextInjector
         }
 
         var name = string.IsNullOrEmpty(unit.Speaker) ? speaker.Name : unit.Speaker;
-        return name + speaker.Open + unit.Translation + speaker.Close;
+        if (encoder.FindUnencodable(name) is [var first, ..])
+        {
+            throw new EncoderFallbackException(
+                $"O nome do falante da unidade '{unit.Id}' ({name}) tem {EncodingMessages.Character(name, first)}, que a codificação do jogo ({encoder.Id}) não grava. Cadastre a tradução do nome no Glossário > Personagens.");
+        }
+
+        return name + SpeakerText.Delimiter(speaker.Open, encoder) + unit.Translation + SpeakerText.Delimiter(speaker.Close, encoder);
     }
 
     private static byte[] Encode(TextUnit unit, string text, ITextEncoder encoder)
@@ -114,7 +124,10 @@ public static class YstbTextInjector
         }
         catch (EncoderFallbackException e)
         {
-            throw new EncoderFallbackException($"A tradução da unidade '{unit.Id}' não pode ser gravada: {e.Message}", e);
+            var detail = encoder.FindUnencodable(text) is [var first, ..]
+                ? $"{EncodingMessages.Character(text, first)} não existe na codificação do jogo ({encoder.Id}); está em '{EncodingMessages.Excerpt(text, first)}'."
+                : e.Message;
+            throw new EncoderFallbackException($"A tradução da unidade '{unit.Id}' não pode ser gravada: {detail}", e);
         }
         catch (FormatException e)
         {
