@@ -176,7 +176,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     /// <summary>"Testar de novo", ou "Testar no jogo" enquanto nenhum teste foi feito.</summary>
     [ObservableProperty]
-    public partial string GameActionText { get; private set; } = "Testar no jogo";
+    public partial string GameActionText { get; private set; } = TestInGame;
 
     public bool HasProject => Project is not null;
 
@@ -240,7 +240,17 @@ public sealed partial class DashboardViewModel : ObservableObject
             return;
         }
 
-        Apply(project, dashboard, Context());
+        try
+        {
+            Apply(project, dashboard, Context());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Clear();
+            ErrorMessage = $"Não foi possível ler o projeto: {ex.Message}";
+            return;
+        }
+
         loaded = true;
         IsLoading = false;
         OnPropertyChanged(nameof(ShowEmptyState));
@@ -298,7 +308,61 @@ public sealed partial class DashboardViewModel : ObservableObject
         Clear();
     }
 
+    private const string TestInGame = "Testar no jogo";
+
     private static string Plural(int count, string one, string many) => count == 1 ? $"1 {one}" : $"{ProjectLabels.Number(count)} {many}";
+
+    private static string Lines(int count) => Plural(count, "linha", "linhas");
+
+    private static string ReviewPhrase(StatusCounts total, bool reviewed)
+    {
+        if (reviewed)
+        {
+            return "Tudo revisado";
+        }
+
+        if (total.ToReview == 0)
+        {
+            return "Espera a tradução";
+        }
+
+        return total.ToReview == 1 ? "1 linha espera você" : $"{ProjectLabels.Number(total.ToReview)} linhas esperam você";
+    }
+
+    private static string MoreText(int more)
+    {
+        if (more <= 0)
+        {
+            return string.Empty;
+        }
+
+        return more == 1 ? "Mais 1 coisa para ver depois" : $"Mais {more} coisas para ver depois";
+    }
+
+    private static string SpendHintFor(decimal? limit, decimal spent)
+    {
+        if (limit is not { } max)
+        {
+            return "Sem limite de gasto. Defina um nos Ajustes.";
+        }
+
+        return spent >= max ? "O limite foi atingido." : $"Faltam {Money.Brl(max - spent)} para o limite.";
+    }
+
+    private static string ErrorNote(int errors, bool isHere, string? scene)
+    {
+        if (errors != 1)
+        {
+            return $"{ProjectLabels.Number(errors)} erros travam o teste";
+        }
+
+        if (!isHere)
+        {
+            return "1 erro trava o teste";
+        }
+
+        return $"1 erro {(scene is null ? "numa cena" : $"em {scene}")}";
+    }
 
     private static DashboardNavigation? StepTarget(JourneyStep step) => step switch
     {
@@ -326,7 +390,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         MapSummary = PaceText = MoreTodosText = SpentText = SpendHint = GameTitle = GameMessage = string.Empty;
         SpentBrl = LimitBrl = 0;
         GameState = GameState.Original;
-        GameActionText = "Testar no jogo";
+        GameActionText = TestInGame;
         OnPropertyChanged(nameof(HasNextStep));
     }
 
@@ -342,7 +406,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         ReadyLines = total.Ready;
         ReviewLines = total.ToReview;
         TotalLines = total.Total;
-        MapSummary = $"{ProjectLabels.Number(total.Ready)} de {Plural(total.Total, "linha", "linhas")} prontas";
+        MapSummary = $"{ProjectLabels.Number(total.Ready)} de {Lines(total.Total)} prontas";
         PaceText = PaceSentence(pace, total.ToReview);
         MapLegend.Clear();
         MapLegend.Add(new LegendEntry($"Pronto {ProjectLabels.Number(total.Ready)}", LegendTone.Approved));
@@ -359,7 +423,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private static string PaceSentence(ReviewPace pace, int toReview)
     {
-        var today = pace.Today > 0 ? $" Hoje você aprovou {Plural(pace.Today, "linha", "linhas")}." : string.Empty;
+        var today = pace.Today > 0 ? $" Hoje você aprovou {Lines(pace.Today)}." : string.Empty;
         if (toReview == 0)
         {
             return "Nenhuma linha espera revisão agora." + today;
@@ -371,7 +435,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
 
         var left = hours <= 1 ? "cerca de 1 hora" : $"cerca de {ProjectLabels.Number(hours)} horas";
-        return $"No seu ritmo ({Plural(perHour, "linha", "linhas")} por hora), faltam {left} de revisão.{today}";
+        return $"No seu ritmo ({Lines(perHour)} por hora), faltam {left} de revisão.{today}";
     }
 
     private void ApplySteps(ProjectDashboard dashboard)
@@ -381,16 +445,16 @@ public sealed partial class DashboardViewModel : ObservableObject
         var translated = stage[PipelineStageKey.Translate].IsComplete;
         var reviewed = stage[PipelineStageKey.Review].IsComplete;
         var checkedOk = dashboard.Qa is { Total: 0 } && translated;
-        var tested = stage[PipelineStageKey.Build].IsComplete && stage[PipelineStageKey.Inject].IsComplete;
+        var tested = IsTested(dashboard);
         bool[] complete = [stage[PipelineStageKey.Extract].IsComplete, translated, reviewed, checkedOk, tested];
-        string[] titles = ["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", "Testar no jogo"];
+        string[] titles = ["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", TestInGame];
         string[] phrases =
         [
             stage[PipelineStageKey.Extract].IsComplete
-                ? $"{Plural(total.Total, "linha", "linhas")} em {Plural(dashboard.Status.Files.Count, "cena", "cenas")}"
+                ? $"{Lines(total.Total)} em {Plural(dashboard.Status.Files.Count, "cena", "cenas")}"
                 : "O texto do jogo ainda não foi lido",
-            translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido · faltam {Plural(total.Untranslated, "linha", "linhas")}",
-            reviewed ? "Tudo revisado" : total.ToReview == 0 ? "Espera a tradução" : total.ToReview == 1 ? "1 linha espera você" : $"{ProjectLabels.Number(total.ToReview)} linhas esperam você",
+            translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido · faltam {Lines(total.Untranslated)}",
+            ReviewPhrase(total, reviewed),
             dashboard.Qa switch
             {
                 null => "A conferência não pôde rodar",
@@ -407,6 +471,11 @@ public sealed partial class DashboardViewModel : ObservableObject
             Steps.Add(new PipelineStep(i + 1, titles[i], phrases[i], states[i], StepTarget(step) is null ? null : OpenStepCommand, step));
         }
     }
+
+    /// <summary>O jogo já tem uma tradução do projeto (<c>game-state.json</c>, o que o cartão do jogo também lê) ou o build está em dia e injetado.</summary>
+    private static bool IsTested(ProjectDashboard dashboard) =>
+        dashboard.GameState.InGame is not null
+        || dashboard.Stages.Where(s => s.Key is PipelineStageKey.Build or PipelineStageKey.Inject).All(s => s.IsComplete);
 
     private static string TestPhrase(ProjectDashboard dashboard, bool tested)
     {
@@ -449,10 +518,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         var warnings = withProblems.Sum(k => dashboard.QaByScript[k].Warnings);
         if (errors > 0)
         {
-            var scene = withProblems.Where(k => dashboard.QaByScript[k].Errors > 0).Take(2).ToList();
-            notes.Add(errors == 1
-                ? isHere ? $"1 erro em {dashboard.ScriptNames.DisplayName(scene[0]) ?? scene[0]}" : "1 erro trava o teste"
-                : $"{ProjectLabels.Number(errors)} erros travam o teste");
+            var scene = dashboard.ScriptNames.DisplayName(withProblems.First(k => dashboard.QaByScript[k].Errors > 0));
+            notes.Add(ErrorNote(errors, isHere, scene));
         }
         else if (warnings > 0)
         {
@@ -483,7 +550,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
 
         var more = items.Count - MaxTodos;
-        MoreTodosText = more <= 0 ? string.Empty : more == 1 ? "Mais 1 coisa para ver depois" : $"Mais {more} coisas para ver depois";
+        MoreTodosText = MoreText(more);
     }
 
     private TodoRowViewModel Describe(ReadinessItem item)
@@ -526,15 +593,13 @@ public sealed partial class DashboardViewModel : ObservableObject
         LimitBrl = (double)(limit ?? 0m);
         var text = limit is { } cap ? $"{Money.BrlEstimate(spent)} de {Money.Brl(cap)}" : $"{Money.BrlEstimate(spent)} neste projeto";
         SpentText = Money.WithRateMark(text, spent, context.Rate);
-        SpendHint = limit is { } max
-            ? spent >= max ? "O limite foi atingido." : $"Faltam {Money.Brl(max - spent)} para o limite."
-            : "Sem limite de gasto. Defina um nos Ajustes.";
+        SpendHint = SpendHintFor(limit, spent);
     }
 
     private void ApplyGame(ProjectDashboard dashboard)
     {
         var inGame = dashboard.GameState.InGame;
-        GameActionText = dashboard.GameState.LastTest is not null || inGame is not null ? "Testar de novo" : "Testar no jogo";
+        GameActionText = dashboard.GameState.LastTest is not null || inGame is not null ? "Testar de novo" : TestInGame;
         if (inGame is { BackupDirectory: not null } && dashboard.LastBackupAt is null)
         {
             GameState = GameState.Warning;
@@ -566,17 +631,17 @@ public sealed partial class DashboardViewModel : ObservableObject
     private void ApplyNextStep(ProjectDashboard dashboard, IReadOnlyList<ScriptGroupTotals> chapters)
     {
         var total = dashboard.Status.Total;
-        var tested = dashboard.Stages.Where(s => s.Key is PipelineStageKey.Build or PipelineStageKey.Inject).All(s => s.IsComplete);
+        var tested = IsTested(dashboard);
         if (total.Total == 0)
         {
             nextStep = null;
             NextStepLabel = string.Empty;
         }
-        else if (chapters.FirstOrDefault(c => c.ToReview > 0) is { } review)
+        else if (ChapterToWorkOn(chapters, c => c.ToReview > 0) is { } review)
         {
             SetNextStep($"Revisar {Phrase(review)}", ChapterRowFor(review));
         }
-        else if (chapters.FirstOrDefault(c => c.Japanese > 0) is { } pending)
+        else if (ChapterToWorkOn(chapters, c => c.Japanese > 0) is { } pending)
         {
             SetNextStep($"Traduzir {Phrase(pending)}", ChapterRowFor(pending));
         }
@@ -586,13 +651,20 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
         else
         {
-            SetNextStep(tested ? "Testar de novo no jogo" : "Testar no jogo", new DashboardNavigation(NavKey.Build));
+            SetNextStep(tested ? "Testar de novo no jogo" : TestInGame, new DashboardNavigation(NavKey.Build));
         }
 
         OnPropertyChanged(nameof(HasNextStep));
 
         DashboardNavigation ChapterRowFor(ScriptGroupTotals chapter) =>
             new(NavKey.Editor, Chapters.FirstOrDefault(c => c.Name == chapter.Name)?.ScriptKey);
+    }
+
+    /// <summary>O capítulo onde a pessoa está, se ainda tem o que fazer nele; senão o primeiro da história que tem. O botão e o "Você está aqui" apontam o mesmo capítulo sempre que possível.</summary>
+    private ScriptGroupTotals? ChapterToWorkOn(IReadOnlyList<ScriptGroupTotals> chapters, Func<ScriptGroupTotals, bool> needsWork)
+    {
+        var here = Chapters.FirstOrDefault(c => c.IsHere)?.Name;
+        return chapters.FirstOrDefault(c => c.Name == here && needsWork(c)) ?? chapters.FirstOrDefault(needsWork);
     }
 
     private void SetNextStep(string label, DashboardNavigation target)

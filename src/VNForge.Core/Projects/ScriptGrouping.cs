@@ -95,6 +95,19 @@ public static partial class ScriptGrouping
 
     private static Dictionary<string, string> Assign(ScriptNames names, IReadOnlyList<string> keys)
     {
+        var labels = LabelsOf(names, keys);
+        var auto = labels.Count == 0 ? RangeNames(keys) : ChapterNames(labels);
+        if (auto.Values.Where(n => !IsExtra(n)).Distinct(StringComparer.OrdinalIgnoreCase).Count() > MaxRanges)
+        {
+            // Pastas ou prefixos demais viram uma lista sem fim: o jogo cai nas faixas.
+            auto = RangeNames(keys);
+        }
+
+        return keys.ToDictionary(k => k, k => names.Group(k) ?? (auto.TryGetValue(k, out var name) ? name : ExtraName), StringComparer.Ordinal);
+    }
+
+    private static Dictionary<string, string> LabelsOf(ScriptNames names, IReadOnlyList<string> keys)
+    {
         var common = CommonFolder(names, keys);
         var labels = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var key in keys)
@@ -105,45 +118,41 @@ public static partial class ScriptGrouping
             }
         }
 
-        // O que a pasta diz vale para decidir o que fica fora da história, mesmo nos scripts que a pessoa já agrupou.
-        var anyNumbered = labels.Values.Any(l => Numbered(l) is not null);
-        var assigned = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var key in keys)
-        {
-            if (names.Group(key) is { } chosen)
-            {
-                assigned[key] = chosen;
-            }
-            else if (labels.TryGetValue(key, out var label))
-            {
-                assigned[key] = Numbered(label) is { } numbered
-                    ? ChapterName(numbered.Number, numbered.Remainder)
-                    : anyNumbered ? ExtraName : Humanize(label);
-            }
-        }
-
-        var open = keys.Where(k => !assigned.ContainsKey(k)).ToList();
-        if (labels.Count > 0)
-        {
-            foreach (var key in open)
-            {
-                assigned[key] = ExtraName;
-            }
-
-            return assigned;
-        }
-
-        var parts = Math.Clamp((open.Count + RangeSize - 1) / RangeSize, 1, MaxRanges);
-        var size = (open.Count + parts - 1) / parts;
-        for (var i = 0; i < open.Count; i++)
-        {
-            assigned[open[i]] = string.Create(CultureInfo.InvariantCulture, $"Parte {(i / size) + 1}");
-        }
-
-        return assigned;
+        return labels;
     }
 
-    /// <summary>As pastas sem número que todos os scripts com pasta têm em comum no começo (<c>userscript</c>): não distinguem um capítulo do outro. Uma pasta numerada nunca sai, nem num jogo de um capítulo só.</summary>
+    /// <summary>Os capítulos que a pasta ou o prefixo propõem. Com ao menos um capítulo numerado, o que não tem número (pasta do sistema) fica fora da história.</summary>
+    private static Dictionary<string, string> ChapterNames(Dictionary<string, string> labels)
+    {
+        var anyNumbered = labels.Values.Any(l => Numbered(l) is not null);
+        return labels.ToDictionary(p => p.Key, p => ChapterOf(p.Value, anyNumbered), StringComparer.Ordinal);
+    }
+
+    private static string ChapterOf(string label, bool anyNumbered)
+    {
+        if (Numbered(label) is { } numbered)
+        {
+            return ChapterName(numbered.Number, numbered.Remainder);
+        }
+
+        return anyNumbered ? ExtraName : Humanize(label);
+    }
+
+    /// <summary>As faixas valem para todos os scripts, sem olhar o grupo escolhido: renomear "Parte 1" não muda as outras faixas.</summary>
+    private static Dictionary<string, string> RangeNames(IReadOnlyList<string> keys)
+    {
+        var parts = Math.Clamp((keys.Count + RangeSize - 1) / RangeSize, 1, MaxRanges);
+        var size = (keys.Count + parts - 1) / parts;
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var i = 0; i < keys.Count; i++)
+        {
+            names[keys[i]] = string.Create(CultureInfo.InvariantCulture, $"Parte {(i / size) + 1}");
+        }
+
+        return names;
+    }
+
+    /// <summary>As pastas sem número que todos os scripts com pasta têm em comum no começo (<c>userscript</c>): não distinguem um capítulo do outro.</summary>
     private static string[] CommonFolder(ScriptNames names, IReadOnlyList<string> keys)
     {
         string[]? common = null;
@@ -161,16 +170,18 @@ public static partial class ScriptGrouping
         return common is null ? [] : [.. common.TakeWhile(s => !char.IsAsciiDigit(s[0]))];
     }
 
+    /// <summary>O primeiro segmento numerado da pasta; sem ele, o prefixo numérico do nome; sem ele, a primeira pasta depois da comum.</summary>
     private static string? LabelOf(ScriptNames names, string key, string[] common)
     {
-        if (names.Folder(key) is { } folder && Segments(folder).Skip(common.Length).FirstOrDefault() is { } segment)
+        var segments = names.Folder(key) is { } folder ? Segments(folder) : [];
+        if (segments.FirstOrDefault(s => Numbered(s) is not null) is { } numbered)
         {
-            return segment;
+            return numbered;
         }
 
         var name = names.DetectedName(key);
         var digits = name?.TakeWhile(char.IsAsciiDigit).Count() ?? 0;
-        return digits > 0 ? name![..digits] : null;
+        return digits > 0 ? name![..digits] : segments.Skip(common.Length).FirstOrDefault();
     }
 
     private static string[] Segments(string folder) =>

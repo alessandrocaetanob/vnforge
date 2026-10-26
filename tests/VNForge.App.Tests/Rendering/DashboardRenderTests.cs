@@ -120,11 +120,11 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
         {
             for (var hour = 0; hour < 2; hour++)
             {
-                approvals.AddRange(Enumerable.Range(0, 120).Select(i => new ApprovalRecord("yst00013", $"yst00013:{day:D2}{hour}{i:D4}", now.AddDays(-day).AddHours(-hour).AddSeconds(i))));
+                approvals.AddRange(Enumerable.Range(0, 120).Select(i => new ApprovalRecord("yst00013", $"yst00013:{day:D2}{hour}{i:D4}", now.AddDays(-day).AddHours(-hour).AddSeconds(i * 30))));
             }
         }
 
-        approvals.AddRange(Enumerable.Range(0, 30).Select(i => new ApprovalRecord("yst00013", $"yst00013:99{i:D4}", now.AddSeconds(-90 + i))));
+        approvals.AddRange(Enumerable.Range(0, 30).Select(i => new ApprovalRecord("yst00013", $"yst00013:99{i:D4}", now.AddMinutes(-20).AddSeconds(i * 30))));
         SessionsFile.Save(folder, new SessionsFile(SessionsFile.CurrentVersion, approvals));
 
         var applied = new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);

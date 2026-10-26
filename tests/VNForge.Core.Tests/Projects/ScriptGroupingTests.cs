@@ -4,6 +4,8 @@ namespace VNForge.Core.Tests.Projects;
 
 public class ScriptGroupingTests
 {
+    private static readonly int[] UnorderedNumbers = [100_000, 9, 10];
+
     private static string Key(int n) => $"yst{n:D5}";
 
     private static FileStatus File(int n, int japanese = 0, int machine = 0, int approved = 0, int reviewed = 0) =>
@@ -100,7 +102,7 @@ public class ScriptGroupingTests
     [Fact]
     public void Um_jogo_pequeno_sem_pastas_e_uma_parte_so_e_a_ordem_e_numerica_nao_alfabetica()
     {
-        var files = new[] { 100_000, 9, 10 }.Select(n => new FileStatus($"yst{n}", new StatusCounts(1, 0, 0, 0, 0))).ToList();
+        var files = UnorderedNumbers.Select(n => new FileStatus($"yst{n}", new StatusCounts(1, 0, 0, 0, 0))).ToList();
 
         var group = Assert.Single(ScriptGrouping.Build(ScriptNames.Empty, files));
 
@@ -139,6 +141,68 @@ public class ScriptGroupingTests
 
         Assert.Equal(["Manhã de chuva", "O clube de leitura", ScriptGrouping.ExtraName], groups.Select(g => g.Name));
         Assert.Equal([1, 2, null], groups.Select(g => g.Number));
+    }
+
+    [Fact]
+    public void Renomear_uma_faixa_nao_renumera_nem_redistribui_as_outras()
+    {
+        var files = Files(120);
+        var before = ScriptGrouping.Build(ScriptNames.Empty, files);
+
+        var renamed = ScriptGrouping.RenameGroup(ScriptNames.Empty, files, "Parte 1", "Prólogo");
+        var after = ScriptGrouping.Build(renamed, files);
+
+        Assert.Equal(["Parte 1", "Parte 2", "Parte 3"], before.Select(g => g.Name));
+        Assert.Equal(["Prólogo", "Parte 2", "Parte 3"], after.Select(g => g.Name));
+        Assert.Equal(before.Select(g => g.ScriptKeys), after.Select(g => g.ScriptKeys));
+    }
+
+    [Fact]
+    public void Reagrupar_um_script_de_uma_faixa_nao_muda_o_tamanho_das_outras()
+    {
+        var files = Files(100);
+        var before = ScriptGrouping.Build(ScriptNames.Empty, files);
+
+        var moved = ScriptGrouping.Regroup(ScriptNames.Empty, [Key(68)], "Parte 1");
+        var after = ScriptGrouping.Build(moved, files);
+
+        Assert.Equal(before[0].ScriptKeys.Count + 1, after[0].ScriptKeys.Count);
+        Assert.Contains(Key(68), after[0].ScriptKeys);
+        Assert.Equal(before[2].ScriptKeys, after[2].ScriptKeys);
+        Assert.Equal(before[1].ScriptKeys.Where(k => k != Key(68)), after[1].ScriptKeys);
+    }
+
+    [Fact]
+    public void Uma_pasta_fora_da_comum_nao_vira_capitulo_e_os_capitulos_numerados_continuam()
+    {
+        var names = Names((1, "a", "userscript/01_cap1"), (2, "b", "userscript/02_cap2"), (3, "c", "system"));
+
+        var groups = ScriptGrouping.Build(names, Files(3));
+
+        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], groups.Select(g => g.Name));
+        Assert.Equal([Key(3)], groups[2].ScriptKeys);
+    }
+
+    [Fact]
+    public void Com_pasta_preenchida_sem_numero_o_prefixo_numerico_do_nome_decide()
+    {
+        var names = Names((1, "01_prologo", "userscript/ys"), (2, "02_cap1", "userscript/ys"), (3, "menu", "userscript/ys"));
+
+        var groups = ScriptGrouping.Build(names, Files(3));
+
+        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], groups.Select(g => g.Name));
+    }
+
+    [Fact]
+    public void Centenas_de_prefixos_na_raiz_caem_nas_faixas_em_vez_de_virar_centenas_de_capitulos()
+    {
+        var names = Names([.. Enumerable.Range(1, 300).Select(n => (n, (string?)$"{n:D3}_cena", (string?)"userscript"))]);
+
+        var groups = ScriptGrouping.Build(names, Files(300));
+
+        Assert.Equal(8, groups.Count);
+        Assert.All(groups, g => Assert.StartsWith("Parte ", g.Name, StringComparison.Ordinal));
+        Assert.Equal(300, groups.Sum(g => g.ScriptKeys.Count));
     }
 
     [Fact]

@@ -155,6 +155,72 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
+    public async Task O_proximo_passo_aponta_o_capitulo_onde_a_pessoa_esta_quando_ele_tem_o_que_fazer()
+    {
+        var status = StatusOf(
+            ("yst00001", Lines("yst00001", (TranslationStatus.Machine, 3))),
+            ("yst00002", Lines("yst00002", (TranslationStatus.Machine, 3))),
+            ("yst00003", Lines("yst00003", (TranslationStatus.Approved, 3))));
+        var names = ScriptNames.Empty.WithDetected(new Dictionary<string, DetectedScript>
+        {
+            ["yst00001"] = new("a", "userscript/01_cap1"),
+            ["yst00002"] = new("b", "userscript/02_cap2"),
+            ["yst00003"] = new("c", "userscript/03_cap3"),
+        });
+
+        var here = await Load(Dashboard(status, names), summary: Summary with { LastEditedScript = "yst00002" });
+        var done = await Load(Dashboard(status, names), summary: Summary with { LastEditedScript = "yst00003" });
+
+        Assert.Equal("Revisar o capítulo 2", here.NextStepLabel);
+        Assert.True(here.Chapters[1].IsHere);
+        Assert.Equal("Revisar o capítulo 1", done.NextStepLabel);
+    }
+
+    [Fact]
+    public async Task O_passo_de_teste_e_o_cartao_do_jogo_leem_o_mesmo_game_state()
+    {
+        var status = StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Approved, 2))));
+        var inGame = new GameInGame(GameTestKind.Translation, new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero), null, null, null);
+
+        var vm = await Load(new ProjectDashboard(status, Stages(), AiUsageTotals.Empty)
+        {
+            Qa = new QaTotals(0, 0),
+            GameState = new GameStateFile(GameStateFile.CurrentVersion, inGame, null),
+        });
+
+        Assert.Equal("O jogo está com a tradução de 22/10", vm.Steps[4].Subtitle);
+        Assert.Equal(vm.GameTitle, vm.Steps[4].Subtitle);
+        Assert.Equal(PipelineStepState.Done, vm.Steps[4].State);
+        Assert.Equal("Testar de novo no jogo", vm.NextStepLabel);
+    }
+
+    [Fact]
+    public async Task Erro_sem_nome_de_cena_no_capitulo_aberto_diz_numa_cena_e_nao_a_chave()
+    {
+        var dashboard = new ProjectDashboard(Mixed(), Stages(), AiUsageTotals.Empty)
+        {
+            QaByScript = new Dictionary<string, QaTotals> { ["yst00001"] = new(1, 0) },
+        };
+
+        var vm = await Load(dashboard, summary: Summary with { LastEditedScript = "yst00001" });
+
+        Assert.Equal("Você está aqui · 1 erro numa cena", vm.Chapters[0].Note);
+    }
+
+    [Fact]
+    public async Task Falha_ao_montar_o_Painel_mostra_o_erro_e_nao_deixa_a_tela_lendo_para_sempre()
+    {
+        var vm = new DashboardViewModel(_ => Dashboard(Mixed())) { Project = Summary };
+        vm.Context = () => throw new InvalidOperationException("ajustes ilegíveis");
+
+        await vm.ReloadAsync();
+
+        Assert.False(vm.IsLoading);
+        Assert.Contains("ajustes ilegíveis", vm.ErrorMessage);
+        Assert.Empty(vm.Chapters);
+    }
+
+    [Fact]
     public async Task Capitulo_com_nome_da_pessoa_aparece_entre_aspas_no_botao()
     {
         var names = TwoChapters().WithGroup("yst00001", "Manhã de chuva").WithGroup("yst00002", "Manhã de chuva");
@@ -241,7 +307,7 @@ public class DashboardViewModelDataTests
     [Fact]
     public async Task O_ritmo_diz_as_horas_que_faltam_no_ritmo_da_pessoa()
     {
-        var approvals = Enumerable.Range(0, 120).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddDays(-1).AddSeconds(i))).ToList();
+        var approvals = Enumerable.Range(0, 120).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddDays(-1).AddSeconds(i * 30))).ToList();
         var dashboard = new ProjectDashboard(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 240), (TranslationStatus.Approved, 10)))), Stages(awaiting: 240), AiUsageTotals.Empty)
         {
             Sessions = new SessionsFile(SessionsFile.CurrentVersion, approvals),
@@ -255,7 +321,7 @@ public class DashboardViewModelDataTests
     [Fact]
     public async Task O_ritmo_lembra_as_linhas_de_hoje_e_fala_de_uma_hora_no_singular()
     {
-        var approvals = Enumerable.Range(0, 30).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddMinutes(-5).AddSeconds(i))).ToList();
+        var approvals = Enumerable.Range(0, 30).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddMinutes(-20).AddSeconds(i * 30))).ToList();
         var dashboard = new ProjectDashboard(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 20)))), Stages(awaiting: 20), AiUsageTotals.Empty)
         {
             Sessions = new SessionsFile(SessionsFile.CurrentVersion, approvals),
@@ -263,7 +329,7 @@ public class DashboardViewModelDataTests
 
         var vm = await Load(dashboard);
 
-        Assert.Equal("No seu ritmo (30 linhas por hora), faltam cerca de 1 hora de revisão. Hoje você aprovou 30 linhas.", vm.PaceText);
+        Assert.Equal("No seu ritmo (120 linhas por hora), faltam cerca de 1 hora de revisão. Hoje você aprovou 30 linhas.", vm.PaceText);
     }
 
     [Fact]
