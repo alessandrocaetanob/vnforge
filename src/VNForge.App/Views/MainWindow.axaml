@@ -138,6 +138,8 @@
                      IsVisible="{Binding StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <TextBlock Classes="caption secondary" Text="{Binding AppVersionText}"/>
+            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding !IsStartPage}">
             <TextBlock Classes="caption secondary" Text="{Binding SavedAtText}"
                        IsVisible="{Binding SavedAtText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <TextBlock Classes="caption secondary" Text="{Binding GameStatusText}"
@@ -146,6 +148,8 @@
                        IsVisible="{Binding EncodingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <TextBlock Classes="caption secondary" Text="{Binding BoxLimitsText}"
                        IsVisible="{Binding BoxLimitsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+            <TextBlock Classes="caption secondary" Text="{Binding ApiKeyStatus}" IsVisible="{Binding IsStartPage}"/>
             <StackPanel Orientation="Horizontal" ToolTip.Tip="{Binding ApiKeyStatus}" AutomationProperties.Name="{Binding ApiKeyStatus}">
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}"
                         Data="{StaticResource Icon.Check}" IsVisible="{Binding ApiKeyConfigured}"/>

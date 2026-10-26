@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
@@ -7,14 +8,18 @@ using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
 
+/// <summary>Um dos quatro passos numerados da primeira vez no Início.</summary>
+public sealed record FirstStep(int Number, string Title, string Description);
+
 /// <summary>Tela Início: abrir um projeto, ver os recentes e o progresso do projeto selecionado.</summary>
-public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock) : ObservableObject
+public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock) : ObservableObject, IDisposable
 {
     private readonly SemaphoreSlim loadGate = new(1, 1);
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedCommand))]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedInEditorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenNextStepCommand))]
     [NotifyCanExecuteChangedFor(nameof(RemoveSelectedCommand))]
     public partial RecentProjectItem? Selected { get; set; }
 
@@ -35,16 +40,48 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
     public ObservableCollection<RecentProjectItem> Recents { get; } = [];
 
+    /// <summary>
+    /// Os números do projeto selecionado, lidos pela mesma lógica do Painel: o próximo passo, a frase das horas, o gasto e o estado do jogo.
+    /// É uma instância à parte da do Painel, que mostra só o projeto aberto.
+    /// </summary>
+    public DashboardViewModel Detail { get; } = new(clock: clock);
+
+    /// <summary>A leitura do <see cref="Detail"/> em curso; os testes esperam por ela.</summary>
+    public Task DetailLoading { get; private set; } = Task.CompletedTask;
+
+    /// <summary>A chave do Claude está guardada; a lista "O que você precisa" da primeira vez marca esse item.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ApiKeyNeedText))]
+    public partial bool ApiKeyConfigured { get; set; }
+
     public bool HasRecents => Recents.Count > 0;
+
+    /// <summary>Os quatro passos da primeira vez, na ordem em que a pessoa os faz.</summary>
+    public static IReadOnlyList<FirstStep> FirstSteps { get; } =
+    [
+        new(1, "Apontar a pasta do jogo", "O app reconhece o jogo e tira o texto dele, sem mexer nos arquivos originais."),
+        new(2, "Escolher os acentos", "Mostra como as letras acentuadas aparecem no jogo e deixa você ajustar se algo sair errado."),
+        new(3, "Traduzir", "A IA traduz o jogo todo, você diz a qualidade e vê quanto vai custar antes de começar."),
+        new(4, "Testar no jogo", "O app copia a tradução para o jogo, com cópia de segurança, para você ver como ficou."),
+    ];
+
+    /// <summary>O título da área para soltar a pasta: com projetos ela fala de "outro jogo", na primeira vez, do jogo.</summary>
+    public string DropTitle => HasRecents ? "Traduzir outro jogo" : "Comece pela pasta do jogo";
+
+    /// <summary>O que falta ou o que já está pronto da chave do Claude, para a lista "O que você precisa".</summary>
+    public string ApiKeyNeedText => ApiKeyConfigured
+        ? "A chave já está guardada neste computador."
+        : "Crie uma chave na conta da Anthropic e cole nos Ajustes. Sem ela a tradução com IA fica desligada.";
 
     /// <summary>A pasta que contém o projeto aberto por último, onde os próximos costumam ficar; nula sem recentes.</summary>
     public string? DefaultFolder => Recents.Count == 0 ? null : FolderOf(Recents[0].Path);
 
-    /// <summary>O rodapé da lista: "3 projetos · pasta padrão D:\Traducoes".</summary>
+    /// <summary>O rodapé da lista: "3 projetos". A pasta padrão fica fora: caminho de pasta só aparece em "Detalhes técnicos".</summary>
     public string RecentsSummary => Recents.Count switch
     {
         0 => "Nenhum projeto",
-        var n => (n == 1 ? "1 projeto" : $"{n} projetos") + (DefaultFolder is { } folder ? $" · pasta padrão {folder}" : string.Empty),
+        1 => "1 projeto",
+        var n => $"{n} projetos",
     };
 
     /// <summary>Um projeto foi aberto pelo seletor de pasta.</summary>
@@ -52,6 +89,12 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
     /// <summary>O usuário pediu o assistente de novo projeto.</summary>
     public event EventHandler? NewProjectRequested;
+
+    /// <summary>Uma pasta de jogo foi solta na área da lista ou escolhida em "Escolher a pasta"; o Novo projeto abre com ela preenchida.</summary>
+    public event EventHandler<string>? GameFolderChosen;
+
+    /// <summary>O usuário apertou o botão do "Próximo passo" do projeto selecionado; o projeto já foi aberto e o destino é o do mesmo botão no Painel.</summary>
+    public event EventHandler<DashboardNavigation>? NextStepRequested;
 
     /// <summary>O usuário pediu para continuar o projeto selecionado no Editor; <see cref="ProjectSummary.LastEditedScript"/> diz em que script.</summary>
     public event EventHandler<ProjectSummary>? EditorRequested;
@@ -63,15 +106,15 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     public async Task LoadAsync(string? selectPath = null)
     {
         // Duas cargas ao mesmo tempo (abertura da janela e um projeto aberto logo em seguida) embaralhariam a lista.
-        await loadGate.WaitAsync();
+        await loadGate.WaitAsync(CancellationToken.None);
         try
         {
             var keep = selectPath ?? Selected?.Path;
             var now = clock.GetUtcNow();
             var list = recents.Read();
-            var items = await Task.WhenAll(list.Projects.Select(recent => Task.Run(() => Describe(recent, now))));
+            var items = await Task.WhenAll(list.Projects.Select(recent => Task.Run(() => Describe(recent, now), CancellationToken.None)));
             RecentsProblem = list.Problem is { } problem
-                ? $"{problem} A lista aparece vazia; abrir um projeto a recria."
+                ? $"{problem.Replace($"'{recents.Path}'", $"'{System.IO.Path.GetFileName(recents.Path)}'", StringComparison.Ordinal)} A lista aparece vazia; abrir um projeto a recria."
                 : null;
 
             Recents.Clear();
@@ -80,8 +123,12 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
                 Recents.Add(item);
             }
 
+            // A lista recarregada tem itens novos: o detalhe lê o projeto de novo (o ritmo, o gasto e o próximo passo podem ter mudado fora do Início).
+            forceDetailReload = true;
             Selected = Recents.FirstOrDefault(i => SamePath(i.Path, keep)) ?? Recents.FirstOrDefault();
+            forceDetailReload = false;
             OnPropertyChanged(nameof(HasRecents));
+            OnPropertyChanged(nameof(DropTitle));
             OnPropertyChanged(nameof(DefaultFolder));
             OnPropertyChanged(nameof(RecentsSummary));
         }
@@ -111,11 +158,11 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         ProjectSummary summary;
         try
         {
-            summary = await Task.Run(() => ProjectSummaryReader.Read(path));
+            summary = await Task.Run(() => ProjectSummaryReader.Read(path), CancellationToken.None);
         }
         catch (Exception e) when (IsExpected(e))
         {
-            ErrorMessage = $"{e.Message} O projeto não foi aberto.";
+            ErrorMessage = $"{WithoutPath(e.Message, path)} O projeto não foi aberto.";
             return null;
         }
 
@@ -137,7 +184,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         catch (Exception e) when (IsExpected(e))
         {
             // Os assinantes carregam os arquivos do projeto (glossário, textos); um arquivo ilegível não pode escapar do comando.
-            ErrorMessage = $"{e.Message} O projeto não pôde ser carregado.";
+            ErrorMessage = $"{WithoutPath(e.Message, path)} O projeto não pôde ser carregado.";
             return null;
         }
 
@@ -157,6 +204,62 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         if (await OpenAsync(item.Path) is { } summary)
         {
             DashboardRequested?.Invoke(this, summary);
+        }
+    }
+
+    /// <summary>"Escolher a pasta" da área para soltar: abre o seletor e trata a pasta como se tivesse sido solta.</summary>
+    [RelayCommand]
+    private async Task ChooseGameFolderAsync()
+    {
+        ClearMessages();
+        var path = await picker.PickFolderAsync("Pasta do jogo a traduzir");
+        if (path is not null)
+        {
+            await DropFolderAsync(path);
+        }
+    }
+
+    /// <summary>
+    /// Uma pasta foi solta na tela: abre o Novo projeto com ela; um arquivo vale pela pasta onde está. Se a pasta já é um projeto do VNForge
+    /// (tem <c>vnforge.json</c>), abre o projeto em vez do assistente, que o recusaria. Com mais de uma pasta solta só a primeira vale.
+    /// </summary>
+    public async Task DropFolderAsync(string path, int dropped = 1)
+    {
+        ClearMessages();
+        var folder = File.Exists(path) ? System.IO.Path.GetDirectoryName(path) : path;
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        {
+            ErrorMessage = "Essa pasta não existe mais. Solte outra ou use Escolher a pasta.";
+            return;
+        }
+
+        if (dropped > 1)
+        {
+            NoticeMessage = "Você soltou mais de uma pasta. Só a primeira foi usada; solte as outras uma de cada vez.";
+        }
+
+        if (File.Exists(System.IO.Path.Combine(folder, ProjectFolder.ConfigFileName)))
+        {
+            await OpenAsync(folder);
+            return;
+        }
+
+        GameFolderChosen?.Invoke(this, folder);
+    }
+
+    /// <summary>O botão do "Próximo passo": abre o projeto selecionado e vai direto ao passo que o cartão mostra.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenSelected))]
+    private async Task OpenNextStepAsync()
+    {
+        if (Selected is not { } item || Detail.NextStepTarget is not { } target)
+        {
+            return;
+        }
+
+        ClearMessages();
+        if (await OpenAsync(item.Path) is not null)
+        {
+            NextStepRequested?.Invoke(this, target);
         }
     }
 
@@ -197,6 +300,88 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         await LoadAsync();
     }
 
+    /// <summary>Quanto tempo a seleção espera antes de ler o projeto quando a pessoa percorre a lista com as setas.</summary>
+    private static readonly TimeSpan DetailDebounce = TimeSpan.FromMilliseconds(150);
+
+    private CancellationTokenSource? detailDebounce;
+    private long lastSelectionAt;
+    private bool forceDetailReload;
+
+    partial void OnSelectedChanged(RecentProjectItem? value)
+    {
+        var project = value?.IsSupported == true ? value.Summary : null;
+        var force = forceDetailReload;
+        if (!force && project is not null && Equals(Detail.Project, project))
+        {
+            return;
+        }
+
+        CancelDetailDebounce();
+
+        var rapid = lastSelectionAt != 0 && Stopwatch.GetElapsedTime(lastSelectionAt) < TimeSpan.FromMilliseconds(500);
+        lastSelectionAt = Stopwatch.GetTimestamp();
+        Detail.Project = project;
+        if (project is null)
+        {
+            DetailLoading = Detail.ReloadAsync();
+            return;
+        }
+
+        var source = detailDebounce = new CancellationTokenSource();
+        DetailLoading = ReloadDetailAsync(rapid && !force ? DetailDebounce : TimeSpan.Zero, source.Token);
+    }
+
+    /// <summary>Cancela e descarta a espera anterior; quem a usa já guardou o token, que continua válido depois do descarte.</summary>
+    private void CancelDetailDebounce()
+    {
+        var previous = detailDebounce;
+        detailDebounce = null;
+        previous?.Cancel();
+        previous?.Dispose();
+    }
+
+    public void Dispose()
+    {
+        CancelDetailDebounce();
+    }
+
+    private async Task ReloadDetailAsync(TimeSpan wait, CancellationToken token)
+    {
+        if (wait > TimeSpan.Zero)
+        {
+            try
+            {
+                await Task.Delay(wait, token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+
+        if (!token.IsCancellationRequested)
+        {
+            await Detail.ReloadAsync();
+            OnPropertyChanged(nameof(DetailError));
+        }
+    }
+
+    /// <summary>A mensagem de um erro de leitura sem o caminho da pasta: caminho só aparece em "Detalhes técnicos".</summary>
+    private static string WithoutPath(string message, string path)
+    {
+        var root = path.TrimEnd('\\', '/');
+        var folder = "a pasta escolhida";
+        return message
+            .Replace($" em '{root}'", " na " + folder[2..], StringComparison.OrdinalIgnoreCase)
+            .Replace($"'{root}'", folder, StringComparison.OrdinalIgnoreCase)
+            .Replace(root + System.IO.Path.DirectorySeparatorChar, string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace(root + System.IO.Path.AltDirectorySeparatorChar, string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace(root, folder, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>O erro de leitura do <see cref="Detail"/> do projeto selecionado, sem o caminho.</summary>
+    public string? DetailError => Detail.ErrorMessage is { } error && Selected is { } item ? WithoutPath(error, item.Path) : Detail.ErrorMessage;
+
     private bool CanOpenSelected() => Selected?.IsSupported == true;
 
     private bool HasSelection() => Selected is not null;
@@ -211,7 +396,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     {
         if (!Directory.Exists(recent.Path))
         {
-            return RecentProjectItem.FromProblem(recent.Path, $"O projeto não foi encontrado em '{recent.Path}'. Remova-o da lista ou restaure a pasta.", recent.OpenedAt, now);
+            return RecentProjectItem.FromProblem(recent.Path, "A pasta do projeto não foi encontrada. Remova-o da lista ou restaure a pasta.", recent.OpenedAt, now);
         }
 
         try
@@ -220,7 +405,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         }
         catch (Exception e) when (IsExpected(e))
         {
-            return RecentProjectItem.FromProblem(recent.Path, e.Message, recent.OpenedAt, now);
+            return RecentProjectItem.FromProblem(recent.Path, WithoutPath(e.Message, recent.Path), recent.OpenedAt, now);
         }
     }
 

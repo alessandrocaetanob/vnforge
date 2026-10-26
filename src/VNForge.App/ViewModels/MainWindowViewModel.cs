@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Settings;
@@ -119,6 +120,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured);
+        start.Detail.Context = Dashboard.Context;
+        start.GameFolderChosen += (_, folder) => ShowWizard(newProjectWizard, folder);
+        start.NextStepRequested += (_, request) => OpenFromDashboard(request);
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         start.EditorRequested += (_, summary) =>
@@ -212,7 +216,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void OpenPalette() => Palette.Open();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsStartPage))]
     public partial object CurrentPage { get; private set; }
+
+    /// <summary>A página é o Início: a barra de status mostra só a versão e o estado da chave.</summary>
+    public bool IsStartPage => CurrentPage is StartViewModel;
+
+    /// <summary>"VNForge 0.1.0", a versão do app na barra de status.</summary>
+    public string AppVersionText { get; } = $"VNForge {AppVersion()}";
+
+    /// <summary>A preparação do assistente com a pasta solta no Início (detecção do jogo); os testes esperam por ela.</summary>
+    public Task WizardPreparing { get; private set; } = Task.CompletedTask;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectTitle), nameof(HasProject), nameof(EncodingText), nameof(BoxLimitsText))]
@@ -320,6 +334,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 if (value.Key == NavKey.Dashboard)
                 {
                     _ = Dashboard.ReloadAsync();
+                }
+                else if (value.Key == NavKey.Start)
+                {
+                    // O anel, a porcentagem e o próximo passo do Início vêm da pasta, que o Editor e a Conferência mudam; a cotação e o limite também.
+                    _ = Start.LoadAsync();
                 }
                 else if (value.Key == NavKey.Build)
                 {
@@ -450,9 +469,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         SelectedNav = item;
-        if (request.ScriptKey is { } key && Editor.Scripts.FirstOrDefault(script => script.Key == key) is { } script)
+        if (request.ScriptKey is { } key)
         {
-            Editor.SelectedScript = script;
+            // Vindo do Início o projeto acabou de abrir e o Editor ainda carrega os scripts: ShowScriptAsync espera a carga.
+            LineNavigation = ShowScriptAsync(key);
         }
     }
 
@@ -491,7 +511,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Troca a página pelo assistente de novo projeto; ao terminar ou cancelar volta ao Início, e um projeto criado é aberto.</summary>
-    private void ShowWizard(Func<NewProjectWizardViewModel>? create)
+    private void ShowWizard(Func<NewProjectWizardViewModel>? create, string? gameFolder = null)
     {
         if (create is null)
         {
@@ -499,6 +519,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         var wizard = create();
+        if (gameFolder is not null)
+        {
+            WizardPreparing = wizard.SetGameFolderAsync(gameFolder);
+        }
+
         wizard.BudgetSaved += (_, _) => Settings.ReloadAppSettings();
         wizard.Cancelled += (_, _) => CurrentPage = Start;
         wizard.Completed += (_, root) =>
@@ -721,8 +746,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private static string AppVersion()
+    {
+        var assembly = typeof(MainWindowViewModel).Assembly;
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        var version = informational ?? assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        return version.Split('+')[0];
+    }
+
     private void ShowKeyStatus(ResolvedApiKey key, string text)
     {
+        Start.ApiKeyConfigured = key.Source != ApiKeySource.None;
         ApiKeyStatus = text;
         ApiKeyConfigured = key.Source != ApiKeySource.None;
     }

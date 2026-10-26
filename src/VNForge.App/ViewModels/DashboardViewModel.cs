@@ -182,6 +182,9 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     public bool HasNextStep => nextStep is not null;
 
+    /// <summary>Para onde o botão do próximo passo leva; nulo quando o projeto não tem linhas. O Início usa o mesmo alvo para abrir o projeto direto nele.</summary>
+    public DashboardNavigation? NextStepTarget => nextStep;
+
     public bool HasMoreTodos => MoreTodosText.Length > 0;
 
     /// <summary>Lendo os números: o sumário mostra o esqueleto.</summary>
