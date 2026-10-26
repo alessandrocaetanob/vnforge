@@ -147,7 +147,20 @@ public class ProjectFolderConcurrencyTests
     }
 
     private static bool TemporarioGravado(string diretorio) =>
-        Directory.EnumerateFiles(diretorio, "*.tmp").Any(temporario => new FileInfo(temporario).Length > 0);
+        Directory.EnumerateFiles(diretorio, "*.tmp").Any(TemporarioComConteudo);
+
+    // No Linux o Move pode trocar o temporário entre a listagem e a leitura do tamanho: sumiu, então já foi gravado.
+    private static bool TemporarioComConteudo(string temporario)
+    {
+        try
+        {
+            return new FileInfo(temporario).Length > 0;
+        }
+        catch (FileNotFoundException)
+        {
+            return true;
+        }
+    }
 
     [Fact]
     public void SaveText_com_o_arquivo_preso_por_muito_tempo_falha_e_deixa_o_original_sem_temporario()
