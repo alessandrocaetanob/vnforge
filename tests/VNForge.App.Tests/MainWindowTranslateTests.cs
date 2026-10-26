@@ -59,6 +59,29 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Varias_cenas_escolhidas_geram_uma_janela_e_uma_unica_execucao()
+    {
+        var (vm, root) = await OpenAsync();
+        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00001"));
+        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00002"));
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+
+        Assert.Equal(TranslationScope.Selection, vm.Translate.SelectedScope.Scope);
+        Assert.Equal(3, vm.Translate.Lines);
+
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        var task = vm.TaskService.Tasks.Single();
+        Assert.Equal("Traduzindo as cenas escolhidas", task.Title);
+        Assert.Equal(BackgroundTaskState.Completed, task.State);
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00002")[0].Status);
+    }
+
+    [Fact]
     public async Task Traduzir_roda_o_pedido_grava_como_IA_e_avisa_o_resultado_em_portugues()
     {
         var (vm, root) = await OpenAsync();

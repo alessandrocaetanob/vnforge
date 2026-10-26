@@ -37,7 +37,7 @@ public sealed partial class MainWindowViewModel
         Translate.SettingsRequested += (_, _) => SelectedNav = settingsItem;
     }
 
-    private void OnEditorTranslateRequested(object? sender, string scriptKey)
+    private void OnEditorTranslateRequested(object? sender, IReadOnlyList<string> scriptKeys)
     {
         if (CurrentProject is not { } project)
         {
@@ -49,8 +49,9 @@ public sealed partial class MainWindowViewModel
             var folder = ProjectFolder.Open(project.Root);
             TranslateOpening = Translate.OpenAsync(
                 folder,
-                scriptKey,
-                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured, Settings.BudgetProblem));
+                Editor.SelectedScript?.Key ?? scriptKeys[0],
+                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured, Settings.BudgetProblem),
+                scriptKeys);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -123,6 +124,7 @@ public sealed partial class MainWindowViewModel
     {
         TranslationScope.Scene => "Traduzindo esta cena",
         TranslationScope.Chapter => "Traduzindo o capítulo",
+        TranslationScope.Selection => "Traduzindo as cenas escolhidas",
         _ => "Traduzindo o jogo",
     };
 

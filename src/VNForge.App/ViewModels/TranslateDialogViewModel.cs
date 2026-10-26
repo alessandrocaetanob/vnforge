@@ -60,6 +60,8 @@ public sealed partial class QualityChoice(TranslationQuality quality, string tit
 /// </summary>
 public sealed partial class TranslateDialogViewModel : ObservableObject
 {
+    private readonly ScopeChoice sceneChoice;
+    private readonly ObservableCollection<ScopeChoice> scopes;
     private readonly Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes)> byScope = [];
     private TranslateDialogSettings settings = new(ExchangeRate.Placeholder, BudgetLimits.None, TranslationQuality.Careful, true);
     private TranslationContextSummary context = new(0, 0, 0, 0, false);
@@ -68,12 +70,9 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     public TranslateDialogViewModel()
     {
-        Scopes =
-        [
-            new(TranslationScope.Scene, "Esta cena"),
-            new(TranslationScope.Chapter, "O capítulo"),
-            new(TranslationScope.Game, "O jogo todo"),
-        ];
+        sceneChoice = Hooked(new(TranslationScope.Scene, "Esta cena"));
+        scopes = [sceneChoice, Hooked(new(TranslationScope.Chapter, "O capítulo")), Hooked(new(TranslationScope.Game, "O jogo todo"))];
+        Scopes = new(scopes);
         Qualities =
         [
             new(TranslationQuality.Fast, "Rápida", "Rascunho barato e veloz, para ler a história e revisar com calma.", "Haiku"),
@@ -82,17 +81,6 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         ];
         SelectedScope = Scopes[0];
         SelectedQuality = Qualities[^1];
-        foreach (var scope in Scopes)
-        {
-            scope.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(ScopeChoice.IsSelected) && scope.IsSelected)
-                {
-                    SelectedScope = scope;
-                }
-            };
-        }
-
         foreach (var quality in Qualities)
         {
             quality.PropertyChanged += (_, e) =>
@@ -114,7 +102,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     /// <summary>O link "Ajustes" do aviso de chave: a janela fecha e o app abre os Ajustes.</summary>
     public event EventHandler? SettingsRequested;
 
-    public ReadOnlyCollection<ScopeChoice> Scopes { get; }
+    /// <summary>Esta cena (ou, com várias cenas marcadas na lista, as cenas escolhidas), o capítulo e o jogo todo.</summary>
+    public ReadOnlyObservableCollection<ScopeChoice> Scopes { get; }
 
     public ReadOnlyCollection<QualityChoice> Qualities { get; }
 
@@ -212,19 +201,36 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     /// <summary>Abre a janela e lê o projeto fora da thread da tela; a janela já aparece, com os números em branco, enquanto a leitura roda.</summary>
     /// <param name="sceneKey">A chave do script aberto no editor; <see langword="null"/> deixa só o jogo inteiro com linhas.</param>
-    public Task OpenAsync(ProjectFolder folder, string? sceneKey, TranslateDialogSettings current)
+    /// <param name="chosenKeys">Os scripts marcados na lista de cenas; com mais de um, "As cenas escolhidas" ocupa o lugar de "Esta cena".</param>
+    public Task OpenAsync(ProjectFolder folder, string? sceneKey, TranslateDialogSettings current, IReadOnlyList<string>? chosenKeys = null)
     {
         ArgumentNullException.ThrowIfNull(folder);
         ArgumentNullException.ThrowIfNull(current);
         settings = current;
+        var chosen = chosenKeys is { Count: > 1 } ? chosenKeys : null;
+        scopes[0] = chosen is null
+            ? sceneChoice
+            : Hooked(new ScopeChoice(TranslationScope.Selection, $"As cenas escolhidas ({chosen.Count})"));
         byScope.Clear();
         LoadError = string.Empty;
         CanStart = false;
         StartCommand.NotifyCanExecuteChanged();
         IsOpen = true;
         IsLoading = true;
-        Loading = LoadAsync(folder, sceneKey, ++version);
+        Loading = LoadAsync(folder, sceneKey, chosen, ++version);
         return Loading;
+    }
+
+    private ScopeChoice Hooked(ScopeChoice choice)
+    {
+        choice.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ScopeChoice.IsSelected) && choice.IsSelected)
+            {
+                SelectedScope = choice;
+            }
+        };
+        return choice;
     }
 
     [RelayCommand]
@@ -281,13 +287,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         Refresh();
     }
 
-    private async Task LoadAsync(ProjectFolder folder, string? sceneKey, int token)
+    private async Task LoadAsync(ProjectFolder folder, string? sceneKey, IReadOnlyList<string>? chosenKeys, int token)
     {
         var rate = settings.Rate;
+        var shown = scopes.Select(s => s.Scope).ToList();
         ProjectRead loaded;
         try
         {
-            loaded = await Task.Run(() => ReadProject(folder, sceneKey, rate)).ConfigureAwait(true);
+            loaded = await Task.Run(() => ReadProject(folder, sceneKey, chosenKeys, shown, rate)).ConfigureAwait(true);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -328,7 +335,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         decimal Spent,
         TranslationContextSummary Context);
 
-    private static ProjectRead ReadProject(ProjectFolder folder, string? sceneKey, ExchangeRate rate)
+    private static ProjectRead ReadProject(ProjectFolder folder, string? sceneKey, IReadOnlyList<string>? chosenKeys, IEnumerable<TranslationScope> shown, ExchangeRate rate)
     {
         var texts = folder.LoadAllText();
         var config = folder.LoadConfig();
@@ -339,11 +346,11 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             style: config.Style);
         var batchSize = Math.Clamp(config.Ai.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize);
         var effort = ClaudeEffortText.ParseOrDefault(config.Ai.Effort);
-        var scopes = Enum.GetValues<TranslationScope>().ToDictionary(
+        var scopes = shown.ToDictionary(
             scope => scope,
             scope =>
             {
-                var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey);
+                var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey, chosenKeys);
                 var batches = TranslationQuoter.BatchesFor(texts, keys, builder, batchSize);
                 var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
                 return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes);
