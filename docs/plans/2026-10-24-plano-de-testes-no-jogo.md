@@ -435,6 +435,8 @@ A lista de fontes da tela CONFIG › MESSAGE fica vazia sem o Locale Emulator, c
 
 ## Etapa 5 · Primeira cena em PT-BR · M2 (#67)
 
+As etapas 5 e 6 foram escritas antes da interface v3 e mandam usar a tela Build, que virou Testar no jogo. Para elas, use o [roteiro do teste de um capítulo](2026-10-26-roteiro-capitulo-v3.md), que roda pela interface e depois pela CLI numa cópia limpa do jogo. O texto abaixo fica como registro.
+
 1. Defina a estratégia de acentuação pela conclusão da etapa 4, na aba Ajustes do app ou no `encoding.strategy` do `vnforge.json`. Sem `cp1252` funcionando, use `fold` (acentos trocados pela letra sem acento). Com "cp1252 com patch da fonte", aplique o patch do nome da fonte antes do passo 4 com `Vnf-Ev 05-cena 5-patch-exe.txt patch-exe` (#65; o `vnf restore` devolve o exe), ou, em versão sem o `patch-exe`, copie `$raiz\tmp\exe\fonte.exe` por cima do `jogo.exe` de `$raiz\jogo`: o `vnf inject` não aplica o patch.
 2. Escolha uma cena curta que tenha diálogo, nome de personagem e uma escolha. Traduza à mão no Editor do app, com acentos em cada um dos três tipos. Anote os ids no registro.
 3. Na Conferência, rode a conferência e resolva o que aparecer. Tire uma captura (`5.3-conferir.png`).
