@@ -10,9 +10,6 @@ parameters:
     default: runner
     description: "runner usa o pool local; nuvem usa o Docker da CircleCI quando o PC está desligado."
 
-orbs:
-  win: circleci/windows@5.1.1
-
 executors:
   linux-runner:
     machine: true
@@ -124,43 +121,6 @@ jobs:
             if [ ! -f .sonar-begun ]; then exit 0; fi
             dotnet sonarscanner end "/d:sonar.token=$SONAR_TOKEN"
 
-  windows:
-    executor: win/server-2022
-    environment:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-    steps:
-      - checkout
-      - run:
-          name: Instala o SDK do global.json
-          command: |
-            $ErrorActionPreference = 'Stop'
-            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            # O script fica fora do checkout para não sujar a árvore de trabalho.
-            $installer = Join-Path $env:TEMP 'dotnet-install.ps1'
-            Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installer
-            & $installer -JsonFile global.json -InstallDir $dir
-            $env:DOTNET_ROOT = $dir
-            $env:PATH = "$dir;$env:PATH"
-            dotnet --info
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run:
-          name: Build
-          command: |
-            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            $env:DOTNET_ROOT = $dir
-            $env:PATH = "$dir;$env:PATH"
-            dotnet build VNForge.slnx --configuration Release
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run:
-          name: Testes
-          command: |
-            $dir = Join-Path $env:USERPROFILE 'dotnet-sdk'
-            $env:DOTNET_ROOT = $dir
-            $env:PATH = "$dir;$env:PATH"
-            dotnet test --solution VNForge.slnx --configuration Release --no-build
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
   publicar:
     # A release sai sempre de um container limpo da nuvem: no pool, o runner é compartilhado
     # com os jobs de PR, e uma dependência adulterada ali entraria no executável.
@@ -257,8 +217,9 @@ jobs:
 workflows:
   ci:
     jobs:
-      # Os jobs de que o publicar depende também precisam do filtro de tags: o CircleCI
+      # O job de que o publicar depende também precisa do filtro de tags: o CircleCI
       # não dispara por tag um job sem `filters: tags`, e o requires ficaria sem pai.
+      # O CI roda só no Linux (#331). O pacote win-x64 sai do publicar, por compilação cruzada.
       # O contexto guarda o SONAR_TOKEN. PRs de fork não o recebem ("Pass secrets to
       # builds from forked pull requests" fica desligado): o job roda sem análise.
       - linux:
@@ -266,22 +227,13 @@ workflows:
           filters:
             tags:
               only: /.*/
-      # O Windows é o job mais caro em créditos: roda só na main e nas tags de versão, como
-      # conferência final. Os checks dos PRs rodam no pool local (linux).
-      - windows:
-          filters:
-            branches:
-              only: main
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/
-      # Só tag de versão (v1.2.3 ou v1.2.3-rc1) e só depois de linux e windows verdes.
+      # Só tag de versão (v1.2.3 ou v1.2.3-rc1) e só depois do linux verde.
       # O GITHUB_TOKEN fica no contexto github-release, que só este job recebe: os jobs de PR
       # rodam código de qualquer branch e não podem ver um token com escrita no repositório.
       - publicar:
           context: github-release
           requires:
             - linux
-            - windows
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/
