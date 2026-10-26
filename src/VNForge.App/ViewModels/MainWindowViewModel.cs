@@ -106,6 +106,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         HookTranslateDialog();
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
+        Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         AttachEditor(editor);
         Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);

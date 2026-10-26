@@ -454,34 +454,55 @@
           </Grid>
         </TabItem>
 
-        <!-- Acentuação -->
-        <TabItem Header="Acentuação">
+        <!-- Acentos: os mesmos três cartões do Novo projeto; os nomes técnicos ficam em Detalhes técnicos. -->
+        <TabItem Header="Acentos">
           <StackPanel Margin="0,16,0,0" Spacing="8" IsEnabled="{Binding HasProject}">
-            <TextBlock Classes="overline" Text="Estratégia de acentuação"/>
-            <ItemsControl ItemsSource="{Binding Encodings}" AutomationProperties.Name="Estratégia de acentuação">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:EncodingOption">
-                  <RadioButton Classes="option" Margin="0,0,0,8" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                               AutomationProperties.Name="{Binding Name}">
-                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
-                      <TextBlock Classes="body-strong" Text="{Binding Name}"/>
-                      <TextBlock Grid.Column="1" Classes="mono secondary" Text="{Binding Sample}"/>
-                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
-                    </Grid>
-                  </RadioButton>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                       Text="O jogo foi feito para o japonês e não desenha as letras acentuadas do português por conta própria. Cada cartão mostra a frase de teste na caixa de texto do jogo do jeito que vai sair."/>
+            <TextBlock Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
+            <c:AccentCards Options="{Binding EncodingStrategies.Options}" GroupName="SettingsAccents" AutomationProperties.Name="Como ficam os acentos"/>
+            <Border Classes="infobar" IsVisible="{Binding ShowLegacyEncodingNote}">
+              <TextBlock Classes="body-sm" TextWrapping="Wrap"
+                         Text="Este projeto usa uma forma antiga de tratar os acentos, que não desenha as letras acentuadas: o build recusa o que o jogo não representa. Escolha um dos cartões para trocar."/>
+            </Border>
             <Border Classes="infobar warning" IsVisible="{Binding ShowCp1252Warning}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
                 <StackPanel Grid.Column="1" Spacing="2">
-                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Com CP1252, o caractere ï fica proibido."/>
+                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Com este ajuste, a letra ï fica proibida na tradução."/>
                   <TextBlock Classes="body-sm" TextWrapping="Wrap"
-                             Text="O byte 0xEF é o prefixo dos códigos de controle do YU-RIS; o QA acusa qualquer ï na tradução."/>
+                             Text="O jogo usa o byte dessa letra para os códigos de controle do texto; o Conferir acusa qualquer ï na tradução."/>
                 </StackPanel>
               </Grid>
             </Border>
+            <Border Classes="card" Padding="16,12" Margin="0,8,0,0">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Classes="body-strong" Text="Conferir no jogo"/>
+                  <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                             Text="Em Testar no jogo, o botão Testar só os acentos copia uma frase com ç, ã, é e ô para a primeira fala do jogo. Serve para ver os acentos antes de traduzir."/>
+                </StackPanel>
+                <Button Grid.Column="1" Command="{Binding OpenAccentTestCommand}" Content="Abrir Testar no jogo" VerticalAlignment="Center"
+                        AutomationProperties.Name="Abrir Testar no jogo"/>
+              </Grid>
+            </Border>
+            <c:TechnicalDetails>
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Classes="mono" Text="{Binding EncodingCurrentNote}"/>
+                <ItemsControl ItemsSource="{Binding EncodingTechnicalRows}" AutomationProperties.Name="Nomes técnicos das estratégias">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EncodingTechnicalRow">
+                      <Grid ColumnDefinitions="90,220,140,*" ColumnSpacing="12" Margin="0,0,0,6">
+                        <TextBlock Classes="mono" Text="{Binding Id}"/>
+                        <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="{Binding Name}"/>
+                        <TextBlock Classes="mono secondary" Text="{Binding Sample}"/>
+                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </c:TechnicalDetails>
           </StackPanel>
         </TabItem>
 

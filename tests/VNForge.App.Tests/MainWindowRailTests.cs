@@ -179,7 +179,7 @@ public class MainWindowRailTests
         var changed = new List<string?>();
         vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
-        vm.Settings.SelectedEncoding = vm.Settings.Encodings.Single(c => c.Id == "cp1252");
+        vm.Settings.EncodingStrategy = "cp1252";
         vm.Settings.WrapMaxWidth = 40;
         vm.Settings.WrapMaxLines = 2;
 

@@ -77,7 +77,8 @@ public class SettingsViewModelTests
         Assert.Equal(ClaudeModels.Sonnet, vm.SelectedModel?.Id);
         Assert.Equal("high", vm.SelectedEffort?.Id);
         Assert.Equal(40, vm.BatchSize);
-        Assert.Equal("remap", vm.SelectedEncoding?.Id);
+        Assert.Equal("remap", vm.EncodingStrategy);
+        Assert.True(vm.EncodingStrategies.Options.Single(o => o.Id == "remap").IsSelected);
         Assert.True(vm.WrapEnabled);
         Assert.Equal(40, vm.WrapMaxWidth);
         Assert.Equal(2, vm.WrapMaxLines);
@@ -95,7 +96,7 @@ public class SettingsViewModelTests
         vm.SelectedModel = vm.Models.Single(m => m.Id == ClaudeModels.Haiku);
         vm.SelectedEffort = vm.Efforts.Single(e => e.Id == "low");
         vm.BatchSize = 25;
-        vm.SelectedEncoding = vm.Encodings.Single(e => e.Id == "cp1252");
+        vm.EncodingStrategies.Options.Single(o => o.Id == "cp1252").IsSelected = true;
         vm.StyleGuide = "Trate por você.";
 
         var folder = ProjectFolder.Open(summary.Root);
@@ -169,12 +170,12 @@ public class SettingsViewModelTests
         var vm = Create(temp);
 
         vm.Models[2].IsSelected = true;
-        vm.Encodings.Single(e => e.Id == "cp1252").IsSelected = true;
+        vm.EncodingStrategies.Options.Single(e => e.Id == "cp1252").IsSelected = true;
 
         Assert.Equal(ClaudeModels.Haiku, vm.SelectedModel?.Id);
-        Assert.Equal("cp1252", vm.SelectedEncoding?.Id);
+        Assert.Equal("cp1252", vm.EncodingStrategy);
         Assert.Single(vm.Models, m => m.IsSelected);
-        Assert.Single(vm.Encodings, e => e.IsSelected);
+        Assert.Single(vm.EncodingStrategies.Options, e => e.IsSelected);
 
         vm.SelectedModel = vm.Models[3];
 
@@ -194,7 +195,7 @@ public class SettingsViewModelTests
     public void O_cartao_do_cp1252_descreve_o_patch_da_fonte_e_diz_onde_aplicar()
     {
         using var temp = new TempFolder();
-        var description = Create(temp).Encodings.Single(e => e.Id == "cp1252").Description;
+        var description = Create(temp).EncodingStrategies.Options.Single(e => e.Id == "cp1252").Description;
 
         Assert.Contains("MS Gothic", description);
         Assert.Contains("tela Testar", description);
@@ -203,19 +204,134 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void Acentuacao_tem_quatro_cartoes_com_exemplo_e_o_aviso_do_cp1252_so_aparece_com_ele()
+    public void Acentos_tem_os_tres_cartoes_do_Novo_projeto_com_a_frase_na_caixa_do_jogo()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()]);
+
+        Assert.Equal(["fold", "remap", "cp1252"], vm.EncodingStrategies.Options.Select(o => o.Id));
+        Assert.Equal(["Sem acentos", "Com acentos, fonte modificada", "Com acentos, ajuste no jogo"], vm.EncodingStrategies.Options.Select(o => o.Title));
+        Assert.Equal(wizard.EncodingStrategies.Options.Select(o => (o.Id, o.Title, o.Description)), vm.EncodingStrategies.Options.Select(o => (o.Id, o.Title, o.Description)));
+        Assert.All(vm.EncodingStrategies.Options, o => Assert.NotNull(o.Layout));
+        var remap = vm.EncodingStrategies.Options[1];
+        Assert.False(remap.IsAvailable);
+        Assert.Equal("Em breve", remap.Badge);
+        Assert.Equal("fold", vm.EncodingStrategy);
+        Assert.True(vm.EncodingStrategies.Options[0].IsSelected);
+    }
+
+    [Fact]
+    public async Task Os_nomes_tecnicos_e_o_sjis_ficam_so_em_detalhes_tecnicos_e_nenhum_cartao_os_usa()
     {
         using var temp = new TempFolder();
         var vm = Create(temp);
 
-        Assert.Equal(["fold", "remap", "cp1252", "sjis"], vm.Encodings.Select(e => e.Id));
-        Assert.Equal("ação → acao", vm.Encodings[0].Sample);
-        Assert.All(vm.Encodings, e => Assert.False(string.IsNullOrWhiteSpace(e.Description)));
+        Assert.Equal(["fold", "remap", "cp1252", "sjis"], vm.EncodingTechnicalRows.Select(r => r.Id));
+        Assert.Equal("ação → acao", vm.EncodingTechnicalRows[0].Sample);
+        Assert.All(vm.EncodingTechnicalRows, r => Assert.False(string.IsNullOrWhiteSpace(r.Description)));
+        Assert.All(vm.EncodingStrategies.Options, o =>
+        {
+            Assert.DoesNotContain("(fold)", o.Title);
+            Assert.DoesNotContain("cp1252", o.Title + o.Description);
+            Assert.DoesNotContain("sjis", o.Title + o.Description);
+        });
+        Assert.Equal("Gravada no projeto: fold", vm.EncodingCurrentNote);
+
+        var summary = OpenProject(temp);
+        await LoadAsync(vm, summary);
+        vm.EncodingStrategy = "cp1252";
+
+        Assert.Equal("Gravada no projeto: cp1252", vm.EncodingCurrentNote);
+    }
+
+    [Fact]
+    public void O_aviso_do_cp1252_so_aparece_com_ele()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
         Assert.False(vm.ShowCp1252Warning);
 
-        vm.SelectedEncoding = vm.Encodings.Single(e => e.Id == "cp1252");
+        vm.EncodingStrategies.Options.Single(e => e.Id == "cp1252").IsSelected = true;
 
         Assert.True(vm.ShowCp1252Warning);
+
+        vm.EncodingStrategies.Options.Single(e => e.Id == "fold").IsSelected = true;
+
+        Assert.False(vm.ShowCp1252Warning);
+        Assert.Single(vm.EncodingStrategies.Options, o => o.IsSelected);
+    }
+
+    [Fact]
+    public async Task Projeto_com_sjis_nao_marca_cartao_nenhum_mantem_o_valor_e_so_troca_quando_a_pessoa_escolhe()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var folder = ProjectFolder.Open(summary.Root);
+        folder.SaveConfig(folder.LoadConfig() with { Encoding = new EncodingConfig("sjis") });
+        var vm = Create(temp);
+
+        await LoadAsync(vm, summary);
+
+        Assert.Equal("sjis", vm.EncodingStrategy);
+        Assert.True(vm.ShowLegacyEncodingNote);
+        Assert.DoesNotContain(vm.EncodingStrategies.Options, o => o.IsSelected);
+
+        vm.BatchSize = 25;
+
+        Assert.Equal("sjis", ProjectFolder.Open(summary.Root).LoadConfig().Encoding.Strategy);
+
+        vm.EncodingStrategies.Options.Single(o => o.Id == "fold").IsSelected = true;
+
+        Assert.False(vm.ShowLegacyEncodingNote);
+        Assert.Equal("fold", ProjectFolder.Open(summary.Root).LoadConfig().Encoding.Strategy);
+    }
+
+    [Fact]
+    public async Task Trocar_o_cartao_num_projeto_com_traducao_grava_a_estrategia_e_avisa_do_i_com_trema_so_no_cp1252()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var vm = Create(temp);
+        await LoadAsync(vm, summary);
+        var saved = 0;
+        vm.ProjectSaved += (_, _) => saved++;
+
+        vm.EncodingStrategies.Options.Single(o => o.Id == "cp1252").IsSelected = true;
+
+        Assert.Equal("cp1252", ProjectFolder.Open(summary.Root).LoadConfig().Encoding.Strategy);
+        Assert.True(vm.ShowCp1252Warning);
+        Assert.Equal(1, saved);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task O_selo_Recomendada_para_este_jogo_aparece_com_uma_engine_que_tem_patch_de_executavel()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var withPatch = Create(temp);
+        var withoutPatch = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("outra")), _ => null, engines: [new FakeEngine()]);
+
+        await LoadAsync(withPatch, summary);
+        await LoadAsync(withoutPatch, summary);
+
+        Assert.Equal("Recomendada para este jogo", withPatch.EncodingStrategies.Options.Single(o => o.Id == "cp1252").Badge);
+        Assert.Equal(string.Empty, withoutPatch.EncodingStrategies.Options.Single(o => o.Id == "cp1252").Badge);
+    }
+
+    [Fact]
+    public void O_botao_de_teste_de_acentos_pede_a_tela_Testar_no_jogo()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        var requested = 0;
+        vm.TestAccentsRequested += (_, _) => requested++;
+
+        vm.OpenAccentTestCommand.Execute(null);
+
+        Assert.Equal(1, requested);
     }
 
     [Fact]

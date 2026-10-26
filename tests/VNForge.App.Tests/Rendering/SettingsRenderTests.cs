@@ -16,7 +16,7 @@ namespace VNForge.App.Tests.Rendering;
 
 /// <summary>
 /// Renderiza as abas dos Ajustes com o projeto de demonstração, a 1440×1000, nos dois temas, para pôr ao lado do artboard do canvas:
-/// <c>ajustes-ia</c>, <c>ajustes-estilo</c>, <c>ajustes-formatacao</c> e <c>ajustes-acentuacao</c> (com cp1252 marcado, como no artboard).
+/// <c>ajustes-ia</c>, <c>ajustes-estilo</c>, <c>ajustes-formatacao</c> e <c>ajustes-acentos</c> (com cp1252 marcado, como no artboard).
 /// </summary>
 public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<DemoFolderFixture>
 {
@@ -24,7 +24,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
     public static TheoryData<string> Themes => ["Dark", "Light"];
 
-    private static readonly (int Tab, string Name)[] Tabs = [(0, "ajustes-ia"), (1, "ajustes-estilo"), (2, "ajustes-formatacao"), (3, "ajustes-acentuacao")];
+    private static readonly (int Tab, string Name)[] Tabs = [(0, "ajustes-ia"), (1, "ajustes-estilo"), (2, "ajustes-formatacao"), (3, "ajustes-acentos")];
 
     [Theory]
     [MemberData(nameof(Themes))]
@@ -59,7 +59,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                         vm.Settings.SelectedTab = tab;
                         if (tab == 3)
                         {
-                            vm.Settings.SelectedEncoding = vm.Settings.Encodings.Single(e => e.Id == "cp1252");
+                            vm.Settings.EncodingStrategy = "cp1252";
                         }
 
                         ScreenRenderer.Settle(window);
@@ -78,6 +78,11 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                         if (tab == 0)
                         {
                             ConferirAbaIaEGasto(window, theme);
+                        }
+
+                        if (tab == 3)
+                        {
+                            ConferirAcentos(window, theme);
                         }
                     }
                 }
@@ -150,5 +155,42 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
         var mark = ((ISolidColorBrush)textBrush!).Color;
         var markArea = new Rect(0, 0, bar.Bounds.Width, bar.Bounds.Height);
         Assert.True(PixelProbe.Capture(window, bar).CountInArea(markArea, mark, 24) >= BudgetBar.BarHeight, "marca do limite na barra");
+    }
+
+    /// <summary>
+    /// Na aba Acentos: três cartões lado a lado dentro da janela, o do ajuste no jogo marcado com a borda de destaque e o das fontes
+    /// modificadas desligado, cada um com a frase na caixa do jogo; nenhum nome técnico fora de "Detalhes técnicos", que vem fechado.
+    /// </summary>
+    private static void ConferirAcentos(Window window, ThemeVariant theme)
+    {
+        var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
+        var cards = tabs.GetVisualDescendants().OfType<RadioButton>().Where(r => r.Classes.Contains("option") && r.IsEffectivelyVisible)
+            .OrderBy(r => r.TranslatePoint(default, window)!.Value.X).ToList();
+        Assert.Equal(3, cards.Count);
+        Assert.Equal(["Sem acentos", "Com acentos, fonte modificada", "Com acentos, ajuste no jogo"], cards.Select(c => c.GetValue(Avalonia.Automation.AutomationProperties.NameProperty)));
+        Assert.Equal([false, false, true], cards.Select(c => c.IsChecked == true));
+        Assert.Equal([true, false, true], cards.Select(c => c.IsEnabled));
+        Assert.All(cards, c => Assert.True(c.Bounds.Width > 200 && c.Bounds.Height > 100, $"{c.Bounds}"));
+        var lefts = cards.Select(c => c.TranslatePoint(default, window)!.Value).ToList();
+        Assert.True(lefts[0].X + cards[0].Bounds.Width <= lefts[1].X + 1 && lefts[1].X + cards[1].Bounds.Width <= lefts[2].X + 1, "cartões sobrepostos");
+        Assert.True(lefts[2].X + cards[2].Bounds.Width <= window.Bounds.Width);
+
+        var boxes = tabs.GetVisualDescendants().OfType<GameTextbox>().Where(b => b.IsEffectivelyVisible).ToList();
+        Assert.Equal(3, boxes.Count);
+        Assert.All(boxes, b => Assert.True(b.Bounds.Width > 100 && b.Bounds.Height > 30, $"{b.Bounds}"));
+
+        Assert.True(window.TryFindResource("Vnf.Accent", theme, out var found));
+        var accent = ((ISolidColorBrush)found!).Color;
+        var borderTop = new Rect(8, 0, cards[2].Bounds.Width - 16, 3);
+        Assert.True(PixelProbe.Capture(window, cards[2]).CountInArea(borderTop, accent, 24) > cards[2].Bounds.Width / 2, "borda do accent no cartão marcado");
+        Assert.Equal(0, PixelProbe.Capture(window, cards[0]).CountInArea(borderTop, accent, 24));
+
+        var details = tabs.GetVisualDescendants().OfType<TechnicalDetails>().Single();
+        Assert.False(details.IsExpanded);
+        var texts = string.Join(" ", tabs.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text));
+        foreach (var technical in new[] { "fold", "remap", "cp1252", "sjis", "CP1252", "YPF", "Shift-JIS", "token" })
+        {
+            Assert.DoesNotContain(technical, texts);
+        }
     }
 }
