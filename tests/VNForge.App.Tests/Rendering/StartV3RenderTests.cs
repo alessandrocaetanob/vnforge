@@ -26,6 +26,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
     public async Task Inicio_com_projetos_mostra_a_lista_o_anel_o_proximo_passo_e_a_area_para_soltar(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        Prepare(demoFolder.Root);
         await fixture.Session.Dispatch<int>(
             async () =>
             {
@@ -48,6 +49,9 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                     Assert.Contains("Próximo passo", texts, StringComparison.Ordinal);
                     Assert.Contains("Escolher a pasta", VisibleButtons(view));
                     Assert.Contains(start.Detail.NextStepLabel, VisibleButtons(view));
+                    Assert.True(start.OpenNextStepCommand.CanExecute(null));
+                    Assert.StartsWith("No seu ritmo", start.Detail.PaceText, StringComparison.Ordinal);
+                    Assert.Contains(start.Detail.PaceText, texts, StringComparison.Ordinal);
                     var technical = Assert.Single(view.GetVisualDescendants().OfType<TechnicalDetails>());
                     Assert.False(technical.IsExpanded);
                     AssertPlainLanguage(texts);
@@ -114,6 +118,28 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                 return Task.FromResult(0);
             },
             TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>O ritmo de revisão (cinco dias de trabalho e algumas linhas hoje) e o jogo com a tradução de 22/10, como no Painel, para o cartão ter horas e o teste no jogo uma data.</summary>
+    private static void Prepare(string root)
+    {
+        var folder = ProjectFolder.Open(root);
+        var now = DateTimeOffset.UtcNow;
+        var approvals = new List<ApprovalRecord>();
+        for (var day = 4; day >= 1; day--)
+        {
+            for (var hour = 0; hour < 2; hour++)
+            {
+                approvals.AddRange(Enumerable.Range(0, 120).Select(i => new ApprovalRecord("yst00013", $"yst00013:{day:D2}{hour}{i:D4}", now.AddDays(-day).AddHours(-hour).AddSeconds(i * 30))));
+            }
+        }
+
+        SessionsFile.Save(folder, new SessionsFile(SessionsFile.CurrentVersion, approvals));
+        var applied = new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
+        GameStateFile.Save(folder, new GameStateFile(
+            GameStateFile.CurrentVersion,
+            new GameInGame(GameTestKind.Translation, applied, null, null, null),
+            new GameLastTest(applied, GameTestKind.Translation, [])));
     }
 
     private static string VisibleText(Control root) =>

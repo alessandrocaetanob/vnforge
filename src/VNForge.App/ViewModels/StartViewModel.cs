@@ -18,6 +18,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedCommand))]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedInEditorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenNextStepCommand))]
     [NotifyCanExecuteChangedFor(nameof(RemoveSelectedCommand))]
     public partial RecentProjectItem? Selected { get; set; }
 
