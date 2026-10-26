@@ -25,8 +25,9 @@ public static class QaFixer
 {
     /// <summary>Calcula as correções sobre <paramref name="texts"/> sem gravar nada.</summary>
     /// <param name="rules">Só estas regras corrigem; nulo ou vazio usa todas as que sabem corrigir.</param>
+    /// <param name="context">O encoder do projeto, para as correções que dependem dele (o caractere que a estratégia não grava); sem ele só corrigem as que dependem do texto.</param>
     /// <exception cref="VNForgeException">O filtro cita um id que o <paramref name="engine"/> não conhece.</exception>
-    public static QaFixResult Plan(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaEngine engine, IReadOnlyCollection<string>? rules = null)
+    public static QaFixResult Plan(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaEngine engine, IReadOnlyCollection<string>? rules = null, QaContext? context = null)
     {
         ArgumentNullException.ThrowIfNull(texts);
         ArgumentNullException.ThrowIfNull(engine);
@@ -54,7 +55,7 @@ public static class QaFixer
         var changed = new Dictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal);
         foreach (var (key, units) in texts)
         {
-            var edited = units.Select(unit => FixUnit(unit, key, fixers, fixes)).ToList();
+            var edited = units.Select(unit => FixUnit(unit, key, fixers, fixes, context)).ToList();
             if (fixes.Exists(f => f.ScriptKey == key))
             {
                 changed[key] = edited;
@@ -69,7 +70,7 @@ public static class QaFixer
     /// sobre a tradução gravada (as regras não se encadeiam, ao contrário de <see cref="Plan"/>). Ocorrência de regra sem <see cref="IQaFixer"/>,
     /// de linha sem tradução ou que a linha silenciou (<see cref="TextUnit.Flags"/>) não entra; também não entra a que o corretor deixa como está.
     /// </summary>
-    public static IReadOnlyList<QaFix> Propose(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaEngine engine, IEnumerable<QaIssue> issues)
+    public static IReadOnlyList<QaFix> Propose(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaEngine engine, IEnumerable<QaIssue> issues, QaContext? context = null)
     {
         ArgumentNullException.ThrowIfNull(texts);
         ArgumentNullException.ThrowIfNull(engine);
@@ -92,7 +93,7 @@ public static class QaFixer
                 continue;
             }
 
-            var fix = FixOne(unit, issue.ScriptKey, fixer);
+            var fix = FixOne(unit, issue.ScriptKey, fixer, context);
             if (fix is not null)
             {
                 proposals.Add(fix);
@@ -102,14 +103,14 @@ public static class QaFixer
         return proposals;
     }
 
-    private static QaFix? FixOne(TextUnit unit, string key, IQaFixer fixer)
+    private static QaFix? FixOne(TextUnit unit, string key, IQaFixer fixer, QaContext? context)
     {
         if (!unit.HasTranslation || unit.Flags.Contains(fixer.Id, StringComparer.Ordinal))
         {
             return null;
         }
 
-        var fixedText = fixer.Fix(unit.Translation);
+        var fixedText = context is null ? fixer.Fix(unit.Translation) : fixer.Fix(unit.Translation, context);
         return string.Equals(fixedText, unit.Translation, StringComparison.Ordinal) ? null : new QaFix(fixer.Id, unit.Id, key, unit.Translation, fixedText);
     }
 
@@ -147,7 +148,7 @@ public static class QaFixer
             }
         }
 
-        var fix = index < 0 ? null : FixOne(units[index], scriptKey, fixer);
+        var fix = index < 0 ? null : FixOne(units[index], scriptKey, fixer, QaContext.ForFixing(project));
         if (fix is null)
         {
             return null;
@@ -159,12 +160,12 @@ public static class QaFixer
         return fix;
     }
 
-    private static TextUnit FixUnit(TextUnit unit, string key, List<IQaFixer> fixers, List<QaFix> fixes)
+    private static TextUnit FixUnit(TextUnit unit, string key, List<IQaFixer> fixers, List<QaFix> fixes, QaContext? context)
     {
         var current = unit;
         foreach (var fixer in fixers)
         {
-            if (FixOne(current, key, fixer) is { } fix)
+            if (FixOne(current, key, fixer, context) is { } fix)
             {
                 fixes.Add(fix);
                 current = current with { Translation = fix.After };
@@ -189,7 +190,8 @@ public static class QaFixer
 
     private static QaFixResult ApplyLocked(ProjectFolder project, QaEngine engine, IReadOnlyCollection<string>? rules, bool dryRun)
     {
-        var result = Plan(project.LoadAllText(), engine, rules);
+        var context = QaContext.ForFixing(project);
+        var result = Plan(project.LoadAllText(), engine, rules, context);
         if (!dryRun)
         {
             foreach (var (key, units) in result.Texts)

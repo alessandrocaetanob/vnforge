@@ -689,7 +689,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return;
         }
 
-        var updated = entry.WithUnit(unit);
+        var updated = data?.WithUnit(entry, unit) ?? entry.WithUnit(unit);
         IssueCount += updated.Issues.Count - entry.Issues.Count;
         data?.Replace(updated);
         savedUnits.Remove(unit.Id);
@@ -717,7 +717,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private void OnUnitSaved(LineViewModel line, TextUnit saved)
     {
         var previous = line.Entry.Unit;
-        var updated = line.Entry.WithUnit(saved);
+        var updated = data?.WithUnit(line.Entry, saved) ?? line.Entry.WithUnit(saved);
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
         line.Update(updated);

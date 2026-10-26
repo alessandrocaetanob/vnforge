@@ -28,21 +28,27 @@ public sealed record LineEntry(string ScriptKey, int Number, TextUnit Unit, IRea
     public bool HasIssues => Issues.Count > 0;
 
     /// <summary>
-    /// A mesma linha com <paramref name="unit"/> no lugar da unidade, depois de uma edição. Refaz só as ocorrências das regras de completude
+    /// A mesma linha com <paramref name="unit"/> no lugar da unidade, depois de uma edição. Refaz as ocorrências das regras de completude
     /// (<see cref="CompletenessQaRules"/>), que olham a linha isolada; as demais, que dependem do glossário e do resto do projeto, ficam como estavam
-    /// e voltam a valer na próxima leitura.
+    /// e voltam a valer na próxima leitura. Com <paramref name="context"/> (o encoder e o perfil do projeto, <see cref="ProjectLines.LineContext"/>)
+    /// refaz também as regras que só olham a linha e dependem deles: caractere não codificável, caixa acima do limite e tamanho em bytes.
     /// </summary>
-    public LineEntry WithUnit(TextUnit unit)
+    public LineEntry WithUnit(TextUnit unit, QaContext? context = null)
     {
         ArgumentNullException.ThrowIfNull(unit);
 
+        var engine = context is null ? CompletenessEngine : LineEngine;
         var texts = new Dictionary<string, IReadOnlyList<TextUnit>> { [ScriptKey] = [unit] };
-        var fresh = CompletenessEngine.Run(QaContext.ForTexts(texts)).Issues;
-        var kept = Issues.Where(i => !CompletenessEngine.Rules.Any(r => string.Equals(r.Id, i.RuleId, StringComparison.Ordinal)));
+        var lineContext = (context ?? QaContext.ForTexts(texts)) with { Texts = texts };
+        var fresh = engine.Run(lineContext).Issues;
+        var kept = Issues.Where(i => !engine.Rules.Any(r => string.Equals(r.Id, i.RuleId, StringComparison.Ordinal)));
         return this with { Unit = unit, Issues = [.. kept, .. fresh] };
     }
 
     private static QaEngine CompletenessEngine { get; } = new(CompletenessQaRules.All);
+
+    /// <summary>As regras que olham só a linha: a completude e as que dependem do encoder e do perfil do projeto.</summary>
+    private static QaEngine LineEngine { get; } = new([.. CompletenessQaRules.All, new UnencodableCharacterRule(), new BoxLineLimitRule(), new FieldByteLimitRule()]);
 }
 
 /// <summary>Filtro de status da grade.</summary>
@@ -148,10 +154,24 @@ public sealed class ProjectLines
     private readonly Dictionary<string, LineEntry[]> byScript;
     private Dictionary<string, List<(string Key, int Index)>>? bySource;
 
-    private ProjectLines(List<ScriptProgress> scripts, Dictionary<string, LineEntry[]> byScript)
+    private ProjectLines(List<ScriptProgress> scripts, Dictionary<string, LineEntry[]> byScript, QaContext? lineContext)
     {
         Scripts = scripts;
         this.byScript = byScript;
+        LineContext = lineContext;
+    }
+
+    /// <summary>
+    /// O encoder e o perfil de formatação do projeto, sem os textos: o que <see cref="LineEntry.WithUnit"/> precisa para refazer as regras de uma linha
+    /// depois da edição. Nulo quando as linhas não vieram de um projeto (<see cref="Create"/>).
+    /// </summary>
+    public QaContext? LineContext { get; }
+
+    /// <summary>A <paramref name="entry"/> com a <paramref name="unit"/> editada e as ocorrências da linha refeitas com o <see cref="LineContext"/>.</summary>
+    public LineEntry WithUnit(LineEntry entry, TextUnit unit)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return entry.WithUnit(unit, LineContext);
     }
 
     /// <summary>Scripts em ordem ordinal da chave.</summary>
@@ -222,11 +242,13 @@ public sealed class ProjectLines
     {
         ArgumentNullException.ThrowIfNull(project);
         var context = QaContext.FromProject(project);
-        return Create(context.Texts, (qa ?? QaEngine.Default).Run(context));
+        var lineContext = new QaContext(new Dictionary<string, IReadOnlyList<TextUnit>>(), [], [], context.Formatting, context.Encoder);
+        return Create(context.Texts, (qa ?? QaEngine.Default).Run(context), lineContext);
     }
 
     /// <summary>Monta as linhas de <paramref name="texts"/>; as ocorrências de <paramref name="report"/> casam por chave do script e id da linha.</summary>
-    public static ProjectLines Create(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaReport? report = null)
+    /// <param name="lineContext">O encoder e o perfil do projeto, para refazer as regras da linha depois de uma edição (<see cref="LineContext"/>).</param>
+    public static ProjectLines Create(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, QaReport? report = null, QaContext? lineContext = null)
     {
         ArgumentNullException.ThrowIfNull(texts);
 
@@ -256,7 +278,7 @@ public sealed class ProjectLines
             scripts.Add(new ScriptProgress(key, StatusCounts.Of(units)));
         }
 
-        return new ProjectLines(scripts, byScript);
+        return new ProjectLines(scripts, byScript, lineContext);
     }
 
     /// <summary>Falantes distintos e não vazios, o que mais fala primeiro; empates em ordem ordinal.</summary>

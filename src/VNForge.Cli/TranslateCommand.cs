@@ -74,7 +74,7 @@ internal static class TranslateCommand
             : CreateClaudeProvider(cli, settings);
         ClaudeUsage? UsageOf() => (provider as ClaudeTranslationProvider)?.Usage;
         var ledger = new UsageLedger();
-        var chain = new CachingTranslationProvider(new ValidatingTranslationProvider(provider), cache, settings.Model, ledger);
+        var chain = KeyboardPunctuationProvider.Wrap(new CachingTranslationProvider(new ValidatingTranslationProvider(provider), cache, settings.Model, ledger), project.LoadConfig());
         var tracker = new RunCostTracker(project, settings.Model, budget.Rate, UsageOf);
         var estimator = new RequestEstimator(selection, builder, settings.Model, settings.Effort, settings.BatchSize, budget.Rate, cache);
         var summary = new RunSummary { Budget = budget };

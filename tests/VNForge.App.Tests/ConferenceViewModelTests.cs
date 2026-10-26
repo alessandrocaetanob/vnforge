@@ -202,6 +202,53 @@ public class ConferenceViewModelTests
         Assert.Equal([1, 2, 3], IssueRows(vm).Where(r => r.RuleId == "espaco-duplo").Select(r => r.LineNumber));
     }
 
+    private static async Task<(ConferenceViewModel Vm, ProjectFolder Folder)> LoadedCp1252(TempFolder temp)
+    {
+        var folder = ProjectFolder.Create(temp.SubFolder("real"), new ProjectConfig(
+            "Real",
+            new GameConfig("D:/Jogos/Real", "Real.exe"),
+            new EngineConfig("yuris", 500, "0xD36FAC96"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("cp1252"),
+            AiConfig.Default));
+        folder.SaveText("story04",
+        [
+            new TextUnit("story04:000064", TextUnitKind.Dialogue, null, "～朝～", "～Manhã～", TranslationStatus.Machine),
+            new TextUnit("story04:000065", TextUnitKind.Dialogue, null, "原文", "Sem ★ solução", TranslationStatus.Translated),
+        ]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root) };
+        await vm.RefreshAsync();
+        return (vm, folder);
+    }
+
+    [Fact]
+    public async Task Pontuacao_japonesa_fora_da_codificacao_ganha_correcao_de_um_clique_e_o_detalhe_diz_qual_caractere_e()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await LoadedCp1252(temp);
+
+        var til = IssueRows(vm).Single(r => r.UnitId == "story04:000064");
+        var estrela = IssueRows(vm).Single(r => r.UnitId == "story04:000065");
+
+        Assert.True(til.HasProposal);
+        Assert.Equal("~Manhã~", til.ProposedText);
+        Assert.Equal("O ～ (til japonês, U+FF5E) não existe na acentuação do projeto. Use ~ no lugar do ～.", til.Detail);
+        Assert.False(estrela.HasProposal);
+        Assert.Equal("O ★ não existe na acentuação do projeto.", estrela.Detail);
+    }
+
+    [Fact]
+    public async Task Corrigir_tudo_troca_a_pontuacao_japonesa_e_deixa_o_que_nao_tem_substituto()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await LoadedCp1252(temp);
+
+        await vm.FixAllCommand.ExecuteAsync(null);
+
+        Assert.Equal(["~Manhã~", "Sem ★ solução"], folder.LoadText("story04").Select(u => u.Translation));
+        Assert.Equal(["story04:000065"], IssueRows(vm).Select(r => r.UnitId));
+    }
+
     [Fact]
     public void Linha_que_veio_do_rascunho_da_IA_diz_isso_na_lista_e_no_detalhe()
     {
@@ -256,7 +303,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 3, occurrences: issues);
 
-        Assert.Equal("O 。, o ～ e o ★ não existem na acentuação do projeto.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002), o ～ (til japonês, U+FF5E) e o ★ não existem na acentuação do projeto. Use . no lugar do 。, ~ no lugar do ～.", row.Detail);
         Assert.DoesNotContain("(+", row.Detail, StringComparison.Ordinal);
     }
 
@@ -266,7 +313,7 @@ public class ConferenceViewModelTests
         var issue = Unencodable(0x3002);
         var row = new ConferenceIssueRowViewModel(issue, new QaFix(issue.RuleId, issue.UnitId, issue.ScriptKey, "a。", "a."));
 
-        Assert.Equal("O 。 não existe na acentuação do projeto.", row.CharacterSentence);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) não existe na acentuação do projeto. Use . no lugar do 。.", row.CharacterSentence);
     }
 
     [Fact]
@@ -312,7 +359,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
 
-        Assert.Equal("O 。 e o ～ não existem na acentuação do projeto.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) e o ～ (til japonês, U+FF5E) não existem na acentuação do projeto. Use . no lugar do 。, ~ no lugar do ～.", row.Detail);
     }
 
     [Fact]
@@ -322,7 +369,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
 
-        Assert.Equal("O 。 não existe na acentuação do projeto.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) não existe na acentuação do projeto. Use . no lugar do 。.", row.Detail);
     }
 
     [Theory]
@@ -336,7 +383,9 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issue);
 
-        Assert.Equal($"O U+{codePoint:X4} não existe na acentuação do projeto.", row.Detail);
+        var nome = codePoint == 0x3000 ? " (espaço de largura dupla)" : string.Empty;
+        var dica = codePoint == 0x3000 ? " Use um espaço comum no lugar do U+3000." : string.Empty;
+        Assert.Equal($"O U+{codePoint:X4}{nome} não existe na acentuação do projeto.{dica}", row.Detail);
     }
 
     [Fact]
@@ -346,7 +395,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
 
-        Assert.Equal("O 。 e o U+200B não existem na acentuação do projeto.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) e o U+200B não existem na acentuação do projeto. Use . no lugar do 。.", row.Detail);
     }
 
     [Fact]
@@ -373,7 +422,7 @@ public class ConferenceViewModelTests
 
         var row = Assert.Single(IssueRows(vm), r => r.RuleId == "caractere-nao-codificavel");
         Assert.Equal(3, row.Count);
-        Assert.Equal("O 。, o ～ e o U+200B não existem na acentuação do projeto.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002), o ～ (til japonês, U+FF5E) e o U+200B não existem na acentuação do projeto. Use . no lugar do 。, ~ no lugar do ～.", row.Detail);
         Assert.True(row.HasCharacterList);
 
         // O Painel e o filtro "Travam o teste" contam o mesmo: erros do QA, sem agrupar.

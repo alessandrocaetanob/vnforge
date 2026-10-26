@@ -290,7 +290,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         }
 
         var result = engine.Run(context);
-        var proposals = QaFixer.Propose(context.Texts, engine, result.Issues).ToDictionary(p => (p.UnitId, p.RuleId));
+        var proposals = QaFixer.Propose(context.Texts, engine, result.Issues, context).ToDictionary(p => (p.UnitId, p.RuleId));
 
         // "Não traduzida" é resumo por script: só a primeira linha de cada um vai para o detalhe, as outras ficam fora da memória da tela.
         var untranslated = result.Issues.Where(i => i.RuleId == UntranslatedQaRule.RuleId).GroupBy(i => i.ScriptKey, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();

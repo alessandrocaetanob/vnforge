@@ -30,6 +30,60 @@ public class LineDetailViewModelTests : IDisposable
     private static TextUnit Gravada(string raiz, int n) => ProjectFolder.Open(raiz).LoadText("yst00001")[n];
 
     [Fact]
+    public void Depois_de_gravar_o_campo_mostra_o_texto_com_a_pontuacao_do_teclado()
+    {
+        using var vm = Abrir(0);
+        var mudancas = new List<string?>();
+        vm.PropertyChanged += (_, e) => mudancas.Add(e.PropertyName);
+
+        vm.FieldText = "～Oi。（tudo bem）";
+        Assert.True(vm.Flush());
+
+        Assert.Equal("~Oi.(tudo bem)", ProjectFolder.Open(raiz).LoadText("yst00001")[0].Translation);
+        Assert.Equal("~Oi.(tudo bem)", vm.Translation);
+        Assert.Equal("~Oi.(tudo bem)", vm.FieldText);
+        Assert.Equal("~Oi.(tudo bem)", vm.Saved.Translation);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public void Depois_da_troca_nao_ha_nova_gravacao_pendente()
+    {
+        using var vm = Abrir(0);
+        vm.FieldText = "Oi。";
+        vm.Flush();
+        var gravada = vm.Saved;
+
+        vm.Flush();
+
+        Assert.Same(gravada, vm.Saved);
+    }
+
+    [Fact]
+    public void Texto_sem_pontuacao_japonesa_fica_como_foi_digitado()
+    {
+        using var vm = Abrir(0);
+
+        vm.FieldText = "Bom dia, tudo bem?";
+        vm.Flush();
+
+        Assert.Equal("Bom dia, tudo bem?", vm.FieldText);
+        Assert.Equal("Bom dia, tudo bem?", vm.Translation);
+    }
+
+    [Fact]
+    public void Quebra_de_linha_do_campo_sobrevive_a_troca_da_pontuacao()
+    {
+        using var vm = Abrir(0);
+
+        vm.FieldText = "Oi。\nTudo bem？";
+        vm.Flush();
+
+        Assert.Equal(@"Oi.\nTudo bem?", vm.Translation);
+        Assert.Equal("Oi.\nTudo bem?", vm.FieldText);
+    }
+
+    [Fact]
     public void Expoe_original_falante_status_e_notas_da_linha()
     {
         var unidade = new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "美咲", @"こんにちは\n{VAR:name}\p", "Oi.", TranslationStatus.Reviewed) { Notes = "ver glossário" };

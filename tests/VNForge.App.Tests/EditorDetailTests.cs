@@ -59,6 +59,75 @@ public class EditorDetailTests : IDisposable
         Assert.False(vm.Detail.HasQaIssues);
     }
 
+    private string ProjetoComTilJapones(string subpasta, bool pontuacaoDoTeclado)
+    {
+        var projeto = ProjectFolder.Create(Path.Combine(pasta.Path, subpasta), new ProjectConfig(
+            "Real",
+            new GameConfig("D:/Jogos/VN", "VN.exe"),
+            new EngineConfig("yuris", 500, "0xD36FAC96"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("cp1252"),
+            AiConfig.Default)
+        {
+            Style = StyleConfig.Default with { KeyboardPunctuation = pontuacaoDoTeclado },
+        });
+        projeto.SaveText("story04", [new TextUnit("story04:000064", TextUnitKind.Dialogue, null, "～朝～", "～Manhã～", TranslationStatus.Machine)]);
+        return projeto.Root;
+    }
+
+    private async Task<EditorViewModel> AbrirProjeto(string raizDoProjeto)
+    {
+        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao());
+        vm.Project = EditorFixtures.Summary("Real", raizDoProjeto);
+        await vm.Loading;
+        return vm;
+    }
+
+    [Fact]
+    public async Task Erro_de_caractere_fora_da_codificacao_some_do_painel_e_da_grade_ao_gravar_a_linha()
+    {
+        var vm = await AbrirProjeto(ProjetoComTilJapones("real-desligada", pontuacaoDoTeclado: false));
+        Assert.All(vm.Detail!.QaIssues, i => Assert.True(i.IsError));
+        Assert.NotEmpty(vm.Detail.QaIssues);
+        Assert.True(vm.Lines[0].HasError);
+
+        vm.Detail.Translation = "Manhã";
+        vm.Detail.Flush();
+
+        Assert.False(vm.Detail.HasQaIssues);
+        Assert.False(vm.Lines[0].HasError);
+        Assert.Equal(0, vm.IssueCount);
+    }
+
+    [Fact]
+    public async Task Gravar_o_til_japones_com_a_opcao_ligada_grava_o_til_do_teclado_e_limpa_o_erro()
+    {
+        var vm = await AbrirProjeto(ProjetoComTilJapones("real-ligada", pontuacaoDoTeclado: true));
+        Assert.True(vm.Detail!.HasQaIssues);
+
+        vm.Detail.Translation = "～Manhã～。";
+        vm.Detail.Flush();
+
+        Assert.Equal("~Manhã~.", ProjectFolder.Open(vm.Project!.Root).LoadText("story04")[0].Translation);
+        Assert.False(vm.Detail.HasQaIssues);
+    }
+
+    [Fact]
+    public async Task Gravar_um_caractere_novo_fora_da_codificacao_acende_o_erro_no_painel()
+    {
+        var vm = await AbrirProjeto(ProjetoComTilJapones("real-novo", pontuacaoDoTeclado: false));
+        vm.Detail!.Translation = "Manhã";
+        vm.Detail.Flush();
+        Assert.False(vm.Detail.HasQaIssues);
+
+        vm.Detail.Translation = "Manhã。";
+        vm.Detail.Flush();
+
+        var erro = Assert.Single(vm.Detail.QaIssues);
+        Assert.True(erro.IsError);
+        Assert.Contains("U+3002", erro.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Linha_sem_aviso_nao_mostra_bloco_de_avisos()
     {

@@ -11,4 +11,10 @@ public interface IQaFixer
 
     /// <summary>A <paramref name="translation"/> sem as ocorrências que a regra aponta e que são seguras de corrigir; igual à entrada quando não há nada a fazer.</summary>
     string Fix(string translation);
+
+    /// <summary>
+    /// A mesma correção, com o <paramref name="context"/> do projeto (o encoder, o perfil). O <see cref="QaFixer"/> chama esta; o padrão ignora o contexto.
+    /// Regra cuja correção depende do projeto (o caractere que a estratégia não grava) a sobrescreve.
+    /// </summary>
+    string Fix(string translation, QaContext context) => Fix(translation);
 }

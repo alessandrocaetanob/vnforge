@@ -13,6 +13,8 @@ public sealed class LineEditor
     private readonly ProjectFolder project;
     private readonly TimeProvider clock;
     private readonly Action<string, IReadOnlyList<TextUnit>> save;
+    private readonly object punctuationGate = new();
+    private (DateTime Stamp, long Length, KeyboardPunctuation? Value)? punctuation;
 
     public LineEditor(ProjectFolder project, TimeProvider clock)
         : this(project, clock, (key, units) => project.SaveText(key, units))
@@ -33,12 +35,15 @@ public sealed class LineEditor
     /// Grava a tradução digitada. Texto nulo, vazio ou só de espaços deixa a linha sem tradução (<see cref="TranslationStatus.Untranslated"/>, sem origem).
     /// Texto novo vira <see cref="TranslationStatus.Translated"/> com origem <c>manual</c> no horário do relógio, mesmo que a linha estivesse revisada ou aprovada:
     /// editar desfaz a revisão. Texto igual ao gravado não muda nada.
+    /// Com a opção <see cref="StyleConfig.KeyboardPunctuation"/> ligada, a pontuação japonesa do texto (<c>。 ～ （</c>) é trocada pela do teclado antes de gravar.
     /// </summary>
     /// <returns>A unidade como ficou no arquivo.</returns>
     /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>
     /// <exception cref="TextFileException">Arquivo do script ausente ou inválido.</exception>
-    public TextUnit SetTranslation(string scriptKey, string id, string? translation) =>
-        Update(scriptKey, id, unit =>
+    public TextUnit SetTranslation(string scriptKey, string id, string? translation)
+    {
+        translation = translation is null ? null : PunctuationOption()?.Apply(translation) ?? translation;
+        return Update(scriptKey, id, unit =>
         {
             if (string.IsNullOrWhiteSpace(translation))
             {
@@ -56,6 +61,7 @@ public sealed class LineEditor
                     Origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()),
                 };
         });
+    }
 
     /// <summary>
     /// "Usar em todos": grava <paramref name="translation"/> nas linhas indicadas, como <see cref="SetTranslation"/> faria em cada uma, com um arquivo gravado por script.
@@ -67,6 +73,7 @@ public sealed class LineEditor
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
+        translation = PunctuationOption()?.Apply(translation) ?? translation;
 
         lock (ProjectTextLock.For(project))
         {
@@ -171,6 +178,32 @@ public sealed class LineEditor
             var restored = unit with { Translation = previous.Translation, Status = previous.Status, Origin = previous.Origin };
             return restored == unit ? unit : restored;
         });
+    }
+
+    /// <summary>
+    /// A troca da pontuação do projeto, lida do <c>vnforge.json</c> só quando o arquivo muda (data e tamanho): gravar uma linha não relê nem reinterpreta a configuração.
+    /// Config inválida ou estratégia sem encoder falham aqui, com a mensagem de sempre, em vez de gravar sem a troca.
+    /// </summary>
+    private KeyboardPunctuation? PunctuationOption()
+    {
+        var file = new FileInfo(project.ConfigPath);
+        if (!file.Exists)
+        {
+            return KeyboardPunctuation.For(project);
+        }
+
+        var (stamp, length) = (file.LastWriteTimeUtc, file.Length);
+        lock (punctuationGate)
+        {
+            if (punctuation is { } cached && cached.Stamp == stamp && cached.Length == length)
+            {
+                return cached.Value;
+            }
+
+            var value = KeyboardPunctuation.For(project);
+            punctuation = (stamp, length, value);
+            return value;
+        }
     }
 
     private TextUnit Update(string scriptKey, string id, Func<TextUnit, TextUnit> change)

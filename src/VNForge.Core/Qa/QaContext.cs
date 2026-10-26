@@ -28,6 +28,15 @@ public sealed record QaContext(
     public static QaContext ForTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts) =>
         new(texts, [], [], FormattingProfile.Default);
 
+    /// <summary>Contexto só com o encoder do projeto, o que as correções do <see cref="QaFixer"/> consultam; os textos e o resto ficam vazios.</summary>
+    /// <exception cref="VNForgeException">Arquivo do projeto inválido ou estratégia de codificação desconhecida.</exception>
+    public static QaContext ForFixing(ProjectFolder project, TextEncoderRegistry? encoders = null)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
+        return new QaContext(new Dictionary<string, IReadOnlyList<TextUnit>>(), [], [], FormattingProfile.Default, encoder);
+    }
+
     /// <summary>Lê do <paramref name="project"/> os textos, o glossário, os personagens, o perfil e o encoder.</summary>
     /// <exception cref="VNForgeException">Arquivo do projeto inválido ou estratégia de codificação desconhecida.</exception>
     public static QaContext FromProject(ProjectFolder project, TextEncoderRegistry? encoders = null)

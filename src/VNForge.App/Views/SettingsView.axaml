@@ -309,6 +309,8 @@
                                   IsChecked="{Binding Style.TranslateOnomatopoeia}"/>
                     <c:ToggleRule Title="Nomes na ordem ocidental" Description="Misaki Sakura em vez de Sakura Misaki"
                                   IsChecked="{Binding Style.WesternNameOrder}"/>
+                    <c:ToggleRule Title="Trocar pontuação japonesa pela do teclado" Description="。 vira ponto final, ～ vira ~ e （） viram (): na tradução da IA e na que você grava"
+                                  IsChecked="{Binding Style.KeyboardPunctuation}"/>
                   </StackPanel>
                 </Border>
               </StackPanel>

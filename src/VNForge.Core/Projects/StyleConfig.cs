@@ -74,6 +74,12 @@ public sealed record StyleConfig
     public bool WesternNameOrder { get; init; } = true;
 
     /// <summary>
+    /// Trocar a pontuação japonesa (<c>。 ～ （</c>) pela do teclado (<c>. ~ (</c>) na tradução que a IA devolve e na que a pessoa grava, e pedir pontuação
+    /// ocidental à IA. Fica fora de <see cref="CacheKey"/>: a troca vem depois do cache, então ligar ou desligar vale para o que já foi pago.
+    /// </summary>
+    public bool KeyboardPunctuation { get; init; } = true;
+
+    /// <summary>
     /// Forma estável das escolhas, para entrar na chave do cache de traduções. O nome do narrador sem espaços nas pontas e o
     /// vazio contam como o mesmo valor.
     /// </summary>

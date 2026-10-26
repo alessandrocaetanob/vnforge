@@ -334,9 +334,11 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         {
             if (translationDirty)
             {
-                Saved = editor.SetTranslation(scriptKey, unit.Id, Translation);
+                var sent = Translation;
+                Saved = editor.SetTranslation(scriptKey, unit.Id, sent);
                 Status = Saved.Status;
                 translationDirty = false;
+                ShowStoredTranslation(sent);
             }
 
             if (notesDirty)
@@ -436,6 +438,24 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         Fit?.Update();
         NotifyFitChanged();
         ScheduleSave();
+    }
+
+    /// <summary>
+    /// A gravação pode trocar o texto (a pontuação japonesa pela do teclado): o campo passa a mostrar o que ficou no arquivo, para a pessoa não achar que a troca
+    /// não aconteceu. Só mexe no campo se ele ainda tem o texto enviado; se a pessoa digitou mais, a próxima gravação cuida disso. A troca mantém o tamanho do
+    /// texto na maioria dos casos, então o cursor fica onde estava.
+    /// </summary>
+    private void ShowStoredTranslation(string sent)
+    {
+        if (Saved.Translation is not { } stored || string.Equals(stored, sent, StringComparison.Ordinal)
+            || !string.Equals(Translation, sent, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Translation = stored;
+        translationDirty = false;
+        timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     private void ReopenField(string stored)

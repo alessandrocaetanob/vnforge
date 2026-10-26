@@ -43,6 +43,7 @@ public class StyleSettingsTests
         Assert.Equal(NarratorGender.Neutral, style.SelectedNarratorGender?.Value);
         Assert.True(style.TranslateOnomatopoeia);
         Assert.True(style.WesternNameOrder);
+        Assert.True(style.KeyboardPunctuation);
         Assert.Equal(StyleConfig.Default, style.ToConfig());
         Assert.Equal(["Manter", "Remover", "Adaptar"], style.Honorifics.Select(o => o.Name));
         Assert.Equal(["Você", "Tu"], style.Addresses.Select(o => o.Name));
@@ -102,6 +103,7 @@ public class StyleSettingsTests
             Narrator = new NarratorStyle { Who = "Kenta", Person = NarratorPerson.Third, Gender = NarratorGender.Male },
             TranslateOnomatopoeia = false,
             WesternNameOrder = false,
+            KeyboardPunctuation = false,
         };
 
         style.Load(loaded);
@@ -138,9 +140,10 @@ public class StyleSettingsTests
         vm.Style.SelectedNarratorPerson = vm.Style.NarratorPersons.Single(p => p.Value == NarratorPerson.Third);
         vm.Style.TranslateOnomatopoeia = false;
         vm.Style.WesternNameOrder = false;
+        vm.Style.KeyboardPunctuation = false;
 
         var style = ProjectFolder.Open(root).LoadConfig().Style;
-        Assert.Equal(7, saves);
+        Assert.Equal(8, saves);
         Assert.Equal(HonorificsPolicy.Keep, style.Honorifics);
         Assert.Equal(AddressForm.Tu, style.Address);
         Assert.Equal("Kenta (protagonista)", style.Narrator.Who);
@@ -148,6 +151,7 @@ public class StyleSettingsTests
         Assert.Equal(NarratorPerson.Third, style.Narrator.Person);
         Assert.False(style.TranslateOnomatopoeia);
         Assert.False(style.WesternNameOrder);
+        Assert.False(style.KeyboardPunctuation);
     }
 
     [Fact]
