@@ -79,6 +79,41 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Painel_aberto_durante_a_traducao_rele_os_numeros_quando_ela_termina()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
+        await vm.Dashboard.ReloadAsync();
+        var before = vm.Dashboard.Steps[1].Subtitle;
+        Assert.Contains("faltam 3 linhas", before);
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        Assert.Contains("faltam 1 linha",vm.Dashboard.Steps[1].Subtitle);
+    }
+
+    [Fact]
+    public async Task Conferencia_aberta_durante_a_traducao_rele_a_lista_quando_ela_termina()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+        int Untranslated() => vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Where(r => r.IsScriptSummary).Sum(r => r.Count);
+        Assert.Equal(3, Untranslated());
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        await vm.ConferenceLoading;
+
+        Assert.Equal(1, Untranslated());
+    }
+
+    [Fact]
     public async Task Pedido_acima_do_limite_nao_deixa_traduzir_e_nada_e_gravado()
     {
         var (vm, root) = await OpenAsync(spendLimit: "0,01");

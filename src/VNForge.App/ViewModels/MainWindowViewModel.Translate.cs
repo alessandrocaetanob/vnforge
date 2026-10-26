@@ -117,6 +117,26 @@ public sealed partial class MainWindowViewModel
 
         // O estado da tarefa chega por post depois do Completion: o que decide o aviso é o que a própria tarefa guardou.
         ShowTranslationOutcome(canceled, failure, result);
+        await RefreshSummaryPageAsync();
+    }
+
+    /// <summary>
+    /// O Painel, o Início e a Conferência leem a pasta ao abrir. A tradução grava <c>text/*.json</c> depois disso, então quem estava aberto
+    /// quando ela terminou mostraria os números de antes (a contagem de problemas, o progresso, o próximo passo).
+    /// </summary>
+    private Task RefreshSummaryPageAsync()
+    {
+        if (ReferenceEquals(CurrentPage, Dashboard))
+        {
+            return Dashboard.ReloadAsync();
+        }
+
+        if (ReferenceEquals(CurrentPage, Start))
+        {
+            return Start.LoadAsync();
+        }
+
+        return ReferenceEquals(CurrentPage, Conference) ? ConferenceLoading = Conference.RefreshAfterExternalChangeAsync() : Task.CompletedTask;
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch
