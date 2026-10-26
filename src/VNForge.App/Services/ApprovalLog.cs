@@ -141,6 +141,7 @@ public sealed class ProjectApprovalLog : IApprovalLog
         lock (gate)
         {
             Load();
+            RetryUnreadable();
             return sessions.ReviewedOn(now, zone);
         }
     }
@@ -180,14 +181,19 @@ public sealed class ProjectApprovalLog : IApprovalLog
         nextRetry = status == SessionsLoadStatus.Unreadable ? clock.GetUtcNow() + RetryInterval : default;
     }
 
-    private bool CanWrite()
+    /// <summary>Relê o arquivo que estava ilegível quando já passou o <see cref="RetryInterval"/> desde a última tentativa.</summary>
+    private void RetryUnreadable()
     {
-        Load();
         if (folder is not null && loaded && status == SessionsLoadStatus.Unreadable && clock.GetUtcNow() >= nextRetry)
         {
             Merge(SessionsFile.Read(folder));
         }
+    }
 
+    private bool CanWrite()
+    {
+        Load();
+        RetryUnreadable();
         return folder is not null && new SessionsLoad(sessions, status).CanOverwrite;
     }
 

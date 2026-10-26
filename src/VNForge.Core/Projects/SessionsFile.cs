@@ -78,11 +78,19 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
         }
     }
 
-    /// <summary>Grava o registro de forma atômica (arquivo temporário e troca).</summary>
+    /// <summary>
+    /// Grava o registro de forma atômica (arquivo temporário e troca). Cria só o <c>.cache/</c>: se a pasta do projeto sumiu (apagada ou movida com uma gravação
+    /// pendente), falha com <see cref="DirectoryNotFoundException"/> em vez de recriá-la no caminho antigo.
+    /// </summary>
     public static void Save(ProjectFolder project, SessionsFile sessions)
     {
         ArgumentNullException.ThrowIfNull(sessions);
         var path = PathFor(project);
+        if (!Directory.Exists(project.Root))
+        {
+            throw new DirectoryNotFoundException($"A pasta do projeto '{project.Root}' não existe mais; o registro de aprovações não foi gravado.");
+        }
+
         Directory.CreateDirectory(project.CacheDirectory);
         var temp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
