@@ -13,7 +13,9 @@ Barra de título própria: selo, nome do app, projeto aberto, busca global no ce
         ExtendClientAreaTitleBarHeightHint="{StaticResource Vnf.TitlebarHeight}"
         TransparencyLevelHint="Mica" Background="Transparent">
   <Grid ColumnDefinitions="72,*">
-    <Grid.RowDefinitions><RowDefinition Height="Auto"/>…</Grid.RowDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="28"/>
+    </Grid.RowDefinitions>
     <Border Grid.Row="0" Height="{StaticResource Vnf.TitlebarHeight}" WindowDecorationProperties.ElementRole="TitleBar">…</Border>
 ```
 
