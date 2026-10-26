@@ -97,17 +97,19 @@ Noto Sans JP completa passa de 4 MB por peso; usar só os pesos 400 e 500. Subco
 
 ```xml
 <Window ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="{StaticResource Vnf.TitlebarHeight}"
         WindowDecorations="Full"
         TransparencyLevelHint="Mica"
         Background="Transparent">
   <Panel>
     <Border Background="{DynamicResource Vnf.BgBase}"
             IsVisible="{Binding !IsMicaActive}"/>   <!-- reserva -->
-    <Grid RowDefinitions="40,*,28" ColumnDefinitions="72,*">
-      <Border Grid.ColumnSpan="2" WindowDecorationProperties.ElementRole="TitleBar"/>
+    <Grid RowDefinitions="Auto,*,28" ColumnDefinitions="72,*">
+      <Border Grid.ColumnSpan="2" Height="{StaticResource Vnf.TitlebarHeight}" WindowDecorationProperties.ElementRole="TitleBar"/>
       …
 ```
 
+- A altura da barra vem de `Vnf.TitlebarHeight` (40) no hint da janela e na `Border` da barra. Sem o hint o Windows usa a altura padrão (~32 px) e a faixa do sistema termina no meio da busca (#366).
 - O Mica só aparece com `Background="Transparent"`. O Windows desliga a transparência em sessão remota e em economia de bateria; `IsMicaActive` vem de `ActualTransparencyLevel` e a reserva `bg-base` cobre o fundo.
 - `bg-layer` (área de conteúdo) é sempre opaco: o Mica aparece só na barra de título, no trilho e na barra de status.
 - No Avalonia 12, `SystemDecorations` passou a se chamar `WindowDecorations`.
