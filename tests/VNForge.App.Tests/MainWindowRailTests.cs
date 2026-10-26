@@ -161,7 +161,7 @@ public class MainWindowRailTests
         await vm.Editor.Loading;
 
         Assert.Equal("Minha VN", vm.ProjectTitle);
-        Assert.Equal("Acentuação: sem acentos", vm.EncodingText);
+        Assert.Equal("Acentos: sem acentos", vm.EncodingText);
         Assert.Equal("54 colunas · 3 linhas", vm.BoxLimitsText);
         Assert.Equal(string.Empty, vm.SavedAtText);
     }
@@ -174,7 +174,7 @@ public class MainWindowRailTests
         var vm = Create(temp, root);
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
-        Assert.Equal("Acentuação: sem acentos", vm.EncodingText);
+        Assert.Equal("Acentos: sem acentos", vm.EncodingText);
         Assert.Equal("54 colunas · 3 linhas", vm.BoxLimitsText);
         var changed = new List<string?>();
         vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
@@ -183,7 +183,7 @@ public class MainWindowRailTests
         vm.Settings.WrapMaxWidth = 40;
         vm.Settings.WrapMaxLines = 2;
 
-        Assert.Equal("Acentuação: CP1252", vm.EncodingText);
+        Assert.Equal("Acentos: ajuste no jogo", vm.EncodingText);
         Assert.Equal("40 colunas · 2 linhas", vm.BoxLimitsText);
         Assert.Contains(nameof(MainWindowViewModel.EncodingText), changed);
         Assert.Contains(nameof(MainWindowViewModel.BoxLimitsText), changed);

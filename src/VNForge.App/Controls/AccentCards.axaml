@@ -20,8 +20,12 @@
             <WrapPanel ItemSpacing="12" LineSpacing="4">
               <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="{Binding Title}" VerticalAlignment="Center"/>
               <Border Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
-                      Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding Badge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                      Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding ShowBadge}">
                 <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Badge}"/>
+              </Border>
+              <Border Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
+                      Background="{DynamicResource Vnf.StatusPendingBg}" IsVisible="{Binding ShowSoonBadge}">
+                <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusPendingFg}" Text="{Binding Badge}"/>
               </Border>
             </WrapPanel>
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Description}"/>

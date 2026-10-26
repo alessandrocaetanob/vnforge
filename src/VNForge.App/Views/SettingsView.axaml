@@ -463,7 +463,17 @@
             <c:AccentCards Options="{Binding EncodingStrategies.Options}" GroupName="SettingsAccents" AutomationProperties.Name="Como ficam os acentos"/>
             <Border Classes="infobar" IsVisible="{Binding ShowLegacyEncodingNote}">
               <TextBlock Classes="body-sm" TextWrapping="Wrap"
-                         Text="Este projeto usa uma forma antiga de tratar os acentos, que não desenha as letras acentuadas: o build recusa o que o jogo não representa. Escolha um dos cartões para trocar."/>
+                         Text="Este projeto usa uma forma antiga de tratar os acentos, que não desenha as letras acentuadas: o teste no jogo recusa as letras acentuadas. Escolha um dos cartões para trocar."/>
+            </Border>
+            <Border Classes="infobar warning" IsVisible="{Binding ShowUnavailableEncodingNote}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="A fonte modificada ainda não está pronta."/>
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap"
+                             Text="O teste no jogo recusa este projeto com a fonte modificada. Escolha outro cartão para voltar a testar."/>
+                </StackPanel>
+              </Grid>
             </Border>
             <Border Classes="infobar warning" IsVisible="{Binding ShowCp1252Warning}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -471,7 +481,7 @@
                 <StackPanel Grid.Column="1" Spacing="2">
                   <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Com este ajuste, a letra ï fica proibida na tradução."/>
                   <TextBlock Classes="body-sm" TextWrapping="Wrap"
-                             Text="O jogo usa o byte dessa letra para os códigos de controle do texto; o Conferir acusa qualquer ï na tradução."/>
+                             Text="O jogo usa essa letra para os códigos de controle do texto; a tela Conferir acusa qualquer ï na tradução."/>
                 </StackPanel>
               </Grid>
             </Border>
@@ -482,7 +492,7 @@
                   <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
                              Text="Em Testar no jogo, o botão Testar só os acentos copia uma frase com ç, ã, é e ô para a primeira fala do jogo. Serve para ver os acentos antes de traduzir."/>
                 </StackPanel>
-                <Button Grid.Column="1" Command="{Binding OpenAccentTestCommand}" Content="Abrir Testar no jogo" VerticalAlignment="Center"
+                <Button Grid.Column="1" Command="{Binding OpenAccentTestCommand}" IsEnabled="{Binding CanTestAccents}" Content="Abrir Testar no jogo" VerticalAlignment="Center"
                         AutomationProperties.Name="Abrir Testar no jogo"/>
               </Grid>
             </Border>

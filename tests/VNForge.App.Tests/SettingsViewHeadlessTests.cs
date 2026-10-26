@@ -76,6 +76,41 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             CancellationToken.None);
     }
 
+    [Theory]
+    [InlineData("sjis", "o teste no jogo recusa as letras acentuadas")]
+    [InlineData("remap", "A fonte modificada ainda não está pronta.")]
+    public async Task Acentos_com_estrategia_que_o_teste_recusa_avisa_sem_jargao_e_desliga_o_botao_de_teste(string strategy, string esperado)
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = VNForge.Core.Projects.ProjectFolder.Open(root);
+        folder.SaveConfig(folder.LoadConfig() with { Encoding = new VNForge.Core.Projects.EncodingConfig(strategy) });
+        var vm = Criar(temp);
+        vm.Load(VNForge.Core.Projects.ProjectSummaryReader.Read(root));
+        await vm.EstimateLoading;
+        vm.SelectedTab = 3;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                var textos = window.GetVisualDescendants()
+                    .Where(v => !v.GetVisualAncestors().OfType<TechnicalDetails>().Any() && v is not TechnicalDetails)
+                    .SelectMany(TextosVisiveis)
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToList();
+
+                Assert.Contains(textos, t => t!.Contains(esperado, StringComparison.Ordinal));
+                foreach (var proibido in new[] { "build", "byte", "sjis", "remap", "Shift-JIS" })
+                {
+                    Assert.DoesNotContain(textos, t => t!.Contains(proibido, StringComparison.OrdinalIgnoreCase));
+                }
+
+                Assert.False(Botao(window, "Abrir Testar no jogo").IsEnabled);
+            },
+            CancellationToken.None);
+    }
+
     private static IEnumerable<string?> TextosVisiveis(Avalonia.Visual visual) => visual switch
     {
         TextBlock { IsEffectivelyVisible: true } block => [block.Text],

@@ -304,6 +304,33 @@ public class SettingsViewModelTests
         Assert.True(vm.ShowCp1252Warning);
         Assert.Equal(1, saved);
         Assert.Null(vm.ErrorMessage);
+
+        vm.EncodingStrategies.Options.Single(o => o.Id == "fold").IsSelected = true;
+
+        Assert.Equal("fold", ProjectFolder.Open(summary.Root).LoadConfig().Encoding.Strategy);
+        Assert.False(vm.ShowCp1252Warning);
+        Assert.Equal(2, saved);
+    }
+
+    [Fact]
+    public async Task Projeto_com_remap_marca_o_cartao_desligado_avisa_e_nao_deixa_abrir_o_teste_de_acentos()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var folder = ProjectFolder.Open(summary.Root);
+        folder.SaveConfig(folder.LoadConfig() with { Encoding = new EncodingConfig("remap") });
+        var vm = Create(temp);
+
+        await LoadAsync(vm, summary);
+
+        Assert.True(vm.ShowUnavailableEncodingNote);
+        Assert.False(vm.CanTestAccents);
+        Assert.False(vm.ShowLegacyEncodingNote);
+
+        vm.EncodingStrategies.Options.Single(o => o.Id == "cp1252").IsSelected = true;
+
+        Assert.False(vm.ShowUnavailableEncodingNote);
+        Assert.True(vm.CanTestAccents);
     }
 
     [Fact]

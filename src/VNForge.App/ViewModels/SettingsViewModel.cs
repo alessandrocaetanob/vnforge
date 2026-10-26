@@ -279,7 +279,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         new("fold", "Remover acentos", "ação → acao", "Funciona em qualquer jogo sem mexer no executável. Bom para validar a ida e volta."),
         new("remap", "Remapear para meia largura", "ação → aｱｲo", "Usa katakanas de 1 byte como substitutos e uma fonte modificada que desenha as letras certas."),
         new("cp1252", "Latin-1 nativo", "ação → ação", "Acentos completos com o executável original. O patch opcional troca o nome da fonte para MS Gothic; aplique na tela Testar. Experimental."),
-        new("sjis", "Shift-JIS puro", "ação → recusado", "Não trata acentos: o build recusa o que o Shift-JIS não representa. Só sobra em projetos antigos; não é mais uma escolha."),
+        new("sjis", "Shift-JIS puro", "ação → recusado", "Não trata acentos: o build recusa o que o Shift-JIS não representa. Não é escolha no app; aparece em projetos criados com sjis pela linha de comando."),
     ];
 
     public ReadOnlyCollection<ChoiceItem<QuoteStyle>> QuoteStyles { get; }
@@ -392,7 +392,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>A estratégia de acentos gravada no <c>vnforge.json</c> (<c>fold</c>, <c>remap</c>, <c>cp1252</c> ou <c>sjis</c>); os cartões em <see cref="EncodingStrategies"/> acompanham.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowCp1252Warning), nameof(ShowLegacyEncodingNote), nameof(EncodingCurrentNote))]
+    [NotifyPropertyChangedFor(nameof(ShowCp1252Warning), nameof(ShowLegacyEncodingNote), nameof(ShowUnavailableEncodingNote), nameof(CanTestAccents), nameof(EncodingCurrentNote))]
     public partial string EncodingStrategy { get; set; } = ProjectChoices.DefaultEncoding;
 
     /// <summary>Com cp1252 o byte 0xEF (ï) é o prefixo dos códigos de controle do YU-RIS: a aba mostra o aviso.</summary>
@@ -400,6 +400,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Projeto gravado com uma estratégia que não é cartão (o <c>sjis</c>): nenhum cartão fica marcado e a aba pede a escolha.</summary>
     public bool ShowLegacyEncodingNote => !AccentChoices.CardIds.Contains(EncodingStrategy);
+
+    /// <summary>O cartão marcado ainda não dá para usar (a fonte modificada, <c>remap</c>): o build recusa a estratégia, então a aba avisa.</summary>
+    public bool ShowUnavailableEncodingNote => EncodingStrategies.Options.FirstOrDefault(o => o.Id == EncodingStrategy) is { IsAvailable: false };
+
+    /// <summary>Só uma estratégia que o build aceita pode ir para o teste de acentos no jogo.</summary>
+    public bool CanTestAccents => EncodingStrategies.Options.FirstOrDefault(o => o.Id == EncodingStrategy) is { IsAvailable: true };
 
     /// <summary>A estratégia gravada no projeto, pelo nome técnico; só aparece em "Detalhes técnicos".</summary>
     public string EncodingCurrentNote => $"Gravada no projeto: {EncodingStrategy}";
@@ -878,6 +884,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private decimal BrlFor(string model) =>
         estimatedPending is not null && estimates.TryGetValue(model, out var estimate) ? CostEstimator.Brl(estimate, app.Rate) : 0m;
 
+    // A fonte da verdade é EncodingStrategy: com uma estratégia sem cartão (sjis) nenhum cartão fica marcado e EncodingStrategies.Selected guarda só o último cartão escolhido.
     partial void OnEncodingStrategyChanged(string value)
     {
         var card = EncodingStrategies.Options.FirstOrDefault(o => o.Id == value);

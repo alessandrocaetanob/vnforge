@@ -43,7 +43,14 @@ public sealed partial class ChoiceOption(string id, string title, string value =
 
     /// <summary>O selo do cartão ("Em breve", "Recomendada para este jogo"); vazio quando não há.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBadge), nameof(ShowSoonBadge))]
     public partial string Badge { get; set; } = string.Empty;
+
+    /// <summary>Selo verde ("Recomendada para este jogo"): a opção está disponível e tem selo.</summary>
+    public bool ShowBadge => IsAvailable && Badge.Length > 0;
+
+    /// <summary>Selo neutro ("Em breve"): a opção ainda não dá para escolher.</summary>
+    public bool ShowSoonBadge => !IsAvailable && Badge.Length > 0;
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }

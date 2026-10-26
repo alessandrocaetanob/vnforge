@@ -188,7 +188,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
         var details = tabs.GetVisualDescendants().OfType<TechnicalDetails>().Single();
         Assert.False(details.IsExpanded);
         var texts = string.Join(" ", tabs.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text));
-        foreach (var technical in new[] { "fold", "remap", "cp1252", "sjis", "CP1252", "YPF", "Shift-JIS", "token" })
+        foreach (var technical in new[] { "fold", "remap", "cp1252", "sjis", "CP1252", "YPF", "Shift-JIS", "token", "build", "byte" })
         {
             Assert.DoesNotContain(technical, texts);
         }
