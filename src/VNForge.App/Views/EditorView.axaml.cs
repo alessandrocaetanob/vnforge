@@ -12,6 +12,7 @@ namespace VNForge.App.Views;
 public sealed partial class EditorView : UserControl
 {
     private EditorViewModel? current;
+    private TopLevel? watchedTopLevel;
 
     private Flyout SceneFlyout => (Flyout)ScenesTrigger.Flyout!;
 
@@ -95,6 +96,7 @@ public sealed partial class EditorView : UserControl
         (DataContext as EditorViewModel)?.RefreshPreview();
         if (TopLevel.GetTopLevel(this) is { } top)
         {
+            watchedTopLevel = top;
             top.PropertyChanged += OnTopLevelPropertyChanged;
             ApplyBreakpoints();
         }
@@ -102,9 +104,10 @@ public sealed partial class EditorView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this) is { } top)
+        if (watchedTopLevel is not null)
         {
-            top.PropertyChanged -= OnTopLevelPropertyChanged;
+            watchedTopLevel.PropertyChanged -= OnTopLevelPropertyChanged;
+            watchedTopLevel = null;
         }
 
         base.OnDetachedFromVisualTree(e);
@@ -127,7 +130,7 @@ public sealed partial class EditorView : UserControl
         }
     }
 
-    /// <summary>Fechar o painel tira o foco do campo que sumiu; ele volta para o texto da linha, para os atalhos do Editor continuarem valendo.</summary>
+    /// <summary>Fechar o painel de busca ou o modo revisão tira o foco do campo que sumiu; ele volta para o texto da linha, para os atalhos do Editor continuarem valendo.</summary>
     private void OnEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(EditorViewModel.SelectedScript))
@@ -135,7 +138,8 @@ public sealed partial class EditorView : UserControl
             SceneFlyout.Hide();
         }
 
-        if (e.PropertyName == nameof(EditorViewModel.IsSearchOpen) && current is { IsSearchOpen: false })
+        if ((e.PropertyName == nameof(EditorViewModel.IsSearchOpen) && current is { IsSearchOpen: false })
+            || (e.PropertyName == nameof(EditorViewModel.IsReviewing) && current is { IsReviewing: false }))
         {
             Dispatcher.UIThread.Post(
                 () =>

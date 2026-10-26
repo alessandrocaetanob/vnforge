@@ -432,6 +432,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenSearch()
     {
+        if (IsReviewing)
+        {
+            return;
+        }
+
         IsSearchOpen = true;
         SearchOpened?.Invoke(this, false);
     }
@@ -440,6 +445,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenReplace()
     {
+        if (IsReviewing)
+        {
+            return;
+        }
+
         IsSearchOpen = true;
         IsReplaceVisible = true;
         SearchOpened?.Invoke(this, true);
@@ -460,12 +470,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     /// <summary>Esc: fecha o painel. O que foi digitado fica para a próxima vez.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanCloseSearch))]
     private void CloseSearch()
     {
         IsSearchOpen = false;
         IsReplaceVisible = false;
     }
+
+    /// <summary>Com o modo revisão aberto o Esc é dele: o atalho da busca não pode marcá-lo como tratado antes de a tela de revisão vê-lo.</summary>
+    private bool CanCloseSearch() => !IsReviewing;
 
     /// <summary>Leva a grade à linha de um resultado: troca de script e tira os filtros que a escondem. Avisa quando a linha não existe mais.</summary>
     [RelayCommand]
@@ -529,6 +542,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     partial void OnProjectChanged(ProjectSummary? value)
     {
+        StopReview();
         Search.Project = value;
         Loading = LoadAsync();
     }
@@ -704,6 +718,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             UpdateCounts();
         }
 
+        RecordApproval(line.Entry.ScriptKey, previous, saved);
         if (previous.Translation != saved.Translation || previous.Status != saved.Status)
         {
             LineSaved?.Invoke(this, new LineSavedEventArgs(Project?.Root, line.Entry.ScriptKey, line.Number, previous, saved));
@@ -738,6 +753,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return false;
         }
 
+        ForgetApprovals(saved);
         Reload();
         return true;
     }
@@ -792,6 +808,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     private void Apply(ProjectLines? loaded)
     {
+        // As linhas da fila do modo revisão são as de antes da releitura (um "Desfazer", uma busca com substituição): a fila já não vale.
+        StopReview();
         applying = true;
         try
         {

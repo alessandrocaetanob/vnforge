@@ -101,6 +101,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines);
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
+        Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
         Editor.TranslateRequested += OnEditorTranslateRequested;
         HookTranslateDialog();
         Conference.PropertyChanged += OnConferenceChanged;
@@ -170,11 +171,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
             DetachEditor(editor);
             editor.PropertyChanged -= OnEditorChanged;
             editor.CheckRequested -= OnEditorCheckRequested;
+            editor.DefineGenderRequested -= OnEditorDefineGenderRequested;
             editor.TranslateRequested -= OnEditorTranslateRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
             editor.CheckRequested += OnEditorCheckRequested;
+            editor.DefineGenderRequested += OnEditorDefineGenderRequested;
             editor.TranslateRequested += OnEditorTranslateRequested;
         }
     }
@@ -483,6 +486,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             editorStale = false;
             Editor.Reload();
         }
+        else if (target == NavKey.Editor && Editor.IsReviewing)
+        {
+            // O gênero definido no Glossário a partir do modo revisão: grava o que está pendente e refaz o painel da fala com o contexto novo.
+            Glossary.Flush();
+            Editor.RefreshContext();
+        }
     }
 
     /// <summary>Troca a página pelo assistente de novo projeto; ao terminar ou cancelar volta ao Início, e um projeto criado é aberto.</summary>
@@ -526,6 +535,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             SelectedNav = buildItem;
             return false;
         }
+
+        // A última aprovação ainda pode estar sendo gravada em segundo plano; espera um pouco para a contagem do dia não perdê-la.
+        ProjectApprovalLog.FlushAll(TimeSpan.FromMilliseconds(500));
 
         // Fechar com edições do Glossário que não foram para o disco as perderia: a página mostra o erro e deixa tentar de novo ou descartar.
         if (!Glossary.Flush())
@@ -577,6 +589,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
+
+    private void OnEditorDefineGenderRequested(object? sender, EventArgs e)
+    {
+        Glossary.SelectedTab = GlossaryTab.Characters;
+        SelectedNav = glossaryItem;
+    }
 
     private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
     {

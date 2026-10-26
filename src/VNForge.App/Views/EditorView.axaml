@@ -28,7 +28,7 @@
   <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
 
     <!-- Cabeçalho: chave em mono, nome do capítulo, filtros com contagem e as duas ações do arquivo. -->
-    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}">
+    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding !IsReviewing}">
       <WrapPanel ItemSpacing="6" LineSpacing="8" MaxWidth="960" VerticalAlignment="Bottom" HorizontalAlignment="Right">
         <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
         <Button x:Name="ScenesTrigger" Classes="scenes-trigger sm" AutomationProperties.Name="Cenas" ToolTip.Tip="Abre a lista de cenas">
@@ -70,6 +70,13 @@
             <TextBlock Classes="btn-label" Text="Conferir arquivo" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
+        <Button Classes="sm" Command="{Binding StartReviewCommand}" AutomationProperties.Name="Modo revisão"
+                ToolTip.Tip="Modo revisão: passa pelas linhas traduzidas pela IA, uma a uma, com a caixa do jogo ao lado">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
+            <TextBlock Classes="btn-label" Text="Modo revisão" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
         <Button Classes="accent sm" Command="{Binding TranslatePendingCommand}" ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
@@ -93,7 +100,7 @@
 
     <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,69* (320 a 420): a 1440 px de janela dá 248 · 628 · 420, como o artboard.
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="3" x:Name="Columns" ColumnSpacing="12">
+    <Grid Grid.Row="3" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="248"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
@@ -161,5 +168,9 @@
         </Panel>
       </Border>
     </Grid>
+
+    <!-- Modo revisão: ocupa o lugar do cabeçalho e da grade enquanto houver uma revisão aberta. -->
+    <v:ReviewModeView Grid.RowSpan="4" DataContext="{Binding Review}" IsVisible="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsReviewing}"
+                      Background="{DynamicResource Vnf.BgLayer}"/>
   </Grid>
 </UserControl>

@@ -1,4 +1,5 @@
 using VNForge.AI.Claude;
+using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Formatting;
@@ -129,7 +130,15 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func
         return result.Translation;
     }
 
-    private static string ReadModel(string configDirectory)
+    /// <summary>Quanto custa pedir outra sugestão para a linha, em reais pela cotação da pessoa, com a marca de cotação de exemplo enquanto ela não informou a dela.</summary>
+    public static string PriceText(TextUnit unit, string model, ExchangeRate rate)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        ArgumentNullException.ThrowIfNull(rate);
+        return Controls.Money.BrlEstimate(rate.ToBrl(CostEstimator.Estimate([unit], model).Dollars), rate);
+    }
+
+    internal static string ReadModel(string configDirectory)
     {
         var settingsFile = new AiUserSettingsFile(configDirectory);
         var model = AiUserSettings.Default.Model;
