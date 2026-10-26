@@ -14,6 +14,8 @@ namespace VNForge.App.Tests;
 /// <summary>Ajustes de verdade (tema, estilos, recursos): as três abas existem, os cartões escolhem o modelo e a acentuação, e o cartão da chave troca o campo.</summary>
 public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
+    private static readonly string[] JargaoDosAcentos = ["build", "byte", "sjis", "remap", "Shift-JIS"];
+
     private static Window Abrir(SettingsViewModel vm)
     {
         var window = new Window { Width = 1200, Height = 1000, Content = new SettingsView { DataContext = vm } };
@@ -101,7 +103,7 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
                     .ToList();
 
                 Assert.Contains(textos, t => t!.Contains(esperado, StringComparison.Ordinal));
-                foreach (var proibido in new[] { "build", "byte", "sjis", "remap", "Shift-JIS" })
+                foreach (var proibido in JargaoDosAcentos)
                 {
                     Assert.DoesNotContain(textos, t => t!.Contains(proibido, StringComparison.OrdinalIgnoreCase));
                 }
