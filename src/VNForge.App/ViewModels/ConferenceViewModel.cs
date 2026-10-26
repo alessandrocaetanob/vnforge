@@ -321,6 +321,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
             })
             .OrderBy(r => r.IsError ? 0 : 1)
             .ThenBy(r => r.ScriptKey, StringComparer.Ordinal)
+            .ThenBy(r => r.LineNumber ?? int.MaxValue)
             .ThenBy(r => r.UnitId, StringComparer.Ordinal)
             .ThenBy(r => order.GetValueOrDefault(r.RuleId, int.MaxValue))
             .ToList();

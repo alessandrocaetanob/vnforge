@@ -187,6 +187,62 @@ public class ConferenceViewModelTests
         Assert.Equal("yst00013:0137", row.LineLabel);
     }
 
+    [Fact]
+    public async Task Dentro_da_cena_a_lista_sai_em_ordem_de_linha_e_nao_em_ordem_de_texto_do_id()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        // Ids sem zeros à esquerda: em ordem de texto "10" e "100" viriam antes de "9".
+        folder.SaveText("yst00013", new[] { "9", "10", "100" }.Select(n => new TextUnit($"yst00013:{n}", TextUnitKind.Dialogue, null, $"原文{n}", "dois  espaços", TranslationStatus.Translated)).ToList());
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.RefreshAsync();
+
+        Assert.Equal([1, 2, 3], IssueRows(vm).Where(r => r.RuleId == "espaco-duplo").Select(r => r.LineNumber));
+    }
+
+    [Fact]
+    public void Linha_que_veio_do_rascunho_da_IA_diz_isso_na_lista_e_no_detalhe()
+    {
+        var issue = new QaIssue("caractere-nao-codificavel", QaSeverity.Error, "yst00002:000049", "yst00002", "o caractere '。' (U+3002) não existe na estratégia 'cp1252'.");
+        var unit = new TextUnit(issue.UnitId, TextUnitKind.Dialogue, null, "原文", "Oi。", TranslationStatus.Machine);
+
+        var row = new ConferenceIssueRowViewModel(issue, unit: unit);
+
+        Assert.True(row.IsMachineDraft);
+        Assert.Equal("Rascunho da IA, ainda não revisado", row.OriginNote);
+        Assert.Equal("Rascunho da IA, ainda não revisado", row.TranslationLabel);
+    }
+
+    [Theory]
+    [InlineData(TranslationStatus.Translated)]
+    [InlineData(TranslationStatus.Reviewed)]
+    [InlineData(TranslationStatus.Approved)]
+    public void Linha_de_gente_continua_com_o_rotulo_de_sempre(TranslationStatus status)
+    {
+        var issue = new QaIssue("espaco-duplo", QaSeverity.Warning, "yst00002:000049", "yst00002", "dois espaços");
+        var unit = new TextUnit(issue.UnitId, TextUnitKind.Dialogue, null, "原文", "a  b", status);
+
+        var row = new ConferenceIssueRowViewModel(issue, unit: unit);
+
+        Assert.False(row.IsMachineDraft);
+        Assert.Equal(string.Empty, row.OriginNote);
+        Assert.Equal("Tradução de hoje", row.TranslationLabel);
+    }
+
+    [Fact]
+    public void O_resumo_de_nao_traduzidas_nao_fala_de_rascunho()
+    {
+        var issue = new QaIssue(UntranslatedQaRule.RuleId, QaSeverity.Warning, "yst00002:000001", "yst00002", "sem tradução");
+        var unit = new TextUnit(issue.UnitId, TextUnitKind.Dialogue, null, "原文", "x", TranslationStatus.Machine);
+
+        var row = new ConferenceIssueRowViewModel(issue, unit: unit, count: 5);
+
+        Assert.False(row.IsMachineDraft);
+        Assert.Equal(string.Empty, row.OriginNote);
+    }
+
     private static QaIssue Unencodable(int codePoint, string unitId = "yst00001:000001")
     {
         var text = char.ConvertFromUtf32(codePoint);
