@@ -52,7 +52,7 @@ O Início responde "o que eu faço agora" (artboard 1 do canvas v3): lista os pr
 
 **Lista.** Cada linha traz o nome, as linhas, a parte pronta (revisadas e aprovadas sobre o total, a mesma porcentagem do anel, arredondada para baixo) com a `Seg3Bar` de três estados e quando o projeto foi aberto. O rodapé diz quantos projetos há. Botão direito numa linha oferece "Remover da lista"; a pasta do projeto não é tocada.
 
-**Área para soltar.** Abaixo da lista, "Traduzir outro jogo" aceita a pasta (ou um arquivo dela) arrastada do Explorer e tem o botão "Escolher a pasta". As duas vias abrem o Novo projeto com a pasta do jogo já preenchida e detectada (`StartViewModel.DropFolder`, `MainWindowViewModel.WizardPreparing`). Uma pasta que não existe mais vira um aviso e não abre o assistente.
+**Área para soltar.** Abaixo da lista, "Traduzir outro jogo" aceita a pasta (ou um arquivo dela) arrastada do Explorer e tem o botão "Escolher a pasta". As duas vias abrem o Novo projeto com a pasta do jogo já preenchida e detectada (`StartViewModel.DropFolder`, `MainWindowViewModel.WizardPreparing`). Uma pasta que não existe mais vira um aviso e não abre o assistente. Se a pasta já é um projeto do VNForge (tem `vnforge.json`), o app abre o projeto em vez do assistente. Com várias pastas soltas, só a primeira vale e um aviso diz isso. Ao voltar ao Início, a lista e o detalhe são lidos de novo; percorrer a lista com as setas espera 150 ms antes de ler o projeto.
 
 **Detalhe.** O anel com a parte pronta, o cartão "Próximo passo" com um botão (o mesmo texto e destino do botão do Painel: o `DashboardViewModel` do Início é uma segunda instância da lógica do Painel, então "Revisar o capítulo 1" e a frase "No seu ritmo, faltam cerca de 3 horas" saem do mesmo código), três fatos (linhas, gasto em reais contra o limite e último teste no jogo) e "Detalhes técnicos" fechado (motor, pasta, acentos e qualidade). O botão do próximo passo abre o projeto e vai direto à tela do passo; "Abrir projeto" leva ao Painel. O último build e o esforço do modelo saíram do detalhe; o `.cache/build-state.json` continua sendo lido pelo Core.
 
@@ -63,8 +63,8 @@ O Início responde "o que eu faço agora" (artboard 1 do canvas v3): lista os pr
 **Estados.**
 
 - *Motor sem suporte* (por exemplo KiriKiri/KAG): a linha mostra "Sem suporte" em cor de alerta e o detalhe diz "O VNForge ainda não sabe ler este jogo".
-- *Indisponível* (pasta que sumiu ou não abre): a linha mostra "Indisponível"; o detalhe explica o motivo e oferece "Remover da lista".
-- *Lista de recentes ilegível* (`recent.json` corrompido): um aviso no alto diz o caminho do arquivo e que a lista aparece vazia até um projeto ser aberto.
+- *Indisponível* (pasta que sumiu ou não abre): a linha mostra "Indisponível"; o detalhe explica o motivo sem citar a pasta (o caminho fica em "Detalhes técnicos") e oferece "Remover da lista". Uma falha ao ler o projeto selecionado aparece num aviso no detalhe.
+- *Lista de recentes ilegível* (`recent.json` corrompido): um aviso no alto diz o nome do arquivo e que a lista aparece vazia até um projeto ser aberto.
 
 #### Fluxo de referência
 

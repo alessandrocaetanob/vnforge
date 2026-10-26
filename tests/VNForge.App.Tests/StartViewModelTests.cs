@@ -129,7 +129,7 @@ public class StartViewModelTests
 
         var item = Assert.Single(vm.Recents);
         Assert.False(item.IsAvailable);
-        Assert.Contains("não foi encontrado", item.Problem);
+        Assert.Contains("não foi encontrada", item.Problem);
         Assert.False(vm.OpenSelectedInEditorCommand.CanExecute(null));
     }
 

@@ -17,11 +17,12 @@ public sealed partial class StartView : UserControl
     private static void OnDragOver(object? sender, DragEventArgs e) =>
         e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    private async void OnDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is StartViewModel start && e.DataTransfer.TryGetFile() is { } item && item.TryGetLocalPath() is { } path)
+        var paths = e.DataTransfer.TryGetFiles()?.Select(item => item.TryGetLocalPath()).OfType<string>().ToList() ?? [];
+        if (DataContext is StartViewModel start && paths.Count > 0)
         {
-            start.DropFolder(path);
+            await start.DropFolderAsync(paths[0], paths.Count);
         }
     }
 }

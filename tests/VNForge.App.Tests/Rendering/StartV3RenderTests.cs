@@ -52,13 +52,15 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                     Assert.True(start.OpenNextStepCommand.CanExecute(null));
                     Assert.StartsWith("No seu ritmo", start.Detail.PaceText, StringComparison.Ordinal);
                     Assert.Contains(start.Detail.PaceText, texts, StringComparison.Ordinal);
-                    var technical = Assert.Single(view.GetVisualDescendants().OfType<TechnicalDetails>());
+                    var technical = Assert.Single(view.GetVisualDescendants().OfType<TechnicalDetails>(), t => t.IsEffectivelyVisible);
                     Assert.False(technical.IsExpanded);
                     AssertPlainLanguage(texts);
 
                     var status = StatusBarText(window);
                     Assert.Contains(vm.AppVersionText, status, StringComparison.Ordinal);
-                    Assert.DoesNotContain("Acentuação", status, StringComparison.Ordinal);
+                    Assert.DoesNotContain(vm.EncodingText, status, StringComparison.Ordinal);
+                    Assert.NotEmpty(vm.EncodingText);
+                    Assert.False(vm.BoxLimitsText.Length > 0 && status.Contains(vm.BoxLimitsText, StringComparison.Ordinal));
 
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("inicio-v3-projetos", theme)));
                 }
@@ -116,6 +118,46 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                 }
 
                 return Task.FromResult(0);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Inicio_com_projeto_que_sumiu_explica_sem_mostrar_o_caminho_fora_dos_detalhes_tecnicos(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN");
+                var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenAsync(root);
+                    Directory.Delete(root, recursive: true);
+                    await start.LoadAsync();
+                    ScreenRenderer.Settle(window);
+
+                    var view = Assert.Single(window.GetVisualDescendants().OfType<StartView>(), v => v.IsEffectivelyVisible);
+                    var texts = VisibleText(view);
+                    Assert.Contains("Projeto indisponível.", texts, StringComparison.Ordinal);
+                    Assert.Contains("A pasta do projeto não foi encontrada.", texts, StringComparison.Ordinal);
+                    AssertPlainLanguage(texts);
+                    Assert.Single(view.GetVisualDescendants().OfType<TechnicalDetails>(), t => t.IsEffectivelyVisible);
+
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("inicio-v3-indisponivel", theme)));
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
             },
             TestContext.Current.CancellationToken);
     }

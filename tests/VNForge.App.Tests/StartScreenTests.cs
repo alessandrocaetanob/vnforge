@@ -244,7 +244,8 @@ public class StartScreenTests
         await vm.LoadAsync();
 
         Assert.Empty(vm.Recents);
-        Assert.Contains(config.Path, vm.RecentsProblem);
+        Assert.DoesNotContain(config.Path, vm.RecentsProblem, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(Path.GetFileName(config.Path), vm.RecentsProblem, StringComparison.Ordinal);
         Assert.True(vm.HasRecentsProblem);
     }
 

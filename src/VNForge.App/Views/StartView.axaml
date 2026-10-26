@@ -151,6 +151,13 @@
 
                 <!-- Projeto aberto, motor com suporte -->
                 <StackPanel Spacing="16" IsVisible="{Binding Selected.IsSupported}">
+                  <Border Classes="infobar warning" IsVisible="{Binding DetailError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                          AutomationProperties.Name="Erro ao ler o projeto">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                      <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Warning}"/>
+                      <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding DetailError}"/>
+                    </Grid>
+                  </Border>
                   <c:ProgressRing HorizontalAlignment="Center" Done="{Binding Selected.ReadyLines}" Review="{Binding Selected.ReviewLines}" Total="{Binding Selected.TotalLines}"
                                   AutomationProperties.Name="{Binding Selected.ReadyDescription}"/>
 
@@ -213,6 +220,12 @@
                       </TextBlock>
                     </Grid>
                   </Border>
+                  <c:TechnicalDetails AutomationProperties.Name="Detalhes técnicos">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Margin="0,8,0,0">
+                      <TextBlock Classes="body-sm secondary" Text="Pasta"/>
+                      <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.Path}"/>
+                    </Grid>
+                  </c:TechnicalDetails>
                   <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding OpenSelectedCommand}" Content="Abrir projeto"/>
                   <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding RemoveSelectedCommand}" Content="Remover da lista"/>
                 </StackPanel>

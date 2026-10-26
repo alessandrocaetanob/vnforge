@@ -335,6 +335,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 {
                     _ = Dashboard.ReloadAsync();
                 }
+                else if (value.Key == NavKey.Start)
+                {
+                    // O anel, a porcentagem e o próximo passo do Início vêm da pasta, que o Editor e a Conferência mudam; a cotação e o limite também.
+                    _ = Start.LoadAsync();
+                }
                 else if (value.Key == NavKey.Build)
                 {
                     Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Display);
@@ -464,9 +469,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         SelectedNav = item;
-        if (request.ScriptKey is { } key && Editor.Scripts.FirstOrDefault(script => script.Key == key) is { } script)
+        if (request.ScriptKey is { } key)
         {
-            Editor.SelectedScript = script;
+            // Vindo do Início o projeto acabou de abrir e o Editor ainda carrega os scripts: ShowScriptAsync espera a carga.
+            LineNavigation = ShowScriptAsync(key);
         }
     }
 

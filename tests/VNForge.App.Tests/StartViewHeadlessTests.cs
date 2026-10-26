@@ -92,7 +92,7 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     }
 
     [Fact]
-    public async Task Lista_de_recentes_ilegivel_mostra_o_aviso_com_o_caminho()
+    public async Task Lista_de_recentes_ilegivel_mostra_o_aviso_com_o_nome_do_arquivo()
     {
         using var temp = new TempFolder();
         var config = new RecentProjectsFile(temp.SubFolder("config"));
@@ -104,7 +104,8 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
             .Select(t => t.Inlines is { Count: > 0 } ? string.Concat(t.Inlines.OfType<Avalonia.Controls.Documents.Run>().Select(r => r.Text)) : t.Text)));
 
         Assert.Contains("Não foi possível ler os projetos recentes.", text);
-        Assert.Contains(config.Path, text);
+        Assert.DoesNotContain(config.Path, text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(Path.GetFileName(config.Path), text);
     }
 
     [Fact]
