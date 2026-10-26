@@ -68,7 +68,7 @@ public sealed class LinesCommandTests : IDisposable
     [Fact]
     public async Task Keep_numa_linha_traduzida_apaga_a_traducao_e_repetir_nao_muda_nada()
     {
-        await Run("keep", "yst00001:000003");
+        await Run("keep", "yst00001:000003", "--yes");
         var again = await Run("keep", "yst00001:000003", JsonOption);
 
         var line = Line(Yst00001, 2);
@@ -80,9 +80,19 @@ public sealed class LinesCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Keep_numa_linha_com_traducao_pergunta_e_a_resposta_nao_nao_grava()
+    {
+        var result = await Run("keep", "yst00001:000003");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Equal(TranslationStatus.Approved, Line(Yst00001, 2).Status);
+        Assert.Equal("ok", Line(Yst00001, 2).Translation);
+    }
+
+    [Fact]
     public async Task Unkeep_devolve_so_as_linhas_keep_a_sem_traducao()
     {
-        await Run("keep", Yst00001);
+        await Run("keep", Yst00001, "--yes");
 
         var result = await Run("unkeep", "yst00001:000001,yst00001:000002", JsonOption);
 

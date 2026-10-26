@@ -34,7 +34,16 @@ internal static class LinesCommand
     private static int Change(VnfCli cli, ParseResult parseResult, string action, bool keep, string[] tokens)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-        var byScript = Resolve(project.LoadAllText(), tokens);
+        var texts = project.LoadAllText();
+        var byScript = Resolve(texts, tokens);
+
+        // Marcar apaga a tradução: quem já tem texto (inclusive aprovado) só segue com a confirmação.
+        var withText = keep ? byScript.Sum(s => texts[s.Key].Count(u => u.HasTranslation && s.Value.Contains(u.Id, StringComparer.Ordinal))) : 0;
+        if (withText > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"{CliFormat.Count(withText, "linha tem", "linhas têm")} tradução, que será apagada. Marcar como Não traduzir?"))
+        {
+            parseResult.InvocationConfiguration.Output.WriteLine("Operação cancelada. Nada foi gravado.");
+            return ErrorHandler.CancelledExitCode;
+        }
 
         var editor = new LineEditor(project, TimeProvider.System);
         var changed = new List<LineChange>();
@@ -79,16 +88,17 @@ internal static class LinesCommand
         }
 
         var byScript = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var unknown = new List<string>();
         foreach (var target in tokens.SelectMany(t => t.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
         {
             if (texts.TryGetValue(target, out var units))
             {
-                AddAll(byScript, target, units.Select(u => u.Id));
+                AddAll(byScript, seen, target, units.Select(u => u.Id));
             }
             else if (scriptOfId.TryGetValue(target, out var key))
             {
-                AddAll(byScript, key, [target]);
+                AddAll(byScript, seen, key, [target]);
             }
             else
             {
@@ -101,7 +111,7 @@ internal static class LinesCommand
             : throw new VNForgeException($"Não existe linha nem script com {(unknown.Count == 1 ? "o alvo" : "os alvos")} '{string.Join("', '", unknown)}' nos text/*.json do projeto.");
     }
 
-    private static void AddAll(SortedDictionary<string, List<string>> byScript, string key, IEnumerable<string> ids)
+    private static void AddAll(SortedDictionary<string, List<string>> byScript, HashSet<string> seen, string key, IEnumerable<string> ids)
     {
         if (!byScript.TryGetValue(key, out var list))
         {
@@ -110,7 +120,7 @@ internal static class LinesCommand
 
         foreach (var id in ids)
         {
-            if (!list.Contains(id, StringComparer.Ordinal))
+            if (seen.Add(id))
             {
                 list.Add(id);
             }
