@@ -390,7 +390,7 @@ public sealed partial class DashboardViewModel : ObservableObject
                 ? $"{Plural(total.Total, "linha", "linhas")} em {Plural(dashboard.Status.Files.Count, "cena", "cenas")}"
                 : "O texto do jogo ainda não foi lido",
             translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido · faltam {Plural(total.Untranslated, "linha", "linhas")}",
-            reviewed ? "Tudo revisado" : total.ToReview == 0 ? "Espera a tradução" : $"{Plural(total.ToReview, "linha", "linhas")} da IA esperam você",
+            reviewed ? "Tudo revisado" : total.ToReview == 0 ? "Espera a tradução" : total.ToReview == 1 ? "1 linha da IA espera você" : $"{ProjectLabels.Number(total.ToReview)} linhas da IA esperam você",
             dashboard.Qa switch
             {
                 null => "A conferência não pôde rodar",
@@ -491,7 +491,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         var severity = item.Severity == ReadinessSeverity.Error ? SeverityLevel.Error : SeverityLevel.Warning;
         return item.Kind switch
         {
-            ReadinessKind.ApiKey => new(severity, "Falta a chave do Claude", "Sem ela a IA não traduz. A chave fica guardada no Windows, fora da pasta do projeto.", "Colocar a chave", Go(NavKey.Settings)),
+            ReadinessKind.ApiKey => new(severity, "Falta a chave do Claude", "Sem ela a IA não traduz. A chave fica guardada no Windows.", "Colocar a chave", Go(NavKey.Settings)),
             ReadinessKind.QaErrors => new(
                 severity,
                 item.Count == 1 ? "1 erro trava o teste no jogo" : $"{ProjectLabels.Number(item.Count)} erros travam o teste no jogo",
@@ -502,16 +502,16 @@ public sealed partial class DashboardViewModel : ObservableObject
             ReadinessKind.CharacterGender => new(
                 severity,
                 item.Count == 1 ? "1 personagem sem gênero" : $"{ProjectLabels.Number(item.Count)} personagens sem gênero",
-                "A IA precisa do gênero para concordar o texto (ele ou ela, cansado ou cansada).",
+                "A IA precisa do gênero para concordar o texto.",
                 "Definir agora",
                 Go(NavKey.Glossary)),
             ReadinessKind.AccentTest => new(severity, "Teste os acentos no jogo", "Veja se ç, ã, é e ô aparecem certos antes de traduzir tudo.", "Testar acentos", Go(NavKey.Build)),
             ReadinessKind.Narrator => new(severity, "Diga quem narra", "Isso decide a concordância das falas que não são de um personagem.", "Escolher", Go(NavKey.Settings)),
-            ReadinessKind.StyleGuide => new(severity, "Escreva um guia de estilo", "Duas ou três frases sobre o tom da tradução ajudam a IA a manter a voz.", "Escrever", Go(NavKey.Settings)),
+            ReadinessKind.StyleGuide => new(severity, "Escreva um guia de estilo", "Poucas frases sobre o tom ajudam a IA a manter a voz.", "Escrever", Go(NavKey.Settings)),
             _ => new(
                 severity,
                 item.Count == 1 ? "1 aviso para olhar" : $"{ProjectLabels.Number(item.Count)} avisos para olhar",
-                "Os avisos não travam o teste, mas podem deixar uma fala estranha.",
+                "Não travam o teste, mas podem deixar uma fala estranha.",
                 "Ver os avisos",
                 Go(NavKey.Conference)),
         };
@@ -545,7 +545,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         {
             GameState = inGame is null ? GameState.Original : GameState.Translated;
             GameTitle = DescribeGame(inGame);
-            GameMessage = inGame is null ? "Nenhuma tradução foi copiada para o jogo." : "A tradução continua no projeto, mesmo se você voltar ao original.";
+            GameMessage = inGame is null ? "Nenhuma tradução foi copiada para o jogo." : "A tradução continua no projeto.";
         }
     }
 

@@ -16,7 +16,7 @@
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1280" Margin="24" Spacing="20" HorizontalAlignment="Stretch">
+    <StackPanel MaxWidth="1280" Margin="24,16" Spacing="16" HorizontalAlignment="Stretch">
 
       <c:PageHeader Breadcrumb="Painel" Title="{Binding Title}" IsVisible="{Binding HasProject}">
         <Button Classes="accent" Command="{Binding OpenNextStepCommand}" IsVisible="{Binding HasNextStep}">
@@ -40,7 +40,7 @@
 
       <c:PipelineStepper ItemsSource="{Binding Steps}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Etapas da tradução"/>
 
-      <Grid ColumnDefinitions="*,380" ColumnSpacing="20" IsVisible="{Binding !ShowEmptyState}">
+      <Grid x:Name="Body" ColumnDefinitions="*,440" RowDefinitions="Auto" ColumnSpacing="20" RowSpacing="16" IsVisible="{Binding !ShowEmptyState}">
 
         <!-- O mapa do jogo: o anel do jogo inteiro e uma linha por capítulo. -->
         <Border Classes="panel" Padding="20" VerticalAlignment="Top">
@@ -74,7 +74,7 @@
           </StackPanel>
         </Border>
 
-        <StackPanel Grid.Column="1" Spacing="20" VerticalAlignment="Top">
+        <StackPanel x:Name="Side" Grid.Column="1" Spacing="16" VerticalAlignment="Top">
 
           <Border Classes="panel" ClipToBounds="True">
             <StackPanel>
@@ -107,7 +107,6 @@
 
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="8">
-              <TextBlock Classes="title-md" Text="O jogo"/>
               <c:GameStateBanner State="{Binding GameState}" Title="{Binding GameTitle}" Message="{Binding GameMessage}">
                 <Button Classes="sm" Command="{Binding OpenTestCommand}" Content="{Binding GameActionText}"/>
               </c:GameStateBanner>
