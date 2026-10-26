@@ -44,6 +44,21 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
 
     public BuildStatus Build { get; init; }
 
+    /// <summary>Erros e avisos de QA por script (pela chave); vazio quando o QA não pôde rodar. Mesma conta de <see cref="Qa"/>.</summary>
+    public IReadOnlyDictionary<string, QaTotals> QaByScript { get; init; } = new Dictionary<string, QaTotals>();
+
+    /// <summary>O registro de aprovações (<c>.cache/sessions.json</c>), de onde sai o ritmo de revisão.</summary>
+    public SessionsFile Sessions { get; init; } = SessionsFile.Empty;
+
+    /// <summary>O que o projeto sabe sobre a prontidão (gêneros, narrador, guia de estilo, teste no jogo); a chave e o limite de gasto o app acrescenta.</summary>
+    public ReadinessFacts Readiness { get; init; } = new();
+
+    /// <summary>O que o jogo tem hoje e quando foi o último teste (<c>.cache/game-state.json</c>).</summary>
+    public GameStateFile GameState { get; init; } = GameStateFile.Empty;
+
+    /// <summary>Os capítulos: os scripts agrupados (<see cref="ScriptGrouping"/>) com os totais de pronto, para revisar e em japonês.</summary>
+    public IReadOnlyList<ScriptGroupTotals> Chapters() => ScriptGrouping.Build(ScriptNames, Status.Files);
+
     /// <summary>Nomes legíveis dos scripts (<c>scripts.json</c>); vazio quando o arquivo não existe ou está inválido.</summary>
     public ScriptNames ScriptNames { get; init; } = ScriptNames.Empty;
 
@@ -79,9 +94,14 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             new(PipelineStageKey.Build, built, built ? 0 : 1),
             new(PipelineStageKey.Inject, injected, injected ? 0 : 1),
         ];
+        var (qa, qaByScript) = TryQa(project, texts);
         return new ProjectDashboard(status, stages, AiUsageLog.Load(project))
         {
-            Qa = TryQa(project, texts),
+            Qa = qa,
+            QaByScript = qaByScript,
+            Sessions = SessionsFile.Load(project),
+            Readiness = ReadinessFacts.Read(project, qa),
+            GameState = GameStateFile.Load(project),
             ScriptNames = TryLoad(project.LoadScriptNames, ScriptNames.Empty),
             CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
                 .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal),
@@ -104,7 +124,7 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
     }
 
     /// <summary>Roda o QA sobre os textos já lidos. As linhas sem tradução não entram: já aparecem como pendentes na etapa Traduzir.</summary>
-    private static QaTotals? TryQa(ProjectFolder project, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts)
+    private static (QaTotals? Totals, IReadOnlyDictionary<string, QaTotals> ByScript) TryQa(ProjectFolder project, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts)
     {
         try
         {
@@ -113,11 +133,15 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style };
             var report = QaEngine.Default.Run(context);
             var issues = report.BlockingIssues;
-            return new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning)) { StyleAdvice = report.StyleAdviceCount };
+            var totals = new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning)) { StyleAdvice = report.StyleAdviceCount };
+            var byScript = issues
+                .GroupBy(i => i.ScriptKey, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => new QaTotals(g.Count(i => i.Severity == QaSeverity.Error), g.Count(i => i.Severity == QaSeverity.Warning)), StringComparer.Ordinal);
+            return (totals, byScript);
         }
         catch (VNForgeException)
         {
-            return null;
+            return (null, new Dictionary<string, QaTotals>());
         }
     }
 

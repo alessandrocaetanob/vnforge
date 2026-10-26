@@ -360,6 +360,22 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Pasta_do_script_no_jogo_fica_no_scripts_json_e_o_grupo_do_usuario_sobrevive_a_reextracao()
+    {
+        WriteGame(A001Fake, DialogueHello);
+        var project = NewProject();
+        ProjectExtractor.Extract(project, [new FakeEngine(folder: "userscript/01_cap1")], cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal("userscript/01_cap1", project.LoadScriptNames().Folder("a001"));
+        project.SaveScriptNames(project.LoadScriptNames().WithGroup("a001", "Manhã de chuva"));
+
+        ProjectExtractor.Extract(project, [new FakeEngine(folder: "userscript/02_cap2")], cancellationToken: TestContext.Current.CancellationToken);
+
+        var names = project.LoadScriptNames();
+        Assert.Equal("userscript/02_cap2", names.Folder("a001"));
+        Assert.Equal("Manhã de chuva", names.Group("a001"));
+    }
+
+    [Fact]
     public void Reextracao_mantem_o_nome_que_o_usuario_deu_ao_script()
     {
         WriteGame(A001Fake, DialogueHello);
@@ -569,7 +585,7 @@ public sealed class ProjectExtractorTests : IDisposable
         public IReadOnlyList<IGamePatch> Patches => [];
     }
 
-    private sealed class FakeEngine(string? displayName = "Prologo") : IEngine, IGameUnpacker
+    private sealed class FakeEngine(string? displayName = "Prologo", string? folder = null) : IEngine, IGameUnpacker
     {
         private readonly FakeFormat _format = new();
 
@@ -605,7 +621,7 @@ public sealed class ProjectExtractorTests : IDisposable
                 new FakeContext(),
                 Directory.EnumerateFiles(unpackedDirectory, "*", SearchOption.AllDirectories)
                     .Order(StringComparer.Ordinal)
-                    .Select(f => new UnpackedScript(Path.GetFileName(f), f, _format, displayName))
+                    .Select(f => new UnpackedScript(Path.GetFileName(f), f, _format, displayName) { Folder = folder })
                     .ToList())
             { Warnings = ["aviso do open"] };
     }

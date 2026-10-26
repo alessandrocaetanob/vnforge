@@ -22,6 +22,7 @@ public sealed class ReviewModeNavigationTests
             new TextUnit("yst00002:000000", TextUnitKind.Dialogue, null, "原文", null, TranslationStatus.Untranslated),
         ]);
         folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female), new CharacterEntry("健太", "Kenta")]);
+        folder.SaveScriptNames(ScriptNames.Empty.WithGroup("yst00001", "A").WithGroup("yst00002", "B"));
         var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)));
         await main.Start.OpenFolderCommand.ExecuteAsync(null);
         await main.Editor.Loading;
@@ -51,12 +52,12 @@ public sealed class ReviewModeNavigationTests
     }
 
     [Fact]
-    public async Task Continuar_do_Painel_em_outro_script_fecha_o_modo_revisao()
+    public async Task Abrir_outro_capitulo_pelo_Painel_fecha_o_modo_revisao()
     {
         using var temp = new TempFolder();
         var (main, _) = await OpenAsync(temp);
 
-        main.Dashboard.ContinueCommand.Execute(null);
+        main.Dashboard.OpenChapterCommand.Execute(main.Dashboard.Chapters.Single(c => c.Name == "B"));
 
         Assert.False(main.Editor.IsReviewing);
         Assert.Equal("yst00002", main.Editor.SelectedScript?.Key);

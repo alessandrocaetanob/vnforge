@@ -186,6 +186,58 @@ public class ScriptNamesTests
     }
 
     [Fact]
+    public void O_grupo_e_a_pasta_vao_e_voltam_pelo_scripts_json()
+    {
+        var nomes = ScriptNames.Empty
+            .WithDetected(new Dictionary<string, DetectedScript> { [Yst1] = new("manha", "userscript/01_cap1"), [Yst2] = new(null, "userscript/02_cap2") })
+            .WithGroup(Yst1, "Manhã de chuva");
+
+        var json = ScriptNamesSerializer.Serialize(nomes);
+        var lido = ScriptNamesSerializer.Parse(json, "scripts.json");
+
+        Assert.Contains("\"folder\": \"userscript/01_cap1\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"group\": \"Manhã de chuva\"", json, StringComparison.Ordinal);
+        Assert.Equal("Manhã de chuva", lido.Group(Yst1));
+        Assert.Equal("userscript/02_cap2", lido.Folder(Yst2));
+        Assert.Null(lido.Group(Yst2));
+        Assert.Null(lido.DisplayName(Yst2));
+        Assert.Equal(json, ScriptNamesSerializer.Serialize(lido));
+    }
+
+    [Fact]
+    public void Um_scripts_json_de_antes_dos_grupos_continua_valendo()
+    {
+        var lido = ScriptNamesSerializer.Parse("{ \"version\": 1, \"entries\": [ { \"key\": \"yst00001\", \"detected\": \"manha\" } ] }", "scripts.json");
+
+        Assert.Equal("manha", lido.DisplayName(Yst1));
+        Assert.Null(lido.Group(Yst1));
+        Assert.Null(lido.Folder(Yst1));
+    }
+
+    [Fact]
+    public void A_extracao_nao_apaga_o_grupo_escolhido_nem_de_um_script_que_saiu_do_jogo()
+    {
+        var nomes = ScriptNames.Empty
+            .WithDetected(new Dictionary<string, DetectedScript> { [Yst1] = new("manha", "userscript/01_cap1") })
+            .WithGroup(Yst1, "Manhã de chuva");
+
+        var depois = nomes.WithDetected(new Dictionary<string, DetectedScript> { [Yst2] = new("tarde", "userscript/02_cap2") });
+
+        Assert.Equal("Manhã de chuva", depois.Group(Yst1));
+        Assert.Null(depois.Folder(Yst1));
+        Assert.Equal("userscript/02_cap2", depois.Folder(Yst2));
+    }
+
+    [Fact]
+    public void Tirar_o_grupo_de_um_script_sem_mais_nada_o_tira_da_lista()
+    {
+        var nomes = ScriptNames.Empty.WithGroup(Yst1, "Capítulo 1");
+        Assert.Single(nomes.Entries);
+
+        Assert.Empty(nomes.WithGroup(Yst1, "  ").Entries);
+    }
+
+    [Fact]
     public void RenameScript_grava_o_nome_no_projeto()
     {
         using var temp = new TempFolder();
