@@ -391,7 +391,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
     }
 
-    /// <summary>Disparado por "Conferir arquivo": a janela abre a Conferência. Leva a chave do script aberto.</summary>
+    /// <summary>Disparado por "Conferir arquivo": a janela abre Conferir a tradução. Leva a chave do script aberto.</summary>
     public event EventHandler<string>? CheckRequested;
 
     /// <summary>Disparado por "Traduzir com IA": a janela com as três perguntas abre. Leva a chave do script aberto.</summary>

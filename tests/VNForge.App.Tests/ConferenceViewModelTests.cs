@@ -79,7 +79,7 @@ public class ConferenceViewModelTests
         Assert.All(IssueRows(vm), r => Assert.True(r.HasProposal));
         Assert.Equal([5, 1, 2, 0, 0, 0], vm.Filters.Select(f => f.Count));
         Assert.Equal([false, false, true, false, false, false], vm.Filters.Select(f => f.IsSelected));
-        Assert.Equal("Mostrando 3 de 5 problemas abertos · agrupados por cena", vm.ListFooter);
+        Assert.Equal("Mostrando 2 de 2 correções de um clique · agrupadas por cena", vm.ListFooter);
     }
 
     [Fact]
@@ -126,8 +126,8 @@ public class ConferenceViewModelTests
         var named = IssueRows(vm).Single(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
         var unnamed = IssueRows(vm).Single(r => r.UnitId == "yst00002:000005" && r.RuleId == "espaco-duplo");
 
-        Assert.Equal("Manhã de chuva · linha 0", named.Where);
-        Assert.Equal("yst00002 · linha 5", unnamed.Where);
+        Assert.Equal("Manhã de chuva · linha 1", named.Where);
+        Assert.Equal("yst00002 · linha 1", unnamed.Where);
         Assert.Equal("yst00001:0000", named.LineLabel);
         Assert.Equal("Manhã de chuva", IssueRows(vm).Single(r => r.IsScriptSummary).Where);
         Assert.Equal("Não traduzida em Manhã de chuva", IssueRows(vm).Single(r => r.IsScriptSummary).DetailTitle);
@@ -164,8 +164,38 @@ public class ConferenceViewModelTests
 
         Assert.Equal("olá mundo", folder.LoadText("yst00001")[0].Translation);
         Assert.Equal("1 correção aplicada.", vm.NoticeMessage);
-        Assert.NotNull(vm.SelectedRow);
-        Assert.NotEqual("yst00001:000000", vm.SelectedRow.UnitId);
+        Assert.Equal(("espaco-duplo", "yst00002:000005"), (vm.SelectedRow?.RuleId, vm.SelectedRow?.UnitId));
+        Assert.Equal(vm.Rows[1], vm.SelectedRow);
+    }
+
+    [Fact]
+    public async Task A_linha_e_a_posicao_no_script_como_no_editor_mesmo_com_ids_que_nao_sao_sequenciais()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveText("yst00013", [Unit("yst00013", 0, "um", TranslationStatus.Translated), Unit("yst00013", 50, "dois", TranslationStatus.Translated), Unit("yst00013", 137, "três  vezes", TranslationStatus.Translated)]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.RefreshAsync();
+
+        var row = IssueRows(vm).Single(r => r.RuleId == "espaco-duplo");
+        var editor = ProjectLines.Read(folder).LinesOf("yst00013").Single(l => l.Unit.Id == row.UnitId);
+        Assert.Equal(3, editor.Number);
+        Assert.Equal(editor.Number, row.LineNumber);
+        Assert.Equal("yst00013 · linha 3", row.Where);
+        Assert.Equal("yst00013:0137", row.LineLabel);
+    }
+
+    [Fact]
+    public void Caractere_fora_da_acentuacao_vira_frase_sem_o_detalhe_tecnico()
+    {
+        var issue = new QaIssue("caractere-nao-codificavel", QaSeverity.Error, "yst00001:000001", "yst00001", "o caractere '★' (U+2605) não existe na estratégia 'cp1252'.");
+
+        var row = new ConferenceIssueRowViewModel(issue);
+
+        Assert.Equal("O ★ não existe na acentuação do projeto.", row.Detail);
+        Assert.DoesNotContain("cp1252", row.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -195,7 +225,7 @@ public class ConferenceViewModelTests
         await vm.MarkOkCommand.ExecuteAsync(warning);
 
         Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == warning.UnitId && r.RuleId == warning.RuleId);
-        Assert.Equal("1 aviso marcado como ok.", vm.SilencedSummary);
+        Assert.Equal("1 aviso marcado como certo.", vm.SilencedSummary);
         Assert.False(IssueRows(vm).Single(r => r.RuleId == "traducao-vazia").CanMarkOk);
     }
 
@@ -265,7 +295,7 @@ public class ConferenceViewModelTests
         Assert.Contains("espaco-duplo", folder.LoadText("yst00001").Single(u => u.Id == "yst00001:000000").Flags);
         Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
         Assert.Equal(1, changed);
-        Assert.Contains("1 aviso marcado como ok", vm.SilencedSummary);
+        Assert.Contains("1 aviso marcado como certo", vm.SilencedSummary);
 
         // O que a tela mostra continua igual ao vnf check depois da marca: as mesmas ocorrências, sem as silenciadas.
         var expected = QaEngine.Default.Run(QaContext.FromProject(folder));

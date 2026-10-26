@@ -186,7 +186,7 @@ public sealed class BuildTestViewModelTests : IDisposable
 
         await vm.TestCommand.ExecuteAsync(null);
 
-        Assert.Contains("A Conferência travou o teste", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("Há erros que travam o teste", vm.ErrorMessage, StringComparison.Ordinal);
         Assert.Equal(before, await File.ReadAllBytesAsync(GameFile, TestContext.Current.CancellationToken));
         Assert.Null(starter.Executable);
     }

@@ -56,8 +56,9 @@ public sealed class ConferenceIssueRowViewModel
     /// <param name="unit">A linha do projeto, para mostrar original e tradução no detalhe.</param>
     /// <param name="count">Quantas ocorrências a linha representa; maior que 1 no resumo por script e quando a regra aponta a mesma linha mais de uma vez.</param>
     /// <param name="ruleDescription">Descrição da regra no Core, usada quando o título não está na tabela.</param>
+    /// <param name="linePosition">A posição da linha no script (de 1 em diante); o id da unidade é opaco e não serve de número.</param>
     /// <param name="sceneName">O nome da cena (<c>scripts.json</c>); sem ele a linha se localiza pelo id do script.</param>
-    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null)
+    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null)
     {
         Issue = issue;
         Proposal = proposal;
@@ -65,6 +66,7 @@ public sealed class ConferenceIssueRowViewModel
         Count = count;
         this.ruleDescription = ruleDescription;
         SceneName = string.IsNullOrWhiteSpace(sceneName) ? null : sceneName;
+        LineNumber = linePosition;
     }
 
     /// <summary>O nome da cena da linha; nulo quando o projeto ainda não tem nome para ela.</summary>
@@ -76,15 +78,8 @@ public sealed class ConferenceIssueRowViewModel
     /// <summary>Onde está o problema: "Manhã de chuva · linha 43"; no resumo por script, só a cena.</summary>
     public string Where => IsScriptSummary || LineNumber is not { } number ? SceneLabel : $"{SceneLabel} · linha {number.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>O número da linha dentro do script (<c>yst00013:000043</c> é a 43); nulo em id fora do padrão.</summary>
-    public int? LineNumber
-    {
-        get
-        {
-            var colon = UnitId.LastIndexOf(':');
-            return colon > 0 && int.TryParse(UnitId.AsSpan(colon + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : null;
-        }
-    }
+    /// <summary>A posição da linha no script, de 1 em diante, a mesma que o Editor e a paleta mostram; nula quando a linha não veio de um projeto.</summary>
+    public int? LineNumber { get; }
 
     public QaIssue Issue { get; }
 
@@ -157,8 +152,21 @@ public sealed class ConferenceIssueRowViewModel
                 return PlainMarkers(Excerpt(p.Before, p.After));
             }
 
+            if (RuleId == UnencodableCharacterRule.RuleId)
+            {
+                return UnencodableSentence();
+            }
+
             return PlainMarkers(Count > 1 ? $"{Message} (+{Count - 1})" : Message);
         }
+    }
+
+    /// <summary>"O ★ não existe na acentuação do projeto."; o caractere vem da mensagem do Core, e o detalhe técnico fica fora da lista.</summary>
+    private string UnencodableSentence()
+    {
+        var match = Regex.Match(Message, "'([^']+)'", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+        var more = Count > 1 ? $" (+{Count - 1})" : string.Empty;
+        return (match.Success ? $"O {match.Groups[1].Value} não existe na acentuação do projeto." : "Há um caractere que a acentuação do projeto não grava.") + more;
     }
 
     private static readonly Regex MarkerPattern = new(@"\\[npcu\\{]|\{[^{}]*\}", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));

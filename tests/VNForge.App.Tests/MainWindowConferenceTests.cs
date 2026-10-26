@@ -135,7 +135,7 @@ public class MainWindowConferenceTests
         await vm.LineNavigation;
 
         Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
-        Assert.Equal("A linha yst00001:000099 não existe mais neste projeto. Confira de novo na Conferência.", vm.Editor.ErrorMessage);
+        Assert.Equal("A linha yst00001:000099 não existe mais neste projeto. Confira de novo em Conferir a tradução.", vm.Editor.ErrorMessage);
 
         vm.Conference.OpenLineCommand.Execute(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Single());
         await vm.LineNavigation;

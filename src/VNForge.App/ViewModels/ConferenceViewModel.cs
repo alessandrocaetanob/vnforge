@@ -102,11 +102,11 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [ObservableProperty]
     public partial string CheckedSummary { get; private set; } = string.Empty;
 
-    /// <summary>"Mostrando 39 de 18.359 problemas abertos · agrupados por script", mais "3 avisos marcados como ok." quando há.</summary>
+    /// <summary>"Mostrando 39 de 18.359 problemas abertos · agrupados por script", mais "3 avisos marcados como certos." quando há.</summary>
     [ObservableProperty]
     public partial string ListFooter { get; private set; } = string.Empty;
 
-    /// <summary>"3 avisos marcados como ok."; vazio quando nenhum aviso foi silenciado.</summary>
+    /// <summary>"3 avisos marcados como certos."; vazio quando nenhum aviso foi silenciado.</summary>
     [ObservableProperty]
     public partial string SilencedSummary { get; private set; } = string.Empty;
 
@@ -160,8 +160,6 @@ public sealed partial class ConferenceViewModel : ObservableObject
         }
     }
 
-    private static bool IsAlwaysListed(string category) => category is not (QaCategories.Translation or QaCategories.Style or QaCategories.Other);
-
     private static string DescribeSilenced(int count)
     {
         if (count == 0)
@@ -169,7 +167,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
             return string.Empty;
         }
 
-        var phrase = count == 1 ? "aviso marcado como ok" : "avisos marcados como ok";
+        var phrase = count == 1 ? "aviso marcado como certo" : "avisos marcados como certos";
         return $"{ProjectLabels.Number(count)} {phrase}.";
     }
 
@@ -245,6 +243,15 @@ public sealed partial class ConferenceViewModel : ObservableObject
         var folder = ProjectFolder.Open(root);
         var context = QaContext.FromProject(folder);
         var scenes = SceneNames(folder);
+        var positions = new Dictionary<string, int?>(StringComparer.Ordinal);
+        foreach (var list in context.Texts.Values)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                positions.TryAdd(list[i].Id, i + 1);
+            }
+        }
+
         var result = engine.Run(context);
         var proposals = QaFixer.Propose(context.Texts, engine, result.Issues).ToDictionary(p => (p.UnitId, p.RuleId));
 
@@ -271,7 +278,8 @@ public sealed partial class ConferenceViewModel : ObservableObject
                     units.GetValueOrDefault(issue.UnitId),
                     group.Count(),
                     engine.Find(issue.RuleId)?.Description,
-                    scenes.DisplayName(issue.ScriptKey));
+                    scenes.DisplayName(issue.ScriptKey),
+                    positions.GetValueOrDefault(issue.UnitId));
             })
             .OrderBy(r => r.IsError ? 0 : 1)
             .ThenBy(r => r.ScriptKey, StringComparer.Ordinal)
@@ -282,7 +290,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         rows.AddRange(untranslated.Select(group =>
         {
             var head = group.First();
-            return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), engine.Find(head.RuleId)?.Description, scenes.DisplayName(head.ScriptKey));
+            return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), engine.Find(head.RuleId)?.Description, scenes.DisplayName(head.ScriptKey), positions.GetValueOrDefault(head.UnitId));
         }));
 
         return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count);
@@ -451,13 +459,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
         {
             await ApplyFixAsync(row);
         }
-        else if (SelectedFit is { CanSplit: true } fit)
+        else if (SelectedFit is { } fit && fit.SplitCommand.CanExecute(null))
         {
             await fit.SplitCommand.ExecuteAsync(null);
         }
     }
 
-    private bool CanFixAndNext() => !IsBusy && (SelectedRow is { HasProposal: true } || SelectedFit is { CanSplit: true });
+    private bool CanFixAndNext() => !IsBusy && (SelectedRow is { HasProposal: true } || SelectedFit?.SplitCommand.CanExecute(null) == true);
 
     [RelayCommand(CanExecute = nameof(CanFixAll))]
     private async Task FixAllAsync()
@@ -542,7 +550,10 @@ public sealed partial class ConferenceViewModel : ObservableObject
         SelectedRow = Reselect(shown, previous, previousIndex);
 
         SilencedSummary = DescribeSilenced(report.Silenced.Count);
-        var footer = $"Mostrando {ProjectLabels.Number(shown.Sum(r => r.Count))} de {ProjectLabels.Number(filters[0].Count)} problemas abertos · agrupados por cena";
+        // "Um clique" conta correções (uma por linha e regra), como o filtro e o botão do cabeçalho; os outros contam ocorrências.
+        var footer = activeFilter == ConferenceFilterKind.OneClick
+            ? $"Mostrando {ProjectLabels.Number(shown.Count)} de {ProjectLabels.Number(filters[2].Count)} correções de um clique · agrupadas por cena"
+            : $"Mostrando {ProjectLabels.Number(shown.Sum(r => r.Count))} de {ProjectLabels.Number(filters[0].Count)} problemas abertos · agrupados por cena";
         ListFooter = SilencedSummary.Length > 0 ? $"{footer} · {SilencedSummary}" : footer;
         var errors = filters[1].Count;
         BlockingMessage = errors switch

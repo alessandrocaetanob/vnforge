@@ -29,8 +29,24 @@ public sealed partial class ConferenceViewModel
 
     partial void OnSelectedRowChanged(ConferenceIssueRowViewModel? value)
     {
-        SelectedFit?.Cancel();
+        if (SelectedFit is { } old)
+        {
+            old.Cancel();
+            old.SplitCommand.CanExecuteChanged -= OnSplitCanExecuteChanged;
+        }
+
         (SelectedFit, SelectedLayout) = CreateFit(value);
+        if (SelectedFit is { } current)
+        {
+            current.SplitCommand.CanExecuteChanged += OnSplitCanExecuteChanged;
+        }
+
+        OnSplitCanExecuteChanged(this, EventArgs.Empty);
+    }
+
+    /// <summary>"Dividir em páginas" fica indisponível enquanto a IA encurta a fala; o botão e o Enter acompanham.</summary>
+    private void OnSplitCanExecuteChanged(object? sender, EventArgs e)
+    {
         FixAndNextCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ShowFixAndNext));
     }

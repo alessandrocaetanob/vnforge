@@ -5,10 +5,6 @@
              x:Class="VNForge.App.Views.ConferenceView"
              x:DataType="vm:ConferenceViewModel">
 
-  <UserControl.KeyBindings>
-    <KeyBinding Gesture="Enter" Command="{Binding FixAndNextCommand}"/>
-  </UserControl.KeyBindings>
-
   <UserControl.Styles>
     <!-- A caixa de original e tradução do painel: fundo rebaixado, raio 4. -->
     <Style Selector="Border.original">
@@ -22,7 +18,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,*">
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*" Focusable="True">
 
     <!-- Cabeçalho: última conferência e título à esquerda; "Corrigir N com um clique" e "Conferir de novo" à direita, na base do título. -->
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="24,16,24,12">
