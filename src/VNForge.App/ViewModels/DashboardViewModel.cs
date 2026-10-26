@@ -329,7 +329,10 @@ public sealed partial class DashboardViewModel : ObservableObject
             return "Espera a tradução";
         }
 
-        return total.ToReview == 1 ? "1 linha espera você" : $"{ProjectLabels.Number(total.ToReview)} linhas esperam você";
+        // O que já passou pela tradução é o universo da revisão: as linhas em japonês ainda nem chegaram a ela.
+        var reviewable = total.Ready + total.ToReview;
+        var left = total.ToReview == 1 ? "falta 1" : $"faltam {ProjectLabels.Number(total.ToReview)}";
+        return $"{ProjectLabels.Number(total.Ready)} de {ProjectLabels.Number(reviewable)} {(reviewable == 1 ? "revisada" : "revisadas")} · {left}";
     }
 
     private static string MoreText(int more)

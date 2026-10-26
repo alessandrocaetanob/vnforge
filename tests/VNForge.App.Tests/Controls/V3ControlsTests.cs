@@ -64,8 +64,38 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
     {
         var capitulo = new ChapterRow { Done = 2840, Review = 1210, Total = 4100 };
 
-        Assert.Equal("69%", capitulo.PercentText);
+        Assert.Equal("1.210 a revisar", capitulo.PercentText);
         Assert.Equal("4.100 linhas", capitulo.LinesText);
+        Assert.Equal("75%", new ChapterRow { Done = 900, Review = 0, Total = 1200 }.PercentText);
+        Assert.Equal("0%", new ChapterRow { Done = 0, Review = 0, Total = 100 }.PercentText);
+    }
+
+    [Fact]
+    public void Capitulo_todo_traduzido_pela_IA_e_sem_revisar_nao_mostra_zero_por_cento_ao_lado_da_barra_cheia()
+    {
+        var capitulo = new ChapterRow { Done = 0, Review = 200, Total = 200 };
+
+        Assert.NotEqual("0%", capitulo.PercentText);
+        Assert.Equal("200 a revisar", capitulo.PercentText);
+
+        capitulo.Review = 1;
+        capitulo.Total = 1;
+        Assert.Equal("1 a revisar", capitulo.PercentText);
+
+        capitulo.Review = 0;
+        capitulo.Done = 1;
+        Assert.Equal("100%", capitulo.PercentText);
+    }
+
+    [Fact]
+    public void Anel_abaixo_de_1_por_cento_mostra_uma_casa_decimal_em_vez_de_0_por_cento()
+    {
+        Assert.Equal("0,7%", new ProgressRing { Done = 51, Review = 268, Total = 6854 }.PercentText);
+        Assert.Equal("<0,1%", new ProgressRing { Done = 1, Total = 6854 }.PercentText);
+        Assert.Equal("0%", new ProgressRing { Done = 0, Review = 268, Total = 6854 }.PercentText);
+        Assert.Equal("1%", new ProgressRing { Done = 69, Total = 6854 }.PercentText);
+        Assert.Equal("38%", new ProgressRing { Done = 18592, Review = 10936, Total = 48211 }.PercentText);
+        Assert.Equal("99%", new ProgressRing { Done = 999, Total = 1000 }.PercentText);
     }
 
     [Fact]

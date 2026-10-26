@@ -33,6 +33,7 @@ public sealed class ChapterRow : ThreeStateProgress
         IsHereProperty.Changed.AddClassHandler<ChapterRow>((row, e) => row.PseudoClasses.Set(":here", e.NewValue is true));
         IsExtraProperty.Changed.AddClassHandler<ChapterRow>((row, e) => row.PseudoClasses.Set(":extra", e.NewValue is true));
         DoneProperty.Changed.AddClassHandler<ChapterRow>((row, _) => row.Refresh());
+        ReviewProperty.Changed.AddClassHandler<ChapterRow>((row, _) => row.Refresh());
         TotalProperty.Changed.AddClassHandler<ChapterRow>((row, _) => row.Refresh());
     }
 
@@ -82,7 +83,8 @@ public sealed class ChapterRow : ThreeStateProgress
 
     private void Refresh()
     {
-        PercentText = $"{Percent}%";
+        // A barra pinta de roxo o que a IA traduziu; "0%" ao lado dela esconderia o que falta. Com linhas a revisar, o texto diz quantas.
+        PercentText = Review >= 0.5 ? $"{Review.ToString("N0", PtBr)} a revisar" : DonePercentText();
         LinesText = $"{Total.ToString("N0", PtBr)} {(Math.Abs(Total - 1) < 0.5 ? "linha" : "linhas")}";
     }
 }

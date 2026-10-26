@@ -89,7 +89,7 @@ public sealed class ProgressRing : ThreeStateProgress
         return new Point(center.X + (radius * Math.Cos(angle)), center.Y + (radius * Math.Sin(angle)));
     }
 
-    private void Refresh() => PercentText = $"{Percent}%";
+    private void Refresh() => PercentText = DonePercentText();
 
     private IBrush Brush(string key) =>
         this.TryFindResource(key, ActualThemeVariant, out var found) && found is IBrush brush ? brush : Brushes.Gray;
