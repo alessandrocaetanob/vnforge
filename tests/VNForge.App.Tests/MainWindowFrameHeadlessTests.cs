@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -111,6 +112,7 @@ public class MainWindowFrameHeadlessTests(HeadlessFixture fixture) : IClassFixtu
         var units = folder.LoadText("yst00001").ToList();
         units[0] = units[0] with { Translation = "duas  palavras" };
         folder.SaveText("yst00001", units);
+        folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(true, 54, 3) });
         var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)));
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;

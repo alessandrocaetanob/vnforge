@@ -159,7 +159,8 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Se a tradução cabe na caixa do perfil: "Cabe · 2 de 3 linhas" ou "Passa 1 linha". Vazio sem perfil legível; "Sem tradução" sem texto.
+    /// Se a tradução cabe na caixa do perfil: "Cabe · 2 de 3 linhas" ou "Passa 1 linha". Vazio sem perfil legível; "Sem tradução" sem texto;
+    /// "Quebra desligada no perfil" quando <c>wrap.enabled</c> é falso, porque sem a quebra a medida das colunas não vale.
     /// </summary>
     public string FitText
     {
@@ -183,6 +184,11 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             if (OverflowLines > 0)
             {
                 return $"Passa {LinesOf(OverflowLines)}";
+            }
+
+            if (WrapIsOff)
+            {
+                return WrapOffText;
             }
 
             var lines = layout.Boxes.Select(b => b.Lines.Count).DefaultIfEmpty().Max();
@@ -450,6 +456,9 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(FitText));
         OnPropertyChanged(nameof(OverflowLines));
         OnPropertyChanged(nameof(DoesNotFit));
+        OnPropertyChanged(nameof(WrapIsOff));
+        OnPropertyChanged(nameof(FitIsNeutral));
+        OnPropertyChanged(nameof(FitIsShown));
     }
 
     partial void OnNotesChanged(string value)

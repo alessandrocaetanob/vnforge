@@ -4,6 +4,7 @@ using VNForge.App.ViewModels;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
+using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
@@ -81,6 +82,86 @@ public sealed class LineDetailInspectorTests : IDisposable
 
         Assert.Equal("Cabe · 2 de 3 linhas", vm.FitText);
         Assert.Equal("75 caracteres", vm.CharsText);
+    }
+
+    private const string PerfilSemQuebra = """{ "wrap": { "enabled": false, "maxWidth": 54, "maxLines": 3, "charWidth": "uniform" } }""";
+
+    [Fact]
+    public void Com_a_quebra_desligada_o_detalhe_nao_diz_que_cabe()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", new string('a', 150) + "\\p"));
+        vm.AttachPreview(FormattingProfileSerializer.Parse(PerfilSemQuebra));
+
+        Assert.Equal("Quebra desligada no perfil", vm.FitText);
+        Assert.True(vm.WrapIsOff);
+        Assert.False(vm.DoesNotFit);
+    }
+
+    [Fact]
+    public void Com_a_quebra_ligada_o_detalhe_segue_dizendo_se_cabe()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+
+        Assert.False(vm.WrapIsOff);
+        Assert.StartsWith("Cabe", vm.FitText);
+    }
+
+    [Fact]
+    public void Trocar_o_perfil_para_sem_quebra_atualiza_o_texto_das_medidas()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+        var mudou = new List<string?>();
+        vm.PropertyChanged += (_, e) => mudou.Add(e.PropertyName);
+
+        vm.AttachPreview(FormattingProfileSerializer.Parse(PerfilSemQuebra));
+
+        Assert.Equal("Quebra desligada no perfil", vm.FitText);
+        Assert.Contains(nameof(LineDetailViewModel.WrapIsOff), mudou);
+    }
+
+    [Fact]
+    public void Avisos_do_QA_da_linha_aparecem_com_a_regra_e_a_mensagem()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+        Assert.False(vm.HasQaIssues);
+
+        vm.ShowIssues(
+        [
+            new QaIssue("traducao-inconsistente", QaSeverity.Warning, "yst00013:0043", "yst00013", "Esta fala aparece em mais 1 linha com outra tradução."),
+            new QaIssue("espaco-duplo", QaSeverity.Error, "yst00013:0043", "yst00013", "Dois espaços seguidos."),
+        ]);
+
+        Assert.True(vm.HasQaIssues);
+        Assert.Collection(
+            vm.QaIssues,
+            erro =>
+            {
+                Assert.Equal("Espaço duplo", erro.Title);
+                Assert.Equal("Dois espaços seguidos.", erro.Message);
+                Assert.True(erro.IsError);
+            },
+            aviso =>
+            {
+                Assert.Equal("Mesmo original, traduções diferentes", aviso.Title);
+                Assert.Equal("Esta fala aparece em mais 1 linha com outra tradução.", aviso.Message);
+                Assert.False(aviso.IsError);
+            });
+    }
+
+    [Fact]
+    public void Mostrar_avisos_de_novo_troca_a_lista_e_avisa_a_tela()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+        vm.ShowIssues([new QaIssue("espaco-duplo", QaSeverity.Warning, "yst00013:0043", "yst00013", "Dois espaços seguidos.")]);
+        var mudou = new List<string?>();
+        vm.PropertyChanged += (_, e) => mudou.Add(e.PropertyName);
+
+        vm.ShowIssues([]);
+
+        Assert.False(vm.HasQaIssues);
+        Assert.Empty(vm.QaIssues);
+        Assert.Contains(nameof(LineDetailViewModel.QaIssues), mudou);
+        Assert.Contains(nameof(LineDetailViewModel.HasQaIssues), mudou);
     }
 
     [Fact]

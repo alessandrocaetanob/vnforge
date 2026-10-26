@@ -18,7 +18,7 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
     private static readonly string[] Changeable =
     [
         nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
-        nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel),
+        nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel), nameof(IssueTip),
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -67,6 +67,11 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
     public bool HasError => Entry.Severity == QaSeverity.Error;
 
     public LineIssue Issue => HasError ? LineIssue.Error : HasWarning ? LineIssue.Warning : LineIssue.None;
+
+    /// <summary>Dica do ícone do QA: uma linha por ocorrência, com o nome da regra e a mensagem; vazia quando a linha não tem ocorrência.</summary>
+    public string IssueTip => string.Join(
+        Environment.NewLine,
+        Entry.Issues.OrderByDescending(i => i.Severity).Select(i => $"{ConferenceRuleTexts.Title(i.RuleId)}: {i.Message}"));
 
     /// <summary>Texto do indicador do QA para leitor de tela; vazio quando a linha não tem ocorrência.</summary>
     public string IssueLabel
