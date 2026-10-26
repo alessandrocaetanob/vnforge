@@ -154,7 +154,7 @@
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasCharacterList}">
                     <TextBlock Classes="overline" Text="Nesta fala"/>
-                    <TextBlock Classes="body-sm" Text="{Binding Detail}" TextWrapping="Wrap"/>
+                    <TextBlock Classes="body-sm" Text="{Binding CharacterSentence}" TextWrapping="Wrap"/>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasOriginal}">
                     <TextBlock Classes="overline" Text="Original"/>

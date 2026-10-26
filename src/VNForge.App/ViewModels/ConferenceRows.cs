@@ -164,7 +164,7 @@ public sealed class ConferenceIssueRowViewModel
         }
     }
 
-    /// <summary>A linha lista os caracteres que a acentuação não grava (todos os do grupo); o detalhe mostra a mesma frase.</summary>
+    /// <summary>A linha lista os caracteres que a acentuação não grava (todos os do grupo); o detalhe da tela mostra <see cref="CharacterSentence"/>.</summary>
     public bool HasCharacterList => RuleId == UnencodableCharacterRule.RuleId;
 
     private static readonly Regex UnencodablePattern = new(@"'[^']+' \(U\+(?<code>[0-9A-Fa-f]{4,6})\)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
@@ -173,6 +173,8 @@ public sealed class ConferenceIssueRowViewModel
     /// "O ★ não existe na acentuação do projeto."; com vários caracteres na linha, "O 。, o ～ e o ★ não existem…". Caractere invisível
     /// (espaço de largura zero, controle) sai como <c>U+200B</c>. O detalhe técnico (a estratégia) fica fora da lista.
     /// </summary>
+    public string CharacterSentence => UnencodableSentence();
+
     private string UnencodableSentence()
     {
         var labels = new List<string>();

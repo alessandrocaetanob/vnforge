@@ -280,7 +280,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
                     engine.Find(issue.RuleId)?.Description,
                     scenes.DisplayName(issue.ScriptKey),
                     positions.GetValueOrDefault(issue.UnitId),
-                    group.ToList());
+                    issue.RuleId == UnencodableCharacterRule.RuleId ? group.ToList() : null);
             })
             .OrderBy(r => r.IsError ? 0 : 1)
             .ThenBy(r => r.ScriptKey, StringComparer.Ordinal)

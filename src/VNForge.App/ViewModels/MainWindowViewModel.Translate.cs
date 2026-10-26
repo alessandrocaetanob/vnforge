@@ -121,13 +121,23 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// O Painel e o Início leem a pasta ao abrir. A tradução grava <c>text/*.json</c> depois disso, então quem estava aberto
+    /// O Painel, o Início e a Conferência leem a pasta ao abrir. A tradução grava <c>text/*.json</c> depois disso, então quem estava aberto
     /// quando ela terminou mostraria os números de antes (a contagem de problemas, o progresso, o próximo passo).
     /// </summary>
-    private Task RefreshSummaryPageAsync() =>
-        ReferenceEquals(CurrentPage, Dashboard) ? Dashboard.ReloadAsync()
-        : ReferenceEquals(CurrentPage, Start) ? Start.LoadAsync()
-        : Task.CompletedTask;
+    private Task RefreshSummaryPageAsync()
+    {
+        if (ReferenceEquals(CurrentPage, Dashboard))
+        {
+            return Dashboard.ReloadAsync();
+        }
+
+        if (ReferenceEquals(CurrentPage, Start))
+        {
+            return Start.LoadAsync();
+        }
+
+        return ReferenceEquals(CurrentPage, Conference) && !Conference.IsBusy ? ConferenceLoading = Conference.RefreshAsync() : Task.CompletedTask;
+    }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch
     {

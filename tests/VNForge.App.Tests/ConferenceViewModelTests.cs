@@ -205,6 +205,15 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public void Frase_dos_caracteres_nao_muda_quando_a_linha_tem_correcao_proposta()
+    {
+        var issue = Unencodable(0x3002);
+        var row = new ConferenceIssueRowViewModel(issue, new QaFix(issue.RuleId, issue.UnitId, issue.ScriptKey, "a。", "a."));
+
+        Assert.Equal("O 。 não existe na acentuação do projeto.", row.CharacterSentence);
+    }
+
+    [Fact]
     public void Dois_caracteres_fora_da_acentuacao_ligam_com_e()
     {
         QaIssue[] issues = [Unencodable(0x3002), Unencodable(0xFF5E)];
