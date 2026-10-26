@@ -55,6 +55,25 @@ public class TranslationQuoterTests
     }
 
     [Fact]
+    public void As_cenas_escolhidas_entram_em_ordem_e_as_que_nao_existem_ficam_de_fora()
+    {
+        var keys = new[] { "a", "b", "c", "d" };
+
+        var chosen = TranslationQuoter.KeysFor(TranslationScope.Selection, keys, "a", ["d", "b", "inexistente"]);
+
+        Assert.Equal(["b", "d"], chosen);
+    }
+
+    [Fact]
+    public void Sem_cenas_escolhidas_a_selecao_fica_vazia()
+    {
+        var keys = new[] { "a", "b" };
+
+        Assert.Empty(TranslationQuoter.KeysFor(TranslationScope.Selection, keys, "a"));
+        Assert.Empty(TranslationQuoter.KeysFor(TranslationScope.Selection, keys, "a", []));
+    }
+
+    [Fact]
     public void Sem_cena_aberta_o_capitulo_e_a_cena_ficam_vazios()
     {
         var keys = new[] { "a", "b" };

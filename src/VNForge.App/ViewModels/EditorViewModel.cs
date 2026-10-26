@@ -394,14 +394,23 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>Disparado por "Conferir arquivo": a janela abre Conferir a tradução. Leva a chave do script aberto.</summary>
     public event EventHandler<string>? CheckRequested;
 
-    /// <summary>Disparado por "Traduzir com IA": a janela com as três perguntas abre. Leva a chave do script aberto.</summary>
-    public event EventHandler<string>? TranslateRequested;
+    /// <summary>Disparado por "Traduzir com IA": a janela com as três perguntas abre. Leva as cenas marcadas na lista (Ctrl ou Shift) ou, sem marcação múltipla, a chave do script aberto.</summary>
+    public event EventHandler<IReadOnlyList<string>>? TranslateRequested;
+
+    /// <summary>Os scripts marcados na lista de cenas; a lista os mantém por <c>SelectedItems</c>.</summary>
+    public ObservableCollection<ScriptItemViewModel> ChosenScripts { get; } = [];
 
     [RelayCommand(CanExecute = nameof(HasScript))]
     private void CheckFile() => CheckRequested?.Invoke(this, SelectedScript!.Key);
 
     [RelayCommand(CanExecute = nameof(CanTranslatePending))]
-    private void TranslatePending() => TranslateRequested?.Invoke(this, SelectedScript!.Key);
+    private void TranslatePending()
+    {
+        // Uma cena escondida pelo filtro continua marcada na lista, mas a pessoa não a vê: fica fora do pedido.
+        var marked = ChosenScripts.ToHashSet();
+        var chosen = Scripts.Where(s => s.IsShown && marked.Contains(s)).Select(s => s.Key).ToList();
+        TranslateRequested?.Invoke(this, chosen.Count > 0 ? chosen : [SelectedScript!.Key]);
+    }
 
     private bool HasScript() => SelectedScript is not null;
 

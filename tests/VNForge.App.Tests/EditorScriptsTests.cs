@@ -151,17 +151,61 @@ public class EditorScriptsTests
     public async Task Traduzir_com_IA_abre_a_janela_mesmo_quando_o_script_nao_tem_pendentes()
     {
         var vm = await Carregado();
-        var pedidos = new List<string>();
-        vm.TranslateRequested += (_, key) => pedidos.Add(key);
+        var pedidos = new List<IReadOnlyList<string>>();
+        vm.TranslateRequested += (_, keys) => pedidos.Add(keys);
 
         Assert.Equal(2, vm.PendingLines);
         Assert.True(vm.TranslatePendingCommand.CanExecute(null));
         vm.TranslatePendingCommand.Execute(null);
-        Assert.Equal(["yst00013"], pedidos);
+        Assert.Equal(["yst00013"], Assert.Single(pedidos));
 
         vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00012");
         Assert.Equal(0, vm.PendingLines);
         Assert.True(vm.TranslatePendingCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Traduzir_com_IA_leva_todas_as_cenas_escolhidas_na_ordem_da_lista()
+    {
+        var vm = await Carregado();
+        var pedidos = new List<IReadOnlyList<string>>();
+        vm.TranslateRequested += (_, keys) => pedidos.Add(keys);
+
+        vm.ChosenScripts.Add(vm.Scripts.Single(s => s.Key == "yst00014"));
+        vm.ChosenScripts.Add(vm.Scripts.Single(s => s.Key == "yst00013"));
+        vm.TranslatePendingCommand.Execute(null);
+
+        Assert.Equal(["yst00013", "yst00014"], Assert.Single(pedidos));
+    }
+
+    [Fact]
+    public async Task Cenas_escolhidas_escondidas_pelo_filtro_nao_entram_no_pedido()
+    {
+        var vm = await Carregado();
+        var pedidos = new List<IReadOnlyList<string>>();
+        vm.TranslateRequested += (_, keys) => pedidos.Add(keys);
+        vm.ChosenScripts.Add(vm.Scripts.Single(s => s.Key == "yst00013"));
+        vm.ChosenScripts.Add(vm.Scripts.Single(s => s.Key == "yst00014"));
+
+        vm.ScriptFilter = "00013";
+        vm.TranslatePendingCommand.Execute(null);
+
+        Assert.Equal(["yst00013"], Assert.Single(pedidos));
+    }
+
+    [Fact]
+    public async Task Com_o_filtro_escondendo_a_cena_aberta_vai_a_unica_escolhida_que_aparece()
+    {
+        var vm = await Carregado();
+        var pedidos = new List<IReadOnlyList<string>>();
+        vm.TranslateRequested += (_, keys) => pedidos.Add(keys);
+        vm.ChosenScripts.Add(vm.Scripts.Single(s => s.Key == "yst00013"));
+        vm.ChosenScripts.Add(vm.Scripts.Single(s => s.Key == "yst00014"));
+
+        vm.ScriptFilter = "00014";
+        vm.TranslatePendingCommand.Execute(null);
+
+        Assert.Equal(["yst00014"], Assert.Single(pedidos));
     }
 
     [Fact]

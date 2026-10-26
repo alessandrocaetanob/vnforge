@@ -32,10 +32,10 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     private static TranslateDialogSettings Settings(BudgetLimits? limits = null, TranslationQuality quality = TranslationQuality.Careful, bool key = true) =>
         new(Rate, limits ?? BudgetLimits.None, quality, key);
 
-    private static async Task<TranslateDialogViewModel> OpenAsync(ProjectFolder folder, TranslateDialogSettings settings, string? scene = "yst00001")
+    private static async Task<TranslateDialogViewModel> OpenAsync(ProjectFolder folder, TranslateDialogSettings settings, string? scene = "yst00001", IReadOnlyList<string>? chosen = null)
     {
         var vm = new TranslateDialogViewModel();
-        await vm.OpenAsync(folder, scene, settings);
+        await vm.OpenAsync(folder, scene, settings, chosen);
         return vm;
     }
 
@@ -192,6 +192,46 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         Assert.Equal(TranslationScope.Chapter, request.Scope);
         Assert.Equal(TranslationQuality.Fast, request.Quality);
         Assert.Equal(["yst00001", "yst00002", "yst00003", "yst00004"], request.ScriptKeys);
+    }
+
+    [Fact]
+    public async Task Com_varias_cenas_escolhidas_a_primeira_resposta_e_as_cenas_escolhidas()
+    {
+        var vm = await OpenAsync(Project(), Settings(quality: TranslationQuality.Fast), chosen: ["yst00004", "yst00001", "yst00003"]);
+
+        Assert.Equal([TranslationScope.Selection, TranslationScope.Chapter, TranslationScope.Game], vm.Scopes.Select(s => s.Scope));
+        Assert.Equal("As cenas escolhidas (3)", vm.Scopes[0].Title);
+        Assert.Equal(TranslationScope.Selection, vm.SelectedScope.Scope);
+        Assert.Equal(120, vm.Lines);
+        Assert.Equal("120 linhas para traduzir em 2 cenas", vm.Scopes[0].Summary);
+
+        TranslationRequest? request = null;
+        vm.StartRequested += (_, r) => request = r;
+        vm.StartCommand.Execute(null);
+
+        Assert.NotNull(request);
+        Assert.Equal(TranslationScope.Selection, request.Scope);
+        Assert.Equal(["yst00001", "yst00003", "yst00004"], request.ScriptKeys);
+    }
+
+    [Fact]
+    public async Task Com_uma_cena_so_a_pergunta_continua_sendo_esta_cena()
+    {
+        var vm = await OpenAsync(Project(), Settings(), chosen: ["yst00001"]);
+
+        Assert.Equal([TranslationScope.Scene, TranslationScope.Chapter, TranslationScope.Game], vm.Scopes.Select(s => s.Scope));
+        Assert.Equal("Esta cena", vm.Scopes[0].Title);
+    }
+
+    [Fact]
+    public async Task Reabrir_sem_cenas_escolhidas_volta_a_esta_cena()
+    {
+        var folder = Project();
+        var vm = await OpenAsync(folder, Settings(), chosen: ["yst00001", "yst00002"]);
+
+        await vm.OpenAsync(folder, "yst00001", Settings());
+
+        Assert.Equal(TranslationScope.Scene, vm.Scopes[0].Scope);
     }
 
     [Fact]
