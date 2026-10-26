@@ -2,15 +2,19 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
 
-/// <summary>Linhas por <see cref="TranslationStatus"/>. <see cref="Done"/> é tudo que já saiu de <see cref="TranslationStatus.Untranslated"/>.</summary>
-public sealed record StatusCounts(int Untranslated, int Machine, int Translated, int Reviewed, int Approved)
+/// <summary>
+/// Linhas por <see cref="TranslationStatus"/>. <see cref="Done"/> é tudo que já saiu de <see cref="TranslationStatus.Untranslated"/>,
+/// inclusive as linhas <see cref="TranslationStatus.Keep"/> ("Não traduzir"), que ficam como no original de propósito.
+/// </summary>
+/// <param name="Keep">Linhas "Não traduzir"; fica por último e com valor padrão para os chamadores de antes do estado existir.</param>
+public sealed record StatusCounts(int Untranslated, int Machine, int Translated, int Reviewed, int Approved, int Keep = 0)
 {
-    public int Total => Untranslated + Machine + Translated + Reviewed + Approved;
+    public int Total => Untranslated + Machine + Translated + Reviewed + Approved + Keep;
 
     public int Done => Total - Untranslated;
 
-    /// <summary>Linhas prontas: revisadas ou aprovadas. É o "pronto" do Painel.</summary>
-    public int Ready => Reviewed + Approved;
+    /// <summary>Linhas prontas: revisadas, aprovadas ou "Não traduzir". É o "pronto" do Painel.</summary>
+    public int Ready => Reviewed + Approved + Keep;
 
     /// <summary>Linhas que a IA ou o tradutor deixaram e ninguém revisou: o "para revisar" do Painel.</summary>
     public int ToReview => Machine + Translated;
@@ -32,7 +36,8 @@ public sealed record StatusCounts(int Untranslated, int Machine, int Translated,
             counts[(int)TranslationStatus.Machine],
             counts[(int)TranslationStatus.Translated],
             counts[(int)TranslationStatus.Reviewed],
-            counts[(int)TranslationStatus.Approved]);
+            counts[(int)TranslationStatus.Approved],
+            counts[(int)TranslationStatus.Keep]);
     }
 }
 

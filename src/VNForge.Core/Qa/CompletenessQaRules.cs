@@ -44,7 +44,7 @@ public sealed class UntranslatedQaRule : UnitQaRule
 
 /// <summary>
 /// Linha que já saiu de <see cref="TranslationStatus.Untranslated"/> mas tem a tradução vazia ou só espaços. Erro: o status diz que há
-/// tradução, e o build gravaria uma caixa de texto vazia no jogo.
+/// tradução, e o build gravaria uma caixa de texto vazia no jogo. A linha <see cref="TranslationStatus.Keep"/> não entra: o build copia o original.
 /// </summary>
 public sealed class EmptyTranslationQaRule : UnitQaRule
 {
@@ -60,7 +60,7 @@ public sealed class EmptyTranslationQaRule : UnitQaRule
     /// <inheritdoc />
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
     {
-        if (unit.Status != TranslationStatus.Untranslated
+        if (unit.Status is not (TranslationStatus.Untranslated or TranslationStatus.Keep)
             && !string.IsNullOrWhiteSpace(unit.Source)
             && string.IsNullOrWhiteSpace(unit.Translation))
         {

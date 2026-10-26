@@ -56,6 +56,10 @@ internal static class StatusCommand
         ansi.WriteLine();
         ansi.Write(DistributionBar.Legend(total));
         ansi.WriteLine();
+        if (total.Keep > 0)
+        {
+            ansi.MarkupLine($"Aprovadas inclui {CliFormat.Count(total.Keep, "linha", "linhas")} em Não traduzir (ficam como no original).");
+        }
 
         ansi.WriteLine();
         var named = status.Files.Any(file => scriptNames.DisplayName(file.Key) is not null);
@@ -152,6 +156,7 @@ internal static class StatusCommand
         data["translated"] = counts.Translated;
         data["reviewed"] = counts.Reviewed;
         data["approved"] = counts.Approved;
+        data["keep"] = counts.Keep;
         data["percent"] = counts.Percent;
         return data;
     }

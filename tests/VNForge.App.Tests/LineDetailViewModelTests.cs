@@ -47,6 +47,64 @@ public class LineDetailViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Nao_traduzir_marca_a_linha_grava_no_arquivo_e_esvazia_o_campo()
+    {
+        using var vm = Abrir(1);
+        Assert.False(string.IsNullOrEmpty(vm.Translation));
+
+        vm.KeepCommand.Execute(null);
+
+        Assert.Equal(TranslationStatus.Keep, vm.Status);
+        Assert.True(vm.IsKeep);
+        Assert.Equal("Não traduzir", vm.StatusText);
+        Assert.Equal(string.Empty, vm.Translation);
+        Assert.Equal(string.Empty, vm.FieldText);
+        var gravada = Gravada(raiz, 1);
+        Assert.Equal(TranslationStatus.Keep, gravada.Status);
+        Assert.Null(gravada.Translation);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public void Nao_traduzir_leva_o_texto_digitado_e_ainda_nao_gravado_a_valer_antes_de_marcar()
+    {
+        using var vm = Abrir(0);
+        vm.FieldText = "MS Gothic";
+
+        vm.KeepCommand.Execute(null);
+        vm.Flush();
+
+        Assert.Equal(TranslationStatus.Keep, Gravada(raiz, 0).Status);
+        Assert.Null(Gravada(raiz, 0).Translation);
+    }
+
+    [Fact]
+    public void Traduzir_desfaz_o_nao_traduzir_e_a_linha_volta_a_ficar_sem_traducao()
+    {
+        using var vm = Abrir(0);
+        vm.KeepCommand.Execute(null);
+
+        vm.TranslateCommand.Execute(null);
+
+        Assert.Equal(TranslationStatus.Untranslated, vm.Status);
+        Assert.False(vm.IsKeep);
+        Assert.Equal(TranslationStatus.Untranslated, Gravada(raiz, 0).Status);
+    }
+
+    [Fact]
+    public void Digitar_numa_linha_nao_traduzir_traduz_a_linha()
+    {
+        using var vm = Abrir(0);
+        vm.KeepCommand.Execute(null);
+
+        vm.FieldText = "Fonte";
+        vm.Flush();
+
+        Assert.Equal(TranslationStatus.Translated, vm.Status);
+        Assert.Equal("Fonte", Gravada(raiz, 0).Translation);
+    }
+
+    [Fact]
     public void Depois_da_troca_nao_ha_nova_gravacao_pendente()
     {
         using var vm = Abrir(0);

@@ -35,6 +35,8 @@ public static class CommandExamples
         ["scripts group"] = ["vnf scripts group yst00010..yst00020 Prologo"],
         ["scripts ungroup"] = ["vnf scripts ungroup yst00010..yst00020"],
         ["scripts rename-group"] = ["vnf scripts rename-group 2 Prologo"],
+        ["lines keep"] = ["vnf lines keep yst00012:000034", "vnf lines keep yst00012:000034,yst00012:000035"],
+        ["lines unkeep"] = ["vnf lines unkeep yst00012:000034"],
         ["config ai"] = ["vnf config ai --model claude-opus-5-5"],
         ["detect"] = [@"vnf detect --game D:\Jogos\MinhaVN"],
         ["ypf info"] = ["vnf ypf info ysbin.ypf"],

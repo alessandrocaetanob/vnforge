@@ -1,6 +1,9 @@
 namespace VNForge.Core.Projects;
 
-/// <summary>Percentuais inteiros por status, na ordem fixa da barra de distribuição. Somam sempre 100.</summary>
+/// <summary>
+/// Percentuais inteiros por status, na ordem fixa da barra de distribuição. Somam sempre 100. As linhas "Não traduzir"
+/// (<see cref="TranslationStatus.Keep"/>) entram em <see cref="Approved"/>: estão prontas e não são pendentes.
+/// </summary>
 public sealed record StatusDistribution(int Approved, int Reviewed, int Translated, int Machine, int Pending)
 {
     /// <summary>Divide 100 entre os status pelo método do maior resto; sem linhas, tudo é pendente.</summary>
@@ -12,7 +15,7 @@ public sealed record StatusDistribution(int Approved, int Reviewed, int Translat
             return new StatusDistribution(0, 0, 0, 0, 100);
         }
 
-        int[] values = [counts.Approved, counts.Reviewed, counts.Translated, counts.Machine, counts.Untranslated];
+        int[] values = [counts.Approved + counts.Keep, counts.Reviewed, counts.Translated, counts.Machine, counts.Untranslated];
         var shares = new int[values.Length];
         var remainders = new long[values.Length];
         for (var i = 0; i < values.Length; i++)
