@@ -100,7 +100,7 @@ Seção "Pipeline" da ajuda: `init`, `extract`, `translate`, `review`, `check`, 
 
 ## Comandos do projeto
 
-Seção "Projeto" da ajuda: `status`, `preview`, `export`, `import`, `glossary`, `chars`, `config`, `detect`.
+Seção "Projeto" da ajuda: `status`, `preview`, `export`, `import`, `glossary`, `chars`, `scripts`, `config`, `detect`.
 
 | Comando | O que faz |
 |---|---|
@@ -110,6 +110,7 @@ Seção "Projeto" da ajuda: `status`, `preview`, `export`, `import`, `glossary`,
 | `vnf import <arquivo> [--format csv\|xlsx]` | Importa de volta (formato pela extensão, ou `--format`), casando por `id`. Só `translation`, `status` e `notes` mudam; id desconhecido ou repetido e status inválido são erros e, com qualquer erro, nada é importado. Só regrava o `text/<chave>.json` que teve linha alterada |
 | `vnf glossary add "先輩" "veterano" [--notes] [--force]`, `vnf glossary list` | Gerencia o glossário (`glossary.json`); termo repetido só é trocado com `--force`. O `list` mostra uma tabela. Aceitam `--json` |
 | `vnf chars list`, `vnf chars set <original> <tradução> [--gender valor] [--tone texto]` | Gerencia os personagens (`characters.json`); `set` cria ou atualiza e mantém o que não foi informado. Gênero: `unknown`, `female`, `male` ou `other`. O `list` mostra uma tabela. Aceitam `--json` |
+| `vnf scripts list`, `vnf scripts group <chaves> <nome>`, `vnf scripts ungroup <chaves>`, `vnf scripts rename-group <capítulo> <novo>` | O agrupamento das cenas em capítulos (#348), o mesmo do Painel (`ScriptGrouping`, no Core). `list` mostra os capítulos na ordem da história, com número, nome, quantidade de cenas e as chaves. `group` põe as cenas num capítulo, que já existe ou é novo, gravando o `group` de cada uma em `scripts.json`; `<chaves>` é uma lista separada por vírgula, de chaves (`yst00012`) e intervalos na ordem numérica dos scripts, com as duas pontas incluídas (`yst00010..yst00020`), entre aspas se houver espaço; o nome `Menus e nomes` tira as cenas da história. `ungroup` desfaz a escolha e devolve as cenas ao capítulo que a pasta do jogo, o prefixo do arquivo ou a faixa propõe. `rename-group` troca o nome de um capítulo (o nome atual, sem diferenciar maiúsculas, ou o número da lista) em todas as cenas dele; um nome que já existe junta os dois capítulos. Chave ou intervalo desconhecido, capítulo inexistente e nome vazio saem com `1` e não gravam nada; a extração não apaga o que foi escolhido. Com `--json`, `group`, `ungroup` e `rename-group` trazem `action` (`grouped`, `ungrouped`, `renamed`), `group` (nulo no `ungroup`), `scripts` (as chaves mudadas) e `chapters`; o `list` traz só `chapters` (`number`, nulo em "Menus e nomes", `name`, `scripts`, `lines`, `ready`, `toReview`, `untranslated`) |
 | `vnf config ai` | Configura modelo do Claude e chave (salva fora do projeto) |
 | `vnf detect [--game <pasta>]` | Só diagnostica, sem gravar: engine, versão, arquivos YPF, versão do YSTB, chave XOR (a codificação ainda não é detectada). Com `--json`, `data.details` usa chaves em inglês: `ypf:<caminho>` (um por pacote), `scriptsArchive`, `ypfVersion`, `scripts`, `ystbVersion`, `scriptKey`, `scriptKeyOrigin` e `warnings`; as que não se aplicam ao jogo não aparecem. Sem `--game` usa a pasta atual; pasta sem engine conhecida responde "Engine não reconhecida" e sai com 0. O texto sai em árvore |
 

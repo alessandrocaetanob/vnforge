@@ -63,11 +63,43 @@
             <ItemsControl ItemsSource="{Binding Chapters}" AutomationProperties.Name="Capítulos do jogo">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ChapterRowViewModel">
-                  <Button Classes="subtle chapter" Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).OpenChapterCommand}"
-                          CommandParameter="{Binding}">
-                    <c:ChapterRow Number="{Binding Number}" Title="{Binding Name}" Done="{Binding Ready}" Review="{Binding ToReview}" Total="{Binding Total}"
-                                  Note="{Binding Note}" IsHere="{Binding IsHere}" IsExtra="{Binding IsExtra}"/>
-                  </Button>
+                  <Grid>
+                    <Button Classes="subtle chapter" IsVisible="{Binding !IsEditing}"
+                            Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).OpenChapterCommand}" CommandParameter="{Binding}">
+                      <Button.KeyBindings>
+                        <KeyBinding Gesture="F2" Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).BeginRenameChapterCommand}"
+                                    CommandParameter="{Binding}"/>
+                      </Button.KeyBindings>
+                      <Button.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Renomear capítulo" InputGesture="F2" IsEnabled="{Binding CanRename}"
+                                    Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).BeginRenameChapterCommand}"
+                                    CommandParameter="{Binding}"/>
+                        </ContextMenu>
+                      </Button.ContextMenu>
+                      <c:ChapterRow Number="{Binding Number}" Title="{Binding Name}" Done="{Binding Ready}" Review="{Binding ToReview}" Total="{Binding Total}"
+                                    Note="{Binding Note}" IsHere="{Binding IsHere}" IsExtra="{Binding IsExtra}"/>
+                    </Button>
+                    <!-- Renomear: o nome do capítulo vira o grupo dos scripts dele; Enter confirma, Esc cancela. -->
+                    <StackPanel Spacing="4" Margin="0,4" IsVisible="{Binding IsEditing}">
+                      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <TextBox Text="{Binding EditText}" PlaceholderText="Nome do capítulo" MaxLength="80" AutomationProperties.Name="Novo nome do capítulo">
+                          <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).CommitRenameChapterCommand}"
+                                        CommandParameter="{Binding}"/>
+                            <KeyBinding Gesture="Escape" Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).CancelRenameChapterCommand}"
+                                        CommandParameter="{Binding}"/>
+                          </TextBox.KeyBindings>
+                        </TextBox>
+                        <Button Grid.Column="1" Classes="accent" Content="Salvar"
+                                Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).CommitRenameChapterCommand}" CommandParameter="{Binding}"/>
+                        <Button Grid.Column="2" Content="Cancelar"
+                                Command="{Binding $parent[UserControl].((vm:DashboardViewModel)DataContext).CancelRenameChapterCommand}" CommandParameter="{Binding}"/>
+                      </Grid>
+                      <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding EditError}"
+                                 IsVisible="{Binding EditError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                  </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>

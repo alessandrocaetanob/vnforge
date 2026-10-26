@@ -165,10 +165,33 @@ public sealed class ProjectFolder
     public void SaveScriptNames(ScriptNames names) =>
         WriteAtomically(ScriptNamesPath, ScriptNamesSerializer.Serialize(names), overwrite: true);
 
+    /// <summary>
+    /// Lê o <c>scripts.json</c>, aplica <paramref name="change"/> e grava o resultado, tudo sob a trava do projeto (<see cref="ProjectTextLock"/>): duas
+    /// mudanças seguidas dentro do app (a extração e um agrupamento, por exemplo) não perdem uma à outra. Não grava quando nada mudou, para que ida e volta
+    /// sem alteração deixe o arquivo como estava. A trava vale dentro do processo; a CLI e o app rodando ao mesmo tempo não se travam.
+    /// </summary>
+    /// <returns>Os nomes depois da mudança.</returns>
+    /// <exception cref="GlossaryFileException">O <c>scripts.json</c> atual é inválido; nada é gravado.</exception>
+    public ScriptNames UpdateScriptNames(Func<ScriptNames, ScriptNames> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        lock (ProjectTextLock.For(this))
+        {
+            var current = LoadScriptNames();
+            var updated = change(current);
+            if (ScriptNamesSerializer.Serialize(updated) != ScriptNamesSerializer.Serialize(current))
+            {
+                SaveScriptNames(updated);
+            }
+
+            return updated;
+        }
+    }
+
     /// <summary>Dá ao script de chave <paramref name="key"/> o nome <paramref name="name"/> e grava o <c>scripts.json</c>; texto vazio volta ao nome que a engine leu do jogo.</summary>
     /// <exception cref="GlossaryFileException">O <c>scripts.json</c> atual é inválido; nada é gravado.</exception>
     public void RenameScript(string key, string? name) =>
-        SaveScriptNames(LoadScriptNames().Rename(key, name));
+        UpdateScriptNames(names => names.Rename(key, name));
 
     private static string ReadGlossaryFile(string path)
     {
