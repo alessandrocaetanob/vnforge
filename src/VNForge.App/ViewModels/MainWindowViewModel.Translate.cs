@@ -49,7 +49,7 @@ public sealed partial class MainWindowViewModel
             var folder = ProjectFolder.Open(project.Root);
             TranslateOpening = Translate.OpenAsync(
                 folder,
-                Editor.SelectedScript?.Key ?? scriptKeys[0],
+                Editor.SelectedScript?.Key is { } open && scriptKeys.Contains(open) ? open : scriptKeys[0],
                 new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured, Settings.BudgetProblem),
                 scriptKeys);
         }

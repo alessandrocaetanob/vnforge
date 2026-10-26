@@ -82,6 +82,19 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Uma_unica_cena_escolhida_que_nao_e_a_aberta_e_a_que_a_janela_traduz()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00002"));
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+
+        Assert.Equal(TranslationScope.Scene, vm.Translate.SelectedScope.Scope);
+        Assert.Equal(1, vm.Translate.Lines);
+    }
+
+    [Fact]
     public async Task Traduzir_roda_o_pedido_grava_como_IA_e_avisa_o_resultado_em_portugues()
     {
         var (vm, root) = await OpenAsync();
