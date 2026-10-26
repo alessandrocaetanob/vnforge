@@ -42,4 +42,21 @@ public class MainWindowBuildNavTests
         Assert.Same(vm.Build, vm.CurrentPage);
         Assert.Equal("Minha VN", vm.Build.Project?.Name);
     }
+
+    [Fact]
+    public async Task A_aba_Acentos_dos_Ajustes_abre_a_pagina_Testar_no_jogo()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var vm = Create(temp, root);
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Settings);
+
+        vm.Settings.OpenAccentTestCommand.Execute(null);
+        await vm.Build.Loading;
+
+        Assert.Equal(NavKey.Build, vm.SelectedNav?.Key);
+        Assert.Same(vm.Build, vm.CurrentPage);
+    }
 }

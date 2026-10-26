@@ -104,7 +104,7 @@ public class MainWindowFrameHeadlessTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.Contains("Glossário", texts);
                     Assert.Contains("Ajustes", texts);
                     Assert.DoesNotContain("Busca", texts);
-                    Assert.Contains("Acentuação: sem acentos", texts);
+                    Assert.Contains("Acentos: sem acentos", texts);
                     Assert.Contains("54 colunas · 3 linhas", texts);
                 }
                 finally

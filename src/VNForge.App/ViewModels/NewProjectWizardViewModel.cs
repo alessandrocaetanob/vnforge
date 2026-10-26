@@ -43,7 +43,14 @@ public sealed partial class ChoiceOption(string id, string title, string value =
 
     /// <summary>O selo do cartão ("Em breve", "Recomendada para este jogo"); vazio quando não há.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBadge), nameof(ShowSoonBadge))]
     public partial string Badge { get; set; } = string.Empty;
+
+    /// <summary>Selo verde ("Recomendada para este jogo"): a opção está disponível e tem selo.</summary>
+    public bool ShowBadge => IsAvailable && Badge.Length > 0;
+
+    /// <summary>Selo neutro ("Em breve"): a opção ainda não dá para escolher.</summary>
+    public bool ShowSoonBadge => !IsAvailable && Badge.Length > 0;
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -115,8 +122,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             [new("ja", "Japonês"), new("en", "Inglês"), new("zh", "Chinês"), new("ko", "Coreano")], ProjectChoices.DefaultSourceLanguage);
         TargetLanguages = new ChoiceGroup(
             [new("pt-BR", "Português do Brasil"), new("en", "Inglês"), new("es", "Espanhol")], ProjectChoices.DefaultTargetLanguage);
-        EncodingStrategies = new ChoiceGroup(
-            ProjectChoices.EncodingStrategies.Where(s => s != "sjis").Select(EncodingOption), ProjectChoices.DefaultEncoding);
+        EncodingStrategies = AccentChoices.CreateGroup();
         Models = new ChoiceGroup(ProjectChoices.Models.Select(ModelOption), ProjectChoices.DefaultAi.Model);
         foreach (var group in new[] { SourceLanguages, TargetLanguages, EncodingStrategies, Models })
         {
@@ -582,19 +588,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private static int? ReadNumber(IReadOnlyDictionary<string, string> details, string key) =>
         details.TryGetValue(key, out var text) && int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : null;
 
-    private static ChoiceOption EncodingOption(string id) => id switch
-    {
-        "fold" => new(id, "Sem acentos", description: "Funciona em qualquer jogo. As letras acentuadas viram as sem acento, como ação que vira acao.") { Layout = AccentPreview.Layout(id) },
-        "remap" => new(id, "Com acentos, fonte modificada", description: "Troca a fonte do jogo para desenhar as letras acentuadas. Ainda não está pronta.") { Layout = AccentPreview.Layout(id), IsAvailable = false, Badge = "Em breve" },
-        "cp1252" => new(id, "Com acentos, ajuste no jogo", description: "Mantém todos os acentos ajustando o jogo, sempre com cópia de segurança. Trocar a fonte para MS Gothic é opcional, tira os vãos entre as letras e se faz na tela Testar.") { Layout = AccentPreview.Layout(id) },
-        _ => new(id, id),
-    };
-
-    private void RecommendAccentAdjustment(IEngine? engine)
-    {
-        var recommended = engine is IGamePatchProvider;
-        EncodingStrategies.Options.Single(o => o.Id == "cp1252").Badge = recommended ? "Recomendada para este jogo" : string.Empty;
-    }
+    private void RecommendAccentAdjustment(IEngine? engine) => AccentChoices.Recommend(EncodingStrategies, engine);
 
     private static ChoiceOption ModelOption(string id)
     {
