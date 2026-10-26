@@ -108,11 +108,11 @@ public sealed class LineDetailInspectorTests : IDisposable
         using var vm = Abrir(Fala("健太", "「……いいのか？\\n濡れるぞ」\\p", "…Tem certeza? Você vai se molhar.\\p"));
 
         Assert.False(vm.MarkersMatch);
-        Assert.Equal("Marcadores diferentes do original", vm.MarkerStateText);
+        Assert.Equal("Falta ou sobra um marcador", vm.MarkerStateText);
 
         vm.Translation = "…Tem certeza?\\nVocê vai se molhar.\\c\\p";
         Assert.False(vm.MarkersMatch);
-        Assert.Equal("Marcadores diferentes do original", vm.MarkerStateText);
+        Assert.Equal("Falta ou sobra um marcador", vm.MarkerStateText);
 
         vm.Translation = "…Tem certeza?\\nVocê vai se molhar.\\p";
         Assert.True(vm.MarkersMatch);
@@ -157,7 +157,7 @@ public sealed class LineDetailInspectorTests : IDisposable
 
         vm.Translation = "…Tem certeza?\\n\\c\\p\\p";
         Assert.False(vm.MarkersMatch);
-        Assert.Equal("Marcadores diferentes do original", vm.MarkerStateText);
+        Assert.Equal("Falta ou sobra um marcador", vm.MarkerStateText);
     }
 
     [Fact]

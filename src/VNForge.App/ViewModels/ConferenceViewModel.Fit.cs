@@ -20,17 +20,22 @@ public sealed partial class ConferenceViewModel
 
     public bool HasSelectedFit => SelectedFit is not null;
 
+    /// <summary>A caixa do jogo com a tradução de hoje, para o problema "Não cabe na caixa"; nula nos outros.</summary>
+    [ObservableProperty]
+    public partial TextboxLayout? SelectedLayout { get; private set; }
+
     partial void OnSelectedRowChanged(ConferenceIssueRowViewModel? value)
     {
         SelectedFit?.Cancel();
-        SelectedFit = CreateFit(value);
+        (SelectedFit, SelectedLayout) = CreateFit(value);
+        FixAndNextCommand.NotifyCanExecuteChanged();
     }
 
-    private FitWarningViewModel? CreateFit(ConferenceIssueRowViewModel? row)
+    private (FitWarningViewModel? Fit, TextboxLayout? Layout) CreateFit(ConferenceIssueRowViewModel? row)
     {
         if (row is not { RuleId: BoxLineLimitRule.RuleId, Unit: { } unit } || Project?.Root is not { } root)
         {
-            return null;
+            return (null, null);
         }
 
         FormattingProfile profile;
@@ -40,7 +45,7 @@ public sealed partial class ConferenceViewModel
         }
         catch (VNForgeException)
         {
-            return null;
+            return (null, null);
         }
 
         var fit = new FitWarningViewModel(
@@ -51,7 +56,12 @@ public sealed partial class ConferenceViewModel
             text => ReplaceTranslationAsync(row, text, "Fala dividida em páginas."),
             text => ReplaceTranslationAsync(row, text, "Fala encurtada pela IA."));
         fit.Update();
-        return fit.IsVisible ? fit : null;
+        if (!fit.IsVisible)
+        {
+            return (null, null);
+        }
+
+        return (fit, new TextboxPreviewViewModel(unit, profile, unit.Translation ?? string.Empty).Layout);
     }
 
     /// <summary>Grava a tradução nova da linha do problema, avisa o Editor e reconfere o projeto.</summary>

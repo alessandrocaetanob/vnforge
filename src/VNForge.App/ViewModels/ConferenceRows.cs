@@ -12,21 +12,21 @@ public static class ConferenceRuleTexts
 {
     private static readonly Dictionary<string, (string Title, string Explanation)> ById = new(StringComparer.Ordinal)
     {
-        [UntranslatedQaRule.RuleId] = ("Não traduzida", "A linha ainda não tem tradução. O build copia o original nela, então não bloqueia a reconstrução dos scripts."),
-        ["traducao-vazia"] = ("Tradução vazia", "A linha está marcada como traduzida, mas o texto está vazio. O build gravaria uma caixa de texto vazia no jogo."),
-        ["marcador-diferente"] = ("Marcadores diferentes do original", @"Os marcadores de controle (\p, \c, {VAR:...}) precisam ser os mesmos do original para o script ser reconstruído. O QA não corrige sozinho porque o lugar do marcador pode mudar na tradução."),
-        ["glossario-diferente"] = ("Termo diferente do glossário", "O glossário fixa a tradução deste termo. Se a fala pede outra escolha, marque como ok para registrar a exceção na linha."),
-        ["personagem-diferente"] = ("Nome de personagem diferente", "O nome do personagem foi traduzido diferente do que está em characters.json. Marque como ok se a variação for deliberada."),
-        ["traducao-inconsistente"] = ("Mesmo original, traduções diferentes", "O mesmo original foi traduzido de jeitos diferentes. Pode ser intencional (personagens diferentes); a lista completa abre na busca."),
+        [UntranslatedQaRule.RuleId] = ("Não traduzida", "A fala ainda não tem tradução. No teste no jogo ela aparece em japonês, então não trava nada."),
+        ["traducao-vazia"] = ("Tradução vazia", "A fala está marcada como traduzida, mas o texto está vazio. O jogo mostraria uma caixa de texto vazia."),
+        ["marcador-diferente"] = ("Falta ou sobra um marcador", "No fim de cada fala o jogo espera o clique para virar a página, e as quebras de linha e os nomes do jogador também são selos. Cada selo do original precisa estar na tradução, senão o jogo não abre a cena. Não corrijo sozinho porque o lugar do selo pode mudar na tradução."),
+        ["glossario-diferente"] = ("Termo diferente do glossário", "O glossário fixa a tradução deste termo. Se a fala pede outra escolha, use Está certo assim para registrar a exceção na linha."),
+        ["personagem-diferente"] = ("Nome de personagem diferente", "O nome do personagem foi traduzido diferente do que está no Glossário. Use Está certo assim se a variação for de propósito."),
+        ["traducao-inconsistente"] = ("Mesmo original, traduções diferentes", "O mesmo original foi traduzido de jeitos diferentes. Pode ser de propósito (personagens diferentes); a lista completa abre na busca."),
         ["espaco-duplo"] = ("Espaço duplo", "Dois espaços seguidos viram uma coluna a mais na caixa e costumam ser sobra de edição."),
-        ["espaco-antes-pontuacao"] = ("Espaço antes de pontuação", "Em português não há espaço antes de , ; : ? !. O texto salvo fica errado até ser corrigido."),
+        ["espaco-antes-pontuacao"] = ("Espaço antes de pontuação", "Em português não há espaço antes de vírgula, ponto e vírgula, dois-pontos, interrogação ou exclamação. A fala fica errada até ser corrigida."),
         ["aspas-desbalanceadas"] = ("Aspas ou parênteses sem par", "Falta fechar ou abrir um par de aspas ou parênteses. Confira se a fala termina onde o original termina."),
         [UnencodableCharacterRule.RuleId] = ("Caractere fora da codificação", "A estratégia de acentuação do projeto não grava este caractere no jogo. Troque por um que ela aceite."),
         ["japones-na-traducao"] = ("Japonês na tradução", "Há hiragana, katakana ou kanji na tradução. Costuma ser um trecho que ficou sem traduzir."),
         [BoxLineLimitRule.RuleId] = ("Não cabe na caixa", "A tradução ocupa mais linhas que a caixa do jogo. Divida a fala em páginas ou peça à IA uma versão mais curta."),
-        [ExtraPageQaRule.RuleId] = ("Página a mais", "A tradução vira a página mais vezes que o original: a fala foi dividida em páginas. Confira se a divisão está no lugar certo; se foi de propósito, marque como ok."),
-        [FieldByteLimitRule.RuleId] = ("Passa do limite do campo", "O campo tem um limite de bytes no jogo e a tradução passa dele. Encurte o texto."),
-        [HonorificsRule.RuleId] = ("Honorífico fora do estilo", "A tradução trata -san, -kun, -chan, -sama ou senpai de um jeito diferente do estilo do projeto. Mude o texto ou a escolha em Ajustes, aba Estilo; marque como ok se a exceção for de propósito."),
+        [ExtraPageQaRule.RuleId] = ("Página a mais", "A tradução vira a página mais vezes que o original: a fala foi dividida em páginas. Confira se a divisão está no lugar certo; se foi de propósito, use Está certo assim."),
+        [FieldByteLimitRule.RuleId] = ("Passa do limite do campo", "Este campo tem um tamanho máximo no jogo e a tradução passa dele. Encurte o texto."),
+        [HonorificsRule.RuleId] = ("Honorífico fora do estilo", "A tradução trata -san, -kun, -chan, -sama ou senpai de um jeito diferente do estilo do projeto. Mude o texto ou a escolha em Ajustes, aba Estilo; use Está certo assim se a exceção for de propósito."),
         [GenderRule.RuleId] = ("Personagem sem gênero", "A fala é de um personagem sem gênero no Glossário. Sem ele, a concordância (cansado ou cansada) é um palpite. Defina o gênero do personagem no Glossário antes de traduzir as falas dele."),
     };
 
@@ -55,13 +55,34 @@ public sealed class ConferenceIssueRowViewModel
     /// <param name="unit">A linha do projeto, para mostrar original e tradução no detalhe.</param>
     /// <param name="count">Quantas ocorrências a linha representa; maior que 1 no resumo por script e quando a regra aponta a mesma linha mais de uma vez.</param>
     /// <param name="ruleDescription">Descrição da regra no Core, usada quando o título não está na tabela.</param>
-    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null)
+    /// <param name="sceneName">O nome da cena (<c>scripts.json</c>); sem ele a linha se localiza pelo id do script.</param>
+    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null)
     {
         Issue = issue;
         Proposal = proposal;
         Unit = unit;
         Count = count;
         this.ruleDescription = ruleDescription;
+        SceneName = string.IsNullOrWhiteSpace(sceneName) ? null : sceneName;
+    }
+
+    /// <summary>O nome da cena da linha; nulo quando o projeto ainda não tem nome para ela.</summary>
+    public string? SceneName { get; }
+
+    /// <summary>A cena como a pessoa a conhece: o nome, ou o id do script quando não há nome.</summary>
+    public string SceneLabel => SceneName ?? ScriptKey;
+
+    /// <summary>Onde está o problema: "Manhã de chuva · linha 43"; no resumo por script, só a cena.</summary>
+    public string Where => IsScriptSummary || LineNumber is not { } number ? SceneLabel : $"{SceneLabel} · linha {number.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>O número da linha dentro do script (<c>yst00013:000043</c> é a 43); nulo em id fora do padrão.</summary>
+    public int? LineNumber
+    {
+        get
+        {
+            var colon = UnitId.LastIndexOf(':');
+            return colon > 0 && int.TryParse(UnitId.AsSpan(colon + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : null;
+        }
     }
 
     public QaIssue Issue { get; }
@@ -88,6 +109,9 @@ public sealed class ConferenceIssueRowViewModel
     /// <summary>"Não traduzida" de um script inteiro numa linha só.</summary>
     public bool IsScriptSummary => RuleId == UntranslatedQaRule.RuleId;
 
+    /// <summary>A regra propõe a correção: "Corrigir e ir para o próximo" resolve a linha de uma vez.</summary>
+    public bool IsOneClick => HasProposal;
+
     public SeverityLevel Level => IsError ? SeverityLevel.Error : SeverityLevel.Warning;
 
     public string SeverityLabel => IsError ? "Erro" : "Aviso";
@@ -102,7 +126,13 @@ public sealed class ConferenceIssueRowViewModel
     /// <summary>Coluna "Linha" em mono: <c>yst00012:0042</c>; no resumo, só o script.</summary>
     public string LineLabel => IsScriptSummary ? ScriptKey : FormatLine(UnitId);
 
-    public string Title => ConferenceRuleTexts.Title(RuleId, ruleDescription);
+    public string Title => IsMarkerMismatch ? MarkerParts.Title : ConferenceRuleTexts.Title(RuleId, ruleDescription);
+
+    private const string MarkerRuleId = "marcador-diferente";
+
+    private bool IsMarkerMismatch => RuleId == MarkerRuleId;
+
+    private MarkerDifference MarkerParts => MarkerDifference.Read(Message);
 
     public string Explanation => ConferenceRuleTexts.Explanation(RuleId, ruleDescription);
 
@@ -116,6 +146,11 @@ public sealed class ConferenceIssueRowViewModel
                 return Count == 1 ? "1 linha sem tradução neste script." : $"{ProjectLabels.Number(Count)} linhas sem tradução neste script.";
             }
 
+            if (IsMarkerMismatch)
+            {
+                return MarkerParts.Detail;
+            }
+
             if (Proposal is { } p)
             {
                 return Excerpt(p.Before, p.After);
@@ -125,8 +160,8 @@ public sealed class ConferenceIssueRowViewModel
         }
     }
 
-    /// <summary>"Corrigível" quando a regra propõe uma correção para a linha; vazio nas outras.</summary>
-    public string Tag => HasProposal ? "Corrigível" : string.Empty;
+    /// <summary>"Um clique" quando a regra propõe uma correção para a linha; vazio nas outras.</summary>
+    public string Tag => HasProposal ? "Um clique" : string.Empty;
 
     /// <summary>Texto do original no detalhe; vazio quando a linha não veio do projeto.</summary>
     public string Original => Unit?.Source ?? string.Empty;
@@ -139,7 +174,7 @@ public sealed class ConferenceIssueRowViewModel
     public bool HasTranslation => Translation.Length > 0;
 
     /// <summary>Título do detalhe: o da regra; no resumo, o script e a contagem.</summary>
-    public string DetailTitle => IsScriptSummary ? $"{Title} em {ScriptKey}" : Title;
+    public string DetailTitle => IsScriptSummary ? $"{Title} em {SceneLabel}" : Title;
 
     /// <summary><c>yst00012:000042</c> vira <c>yst00012:0042</c>; id fora do padrão volta como veio.</summary>
     public static string FormatLine(string unitId)
@@ -196,41 +231,121 @@ public sealed class ConferenceIssueRowViewModel
     }
 }
 
-/// <summary>
-/// Uma linha da coluna "Regras": "Todas" ou uma categoria de <see cref="QaCategories"/>, com quantos problemas abertos tem e a pior gravidade
-/// (ícone de erro, de aviso ou de "tudo certo").
-/// </summary>
-public sealed partial class ConferenceCategoryViewModel(string? category) : ObservableObject
+/// <summary>Os filtros da tela, em linguagem comum, na ordem em que aparecem.</summary>
+public enum ConferenceFilterKind
 {
-    /// <summary>A categoria de <see cref="QaCategories"/>; nulo em "Todas".</summary>
-    public string? Category { get; } = category;
+    /// <summary>Tudo o que a conferência achou.</summary>
+    All,
 
-    public string Label => Category ?? "Todas";
+    /// <summary>Os erros: travam o teste no jogo.</summary>
+    Blocking,
 
-    public bool IsAll => Category is null;
+    /// <summary>Os problemas que têm correção proposta.</summary>
+    OneClick,
+
+    /// <summary>A tradução passa do tamanho da caixa do jogo.</summary>
+    Box,
+
+    /// <summary>Glossário, nomes de personagem e traduções diferentes para o mesmo original.</summary>
+    WordsAndNames,
+
+    /// <summary>Caracteres que a acentuação do projeto não grava.</summary>
+    Accents,
+}
+
+/// <summary>
+/// Um filtro da faixa de cima: o nome em linguagem comum e quantos problemas do projeto inteiro passam por ele (não só os da lista à vista).
+/// </summary>
+public sealed partial class ConferenceFilterViewModel(ConferenceFilterKind kind, string label) : ObservableObject
+{
+    public ConferenceFilterKind Kind { get; } = kind;
+
+    public string Label { get; } = label;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CountLabel), nameof(IsClear), nameof(HasErrors), nameof(HasWarnings))]
+    [NotifyPropertyChangedFor(nameof(CountLabel))]
     public partial int Count { get; set; }
 
-    /// <summary>Verdadeiro quando o grupo tem ao menos um erro aberto.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsClear), nameof(HasErrors), nameof(HasWarnings))]
-    public partial bool ContainsError { get; set; }
+    public string CountLabel => ProjectLabels.Number(Count);
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
-    /// <summary>"Tradução" e "Outras" só aparecem quando têm problemas; as sete do design sempre.</summary>
-    [ObservableProperty]
-    public partial bool IsVisible { get; set; } = true;
+    /// <summary>Verdadeiro quando o problema <paramref name="row"/> aparece neste filtro.</summary>
+    public bool Passes(ConferenceIssueRowViewModel row) => Kind switch
+    {
+        ConferenceFilterKind.Blocking => row.IsError,
+        ConferenceFilterKind.OneClick => row.IsOneClick,
+        ConferenceFilterKind.Box => row.Category == QaCategories.TextBox,
+        ConferenceFilterKind.WordsAndNames => row.Category is QaCategories.Glossary or QaCategories.Consistency,
+        ConferenceFilterKind.Accents => row.Category == QaCategories.Accents,
+        _ => true,
+    };
+}
 
-    public string CountLabel => ProjectLabels.Number(Count);
+/// <summary>O que a regra de marcadores achou, em português: "Falta virar a página." no lugar do marcador cru.</summary>
+internal readonly record struct MarkerDifference(IReadOnlyList<string> Missing, IReadOnlyList<string> Extra, bool Invalid)
+{
+    public static MarkerDifference Read(string message)
+    {
+        if (message.StartsWith("marcador inválido", StringComparison.Ordinal))
+        {
+            return new MarkerDifference([], [], Invalid: true);
+        }
 
-    /// <summary>Categoria sem problema abertos: ícone de "tudo certo".</summary>
-    public bool IsClear => !IsAll && Count == 0;
+        var colon = message.IndexOf(':');
+        var parts = (colon < 0 ? message : message[(colon + 1)..]).Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        IReadOnlyList<string> missing = [];
+        IReadOnlyList<string> extra = [];
+        foreach (var part in parts)
+        {
+            if (part.StartsWith("falta ", StringComparison.Ordinal))
+            {
+                missing = Names(part["falta ".Length..]);
+            }
+            else if (part.StartsWith("sobra ", StringComparison.Ordinal))
+            {
+                extra = Names(part["sobra ".Length..]);
+            }
+        }
 
-    public bool HasErrors => !IsAll && Count > 0 && ContainsError;
+        return new MarkerDifference(missing, extra, Invalid: false);
+    }
 
-    public bool HasWarnings => !IsAll && Count > 0 && !ContainsError;
+    public string Title => (Missing.Count, Extra.Count, Invalid) switch
+    {
+        (_, _, true) => "Marcador inválido na tradução",
+        (> 0, > 0, _) => "Faltam e sobram marcadores",
+        (_, > 0, _) => "Sobra um marcador na tradução",
+        _ => "Falta um marcador do original",
+    };
+
+    public string Detail
+    {
+        get
+        {
+            if (Invalid)
+            {
+                return "Há uma barra ou uma chave sem par na tradução.";
+            }
+
+            List<string> sentences = [];
+            if (Missing.Count > 0)
+            {
+                sentences.Add($"Falta {string.Join(", ", Missing)}.");
+            }
+
+            if (Extra.Count > 0)
+            {
+                sentences.Add($"Sobra {string.Join(", ", Extra)}.");
+            }
+
+            return sentences.Count > 0 ? string.Join(" ", sentences) : "Os marcadores não batem com os do original.";
+        }
+    }
+
+    private static List<string> Names(string markers) =>
+        [.. markers.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(m => MarkerLabels.Name(m, m.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control))
+            .Distinct(StringComparer.Ordinal)];
 }
