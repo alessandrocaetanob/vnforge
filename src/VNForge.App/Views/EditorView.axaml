@@ -64,7 +64,7 @@
             <TextBlock Classes="btn-label" Text="Buscar" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="sm" Command="{Binding CheckFileCommand}" AutomationProperties.Name="Conferir arquivo" ToolTip.Tip="Conferir arquivo: abre a Conferência">
+        <Button Classes="sm" Command="{Binding CheckFileCommand}" AutomationProperties.Name="Conferir arquivo" ToolTip.Tip="Conferir arquivo: abre Conferir a tradução">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Shield}"/>
             <TextBlock Classes="btn-label" Text="Conferir arquivo" TextWrapping="NoWrap"/>

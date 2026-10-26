@@ -18,24 +18,6 @@
         </Grid>
       </RadioButton>
     </DataTemplate>
-
-    <!-- Cartão de acentos (.enc): nome e selo na primeira linha, a explicação e a frase de teste desenhada na caixa de texto do jogo. -->
-    <DataTemplate x:Key="AccentCard" x:DataType="vm:ChoiceOption">
-      <RadioButton Classes="option" GroupName="WizardAccents" Margin="0,0,8,0" VerticalAlignment="Stretch" IsEnabled="{Binding IsAvailable}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                   AutomationProperties.Name="{Binding Title}">
-        <StackPanel Spacing="8">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-            <TextBlock Classes="body-strong" Text="{Binding Title}" VerticalAlignment="Center"/>
-            <Border Grid.Column="1" Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
-                    Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding Badge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-              <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Badge}"/>
-            </Border>
-          </Grid>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
-          <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
-        </StackPanel>
-      </RadioButton>
-    </DataTemplate>
   </UserControl.Resources>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -185,13 +167,7 @@
         <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
                    Text="O jogo foi feito para o japonês e não desenha as letras acentuadas do português por conta própria. Cada cartão mostra a frase de teste na caixa de texto do jogo do jeito que vai sair. Dá para trocar depois nos Ajustes."/>
         <TextBlock Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
-        <ItemsControl ItemsSource="{Binding EncodingStrategies.Options}" ItemTemplate="{StaticResource AccentCard}" Margin="0,0,-8,0" AutomationProperties.Name="Como ficam os acentos">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <UniformGrid Rows="1"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-        </ItemsControl>
+        <c:AccentCards Options="{Binding EncodingStrategies.Options}" GroupName="WizardAccents" AutomationProperties.Name="Como ficam os acentos"/>
       </StackPanel>
 
       <!-- 4. IA -->

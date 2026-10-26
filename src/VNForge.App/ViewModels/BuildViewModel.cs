@@ -1235,7 +1235,7 @@ public sealed partial class BuildViewModel : ObservableObject
         QaBannerTitle = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro novo impede", "erros novos impedem")} um build novo.";
         QaBannerDetail = state?.LastBuildAt is { } built
             ? $"O build abaixo é de {built.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)} e continua válido para injetar."
-            : "Corrija os erros na Conferência para poder fazer o build.";
+            : "Corrija os erros em Conferir a tradução para poder fazer o build.";
     }
 
     private void ShowBackups(ProjectState? state)

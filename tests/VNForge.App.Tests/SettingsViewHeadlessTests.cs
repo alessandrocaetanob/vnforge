@@ -14,6 +14,8 @@ namespace VNForge.App.Tests;
 /// <summary>Ajustes de verdade (tema, estilos, recursos): as três abas existem, os cartões escolhem o modelo e a acentuação, e o cartão da chave troca o campo.</summary>
 public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
+    private static readonly string[] JargaoDosAcentos = ["build", "byte", "sjis", "remap", "Shift-JIS"];
+
     private static Window Abrir(SettingsViewModel vm)
     {
         var window = new Window { Width = 1200, Height = 1000, Content = new SettingsView { DataContext = vm } };
@@ -76,6 +78,41 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             CancellationToken.None);
     }
 
+    [Theory]
+    [InlineData("sjis", "o teste no jogo recusa as letras acentuadas")]
+    [InlineData("remap", "A fonte modificada ainda não está pronta.")]
+    public async Task Acentos_com_estrategia_que_o_teste_recusa_avisa_sem_jargao_e_desliga_o_botao_de_teste(string strategy, string esperado)
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = VNForge.Core.Projects.ProjectFolder.Open(root);
+        folder.SaveConfig(folder.LoadConfig() with { Encoding = new VNForge.Core.Projects.EncodingConfig(strategy) });
+        var vm = Criar(temp);
+        vm.Load(VNForge.Core.Projects.ProjectSummaryReader.Read(root));
+        await vm.EstimateLoading;
+        vm.SelectedTab = 3;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                var textos = window.GetVisualDescendants()
+                    .Where(v => !v.GetVisualAncestors().OfType<TechnicalDetails>().Any() && v is not TechnicalDetails)
+                    .SelectMany(TextosVisiveis)
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToList();
+
+                Assert.Contains(textos, t => t!.Contains(esperado, StringComparison.Ordinal));
+                foreach (var proibido in JargaoDosAcentos)
+                {
+                    Assert.DoesNotContain(textos, t => t!.Contains(proibido, StringComparison.OrdinalIgnoreCase));
+                }
+
+                Assert.False(Botao(window, "Abrir Testar no jogo").IsEnabled);
+            },
+            CancellationToken.None);
+    }
+
     private static IEnumerable<string?> TextosVisiveis(Avalonia.Visual visual) => visual switch
     {
         TextBlock { IsEffectivelyVisible: true } block => [block.Text],
@@ -85,7 +122,7 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
     };
 
     [Fact]
-    public async Task Tem_as_abas_IA_Estilo_Formatacao_Acentuacao_e_Aparencia_e_trocar_de_aba_muda_o_indice_do_ViewModel()
+    public async Task Tem_as_abas_IA_Estilo_Formatacao_Acentos_e_Aparencia_e_trocar_de_aba_muda_o_indice_do_ViewModel()
     {
         using var temp = new TempFolder();
         var vm = Criar(temp);
@@ -95,13 +132,13 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             {
                 var window = Abrir(vm);
                 var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
-                Assert.Equal(["IA e gasto", "Estilo", "Formatação", "Acentuação", "Aparência"], tabs.Items.OfType<TabItem>().Select(t => t.Header as string));
+                Assert.Equal(["IA e gasto", "Estilo", "Formatação", "Acentos", "Aparência"], tabs.Items.OfType<TabItem>().Select(t => t.Header as string));
 
                 tabs.SelectedIndex = 3;
                 Assentar(window);
 
                 Assert.Equal(3, vm.SelectedTab);
-                Assert.Equal(4, window.GetVisualDescendants().OfType<RadioButton>().Count(r => r.Classes.Contains("option")));
+                Assert.Equal(3, window.GetVisualDescendants().OfType<RadioButton>().Count(r => r.Classes.Contains("option")));
             },
             CancellationToken.None);
     }

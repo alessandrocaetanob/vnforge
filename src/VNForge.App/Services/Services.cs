@@ -93,13 +93,13 @@ public static class ProjectLabels
         _ => strategy,
     };
 
-    /// <summary>O nome curto da estratégia de acentuação para a barra de status: "CP1252", "Shift-JIS".</summary>
+    /// <summary>O nome curto da estratégia de acentos para a barra de status, o do cartão em linguagem comum: "sem acentos", "ajuste no jogo".</summary>
     public static string EncodingShort(string strategy) => strategy switch
     {
-        "cp1252" => "CP1252",
-        "sjis" => "Shift-JIS",
+        "cp1252" => "ajuste no jogo",
+        "sjis" => "forma antiga",
         "fold" => "sem acentos",
-        "remap" => "glifos remapeados",
+        "remap" => "fonte modificada",
         _ => strategy,
     };
 

@@ -77,7 +77,7 @@ public sealed class BuildTestViewModelTests : IDisposable
 
         Assert.Equal(GameState.Blocked, vm.GameBannerState);
         Assert.Equal("2 erros travam o teste no jogo", vm.GameBannerTitle);
-        Assert.Contains("Marcadores diferentes do original (2)", vm.GameBannerMessage, StringComparison.Ordinal);
+        Assert.Contains("Falta ou sobra um marcador (2)", vm.GameBannerMessage, StringComparison.Ordinal);
         Assert.Contains("Conferir a tradução", vm.GameBannerMessage, StringComparison.Ordinal);
         Assert.False(vm.TestCommand.CanExecute(null));
         Assert.True(vm.TestAccentsCommand.CanExecute(null));
@@ -186,7 +186,7 @@ public sealed class BuildTestViewModelTests : IDisposable
 
         await vm.TestCommand.ExecuteAsync(null);
 
-        Assert.Contains("A Conferência travou o teste", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("Há erros que travam o teste", vm.ErrorMessage, StringComparison.Ordinal);
         Assert.Equal(before, await File.ReadAllBytesAsync(GameFile, TestContext.Current.CancellationToken));
         Assert.Null(starter.Executable);
     }

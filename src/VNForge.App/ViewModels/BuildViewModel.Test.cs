@@ -281,8 +281,8 @@ public sealed partial class BuildViewModel
                 }
 
                 Fail(
-                    "Teste travado pela Conferência",
-                    $"A Conferência travou o teste ({QaBlockedException.DescribeBlocking(blocked.Report)}) e nada foi copiado para o jogo. Corrija em Conferir a tradução, ou ligue “Testar mesmo com avisos” para liberar só os avisos.");
+                    "Teste travado por erros",
+                    $"Há erros que travam o teste ({QaBlockedException.DescribeBlocking(blocked.Report)}) e nada foi copiado para o jogo. Corrija em Conferir a tradução, ou ligue “Testar mesmo com avisos” para liberar só os avisos.");
                 break;
             case GameExecutableNotFoundException:
                 FailQuietly("Programa do jogo não encontrado", failure, "O VNForge não encontrou o programa do jogo, e nada foi copiado. Confira a pasta do jogo nos Ajustes.");

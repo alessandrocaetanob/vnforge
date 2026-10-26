@@ -20,17 +20,42 @@ public sealed partial class ConferenceViewModel
 
     public bool HasSelectedFit => SelectedFit is not null;
 
+    /// <summary>O botão "Corrigir e ir para o próximo" aparece quando o problema tem correção proposta ou a fala pode ser dividida em páginas.</summary>
+    public bool ShowFixAndNext => SelectedRow is { HasProposal: true } || SelectedFit is { CanSplit: true };
+
+    /// <summary>A caixa do jogo com a tradução de hoje, para o problema "Não cabe na caixa"; nula nos outros.</summary>
+    [ObservableProperty]
+    public partial TextboxLayout? SelectedLayout { get; private set; }
+
     partial void OnSelectedRowChanged(ConferenceIssueRowViewModel? value)
     {
-        SelectedFit?.Cancel();
-        SelectedFit = CreateFit(value);
+        if (SelectedFit is { } old)
+        {
+            old.Cancel();
+            old.SplitCommand.CanExecuteChanged -= OnSplitCanExecuteChanged;
+        }
+
+        (SelectedFit, SelectedLayout) = CreateFit(value);
+        if (SelectedFit is { } current)
+        {
+            current.SplitCommand.CanExecuteChanged += OnSplitCanExecuteChanged;
+        }
+
+        OnSplitCanExecuteChanged(this, EventArgs.Empty);
     }
 
-    private FitWarningViewModel? CreateFit(ConferenceIssueRowViewModel? row)
+    /// <summary>"Dividir em páginas" fica indisponível enquanto a IA encurta a fala; o botão e o Enter acompanham.</summary>
+    private void OnSplitCanExecuteChanged(object? sender, EventArgs e)
+    {
+        FixAndNextCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(ShowFixAndNext));
+    }
+
+    private (FitWarningViewModel? Fit, TextboxLayout? Layout) CreateFit(ConferenceIssueRowViewModel? row)
     {
         if (row is not { RuleId: BoxLineLimitRule.RuleId, Unit: { } unit } || Project?.Root is not { } root)
         {
-            return null;
+            return (null, null);
         }
 
         FormattingProfile profile;
@@ -40,7 +65,7 @@ public sealed partial class ConferenceViewModel
         }
         catch (VNForgeException)
         {
-            return null;
+            return (null, null);
         }
 
         var fit = new FitWarningViewModel(
@@ -51,7 +76,12 @@ public sealed partial class ConferenceViewModel
             text => ReplaceTranslationAsync(row, text, "Fala dividida em páginas."),
             text => ReplaceTranslationAsync(row, text, "Fala encurtada pela IA."));
         fit.Update();
-        return fit.IsVisible ? fit : null;
+        if (!fit.IsVisible)
+        {
+            return (null, null);
+        }
+
+        return (fit, new TextboxPreviewViewModel(unit, profile, unit.Translation ?? string.Empty).Layout);
     }
 
     /// <summary>Grava a tradução nova da linha do problema, avisa o Editor e reconfere o projeto.</summary>

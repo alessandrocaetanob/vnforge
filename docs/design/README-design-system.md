@@ -19,13 +19,13 @@ A interface v3 fala a língua de quem traduz pela primeira vez (plano, seção "
 | **Testar** | Build, no trilho | Item do trilho; a tela abre com o título "Testar no jogo" | No app (#308) |
 | **Testar no jogo** | Build e injeção | Botão principal da tela (`Ctrl+B`), o mesmo passo a passo do `vnf test` | No app (#308) |
 | **Ler o texto** | Extrair | Etapa da jornada do Painel e passo da primeira vez no Início | Ainda não: o Painel diz "Extrair" até a #309 e o Início v3 vem na #313 |
-| **Conferir a tradução** | Conferência (QA) | Título da tela 9 do canvas | Em parte: já é o nome do primeiro passo do teste no jogo (`GameTestStep.Check`) e da mensagem "Corrija em Conferir a tradução" da tela Testar, mas a tela em si ainda se chama "Conferência" e o trilho diz "Conferir". Nenhuma issue da v3 cobre a tela 9 inteira (filtros em linguagem comum, "O que é isso", "Corrigir e ir para o próximo") |
+| **Conferir a tradução** | Conferência (QA) | Título da tela 9 do canvas | No app (#334): título da página, nome do primeiro passo do teste no jogo (`GameTestStep.Check`) e da mensagem "Corrija em Conferir a tradução" da tela Testar. O trilho diz só "Conferir" (72 px), como diz "Testar" para Testar no jogo |
 | **Voltar ao jogo original** | Restaurar originais | Botão neutro, sempre visível, da faixa de estado do jogo | No app (#308); em "Detalhes técnicos" da mesma tela o botão ainda é "Restaurar originais" |
-| **Está certo assim** | Marcar como ok | Botão da Conferência que silencia um aviso de uma linha | Ainda não: a tela diz "Marcar como ok" |
+| **Está certo assim** | Marcar como ok | Botão da tela Conferir a tradução que silencia um aviso de uma linha (`QaFlags.MarkOk` no Core) | No app (#334) |
 | **virar a página** | `\p` | Selo dentro do texto (`MarkerLabels.Name`) | No app (#302) |
 | **quebra de linha** | `\n` | Selo dentro do texto, com o desenho ↵ | No app (#302) |
 | **esperar o clique**, **nome do jogador**, **código do jogo** | `\c`, variável de nome, outros códigos | Selos do `MarkerChip` | No app (#302) |
-| **Falta uma quebra do original** | Marcadores diferentes do original | Aviso de marcador que falta | Ainda não: o inspetor e a Conferência dizem "Marcadores diferentes do original" |
+| **Falta um marcador do original** | Marcadores diferentes do original | Título do erro de marcador na lista de problemas: "Falta um marcador do original", "Sobra um marcador na tradução" ou "Faltam e sobram marcadores", com o detalhe "Falta virar a página." | No app (#334); o inspetor do Editor diz "Falta ou sobra um marcador" |
 | **Pronta** | Revisada ou aprovada | Coluna **Situação** da grade do Editor | No app (#302) |
 | **Sua** | Traduzida | Coluna Situação | No app (#302) |
 | **IA** | Traduzida por IA | Coluna Situação | No app (#302) |
@@ -37,7 +37,8 @@ A interface v3 fala a língua de quem traduz pela primeira vez (plano, seção "
 | **Modo revisão** | | Botão do cabeçalho do Editor, com **Está boa**, **Corrigir**, **Depois** e **Pular** | No app (#307) |
 | **Traduzir com IA** | Traduzir pendentes | Botão do cabeçalho do Editor e a janela das três perguntas | No app (#304) |
 | **Rápida**, **Equilibrada**, **Caprichada** | Nome do modelo | `QualityCard`, com o modelo em letra pequena | No app (#303, #304, #312) |
-| **Detalhes técnicos** | | `TechnicalDetails`, fechado por padrão: motor, pacote, página de código, modelo exato, registro | No app (#302) |
+| **Detalhes técnicos** | | `TechnicalDetails`, fechado por padrão: motor, pacote, página de código, modelo exato, registro, os nomes técnicos das estratégias de acentos | No app (#302) |
+| **Acentos**, **Sem acentos**, **Com acentos, fonte modificada**, **Com acentos, ajuste no jogo** | Acentuação, "Remover acentos (fold)", "Remapear para meia largura (remap)", "Latin-1 nativo (cp1252)" | Aba dos Ajustes e passo do Novo projeto, os mesmos três cartões (`AccentCards`); o `sjis` não é cartão | No app (#312, #335) |
 | **Precisa de você** | | Lista de pendências do Painel (`TodoItem`) | Ainda não: Painel na #309 |
 
 O plano chama o botão do inspetor de "Aprovar e ir para a próxima"; o app diz **Aprovar e próxima**, que cabe nos 360 px do editor compacto. Vale o do app.
@@ -119,6 +120,7 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 | `MarkerChip` | `.mk` | `Marker`, `Kind`, `IsMissing` | Selo com o nome em português no lugar do marcador; no AvaloniaEdit entra pelo `MarkerChipGenerator` e ocupa uma coluna do cursor | Campo da tradução e original do inspetor do Editor, modo revisão |
 | `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso e Ajustes (#309/#313) |
 | `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o gasto mais o pedido (zero, sem pedido) passa dele | Traduzir com IA, Ajustes; Painel (#309) |
+| `AccentCards` | `.enc` | `Options` (`ChoiceOption`), `GroupName` | Os três cartões de acentos, cada um um `RadioButton` com nome, selo ("Em breve", "Recomendada para este jogo"), explicação e a frase de teste num `GameTextbox` pequeno; a seleção única fica no `ChoiceGroup` da tela, montado por `AccentChoices` | Novo projeto, Ajustes (aba Acentos) |
 | `QualityCard` | `.opt` | `Title`, `Price`, `Duration`, `Model`, `ExampleRate` | `OptionCard` com preço em reais e tempo em destaque e o modelo em letra pequena; é um `RadioButton` de grupo | Traduzir com IA, Novo projeto, Ajustes |
 | `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor do Editor, modo revisão |
 | `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor do Editor, modo revisão |
