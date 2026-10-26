@@ -75,7 +75,8 @@ public class EditorGridUpdateTests : IDisposable
         Assert.NotEqual("sem tradução", linha.TranslationLabel);
         Assert.Equal(vm.Detail.Translation, linha.TranslationLabel);
         Assert.Equal(TranslationStatus.Translated, linha.Status);
-        Assert.False(linha.HasWarning);
+        // O provedor falso devolve o original com "[PT]" na frente, então o aviso de japonês na tradução é o certo; o de "sem tradução" tem de ter saído.
+        Assert.DoesNotContain(linha.Entry.Issues, i => i.RuleId == "nao-traduzida");
     }
 
     [Fact]
