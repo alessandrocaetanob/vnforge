@@ -382,6 +382,16 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     private bool CanOpenLine(ConferenceIssueRowViewModel? row) => !IsBusy && row is not null;
 
+    /// <summary>O usuário clicou no id de uma linha citado numa mensagem da página (um erro, por exemplo).</summary>
+    [RelayCommand]
+    private void OpenLineById(LineRequest? request)
+    {
+        if (request is not null)
+        {
+            LineRequested?.Invoke(this, request);
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanMarkOk))]
     private async Task MarkOkAsync(ConferenceIssueRowViewModel? row)
     {

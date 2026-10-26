@@ -1,7 +1,6 @@
-using System.Globalization;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
@@ -179,18 +178,5 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     }
 
     /// <summary>Minúsculas e sem acento, para "conferencia" achar "Conferência".</summary>
-    public static string Fold(string text)
-    {
-        var decomposed = text.Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(decomposed.Length);
-        foreach (var c in decomposed)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(char.ToLowerInvariant(c));
-            }
-        }
-
-        return builder.ToString();
-    }
+    public static string Fold(string text) => SearchText.Fold(text);
 }

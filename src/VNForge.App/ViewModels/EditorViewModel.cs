@@ -330,15 +330,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return found;
         }
 
-        // Só a tradução em português perde o acento na busca; no original em japonês a dobra juntaria kana com e sem dakuten.
-        var folded = CommandPaletteViewModel.Fold(text);
+        var filter = new LineFilter(Query: text);
         foreach (var script in data.Scripts)
         {
             foreach (var entry in data.LinesOf(script.Key))
             {
-                var unit = entry.Unit;
-                if (unit.Source.Contains(text, StringComparison.OrdinalIgnoreCase)
-                    || (unit.Translation is { } translation && CommandPaletteViewModel.Fold(translation).Contains(folded, StringComparison.Ordinal)))
+                if (filter.Matches(entry))
                 {
                     found.Add(entry);
                     if (found.Count >= limit)
