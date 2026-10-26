@@ -45,5 +45,25 @@ public abstract class ThreeStateProgress : TemplatedControl
     /// <summary>A parte pronta como número inteiro de 0 a 100, arredondada para baixo: 99,9% nunca vira "100%".</summary>
     public int Percent => (int)Math.Floor(DoneFraction * 100);
 
+    /// <summary>
+    /// A parte pronta como texto: inteiro a partir de 1%, uma casa decimal abaixo disso ("0,7%") e "&lt;0,1%" quando só há uma fração mínima pronta.
+    /// Assim "51 de 6.854 prontas" não vira "0%" ao lado de linhas que já saíram do japonês. Sempre arredondado para baixo.
+    /// </summary>
+    protected string DonePercentText()
+    {
+        var tenths = Total <= 0 ? 0 : (int)Math.Floor(Math.Clamp(Done, 0, Total) * 1000 / Total);
+        if (tenths >= 10)
+        {
+            return $"{tenths / 10}%";
+        }
+
+        if (tenths == 0)
+        {
+            return Done > 0 && Total > 0 ? "<0,1%" : "0%";
+        }
+
+        return $"0,{tenths}%";
+    }
+
     private double Fraction(double part) => Total <= 0 ? 0 : Math.Clamp(part / Total, 0, 1);
 }

@@ -295,6 +295,38 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
+    public async Task O_passo_Revisar_diz_quantas_linhas_estao_revisadas_de_quantas_e_quantas_faltam()
+    {
+        var status = StatusOf(
+            ("yst00001", Lines("yst00001", (TranslationStatus.Approved, 51), (TranslationStatus.Machine, 268), (TranslationStatus.Untranslated, 6535))));
+        var vm = await Load(Dashboard(status));
+
+        Assert.Equal("51 de 319 revisadas · faltam 268", vm.Steps[2].Subtitle);
+        Assert.Equal(51, vm.ReadyLines);
+        Assert.Equal(6854, vm.TotalLines);
+    }
+
+    [Fact]
+    public async Task A_linha_do_capitulo_todo_traduzido_pela_IA_diz_quantas_faltam_revisar()
+    {
+        var vm = await Load(Dashboard(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 200))))));
+        var chapter = vm.Chapters[0];
+
+        var row = new VNForge.App.Controls.ChapterRow { Done = chapter.Ready, Review = chapter.ToReview, Total = chapter.Total };
+
+        Assert.Equal("200 a revisar", row.PercentText);
+    }
+
+    [Fact]
+    public async Task O_passo_Revisar_sem_nada_revisado_ainda_diz_de_quantas()
+    {
+        var status = StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 200))));
+        var vm = await Load(Dashboard(status));
+
+        Assert.Equal("0 de 200 revisadas · faltam 200", vm.Steps[2].Subtitle);
+    }
+
+    [Fact]
     public async Task A_conferencia_que_nao_rodou_aparece_na_frase_do_passo()
     {
         var status = StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Approved, 1))));

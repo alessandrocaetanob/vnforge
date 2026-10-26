@@ -43,9 +43,10 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="ProgressRing · 38%, 100%, vazio, pequeno"/>
+      <TextBlock Classes="overline" Text="ProgressRing · 38%, abaixo de 1%, 100%, vazio, pequeno"/>
       <StackPanel Orientation="Horizontal" Spacing="24">
         <c:ProgressRing Done="18592" Review="10936" Total="48211"/>
+        <c:ProgressRing Done="51" Review="268" Total="6854"/>
         <c:ProgressRing Done="100" Review="0" Total="100"/>
         <c:ProgressRing Done="0" Review="0" Total="0"/>
         <c:ProgressRing Classes="sm" Done="62" Review="20" Total="100"/>
@@ -63,6 +64,7 @@
       <TextBlock Classes="overline" Text="ChapterRow · comum, aqui, menus e nomes"/>
       <c:ChapterRow Number="1" Title="Manhã de chuva" Done="2840" Review="1210" Total="4100" Note="Você está aqui · 1 erro em Manhã de chuva" IsHere="True"/>
       <c:ChapterRow Number="2" Title="O clube de leitura" Done="3100" Review="420" Total="6020" Note="A IA parou no limite de gasto"/>
+      <c:ChapterRow Number="3" Title="Tudo traduzido, nada revisado" Done="0" Review="200" Total="200"/>
       <c:ChapterRow Title="Menus e nomes" Done="900" Review="0" Total="1200" IsExtra="True"/>
     </StackPanel>
 

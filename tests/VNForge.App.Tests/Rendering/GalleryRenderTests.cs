@@ -54,9 +54,11 @@ public class GalleryRenderTests(HeadlessFixture fixture) : IClassFixture<Headles
         Assert.Equal(ComponentGalleryV3.IconKeys.Count, All<PathIcon>().Count(i => i.Parent is StackPanel { Width: 84 }));
         Assert.Equal(8, All<MarkerChip>().Length);
         Assert.Equal(5, All<GameTextbox>().Length);
-        Assert.Equal(4, All<ProgressRing>().Length);
-        Assert.Equal(6, All<Seg3Bar>().Length);
-        Assert.Equal(3, All<ChapterRow>().Length);
+        Assert.Equal(5, All<ProgressRing>().Length);
+        Assert.Equal(7, All<Seg3Bar>().Length);
+        Assert.Equal(4, All<ChapterRow>().Length);
+        Assert.Contains(All<ProgressRing>(), r => r.PercentText == "0,7%");
+        Assert.Contains(All<ChapterRow>(), r => r.PercentText == "200 a revisar");
         Assert.Equal(2, All<CostLabel>().Length);
         Assert.Equal(2, All<BudgetBar>().Length);
         Assert.Equal(3, All<QualityCard>().Length);
