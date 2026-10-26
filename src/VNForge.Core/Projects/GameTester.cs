@@ -29,6 +29,12 @@ public static class GameTestStepLabels
 /// <summary>O jogo recebeu o build, mas o executável não abriu. O estado do jogo já está gravado.</summary>
 public sealed class GameOpenException(string message, Exception inner) : VNForgeException(message, inner);
 
+/// <summary>
+/// O patch do executável que os acentos <c>cp1252</c> precisam foi recusado (por exemplo, o nome da fonte não está no executável). O teste parou antes
+/// de gravar qualquer coisa no jogo. A mensagem traz o motivo técnico; a tela mostra uma frase em linguagem comum e deixa o motivo no registro.
+/// </summary>
+public sealed class GamePatchRefusedException(string message, Exception inner) : VNForgeException(message, inner);
+
 /// <summary>Quanto um passo levou.</summary>
 public sealed record GameTestStepResult(GameTestStep Step, TimeSpan Elapsed);
 
@@ -77,6 +83,20 @@ public sealed class GameTester(
 
         using var projectLock = ProjectLock.Acquire(project);
         var executable = options.OpenGame ? ResolveExecutable(project) : null;
+        // O patch é planejado antes do build: se o executável não serve, o teste para sem gastar o build e sem gravar nada no jogo.
+        var patches = PlanExecutablePatches(project);
+        try
+        {
+            return Execute(project, options, executable, patches, steps, scripts, cancellationToken);
+        }
+        finally
+        {
+            patches.ForEach(GameInjector.DiscardPatch);
+        }
+    }
+
+    private GameTestResult Execute(ProjectFolder project, GameTestOptions options, string? executable, List<PatchPlan> patches, IProgress<GameTestStep>? steps, IProgress<ScriptWorkProgress>? scripts, CancellationToken cancellationToken)
+    {
         var kind = options.AccentTest ? GameTestKind.AccentTest : GameTestKind.Translation;
         var timeline = new StepTimeline(_clock, steps);
 
@@ -97,7 +117,7 @@ public sealed class GameTester(
         cancellationToken.ThrowIfCancellationRequested();
 
         timeline.Begin(GameTestStep.Backup);
-        var plan = GameInjector.Plan(project);
+        var plan = WithPatches(GameInjector.Plan(project), patches);
         // O estado do jogo é gravado dentro da injeção, antes de abrir o executável: uma falha ao abrir não esconde o que está na pasta.
         var injection = GameStateFile.Inject(
             project,
@@ -133,6 +153,56 @@ public sealed class GameTester(
         GameStateFile.TryClearInGame(project);
         return result;
     }
+
+    /// <summary>
+    /// Os patches de executável da engine, só quando os acentos são <c>cp1252</c> ("ajuste no jogo") e a engine é <see cref="IGamePatchProvider"/>: sem o patch
+    /// o jogo mostra os acentos trocados. É o mesmo <see cref="GameInjector.PlanPatch"/> de <c>vnf patch-exe</c>; não grava nada no jogo.
+    /// </summary>
+    /// <exception cref="GamePatchRefusedException">Um patch foi recusado (zero ou mais de uma ocorrência do nome da fonte, por exemplo).</exception>
+    private List<PatchPlan> PlanExecutablePatches(ProjectFolder project)
+    {
+        var config = project.LoadConfig();
+        if (!string.Equals(config.Encoding.Strategy, "cp1252", StringComparison.Ordinal)
+            || _engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal)) is not IGamePatchProvider provider)
+        {
+            return [];
+        }
+
+        var plans = new List<PatchPlan>();
+        try
+        {
+            foreach (var patch in provider.CreatePatches(config.Game.Exe))
+            {
+                plans.Add(GameInjector.PlanPatch(project, patch));
+            }
+
+            return plans;
+        }
+        catch (InjectionException ex)
+        {
+            plans.ForEach(GameInjector.DiscardPatch);
+            throw new GamePatchRefusedException(
+                $"O ajuste da fonte no executável do jogo, que os acentos cp1252 precisam, não pôde ser feito, e o teste parou antes de copiar qualquer coisa para o jogo. {ex.Message}", ex);
+        }
+        catch
+        {
+            plans.ForEach(GameInjector.DiscardPatch);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Junta os arquivos dos patches ao plano do build para o backup e a gravação saírem numa injeção só: um backup, um manifesto e o hash de cada arquivo
+    /// conferido. Um patch que o jogo já tem não traz arquivo, e então nada muda.
+    /// </summary>
+    private static InjectionPlan WithPatches(InjectionPlan build, IReadOnlyList<PatchPlan> patches) =>
+        patches.Count == 0
+            ? build
+            : build with
+            {
+                Files = [.. build.Files, .. patches.SelectMany(p => p.Injection.Files)],
+                UnchangedCount = build.UnchangedCount + patches.Sum(p => p.Injection.UnchangedCount),
+            };
 
     private void Open(ProjectFolder project)
     {

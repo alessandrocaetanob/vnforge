@@ -6,11 +6,16 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>Engine de mentira dos testes do build: os scripts são <c>.fake</c> com uma linha <c>tipo|texto</c> por unidade e o pacote é um arquivo só.</summary>
-internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker
+internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePatchProvider
 {
     internal const string PackageName = "pacote.fake";
 
     private readonly FakeFormat _format = new();
+
+    /// <summary>Os patches de executável que a engine oferece; vazio por padrão, como uma engine sem patch.</summary>
+    public Func<string, IReadOnlyList<IGamePatch>> ExePatches { get; set; } = _ => [];
+
+    public IReadOnlyList<IGamePatch> CreatePatches(string executable) => ExePatches(executable);
 
     public string Id => "fake";
 
