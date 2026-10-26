@@ -15,7 +15,7 @@ public static class ConferenceRuleTexts
     {
         [UntranslatedQaRule.RuleId] = ("Não traduzida", "A fala ainda não tem tradução. No teste no jogo ela aparece em japonês, então não trava nada."),
         ["traducao-vazia"] = ("Tradução vazia", "A fala está marcada como traduzida, mas o texto está vazio. O jogo mostraria uma caixa de texto vazia."),
-        ["marcador-diferente"] = ("Falta ou sobra um marcador", "No fim de cada fala o jogo espera o clique para virar a página, e as quebras de linha e os nomes do jogador também são selos. Cada selo do original precisa estar na tradução, senão o jogo não abre a cena. Não corrijo sozinho porque o lugar do selo pode mudar na tradução."),
+        ["marcador-diferente"] = ("Falta ou sobra um marcador", "No fim de cada fala o jogo espera o clique para virar a página, e o nome do jogador também vem num selo. Cada virada de página e cada nome do original precisam estar na tradução, senão o jogo não abre a cena. A quebra de linha não entra na conta, porque o teste no jogo a refaz. Não corrijo sozinho porque o lugar do selo pode mudar na tradução."),
         ["glossario-diferente"] = ("Termo diferente do glossário", "O glossário fixa a tradução deste termo. Se a fala pede outra escolha, use Está certo assim para registrar a exceção na linha."),
         ["personagem-diferente"] = ("Nome de personagem diferente", "O nome do personagem foi traduzido diferente do que está no Glossário. Use Está certo assim se a variação for de propósito."),
         ["traducao-inconsistente"] = ("Mesmo original, traduções diferentes", "O mesmo original foi traduzido de jeitos diferentes. Pode ser de propósito (personagens diferentes); a lista completa abre na busca."),
@@ -161,7 +161,7 @@ public sealed class ConferenceIssueRowViewModel
         }
     }
 
-    private static readonly Regex MarkerPattern = new(@"\\[npcu\\]|\{[^{}]*\}", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    private static readonly Regex MarkerPattern = new(@"\\[npcu\\{]|\{[^{}]*\}", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     /// <summary>Troca cada marcador cru do texto pelo nome em português, entre parênteses: <c>anda !\p</c> vira <c>anda !(virar a página)</c>.</summary>
     public static string PlainMarkers(string text) =>
@@ -354,5 +354,6 @@ internal readonly record struct MarkerDifference(IReadOnlyList<string> Missing, 
     private static List<string> Names(string markers) =>
         [.. markers.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(m => MarkerLabels.Name(m, m.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control))
-            .Distinct(StringComparer.Ordinal)];
+            .GroupBy(name => name, StringComparer.Ordinal)
+            .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} ({g.Count()} vezes)")];
 }

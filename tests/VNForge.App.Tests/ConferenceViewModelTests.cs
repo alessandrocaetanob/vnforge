@@ -203,6 +203,7 @@ public class ConferenceViewModelTests
     [InlineData(@"“anda !\p”", "“anda !(virar a página)”")]
     [InlineData(@"o original '「了解」\p' aparece", "o original '「了解」(virar a página)' aparece")]
     [InlineData(@"fala\nseguinte {VAR:nome}", "fala(quebra de linha)seguinte (nome do jogador)")]
+    [InlineData(@"a  \{b", "a  (chave)b")]
     [InlineData("sem marcador", "sem marcador")]
     public void A_lista_troca_o_marcador_cru_pelo_nome_em_portugues(string text, string expected)
     {
