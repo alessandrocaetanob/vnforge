@@ -64,6 +64,24 @@ public sealed class SpeakerTextTests
     }
 
     [Fact]
+    public void Shift_jis_com_traducao_acentuada_mantem_o_nome_original_como_antes()
+    {
+        var name = SpeakerText.Resolve("犬井", Book(("犬井", "Mãe")), ShiftJis);
+
+        Assert.True(name.IsWritable);
+        Assert.Equal("犬井", name.Name);
+    }
+
+    [Fact]
+    public void Mensagem_trata_par_substituto_e_borda_do_texto()
+    {
+        Assert.Equal("o caractere '😀' (U+1F600)", EncodingMessages.Character("a😀", 1));
+        Assert.Equal("o caractere '\uD83D' (U+D83D)", EncodingMessages.Character("a\uD83D", 1));
+        Assert.Equal("…bcd", EncodingMessages.Excerpt("abcd", 3, radius: 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => EncodingMessages.Character("ab", 2));
+    }
+
+    [Fact]
     public void Cadastro_com_traducao_vazia_cai_no_nome_original()
     {
         Assert.False(SpeakerText.Resolve("犬井", Book(("犬井", "  ")), Cp1252).IsWritable);

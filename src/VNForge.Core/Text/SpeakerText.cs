@@ -20,7 +20,8 @@ public static class SpeakerText
     };
 
     /// <summary>
-    /// O nome que vai para o jogo no lugar do <paramref name="speaker"/> extraído. Vale a tradução de <c>characters.json</c>; sem entrada, o nome original,
+    /// O nome que vai para o jogo no lugar do <paramref name="speaker"/> extraído. Vale a tradução de <c>characters.json</c> (se a estratégia não a grava mas
+    /// grava o nome original, como o Shift-JIS, fica o original); sem entrada, o nome original,
     /// e só quando o <paramref name="encoder"/> não o grava é que a largura é normalizada (NFKC: <c>？？？</c> vira <c>???</c>). O nome que ainda sobra sem
     /// representação (japonês sem cadastro) volta como erro, com o que fazer.
     /// </summary>
@@ -38,8 +39,14 @@ public static class SpeakerText
         if (characters.Find(speaker) is { } entry && !string.IsNullOrWhiteSpace(entry.Target))
         {
             var target = entry.Target.Trim();
-            return WithWidthFallback(target, encoder) is { } written
-                ? new SpeakerName(written, null)
+            if (WithWidthFallback(target, encoder) is { } written)
+            {
+                return new SpeakerName(written, null);
+            }
+
+            // O Shift-JIS grava o nome japonês mesmo quando não grava o acento da tradução: o build segue como antes, com o nome do original.
+            return encoder.FindUnencodable(speaker).Count == 0
+                ? new SpeakerName(speaker, null)
                 : new SpeakerName(
                     target,
                     $"A tradução do nome do personagem {speaker.Trim()} ('{target}') tem {FirstRefused(target, encoder)}, que a codificação do jogo ({encoder.Id}) não grava. Troque a tradução do nome no Glossário > Personagens.");
