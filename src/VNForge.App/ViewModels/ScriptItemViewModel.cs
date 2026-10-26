@@ -34,6 +34,21 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
     [ObservableProperty]
     public partial bool IsShown { get; set; } = true;
 
+    /// <summary>
+    /// O item aparece na lista: passa pelo filtro e o capítulo dele está aberto (o primeiro item do capítulo aparece sempre, porque leva o cabeçalho).
+    /// <see cref="IsShown"/> continua dizendo só do filtro, para fechar um capítulo não tirar as cenas dele de "Traduzir com IA".
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsListed { get; set; } = true;
+
+    /// <summary>O item é o primeiro do capítulo na lista e desenha o cabeçalho dele acima de si.</summary>
+    [ObservableProperty]
+    public partial bool IsGroupStart { get; set; }
+
+    /// <summary>O capítulo a que a cena pertence na lista; nulo antes de a lista ser agrupada.</summary>
+    [ObservableProperty]
+    public partial ChapterGroupViewModel? Chapter { get; set; }
+
     public StatusDistribution Distribution { get; private set; } = StatusDistribution.Of(progress.Counts);
 
     /// <summary>O percentual de IA aparece só aqui; o de "concluído" conta Revisadas e Aprovadas.</summary>

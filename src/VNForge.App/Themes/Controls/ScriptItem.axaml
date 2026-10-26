@@ -68,11 +68,11 @@
       </ItemsPanelTemplate>
     </Setter>
   </Style>
+  <!-- O item da lista leva o cabeçalho do capítulo quando abre um grupo, então o fundo de hover e de atual fica no cartão da cena (Border.scene), não no item inteiro. -->
   <Style Selector="ListBox.scripts > ListBoxItem">
     <Setter Property="Padding" Value="0"/>
     <Setter Property="MinHeight" Value="0"/>
-    <Setter Property="Margin" Value="6,1"/>
-    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Margin" Value="0"/>
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Template">
       <ControlTemplate>
@@ -80,17 +80,21 @@
                           Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
                           BorderThickness="{TemplateBinding BorderThickness}"
-                          CornerRadius="{TemplateBinding CornerRadius}"
                           Padding="{TemplateBinding Padding}"
                           Content="{TemplateBinding Content}"
                           ContentTemplate="{TemplateBinding ContentTemplate}"/>
       </ControlTemplate>
     </Setter>
   </Style>
-  <Style Selector="ListBox.scripts > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="ListBox.scripts Border.scene">
+    <Setter Property="Margin" Value="6,1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="ListBox.scripts > ListBoxItem:pointerover Border.scene">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
   </Style>
-  <Style Selector="ListBox.scripts > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="ListBox.scripts > ListBoxItem:selected Border.scene">
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
   </Style>
 </Styles>

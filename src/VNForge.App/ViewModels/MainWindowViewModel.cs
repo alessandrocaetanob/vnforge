@@ -126,6 +126,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         start.NextStepRequested += (_, request) => OpenFromDashboard(request);
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
+        Dashboard.ChaptersRenamed += (_, _) => _ = Editor.RefreshChaptersAsync();
         start.EditorRequested += (_, summary) =>
         {
             try
@@ -376,9 +377,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return target is not (NavKey.Conference or NavKey.Dashboard or NavKey.Start or NavKey.Build) || Editor.Detail?.Flush() != false;
     }
 
-    private void AttachEditor(EditorViewModel value) => value.LineSaved += OnLineSaved;
+    private void AttachEditor(EditorViewModel value)
+    {
+        value.LineSaved += OnLineSaved;
+        value.ChaptersChanged += OnChaptersChanged;
+    }
 
-    private void DetachEditor(EditorViewModel value) => value.LineSaved -= OnLineSaved;
+    private void DetachEditor(EditorViewModel value)
+    {
+        value.LineSaved -= OnLineSaved;
+        value.ChaptersChanged -= OnChaptersChanged;
+    }
+
+    /// <summary>O Editor criou ou moveu capítulos: o Painel mostra os totais novos sem reler o projeto.</summary>
+    private void OnChaptersChanged(object? sender, ScriptGroupChange change) => Dashboard.ApplyGrouping(change);
 
     private void OnLineSaved(object? sender, LineSavedEventArgs saved) => ShowLineSaved(saved);
 
@@ -483,7 +495,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             // Vindo do Início o projeto acabou de abrir e o Editor ainda carrega os scripts: ShowScriptAsync espera a carga.
             LineNavigation = ShowScriptAsync(key);
+            if (request.NewChapter)
+            {
+                LineNavigation = BeginNewChapterAfterAsync(LineNavigation);
+            }
         }
+    }
+
+    /// <summary>"Novo capítulo..." do Painel: com a cena aberta no Editor, abre o campo do nome do capítulo.</summary>
+    private async Task BeginNewChapterAfterAsync(Task opening)
+    {
+        await opening;
+        Editor.BeginNewChapterOnOpenScene();
     }
 
     private async Task ShowLineAsync(LineRequest request)

@@ -249,4 +249,17 @@ public class ScriptGroupEditorTests
         Assert.Equal("Manhã · 朝", lido.Group(Key(3)));
         Assert.DoesNotContain('\r', primeiro);
     }
+
+    [Fact]
+    public void Capitulo_que_perde_a_ultima_cena_some_e_a_cena_movida_vai_para_o_capitulo_que_ja_existe()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/01_cap1"), (3, "userscript/02_cap2"));
+
+        var mudanca = ScriptGroupEditor.Group(projeto, [Key(3)], "Capítulo 1");
+
+        Assert.Equal(["Capítulo 1"], mudanca.Chapters.Select(c => c.Name));
+        Assert.Equal([Key(1), Key(2), Key(3)], mudanca.Chapters[0].ScriptKeys);
+        Assert.Equal(["Capítulo 1"], ProjectDashboard.Read(projeto).Chapters().Select(c => c.Name));
+    }
 }

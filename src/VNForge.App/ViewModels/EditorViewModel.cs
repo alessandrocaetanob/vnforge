@@ -235,6 +235,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             // A hora da última gravação é do projeto aberto; só um Reload do mesmo projeto a mantém.
             LastSavedAt = null;
             loadedRoot = root;
+            closedChapters.Clear();
+            scriptNames = ScriptNames.Empty;
+            CancelNewChapter();
         }
 
         if (root is null)
@@ -252,10 +255,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         IsLoading = true;
         ProjectLines? loaded = null;
         var loadedContext = EditorContext.Empty;
+        NamesRead? loadedNames = null;
         string? error = null;
         try
         {
-            (loaded, loadedContext) = await Task.Run(() => (loader(root), contextLoader(root)));
+            (loaded, loadedContext, loadedNames) = await Task.Run<(ProjectLines, EditorContext, NamesRead)>(() => (loader(root), contextLoader(root), ReadNames(root)));
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -271,6 +275,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorMessage = error;
         lineEditor = CreateLineEditor(loaded, root);
         context = loadedContext;
+        scriptNames = loadedNames?.Names ?? scriptNames;
+        if (loadedNames?.Error is { } namesError)
+        {
+            ChapterMessage = namesError;
+        }
+
         Apply(loaded);
     }
 
@@ -390,6 +400,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         {
             script.IsShown = script.Matches(ScriptFilter);
         }
+
+        RefreshChapterList();
     }
 
     /// <summary>Disparado por "Conferir arquivo": a janela abre Conferir a tradução. Leva a chave do script aberto.</summary>
@@ -844,6 +856,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
                 Scripts.Add(new ScriptItemViewModel(script, scriptLabel(script.Key)) { IsRunning = script.Key == RunningScriptKey });
             }
 
+            RebuildChapters();
             ApplyScriptFilter();
 
             SelectedScript = Scripts.FirstOrDefault();

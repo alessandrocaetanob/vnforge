@@ -146,10 +146,10 @@
       <TextBlock Classes="overline" Text="ScriptItem · Completo, atual, traduzindo, sem nome"/>
       <Border Classes="panel" Width="260" Padding="0,6">
         <ListBox Classes="scripts" SelectedIndex="1">
-          <ListBoxItem><c:ScriptItem Key="yst00012" Label="Prólogo" Percent="100"/></ListBoxItem>
-          <ListBoxItem><c:ScriptItem Key="yst00013" Label="Capítulo 1 — Manhã de chuva" Percent="55"/></ListBoxItem>
-          <ListBoxItem><c:ScriptItem Key="yst00014" Label="Capítulo 1 — Sala de aula" Percent="35" IsRunning="True"/></ListBoxItem>
-          <ListBoxItem><c:ScriptItem Key="yst00015" Percent="0"/></ListBoxItem>
+          <ListBoxItem><Border Classes="scene"><c:ScriptItem Key="yst00012" Label="Prólogo" Percent="100"/></Border></ListBoxItem>
+          <ListBoxItem><Border Classes="scene"><c:ScriptItem Key="yst00013" Label="Capítulo 1 — Manhã de chuva" Percent="55"/></Border></ListBoxItem>
+          <ListBoxItem><Border Classes="scene"><c:ScriptItem Key="yst00014" Label="Capítulo 1 — Sala de aula" Percent="35" IsRunning="True"/></Border></ListBoxItem>
+          <ListBoxItem><Border Classes="scene"><c:ScriptItem Key="yst00015" Percent="0"/></Border></ListBoxItem>
         </ListBox>
       </Border>
     </StackPanel>

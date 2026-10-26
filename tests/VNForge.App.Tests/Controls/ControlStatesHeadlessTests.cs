@@ -259,7 +259,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             var list = new ListBox { Classes = { "scripts" } };
             foreach (var item in new[] { done, current, running, bare })
             {
-                list.Items.Add(new ListBoxItem { Content = item });
+                list.Items.Add(new ListBoxItem { Content = new Border { Classes = { "scene" }, Child = item } });
             }
 
             list.SelectedIndex = 1;
@@ -281,7 +281,8 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             var items = list.GetVisualDescendants().OfType<ListBoxItem>().ToList();
             Assert.Equal(FontWeight.SemiBold, Part<TextBlock>(current, "PART_Id").FontWeight);
             Assert.NotEqual(FontWeight.SemiBold, Part<TextBlock>(done, "PART_Id").FontWeight);
-            Assert.Equal(Token(items[1], "Vnf.AccentSoft"), ColorOf(PresenterOf(items[1]).Background));
+            // O fundo de atual é do cartão da cena (Border.scene), não do item: o item também leva o cabeçalho do capítulo.
+            Assert.Equal(Token(items[1], "Vnf.AccentSoft"), ColorOf(((Border)items[1].Content!).Background));
         });
     }
 
