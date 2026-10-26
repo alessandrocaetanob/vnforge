@@ -33,12 +33,15 @@ public sealed class LineEditor
     /// Grava a tradução digitada. Texto nulo, vazio ou só de espaços deixa a linha sem tradução (<see cref="TranslationStatus.Untranslated"/>, sem origem).
     /// Texto novo vira <see cref="TranslationStatus.Translated"/> com origem <c>manual</c> no horário do relógio, mesmo que a linha estivesse revisada ou aprovada:
     /// editar desfaz a revisão. Texto igual ao gravado não muda nada.
+    /// Com a opção <see cref="StyleConfig.KeyboardPunctuation"/> ligada, a pontuação japonesa do texto (<c>。 ～ （</c>) é trocada pela do teclado antes de gravar.
     /// </summary>
     /// <returns>A unidade como ficou no arquivo.</returns>
     /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>
     /// <exception cref="TextFileException">Arquivo do script ausente ou inválido.</exception>
-    public TextUnit SetTranslation(string scriptKey, string id, string? translation) =>
-        Update(scriptKey, id, unit =>
+    public TextUnit SetTranslation(string scriptKey, string id, string? translation)
+    {
+        translation = translation is null ? null : KeyboardPunctuation.For(project)?.Apply(translation) ?? translation;
+        return Update(scriptKey, id, unit =>
         {
             if (string.IsNullOrWhiteSpace(translation))
             {
@@ -56,6 +59,7 @@ public sealed class LineEditor
                     Origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()),
                 };
         });
+    }
 
     /// <summary>
     /// "Usar em todos": grava <paramref name="translation"/> nas linhas indicadas, como <see cref="SetTranslation"/> faria em cada uma, com um arquivo gravado por script.
@@ -67,6 +71,7 @@ public sealed class LineEditor
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
+        translation = KeyboardPunctuation.For(project)?.Apply(translation) ?? translation;
 
         lock (ProjectTextLock.For(project))
         {

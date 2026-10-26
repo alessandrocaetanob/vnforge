@@ -54,7 +54,7 @@ internal static class ClaudePromptParts
     public static IReadOnlyList<string> StyleLines(StyleConfig style)
     {
         ArgumentNullException.ThrowIfNull(style);
-        return
+        List<string> lines =
         [
             style.Honorifics switch
             {
@@ -73,6 +73,13 @@ internal static class ClaudePromptParts
                 ? "Nomes: escreva na ordem ocidental, nome antes do sobrenome (Misaki Sakura)."
                 : "Nomes: mantenha a ordem japonesa, sobrenome antes do nome (Sakura Misaki).",
         ];
+
+        if (style.KeyboardPunctuation)
+        {
+            lines.Add("Pontuação: use a do teclado ocidental (. , ! ? ~ ( ) \"). Não copie a pontuação japonesa do original (。 、 ～ （ ） 「 」 ！ ？).");
+        }
+
+        return lines;
     }
 
     private static void AppendStyleChoices(StringBuilder sb, StyleConfig style)

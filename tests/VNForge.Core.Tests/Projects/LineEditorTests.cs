@@ -33,6 +33,67 @@ public class LineEditorTests
     private static TextUnit Gravada(ProjectFolder projeto, int n) =>
         projeto.LoadText("yst00001").Single(u => u.Id == $"yst00001:{n:D6}");
 
+    private static LineEditor EditorComOpcao(string raiz, bool pontuacaoDoTeclado, params TextUnit[] linhas)
+    {
+        var projeto = ProjectFolder.Create(raiz, new ProjectConfig(
+            "Minha VN",
+            new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+            new EngineConfig("yuris", 500, "0xD36FAC96"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("cp1252"),
+            AiConfig.Default)
+        {
+            Style = StyleConfig.Default with { KeyboardPunctuation = pontuacaoDoTeclado },
+        });
+        projeto.SaveText("yst00001", linhas);
+        return new LineEditor(projeto, new FakeTimeProvider(Agora));
+    }
+
+    [Fact]
+    public void SetTranslation_troca_a_pontuacao_japonesa_pela_do_teclado_quando_a_opcao_esta_ligada()
+    {
+        using var pasta = new TempFolder();
+        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Machine, "～Manhã～"));
+
+        var gravada = editor.SetTranslation("yst00001", "yst00001:000001", "～Bom dia。（oi）");
+
+        Assert.Equal("~Bom dia.(oi)", gravada.Translation);
+    }
+
+    [Fact]
+    public void SetTranslation_com_a_opcao_desligada_grava_o_texto_como_veio()
+    {
+        using var pasta = new TempFolder();
+        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: false, Linha(1, TranslationStatus.Machine, "x"));
+
+        var gravada = editor.SetTranslation("yst00001", "yst00001:000001", "Bom dia。");
+
+        Assert.Equal("Bom dia。", gravada.Translation);
+    }
+
+    [Fact]
+    public void SetTranslation_com_o_mesmo_texto_japones_ja_trocado_nao_regrava()
+    {
+        using var pasta = new TempFolder();
+        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Translated, "Bom dia."));
+
+        var gravada = editor.SetTranslation("yst00001", "yst00001:000001", "Bom dia。");
+
+        Assert.Equal(TranslationStatus.Translated, gravada.Status);
+        Assert.Equal(Agora.AddDays(-1), gravada.Origin?.At);
+    }
+
+    [Fact]
+    public void SetTranslationFor_tambem_troca_a_pontuacao()
+    {
+        using var pasta = new TempFolder();
+        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Untranslated), Linha(2, TranslationStatus.Untranslated));
+
+        var resultado = editor.SetTranslationFor([("yst00001", "yst00001:000001"), ("yst00001", "yst00001:000002")], "Oi！");
+
+        Assert.All(resultado.Changes, c => Assert.Equal("Oi!", c.Saved.Translation));
+    }
+
     [Fact]
     public void Restore_devolve_a_linha_ao_estado_anterior()
     {

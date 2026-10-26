@@ -74,7 +74,7 @@ public sealed class TranslationJob(
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
         var raw = providerFactory(profile.Model, effort);
-        var chain = new CachingTranslationProvider(new ValidatingTranslationProvider(raw), cache, profile.Model);
+        var chain = KeyboardPunctuationProvider.Wrap(new CachingTranslationProvider(new ValidatingTranslationProvider(raw), cache, profile.Model), projectConfig);
 
         var tracker = new RunCostTracker(project, profile.Model, settings.Rate, () => usageOf(raw));
         var estimator = new RequestEstimator(selection, builder, profile.Model, effort, batchSize, settings.Rate, cache);

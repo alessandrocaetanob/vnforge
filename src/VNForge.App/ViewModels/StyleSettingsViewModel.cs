@@ -97,6 +97,10 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool WesternNameOrder { get; set; }
 
+    /// <summary>Trocar a pontuação japonesa pela do teclado na tradução da IA e na que a pessoa grava.</summary>
+    [ObservableProperty]
+    public partial bool KeyboardPunctuation { get; set; }
+
     /// <summary>A fala do exemplo como a IA vai traduzir com as escolhas de hoje.</summary>
     public string ExampleTranslation => ComposeExample(ToConfig());
 
@@ -114,6 +118,7 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
             SelectedNarratorGender = NarratorGenders.First(o => o.Value == style.Narrator.Gender);
             TranslateOnomatopoeia = style.TranslateOnomatopoeia;
             WesternNameOrder = style.WesternNameOrder;
+            KeyboardPunctuation = style.KeyboardPunctuation;
         }
         finally
         {
@@ -136,6 +141,7 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
         },
         TranslateOnomatopoeia = TranslateOnomatopoeia,
         WesternNameOrder = WesternNameOrder,
+        KeyboardPunctuation = KeyboardPunctuation,
     };
 
     /// <summary>

@@ -27,6 +27,7 @@ public class StyleConfigTests
         Assert.Equal(AddressForm.Voce, config.Style.Address);
         Assert.True(config.Style.TranslateOnomatopoeia);
         Assert.True(config.Style.WesternNameOrder);
+        Assert.True(config.Style.KeyboardPunctuation);
         Assert.DoesNotContain("\"style\"", ProjectConfigSerializer.Serialize(config));
     }
 
@@ -48,6 +49,19 @@ public class StyleConfigTests
         Assert.Equal(NarratorGender.Female, config.Style.Narrator.Gender);
         Assert.False(config.Style.TranslateOnomatopoeia);
         Assert.False(config.Style.WesternNameOrder);
+    }
+
+    [Fact]
+    public void A_troca_da_pontuacao_japonesa_vem_ligada_e_faz_ida_e_volta_desligada()
+    {
+        Assert.True(StyleConfig.Default.KeyboardPunctuation);
+        var desligada = Parse() with { Style = StyleConfig.Default with { KeyboardPunctuation = false } };
+
+        var json = ProjectConfigSerializer.Serialize(desligada);
+
+        Assert.Contains("\"keyboardPunctuation\": false", json);
+        Assert.False(ProjectConfigSerializer.Parse(json).Style.KeyboardPunctuation);
+        Assert.False(Parse(", \"style\": { \"keyboardPunctuation\": false }").Style.KeyboardPunctuation);
     }
 
     [Fact]
@@ -122,6 +136,9 @@ public class StyleConfigTests
         ];
 
         Assert.All(changed, c => Assert.NotEqual(baseKey, c.CacheKey()));
+
+        // A troca da pontuação vem depois do cache: ligar ou desligar não invalida o que já foi pago.
+        Assert.Equal(baseKey, (StyleConfig.Default with { KeyboardPunctuation = false }).CacheKey());
         Assert.Equal(
             (StyleConfig.Default with { Narrator = new NarratorStyle { Who = "Kenta" } }).CacheKey(),
             (StyleConfig.Default with { Narrator = new NarratorStyle { Who = " Kenta " } }).CacheKey());

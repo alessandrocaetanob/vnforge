@@ -150,14 +150,14 @@ public sealed class ConferenceIssueRowViewModel
                 return MarkerParts.Detail;
             }
 
-            if (Proposal is { } p)
-            {
-                return PlainMarkers(Excerpt(p.Before, p.After));
-            }
-
             if (RuleId == UnencodableCharacterRule.RuleId)
             {
                 return UnencodableSentence();
+            }
+
+            if (Proposal is { } p)
+            {
+                return PlainMarkers(Excerpt(p.Before, p.After));
             }
 
             return PlainMarkers(Count > 1 ? $"{Message} (+{Count - 1})" : Message);
@@ -178,6 +178,7 @@ public sealed class ConferenceIssueRowViewModel
     private string UnencodableSentence()
     {
         var labels = new List<string>();
+        var replacements = new List<string>();
         foreach (var occurrence in occurrences)
         {
             var match = UnencodablePattern.Match(occurrence.Message);
@@ -187,6 +188,10 @@ public sealed class ConferenceIssueRowViewModel
                 if (!labels.Contains(label))
                 {
                     labels.Add(label);
+                    if (JapanesePunctuation.KeyboardFor(codePoint) is { } keyboard)
+                    {
+                        replacements.Add($"{(keyboard == " " ? "um espaço comum" : keyboard)} no lugar do {label.Split(' ')[0]}");
+                    }
                 }
             }
         }
@@ -199,7 +204,13 @@ public sealed class ConferenceIssueRowViewModel
         var named = labels.Count == 1
             ? $"O {labels[0]} não existe"
             : $"O {string.Join(", o ", labels.Take(labels.Count - 1))} e o {labels[^1]} não existem";
-        return $"{named} na acentuação do projeto.";
+        var hint = replacements.Count switch
+        {
+            0 => string.Empty,
+            1 => $" Use {replacements[0]}.",
+            _ => $" Use {string.Join(", ", replacements)}.",
+        };
+        return $"{named} na acentuação do projeto.{hint}";
     }
 
     /// <summary>O caractere, ou <c>U+XXXX</c> quando ele não aparece na tela (controle, espaço, formato, substituto solto).</summary>
@@ -211,10 +222,15 @@ public sealed class ConferenceIssueRowViewModel
         }
 
         var category = CharUnicodeInfo.GetUnicodeCategory(codePoint);
-        return category is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator
-            or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse or UnicodeCategory.OtherNotAssigned
-            ? $"U+{codePoint:X4}"
-            : char.ConvertFromUtf32(codePoint);
+        var hidden = category is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator
+            or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse or UnicodeCategory.OtherNotAssigned;
+        var glyph = hidden ? $"U+{codePoint:X4}" : char.ConvertFromUtf32(codePoint);
+        return (JapanesePunctuation.NameOf(codePoint), hidden) switch
+        {
+            ({ } name, true) => $"{glyph} ({name})",
+            ({ } name, false) => $"{glyph} ({name}, U+{codePoint:X4})",
+            _ => glyph,
+        };
     }
 
     private static readonly Regex MarkerPattern = new(@"\\[npcu\\{]|\{[^{}]*\}", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));

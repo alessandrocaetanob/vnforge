@@ -166,6 +166,7 @@ public static class ProjectConfigSerializer
         writer.WriteEndObject();
         writer.WriteBoolean("onomatopoeia", style.TranslateOnomatopoeia);
         writer.WriteBoolean("westernNameOrder", style.WesternNameOrder);
+        writer.WriteBoolean("keyboardPunctuation", style.KeyboardPunctuation);
         writer.WriteEndObject();
     }
 
@@ -191,6 +192,7 @@ public static class ProjectConfigSerializer
             Narrator = narrator,
             TranslateOnomatopoeia = reader.OptionalBool("onomatopoeia") ?? defaults.TranslateOnomatopoeia,
             WesternNameOrder = reader.OptionalBool("westernNameOrder") ?? defaults.WesternNameOrder,
+            KeyboardPunctuation = reader.OptionalBool("keyboardPunctuation") ?? defaults.KeyboardPunctuation,
         };
         reader.EnsureNoUnknownProperties();
         return style;

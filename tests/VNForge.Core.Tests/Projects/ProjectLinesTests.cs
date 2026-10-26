@@ -279,6 +279,72 @@ public class ProjectLinesTests
         Assert.Equal(entrada.Number, traduzida.Number);
     }
 
+    private static ProjectFolder ProjetoCp1252(string raiz, params TextUnit[] linhas)
+    {
+        var projeto = ProjectFolder.Create(raiz, new ProjectConfig(
+            "VN",
+            new GameConfig("D:/Jogos/VN", "VN.exe"),
+            new EngineConfig("yuris", 500, "0xD36FAC96"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("cp1252"),
+            AiConfig.Default));
+        projeto.SaveText("story04", linhas);
+        return projeto;
+    }
+
+    private static TextUnit RascunhoComTil() =>
+        new("story04:000064", TextUnitKind.Dialogue, null, "～朝～", "～Manhã～", TranslationStatus.Machine);
+
+    [Fact]
+    public void Gravar_a_linha_sem_o_caractere_tira_o_erro_de_codificacao_sem_reler_o_projeto()
+    {
+        using var pasta = new TempFolder();
+        var linhas = ProjectLines.Read(ProjetoCp1252(pasta.Path, RascunhoComTil()));
+        var entrada = linhas.LinesOf("story04").Single();
+        Assert.Contains(entrada.Issues, i => i.RuleId == UnencodableCharacterRule.RuleId);
+
+        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Manhã", Status = TranslationStatus.Translated });
+
+        Assert.DoesNotContain(gravada.Issues, i => i.RuleId == UnencodableCharacterRule.RuleId);
+    }
+
+    [Fact]
+    public void Gravar_um_caractere_novo_fora_da_codificacao_acende_o_erro_na_hora()
+    {
+        using var pasta = new TempFolder();
+        var linhas = ProjectLines.Read(ProjetoCp1252(pasta.Path, RascunhoComTil() with { Translation = "Manhã" }));
+        var entrada = linhas.LinesOf("story04").Single();
+        Assert.DoesNotContain(entrada.Issues, i => i.RuleId == UnencodableCharacterRule.RuleId);
+
+        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Manhã。" });
+
+        var erro = Assert.Single(gravada.Issues, i => i.RuleId == UnencodableCharacterRule.RuleId);
+        Assert.Contains("U+3002", erro.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WithUnit_com_o_contexto_do_projeto_mantem_as_ocorrencias_das_regras_entre_linhas()
+    {
+        using var pasta = new TempFolder();
+        var linhas = ProjectLines.Read(ProjetoCp1252(pasta.Path, RascunhoComTil()));
+        var entrada = linhas.LinesOf("story04").Single() with { Issues = [Problema("story04", 64, QaSeverity.Warning, "outra-regra")] };
+
+        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Manhã" });
+
+        Assert.Equal(["outra-regra"], gravada.Issues.Select(i => i.RuleId));
+    }
+
+    [Fact]
+    public void WithUnit_sem_contexto_nao_mexe_nas_regras_de_codificacao()
+    {
+        var unidade = Linha("s", 1, null, TranslationStatus.Translated);
+        var entrada = Entrada(unidade, Problema("s", 1, QaSeverity.Error, UnencodableCharacterRule.RuleId));
+
+        var gravada = entrada.WithUnit(unidade with { Translation = "outra" });
+
+        Assert.Equal([UnencodableCharacterRule.RuleId], gravada.Issues.Select(i => i.RuleId));
+    }
+
     [Fact]
     public void WithUnit_volta_a_avisar_quando_a_traducao_e_apagada()
     {

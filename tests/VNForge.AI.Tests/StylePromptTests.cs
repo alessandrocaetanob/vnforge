@@ -119,6 +119,19 @@ public partial class StylePromptTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task O_prompt_pede_pontuacao_ocidental_so_com_a_opcao_ligada(bool ligada)
+    {
+        var builder = new TranslationBatchBuilder([], Cast, style: StyleConfig.Default with { KeyboardPunctuation = ligada });
+
+        var request = await Translate(builder.Build([Script()[3]]));
+
+        Assert.Equal(ligada, request.System.Contains("Pontuação: use a do teclado ocidental", StringComparison.Ordinal));
+        Assert.Equal(ligada, request.System.Contains("Não copie a pontuação japonesa do original (。", StringComparison.Ordinal));
+    }
+
+    [Theory]
     [InlineData(HonorificsPolicy.Keep, "mantenha -san")]
     [InlineData(HonorificsPolicy.Remove, "remova -san")]
     [InlineData(HonorificsPolicy.Adapt, "adapte. -chan e -kun saem")]
