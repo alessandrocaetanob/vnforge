@@ -461,7 +461,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var found = await Editor.GoToLineAsync(request.ScriptKey, request.UnitId);
         if (!found)
         {
-            lineNotFoundMessage = $"A linha {request.UnitId} não existe mais neste projeto. Confira de novo na Conferência.";
+            lineNotFoundMessage = $"A linha {request.UnitId} não existe mais neste projeto. Confira de novo em Conferir a tradução.";
             Editor.ErrorMessage = lineNotFoundMessage;
         }
         else if (lineNotFoundMessage is not null && Editor.ErrorMessage == lineNotFoundMessage)

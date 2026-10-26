@@ -266,7 +266,7 @@
         <TabItem Header="Estilo">
           <StackPanel Margin="0,16,0,0" Spacing="20" IsEnabled="{Binding HasProject}">
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left"
-                       Text="Como a tradução deve soar. A IA recebe estas regras em todo pedido e a Conferência avisa quando uma linha foge delas."/>
+                       Text="Como a tradução deve soar. A IA recebe estas regras em todo pedido e Conferir a tradução avisa quando uma linha foge delas."/>
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
               <StackPanel Spacing="8">

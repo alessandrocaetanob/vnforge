@@ -51,7 +51,7 @@ O tamanho é o do canvas, **1440×1000** (`ScreenRenderer.Width` e `Height`), e 
 | 6 · Editor em 1366×768 | `editor-compacto-traducao`, `editor-compacto-sugestao`, `editor-compacto-contexto` | Abas do inspetor de 360 px |
 | 7 · Modo revisão | `modo-revisao-cabe`, `modo-revisao-passa`, `modo-revisao-fim`, `modo-revisao-1366` | |
 | 8 · Traduzir com IA | `traduzir-com-ia`, `traduzir-com-ia-acima-do-limite` | |
-| 9 · Conferir | `conferir-caixa-nao-cabe` | Só o aviso da caixa do jogo (#306); a tela inteira da v3 ainda não existe no app |
+| 9 · Conferir | `conferir-caixa-nao-cabe` | Tela Conferir a tradução (#334); `conferir-caixa-nao-cabe` mostra a caixa do jogo e o aviso, `conferir-v3-problemas` e `conferir-v3-um-clique` a lista com o painel |
 | 10 · Testar no jogo | `testar-no-jogo-traduzido`, `testar-no-jogo-travado`, `testar-no-jogo-detalhes` | |
 | 11 · Ajustes | `ajustes-ia`, `ajustes-estilo`, `ajustes-formatacao`, `ajustes-acentos` | A aba Aparência não tem captura |
 | 12 · Glossário | `glossario-v3-personagens`, `glossario-v3-termos` | |

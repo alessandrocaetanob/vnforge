@@ -204,7 +204,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     public string MarkerStateText =>
         string.IsNullOrWhiteSpace(Translation) ? string.Empty
         : MarkersMatch ? "Marcadores iguais ao original" + ExtraPagesText
-        : "Marcadores diferentes do original";
+        : "Falta ou sobra um marcador";
 
     /// <summary>Quantas viradas de página a tradução tem a mais que o original; é a fala dividida em páginas, e não conta como marcador diferente.</summary>
     private int extraPages;

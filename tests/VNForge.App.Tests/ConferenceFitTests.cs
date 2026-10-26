@@ -57,7 +57,10 @@ public sealed class ConferenceFitTests : IDisposable
 
         var aviso = Assert.IsType<FitWarningViewModel>(vm.SelectedFit);
         Assert.True(vm.HasSelectedFit);
-        Assert.True(aviso.IsVisible);
+        Assert.Equal("Dividir em 2 páginas", aviso.SplitText);
+        Assert.NotNull(vm.SelectedLayout);
+        Assert.True(vm.ShowFixAndNext);
+        Assert.True(vm.FixAndNextCommand.CanExecute(null));
         Assert.Equal("Dividir em 2 páginas", aviso.SplitText);
         Assert.True(aviso.HasShortener);
     }
@@ -89,6 +92,52 @@ public sealed class ConferenceFitTests : IDisposable
         Assert.Equal("Fala dividida em páginas.", vm.NoticeMessage);
         Assert.Null(vm.ErrorMessage);
         Assert.False(vm.IsFixing);
+    }
+
+    [Fact]
+    public async Task Corrigir_e_ir_para_o_proximo_divide_a_fala_e_mantem_os_marcadores_do_original_mais_a_virada_a_mais()
+    {
+        folder.SaveText("yst00001", [new TextUnit("yst00001:000000", TextUnitKind.Dialogue, null, @"原文\p", $@"{Palavras(16)}\p", TranslationStatus.Translated)]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root), Shortener = null };
+        await vm.RefreshAsync();
+        vm.SelectedRow = vm.Rows.Single(r => r.RuleId == BoxLineLimitRule.RuleId);
+
+        Assert.True(vm.FixAndNextCommand.CanExecute(null));
+        await vm.FixAndNextCommand.ExecuteAsync(null);
+
+        var gravada = Gravada();
+        Assert.Equal($@"{Palavras(12)}\p{Palavras(4)}\p", gravada);
+        Assert.Equal(1, ControlMarkers.Markers(@"原文\p").Count(m => m == ControlMarkers.PageBreak));
+        Assert.Equal(2, ControlMarkers.Markers(gravada).Count(m => m == ControlMarkers.PageBreak));
+        Assert.DoesNotContain(vm.Rows, r => r.RuleId == BoxLineLimitRule.RuleId);
+        Assert.Contains(vm.Rows, r => r.RuleId == ExtraPageQaRule.RuleId);
+        Assert.Equal("Fala dividida em páginas.", vm.NoticeMessage);
+    }
+
+    private sealed class EncurtadorParado(TaskCompletionSource<string> resposta) : ILineShortener
+    {
+        public Task<string> ShortenAsync(TextUnit unit, string current, WrapRule box, CancellationToken ct) => resposta.Task;
+    }
+
+    [Fact]
+    public async Task Enquanto_a_ia_encurta_corrigir_e_ir_para_o_proximo_nao_divide_a_fala()
+    {
+        var resposta = new TaskCompletionSource<string>();
+        var vm = await Conferir(new EncurtadorParado(resposta));
+        var mudancas = 0;
+        vm.FixAndNextCommand.CanExecuteChanged += (_, _) => mudancas++;
+
+        var encurtando = vm.SelectedFit!.ShortenCommand.ExecuteAsync(null);
+
+        Assert.True(vm.SelectedFit.IsBusy);
+        Assert.False(vm.FixAndNextCommand.CanExecute(null));
+        Assert.True(mudancas > 0);
+        await vm.FixAndNextCommand.ExecuteAsync(null);
+        Assert.Equal(Palavras(16), Gravada());
+
+        resposta.SetResult("Cabe na caixa.");
+        await encurtando;
+        Assert.Equal("Cabe na caixa.", Gravada());
     }
 
     [Fact]

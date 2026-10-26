@@ -66,7 +66,7 @@
       </c:PageHeader>
 
       <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left"
-                 Text="Nomes e termos fixos do projeto. A IA os usa em toda tradução, a Conferência os confere e o editor avisa quando um aparece na linha. Tudo é salvo sozinho."/>
+                 Text="Nomes e termos fixos do projeto. A IA os usa em toda tradução, Conferir a tradução os confere e o editor avisa quando um aparece na linha. Tudo é salvo sozinho."/>
 
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">

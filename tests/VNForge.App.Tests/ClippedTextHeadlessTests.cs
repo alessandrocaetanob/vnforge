@@ -170,10 +170,9 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
             },
             CancellationToken.None);
 
-        // Regras e detalhe mantêm a largura do artboard; a lista de problemas fica com o resto.
-        Assert.Equal(3, widths.Count);
-        Assert.Equal(200, widths[0], 1);
-        Assert.Equal(340, widths[2], 1);
-        Assert.True(widths[1] > 1500);
+        // O painel mantém a largura do artboard; a lista de problemas fica com o resto.
+        Assert.Equal(2, widths.Count);
+        Assert.Equal(420, widths[1], 1);
+        Assert.True(widths[0] > 1500);
     }
 }
