@@ -64,6 +64,28 @@ public class DashboardViewModelTests
     }
 
     [Fact]
+    public async Task O_passo_Conferir_diz_o_que_a_conta_deixa_de_fora()
+    {
+        using var temp = new TempFolder();
+        var vm = Open(temp, TranslationStatus.Untranslated, TranslationStatus.Untranslated, TranslationStatus.Approved);
+
+        await vm.ReloadAsync();
+
+        Assert.Equal("Nenhum problema · sem contar 2 linhas sem tradução", vm.Steps[3].Subtitle);
+    }
+
+    [Fact]
+    public async Task O_passo_Conferir_nao_acrescenta_nada_quando_tudo_esta_na_conta()
+    {
+        using var temp = new TempFolder();
+        var vm = Open(temp, TranslationStatus.Approved, TranslationStatus.Reviewed);
+
+        await vm.ReloadAsync();
+
+        Assert.Equal("Nenhum problema", vm.Steps[3].Subtitle);
+    }
+
+    [Fact]
     public async Task A_jornada_tem_cinco_passos_e_nenhum_e_Build_ou_Injetar()
     {
         using var temp = new TempFolder();
@@ -74,7 +96,7 @@ public class DashboardViewModelTests
         Assert.Equal(["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", "Testar no jogo"], vm.Steps.Select(s => s.Title));
         Assert.Equal([1, 2, 3, 4, 5], vm.Steps.Select(s => s.Number));
         Assert.Equal("50% traduzido · faltam 2 linhas", vm.Steps[1].Subtitle);
-        Assert.Equal("1 linha espera você", vm.Steps[2].Subtitle);
+        Assert.Equal("1 de 2 revisadas · falta 1", vm.Steps[2].Subtitle);
         Assert.Equal("O texto do jogo ainda não foi lido", vm.Steps[0].Subtitle);
         Assert.Equal(PipelineStepState.Active, vm.Steps[0].State);
         Assert.Equal(PipelineStepState.Pending, vm.Steps[1].State);

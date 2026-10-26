@@ -96,7 +96,7 @@ public static partial class ScriptGrouping
     private static Dictionary<string, string> Assign(ScriptNames names, IReadOnlyList<string> keys)
     {
         var labels = LabelsOf(names, keys);
-        var auto = labels.Count == 0 ? RangeNames(keys) : ChapterNames(labels);
+        var auto = TrustsLabels(labels, keys.Count) ? ChapterNames(labels) : RangeNames(keys);
         if (auto.Values.Where(n => !IsExtra(n)).Distinct(StringComparer.OrdinalIgnoreCase).Count() > MaxRanges)
         {
             // Pastas ou prefixos demais viram uma lista sem fim: o jogo cai nas faixas.
@@ -104,6 +104,27 @@ public static partial class ScriptGrouping
         }
 
         return keys.ToDictionary(k => k, k => names.Group(k) ?? (auto.TryGetValue(k, out var name) ? name : ExtraName), StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Os rótulos só valem quando descrevem o jogo todo. Um script solto com prefixo "0x" ou uma pasta de sistema entre dezenas de scripts sem rótulo não
+    /// é um capítulo: o resto da história cairia em <see cref="ExtraName"/>. Rótulos numerados precisam cobrir ao menos metade dos scripts e, se não cobrem
+    /// todos, formar ao menos dois capítulos; os demais rótulos precisam cobrir ao menos metade.
+    /// </summary>
+    private static bool TrustsLabels(Dictionary<string, string> labels, int total)
+    {
+        if (labels.Count * 2 < total)
+        {
+            return false;
+        }
+
+        var chapters = labels.Values.Select(Numbered).OfType<(int Number, string Remainder)>().Select(n => ChapterName(n.Number, n.Remainder)).ToList();
+        if (chapters.Count == 0)
+        {
+            return true;
+        }
+
+        return chapters.Count * 2 >= total && (chapters.Count == total || chapters.Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2);
     }
 
     private static Dictionary<string, string> LabelsOf(ScriptNames names, IReadOnlyList<string> keys)

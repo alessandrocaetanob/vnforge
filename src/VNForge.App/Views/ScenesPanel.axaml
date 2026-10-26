@@ -25,6 +25,7 @@
       </TextBox.InnerLeftContent>
     </TextBox>
     <ListBox Grid.Row="2" Classes="scripts" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+             SelectionMode="Multiple" SelectedItems="{Binding ChosenScripts}"
              AutomationProperties.Name="Lista de cenas">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="vm:ScriptItemViewModel">

@@ -15,6 +15,9 @@ public enum TranslationScope
 
     /// <summary>Todos os scripts do projeto.</summary>
     Game,
+
+    /// <summary>Os scripts que a pessoa marcou na lista de cenas.</summary>
+    Selection,
 }
 
 /// <summary>O preço e o tempo de traduzir um escopo com uma qualidade.</summary>
@@ -53,7 +56,8 @@ public static class TranslationQuoter
     public const int DefaultBatchSize = 30;
 
     /// <summary>As chaves dos scripts do escopo, na ordem. Vazio quando o escopo depende de uma cena que não existe.</summary>
-    public static IReadOnlyList<string> KeysFor(TranslationScope scope, IEnumerable<string> allKeys, string? sceneKey)
+    /// <param name="chosenKeys">Os scripts marcados na lista, só para <see cref="TranslationScope.Selection"/>; as chaves que o projeto não tem ficam de fora.</param>
+    public static IReadOnlyList<string> KeysFor(TranslationScope scope, IEnumerable<string> allKeys, string? sceneKey, IReadOnlyCollection<string>? chosenKeys = null)
     {
         ArgumentNullException.ThrowIfNull(allKeys);
         var ordered = allKeys.Order(StringComparer.Ordinal).ToList();
@@ -63,6 +67,7 @@ public static class TranslationQuoter
             TranslationScope.Game => ordered,
             TranslationScope.Scene => index < 0 ? [] : [ordered[index]],
             TranslationScope.Chapter => index < 0 ? [] : [.. ordered.Skip(index / ChapterSize * ChapterSize).Take(ChapterSize)],
+            TranslationScope.Selection => chosenKeys is null ? [] : [.. ordered.Where(chosenKeys.ToHashSet(StringComparer.Ordinal).Contains)],
             _ => throw new ArgumentOutOfRangeException(nameof(scope)),
         };
     }

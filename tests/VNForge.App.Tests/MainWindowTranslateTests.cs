@@ -59,6 +59,42 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Varias_cenas_escolhidas_geram_uma_janela_e_uma_unica_execucao()
+    {
+        var (vm, root) = await OpenAsync();
+        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00001"));
+        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00002"));
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+
+        Assert.Equal(TranslationScope.Selection, vm.Translate.SelectedScope.Scope);
+        Assert.Equal(3, vm.Translate.Lines);
+
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        var task = vm.TaskService.Tasks.Single();
+        Assert.Equal("Traduzindo as cenas escolhidas", task.Title);
+        Assert.Equal(BackgroundTaskState.Completed, task.State);
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00002")[0].Status);
+    }
+
+    [Fact]
+    public async Task Uma_unica_cena_escolhida_que_nao_e_a_aberta_e_a_que_a_janela_traduz()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00002"));
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+
+        Assert.Equal(TranslationScope.Scene, vm.Translate.SelectedScope.Scope);
+        Assert.Equal(1, vm.Translate.Lines);
+    }
+
+    [Fact]
     public async Task Traduzir_roda_o_pedido_grava_como_IA_e_avisa_o_resultado_em_portugues()
     {
         var (vm, root) = await OpenAsync();
@@ -76,6 +112,41 @@ public sealed class MainWindowTranslateTests : IDisposable
         Assert.Equal(ToastKind.Success, toast.Kind);
         Assert.Contains("2 linhas traduzidas pela IA", toast.Message);
         Assert.Equal(BackgroundTaskState.Completed, vm.TaskService.Tasks.Single().State);
+    }
+
+    [Fact]
+    public async Task Painel_aberto_durante_a_traducao_rele_os_numeros_quando_ela_termina()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
+        await vm.Dashboard.ReloadAsync();
+        var before = vm.Dashboard.Steps[1].Subtitle;
+        Assert.Contains("faltam 3 linhas", before);
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        Assert.Contains("faltam 1 linha",vm.Dashboard.Steps[1].Subtitle);
+    }
+
+    [Fact]
+    public async Task Conferencia_aberta_durante_a_traducao_rele_a_lista_quando_ela_termina()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+        int Untranslated() => vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Where(r => r.IsScriptSummary).Sum(r => r.Count);
+        Assert.Equal(3, Untranslated());
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        await vm.ConferenceLoading;
+
+        Assert.Equal(1, Untranslated());
     }
 
     [Fact]

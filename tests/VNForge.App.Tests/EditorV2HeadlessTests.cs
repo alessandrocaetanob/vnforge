@@ -229,4 +229,34 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
         Assert.Equal(["yst00002"], visible);
         Assert.Equal("yst00001", vm.SelectedScript?.Key);
     }
+
+    [Fact]
+    public async Task A_lista_de_cenas_aceita_varias_selecoes_e_as_entrega_ao_editor()
+    {
+        var (vm, temp) = await Abrir();
+        using var _ = temp;
+        var folder = ProjectFolder.Open(vm.Project!.Root);
+        folder.SaveText("yst00002", [new TextUnit("yst00002:000000", TextUnitKind.Narration, null, "原文", null, TranslationStatus.Untranslated)]);
+        folder.SaveText("yst00003", [new TextUnit("yst00003:000000", TextUnitKind.Narration, null, "原文", null, TranslationStatus.Untranslated)]);
+        vm.Reload();
+        await vm.Loading;
+        var pedidos = new List<IReadOnlyList<string>>();
+        vm.TranslateRequested += (_, keys) => pedidos.Add(keys);
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Show(new EditorView { DataContext = vm }, 1440);
+                var list = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name is null && l.Classes.Contains("scripts"));
+                Assert.Equal(SelectionMode.Multiple, list.SelectionMode);
+                list.SelectedItems!.Add(vm.Scripts.Single(s => s.Key == "yst00002"));
+                list.SelectedItems.Add(vm.Scripts.Single(s => s.Key == "yst00003"));
+                Settle(window);
+                vm.TranslatePendingCommand.Execute(null);
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.Equal(["yst00001", "yst00002", "yst00003"], Assert.Single(pedidos));
+    }
 }

@@ -37,7 +37,7 @@ public sealed partial class MainWindowViewModel
         Translate.SettingsRequested += (_, _) => SelectedNav = settingsItem;
     }
 
-    private void OnEditorTranslateRequested(object? sender, string scriptKey)
+    private void OnEditorTranslateRequested(object? sender, IReadOnlyList<string> scriptKeys)
     {
         if (CurrentProject is not { } project)
         {
@@ -49,8 +49,9 @@ public sealed partial class MainWindowViewModel
             var folder = ProjectFolder.Open(project.Root);
             TranslateOpening = Translate.OpenAsync(
                 folder,
-                scriptKey,
-                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured, Settings.BudgetProblem));
+                Editor.SelectedScript?.Key is { } open && scriptKeys.Contains(open) ? open : scriptKeys[0],
+                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured, Settings.BudgetProblem),
+                scriptKeys);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -117,12 +118,33 @@ public sealed partial class MainWindowViewModel
 
         // O estado da tarefa chega por post depois do Completion: o que decide o aviso é o que a própria tarefa guardou.
         ShowTranslationOutcome(canceled, failure, result);
+        await RefreshSummaryPageAsync();
+    }
+
+    /// <summary>
+    /// O Painel, o Início e a Conferência leem a pasta ao abrir. A tradução grava <c>text/*.json</c> depois disso, então quem estava aberto
+    /// quando ela terminou mostraria os números de antes (a contagem de problemas, o progresso, o próximo passo).
+    /// </summary>
+    private Task RefreshSummaryPageAsync()
+    {
+        if (ReferenceEquals(CurrentPage, Dashboard))
+        {
+            return Dashboard.ReloadAsync();
+        }
+
+        if (ReferenceEquals(CurrentPage, Start))
+        {
+            return Start.LoadAsync();
+        }
+
+        return ReferenceEquals(CurrentPage, Conference) ? ConferenceLoading = Conference.RefreshAfterExternalChangeAsync() : Task.CompletedTask;
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch
     {
         TranslationScope.Scene => "Traduzindo esta cena",
         TranslationScope.Chapter => "Traduzindo o capítulo",
+        TranslationScope.Selection => "Traduzindo as cenas escolhidas",
         _ => "Traduzindo o jogo",
     };
 

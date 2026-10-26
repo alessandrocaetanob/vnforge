@@ -317,6 +317,32 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private static string Lines(int count) => Plural(count, "linha", "linhas");
 
+    /// <summary>
+    /// "10 erros · 30 avisos": a conta do passo Conferir. Ela deixa de fora as linhas sem tradução e os avisos de estilo, que a tela Conferir
+    /// lista em "Todos"; quando há algum, a frase diz o que ficou fora para os dois números não parecerem discordar.
+    /// </summary>
+    private static string QaPhrase(ProjectDashboard dashboard)
+    {
+        if (dashboard.Qa is not { } qa)
+        {
+            return "A conferência não pôde rodar";
+        }
+
+        var counted = qa.Total == 0 ? "Nenhum problema" : $"{Plural(qa.Errors, "erro", "erros")} · {Plural(qa.Warnings, "aviso", "avisos")}";
+        List<string> left = [];
+        if (dashboard.Status.Total.Untranslated > 0)
+        {
+            left.Add($"{Lines(dashboard.Status.Total.Untranslated)} sem tradução");
+        }
+
+        if (qa.StyleAdvice > 0)
+        {
+            left.Add(Plural(qa.StyleAdvice, "aviso de estilo", "avisos de estilo"));
+        }
+
+        return left.Count == 0 ? counted : $"{counted} · sem contar {string.Join(" e ", left)}";
+    }
+
     private static string ReviewPhrase(StatusCounts total, bool reviewed)
     {
         if (reviewed)
@@ -329,7 +355,10 @@ public sealed partial class DashboardViewModel : ObservableObject
             return "Espera a tradução";
         }
 
-        return total.ToReview == 1 ? "1 linha espera você" : $"{ProjectLabels.Number(total.ToReview)} linhas esperam você";
+        // O que já passou pela tradução é o universo da revisão: as linhas em japonês ainda nem chegaram a ela.
+        var reviewable = total.Ready + total.ToReview;
+        var left = total.ToReview == 1 ? "falta 1" : $"faltam {ProjectLabels.Number(total.ToReview)}";
+        return $"{ProjectLabels.Number(total.Ready)} de {ProjectLabels.Number(reviewable)} {(reviewable == 1 ? "revisada" : "revisadas")} · {left}";
     }
 
     private static string MoreText(int more)
@@ -458,12 +487,7 @@ public sealed partial class DashboardViewModel : ObservableObject
                 : "O texto do jogo ainda não foi lido",
             translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido · faltam {Lines(total.Untranslated)}",
             ReviewPhrase(total, reviewed),
-            dashboard.Qa switch
-            {
-                null => "A conferência não pôde rodar",
-                { Total: 0 } => "Nenhum problema",
-                var qa => $"{Plural(qa.Errors, "erro", "erros")} · {Plural(qa.Warnings, "aviso", "avisos")}",
-            },
+            QaPhrase(dashboard),
             TestPhrase(dashboard, tested),
         ];
         var states = PipelineStepper.Resolve(complete);

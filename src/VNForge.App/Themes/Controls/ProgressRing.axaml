@@ -42,7 +42,7 @@
     <Setter Property="Template">
       <ControlTemplate>
         <Border Name="PART_Root" Padding="{TemplateBinding Padding}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="Transparent">
-          <Grid ColumnDefinitions="28,200,160,48,96,*" ColumnSpacing="12" VerticalAlignment="Center">
+          <Grid ColumnDefinitions="28,200,160,100,96,*" ColumnSpacing="12" VerticalAlignment="Center">
             <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding Number}" HorizontalAlignment="Right"/>
             <TextBlock Name="PART_Title" Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis"/>
             <c:Seg3Bar Grid.Column="2" VerticalAlignment="Center" Done="{TemplateBinding Done}" Review="{TemplateBinding Review}" Total="{TemplateBinding Total}"/>

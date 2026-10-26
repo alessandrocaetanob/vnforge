@@ -394,14 +394,23 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>Disparado por "Conferir arquivo": a janela abre Conferir a tradução. Leva a chave do script aberto.</summary>
     public event EventHandler<string>? CheckRequested;
 
-    /// <summary>Disparado por "Traduzir com IA": a janela com as três perguntas abre. Leva a chave do script aberto.</summary>
-    public event EventHandler<string>? TranslateRequested;
+    /// <summary>Disparado por "Traduzir com IA": a janela com as três perguntas abre. Leva as cenas marcadas na lista (Ctrl ou Shift) ou, sem marcação múltipla, a chave do script aberto.</summary>
+    public event EventHandler<IReadOnlyList<string>>? TranslateRequested;
+
+    /// <summary>Os scripts marcados na lista de cenas; a lista os mantém por <c>SelectedItems</c>.</summary>
+    public ObservableCollection<ScriptItemViewModel> ChosenScripts { get; } = [];
 
     [RelayCommand(CanExecute = nameof(HasScript))]
     private void CheckFile() => CheckRequested?.Invoke(this, SelectedScript!.Key);
 
     [RelayCommand(CanExecute = nameof(CanTranslatePending))]
-    private void TranslatePending() => TranslateRequested?.Invoke(this, SelectedScript!.Key);
+    private void TranslatePending()
+    {
+        // Uma cena escondida pelo filtro continua marcada na lista, mas a pessoa não a vê: fica fora do pedido.
+        var marked = ChosenScripts.ToHashSet();
+        var chosen = Scripts.Where(s => s.IsShown && marked.Contains(s)).Select(s => s.Key).ToList();
+        TranslateRequested?.Invoke(this, chosen.Count > 0 ? chosen : [SelectedScript!.Key]);
+    }
 
     private bool HasScript() => SelectedScript is not null;
 
@@ -655,6 +664,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             ShowSavedUnit(others[unit.Id], unit);
         }
 
+        foreach (var key in current.Select(u => others[u.Id].ScriptKey).Distinct(StringComparer.Ordinal))
+        {
+            RefreshScriptProgress(key);
+        }
+
         if (result.Changes.Count > 0)
         {
             UpdateCounts();
@@ -709,6 +723,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
         data?.Replace(updated);
+        RefreshScriptProgress(updated.ScriptKey);
 
         // O painel descartado ao trocar de script grava por último; a linha dele já não é a do script atual.
         var index = line.Number - 1;
@@ -886,6 +901,26 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         options.AddRange(ProjectLines.SpeakersOf(lines).Select(name => new SpeakerOption(name, name)));
         return options;
+    }
+
+    /// <summary>
+    /// Recalcula o percentual e a barra de distribuição do script <paramref name="key"/> na lista de Cenas a partir das linhas já carregadas
+    /// (<see cref="data"/>), para que uma gravação ou o "Usar em todos" apareçam sem reler o projeto. O rodapé acompanha quando o script é o aberto.
+    /// </summary>
+    private void RefreshScriptProgress(string key)
+    {
+        var item = Scripts.FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.Ordinal));
+        if (item is null || data is null)
+        {
+            return;
+        }
+
+        item.Update(StatusCounts.Of(data.LinesOf(key).Select(l => l.Unit)));
+        if (ReferenceEquals(item, SelectedScript))
+        {
+            OnPropertyChanged(nameof(Distribution));
+            OnPropertyChanged(nameof(DistributionDescription));
+        }
     }
 
     private void UpdateCounts()
