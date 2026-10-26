@@ -26,6 +26,9 @@ public sealed class SessionsFileTests : IDisposable
 
     private static ApprovalRecord Approval(string unit, DateTimeOffset at) => new("yst00013", unit, at);
 
+    private void Gravar(params ApprovalRecord[] approvals) =>
+        SessionsFile.Save(_project, approvals.Aggregate(SessionsFile.Load(_project), (file, approval) => file.With(approval)));
+
     [Fact]
     public void Sem_arquivo_o_registro_e_vazio()
     {
@@ -49,7 +52,7 @@ public sealed class SessionsFileTests : IDisposable
     [Fact]
     public void O_json_guarda_a_hora_de_cada_aprovacao()
     {
-        SessionsFile.TryRecord(_project, Approval("yst00013:000001", Noon));
+        Gravar(Approval("yst00013:000001", Noon));
 
         var text = File.ReadAllText(SessionsFile.PathFor(_project));
 
@@ -61,17 +64,17 @@ public sealed class SessionsFileTests : IDisposable
     [Fact]
     public void Gravar_nao_deixa_arquivo_temporario_para_tras()
     {
-        SessionsFile.TryRecord(_project, Approval("yst00013:000001", Noon));
-        SessionsFile.TryRecord(_project, Approval("yst00013:000002", Noon));
+        Gravar(Approval("yst00013:000001", Noon));
+        Gravar(Approval("yst00013:000002", Noon));
 
         Assert.Equal([SessionsFile.PathFor(_project)], Directory.GetFiles(_project.CacheDirectory, "sessions*"));
     }
 
     [Fact]
-    public void TryRecord_acrescenta_ao_que_ja_estava_gravado()
+    public void Gravar_de_novo_acrescenta_ao_que_ja_estava_gravado()
     {
-        Assert.True(SessionsFile.TryRecord(_project, Approval("yst00013:000001", Noon)));
-        Assert.True(SessionsFile.TryRecord(_project, Approval("yst00013:000002", Noon.AddMinutes(1))));
+        Gravar(Approval("yst00013:000001", Noon));
+        Gravar(Approval("yst00013:000002", Noon.AddMinutes(1)));
 
         Assert.Equal(["yst00013:000001", "yst00013:000002"], SessionsFile.Load(_project).Approvals.Select(a => a.UnitId));
     }
@@ -107,18 +110,62 @@ public sealed class SessionsFileTests : IDisposable
         Directory.CreateDirectory(_project.CacheDirectory);
         File.WriteAllText(SessionsFile.PathFor(_project), "não é json");
 
-        Assert.True(SessionsFile.TryRecord(_project, Approval("yst00013:000001", Noon)));
+        Gravar(Approval("yst00013:000001", Noon));
 
         Assert.Single(SessionsFile.Load(_project).Approvals);
     }
 
-    [Fact]
-    public void TryRecord_devolve_falso_quando_nao_da_para_gravar()
+    [Theory]
+    [InlineData("não é json", SessionsLoadStatus.Corrupt, true)]
+    [InlineData("{\"version\": 1}", SessionsLoadStatus.Corrupt, true)]
+    [InlineData("{\"version\": 2, \"approvals\": [], \"extra\": 1}", SessionsLoadStatus.NewerVersion, false)]
+    [InlineData("{\"version\": 1, \"approvals\": []}", SessionsLoadStatus.Ok, true)]
+    public void Read_diz_se_da_para_gravar_por_cima_do_arquivo(string content, SessionsLoadStatus status, bool canOverwrite)
     {
-        // Uma pasta no lugar do arquivo faz a troca falhar.
-        Directory.CreateDirectory(SessionsFile.PathFor(_project));
+        Directory.CreateDirectory(_project.CacheDirectory);
+        File.WriteAllText(SessionsFile.PathFor(_project), content);
 
-        Assert.False(SessionsFile.TryRecord(_project, Approval("yst00013:000001", Noon)));
+        var read = SessionsFile.Read(_project);
+
+        Assert.Equal(status, read.Status);
+        Assert.Equal(canOverwrite, read.CanOverwrite);
+    }
+
+    [Fact]
+    public void Read_sem_arquivo_pode_gravar()
+    {
+        var read = SessionsFile.Read(_project);
+
+        Assert.Equal(SessionsLoadStatus.Missing, read.Status);
+        Assert.True(read.CanOverwrite);
+    }
+
+    [Fact]
+    public void Read_de_arquivo_que_nao_abre_nao_deixa_gravar_por_cima()
+    {
+        Directory.CreateDirectory(_project.CacheDirectory);
+        File.WriteAllText(SessionsFile.PathFor(_project), "{\"version\": 1, \"approvals\": []}");
+        using var _ = new FileStream(SessionsFile.PathFor(_project), FileMode.Open, FileAccess.Read, FileShare.None);
+
+        var read = SessionsFile.Read(_project);
+
+        Assert.Equal(SessionsLoadStatus.Unreadable, read.Status);
+        Assert.False(read.CanOverwrite);
+    }
+
+    [Fact]
+    public void Without_tira_a_ultima_aprovacao_da_linha()
+    {
+        var sessions = SessionsFile.Empty
+            .With(Approval("a", Noon))
+            .With(Approval("b", Noon.AddMinutes(1)))
+            .With(Approval("a", Noon.AddMinutes(2)));
+
+        var without = sessions.Without("yst00013", "a");
+
+        Assert.Equal([Noon, Noon.AddMinutes(1)], without.Approvals.Select(x => x.At));
+        Assert.Equal(2, without.ReviewedOn(Noon, TimeZoneInfo.Utc));
+        Assert.Same(sessions, sessions.Without("yst00013", "nao-existe"));
     }
 
     [Fact]

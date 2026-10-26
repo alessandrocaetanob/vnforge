@@ -8,7 +8,7 @@ public sealed record ApprovalRecord(string ScriptKey, string UnitId, DateTimeOff
 
 /// <summary>
 /// O registro de aprovações em <c>.cache/sessions.json</c>: cada vez que uma pessoa aprova uma linha, a hora fica guardada. É o que diz quantas linhas
-/// foram revisadas hoje (o modo revisão e a barra de status) e, mais adiante, o ritmo de revisão. Quem escreve é o app; apagar o <c>.cache/</c>
+/// foram revisadas hoje (o modo revisão e a barra de status) e, mais adiante, o ritmo de revisão. Quem escreve, por enquanto, é o app (a CLI ainda não grava aqui); apagar o <c>.cache/</c>
 /// só zera o registro, nenhuma tradução se perde. As aprovações mais antigas que <see cref="Retention"/> saem na gravação, para o arquivo não crescer sem fim.
 /// </summary>
 public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> Approvals)
@@ -31,17 +31,52 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
     }
 
     /// <summary>O registro gravado, ou <see cref="Empty"/> quando não há arquivo ou ele não é legível: a revisão não trava por causa dele.</summary>
-    public static SessionsFile Load(ProjectFolder project)
+    public static SessionsFile Load(ProjectFolder project) => Read(project).File;
+
+    /// <summary>
+    /// Lê o registro dizendo também o que aconteceu: quem grava só pode trocar o arquivo quando <see cref="SessionsLoad.CanOverwrite"/>, para um arquivo
+    /// que não abriu agora (disco ocupado) ou que é de uma versão mais nova não perder o histórico para um registro vazio.
+    /// </summary>
+    public static SessionsLoad Read(ProjectFolder project)
     {
+        string text;
         try
         {
             var path = PathFor(project);
-            var read = File.Exists(path) ? JsonSerializer.Deserialize<SessionsFile>(Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path)), Json) : null;
-            return read is { Version: CurrentVersion, Approvals: not null } ? read with { Approvals = [.. read.Approvals.Where(a => a is not null)] } : Empty;
+            if (!File.Exists(path))
+            {
+                return new SessionsLoad(Empty, SessionsLoadStatus.Missing);
+            }
+
+            text = Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path));
         }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return Empty;
+            return new SessionsLoad(Empty, SessionsLoadStatus.Unreadable);
+        }
+
+        return Parse(text);
+    }
+
+    private static SessionsLoad Parse(string text)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(text);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("version", out var version) && version.TryGetInt32(out var number) && number > CurrentVersion)
+            {
+                return new SessionsLoad(Empty, SessionsLoadStatus.NewerVersion);
+            }
+
+            var read = root.Deserialize<SessionsFile>(Json);
+            return read is { Version: CurrentVersion, Approvals: not null }
+                ? new SessionsLoad(read with { Approvals = [.. read.Approvals.Where(a => a is not null)] }, SessionsLoadStatus.Ok)
+                : new SessionsLoad(Empty, SessionsLoadStatus.Corrupt);
+        }
+        catch (JsonException)
+        {
+            return new SessionsLoad(Empty, SessionsLoadStatus.Corrupt);
         }
     }
 
@@ -89,20 +124,43 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
             .Count();
     }
 
-    /// <summary>
-    /// Lê, acrescenta a aprovação e regrava. Uma falha de disco não derruba quem aprova: a tradução já foi gravada e o registro só alimenta o contador.
-    /// </summary>
-    /// <returns>Verdadeiro quando a aprovação ficou gravada no arquivo.</returns>
-    public static bool TryRecord(ProjectFolder project, ApprovalRecord approval)
+    /// <summary>O registro sem a última aprovação da linha, quando a pessoa desfaz a aprovação; sem ela, devolve o próprio registro.</summary>
+    public SessionsFile Without(string scriptKey, string unitId)
     {
-        try
+        var index = -1;
+        for (var i = 0; i < Approvals.Count; i++)
         {
-            Save(project, Load(project).With(approval));
-            return true;
+            if (Approvals[i].ScriptKey == scriptKey && Approvals[i].UnitId == unitId)
+            {
+                index = i;
+            }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+
+        return index < 0 ? this : this with { Approvals = [.. Approvals.Where((_, i) => i != index)] };
     }
+}
+
+/// <summary>O que a leitura de <c>sessions.json</c> encontrou.</summary>
+public enum SessionsLoadStatus
+{
+    /// <summary>O arquivo abriu e é da versão que este programa conhece.</summary>
+    Ok,
+
+    /// <summary>Não há arquivo: o registro começa vazio.</summary>
+    Missing,
+
+    /// <summary>O arquivo não é JSON válido ou não tem o formato esperado: não há histórico a preservar.</summary>
+    Corrupt,
+
+    /// <summary>O arquivo existe mas não abriu (disco ocupado, acesso negado): tem histórico que esta leitura não viu.</summary>
+    Unreadable,
+
+    /// <summary>O arquivo é de uma versão mais nova que este programa entende: tem histórico que ele não sabe ler.</summary>
+    NewerVersion,
+}
+
+/// <summary>O registro lido e como a leitura terminou. <see cref="CanOverwrite"/> diz se gravar por cima do arquivo não perde histórico.</summary>
+public sealed record SessionsLoad(SessionsFile File, SessionsLoadStatus Status)
+{
+    public bool CanOverwrite => Status is SessionsLoadStatus.Ok or SessionsLoadStatus.Missing or SessionsLoadStatus.Corrupt;
 }
