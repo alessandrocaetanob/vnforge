@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Projects;
 
@@ -35,6 +36,34 @@ public sealed partial class EditorViewModel
     /// <summary>Os capítulos da lista, na ordem da história; "Menus e nomes" por último.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<ChapterGroupViewModel> Chapters { get; private set; } = [];
+
+    /// <summary>Esconde da lista as cenas sem linhas (padrão); desligado, elas aparecem marcadas como prontas. A cena vazia aberta continua aberta.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmptyScenesText))]
+    public partial bool HideEmptyScenes { get; set; } = true;
+
+    /// <summary>Quantas cenas vazias a lista esconde agora.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHiddenEmptyScenes), nameof(HiddenEmptyScenesText))]
+    public partial int HiddenEmptyScenes { get; private set; }
+
+    /// <summary>O projeto tem cenas sem linhas: sem elas a lista não mostra o contador nem o botão.</summary>
+    [ObservableProperty]
+    public partial bool HasEmptyScenes { get; private set; }
+
+    public bool HasHiddenEmptyScenes => HiddenEmptyScenes > 0;
+
+    /// <summary>"2 cenas vazias escondidas"; vazio quando nada está escondido.</summary>
+    public string HiddenEmptyScenesText =>
+        HiddenEmptyScenes == 0 ? string.Empty : HiddenEmptyScenes == 1 ? "1 cena vazia escondida" : $"{ProjectLabels.Number(HiddenEmptyScenes)} cenas vazias escondidas";
+
+    /// <summary>O botão ao lado do contador: "Mostrar" com as cenas escondidas, "Esconder" com elas à mostra.</summary>
+    public string ShowEmptyScenesText => HideEmptyScenes ? "Mostrar" : "Esconder cenas vazias";
+
+    [RelayCommand]
+    private void ToggleEmptyScenes() => HideEmptyScenes = !HideEmptyScenes;
+
+    partial void OnHideEmptyScenesChanged(bool value) => RefreshChapterList();
 
     /// <summary>O campo "Nome do capítulo" da lista está aberto (menu "Novo capítulo...").</summary>
     [ObservableProperty]
@@ -325,18 +354,23 @@ public sealed partial class EditorViewModel
 
     /// <summary>
     /// Diz a cada cena se aparece na lista e se leva o cabeçalho do capítulo: o cabeçalho vai na primeira cena que passa pelo filtro, e um capítulo
-    /// fechado deixa só ela. Um capítulo sem cena que passe pelo filtro some inteiro.
+    /// fechado deixa só ela. Um capítulo sem cena que passe pelo filtro some inteiro; as cenas vazias saem da lista enquanto <see cref="HideEmptyScenes"/> estiver ligado.
     /// </summary>
     private void RefreshChapterList()
     {
         foreach (var chapter in Chapters)
         {
-            var first = chapter.Scripts.FirstOrDefault(s => s.IsShown);
+            var first = chapter.Scripts.FirstOrDefault(s => s.IsShown && !IsHiddenEmpty(s));
             foreach (var script in chapter.Scripts)
             {
                 script.IsGroupStart = ReferenceEquals(script, first);
-                script.IsListed = script.IsShown && (chapter.IsExpanded || script.IsGroupStart);
+                script.IsListed = script.IsShown && !IsHiddenEmpty(script) && (chapter.IsExpanded || script.IsGroupStart);
             }
         }
+
+        HasEmptyScenes = Scripts.Any(s => s.IsEmpty);
+        HiddenEmptyScenes = HideEmptyScenes ? Scripts.Count(s => s.IsEmpty) : 0;
     }
+
+    private bool IsHiddenEmpty(ScriptItemViewModel script) => HideEmptyScenes && script.IsEmpty;
 }

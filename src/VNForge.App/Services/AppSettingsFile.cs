@@ -41,6 +41,9 @@ public sealed record AppSettings(int Concurrency, ThemeChoice Theme = ThemeChoic
     /// <summary>A qualidade escolhida por último; o padrão é a mais cuidadosa, que usa o modelo padrão do projeto.</summary>
     public TranslationQuality Quality { get; init; } = TranslationQuality.Careful;
 
+    /// <summary>Esconde as cenas e os capítulos sem linhas no Editor e no Painel (padrão); desligado, aparecem como prontos.</summary>
+    public bool HideEmptyScenes { get; init; } = true;
+
     /// <summary>A cotação para converter custos; sem uma informada, o valor de exemplo (<see cref="ExchangeRate.Placeholder"/>).</summary>
     public ExchangeRate Rate => BrlPerUsd is { } value ? new ExchangeRate(value, RateInformedOn) : ExchangeRate.Placeholder;
 
@@ -105,6 +108,7 @@ public sealed class AppSettingsFile(string directory)
                 SpendLimit = AppBudgetFile.ReadMoney(root, "spendLimit", decimal.MaxValue),
                 WarnAbove = AppBudgetFile.ReadMoney(root, "warnAbove", decimal.MaxValue),
                 Quality = quality,
+                HideEmptyScenes = !root.TryGetProperty("hideEmptyScenes", out var hide) || hide.ValueKind != JsonValueKind.False,
             };
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
@@ -130,6 +134,11 @@ public sealed class AppSettingsFile(string directory)
             ["theme"] = settings.Theme.ToString().ToLowerInvariant(),
             ["quality"] = settings.Quality.ToString().ToLowerInvariant(),
         };
+        if (!settings.HideEmptyScenes)
+        {
+            data["hideEmptyScenes"] = false;
+        }
+
         if (settings.BrlPerUsd is { } rate)
         {
             data["exchangeRate"] = rate;

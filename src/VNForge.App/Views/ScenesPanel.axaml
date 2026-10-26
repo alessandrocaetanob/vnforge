@@ -13,7 +13,7 @@
   </UserControl.Styles>
 
   <!-- A lista de cenas do Editor: na coluna da esquerda a partir de 1400 px, e dentro do flyout do cabeçalho abaixo disso. -->
-  <Grid RowDefinitions="48,Auto,Auto,*">
+  <Grid RowDefinitions="48,Auto,Auto,*,Auto">
     <Grid ColumnDefinitions="*,Auto" Margin="12,0">
       <TextBlock Classes="title-md" Text="Cenas" VerticalAlignment="Center"/>
       <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
@@ -64,5 +64,11 @@
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
+
+    <!-- Cenas sem linhas contam como prontas e ficam fora da lista; o contador diz quantas e o botão as mostra ou esconde. -->
+    <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="12,6" IsVisible="{Binding HasEmptyScenes}">
+      <TextBlock Classes="caption secondary" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding HiddenEmptyScenesText}"/>
+      <Button Grid.Column="1" Classes="subtle sm" Content="{Binding ShowEmptyScenesText}" Command="{Binding ToggleEmptyScenesCommand}"/>
+    </Grid>
   </Grid>
 </UserControl>

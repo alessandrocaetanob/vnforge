@@ -42,6 +42,9 @@ public sealed partial class ChapterRowViewModel(ScriptGroupTotals group, string 
 
     public bool IsExtra { get; } = group.IsExtra;
 
+    /// <summary>Nenhuma cena do capítulo tem linha: não há o que fazer nele. A linha mostra um traço no lugar da porcentagem.</summary>
+    public bool IsEmpty { get; } = group.IsEmpty;
+
     public bool IsHere { get; } = isHere;
 
     public double Ready { get; } = group.Ready;
@@ -105,6 +108,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private bool loaded;
     private DashboardNavigation? nextStep;
     private ProjectDashboard? current;
+    private IReadOnlyList<ScriptGroupTotals> currentChapters = [];
     private bool currentLimitReached;
 
     /// <param name="loader">Lê o painel de uma pasta de projeto; o padrão lê o disco.</param>
@@ -131,6 +135,40 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     /// <summary>Os cinco passos como o <see cref="PipelineStepper"/> os recebe: número, nome, frase, estado e o comando que abre a tela.</summary>
     public ObservableCollection<PipelineStep> Steps { get; } = [];
+
+    /// <summary>Esconde os capítulos sem linhas no sumário (padrão); desligado, eles aparecem prontos e sem número de porcentagem.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmptyScenesText))]
+    public partial bool HideEmptyScenes { get; set; } = true;
+
+    /// <summary>Quantas cenas vazias o sumário esconde agora.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHiddenEmptyScenes), nameof(HiddenEmptyScenesText))]
+    public partial int HiddenEmptyScenes { get; private set; }
+
+    public bool HasHiddenEmptyScenes => HiddenEmptyScenes > 0;
+
+    /// <summary>"2 cenas vazias escondidas"; vazio quando nada está escondido.</summary>
+    public string HiddenEmptyScenesText => HiddenEmptyScenes == 0 ? string.Empty : $"{Plural(HiddenEmptyScenes, "cena vazia escondida", "cenas vazias escondidas")}";
+
+    /// <summary>O botão ao lado do contador: "Mostrar" com as cenas escondidas, "Esconder cenas vazias" com elas à mostra.</summary>
+    public string ShowEmptyScenesText => HideEmptyScenes ? "Mostrar" : "Esconder cenas vazias";
+
+    /// <summary>Há cenas vazias no projeto: sem elas o botão não faz sentido.</summary>
+    [ObservableProperty]
+    public partial bool HasEmptyScenes { get; private set; }
+
+    [RelayCommand]
+    private void ToggleEmptyScenes() => HideEmptyScenes = !HideEmptyScenes;
+
+    partial void OnHideEmptyScenesChanged(bool value)
+    {
+        if (Project is { } project && current is not null && loaded)
+        {
+            ApplyChapters(project, current, currentChapters, currentLimitReached);
+            ApplyNextStep(current, currentChapters);
+        }
+    }
 
     /// <summary>As linhas do sumário: um capítulo por linha na ordem da história, "Menus e nomes" por último.</summary>
     public ObservableCollection<ChapterRowViewModel> Chapters { get; } = [];
@@ -536,6 +574,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         OnPropertyChanged(nameof(EmptyActionText));
         Steps.Clear();
         Chapters.Clear();
+        currentChapters = [];
+        HasEmptyScenes = false;
+        HiddenEmptyScenes = 0;
         Todos.Clear();
         MapLegend.Clear();
         ErrorMessage = null;
@@ -643,13 +684,16 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         var counts = dashboard.Status.Files.ToDictionary(f => f.Key, f => f.Counts, StringComparer.Ordinal);
         var stopped = limitReached ? chapters.FirstOrDefault(c => !c.IsExtra && c.Japanese > 0) : null;
+        currentChapters = chapters;
+        HasEmptyScenes = chapters.Any(c => c.IsEmpty);
+        HiddenEmptyScenes = HideEmptyScenes ? chapters.Where(c => c.IsEmpty).Sum(c => c.ScriptKeys.Count) : 0;
         Chapters.Clear();
-        foreach (var chapter in chapters)
+        foreach (var chapter in chapters.Where(c => !(HideEmptyScenes && c.IsEmpty)))
         {
             var key = chapter.ScriptKeys.FirstOrDefault(k => counts[k].ToReview > 0)
                 ?? chapter.ScriptKeys.FirstOrDefault(k => counts[k].Untranslated > 0)
                 ?? chapter.ScriptKeys[0];
-            var isHere = project.LastEditedScript is { } last && chapter.ScriptKeys.Contains(last, StringComparer.Ordinal);
+            var isHere = !chapter.IsEmpty && project.LastEditedScript is { } last && chapter.ScriptKeys.Contains(last, StringComparer.Ordinal);
             var note = ChapterNote(chapter, dashboard, isHere, ReferenceEquals(chapter, stopped));
             Chapters.Add(new ChapterRowViewModel(chapter, note, isHere, key));
         }
@@ -812,11 +856,10 @@ public sealed partial class DashboardViewModel : ObservableObject
             new(NavKey.Editor, Chapters.FirstOrDefault(c => c.Name == chapter.Name)?.ScriptKey);
     }
 
-    /// <summary>O capítulo onde a pessoa está, se ainda tem o que fazer nele; senão o primeiro da história que tem. O botão e o "Você está aqui" apontam o mesmo capítulo sempre que possível.</summary>
+    /// <summary>O capítulo onde a pessoa está, se ainda tem o que fazer nele; senão o primeiro da história que tem; capítulo sem linhas nunca. O botão e o "Você está aqui" apontam o mesmo capítulo sempre que possível.</summary>
     private ScriptGroupTotals? ChapterToWorkOn(IReadOnlyList<ScriptGroupTotals> chapters, Func<ScriptGroupTotals, bool> needsWork)
     {
-        var here = Chapters.FirstOrDefault(c => c.IsHere)?.Name;
-        return chapters.FirstOrDefault(c => c.Name == here && needsWork(c)) ?? chapters.FirstOrDefault(needsWork);
+        return ScriptGrouping.ChapterToWorkOn(chapters, Chapters.FirstOrDefault(c => c.IsHere)?.Name, needsWork);
     }
 
     private void SetNextStep(string label, DashboardNavigation target)

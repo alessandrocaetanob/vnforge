@@ -14,6 +14,12 @@ public sealed record ScriptGroupTotals(string Name, int? Number, IReadOnlyList<s
     public bool IsExtra => Number is null;
 
     public int Total => Ready + ToReview + Japanese;
+
+    /// <summary>Nenhum script do grupo tem linha: não há o que traduzir nem revisar.</summary>
+    public bool IsEmpty => Total == 0;
+
+    /// <summary>Nada falta no grupo: todas as linhas estão prontas ou o grupo não tem linha (<see cref="IsEmpty"/>).</summary>
+    public bool IsComplete => ToReview == 0 && Japanese == 0;
 }
 
 /// <summary>
@@ -235,6 +241,18 @@ public static partial class ScriptGrouping
     {
         var text = string.Join(' ', label.Split(['_', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         return text.Length == 0 ? label : char.ToUpper(text[0], CultureInfo.InvariantCulture) + text[1..];
+    }
+
+    /// <summary>
+    /// O capítulo que o botão "próximo passo" aponta: o capítulo onde a pessoa está (<paramref name="here"/>), se ainda tem o que fazer nele; senão o primeiro
+    /// da história que tem. Capítulo sem linhas (<see cref="ScriptGroupTotals.IsEmpty"/>) nunca é escolhido, qualquer que seja <paramref name="needsWork"/>.
+    /// </summary>
+    public static ScriptGroupTotals? ChapterToWorkOn(IReadOnlyList<ScriptGroupTotals> chapters, string? here, Func<ScriptGroupTotals, bool> needsWork)
+    {
+        ArgumentNullException.ThrowIfNull(chapters);
+        ArgumentNullException.ThrowIfNull(needsWork);
+        var candidates = chapters.Where(c => !c.IsEmpty && needsWork(c)).ToList();
+        return candidates.FirstOrDefault(c => c.Name == here) ?? candidates.FirstOrDefault();
     }
 
     private static bool IsExtra(string name) => string.Equals(name.Trim(), ExtraName, StringComparison.OrdinalIgnoreCase);

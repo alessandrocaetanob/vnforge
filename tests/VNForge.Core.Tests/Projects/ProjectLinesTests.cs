@@ -67,12 +67,13 @@ public class ProjectLinesTests
     }
 
     [Fact]
-    public void Script_sem_linhas_tem_percentuais_zero()
+    public void Script_sem_linhas_conta_como_pronto_e_nao_tem_linhas_da_IA()
     {
         var linhas = ProjectLines.Create(Textos(("vazio", [])));
 
         var script = Assert.Single(linhas.Scripts);
-        Assert.Equal(0, script.CompletedPercent);
+        Assert.True(script.IsEmpty);
+        Assert.Equal(100, script.CompletedPercent);
         Assert.Equal(0, script.MachinePercent);
         Assert.Empty(linhas.LinesOf("vazio"));
     }

@@ -45,7 +45,7 @@
           <Grid ColumnDefinitions="28,200,160,100,96,*" ColumnSpacing="12" VerticalAlignment="Center">
             <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding Number}" HorizontalAlignment="Right"/>
             <TextBlock Name="PART_Title" Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis"/>
-            <c:Seg3Bar Grid.Column="2" VerticalAlignment="Center" Done="{TemplateBinding Done}" Review="{TemplateBinding Review}" Total="{TemplateBinding Total}"/>
+            <c:Seg3Bar Grid.Column="2" VerticalAlignment="Center" Done="{TemplateBinding BarDone}" Review="{TemplateBinding Review}" Total="{TemplateBinding BarTotal}"/>
             <TextBlock Grid.Column="3" Classes="body-sm" Text="{TemplateBinding PercentText}" TextAlignment="Right"/>
             <TextBlock Grid.Column="4" Classes="mono secondary" Text="{TemplateBinding LinesText}" TextAlignment="Right"/>
             <TextBlock Name="PART_Note" Grid.Column="5" Classes="caption secondary" Text="{TemplateBinding Note}" TextTrimming="CharacterEllipsis"/>
