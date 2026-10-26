@@ -108,9 +108,11 @@ public static class JapanesePunctuation
         };
     }
 
-    /// <summary>O substituto do teclado de <paramref name="codePoint"/> (só ASCII, sempre gravável); nulo quando a tabela não o cobre ou o substituto não é ASCII.</summary>
-    public static string? KeyboardFor(int codePoint) =>
-        Candidates(codePoint) is { } candidates ? candidates.FirstOrDefault(c => c.All(ch => ch < 0x80)) : null;
+    /// <summary>
+    /// O substituto preferido de <paramref name="codePoint"/>, o que o corretor usa quando a estratégia o grava (<c>~</c> para <c>～</c>); nulo quando a tabela não cobre
+    /// o caractere. É o que a mensagem da regra e a Conferência sugerem.
+    /// </summary>
+    public static string? KeyboardFor(int codePoint) => Candidates(codePoint)?[0];
 
     private static string[]? Candidates(int codePoint)
     {

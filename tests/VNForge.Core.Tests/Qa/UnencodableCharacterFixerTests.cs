@@ -73,6 +73,15 @@ public sealed class UnencodableCharacterFixerTests
     }
 
     [Fact]
+    public void A_sugestao_da_mensagem_e_o_que_o_corretor_grava()
+    {
+        var issue = Assert.Single(new UnencodableCharacterRule().Check(Context(units: [Unit("a・b")])));
+
+        Assert.EndsWith("Nome: ponto médio japonês. Use '·'.", issue.Message, StringComparison.Ordinal);
+        Assert.Equal("a·b", new UnencodableCharacterRule().Fix("a・b", Context()));
+    }
+
+    [Fact]
     public void Caractere_fora_da_tabela_nao_ganha_nome_na_mensagem()
     {
         var issue = Assert.Single(new UnencodableCharacterRule().Check(Context(units: [Unit("★")])));
