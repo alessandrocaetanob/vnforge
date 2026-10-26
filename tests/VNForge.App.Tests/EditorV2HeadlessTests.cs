@@ -53,10 +53,10 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch(
             () =>
             {
-                // A janela do app tira 72 px do trilho e 1 px da borda: o Editor recebe 1367 px.
-                var window = Show(new EditorView { DataContext = vm }, 1367);
+                // A 1440 px de janela as colunas chegam aos tetos do artboard: 248 e 420.
+                var window = Show(new EditorView { DataContext = vm }, 1440);
                 var panels = window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible).ToList();
-                scripts = panels.Single(b => b.Name is null && b.Bounds.Height > 200 && b.Bounds.X < 40).Bounds.Width;
+                scripts = panels.Single(b => b.Name == "ScenesBorder").Bounds.Width;
                 inspector = panels.Single(b => b.Padding.Left == 16 && b.Bounds.Width > 300).Bounds.Width;
                 window.Close();
             },
@@ -83,7 +83,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
                 var window = Show(new LineDetailView { DataContext = vm.Detail }, inspectorWidth - 32, 1000);
                 var view = window.GetVisualDescendants().OfType<LineDetailView>().Single();
                 var detail = (LineDetailViewModel)view.DataContext!;
-                var buttons = view.GetVisualDescendants().OfType<Button>().Where(b => b.Command == detail.ApproveAndNextCommand || b.Command == detail.AcceptSuggestionCommand).ToList();
+                var buttons = view.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && (b.Command == detail.ApproveAndNextCommand || b.Command == detail.AcceptSuggestionCommand)).ToList();
                 Assert.Equal(2, buttons.Count);
                 rows.AddRange(buttons.Select(b => b.TranslatePoint(default, view)!.Value.Y));
                 foreach (var block in buttons.SelectMany(b => b.GetVisualDescendants().OfType<TextBlock>()).Where(t => t.IsEffectivelyVisible))
@@ -145,7 +145,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch(
             () =>
             {
-                var window = Show(new EditorView { DataContext = vm }, 1367);
+                var window = Show(new EditorView { DataContext = vm }, 1440);
                 var editor = (EditorView)window.Content!;
                 var before = (window.FocusManager?.GetFocusedElement() as Control)?.GetType().Name;
                 Assert.True(editor.FindControl<ListBox>("LinesList")!.ContainerFromIndex(0)!.Focus());
@@ -191,7 +191,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch(
             () =>
             {
-                var window = Show(new EditorView { DataContext = vm }, 1367);
+                var window = Show(new EditorView { DataContext = vm }, 1440);
                 var list = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "ResultsList");
                 Assert.Equal(1, list.ItemCount);
                 list.SelectedIndex = 0;
@@ -217,7 +217,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch(
             () =>
             {
-                var window = Show(new EditorView { DataContext = vm }, 1367);
+                var window = Show(new EditorView { DataContext = vm }, 1440);
                 vm.ScriptFilter = "yst00002";
                 Settle(window);
                 var list = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name is null && l.Classes.Contains("scripts"));

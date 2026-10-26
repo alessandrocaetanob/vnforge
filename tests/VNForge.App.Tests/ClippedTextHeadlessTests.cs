@@ -140,8 +140,9 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
                 var detail = window.GetVisualDescendants().OfType<LineDetailView>().Single();
                 problems.AddRange(FindClipped(detail));
                 var model = (LineDetailViewModel)detail.DataContext!;
-                var approve = detail.GetVisualDescendants().OfType<Button>().Where(b => b.Command == model.ApproveAndNextCommand || b.Command == model.AcceptSuggestionCommand).ToList();
-                Assert.Equal(2, approve.Count);
+                var approve = detail.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && (b.Command == model.ApproveAndNextCommand || b.Command == model.AcceptSuggestionCommand)).ToList();
+                // Em abas (janela pequena) o "Usar" fica na aba Sugestão e a linha só tem o Aprovar.
+                Assert.Equal(width < EditorBreakpoints.InspectorTabsBelow ? 1 : 2, approve.Count);
                 heights.AddRange(approve.Select(b => b.Bounds.Height));
                 window.Close();
             },
