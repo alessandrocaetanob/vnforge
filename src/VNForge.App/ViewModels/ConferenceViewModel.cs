@@ -225,6 +225,43 @@ public sealed partial class ConferenceViewModel : ObservableObject
         Load(loaded);
     }
 
+    private TaskCompletionSource? deferredRefresh;
+
+    /// <summary>
+    /// Os textos mudaram fora desta página (uma tradução em lote terminou): lê de novo. Uma leitura em curso não impede, porque a mais nova descarta
+    /// a anterior; uma correção gravando impede, então a releitura espera ela acabar. O resultado só chega quando a releitura termina.
+    /// </summary>
+    public Task RefreshAfterExternalChangeAsync()
+    {
+        if (!IsFixing)
+        {
+            return RefreshAsync();
+        }
+
+        return (deferredRefresh ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+    }
+
+    partial void OnIsFixingChanged(bool value)
+    {
+        if (!value && deferredRefresh is { } pending)
+        {
+            deferredRefresh = null;
+            _ = RefreshThenCompleteAsync(pending);
+        }
+    }
+
+    private async Task RefreshThenCompleteAsync(TaskCompletionSource pending)
+    {
+        try
+        {
+            await RefreshAsync();
+        }
+        finally
+        {
+            pending.SetResult();
+        }
+    }
+
     private void Load(Checked? loaded)
     {
         report = loaded?.Report ?? QaReport.Empty;

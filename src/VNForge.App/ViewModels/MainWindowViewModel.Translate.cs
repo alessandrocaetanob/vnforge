@@ -136,7 +136,7 @@ public sealed partial class MainWindowViewModel
             return Start.LoadAsync();
         }
 
-        return ReferenceEquals(CurrentPage, Conference) && !Conference.IsBusy ? ConferenceLoading = Conference.RefreshAsync() : Task.CompletedTask;
+        return ReferenceEquals(CurrentPage, Conference) ? ConferenceLoading = Conference.RefreshAfterExternalChangeAsync() : Task.CompletedTask;
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch

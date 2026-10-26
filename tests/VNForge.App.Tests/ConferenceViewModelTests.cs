@@ -214,6 +214,42 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public async Task Releitura_externa_durante_uma_correcao_espera_ela_acabar_e_mostra_o_resultado()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+        Assert.Contains(IssueRows(vm), r => r.RuleId == "espaco-duplo");
+
+        var fix = vm.FixAllCommand.ExecuteAsync(null);
+        var deferred = vm.RefreshAfterExternalChangeAsync();
+        if (vm.IsFixing)
+        {
+            Assert.False(deferred.IsCompleted);
+        }
+
+        await fix;
+        await deferred;
+
+        Assert.False(vm.IsBusy);
+        Assert.DoesNotContain(IssueRows(vm), r => r.RuleId == "espaco-duplo");
+    }
+
+    [Fact]
+    public async Task Releitura_externa_com_leitura_em_curso_vale_a_mais_nova()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        var first = vm.RefreshAsync();
+        folder.SaveText("yst00002", [Unit("yst00002", 5, "a b c", TranslationStatus.Reviewed)]);
+
+        await vm.RefreshAfterExternalChangeAsync();
+        await first;
+
+        Assert.False(vm.IsBusy);
+        Assert.All(IssueRows(vm).Where(r => r.ScriptKey == "yst00002"), r => Assert.NotEqual("espaco-duplo", r.RuleId));
+    }
+
+    [Fact]
     public void Dois_caracteres_fora_da_acentuacao_ligam_com_e()
     {
         QaIssue[] issues = [Unencodable(0x3002), Unencodable(0xFF5E)];
