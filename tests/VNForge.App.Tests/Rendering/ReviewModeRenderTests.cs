@@ -260,6 +260,55 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task Com_pouca_altura_o_palco_nao_passa_de_180_px_e_so_a_pilha_de_baixo_rola()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            vm.Editor.Review!.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var stageFrame = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            var below = Frame(window, view.FindControl<ScrollViewer>("BelowStage")!);
+            var barFrame = Frame(window, view.FindControl<Border>("ActionBar")!);
+            Assert.True(stageFrame.Height >= 179, $"o palco tem {stageFrame.Height} px");
+            Assert.True(below.Top >= stageFrame.Bottom && below.Bottom <= barFrame.Top, "a pilha de baixo cabe entre o palco e a barra");
+            Assert.True(barFrame.Bottom <= window.Height, "a barra segue dentro da janela");
+            Assert.True(view.FindControl<ScrollViewer>("BelowStage")!.Extent.Height > below.Height, "o que não cabe rola dentro da pilha");
+            Salvar(window, "modo-revisao-passa-baixo", ThemeVariant.Dark);
+        }, 1366, 560);
+    }
+
+    [Fact]
+    public async Task Trocar_de_linha_no_meio_do_fade_termina_com_o_roteiro_e_o_palco_opacos()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var script = view.FindControl<ScrollViewer>("Script")!;
+            var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
+
+            vm.Editor.Review!.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            vm.Editor.Review.SkipCommand.Execute(null);
+            for (var n = 0; n < 12; n++)
+            {
+                SpinWait.SpinUntil(static () => false, 60);
+                ScreenRenderer.Settle(window);
+            }
+
+            Assert.Equal("Linha 3 de 3", vm.Editor.Review.PositionText);
+            Assert.Equal(1d, script.Opacity);
+            Assert.Equal(1d, stage.Opacity);
+        }, animations: true);
+    }
+
+    [Fact]
     public async Task A_1366_com_aviso_o_palco_encolhe_e_a_barra_continua_inteira()
     {
         using var temp = new TempFolder();
@@ -280,13 +329,13 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         }, 1366, 768);
     }
 
-    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height)
+    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
             {
                 using var config = new TempFolder();
-                using var motion = MotionPreferences.Force(false);
+                using var motion = MotionPreferences.Force(animations);
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
                 var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };

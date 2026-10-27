@@ -39,10 +39,11 @@ public sealed class ReviewModeTests : IDisposable
     private static TextUnit Fala(int script, int n, string? falante, string original, string? traducao, TranslationStatus status) =>
         new($"yst0000{script}:{n:D6}", falante is null ? TextUnitKind.Narration : TextUnitKind.Dialogue, falante, original, traducao, status);
 
-    private async Task<EditorViewModel> Abrir(IApprovalLog? registro = null, Func<TextUnit, string>? preco = null, Func<string, string?>? nomes = null)
+    private async Task<EditorViewModel> Abrir(IApprovalLog? registro = null, Func<TextUnit, string>? preco = null, Func<string, string?>? nomes = null, Func<string, ScriptNames>? capitulos = null)
     {
         var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao(), scriptLabel: nomes)
         {
+            NamesLoader = capitulos,
             ApprovalLogFactory = registro is null ? null : _ => registro,
             SuggestionPrice = preco,
         };
@@ -204,11 +205,41 @@ public sealed class ReviewModeTests : IDisposable
         semNome.StartReview();
         Assert.Equal("Cena 1", semNome.Review!.SceneName);
         Assert.Equal("Cena 2", semNome.Review.NextSceneName);
+        Assert.Equal(semNome.SelectedScript!.Name, semNome.Review.SceneName);
 
         var comNome = await Abrir(nomes: chave => chave == "yst00002" ? "Manhã de chuva" : null);
         comNome.StartReview();
         Assert.Equal("Cena 1", comNome.Review!.SceneName);
         Assert.Equal("Manhã de chuva", comNome.Review.NextSceneName);
+    }
+
+    [Fact]
+    public async Task Cena_sem_nome_e_sem_digito_na_chave_usa_a_posicao_entre_todas_as_cenas_mesmo_em_capitulos_diferentes()
+    {
+        ProjectFolder.Open(raiz).SaveText("zepilogo", [new TextUnit("zepilogo:000000", TextUnitKind.Dialogue, "美咲", "「ええ」\\p", "Sim.\\p", TranslationStatus.Machine)]);
+        var capitulos = ScriptNames.From(
+        [
+            new ScriptNameEntry("yst00001", null, null) { Group = "Capítulo 1" },
+            new ScriptNameEntry("yst00002", null, null) { Group = "Capítulo 2" },
+            new ScriptNameEntry("zepilogo", null, null) { Group = "Capítulo 2" },
+        ]);
+        var vm = await Abrir(capitulos: _ => capitulos);
+
+        vm.StartReview();
+        Assert.Equal("Cena 1", vm.Review!.SceneName);
+        Assert.Equal("Cena 2", vm.Review.NextSceneName);
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            vm.Review.SkipCommand.Execute(null);
+        }
+
+        vm.Review.GoToNextSceneCommand.Execute(null);
+        Assert.Equal("yst00002", vm.SelectedScript!.Key);
+        Assert.Equal("Cena 2", vm.Review!.SceneName);
+        Assert.Equal("Cena 3", vm.Review.NextSceneName);
+        Assert.DoesNotContain("zepilogo", vm.Review.NextSceneName, StringComparison.Ordinal);
+        Assert.Equal(vm.SelectedScript.Name, vm.Review.SceneName);
     }
 
     [Fact]

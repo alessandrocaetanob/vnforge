@@ -49,7 +49,7 @@ O tamanho é o do canvas, **1440×1000** (`ScreenRenderer.Width` e `Height`), e 
 | 3 · Painel | | Ainda no desenho da v2 (`docs/design/prints/painel-*`); o Painel v3 vem na #309 |
 | 4, 5 · Editor | `editor-1440`, `editor-inspetor` (com "Entender o japonês" aberto), `editor-caixa-nao-cabe`, `editor-caixa-dividida` | |
 | 6 · Editor em 1366×768 | `editor-compacto-traducao`, `editor-compacto-sugestao`, `editor-compacto-contexto` | Abas do inspetor de 360 px |
-| 7 · Modo revisão | `modo-revisao-cabe`, `modo-revisao-passa`, `modo-revisao-fim`, `modo-revisao-1366` | |
+| 7 · Modo revisão | `modo-revisao-cabe`, `modo-revisao-passa`, `modo-revisao-fim`, `modo-revisao-1366`, `modo-revisao-passa-1366`, `modo-revisao-passa-baixo` | Refeito na #404 (palco 16:9 e roteiro). `passa-1366` mostra os avisos de caixa e de gênero juntos a 1366×768 e `passa-baixo` uma janela de 560 px de altura, com o palco no mínimo e a pilha de baixo rolando; as duas só existem no modo escuro |
 | 8 · Traduzir com IA | `traduzir-com-ia`, `traduzir-com-ia-acima-do-limite` | |
 | 9 · Conferir | `conferir-caixa-nao-cabe` | Tela Conferir a tradução (#334); `conferir-caixa-nao-cabe` mostra a caixa do jogo e o aviso, `conferir-v3-problemas` e `conferir-v3-um-clique` a lista com o painel |
 | 10 · Testar no jogo | `testar-no-jogo-traduzido`, `testar-no-jogo-travado`, `testar-no-jogo-detalhes` | |

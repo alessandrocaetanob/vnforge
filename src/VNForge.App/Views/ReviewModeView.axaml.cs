@@ -6,10 +6,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
@@ -167,7 +167,10 @@ public sealed partial class ReviewModeView : UserControl
             {
                 Script.Opacity = 1;
                 Stage.Opacity = 1;
+                entering = null;
             }
+
+            source.Dispose();
         }
     }
 

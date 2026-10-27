@@ -13,6 +13,9 @@ public sealed class ReviewStage : ContentControl
     /// <summary>Largura sobre altura do palco.</summary>
     public const double Aspect = 16d / 9d;
 
+    /// <summary>A largura do palco quando nenhum dos eixos tem limite.</summary>
+    public const double UnboundedWidth = 640;
+
     public static readonly StyledProperty<string?> SceneNameProperty = AvaloniaProperty.Register<ReviewStage, string?>(nameof(SceneName));
 
     /// <summary>O nome da cena, no cartão de capítulo do canto superior esquerdo.</summary>
@@ -29,7 +32,7 @@ public sealed class ReviewStage : ContentControl
         var height = double.IsInfinity(available.Height) ? double.PositiveInfinity : Math.Max(0, available.Height);
         if (double.IsInfinity(width) && double.IsInfinity(height))
         {
-            return new Size(640, 640 / Aspect);
+            return new Size(UnboundedWidth, UnboundedWidth / Aspect);
         }
 
         var fitted = Math.Min(width, height * Aspect);

@@ -121,7 +121,7 @@ public class EditorScriptsTests
 
         Assert.Null(vm.SelectedScript.Chapter!.Number);
         Assert.Equal("Cena 3 de 5", vm.Breadcrumb);
-        Assert.Equal("Cena 3", vm.ScriptTitle);
+        Assert.Equal("Cena 5", vm.ScriptTitle);
     }
 
     [Fact]

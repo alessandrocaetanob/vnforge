@@ -165,11 +165,11 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>O nome da cena aberta, o mesmo da lista de cenas; "Cena 13" quando ela não tem nome.</summary>
-    public string SceneName => editor.SelectedScript is { } script ? SceneNameOf(script) : string.Empty;
+    /// <summary>O nome da cena aberta, o mesmo da lista de cenas e do título do Editor; "Cena 13" quando ela não tem nome.</summary>
+    public string SceneName => editor.SelectedScript?.Name ?? string.Empty;
 
     /// <summary>O nome da próxima cena com linhas da IA para revisar, como na lista de cenas; nulo na última.</summary>
-    public string? NextSceneName => editor.NextScriptToReview() is { } next ? SceneNameOf(next) : null;
+    public string? NextSceneName => editor.NextScriptToReview()?.Name;
 
     public bool HasNextScene => NextSceneName is not null;
 
@@ -256,23 +256,6 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         disposed = true;
         editor.PropertyChanged -= OnEditorChanged;
-    }
-
-    /// <summary>O nome da cena, ou "Cena N" com o número que a chave do script guarda (<c>yst00013</c> vira "Cena 13"; sem número na chave, a posição na lista). O id nunca é o nome.</summary>
-    private string SceneNameOf(ScriptItemViewModel script)
-    {
-        if (script.Label is { } label)
-        {
-            return label;
-        }
-
-        var start = script.Key.Length;
-        while (start > 0 && char.IsAsciiDigit(script.Key[start - 1]))
-        {
-            start--;
-        }
-
-        return start < script.Key.Length && int.TryParse(script.Key.AsSpan(start), out var number) ? $"Cena {number}" : $"Cena {editor.Scripts.IndexOf(script) + 1}";
     }
 
     private static string Plural(int count, string one, string many) => count == 1 ? $"1 {one}" : $"{ProjectLabels.Number(count)} {many}";

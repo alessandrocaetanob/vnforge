@@ -78,7 +78,7 @@
         <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap"/>
       </Button>
       <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Center">
-        <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" Text="{Binding SceneName}" TextWrapping="NoWrap" AutomationProperties.Name="Cena"/>
+        <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding SceneName}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SceneName}" AutomationProperties.Name="Cena"/>
         <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding IsActive}"/>
         <ItemsControl ItemsSource="{Binding Blocks}" HorizontalAlignment="Center" AutomationProperties.Name="Linhas da revisão">
           <ItemsControl.ItemsPanel>
@@ -171,51 +171,53 @@
                          AutomationProperties.Name="Caixa do jogo"/>
         </c:ReviewStage>
 
-        <StackPanel Spacing="12">
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A caixa do jogo aparece quando o projeto tem o perfil de formatação."
-                     IsVisible="{Binding !Detail.Preview.HasLayout, FallbackValue=True}"/>
-          <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Detail.FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
-            <PathIcon Width="16" Height="16" Classes="fit" Data="{StaticResource Icon.Check}"
-                      IsVisible="{Binding !Detail.DoesNotFit, FallbackValue=False}"/>
-            <PathIcon Width="16" Height="16" Classes="fit over" Data="{StaticResource Icon.Warning}" IsVisible="{Binding Detail.DoesNotFit, FallbackValue=False}"/>
-            <TextBlock Classes="fit" Classes.over="{Binding Detail.DoesNotFit}" Text="{Binding Detail.FitText}" VerticalAlignment="Center"
-                       AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
-          </StackPanel>
+        <ScrollViewer x:Name="BelowStage" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A caixa do jogo aparece quando o projeto tem o perfil de formatação."
+                       IsVisible="{Binding !Detail.Preview.HasLayout, FallbackValue=True}"/>
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Detail.FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
+              <PathIcon Width="16" Height="16" Classes="fit" Data="{StaticResource Icon.Check}"
+                        IsVisible="{Binding !Detail.DoesNotFit, FallbackValue=False}"/>
+              <PathIcon Width="16" Height="16" Classes="fit over" Data="{StaticResource Icon.Warning}" IsVisible="{Binding Detail.DoesNotFit, FallbackValue=False}"/>
+              <TextBlock Classes="fit" Classes.over="{Binding Detail.DoesNotFit}" Text="{Binding Detail.FitText}" VerticalAlignment="Center"
+                         AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
+            </StackPanel>
 
-          <c:FitWarning IsVisible="{Binding Detail.Fit.IsVisible, FallbackValue=False}" Message="{Binding Detail.Fit.Message}" SplitText="{Binding Detail.Fit.SplitText}"
-                        ShortenText="{Binding Detail.Fit.ShortenText}" SplitCommand="{Binding Detail.Fit.SplitCommand}" ShortenCommand="{Binding Detail.Fit.ShortenCommand}"
-                        ShowShorten="{Binding Detail.Fit.HasShortener, FallbackValue=False}" ErrorText="{Binding Detail.Fit.Error}"
-                        AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
+            <c:FitWarning IsVisible="{Binding Detail.Fit.IsVisible, FallbackValue=False}" Message="{Binding Detail.Fit.Message}" SplitText="{Binding Detail.Fit.SplitText}"
+                          ShortenText="{Binding Detail.Fit.ShortenText}" SplitCommand="{Binding Detail.Fit.SplitCommand}" ShortenCommand="{Binding Detail.Fit.ShortenCommand}"
+                          ShowShorten="{Binding Detail.Fit.HasShortener, FallbackValue=False}" ErrorText="{Binding Detail.Fit.Error}"
+                          AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
 
-          <Border Classes="infobar warning" IsVisible="{Binding GenderMissing}" AutomationProperties.Name="Aviso: personagem sem gênero">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
-              <StackPanel Grid.Column="1" Spacing="8">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="Este personagem não tem gênero definido" TextWrapping="Wrap"/>
-                  <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="Sem o gênero, a concordância da tradução pode sair errada."/>
+            <Border Classes="infobar warning" IsVisible="{Binding GenderMissing}" AutomationProperties.Name="Aviso: personagem sem gênero">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                <StackPanel Grid.Column="1" Spacing="8">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="Este personagem não tem gênero definido" TextWrapping="Wrap"/>
+                    <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="Sem o gênero, a concordância da tradução pode sair errada."/>
+                  </StackPanel>
+                  <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding DefineGenderCommand}">
+                    <TextBlock Text="Definir o gênero" TextWrapping="NoWrap"/>
+                  </Button>
                 </StackPanel>
-                <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding DefineGenderCommand}">
-                  <TextBlock Text="Definir o gênero" TextWrapping="NoWrap"/>
-                </Button>
-              </StackPanel>
-            </Grid>
-          </Border>
+              </Grid>
+            </Border>
 
-          <Border Classes="infobar warning" IsVisible="{Binding Detail.HasMissingMarkers, FallbackValue=False}">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
-              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.MissingMarkersText}"/>
-            </Grid>
-          </Border>
+            <Border Classes="infobar warning" IsVisible="{Binding Detail.HasMissingMarkers, FallbackValue=False}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.MissingMarkersText}"/>
+              </Grid>
+            </Border>
 
-          <Border Classes="infobar error" IsVisible="{Binding Detail.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
-              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.ErrorMessage}"/>
-            </Grid>
-          </Border>
-        </StackPanel>
+            <Border Classes="infobar error" IsVisible="{Binding Detail.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.ErrorMessage}"/>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
       </c:StageColumn>
     </Grid>
 
