@@ -39,7 +39,30 @@ Substituições do usuário (E4.5) ficam de fora: o texto delas é livre, e o ca
 
 **Nova regra `ajuste-nao-codificavel` (erro).** Uma ocorrência por linha afetada, com a mensagem "O ajuste Reticências (Caractere …) gera '…', que a estratégia cp1252 não grava." A `UnencodableCharacterRule` deixa de acusar o caractere que um conflito produz, para a mesma linha não aparecer duas vezes. O id é novo e estável, como pede `IQaRule.Id`.
 
-**Corretor ampliado.** Um tipo novo, `Text/UnwritableCharacters.cs`, troca cada caractere que o encoder não grava pelo primeiro substituto gravável, nesta ordem: a tabela de `JapanesePunctuation`; uma tabela ocidental (aspas curvas para retas, `– — ―` para `-`, `…` para `...`, `♪ ♫` para `~`, `★ ☆` para `*`, `™` para `TM`, `©` para `(c)`, `•` para `*`, a mesma lista do `CharacterFolder`); e a letra decomposta sem as marcas latinas U+0300 a U+036F (`ï` vira `i`, `ő` vira `o`). Marcadores de controle nunca são tocados. Caractere sem substituto gravável fica como está. `UnencodableCharacterRule.Fix` passa a chamar esse tipo. A mensagem da regra sugere o substituto que o corretor usaria, em vez de uma frase fixa por caractere.
+**Corretor ampliado.** Um tipo novo, `Text/UnwritableCharacters.cs`, troca cada caractere que o encoder não grava por um substituto da tabela abaixo, só quando o substituto é gravável. Marcadores de controle nunca são tocados. Caractere fora da tabela fica como está e continua acusado. `UnencodableCharacterRule.Fix` passa a chamar esse tipo. A mensagem da regra sugere o substituto que o corretor usaria, em vez de uma frase fixa por caractere.
+
+Os substitutos são só ASCII, que já foi visto no jogo de referência. Os símbolos da cp1252 de `0xA0` a `0xBF` (`· « » ° ¡ ¿`) passam no encoder mas nunca foram vistos na tela, então não entram como substituto. Gravar `♪` ou `★` em Shift-JIS no meio do texto cp1252, como os delimitadores do falante, fica fora: não foi testado e depende da fonte. Tabela decidida com o Alessandro em 27/10/2026:
+
+| Caractere | Substituto |
+|---|---|
+| aspas curvas duplas (U+201C, U+201D, U+201E) | `"` |
+| aspas curvas simples (U+2018, U+2019, U+201A) e `‹ ›` | `'` |
+| reticências (U+2026) e `‥` | `...` e `..` |
+| meia-risca, travessão, barra horizontal e traço de caixa (U+2013, U+2014, U+2015, U+2500) | `-` |
+| marcador (U+2022), `★ ☆ ※` | `*` |
+| `™` | `TM` |
+| `Š š Ž ž Œ œ Ÿ ƒ ˆ ˜` | `S s Z z OE oe Y f ^ ~` |
+| `ï` | `i` |
+| `♪ ♫ ♥ ♡` | `~` |
+| `～ 〜` | `~` |
+| `・` | espaço (`・・・` continua virando `...`) |
+| `「 」 『 』` | `"` |
+| `→ ←` | `->` e `<-` |
+| espaço japonês | espaço comum |
+| pontuação e letras de largura cheia (`（ ） ！ ？ Ａ １`) | a versão ASCII |
+| letra com acento que a cp1252 não tem (`ő ā ě`) | a letra sem o acento (decomposta, sem as marcas U+0300 a U+036F) |
+
+`† ‡ ‰` ficam fora da tabela: são raros e não têm troca óbvia. Na estratégia `sjis` a mesma tabela vale para o que o Shift-JIS não grava; o `CharacterFolder` da `fold` não muda. A tabela de `JapanesePunctuation` sugere `·` antes do espaço para o `・`; o corretor usa a ordem desta tabela, e a opção "Trocar pontuação japonesa pela do teclado" fica como está.
 
 **`QaFixer`.** `QaFixResult` ganha a lista de ajustes trocados. `QaFixer.Apply` resolve os conflitos antes das correções de texto e grava o `formatting.json` só quando algo mudou, dentro da mesma trava (`ProjectTextLock`). `Plan` e `Propose` não mudam: continuam só texto.
 
