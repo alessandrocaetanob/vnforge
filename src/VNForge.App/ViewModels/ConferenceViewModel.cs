@@ -129,6 +129,10 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [ObservableProperty]
     public partial int? IssueCount { get; private set; }
 
+    /// <summary>Quantas dessas ocorrências são erros, os que travam o teste no jogo (o filtro "Travam o teste"); nulo como <see cref="IssueCount"/>.</summary>
+    [ObservableProperty]
+    public partial int? ErrorCount { get; private set; }
+
     public bool IsEmpty => Rows.Count == 0;
 
     /// <summary>A frase de <see cref="EmptyMessage"/> aparece quando a lista está vazia e o estado vazio do <see cref="IsClear"/> não a substitui.</summary>
@@ -589,6 +593,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
             filter.Count = filter.Kind == ConferenceFilterKind.OneClick ? all.Count(filter.Passes) : all.Where(filter.Passes).Sum(r => r.Count);
         }
 
+        ErrorCount = checkedAt is null ? null : filters[1].Count;
         IssueCount = checkedAt is null ? null : filters[0].Count;
 
         SyncSelection();
