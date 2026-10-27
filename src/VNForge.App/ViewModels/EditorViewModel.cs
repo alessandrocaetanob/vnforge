@@ -181,6 +181,10 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [ObservableProperty]
     public partial int IssueCount { get; private set; }
 
+    /// <summary>Quantas dessas ocorrências são erros, os que travam o teste no jogo; os avisos não entram.</summary>
+    [ObservableProperty]
+    public partial int ErrorCount { get; private set; }
+
     public string ProjectName => Project?.Name ?? string.Empty;
 
     /// <summary>A sobrancelha do cabeçalho: "Capítulo 1 · cena 13 de 45", ou "Cena 13 de 45" fora de um capítulo da história. Nunca a chave do script.</summary>
@@ -717,6 +721,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var updated = data?.WithUnit(entry, unit) ?? entry.WithUnit(unit);
+        ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(entry.Issues);
         IssueCount += updated.Issues.Count - entry.Issues.Count;
         data?.Replace(updated);
         RequestRecheck();
@@ -746,6 +751,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         var previous = line.Entry.Unit;
         var updated = data?.WithUnit(line.Entry, saved) ?? line.Entry.WithUnit(saved);
+        ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(line.Entry.Issues);
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
         line.Update(updated);
@@ -863,6 +869,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
+            ErrorCount = loaded is null ? 0 : CountErrors(loaded);
             IssueCount = loaded is null ? 0 : CountIssues(loaded);
             Scripts.Clear();
             foreach (var script in loaded?.Scripts ?? [])

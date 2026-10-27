@@ -15,14 +15,27 @@
     </Setter>
   </Style>
 
+  <!-- O FluentTheme pinta fundo, texto e borda no ContentPresenter do modelo, em todos os estados; só o que chega nele vale.
+       Ativo: on-accent sobre accent (dark 8,6:1, claro 8,6:1). Desligado: fundo neutro e texto apagado, para não parecer o botão ligado. -->
   <Style Selector="Button.accent">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
+  <Style Selector="Button.accent /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
   <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentHover}"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="Button.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
   </Style>
 
   <Style Selector="Button.subtle">
