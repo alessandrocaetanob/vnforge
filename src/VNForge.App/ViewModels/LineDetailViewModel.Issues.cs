@@ -68,11 +68,14 @@ public sealed partial class LineDetailViewModel
     /// <summary>A medida da caixa tem algo a dizer em verde ou vermelho (cabe, passa ou sem tradução).</summary>
     public bool FitIsShown => FitText.Length > 0 && !FitIsNeutral;
 
-    /// <summary>Troca os avisos mostrados pelos da linha como estão agora; erros primeiro, depois avisos, na ordem do QA.</summary>
+    /// <summary>
+    /// Troca os avisos mostrados pelos da linha como estão agora; erros primeiro, depois avisos, na ordem do QA. A caixa acima do limite fica de fora: o "Passa 1 linha"
+    /// e o aviso "Não cabe na caixa do jogo" já a explicam em linguagem comum, e "caixa 1 com 4 linhas (máximo 3)." só repetiria. A grade e a Conferência a seguem mostrando.
+    /// </summary>
     public void ShowIssues(IReadOnlyList<QaIssue> issues)
     {
         ArgumentNullException.ThrowIfNull(issues);
 
-        QaIssues = LineIssueViewModel.From(issues);
+        QaIssues = LineIssueViewModel.From(issues.Where(i => i.RuleId != BoxLineLimitRule.RuleId));
     }
 }
