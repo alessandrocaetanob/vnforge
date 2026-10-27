@@ -122,7 +122,7 @@ public sealed partial class ReviewModeView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         held.Clear();
-        entering?.Cancel();
+        CancelEntering();
         if (watchedWindow is not null)
         {
             watchedWindow.Deactivated -= OnWindowDeactivated;
@@ -161,6 +161,9 @@ public sealed partial class ReviewModeView : UserControl
         }
     }
 
+    /// <summary>Cancela o fade em andamento na thread da interface. O CancelAsync rodaria os callbacks da animação no thread pool, e o finally do fade poderia ver o campo já trocado e deixar nele uma fonte descartada.</summary>
+    private void CancelEntering() => entering?.Cancel();
+
     /// <summary>Ao trocar de linha, o roteiro e o palco entram com um fade de 140 ms; sem animações no Windows, a troca é imediata.</summary>
     private async Task PlayEnterAsync()
     {
@@ -169,15 +172,9 @@ public sealed partial class ReviewModeView : UserControl
             return;
         }
 
-        // O fade anterior só é cancelado depois que este assume o campo, para o finally dele não repor a opacidade.
-        var previous = entering;
+        CancelEntering();
         using var source = new CancellationTokenSource();
         entering = source;
-        if (previous is not null)
-        {
-            await previous.CancelAsync();
-        }
-
         var fade = new Animation
         {
             Duration = TimeSpan.FromMilliseconds(140),
