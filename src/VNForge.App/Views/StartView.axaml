@@ -99,6 +99,8 @@
 
                   <Button Classes="accent lg" HorizontalAlignment="Left" Command="{Binding OpenNextStepCommand}" Content="{Binding Detail.ContinueLabel}"
                           IsVisible="{Binding Detail.HasNextStep}"/>
+                  <!-- Sem próximo passo (projeto sem linhas, ou leitura com erro) o cartão ainda precisa de uma saída. -->
+                  <Button HorizontalAlignment="Left" Command="{Binding OpenSelectedCommand}" Content="Abrir projeto" IsVisible="{Binding !Detail.HasNextStep}"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="420" IsVisible="{Binding HasContinueLayout}">
@@ -178,7 +180,7 @@
                                      IsVisible="{Binding !HasProblem}" AutomationProperties.Name="{Binding ReadyDescription}"/>
                         </Grid>
                         <TextBlock Grid.Column="3" Classes="body-sm secondary" Text="{Binding WhenLabel}" VerticalAlignment="Center"/>
-                        <Button Grid.Column="4" Classes="subtle sm" VerticalAlignment="Center" Content="Abrir" IsVisible="{Binding IsAvailable}"
+                        <Button Grid.Column="4" Classes="subtle sm" VerticalAlignment="Center" Content="Abrir" IsVisible="{Binding IsSupported}"
                                 Command="{Binding $parent[ListBox].((vm:StartViewModel)DataContext).OpenRecentCommand}" CommandParameter="{Binding}"/>
                       </Grid>
                     </DataTemplate>

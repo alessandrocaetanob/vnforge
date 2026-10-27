@@ -476,10 +476,19 @@ public sealed partial class DashboardViewModel : ObservableObject
     [RelayCommand]
     private void OpenTest() => NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Build));
 
-    /// <summary>Ao trocar de projeto os números do anterior saem na hora, e uma leitura ainda em curso deixa de valer.</summary>
-    partial void OnProjectChanged(ProjectSummary? value)
+    /// <summary>
+    /// Ao trocar de projeto os números do anterior saem na hora, e uma leitura ainda em curso deixa de valer. O mesmo projeto com outro resumo
+    /// (as linhas mudaram) mantém o que está na tela até a leitura nova chegar, para o Início não piscar.
+    /// </summary>
+    partial void OnProjectChanged(ProjectSummary? oldValue, ProjectSummary? newValue)
     {
         loadVersion++;
+        if (oldValue is not null && newValue is not null && loaded && string.Equals(oldValue.Root, newValue.Root, StringComparison.OrdinalIgnoreCase))
+        {
+            IsLoading = false;
+            return;
+        }
+
         Clear();
     }
 

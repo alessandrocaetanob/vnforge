@@ -228,7 +228,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     [RelayCommand]
     private async Task OpenRecentAsync(RecentProjectItem? item)
     {
-        if (item is not { IsAvailable: true })
+        if (item is not { IsSupported: true })
         {
             return;
         }
@@ -350,14 +350,16 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         }
 
         CancelDetailDebounce();
-        ShowContinueLine(null, string.Empty);
+        if (project is null || !SamePath(project.Root, continueRoot))
+        {
+            ShowContinueLine(null, string.Empty, null);
+        }
 
         var rapid = lastSelectionAt != 0 && Stopwatch.GetElapsedTime(lastSelectionAt) < TimeSpan.FromMilliseconds(500);
         lastSelectionAt = Stopwatch.GetTimestamp();
         Detail.Project = project;
         if (project is null)
         {
-            ShowContinueLine(null, string.Empty);
             DetailLoading = Detail.ReloadAsync();
             return;
         }
@@ -402,29 +404,48 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         }
     }
 
-    /// <summary>Lê, na cena do próximo passo, a fala da caixa do cartão. Ler o projeto não pode derrubar o Início: sem a fala, o cartão só esconde a caixa.</summary>
+    /// <summary>
+    /// Lê, na cena do próximo passo, a fala da caixa do cartão. A fala é enfeite: qualquer falha na leitura só esconde a caixa e nunca sobe para
+    /// <see cref="DetailLoading"/>, que ninguém observa no app. Enquanto a leitura corre, a fala do mesmo projeto fica na tela.
+    /// </summary>
     private async Task ReloadContinueLineAsync(CancellationToken token)
     {
         var root = Selected?.IsSupported == true ? Selected.Path : null;
         var key = Detail.NextStepTarget?.ScriptKey;
         if (root is null || key is null)
         {
-            ShowContinueLine(null, string.Empty);
+            ShowContinueLine(null, string.Empty, null);
             return;
         }
 
-        var (layout, caption) = await Task.Run(() => ReadContinueLine(root, key), CancellationToken.None);
+        (TextboxLayout? Layout, string Caption) found;
+        try
+        {
+            found = await Task.Run(() => ReadContinueLine(root, key), CancellationToken.None);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            Debug.WriteLine($"Início: não foi possível ler a fala do cartão: {e}");
+            found = (null, string.Empty);
+        }
+
         if (!token.IsCancellationRequested && SamePath(root, Selected?.Path))
         {
-            ShowContinueLine(layout, caption);
+            ShowContinueLine(found.Layout, found.Caption, root);
         }
     }
 
-    private void ShowContinueLine(TextboxLayout? layout, string caption)
+    private string? continueRoot;
+
+    private void ShowContinueLine(TextboxLayout? layout, string caption, string? root)
     {
+        continueRoot = layout is null ? null : root;
         ContinueLayout = layout;
         ContinueLineCaption = caption;
     }
+
+    /// <summary>Quantas falas a leitura tenta montar antes de desistir: uma fala que o pipeline recusa passa a vez para a próxima da cena.</summary>
+    private const int MaxContinueTries = 20;
 
     private (TextboxLayout? Layout, string Caption) ReadContinueLine(string root, string key)
     {
@@ -432,15 +453,18 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         {
             var units = ProjectFolder.Open(root).LoadText(key);
             var speech = units.Where(u => u.Kind is TextUnitKind.Dialogue or TextUnitKind.Narration && !string.IsNullOrWhiteSpace(u.Translation)).ToList();
-            var toReview = speech.FirstOrDefault(u => u.Status is TranslationStatus.Machine or TranslationStatus.Translated);
-            var unit = toReview ?? speech.LastOrDefault(u => u.Status is TranslationStatus.Reviewed or TranslationStatus.Approved);
-            if (unit is null)
+            var toReview = speech.Where(u => u.Status is TranslationStatus.Machine or TranslationStatus.Translated);
+            var reviewed = speech.Where(u => u.Status is TranslationStatus.Reviewed or TranslationStatus.Approved).Reverse();
+            var profile = profiles.Get(root) ?? FormattingProfile.Default;
+            foreach (var (unit, isToReview) in toReview.Select(u => (u, true)).Concat(reviewed.Select(u => (u, false))).Take(MaxContinueTries))
             {
-                return (null, string.Empty);
+                if (new TextboxPreviewViewModel(unit, profile, unit.Translation!).Layout is { } layout)
+                {
+                    return (layout, isToReview ? "Próxima fala a revisar" : "Última fala revisada");
+                }
             }
 
-            var layout = new TextboxPreviewViewModel(unit, profiles.Get(root) ?? FormattingProfile.Default, unit.Translation!).Layout;
-            return (layout, toReview is null ? "Última fala revisada" : "Próxima fala a revisar");
+            return (null, string.Empty);
         }
         catch (Exception e) when (IsExpected(e))
         {

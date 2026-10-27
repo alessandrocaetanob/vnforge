@@ -72,7 +72,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                     Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Novo projeto");
                     Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Solte a pasta aqui para começar uma tradução nova.");
 
-                    // O cartão tem a fala onde a pessoa vai continuar, na caixa do jogo pequena, e o botão principal fica na área visível.
+                    // O cartão tem a fala onde a pessoa vai continuar, na caixa do jogo grande, e o botão principal fica na área visível.
                     var box = Assert.Single(view.GetVisualDescendants().OfType<GameTextbox>(), g => g.IsEffectivelyVisible);
                     Assert.Equal(GameTextboxSize.Large, box.Size);
                     Assert.NotNull(box.Layout);
