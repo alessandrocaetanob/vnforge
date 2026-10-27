@@ -72,11 +72,17 @@ public sealed class GameTextbox : Control
     public static readonly StyledProperty<double> NextOffsetProperty =
         AvaloniaProperty.Register<GameTextbox, double>(nameof(NextOffset));
 
+    /// <summary>Com a largura disponível menor que a da caixa, encolhe o desenho inteiro em proporção em vez de cortar; a quebra das linhas continua a do jogo.</summary>
+    public static readonly StyledProperty<bool> FitToWidthProperty =
+        AvaloniaProperty.Register<GameTextbox, bool>(nameof(FitToWidth));
+
     static GameTextbox()
     {
-        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty);
-        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty);
+        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, FitToWidthProperty);
+        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty, FitToWidthProperty);
     }
+
+    private double fitScale = 1;
 
     public GameTextbox() => ActualThemeVariantChanged += (_, _) => InvalidateVisual();
 
@@ -104,6 +110,21 @@ public sealed class GameTextbox : Control
         get => GetValue(NextOffsetProperty);
         set => SetValue(NextOffsetProperty, value);
     }
+
+    public bool FitToWidth
+    {
+        get => GetValue(FitToWidthProperty);
+        set => SetValue(FitToWidthProperty, value);
+    }
+
+    /// <summary>A escala do desenho na última medida: 1 quando a caixa cabe na largura recebida (ou <see cref="FitToWidth"/> está desligado) e menos que 1 quando foi encolhida.</summary>
+    public double FitScale => fitScale;
+
+    /// <summary>A escala que faz uma caixa de <paramref name="contentWidth"/> caber em <paramref name="availableWidth"/>: nunca amplia, e largura sem limite deixa a caixa no tamanho natural.</summary>
+    public static double ScaleToFit(double contentWidth, double availableWidth) =>
+        contentWidth <= 0 || double.IsInfinity(availableWidth) || double.IsNaN(availableWidth) || availableWidth <= 0 || contentWidth <= availableWidth
+            ? 1
+            : availableWidth / contentWidth;
 
     /// <summary>A grade de linhas que o controle desenha para o <see cref="Layout"/> atual; vazia sem ele.</summary>
     public IReadOnlyList<GameTextboxRow> Rows => Layout is { } layout ? Describe(layout) : [];
@@ -169,13 +190,14 @@ public sealed class GameTextbox : Control
             y += gap + height;
         }
 
-        return bounds;
+        return fitScale < 1 ? [.. bounds.Select(b => b with { Bounds = new Rect(b.Bounds.X * fitScale, b.Bounds.Y * fitScale, b.Bounds.Width * fitScale, b.Bounds.Height * fitScale), GapAbove = b.GapAbove * fitScale })] : bounds;
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
         if (Layout is not { } layout)
         {
+            fitScale = 1;
             return default;
         }
 
@@ -183,7 +205,9 @@ public sealed class GameTextbox : Control
         var (columnWidth, textHeight) = Cell(m);
         var rowHeight = Math.Max(m.RowHeight, textHeight);
         var height = HeightOf(layout, m, rowHeight);
-        return new Size(ContentWidth(layout, m, columnWidth), height);
+        var width = ContentWidth(layout, m, columnWidth);
+        fitScale = FitToWidth ? ScaleToFit(width, availableSize.Width) : 1;
+        return new Size(width * fitScale, height * fitScale);
     }
 
     public override void Render(DrawingContext context)
@@ -193,6 +217,13 @@ public sealed class GameTextbox : Control
         {
             return;
         }
+
+        using var scale = context.PushTransform(Matrix.CreateScale(fitScale, fitScale));
+        RenderBox(context, layout);
+    }
+
+    private void RenderBox(DrawingContext context, TextboxLayout layout)
+    {
 
         var m = Metrics.For(Size);
         var (columnWidth, textHeight) = Cell(m);

@@ -45,7 +45,7 @@ public sealed class App : Application
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings))
             {
-                Editor = new EditorViewModel(suggester: suggester)
+                Editor = new EditorViewModel(suggester: suggester, layoutMemory: new EditorLayoutMemory(configDirectory))
                 {
                     Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate),
                     SuggestionPrice = unit => LineSuggester.PriceText(unit, LineSuggester.ReadModel(configDirectory), settings.Rate),

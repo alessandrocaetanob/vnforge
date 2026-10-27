@@ -68,6 +68,44 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
     }
 
     [Theory]
+    [InlineData(560, 560, 1)]
+    [InlineData(560, 800, 1)]
+    [InlineData(560, 280, 0.5)]
+    [InlineData(560, double.PositiveInfinity, 1)]
+    [InlineData(560, 0, 1)]
+    [InlineData(0, 300, 1)]
+    public void A_escala_para_caber_nunca_amplia_e_ignora_largura_sem_limite(double conteudo, double disponivel, double esperado) =>
+        Assert.Equal(esperado, GameTextbox.ScaleToFit(conteudo, disponivel), 6);
+
+    [Fact]
+    public async Task Com_FitToWidth_a_caixa_de_73_colunas_encolhe_em_proporcao_e_sem_ele_mantem_o_tamanho()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var layout = Caixa([2]) with { Columns = 73 };
+                var natural = new GameTextbox { Layout = layout };
+                natural.Measure(Avalonia.Size.Infinity);
+                var largura = natural.DesiredSize.Width / 2;
+                var ajustada = new GameTextbox { Layout = layout, FitToWidth = true };
+                ajustada.Measure(new Avalonia.Size(largura, double.PositiveInfinity));
+                var folgada = new GameTextbox { Layout = layout, FitToWidth = true };
+                folgada.Measure(new Avalonia.Size(natural.DesiredSize.Width + 40, double.PositiveInfinity));
+
+                Assert.True(natural.DesiredSize.Width > 0);
+                Assert.Equal(1, natural.FitScale);
+                Assert.Equal(largura, ajustada.DesiredSize.Width, 3);
+                Assert.Equal(0.5, ajustada.FitScale, 3);
+                Assert.True(ajustada.FitScale is > 0 and < 1);
+                Assert.Equal(natural.DesiredSize.Height * ajustada.FitScale, ajustada.DesiredSize.Height, 3);
+                Assert.Equal(1, folgada.FitScale);
+                Assert.Equal(natural.DesiredSize.Width, folgada.DesiredSize.Width, 3);
+                Assert.All(ajustada.RowBounds(), r => Assert.True(r.Bounds.Right <= ajustada.DesiredSize.Width + 0.5));
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
     [MemberData(nameof(Themes))]
     public async Task A_altura_acompanha_a_grade_nos_dois_temas(string tema)
     {

@@ -93,7 +93,7 @@ public sealed class EditorCompactRenderTests(HeadlessFixture fixture, DemoFolder
                     Assert.DoesNotContain(inspector.GetVisualDescendants().OfType<TabControl>(), t => t.IsEffectivelyVisible);
                     Assert.Equal(GameTextboxSize.Medium, inspector.GetVisualDescendants().OfType<GameTextbox>().Single().Size);
                     var panel = inspector.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel"));
-                    Assert.InRange(panel.Bounds.Width, 419, 421);
+                    Assert.InRange(panel.Bounds.Width, 421, EditorBreakpoints.InspectorMaxWidth + 1);
                 }
                 finally
                 {
@@ -149,13 +149,13 @@ public sealed class EditorCompactRenderTests(HeadlessFixture fixture, DemoFolder
     {
         var campo = inspector.GetVisualDescendants().OfType<TextEditor>().Single(e => e.Name == "TranslationEditor");
         var caixa = inspector.GetVisualDescendants().OfType<GameTextbox>().Single();
-        var rolagem = caixa.GetVisualAncestors().OfType<ScrollViewer>().First();
+        var recipiente = caixa.GetVisualParent<Control>()!;
 
         Assert.True(caixa.IsEffectivelyVisible);
         Assert.Equal(GameTextboxSize.Small, caixa.Size);
         Assert.Contains(inspector.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("kbd") && b.IsEffectivelyVisible);
-        Assert.True(caixa.Bounds.Width <= rolagem.Viewport.Width + Tolerance, $"a caixa do jogo inteira cabe sem rolagem horizontal ({caixa.Bounds.Width:0.#} de {rolagem.Viewport.Width:0.#})");
-        Assert.True(rolagem.Extent.Width <= rolagem.Viewport.Width + Tolerance, "sem rolagem horizontal na caixa");
+        Assert.True(caixa.Bounds.Width <= recipiente.Bounds.Width + Tolerance, $"a caixa do jogo inteira cabe sem rolagem horizontal ({caixa.Bounds.Width:0.#} de {recipiente.Bounds.Width:0.#})");
+        Assert.DoesNotContain(caixa.GetVisualAncestors().TakeWhile(a => a != inspector).OfType<ScrollViewer>(), r => r.Extent.Width > r.Viewport.Width + Tolerance);
 
         var campoY = campo.TranslatePoint(default, window)!.Value.Y;
         var caixaY = caixa.TranslatePoint(default, window)!.Value.Y;

@@ -14,9 +14,14 @@
 
   <!-- A lista de cenas do Editor: na coluna da esquerda a partir de 1400 px, e dentro do flyout do cabeçalho abaixo disso. -->
   <Grid RowDefinitions="48,Auto,Auto,*,Auto">
-    <Grid ColumnDefinitions="*,Auto" Margin="12,0">
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="12,0,8,0">
       <TextBlock Classes="title-md" Text="Cenas" VerticalAlignment="Center"/>
       <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding ScriptsCount}" VerticalAlignment="Center"/>
+      <!-- Só na coluna da grade (CanCollapse); no flyout a lista fecha sozinha ao escolher a cena. -->
+      <Button x:Name="CollapseButton" Grid.Column="2" Classes="subtle sm" IsVisible="False" Margin="6,0,0,0" Width="28" Padding="0"
+              Command="{Binding ToggleScenesCommand}" ToolTip.Tip="{Binding ScenesToggleTip}" AutomationProperties.Name="Recolher a lista de cenas">
+        <PathIcon Width="14" Height="14" Data="{StaticResource Icon.ChevronRight}" RenderTransform="rotate(180deg)"/>
+      </Button>
     </Grid>
     <TextBox Grid.Row="1" Margin="12,0,12,8" MinHeight="28" Height="28" FontSize="13" Padding="8,0" VerticalContentAlignment="Center"
              PlaceholderText="Filtrar cenas" Text="{Binding ScriptFilter}" AutomationProperties.Name="Filtrar cenas">
