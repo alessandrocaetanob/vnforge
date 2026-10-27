@@ -23,6 +23,9 @@ public sealed partial class ConferenceViewModel
     /// <summary>O botão "Corrigir e ir para o próximo" aparece quando o problema tem correção proposta ou a fala pode ser dividida em páginas.</summary>
     public bool ShowFixAndNext => SelectedRow is { HasProposal: true } || SelectedFit is { CanSplit: true };
 
+    /// <summary>"Abrir no editor" é a ação em destaque quando nenhuma outra é: o problema não tem correção de um clique nem cadastro de personagem.</summary>
+    public bool OpenIsPrimary => !ShowFixAndNext && SelectedRow is not { CanRegisterCharacter: true };
+
     /// <summary>A caixa do jogo com a tradução de hoje, para o problema "Não cabe na caixa"; nula nos outros.</summary>
     [ObservableProperty]
     public partial TextboxLayout? SelectedLayout { get; private set; }
@@ -49,6 +52,7 @@ public sealed partial class ConferenceViewModel
     {
         FixAndNextCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ShowFixAndNext));
+        OnPropertyChanged(nameof(OpenIsPrimary));
     }
 
     private (FitWarningViewModel? Fit, TextboxLayout? Layout) CreateFit(ConferenceIssueRowViewModel? row)

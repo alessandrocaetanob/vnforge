@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Controls;
@@ -47,6 +50,7 @@ public sealed class LineRow : TemplatedControl
     private string numberText = "0000";
     private string speakerText = NarrationLabel;
     private string translationText = NoTranslationLabel;
+    private SelectableTextBlock? speakerBlock;
 
     public LineRow() => Apply();
 
@@ -119,6 +123,34 @@ public sealed class LineRow : TemplatedControl
     {
         get => translationText;
         private set => SetAndRaise(TranslationTextProperty, ref translationText, value);
+    }
+
+    /// <summary>
+    /// O nome de quem fala é selecionável, com "Copiar" no menu. O <see cref="SelectableTextBlock"/> trata o clique para começar a seleção, e a lista
+    /// deixaria de ouvi-lo: a linha se seleciona aqui.
+    /// </summary>
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        if (speakerBlock is not null)
+        {
+            speakerBlock.RemoveHandler(PointerPressedEvent, OnSpeakerPressed);
+        }
+
+        speakerBlock = e.NameScope.Find<SelectableTextBlock>("PART_Speaker");
+        if (speakerBlock is not null)
+        {
+            CopyMenu.Attach(speakerBlock);
+            speakerBlock.AddHandler(PointerPressedEvent, OnSpeakerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
+        }
+    }
+
+    private void OnSpeakerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && this.FindAncestorOfType<ListBoxItem>() is { IsSelected: false } item)
+        {
+            item.IsSelected = true;
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

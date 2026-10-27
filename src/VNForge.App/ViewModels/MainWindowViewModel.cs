@@ -124,6 +124,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.PropertyChanged += OnDashboardChanged;
         Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);
         Conference.LineRequested += (_, request) => OpenLineInEditor(request);
+        Conference.CharacterRegistrationRequested += (_, name) => OpenCharacterInGlossary(name);
         Build.LineRequested += (_, request) => OpenLineInEditor(request);
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
@@ -684,6 +685,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
+
+    /// <summary>"Cadastrar personagem" no erro do falante: Glossário > Personagens com o nome como está no texto, pronto para a tradução.</summary>
+    private void OpenCharacterInGlossary(string name)
+    {
+        Glossary.RegisterCharacter(name);
+        SelectedNav = glossaryItem;
+    }
 
     private void OnEditorDefineGenderRequested(object? sender, EventArgs e)
     {

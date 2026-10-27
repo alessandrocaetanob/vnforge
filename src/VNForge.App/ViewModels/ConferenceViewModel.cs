@@ -52,6 +52,9 @@ public sealed partial class ConferenceViewModel : ObservableObject
     /// <summary>O usuário pediu para abrir uma linha; quem escuta (a janela principal) leva ao Editor.</summary>
     public event EventHandler<LineRequest>? LineRequested;
 
+    /// <summary>O usuário pediu para cadastrar o personagem do erro do falante; o argumento é o nome como está no texto. Quem escuta (a janela principal) leva ao Glossário.</summary>
+    public event EventHandler<string>? CharacterRegistrationRequested;
+
     /// <summary>O <c>formatting.json</c> foi alterado aqui (o botão do card do ajuste, ou "Corrigir com um clique"); Ajustes e o Editor precisam reler.</summary>
     public event EventHandler? SettingsChanged;
 
@@ -63,13 +66,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial ProjectSummary? Project { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand), nameof(ApplySettingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(RegisterCharacterCommand), nameof(FixAndNextCommand), nameof(ApplySettingCommand))]
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand), nameof(RefreshCommand), nameof(ApplySettingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(RegisterCharacterCommand), nameof(FixAndNextCommand), nameof(RefreshCommand), nameof(ApplySettingCommand))]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsFixing { get; private set; }
 
@@ -497,6 +500,17 @@ public sealed partial class ConferenceViewModel : ObservableObject
     }
 
     private bool CanOpenLineById(LineRequest? request) => !IsBusy && request is not null;
+
+    [RelayCommand(CanExecute = nameof(CanRegisterCharacter))]
+    private void RegisterCharacter(ConferenceIssueRowViewModel? row)
+    {
+        if (row is { CanRegisterCharacter: true, Speaker: { } name })
+        {
+            CharacterRegistrationRequested?.Invoke(this, name);
+        }
+    }
+
+    private bool CanRegisterCharacter(ConferenceIssueRowViewModel? row) => !IsBusy && row is { CanRegisterCharacter: true };
 
     [RelayCommand(CanExecute = nameof(CanMarkOk))]
     private async Task MarkOkAsync(ConferenceIssueRowViewModel? row)

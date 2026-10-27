@@ -78,8 +78,8 @@
           <StackPanel x:Name="OriginalFragment" Spacing="6">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
-                         VerticalAlignment="Center" AutomationProperties.Name="Falante"/>
+              <SelectableTextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" c:CopyMenu.Enabled="True" AutomationProperties.Name="Falante"/>
             </Grid>
             <Border Classes="original">
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
@@ -267,9 +267,9 @@
               <TextBlock Classes="overline" Text="Contexto"/>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" IsVisible="{Binding HasSpeaker}">
                 <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Person}"/>
-                <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap">
+                <SelectableTextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" c:CopyMenu.Enabled="True" AutomationProperties.Name="Quem fala no contexto">
                   <Run FontWeight="SemiBold" Text="{Binding SpeakerName}"/><Run Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding VoiceText}"/>
-                </TextBlock>
+                </SelectableTextBlock>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Book}"/>

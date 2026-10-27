@@ -110,6 +110,72 @@ public class GlossaryViewModelTests
     }
 
     [Fact]
+    public void Cadastrar_personagem_poe_o_nome_exato_no_alto_da_aba_Personagens()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        folder.SaveCharacters([new CharacterEntry("a", "A")]);
+        vm.Reload();
+        vm.SelectedTab = GlossaryTab.Terms;
+        vm.Search = "filtro que esconderia a linha";
+
+        var row = vm.RegisterCharacter("Ｃ氏");
+
+        Assert.NotNull(row);
+        Assert.Equal(GlossaryTab.Characters, vm.SelectedTab);
+        Assert.Equal(string.Empty, vm.Search);
+        Assert.Same(row, vm.Characters[0]);
+        Assert.Same(row, vm.VisibleCharacters[0]);
+        Assert.Equal(("Ｃ氏", string.Empty), (row.Source, row.Target));
+        Assert.True(vm.IsDirty);
+    }
+
+    [Fact]
+    public void Cadastrar_personagem_e_salvar_grava_o_nome_sem_alterar_caractere()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+
+        var row = vm.RegisterCharacter("Ｃ氏");
+        Assert.NotNull(row);
+        row.Target = "Cê";
+        vm.SaveCommand.Execute(null);
+
+        Assert.Equal([new CharacterEntry("Ｃ氏", "Cê")], folder.LoadCharacters());
+    }
+
+    [Fact]
+    public void Cadastrar_personagem_que_ja_existe_traz_a_linha_dele_em_vez_de_duplicar()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        folder.SaveCharacters([new CharacterEntry("a", "A"), new CharacterEntry("犬井", "Inui")]);
+        vm.Reload();
+        vm.SelectedTab = GlossaryTab.Terms;
+
+        var row = vm.RegisterCharacter("犬井");
+
+        Assert.Same(vm.Characters[1], row);
+        Assert.Equal(2, vm.Characters.Count);
+        Assert.Equal(GlossaryTab.Characters, vm.SelectedTab);
+        Assert.False(vm.IsDirty);
+    }
+
+    [Fact]
+    public void Cadastrar_personagem_sem_projeto_ou_com_arquivo_invalido_nao_faz_nada()
+    {
+        Assert.Null(new GlossaryViewModel().RegisterCharacter("犬井"));
+
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        File.WriteAllText(ProjectFolder.Open(root).CharactersPath, "{ quebrado");
+        var broken = new GlossaryViewModel { Project = ProjectSummaryReader.Read(root) };
+
+        Assert.Null(broken.RegisterCharacter("犬井"));
+        Assert.Empty(broken.Characters);
+    }
+
+    [Fact]
     public void Linha_totalmente_vazia_e_descartada_ao_salvar()
     {
         using var temp = new TempFolder();
