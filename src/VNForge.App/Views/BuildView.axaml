@@ -41,7 +41,8 @@
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
-          <SelectableTextBlock Grid.Column="1" Classes="body-sm" Loaded="Selectable_Loaded" TextWrapping="Wrap" Text="{Binding ErrorMessage}" AutomationProperties.Name="Mensagem de erro"/>
+          <SelectableTextBlock Grid.Column="1" Classes="body-sm" Loaded="Selectable_Loaded" TextWrapping="Wrap" AutomationProperties.Name="Mensagem de erro"
+                               c:LineLinks.Source="{Binding ErrorMessage}" c:LineLinks.Command="{Binding OpenLineCommand}"/>
         </Grid>
       </Border>
 
@@ -265,10 +266,13 @@
                       <ItemsControl ItemsSource="{Binding Log}" Margin="16,12" AutomationProperties.Name="Linhas do log">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="vm:BuildLogLine">
-                            <SelectableTextBlock Classes="mono secondary" LineHeight="20" Loaded="Selectable_Loaded" TextWrapping="Wrap">
-                              <Run FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Time, Mode=OneWay}"/>
-                              <Run Text="{Binding Message, StringFormat='  {0}', Mode=OneWay}"/>
-                            </SelectableTextBlock>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                              <SelectableTextBlock Classes="mono secondary" LineHeight="20" FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}"
+                                                   Loaded="Selectable_Loaded" Text="{Binding Time}"/>
+                              <SelectableTextBlock Grid.Column="1" Classes="mono secondary" LineHeight="20" Loaded="Selectable_Loaded" TextWrapping="Wrap"
+                                                   c:LineLinks.Source="{Binding Message}"
+                                                   c:LineLinks.Command="{Binding $parent[ItemsControl].((vm:BuildViewModel)DataContext).OpenLineCommand}"/>
+                            </Grid>
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>
                       </ItemsControl>

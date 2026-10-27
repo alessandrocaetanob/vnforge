@@ -74,10 +74,14 @@ public enum LineStatusFilter
     Keep,
 }
 
-/// <summary>Filtro da grade: um status e, opcionalmente, um personagem. Os dois valem juntos.</summary>
+/// <summary>Filtro da grade: um status, opcionalmente um personagem e opcionalmente um texto de busca. Os três valem juntos.</summary>
 /// <param name="Status">Filtro de status.</param>
 /// <param name="Speaker">Nulo aceita qualquer personagem; <see cref="Narration"/> aceita só linhas sem falante; outro valor é comparado em ordem ordinal.</param>
-public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, string? Speaker = null)
+/// <param name="Query">
+/// Nulo ou em branco aceita tudo. Um id completo (<c>yst00112:033792</c>, <see cref="LineIds.TryParse"/>) aceita só essa linha; a chave de um script
+/// (<c>yst00112</c>) aceita a cena inteira; qualquer outro texto procura no original e na tradução, sem diferenciar maiúsculas nem acentos.
+/// </param>
+public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, string? Speaker = null, string? Query = null)
 {
     /// <summary>Valor de <see cref="Speaker"/> para as linhas sem falante (narração).</summary>
     public const string Narration = "";
@@ -85,12 +89,15 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
     /// <summary>Filtro que aceita tudo.</summary>
     public static LineFilter None { get; } = new();
 
-    private bool IsNone => Status == LineStatusFilter.All && Speaker is null;
+    private bool IsNone => Status == LineStatusFilter.All && Speaker is null && string.IsNullOrWhiteSpace(Query);
+
+    // Fora do record para não entrar na igualdade nem numa corrida entre threads: a chave é a instância, e um "with" ganha a sua.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LineFilter, ParsedQuery> ParsedQueries = [];
 
     public bool Matches(LineEntry line)
     {
         ArgumentNullException.ThrowIfNull(line);
-        return MatchesStatus(line) && MatchesSpeaker(line);
+        return MatchesStatus(line) && MatchesSpeaker(line) && MatchesQuery(line);
     }
 
     /// <summary>Linhas que passam no filtro, na ordem original; devolve <paramref name="lines"/> mesmo quando o filtro aceita tudo.</summary>
@@ -142,6 +149,52 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         LineStatusFilter.Keep => line.Unit.Status == TranslationStatus.Keep,
         _ => true,
     };
+
+    private bool MatchesQuery(LineEntry line)
+    {
+        if (string.IsNullOrWhiteSpace(Query))
+        {
+            return true;
+        }
+
+        return ParsedQueries.GetValue(this, static filter => ParsedQuery.Parse(filter.Query!)).Matches(line);
+    }
+
+    private sealed class ParsedQuery
+    {
+        private readonly string text;
+        private readonly string folded;
+        private readonly string trimmed;
+        private readonly string? unitId;
+
+        private ParsedQuery(string text, string trimmed, string? unitId)
+        {
+            this.text = text;
+            this.trimmed = trimmed;
+            this.unitId = unitId;
+            folded = SearchText.Fold(text);
+        }
+
+        public static ParsedQuery Parse(string query)
+        {
+            var trimmed = query.Trim();
+            return new ParsedQuery(query, trimmed, LineIds.TryParse(trimmed, out var id) ? id.UnitId : null);
+        }
+
+        public bool Matches(LineEntry line)
+        {
+            // O id vale como id e também como texto: "Cap:1" pode ser um trecho da fala, e um id que ninguém tem não deve calar a busca.
+            if ((unitId is not null && string.Equals(line.Unit.Id, unitId, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(line.ScriptKey, trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // Só a tradução em português perde o acento na busca; no original em japonês a dobra juntaria kana com e sem dakuten.
+            return line.Unit.Source.Contains(text, StringComparison.OrdinalIgnoreCase)
+                || (line.Unit.Translation is { } translation && SearchText.Fold(translation).Contains(folded, StringComparison.Ordinal));
+        }
+    }
 
     private bool MatchesSpeaker(LineEntry line) => Speaker switch
     {

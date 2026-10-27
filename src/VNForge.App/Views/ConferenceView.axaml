@@ -59,7 +59,8 @@
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap"
+                     c:LineLinks.Source="{Binding ErrorMessage}" c:LineLinks.Command="{Binding OpenLineByIdCommand}"/>
         </Grid>
       </Border>
       <Border Classes="infobar success" IsVisible="{Binding NoticeMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

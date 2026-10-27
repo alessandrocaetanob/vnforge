@@ -57,13 +57,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial ProjectSummary? Project { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(FixAndNextCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand))]
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(FixAndNextCommand), nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand), nameof(RefreshCommand))]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsFixing { get; private set; }
 
@@ -376,11 +376,23 @@ public sealed partial class ConferenceViewModel : ObservableObject
     {
         if (row is not null)
         {
-            LineRequested?.Invoke(this, new LineRequest(row.ScriptKey, row.UnitId));
+            OpenLineById(new LineRequest(row.ScriptKey, row.UnitId));
         }
     }
 
     private bool CanOpenLine(ConferenceIssueRowViewModel? row) => !IsBusy && row is not null;
+
+    /// <summary>O usuário clicou no id de uma linha citado numa mensagem da página (um erro, por exemplo). Como <see cref="OpenLineCommand"/>, não vale com a página ocupada.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenLineById))]
+    private void OpenLineById(LineRequest? request)
+    {
+        if (request is not null)
+        {
+            LineRequested?.Invoke(this, request);
+        }
+    }
+
+    private bool CanOpenLineById(LineRequest? request) => !IsBusy && request is not null;
 
     [RelayCommand(CanExecute = nameof(CanMarkOk))]
     private async Task MarkOkAsync(ConferenceIssueRowViewModel? row)

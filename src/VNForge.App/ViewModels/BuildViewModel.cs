@@ -275,6 +275,18 @@ public sealed partial class BuildViewModel : ObservableObject
     [RelayCommand]
     private void ShowErrors() => ErrorsRequested?.Invoke(this, EventArgs.Empty);
 
+    /// <summary>O usuário clicou no id de uma linha citado num erro ou no log; quem escuta (a janela principal) abre a linha no Editor.</summary>
+    public event EventHandler<LineRequest>? LineRequested;
+
+    [RelayCommand]
+    private void OpenLine(LineRequest? request)
+    {
+        if (request is not null)
+        {
+            LineRequested?.Invoke(this, request);
+        }
+    }
+
     partial void OnResultToneChanged(BuildResultTone value)
     {
         OnPropertyChanged(nameof(ResultIconKey));

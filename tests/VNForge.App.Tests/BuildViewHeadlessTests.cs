@@ -109,7 +109,7 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                     t => Assert.Contains(((MenuFlyout)t.ContextFlyout!).Items.OfType<MenuItem>(), i => i.Header as string == "Copiar"));
                 foreach (var linha in vm.Log)
                 {
-                    Assert.Contains(selecionaveis, t => t.Inlines?.OfType<Run>().Any(r => r.Text!.Contains(linha.Message, StringComparison.Ordinal)) == true);
+                    Assert.Contains(selecionaveis, t => t.Text?.Contains(linha.Message, StringComparison.Ordinal) == true);
                 }
             },
             CancellationToken.None);

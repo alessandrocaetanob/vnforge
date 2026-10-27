@@ -114,11 +114,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.HideEmptyScenes = Settings.HideEmptyScenes;
         Dashboard.PropertyChanged += OnDashboardChanged;
         Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);
-        Conference.LineRequested += (_, request) =>
-        {
-            SelectedNav = editorItem;
-            LineNavigation = ShowLineAsync(request);
-        };
+        Conference.LineRequested += (_, request) => OpenLineInEditor(request);
+        Build.LineRequested += (_, request) => OpenLineInEditor(request);
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
@@ -536,6 +533,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         await opening;
         Editor.BeginNewChapterOnOpenScene();
+    }
+
+    private void OpenLineInEditor(LineRequest request)
+    {
+        SelectedNav = editorItem;
+        LineNavigation = ShowLineAsync(request);
     }
 
     private async Task ShowLineAsync(LineRequest request)
