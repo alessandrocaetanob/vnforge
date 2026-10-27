@@ -140,8 +140,15 @@ public sealed partial class ReviewModeView : UserControl
             return;
         }
 
-        entering?.Cancel();
-        var source = entering = new CancellationTokenSource();
+        // O fade anterior só é cancelado depois que este assume o campo, para o finally dele não repor a opacidade.
+        var previous = entering;
+        using var source = new CancellationTokenSource();
+        entering = source;
+        if (previous is not null)
+        {
+            await previous.CancelAsync();
+        }
+
         var fade = new Animation
         {
             Duration = TimeSpan.FromMilliseconds(140),
@@ -169,8 +176,6 @@ public sealed partial class ReviewModeView : UserControl
                 Stage.Opacity = 1;
                 entering = null;
             }
-
-            source.Dispose();
         }
     }
 
