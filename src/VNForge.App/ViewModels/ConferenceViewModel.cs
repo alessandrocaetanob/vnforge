@@ -315,48 +315,19 @@ public sealed partial class ConferenceViewModel : ObservableObject
     {
         var folder = ProjectFolder.Open(root);
         var context = QaContext.FromProject(folder);
-        var scenes = SceneNames(folder);
-        var positions = new Dictionary<string, int?>(StringComparer.Ordinal);
-        var sceneNumbers = context.Texts.Keys.Select((key, index) => (key, number: index + 1)).ToDictionary(x => x.key, x => x.number, StringComparer.Ordinal);
-        // Sem nome, "Cena N" com N a posição do script entre todos do projeto (ordem de chave, de 1 em diante); script fora da lista fica só "Cena", sem inventar número.
-        string Scene(string key)
-        {
-            if (scenes.DisplayName(key) is { } name && !string.IsNullOrWhiteSpace(name))
-            {
-                return name;
-            }
-
-            return sceneNumbers.TryGetValue(key, out var number) ? $"Cena {number.ToString(CultureInfo.InvariantCulture)}" : "Cena";
-        }
-
-        foreach (var list in context.Texts.Values)
-        {
-            for (var i = 0; i < list.Count; i++)
-            {
-                positions.TryAdd(list[i].Id, i + 1);
-            }
-        }
-
+        var sceneOf = SceneLabeler(SceneNames(folder), context);
+        var positions = LinePositions(context);
         var result = engine.Run(context);
         var proposals = QaFixer.Propose(context.Texts, engine, result.Issues, context).ToDictionary(p => (p.UnitId, p.RuleId));
         var conflicts = SettingConflicts(folder);
-        var settingIssues = result.Issues
-            .Where(i => i.RuleId == FormattingConflictRule.RuleId)
-            .Select(i => (Issue: i, Conflict: conflicts.FirstOrDefault(c => i.Message.StartsWith($"O ajuste {c.Setting} ({c.CurrentLabel}) ", StringComparison.Ordinal))))
-            .Where(x => x.Conflict is not null)
-            .ToList();
+        var settingIssues = SettingIssues(result.Issues, conflicts);
         var inCards = settingIssues.Select(x => x.Issue).ToHashSet(ReferenceEqualityComparer.Instance);
 
         // "Não traduzida" é resumo por script: só a primeira linha de cada um vai para o detalhe, as outras ficam fora da memória da tela.
         var untranslated = result.Issues.Where(i => i.RuleId == UntranslatedQaRule.RuleId).GroupBy(i => i.ScriptKey, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
         var others = result.Issues.Where(i => i.RuleId != UntranslatedQaRule.RuleId && !inCards.Contains(i)).ToList();
         var wanted = others.Select(i => i.UnitId).Concat(untranslated.Select(g => g.First().UnitId)).ToHashSet(StringComparer.Ordinal);
-        var units = new Dictionary<string, TextUnit>(StringComparer.Ordinal);
-        foreach (var unit in context.Texts.Values.SelectMany(list => list).Where(u => wanted.Contains(u.Id)))
-        {
-            units.TryAdd(unit.Id, unit);
-        }
-
+        var units = UnitsById(context, wanted);
         var order = engine.Rules.Select((rule, index) => (rule.Id, index)).ToDictionary(x => x.Id, x => x.index, StringComparer.Ordinal);
         // Uma linha com a mesma regra apontada mais de uma vez (dois espaços duplos) é um problema só na lista; a contagem guarda quantas ocorrências são.
         var rows = others
@@ -369,12 +340,9 @@ public sealed partial class ConferenceViewModel : ObservableObject
                     proposals.GetValueOrDefault((issue.UnitId, issue.RuleId)),
                     units.GetValueOrDefault(issue.UnitId),
                     group.Count(),
-                    engine.Find(issue.RuleId)?.Description,
-                    Scene(issue.ScriptKey),
-                    positions.GetValueOrDefault(issue.UnitId),
                     issue.RuleId == UnencodableCharacterRule.RuleId ? group.ToList() : null,
-                    context.Encoder,
-                    conflicts);
+                    new ConferenceRowLabels(engine.Find(issue.RuleId)?.Description, sceneOf(issue.ScriptKey), positions.GetValueOrDefault(issue.UnitId)),
+                    new ConferenceRowCharacterContext(context.Encoder, conflicts));
             })
             .OrderBy(r => r.IsError ? 0 : 1)
             .ThenBy(r => r.ScriptKey, StringComparer.Ordinal)
@@ -386,7 +354,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         rows.AddRange(untranslated.Select(group =>
         {
             var head = group.First();
-            return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), engine.Find(head.RuleId)?.Description, Scene(head.ScriptKey), positions.GetValueOrDefault(head.UnitId));
+            return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), labels: new ConferenceRowLabels(engine.Find(head.RuleId)?.Description, sceneOf(head.ScriptKey), positions.GetValueOrDefault(head.UnitId)));
         }));
 
         // As linhas que um ajuste causa contam nos totais (travam o teste, e o botão de um clique as resolve), mas a lista mostra um card por ajuste.
@@ -395,7 +363,10 @@ public sealed partial class ConferenceViewModel : ObservableObject
         {
             var settingRows = settingIssues
                 .Where(x => x.Conflict == conflict)
-                .Select(x => new ConferenceIssueRowViewModel(x.Issue, ruleDescription: engine.Find(x.Issue.RuleId)?.Description, sceneName: Scene(x.Issue.ScriptKey), linePosition: positions.GetValueOrDefault(x.Issue.UnitId), encoder: context.Encoder, settings: conflicts, settingField: conflict.Field))
+                .Select(x => new ConferenceIssueRowViewModel(
+                    x.Issue,
+                    labels: new ConferenceRowLabels(engine.Find(x.Issue.RuleId)?.Description, sceneOf(x.Issue.ScriptKey), positions.GetValueOrDefault(x.Issue.UnitId)),
+                    characters: new ConferenceRowCharacterContext(context.Encoder, conflicts, conflict.Field)))
                 .ToList();
             if (settingRows.Count > 0)
             {
@@ -405,6 +376,54 @@ public sealed partial class ConferenceViewModel : ObservableObject
         }
 
         return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count + cards.Sum(c => c.Count), cards);
+    }
+
+    /// <summary>O nome da cena na tela. Sem nome, "Cena N" com N a posição do script entre todos do projeto (ordem de chave, de 1 em diante); script fora da lista fica só "Cena", sem inventar número.</summary>
+    private static Func<string, string> SceneLabeler(ScriptNames scenes, QaContext context)
+    {
+        var sceneNumbers = context.Texts.Keys.Select((key, index) => (key, number: index + 1)).ToDictionary(x => x.key, x => x.number, StringComparer.Ordinal);
+        return key =>
+        {
+            if (scenes.DisplayName(key) is { } name && !string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+
+            return sceneNumbers.TryGetValue(key, out var number) ? $"Cena {number.ToString(CultureInfo.InvariantCulture)}" : "Cena";
+        };
+    }
+
+    /// <summary>A posição de cada linha no script, de 1 em diante, pelo id da unidade.</summary>
+    private static Dictionary<string, int?> LinePositions(QaContext context)
+    {
+        var positions = new Dictionary<string, int?>(StringComparer.Ordinal);
+        foreach (var list in context.Texts.Values)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                positions.TryAdd(list[i].Id, i + 1);
+            }
+        }
+
+        return positions;
+    }
+
+    /// <summary>Cada problema "ajuste em conflito" com o ajuste que o causa; o que não casa com nenhum fica de fora.</summary>
+    private static List<(QaIssue Issue, FormattingConflict? Conflict)> SettingIssues(IEnumerable<QaIssue> issues, IReadOnlyList<FormattingConflict> conflicts) => issues
+        .Where(i => i.RuleId == FormattingConflictRule.RuleId)
+        .Select(i => (Issue: i, Conflict: conflicts.FirstOrDefault(c => i.Message.StartsWith($"O ajuste {c.Setting} ({c.CurrentLabel}) ", StringComparison.Ordinal))))
+        .Where(x => x.Conflict is not null)
+        .ToList();
+
+    private static Dictionary<string, TextUnit> UnitsById(QaContext context, HashSet<string> wanted)
+    {
+        var units = new Dictionary<string, TextUnit>(StringComparer.Ordinal);
+        foreach (var unit in context.Texts.Values.SelectMany(list => list).Where(u => wanted.Contains(u.Id)))
+        {
+            units.TryAdd(unit.Id, unit);
+        }
+
+        return units;
     }
 
     /// <summary>Os ajustes em conflito com a estratégia do projeto; sem eles (arquivo ilegível), as linhas da regra ficam na lista como qualquer erro.</summary>
@@ -764,7 +783,18 @@ public sealed partial class ConferenceViewModel : ObservableObject
             ? $"Mostrando {ProjectLabels.Number(shown.Count + cardLines)} de {ProjectLabels.Number(filters[2].Count)} correções de um clique · agrupadas por cena"
             : $"Mostrando {ProjectLabels.Number(shown.Sum(r => r.Count) + cardLines)} de {ProjectLabels.Number(filters[0].Count)} problemas abertos · agrupados por cena";
         ListFooter = SilencedSummary.Length > 0 ? $"{footer} · {SilencedSummary}" : footer;
-        var errors = filters[1].Count;
+        RebuildBlocking(filters[1].Count);
+        HasFixable = fixableCount > 0;
+        FixAllLabel = fixableCount > 0 ? $"Corrigir {ProjectLabels.Number(fixableCount)} com um clique" : "Corrigir com um clique";
+        CheckedSummary = DescribeChecked();
+        OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(IsClear));
+        OnPropertyChanged(nameof(ShowEmptyText));
+        OnPropertyChanged(nameof(HasOnlyWarnings));
+    }
+
+    private void RebuildBlocking(int errors)
+    {
         BlockingMessage = errors switch
         {
             0 => string.Empty,
@@ -773,17 +803,18 @@ public sealed partial class ConferenceViewModel : ObservableObject
         };
         BlockingCount = errors == 0 ? string.Empty : ProjectLabels.Number(errors);
         BlockingRest = errors == 0 ? string.Empty : BlockingMessage[(BlockingCount.Length + 1)..];
-        HasFixable = fixableCount > 0;
-        FixAllLabel = fixableCount > 0 ? $"Corrigir {ProjectLabels.Number(fixableCount)} com um clique" : "Corrigir com um clique";
-        CheckedSummary = Project is null
-            ? string.Empty
-            : checkedAt is { } at
-                ? $"Última conferência {RelativeTime.Format(at, clock.GetLocalNow())} · {Plural(lineCount, "linha", "linhas")} · {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")}"
-                : "Ainda não conferido";
-        OnPropertyChanged(nameof(EmptyMessage));
-        OnPropertyChanged(nameof(IsClear));
-        OnPropertyChanged(nameof(ShowEmptyText));
-        OnPropertyChanged(nameof(HasOnlyWarnings));
+    }
+
+    private string DescribeChecked()
+    {
+        if (Project is null)
+        {
+            return string.Empty;
+        }
+
+        return checkedAt is { } at
+            ? $"Última conferência {RelativeTime.Format(at, clock.GetLocalNow())} · {Plural(lineCount, "linha", "linhas")} · {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")}"
+            : "Ainda não conferido";
     }
 
     private static string Plural(int n, string one, string many) => $"{ProjectLabels.Number(n)} {(n == 1 ? one : many)}";

@@ -46,6 +46,18 @@ public static class ConferenceRuleTexts
     public static bool Has(string ruleId) => ById.ContainsKey(ruleId);
 }
 
+/// <summary>Como uma linha da Conferência se nomeia na tela.</summary>
+/// <param name="RuleDescription">Descrição da regra no Core, usada quando o título não está na tabela.</param>
+/// <param name="SceneName">Como a cena se chama na tela: o nome do <c>scripts.json</c> ou "Cena N" quando o projeto não o guarda (N é a posição do script entre todos os do projeto, em ordem de chave, a partir de 1; não vem do id); sem ele (só em teste) a linha cai no id do script.</param>
+/// <param name="LinePosition">A posição da linha no script (de 1 em diante); o id da unidade é opaco e não serve de número.</param>
+public sealed record ConferenceRowLabels(string? RuleDescription = null, string? SceneName = null, int? LinePosition = null);
+
+/// <summary>O que a dica e o painel do caractere precisam saber do projeto.</summary>
+/// <param name="Encoder">O encoder da estratégia do projeto; a dica do caractere usa o substituto que o corretor grava. Sem ele, a dica cai na tabela de pontuação japonesa.</param>
+/// <param name="Settings">Os ajustes de formatação em conflito com a estratégia; um caractere que vem de um deles tem o painel explicando o ajuste.</param>
+/// <param name="SettingField">O campo do ajuste (<see cref="FormattingConflict.Field"/>) de que esta linha é uma ocorrência; a lista não a mostra, o card do ajuste a representa.</param>
+public sealed record ConferenceRowCharacterContext(ITextEncoder? Encoder = null, IReadOnlyList<FormattingConflict>? Settings = null, string? SettingField = null);
+
 /// <summary>
 /// Uma linha da lista de problemas: uma ocorrência do QA ou, para "não traduzida", o resumo de um script inteiro (<see cref="Count"/> linhas).
 /// Só leitura: a lista pode ter milhares delas.
@@ -61,27 +73,25 @@ public sealed class ConferenceIssueRowViewModel
     /// <param name="proposal">A correção proposta pelo <see cref="IQaFixer"/> da regra, quando há.</param>
     /// <param name="unit">A linha do projeto, para mostrar original e tradução no detalhe.</param>
     /// <param name="count">Quantas ocorrências a linha representa; maior que 1 no resumo por script e quando a regra aponta a mesma linha mais de uma vez.</param>
-    /// <param name="ruleDescription">Descrição da regra no Core, usada quando o título não está na tabela.</param>
-    /// <param name="linePosition">A posição da linha no script (de 1 em diante); o id da unidade é opaco e não serve de número.</param>
-    /// <param name="sceneName">Como a cena se chama na tela: o nome do <c>scripts.json</c> ou "Cena N" quando o projeto não o guarda (N é a posição do script entre todos os do projeto, em ordem de chave, a partir de 1; não vem do id); sem ele (só em teste) a linha cai no id do script.</param>
     /// <param name="occurrences">Todas as ocorrências que a linha agrupa (a mesma regra na mesma linha); a lista usa isso para nomear cada caractere em vez de só o primeiro.</param>
-    /// <param name="encoder">O encoder da estratégia do projeto; a dica do caractere usa o substituto que o corretor grava. Sem ele, a dica cai na tabela de pontuação japonesa.</param>
-    /// <param name="settings">Os ajustes de formatação em conflito com a estratégia; um caractere que vem de um deles tem o painel explicando o ajuste.</param>
-    /// <param name="settingField">O campo do ajuste (<see cref="FormattingConflict.Field"/>) de que esta linha é uma ocorrência; a lista não a mostra, o card do ajuste a representa.</param>
-    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null, IReadOnlyList<QaIssue>? occurrences = null,
-        ITextEncoder? encoder = null, IReadOnlyList<FormattingConflict>? settings = null, string? settingField = null)
+    /// <param name="labels">Como a linha se nomeia na tela: descrição da regra, cena e posição no script.</param>
+    /// <param name="characters">O que a dica e o painel do caractere precisam: encoder, ajustes em conflito e o campo do ajuste.</param>
+    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, IReadOnlyList<QaIssue>? occurrences = null,
+        ConferenceRowLabels? labels = null, ConferenceRowCharacterContext? characters = null)
     {
-        this.encoder = encoder;
-        this.settings = settings ?? [];
-        SettingField = settingField;
+        labels ??= new ConferenceRowLabels();
+        characters ??= new ConferenceRowCharacterContext();
+        encoder = characters.Encoder;
+        settings = characters.Settings ?? [];
+        SettingField = characters.SettingField;
         Issue = issue;
         this.occurrences = occurrences is { Count: > 0 } ? occurrences : [issue];
         Proposal = proposal;
         Unit = unit;
         Count = count;
-        this.ruleDescription = ruleDescription;
-        SceneName = string.IsNullOrWhiteSpace(sceneName) ? null : sceneName;
-        LineNumber = linePosition;
+        ruleDescription = labels.RuleDescription;
+        SceneName = string.IsNullOrWhiteSpace(labels.SceneName) ? null : labels.SceneName;
+        LineNumber = labels.LinePosition;
     }
 
     /// <summary>A cena da linha como a pessoa a lê ("Manhã de chuva" ou "Cena 13", a posição do script no projeto e não um número tirado do id); nula só quando a linha foi montada sem projeto.</summary>
@@ -325,7 +335,7 @@ public sealed class ConferenceIssueRowViewModel
             return null;
         }
 
-        var replacement = substitute == " " ? "um espaço comum" : SubstituteNames.TryGetValue(substitute, out var word) ? $"{word} ({substitute})" : substitute;
+        var replacement = SubstituteLabel(substitute);
         var shown = CodePointLabel(codePoint).Split(' ')[0];
         if (ConfusableNames.TryGetValue(codePoint, out var confusable))
         {
@@ -334,6 +344,16 @@ public sealed class ConferenceIssueRowViewModel
 
         var name = JapanesePunctuation.NameOf(codePoint) ?? "caractere";
         return $"{replacement} no lugar do {name} ({shown})";
+    }
+
+    private static string SubstituteLabel(string substitute)
+    {
+        if (substitute == " ")
+        {
+            return "um espaço comum";
+        }
+
+        return SubstituteNames.TryGetValue(substitute, out var word) ? $"{word} ({substitute})" : substitute;
     }
 
     /// <summary>O caractere, ou <c>U+XXXX</c> quando ele não aparece na tela (controle, espaço, formato, substituto solto).</summary>

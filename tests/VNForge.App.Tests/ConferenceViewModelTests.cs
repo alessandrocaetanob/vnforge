@@ -544,7 +544,7 @@ public class ConferenceViewModelTests
     public void Chave_sem_fechar_nao_vira_selo_e_cai_no_texto_por_extenso()
     {
         var issue = new QaIssue("espaco-antes-pontuacao", QaSeverity.Warning, "yst00001:000001", "yst00001", @"fala\p {nome sem fechar");
-        var row = new ConferenceIssueRowViewModel(issue, sceneName: "Cena 1");
+        var row = new ConferenceIssueRowViewModel(issue, labels: new ConferenceRowLabels(SceneName: "Cena 1"));
 
         Assert.Equal(@"Fala(virar a página) {nome sem fechar", row.DetailMarked);
     }
@@ -553,7 +553,7 @@ public class ConferenceViewModelTests
     public void A_lista_guarda_o_marcador_cru_para_virar_selo_e_o_texto_por_extenso_para_a_dica()
     {
         var issue = new QaIssue("espaco-antes-pontuacao", QaSeverity.Warning, "yst00001:000001", "yst00001", @"“anda !\p”");
-        var row = new ConferenceIssueRowViewModel(issue, sceneName: "Cena 1");
+        var row = new ConferenceIssueRowViewModel(issue, labels: new ConferenceRowLabels(SceneName: "Cena 1"));
 
         Assert.Equal(@"“anda !\p”", row.DetailMarked);
         Assert.Equal("“anda !(virar a página)”", row.Detail);
@@ -564,7 +564,7 @@ public class ConferenceViewModelTests
     public void Marcador_fora_da_gramatica_do_jogo_nao_vira_selo_e_cai_no_texto_por_extenso()
     {
         var issue = new QaIssue("espaco-antes-pontuacao", QaSeverity.Warning, "yst00001:000001", "yst00001", @"fala\p e \z");
-        var row = new ConferenceIssueRowViewModel(issue, sceneName: "Cena 1");
+        var row = new ConferenceIssueRowViewModel(issue, labels: new ConferenceRowLabels(SceneName: "Cena 1"));
 
         Assert.Equal(@"Fala(virar a página) e \z", row.DetailMarked);
     }
