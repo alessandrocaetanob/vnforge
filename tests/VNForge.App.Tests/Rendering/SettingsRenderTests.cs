@@ -47,8 +47,8 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     window.Show();
                     await start.OpenFolderCommand.ExecuteAsync(null);
                     await vm.ProjectOpening;
-                    await vm.Settings.EstimateLoading;
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Settings);
+                    await vm.Settings.EstimateLoading;
 
                     vm.Settings.ExchangeRateText = "5,40";
                     vm.Settings.SpendLimitText = "300";
@@ -114,7 +114,23 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
         Assert.True(target.TryFindResource("Vnf.Accent", target.ActualThemeVariant, out var found));
         var accent = Assert.IsType<SolidColorBrush>(found, exactMatch: false).Color;
-        var probe = PixelProbe.Capture(window, target);
+
+        // A caixa fica na borda de baixo da janela de 1000: com a fonte da CI ela passa dela. Rola até a caixa para capturar e devolve a página
+        // à posição de antes, para o PNG salvo em seguida continuar sendo o da aba aberta no topo.
+        var scroller = target.FindAncestorOfType<ScrollViewer>() ?? throw new InvalidOperationException("A aba Estilo não está dentro de um ScrollViewer.");
+        var offsetBefore = scroller.Offset;
+        PixelProbe probe;
+        try
+        {
+            target.BringIntoView();
+            ScreenRenderer.Settle(window);
+            probe = PixelProbe.Capture(window, target);
+        }
+        finally
+        {
+            scroller.Offset = offsetBefore;
+            ScreenRenderer.Settle(window);
+        }
 
         Assert.True(probe.CountInRow(0, accent, 12, 8, probe.Width - 8) >= probe.Width - 18, "A moldura de destaque do exemplo não foi desenhada.");
 
