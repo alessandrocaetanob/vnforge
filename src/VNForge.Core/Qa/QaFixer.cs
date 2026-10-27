@@ -1,3 +1,4 @@
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -14,7 +15,14 @@ public sealed record QaFix(string RuleId, string UnitId, string ScriptKey, strin
 /// <summary>Resultado de uma correção: o que mudou e as unidades já corrigidas dos scripts afetados.</summary>
 /// <param name="Fixes">Cada mudança, na ordem das regras e dos scripts; vazio quando não havia o que corrigir.</param>
 /// <param name="Texts">Só os scripts que mudaram, com todas as unidades deles.</param>
-public sealed record QaFixResult(IReadOnlyList<QaFix> Fixes, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts);
+public sealed record QaFixResult(IReadOnlyList<QaFix> Fixes, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts)
+{
+    /// <summary>
+    /// Os ajustes de formatação que <see cref="QaFixer.Apply"/> trocou pelo valor seguro (<see cref="FormattingConflict.Safe"/>), na ordem dos campos do perfil;
+    /// vazio quando nenhum estava em conflito com a estratégia. Com <c>dryRun</c> são os que seriam trocados. <see cref="QaFixer.Plan"/> não mexe em ajuste.
+    /// </summary>
+    public IReadOnlyList<FormattingConflict> SettingsFixed { get; init; } = [];
+}
 
 /// <summary>
 /// Correção automática (<c>vnf check --fix</c>): aplica as regras do <see cref="QaEngine"/> que implementam <see cref="IQaFixer"/> e só mexe no
@@ -102,6 +110,54 @@ public static class QaFixer
 
         return proposals;
     }
+
+    /// <summary>Os ajustes de formatação do <paramref name="project"/> que a estratégia de codificação dele não grava; vazio quando não há conflito.</summary>
+    /// <exception cref="VNForgeException">Arquivo do projeto inválido ou estratégia de codificação desconhecida.</exception>
+    public static IReadOnlyList<FormattingConflict> FindSettingConflicts(ProjectFolder project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        lock (ProjectTextLock.For(project))
+        {
+            return FindSettingConflictsLocked(project);
+        }
+    }
+
+    /// <summary>
+    /// Troca pelo valor seguro só o ajuste <paramref name="field"/> (<see cref="FormattingConflict.Field"/>) e grava o <c>formatting.json</c>. É o botão
+    /// "Usar três pontos" da Conferência. Devolve o conflito que resolveu, ou nulo, sem gravar, quando o campo não está em conflito.
+    /// </summary>
+    /// <exception cref="VNForgeException">Arquivo do projeto inválido ou estratégia de codificação desconhecida.</exception>
+    public static FormattingConflict? ApplySetting(ProjectFolder project, string field)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(field);
+        lock (ProjectTextLock.For(project))
+        {
+            var conflict = FindSettingConflictsLocked(project).FirstOrDefault(c => string.Equals(c.Field, field, StringComparison.Ordinal));
+            if (conflict is not null)
+            {
+                project.SaveFormatting(FormattingConflicts.Resolve(project.LoadFormatting(), [conflict]));
+            }
+
+            return conflict;
+        }
+    }
+
+    // Um formatting.json inválido é problema do build e da Conferência; a correção de texto segue sem ele.
+    private static IReadOnlyList<FormattingConflict> TryFindSettingConflicts(ProjectFolder project)
+    {
+        try
+        {
+            return FindSettingConflictsLocked(project);
+        }
+        catch (FormattingProfileException)
+        {
+            return [];
+        }
+    }
+
+    private static IReadOnlyList<FormattingConflict> FindSettingConflictsLocked(ProjectFolder project) =>
+        QaContext.ForFixing(project).Encoder is { } encoder ? FormattingConflicts.Find(project.LoadFormatting(), encoder) : [];
 
     private static QaFix? FixOne(TextUnit unit, string key, IQaFixer fixer, QaContext? context)
     {
@@ -191,7 +247,16 @@ public static class QaFixer
     private static QaFixResult ApplyLocked(ProjectFolder project, QaEngine engine, IReadOnlyCollection<string>? rules, bool dryRun)
     {
         var context = QaContext.ForFixing(project);
-        var result = Plan(project.LoadAllText(), engine, rules, context);
+
+        // O ajuste em conflito se troca antes do texto: ele é a causa, e o texto que o corretor vê já é o que a estratégia grava.
+        var includesSettings = rules is not { Count: > 0 } || rules.Contains(FormattingConflictRule.RuleId, StringComparer.Ordinal);
+        var conflicts = includesSettings ? TryFindSettingConflicts(project) : [];
+        if (conflicts.Count > 0 && !dryRun)
+        {
+            project.SaveFormatting(FormattingConflicts.Resolve(project.LoadFormatting(), conflicts));
+        }
+
+        var result = Plan(project.LoadAllText(), engine, rules, context) with { SettingsFixed = conflicts };
         if (!dryRun)
         {
             foreach (var (key, units) in result.Texts)

@@ -24,6 +24,7 @@ public static class ConferenceRuleTexts
         ["espaco-antes-pontuacao"] = ("Espaço antes de pontuação", "Em português não há espaço antes de vírgula, ponto e vírgula, dois-pontos, interrogação ou exclamação. A fala fica errada até ser corrigida."),
         ["aspas-desbalanceadas"] = ("Aspas ou parênteses sem par", "Falta fechar ou abrir um par de aspas ou parênteses. Confira se a fala termina onde o original termina."),
         [UnencodableCharacterRule.RuleId] = ("Caractere fora da codificação", "A estratégia de acentuação do projeto não grava este caractere no jogo. Troque por um que ela aceite."),
+        [FormattingConflictRule.RuleId] = ("Ajuste que a codificação não grava", "Um ajuste de formatação do projeto gera um caractere que a estratégia de acentuação não grava no jogo. A tradução está certa; troque o ajuste em Ajustes."),
         [SpeakerEncodingRule.RuleId] = ("Nome do personagem fora da codificação", "O nome japonês deste personagem não existe na codificação do jogo, então a linha não pode ir para o jogo. Cadastre a tradução do nome no Glossário > Personagens."),
         ["japones-na-traducao"] =("Japonês na tradução", "Há hiragana, katakana ou kanji na tradução. Costuma ser um trecho que ficou sem traduzir."),
         [BoxLineLimitRule.RuleId] = ("Não cabe na caixa", "A tradução ocupa mais linhas que a caixa do jogo. Divida a fala em páginas ou peça à IA uma versão mais curta."),
