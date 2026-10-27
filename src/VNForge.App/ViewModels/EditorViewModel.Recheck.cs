@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using VNForge.Core.Projects;
+using VNForge.Core.Qa;
 
 namespace VNForge.App.ViewModels;
 
@@ -100,6 +101,7 @@ public sealed partial class EditorViewModel
             return;
         }
 
+        ErrorCount = CountErrors(lines);
         IssueCount = CountIssues(lines);
         var openKey = SelectedScript?.Key;
         var touchedOpenScript = false;
@@ -128,6 +130,11 @@ public sealed partial class EditorViewModel
 
     private static int CountIssues(ProjectLines lines) =>
         lines.Scripts.Sum(script => lines.LinesOf(script.Key).Sum(line => line.Issues.Count));
+
+    private static int CountErrors(ProjectLines lines) =>
+        lines.Scripts.Sum(script => lines.LinesOf(script.Key).Sum(line => ErrorsIn(line.Issues)));
+
+    private static int ErrorsIn(IReadOnlyList<QaIssue> issues) => issues.Count(i => i.Severity == QaSeverity.Error);
 
     private static Action<Action> CaptureUiContext()
     {

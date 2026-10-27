@@ -26,6 +26,9 @@
             <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"
                        Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
           </Border>
+          <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-8,0"
+                   Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}"
+                   ToolTip.Tip="Há avisos abertos; nenhum trava o teste no jogo."/>
         </Panel>
         <TextBlock Classes="caption" Text="{Binding Label}" HorizontalAlignment="Center"/>
       </StackPanel>
@@ -156,7 +159,7 @@
                        IsVisible="{Binding BoxLimitsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
             <TextBlock Classes="caption secondary" Text="{Binding ApiKeyStatus}" IsVisible="{Binding IsStartPage}"/>
-            <StackPanel Orientation="Horizontal" ToolTip.Tip="{Binding ApiKeyStatus}" AutomationProperties.Name="{Binding ApiKeyStatus}">
+            <StackPanel Name="KeyStatus" Orientation="Horizontal" Background="Transparent" ToolTip.Tip="{Binding ApiKeyStatus}" AutomationProperties.Name="{Binding ApiKeyStatus}">
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}"
                         Data="{StaticResource Icon.Check}" IsVisible="{Binding ApiKeyConfigured}"/>
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}"

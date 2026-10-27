@@ -4,7 +4,7 @@ using Avalonia.Controls;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// Cabeçalho de página: migalha em mono (<c>mono</c> 12/16, <c>text-secondary</c>), título em <c>title-lg</c> e, à direita, as ações (<c>Content</c>),
+/// Cabeçalho de página: migalha na fonte da interface (<c>caption</c> 12/16, <c>text-secondary</c>), título em <c>title-lg</c> e, à direita, as ações (<c>Content</c>),
 /// alinhadas à base do título. Usado por Painel, Editor, Conferir, Build e Ajustes.
 /// </summary>
 public sealed class PageHeader : ContentControl
