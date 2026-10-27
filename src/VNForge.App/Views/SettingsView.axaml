@@ -10,6 +10,12 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
+    <!-- Opção que a estratégia de acentuação do projeto não grava: fica desligada e a dica diz qual caractere. -->
+    <Style Selector="ListBox.choices > ListBoxItem" x:DataType="vm:IChoiceItem">
+      <Setter Property="IsEnabled" Value="{Binding IsEnabled}"/>
+      <Setter Property="ToolTip.Tip" Value="{Binding DisabledReason}"/>
+      <Setter Property="ToolTip.ShowOnDisabled" Value="True"/>
+    </Style>
     <!-- A faixa das abas ganha a linha de baixo em toda a largura (artboard de Ajustes); o resto do estilo vem de Themes/Controls/Segmented.axaml. -->
     <Style Selector="TabControl.tabs">
       <Setter Property="Template">
@@ -397,7 +403,7 @@
                           <TextBlock Classes="body" Text="Aspas curvas"/>
                           <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Mantém, troca por aspas retas (CP1252 não tem « ») ou por 「 」"/>
                         </StackPanel>
-                        <ListBox Grid.Column="1" Classes="seg" ItemsSource="{Binding QuoteStyles}" SelectedItem="{Binding SelectedQuotes}"
+                        <ListBox Grid.Column="1" Classes="seg choices" ItemsSource="{Binding QuoteStyles}" SelectedItem="{Binding SelectedQuotes}"
                                  VerticalAlignment="Center" AutomationProperties.Name="Aspas curvas" DisplayMemberBinding="{Binding Label}"/>
                       </Grid>
                     </Border>
@@ -407,10 +413,32 @@
                           <TextBlock Classes="body" Text="Reticências"/>
                           <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="“…” ocupa 1 coluna; “...” ocupa 3"/>
                         </StackPanel>
-                        <ListBox Grid.Column="1" Classes="seg" ItemsSource="{Binding EllipsisStyles}" SelectedItem="{Binding SelectedEllipsis}"
+                        <ListBox Grid.Column="1" Classes="seg choices" ItemsSource="{Binding EllipsisStyles}" SelectedItem="{Binding SelectedEllipsis}"
                                  VerticalAlignment="Center" AutomationProperties.Name="Reticências" DisplayMemberBinding="{Binding Label}"/>
                       </Grid>
                     </Border>
+                    <!-- A estratégia de acentuação trocada deixou o ajuste escolhido sem ser gravado: a faixa diz qual caractere e oferece o valor seguro. -->
+                    <ItemsControl ItemsSource="{Binding EncodingConflicts}" IsVisible="{Binding HasEncodingConflicts}" Margin="16,12,16,0"
+                                  AutomationProperties.Name="Ajustes que a acentuação não grava">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Spacing="8"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SettingConflictNotice">
+                          <Border Classes="infobar warning">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Message}"/>
+                              <Button Grid.Column="2" Classes="sm accent" VerticalAlignment="Center" Command="{Binding FixCommand}" AutomationProperties.Name="{Binding ButtonLabel}">
+                                <TextBlock Text="{Binding ButtonLabel}"/>
+                              </Button>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                     <c:ToggleRule Title="Quebrar linha por palavra" Description="Respeita as colunas e as linhas por caixa ao lado" IsChecked="{Binding WrapEnabled}"/>
                   </StackPanel>
                 </Border>

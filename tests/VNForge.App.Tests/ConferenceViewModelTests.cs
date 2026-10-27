@@ -232,7 +232,7 @@ public class ConferenceViewModelTests
 
         Assert.True(til.HasProposal);
         Assert.Equal("~Manhã~", til.ProposedText);
-        Assert.Equal("O ～ (til japonês, U+FF5E) não existe na acentuação do projeto. Use ~ no lugar do ～.", til.Detail);
+        Assert.Equal("O ～ (til japonês, U+FF5E) não existe na acentuação do projeto. Use ~ no lugar do til japonês (～).", til.Detail);
         Assert.False(estrela.HasProposal);
         Assert.Equal("O † não existe na acentuação do projeto.", estrela.Detail);
     }
@@ -303,7 +303,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 3, occurrences: issues);
 
-        Assert.Equal("O 。 (ponto final japonês, U+3002), o ～ (til japonês, U+FF5E) e o ★ não existem na acentuação do projeto. Use . no lugar do 。, ~ no lugar do ～.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002), o ～ (til japonês, U+FF5E) e o ★ não existem na acentuação do projeto. Use . no lugar do ponto final japonês (。), ~ no lugar do til japonês (～).", row.Detail);
         Assert.DoesNotContain("(+", row.Detail, StringComparison.Ordinal);
     }
 
@@ -313,7 +313,7 @@ public class ConferenceViewModelTests
         var issue = Unencodable(0x3002);
         var row = new ConferenceIssueRowViewModel(issue, new QaFix(issue.RuleId, issue.UnitId, issue.ScriptKey, "a。", "a."));
 
-        Assert.Equal("O 。 (ponto final japonês, U+3002) não existe na acentuação do projeto. Use . no lugar do 。.", row.CharacterSentence);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) não existe na acentuação do projeto. Use . no lugar do ponto final japonês (。).", row.CharacterSentence);
     }
 
     [Fact]
@@ -359,7 +359,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
 
-        Assert.Equal("O 。 (ponto final japonês, U+3002) e o ～ (til japonês, U+FF5E) não existem na acentuação do projeto. Use . no lugar do 。, ~ no lugar do ～.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) e o ～ (til japonês, U+FF5E) não existem na acentuação do projeto. Use . no lugar do ponto final japonês (。), ~ no lugar do til japonês (～).", row.Detail);
     }
 
     [Fact]
@@ -369,7 +369,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
 
-        Assert.Equal("O 。 (ponto final japonês, U+3002) não existe na acentuação do projeto. Use . no lugar do 。.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) não existe na acentuação do projeto. Use . no lugar do ponto final japonês (。).", row.Detail);
     }
 
     [Theory]
@@ -384,7 +384,7 @@ public class ConferenceViewModelTests
         var row = new ConferenceIssueRowViewModel(issue);
 
         var nome = codePoint == 0x3000 ? " (espaço de largura dupla)" : string.Empty;
-        var dica = codePoint == 0x3000 ? " Use um espaço comum no lugar do U+3000." : string.Empty;
+        var dica = codePoint == 0x3000 ? " Use um espaço comum no lugar do espaço de largura dupla (U+3000)." : string.Empty;
         Assert.Equal($"O U+{codePoint:X4}{nome} não existe na acentuação do projeto.{dica}", row.Detail);
     }
 
@@ -395,7 +395,7 @@ public class ConferenceViewModelTests
 
         var row = new ConferenceIssueRowViewModel(issues[0], count: 2, occurrences: issues);
 
-        Assert.Equal("O 。 (ponto final japonês, U+3002) e o U+200B não existem na acentuação do projeto. Use . no lugar do 。.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002) e o U+200B não existem na acentuação do projeto. Use . no lugar do ponto final japonês (。).", row.Detail);
     }
 
     [Fact]
@@ -422,7 +422,7 @@ public class ConferenceViewModelTests
 
         var row = Assert.Single(IssueRows(vm), r => r.RuleId == "caractere-nao-codificavel");
         Assert.Equal(3, row.Count);
-        Assert.Equal("O 。 (ponto final japonês, U+3002), o ～ (til japonês, U+FF5E) e o U+200B não existem na acentuação do projeto. Use . no lugar do 。, ~ no lugar do ～.", row.Detail);
+        Assert.Equal("O 。 (ponto final japonês, U+3002), o ～ (til japonês, U+FF5E) e o U+200B não existem na acentuação do projeto. Use . no lugar do ponto final japonês (。), ~ no lugar do til japonês (～).", row.Detail);
         Assert.True(row.HasCharacterList);
 
         // O Painel e o filtro "Travam o teste" contam o mesmo: erros do QA, sem agrupar.

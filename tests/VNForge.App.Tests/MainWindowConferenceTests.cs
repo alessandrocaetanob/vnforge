@@ -44,6 +44,30 @@ public class MainWindowConferenceTests
     }
 
     [Fact]
+    public async Task Trocar_o_ajuste_pela_Conferencia_faz_Ajustes_reler_o_perfil()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveConfig(folder.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        folder.SaveFormatting(VNForge.Core.Formatting.FormattingProfile.Default with { Typography = VNForge.Core.Formatting.FormattingProfile.Default.Typography with { Ellipsis = VNForge.Core.Formatting.EllipsisStyle.Character } });
+        folder.SaveText("yst00001", [new TextUnit("yst00001:000000", TextUnitKind.Dialogue, null, "原文", "Espera... vai", TranslationStatus.Translated)]);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)));
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        Assert.Equal(VNForge.Core.Formatting.EllipsisStyle.Character, vm.Settings.SelectedEllipsis?.Value);
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+
+        await vm.Conference.ApplySettingCommand.ExecuteAsync(vm.Conference.SettingCards.Single());
+        await vm.Settings.EstimateLoading;
+
+        Assert.Equal(VNForge.Core.Formatting.EllipsisStyle.Dots, vm.Settings.SelectedEllipsis?.Value);
+        Assert.False(vm.Settings.HasEncodingConflicts);
+        Assert.Equal(VNForge.Core.Formatting.EllipsisStyle.Dots, folder.LoadFormatting().Typography.Ellipsis);
+    }
+
+    [Fact]
     public async Task Abrir_a_linha_leva_ao_Editor_e_seleciona_a_linha_do_problema()
     {
         using var temp = new TempFolder();

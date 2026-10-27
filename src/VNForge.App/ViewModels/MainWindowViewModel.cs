@@ -118,6 +118,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Glossary.Saved += (_, _) => RecheckEditor();
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
+        Conference.SettingsChanged += (_, _) => ReloadFormattingFromConference();
         AttachEditor(editor);
         Dashboard.HideEmptyScenes = Settings.HideEmptyScenes;
         Dashboard.PropertyChanged += OnDashboardChanged;
@@ -730,6 +731,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var total = fromEditor ? Editor.IssueCount : Conference.IssueCount ?? 0;
         conferenceItem.Badge = errors;
         conferenceItem.HasNotice = total > errors;
+    }
+
+    /// <summary>
+    /// A Conferência trocou um ajuste de formatação no <c>formatting.json</c>: Ajustes relê o perfil (senão a próxima gravação dela desfaria a troca),
+    /// o Editor relê as linhas ao voltar a ele e refaz os avisos.
+    /// </summary>
+    private void ReloadFormattingFromConference()
+    {
+        if (CurrentProject is not { } project)
+        {
+            return;
+        }
+
+        Settings.Load(project);
+        editorStale = true;
+        Editor.RequestRecheck();
     }
 
     /// <summary>Ajustes gravou o projeto: relê a acentuação e o modelo do <c>vnforge.json</c> e os limites da caixa do <c>formatting.json</c>.</summary>
