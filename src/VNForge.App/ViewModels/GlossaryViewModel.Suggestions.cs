@@ -16,16 +16,26 @@ internal sealed record ProjectScan(
     GlossaryUsage Usage,
     IReadOnlyDictionary<string, IReadOnlyList<string>> Samples,
     IReadOnlyList<TermCandidate> Candidates,
-    IReadOnlyList<string> Sources)
+    IReadOnlyList<string> Sources,
+    IReadOnlyList<CharacterEntry> GameNames)
 {
-    public static ProjectScan Empty { get; } = new(GlossaryUsage.Empty, new Dictionary<string, IReadOnlyList<string>>(), [], []);
+    public static ProjectScan Empty { get; } = new(GlossaryUsage.Empty, new Dictionary<string, IReadOnlyList<string>>(), [], [], []);
+
+    /// <summary>As chaves dos scripts que têm unidades <c>name</c>: só esses são relidos quando um personagem muda de tradução.</summary>
+    public IReadOnlyList<string> NameScripts { get; init; } = [];
 
     public static ProjectScan From(IEnumerable<TextUnit> units)
     {
         var all = units.ToList();
         var sources = all.Select(u => u.Source).ToList();
-        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources);
+        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all));
     }
+
+    public static ProjectScan From(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> scripts) =>
+        From(scripts.Values.SelectMany(units => units)) with
+        {
+            NameScripts = [.. scripts.Where(s => s.Value.Any(u => u.Kind == TextUnitKind.Name)).Select(s => s.Key)],
+        };
 
     private const int ExampleContext = 30;
     private readonly Dictionary<string, string?> examples = new(StringComparer.Ordinal);

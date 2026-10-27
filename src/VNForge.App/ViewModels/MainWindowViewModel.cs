@@ -116,6 +116,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Glossary.Saved += (_, _) => RecheckEditor();
+        Glossary.LinesChanged += (_, _) => Editor.Reload();
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.SettingsChanged += (_, _) => ReloadFormattingFromConference();

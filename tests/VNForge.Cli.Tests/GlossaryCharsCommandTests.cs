@@ -1,6 +1,7 @@
 using System.Text.Json;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.Cli.Tests;
 
@@ -123,6 +124,21 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         using var doc = JsonDocument.Parse(result.Output);
         Assert.Equal("updated", doc.RootElement.GetProperty("data").GetProperty(ActionKey).GetString());
         Assert.Equal(new CharacterEntry("美咲", "Misaki-chan", CharacterGender.Female, Formal), Assert.Single(_project.LoadCharacters()));
+    }
+
+    [Fact]
+    public async Task Chars_set_grava_a_mesma_traducao_nas_unidades_name_do_mesmo_original()
+    {
+        _project.SaveText("yst00073", [
+            new TextUnit("yst00073:000000", TextUnitKind.Name, null, "美咲", null, TranslationStatus.Untranslated),
+            new TextUnit("yst00073:000001", TextUnitKind.Name, null, "健太", null, TranslationStatus.Untranslated),
+            new TextUnit("yst00073:000002", TextUnitKind.Dialogue, "美咲", "美咲", null, TranslationStatus.Untranslated),
+        ]);
+
+        var result = await Run(CharsVerb, "set", "美咲", Misaki);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal([Misaki, null, null], _project.LoadText("yst00073").Select(u => u.Translation));
     }
 
     [Fact]
