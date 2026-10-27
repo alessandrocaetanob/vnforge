@@ -538,10 +538,7 @@ public sealed partial class BuildViewModel
         }
         else
         {
-            var rows = StepRows(step => last.Steps.FirstOrDefault(s => s.Step == step) is { } time
-                ? (TestStepState.Done, FormatDuration(TimeSpan.FromMilliseconds(time.Milliseconds)))
-                : (TestStepState.Pending, string.Empty));
-            SetSteps(rows, QaErrorCount > 0 ? $"{LastTestTitle} · para testar a tradução, corrija os erros da Conferência" : LastTestTitle);
+            SetSteps(DoneRows(last),QaErrorCount > 0 ? $"{LastTestTitle} · para testar a tradução, corrija os erros da Conferência" : LastTestTitle);
         }
     }
 
@@ -588,7 +585,7 @@ public sealed partial class BuildViewModel
 
         currentStep = step;
         SetSteps(
-            StepRows(s => (s < step ? TestStepState.Done : s == step ? TestStepState.Running : TestStepState.Pending, string.Empty)),
+            StepRows(s => (s.CompareTo(step) switch { < 0 => TestStepState.Done, 0 => TestStepState.Running, _ => TestStepState.Pending }, string.Empty)),
             $"Testando agora · {step.Label()}");
     }
 
@@ -630,9 +627,17 @@ public sealed partial class BuildViewModel
     };
 
     private static List<TestStepRow> StopRows(TestStop stop) =>
-        StepRows(step => step < stop.Step
-            ? (stop.PreviousDone ? TestStepState.Done : TestStepState.Pending, string.Empty)
-            : step == stop.Step ? (TestStepState.Failed, stop.Text) : (TestStepState.Pending, string.Empty));
+        StepRows(step => step.CompareTo(stop.Step) switch
+        {
+            < 0 when stop.PreviousDone => (TestStepState.Done, string.Empty),
+            0 => (TestStepState.Failed, stop.Text),
+            _ => (TestStepState.Pending, string.Empty),
+        });
+
+    private static List<TestStepRow> DoneRows(GameLastTest last) =>
+        StepRows(step => last.Steps.FirstOrDefault(s => s.Step == step) is { } time
+            ? (TestStepState.Done, FormatDuration(TimeSpan.FromMilliseconds(time.Milliseconds)))
+            : (TestStepState.Pending, string.Empty));
 
     /// <summary>Cada passo que começa vira a mensagem da tarefa na barra inferior; a tela lê essa mesma mensagem para mostrar o passo em andamento.</summary>
     private sealed class StepProgress(IBackgroundTaskReporter reporter) : IProgress<GameTestStep>
