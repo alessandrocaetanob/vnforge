@@ -27,13 +27,24 @@ internal sealed class PixelProbe
 
     public int Height { get; }
 
-    /// <summary>Copia o quadro atual da janela na área do controle. Chamar na thread da sessão headless, com o layout assentado.</summary>
+    /// <summary>Copia o quadro atual da janela na área do controle, em pixels do quadro. Lança <see cref="InvalidOperationException"/> se a área não cabe no quadro. Chamar na thread da sessão headless, com o layout assentado.</summary>
     public static PixelProbe Capture(Window window, Control control)
     {
         using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("O Avalonia.Headless não devolveu o quadro; confira o UseSkia na sessão.");
         var origin = control.TranslatePoint(default, window) ?? throw new InvalidOperationException("O controle não está na janela.");
-        var width = (int)Math.Ceiling(control.Bounds.Width);
-        var height = (int)Math.Ceiling(control.Bounds.Height);
+        var scale = window.RenderScaling;
+        var width = (int)Math.Ceiling(control.Bounds.Width * scale);
+        var height = (int)Math.Ceiling(control.Bounds.Height * scale);
+        var left = (int)Math.Round(origin.X * scale);
+        var top = (int)Math.Round(origin.Y * scale);
+        var size = frame.PixelSize;
+        if (width <= 0 || height <= 0 || left < 0 || top < 0 || left + width > size.Width || top + height > size.Height)
+        {
+            throw new InvalidOperationException(
+                $"A área do controle ({left},{top} {width}×{height}) não cabe no quadro de {size.Width}×{size.Height}; "
+                + "o controle está fora da parte visível da janela (role até ele antes de capturar).");
+        }
+
         var pixels = new Color[width, height];
         using var buffer = frame.Lock();
         var bytes = new byte[4];
@@ -41,7 +52,7 @@ internal sealed class PixelProbe
         {
             for (var x = 0; x < width; x++)
             {
-                var at = new PixelPoint((int)Math.Round(origin.X) + x, (int)Math.Round(origin.Y) + y);
+                var at = new PixelPoint(left + x, top + y);
                 System.Runtime.InteropServices.Marshal.Copy(buffer.Address + (at.Y * buffer.RowBytes) + (at.X * 4), bytes, 0, 4);
                 pixels[x, y] = buffer.Format == PixelFormat.Bgra8888
                     ? Color.FromArgb(255, bytes[2], bytes[1], bytes[0])
