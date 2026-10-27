@@ -48,4 +48,4 @@ Esperado: o `--fix` escreve "formatting.json: Reticências passou de Caractere �
 
 ## Resultado
 
-O reteste passa quando, depois de um clique, a Conferência do projeto não tem erro de codificação além dos dois nomes de personagem. Cada desvio vira issue com o label "área: app" ou "área: cli", o passo, a captura e o log do dia (`.cache\logs` do projeto).
+O reteste passa quando, depois de "Usar três pontos" e "Corrigir N com um clique" (R2.4 e R2.5), a Conferência do projeto não tem erro de codificação além dos dois nomes de personagem. O R4 confere só a troca do ajuste pela CLI: o `♪` já foi trocado no R2.5, e a troca de caractere pela CLI fica coberta pelos testes automáticos. Cada desvio vira issue com o label "área: app" ou "área: cli", o passo, a captura e o log do dia (`.cache\logs` do projeto).
