@@ -28,7 +28,7 @@
           </Border>
           <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-8,0"
                    Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}"
-                   ToolTip.Tip="Há avisos abertos; nenhum trava o teste no jogo."/>
+                   ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
         </Panel>
         <TextBlock Classes="caption" Text="{Binding Label}" HorizontalAlignment="Center"/>
       </StackPanel>

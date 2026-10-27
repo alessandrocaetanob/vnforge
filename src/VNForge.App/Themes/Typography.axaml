@@ -9,7 +9,7 @@
   </Style>
 
   <!-- O Zen Kaku Gothic New tem 1,45 de altura natural por corpo (ascendente 1,16 e descendente 0,29): com 26/32 e 17/24 o TextBlock cortava
-       as descendentes (j, p, g). A altura de linha cobre a altura natural da fonte; TypographyTests confere. -->
+       as descendentes (j, p, g). A altura de linha cobre a altura natural da fonte; FontsHeadlessTests confere. -->
   <Style Selector="TextBlock.title-lg">
     <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
     <Setter Property="FontSize" Value="26"/>
