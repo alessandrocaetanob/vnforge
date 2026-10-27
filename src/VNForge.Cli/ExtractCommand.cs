@@ -51,6 +51,7 @@ internal static class ExtractCommand
                 lines = result.TotalLines,
                 kinds = result.LinesByKind.ToDictionary(k => KindId(k.Key), k => k.Value),
                 texts = result.Scripts.Select(s => new { key = s.Key, name = s.Name, lines = s.Lines }),
+                gameTitle = result.GameTitle,
                 reextraction = result.Reextraction is { } re ? new { kept = re.Kept, outdated = re.Outdated, added = re.Added, removed = re.Removed } : null,
                 warnings = result.Warnings,
             }));
@@ -70,6 +71,11 @@ internal static class ExtractCommand
         }
 
         await output.WriteLineAsync(Summary(result));
+        if (result.GameTitle is { } gameTitle)
+        {
+            await output.WriteLineAsync($"Título do jogo: {gameTitle}");
+        }
+
         if (result.Reextraction is { } r)
         {
             await output.WriteLineAsync($"Re-extração: {Number(r.Kept)} mantidas, {Number(r.Outdated)} desatualizadas (original mudou; tradução antiga guardada), {Number(r.Added)} novas, {Number(r.Removed)} removidas.");

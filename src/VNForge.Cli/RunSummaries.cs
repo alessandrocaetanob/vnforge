@@ -32,6 +32,11 @@ public static class RunSummaries
             grid.AddRow(Label(archive.GamePath), Value(size is { } bytes ? $"{FormatBytes(bytes)} · {files}" : files));
         }
 
+        if (result.GameTitle is { } gameTitle)
+        {
+            grid.AddRow(Label("Título do jogo"), Value(gameTitle));
+        }
+
         if (result.Reextraction is { } r)
         {
             grid.AddRow(Label("Re-extração"), Value($"{Number(r.Kept)} mantidas · {Number(r.Outdated)} desatualizadas · {Number(r.Added)} novas · {Number(r.Removed)} removidas"));
@@ -71,6 +76,11 @@ public static class RunSummaries
         };
         var accents = $"{result.Encoding.Strategy} · {swaps}";
         grid.AddRow(Label("Acentuação"), Value(accents));
+        if (result.GameTitle is { } gameTitle)
+        {
+            grid.AddRow(Label("Título do jogo"), Value(gameTitle));
+        }
+
         grid.AddRow(Label("Duração"), Value(FormatDuration(elapsed)));
         return CliViews.NewPanel("Resultado do build", grid);
     }
