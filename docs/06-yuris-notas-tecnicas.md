@@ -327,6 +327,30 @@ Roteiro em `docs/plans/2026-10-24-plano-de-testes-no-jogo.md`, rodado com `vnf 0
 - **Acentos em `cp1252` com o exe original**: a frase `Ação, coração, você é ótimo! Àquela ponte, pôr o pé.` aparece com todos os acentos certos. Não foi preciso mexer na tabela de lead bytes nem no charset da fonte.
 - **Acento no fim da fala**: `Até já, café` aparece inteira. O motor não engole o byte seguinte ao `é`, embora `0xE9` esteja na faixa de lead bytes.
 - **Caractere gravado entre `0x81` e `0x9F` engole a letra seguinte** (reteste da teste.10, #390): `“Falando` em `cp1252` é `93 46 61 6C...`, e o jogo mostrou `alando`. O motor lê o `0x93` e o `F` como um caractere duplo só. O `”` no fim da fala não fez efeito porque nada vem depois dele. O mesmo vale para todo caractere que a `cp1252` grava nessa faixa: `‚ ƒ „ … † ‡ ˆ ‰ Š ‹ Œ Ž ‘ ’ “ ” •`, meia-risca, travessão, `˜ ™ š › œ ž Ÿ`. O teste de acentos (#62) não mostrou o problema porque `é ç ã` ficam em `0xE0` a `0xFC`, que o jogo não trata assim (a tabela marca a faixa, mas o `é` no fim de `Até já, café` não engoliu nada). Por isso o `Cp1252TextEncoder` recusa a faixa `0x81` a `0x9F` (a Conferência acusa `caractere-nao-codificavel` com o motivo e a troca: aspas retas, `...`, hífen) e os acentos de `0xE0` a `0xFC` continuam liberados. As opções de formatação de aspas retas e de reticências em três pontos evitam o erro; o `€` (`0x80`) fica fora da faixa. O delimitador `「` do falante também não passa por isso, porque é gravado em Shift-JIS (ver "Como a extração trabalha").
+- **Corretor de caractere não gravável (#417)**: `vnf check --fix` e o "Corrigir com um clique" trocam cada caractere que a estratégia não grava por um substituto só ASCII (`UnwritableCharacters`, no Core), e só quando o substituto é gravável. Marcadores de controle nunca são tocados, e caractere fora da tabela segue como erro para a pessoa decidir. Os substitutos só ASCII são os que já se viram no jogo de referência; os símbolos `· « » ° ¡ ¿` da cp1252 passam no encoder mas nunca foram vistos na tela, então não entram. Gravar `♪` ou `★` em Shift-JIS no meio do texto cp1252, como os delimitadores do falante, fica fora: não foi testado e depende da fonte. A tabela:
+
+  | Caractere | Substituto |
+  |---|---|
+  | aspas curvas duplas (U+201C, U+201D, U+201E) | `"` |
+  | aspas curvas simples (U+2018, U+2019, U+201A) e `‹ ›` | `'` |
+  | reticências (U+2026) e `‥` | `...` e `..` |
+  | meia-risca, travessão, barra horizontal e traço de caixa (U+2013, U+2014, U+2015, U+2500) | `-` |
+  | marcador (U+2022), `★ ☆ ※` | `*` |
+  | `™` | `TM` |
+  | `Š š Ž ž Œ œ Ÿ ƒ ˆ ˜` | `S s Z z OE oe Y f ^ ~` |
+  | `ï` | `i` |
+  | `♪ ♫ ♥ ♡` | `~` |
+  | `～ 〜` | `~` |
+  | `・` (e `･`) | espaço; `・・・` vira `...` |
+  | `「 」 『 』` | `"` |
+  | `→ ←` | `->` e `<-` |
+  | espaço japonês (U+3000) | espaço comum |
+  | pontuação e letras de largura cheia (`（ ） ！ ？ Ａ １`) | a versão ASCII |
+  | `。 、 【 】 〔 〕` e o resto da tabela de `JapanesePunctuation` | o da tabela dela (`. , [ ] ( )`) |
+  | letra com acento que a cp1252 não tem (`ő ā ě`) | a letra sem o acento (decomposta, sem as marcas U+0300 a U+036F) |
+
+  `† ‡ ‰ €` ficam fora: são raros e não têm troca óbvia. Na `sjis` a mesma tabela vale para o que o Shift-JIS não grava, mas a troca de letra acentuada só vale quando a estratégia grava os acentos comuns (`é`): tirar o acento de `ação` numa estratégia `sjis` seria a `fold` sem a pessoa escolher. O `CharacterFolder` da `fold` não muda, e a opção "Trocar pontuação japonesa pela do teclado" também não.
+- **Ajuste que a estratégia não grava (#417)**: um ajuste de formatação pode criar o caractere que a estratégia recusa. O caso do teste.11 foi Reticências = "Caractere …" com a `cp1252`: a tradução gravada tem `...`, o ajuste a troca por `…` no build, e a `cp1252` recusa o `…` (byte `0x85`). A regra `ajuste-nao-codificavel` (erro) acusa o ajuste, uma ocorrência por linha afetada, no lugar da `caractere-nao-codificavel`, que se cala no caractere que o ajuste cria. Os ajustes conferidos são Reticências, Aspas (`「 」`), Travessão, Travessão de fala e Largura cheia; as substituições do usuário ficam de fora. O valor seguro é Três pontos, Aspas retas, travessão desligado, hífen (`-`) no travessão de fala e largura desligada. `vnf check --fix` (`QaFixer.Apply`) troca o ajuste antes das correções de texto e grava o `formatting.json` só quando algo mudou.
 - **Tabela de lead bytes**: fica em 0xC20A0 no exe, com `01` nas posições `0x81` a `0x9F` e `0xE0` a `0xFC`. Com a tabela inteira zerada o jogo não abre e mostra `ルビ設定開始文字が不正です。` (caractere inicial de ruby inválido): o motor usa a tabela nos próprios códigos de controle, então ela fica como está. Zerar só `0xE0` a `0xFC` não foi testado, porque deixou de ser necessário.
 - **Fonte das falas**: `CreateFontIndirectA` recebe a face `System`, charset 1 (`DEFAULT_CHARSET`), peso 700 e altura 92 (84 na segunda chamada). O exe guarda os nomes de fonte em Shift-JIS a partir de 0xD5008 (`ＭＳ ゴシック`, `標準ゴシック`, `ＭＳ Ｐゴシック`, `ＭＳ 明朝` e `標準明朝`, cada um terminado em zero). Num Windows sem o japonês como idioma de programas não Unicode, nenhuma fonte responde por esses nomes, e o motor pede a `System`, que é proporcional. Como cada caractere ocupa uma célula fixa, as letras estreitas (`i`, `l`, `t`, `r`, `f`, `j`) ficam com um vão depois delas, com ou sem acento.
 - **Correção da fonte**: trocar os 13 bytes de `ＭＳ ゴシック` em 0xD5008 por `MS Gothic` em ASCII, completando com zeros até 0xD5017. Com o exe assim, as falas saem em MS Gothic, sem os vãos e com os acentos certos. É o patch do `vnf patch-exe` (#65), que acha o nome no exe em vez de usar o endereço 0xD5008 e recusa o exe em que o nome não aparece uma só vez em Shift-JIS, no começo de uma string (byte anterior zero) e seguido de zero (o `ＭＳ ゴシック` em UTF-16 de 0x11EF02 é outra sequência de bytes e não conta). Troca os 13 bytes do nome por `MS Gothic` e zeros, sem tocar no resto. Testado só com exes sintéticos; no jogo de referência o resultado esperado é o da busca 4E: 13 bytes alterados, de 0xD5008 a 0xD5014.
