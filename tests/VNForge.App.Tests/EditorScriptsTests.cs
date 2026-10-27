@@ -81,6 +81,50 @@ public class EditorScriptsTests
     }
 
     [Fact]
+    public async Task O_filtro_de_cenas_casa_Cena_N_numa_cena_sem_nome()
+    {
+        var vm = await Carregado(nomes: _ => null);
+
+        vm.ScriptFilter = "Cena 2";
+
+        Assert.Equal(["yst00013"], vm.Scripts.Where(s => s.IsShown).Select(s => s.Key));
+    }
+
+    [Fact]
+    public async Task Quando_o_scripts_json_chega_depois_o_Cena_N_vira_o_nome_real_sem_mexer_na_posicao()
+    {
+        var nomes = ScriptNames.Empty;
+        var vm = new EditorViewModel(_ => TresScripts()) { NamesLoader = _ => nomes };
+        vm.Project = Summary();
+        await vm.Loading;
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00013");
+        Assert.Equal("Cena 2", vm.ScriptTitle);
+
+        nomes = ScriptNames.Empty.Rename("yst00013", "Manhã de chuva");
+        await vm.RefreshChaptersAsync();
+
+        Assert.Equal("Manhã de chuva", vm.ScriptTitle);
+        Assert.Equal(2, vm.SelectedScript!.Position);
+        Assert.Equal("Manhã de chuva", vm.Scripts.Single(s => s.Key == "yst00013").Name);
+    }
+
+    [Fact]
+    public async Task Capitulo_sem_numero_da_a_Cena_3_de_5_na_sobrancelha()
+    {
+        string[] chaves = ["yst00001", "yst00002", "yst00003", "yst00004", "yst00005", "yst00006", "yst00007"];
+        var nomes = chaves.Skip(2).Aggregate(ScriptNames.Empty, (atual, chave) => atual.WithGroup(chave, ScriptGrouping.ExtraName));
+        var vm = new EditorViewModel(_ => Lines([.. chaves.Select(c => (c, new[] { Unit(c, 1, null, TranslationStatus.Approved) }))])) { NamesLoader = _ => nomes };
+        vm.Project = Summary();
+        await vm.Loading;
+
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00005");
+
+        Assert.Null(vm.SelectedScript.Chapter!.Number);
+        Assert.Equal("Cena 3 de 5", vm.Breadcrumb);
+        Assert.Equal("Cena 3", vm.ScriptTitle);
+    }
+
+    [Fact]
     public async Task Os_chips_Todas_Em_japones_Para_revisar_e_Com_aviso_trazem_a_contagem()
     {
         var vm = await Carregado();

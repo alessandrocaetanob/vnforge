@@ -17,7 +17,7 @@
     <Setter Property="CornerRadius" Value="2"/>
   </Style>
 
-  <!-- v4: a cena se chama pelo nome (quebra em até duas linhas, sem reticências no meio da frase); o id fica pequeno, em mono e em cor secundária, embaixo. Percentual à direita e barra de 4px. -->
+  <!-- v4: a cena se chama pelo nome (quebra em até duas linhas e só vira reticências se passar disso); o id fica pequeno, em mono e em cor secundária, embaixo. Percentual à direita e barra de 4px. -->
   <Style Selector="c|ScriptItem">
     <Setter Property="Padding" Value="10,8"/>
     <Setter Property="Template">

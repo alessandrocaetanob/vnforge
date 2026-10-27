@@ -162,7 +162,7 @@ public sealed class ScenesCollapseTests(HeadlessFixture fixture) : IClassFixture
         Assert.InRange(strip, EditorBreakpoints.ScenesStripWidth - 1, EditorBreakpoints.ScenesStripWidth + 1);
         Assert.Equal(vm.ScriptTitle, stripText);
         // A lista aberta tem no máximo 190 px (v4); recolhida vira uma faixa de 44 e a grade leva a diferença.
-        Assert.True(collapsedLines > openLines + 60, $"as linhas ganham o espaço da lista ({openLines:0} para {collapsedLines:0})");
+        Assert.True(collapsedLines > openLines + 75, $"as linhas ganham o espaço da lista ({openLines:0} para {collapsedLines:0})");
         Assert.True(restoredPanel);
         Assert.False(vm.IsScenesCollapsed);
     }

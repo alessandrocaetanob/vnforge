@@ -81,7 +81,7 @@ Toda tela nova é medida por estas regras (plano, seção "Regras das telas"):
 - Grade de 4px: `space-1` a `space-8`. Padding de painel `space-4`; gap entre painéis `space-3`; margem da área de conteúdo `space-6`.
 - Densidade: controles padrão em `control-md` (32); barras de comando sobre a grade em `control-sm` (28); ação principal de tela vazia em `control-lg` (40).
 - Linha da grade com altura fixa `row-height` (36) para virtualização estável.
-- Estrutura da janela: `titlebar-height` 40, `navrail-width` 72, `statusbar-height` 28. No Editor, `scripts-width` 248 e `inspector-width` 400, ambos redimensionáveis com `GridSplitter`.
+- Estrutura da janela: `titlebar-height` 40, `navrail-width` 72, `statusbar-height` 28. No Editor, `scripts-width` 190 (teto da lista de cenas) e `inspector-width` 400, ambos redimensionáveis com `GridSplitter`.
 - Painéis lado a lado na mesma linha têm a mesma altura: no Avalonia, `Grid` com colunas `*` ou fixas e o painel ocupando a célula inteira (nunca `StackPanel` horizontal, que deixa cada painel com a altura do próprio conteúdo). Cabeçalho de painel com 48px e rodapé com 40px ancorado embaixo, para o espaço livre ficar no corpo.
 - Painéis-resumo com o mesmo papel (os indicadores do Painel, as tabelas por script e por personagem) dividem a largura em partes iguais.
 - Tabelas-resumo usam linha de `row-height` e barra de 8px (`StatusDistribution`) numa coluna de 120 a 180px, com o percentual em coluna própria. A barra de 4px fica só em itens de navegação (`ScriptItem`) e na barra de status.

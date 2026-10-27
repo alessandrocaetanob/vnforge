@@ -351,7 +351,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
                 else if (value.Key == NavKey.Build)
                 {
-                    Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Display);
+                    Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Name);
                     _ = Build.ReloadAsync();
                 }
 

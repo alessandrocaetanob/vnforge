@@ -17,7 +17,7 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
     /// <summary>O nome da cena ("Prólogo"); nulo enquanto o projeto não o guarda.</summary>
     public string? Label { get; private set; } = string.IsNullOrWhiteSpace(label) ? null : label;
 
-    /// <summary>O nome da cena, ou a chave quando ele não existe.</summary>
+    /// <summary>O nome da cena, ou a chave quando ele não existe. Só para quem precisa da chave como último recurso; as telas do Editor usam <see cref="Name"/>.</summary>
     public string Display => Label ?? Key;
 
     /// <summary>A posição da cena no capítulo (ou no jogo, enquanto a lista não foi agrupada), a partir de 1; dá o "Cena 13" das cenas sem nome.</summary>

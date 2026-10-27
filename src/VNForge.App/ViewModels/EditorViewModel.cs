@@ -58,7 +58,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <param name="postToUi">Como o painel executa a gravação agendada na thread da tela; nulo usa o <see cref="SynchronizationContext"/> da thread que o criou. Os testes passam uma chamada direta.</param>
     /// <param name="suggester">Pede a sugestão da IA do painel (Ctrl+Espaço); o padrão usa o provedor falso, sem rede.</param>
     /// <param name="contextLoader">Lê os personagens e o glossário do projeto; o padrão lê <c>characters.json</c> e <c>glossary.json</c>.</param>
-    /// <param name="scriptLabel">Dá o nome legível de um script pela chave dele; nulo mostra só a chave.</param>
+    /// <param name="scriptLabel">Dá o nome da cena pela chave dela; sem ele (ou nulo) vale o nome do <c>scripts.json</c> e, sem esse também, "Cena N".</param>
     /// <param name="search">O painel de busca e substituição; o padrão cria o <see cref="SearchReplaceViewModel"/> do projeto.</param>
     /// <param name="layoutMemory">Onde o Editor lembra o arranjo escolhido (a coluna das cenas recolhida); nulo vale só até o app fechar.</param>
     public EditorViewModel(
