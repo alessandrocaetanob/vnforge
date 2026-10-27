@@ -14,11 +14,38 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
 
     public string Key => Progress.Key;
 
-    /// <summary>O nome do capítulo ("Prólogo"); nulo enquanto o projeto não o guarda.</summary>
-    public string? Label { get; } = string.IsNullOrWhiteSpace(label) ? null : label;
+    /// <summary>O nome da cena ("Prólogo"); nulo enquanto o projeto não o guarda.</summary>
+    public string? Label { get; private set; } = string.IsNullOrWhiteSpace(label) ? null : label;
 
-    /// <summary>O nome do capítulo, ou a chave quando ele não existe.</summary>
+    /// <summary>O nome da cena, ou a chave quando ele não existe. Só para quem precisa da chave como último recurso; as telas do Editor usam <see cref="Name"/>.</summary>
     public string Display => Label ?? Key;
+
+    /// <summary>A posição da cena no capítulo (no jogo, enquanto a lista não foi agrupada), a partir de 1; é o "cena 13 de 45" da sobrancelha e muda quando a cena troca de capítulo.</summary>
+    [ObservableProperty]
+    public partial int Position { get; set; } = 1;
+
+    /// <summary>A posição da cena entre todas as cenas do projeto, em ordem de chave, a partir de 1; dá o "Cena 13" das cenas sem nome e não muda quando a cena troca de capítulo.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Name))]
+    public partial int Number { get; set; } = 1;
+
+    /// <summary>O que as telas do Editor mostram como nome: o da cena ou "Cena N" (N é o <see cref="Number"/>), nunca a chave.</summary>
+    public string Name => Label ?? $"Cena {Number}";
+
+    /// <summary>Troca o nome da cena quando o <c>scripts.json</c> é relido.</summary>
+    public void SetLabel(string? value)
+    {
+        var clean = string.IsNullOrWhiteSpace(value) ? null : value;
+        if (clean == Label)
+        {
+            return;
+        }
+
+        Label = clean;
+        OnPropertyChanged(nameof(Label));
+        OnPropertyChanged(nameof(Display));
+        OnPropertyChanged(nameof(Name));
+    }
 
     public int CompletedPercent => Progress.CompletedPercent;
 
@@ -92,5 +119,5 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
     public bool Matches(string filter) =>
         string.IsNullOrWhiteSpace(filter)
         || Key.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase)
-        || (Label?.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase) ?? false);
+        || Name.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase);
 }

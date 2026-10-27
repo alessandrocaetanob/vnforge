@@ -286,9 +286,12 @@ public sealed partial class EditorViewModel
             var items = group.ScriptKeys.Select(k => byKey[k]).ToList();
             var chapter = new ChapterGroupViewModel(group, items, chosen => MoveToChapterAsync(chosen)) { IsExpanded = !closedChapters.Contains(group.Name) };
             chapter.PropertyChanged += OnChapterPropertyChanged;
-            foreach (var item in items)
+            for (var i = 0; i < items.Count; i++)
             {
-                item.Chapter = chapter;
+                items[i].Chapter = chapter;
+                items[i].Position = i + 1;
+                items[i].SetLabel(SceneLabel(items[i].Key));
+                items[i].IsShown = items[i].Matches(ScriptFilter);
             }
 
             chapters.Add(chapter);
@@ -331,6 +334,8 @@ public sealed partial class EditorViewModel
         }
 
         RefreshChapterList();
+        OnPropertyChanged(nameof(Breadcrumb));
+        OnPropertyChanged(nameof(ScriptTitle));
     }
 
     private void OnChapterPropertyChanged(object? sender, PropertyChangedEventArgs e)

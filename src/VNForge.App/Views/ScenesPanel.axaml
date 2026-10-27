@@ -62,7 +62,7 @@
             <c:ScriptGroup Margin="6,0" IsVisible="{Binding IsGroupStart}" Title="{Binding Chapter.Name}" CountText="{Binding Chapter.CountText}"
                            IsExpanded="{Binding Chapter.IsExpanded, Mode=TwoWay}"/>
             <Border Classes="scene" IsVisible="{Binding Chapter.IsExpanded}">
-              <c:ScriptItem Key="{Binding Key}" Label="{Binding Label}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
+              <c:ScriptItem Key="{Binding Key}" Label="{Binding Name}" Percent="{Binding CompletedPercent}" IsRunning="{Binding IsRunning}"
                             ToolTip.Tip="{Binding Tooltip}"/>
             </Border>
           </StackPanel>

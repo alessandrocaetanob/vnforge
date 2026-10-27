@@ -20,8 +20,8 @@ namespace VNForge.App.Tests.Rendering;
 /// </summary>
 public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
-    private const string Script = "yst00013";
-    private const string LongLine = "yst00013:000045";
+    internal const string Script = "yst00013";
+    internal const string LongLine = "yst00013:000045";
     private static readonly DateTimeOffset Now = new(2026, 10, 24, 0, 41, 0, TimeSpan.Zero);
 
     public static TheoryData<string> Themes => ["Dark", "Light"];
@@ -142,7 +142,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
     }
 
-    private static string CreateProject(string parent)
+    internal static string CreateProject(string parent)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             DemoProject.Name,

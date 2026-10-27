@@ -182,6 +182,7 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
         var placement = new Dictionary<string, int>();
         var commands = new List<object?>();
         GameTextboxSize boxSize = default;
+        var approveInFooter = false;
 
         await fixture.Session.Dispatch(
             () =>
@@ -189,6 +190,8 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
                 var window = Show(new EditorView { DataContext = vm }, 1366);
                 var detailView = window.GetVisualDescendants().OfType<LineDetailView>().Single();
                 var tabs = detailView.GetVisualDescendants().OfType<TabControl>().Single();
+                var approve = detailView.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "ApproveButton");
+                approveInFooter = approve.IsEffectivelyVisible && !approve.GetVisualAncestors().Contains(tabs) && !approve.GetVisualAncestors().OfType<ScrollViewer>().Any();
                 var items = tabs.Items.OfType<TabItem>().ToList();
                 headers.AddRange(items.Select(t => (string)t.Header!));
                 for (var i = 0; i < items.Count; i++)
@@ -213,7 +216,8 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
         Assert.Equal(["Tradução", "Sugestão", "Contexto"], headers);
         Assert.Equal(0, placement["TranslationEditor"]);
         Assert.Equal(0, placement["GameBox"]);
-        Assert.Equal(0, placement["ApproveButton"]);
+        Assert.DoesNotContain("ApproveButton", placement.Keys);
+        Assert.True(approveInFooter, "Aprovar e próxima fica na barra fixa do rodapé, fora das abas");
         Assert.Equal(1, placement["SuggestionCard"]);
         Assert.Equal(1, placement["UseSuggestionButton"]);
         Assert.Equal(2, placement["ExplainCard"]);
