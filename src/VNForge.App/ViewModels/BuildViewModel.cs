@@ -357,7 +357,8 @@ public sealed partial class BuildViewModel : ObservableObject
             var allowWarnings = AllowWarnings;
             AppendLog("Iniciando o build: conferindo a tradução e reconstruindo os scripts.");
             var run = await RunAsync("Build de " + summary.Name, "Reconstruindo os scripts com as traduções", (reporter, ct) =>
-                ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: allowWarnings, options: options, progress: new TaskProgress(reporter), cancellationToken: ct));
+                ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: allowWarnings, options: options, progress: new TaskProgress(reporter), cancellationToken: ct),
+                TestGroup(summary.Root));
             if (mine != epoch)
             {
                 return;
@@ -613,7 +614,7 @@ public sealed partial class BuildViewModel : ObservableObject
             using var projectLock = ProjectLock.Acquire(project);
             EnsureBuildMatchesPlan(plan);
             return GameStateFile.Inject(project, new GameInjector(clock), plan, GameTestKind.Translation, null, clock);
-        });
+        }, TestGroup(root));
         if (mine != epoch)
         {
             return;
@@ -657,7 +658,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
                 var injector = new GameInjector(clock);
                 return pending.Select(injector.InjectPatch).ToList();
-            });
+            }, TestGroup(patchRoot));
             if (mine != epoch)
             {
                 return;
@@ -702,7 +703,7 @@ public sealed partial class BuildViewModel : ObservableObject
             var restored = new GameInjector(clock).Restore(plan);
             GameStateFile.TryClearInGame(project);
             return restored;
-        });
+        }, TestGroup(root));
         if (mine != epoch)
         {
             return;
@@ -766,11 +767,14 @@ public sealed partial class BuildViewModel : ObservableObject
         && a.Manifest.Files.SequenceEqual(b.Manifest.Files)
         && a.BackupDirectories.OrderBy(p => p.Key, StringComparer.Ordinal).SequenceEqual(b.BackupDirectories.OrderBy(p => p.Key, StringComparer.Ordinal));
 
+    /// <summary>Build, Injetar, Aplicar patch e Restaurar são as etapas de um teste no jogo: a lista de tarefas as mostra numa linha só, por projeto.</summary>
+    private static TaskGroupSpec TestGroup(string projectRoot) => new("teste-no-jogo:" + projectRoot, "Teste no jogo");
+
     /// <summary>
     /// Roda o trabalho como tarefa da barra inferior e devolve o resultado ou a falha esperada, capturados dentro do trabalho:
     /// o estado da tarefa só muda quando o <c>Dispatcher</c> processa o <c>post</c>, depois de <see cref="BackgroundTaskItem.Completion"/>.
     /// </summary>
-    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<IBackgroundTaskReporter, CancellationToken, T> work)
+    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<IBackgroundTaskReporter, CancellationToken, T> work, TaskGroupSpec? group = null)
     {
         T? value = default;
         Exception? failure = null;
@@ -789,7 +793,7 @@ public sealed partial class BuildViewModel : ObservableObject
             }
 
             return Task.CompletedTask;
-        });
+        }, group);
         var mine = epoch;
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
