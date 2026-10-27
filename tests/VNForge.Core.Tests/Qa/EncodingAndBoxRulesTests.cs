@@ -55,6 +55,35 @@ public sealed class EncodingAndBoxRulesTests
         Assert.Contains("U+1F600", issues[1].Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Aspa_curva_e_reticencias_na_cp1252_disparam_com_o_motivo_e_a_troca()
+    {
+        var issues = new UnencodableCharacterRule().Check(Context(Unit("“Falando” disso…"), strategy: "cp1252")).ToList();
+
+        Assert.Equal(3, issues.Count);
+        Assert.All(issues, i => Assert.Equal(QaSeverity.Error, i.Severity));
+        Assert.Contains("U+201C", issues[0].Message, StringComparison.Ordinal);
+        Assert.Contains("0x93", issues[0].Message, StringComparison.Ordinal);
+        Assert.Contains("aspas retas", issues[0].Message, StringComparison.Ordinal);
+        Assert.Contains("U+2026", issues[2].Message, StringComparison.Ordinal);
+        Assert.Contains("...", issues[2].Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("build", string.Concat(issues.Select(i => i.Message)), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Acento_comum_na_cp1252_nao_dispara()
+    {
+        Assert.Empty(new UnencodableCharacterRule().Check(Context(Unit("É ação, coração e pão \"reto\"..."), strategy: "cp1252")));
+    }
+
+    [Fact]
+    public void Aspas_retas_e_reticencias_em_tres_pontos_da_formatacao_evitam_o_erro()
+    {
+        var profile = FormattingProfile.Default with { Typography = new TypographyRule(QuoteStyle.Ascii, EllipsisStyle.Dots) };
+
+        Assert.Empty(new UnencodableCharacterRule().Check(Context(Unit("“Falando” ‘isso’…"), profile, "cp1252")));
+    }
+
     // --- caixa-acima-do-limite ---
 
     [Fact]
