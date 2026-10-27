@@ -279,8 +279,10 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.True(Part<TextBlock>(current, "PART_Label").IsVisible);
 
             var items = list.GetVisualDescendants().OfType<ListBoxItem>().ToList();
-            Assert.Equal(FontWeight.SemiBold, Part<TextBlock>(current, "PART_Id").FontWeight);
-            Assert.NotEqual(FontWeight.SemiBold, Part<TextBlock>(done, "PART_Id").FontWeight);
+            Assert.Equal(FontWeight.SemiBold, Part<TextBlock>(current, "PART_Label").FontWeight);
+            Assert.NotEqual(FontWeight.SemiBold, Part<TextBlock>(done, "PART_Label").FontWeight);
+            Assert.Equal("yst00013", Part<TextBlock>(current, "PART_Id").Text);
+            Assert.True(Part<TextBlock>(current, "PART_Id").FontSize < Part<TextBlock>(current, "PART_Label").FontSize);
             // O fundo de atual é do cartão da cena (Border.scene), não do item: o item também leva o cabeçalho do capítulo.
             Assert.Equal(Token(items[1], "Vnf.AccentSoft"), ColorOf(((Border)items[1].Content!).Background));
         });

@@ -41,7 +41,7 @@ public class EditorViewModelTests
 
         Assert.Equal(["yst00001", "yst00002"], vm.Scripts.Select(s => s.Key));
         Assert.Equal("yst00001", vm.SelectedScript?.Key);
-        Assert.Equal("yst00001", vm.ScriptTitle);
+        Assert.Equal("Cena 1", vm.ScriptTitle);
         Assert.Equal(5, vm.Lines.Count);
         Assert.Equal("yst00001:000001", vm.SelectedLine?.Id);
         Assert.Equal("2", vm.ScriptsCount);
@@ -57,7 +57,7 @@ public class EditorViewModelTests
     {
         var vm = await Carregado();
 
-        Assert.Equal(["Todas", "Pendentes", "IA", "Com aviso", "Não traduzir"], vm.Filters.Select(f => f.Label));
+        Assert.Equal(["Todas", "Em japonês", "Para revisar", "Com aviso", "Não traduzir"], vm.Filters.Select(f => f.Label));
         Assert.Equal([true, false, false, false, false], vm.Filters.Select(f => f.IsSelected));
     }
 
@@ -266,7 +266,7 @@ public class EditorViewModelTests
 
         vm.SelectedScript = vm.Scripts[1];
 
-        Assert.Equal("yst00002", vm.ScriptTitle);
+        Assert.Equal("Cena 2", vm.ScriptTitle);
         Assert.Equal(["Todos os personagens", "Ken"], vm.Speakers.Select(s => s.Label));
         Assert.Equal(vm.Speakers[0], vm.SelectedSpeaker);
         Assert.Empty(vm.Lines);
@@ -418,7 +418,7 @@ public class EditorViewModelTests
         await primeira;
 
         Assert.Equal(["novo"], vm.Scripts.Select(s => s.Key));
-        Assert.Equal("novo", vm.ScriptTitle);
+        Assert.Equal("Cena 1", vm.ScriptTitle);
         Assert.False(vm.IsLoading);
     }
 
