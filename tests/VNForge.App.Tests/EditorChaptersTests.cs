@@ -49,7 +49,7 @@ public class EditorChaptersTests
         public void Dispose() => temp.Dispose();
     }
 
-    private static async Task<Opened> Open(Func<string, IReadOnlyList<string>, string?, ScriptGroupChange>? grouper = null, Func<string, ScriptNames>? namesLoader = null)
+    private static async Task<Opened> Open(Func<string, IReadOnlyList<string>, string?, ScriptGroupChange>? grouper = null, Func<string, ScriptNames>? namesLoader = null, bool unnamed = false)
     {
         var temp = new TempFolder();
         var folder = ProjectFolder.Create(temp.SubFolder("vn"), new ProjectConfig(
@@ -65,7 +65,7 @@ public class EditorChaptersTests
             folder.SaveText(Keys[i], [new TextUnit($"{Keys[i]}:000001", TextUnitKind.Dialogue, null, "原文", status == TranslationStatus.Untranslated ? null : "tradução", status)]);
         }
 
-        folder.SaveScriptNames(InitialNames());
+        folder.SaveScriptNames(unnamed ? InitialNames().WithDetected(new Dictionary<string, DetectedScript>(InitialNames().Entries.ToDictionary(e => e.Key, e => new DetectedScript(null, e.Folder)))) : InitialNames());
         var summary = Summary("Minha VN", folder.Root);
         var opened = new Opened(temp, folder.Root);
         opened.Editor = new EditorViewModel(postToUi: a => a()) { Grouper = grouper, NamesLoader = namesLoader };
@@ -117,17 +117,21 @@ public class EditorChaptersTests
     }
 
     [Fact]
-    public async Task Depois_de_mover_a_cena_a_posicao_e_a_sobrancelha_seguem_o_capitulo_novo()
+    public async Task Depois_de_mover_a_cena_sem_nome_a_sobrancelha_muda_e_o_nome_Cena_N_nao()
     {
-        using var open = await Open();
+        using var open = await Open(unnamed: true);
         open.Editor.SelectedScript = open.Scene("yst00002");
         Assert.Equal("Capítulo 1 · cena 2 de 3", open.Editor.Breadcrumb);
+        Assert.Equal("Cena 2", open.Editor.ScriptTitle);
 
         await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2"));
 
         Assert.Equal(1, open.Scene("yst00002").Position);
         Assert.Equal(2, open.Scene("yst00003").Position);
         Assert.Equal("Capítulo 2 · cena 1 de 3", open.Editor.Breadcrumb);
+        Assert.Equal("Cena 2", open.Editor.ScriptTitle);
+        Assert.Equal("Cena 2", open.Scene("yst00002").Name);
+        Assert.Equal("Cena 3", open.Scene("yst00003").Name);
     }
 
     [Fact]

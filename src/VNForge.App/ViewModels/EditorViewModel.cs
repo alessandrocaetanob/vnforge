@@ -867,7 +867,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             Scripts.Clear();
             foreach (var script in loaded?.Scripts ?? [])
             {
-                Scripts.Add(new ScriptItemViewModel(script, SceneLabel(script.Key)) { IsRunning = script.Key == RunningScriptKey, Position = Scripts.Count + 1 });
+                Scripts.Add(new ScriptItemViewModel(script, SceneLabel(script.Key)) { IsRunning = script.Key == RunningScriptKey, Number = Scripts.Count + 1, Position = Scripts.Count + 1 });
             }
 
             RebuildChapters();
