@@ -70,18 +70,16 @@
   </UserControl.Styles>
 
   <!-- As teclas (Enter, E, M, setas e Esc) são tratadas em ReviewModeView.axaml.cs: o KeyBinding age antes de qualquer filtro e não deixa ignorar a tecla segurada. -->
-  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="16" Focusable="True" AutomationProperties.Name="Modo revisão">
+  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="12" Focusable="True" AutomationProperties.Name="Modo revisão">
 
     <!-- Topo numa linha: voltar ao Editor, o nome da cena com "Linha 1 de 6" e um bloco por linha, e as linhas revisadas hoje. -->
-    <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
+    <Grid x:Name="TopBar" ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
       <Button Classes="sm" Command="{Binding CloseCommand}" VerticalAlignment="Center" HorizontalAlignment="Left" ToolTip.Tip="Volta à lista de linhas (Esc)">
         <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap"/>
       </Button>
-      <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Center">
-        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-          <TextBlock x:Name="SceneTitle" Classes="title-md" Text="{Binding SceneName}" TextWrapping="NoWrap" AutomationProperties.Name="Cena"/>
-          <TextBlock Classes="body secondary" VerticalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding IsActive}"/>
-        </StackPanel>
+      <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" Text="{Binding SceneName}" TextWrapping="NoWrap" AutomationProperties.Name="Cena"/>
+        <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding IsActive}"/>
         <ItemsControl ItemsSource="{Binding Blocks}" HorizontalAlignment="Center" AutomationProperties.Name="Linhas da revisão">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -99,8 +97,8 @@
       <TextBlock Grid.Column="2" Classes="body-sm secondary" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding TodayText}" IsVisible="{Binding HasToday}"/>
     </Grid>
 
-    <!-- Uma fala por vez: à esquerda o roteiro (anterior, atual, seguinte), que rola sozinho; à direita o palco, a tela do jogo. -->
-    <Grid Grid.Row="1" ColumnDefinitions="42*,58*" ColumnSpacing="24" IsVisible="{Binding IsActive}">
+    <!-- Uma fala por vez: à esquerda o roteiro (anterior, atual, seguinte), que rola sozinho; à direita o palco, a tela do jogo, com até 64% da largura. As duas colunas alinham pelo topo e o bloco fica centrado na altura que sobra entre o topo e a barra. -->
+    <Grid x:Name="Body" Grid.Row="1" ColumnDefinitions="36*,64*" ColumnSpacing="24" VerticalAlignment="Center" IsVisible="{Binding IsActive}">
 
       <ScrollViewer x:Name="Script" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Roteiro">
         <StackPanel Spacing="12" Margin="0,0,12,4">

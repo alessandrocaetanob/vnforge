@@ -19,8 +19,8 @@
           <Grid>
             <Border Name="PART_Vignette" IsHitTestVisible="False">
               <Border.Background>
-                <RadialGradientBrush Center="50%,40%" RadiusX="95%" RadiusY="105%">
-                  <GradientStop Offset="0.62" Color="Transparent"/>
+                <RadialGradientBrush Center="50%,45%" RadiusX="110%" RadiusY="120%">
+                  <GradientStop Offset="0.45" Color="Transparent"/>
                   <GradientStop Offset="1" Color="{DynamicResource Vnf.StageVignetteColor}"/>
                 </RadialGradientBrush>
               </Border.Background>

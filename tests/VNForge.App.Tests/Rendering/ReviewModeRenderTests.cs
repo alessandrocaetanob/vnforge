@@ -236,6 +236,30 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task A_1440_por_1000_o_bloco_das_colunas_fica_centrado_entre_o_topo_e_a_barra_e_o_palco_passa_de_60_por_cento()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var top = Frame(window, view.FindControl<Grid>("TopBar")!);
+            var body = Frame(window, view.FindControl<Grid>("Body")!);
+            var bar = Frame(window, view.FindControl<Border>("ActionBar")!);
+            var above = body.Top - top.Bottom;
+            var below = bar.Top - body.Bottom;
+            Assert.True(Math.Abs(above - below) <= 24, $"o vazio se divide em cima ({above}) e embaixo ({below})");
+
+            var stage = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            var script = Frame(window, view.FindControl<ScrollViewer>("Script")!);
+            Assert.True(stage.Width / body.Width > 0.6, $"o palco ocupa mais de 60% da largura ({stage.Width / body.Width:P0})");
+            Assert.True(Math.Abs(script.Top - stage.Top) <= 1, "roteiro e palco se alinham pelo topo");
+            Salvar(window, "modo-revisao-centrado", ThemeVariant.Dark);
+        });
+    }
+
+    [Fact]
     public async Task A_1366_com_aviso_o_palco_encolhe_e_a_barra_continua_inteira()
     {
         using var temp = new TempFolder();

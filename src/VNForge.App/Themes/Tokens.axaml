@@ -87,8 +87,8 @@
       <SolidColorBrush x:Key="Vnf.StageTop" Color="#3A4A72"/>
       <Color x:Key="Vnf.StageBottomColor">#141929</Color>
       <SolidColorBrush x:Key="Vnf.StageBottom" Color="#141929"/>
-      <Color x:Key="Vnf.StageVignetteColor">#8C04060B</Color>
-      <SolidColorBrush x:Key="Vnf.StageVignette" Color="#8C04060B"/>
+      <Color x:Key="Vnf.StageVignetteColor">#5204060B</Color>
+      <SolidColorBrush x:Key="Vnf.StageVignette" Color="#5204060B"/>
       <Color x:Key="Vnf.StageCardColor">#66070A12</Color>
       <SolidColorBrush x:Key="Vnf.StageCard" Color="#66070A12"/>
       <Color x:Key="Vnf.StageStrokeColor">#26FFFFFF</Color>
@@ -180,8 +180,8 @@
       <SolidColorBrush x:Key="Vnf.StageTop" Color="#3A4A72"/>
       <Color x:Key="Vnf.StageBottomColor">#141929</Color>
       <SolidColorBrush x:Key="Vnf.StageBottom" Color="#141929"/>
-      <Color x:Key="Vnf.StageVignetteColor">#8C04060B</Color>
-      <SolidColorBrush x:Key="Vnf.StageVignette" Color="#8C04060B"/>
+      <Color x:Key="Vnf.StageVignetteColor">#5204060B</Color>
+      <SolidColorBrush x:Key="Vnf.StageVignette" Color="#5204060B"/>
       <Color x:Key="Vnf.StageCardColor">#66070A12</Color>
       <SolidColorBrush x:Key="Vnf.StageCard" Color="#66070A12"/>
       <Color x:Key="Vnf.StageStrokeColor">#26FFFFFF</Color>
