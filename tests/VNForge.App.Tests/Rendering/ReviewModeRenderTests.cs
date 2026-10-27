@@ -237,6 +237,22 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task O_nome_de_quem_fala_e_texto_selecionavel_com_Copiar_no_menu()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var speaker = Assert.Single(view.GetVisualDescendants().OfType<SelectableTextBlock>(), b => AutomationProperties.GetName(b) == "Quem fala");
+            Assert.StartsWith("美咲", speaker.Text, StringComparison.Ordinal);
+            var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout);
+            Assert.Equal("Copiar", Assert.IsType<MenuItem>(Assert.Single(flyout.Items)).Header);
+        });
+    }
+
+    [Fact]
     public async Task A_1440_por_1000_o_bloco_das_colunas_fica_centrado_entre_o_topo_e_a_barra_e_o_palco_passa_de_60_por_cento()
     {
         using var temp = new TempFolder();

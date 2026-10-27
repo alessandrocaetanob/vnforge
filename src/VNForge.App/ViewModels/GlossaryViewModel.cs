@@ -350,6 +350,31 @@ public sealed partial class GlossaryViewModel : ObservableObject
         Characters.Add(Watch(new CharacterRow(), MarkCharactersDirty));
     }
 
+    /// <summary>
+    /// Abre a aba Personagens com <paramref name="source"/>, o nome exatamente como está no texto extraído (sem aparar nem normalizar), numa linha nova no alto da tabela
+    /// para a pessoa só preencher a tradução. Se o nome já está cadastrado, devolve a linha dele em vez de duplicar. Nulo quando a tabela está fechada para edição.
+    /// </summary>
+    public CharacterRow? RegisterCharacter(string source)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        if (!CanEdit)
+        {
+            return null;
+        }
+
+        SelectedTab = GlossaryTab.Characters;
+        ClearSearch();
+        var existing = Characters.FirstOrDefault(c => string.Equals(c.Source.Trim(), source.Trim(), StringComparison.Ordinal));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var row = Watch(new CharacterRow(source), MarkCharactersDirty);
+        Characters.Insert(0, row);
+        return row;
+    }
+
     // A linha nova é vazia e a busca a esconderia.
     private void ClearSearch() => Search = string.Empty;
 
