@@ -157,6 +157,8 @@ public sealed partial class ReviewModeView : UserControl
         }
         else if (e.PropertyName == nameof(ReviewModeViewModel.Position))
         {
+            // A medida da fala seguinte é da linha antiga: recomeça do zero, e o layout esconde de novo se a nova não couber.
+            NextBlock.IsVisible = true;
             _ = PlayEnterAsync();
         }
     }

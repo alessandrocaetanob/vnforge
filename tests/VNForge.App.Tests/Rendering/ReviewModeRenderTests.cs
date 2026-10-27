@@ -396,6 +396,55 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         }, 1366, 768);
     }
 
+    /// <summary>
+    /// A fala seguinte que cedeu na linha anterior não pode pesar na linha nova: chegar à terceira linha passando pela segunda (cuja seguinte é longa e some) e abrir a
+    /// revisão já na terceira têm que dar o mesmo resultado. A altura varia porque a diferença só aparece quando a janela está entre as duas medidas.
+    /// </summary>
+    [Theory]
+    [InlineData(800)]
+    [InlineData(808)]
+    [InlineData(816)]
+    [InlineData(824)]
+    [InlineData(832)]
+    [InlineData(840)]
+    [InlineData(848)]
+    [InlineData(856)]
+    [InlineData(864)]
+    [InlineData(872)]
+    [InlineData(880)]
+    public async Task Ao_trocar_de_linha_a_medida_da_fala_seguinte_recomeca_do_zero(int height)
+    {
+        var viaSecond = await NextShownOnThirdLine(height, reviewedFirstTwo: false);
+        var direct = await NextShownOnThirdLine(height, reviewedFirstTwo: true);
+
+        Assert.Equal(direct, viaSecond);
+    }
+
+    private async Task<bool> NextShownOnThirdLine(int height, bool reviewedFirstTwo)
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"), longNeighbours: true, reviewedFirstTwo);
+        var shown = false;
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var review = vm.Editor.Review!;
+            if (!reviewedFirstTwo)
+            {
+                review.SkipCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+                review.SkipCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+            }
+
+            Assert.True(review.HasPrevious && review.HasNext);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            shown = view.GetVisualDescendants().OfType<ContextLines>().Any(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+        }, 1366, height);
+
+        return shown;
+    }
+
     private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false)
     {
         await fixture.Session.Dispatch<int>(
@@ -452,7 +501,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
     }
 
-    private static string CreateProject(string parent)
+    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             DemoProject.Name,
@@ -465,6 +514,15 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada"), new CharacterEntry("健太", "Kenta")]);
         folder.SaveText(
             "yst00001",
+            longNeighbours
+            ?
+            [
+                Line("yst00001", 1, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p", reviewedFirstTwo ? TranslationStatus.Approved : TranslationStatus.Machine),
+                Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p", reviewedFirstTwo ? TranslationStatus.Approved : TranslationStatus.Machine),
+                Line("yst00001", 3, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
+                Line("yst00001", 4, "美咲", @"「うん」\p", @"Aham.\p"),
+            ]
+            :
             [
                 Line("yst00001", 1, "美咲", @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p"),
                 Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
@@ -474,6 +532,6 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         return folder.Root;
     }
 
-    private static TextUnit Line(string script, int number, string speaker, string source, string translation) =>
-        new($"{script}:{number:D6}", TextUnitKind.Dialogue, speaker, source, translation, TranslationStatus.Machine);
+    private static TextUnit Line(string script, int number, string speaker, string source, string translation, TranslationStatus status = TranslationStatus.Machine) =>
+        new($"{script}:{number:D6}", TextUnitKind.Dialogue, speaker, source, translation, status);
 }
