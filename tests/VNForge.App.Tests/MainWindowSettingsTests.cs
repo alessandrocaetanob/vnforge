@@ -60,7 +60,7 @@ public class MainWindowSettingsTests
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
         vm.SelectedNav = settingsItem;
-        Assert.Equal("Alterações salvas automaticamente em vnforge.json", vm.StatusNote);
+        Assert.Equal("Salvo", vm.StatusNote);
 
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
         Assert.Equal(string.Empty, vm.StatusNote);

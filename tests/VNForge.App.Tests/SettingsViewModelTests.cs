@@ -126,7 +126,7 @@ public class SettingsViewModelTests
         vm.StyleGuide = "Tom informal.";
 
         Assert.Equal(3, avisos);
-        Assert.Equal("Alterações salvas automaticamente em vnforge.json", SettingsViewModel.AutosaveNote);
+        Assert.Equal("Salvo", SettingsViewModel.AutosaveNote);
     }
 
     [Fact]

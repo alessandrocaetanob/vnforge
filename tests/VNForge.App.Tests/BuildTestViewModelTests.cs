@@ -85,6 +85,42 @@ public sealed class BuildTestViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_teste_os_cinco_passos_ficam_cinza_com_a_frase_de_projeto_sem_teste()
+    {
+        var vm = await OpenAsync();
+
+        Assert.Equal(5, vm.LastTestSteps.Count);
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsPending));
+        Assert.All(vm.LastTestSteps, r => Assert.Equal(string.Empty, r.TimeText));
+        Assert.Equal([false, false, false, false, true], vm.LastTestSteps.Select(r => r.IsLast));
+        Assert.Equal("Ainda não houve teste neste projeto", vm.TestStepsCaption);
+    }
+
+    [Fact]
+    public async Task Com_erros_so_o_passo_Conferir_fica_travado_e_diz_quantos_erros()
+    {
+        qaRule.Enabled = true;
+
+        var vm = await OpenAsync();
+
+        Assert.True(vm.LastTestSteps[0].IsBlocked);
+        Assert.Equal("2 erros travam", vm.LastTestSteps[0].TimeText);
+        Assert.All(vm.LastTestSteps.Skip(1), r => Assert.True(r.IsPending));
+        Assert.Equal("Corrija os erros na Conferência para testar de novo.", vm.TestStepsCaption);
+    }
+
+    [Fact]
+    public void Durante_o_teste_os_passos_anteriores_ficam_prontos_o_atual_em_andamento_e_os_outros_cinza()
+    {
+        var rows = BuildViewModel.RunningRows(GameTestStep.Backup);
+
+        Assert.Equal(
+            [TestStepState.Done, TestStepState.Done, TestStepState.Running, TestStepState.Pending, TestStepState.Pending],
+            rows.Select(r => r.State));
+        Assert.Equal(["Conferir a tradução", "Preparar os arquivos", "Guardar a cópia de segurança", "Copiar para o jogo", "Abrir o jogo"], rows.Select(r => r.Label));
+    }
+
+    [Fact]
     public async Task Testar_no_jogo_confere_injeta_com_backup_abre_o_jogo_e_guarda_os_cinco_passos()
     {
         var vm = await OpenAsync();
@@ -103,6 +139,8 @@ public sealed class BuildTestViewModelTests : IDisposable
             ["Conferir a tradução", "Preparar os arquivos", "Guardar a cópia de segurança", "Copiar para o jogo", "Abrir o jogo"],
             vm.LastTestSteps.Select(s => s.Label));
         Assert.StartsWith("Último teste · ", vm.LastTestTitle, StringComparison.Ordinal);
+        Assert.Equal(vm.LastTestTitle, vm.TestStepsCaption);
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
         Assert.Equal(BuildNoticeKind.Tested, notice?.Kind);
         Assert.Equal(GameTestKind.Translation, GameStateFile.Load(ProjectFolder.Open(root)).InGame?.Kind);
         Assert.False(vm.IsBusy);

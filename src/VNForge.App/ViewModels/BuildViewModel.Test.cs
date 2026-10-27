@@ -11,8 +11,33 @@ using VNForge.Core.Qa;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>Um passo de "Último teste": o nome e o tempo que levou.</summary>
-public sealed record TestStepRow(string Label, string TimeText);
+/// <summary>Em que pé está um dos cinco passos do teste no jogo.</summary>
+public enum TestStepState
+{
+    /// <summary>Ainda não rodou, ou nunca rodou neste projeto.</summary>
+    Pending,
+
+    /// <summary>Está rodando agora.</summary>
+    Running,
+
+    /// <summary>Terminou.</summary>
+    Done,
+
+    /// <summary>Impede o teste (a Conferência tem erros).</summary>
+    Blocked,
+}
+
+/// <summary>Um dos cinco passos do teste no jogo: o nome, o tempo (ou o motivo de estar travado) e o estado. <paramref name="IsLast"/> some com o traço que liga ao próximo.</summary>
+public sealed record TestStepRow(string Label, string TimeText, TestStepState State = TestStepState.Done, bool IsLast = false)
+{
+    public bool IsPending => State == TestStepState.Pending;
+
+    public bool IsRunning => State == TestStepState.Running;
+
+    public bool IsDone => State == TestStepState.Done;
+
+    public bool IsBlocked => State == TestStepState.Blocked;
+}
 
 /// <summary>
 /// "Testar no jogo": o botão único que confere, guarda a cópia de segurança, injeta e abre o jogo (<see cref="GameTester"/>, o serviço do <c>vnf test</c>),
@@ -59,8 +84,14 @@ public sealed partial class BuildViewModel
     [NotifyPropertyChangedFor(nameof(HasLastTest))]
     public partial string LastTestTitle { get; private set; } = string.Empty;
 
-    /// <summary>Os cinco passos do último teste, cada um com o tempo.</summary>
+    /// <summary>A linha acima dos passos: o último teste, "Testando agora", o que trava ou "Ainda não houve teste neste projeto".</summary>
+    [ObservableProperty]
+    public partial string TestStepsCaption { get; private set; } = string.Empty;
+
+    /// <summary>Os cinco passos do teste, sempre os mesmos cinco: com o tempo do último teste, em andamento, travados ou cinza.</summary>
     public ObservableCollection<TestStepRow> LastTestSteps { get; } = [];
+
+    private bool testRunning;
 
     public bool HasLastTest => LastTestTitle.Length > 0;
 
@@ -124,6 +155,9 @@ public sealed partial class BuildViewModel
         restoredFrom = null;
         var mine = epoch;
         IsBusy = true;
+        var context = SynchronizationContext.Current;
+        testRunning = true;
+        ShowRunningStep(GameTestStep.Check);
         var timer = StartTimer();
         try
         {
@@ -135,7 +169,7 @@ public sealed partial class BuildViewModel
             var run = await RunAsync(
                 options.AccentTest ? "Testar os acentos no jogo" : "Testar no jogo",
                 GameTestStep.Check.Label(),
-                (reporter, ct) => tester.Run(project, options, new StepProgress(reporter), new TaskProgress(reporter), ct));
+                (reporter, ct) => tester.Run(project, options, new StepProgress(reporter, step => context?.Post(_ => ShowRunningStep(step, mine), null)), new TaskProgress(reporter), ct));
             if (mine != epoch)
             {
                 return;
@@ -164,6 +198,7 @@ public sealed partial class BuildViewModel
         }
         finally
         {
+            testRunning = false;
             IsBusy = false;
             if (mine == epoch)
             {
@@ -450,25 +485,81 @@ public sealed partial class BuildViewModel
     private void ShowLastTest(GameLastTest? last)
     {
         LastTestSteps.Clear();
-        if (last is null)
+        IEnumerable<TestStepRow> rows;
+        if (QaErrorCount > 0)
+        {
+            LastTestTitle = last is null ? string.Empty : LastTestTitleOf(last);
+            TestStepsCaption = "Corrija os erros na Conferência para testar de novo.";
+            var blocked = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro trava", "erros travam")}";
+            rows = StepRows(step => step == GameTestStep.Check ? (TestStepState.Blocked, blocked) : (TestStepState.Pending, string.Empty));
+        }
+        else if (last is null)
         {
             LastTestTitle = string.Empty;
-            return;
+            TestStepsCaption = "Ainda não houve teste neste projeto";
+            rows = StepRows(_ => (TestStepState.Pending, string.Empty));
+        }
+        else
+        {
+            LastTestTitle = LastTestTitleOf(last);
+            TestStepsCaption = LastTestTitle;
+            rows = StepRows(step => last.Steps.FirstOrDefault(s => s.Step == step) is { } time
+                ? (TestStepState.Done, FormatDuration(TimeSpan.FromMilliseconds(time.Milliseconds)))
+                : (TestStepState.Pending, string.Empty));
         }
 
-        var local = last.At.ToLocalTime();
-        var total = TimeSpan.FromMilliseconds(last.Steps.Sum(s => s.Milliseconds));
-        var kind = last.Kind == GameTestKind.AccentTest ? " · só os acentos" : string.Empty;
-        LastTestTitle = $"Último teste · {local.ToString("dd/MM", CultureInfo.InvariantCulture)} às {local.ToString("HH:mm", CultureInfo.InvariantCulture)}{kind} · {FormatDuration(total)}";
-        foreach (var step in last.Steps)
+        foreach (var row in rows)
         {
-            LastTestSteps.Add(new TestStepRow(step.Step.Label(), FormatDuration(TimeSpan.FromMilliseconds(step.Milliseconds))));
+            LastTestSteps.Add(row);
         }
     }
 
-    /// <summary>Cada passo que começa vira a mensagem da tarefa na barra inferior e uma linha do registro.</summary>
-    private sealed class StepProgress(IBackgroundTaskReporter reporter) : IProgress<GameTestStep>
+    /// <summary>Os cinco passos, sempre na mesma ordem; <paramref name="describe"/> diz o estado e o texto de cada um.</summary>
+    private static List<TestStepRow> StepRows(Func<GameTestStep, (TestStepState State, string Text)> describe)
     {
-        public void Report(GameTestStep value) => reporter.Report(null, value.Label());
+        var steps = Enum.GetValues<GameTestStep>();
+        return [.. steps.Select(step =>
+        {
+            var (state, text) = describe(step);
+            return new TestStepRow(step.Label(), text, state, step == steps[^1]);
+        })];
+    }
+
+    /// <summary>Durante o teste os passos antes do atual aparecem prontos (sem tempo), o atual em andamento e os demais cinza.</summary>
+    public static IReadOnlyList<TestStepRow> RunningRows(GameTestStep current) =>
+        StepRows(step => (step < current ? TestStepState.Done : step == current ? TestStepState.Running : TestStepState.Pending, string.Empty));
+
+    private static string LastTestTitleOf(GameLastTest last)
+    {
+        var local = last.At.ToLocalTime();
+        var total = TimeSpan.FromMilliseconds(last.Steps.Sum(s => s.Milliseconds));
+        var kind = last.Kind == GameTestKind.AccentTest ? " · só os acentos" : string.Empty;
+        return $"Último teste · {local.ToString("dd/MM", CultureInfo.InvariantCulture)} às {local.ToString("HH:mm", CultureInfo.InvariantCulture)}{kind} · {FormatDuration(total)}";
+    }
+
+    private void ShowRunningStep(GameTestStep current, int? runEpoch = null)
+    {
+        if (!testRunning || (runEpoch is { } e && e != epoch))
+        {
+            return;
+        }
+
+        LastTestSteps.Clear();
+        foreach (var row in RunningRows(current))
+        {
+            LastTestSteps.Add(row);
+        }
+
+        TestStepsCaption = $"Testando agora · {current.Label()}";
+    }
+
+    /// <summary>Cada passo que começa vira a mensagem da tarefa na barra inferior, uma linha do registro e o passo em andamento da tela.</summary>
+    private sealed class StepProgress(IBackgroundTaskReporter reporter, Action<GameTestStep> onStep) : IProgress<GameTestStep>
+    {
+        public void Report(GameTestStep value)
+        {
+            reporter.Report(null, value.Label());
+            onStep(value);
+        }
     }
 }

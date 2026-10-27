@@ -96,6 +96,57 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
             TestContext.Current.CancellationToken);
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Sem_limite_de_gasto_a_barra_some_e_a_cotacao_de_exemplo_aparece_uma_vez(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        var demo = demoFolder;
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(demo.Root), new FixedClock(Now));
+                var vault = new MemoryApiKeyStore();
+                vault.Save("sk-ant-chave-da-demonstracao");
+                var settings = new SettingsViewModel(vault, new AppSettingsFile(config.SubFolder("ajustes")), _ => null, _ => throw new InvalidOperationException("a renderização não chama a API"));
+                var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-ant-chave-da-demonstracao", ApiKeySource.Vault), settings: settings);
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Settings);
+                    await vm.Settings.EstimateLoading;
+                    vm.Settings.SelectedTab = 0;
+                    ScreenRenderer.Settle(window);
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("ajustes-ia-sem-limite", theme)));
+
+                    Assert.False(vm.Settings.HasLimit);
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<BudgetBar>(), b => b.IsEffectivelyVisible);
+
+                    var texts = VisibleTexts(window);
+                    Assert.Single(texts, t => t.Contains("cotação de exemplo", StringComparison.Ordinal));
+                    Assert.Contains("Qualidade padrão · valores com cotação de exemplo", texts);
+                    Assert.Contains(texts, t => t.EndsWith("gastos neste projeto", StringComparison.Ordinal));
+                    Assert.DoesNotContain(texts, t => t.Contains("vnforge.json", StringComparison.Ordinal));
+                    Assert.Contains("Valem só para este projeto. A chave do Claude fica guardada no Windows.", texts);
+                    Assert.Equal("Salvo", vm.StatusNote);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    private static List<string> VisibleTexts(Window window) =>
+        [.. window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!)];
+
     /// <summary>
     /// Na aba Estilo: os cinco cartões existem com um marcado por grupo, e a caixa do exemplo traduzido tem a moldura de destaque e
     /// texto dentro. Conta tinta em retângulos conhecidos, não faixas de texto, porque a fonte da CI não é a do Windows.
@@ -166,6 +217,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
         var bar = window.GetVisualDescendants().OfType<BudgetBar>().Single(b => b.IsEffectivelyVisible);
         Assert.Equal(300.0, bar.Limit);
+        Assert.DoesNotContain(VisibleTexts(window), t => t.Contains("cotação de exemplo", StringComparison.Ordinal));
         Assert.True(bar.Bounds.Width > 200 && bar.Bounds.Height >= BudgetBar.BarHeight);
         Assert.True(window.TryFindResource("Vnf.TextPrimary", theme, out var textBrush));
         var mark = ((ISolidColorBrush)textBrush!).Color;

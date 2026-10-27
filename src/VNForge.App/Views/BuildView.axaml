@@ -12,21 +12,14 @@
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel MaxWidth="1280" Margin="24,16,24,24" Spacing="16">
 
-      <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Testar no jogo">
-        <Button Classes="accent" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-            <TextBlock Text="Testar no jogo" VerticalAlignment="Center"/>
-            <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+B"/></Border>
-          </StackPanel>
-        </Button>
-      </c:PageHeader>
+      <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Testar no jogo"/>
 
-      <!-- O estado do jogo. "Voltar ao jogo original" fica sempre à vista e neutro: não apaga a tradução, que continua no projeto. -->
+      <!-- O cartão principal: o estado do jogo, o botão que faz o teste inteiro e os cinco passos com o tempo de cada um.
+           "Voltar ao jogo original" fica sempre à vista e neutro: não apaga a tradução, que continua no projeto. Uma tela, um botão de destaque. -->
       <c:GameStateBanner State="{Binding GameBannerState}" Title="{Binding GameBannerTitle}" Message="{Binding GameBannerMessage}"
                          AutomationProperties.Name="Estado do jogo">
         <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Classes="sm accent" Command="{Binding ShowErrorsCommand}" Content="Ver os erros" IsVisible="{Binding HasQaErrors}"
+          <Button Command="{Binding ShowErrorsCommand}" Content="Ver os erros" IsVisible="{Binding HasQaErrors}"
                   AutomationProperties.Name="Ver os erros"/>
           <Button Command="{Binding ReturnToOriginalCommand}" AutomationProperties.Name="Voltar ao jogo original"
                   ToolTip.Tip="{Binding ReturnToOriginalHint}" ToolTip.ShowOnDisabled="True">
@@ -35,7 +28,45 @@
               <TextBlock Text="Voltar ao jogo original"/>
             </StackPanel>
           </Button>
+          <Button Classes="accent lg" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+              <TextBlock Text="Testar no jogo" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+B"/></Border>
+            </StackPanel>
+          </Button>
         </StackPanel>
+        <c:GameStateBanner.Footer>
+          <StackPanel Spacing="12">
+            <TextBlock Classes="caption secondary" Text="{Binding TestStepsCaption}" AutomationProperties.Name="Resumo dos passos"/>
+            <ItemsControl ItemsSource="{Binding LastTestSteps}" AutomationProperties.Name="Passos do último teste">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <UniformGrid Rows="1"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TestStepRow">
+                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="2" Margin="0,0,0,2" VerticalAlignment="Top">
+                    <Panel Width="20" Height="20">
+                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsDone}"/>
+                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.Accent}" Data="{StaticResource Icon.ArrowSync}" IsVisible="{Binding IsRunning}"/>
+                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsBlocked}"/>
+                      <Ellipse Width="16" Height="16" StrokeThickness="1.5" Stroke="{DynamicResource Vnf.TextTertiary}" IsVisible="{Binding IsPending}"/>
+                    </Panel>
+                    <Border Grid.Column="1" Height="1" Margin="8,0,8,0" VerticalAlignment="Center" Background="{DynamicResource Vnf.StrokeControl}"
+                            IsVisible="{Binding !IsLast}"/>
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="body-sm" TextWrapping="Wrap" Margin="0,4,8,0" Text="{Binding Label}"/>
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding TimeText}"
+                               IsVisible="{Binding !IsBlocked}"/>
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="caption" TextWrapping="Wrap" Text="{Binding TimeText}"
+                               Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding IsBlocked}"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </c:GameStateBanner.Footer>
       </c:GameStateBanner>
 
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -46,7 +77,7 @@
         </Grid>
       </Border>
 
-      <Grid ColumnDefinitions="*,400" ColumnSpacing="12">
+      <Grid>
         <!-- Opções, em linguagem comum. Os acentos vêm de Ajustes. -->
         <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do teste">
           <StackPanel>
@@ -71,33 +102,6 @@
                         VerticalAlignment="Center" AutomationProperties.Name="Testar só os acentos"/>
               </Grid>
             </Border>
-          </StackPanel>
-        </Border>
-
-        <!-- Último teste: os cinco passos e o tempo de cada um. -->
-        <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Último teste">
-          <StackPanel>
-            <Border Classes="divider-bottom" MinHeight="48" Padding="16,12">
-              <Panel>
-                <TextBlock Classes="title-md" VerticalAlignment="Center" TextWrapping="Wrap"
-                           Text="{Binding LastTestTitle}" IsVisible="{Binding HasLastTest}"/>
-                <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Último teste" IsVisible="{Binding !HasLastTest}"/>
-              </Panel>
-            </Border>
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,12" IsVisible="{Binding !HasLastTest}"
-                       Text="Ainda não houve teste neste projeto. O botão Testar no jogo faz tudo de uma vez."/>
-            <ItemsControl ItemsSource="{Binding LastTestSteps}" IsVisible="{Binding HasLastTest}" Margin="16,8,16,12"
-                          AutomationProperties.Name="Passos do último teste">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:TestStepRow">
-                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,5">
-                    <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
-                    <TextBlock Grid.Column="1" Classes="body-sm" Text="{Binding Label}"/>
-                    <TextBlock Grid.Column="2" Classes="body-sm secondary" Text="{Binding TimeText}"/>
-                  </Grid>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
           </StackPanel>
         </Border>
       </Grid>

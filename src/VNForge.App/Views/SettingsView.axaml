@@ -38,7 +38,7 @@
 
       <StackPanel Spacing="2">
         <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                   Text="Valem para este projeto e ficam em vnforge.json; a chave da API fica no seu perfil do Windows."/>
+                   Text="Valem só para este projeto. A chave do Claude fica guardada no Windows."/>
         <TextBlock Classes="title-lg" Text="Ajustes"/>
       </StackPanel>
 
@@ -112,7 +112,7 @@
                       </TextBox>
                       <StackPanel Spacing="2" IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNullOrEmpty}}">
                         <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"/>
-                        <Button Classes="subtle sm" HorizontalAlignment="Left" Content="Confirmar hoje" Command="{Binding ConfirmRateTodayCommand}"
+                        <Button Classes="subtle sm" HorizontalAlignment="Left" Margin="-8,0,0,0" Content="Confirmar hoje" Command="{Binding ConfirmRateTodayCommand}"
                                 IsVisible="{Binding HasInformedRate}" AutomationProperties.Name="Confirmar a cotação de hoje"/>
                       </StackPanel>
                       <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RateError}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
@@ -145,7 +145,8 @@
                   </Grid>
 
                   <StackPanel Spacing="6" IsVisible="{Binding HasProject}">
-                    <c:BudgetBar Spent="{Binding SpentBrl}" Limit="{Binding LimitBrl}" AutomationProperties.Name="Gasto do projeto contra o limite"/>
+                    <c:BudgetBar Spent="{Binding SpentBrl}" Limit="{Binding LimitBrl}" IsVisible="{Binding HasLimit}"
+                                 AutomationProperties.Name="Gasto do projeto contra o limite"/>
                     <TextBlock Classes="caption secondary" Text="{Binding SpentSummary}"/>
                   </StackPanel>
                 </StackPanel>
@@ -154,7 +155,7 @@
 
             <!-- Qualidade padrão: o preço e o tempo valem para as linhas que faltam no projeto aberto; o modelo exato fica em "Detalhes técnicos". -->
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="Qualidade padrão"/>
+              <TextBlock Classes="overline" Text="{Binding QualityHeading}"/>
               <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-8,0" AutomationProperties.Name="Qualidade padrão">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -164,7 +165,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:QualityOption">
                     <c:QualityCard GroupName="DefaultQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
-                                   Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}" ExampleRate="{Binding ExampleRate}"
+                                   Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}"
                                    IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -487,7 +488,7 @@
                 </StackPanel>
               </Grid>
             </Border>
-            <Border Classes="card" Padding="16,12" Margin="0,8,0,0">
+            <Border Classes="panel" Padding="16,12" Margin="0,8,0,0">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="2" VerticalAlignment="Center">
                   <TextBlock Classes="body-strong" Text="Conferir no jogo"/>

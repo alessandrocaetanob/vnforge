@@ -134,7 +134,9 @@ public sealed record EncodingTechnicalRow(string Id, string Name, string Sample,
 public sealed partial class SettingsViewModel : ObservableObject
 {
     /// <summary>O texto da barra de status da moldura enquanto os Ajustes estão abertos (artboard de Ajustes).</summary>
-    public const string AutosaveNote = "Alterações salvas automaticamente em vnforge.json";
+    public const string AutosaveNote = "Salvo";
+
+    private const string QualityHeadingText = "Qualidade padrão";
 
     private const string StyleGuideFileName = "style.md";
 
@@ -384,9 +386,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>O limite em reais para a barra do orçamento; zero sem limite.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLimit))]
     public partial double LimitBrl { get; private set; }
 
-    /// <summary>"R$ 142,56 de R$ 300,00" com projeto e limite; "R$ 142,56 neste projeto" sem limite; vazio sem projeto.</summary>
+    /// <summary>Há limite de gasto: só então a barra do orçamento aparece (sem limite ela encheria até o fim e pareceria "acabou").</summary>
+    public bool HasLimit => LimitBrl > 0;
+
+    /// <summary>O rótulo da seção de qualidade: leva a marca "cotação de exemplo" uma vez só, enquanto os valores usam a cotação de exemplo.</summary>
+    [ObservableProperty]
+    public partial string QualityHeading { get; private set; } = QualityHeadingText;
+
+    /// <summary>"R$ 142,56 de R$ 300,00" com projeto e limite; "R$ 142,56 gastos neste projeto" sem limite; vazio sem projeto.</summary>
     [ObservableProperty]
     public partial string SpentSummary { get; private set; } = string.Empty;
 
@@ -874,10 +884,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         var spent = app.Rate.ToBrl(AiUsageLog.Load(folder).Dollars);
         SpentBrl = (double)spent;
-        var summary = app.SpendLimit is { } limit
-            ? $"{Controls.Money.BrlEstimate(spent)} de {Controls.Money.Brl(limit)}"
-            : $"{Controls.Money.BrlEstimate(spent)} neste projeto";
-        SpentSummary = Controls.Money.WithRateMark(summary, spent, app.Rate);
+        var approx = app.Rate.IsInformed || spent <= 0m ? string.Empty : "≈ ";
+        SpentSummary = app.SpendLimit is { } limit
+            ? $"{approx}{Controls.Money.BrlEstimate(spent)} de {Controls.Money.Brl(limit)}"
+            : $"{approx}{Controls.Money.BrlEstimate(spent)} gastos neste projeto";
     }
 
     private void ApplyEstimates()
@@ -891,6 +901,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             quality.ShowEstimate(estimatedPending, BrlFor(quality.Profile.Model), app.Rate);
         }
+
+        QualityHeading = Qualities.Any(q => q.ExampleRate) ? $"{QualityHeadingText} · valores com {Controls.Money.ExampleRateMark}" : QualityHeadingText;
     }
 
     private decimal BrlFor(string model) =>

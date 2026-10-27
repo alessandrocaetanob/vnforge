@@ -16,21 +16,23 @@
       <DataTemplate x:DataType="vm:ChoiceOption">
         <RadioButton Classes="option" GroupName="{Binding GroupName, RelativeSource={RelativeSource AncestorType=c:AccentCards}}" Margin="0,0,8,0" VerticalAlignment="Stretch"
                      IsEnabled="{Binding IsAvailable}" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
-          <StackPanel Spacing="8">
-            <WrapPanel ItemSpacing="12" LineSpacing="4">
-              <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="{Binding Title}" VerticalAlignment="Center"/>
-              <Border Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
-                      Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding ShowBadge}">
-                <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Badge}"/>
-              </Border>
-              <Border Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
-                      Background="{DynamicResource Vnf.StatusPendingBg}" IsVisible="{Binding ShowSoonBadge}">
-                <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusPendingFg}" Text="{Binding Badge}"/>
-              </Border>
-            </WrapPanel>
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
-            <c:GameTextbox HorizontalAlignment="Left" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
-          </StackPanel>
+          <DockPanel>
+            <c:GameTextbox DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,8,0,0" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
+            <StackPanel Spacing="8">
+              <WrapPanel ItemSpacing="12" LineSpacing="4">
+                <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="{Binding Title}" VerticalAlignment="Center"/>
+                <Border Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
+                        Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding ShowBadge}">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Badge}"/>
+                </Border>
+                <Border Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
+                        Background="{DynamicResource Vnf.StatusPendingBg}" IsVisible="{Binding ShowSoonBadge}">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusPendingFg}" Text="{Binding Badge}"/>
+                </Border>
+              </WrapPanel>
+              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+            </StackPanel>
+          </DockPanel>
         </RadioButton>
       </DataTemplate>
     </ItemsControl.ItemTemplate>

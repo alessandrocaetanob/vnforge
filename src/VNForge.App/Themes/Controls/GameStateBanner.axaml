@@ -10,6 +10,7 @@
       <ControlTemplate>
         <Border Name="PART_Root" Padding="{TemplateBinding Padding}" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
                 BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}">
+          <Grid RowDefinitions="Auto,Auto">
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
             <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
@@ -18,6 +19,11 @@
                          IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
             <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+          </Grid>
+            <Border Grid.Row="1" Classes="divider-top" Margin="0,12,0,0" Padding="0,12,0,0"
+                    IsVisible="{TemplateBinding Footer, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <ContentPresenter Content="{TemplateBinding Footer}"/>
+            </Border>
           </Grid>
         </Border>
       </ControlTemplate>
