@@ -188,7 +188,7 @@
                                   SplitCommand="{Binding SplitCommand}" ShortenCommand="{Binding ShortenCommand}" ShowShorten="{Binding HasShortener}"
                                   ErrorText="{Binding Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
                   </StackPanel>
-                  <c:TechnicalDetails AutomationProperties.Name="Detalhes técnicos">
+                  <c:TechnicalDetails Key="conference" AutomationProperties.Name="Detalhes técnicos">
                     <StackPanel Spacing="4" Margin="0,8,0,0">
                       <TextBlock Classes="mono secondary" FontSize="12" LineHeight="16" Text="{Binding LineLabel, StringFormat='Linha {0}'}"/>
                       <TextBlock Classes="mono secondary" FontSize="12" LineHeight="16" Text="{Binding RuleId, StringFormat='Regra {0}'}"/>

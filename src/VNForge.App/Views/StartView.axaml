@@ -179,7 +179,7 @@
                     <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" LineHeight="20" Text="{Binding Detail.GameTitle}" TextWrapping="Wrap"/>
                   </Grid>
 
-                  <c:TechnicalDetails AutomationProperties.Name="Detalhes técnicos">
+                  <c:TechnicalDetails Key="start" AutomationProperties.Name="Detalhes técnicos">
                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" Margin="0,8,0,0">
                       <TextBlock Classes="body-sm secondary" Text="Motor"/>
                       <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.EngineLabel}"/>
@@ -220,7 +220,7 @@
                       </TextBlock>
                     </Grid>
                   </Border>
-                  <c:TechnicalDetails AutomationProperties.Name="Detalhes técnicos">
+                  <c:TechnicalDetails Key="start" AutomationProperties.Name="Detalhes técnicos">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Margin="0,8,0,0">
                       <TextBlock Classes="body-sm secondary" Text="Pasta"/>
                       <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.Path}"/>

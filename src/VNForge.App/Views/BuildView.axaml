@@ -126,7 +126,7 @@
       </Border>
 
       <!-- Build, injeção, patch do executável, registro e cópias de segurança: o que a pessoa que só quer testar não precisa ver. -->
-      <c:TechnicalDetails x:Name="Technical" AutomationProperties.Name="Detalhes técnicos">
+      <c:TechnicalDetails x:Name="Technical" Key="build" AutomationProperties.Name="Detalhes técnicos">
         <StackPanel Spacing="16" Margin="0,8,0,0">
           <!-- Erros novos de QA: o build recusaria, então "Novo build" fica travado; o build que já existe segue válido para injetar. -->
           <Border Classes="infobar warning" IsVisible="{Binding HasQaErrors}">
