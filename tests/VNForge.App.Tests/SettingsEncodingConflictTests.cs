@@ -33,7 +33,7 @@ public class SettingsEncodingConflictTests
 
         var character = vm.EllipsisStyles.Single(e => e.Value == EllipsisStyle.Character);
         Assert.False(character.IsEnabled);
-        Assert.Equal("A estratégia cp1252 não grava o '…'.", character.DisabledReason);
+        Assert.Equal("A estratégia cp1252 não grava as reticências (…).", character.DisabledReason);
         Assert.All(vm.EllipsisStyles.Where(e => e.Value != EllipsisStyle.Character), e => Assert.True(e.IsEnabled));
         Assert.All(vm.EllipsisStyles.Where(e => e.Value != EllipsisStyle.Character), e => Assert.Null(e.DisabledReason));
         Assert.False(vm.HasEncodingConflicts);
@@ -47,7 +47,7 @@ public class SettingsEncodingConflictTests
 
         var corner = vm.QuoteStyles.Single(q => q.Value == QuoteStyle.Corner);
         Assert.False(corner.IsEnabled);
-        Assert.Equal("A estratégia cp1252 não grava os caracteres '「' e '」'.", corner.DisabledReason);
+        Assert.Equal("A estratégia cp1252 não grava as aspas 「 」.", corner.DisabledReason);
         Assert.All(vm.QuoteStyles.Where(q => q.Value != QuoteStyle.Corner), q => Assert.True(q.IsEnabled));
     }
 
@@ -88,7 +88,7 @@ public class SettingsEncodingConflictTests
 
         var notice = Assert.Single(vm.EncodingConflicts);
         Assert.True(vm.HasEncodingConflicts);
-        Assert.Equal("A estratégia cp1252 não grava o '…'.", notice.Message);
+        Assert.Equal("A estratégia cp1252 não grava as reticências (…).", notice.Message);
         Assert.Equal("Usar três pontos", notice.ButtonLabel);
 
         notice.FixCommand.Execute(null);

@@ -45,7 +45,7 @@ public class ConferenceSettingTests
 
         var card = Assert.Single(vm.SettingCards);
         Assert.Equal("O ajuste Reticências gera 3 erros", card.Title);
-        Assert.Equal("A estratégia cp1252 não grava o '…'. As traduções têm três pontos; o ajuste é que troca.", card.Text);
+        Assert.Equal("A estratégia cp1252 não grava as reticências (…). As traduções têm três pontos; o ajuste é que troca.", card.Text);
         Assert.Equal("Usar três pontos", card.ButtonLabel);
         Assert.Equal(3, card.Count);
         Assert.True(vm.HasSettingCards);

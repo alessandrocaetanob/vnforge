@@ -8,10 +8,8 @@ namespace VNForge.App.Services;
 /// </summary>
 public static class SettingConflictTexts
 {
-    private const int MaxListed = 4;
-
-    /// <summary>"A estratégia cp1252 não grava o '…'."; com vários caracteres, "não grava os caracteres '「' e '」'".</summary>
-    public static string Refusal(string strategyId, string characters) => $"A estratégia {strategyId} não grava {Characters(characters)}.";
+    /// <summary>"A estratégia cp1252 não grava as reticências (…)."; o caractere vem nomeado, porque na fonte da interface "…" e "..." se confundem.</summary>
+    public static string Refusal(string strategyId, FormattingConflict conflict) => $"A estratégia {strategyId} não grava {Named(conflict)}.";
 
     /// <summary>"Usar três pontos", "Usar aspas retas", "Desligar o travessão": o rótulo do botão que troca o ajuste pelo valor seguro.</summary>
     public static string ButtonLabel(FormattingConflict conflict) => conflict.Field switch
@@ -25,17 +23,23 @@ public static class SettingConflictTexts
     public static string Changed(FormattingConflict conflict) =>
         conflict.Safe is null ? $"O ajuste {conflict.Setting} foi desligado." : $"O ajuste {conflict.Setting} passou de {conflict.CurrentLabel} para {conflict.SafeLabel}.";
 
-    private static string Characters(string characters)
+    private static string Named(FormattingConflict conflict)
     {
-        var runes = characters.EnumerateRunes().Select(r => r.ToString()).Distinct(StringComparer.Ordinal).ToList();
-        return runes.Count switch
+        var runes = conflict.Characters.EnumerateRunes().Select(r => r.ToString()).Distinct(StringComparer.Ordinal).ToList();
+        return conflict.Field switch
         {
-            0 => "o caractere do ajuste",
-            1 => $"o '{runes[0]}'",
-            <= MaxListed => $"os caracteres {string.Join(", ", runes.Take(runes.Count - 1).Select(Quote))} e {Quote(runes[^1])}",
-            _ => "os caracteres de largura cheia",
+            FormattingConflicts.EllipsisField => "as reticências (…)",
+            FormattingConflicts.QuotesField => "as aspas 「 」",
+            FormattingConflicts.DashField => $"o travessão ({Codes(conflict.Characters)})",
+            FormattingConflicts.DialogueDashField => $"o travessão de fala ({Codes(conflict.Characters)})",
+            FormattingConflicts.WidthField => "os caracteres de largura cheia",
+            _ when runes.Count == 1 => $"o caractere {Codes(conflict.Characters)}",
+            _ => $"os caracteres {string.Join(", ", runes.Select(Quote))}",
         };
     }
+
+    private static string Codes(string characters) =>
+        string.Join(", ", characters.EnumerateRunes().Select(r => $"U+{r.Value:X4}"));
 
     private static string Quote(string text) => $"'{text}'";
 

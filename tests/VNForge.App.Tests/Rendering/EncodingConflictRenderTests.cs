@@ -114,7 +114,7 @@ public sealed class EncodingConflictRenderTests(HeadlessFixture fixture) : IClas
                     var view = window.GetVisualDescendants().OfType<SettingsView>().Single();
                     var character = Segment(view, "Reticências", "Caractere …");
                     Assert.False(character.IsEffectivelyEnabled);
-                    Assert.Equal("A estratégia cp1252 não grava o '…'.", ToolTip.GetTip(character));
+                    Assert.Equal("A estratégia cp1252 não grava as reticências (…).", ToolTip.GetTip(character));
                     Assert.True(Segment(view, "Reticências", "Três pontos").IsEffectivelyEnabled);
                     Assert.False(Segment(view, "Aspas curvas", "Aspas 「 」").IsEffectivelyEnabled);
                     Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text?.Contains("não grava", StringComparison.Ordinal) == true && t.Classes.Contains("body-sm"));
@@ -129,7 +129,7 @@ public sealed class EncodingConflictRenderTests(HeadlessFixture fixture) : IClas
                     Assert.True(vm.Settings.HasEncodingConflicts);
                     var button = view.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Settings.EncodingConflicts[0].FixCommand && b.IsEffectivelyVisible);
                     Assert.Equal("Usar três pontos", button.GetVisualDescendants().OfType<TextBlock>().Single().Text);
-                    Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "A estratégia cp1252 não grava o '…'.");
+                    Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "A estratégia cp1252 não grava as reticências (…).");
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("ajustes-formatacao-faixa-de-aviso", theme)));
                 }
                 finally

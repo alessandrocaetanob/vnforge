@@ -1170,7 +1170,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             };
             foreach (var conflict in FormattingConflicts.Find(current, encoder).Where(c => c.Field is FormattingConflicts.QuotesField or FormattingConflicts.EllipsisField))
             {
-                notices.Add(new SettingConflictNotice(SettingConflictTexts.Refusal(encoder.Id, conflict.Characters), SettingConflictTexts.ButtonLabel(conflict), () => UseSafeValue(conflict.Field)));
+                notices.Add(new SettingConflictNotice(SettingConflictTexts.Refusal(encoder.Id, conflict), SettingConflictTexts.ButtonLabel(conflict), () => UseSafeValue(conflict.Field)));
             }
         }
 
@@ -1181,7 +1181,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var conflict = encoder is null ? null : FormattingConflicts.Find(candidate, encoder).FirstOrDefault(c => c.Field == field);
         option.IsEnabled = conflict is null;
-        option.DisabledReason = conflict is null ? null : SettingConflictTexts.Refusal(encoder!.Id, conflict.Characters);
+        option.DisabledReason = conflict is null ? null : SettingConflictTexts.Refusal(encoder!.Id, conflict);
     }
 
     private void UseSafeValue(string field)

@@ -588,7 +588,7 @@ public sealed class ConferenceSettingCardViewModel
         var errors = rows.Count == 1 ? "1 erro" : $"{ProjectLabels.Number(rows.Count)} erros";
         Title = $"O ajuste {conflict.Setting} gera {errors}";
         var translations = conflict.Field == FormattingConflicts.EllipsisField ? "As traduções têm três pontos" : "As traduções estão certas";
-        Text = $"{SettingConflictTexts.Refusal(strategyId, conflict.Characters)} {translations}; o ajuste é que troca.";
+        Text = $"{SettingConflictTexts.Refusal(strategyId, conflict)} {translations}; o ajuste é que troca.";
         ButtonLabel = SettingConflictTexts.ButtonLabel(conflict);
     }
 
