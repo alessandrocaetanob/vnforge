@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
@@ -15,6 +17,7 @@ public sealed record FirstStep(int Number, string Title, string Description);
 public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock) : ObservableObject, IDisposable
 {
     private readonly SemaphoreSlim loadGate = new(1, 1);
+    private readonly FormattingProfileCache profiles = new();
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedCommand))]
@@ -45,6 +48,20 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     /// É uma instância à parte da do Painel, que mostra só o projeto aberto.
     /// </summary>
     public DashboardViewModel Detail { get; } = new(clock: clock);
+
+    /// <summary>
+    /// A fala onde a pessoa vai continuar, na caixa do jogo do cartão "Continuar de onde parou": a primeira que espera revisão na cena do próximo passo
+    /// ou, sem nenhuma, a última já revisada. Nula quando a cena não tem fala traduzida; o cartão esconde a caixa.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasContinueLayout))]
+    public partial TextboxLayout? ContinueLayout { get; private set; }
+
+    /// <summary>Diz o que a fala da caixa é: "Próxima fala a revisar" ou "Última fala revisada".</summary>
+    [ObservableProperty]
+    public partial string ContinueLineCaption { get; private set; } = string.Empty;
+
+    public bool HasContinueLayout => ContinueLayout is not null;
 
     /// <summary>A leitura do <see cref="Detail"/> em curso; os testes esperam por ela.</summary>
     public Task DetailLoading { get; private set; } = Task.CompletedTask;
@@ -207,6 +224,22 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         }
     }
 
+    /// <summary>"Abrir" da linha da lista: abre aquele projeto, seja ele o selecionado ou não, e leva ao Painel dele.</summary>
+    [RelayCommand]
+    private async Task OpenRecentAsync(RecentProjectItem? item)
+    {
+        if (item is not { IsSupported: true })
+        {
+            return;
+        }
+
+        ClearMessages();
+        if (await OpenAsync(item.Path) is { } summary)
+        {
+            DashboardRequested?.Invoke(this, summary);
+        }
+    }
+
     /// <summary>"Escolher a pasta" da área para soltar: abre o seletor e trata a pasta como se tivesse sido solta.</summary>
     [RelayCommand]
     private async Task ChooseGameFolderAsync()
@@ -317,6 +350,10 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         }
 
         CancelDetailDebounce();
+        if (project is null || !SamePath(project.Root, continueRoot))
+        {
+            ShowContinueLine(null, string.Empty, null);
+        }
 
         var rapid = lastSelectionAt != 0 && Stopwatch.GetElapsedTime(lastSelectionAt) < TimeSpan.FromMilliseconds(500);
         lastSelectionAt = Stopwatch.GetTimestamp();
@@ -363,6 +400,75 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         {
             await Detail.ReloadAsync();
             OnPropertyChanged(nameof(DetailError));
+            await ReloadContinueLineAsync(token);
+        }
+    }
+
+    /// <summary>
+    /// Lê, na cena do próximo passo, a fala da caixa do cartão. A fala é enfeite: qualquer falha na leitura só esconde a caixa e nunca sobe para
+    /// <see cref="DetailLoading"/>, que ninguém observa no app. Enquanto a leitura corre, a fala do mesmo projeto fica na tela.
+    /// </summary>
+    private async Task ReloadContinueLineAsync(CancellationToken token)
+    {
+        var root = Selected?.IsSupported == true ? Selected.Path : null;
+        var key = Detail.NextStepTarget?.ScriptKey;
+        if (root is null || key is null)
+        {
+            ShowContinueLine(null, string.Empty, null);
+            return;
+        }
+
+        (TextboxLayout? Layout, string Caption) found;
+        try
+        {
+            found = await Task.Run(() => ReadContinueLine(root, key), CancellationToken.None);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            Debug.WriteLine($"Início: não foi possível ler a fala do cartão: {e}");
+            found = (null, string.Empty);
+        }
+
+        if (!token.IsCancellationRequested && SamePath(root, Selected?.Path))
+        {
+            ShowContinueLine(found.Layout, found.Caption, root);
+        }
+    }
+
+    private string? continueRoot;
+
+    private void ShowContinueLine(TextboxLayout? layout, string caption, string? root)
+    {
+        continueRoot = layout is null ? null : root;
+        ContinueLayout = layout;
+        ContinueLineCaption = caption;
+    }
+
+    /// <summary>Quantas falas a leitura tenta montar antes de desistir: uma fala que o pipeline recusa passa a vez para a próxima da cena.</summary>
+    private const int MaxContinueTries = 20;
+
+    private (TextboxLayout? Layout, string Caption) ReadContinueLine(string root, string key)
+    {
+        try
+        {
+            var units = ProjectFolder.Open(root).LoadText(key);
+            var speech = units.Where(u => u.Kind is TextUnitKind.Dialogue or TextUnitKind.Narration && !string.IsNullOrWhiteSpace(u.Translation)).ToList();
+            var toReview = speech.Where(u => u.Status is TranslationStatus.Machine or TranslationStatus.Translated);
+            var reviewed = speech.Where(u => u.Status is TranslationStatus.Reviewed or TranslationStatus.Approved).Reverse();
+            var profile = profiles.Get(root) ?? FormattingProfile.Default;
+            foreach (var (unit, isToReview) in toReview.Select(u => (u, true)).Concat(reviewed.Select(u => (u, false))).Take(MaxContinueTries))
+            {
+                if (new TextboxPreviewViewModel(unit, profile, unit.Translation!).Layout is { } layout)
+                {
+                    return (layout, isToReview ? "Próxima fala a revisar" : "Última fala revisada");
+                }
+            }
+
+            return (null, string.Empty);
+        }
+        catch (Exception e) when (IsExpected(e))
+        {
+            return (null, string.Empty);
         }
     }
 

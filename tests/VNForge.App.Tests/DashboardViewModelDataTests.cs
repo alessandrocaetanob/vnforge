@@ -188,8 +188,9 @@ public class DashboardViewModelDataTests
             GameState = new GameStateFile(GameStateFile.CurrentVersion, inGame, null),
         });
 
-        Assert.Equal("O jogo está com a tradução de 22/10", vm.Steps[4].Subtitle);
-        Assert.Equal(vm.GameTitle, vm.Steps[4].Subtitle);
+        Assert.Equal("Testado em 22/10", vm.Steps[4].Subtitle);
+        Assert.Equal("O jogo está com a tradução de 22/10", vm.GameTitle);
+        Assert.Equal(vm.Steps[4].Subtitle, vm.LastTestText);
         Assert.Equal(PipelineStepState.Done, vm.Steps[4].State);
         Assert.Equal("Testar de novo no jogo", vm.NextStepLabel);
     }
@@ -261,6 +262,90 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
+    public async Task O_botao_do_cartao_do_Inicio_e_o_proximo_passo_com_Continuar_na_frente()
+    {
+        var names = TwoChapters().WithGroup("yst00001", "Manhã de chuva").WithGroup("yst00002", "Manhã de chuva");
+
+        var vm = await Load(Dashboard(Mixed(), names));
+        var empty = new DashboardViewModel();
+
+        Assert.Equal("Continuar: revisar “Manhã de chuva”", vm.ContinueLabel);
+        Assert.Equal(string.Empty, empty.ContinueLabel);
+    }
+
+    [Fact]
+    public async Task A_cena_do_proximo_passo_diz_o_nome_e_o_numero_do_capitulo_sem_repetir_o_que_o_nome_ja_diz()
+    {
+        var named = await Load(Dashboard(Mixed(), TwoChapters().WithGroup("yst00001", "Manhã de chuva").WithGroup("yst00002", "Manhã de chuva")));
+        var numbered = await Load(Dashboard(Mixed(), TwoChapters()));
+
+        Assert.Equal("Manhã de chuva · capítulo 1", named.NextStepScene);
+        Assert.Equal("Capítulo 1", numbered.NextStepScene);
+    }
+
+    [Fact]
+    public async Task Sem_capitulo_a_fazer_o_proximo_passo_nao_tem_cena()
+    {
+        var clean = new ProjectDashboard(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Approved, 4)))), Stages(), AiUsageTotals.Empty) { Qa = new QaTotals(0, 0) };
+
+        var vm = await Load(clean);
+
+        Assert.Equal(string.Empty, vm.NextStepScene);
+    }
+
+    [Fact]
+    public async Task O_passo_Conferir_diz_so_o_que_trava_o_teste_e_o_Testar_diz_quando_foi()
+    {
+        var status = StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Approved, 4))));
+        var applied = new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
+        var twoErrors = new ProjectDashboard(status, Stages(), AiUsageTotals.Empty) { Qa = new QaTotals(2, 30) };
+        var oneError = new ProjectDashboard(status, Stages(), AiUsageTotals.Empty) { Qa = new QaTotals(1, 0) };
+        var warningsOnly = new ProjectDashboard(status, Stages(), AiUsageTotals.Empty) { Qa = new QaTotals(0, 5) };
+        var accents = new ProjectDashboard(status, Stages(), AiUsageTotals.Empty)
+        {
+            Qa = new QaTotals(0, 0),
+            GameState = new GameStateFile(GameStateFile.CurrentVersion, new GameInGame(GameTestKind.AccentTest, applied, null, null, null), null),
+        };
+        var oneScene = new ProjectDashboard(status, Stages(), AiUsageTotals.Empty)
+        {
+            Qa = new QaTotals(0, 0),
+            GameState = new GameStateFile(GameStateFile.CurrentVersion, new GameInGame(GameTestKind.Translation, applied, null, "yst00001", null), null),
+        };
+
+        var a = await Load(twoErrors);
+        var b = await Load(oneError);
+        var c = await Load(warningsOnly);
+        var d = await Load(accents);
+        var e = await Load(oneScene);
+
+        Assert.Equal("2 erros travam", a.Steps[3].Subtitle);
+        Assert.Equal("1 erro trava", b.Steps[3].Subtitle);
+        Assert.Equal("Sem erros", c.Steps[3].Subtitle);
+        Assert.Equal("Ainda não testado", a.Steps[4].Subtitle);
+        Assert.Equal("Ainda não testado", a.LastTestText);
+        Assert.Equal("Acentos testados em 22/10", d.Steps[4].Subtitle);
+        Assert.Equal("Uma cena testada em 22/10", e.Steps[4].Subtitle);
+    }
+
+    [Fact]
+    public async Task As_frases_dos_passos_cabem_numa_linha_do_stepper_mesmo_com_numeros_grandes()
+    {
+        var status = StatusOf(
+            ("yst00001", Lines("yst00001", (TranslationStatus.Approved, 18_802), (TranslationStatus.Machine, 11_089), (TranslationStatus.Untranslated, 18_320))));
+        var applied = new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
+        var dashboard = new ProjectDashboard(status, Stages(untranslated: 18_320, awaiting: 11_089), AiUsageTotals.Empty)
+        {
+            Qa = new QaTotals(2, 10_122),
+            GameState = new GameStateFile(GameStateFile.CurrentVersion, new GameInGame(GameTestKind.Translation, applied, null, null, null), null),
+        };
+
+        var vm = await Load(dashboard);
+
+        Assert.Equal(["48.211 linhas lidas", "62% traduzido", "18.802 revisadas", "2 erros travam", "Testado em 22/10"], vm.Steps.Select(s => s.Subtitle));
+        Assert.All(vm.Steps, s => Assert.True(s.Subtitle.Length <= 20, s.Subtitle));
+    }
+
+    [Fact]
     public async Task Projeto_sem_scripts_nao_tem_proximo_passo_e_mostra_o_estado_vazio()
     {
         var vm = await Load(Dashboard(StatusOf()));
@@ -284,7 +369,7 @@ public class DashboardViewModelDataTests
         vm.NavigationRequested += (_, request) => requested.Add(request.Target);
 
         Assert.All(vm.Steps, s => Assert.Equal(PipelineStepState.Done, s.State));
-        Assert.Equal(["4 linhas em 1 cena", "Tudo traduzido", "Tudo revisado", "Nenhum problema", "O jogo está com a tradução de 22/10"], vm.Steps.Select(s => s.Subtitle));
+        Assert.Equal(["4 linhas lidas", "Tudo traduzido", "Tudo revisado", "Sem erros", "Testado em 22/10"], vm.Steps.Select(s => s.Subtitle));
         Assert.Null(vm.Steps[0].Command);
         foreach (var step in vm.Steps.Skip(1))
         {
@@ -295,13 +380,13 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
-    public async Task O_passo_Revisar_diz_quantas_linhas_estao_revisadas_de_quantas_e_quantas_faltam()
+    public async Task O_passo_Revisar_diz_quantas_linhas_estao_revisadas()
     {
         var status = StatusOf(
             ("yst00001", Lines("yst00001", (TranslationStatus.Approved, 51), (TranslationStatus.Machine, 268), (TranslationStatus.Untranslated, 6535))));
         var vm = await Load(Dashboard(status));
 
-        Assert.Equal("51 de 319 revisadas · faltam 268", vm.Steps[2].Subtitle);
+        Assert.Equal("51 revisadas", vm.Steps[2].Subtitle);
         Assert.Equal(51, vm.ReadyLines);
         Assert.Equal(6854, vm.TotalLines);
     }
@@ -318,12 +403,12 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
-    public async Task O_passo_Revisar_sem_nada_revisado_ainda_diz_de_quantas()
+    public async Task O_passo_Revisar_sem_nada_revisado_ainda_diz_zero()
     {
         var status = StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 200))));
         var vm = await Load(Dashboard(status));
 
-        Assert.Equal("0 de 200 revisadas · faltam 200", vm.Steps[2].Subtitle);
+        Assert.Equal("0 revisadas", vm.Steps[2].Subtitle);
     }
 
     [Fact]
@@ -333,7 +418,7 @@ public class DashboardViewModelDataTests
 
         var vm = await Load(new ProjectDashboard(status, Stages(), AiUsageTotals.Empty));
 
-        Assert.Equal("A conferência não pôde rodar", vm.Steps[3].Subtitle);
+        Assert.Equal("Não pôde rodar", vm.Steps[3].Subtitle);
     }
 
     [Fact]
