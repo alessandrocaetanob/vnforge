@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -26,6 +27,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private readonly ConferenceFilterViewModel[] filters;
     private QaReport report = QaReport.Empty;
     private IReadOnlyList<ConferenceIssueRowViewModel> all = [];
+    private IReadOnlyList<ConferenceSettingCardViewModel> allCards = [];
     private ConferenceFilterKind activeFilter = ConferenceFilterKind.All;
     private int loadVersion;
     private int lineCount;
@@ -50,6 +52,9 @@ public sealed partial class ConferenceViewModel : ObservableObject
     /// <summary>O usuário pediu para abrir uma linha; quem escuta (a janela principal) leva ao Editor.</summary>
     public event EventHandler<LineRequest>? LineRequested;
 
+    /// <summary>O <c>formatting.json</c> foi alterado aqui (o botão do card do ajuste, ou "Corrigir com um clique"); Ajustes e o Editor precisam reler.</summary>
+    public event EventHandler? SettingsChanged;
+
     /// <summary>Um <c>text/*.json</c> foi alterado aqui (correção ou "ok"); o Editor precisa reler.</summary>
     public event EventHandler? TextsChanged;
 
@@ -58,13 +63,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial ProjectSummary? Project { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand), nameof(ApplySettingCommand))]
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand), nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(FixAndNextCommand), nameof(RefreshCommand), nameof(ApplySettingCommand))]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsFixing { get; private set; }
 
@@ -90,6 +95,16 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(EmptyMessage))]
     public partial IReadOnlyList<ConferenceIssueRowViewModel> Rows { get; private set; } = [];
+
+    /// <summary>
+    /// Os cards dos ajustes de formatação que a estratégia de acentuação não grava, no topo da lista: um por ajuste, no lugar das linhas que ele causa.
+    /// Só os que o filtro escolhido inclui; é trocada por inteiro.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSettingCards), nameof(ShowEmptyText))]
+    public partial IReadOnlyList<ConferenceSettingCardViewModel> SettingCards { get; private set; } = [];
+
+    public bool HasSettingCards => SettingCards.Count > 0;
 
     /// <summary>O problema aberto no detalhe. Ao sair da lista (corrigido, silenciado ou filtrado), passa para o vizinho.</summary>
     [ObservableProperty]
@@ -152,7 +167,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public bool IsEmpty => Rows.Count == 0;
 
     /// <summary>A frase de <see cref="EmptyMessage"/> aparece quando a lista está vazia e o estado vazio do <see cref="IsClear"/> não a substitui.</summary>
-    public bool ShowEmptyText => IsEmpty && !IsClear;
+    public bool ShowEmptyText => IsEmpty && !IsClear && !HasSettingCards;
 
     /// <summary>A conferência rodou e não achou nada: a página mostra o estado vazio com o selo 訳.</summary>
     public bool IsClear => checkedAt is not null && Project is not null && !IsLoading && ErrorMessage is null && all.Count == 0;
@@ -288,12 +303,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
         all = loaded?.Rows ?? [];
         lineCount = loaded?.LineCount ?? 0;
         fixableCount = loaded?.Fixable ?? 0;
+        allCards = loaded?.Cards ?? [];
         checkedAt = loaded is null ? null : clock.GetUtcNow();
         Rebuild();
     }
 
     /// <summary>O que uma conferência devolve: o relatório, as linhas já com a correção proposta e os números do cabeçalho.</summary>
-    private sealed record Checked(QaReport Report, IReadOnlyList<ConferenceIssueRowViewModel> Rows, int LineCount, int Fixable);
+    private sealed record Checked(QaReport Report, IReadOnlyList<ConferenceIssueRowViewModel> Rows, int LineCount, int Fixable, IReadOnlyList<ConferenceSettingCardViewModel> Cards);
 
     private Checked Check(string root)
     {
@@ -323,10 +339,17 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
         var result = engine.Run(context);
         var proposals = QaFixer.Propose(context.Texts, engine, result.Issues, context).ToDictionary(p => (p.UnitId, p.RuleId));
+        var conflicts = SettingConflicts(folder);
+        var settingIssues = result.Issues
+            .Where(i => i.RuleId == FormattingConflictRule.RuleId)
+            .Select(i => (Issue: i, Conflict: conflicts.FirstOrDefault(c => i.Message.StartsWith($"O ajuste {c.Setting} ({c.CurrentLabel}) ", StringComparison.Ordinal))))
+            .Where(x => x.Conflict is not null)
+            .ToList();
+        var inCards = settingIssues.Select(x => x.Issue).ToHashSet(ReferenceEqualityComparer.Instance);
 
         // "Não traduzida" é resumo por script: só a primeira linha de cada um vai para o detalhe, as outras ficam fora da memória da tela.
         var untranslated = result.Issues.Where(i => i.RuleId == UntranslatedQaRule.RuleId).GroupBy(i => i.ScriptKey, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
-        var others = result.Issues.Where(i => i.RuleId != UntranslatedQaRule.RuleId).ToList();
+        var others = result.Issues.Where(i => i.RuleId != UntranslatedQaRule.RuleId && !inCards.Contains(i)).ToList();
         var wanted = others.Select(i => i.UnitId).Concat(untranslated.Select(g => g.First().UnitId)).ToHashSet(StringComparer.Ordinal);
         var units = new Dictionary<string, TextUnit>(StringComparer.Ordinal);
         foreach (var unit in context.Texts.Values.SelectMany(list => list).Where(u => wanted.Contains(u.Id)))
@@ -349,7 +372,9 @@ public sealed partial class ConferenceViewModel : ObservableObject
                     engine.Find(issue.RuleId)?.Description,
                     Scene(issue.ScriptKey),
                     positions.GetValueOrDefault(issue.UnitId),
-                    issue.RuleId == UnencodableCharacterRule.RuleId ? group.ToList() : null);
+                    issue.RuleId == UnencodableCharacterRule.RuleId ? group.ToList() : null,
+                    context.Encoder,
+                    conflicts);
             })
             .OrderBy(r => r.IsError ? 0 : 1)
             .ThenBy(r => r.ScriptKey, StringComparer.Ordinal)
@@ -364,7 +389,35 @@ public sealed partial class ConferenceViewModel : ObservableObject
             return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), engine.Find(head.RuleId)?.Description, Scene(head.ScriptKey), positions.GetValueOrDefault(head.UnitId));
         }));
 
-        return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count);
+        // As linhas que um ajuste causa contam nos totais (travam o teste, e o botão de um clique as resolve), mas a lista mostra um card por ajuste.
+        var cards = new List<ConferenceSettingCardViewModel>();
+        foreach (var conflict in conflicts)
+        {
+            var settingRows = settingIssues
+                .Where(x => x.Conflict == conflict)
+                .Select(x => new ConferenceIssueRowViewModel(x.Issue, ruleDescription: engine.Find(x.Issue.RuleId)?.Description, sceneName: Scene(x.Issue.ScriptKey), linePosition: positions.GetValueOrDefault(x.Issue.UnitId), encoder: context.Encoder, settings: conflicts, settingField: conflict.Field))
+                .ToList();
+            if (settingRows.Count > 0)
+            {
+                cards.Add(new ConferenceSettingCardViewModel(conflict, context.Encoder?.Id ?? string.Empty, settingRows));
+                rows.AddRange(settingRows);
+            }
+        }
+
+        return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count + cards.Sum(c => c.Count), cards);
+    }
+
+    /// <summary>Os ajustes em conflito com a estratégia do projeto; sem eles (arquivo ilegível), as linhas da regra ficam na lista como qualquer erro.</summary>
+    private static IReadOnlyList<FormattingConflict> SettingConflicts(ProjectFolder folder)
+    {
+        try
+        {
+            return QaFixer.FindSettingConflicts(folder);
+        }
+        catch (VNForgeException)
+        {
+            return [];
+        }
     }
 
     /// <summary>Os nomes das cenas; um <c>scripts.json</c> ilegível não derruba a conferência, só deixa as linhas pelo id do script.</summary>
@@ -550,6 +603,55 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     private bool CanFixAndNext() => !IsBusy && (SelectedRow is { HasProposal: true } || SelectedFit?.SplitCommand.CanExecute(null) == true);
 
+    /// <summary>O botão do card ("Usar três pontos"): troca o ajuste pelo valor seguro no <c>formatting.json</c>, avisa o app e confere de novo.</summary>
+    [RelayCommand(CanExecute = nameof(CanApplySetting))]
+    private async Task ApplySettingAsync(ConferenceSettingCardViewModel? card)
+    {
+        var root = Project?.Root;
+        if (card is null || root is null)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        NoticeMessage = null;
+        IsFixing = true;
+        try
+        {
+            FormattingConflict? applied = null;
+            string? failure = null;
+            try
+            {
+                applied = await Task.Run(() => QaFixer.ApplySetting(ProjectFolder.Open(root), card.Field));
+            }
+            catch (Exception e)
+            {
+                failure = $"Não foi possível trocar o ajuste: {Reason(e)}. O ajuste continua como estava.";
+            }
+
+            if (applied is not null)
+            {
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            await RefreshAsync();
+            if (failure is not null)
+            {
+                ErrorMessage = failure;
+            }
+            else if (ErrorMessage is null)
+            {
+                NoticeMessage = applied is null ? "O ajuste já não estava em conflito." : SettingConflictTexts.Changed(applied);
+            }
+        }
+        finally
+        {
+            IsFixing = false;
+        }
+    }
+
+    private bool CanApplySetting(ConferenceSettingCardViewModel? card) => !IsBusy && card is not null;
+
     [RelayCommand(CanExecute = nameof(CanFixAll))]
     private async Task FixAllAsync()
     {
@@ -581,6 +683,11 @@ public sealed partial class ConferenceViewModel : ObservableObject
                 TextsChanged?.Invoke(this, EventArgs.Empty);
             }
 
+            if (result is null || result.SettingsFixed.Count > 0)
+            {
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+
             await RefreshAsync();
             if (failure is not null)
             {
@@ -588,18 +695,33 @@ public sealed partial class ConferenceViewModel : ObservableObject
             }
             else if (ErrorMessage is null && result is not null)
             {
-                NoticeMessage = result.Fixes.Count switch
-                {
-                    0 => "Nada a corrigir com um clique.",
-                    1 => "1 correção aplicada.",
-                    var n => $"{ProjectLabels.Number(n)} correções aplicadas.",
-                };
+                NoticeMessage = FixedNotice(result);
             }
         }
         finally
         {
             IsFixing = false;
         }
+    }
+
+    /// <summary>"3 correções aplicadas. O ajuste Reticências passou de Caractere … para Três pontos."; o ajuste vem depois do número de correções de texto.</summary>
+    private static string FixedNotice(QaFixResult result)
+    {
+        List<string> sentences = [];
+        switch (result.Fixes.Count)
+        {
+            case 0:
+                break;
+            case 1:
+                sentences.Add("1 correção aplicada.");
+                break;
+            case var n:
+                sentences.Add($"{ProjectLabels.Number(n)} correções aplicadas.");
+                break;
+        }
+
+        sentences.AddRange(result.SettingsFixed.Select(SettingConflictTexts.Changed));
+        return sentences.Count == 0 ? "Nada a corrigir com um clique." : string.Join(" ", sentences);
     }
 
     private bool CanFixAll() => Project is not null && !IsBusy;
@@ -627,17 +749,20 @@ public sealed partial class ConferenceViewModel : ObservableObject
         SyncSelection();
 
         var active = filters.Single(f => f.Kind == activeFilter);
-        List<ConferenceIssueRowViewModel> shown = [.. all.Where(active.Passes)];
+        List<ConferenceIssueRowViewModel> shown = [.. all.Where(r => r.SettingField is null && active.Passes(r))];
+        List<ConferenceSettingCardViewModel> cards = [.. allCards.Where(card => active.Passes(card.Rows[0]))];
+        var cardLines = cards.Sum(card => card.Count);
         var previous = SelectedRow;
         var previousIndex = previous is null ? -1 : Rows.ToList().IndexOf(previous);
         Rows = shown;
+        SettingCards = cards;
         SelectedRow = Reselect(shown, previous, previousIndex);
 
         SilencedSummary = DescribeSilenced(report.Silenced.Count);
         // "Um clique" conta correções (uma por linha e regra), como o filtro e o botão do cabeçalho; os outros contam ocorrências.
         var footer = activeFilter == ConferenceFilterKind.OneClick
-            ? $"Mostrando {ProjectLabels.Number(shown.Count)} de {ProjectLabels.Number(filters[2].Count)} correções de um clique · agrupadas por cena"
-            : $"Mostrando {ProjectLabels.Number(shown.Sum(r => r.Count))} de {ProjectLabels.Number(filters[0].Count)} problemas abertos · agrupados por cena";
+            ? $"Mostrando {ProjectLabels.Number(shown.Count + cardLines)} de {ProjectLabels.Number(filters[2].Count)} correções de um clique · agrupadas por cena"
+            : $"Mostrando {ProjectLabels.Number(shown.Sum(r => r.Count) + cardLines)} de {ProjectLabels.Number(filters[0].Count)} problemas abertos · agrupados por cena";
         ListFooter = SilencedSummary.Length > 0 ? $"{footer} · {SilencedSummary}" : footer;
         var errors = filters[1].Count;
         BlockingMessage = errors switch

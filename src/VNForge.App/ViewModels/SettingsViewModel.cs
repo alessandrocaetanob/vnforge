@@ -28,8 +28,42 @@ public sealed record ProviderOption(string Name, bool IsAvailable)
 /// <summary>Opção de uma lista fechada do <c>vnforge.json</c> (esforço).</summary>
 public sealed record ChoiceItem(string Id, string Label);
 
-/// <summary>Opção de uma enumeração do perfil de formatação.</summary>
-public sealed record ChoiceItem<T>(T Value, string Label);
+/// <summary>O que o controle segmentado precisa de uma opção sem saber o tipo do valor: se ela pode ser escolhida e, se não, por quê.</summary>
+public interface IChoiceItem
+{
+    string Label { get; }
+
+    bool IsEnabled { get; }
+
+    string? DisabledReason { get; }
+}
+
+/// <summary>
+/// Opção de uma enumeração do perfil de formatação. <see cref="IsEnabled"/> fica falso quando a estratégia de acentuação do projeto não grava o que a opção gera;
+/// <see cref="DisabledReason"/> diz qual caractere e vira a dica da opção.
+/// </summary>
+public sealed partial class ChoiceItem<T>(T value, string label) : ObservableObject, IChoiceItem
+{
+    public T Value { get; } = value;
+
+    public string Label { get; } = label;
+
+    [ObservableProperty]
+    public partial bool IsEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial string? DisabledReason { get; set; }
+}
+
+/// <summary>Faixa de aviso de Ajustes: o ajuste atual não é gravado pela estratégia de acentuação e um botão troca pelo valor seguro.</summary>
+public sealed class SettingConflictNotice(string message, string buttonLabel, Action fix)
+{
+    public string Message { get; } = message;
+
+    public string ButtonLabel { get; } = buttonLabel;
+
+    public System.Windows.Input.ICommand FixCommand { get; } = new RelayCommand(fix);
+}
 
 /// <summary>
 /// Cartão de modelo Claude: nome, preço por milhão de tokens (entrada / saída), para que serve e, com projeto aberto, a estimativa
@@ -515,6 +549,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial ChoiceItem<EllipsisStyle>? SelectedEllipsis { get; set; }
 
+    /// <summary>Os ajustes de Aspas e de Reticências escolhidos que a estratégia de acentuação não grava; vazia quando tudo o que está escolhido o jogo aceita.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEncodingConflicts))]
+    public partial IReadOnlyList<SettingConflictNotice> EncodingConflicts { get; private set; } = [];
+
+    public bool HasEncodingConflicts => EncodingConflicts.Count > 0;
+
     [ObservableProperty]
     public partial bool WrapEnabled { get; set; }
 
@@ -571,6 +612,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         OnPropertyChanged(nameof(HasProject));
         RefreshPreview();
+        RefreshEncodingConflicts();
         RefreshSpent();
         StartEstimate(folder);
     }
@@ -683,6 +725,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (name == nameof(PreviewBefore) || FormattingInputs.Contains(name))
         {
             RefreshPreview();
+        }
+
+        if (name is nameof(EncodingStrategy) or nameof(SelectedQuotes) or nameof(SelectedEllipsis))
+        {
+            RefreshEncodingConflicts();
         }
 
         if (folder is null)
@@ -1083,6 +1130,71 @@ public sealed partial class SettingsViewModel : ObservableObject
         },
         Wrap = baseProfile.Wrap with { Enabled = WrapEnabled, MaxWidth = WrapMaxWidth, MaxLines = baseProfile.Wrap.MaxLines is null && WrapMaxLines == WrapRule.DefaultMaxLines ? null : WrapMaxLines },
     };
+
+    /// <summary>
+    /// Desliga em Reticências e em Aspas a opção que a estratégia de acentuação do projeto não grava (com a dica de qual caractere) e levanta a faixa de aviso
+    /// quando a opção que está escolhida é uma delas, por exemplo depois de trocar a estratégia. Estratégia sem encoder pronto não desliga nada.
+    /// </summary>
+    private void RefreshEncodingConflicts()
+    {
+        ITextEncoder? encoder = null;
+        try
+        {
+            encoder = TextEncoderRegistry.Default.Create(EncodingStrategy);
+        }
+        catch (VNForgeException)
+        {
+            // Estratégia sem encoder nesta versão: o build recusa o projeto por outro motivo, e aqui não há o que conferir.
+        }
+
+        foreach (var quote in QuoteStyles)
+        {
+            Mark(quote, encoder, FormattingConflicts.QuotesField, baseProfile with { Typography = baseProfile.Typography with { Quotes = quote.Value } });
+        }
+
+        foreach (var ellipsis in EllipsisStyles)
+        {
+            Mark(ellipsis, encoder, FormattingConflicts.EllipsisField, baseProfile with { Typography = baseProfile.Typography with { Ellipsis = ellipsis.Value } });
+        }
+
+        List<SettingConflictNotice> notices = [];
+        if (encoder is not null)
+        {
+            var current = baseProfile with
+            {
+                Typography = baseProfile.Typography with
+                {
+                    Quotes = SelectedQuotes?.Value ?? QuoteStyle.None,
+                    Ellipsis = SelectedEllipsis?.Value ?? EllipsisStyle.None,
+                },
+            };
+            foreach (var conflict in FormattingConflicts.Find(current, encoder).Where(c => c.Field is FormattingConflicts.QuotesField or FormattingConflicts.EllipsisField))
+            {
+                notices.Add(new SettingConflictNotice(SettingConflictTexts.Refusal(encoder.Id, conflict), SettingConflictTexts.ButtonLabel(conflict), () => UseSafeValue(conflict.Field)));
+            }
+        }
+
+        EncodingConflicts = notices;
+    }
+
+    private static void Mark<T>(ChoiceItem<T> option, ITextEncoder? encoder, string field, FormattingProfile candidate)
+    {
+        var conflict = encoder is null ? null : FormattingConflicts.Find(candidate, encoder).FirstOrDefault(c => c.Field == field);
+        option.IsEnabled = conflict is null;
+        option.DisabledReason = conflict is null ? null : SettingConflictTexts.Refusal(encoder!.Id, conflict);
+    }
+
+    private void UseSafeValue(string field)
+    {
+        if (field == FormattingConflicts.QuotesField)
+        {
+            SelectedQuotes = QuoteStyles.First(q => q.Value == QuoteStyle.Ascii);
+        }
+        else if (field == FormattingConflicts.EllipsisField)
+        {
+            SelectedEllipsis = EllipsisStyles.First(e => e.Value == EllipsisStyle.Dots);
+        }
+    }
 
     private void SaveStyleGuide()
     {

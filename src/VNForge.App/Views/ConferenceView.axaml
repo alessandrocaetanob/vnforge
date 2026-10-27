@@ -100,8 +100,35 @@
 
       <!-- Problemas: o que é, a cena e a linha; "não traduzida" resumida por cena. -->
       <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
-        <Grid RowDefinitions="*,Auto">
-          <Panel>
+        <Grid RowDefinitions="Auto,*,Auto">
+          <!-- Um card por ajuste de formatação que a estratégia de acentuação não grava, no lugar das linhas que ele causa; o botão troca o ajuste. -->
+          <ItemsControl ItemsSource="{Binding SettingCards}" IsVisible="{Binding HasSettingCards}" Margin="12,12,12,4"
+                        AutomationProperties.Name="Ajustes que o jogo não grava">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="8"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ConferenceSettingCardViewModel">
+                <Border Classes="infobar error" Padding="14,12" AutomationProperties.Name="{Binding Title}">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+                    <StackPanel Grid.Column="1" Spacing="6" MinWidth="0">
+                      <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding Title}" TextWrapping="Wrap"/>
+                      <TextBlock Classes="body-sm" Text="{Binding Text}" TextWrapping="Wrap"/>
+                      <Button Classes="sm accent" HorizontalAlignment="Left" Margin="0,4,0,0"
+                              Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).ApplySettingCommand}"
+                              CommandParameter="{Binding}" AutomationProperties.Name="{Binding ButtonLabel}">
+                        <TextBlock Text="{Binding ButtonLabel}"/>
+                      </Button>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Panel Grid.Row="1">
             <ListBox Classes="projects" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" SelectionMode="Single"
                      AutomationProperties.Name="Problemas encontrados">
               <ListBox.ItemsPanel>
@@ -140,7 +167,7 @@
                           Message="Nada trava o teste no jogo. A tradução está pronta para testar."
                           ActionText="Conferir de novo" ActionCommand="{Binding RefreshCommand}"/>
           </Panel>
-          <Border Grid.Row="1" Classes="divider-top" Padding="16,10">
+          <Border Grid.Row="2" Classes="divider-top" Padding="16,10">
             <TextBlock Classes="caption secondary" Text="{Binding ListFooter}" TextTrimming="CharacterEllipsis"/>
           </Border>
         </Grid>

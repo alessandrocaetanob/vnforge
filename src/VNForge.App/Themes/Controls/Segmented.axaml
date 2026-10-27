@@ -56,8 +56,10 @@
     <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
-  <Style Selector="ListBox.seg > ListBoxItem:disabled /template/ ContentPresenter#PART_ContentPresenter">
+  <!-- Desligada e não marcada: apagada. Desligada e marcada (o ajuste escolhido que a estratégia não grava) mantém o texto normal sobre o destaque, para continuar legível. -->
+  <Style Selector="ListBox.seg > ListBoxItem:disabled:not(:selected) /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+    <Setter Property="Opacity" Value="0.55"/>
   </Style>
 
   <!-- Abas (artboard de Ajustes): 40px de altura, texto em text-secondary; a marcada fica em text-primary 600 com sublinhado de 3px accent. -->

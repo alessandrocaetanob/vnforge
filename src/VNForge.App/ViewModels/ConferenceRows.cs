@@ -24,7 +24,7 @@ public static class ConferenceRuleTexts
         ["espaco-antes-pontuacao"] = ("Espaço antes de pontuação", "Em português não há espaço antes de vírgula, ponto e vírgula, dois-pontos, interrogação ou exclamação. A fala fica errada até ser corrigida."),
         ["aspas-desbalanceadas"] = ("Aspas ou parênteses sem par", "Falta fechar ou abrir um par de aspas ou parênteses. Confira se a fala termina onde o original termina."),
         [UnencodableCharacterRule.RuleId] = ("Caractere fora da codificação", "A estratégia de acentuação do projeto não grava este caractere no jogo. Troque por um que ela aceite."),
-        [FormattingConflictRule.RuleId] = ("Ajuste que a codificação não grava", "Um ajuste de formatação do projeto gera um caractere que a estratégia de acentuação não grava no jogo. A tradução está certa; troque o ajuste em Ajustes."),
+        [FormattingConflictRule.RuleId] = ("Ajuste que a acentuação não grava", "Um ajuste de formatação do projeto gera um caractere que a estratégia de acentuação não grava no jogo. A tradução está certa: troque o ajuste em Ajustes, na aba Formatação."),
         [SpeakerEncodingRule.RuleId] = ("Nome do personagem fora da codificação", "O nome japonês deste personagem não existe na codificação do jogo, então a linha não pode ir para o jogo. Cadastre a tradução do nome no Glossário > Personagens."),
         ["japones-na-traducao"] =("Japonês na tradução", "Há hiragana, katakana ou kanji na tradução. Costuma ser um trecho que ficou sem traduzir."),
         [BoxLineLimitRule.RuleId] = ("Não cabe na caixa", "A tradução ocupa mais linhas que a caixa do jogo. Divida a fala em páginas ou peça à IA uma versão mais curta."),
@@ -54,6 +54,8 @@ public sealed class ConferenceIssueRowViewModel
 {
     private readonly string? ruleDescription;
     private readonly IReadOnlyList<QaIssue> occurrences;
+    private readonly ITextEncoder? encoder;
+    private readonly IReadOnlyList<FormattingConflict> settings;
 
     /// <param name="issue">A ocorrência; no resumo de um script, a primeira dele.</param>
     /// <param name="proposal">A correção proposta pelo <see cref="IQaFixer"/> da regra, quando há.</param>
@@ -63,8 +65,15 @@ public sealed class ConferenceIssueRowViewModel
     /// <param name="linePosition">A posição da linha no script (de 1 em diante); o id da unidade é opaco e não serve de número.</param>
     /// <param name="sceneName">Como a cena se chama na tela: o nome do <c>scripts.json</c> ou "Cena N" quando o projeto não o guarda (N é a posição do script entre todos os do projeto, em ordem de chave, a partir de 1; não vem do id); sem ele (só em teste) a linha cai no id do script.</param>
     /// <param name="occurrences">Todas as ocorrências que a linha agrupa (a mesma regra na mesma linha); a lista usa isso para nomear cada caractere em vez de só o primeiro.</param>
-    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null, IReadOnlyList<QaIssue>? occurrences = null)
+    /// <param name="encoder">O encoder da estratégia do projeto; a dica do caractere usa o substituto que o corretor grava. Sem ele, a dica cai na tabela de pontuação japonesa.</param>
+    /// <param name="settings">Os ajustes de formatação em conflito com a estratégia; um caractere que vem de um deles tem o painel explicando o ajuste.</param>
+    /// <param name="settingField">O campo do ajuste (<see cref="FormattingConflict.Field"/>) de que esta linha é uma ocorrência; a lista não a mostra, o card do ajuste a representa.</param>
+    public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null, IReadOnlyList<QaIssue>? occurrences = null,
+        ITextEncoder? encoder = null, IReadOnlyList<FormattingConflict>? settings = null, string? settingField = null)
     {
+        this.encoder = encoder;
+        this.settings = settings ?? [];
+        SettingField = settingField;
         Issue = issue;
         this.occurrences = occurrences is { Count: > 0 } ? occurrences : [issue];
         Proposal = proposal;
@@ -108,11 +117,14 @@ public sealed class ConferenceIssueRowViewModel
 
     public bool IsError => Issue.Severity == QaSeverity.Error;
 
+    /// <summary>O campo do ajuste de formatação de que esta linha é uma ocorrência (<c>typography.ellipsis</c>); nulo nas outras. Essas linhas contam, mas o card do ajuste as representa na lista.</summary>
+    public string? SettingField { get; }
+
     /// <summary>"Não traduzida" de um script inteiro numa linha só.</summary>
     public bool IsScriptSummary => RuleId == UntranslatedQaRule.RuleId;
 
     /// <summary>A regra propõe a correção: "Corrigir e ir para o próximo" resolve a linha de uma vez.</summary>
-    public bool IsOneClick => HasProposal;
+    public bool IsOneClick => HasProposal || SettingField is not null;
 
     public SeverityLevel Level => IsError ? SeverityLevel.Error : SeverityLevel.Warning;
 
@@ -136,7 +148,30 @@ public sealed class ConferenceIssueRowViewModel
 
     private MarkerDifference MarkerParts => MarkerDifference.Read(Message);
 
-    public string Explanation => ConferenceRuleTexts.Explanation(RuleId, ruleDescription);
+    public string Explanation => SettingExplanation() ?? ConferenceRuleTexts.Explanation(RuleId, ruleDescription);
+
+    /// <summary>
+    /// Quando o caractere vem de um ajuste de formatação (ou a linha é a de um ajuste), o painel explica o ajuste em vez de mandar trocar o caractere:
+    /// a tradução gravada está certa e quem muda é o ajuste.
+    /// </summary>
+    private string? SettingExplanation()
+    {
+        if (RuleId != UnencodableCharacterRule.RuleId && RuleId != FormattingConflictRule.RuleId)
+        {
+            return null;
+        }
+
+        var codePoints = RuleId == UnencodableCharacterRule.RuleId ? UnencodableCodePoints() : [];
+        var conflict = settings.FirstOrDefault(c => RuleId == FormattingConflictRule.RuleId
+            ? Issue.Message.StartsWith($"O ajuste {c.Setting} ({c.CurrentLabel}) ", StringComparison.Ordinal)
+            : codePoints.Any(code => c.Characters.EnumerateRunes().Any(r => r.Value == code)));
+        if (conflict is null)
+        {
+            return null;
+        }
+
+        return $"O ajuste {conflict.Setting} ({conflict.CurrentLabel}) gera este caractere, e a estratégia de acentuação do projeto não o grava no jogo. A tradução está certa: troque o ajuste em Ajustes, na aba Formatação.";
+    }
 
     /// <summary>O trecho que a lista mostra sob o título, com os marcadores por extenso entre parênteses: <c>anda !(virar a página)</c>. Serve de dica e de nome acessível.</summary>
     public string Detail => HasRawMarkers ? PlainMarkers(RawDetail) : RawDetail;
@@ -225,7 +260,7 @@ public sealed class ConferenceIssueRowViewModel
         var named = labels.Count == 1
             ? $"O {labels[0]} não existe"
             : $"O {string.Join(", o ", labels.Take(labels.Count - 1))} e o {labels[^1]} não existem";
-        var replacements = codePoints.Zip(labels, ReplacementHint).OfType<string>().ToList();
+        var replacements = codePoints.Select(ReplacementHint).OfType<string>().ToList();
         var hint = replacements.Count == 0 ? string.Empty : $" Use {string.Join(", ", replacements)}.";
         return $"{named} na acentuação do projeto.{hint}";
     }
@@ -248,15 +283,57 @@ public sealed class ConferenceIssueRowViewModel
         return codePoints;
     }
 
-    /// <summary>"~ no lugar do ～" para o que a tabela de <see cref="JapanesePunctuation"/> cobre; nulo para o resto.</summary>
-    private static string? ReplacementHint(int codePoint, string label)
+    private static readonly Dictionary<int, (string Article, string Name)> ConfusableNames = BuildConfusableNames();
+
+    private static readonly Dictionary<string, string> SubstituteNames = new(StringComparer.Ordinal)
     {
-        if (JapanesePunctuation.KeyboardFor(codePoint) is not { } keyboard)
+        ["..."] = "três pontos",
+        ["\""] = "aspas retas",
+        ["'"] = "aspa reta",
+        ["-"] = "hífen",
+    };
+
+    private static Dictionary<int, (string Article, string Name)> BuildConfusableNames()
+    {
+        var names = new Dictionary<int, (string, string)>();
+        foreach (var code in new[] { 0x201C, 0x201D, 0x201E })
+        {
+            names[code] = ("das", "aspas curvas");
+        }
+
+        foreach (var code in new[] { 0x2018, 0x2019, 0x201A })
+        {
+            names[code] = ("da", "aspa curva");
+        }
+
+        names[0x2026] = ("das", "reticências");
+        names[0x2013] = ("da", "meia-risca");
+        names[0x2014] = ("do", "travessão");
+        return names;
+    }
+
+    /// <summary>
+    /// "~ no lugar do til japonês (～)" para o que o corretor ou a tabela de <see cref="JapanesePunctuation"/> cobre; nulo para o resto. Quando o substituto se
+    /// confunde com o original na tela (três pontos e reticências, aspas retas e curvas, hífen e travessão), cada lado vem por extenso. O caractere citado
+    /// sempre fecha entre parênteses, para o ponto final da frase não colar nele.
+    /// </summary>
+    private string? ReplacementHint(int codePoint)
+    {
+        var substitute = (encoder is null ? null : UnwritableCharacters.SubstituteFor(codePoint, encoder)) ?? JapanesePunctuation.KeyboardFor(codePoint);
+        if (substitute is null)
         {
             return null;
         }
 
-        return $"{(keyboard == " " ? "um espaço comum" : keyboard)} no lugar do {label.Split(' ')[0]}";
+        var replacement = substitute == " " ? "um espaço comum" : SubstituteNames.TryGetValue(substitute, out var word) ? $"{word} ({substitute})" : substitute;
+        var shown = CodePointLabel(codePoint).Split(' ')[0];
+        if (ConfusableNames.TryGetValue(codePoint, out var confusable))
+        {
+            return $"{replacement} no lugar {confusable.Article} {confusable.Name} ({(codePoint is 0x2013 or 0x2014 ? $"U+{codePoint:X4}" : shown)})";
+        }
+
+        var name = JapanesePunctuation.NameOf(codePoint) ?? "caractere";
+        return $"{replacement} no lugar do {name} ({shown})";
     }
 
     /// <summary>O caractere, ou <c>U+XXXX</c> quando ele não aparece na tela (controle, espaço, formato, substituto solto).</summary>
@@ -271,7 +348,8 @@ public sealed class ConferenceIssueRowViewModel
         var hidden = category is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator
             or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse or UnicodeCategory.OtherNotAssigned;
         var glyph = hidden ? $"U+{codePoint:X4}" : char.ConvertFromUtf32(codePoint);
-        return (JapanesePunctuation.NameOf(codePoint), hidden) switch
+        var known = JapanesePunctuation.NameOf(codePoint) ?? (ConfusableNames.TryGetValue(codePoint, out var confusable) ? confusable.Name : null);
+        return (known, hidden) switch
         {
             ({ } name, true) => $"{glyph} ({name})",
             ({ } name, false) => $"{glyph} ({name}, U+{codePoint:X4})",
@@ -495,4 +573,38 @@ internal readonly record struct MarkerDifference(IReadOnlyList<string> Missing, 
             .Select(m => MarkerLabels.Name(m, m.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control))
             .GroupBy(name => name, StringComparer.Ordinal)
             .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} ({ProjectLabels.Number(g.Count())} vezes)")];
+}
+
+/// <summary>
+/// O card de um ajuste de formatação que a estratégia de acentuação não grava, no topo da lista de erros no lugar das linhas que ele causa:
+/// "O ajuste Reticências gera 4.114 erros", a frase do motivo e o botão que troca o ajuste pelo valor seguro.
+/// </summary>
+public sealed class ConferenceSettingCardViewModel
+{
+    public ConferenceSettingCardViewModel(FormattingConflict conflict, string strategyId, IReadOnlyList<ConferenceIssueRowViewModel> rows)
+    {
+        Conflict = conflict;
+        Rows = rows;
+        var errors = rows.Count == 1 ? "1 erro" : $"{ProjectLabels.Number(rows.Count)} erros";
+        Title = $"O ajuste {conflict.Setting} gera {errors}";
+        var translations = conflict.Field == FormattingConflicts.EllipsisField ? "As traduções têm três pontos" : "As traduções estão certas";
+        Text = $"{SettingConflictTexts.Refusal(strategyId, conflict)} {translations}; o ajuste é que troca.";
+        ButtonLabel = SettingConflictTexts.ButtonLabel(conflict);
+    }
+
+    public FormattingConflict Conflict { get; }
+
+    /// <summary>As linhas do projeto que o ajuste causa (uma por linha de fala); contam nos totais, mas a lista mostra só o card.</summary>
+    public IReadOnlyList<ConferenceIssueRowViewModel> Rows { get; }
+
+    public string Field => Conflict.Field;
+
+    /// <summary>Quantas ocorrências o ajuste causa.</summary>
+    public int Count => Rows.Count;
+
+    public string Title { get; }
+
+    public string Text { get; }
+
+    public string ButtonLabel { get; }
 }
