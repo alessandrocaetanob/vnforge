@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using VNForge.App.ViewModels;
@@ -37,7 +38,7 @@ public static class LineLinks
 
     private static void Fill(TextBlock block, string? text)
     {
-        block.PointerPressed -= OnPressed;
+        block.RemoveHandler(InputElement.PointerPressedEvent, OnPressed);
         block.PointerMoved -= OnMoved;
         Mentions.Remove(block);
         block.Text = null;
@@ -48,12 +49,16 @@ public static class LineLinks
         }
 
         var mentions = LineIds.Find(text);
-        if (mentions.Count > 0)
+        if (mentions.Count == 0)
         {
-            Mentions.Add(block, mentions);
-            block.PointerPressed += OnPressed;
-            block.PointerMoved += OnMoved;
+            block.Text = text;
+            return;
         }
+
+        Mentions.Add(block, mentions);
+        // SelectableTextBlock trata o PointerPressed para começar a seleção: o link precisa ouvir mesmo assim.
+        block.AddHandler(InputElement.PointerPressedEvent, OnPressed, RoutingStrategies.Bubble, handledEventsToo: true);
+        block.PointerMoved += OnMoved;
 
         var position = 0;
         foreach (var mention in mentions)

@@ -41,8 +41,8 @@
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap"
-                     c:LineLinks.Source="{Binding ErrorMessage}" c:LineLinks.Command="{Binding OpenLineCommand}"/>
+          <SelectableTextBlock Grid.Column="1" Classes="body-sm" Loaded="Selectable_Loaded" TextWrapping="Wrap" AutomationProperties.Name="Mensagem de erro"
+                               c:LineLinks.Source="{Binding ErrorMessage}" c:LineLinks.Command="{Binding OpenLineCommand}"/>
         </Grid>
       </Border>
 
@@ -250,9 +250,13 @@
             <!-- Log -->
             <Border Grid.Row="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Log do build">
               <Grid RowDefinitions="Auto,*">
-                <Grid ColumnDefinitions="*,Auto" Height="48" Margin="16,0">
+                <Grid ColumnDefinitions="*,Auto,Auto" Height="48" Margin="16,0" ColumnSpacing="12">
                   <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Log"/>
                   <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LogSummary}"/>
+                  <Button Grid.Column="2" Classes="subtle sm" VerticalAlignment="Center" Click="CopyLog_Click" IsEnabled="{Binding HasLog}"
+                          AutomationProperties.Name="Copiar log" ToolTip.Tip="Copia o log inteiro, com data e hora">
+                    <TextBlock Text="Copiar log"/>
+                  </Button>
                 </Grid>
                 <Border Grid.Row="1" Background="{DynamicResource Vnf.BgInset}">
                   <Panel>
@@ -263,10 +267,11 @@
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="vm:BuildLogLine">
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                              <TextBlock Classes="mono secondary" LineHeight="20" FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Time}"/>
-                              <TextBlock Grid.Column="1" Classes="mono secondary" LineHeight="20" TextWrapping="Wrap"
-                                         c:LineLinks.Source="{Binding Message}"
-                                         c:LineLinks.Command="{Binding $parent[ItemsControl].((vm:BuildViewModel)DataContext).OpenLineCommand}"/>
+                              <SelectableTextBlock Classes="mono secondary" LineHeight="20" FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}"
+                                                   Loaded="Selectable_Loaded" Text="{Binding Time}"/>
+                              <SelectableTextBlock Grid.Column="1" Classes="mono secondary" LineHeight="20" Loaded="Selectable_Loaded" TextWrapping="Wrap"
+                                                   c:LineLinks.Source="{Binding Message}"
+                                                   c:LineLinks.Command="{Binding $parent[ItemsControl].((vm:BuildViewModel)DataContext).OpenLineCommand}"/>
                             </Grid>
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>

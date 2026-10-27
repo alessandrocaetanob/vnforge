@@ -36,7 +36,7 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     public async Task Clicar_no_id_do_log_do_build_pede_a_linha()
     {
         var vm = new BuildViewModel(new BackgroundTaskService());
-        vm.Log.Add(new BuildLogLine("20:19:23", Message));
+        vm.Log.Add(new BuildLogLine("20:19:23", Message, "26/10/2026"));
         LineRequest? requested = null;
         vm.LineRequested += (_, request) => requested = request;
 
@@ -61,7 +61,7 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     public async Task Clicar_fora_do_id_nao_pede_linha()
     {
         var vm = new BuildViewModel(new BackgroundTaskService());
-        vm.Log.Add(new BuildLogLine("20:19:23", Message));
+        vm.Log.Add(new BuildLogLine("20:19:23", Message, "26/10/2026"));
         var requests = 0;
         vm.LineRequested += (_, _) => requests++;
 
