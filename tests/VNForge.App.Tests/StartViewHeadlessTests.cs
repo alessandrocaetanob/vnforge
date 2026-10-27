@@ -49,7 +49,7 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Content is string)];
 
     [Fact]
-    public async Task Projeto_aberto_mostra_Abrir_projeto_e_o_botao_do_proximo_passo()
+    public async Task Projeto_aberto_mostra_o_botao_Continuar_e_o_Abrir_da_linha_sem_um_segundo_Abrir_projeto()
     {
         using var temp = new TempFolder();
         var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN", lines: [("yst00013", TranslationStatus.Approved)]);
@@ -57,8 +57,25 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
 
         var labels = await ShowAsync(vm, w => DetailButtons(w).Where(b => b.IsEffectivelyEnabled).Select(b => (string)b.Content!).ToArray());
 
+        Assert.DoesNotContain("Abrir projeto", labels);
+        Assert.Contains("Abrir", labels);
+        Assert.Contains("Continuar: testar no jogo", labels);
+    }
+
+    [Fact]
+    public async Task Projeto_sem_linhas_nao_tem_proximo_passo_e_o_cartao_oferece_Abrir_projeto()
+    {
+        using var temp = new TempFolder();
+        var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN");
+        var vm = await OpenAsync(temp, root);
+
+        var (labels, accent) = await ShowAsync(vm, w => (
+            DetailButtons(w).Where(b => b.IsEffectivelyEnabled).Select(b => (string)b.Content!).ToArray(),
+            w.GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Classes.Contains("accent"))));
+
         Assert.Contains("Abrir projeto", labels);
-        Assert.Contains("Testar no jogo", labels);
+        Assert.DoesNotContain(labels, l => l.StartsWith("Continuar", StringComparison.Ordinal));
+        Assert.Equal(0, accent);
     }
 
     [Fact]
