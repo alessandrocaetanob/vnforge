@@ -36,7 +36,7 @@ A interface v3 fala a língua de quem traduz pela primeira vez (plano, seção "
 | **Entender o japonês**, **Na cena**, **Usar em todos** | | Inspetor do Editor e modo revisão | No app (#305) |
 | **Modo revisão** | | Botão do cabeçalho do Editor, com **Está boa**, **Corrigir**, **Depois** e **Pular** | No app (#307) |
 | **Traduzir com IA** | Traduzir pendentes | Botão do cabeçalho do Editor e a janela das três perguntas | No app (#304) |
-| **Rápida**, **Equilibrada**, **Caprichada** | Nome do modelo | `QualityCard`, com o modelo em letra pequena | No app (#303, #304, #312) |
+| **Rápida**, **Equilibrada**, **Caprichada** | Nome do modelo | `QualityCard`, sem o nome do modelo (fica em Detalhes técnicos dos Ajustes, #406) | No app (#303, #304, #312) |
 | **Detalhes técnicos** | | `TechnicalDetails`, fechado por padrão: motor, pacote, página de código, modelo exato, registro, os nomes técnicos das estratégias de acentos | No app (#302) |
 | **Acentos**, **Sem acentos**, **Com acentos, fonte modificada**, **Com acentos, ajuste no jogo** | Acentuação, "Remover acentos (fold)", "Remapear para meia largura (remap)", "Latin-1 nativo (cp1252)" | Aba dos Ajustes e passo do Novo projeto, os mesmos três cartões (`AccentCards`); o `sjis` não é cartão | No app (#312, #335) |
 | **Precisa de você** | | Lista de pendências do Painel (`TodoItem`) | Ainda não: Painel na #309 |
@@ -121,7 +121,7 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 | `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso e Ajustes (#309/#313) |
 | `BudgetBar` | `.budget` | `Spent`, `Ask`, `Limit` | Barra do gasto com a marca do limite; estado `:over` quando o gasto mais o pedido (zero, sem pedido) passa dele | Traduzir com IA, Ajustes; Painel (#309) |
 | `AccentCards` | `.enc` | `Options` (`ChoiceOption`), `GroupName` | Os três cartões de acentos, cada um um `RadioButton` com nome, selo ("Em breve", "Recomendada para este jogo"), explicação e a frase de teste num `GameTextbox` pequeno; a seleção única fica no `ChoiceGroup` da tela, montado por `AccentChoices` | Novo projeto, Ajustes (aba Acentos) |
-| `QualityCard` | `.opt` | `Title`, `Price`, `Duration`, `Model`, `ExampleRate` | `OptionCard` com preço em reais e tempo em destaque e o modelo em letra pequena; é um `RadioButton` de grupo | Traduzir com IA, Novo projeto, Ajustes |
+| `QualityCard` | `.opt` | `Title`, `Price`, `Duration`, `ExampleRate` | `OptionCard` com preço em reais e tempo em destaque, sem nome de modelo; é um `RadioButton` de grupo | Traduzir com IA, Novo projeto, Ajustes |
 | `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor do Editor, modo revisão |
 | `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor do Editor, modo revisão |
 | `ScriptGroup` | `.grp` | `Title`, `CountText` | `Expander` de um capítulo na lista de cenas | Editor (quando o Core entregar os grupos, #309) |

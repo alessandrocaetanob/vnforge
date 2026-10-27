@@ -360,6 +360,38 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Reabrir_numa_cena_com_linhas_nao_deixa_o_cartao_apagado_da_abertura_anterior()
+    {
+        var folder = Project();
+        var vm = await OpenAsync(folder, Settings(), scene: "yst00003");
+        Assert.False(vm.Scopes[0].IsAvailable);
+
+        var reopening = vm.OpenAsync(folder, "yst00001", Settings());
+
+        Assert.True(vm.Scopes[0].IsAvailable);
+        Assert.Equal(0, vm.Scopes[0].Lines);
+        Assert.Equal(string.Empty, vm.Scopes[0].Summary);
+        await reopening;
+        Assert.True(vm.Scopes[0].IsAvailable);
+        Assert.Equal(100, vm.Scopes[0].Lines);
+    }
+
+    [Fact]
+    public async Task Reabrir_com_a_leitura_falhando_nao_deixa_cartao_apagado_nem_resumo_velho()
+    {
+        var folder = Project();
+        var vm = await OpenAsync(folder, Settings(), scene: "yst00003");
+        Assert.False(vm.Scopes[0].IsAvailable);
+        File.WriteAllText(folder.TextPath("yst00001"), "{ isto não é JSON");
+
+        await vm.OpenAsync(folder, "yst00001", Settings());
+
+        Assert.StartsWith("Não foi possível ler o projeto", vm.LoadError);
+        Assert.All(vm.Scopes, scope => Assert.True(scope.IsAvailable));
+        Assert.All(vm.Scopes, scope => Assert.Equal(string.Empty, scope.Summary));
+    }
+
+    [Fact]
     public async Task Reabrir_desliga_o_botao_ate_a_nova_leitura_terminar()
     {
         var folder = Project();

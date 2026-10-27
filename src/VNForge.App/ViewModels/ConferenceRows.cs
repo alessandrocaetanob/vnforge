@@ -60,7 +60,7 @@ public sealed class ConferenceIssueRowViewModel
     /// <param name="count">Quantas ocorrências a linha representa; maior que 1 no resumo por script e quando a regra aponta a mesma linha mais de uma vez.</param>
     /// <param name="ruleDescription">Descrição da regra no Core, usada quando o título não está na tabela.</param>
     /// <param name="linePosition">A posição da linha no script (de 1 em diante); o id da unidade é opaco e não serve de número.</param>
-    /// <param name="sceneName">Como a cena se chama na tela: o nome do <c>scripts.json</c> ou "Cena N" quando o projeto não o guarda; sem ele (só em teste) a linha cai no id do script.</param>
+    /// <param name="sceneName">Como a cena se chama na tela: o nome do <c>scripts.json</c> ou "Cena N" quando o projeto não o guarda (N é a posição do script entre todos os do projeto, em ordem de chave, a partir de 1; não vem do id); sem ele (só em teste) a linha cai no id do script.</param>
     /// <param name="occurrences">Todas as ocorrências que a linha agrupa (a mesma regra na mesma linha); a lista usa isso para nomear cada caractere em vez de só o primeiro.</param>
     public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null, IReadOnlyList<QaIssue>? occurrences = null)
     {
@@ -74,7 +74,7 @@ public sealed class ConferenceIssueRowViewModel
         LineNumber = linePosition;
     }
 
-    /// <summary>A cena da linha como a pessoa a lê ("Manhã de chuva" ou "Cena 13"); nula só quando a linha foi montada sem projeto.</summary>
+    /// <summary>A cena da linha como a pessoa a lê ("Manhã de chuva" ou "Cena 13", a posição do script no projeto e não um número tirado do id); nula só quando a linha foi montada sem projeto.</summary>
     public string? SceneName { get; }
 
     /// <summary>A cena como a pessoa a conhece; o id do script só entra quando a linha não veio de um projeto.</summary>
