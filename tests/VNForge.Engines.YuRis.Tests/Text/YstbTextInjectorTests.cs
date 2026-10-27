@@ -168,14 +168,37 @@ public class YstbTextInjectorTests
     }
 
     [Fact]
-    public void Inject_Cp1252ComFalanteTraduzido_GravaNomeEAspasCurvas()
+    public void Inject_Cp1252ComFalanteTraduzido_GravaOsColchetesEmShiftJis()
     {
         var loaded = Load(FullScript());
         var unit = Translate(loaded, UnitId(0), "Bom dia!") with { Speaker = "Inui" };
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal(GameEncodings.Windows1252.GetBytes("Inui“Bom dia!”"), FirstMessage(raw));
+        byte[] expected = [.. "Inui"u8, 0x81, 0x75, .. "Bom dia!"u8, 0x81, 0x76];
+        Assert.Equal(expected, FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComFalanteEmAspasDuplasJaponesas_GravaOs8177E8178()
+    {
+        var loaded = Load(NewBuilder().AddWord("美咲『こんにちは』", 1).AddReturnCode(0, 2));
+        var unit = Translate(loaded, UnitId(0), "Oi") with { Speaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        byte[] expected = [.. "Inui"u8, 0x81, 0x77, .. "Oi"u8, 0x81, 0x78];
+        Assert.Equal(expected, FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComFalanteESemTraducao_IdaEVoltaIdentica()
+    {
+        var built = FullScript().Build();
+        var loaded = Load(built.Bytes);
+        var untouched = loaded.Extraction.Units.Select(u => u with { Translation = null, Status = TranslationStatus.Untranslated }).ToArray();
+
+        Assert.Equal(built.Bytes, YstbTextInjector.Inject(loaded.File, loaded.Script, untouched, Cp1252));
     }
 
     [Fact]
@@ -186,7 +209,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal(GameEncodings.Windows1252.GetBytes("???“Quem?”"), FirstMessage(raw));
+        Assert.Equal([.. "???"u8, 0x81, 0x75, .. "Quem?"u8, 0x81, 0x76], FirstMessage(raw));
     }
 
     [Fact]
@@ -197,7 +220,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal(GameEncodings.Windows1252.GetBytes("Teste ç ã é ô“Olá, ação!”"), FirstMessage(raw));
+        Assert.Equal([.. GameEncodings.Windows1252.GetBytes("Teste ç ã é ô"), 0x81, 0x75, .. GameEncodings.Windows1252.GetBytes("Olá, ação!"), 0x81, 0x76], FirstMessage(raw));
     }
 
     [Fact]

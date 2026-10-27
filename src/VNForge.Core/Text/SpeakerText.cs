@@ -4,21 +4,12 @@ using VNForge.Core.Glossary;
 namespace VNForge.Core.Text;
 
 /// <summary>
-/// Como o falante de uma fala entra no texto que o build grava: qual nome vai para o jogo e quais delimitadores (<c>「」</c>) envolvem a fala.
+/// Como o falante de uma fala entra no texto que o build grava: qual nome vai para o jogo. Os delimitadores (<c>「」</c>) não passam por aqui: a engine os grava em Shift-JIS, como no original, seja qual for a estratégia.
 /// É a única composição: a Conferência (<see cref="Qa.SpeakerEncodingRule"/>), o build (<see cref="Projects.ProjectBuilder"/>) e a engine usam estas regras,
 /// então o que passa na Conferência compila.
 /// </summary>
 public static class SpeakerText
 {
-    /// <summary>Delimitador japonês e a aspa curva que o toma quando a estratégia de codificação não grava o original: <c>Inui“Bom dia!”</c>.</summary>
-    private static readonly Dictionary<string, string> CurlyQuotes = new(StringComparer.Ordinal)
-    {
-        ["「"] = "“",
-        ["」"] = "”",
-        ["『"] = "‘",
-        ["』"] = "’",
-    };
-
     /// <summary>
     /// O nome que vai para o jogo no lugar do <paramref name="speaker"/> extraído. Vale a tradução de <c>characters.json</c> (se a estratégia não a grava mas
     /// grava o nome original, como o Shift-JIS, fica o original); sem entrada, o nome original,
@@ -57,23 +48,6 @@ public static class SpeakerText
             : new SpeakerName(
                 speaker,
                 $"O nome do personagem {speaker.Trim()} não existe na codificação do jogo ({encoder.Id}). Cadastre a tradução do nome no Glossário > Personagens.");
-    }
-
-    /// <summary>
-    /// O delimitador que a fala leva no jogo: o próprio <paramref name="delimiter"/> quando o <paramref name="encoder"/> o grava, a aspa curva correspondente
-    /// quando não (e ela é gravável). Sem substituto gravável, devolve o original e quem codifica recusa a linha.
-    /// </summary>
-    public static string Delimiter(string delimiter, ITextEncoder encoder)
-    {
-        ArgumentNullException.ThrowIfNull(delimiter);
-        ArgumentNullException.ThrowIfNull(encoder);
-
-        if (delimiter.Length == 0 || encoder.FindUnencodable(delimiter).Count == 0)
-        {
-            return delimiter;
-        }
-
-        return CurlyQuotes.TryGetValue(delimiter, out var curly) && encoder.FindUnencodable(curly).Count == 0 ? curly : delimiter;
     }
 
     private static string FirstRefused(string text, ITextEncoder encoder) => EncodingMessages.Character(text, encoder.FindUnencodable(text)[0]);

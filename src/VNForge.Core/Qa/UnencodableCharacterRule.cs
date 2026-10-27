@@ -45,10 +45,14 @@ public sealed class UnencodableCharacterRule : UnitQaRule, IQaFixer
             {
                 var length = index + 1 < text.Length && char.IsSurrogatePair(text[index], text[index + 1]) ? 2 : 1;
                 var codePoint = length == 2 ? char.ConvertToUtf32(text[index], text[index + 1]) : text[index];
-                yield return $"{EncodingMessages.Character(text, index)} em «{EncodingMessages.Excerpt(text, index)}» não existe na estratégia '{encoder.Id}'.{Suggestion(codePoint)}";
+                yield return $"{EncodingMessages.Character(text, index)} em «{EncodingMessages.Excerpt(text, index)}» não existe na estratégia '{encoder.Id}'.{Explanation(encoder, codePoint)}{Suggestion(codePoint)}";
             }
         }
     }
+
+    /// <summary>" Na cp1252 ele vira o byte 0x93, ..." para o caractere que a página grava mas o jogo lê errado; vazio para o resto.</summary>
+    private static string Explanation(ITextEncoder encoder, int codePoint) =>
+        encoder is IExplainingTextEncoder explaining && explaining.ExplainRefusal(codePoint) is { } text ? $" {text}" : string.Empty;
 
     /// <summary>" Nome: til japonês. Use '~'." para o que a tabela cobre; vazio para o resto.</summary>
     private static string Suggestion(int codePoint) =>

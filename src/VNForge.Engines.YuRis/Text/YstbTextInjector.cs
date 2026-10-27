@@ -26,7 +26,8 @@ namespace VNForge.Engines.YuRis.Text;
 /// escape de aspas, mas só confere a primeira e a última). Texto com os três é recusado.
 /// </para>
 /// <para>
-/// <b>Falante.</b> Vale o <see cref="TextUnit.Speaker"/> da unidade quando preenchido; vazio, o nome do locator.
+/// <b>Falante.</b> Vale o <see cref="TextUnit.Speaker"/> da unidade quando preenchido; vazio, o nome do locator. O nome e a tradução vão na codificação do projeto e os delimitadores
+/// <c>「」</c> em Shift-JIS quando essa codificação não os grava (<c>cp1252</c>).
 /// </para>
 /// </remarks>
 public static class YstbTextInjector
@@ -37,6 +38,8 @@ public static class YstbTextInjector
     private const byte LineBreakCode = 0xF0;
     private const byte Tab = 0x09;
     private const string WordCommand = "WORD";
+
+    private static readonly ShiftJisTextEncoder OriginalEncoder = new();
 
     private static readonly byte[] Delimiters = [(byte)'"', (byte)'`', (byte)'\''];
 
@@ -78,7 +81,7 @@ public static class YstbTextInjector
             ? ReadWordOriginal(script, locator, targets, unit)
             : ReadExpressionOriginal(script, targets, unit);
 
-        var encoded = Encode(unit, ComposeText(locator, unit, encoder), encoder);
+        var encoded = Compose(locator, unit, encoder);
 
         var rewritten = locator.Command == WordCommand ? encoded : BuildExpression(unit, encoded, original);
         if (rewritten.AsSpan().SequenceEqual(original))
@@ -96,14 +99,16 @@ public static class YstbTextInjector
     }
 
     /// <summary>
-    /// <c>nome + abertura + tradução + fechamento</c>. O nome é o <see cref="TextUnit.Speaker"/> que o Core já resolveu (<see cref="SpeakerText.Resolve"/>); os
-    /// delimitadores trocam por aspas curvas quando a estratégia não grava os japoneses (<see cref="SpeakerText.Delimiter"/>).
+    /// Os bytes de <c>nome + abertura + tradução + fechamento</c>. O nome é o <see cref="TextUnit.Speaker"/> que o Core já resolveu (<see cref="SpeakerText.Resolve"/>)
+    /// e vai na codificação do projeto, como a tradução. Os delimitadores vão na do projeto quando ela grava os japoneses (Shift-JIS) e, quando não grava
+    /// (<c>cp1252</c>), em Shift-JIS mesmo: o jogo separa o nome da fala procurando o <c>「</c> (<c>81 75</c>), e uma aspa curva no lugar dele deixa a mensagem
+    /// inteira como fala e ainda engole a letra seguinte (<c>0x93</c> é lead byte).
     /// </summary>
-    private static string ComposeText(Locator locator, TextUnit unit, ITextEncoder encoder)
+    private static byte[] Compose(Locator locator, TextUnit unit, ITextEncoder encoder)
     {
         if (locator.Speaker is not { } speaker)
         {
-            return unit.Translation!;
+            return Encode(unit, unit.Translation!, encoder);
         }
 
         var name = string.IsNullOrEmpty(unit.Speaker) ? speaker.Name : unit.Speaker;
@@ -113,8 +118,17 @@ public static class YstbTextInjector
                 $"O nome do falante da unidade '{unit.Id}' ({name}) tem {EncodingMessages.Character(name, first)}, que a codificação do jogo ({encoder.Id}) não grava. Cadastre a tradução do nome no Glossário > Personagens.");
         }
 
-        return name + SpeakerText.Delimiter(speaker.Open, encoder) + unit.Translation + SpeakerText.Delimiter(speaker.Close, encoder);
+        return
+        [
+            .. Encode(unit, name, encoder),
+            .. EncodeDelimiter(unit, speaker.Open, encoder),
+            .. Encode(unit, unit.Translation!, encoder),
+            .. EncodeDelimiter(unit, speaker.Close, encoder),
+        ];
     }
+
+    private static byte[] EncodeDelimiter(TextUnit unit, string delimiter, ITextEncoder encoder) =>
+        Encode(unit, delimiter, delimiter.Length == 0 || encoder.FindUnencodable(delimiter).Count == 0 ? encoder : OriginalEncoder);
 
     private static byte[] Encode(TextUnit unit, string text, ITextEncoder encoder)
     {

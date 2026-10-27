@@ -281,15 +281,15 @@ internal static class DemoProject
     [
         ("窓の外では、朝から雨が降り続いている。", "Lá fora, a chuva não parou desde cedo."),
         ("「おはよう、健太くん。今日も遅刻ギリギリだね」", "Bom dia, Kenta. Quase atrasado de novo, hein?"),
-        ("「うるさいな……傘が見つからなかったんだよ」", "Não enche… Eu não achava o guarda-chuva."),
+        ("「うるさいな……傘が見つからなかったんだよ」", "Não enche... Eu não achava o guarda-chuva."),
         ("「ふふっ。じゃあ、一緒に入っていく？」", "Hehe. Quer dividir o meu, então?"),
         ("差し出された傘は、二人で使うには少し小さかった。", "O guarda-chuva que ela me ofereceu era um pouco pequeno para dois."),
-        ("「……いいのか？濡れるぞ、お前」", "…Tem certeza? Você vai se molhar."),
+        ("「……いいのか？濡れるぞ、お前」", "...Tem certeza? Você vai se molhar."),
         ("「平気平気！ほら、行こう！」", "Tranquilo! Vamos, anda!"),
         ("校門の前で、担任の先生が腕を組んで立っていた。", "No portão, nosso professor já nos esperava de braços cruzados."),
         ("「相沢、佐倉。二人そろって五分遅刻だ」", "Aizawa, Sakura. Os dois, cinco minutos atrasados."),
-        ("「えへへ……すみませーん」", "Ehehe… Desculpaaa."),
-        ("「なんで俺まで……」", "Por que eu também…"),
+        ("「えへへ……すみませーん」", "Ehehe... Desculpaaa."),
+        ("「なんで俺まで……」", "Por que eu também..."),
         ("こうして、俺たちの騒がしい一日が始まった。", "E assim começou o nosso dia barulhento."),
     ];
 }

@@ -49,7 +49,7 @@ public class Cp1252TextEncoderTests
     [Fact]
     public void Encode_FraseComAcentos_UmBytePorCaractere()
     {
-        const string frase = "Não é ação, é coração — só você, às vezes.";
+        const string frase = "Não é ação, é coração, só você, às vezes.";
 
         byte[] bytes = _encoder.Encode(frase);
 
@@ -83,6 +83,53 @@ public class Cp1252TextEncoderTests
         {
             Assert.Equal(GameEncodings.Windows1252.GetBytes(texto), _encoder.Encode(texto));
         }
+    }
+
+    [Theory]
+    [InlineData("“Falando”", new[] { 0, 8 })]
+    [InlineData("‘Olha’", new[] { 0, 5 })]
+    [InlineData("fim…", new[] { 3 })]
+    [InlineData("a – b — c", new[] { 2, 6 })]
+    [InlineData("• item ™", new[] { 0, 7 })]
+    [InlineData("‚ƒ„†‡ˆ‰Š‹ŒŽ˜šœžŸ›", new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 })]
+    [InlineData("Falando é ç ã õ ô à Ç \"reto\" 'reto' ... - € £", new int[0])]
+    public void FindUnencodable_CaractereQueOJogoLeComoInicioDeCaractereDuplo_EhRecusado(string texto, int[] indices)
+    {
+        Assert.Equal(indices, _encoder.FindUnencodable(texto));
+        if (indices.Length > 0)
+        {
+            Assert.Throws<EncoderFallbackException>(() => _encoder.Encode(texto));
+        }
+    }
+
+    [Fact]
+    public void Encode_AspaCurva_ExplicaOMotivoEAsTrocas()
+    {
+        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("“oi”"));
+
+        Assert.Contains("0x93", ex.Message);
+        Assert.Contains("aspas retas", ex.Message);
+    }
+
+    [Theory]
+    [InlineData('“', "aspas retas")]
+    [InlineData('’', "aspas retas")]
+    [InlineData('…', "...")]
+    [InlineData('—', "hífen")]
+    [InlineData('é', null)]
+    [InlineData('ã', null)]
+    public void ExplainRefusal_DizOPorqueEAtroca(char c, string? trecho)
+    {
+        var explanation = _encoder.ExplainRefusal(c);
+
+        if (trecho is null)
+        {
+            Assert.Null(explanation);
+            return;
+        }
+
+        Assert.Contains("engole", explanation, StringComparison.Ordinal);
+        Assert.Contains(trecho, explanation, StringComparison.Ordinal);
     }
 
     [Theory]

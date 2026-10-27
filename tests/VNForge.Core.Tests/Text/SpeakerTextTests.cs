@@ -100,23 +100,6 @@ public sealed class SpeakerTextTests
         Assert.Equal(string.Empty, name.Name);
     }
 
-    [Theory]
-    [InlineData("「", "“")]
-    [InlineData("」", "”")]
-    [InlineData("『", "‘")]
-    [InlineData("』", "’")]
-    public void Delimitador_japones_vira_aspa_curva_quando_a_estrategia_nao_o_grava(string delimiter, string expected)
-    {
-        Assert.Equal(expected, SpeakerText.Delimiter(delimiter, Cp1252));
-    }
-
-    [Fact]
-    public void Delimitador_que_a_estrategia_grava_fica_e_vazio_continua_vazio()
-    {
-        Assert.Equal("「", SpeakerText.Delimiter("「", ShiftJis));
-        Assert.Equal(string.Empty, SpeakerText.Delimiter(string.Empty, Cp1252));
-    }
-
     [Fact]
     public void Mensagem_cita_o_caractere_e_o_trecho_em_volta()
     {

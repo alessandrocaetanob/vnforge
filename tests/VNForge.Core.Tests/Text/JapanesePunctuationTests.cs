@@ -27,9 +27,9 @@ public sealed class JapanesePunctuationTests
     }
 
     [Fact]
-    public void Tres_pontos_medios_viram_reticencias_quando_a_estrategia_grava()
+    public void Tres_pontos_medios_viram_reticencias_quando_a_estrategia_grava_e_tres_pontos_na_cp1252()
     {
-        Assert.Equal("Hum…", JapanesePunctuation.FixUnencodable("Hum・・・", Cp1252));
+        Assert.Equal("Hum...", JapanesePunctuation.FixUnencodable("Hum・・・", Cp1252));
         Assert.Equal("Hum…", JapanesePunctuation.ToKeyboard("Hum・・・", Sjis));
     }
 
@@ -38,9 +38,9 @@ public sealed class JapanesePunctuationTests
     {
         Assert.Equal("Hum·", JapanesePunctuation.FixUnencodable("Hum・", Cp1252));
         Assert.Equal("Hum··", JapanesePunctuation.FixUnencodable("Hum・・", Cp1252));
-        Assert.Equal("Hum…", JapanesePunctuation.FixUnencodable("Hum・・・", Cp1252));
-        Assert.Equal("Hum… ·", JapanesePunctuation.FixUnencodable("Hum・・・ ・", Cp1252));
-        Assert.Equal("Hum……", JapanesePunctuation.FixUnencodable("Hum・・・…", Cp1252));
+        Assert.Equal("Hum...", JapanesePunctuation.FixUnencodable("Hum・・・", Cp1252));
+        Assert.Equal("Hum... ·", JapanesePunctuation.FixUnencodable("Hum・・・ ・", Cp1252));
+        Assert.Equal("Hum......", JapanesePunctuation.FixUnencodable("Hum・・・…", Cp1252));
         Assert.Equal("Hum..", JapanesePunctuation.FixUnencodable("Hum‥", Cp1252));
     }
 
@@ -64,13 +64,13 @@ public sealed class JapanesePunctuationTests
     }
 
     [Fact]
-    public void Reticencias_so_trocam_quando_a_estrategia_nao_as_grava()
+    public void Reticencias_so_trocam_quando_a_estrategia_nao_as_grava_e_a_cp1252_nao_as_grava()
     {
         var semReticencias = new OnlyAsciiEncoder();
 
         Assert.Equal("Hum...", JapanesePunctuation.FixUnencodable("Hum…", semReticencias));
-        Assert.Equal("Hum…", JapanesePunctuation.FixUnencodable("Hum…", Cp1252));
-        Assert.Equal("Hum…", JapanesePunctuation.ToKeyboard("Hum…", Cp1252));
+        Assert.Equal("Hum...", JapanesePunctuation.FixUnencodable("Hum…", Cp1252));
+        Assert.Equal("Hum…", JapanesePunctuation.ToKeyboard("Hum…", Sjis));
         Assert.Equal("Hum...", JapanesePunctuation.FixUnencodable("Hum・・・", semReticencias));
     }
 
