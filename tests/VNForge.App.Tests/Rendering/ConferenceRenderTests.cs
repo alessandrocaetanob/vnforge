@@ -137,7 +137,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
             TestContext.Current.CancellationToken);
     }
 
-    private static Control PanelOf(ConferenceView view) =>
+    private static Border PanelOf(ConferenceView view) =>
         view.GetVisualDescendants().OfType<Border>().Single(b => AutomationProperties.GetName(b) == "Problema selecionado");
 
     private static IEnumerable<Button> PanelButtons(ConferenceView view) => PanelOf(view).GetVisualDescendants().OfType<Button>();
@@ -180,7 +180,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.True(probe.CountInArea(new Rect(8, 2, probe.Width - 16, probe.Height - 4), errorBg, 4) < probe.Width * probe.Height / 100, "a faixa não tem fundo vermelho");
         Assert.True(probe.CountInArea(new Rect(0, 4, 3, probe.Height - 8), errorFg, 6) > probe.Height / 2, "a barra de erro desenha a borda esquerda");
         var number = banner.GetVisualDescendants().OfType<TextBlock>().SelectMany(t => t.Inlines ?? []).OfType<Run>().Single(r => r.Text == conference.BlockingCount);
-        Assert.Equal(errorFg, Assert.IsAssignableFrom<ISolidColorBrush>(number.Foreground).Color);
+        Assert.Equal(errorFg, Assert.IsType<ISolidColorBrush>(number.Foreground, exactMatch: false).Color);
     }
 
     private static Color ColorOf(string key, ThemeVariant theme) =>

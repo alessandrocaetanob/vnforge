@@ -299,9 +299,16 @@ public sealed partial class ConferenceViewModel : ObservableObject
         var positions = new Dictionary<string, int?>(StringComparer.Ordinal);
         var sceneNumbers = context.Texts.Keys.Select((key, index) => (key, number: index + 1)).ToDictionary(x => x.key, x => x.number, StringComparer.Ordinal);
         // Sem nome, "Cena N" com N a posição do script entre todos do projeto (ordem de chave, de 1 em diante); script fora da lista fica só "Cena", sem inventar número.
-        string Scene(string key) =>
-            scenes.DisplayName(key) is { } name && !string.IsNullOrWhiteSpace(name) ? name
-            : sceneNumbers.TryGetValue(key, out var number) ? $"Cena {number.ToString(CultureInfo.InvariantCulture)}" : "Cena";
+        string Scene(string key)
+        {
+            if (scenes.DisplayName(key) is { } name && !string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+
+            return sceneNumbers.TryGetValue(key, out var number) ? $"Cena {number.ToString(CultureInfo.InvariantCulture)}" : "Cena";
+        }
+
         foreach (var list in context.Texts.Values)
         {
             for (var i = 0; i < list.Count; i++)
