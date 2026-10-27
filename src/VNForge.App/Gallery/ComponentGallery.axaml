@@ -32,8 +32,8 @@
 
     <StackPanel Spacing="8">
       <TextBlock Classes="overline" Text="Tipografia"/>
-      <TextBlock Classes="title-lg" Text="Título 26/32 · Zen Kaku Gothic New"/>
-      <TextBlock Classes="title-md" Text="Título 17/24 · Zen Kaku Gothic New"/>
+      <TextBlock Classes="title-lg" Text="Título 26/38 · Zen Kaku Gothic New"/>
+      <TextBlock Classes="title-md" Text="Título 17/25 · Zen Kaku Gothic New"/>
       <TextBlock Classes="body" Text="Corpo 14/20 · Noto Sans"/>
       <TextBlock Classes="body-sm" Text="Corpo pequeno 13/18"/>
       <TextBlock Classes="caption secondary" Text="Legenda 12/16 · text-secondary"/>
