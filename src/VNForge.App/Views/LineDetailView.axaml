@@ -20,6 +20,10 @@
     <Style Selector=":is(UserControl).tabbed StackPanel.tab-only">
       <Setter Property="IsVisible" Value="True"/>
     </Style>
+    <!-- Na aba Sugestão o "Usar esta sugestão" do cartão faz o mesmo: o do rodapé sai para não haver dois botões iguais. -->
+    <Style Selector=":is(UserControl).tabbed.suggestion-tab Button.use-in-row">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
     <!-- Inspetor estreito (janela mínima e abas): a tecla e o ícone saem dos botões para o texto não quebrar nem ser cortado. -->
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
@@ -40,7 +44,7 @@
     <Panel>
     <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard. A margem direita deixa a barra de rolagem fora do texto. -->
     <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,0">
+      <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,20">
 
         <!-- Cabeçalho: id em mono, selo de status, tipo da linha, histórico e menu. -->
         <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
@@ -283,16 +287,27 @@
       <Border x:Name="TabbedHeaderHost" DockPanel.Dock="Top" Padding="0,0,0,8"/>
       <TabControl x:Name="InspectorTabs" Classes="tabs" SelectedIndex="0">
         <TabItem Header="Tradução" AutomationProperties.Name="Aba Tradução">
-          <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="TranslationTab" Spacing="16" Margin="0,12,12,0"/></ScrollViewer>
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="TranslationTab" Spacing="16" Margin="0,12,12,20"/></ScrollViewer>
         </TabItem>
         <TabItem Header="Sugestão" AutomationProperties.Name="Aba Sugestão">
-          <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="SuggestionTab" Spacing="16" Margin="0,12,12,0"/></ScrollViewer>
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="SuggestionTab" Spacing="16" Margin="0,12,12,20"/></ScrollViewer>
         </TabItem>
         <TabItem Header="Contexto" AutomationProperties.Name="Aba Contexto">
-          <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="ContextTab" Spacing="16" Margin="0,12,12,0"/></ScrollViewer>
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="ContextTab" Spacing="16" Margin="0,12,12,20"/></ScrollViewer>
         </TabItem>
       </TabControl>
     </DockPanel>
+
+    <!-- Degradê curto do fundo do painel para transparente logo acima da barra fixa: o que rola por baixo some em vez de aparecer cortado.
+         Só o canal alfa da máscara importa; a cor vem do token. -->
+    <Border Height="20" VerticalAlignment="Bottom" IsHitTestVisible="False" Background="{DynamicResource Vnf.BgCard}">
+      <Border.OpacityMask>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+          <GradientStop Offset="0" Color="#00000000"/>
+          <GradientStop Offset="1" Color="#FF000000"/>
+        </LinearGradientBrush>
+      </Border.OpacityMask>
+    </Border>
     </Panel>
 
     <Border Grid.Row="1" Classes="divider-top" Padding="0,12,0,0" Margin="0,8,0,0">

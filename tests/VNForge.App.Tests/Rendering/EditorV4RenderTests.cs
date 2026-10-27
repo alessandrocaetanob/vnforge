@@ -30,7 +30,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task A_1440_Original_e_Traducao_levam_mais_da_metade_da_grade_e_o_cabecalho_alinha_com_as_linhas(string themeName)
+    public async Task A_1440_Original_e_Traducao_levam_bem_mais_largura_que_antes_e_o_cabecalho_alinha_com_as_linhas(string themeName)
     {
         var demo = demoFolder;
         await Run(
@@ -55,7 +55,8 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     Assert.Equal("Quem fala", titulos[2].Text);
 
                     var texto = colunas[3].ActualWidth + colunas[4].ActualWidth;
-                    Assert.True(texto > grade.Bounds.Width / 2, $"Original e Tradução têm {texto:0} de {grade.Bounds.Width:0} px da grade");
+                    // Antes da v4 as duas somavam uns 194 px de 598 (32%); com o inspetor de volta a 474 px elas passam de 40% da grade.
+                    Assert.True(texto >= 245 && texto >= grade.Bounds.Width * 0.40, $"Original e Tradução têm {texto:0} de {grade.Bounds.Width:0} px da grade ({texto / grade.Bounds.Width:P0})");
                     Assert.True(colunas[4].ActualWidth > colunas[3].ActualWidth, "a tradução leva um pouco mais que o original");
 
                     var linha = linhas.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible);
@@ -68,8 +69,71 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     }
 
                     var largura = linha.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Original").Bounds.Width;
-                    Assert.True(largura > 150, $"a coluna Original mostra bem mais que 12 caracteres ({largura:0} px)");
+                    Assert.True(largura > 105, $"a coluna Original tem mais que os 97 px de antes da v4 ({largura:0} px)");
                     Assert.Equal(["Todas", "Em japonês", "Para revisar", "Com aviso", "Não traduzir"], editor.Filters.Select(f => f.Label));
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task A_1366_Original_e_Traducao_levam_mais_de_45_por_cento_da_grade(string themeName)
+    {
+        var demo = demoFolder;
+        await Run(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var (window, _) = await OpenDemo(config, demo.Root, Of(themeName), 1366, 768);
+                try
+                {
+                    var linhas = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LinesList");
+                    var grade = linhas.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel"));
+                    var colunas = ((Grid)grade.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("divider-bottom") && b.Child is Grid { ColumnDefinitions.Count: 6 }).Child!).ColumnDefinitions;
+                    var texto = colunas[3].ActualWidth + colunas[4].ActualWidth;
+                    Assert.True(texto >= grade.Bounds.Width * 0.45, $"Original e Tradução têm {texto:0} de {grade.Bounds.Width:0} px da grade ({texto / grade.Bounds.Width:P0})");
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Nas_abas_o_Usar_sugestao_do_rodape_sai_enquanto_a_aba_Sugestao_esta_aberta_e_um_degrade_cobre_o_corte(string themeName)
+    {
+        var demo = demoFolder;
+        await Run(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var (window, _) = await OpenDemo(config, demo.Root, Of(themeName), 1366, 768);
+                try
+                {
+                    var inspetor = window.GetVisualDescendants().OfType<LineDetailView>().Single();
+                    var usar = inspetor.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("use-in-row"));
+                    var abas = inspetor.GetVisualDescendants().OfType<TabControl>().Single();
+                    Assert.True(usar.IsEffectivelyVisible);
+
+                    abas.SelectedIndex = 1;
+                    ScreenRenderer.Settle(window);
+                    Assert.False(usar.IsEffectivelyVisible);
+                    Assert.True(inspetor.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "ApproveButton").IsEffectivelyVisible);
+
+                    abas.SelectedIndex = 0;
+                    ScreenRenderer.Settle(window);
+                    Assert.True(usar.IsEffectivelyVisible);
+
+                    var degrade = inspetor.GetVisualDescendants().OfType<Border>().Single(b => b.OpacityMask is LinearGradientBrush);
+                    var rodape = inspetor.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("divider-top") && b.GetVisualDescendants().Contains(usar));
+                    Assert.False(degrade.IsHitTestVisible);
+                    Assert.True(Math.Abs(degrade.TranslatePoint(new Point(0, degrade.Bounds.Height), window)!.Value.Y - rodape.TranslatePoint(default, window)!.Value.Y) <= 8 + Tolerance, "o degradê termina logo acima da barra fixa");
                 }
                 finally
                 {

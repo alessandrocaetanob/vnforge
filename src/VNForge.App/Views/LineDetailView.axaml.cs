@@ -40,6 +40,7 @@ public sealed partial class LineDetailView : UserControl
         InitializeComponent();
         TranslationEditor.TextArea.TextView.ElementGenerators.Add(new MarkerChipGenerator());
         TranslationEditor.TextChanged += OnEditorTextChanged;
+        InspectorTabs.SelectionChanged += (_, _) => UpdateSuggestionTab();
 
         // O "há 2 min" do cartão da IA envelhece sozinho enquanto a linha fica aberta.
         ageTimer = new DispatcherTimer { Interval = AgeRefresh };
@@ -65,6 +66,8 @@ public sealed partial class LineDetailView : UserControl
 
     /// <summary>Com menos de 360 px (as abas e a janela mínima) a barra de ações larga a tecla e o ícone dos botões para os dois textos caberem.</summary>
     private void UpdateCompact() => Classes.Set("compact", Bounds.Width is > 0 and < CompactWidth);
+
+    private void UpdateSuggestionTab() => Classes.Set("suggestion-tab", tabbed && InspectorTabs.SelectedIndex == SuggestionTabIndex);
 
     /// <summary>Na ordem do artboard, numa coluna só.</summary>
     private Control[] WideOrder =>
@@ -107,6 +110,7 @@ public sealed partial class LineDetailView : UserControl
         InspectorTabs.SelectedIndex = TranslationTabIndex;
         GameBox.Size = useTabs ? GameTextboxSize.Small : GameTextboxSize.Medium;
         Classes.Set("tabbed", useTabs);
+        UpdateSuggestionTab();
         UpdateCompact();
 
         // Tirar o campo da árvore tira o foco dele, e sem foco os atalhos do inspetor deixam de responder.

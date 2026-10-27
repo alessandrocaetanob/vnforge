@@ -28,16 +28,16 @@ public static class EditorBreakpoints
     public const double InspectorTabsWidth = 360;
 
     /// <summary>
-    /// A grade de linhas leva o que sobra (v4): o inspetor inteiro parte de 340 px e só passa disso em janelas largas, até 600 px. A 1440 px de janela ele tem 340 px e a caixa
-    /// do jogo encolhe em proporção (nunca rola); com 600 px ela mostra as 73 colunas do perfil sem encolher (#392).
+    /// O inspetor inteiro (sem abas) cresce até 600 px para a caixa do jogo mostrar as 73 colunas do perfil sem encolher (#392): 73 colunas de 7 px mais as bordas da caixa
+    /// e o recuo do painel. Abaixo disso a caixa encolhe em proporção, nunca rola. A 1440 px o inspetor tem cerca de 474 px.
     /// </summary>
-    public const double InspectorMinWidth = 340;
+    public const double InspectorMinWidth = 320;
 
     public const double InspectorMaxWidth = 600;
 
-    public const double InspectorStars = 1.0;
+    public const double InspectorStars = 1.9;
 
-    /// <summary>A lista de cenas leva o nome da cena e o id pequeno; 190 px bastam e deixam a largura para o texto da grade.</summary>
+    /// <summary>A lista de cenas leva o nome da cena e o id pequeno; 190 px bastam e os 58 px a menos vão para a grade de linhas.</summary>
     public const double ScenesMaxWidth = 190;
 
     /// <summary>Largura da faixa em que a coluna das cenas se recolhe (#393): o botão de abrir e o nome da cena aberta, de pé.</summary>

@@ -122,14 +122,13 @@
       <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
     </Border>
 
-    <!-- O texto ganha a largura (v4): scripts 1* (180 a 190), linhas 2,26*, inspetor 1* (340 a 600). A 1440 px de janela dá 190 · 766 · 340, e Original e
-         Tradução ficam com mais da metade da grade; o inspetor só passa dos 340 px a partir de uns 1470 px de janela, e a caixa do jogo encolhe em proporção até lá.
+    <!-- Scripts 1* (180 a 190), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 190 · 632 · 474 (v4: a lista de cenas cede 58 px à grade); o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
     <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="190"/>
-        <ColumnDefinition Width="2.26*" MinWidth="240"/>
-        <ColumnDefinition Width="1*" MinWidth="340" MaxWidth="600"/>
+        <ColumnDefinition Width="2.53*" MinWidth="240"/>
+        <ColumnDefinition Width="1.9*" MinWidth="320" MaxWidth="600"/>
       </Grid.ColumnDefinitions>
 
       <!-- Cenas -->
