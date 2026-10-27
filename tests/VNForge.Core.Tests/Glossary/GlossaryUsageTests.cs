@@ -57,6 +57,15 @@ public class GlossaryUsageTests
     }
 
     [Fact]
+    public void Conta_as_falas_do_personagem_cadastrado_com_letra_de_largura_diferente()
+    {
+        var usage = GlossaryUsage.From([Line("おはよう", "学生Ｃ"), Line("さようなら", "学生Ｃ"), Line("やあ", "学生C")]);
+
+        Assert.Equal(3, usage.LinesSpokenBy("学生C"));
+        Assert.Equal(3, usage.LinesSpokenBy("学生Ｃ"));
+    }
+
+    [Fact]
     public void Projeto_sem_linhas_conta_zero_em_tudo()
     {
         var usage = GlossaryUsage.From([]);
