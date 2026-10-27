@@ -118,11 +118,11 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                       <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SuggestingText}"
                                  IsVisible="{Binding IsSuggesting}"/>
-                      <Button Classes="sm" Command="{Binding SuggestVoicesCommand}" ToolTip.Tip="A IA lê até 20 falas de cada personagem e sugere o gênero e o jeito de falar. Só preenche o que está vazio.">
+                      <Button Classes="sm" Command="{Binding SuggestVoicesCommand}" ToolTip.Tip="{Binding VoiceHint}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                           <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
                           <TextBlock Text="Sugerir voz e gênero pelas falas"/>
-                          <TextBlock Classes="mono secondary" Text="{Binding VoicePriceText}"
+                          <TextBlock Classes="secondary" Text="{Binding VoicePriceText}"
                                      IsVisible="{Binding VoicePriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                         </StackPanel>
                       </Button>
@@ -237,11 +237,11 @@
                   </Border>
                   <Border Classes="divider-bottom" Padding="16,8" IsVisible="{Binding HasRepeatedTerms}">
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                      <Button Classes="sm" Command="{Binding SuggestTermsCommand}" ToolTip.Tip="A IA traduz os termos da lista e explica a escolha em uma frase.">
+                      <Button Classes="sm" Command="{Binding SuggestTermsCommand}" ToolTip.Tip="{Binding TermsHint}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                           <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
                           <TextBlock Text="Traduzir com a IA"/>
-                          <TextBlock Classes="mono secondary" Text="{Binding TermsPriceText}"
+                          <TextBlock Classes="secondary" Text="{Binding TermsPriceText}"
                                      IsVisible="{Binding TermsPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                         </StackPanel>
                       </Button>

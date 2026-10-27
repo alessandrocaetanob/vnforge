@@ -261,7 +261,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"Jogo com a tradução de 22/10" ou "Jogo original", como o último teste no jogo deixou; vazio antes de a tela Testar ler o estado.</summary>
     public string GameStatusText => Build.GameStatusText;
 
-    /// <summary>"Alterações salvas automaticamente em vnforge.json" enquanto os Ajustes de um projeto estão abertos; vazio nas outras telas.</summary>
+    /// <summary>"Salvo" (<see cref="SettingsViewModel.AutosaveNote"/>) enquanto os Ajustes de um projeto estão abertos; vazio nas outras telas.</summary>
     public string StatusNote => SelectedNav?.Key == NavKey.Settings && Settings.HasProject ? SettingsViewModel.AutosaveNote : string.Empty;
 
     /// <summary>"Acentos: ajuste no jogo" com a estratégia do projeto.</summary>

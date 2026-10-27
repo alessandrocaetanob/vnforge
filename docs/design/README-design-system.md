@@ -127,7 +127,7 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 | `ContextLines` | `.ctx` | itens `ContextLine` (quem, original, tradução) | "Na cena": as falas em volta da linha aberta | Inspetor do Editor, modo revisão |
 | `ExplainCard` | `.explain` | `Model`, `Footnote`, itens `ExplainPart` | "Entender o japonês": cartão tracejado com o original em partes e o que cada uma significa | Inspetor do Editor, modo revisão |
 | `ScriptGroup` | `.grp` | `Title`, `CountText` | `Expander` de um capítulo na lista de cenas | Editor (quando o Core entregar os grupos, #309) |
-| `GameStateBanner` | `.gamestate` | `State` (`Original`, `Translated`, `Blocked`, `Warning`), `Title`, `Message` | Faixa do que o jogo tem hoje, com "Voltar ao jogo original" sempre visível | Testar no jogo |
+| `GameStateBanner` | `.gamestate` | `State` (`Original`, `Translated`, `Blocked`, `Warning`), `Title`, `Message`, `Footer` | Cartão do que o jogo tem hoje, com "Voltar ao jogo original" sempre visível; o `Footer`, sob uma divisória, leva os cinco passos do teste (v4, #407) | Testar no jogo |
 | `ScreenDialog` | `.scrim`, `.dialog` | `IsOpen`, `Title`, `Footer`, `CloseCommand` | Diálogo sobre a tela, na camada de sobreposição e sem janela nova; `Esc` fecha | Traduzir com IA, "Usar em todos" no inspetor do Editor |
 | `TechnicalDetails` | `.tech` | `Header`, `Key` | `Expander` fechado por padrão para o que a pessoa não precisa ver; com `Key`, o estado aberto ou fechado volta ao revisitar a página (#382) | Novo projeto, Testar no jogo, Ajustes; Início (#313) |
 

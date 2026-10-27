@@ -18,6 +18,8 @@ public sealed class BuildTestViewModelTests : IDisposable
     private readonly string root;
     private readonly DemoQaRule qaRule = new();
     private readonly Starter starter = new();
+    private readonly GateQaRule gate = new();
+    private readonly BackgroundTaskService tasks = new();
     private FakeTimeProvider clock = new(new DateTimeOffset(2026, 10, 25, 12, 0, 0, TimeSpan.Zero));
 
     public BuildTestViewModelTests()
@@ -31,7 +33,7 @@ public sealed class BuildTestViewModelTests : IDisposable
 
     private async Task<BuildViewModel> OpenAsync()
     {
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new DemoBuildEngine()], starter, new QaEngine([qaRule]), clock)
+        var vm = new BuildViewModel(tasks, [new DemoBuildEngine()], starter, new QaEngine([qaRule, gate]), clock)
         {
             Project = DemoProject.Summary(root),
         };
@@ -85,6 +87,135 @@ public sealed class BuildTestViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_teste_os_cinco_passos_ficam_cinza_com_a_frase_de_projeto_sem_teste()
+    {
+        var vm = await OpenAsync();
+
+        Assert.Equal(5, vm.LastTestSteps.Count);
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsPending));
+        Assert.All(vm.LastTestSteps, r => Assert.Equal(string.Empty, r.TimeText));
+        Assert.Equal([false, false, false, false, true], vm.LastTestSteps.Select(r => r.IsLast));
+        Assert.Equal("Ainda não houve teste neste projeto", vm.TestStepsCaption);
+    }
+
+    [Fact]
+    public async Task Com_erros_so_o_passo_Conferir_fica_travado_e_diz_quantos_erros()
+    {
+        qaRule.Enabled = true;
+
+        var vm = await OpenAsync();
+
+        Assert.True(vm.LastTestSteps[0].IsBlocked);
+        Assert.Equal("2 erros travam", vm.LastTestSteps[0].TimeText);
+        Assert.All(vm.LastTestSteps.Skip(1), r => Assert.True(r.IsPending));
+        Assert.Equal("Corrija os erros na Conferência para testar de novo.", vm.TestStepsCaption);
+    }
+
+    private static TestStepState[] States(BuildViewModel vm) => [.. vm.LastTestSteps.Select(r => r.State)];
+
+    private static readonly TestStepState[] AllPending = [.. Enumerable.Repeat(TestStepState.Pending, 5)];
+
+    private async Task<Task> StartHeldAsync(BuildViewModel vm, bool accents = false)
+    {
+        starter.Hold = new ManualResetEventSlim();
+        var running = accents ? vm.TestAccentsCommand.ExecuteAsync(null) : vm.TestCommand.ExecuteAsync(null);
+        Assert.True(await Task.Run(() => starter.Entered.Wait(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken), "O teste não chegou a abrir o jogo.");
+        return running;
+    }
+
+    [Fact]
+    public async Task Durante_o_teste_o_passo_atual_fica_em_andamento_os_anteriores_prontos_e_os_seguintes_cinza()
+    {
+        var vm = await OpenAsync();
+
+        var running = await StartHeldAsync(vm);
+
+        Assert.Equal(
+            [TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Running],
+            States(vm));
+        Assert.Equal("Testando agora · Abrir o jogo", vm.TestStepsCaption);
+
+        starter.Hold!.Set();
+        await running;
+
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
+        Assert.StartsWith("Último teste · ", vm.TestStepsCaption, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Voltar_a_pagina_durante_o_teste_nao_reescreve_os_passos_com_o_ultimo_teste()
+    {
+        var vm = await OpenAsync();
+        var running = await StartHeldAsync(vm);
+
+        await vm.ReloadAsync();
+
+        Assert.Equal(TestStepState.Running, vm.LastTestSteps[4].State);
+        Assert.Equal("Testando agora · Abrir o jogo", vm.TestStepsCaption);
+
+        starter.Hold!.Set();
+        await running;
+    }
+
+    [Fact]
+    public async Task Falha_no_meio_do_teste_deixa_o_passo_que_falhou_vermelho_os_anteriores_prontos_e_a_legenda_diz_que_falhou()
+    {
+        starter.Failure = new GameOpenException("não abriu", new IOException("sem acesso"));
+        var vm = await OpenAsync();
+
+        await vm.TestCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            [TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Failed],
+            States(vm));
+        Assert.Equal("O jogo não abriu", vm.LastTestSteps[4].TimeText);
+        Assert.Equal("O último teste falhou.", vm.TestStepsCaption);
+        Assert.NotNull(vm.ErrorMessage);
+
+        starter.Failure = null;
+        await vm.TestCommand.ExecuteAsync(null);
+
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
+    }
+
+    [Fact]
+    public async Task Cancelar_o_teste_marca_o_passo_como_cancelado_e_nao_volta_ao_teste_anterior()
+    {
+        var vm = await OpenAsync();
+        gate.Arm();
+        var running = vm.TestCommand.ExecuteAsync(null);
+        Assert.True(await Task.Run(() => gate.Entered.Wait(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken), "O teste não chegou à Conferência.");
+
+        tasks.Tasks.Last().CancelCommand.Execute(null);
+        gate.Release.Set();
+        await running;
+
+        var failed = vm.LastTestSteps.Single(r => r.IsFailed);
+        Assert.Equal("Cancelado", failed.TimeText);
+        var index = vm.LastTestSteps.IndexOf(failed);
+        Assert.All(vm.LastTestSteps.Take(index), r => Assert.True(r.IsDone));
+        Assert.All(vm.LastTestSteps.Skip(index + 1), r => Assert.True(r.IsPending));
+        Assert.Equal("O último teste foi cancelado.", vm.TestStepsCaption);
+        Assert.Null(starter.Executable);
+    }
+
+    [Fact]
+    public async Task Testar_so_os_acentos_mostra_o_proprio_resultado_mesmo_com_erros_na_Conferencia()
+    {
+        var vm = await OpenAsync();
+        await vm.TestAccentsCommand.ExecuteAsync(null);
+        qaRule.Enabled = true;
+
+        await vm.ReloadAsync();
+
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
+        Assert.Contains("só os acentos", vm.TestStepsCaption, StringComparison.Ordinal);
+        Assert.Contains("corrija os erros", vm.TestStepsCaption, StringComparison.Ordinal);
+        Assert.Equal(GameState.Blocked, vm.GameBannerState);
+        Assert.False(vm.TestCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Testar_no_jogo_confere_injeta_com_backup_abre_o_jogo_e_guarda_os_cinco_passos()
     {
         var vm = await OpenAsync();
@@ -103,6 +234,8 @@ public sealed class BuildTestViewModelTests : IDisposable
             ["Conferir a tradução", "Preparar os arquivos", "Guardar a cópia de segurança", "Copiar para o jogo", "Abrir o jogo"],
             vm.LastTestSteps.Select(s => s.Label));
         Assert.StartsWith("Último teste · ", vm.LastTestTitle, StringComparison.Ordinal);
+        Assert.Equal(vm.LastTestTitle, vm.TestStepsCaption);
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
         Assert.Equal(BuildNoticeKind.Tested, notice?.Kind);
         Assert.Equal(GameTestKind.Translation, GameStateFile.Load(ProjectFolder.Open(root)).InGame?.Kind);
         Assert.False(vm.IsBusy);
@@ -360,14 +493,48 @@ public sealed class BuildTestViewModelTests : IDisposable
 
         public VNForgeException? Failure { get; set; }
 
+        /// <summary>Com ele, <see cref="Start"/> espera aqui: o teste fica parado no passo "Abrir o jogo".</summary>
+        public ManualResetEventSlim? Hold { get; set; }
+
+        public ManualResetEventSlim Entered { get; } = new();
+
         public void Start(string executablePath, string workingDirectory)
         {
+            Entered.Set();
+            Hold?.Wait(TimeSpan.FromSeconds(30));
             if (Failure is not null)
             {
                 throw Failure;
             }
 
             Executable = executablePath;
+        }
+    }
+
+    /// <summary>Segura a Conferência do teste uma vez, depois de armada, para o teste poder ser cancelado ali; as leituras da tela passam direto.</summary>
+    private sealed class GateQaRule : IQaRule
+    {
+        private int armed;
+
+        public ManualResetEventSlim Entered { get; } = new();
+
+        public ManualResetEventSlim Release { get; } = new();
+
+        public string Id => "gate";
+
+        public string Description => "Segura a Conferência para o teste.";
+
+        public void Arm() => Volatile.Write(ref armed, 1);
+
+        public IEnumerable<QaIssue> Check(QaContext context)
+        {
+            if (Interlocked.Exchange(ref armed, 0) == 1)
+            {
+                Entered.Set();
+                Release.Wait(TimeSpan.FromSeconds(30));
+            }
+
+            return [];
         }
     }
 }
