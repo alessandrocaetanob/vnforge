@@ -198,7 +198,7 @@
   <x:Double x:Key="Vnf.StatusbarHeight">28</x:Double>
   <x:Double x:Key="Vnf.NavrailWidth">72</x:Double>
   <x:Double x:Key="Vnf.InspectorWidth">400</x:Double>
-  <x:Double x:Key="Vnf.ScriptsWidth">248</x:Double>
+  <x:Double x:Key="Vnf.ScriptsWidth">190</x:Double>
   <x:Double x:Key="Vnf.Space1">4</x:Double>
   <x:Double x:Key="Vnf.Space2">8</x:Double>
   <x:Double x:Key="Vnf.Space3">12</x:Double>

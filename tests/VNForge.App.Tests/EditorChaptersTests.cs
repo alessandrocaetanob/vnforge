@@ -117,6 +117,20 @@ public class EditorChaptersTests
     }
 
     [Fact]
+    public async Task Depois_de_mover_a_cena_a_posicao_e_a_sobrancelha_seguem_o_capitulo_novo()
+    {
+        using var open = await Open();
+        open.Editor.SelectedScript = open.Scene("yst00002");
+        Assert.Equal("Capítulo 1 · cena 2 de 3", open.Editor.Breadcrumb);
+
+        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2"));
+
+        Assert.Equal(1, open.Scene("yst00002").Position);
+        Assert.Equal(2, open.Scene("yst00003").Position);
+        Assert.Equal("Capítulo 2 · cena 1 de 3", open.Editor.Breadcrumb);
+    }
+
+    [Fact]
     public async Task A_cena_aberta_e_as_marcadas_continuam_selecionadas_depois_de_mover()
     {
         using var open = await Open();

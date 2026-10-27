@@ -47,6 +47,27 @@ public class LineDetailViewModelTests : IDisposable
     }
 
     [Fact]
+    public void O_inspetor_nao_mostra_o_aviso_de_caixa_acima_do_limite_mas_a_linha_do_QA_mantem_os_dois()
+    {
+        const string unidade = "yst00013:000002";
+        var report = new VNForge.Core.Qa.QaReport(
+            [
+                new VNForge.Core.Qa.QaIssue(VNForge.Core.Qa.BoxLineLimitRule.RuleId, VNForge.Core.Qa.QaSeverity.Warning, unidade, "yst00013", "caixa 1 com 4 linhas (máximo 3)."),
+                new VNForge.Core.Qa.QaIssue("espaco-duplo", VNForge.Core.Qa.QaSeverity.Warning, unidade, "yst00013", "espaço duplo"),
+            ],
+            [],
+            [VNForge.Core.Qa.BoxLineLimitRule.RuleId, "espaco-duplo"]);
+        var linhas = EditorFixtures.Lines(report, ("yst00013", [EditorFixtures.Unit("yst00013", 2, null, TranslationStatus.Translated)]));
+        var entrada = linhas.LinesOf("yst00013").Single();
+        using var vm = Abrir(0);
+
+        vm.ShowIssues(entrada.Issues);
+
+        Assert.Equal(2, entrada.Issues.Count);
+        Assert.Equal(["espaço duplo"], vm.QaIssues.Select(i => i.Message));
+    }
+
+    [Fact]
     public void Nao_traduzir_marca_a_linha_grava_no_arquivo_e_esvazia_o_campo()
     {
         using var vm = Abrir(1);

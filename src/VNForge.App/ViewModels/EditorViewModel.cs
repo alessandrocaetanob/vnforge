@@ -58,7 +58,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <param name="postToUi">Como o painel executa a gravação agendada na thread da tela; nulo usa o <see cref="SynchronizationContext"/> da thread que o criou. Os testes passam uma chamada direta.</param>
     /// <param name="suggester">Pede a sugestão da IA do painel (Ctrl+Espaço); o padrão usa o provedor falso, sem rede.</param>
     /// <param name="contextLoader">Lê os personagens e o glossário do projeto; o padrão lê <c>characters.json</c> e <c>glossary.json</c>.</param>
-    /// <param name="scriptLabel">Dá o nome legível de um script pela chave dele; nulo mostra só a chave.</param>
+    /// <param name="scriptLabel">Dá o nome da cena pela chave dela; sem ele (ou nulo) vale o nome do <c>scripts.json</c> e, sem esse também, "Cena N".</param>
     /// <param name="search">O painel de busca e substituição; o padrão cria o <see cref="SearchReplaceViewModel"/> do projeto.</param>
     /// <param name="layoutMemory">Onde o Editor lembra o arranjo escolhido (a coluna das cenas recolhida); nulo vale só até o app fechar.</param>
     public EditorViewModel(
@@ -92,8 +92,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         chips =
         [
             new FilterChipViewModel(LineStatusFilter.All, "Todas") { IsSelected = true },
-            new FilterChipViewModel(LineStatusFilter.Pending, "Pendentes"),
-            new FilterChipViewModel(LineStatusFilter.Machine, "IA"),
+            new FilterChipViewModel(LineStatusFilter.Pending, "Em japonês"),
+            new FilterChipViewModel(LineStatusFilter.Machine, "Para revisar"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
         ];
@@ -183,11 +183,28 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     public string ProjectName => Project?.Name ?? string.Empty;
 
-    /// <summary>A linha de cima do cabeçalho, em mono: a chave do script aberto.</summary>
-    public string Breadcrumb => SelectedScript?.Key ?? string.Empty;
+    /// <summary>A sobrancelha do cabeçalho: "Capítulo 1 · cena 13 de 45", ou "Cena 13 de 45" fora de um capítulo da história. Nunca a chave do script.</summary>
+    public string Breadcrumb
+    {
+        get
+        {
+            if (SelectedScript is not { } script)
+            {
+                return string.Empty;
+            }
 
-    /// <summary>O título do cabeçalho: o nome do capítulo, ou a chave quando o projeto ainda não guarda o nome.</summary>
-    public string ScriptTitle => SelectedScript?.Display ?? string.Empty;
+            if (script.Chapter is not { } chapter)
+            {
+                return $"Cena {script.Position} de {Scripts.Count}";
+            }
+
+            var scene = $"cena {script.Position} de {chapter.Scripts.Count}";
+            return chapter.Number is { } number ? $"Capítulo {number} · {scene}" : char.ToUpperInvariant(scene[0]) + scene[1..];
+        }
+    }
+
+    /// <summary>O título do cabeçalho: o nome da cena, ou "Cena N" quando o projeto não guarda o nome. Nunca a chave do script.</summary>
+    public string ScriptTitle => SelectedScript?.Name ?? string.Empty;
 
     /// <summary>Linhas do script aberto que ainda não têm tradução.</summary>
     public int PendingLines { get; private set; }
@@ -349,7 +366,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         return found;
     }
 
-    /// <summary>Deixa só as linhas pendentes na grade, como o chip "Pendentes".</summary>
+    /// <summary>Deixa só as linhas pendentes na grade, como o chip "Em japonês".</summary>
     public void ShowPendingLines() => SelectFilter(chips.First(c => c.Filter == LineStatusFilter.Pending));
 
     private bool SelectLine(string scriptKey, string unitId)
@@ -850,7 +867,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             Scripts.Clear();
             foreach (var script in loaded?.Scripts ?? [])
             {
-                Scripts.Add(new ScriptItemViewModel(script, scriptLabel(script.Key)) { IsRunning = script.Key == RunningScriptKey });
+                Scripts.Add(new ScriptItemViewModel(script, SceneLabel(script.Key)) { IsRunning = script.Key == RunningScriptKey, Position = Scripts.Count + 1 });
             }
 
             RebuildChapters();
@@ -909,6 +926,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         OnPropertyChanged(nameof(Distribution));
         OnPropertyChanged(nameof(DistributionDescription));
     }
+
+    /// <summary>O nome da cena: o que o chamador dá ou, sem ele, o do <c>scripts.json</c> (o do usuário, senão o que a engine leu do jogo).</summary>
+    private string? SceneLabel(string key) => scriptLabel(key) ?? scriptNames.DisplayName(key);
 
     private static List<SpeakerOption> SpeakerOptionsOf(IReadOnlyList<LineEntry> lines)
     {

@@ -2,14 +2,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- docs/design/components/LineRow: colunas 52 · 96 · 96 · 1* · 1* · 24 com gap de 12. Original em jp-row, o resto em body-sm, o número em mono. -->
+  <!-- docs/design/components/LineRow: colunas 56 · 92 · 132 · 1* · 1.2* · 32 com gap de 8 e recuo de 12 (v4: o texto leva o que sobra). Original em jp-row, o resto em body-sm, o número em mono. -->
   <Style Selector="c|LineRow">
     <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
-    <Setter Property="Padding" Value="16,0"/>
+    <Setter Property="Padding" Value="12,0"/>
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Background}">
-        <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
+        <Grid ColumnDefinitions="56,92,132,*,1.2*,32" ColumnSpacing="8" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
           <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}" VerticalAlignment="Center"/>
           <c:StatusBadge Grid.Column="1" Status="{TemplateBinding Status}"/>
           <TextBlock Name="PART_Speaker" Grid.Column="2" Classes="body-sm" Text="{TemplateBinding SpeakerText}"

@@ -566,7 +566,7 @@ public sealed class ReviewModeTests : IDisposable
     public async Task O_modo_revisao_mostra_todas_as_linhas_da_fila_mesmo_com_filtro_ativo()
     {
         var vm = await Abrir();
-        vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Label == "Pendentes"));
+        vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Label == "Em japonês"));
         Assert.True(vm.HasStatusFilter);
         Assert.Single(vm.Lines);
 

@@ -153,7 +153,9 @@ public sealed class EditorCompactRenderTests(HeadlessFixture fixture, DemoFolder
 
         Assert.True(caixa.IsEffectivelyVisible);
         Assert.Equal(GameTextboxSize.Small, caixa.Size);
-        Assert.Contains(inspector.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("kbd") && b.IsEffectivelyVisible);
+        // Com 328 px de conteúdo a barra fixa tem os dois botões e larga a tecla (fica na dica) para os dois textos caberem.
+        Assert.DoesNotContain(inspector.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("kbd") && b.IsEffectivelyVisible);
+        Assert.Equal(2, inspector.GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && (b.Name == "ApproveButton" || b.Classes.Contains("use-in-row"))));
         Assert.True(caixa.Bounds.Width <= recipiente.Bounds.Width + Tolerance, $"a caixa do jogo inteira cabe sem rolagem horizontal ({caixa.Bounds.Width:0.#} de {recipiente.Bounds.Width:0.#})");
         Assert.DoesNotContain(caixa.GetVisualAncestors().TakeWhile(a => a != inspector).OfType<ScrollViewer>(), r => r.Extent.Width > r.Viewport.Width + Tolerance);
 
