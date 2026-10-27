@@ -10,8 +10,11 @@ public sealed partial class StartView : UserControl
     public StartView()
     {
         InitializeComponent();
-        DropArea.AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        DropArea.AddHandler(DragDrop.DropEvent, OnDrop);
+        foreach (var area in new[] { ListDropArea, FirstDropArea })
+        {
+            area.AddHandler(DragDrop.DragOverEvent, OnDragOver);
+            area.AddHandler(DragDrop.DropEvent, OnDrop);
+        }
     }
 
     private static void OnDragOver(object? sender, DragEventArgs e) =>

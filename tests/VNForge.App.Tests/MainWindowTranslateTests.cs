@@ -123,14 +123,14 @@ public sealed class MainWindowTranslateTests : IDisposable
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
         await vm.Dashboard.ReloadAsync();
         var before = vm.Dashboard.Steps[1].Subtitle;
-        Assert.Contains("faltam 3 linhas", before);
+        Assert.Equal("25% traduzido", before);
 
         vm.Editor.TranslatePendingCommand.Execute(null);
         await vm.TranslateOpening;
         vm.Translate.StartCommand.Execute(null);
         await vm.TranslationRun;
 
-        Assert.Contains("faltam 1 linha",vm.Dashboard.Steps[1].Subtitle);
+        Assert.Equal("75% traduzido", vm.Dashboard.Steps[1].Subtitle);
     }
 
     [Fact]
