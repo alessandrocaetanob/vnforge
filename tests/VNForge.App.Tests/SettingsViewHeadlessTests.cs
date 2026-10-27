@@ -44,6 +44,9 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
         public Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct) => Task.FromResult(new ClaudeReply("end_turn", string.Empty));
     }
 
+    /// <summary>A sobrancelha diz "a chave do Claude": o nome do produto, não o do modelo, e a frase fixa do desenho.</summary>
+    private const string Sobrancelha = "Valem só para este projeto. A chave do Claude fica guardada no Windows.";
+
     [Fact]
     public async Task A_aba_IA_e_gasto_nao_mostra_modelo_variavel_nem_DPAPI_fora_dos_detalhes_tecnicos()
     {
@@ -68,6 +71,9 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
                     .SelectMany(TextosVisiveis)
                     .Where(t => !string.IsNullOrWhiteSpace(t))
                     .ToList();
+
+                Assert.Contains(Sobrancelha, textos);
+                textos.Remove(Sobrancelha);
 
                 Assert.Contains("Conexão funcionando.", textos);
                 Assert.Contains("Qualidade padrão", textos);

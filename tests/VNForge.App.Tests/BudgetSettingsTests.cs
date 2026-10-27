@@ -379,7 +379,7 @@ public class BudgetSettingsViewModelTests
 
         vm.SpendLimitText = string.Empty;
 
-        Assert.Equal("R$ 132,00 neste projeto", vm.SpentSummary);
+        Assert.Equal("R$ 132,00 gastos neste projeto", vm.SpentSummary);
     }
 
     [Fact]
@@ -495,13 +495,13 @@ public class BudgetSettingsViewModelTests
         await started.Task;
 
         Assert.Equal("≈ R$ 10,80 (cotação de exemplo)", item.CostText);
-        Assert.Equal("≈ R$ 54,00 neste projeto (cotação de exemplo)", vm.SpentSummary);
+        Assert.Equal("≈ R$ 54,00 gastos neste projeto", vm.SpentSummary);
 
         vm.ExchangeRateText = "5,00";
         tasks.Rate = vm.Rate;
 
         Assert.Equal("R$ 10,00", item.CostText);
-        Assert.Equal("R$ 50,00 neste projeto", vm.SpentSummary);
+        Assert.Equal("R$ 50,00 gastos neste projeto", vm.SpentSummary);
         gate.SetResult();
         await item.Completion;
     }

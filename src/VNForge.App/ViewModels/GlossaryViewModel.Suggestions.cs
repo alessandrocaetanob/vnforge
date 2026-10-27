@@ -153,11 +153,23 @@ public sealed partial class GlossaryViewModel
 
     private static string Plural(int count, string one, string many) => count == 1 ? one : many;
 
+    /// <summary>O preço no botão: só o valor, com "≈" enquanto a cotação é a de exemplo. A marca "cotação de exemplo" vai para a dica do botão.</summary>
     private string PriceText(CostEstimate estimate)
     {
         var rate = Rate();
-        return Controls.Money.BrlEstimate(CostEstimator.Brl(estimate, rate), rate);
+        var brl = CostEstimator.Brl(estimate, rate);
+        return Controls.Money.WithApprox(Controls.Money.BrlEstimate(brl), brl, rate);
     }
+
+    /// <summary>A dica cita a cotação de exemplo só quando o botão mostra um preço feito com ela (o preço leva o "≈").</summary>
+    private static string WithRateHint(string hint, string priceText) =>
+        priceText.StartsWith('≈') ? $"{hint} O preço usa uma {Controls.Money.ExampleRateMark}; informe a sua em Ajustes." : hint;
+
+    /// <summary>A dica do botão de sugerir voz e gênero, com o aviso da cotação de exemplo quando for o caso.</summary>
+    public string VoiceHint => WithRateHint("A IA lê até 20 falas de cada personagem e sugere o gênero e o jeito de falar. Só preenche o que está vazio.", VoicePriceText);
+
+    /// <summary>A dica do botão de traduzir os termos com a IA, com o aviso da cotação de exemplo quando for o caso.</summary>
+    public string TermsHint => WithRateHint("A IA traduz os termos da lista e explica a escolha em uma frase.", TermsPriceText);
 
     private List<TermTranslationRequest> PendingTermRequests() =>
         [.. RepeatedTermRows.Where(r => !r.HasSuggestion).Select(r => new TermTranslationRequest(r.Source, r.Lines, scan.ExampleOf(r.Source)))];
@@ -202,6 +214,7 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(MissingGenderText));
         OnPropertyChanged(nameof(VoiceRequestCount));
         OnPropertyChanged(nameof(VoicePriceText));
+        OnPropertyChanged(nameof(VoiceHint));
         NotifySuggestionState();
     }
 
@@ -242,6 +255,7 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(NoRepeatedTerms));
         OnPropertyChanged(nameof(RepeatedSummary));
         OnPropertyChanged(nameof(TermsPriceText));
+        OnPropertyChanged(nameof(TermsHint));
         NotifySuggestionState();
     }
 
@@ -420,7 +434,9 @@ public sealed partial class GlossaryViewModel
     public void RefreshPrices()
     {
         OnPropertyChanged(nameof(VoicePriceText));
+        OnPropertyChanged(nameof(VoiceHint));
         OnPropertyChanged(nameof(TermsPriceText));
+        OnPropertyChanged(nameof(TermsHint));
     }
 
     // O detalhe técnico (stop_reason, o que faltou na resposta) vai para o log; a tela só recebe a frase em português.

@@ -150,7 +150,7 @@ public class GlossarySuggestionsTests
     }
 
     [Fact]
-    public async Task Com_a_cotacao_de_exemplo_o_preco_leva_a_marca_nos_dois_botoes()
+    public async Task Com_a_cotacao_de_exemplo_o_preco_leva_so_o_aproximado_e_a_marca_vai_para_a_dica_dos_dois_botoes()
     {
         using var temp = new TempFolder();
         var (vm, _) = await OpenAsync(temp, new FakeGlossarySuggester());
@@ -158,10 +158,18 @@ public class GlossarySuggestionsTests
         vm.AddCharacterCommand.Execute(null);
         vm.RefreshPrices();
 
-        Assert.StartsWith("≈ R$ ", vm.VoicePriceText);
-        Assert.EndsWith("(cotação de exemplo)", vm.VoicePriceText);
-        Assert.StartsWith("≈ R$ ", vm.TermsPriceText);
-        Assert.EndsWith("(cotação de exemplo)", vm.TermsPriceText);
+        Assert.StartsWith("≈ ", vm.VoicePriceText);
+        Assert.DoesNotContain("cotação de exemplo", vm.VoicePriceText);
+        Assert.StartsWith("≈ ", vm.TermsPriceText);
+        Assert.DoesNotContain("cotação de exemplo", vm.TermsPriceText);
+        Assert.Contains("cotação de exemplo", vm.VoiceHint);
+        Assert.Contains("cotação de exemplo", vm.TermsHint);
+
+        vm.Rate = () => new ExchangeRate(5000m, new DateOnly(2026, 10, 25));
+        vm.RefreshPrices();
+
+        Assert.DoesNotContain("cotação de exemplo", vm.VoiceHint);
+        Assert.DoesNotContain("cotação de exemplo", vm.TermsHint);
     }
 
     private static void BreakCharactersFile(ProjectFolder folder)
