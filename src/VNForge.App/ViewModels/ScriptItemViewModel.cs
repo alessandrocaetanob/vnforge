@@ -26,6 +26,9 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
 
     public bool IsComplete => CompletedPercent == 100;
 
+    /// <summary>A cena não tem linha nenhuma: conta como pronta e a lista a esconde enquanto "esconder cenas vazias" está ligado.</summary>
+    public bool IsEmpty => Progress.IsEmpty;
+
     /// <summary>Há uma tarefa da IA traduzindo este script: o item mostra o ícone girando.</summary>
     [ObservableProperty]
     public partial bool IsRunning { get; set; }
@@ -78,6 +81,7 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
         OnPropertyChanged(nameof(CompletedPercent));
         OnPropertyChanged(nameof(PercentLabel));
         OnPropertyChanged(nameof(IsComplete));
+        OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(Distribution));
         OnPropertyChanged(nameof(DistributionDescription));
         OnPropertyChanged(nameof(Tooltip));

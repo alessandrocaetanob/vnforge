@@ -111,6 +111,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         AttachEditor(editor);
+        Dashboard.HideEmptyScenes = Settings.HideEmptyScenes;
+        Dashboard.PropertyChanged += OnDashboardChanged;
         Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);
         Conference.LineRequested += (_, request) =>
         {
@@ -381,12 +383,39 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         value.LineSaved += OnLineSaved;
         value.ChaptersChanged += OnChaptersChanged;
+        value.HideEmptyScenes = Settings.HideEmptyScenes;
+        value.PropertyChanged += OnEditorHideEmptyChanged;
     }
 
     private void DetachEditor(EditorViewModel value)
     {
         value.LineSaved -= OnLineSaved;
         value.ChaptersChanged -= OnChaptersChanged;
+        value.PropertyChanged -= OnEditorHideEmptyChanged;
+    }
+
+    /// <summary>"Esconder cenas vazias" é uma escolha só: o Painel e o Editor andam juntos e a escolha vai para o <c>app.json</c>.</summary>
+    private void OnDashboardChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DashboardViewModel.HideEmptyScenes))
+        {
+            ShareHideEmptyScenes(Dashboard.HideEmptyScenes);
+        }
+    }
+
+    private void OnEditorHideEmptyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditorViewModel.HideEmptyScenes) && sender is EditorViewModel source)
+        {
+            ShareHideEmptyScenes(source.HideEmptyScenes);
+        }
+    }
+
+    private void ShareHideEmptyScenes(bool hide)
+    {
+        Dashboard.HideEmptyScenes = hide;
+        Editor.HideEmptyScenes = hide;
+        Settings.SaveHideEmptyScenes(hide);
     }
 
     /// <summary>O Editor criou ou moveu capítulos: o Painel mostra os totais novos sem reler o projeto.</summary>

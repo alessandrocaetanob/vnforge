@@ -859,7 +859,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             RebuildChapters();
             ApplyScriptFilter();
 
-            SelectedScript = Scripts.FirstOrDefault();
+            // A cena vazia vem escondida da lista: abrir o projeto numa delas deixaria o Editor sem linhas e sem item marcado.
+            SelectedScript = Scripts.FirstOrDefault(s => !s.IsEmpty) ?? Scripts.FirstOrDefault();
         }
         finally
         {

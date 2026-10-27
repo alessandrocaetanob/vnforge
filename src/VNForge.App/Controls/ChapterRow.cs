@@ -25,7 +25,15 @@ public sealed class ChapterRow : ThreeStateProgress
     public static readonly DirectProperty<ChapterRow, string> LinesTextProperty =
         AvaloniaProperty.RegisterDirect<ChapterRow, string>(nameof(LinesText), o => o.LinesText);
 
+    public static readonly DirectProperty<ChapterRow, double> BarDoneProperty =
+        AvaloniaProperty.RegisterDirect<ChapterRow, double>(nameof(BarDone), o => o.BarDone);
+
+    public static readonly DirectProperty<ChapterRow, double> BarTotalProperty =
+        AvaloniaProperty.RegisterDirect<ChapterRow, double>(nameof(BarTotal), o => o.BarTotal);
+
     private string percentText = "0%";
+    private double barDone;
+    private double barTotal = 1;
     private string linesText = "0 linhas";
 
     static ChapterRow()
@@ -36,6 +44,8 @@ public sealed class ChapterRow : ThreeStateProgress
         ReviewProperty.Changed.AddClassHandler<ChapterRow>((row, _) => row.Refresh());
         TotalProperty.Changed.AddClassHandler<ChapterRow>((row, _) => row.Refresh());
     }
+
+    public ChapterRow() => Refresh();
 
     /// <summary>O número do capítulo na ordem da história; nulo em "Menus e nomes".</summary>
     public int? Number
@@ -75,6 +85,20 @@ public sealed class ChapterRow : ThreeStateProgress
         private set => SetAndRaise(PercentTextProperty, ref percentText, value);
     }
 
+    /// <summary>O que a barra pinta como pronto: <see cref="ThreeStateProgress.Done"/>, ou a barra cheia num capítulo sem linhas.</summary>
+    public double BarDone
+    {
+        get => barDone;
+        private set => SetAndRaise(BarDoneProperty, ref barDone, value);
+    }
+
+    /// <summary>O total da barra: <see cref="ThreeStateProgress.Total"/>, ou 1 num capítulo sem linhas, que não tem o que faltar.</summary>
+    public double BarTotal
+    {
+        get => barTotal;
+        private set => SetAndRaise(BarTotalProperty, ref barTotal, value);
+    }
+
     public string LinesText
     {
         get => linesText;
@@ -85,7 +109,12 @@ public sealed class ChapterRow : ThreeStateProgress
     {
         // A barra pinta de roxo o que a IA traduziu; "0%" ao lado dela esconderia o que falta. Com linhas a revisar, o texto diz quantas.
         var toReview = Math.Min(Review, Math.Max(Total - Done, 0));
-        PercentText = toReview >= 0.5 ? $"{toReview.ToString("N0", PtBr)} a revisar" : DonePercentText();
+        var isEmpty = Total < 0.5;
+
+        // Um capítulo sem linhas não tem o que traduzir nem revisar: conta como pronto (100%, barra cheia), nunca 0%.
+        PercentText = isEmpty ? "100%" : toReview >= 0.5 ? $"{toReview.ToString("N0", PtBr)} a revisar" : DonePercentText();
+        BarDone = isEmpty ? 1 : Done;
+        BarTotal = isEmpty ? 1 : Total;
         LinesText = $"{Total.ToString("N0", PtBr)} {(Math.Abs(Total - 1) < 0.5 ? "linha" : "linhas")}";
     }
 }

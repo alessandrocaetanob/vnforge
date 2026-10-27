@@ -6,8 +6,11 @@ namespace VNForge.Core.Projects;
 /// <summary>Progresso de um script (<c>text/&lt;Key&gt;.json</c>) para a lista de scripts do Editor.</summary>
 public sealed record ScriptProgress(string Key, StatusCounts Counts)
 {
-    /// <summary>Percentual concluído (Revisadas, Aprovadas e "Não traduzir" sobre o total), de 0 a 100, truncado; 0 quando o script não tem linhas.</summary>
-    public int CompletedPercent => Percent(Counts.Ready);
+    /// <summary>O script não tem linha nenhuma: não há o que traduzir nem revisar, então conta como pronto.</summary>
+    public bool IsEmpty => Counts.Total == 0;
+
+    /// <summary>Percentual concluído (Revisadas, Aprovadas e "Não traduzir" sobre o total), de 0 a 100, truncado; 100 quando o script não tem linhas (<see cref="IsEmpty"/>).</summary>
+    public int CompletedPercent => IsEmpty ? 100 : Percent(Counts.Ready);
 
     /// <summary>Percentual de linhas só com tradução da IA, de 0 a 100, truncado; 0 quando o script não tem linhas.</summary>
     public int MachinePercent => Percent(Counts.Machine);

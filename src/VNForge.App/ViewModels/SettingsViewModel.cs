@@ -299,6 +299,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>A qualidade que a janela "Traduzir com IA" marca ao abrir.</summary>
     public TranslationQuality DefaultQuality => app.Quality;
 
+    /// <summary>O Editor e o Painel escondem as cenas e os capítulos sem linhas (padrão).</summary>
+    public bool HideEmptyScenes => app.HideEmptyScenes;
+
+    /// <summary>Guarda a escolha de esconder ou mostrar as cenas vazias no <c>app.json</c>; sem mudança não grava.</summary>
+    public void SaveHideEmptyScenes(bool hide)
+    {
+        if (app.HideEmptyScenes != hide)
+        {
+            TrySaveApp(app with { HideEmptyScenes = hide }, "Não foi possível salvar a escolha sobre as cenas vazias");
+        }
+    }
+
     /// <summary>Limite de gasto e valor de aviso do orçamento, em reais.</summary>
     public BudgetLimits Budget => app.Budget;
 
