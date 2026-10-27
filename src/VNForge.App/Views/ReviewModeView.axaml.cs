@@ -1,12 +1,17 @@
 using System.ComponentModel;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VNForge.App.Controls;
+using VNForge.App.Services;
 using VNForge.App.ViewModels;
 
 namespace VNForge.App.Views;
@@ -17,6 +22,7 @@ public sealed partial class ReviewModeView : UserControl
     private readonly HashSet<Key> held = [];
     private ReviewModeViewModel? current;
     private WindowBase? watchedWindow;
+    private CancellationTokenSource? entering;
 
     public ReviewModeView()
     {
@@ -87,6 +93,7 @@ public sealed partial class ReviewModeView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         held.Clear();
+        CancelEntering();
         if (watchedWindow is not null)
         {
             watchedWindow.Deactivated -= OnWindowDeactivated;
@@ -118,6 +125,54 @@ public sealed partial class ReviewModeView : UserControl
         if (e.PropertyName == nameof(ReviewModeViewModel.Detail))
         {
             FillSource();
+        }
+        else if (e.PropertyName == nameof(ReviewModeViewModel.Position))
+        {
+            _ = PlayEnterAsync();
+        }
+    }
+
+    /// <summary>Cancela o fade em andamento na thread da interface. O CancelAsync rodaria os callbacks da animação no thread pool, e o finally do fade poderia ver o campo já trocado e deixar nele uma fonte descartada.</summary>
+    private void CancelEntering() => entering?.Cancel();
+
+    /// <summary>Ao trocar de linha, o roteiro e o palco entram com um fade de 140 ms; sem animações no Windows, a troca é imediata.</summary>
+    private async Task PlayEnterAsync()
+    {
+        if (!MotionPreferences.AnimationsEnabled || !this.IsAttachedToVisualTree())
+        {
+            return;
+        }
+
+        CancelEntering();
+        using var source = new CancellationTokenSource();
+        entering = source;
+        var fade = new Animation
+        {
+            Duration = TimeSpan.FromMilliseconds(140),
+            Easing = new CubicEaseOut(),
+            Children =
+            {
+                new KeyFrame { Cue = new Cue(0d), Setters = { new Setter(OpacityProperty, 0.35) } },
+                new KeyFrame { Cue = new Cue(1d), Setters = { new Setter(OpacityProperty, 1d) } },
+            },
+        };
+
+        try
+        {
+            await Task.WhenAll(fade.RunAsync(Script, source.Token), fade.RunAsync(Stage, source.Token));
+        }
+        catch (OperationCanceledException)
+        {
+            // Outra troca de linha no meio do fade o recomeça.
+        }
+        finally
+        {
+            if (entering == source)
+            {
+                Script.Opacity = 1;
+                Stage.Opacity = 1;
+                entering = null;
+            }
         }
     }
 

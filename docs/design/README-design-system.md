@@ -65,7 +65,7 @@ Toda tela nova é medida por estas regras (plano, seção "Regras das telas"):
 - `brand-shu` (vermelhão shu, 朱) é só do selo 訳. Nunca em botões, status ou sinais.
 - Status de linha usam os pares `status-*-bg` / `status-*-fg` e sempre levam o texto do status. IA é violeta para não competir com o âmbar dos avisos.
 - Sinais do QA: aviso em `signal-warning-*` (âmbar), erro em `signal-error-*` (carmim, distinto do shu). Sucesso reaproveita `status-approved-*`.
-- A prévia da caixa de texto usa `textbox-*`, iguais nos dois temas, porque representa o jogo.
+- A prévia da caixa de texto usa `textbox-*` e o palco do modo revisão usa `stage-*` (`stage-top`, `stage-bottom`, `stage-vignette`, `stage-card`, `stage-stroke`), todos iguais nos dois temas, porque representam o jogo.
 - Todo texto em `text-primary` e `text-secondary` passa 4,5:1 sobre as superfícies citadas no uso de cada token, nos dois temas. `text-tertiary` só em desabilitado e placeholder.
 
 ## Tipografia
@@ -115,7 +115,9 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 | `Seg3Bar` | `.seg3` | `Done`, `Review`, `Total` | Barra de três estados de 8 px, da mesma fonte do anel (`ThreeStateProgress`) | Editor, Painel, Início (#309/#313) |
 | `ChapterRow` | `.chrow` | `Number`, `Title`, `Note`, `IsHere`, `IsExtra` | Linha do sumário de capítulos: número, nome, `Seg3Bar`, parte pronta (ou "N a revisar" quando há linhas esperando revisão, para não mostrar 0% ao lado de uma barra roxa), linhas e nota (número e linhas na fonte da interface com algarismos tabulares, alinhados à direita; a nota quebra em até duas linhas, `MaxLines` 2); `IsExtra` é "Menus e nomes", sem número | Painel (#309) |
 | `TodoItem` | `.ready` | `Severity`, `Title`, `Message`, `ActionText`, `Command` | Item de "Precisa de você": ícone de gravidade, frase e o botão que resolve | Painel, Início (#309/#313) |
-| `GameTextbox` | `.gbox` | `Layout`, `Size` (`Small`, `Medium`, `Large`), `FontFamily` | Caixa do jogo com a placa do nome, as linhas vagas pontilhadas, o que passa abaixo de um traço e o triângulo de virar a página; aceita várias páginas | Inspetor do Editor, modo revisão, cartões de acentos do Novo projeto |
+| `GameTextbox` | `.gbox` | `Layout`, `Size` (`Small`, `Medium`, `Large`, `Stage`), `FontFamily` | Caixa do jogo com a placa do nome, as linhas vagas pontilhadas, o que passa abaixo de um traço e o triângulo de virar a página; aceita várias páginas | Inspetor do Editor, palco do modo revisão (`Stage`, fonte 24), cartões de acentos do Novo projeto |
+| `ReviewStage` | (nenhum, nasceu no app) | `SceneName`, `Content` (a `GameTextbox`) | O palco 16:9 do modo revisão: degradê vertical (`Vnf.StageTop` a `Vnf.StageBottom`, igual nos dois temas), vinheta (`Vnf.StageVignette`), contorno `Vnf.StageStroke`, cartão de capítulo (`Vnf.StageCard`) com o nome da cena e o conteúdo encostado na base, que encolhe num `Viewbox` se for grande demais; `Fit` calcula o maior 16:9 que cabe | Modo revisão |
+| `StageColumn` | (nenhum) | `Spacing`, `MinStageHeight` (180) | Painel que empilha o palco e o que vem abaixo: mede o de baixo primeiro (na mesma largura em que organiza) e dá ao palco a altura que sobra, sem passar do mínimo; filho vazio não deixa vão | Modo revisão |
 | `FitWarning` | `.fitwarn` | `Message`, `SplitCommand`, `ShortenCommand`, `ShowShorten`, `ErrorText` | Aviso "Não cabe na caixa do jogo" com "Dividir em N páginas" e "Encurtar com a IA" | Inspetor do Editor, modo revisão, Conferência |
 | `MarkerChip` | `.mk` | `Marker`, `Kind`, `IsMissing` | Selo com o nome em português no lugar do marcador; no AvaloniaEdit entra pelo `MarkerChipGenerator` e ocupa uma coluna do cursor | Campo da tradução e original do inspetor do Editor, modo revisão |
 | `CostLabel` | `.money` | `Brl`, `Usd` | Valor em reais; o dólar em letra pequena só quando preenchido (Ajustes e Novo projeto) | Telas de uso e Ajustes (#309/#313) |
