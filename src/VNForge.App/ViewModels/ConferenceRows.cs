@@ -26,6 +26,7 @@ public static class ConferenceRuleTexts
         [UnencodableCharacterRule.RuleId] = ("Caractere fora da codificação", "A estratégia de acentuação do projeto não grava este caractere no jogo. Troque por um que ela aceite."),
         [FormattingConflictRule.RuleId] = ("Ajuste que a acentuação não grava", "Um ajuste de formatação do projeto gera um caractere que a estratégia de acentuação não grava no jogo. A tradução está certa: troque o ajuste em Ajustes, na aba Formatação."),
         [SpeakerEncodingRule.RuleId] = ("Nome do personagem fora da codificação", "O nome japonês deste personagem não existe na codificação do jogo, então a linha não pode ir para o jogo. Cadastre a tradução do nome no Glossário > Personagens."),
+        [GameTitleEncodingRule.RuleId] = ("Título do jogo fora da codificação", "O título da janela do jogo tem um caractere que a estratégia de acentuação não grava. Troque a tradução do título em Ajustes, na aba Estilo, ou a estratégia na aba Acentos."),
         ["japones-na-traducao"] =("Japonês na tradução", "Há hiragana, katakana ou kanji na tradução. Costuma ser um trecho que ficou sem traduzir."),
         [BoxLineLimitRule.RuleId] = ("Não cabe na caixa", "A tradução ocupa mais linhas que a caixa do jogo. Divida a fala em páginas ou peça à IA uma versão mais curta."),
         [ExtraPageQaRule.RuleId] = ("Página a mais", "A tradução vira a página mais vezes que o original: a fala foi dividida em páginas. Confira se a divisão está no lugar certo; se foi de propósito, use Está certo assim."),
@@ -156,7 +157,7 @@ public sealed class ConferenceIssueRowViewModel
     public string? ProposedText => Proposal?.After;
 
     /// <summary>Coluna "Linha" em mono: <c>yst00012:0042</c>; no resumo, só o script.</summary>
-    public string LineLabel => IsScriptSummary ? ScriptKey : FormatLine(UnitId);
+    public string LineLabel => IsScriptSummary ? ScriptKey : RuleId == GameTitleEncodingRule.RuleId ? "Título do jogo" : FormatLine(UnitId);
 
     public string Title => IsMarkerMismatch ? MarkerParts.Title : ConferenceRuleTexts.Title(RuleId, ruleDescription);
 

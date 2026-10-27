@@ -13,7 +13,16 @@ public sealed record ProjectConfig(
     public StyleConfig Style { get; init; } = StyleConfig.Default;
 }
 
-public sealed record GameConfig(string Path, string Exe);
+public sealed record GameConfig(string Path, string Exe)
+{
+    /// <summary>Título da janela do jogo, lido pelo <c>vnf extract</c>; nulo enquanto o jogo não foi extraído ou não tem título.</summary>
+    public GameTitleConfig? Title { get; init; }
+}
+
+/// <summary>O título da janela do jogo: o original, lido do jogo, e a tradução que o build grava no lugar dele.</summary>
+/// <param name="Original">Título como o jogo o traz (no YU-RIS, o do <c>yscfg.ybn</c>).</param>
+/// <param name="Translation">Título traduzido; nulo ou em branco deixa o título original no jogo.</param>
+public sealed record GameTitleConfig(string Original, string? Translation);
 
 public sealed record EngineConfig(string Id, int? Version = null, string? ScriptKey = null);
 

@@ -21,6 +21,15 @@ public sealed class SpeakerTextTests
     }
 
     [Fact]
+    public void Cadastro_com_letra_comum_vale_para_o_falante_com_letra_larga()
+    {
+        var name = SpeakerText.Resolve("学生Ｃ", Book(("学生C", "Aluno C")), Cp1252);
+
+        Assert.True(name.IsWritable);
+        Assert.Equal("Aluno C", name.Name);
+    }
+
+    [Fact]
     public void Traducao_do_personagem_vale_em_qualquer_estrategia()
     {
         Assert.Equal("Inui", SpeakerText.Resolve("犬井", Book(("犬井", "Inui")), ShiftJis).Name);

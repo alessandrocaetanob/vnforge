@@ -167,6 +167,15 @@ public class GlossaryFilesTests : IDisposable
     }
 
     [Fact]
+    public void Speaker_e_cadastro_casam_mesmo_com_larguras_diferentes()
+    {
+        var livro = new CharacterBook([new CharacterEntry("学生C", "Aluno C")]);
+
+        Assert.Equal("Aluno C", livro.Find("学生Ｃ")?.Target);
+        Assert.True(CharacterBook.NameComparer.Equals("学生Ｃ", " 学生C　"));
+    }
+
+    [Fact]
     public void Speaker_ausente_ou_desconhecido_nao_encontra_nada()
     {
         var livro = new CharacterBook(Personagens());

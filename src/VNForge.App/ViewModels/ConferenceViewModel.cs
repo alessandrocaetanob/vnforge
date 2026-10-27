@@ -387,6 +387,11 @@ public sealed partial class ConferenceViewModel : ObservableObject
         var sceneNumbers = context.Texts.Keys.Select((key, index) => (key, number: index + 1)).ToDictionary(x => x.key, x => x.number, StringComparer.Ordinal);
         return key =>
         {
+            if (key == GameTitleText.UnitId)
+            {
+                return "Título do jogo";
+            }
+
             if (scenes.DisplayName(key) is { } name && !string.IsNullOrWhiteSpace(name))
             {
                 return name;

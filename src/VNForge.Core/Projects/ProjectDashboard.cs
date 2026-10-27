@@ -103,8 +103,8 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             Readiness = ReadinessFacts.Read(project, qa),
             GameState = GameStateFile.Load(project),
             ScriptNames = TryLoad(project.LoadScriptNames, ScriptNames.Empty),
-            CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal),
+            CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), Glossary.CharacterBook.NameComparer)
+                .ToDictionary(g => g.Key, g => g.First().Target, Glossary.CharacterBook.NameComparer),
             Build = built ? BuildStatus.Current : BuildState.Load(project) is null ? BuildStatus.None : BuildStatus.Stale,
             LastBackupAt = restore?.Manifest.CreatedAt,
         };
@@ -130,7 +130,7 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         {
             var config = project.LoadConfig();
             var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy);
-            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style };
+            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title };
             var report = QaEngine.Default.Run(context);
             var issues = report.BlockingIssues;
             var totals = new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning)) { StyleAdvice = report.StyleAdviceCount };
@@ -168,8 +168,9 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             return false;
         }
 
-        var strategy = project.LoadConfig().Encoding.Strategy;
-        return string.Equals(saved, BuildState.FingerprintTexts(texts, strategy, project.FormattingPath), StringComparison.Ordinal);
+        var config = project.LoadConfig();
+        var fingerprint = BuildState.FingerprintTexts(texts, config.Encoding.Strategy, project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
+        return string.Equals(saved, fingerprint, StringComparison.Ordinal);
     }
 
     /// <summary>

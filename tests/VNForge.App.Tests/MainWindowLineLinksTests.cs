@@ -58,6 +58,22 @@ public class MainWindowLineLinksTests
     }
 
     [Fact]
+    public async Task Clicar_no_erro_do_titulo_do_jogo_abre_os_Ajustes_e_nao_o_Editor()
+    {
+        using var temp = new TempFolder();
+        var vm = await Opened(temp);
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+
+        vm.Conference.OpenLineByIdCommand.Execute(new LineRequest(GameTitleText.UnitId, GameTitleText.UnitId));
+        await vm.LineNavigation;
+
+        Assert.Equal(NavKey.Settings, vm.SelectedNav?.Key);
+        Assert.Same(vm.Settings, vm.CurrentPage);
+        Assert.Null(vm.Editor.ErrorMessage);
+    }
+
+    [Fact]
     public async Task Id_de_uma_linha_que_nao_existe_mais_avisa_no_Editor()
     {
         using var temp = new TempFolder();

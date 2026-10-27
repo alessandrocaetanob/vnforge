@@ -499,6 +499,28 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public async Task Titulo_do_jogo_que_a_estrategia_nao_grava_aparece_como_erro_do_titulo_e_nao_como_cena()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        var config = folder.LoadConfig();
+        folder.SaveConfig(config with
+        {
+            Encoding = new EncodingConfig("sjis"),
+            Game = config.Game with { Title = new GameTitleConfig("原題", "Título") },
+        });
+        await vm.RefreshAsync();
+
+        var row = IssueRows(vm).Single(r => r.RuleId == GameTitleEncodingRule.RuleId);
+
+        Assert.True(row.IsError);
+        Assert.False(row.CanMarkOk);
+        Assert.Equal("Título do jogo", row.Where);
+        Assert.Equal("Título do jogo fora da codificação", row.Title);
+        Assert.Equal("Título do jogo", row.LineLabel);
+    }
+
+    [Fact]
     public async Task Cena_N_e_a_mesma_com_qualquer_filtro()
     {
         using var temp = new TempFolder();

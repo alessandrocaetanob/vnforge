@@ -93,6 +93,7 @@ internal static class BuildCommand
                 archives = result.Archives.Select(a => new { path = a.GamePath, replacedFiles = a.ReplacedFiles }),
                 scripts = result.RebuiltScripts.Count,
                 reusedScripts = result.ReusedScripts,
+                gameTitle = result.GameTitle,
                 totalScripts = result.ScriptCount,
                 lines = result.TotalLines,
                 rebuilt = result.RebuiltScripts.Select(s => new { key = s.Key, name = s.Name, lines = s.Lines }),
@@ -127,6 +128,11 @@ internal static class BuildCommand
     /// <summary>O que vem depois do resumo: caracteres trocados, QA e avisos do build.</summary>
     private static void WriteDetails(TextWriter output, BuildResult result)
     {
+        if (result.GameTitle is { } gameTitle)
+        {
+            output.WriteLine($"Título do jogo gravado: {gameTitle}");
+        }
+
         if (result.Encoding.Replaced.Count > 0)
         {
             output.WriteLine($"Codificação '{result.Encoding.Strategy}': {Number(result.Encoding.Replaced.Count)} {Plural(result.Encoding.Replaced.Count, "caractere trocado", "caracteres trocados")}; vnf build --report lista cada um.");

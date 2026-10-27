@@ -8,6 +8,7 @@ using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
@@ -116,6 +117,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Glossary.Saved += (_, _) => RecheckEditor();
+        Glossary.LinesChanged += (_, _) => Editor.Reload();
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.SettingsChanged += (_, _) => ReloadFormattingFromConference();
@@ -547,6 +549,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void OpenLineInEditor(LineRequest request)
     {
+        // O título do jogo não é uma linha do Editor: o erro dele se resolve no campo do título, em Ajustes.
+        if (request.UnitId == GameTitleText.UnitId)
+        {
+            SelectedNav = settingsItem;
+            return;
+        }
+
         SelectedNav = editorItem;
         LineNavigation = ShowLineAsync(request);
     }

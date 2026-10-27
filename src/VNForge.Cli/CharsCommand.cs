@@ -67,7 +67,7 @@ internal static class CharsCommand
         var gender = genderText is null ? (CharacterGender?)null : ParseGender(genderText);
         var project = Open(cli, parseResult);
         var characters = project.LoadCharacters().ToList();
-        var index = characters.FindIndex(c => string.Equals(c.Source.Trim(), original, StringComparison.Ordinal));
+        var index = characters.FindIndex(c => CharacterBook.NameComparer.Equals(c.Source, original));
 
         var current = index >= 0 ? characters[index] : null;
         var entry = new CharacterEntry(original, target, gender ?? current?.Gender ?? CharacterGender.Unknown, tone ?? current?.Tone);
@@ -81,6 +81,8 @@ internal static class CharsCommand
         }
 
         project.SaveCharacters(characters);
+        // Um nome do jogo tem uma só tradução: as unidades name do mesmo original recebem a do personagem.
+        CharacterNameSync.ApplyToUnits(project, new LineEditor(project, TimeProvider.System), [entry]);
         if (parseResult.GetValue(cli.Options.Json))
         {
             output.WriteLine(JsonEnvelope.Result(new

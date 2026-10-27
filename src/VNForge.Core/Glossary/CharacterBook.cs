@@ -5,24 +5,33 @@ namespace VNForge.Core.Glossary;
 /// </summary>
 public sealed class CharacterBook
 {
-    private readonly Dictionary<string, CharacterEntry> _bySource = new(StringComparer.Ordinal);
+    /// <summary>Compara nomes ignorando espaços nas pontas e a largura (NFKC): <c>学生Ｃ</c> do jogo e <c>学生C</c> digitado são o mesmo personagem.</summary>
+    public static IEqualityComparer<string> NameComparer { get; } = new WidthInsensitiveComparer();
+
+    private readonly Dictionary<string, CharacterEntry> _bySource = new(NameComparer);
 
     public CharacterBook(IEnumerable<CharacterEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);
         foreach (var entry in entries)
         {
-            _bySource.TryAdd(entry.Source.Trim(), entry);
+            _bySource.TryAdd(entry.Source, entry);
         }
     }
 
     /// <summary>
     /// Procura o personagem pelo falante extraído. A comparação é ordinal, ignorando só espaços nas pontas
-    /// (inclusive o ideográfico U+3000); nulo, vazio ou desconhecido devolvem <c>null</c>.
+    /// (inclusive o ideográfico U+3000) e a largura; nulo, vazio ou desconhecido devolvem <c>null</c>.
     /// </summary>
-    public CharacterEntry? Find(string? speaker)
+    public CharacterEntry? Find(string? speaker) =>
+        string.IsNullOrWhiteSpace(speaker) ? null : _bySource.GetValueOrDefault(speaker);
+
+    private sealed class WidthInsensitiveComparer : IEqualityComparer<string>
     {
-        var name = speaker?.Trim();
-        return string.IsNullOrEmpty(name) ? null : _bySource.GetValueOrDefault(name);
+        public bool Equals(string? x, string? y) => string.Equals(Key(x), Key(y), StringComparison.Ordinal);
+
+        public int GetHashCode(string obj) => StringComparer.Ordinal.GetHashCode(Key(obj)!);
+
+        private static string? Key(string? name) => name?.Trim().Normalize(System.Text.NormalizationForm.FormKC);
     }
 }

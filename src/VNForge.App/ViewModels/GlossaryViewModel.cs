@@ -6,6 +6,7 @@ using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
@@ -224,7 +225,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         {
             try
             {
-                loaded = await Task.Run(() => ProjectScan.From(ProjectFolder.Open(root).LoadAllText().Values.SelectMany(units => units)), CancellationToken.None);
+                loaded = await Task.Run(() => ProjectScan.From(ProjectFolder.Open(root).LoadAllText()), CancellationToken.None);
             }
             catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
             {
@@ -240,6 +241,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         usage = loaded.Usage;
         scan = loaded;
         usageLoaded = true;
+        AddGameCharacters();
         bulkUpdate = true;
         foreach (var row in Terms)
         {
@@ -255,6 +257,42 @@ public sealed partial class GlossaryViewModel : ObservableObject
         NotifySummaries();
         RefreshRepeatedTerms();
         NotifyVoices();
+    }
+
+    /// <summary>
+    /// Parte da lista do jogo (#426): os nomes das unidades <c>name</c> que ainda não são personagem entram na tabela com o original exato, e o personagem
+    /// sem tradução recebe a que a unidade já tem. Não é edição da pessoa, então não suja a página; as linhas novas vão ao arquivo na próxima gravação.
+    /// </summary>
+    private void AddGameCharacters()
+    {
+        if (!CanEdit || scan.GameNames.Count == 0)
+        {
+            return;
+        }
+
+        var names = new CharacterBook(scan.GameNames);
+        loading = true;
+        try
+        {
+            foreach (var row in Characters.Where(c => string.IsNullOrWhiteSpace(c.Target)))
+            {
+                if (names.Find(row.Source) is { Target.Length: > 0 } name)
+                {
+                    row.Target = name.Target;
+                }
+            }
+
+            foreach (var entry in GameCharacters.Missing(scan.GameNames, Characters.Select(c => new CharacterEntry(c.Source, c.Target))))
+            {
+                Characters.Add(Watch(new CharacterRow(entry.Source, entry.Target), MarkCharactersDirty));
+            }
+        }
+        finally
+        {
+            loading = false;
+        }
+
+        RefreshVisible();
     }
 
     private void ApplyUses(UsageRow row) =>
@@ -394,6 +432,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
                 if (characters.Count > 0 || File.Exists(folder.CharactersPath))
                 {
                     folder.SaveCharacters(characters);
+                    ShareNamesWithLines(folder, characters);
                 }
 
                 charactersDirty = false;
@@ -405,7 +444,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             FailSave($"{e.Reason} Nada foi gravado neste arquivo.");
             return;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or TextFileException)
         {
             Debug.WriteLine(e);
             FailSave("Não foi possível salvar. Confira se a pasta do projeto está acessível e se há espaço no disco; o que você escreveu continua na tela.");
@@ -423,6 +462,25 @@ public sealed partial class GlossaryViewModel : ObservableObject
         {
             PendingProject = null;
             Project = next;
+        }
+    }
+
+    /// <summary>Disparado quando salvar um personagem mudou a tradução de linhas <c>name</c> dos scripts: o Editor, que as tem na memória, relê o projeto.</summary>
+    public event EventHandler? LinesChanged;
+
+    /// <summary>Um nome do jogo tem uma só tradução: a do personagem vai para as unidades <c>name</c> do mesmo original (#426).</summary>
+    private void ShareNamesWithLines(ProjectFolder folder, IReadOnlyList<CharacterEntry> characters)
+    {
+        // Antes de a leitura do texto acabar não se sabe em quais scripts há nomes: relê todos. Depois, só os que têm.
+        IReadOnlyList<string>? scripts = usageLoaded ? scan.NameScripts : null;
+        if (scripts is { Count: 0 })
+        {
+            return;
+        }
+
+        if (CharacterNameSync.ApplyToUnits(folder, new LineEditor(folder, TimeProvider.System), characters, scripts) > 0)
+        {
+            LinesChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 

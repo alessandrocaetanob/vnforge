@@ -248,6 +248,15 @@ O leitor foi escrito a partir das fontes acima e de arquivos sintéticos (`tests
 - **Id**: `ScriptFile.UnitId(índice da instrução * 256 + índice do argumento)`, da primeira instrução com texto da unidade. Para as mensagens, o argumento é sempre 0; nas escolhas e nomes do mesmo `GOSUB`, o argumento desempata sem mexer nos ids das outras unidades. Depende só do conteúdo do script, então duas extrações dão os mesmos ids.
 - **Locator** (versão 1): `{ "version": 1, "command": "WORD", "parts": [ { "instruction": 12, "argument": 0, "size": 14, "offset": 120 } ], "speaker": { "name": "美咲", "open": "「", "close": "」" } }`. `parts` lista, na ordem do arquivo, os argumentos que formam o `source` (um por `WORD` não vazio), com o `size` e o `offset` de antes da reescrita. `speaker` só existe com falante, e o texto original é `name + open + source + close`. Em `GOSUB` há também `routine`. A E2.7 usa isso para conferir que o trecho ainda decodifica para o `source` e para reescrever só os argumentos da unidade.
 
+### `ES.CHAR.NAME` é a lista de personagens do jogo (#426)
+
+No jogo de referência o script `yst00073` chama `ES.CHAR.NAME` uma vez por personagem (`真弓`, `犬井`, `猿山`, `亀島`, `学生`, `学生Ａ`, `学生Ｂ`, `学生Ｃ`, `父兄`, `男`, `息子`, `教員`, `女`, `山之辺`, `？？？`). A extração já gera essas chamadas como unidades `name`, e `GameCharacters.Names` (`src/VNForge.Core/Glossary/GameCharacters.cs`) as lê como a lista de personagens:
+
+- **Proposta**: ao abrir Glossário > Personagens, cada nome de unidade `name` que ainda não é personagem entra na tabela com o original exato (sem espaços nas pontas, uma linha por nome, na ordem do jogo). O personagem sem tradução recebe a que a unidade `name` já tem. A proposta não suja a página: as linhas vão para o `characters.json` na primeira gravação. A comparação com os personagens existentes passa por `CharacterBook.Find`.
+- **Uma tradução por nome**: o `characters.json` e as unidades `name` com o mesmo original guardam o mesmo texto. Salvar o personagem grava a tradução nas unidades `name` do mesmo original, como edição manual (`CharacterNameSync.ApplyToUnits`); linhas "não traduzir" e personagens sem tradução ficam de fora. No sentido contrário, traduzir uma unidade `name` pelo Editor, `vnf lines` ou a Conferência (`LineEditor.SetTranslation`) atualiza o personagem do mesmo original, se o `characters.json` existe, e as outras unidades `name` desse original. Apagar a tradução da unidade não apaga a do personagem. Um `characters.json` inválido não impede gravar a linha.
+- **O que ficou de fora**: a tradução feita em lote pela IA (`vnf translate`) não passa pelo `LineEditor`. Se ela traduz uma unidade `name`, o personagem recebe o texto na próxima vez que a página abrir, mas só enquanto o campo dele está vazio; se os dois já têm tradução e divergem, vale a do personagem na próxima gravação.
+- **Sem a rotina**: se o jogo não chama `ES.CHAR.NAME` (a extração não gera nenhuma unidade `name`), a proposta é vazia e a página continua como antes: a tabela vem do `characters.json` e das sugestões de voz da IA, que partem dos falantes. Cadastre os nomes à mão com o original exato do `speaker`, ou com `vnf chars set`. Outro jeito de o jogo listar personagens (outra rotina, uma tabela em `ybn`) pede uma extração própria; registre a rotina nesta seção.
+
 ### O que confirmar no jogo (#37)
 
 A extração foi escrita a partir das fontes acima e de scripts sintéticos (`tests/VNForge.Engines.YuRis.Tests/Text/YstbTextExtractorTests.cs`); nenhum `yst*.ybn` real foi extraído.
@@ -283,6 +292,33 @@ A reconstrução foi escrita a partir das fontes acima e de scripts sintéticos 
 4. **`\n` e `\t` em string de expressão**: o extrator e o injetor tratam `\n` como o código `EF F0`, como o VNTextPatch; confirmar que o jogo mostra a quebra de linha do mesmo jeito que num `WORD`.
 5. **Nome do falante**: o injetor grava o `Speaker` que o Core resolveu (tradução do personagem, ou o nome do locator quando a unidade não tem falante) e os delimitadores `「」` em Shift-JIS (#390). Ainda não confirmado no jogo: como os bytes `81 75` e `81 76` aparecem na caixa de texto com a fonte em `cp1252`, e se o jogo usa o nome da mensagem para algo além de exibir (histórico, voz, teste de nome).
 6. **Primeiro argumento com chave fora da lista**: confirmar se algum script real tem uma instrução de texto como a primeira; a recusa só vale para chave derivada.
+
+## Configuração do jogo e título da janela (`yscfg.ybn`, #427)
+
+O título da barra da janela do jogo não está nos scripts: vem de `ysbin/yscfg.ybn`, dentro do `ysbin.ypf`. Sem tradução, o jogo abre com o título em japonês, que num Windows sem a localidade japonesa aparece quebrado.
+
+Layout, conferido em um único arquivo real (jogo de referência da teste.12, versão 485 = `0x1E5`, 106 bytes). Nenhuma fonte aberta que eu tenha achado documenta o formato (o RxYuris cita um leitor de YSCFG, mas o código não foi lido), então o que segue vale para esse arquivo e para o que o leitor aceita:
+
+| Posição | Tamanho | Campo |
+|---|---|---|
+| 0 | 4 | Assinatura `YSCF` |
+| 4 | 4 | Versão, inteiro de 32 bits little-endian (a mesma faixa 200 a 599 dos outros `.ybn`) |
+| 8 | 68 no arquivo de referência | Configuração do jogo (resolução, opções de janela e afins); o VNForge não a interpreta |
+| 76 | 2 | Tamanho do título em bytes, `uint16` little-endian (`0x1C`) |
+| 78 | tamanho acima | Título em Shift-JIS, sem terminador, até o fim do arquivo |
+
+Nenhum campo diz onde o título começa, e o tamanho da configuração pode mudar entre versões. O leitor (`YscfgReader`) procura a posição `p` a partir do byte 8 em que o `uint16` lido bate exatamente com o que sobra até o fim do arquivo e os bytes seguintes são Shift-JIS válido, sem byte abaixo de `0x20`. Mais de uma posição possível recusa o arquivo em vez de adivinhar; nenhuma também recusa, com a mensagem citando o `yscfg.ybn`.
+
+Um título que o build gravou com a estratégia `cp1252` (`í` é `0xED`, que o Shift-JIS não aceita nessa posição) não passa na leitura em Shift-JIS; sem candidato, o leitor tenta Windows-1252 e marca `YscfgFile.TitleIsShiftJis` como falso. Serve para reler um jogo já injetado; o `vnf extract` deve rodar no jogo original, como para os scripts.
+
+**Reescrita mínima.** O `YscfgWriter` copia os bytes de antes do campo de tamanho como foram lidos e regrava só o tamanho e o título. Com o título original, o arquivo sai idêntico (teste de ida e volta). Dentro do YPF, o `YuRisRepacker` troca só a entrada `ysbin/yscfg.ybn` (`YpfArchive.WriteTo`) e copia as outras byte a byte. O título cabe em 65.535 bytes.
+
+**Codificação.** O build codifica o título com o `ITextEncoder` da estratégia do projeto (`GameTitleText.Resolve`): com `cp1252` o `í` sai como `0xED`, com `fold` as letras perdem o acento, com `sjis` o `í` é recusado. A Conferência acusa o título pela regra `titulo-nao-codificavel` (erro, categoria Acentos), que usa a mesma função do build. Largura total (`ＡＢＣ`) vira largura normal (NFKC) só quando a estratégia não grava a original, como no nome de falante.
+
+### O que confirmar no jogo (#427)
+
+1. **Título em `cp1252` na barra da janela.** Falta ver, no jogo de referência, se a barra mostra `Título` quando o `yscfg.ybn` leva o `í` em `0xED`: a janela é criada pela API ANSI, então o resultado depende da página de código do Windows. Com `fold` não há risco.
+2. **Outras versões do YU-RIS.** Só a versão 485 foi vista. Se uma versão grava campos depois do título, o leitor recusa o arquivo (nenhuma posição fecha com o fim do arquivo) em vez de gravar errado.
 
 ## Detecção da pasta do jogo (E2.8)
 
