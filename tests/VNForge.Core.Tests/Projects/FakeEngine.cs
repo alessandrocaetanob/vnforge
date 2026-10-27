@@ -55,9 +55,17 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
     /// <summary>Quantas vezes o build pediu o título da pasta descompactada.</summary>
     public int TitleReads { get; private set; }
 
+    /// <summary>Quando definido, <see cref="ReadTitle"/> lança: o arquivo do título está num formato que a engine não lê.</summary>
+    public VNForgeException? TitleFailure { get; set; }
+
     public GameTitleFile? ReadTitle(string unpackedDirectory)
     {
         TitleReads++;
+        if (TitleFailure is not null)
+        {
+            throw TitleFailure;
+        }
+
         var path = Path.Combine(unpackedDirectory, PackageName, TitleFileName);
         if (!File.Exists(path))
         {

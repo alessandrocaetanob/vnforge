@@ -80,8 +80,8 @@ public static class ProjectExtractor
         var warnings = new List<string>(unpacked.Warnings);
         warnings.AddRange(game.Warnings);
         var extracted = ReadScripts(game, warnings, progress, cancellationToken);
+        var gameTitle = ReadGameTitle(unpacker, project, warnings);
         var originals = HashOriginals(gameDirectory, unpacked.Archives);
-        var gameTitle = (unpacker as IGameTitleSource)?.ReadTitle(project.GameCacheDirectory)?.Title;
 
         var plan = TextReextraction.Merge(
             existing,
@@ -149,6 +149,28 @@ public static class ProjectExtractor
             Reextraction = existing.Count > 0 ? plan.Summary : null,
             GameTitle = gameTitle,
         };
+    }
+
+    /// <summary>
+    /// O título da janela do jogo, se a engine o oferece. É um extra: um arquivo do título ilegível (outra versão do formato) não pode impedir a extração
+    /// dos scripts, então a falha vira aviso e o <c>vnforge.json</c> fica como está.
+    /// </summary>
+    private static string? ReadGameTitle(IGameUnpacker unpacker, ProjectFolder project, List<string> warnings)
+    {
+        if (unpacker is not IGameTitleSource source)
+        {
+            return null;
+        }
+
+        try
+        {
+            return source.ReadTitle(project.GameCacheDirectory)?.Title;
+        }
+        catch (VNForgeException ex)
+        {
+            warnings.Add($"Não foi possível ler o título do jogo: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>Grava no <c>vnforge.json</c> o título que o jogo traz, sem tocar na tradução que o usuário deu. Devolve a configuração gravada.</summary>

@@ -84,4 +84,19 @@ public sealed class GameTitleExtractionTests : IDisposable
 
         Assert.Equal(new GameTitleConfig("原題", "Meu titulo"), project.LoadConfig().Game.Title);
     }
+
+    [Fact]
+    public void Extract_com_o_arquivo_do_titulo_ilegivel_extrai_os_scripts_e_avisa()
+    {
+        WriteTitle("原題");
+        var project = NewProject(new GameTitleConfig("原題", "Meu titulo"));
+        var engine = new FakeEngine { TitleFailure = new VNForgeException("o yscfg.ybn é de uma versão que não conheço.") };
+
+        var result = ProjectExtractor.Extract(project, [engine], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Single(result.Scripts);
+        Assert.Null(result.GameTitle);
+        Assert.Contains(result.Warnings, w => w.Contains("título do jogo", StringComparison.Ordinal) && w.Contains("yscfg.ybn", StringComparison.Ordinal));
+        Assert.Equal(new GameTitleConfig("原題", "Meu titulo"), project.LoadConfig().Game.Title);
+    }
 }
