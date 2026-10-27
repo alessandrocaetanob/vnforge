@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -344,6 +346,101 @@ public sealed class CheckCommandTests : IDisposable
 
         Assert.Contains("38;2;245;154;178m", result.Output); // erro
         Assert.Contains("38;2;242;196;109m", result.Output); // aviso
+    }
+
+    private const int EllipsisLines = 1234;
+    private const string GroupedEllipsis = "Reticências (Caractere …): 1.234 linhas com erro. A estratégia cp1252 não grava '…'. vnf check --fix troca para Três pontos.";
+
+    private ProjectFolder EllipsisProject()
+    {
+        var project = ProjectFolder.Create(Path.Combine(_cli.Root, "cp1252"), _project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        project.SaveFormatting(FormattingProfile.Default with { Typography = new TypographyRule(Ellipsis: EllipsisStyle.Character) });
+        UseRules(new FormattingConflictRule(), new UnencodableCharacterRule());
+        project.SaveText(ScriptKey, [.. Enumerable.Range(1, EllipsisLines).Select(n => Unit(n, "Espera...")), Unit(EllipsisLines + 1, "Sem reticências")]);
+        return project;
+    }
+
+    private Task<RunResult> CheckEllipsis(ProjectFolder project, params string[] args) =>
+        _cli.RunAsync(["check", "--project", project.Root, .. args], TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task Ajuste_que_a_codificacao_nao_grava_sai_agrupado_numa_linha_por_ajuste()
+    {
+        var project = EllipsisProject();
+
+        var result = await CheckEllipsis(project);
+
+        Assert.Equal(2, result.ExitCode);
+        var lines = Lines(result);
+        Assert.Contains($"ERRO {GroupedEllipsis} [ajuste-nao-codificavel]", Regex.Replace(result.Output, @"\s+", " "));
+        Assert.Equal(1, lines.Count(l => l.Contains("[ajuste-nao-codificavel]", StringComparison.Ordinal)));
+        Assert.DoesNotContain("O ajuste Reticências", result.Output);
+        Assert.Contains("Acentuação · 1.234 erros", lines);
+    }
+
+    [Fact]
+    public async Task Ajuste_de_aspas_lista_os_dois_caracteres_que_a_codificacao_nao_grava()
+    {
+        var project = EllipsisProject();
+        project.SaveFormatting(FormattingProfile.Default with { Typography = new TypographyRule(Quotes: QuoteStyle.Corner) });
+        project.SaveText(ScriptKey, [Unit(1, "Ele disse “oi”")]);
+
+        var result = await CheckEllipsis(project, "--json");
+
+        Assert.Equal(2, result.ExitCode);
+        using var doc = JsonDocument.Parse(result.Output);
+        var conflict = Assert.Single(doc.RootElement.GetProperty("data").GetProperty("settingConflicts").EnumerateArray());
+        Assert.Equal("typography.quotes", conflict.GetProperty("field").GetString());
+        Assert.Equal("「」", conflict.GetProperty("characters").GetString());
+    }
+
+    [Fact]
+    public async Task Fix_troca_o_ajuste_conta_a_troca_e_a_segunda_rodada_nao_acha_erro()
+    {
+        var project = EllipsisProject();
+
+        var first = await CheckEllipsis(project, FixFlag);
+        var second = await CheckEllipsis(project, FixFlag);
+
+        Assert.Equal(0, first.ExitCode);
+        Assert.Contains("formatting.json: Reticências passou de Caractere … para Três pontos.", first.Output);
+        Assert.Equal(EllipsisStyle.Dots, project.LoadFormatting().Typography.Ellipsis);
+        Assert.Equal("Espera...", project.LoadText(ScriptKey)[0].Translation);
+        Assert.Equal(0, second.ExitCode);
+        Assert.DoesNotContain("formatting.json", second.Output);
+        Assert.DoesNotContain("ajuste-nao-codificavel", second.Output);
+        Assert.Contains("0 erros, 0 avisos", second.Output);
+    }
+
+    [Fact]
+    public async Task Json_traz_os_ajustes_em_conflito_no_check_e_os_trocados_no_fix()
+    {
+        var project = EllipsisProject();
+
+        var check = await CheckEllipsis(project, "--json");
+        var fix = await CheckEllipsis(project, "--json", FixFlag);
+
+        Assert.Equal(2, check.ExitCode);
+        using var before = JsonDocument.Parse(check.Output);
+        var data = before.RootElement.GetProperty("data");
+        var conflict = Assert.Single(data.GetProperty("settingConflicts").EnumerateArray());
+        Assert.Equal("typography.ellipsis", conflict.GetProperty("field").GetString());
+        Assert.Equal("Reticências", conflict.GetProperty("setting").GetString());
+        Assert.Equal("character", conflict.GetProperty("current").GetString());
+        Assert.Equal("dots", conflict.GetProperty("safe").GetString());
+        Assert.Equal(EllipsisLines, conflict.GetProperty("errors").GetInt32());
+        Assert.Equal(EllipsisLines, conflict.GetProperty("lines").GetInt32());
+        Assert.Equal(0, data.GetProperty("settingsFixed").GetArrayLength());
+        Assert.All(data.GetProperty("issues").EnumerateArray(), i => Assert.Equal("ajuste-nao-codificavel", i.GetProperty("rule").GetString()));
+
+        Assert.Equal(0, fix.ExitCode);
+        using var after = JsonDocument.Parse(fix.Output);
+        var fixedData = after.RootElement.GetProperty("data");
+        var changed = Assert.Single(fixedData.GetProperty("settingsFixed").EnumerateArray());
+        Assert.Equal("typography.ellipsis", changed.GetProperty("field").GetString());
+        Assert.Equal("character", changed.GetProperty("before").GetString());
+        Assert.Equal("dots", changed.GetProperty("after").GetString());
+        Assert.Equal(0, fixedData.GetProperty("settingConflicts").GetArrayLength());
     }
 
     private static string[] Lines(RunResult result) =>

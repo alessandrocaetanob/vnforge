@@ -1,9 +1,11 @@
 using System.CommandLine;
 using Spectre.Console;
+using VNForge.Core.Formatting;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
+using VNForge.Core.Text;
 
 namespace VNForge.Cli;
 
@@ -47,18 +49,19 @@ internal static class CheckCommand
         EnsureKnown(engine, rules);
 
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
-        var fixes = parseResult.GetValue(FixOption) ? ApplyFixes(project, engine, rules) : [];
+        var fixes = parseResult.GetValue(FixOption) ? ApplyFixes(project, engine, rules) : NoFixes;
 
         var report = engine.Run(QaContext.FromProject(project), new QaOptions(rules.Count == 0 ? null : rules, severity));
         var exitCode = report.HasErrors ? ErrorHandler.QaBlockedExitCode : ErrorHandler.OkExitCode;
+        var settings = SettingGroup.Build(project, report);
 
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(Data(report, fixes), exitCode));
+            output.WriteLine(JsonEnvelope.Result(Data(report, fixes, settings), exitCode));
             return exitCode;
         }
 
-        WriteText(cli.Ansi, report, fixes, rules.Contains(UntranslatedQaRule.RuleId));
+        WriteText(cli.Ansi, report, fixes, settings, rules.Contains(UntranslatedQaRule.RuleId));
         return exitCode;
     }
 
@@ -71,7 +74,9 @@ internal static class CheckCommand
         }
     }
 
-    private static IReadOnlyList<QaFix> ApplyFixes(ProjectFolder project, QaEngine engine, List<string> rules)
+    private static readonly QaFixResult NoFixes = new([], new Dictionary<string, IReadOnlyList<TextUnit>>());
+
+    private static QaFixResult ApplyFixes(ProjectFolder project, QaEngine engine, List<string> rules)
     {
         // Projeto inválido tem de falhar antes de o --fix gravar qualquer coisa.
         _ = QaContext.FromProject(project);
@@ -79,15 +84,21 @@ internal static class CheckCommand
         // Com --rules, corrige só as regras pedidas que sabem corrigir; as outras só entram na conferência.
         if (rules.Count == 0)
         {
-            return QaFixer.Apply(project, engine).Fixes;
+            return QaFixer.Apply(project, engine);
         }
 
         var fixable = rules.Where(id => engine.Find(id) is IQaFixer).ToList();
-        return fixable.Count == 0 ? [] : QaFixer.Apply(project, engine, fixable).Fixes;
+        return fixable.Count == 0 ? NoFixes : QaFixer.Apply(project, engine, fixable);
     }
 
-    private static void WriteText(IAnsiConsole ansi, QaReport report, IReadOnlyList<QaFix> fixes, bool listUntranslated)
+    private static void WriteText(IAnsiConsole ansi, QaReport report, QaFixResult result, IReadOnlyList<SettingGroup> settings, bool listUntranslated)
     {
+        var fixes = result.Fixes;
+        foreach (var setting in result.SettingsFixed)
+        {
+            ansi.MarkupLine($"[{CliPalette.Hex(CliPalette.Approved)}]CORRIGIDO[/] {CliViews.Escape($"formatting.json: {setting.Setting} passou de {setting.CurrentLabel} para {setting.SafeLabel}.")}");
+        }
+
         foreach (var fix in fixes)
         {
             ansi.MarkupLine($"[{CliPalette.Hex(CliPalette.Approved)}]CORRIGIDO[/] {CliViews.Escape(fix.UnitId)}  {RuleTag(fix.RuleId)}");
@@ -98,7 +109,7 @@ internal static class CheckCommand
             ansi.MarkupLine($"{fixes.Count} {(fixes.Count == 1 ? "correção aplicada" : "correções aplicadas")} em text/*.json.");
         }
 
-        foreach (var group in GroupByCategory(report, listUntranslated))
+        foreach (var group in GroupByCategory(report, settings, listUntranslated))
         {
             ansi.WriteLine();
             ansi.MarkupLine($"[bold {Accent}]{CliViews.Escape(group.Category)}[/] [dim]· {Describe(group.Errors, group.Warnings)}[/]");
@@ -117,7 +128,7 @@ internal static class CheckCommand
     }
 
     // Categorias com erro primeiro, depois na ordem do app; dentro de cada uma, erros antes de avisos.
-    private static IEnumerable<CategoryGroup> GroupByCategory(QaReport report, bool listUntranslated)
+    private static IEnumerable<CategoryGroup> GroupByCategory(QaReport report, IReadOnlyList<SettingGroup> settings, bool listUntranslated)
     {
         var byCategory = report.Issues.GroupBy(i => QaCategories.Of(i.RuleId), StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         var ordered = QaCategories.All
@@ -129,8 +140,19 @@ internal static class CheckCommand
             var issues = byCategory[category].OrderByDescending(i => i.Severity).ToList();
             var lines = new List<string>();
             var untranslated = new List<QaIssue>();
+            var written = new HashSet<string>(StringComparer.Ordinal);
             foreach (var issue in issues)
             {
+                if (settings.FirstOrDefault(g => g.Owns(issue)) is { } setting)
+                {
+                    if (written.Add(setting.Conflict.Field))
+                    {
+                        lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(setting.Describe())}  {RuleTag(issue.RuleId)}");
+                    }
+
+                    continue;
+                }
+
                 if (!listUntranslated && issue.RuleId == UntranslatedQaRule.RuleId)
                 {
                     untranslated.Add(issue);
@@ -188,6 +210,68 @@ internal static class CheckCommand
         return string.Join(", ", parts);
     }
 
+    // O QaIssue não carrega o campo do ajuste; a mensagem da regra começa sempre por "O ajuste {Setting} ({CurrentLabel}) gera '{caractere}'".
+    private sealed record SettingGroup(FormattingConflict Conflict, string Strategy, IReadOnlyList<QaIssue> Issues)
+    {
+        private const int MaxListedCharacters = 4;
+
+        public int Errors => Issues.Count;
+
+        public int Lines => Issues.Select(i => i.UnitId).Distinct(StringComparer.Ordinal).Count();
+
+        public string Characters
+        {
+            get
+            {
+                // A mensagem da regra cita só o primeiro caractere criado por linha; o ajuste de largura tem dezenas, então só ele usa as mensagens.
+                if (Conflict.Characters.EnumerateRunes().Count() <= MaxListedCharacters)
+                {
+                    return Conflict.Characters;
+                }
+
+                var found = Issues.Select(i => Created(i.Message)).Where(c => c.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+                return found.Count == 0 ? Conflict.Characters : string.Concat(found);
+            }
+        }
+
+        public bool Owns(QaIssue issue) =>
+            issue.RuleId == FormattingConflictRule.RuleId && issue.Message.StartsWith(Prefix(Conflict), StringComparison.Ordinal);
+
+        public string Describe()
+        {
+            var count = Errors == Lines
+                ? CliFormat.Count(Lines, "linha com erro", "linhas com erro")
+                : $"{CliFormat.Count(Errors, "erro", "erros")} em {CliFormat.Count(Lines, "linha", "linhas")}";
+            var action = Conflict.Safe is null ? "desliga o ajuste" : $"troca para {Conflict.SafeLabel}";
+            return $"{Conflict.Setting} ({Conflict.CurrentLabel}): {count}. A estratégia {Strategy} não grava '{Characters}'. vnf check --fix {action}.";
+        }
+
+        public static IReadOnlyList<SettingGroup> Build(ProjectFolder project, QaReport report)
+        {
+            if (!report.Issues.Any(i => i.RuleId == FormattingConflictRule.RuleId))
+            {
+                return [];
+            }
+
+            var strategy = project.LoadConfig().Encoding.Strategy;
+            return
+            [
+                .. QaFixer.FindSettingConflicts(project)
+                    .Select(conflict => new SettingGroup(conflict, strategy, [.. report.Issues.Where(i => i.RuleId == FormattingConflictRule.RuleId && i.Message.StartsWith(Prefix(conflict), StringComparison.Ordinal))]))
+                    .Where(group => group.Errors > 0),
+            ];
+        }
+
+        private static string Prefix(FormattingConflict conflict) => $"O ajuste {conflict.Setting} ({conflict.CurrentLabel}) gera '";
+
+        private static string Created(string message)
+        {
+            var start = message.IndexOf("gera '", StringComparison.Ordinal);
+            var end = start < 0 ? -1 : message.IndexOf("', que ", start, StringComparison.Ordinal);
+            return start < 0 || end < 0 ? string.Empty : message[(start + 6)..end];
+        }
+    }
+
     private sealed record CategoryGroup(string Category, int Errors, int Warnings, IReadOnlyList<string> Lines);
 
     private static List<string> ParseRules(string? text) =>
@@ -201,13 +285,26 @@ internal static class CheckCommand
         _ => throw new UsageException($"--severity aceita error ou warn (recebeu '{text}')."),
     };
 
-    private static object Data(QaReport report, IReadOnlyList<QaFix> fixes) => new
+    private static object Data(QaReport report, QaFixResult result, IReadOnlyList<SettingGroup> settings) => new
     {
         errors = report.Errors.Count,
         warnings = report.Warnings.Count,
         silenced = report.Silenced.Count,
-        @fixed = fixes.Count,
-        fixes = fixes.Select(f => new { rule = f.RuleId, unit = f.UnitId, script = f.ScriptKey }),
+        @fixed = result.Fixes.Count,
+        fixes = result.Fixes.Select(f => new { rule = f.RuleId, unit = f.UnitId, script = f.ScriptKey }),
+        settingsFixed = result.SettingsFixed.Select(c => new { field = c.Field, setting = c.Setting, before = c.Current, after = c.Safe, beforeLabel = c.CurrentLabel, afterLabel = c.SafeLabel }),
+        settingConflicts = settings.Select(g => new
+        {
+            field = g.Conflict.Field,
+            setting = g.Conflict.Setting,
+            current = g.Conflict.Current,
+            currentLabel = g.Conflict.CurrentLabel,
+            safe = g.Conflict.Safe,
+            safeLabel = g.Conflict.SafeLabel,
+            characters = g.Characters,
+            errors = g.Errors,
+            lines = g.Lines,
+        }),
         issues = report.Issues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
     };
 }
