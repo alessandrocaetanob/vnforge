@@ -8,7 +8,8 @@ O projeto de teste usa a estratégia `cp1252` e tem 6.854 linhas, 6.221 traduzid
 
 A tradução gravada nessas 1.748 linhas tem três pontos (`...`), não o `…`. Quem cria o `…` é o ajuste Reticências = "Caractere …" (`typography.ellipsis: "character"` no `formatting.json`). A regra confere o texto depois da formatação (`BuiltText.For`), então vê o `…`, e a `Cp1252TextEncoder` o recusa porque ele vira o byte `0x85`, que o motor lê como lead byte do Shift-JIS. Três defeitos saem daí:
 
-- A mensagem de cada linha diz "Troque por três pontos (...)" numa linha que já tem três pontos.
+- A mensagem de cada linha diz "Troque por três pontos (...)" numa linha que já tem três pontos. No app fica pior: a dica de `ConferenceRows.ReplacementHint` vira "Use ... no lugar do …." e, na fonte da interface, os dois lados parecem o mesmo símbolo. O painel mostra a "Tradução de hoje" com três pontos, sem nada que aponte o ajuste.
+- O filtro "Um clique" mostra 0 com 4.117 erros que travam o teste.
 - O "Corrigir N com um clique" não muda nada: o corretor (`JapanesePunctuation.FixUnencodable`) olha a tradução gravada, que está certa.
 - Ajustes deixa escolher uma opção que a estratégia do projeto nunca grava.
 
