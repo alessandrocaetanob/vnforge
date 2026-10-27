@@ -213,6 +213,8 @@ internal static class CheckCommand
     // O QaIssue não carrega o campo do ajuste; a mensagem da regra começa sempre por "O ajuste {Setting} ({CurrentLabel}) gera '{caractere}'".
     private sealed record SettingGroup(FormattingConflict Conflict, string Strategy, IReadOnlyList<QaIssue> Issues)
     {
+        private const int MaxListedCharacters = 4;
+
         public int Errors => Issues.Count;
 
         public int Lines => Issues.Select(i => i.UnitId).Distinct(StringComparer.Ordinal).Count();
@@ -221,6 +223,12 @@ internal static class CheckCommand
         {
             get
             {
+                // A mensagem da regra cita só o primeiro caractere criado por linha; o ajuste de largura tem dezenas, então só ele usa as mensagens.
+                if (Conflict.Characters.EnumerateRunes().Count() <= MaxListedCharacters)
+                {
+                    return Conflict.Characters;
+                }
+
                 var found = Issues.Select(i => Created(i.Message)).Where(c => c.Length > 0).Distinct(StringComparer.Ordinal).ToList();
                 return found.Count == 0 ? Conflict.Characters : string.Concat(found);
             }

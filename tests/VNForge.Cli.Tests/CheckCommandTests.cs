@@ -379,6 +379,22 @@ public sealed class CheckCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Ajuste_de_aspas_lista_os_dois_caracteres_que_a_codificacao_nao_grava()
+    {
+        var project = EllipsisProject();
+        project.SaveFormatting(FormattingProfile.Default with { Typography = new TypographyRule(Quotes: QuoteStyle.Corner) });
+        project.SaveText(ScriptKey, [Unit(1, "Ele disse “oi”")]);
+
+        var result = await CheckEllipsis(project, "--json");
+
+        Assert.Equal(2, result.ExitCode);
+        using var doc = JsonDocument.Parse(result.Output);
+        var conflict = Assert.Single(doc.RootElement.GetProperty("data").GetProperty("settingConflicts").EnumerateArray());
+        Assert.Equal("typography.quotes", conflict.GetProperty("field").GetString());
+        Assert.Equal("「」", conflict.GetProperty("characters").GetString());
+    }
+
+    [Fact]
     public async Task Fix_troca_o_ajuste_conta_a_troca_e_a_segunda_rodada_nao_acha_erro()
     {
         var project = EllipsisProject();
