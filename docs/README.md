@@ -11,6 +11,7 @@ Rascunho para o brainstorm antes de criar o repositório. Nada aqui é definitiv
 | [05-epicos.md](05-epicos.md) | Épicos, histórias e marcos até o benchmark YU-RIS |
 | [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md) | O que já levantei sobre os formatos do YU-RIS (YPF, YBN, codificação) |
 | [plans/2026-10-22-backlog-github.md](plans/2026-10-22-backlog-github.md) | Marcos, épicos e issues no GitHub, com dependências |
+| [plans/2026-10-27-roteiro-teste-v4.md](plans/2026-10-27-roteiro-teste-v4.md) | Roteiro do teste de tradução da interface v4, tela por tela, com a release teste.11 |
 
 Design do app (telas, tokens e componentes): [design/](design/README.md).
 
