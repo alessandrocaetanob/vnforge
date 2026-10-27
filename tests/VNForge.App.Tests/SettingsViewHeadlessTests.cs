@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
@@ -109,6 +110,59 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
                 }
 
                 Assert.False(Botao(window, "Abrir Testar no jogo").IsEnabled);
+            },
+            CancellationToken.None);
+    }
+
+    [Theory]
+    [InlineData(1200)]
+    [InlineData(760)]
+    public async Task Detalhes_tecnicos_dos_acentos_listam_cada_estrategia_na_largura_do_cartao_sem_sobreposicao(int largura)
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var vm = Criar(temp);
+        vm.Load(VNForge.Core.Projects.ProjectSummaryReader.Read(root));
+        await vm.EstimateLoading;
+        vm.SelectedTab = 3;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                window.Width = largura;
+                var detalhes = window.GetVisualDescendants().OfType<TechnicalDetails>().Single(d => d.IsEffectivelyVisible);
+                detalhes.IsExpanded = true;
+                Assentar(window);
+
+                var lista = detalhes.GetVisualDescendants().OfType<ItemsControl>().Single(i => Avalonia.Automation.AutomationProperties.GetName(i) == "Nomes técnicos das estratégias");
+                var nota = detalhes.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == vm.EncodingCurrentNote);
+                var linhas = lista.GetVisualDescendants().OfType<Grid>().Where(g => g.Children.Count == 4).ToList();
+                Assert.Equal(vm.EncodingTechnicalRows.Count, linhas.Count);
+
+                Rect Caixa(Control c) => new(c.TranslatePoint(default, detalhes) ?? default, c.Bounds.Size);
+                var xNota = Caixa(nota).X;
+                foreach (var linha in linhas)
+                {
+                    var textos = linha.Children.OfType<TextBlock>().Select(t => (t.Text, Box: Caixa(t))).ToList();
+                    var (id, nome, exemplo, descricao) = (textos[0].Box, textos[1].Box, textos[2].Box, textos[3].Box);
+
+                    // Nenhum texto pisa em outro: cada um tem a sua caixa.
+                    for (var i = 0; i < textos.Count; i++)
+                    {
+                        for (var j = i + 1; j < textos.Count; j++)
+                        {
+                            Assert.False(textos[i].Box.Intersects(textos[j].Box), $"'{textos[i].Text}' se sobrepõe a '{textos[j].Text}' a {largura}px.");
+                        }
+                    }
+
+                    // Valor gravado, nome e exemplo na mesma linha, da esquerda para a direita; a descrição embaixo do nome e na largura do cartão.
+                    Assert.Equal(xNota, id.X, 1);
+                    Assert.True(id.Right <= nome.X && nome.Right <= exemplo.X, "Valor gravado, nome e exemplo deviam seguir da esquerda para a direita.");
+                    Assert.True(descricao.Y >= nome.Bottom - 1, "A descrição devia ficar embaixo do nome.");
+                    Assert.Equal(nome.X, descricao.X, 1);
+                    Assert.True(descricao.Width >= linha.Bounds.Width * 0.7, $"A descrição ficou estreita ({descricao.Width:0}px de {linha.Bounds.Width:0}px) a {largura}px.");
+                }
             },
             CancellationToken.None);
     }

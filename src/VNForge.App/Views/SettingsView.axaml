@@ -504,11 +504,11 @@
                 <ItemsControl ItemsSource="{Binding EncodingTechnicalRows}" AutomationProperties.Name="Nomes técnicos das estratégias">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:EncodingTechnicalRow">
-                      <Grid ColumnDefinitions="90,220,140,*" ColumnSpacing="12" Margin="0,0,0,6">
-                        <TextBlock Classes="mono" Text="{Binding Id}"/>
-                        <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="{Binding Name}"/>
-                        <TextBlock Classes="mono secondary" Text="{Binding Sample}"/>
-                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+                      <Grid ColumnDefinitions="72,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2" Margin="0,0,0,10">
+                        <TextBlock Classes="mono" VerticalAlignment="Center" Text="{Binding Id}"/>
+                        <TextBlock Grid.Column="1" Classes="body-strong" TextWrapping="Wrap" Text="{Binding Name}"/>
+                        <TextBlock Grid.Column="2" Classes="mono secondary" TextAlignment="Right" Text="{Binding Sample}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
