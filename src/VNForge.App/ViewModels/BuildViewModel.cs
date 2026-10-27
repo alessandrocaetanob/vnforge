@@ -30,8 +30,12 @@ public enum BuildPatchState
     Refused,
 }
 
-/// <summary>Uma linha do log: o horário (<c>HH:mm:ss</c>, em mono na tela) e o que aconteceu.</summary>
-public sealed record BuildLogLine(string Time, string Message);
+/// <summary>Uma linha do log: o horário (<c>HH:mm:ss</c>, em mono na tela), o que aconteceu e a data (<c>yyyy-MM-dd</c>, só no texto copiado).</summary>
+public sealed record BuildLogLine(string Time, string Message, string Date)
+{
+    /// <summary>A linha como vai para a área de transferência: data e hora completas, para quem relata o problema.</summary>
+    public string ToClipboardLine() => $"{Date} {Time}  {Message}";
+}
 
 /// <summary>Uma linha do cartão Resultado: o nome do fato (<c>Scripts</c>, <c>ysbin.ypf</c>, <c>Acentuação</c>) e o valor.</summary>
 public sealed record ResultFact(string Label, string Value);
@@ -237,6 +241,9 @@ public sealed partial class BuildViewModel : ObservableObject
     public bool HasFacts => Facts.Count > 0;
 
     public bool HasLog => Log.Count > 0;
+
+    /// <summary>O log inteiro, uma linha por entrada, com data e hora; é o que o botão Copiar log põe na área de transferência.</summary>
+    public string LogText => string.Join(Environment.NewLine, Log.Select(l => l.ToClipboardLine()));
 
     public bool HasBackups => Backups.Count > 0;
 
@@ -978,6 +985,9 @@ public sealed partial class BuildViewModel : ObservableObject
         AppendLog($"{title}: {message}");
     }
 
+    /// <summary>A área de transferência recusou o texto (travada por outro programa); a tela avisa em vez de deixar o clique sem resposta.</summary>
+    public void ReportCopyFailure(string message) => Fail("Não foi possível copiar o log", message);
+
     private void AppendLog(string line)
     {
         if (Log.Count > 0 && Log[^1].Message == line)
@@ -985,7 +995,8 @@ public sealed partial class BuildViewModel : ObservableObject
             return;
         }
 
-        Log.Add(new BuildLogLine(clock.GetLocalNow().ToString("HH:mm:ss", CultureInfo.InvariantCulture), line));
+        var now = clock.GetLocalNow();
+        Log.Add(new BuildLogLine(now.ToString("HH:mm:ss", CultureInfo.InvariantCulture), line, now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
     }
 
     private RunTimer StartTimer() => new(clock);

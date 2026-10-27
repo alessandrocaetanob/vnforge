@@ -41,7 +41,7 @@
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+          <SelectableTextBlock Grid.Column="1" Classes="body-sm" Loaded="Selectable_Loaded" TextWrapping="Wrap" Text="{Binding ErrorMessage}" AutomationProperties.Name="Mensagem de erro"/>
         </Grid>
       </Border>
 
@@ -249,9 +249,13 @@
             <!-- Log -->
             <Border Grid.Row="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Log do build">
               <Grid RowDefinitions="Auto,*">
-                <Grid ColumnDefinitions="*,Auto" Height="48" Margin="16,0">
+                <Grid ColumnDefinitions="*,Auto,Auto" Height="48" Margin="16,0" ColumnSpacing="12">
                   <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Log"/>
                   <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LogSummary}"/>
+                  <Button Grid.Column="2" Classes="subtle sm" VerticalAlignment="Center" Click="CopyLog_Click" IsEnabled="{Binding HasLog}"
+                          AutomationProperties.Name="Copiar log" ToolTip.Tip="Copia o log inteiro, com data e hora">
+                    <TextBlock Text="Copiar log"/>
+                  </Button>
                 </Grid>
                 <Border Grid.Row="1" Background="{DynamicResource Vnf.BgInset}">
                   <Panel>
@@ -261,10 +265,10 @@
                       <ItemsControl ItemsSource="{Binding Log}" Margin="16,12" AutomationProperties.Name="Linhas do log">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="vm:BuildLogLine">
-                            <TextBlock Classes="mono secondary" LineHeight="20" TextWrapping="Wrap">
+                            <SelectableTextBlock Classes="mono secondary" LineHeight="20" Loaded="Selectable_Loaded" TextWrapping="Wrap">
                               <Run FontWeight="Medium" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Time, Mode=OneWay}"/>
                               <Run Text="{Binding Message, StringFormat='  {0}', Mode=OneWay}"/>
-                            </TextBlock>
+                            </SelectableTextBlock>
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>
                       </ItemsControl>
