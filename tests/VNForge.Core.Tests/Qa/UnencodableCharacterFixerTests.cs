@@ -50,7 +50,7 @@ public sealed class UnencodableCharacterFixerTests
     {
         var rule = new UnencodableCharacterRule();
 
-        Assert.Equal("Oi ★ 😀 x.", rule.Fix("Oi ★ 😀 x。", Context()));
+        Assert.Equal("Oi † 😀 x.", rule.Fix("Oi † 😀 x。", Context()));
     }
 
     [Fact]
@@ -77,14 +77,14 @@ public sealed class UnencodableCharacterFixerTests
     {
         var issue = Assert.Single(new UnencodableCharacterRule().Check(Context(units: [Unit("a・b")])));
 
-        Assert.EndsWith("Nome: ponto médio japonês. Use '·'.", issue.Message, StringComparison.Ordinal);
-        Assert.Equal("a·b", new UnencodableCharacterRule().Fix("a・b", Context()));
+        Assert.EndsWith("Nome: ponto médio japonês. Use um espaço.", issue.Message, StringComparison.Ordinal);
+        Assert.Equal("a b", new UnencodableCharacterRule().Fix("a・b", Context()));
     }
 
     [Fact]
     public void Caractere_fora_da_tabela_nao_ganha_nome_na_mensagem()
     {
-        var issue = Assert.Single(new UnencodableCharacterRule().Check(Context(units: [Unit("★")])));
+        var issue = Assert.Single(new UnencodableCharacterRule().Check(Context(units: [Unit("😀")])));
 
         Assert.EndsWith("não existe na estratégia 'cp1252'.", issue.Message, StringComparison.Ordinal);
     }

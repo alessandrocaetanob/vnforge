@@ -214,7 +214,7 @@ public class ConferenceViewModelTests
         folder.SaveText("story04",
         [
             new TextUnit("story04:000064", TextUnitKind.Dialogue, null, "～朝～", "～Manhã～", TranslationStatus.Machine),
-            new TextUnit("story04:000065", TextUnitKind.Dialogue, null, "原文", "Sem ★ solução", TranslationStatus.Translated),
+            new TextUnit("story04:000065", TextUnitKind.Dialogue, null, "原文", "Sem † solução", TranslationStatus.Translated),
         ]);
         var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root) };
         await vm.RefreshAsync();
@@ -234,7 +234,7 @@ public class ConferenceViewModelTests
         Assert.Equal("~Manhã~", til.ProposedText);
         Assert.Equal("O ～ (til japonês, U+FF5E) não existe na acentuação do projeto. Use ~ no lugar do ～.", til.Detail);
         Assert.False(estrela.HasProposal);
-        Assert.Equal("O ★ não existe na acentuação do projeto.", estrela.Detail);
+        Assert.Equal("O † não existe na acentuação do projeto.", estrela.Detail);
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public class ConferenceViewModelTests
 
         await vm.FixAllCommand.ExecuteAsync(null);
 
-        Assert.Equal(["~Manhã~", "Sem ★ solução"], folder.LoadText("story04").Select(u => u.Translation));
+        Assert.Equal(["~Manhã~", "Sem † solução"], folder.LoadText("story04").Select(u => u.Translation));
         Assert.Equal(["story04:000065"], IssueRows(vm).Select(r => r.UnitId));
     }
 
