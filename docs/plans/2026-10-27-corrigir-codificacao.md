@@ -49,7 +49,9 @@ Substituições do usuário (E4.5) ficam de fora: o texto delas é livre, e o ca
 
 ## App
 
-**Conferência.** Os problemas de `ajuste-nao-codificavel` viram um card por ajuste no topo da lista de erros, no lugar das 4.114 linhas: título "O ajuste Reticências gera 4.114 erros", texto "A estratégia cp1252 não grava o '…'. As traduções têm três pontos; o ajuste é que troca." e o botão de destaque "Usar três pontos". O botão grava o `formatting.json` pelo Core, avisa o resto do app (`TextsChanged`; Ajustes relê o perfil ao abrir, o que a implementação confere) e confere de novo. A contagem do cabeçalho "Corrigir N com um clique" inclui as linhas que o ajuste resolve.
+**Conferência.** Os problemas de `ajuste-nao-codificavel` viram um card por ajuste no topo da lista de erros, no lugar das 4.114 linhas: título "O ajuste Reticências gera 4.114 erros", texto "A estratégia cp1252 não grava o '…'. As traduções têm três pontos; o ajuste é que troca." e o botão de destaque "Usar três pontos". O botão grava o `formatting.json` pelo Core, avisa o resto do app (`TextsChanged`; Ajustes relê o perfil ao abrir, o que a implementação confere) e confere de novo. A contagem do cabeçalho "Corrigir N com um clique" e a do filtro "Um clique" incluem as linhas que o ajuste resolve.
+
+**Dica de troca legível.** A dica do caractere não gravável diz o substituto por extenso quando ele se confunde com o original na tela: "Use três pontos (...) no lugar das reticências (…)", "aspas retas (\") no lugar das aspas curvas (“)", "hífen (-) no lugar do travessão (U+2014)". O ponto final não cola no caractere citado. A frase "O que é isso" do painel deixa de mandar "Troque por um que ela aceite" quando o caractere vem de um ajuste e passa a explicar o ajuste.
 
 **Ajustes.** O `Segmented` de Reticências e o de Aspas desligam a opção que a estratégia atual não grava, com dica "A estratégia cp1252 não grava o '…'.". Quando a pessoa troca a estratégia e o ajuste atual entra em conflito, uma faixa de aviso abaixo do grupo diz o mesmo e oferece "Usar três pontos". `ChoiceItem<T>` ganha `IsEnabled` e `DisabledReason`.
 
