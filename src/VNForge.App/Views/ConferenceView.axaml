@@ -12,6 +12,10 @@
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
       <Setter Property="Padding" Value="10,8"/>
     </Style>
+    <!-- O selo tem 20px: a linha do detalhe que leva selo cresce para 22 em vez de cortar o texto. -->
+    <Style Selector="TextBlock.body-sm.chips">
+      <Setter Property="LineHeight" Value="22"/>
+    </Style>
     <Style Selector="Border.original.proposal">
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
       <Setter Property="BorderThickness" Value="1"/>
@@ -20,31 +24,36 @@
 
   <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*" Focusable="True">
 
-    <!-- Cabeçalho: última conferência e título à esquerda; "Corrigir N com um clique" e "Conferir de novo" à direita, na base do título. -->
+    <!-- Cabeçalho: última conferência e título à esquerda; à direita, na base do título, um só botão de destaque: "Corrigir N com um clique" quando há correção, senão "Conferir de novo". -->
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="24,16,24,12">
       <StackPanel Spacing="2" VerticalAlignment="Bottom" MinWidth="0">
         <TextBlock Classes="caption secondary" Text="{Binding CheckedSummary}" TextTrimming="CharacterEllipsis"/>
         <TextBlock Classes="title-lg" Text="Conferir a tradução"/>
         <TextBlock Classes="body-sm secondary" Text="O que impede de testar no jogo."/>
       </StackPanel>
-      <Button Grid.Column="1" Classes="sm" VerticalAlignment="Bottom" Command="{Binding FixAllCommand}"
+      <Button Grid.Column="1" Classes="sm" Classes.accent="{Binding HasFixable}" IsVisible="{Binding HasFixable}" VerticalAlignment="Bottom" Command="{Binding FixAllCommand}"
               AutomationProperties.Name="Corrigir de uma vez os problemas que têm correção de um clique">
         <TextBlock Text="{Binding FixAllLabel}"/>
       </Button>
-      <Button Grid.Column="2" Classes="sm accent" VerticalAlignment="Bottom" Command="{Binding RefreshCommand}" AutomationProperties.Name="Conferir de novo">
+      <Button Grid.Column="2" Classes="sm" Classes.accent="{Binding RefreshIsPrimary}" VerticalAlignment="Bottom" Command="{Binding RefreshCommand}" AutomationProperties.Name="Conferir de novo">
         <TextBlock Text="Conferir de novo"/>
       </Button>
     </Grid>
 
     <!-- Faixa do topo: os erros travam o teste no jogo, os avisos não travam nada; depois a falha da última ação e o resultado dela. -->
     <StackPanel Grid.Row="1" Spacing="8" Margin="24,0,24,12">
-      <Border Classes="infobar error" IsVisible="{Binding HasBlockingErrors}">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-            <Run FontWeight="SemiBold" Text="{Binding BlockingMessage}"/>
-            <Run Text="Corrija esses antes de testar no jogo. Os avisos não travam nada."/>
-          </TextBlock>
+      <!-- Neutra: fundo de cartão, ícone de erro e só o número em vermelho; a barra à esquerda guarda o sinal sem gritar. -->
+      <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasBlockingErrors}" AutomationProperties.Name="{Binding BlockingMessage}">
+        <Grid ColumnDefinitions="3,*">
+          <Border Background="{DynamicResource Vnf.SignalErrorFg}"/>
+          <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="12,10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+              <Run FontWeight="Bold" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding BlockingCount}"/>
+              <Run FontWeight="SemiBold" Text="{Binding BlockingRest}"/>
+              <Run Text="Corrija esses antes de testar no jogo. Os avisos não travam nada."/>
+            </TextBlock>
+          </Grid>
         </Grid>
       </Border>
       <Border Classes="infobar warning" IsVisible="{Binding HasOnlyWarnings}">
@@ -115,8 +124,8 @@
                       <TextBlock Classes="caption secondary" Text="{Binding Where}" TextTrimming="CharacterEllipsis"/>
                       <TextBlock Classes="caption secondary" Text="{Binding OriginNote}" TextTrimming="CharacterEllipsis"
                                  IsVisible="{Binding IsMachineDraft}"/>
-                      <TextBlock Classes="body-sm secondary" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" MaxLines="1"
-                                 ToolTip.Tip="{Binding Detail}"/>
+                      <TextBlock Classes="body-sm secondary" Classes.chips="{Binding HasDetailMarkers}" c:MarkedText.Source="{Binding DetailMarked}" TextTrimming="CharacterEllipsis" MaxLines="1"
+                                 ToolTip.Tip="{Binding Detail}" AutomationProperties.Name="{Binding Detail}"/>
                     </StackPanel>
                     <TextBlock Grid.Column="2" Classes="caption secondary" Text="{Binding Tag}" VerticalAlignment="Top" Margin="0,2,0,0"/>
                   </Grid>
@@ -197,28 +206,35 @@
                   </c:TechnicalDetails>
                 </StackPanel>
               </ScrollViewer>
-              <WrapPanel Grid.Row="1" Margin="0,14,0,0" ItemSpacing="8" LineSpacing="8">
-                <Button Classes="accent" IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).ShowFixAndNext}"
-                        Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).FixAndNextCommand}"
-                        AutomationProperties.Name="Corrigir e ir para o próximo problema">
+              <!-- Barra fixa no pé do painel: a ação principal em destaque (Enter), as outras duas ao lado uma da outra. Sem correção automática, "Abrir no editor" é a principal. -->
+              <Border Grid.Row="1" Classes="divider-top" Margin="0,12,0,0" Padding="0,12,0,0">
+                <StackPanel Spacing="8">
+                  <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                          IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).ShowFixAndNext}"
+                          Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).FixAndNextCommand}"
+                          AutomationProperties.Name="Corrigir e ir para o próximo problema">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="Corrigir e ir para o próximo" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                      <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Enter"/></Border>
+                    </StackPanel>
+                  </Button>
                   <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="Corrigir e ir para o próximo" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-                    <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Enter"/></Border>
+                    <Button Classes.accent="{Binding !$parent[UserControl].((vm:ConferenceViewModel)DataContext).ShowFixAndNext}"
+                            Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).OpenLineCommand}"
+                            CommandParameter="{Binding}" AutomationProperties.Name="Abrir a linha no Editor">
+                      <TextBlock Text="Abrir no editor"/>
+                    </Button>
+                    <Button Classes="subtle" IsVisible="{Binding CanMarkOk}"
+                            Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).MarkOkCommand}"
+                            CommandParameter="{Binding}" AutomationProperties.Name="Está certo assim: deixar de avisar desta linha">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
+                        <TextBlock Text="Está certo assim"/>
+                      </StackPanel>
+                    </Button>
                   </StackPanel>
-                </Button>
-                <Button Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).OpenLineCommand}"
-                        CommandParameter="{Binding}" AutomationProperties.Name="Abrir a linha no Editor">
-                  <TextBlock Text="Abrir no editor"/>
-                </Button>
-                <Button Classes="subtle" IsVisible="{Binding CanMarkOk}"
-                        Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).MarkOkCommand}"
-                        CommandParameter="{Binding}" AutomationProperties.Name="Está certo assim: deixar de avisar desta linha">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
-                    <TextBlock Text="Está certo assim"/>
-                  </StackPanel>
-                </Button>
-              </WrapPanel>
+                </StackPanel>
+              </Border>
             </Grid>
           </Panel>
         </Panel>

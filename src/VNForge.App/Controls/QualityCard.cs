@@ -4,14 +4,13 @@ using Avalonia.Controls;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// Cartão de qualidade da tradução (v3.css, <c>.qcards .opt</c>): o <c>OptionCard</c> com o preço em reais e o tempo em destaque e o nome do modelo em letra pequena.
-/// É um <see cref="RadioButton"/>: a escolha entre Rápida, Equilibrada e Caprichada é um grupo. O modelo só aparece aqui em letra pequena; o exato fica em Ajustes.
+/// Cartão de qualidade da tradução (v3.css, <c>.qcards .opt</c>): o <c>OptionCard</c> com o preço em reais e o tempo em destaque.
+/// É um <see cref="RadioButton"/>: a escolha entre Rápida, Equilibrada e Caprichada é um grupo. O cartão fala em qualidade, nunca em modelo; o modelo fica em Detalhes técnicos dos Ajustes.
 /// </summary>
 public sealed class QualityCard : RadioButton
 {
     public static readonly StyledProperty<string?> TitleProperty = AvaloniaProperty.Register<QualityCard, string?>(nameof(Title));
     public static readonly StyledProperty<string?> DescriptionProperty = AvaloniaProperty.Register<QualityCard, string?>(nameof(Description));
-    public static readonly StyledProperty<string?> ModelProperty = AvaloniaProperty.Register<QualityCard, string?>(nameof(Model));
     public static readonly StyledProperty<string?> DurationProperty = AvaloniaProperty.Register<QualityCard, string?>(nameof(Duration));
     public static readonly StyledProperty<decimal> PriceProperty = AvaloniaProperty.Register<QualityCard, decimal>(nameof(Price));
 
@@ -37,13 +36,6 @@ public sealed class QualityCard : RadioButton
     {
         get => GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
-    }
-
-    /// <summary>O nome do modelo, em letra pequena.</summary>
-    public string? Model
-    {
-        get => GetValue(ModelProperty);
-        set => SetValue(ModelProperty, value);
     }
 
     /// <summary>O tempo estimado para o escopo escolhido ("cerca de 6 min").</summary>

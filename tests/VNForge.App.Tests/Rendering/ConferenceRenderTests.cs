@@ -1,6 +1,12 @@
+using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
@@ -48,11 +54,35 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
 
                     // O primeiro problema da lista: erro, sem correção automática.
                     Assert.Equal("marcador-diferente", vm.Conference.SelectedRow?.RuleId);
+                    ScreenRenderer.Settle(window);
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+                    Assert.True(vm.Conference.HasFixable);
+                    AssertHeader(view, vm.Conference);
+                    AssertBlockingBanner(window, view, vm.Conference, theme);
+                    AssertSceneNamesAndChips(view);
+
+                    // Erro sem correção automática: só "Abrir no editor", em destaque, na barra do pé do painel.
+                    var open = ActionButton(view, vm.Conference.OpenLineCommand);
+                    Assert.Contains("accent", open.Classes);
+                    Assert.DoesNotContain(PanelButtons(view), b => b.Command == vm.Conference.FixAndNextCommand && b.IsEffectivelyVisible);
+                    AssertInsidePanelFooter(window, view, open);
                     Save(window, "conferir-v3-problemas", theme);
 
                     // O espaço duplo da mesma linha traz a correção proposta e o botão "Aplicar correção".
                     vm.Conference.SelectedRow = vm.Conference.Rows.First(r => r.RuleId == "espaco-duplo");
                     Assert.True(vm.Conference.SelectedRow.HasProposal);
+                    ScreenRenderer.Settle(window);
+
+                    // Com correção: "Corrigir e ir para o próximo" em destaque, as outras duas ao lado, todas no pé do painel.
+                    var fixAndNext = ActionButton(view, vm.Conference.FixAndNextCommand);
+                    var markOk = ActionButton(view, vm.Conference.MarkOkCommand);
+                    var openEditor = ActionButton(view, vm.Conference.OpenLineCommand);
+                    Assert.Contains("accent", fixAndNext.Classes);
+                    Assert.DoesNotContain("accent", openEditor.Classes);
+                    AssertInsidePanelFooter(window, view, fixAndNext);
+                    AssertInsidePanelFooter(window, view, markOk);
+                    AssertInsidePanelFooter(window, view, openEditor);
+                    Assert.True(fixAndNext.Bounds.Width > openEditor.Bounds.Width, "a ação principal ocupa a largura do painel");
                     Save(window, "conferir-v3-um-clique", theme);
                 }
                 finally
@@ -63,6 +93,111 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Em_1366_por_768_as_acoes_do_painel_ficam_na_area_visivel(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = ArtboardProject.Create(temp.SubFolder("projeto"));
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                var window = new MainWindow { Width = 1366, Height = 768, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    vm.Conference.SelectedRow = vm.Conference.Rows.First(r => r.RuleId == "espaco-duplo");
+                    ScreenRenderer.Settle(window);
+
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+                    AssertInsidePanelFooter(window, view, ActionButton(view, vm.Conference.FixAndNextCommand));
+                    AssertInsidePanelFooter(window, view, ActionButton(view, vm.Conference.MarkOkCommand));
+                    AssertInsidePanelFooter(window, view, ActionButton(view, vm.Conference.OpenLineCommand));
+                    var path = RenderOutput.PathFor(ScreenRenderer.FileName("conferir-1366-um-clique", theme));
+                    ScreenRenderer.Save(window, path);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    private static Border PanelOf(ConferenceView view) =>
+        view.GetVisualDescendants().OfType<Border>().Single(b => AutomationProperties.GetName(b) == "Problema selecionado");
+
+    private static IEnumerable<Button> PanelButtons(ConferenceView view) => PanelOf(view).GetVisualDescendants().OfType<Button>();
+
+    private static Button ActionButton(ConferenceView view, System.Windows.Input.ICommand command) =>
+        Assert.Single(PanelButtons(view), b => b.Command == command && b.IsEffectivelyVisible);
+
+    /// <summary>O botão está na tela, dentro do painel do problema, abaixo da área que rola e acima da borda do painel.</summary>
+    private static void AssertInsidePanelFooter(Window window, ConferenceView view, Button button)
+    {
+        var panel = PanelOf(view);
+        var scroll = panel.GetVisualDescendants().OfType<ScrollViewer>().First();
+        var panelBox = new Rect(panel.TranslatePoint(default, window)!.Value, panel.Bounds.Size);
+        var scrollBox = new Rect(scroll.TranslatePoint(default, window)!.Value, scroll.Bounds.Size);
+        var box = new Rect(button.TranslatePoint(default, window)!.Value, button.Bounds.Size);
+        Assert.True(panelBox.Contains(box.TopLeft) && panelBox.Contains(box.BottomRight), "o botão cabe no painel");
+        Assert.True(box.Top >= scrollBox.Bottom, "a barra de ações fica abaixo do conteúdo que rola");
+        Assert.True(box.Bottom <= window.Height, "o botão está na área visível");
+    }
+
+    /// <summary>Um só botão de destaque no cabeçalho: "Corrigir N com um clique" quando há correção, e "Conferir de novo" fica neutro.</summary>
+    private static void AssertHeader(ConferenceView view, ConferenceViewModel conference)
+    {
+        var buttons = view.GetVisualDescendants().OfType<Button>().ToList();
+        var fixAll = Assert.Single(buttons, b => b.Command == conference.FixAllCommand);
+        var refresh = Assert.Single(buttons, b => b.Command == conference.RefreshCommand && b.IsEffectivelyVisible);
+        Assert.Contains("accent", fixAll.Classes);
+        Assert.DoesNotContain("accent", refresh.Classes);
+        Assert.Single(buttons, b => b.Classes.Contains("accent") && b.Classes.Contains("sm") && b.IsEffectivelyVisible);
+    }
+
+    /// <summary>A faixa do topo é de cartão, com a barra de erro à esquerda e o número em vermelho: nada de fundo vermelho cheio.</summary>
+    private static void AssertBlockingBanner(Window window, ConferenceView view, ConferenceViewModel conference, ThemeVariant theme)
+    {
+        var banner = Assert.Single(view.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == conference.BlockingMessage);
+        Assert.Equal(conference.BlockingMessage, $"{conference.BlockingCount} {conference.BlockingRest}");
+        var errorBg = ColorOf("Vnf.SignalErrorBg", theme);
+        var errorFg = ColorOf("Vnf.SignalErrorFg", theme);
+        var probe = PixelProbe.Capture(window, banner);
+        Assert.True(probe.CountInArea(new Rect(8, 2, probe.Width - 16, probe.Height - 4), errorBg, 4) < probe.Width * probe.Height / 100, "a faixa não tem fundo vermelho");
+        Assert.True(probe.CountInArea(new Rect(0, 4, 3, probe.Height - 8), errorFg, 6) > probe.Height / 2, "a barra de erro desenha a borda esquerda");
+        var number = banner.GetVisualDescendants().OfType<TextBlock>().SelectMany(t => t.Inlines ?? []).OfType<Run>().Single(r => r.Text == conference.BlockingCount);
+        Assert.Equal(errorFg, Assert.IsType<ISolidColorBrush>(number.Foreground, exactMatch: false).Color);
+    }
+
+    private static Color ColorOf(string key, ThemeVariant theme) =>
+        Application.Current!.TryGetResource(key, theme, out var value) && value is ISolidColorBrush brush ? brush.Color : throw new InvalidOperationException(key);
+
+    /// <summary>Toda cena aparece pelo nome ou por "Cena N", nunca pelo id; os marcadores viram selo e não texto entre parênteses.</summary>
+    private static void AssertSceneNamesAndChips(ConferenceView view)
+    {
+        var list = view.GetVisualDescendants().OfType<ListBox>().First(l => AutomationProperties.GetName(l) == "Problemas encontrados");
+        var texts = list.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text ?? string.Empty).ToList();
+        Assert.Contains(texts, t => t.StartsWith("Cena ", StringComparison.Ordinal) && t.Contains("· linha", StringComparison.Ordinal));
+        Assert.Contains(texts, t => t.StartsWith("Manhã de chuva · linha", StringComparison.Ordinal));
+        Assert.DoesNotContain(texts, t => t.Contains("yst000", StringComparison.Ordinal));
+        Assert.DoesNotContain(texts, t => t.Contains("(virar a página)", StringComparison.Ordinal));
+        var chips = list.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
+        Assert.True(chips.Count >= 3, "os marcadores da lista são selos");
+        Assert.All(chips, chip => Assert.True(chip.Bounds.Height >= 18));
     }
 
     private static void Save(MainWindow window, string name, ThemeVariant theme)

@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core.Formatting;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
@@ -59,7 +60,7 @@ public sealed class ConferenceIssueRowViewModel
     /// <param name="count">Quantas ocorrências a linha representa; maior que 1 no resumo por script e quando a regra aponta a mesma linha mais de uma vez.</param>
     /// <param name="ruleDescription">Descrição da regra no Core, usada quando o título não está na tabela.</param>
     /// <param name="linePosition">A posição da linha no script (de 1 em diante); o id da unidade é opaco e não serve de número.</param>
-    /// <param name="sceneName">O nome da cena (<c>scripts.json</c>); sem ele a linha se localiza pelo id do script.</param>
+    /// <param name="sceneName">Como a cena se chama na tela: o nome do <c>scripts.json</c> ou "Cena N" quando o projeto não o guarda (N é a posição do script entre todos os do projeto, em ordem de chave, a partir de 1; não vem do id); sem ele (só em teste) a linha cai no id do script.</param>
     /// <param name="occurrences">Todas as ocorrências que a linha agrupa (a mesma regra na mesma linha); a lista usa isso para nomear cada caractere em vez de só o primeiro.</param>
     public ConferenceIssueRowViewModel(QaIssue issue, QaFix? proposal = null, TextUnit? unit = null, int count = 1, string? ruleDescription = null, string? sceneName = null, int? linePosition = null, IReadOnlyList<QaIssue>? occurrences = null)
     {
@@ -73,10 +74,10 @@ public sealed class ConferenceIssueRowViewModel
         LineNumber = linePosition;
     }
 
-    /// <summary>O nome da cena da linha; nulo quando o projeto ainda não tem nome para ela.</summary>
+    /// <summary>A cena da linha como a pessoa a lê ("Manhã de chuva" ou "Cena 13", a posição do script no projeto e não um número tirado do id); nula só quando a linha foi montada sem projeto.</summary>
     public string? SceneName { get; }
 
-    /// <summary>A cena como a pessoa a conhece: o nome, ou o id do script quando não há nome.</summary>
+    /// <summary>A cena como a pessoa a conhece; o id do script só entra quando a linha não veio de um projeto.</summary>
     public string SceneLabel => SceneName ?? ScriptKey;
 
     /// <summary>Onde está o problema: "Manhã de chuva · linha 43"; no resumo por script, só a cena.</summary>
@@ -136,8 +137,39 @@ public sealed class ConferenceIssueRowViewModel
 
     public string Explanation => ConferenceRuleTexts.Explanation(RuleId, ruleDescription);
 
-    /// <summary>O trecho que a lista mostra sob o título: o pedaço que a correção muda, ou a mensagem da regra.</summary>
-    public string Detail
+    /// <summary>O trecho que a lista mostra sob o título, com os marcadores por extenso entre parênteses: <c>anda !(virar a página)</c>. Serve de dica e de nome acessível.</summary>
+    public string Detail => HasRawMarkers ? PlainMarkers(RawDetail) : RawDetail;
+
+    /// <summary>
+    /// O mesmo trecho com os marcadores crus (<c>anda !\p</c>), para a lista trocá-los por selos (<c>MarkedText</c>). A mensagem do Core não muda: a CLI a imprime como está.
+    /// Texto com marcador fora da gramática do jogo cai em <see cref="Detail"/>, porque o selo só vale para marcador que o jogo lê.
+    /// </summary>
+    public string DetailMarked
+    {
+        get
+        {
+            var raw = RawDetail;
+            if (!HasRawMarkers)
+            {
+                return raw;
+            }
+
+            try
+            {
+                ControlMarkers.Split(raw);
+                return raw;
+            }
+            catch (ArgumentException)
+            {
+                return PlainMarkers(raw);
+            }
+        }
+    }
+
+    /// <summary>O trecho da lista leva selo de marcador: a linha dele é mais alta que a das outras.</summary>
+    public bool HasDetailMarkers => !string.Equals(DetailMarked, Detail, StringComparison.Ordinal);
+
+    private string RawDetail
     {
         get
         {
@@ -158,12 +190,15 @@ public sealed class ConferenceIssueRowViewModel
 
             if (Proposal is { } p)
             {
-                return PlainMarkers(Excerpt(p.Before, p.After));
+                return Excerpt(p.Before, p.After);
             }
 
-            return PlainMarkers(Count > 1 ? $"{Message} (+{Count - 1})" : Message);
+            return Count > 1 ? $"{Message} (+{Count - 1})" : Message;
         }
     }
+
+    /// <summary>O <see cref="RawDetail"/> é texto de tradução ou mensagem do QA, que pode trazer marcadores; as frases próprias da tela (falta, caractere, contagem) não.</summary>
+    private bool HasRawMarkers => !IsScriptSummary && !IsMarkerMismatch && RuleId != UnencodableCharacterRule.RuleId;
 
     /// <summary>A linha lista os caracteres que a acentuação não grava (todos os do grupo); o detalhe da tela mostra <see cref="CharacterSentence"/>.</summary>
     public bool HasCharacterList => RuleId == UnencodableCharacterRule.RuleId;
@@ -329,7 +364,14 @@ public sealed class ConferenceIssueRowViewModel
         }
 
         var snippet = before[start..end];
-        return snippet.Length > MaxExcerpt ? $"“{snippet[..MaxExcerpt]}…”" : $"“{snippet}”";
+        if (snippet.Length <= MaxExcerpt)
+        {
+            return $"“{snippet}”";
+        }
+
+        // Cortar entre a barra e a letra de um marcador deixaria uma barra solta no fim.
+        var cut = snippet[MaxExcerpt - 1] == '\\' ? MaxExcerpt - 1 : MaxExcerpt;
+        return $"“{snippet[..cut]}…”";
     }
 }
 

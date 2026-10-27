@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
@@ -115,7 +116,15 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasBlockingErrors))]
     public partial string BlockingMessage { get; private set; } = string.Empty;
 
-    /// <summary>Há erro aberto: a faixa vermelha do alto aparece. Erro nunca se silencia.</summary>
+    /// <summary>O número da faixa do alto, que ela pinta de vermelho: "4"; vazio sem erro.</summary>
+    [ObservableProperty]
+    public partial string BlockingCount { get; private set; } = string.Empty;
+
+    /// <summary>O resto da frase da faixa depois do número: "problemas travam o teste no jogo."; vazio sem erro.</summary>
+    [ObservableProperty]
+    public partial string BlockingRest { get; private set; } = string.Empty;
+
+    /// <summary>Há erro aberto: a faixa do alto aparece. Erro nunca se silencia.</summary>
     public bool HasBlockingErrors => BlockingMessage.Length > 0;
 
     /// <summary>Há aviso e nenhum erro: a faixa do topo diz que nada trava o teste no jogo.</summary>
@@ -124,6 +133,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
     /// <summary>"Corrigir 3 com um clique"; "Corrigir com um clique" quando não há o que corrigir.</summary>
     [ObservableProperty]
     public partial string FixAllLabel { get; private set; } = "Corrigir com um clique";
+
+    /// <summary>Há correção de um clique para aplicar: "Corrigir N com um clique" é o botão de destaque do cabeçalho; sem ela, o de destaque é "Conferir de novo".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RefreshIsPrimary))]
+    public partial bool HasFixable { get; private set; }
+
+    public bool RefreshIsPrimary => !HasFixable;
 
     /// <summary>Quantas ocorrências a última conferência achou, sem filtro; nulo enquanto o projeto não foi conferido (ou a conferência falhou).</summary>
     [ObservableProperty]
@@ -285,6 +301,18 @@ public sealed partial class ConferenceViewModel : ObservableObject
         var context = QaContext.FromProject(folder);
         var scenes = SceneNames(folder);
         var positions = new Dictionary<string, int?>(StringComparer.Ordinal);
+        var sceneNumbers = context.Texts.Keys.Select((key, index) => (key, number: index + 1)).ToDictionary(x => x.key, x => x.number, StringComparer.Ordinal);
+        // Sem nome, "Cena N" com N a posição do script entre todos do projeto (ordem de chave, de 1 em diante); script fora da lista fica só "Cena", sem inventar número.
+        string Scene(string key)
+        {
+            if (scenes.DisplayName(key) is { } name && !string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+
+            return sceneNumbers.TryGetValue(key, out var number) ? $"Cena {number.ToString(CultureInfo.InvariantCulture)}" : "Cena";
+        }
+
         foreach (var list in context.Texts.Values)
         {
             for (var i = 0; i < list.Count; i++)
@@ -319,7 +347,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
                     units.GetValueOrDefault(issue.UnitId),
                     group.Count(),
                     engine.Find(issue.RuleId)?.Description,
-                    scenes.DisplayName(issue.ScriptKey),
+                    Scene(issue.ScriptKey),
                     positions.GetValueOrDefault(issue.UnitId),
                     issue.RuleId == UnencodableCharacterRule.RuleId ? group.ToList() : null);
             })
@@ -333,7 +361,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
         rows.AddRange(untranslated.Select(group =>
         {
             var head = group.First();
-            return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), engine.Find(head.RuleId)?.Description, scenes.DisplayName(head.ScriptKey), positions.GetValueOrDefault(head.UnitId));
+            return new ConferenceIssueRowViewModel(head, null, units.GetValueOrDefault(head.UnitId), group.Count(), engine.Find(head.RuleId)?.Description, Scene(head.ScriptKey), positions.GetValueOrDefault(head.UnitId));
         }));
 
         return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count);
@@ -618,6 +646,9 @@ public sealed partial class ConferenceViewModel : ObservableObject
             1 => "1 problema trava o teste no jogo.",
             _ => $"{ProjectLabels.Number(errors)} problemas travam o teste no jogo.",
         };
+        BlockingCount = errors == 0 ? string.Empty : ProjectLabels.Number(errors);
+        BlockingRest = errors == 0 ? string.Empty : BlockingMessage[(BlockingCount.Length + 1)..];
+        HasFixable = fixableCount > 0;
         FixAllLabel = fixableCount > 0 ? $"Corrigir {ProjectLabels.Number(fixableCount)} com um clique" : "Corrigir com um clique";
         CheckedSummary = Project is null
             ? string.Empty
