@@ -51,16 +51,16 @@
                     <Panel Width="20" Height="20">
                       <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsDone}"/>
                       <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.Accent}" Data="{StaticResource Icon.ArrowSync}" IsVisible="{Binding IsRunning}"/>
-                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsBlocked}"/>
+                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsProblem}"/>
                       <Ellipse Width="16" Height="16" StrokeThickness="1.5" Stroke="{DynamicResource Vnf.TextTertiary}" IsVisible="{Binding IsPending}"/>
                     </Panel>
                     <Border Grid.Column="1" Height="1" Margin="8,0,8,0" VerticalAlignment="Center" Background="{DynamicResource Vnf.StrokeControl}"
                             IsVisible="{Binding !IsLast}"/>
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="body-sm" TextWrapping="Wrap" Margin="0,4,8,0" Text="{Binding Label}"/>
                     <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding TimeText}"
-                               IsVisible="{Binding !IsBlocked}"/>
+                               IsVisible="{Binding !IsProblem}"/>
                     <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="caption" TextWrapping="Wrap" Text="{Binding TimeText}"
-                               Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding IsBlocked}"/>
+                               Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding IsProblem}"/>
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

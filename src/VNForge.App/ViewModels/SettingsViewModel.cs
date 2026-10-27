@@ -884,10 +884,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         var spent = app.Rate.ToBrl(AiUsageLog.Load(folder).Dollars);
         SpentBrl = (double)spent;
-        var approx = app.Rate.IsInformed || spent <= 0m ? string.Empty : "≈ ";
+        var shown = Controls.Money.WithApprox(Controls.Money.BrlEstimate(spent), spent, app.Rate);
         SpentSummary = app.SpendLimit is { } limit
-            ? $"{approx}{Controls.Money.BrlEstimate(spent)} de {Controls.Money.Brl(limit)}"
-            : $"{approx}{Controls.Money.BrlEstimate(spent)} gastos neste projeto";
+            ? $"{shown} de {Controls.Money.Brl(limit)}"
+            : $"{shown} gastos neste projeto";
     }
 
     private void ApplyEstimates()

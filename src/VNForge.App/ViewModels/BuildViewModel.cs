@@ -303,6 +303,7 @@ public sealed partial class BuildViewModel : ObservableObject
         LogSummary = string.Empty;
         restoredFrom = null;
         ErrorMessage = null;
+        stopped = null;
         ClearConfirmation();
         refreshVersion++;
         Apply(null);
@@ -774,7 +775,7 @@ public sealed partial class BuildViewModel : ObservableObject
     /// Roda o trabalho como tarefa da barra inferior e devolve o resultado ou a falha esperada, capturados dentro do trabalho:
     /// o estado da tarefa só muda quando o <c>Dispatcher</c> processa o <c>post</c>, depois de <see cref="BackgroundTaskItem.Completion"/>.
     /// </summary>
-    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<IBackgroundTaskReporter, CancellationToken, T> work, TaskGroupSpec? group = null)
+    private async Task<TaskRun<T>> RunAsync<T>(string title, string message, Func<IBackgroundTaskReporter, CancellationToken, T> work, TaskGroupSpec? group = null, Action<string>? onMessage = null)
     {
         T? value = default;
         Exception? failure = null;
@@ -797,7 +798,13 @@ public sealed partial class BuildViewModel : ObservableObject
         var mine = epoch;
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (mine == epoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && item.Progress is null && !string.IsNullOrEmpty(item.Message))
+            if (mine != epoch || e.PropertyName != nameof(BackgroundTaskItem.Message) || !item.IsRunning || string.IsNullOrEmpty(item.Message))
+            {
+                return;
+            }
+
+            onMessage?.Invoke(item.Message);
+            if (item.Progress is null)
             {
                 AppendLog(item.Message);
             }

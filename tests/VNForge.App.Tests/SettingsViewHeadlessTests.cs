@@ -69,8 +69,11 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
                 var textos = window.GetVisualDescendants()
                     .Where(v => !v.GetVisualAncestors().OfType<TechnicalDetails>().Any() && v is not TechnicalDetails)
                     .SelectMany(TextosVisiveis)
-                    .Where(t => !string.IsNullOrWhiteSpace(t) && t != Sobrancelha)
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
                     .ToList();
+
+                Assert.Contains(Sobrancelha, textos);
+                textos.Remove(Sobrancelha);
 
                 Assert.Contains("Conexão funcionando.", textos);
                 Assert.Contains("Qualidade padrão", textos);

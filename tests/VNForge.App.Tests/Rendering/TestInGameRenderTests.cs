@@ -25,6 +25,7 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
     private const string Translated = "traduzido";
     private const string Blocked = "travado";
     private const string NeverTested = "sem-teste";
+    private const string Failed = "falhou";
 
     public static TheoryData<string, string> Cases => new()
     {
@@ -34,6 +35,8 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
         { "Light", Blocked },
         { "Dark", NeverTested },
         { "Light", NeverTested },
+        { "Dark", Failed },
+        { "Light", Failed },
     };
 
     [Theory]
@@ -51,7 +54,7 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
         using var temp = new TempFolder();
         var root = DemoBuild.Create(temp.SubFolder("demo"));
         var qa = new DemoQaRule { Enabled = mode == Blocked };
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new DemoBuildEngine()], new NoLaunchStarter(), new QaEngine([qa]))
+        var vm = new BuildViewModel(new BackgroundTaskService(), [new DemoBuildEngine()], mode == Failed ? new RefusingStarter() : new NoLaunchStarter(), new QaEngine([qa]))
         {
             Project = DemoProject.Summary(root),
         };
@@ -69,6 +72,11 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
             async () =>
             {
                 await vm.ReloadAsync();
+                if (mode == Failed)
+                {
+                    await vm.TestCommand.ExecuteAsync(null);
+                }
+
                 var path = RenderOutput.PathFor(ScreenRenderer.FileName("testar-no-jogo-" + mode + suffix, theme));
                 ScreenRenderer.Render(new BuildView { DataContext = vm }, theme, path, width, height, inspect: window => Inspect(window, vm, theme, mode));
                 Assert.True(new FileInfo(path).Length > 10_000);
@@ -132,6 +140,14 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.Contains("2 erros travam", texts);
                 AssertIcon(window, steps, theme, "Vnf.SignalErrorFg", cells[0]);
                 break;
+            case Failed:
+                Assert.Equal(
+                    [TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Failed],
+                    vm.LastTestSteps.Select(r => r.State));
+                Assert.Contains("O jogo não abriu", texts);
+                Assert.Equal("O último teste falhou.", caption);
+                AssertIcon(window, steps, theme, "Vnf.SignalErrorFg", cells[4]);
+                break;
             case NeverTested:
                 Assert.All(vm.LastTestSteps, r => Assert.True(r.IsPending));
                 Assert.Equal("Ainda não houve teste neste projeto", caption);
@@ -173,6 +189,11 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
     private static T Named<T>(Window window, string name)
         where T : Control =>
         window.GetVisualDescendants().OfType<T>().Single(c => c.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == name);
+
+    private sealed class RefusingStarter : IGameProcessStarter
+    {
+        public void Start(string executablePath, string workingDirectory) => throw new IOException("o jogo recusou abrir");
+    }
 
     private sealed class NoLaunchStarter : IGameProcessStarter
     {

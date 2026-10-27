@@ -25,7 +25,11 @@ public static class Money
 
     /// <summary>Põe a marca de cotação de exemplo em um texto de valor já formatado; com a cotação informada, ou sem valor, devolve o texto como veio.</summary>
     public static string WithRateMark(string text, decimal brl, ExchangeRate rate) =>
-        rate.IsInformed || brl <= 0m ? text : $"≈ {text} ({ExampleRateMark})";
+        rate.IsInformed || brl <= 0m ? text : $"{WithApprox(text, brl, rate)} ({ExampleRateMark})";
+
+    /// <summary>Põe o "≈" num valor já formatado quando ele vem da cotação de exemplo; com a cotação informada, ou sem valor, devolve o texto como veio. A marca "cotação de exemplo" fica a cargo de quem mostra o valor.</summary>
+    public static string WithApprox(string text, decimal brl, ExchangeRate rate) =>
+        rate.IsInformed || brl <= 0m ? text : $"≈ {text}";
 
     public static string Usd(decimal value) => $"US$ {value.ToString("N2", PtBr)}";
 }

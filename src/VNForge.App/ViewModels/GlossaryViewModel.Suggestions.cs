@@ -158,18 +158,18 @@ public sealed partial class GlossaryViewModel
     {
         var rate = Rate();
         var brl = CostEstimator.Brl(estimate, rate);
-        var text = Controls.Money.BrlEstimate(brl);
-        return rate.IsInformed || brl <= 0m ? text : $"≈ {text}";
+        return Controls.Money.WithApprox(Controls.Money.BrlEstimate(brl), brl, rate);
     }
 
-    private string WithRateHint(string hint) =>
-        Rate().IsInformed ? hint : $"{hint} O preço usa uma {Controls.Money.ExampleRateMark}; informe a sua em Ajustes.";
+    /// <summary>A dica cita a cotação de exemplo só quando o botão mostra um preço feito com ela (o preço leva o "≈").</summary>
+    private static string WithRateHint(string hint, string priceText) =>
+        priceText.StartsWith('≈') ? $"{hint} O preço usa uma {Controls.Money.ExampleRateMark}; informe a sua em Ajustes." : hint;
 
     /// <summary>A dica do botão de sugerir voz e gênero, com o aviso da cotação de exemplo quando for o caso.</summary>
-    public string VoiceHint => WithRateHint("A IA lê até 20 falas de cada personagem e sugere o gênero e o jeito de falar. Só preenche o que está vazio.");
+    public string VoiceHint => WithRateHint("A IA lê até 20 falas de cada personagem e sugere o gênero e o jeito de falar. Só preenche o que está vazio.", VoicePriceText);
 
     /// <summary>A dica do botão de traduzir os termos com a IA, com o aviso da cotação de exemplo quando for o caso.</summary>
-    public string TermsHint => WithRateHint("A IA traduz os termos da lista e explica a escolha em uma frase.");
+    public string TermsHint => WithRateHint("A IA traduz os termos da lista e explica a escolha em uma frase.", TermsPriceText);
 
     private List<TermTranslationRequest> PendingTermRequests() =>
         [.. RepeatedTermRows.Where(r => !r.HasSuggestion).Select(r => new TermTranslationRequest(r.Source, r.Lines, scan.ExampleOf(r.Source)))];
