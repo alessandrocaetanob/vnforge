@@ -50,7 +50,7 @@ public sealed class InconsistentTranslationRule : IQaRule
                 if (!string.Equals(translation, reference, StringComparison.Ordinal))
                 {
                     yield return new QaIssue(Id, QaSeverity.Warning, unitId, key,
-                        $"o original '{source}' aparece traduzido como '{reference}' em outras linhas");
+                        $"o original “{source}” aparece traduzido como “{reference}” em outras linhas");
                 }
             }
         }

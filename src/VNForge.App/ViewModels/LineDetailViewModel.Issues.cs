@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using VNForge.App.Services;
 using VNForge.Core.Qa;
 
 namespace VNForge.App.ViewModels;
@@ -11,7 +12,7 @@ public sealed record LineIssueViewModel(string Title, string Message, bool IsErr
     [
         .. issues
             .OrderByDescending(i => i.Severity)
-            .Select(i => new LineIssueViewModel(ConferenceRuleTexts.Title(i.RuleId), i.Message, i.Severity == QaSeverity.Error)),
+            .Select(i => new LineIssueViewModel(ConferenceRuleTexts.Title(i.RuleId), ProjectLabels.Sentence(i.Message), i.Severity == QaSeverity.Error)),
     ];
 
     /// <summary>"Título: mensagem", como a dica do ícone da grade mostra.</summary>

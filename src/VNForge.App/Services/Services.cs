@@ -123,6 +123,9 @@ public static class ProjectLabels
 
     public static string Number(int value) => value.ToString("N0", PtBr);
 
+    /// <summary>As mensagens do QA vêm do Core em minúscula, porque a CLI as emenda ao nome da regra; na tela elas abrem a frase.</summary>
+    public static string Sentence(string text) => text.Length > 0 && char.IsLower(text[0]) ? char.ToUpperInvariant(text[0]) + text[1..] : text;
+
     public static string Scripts(int count) => $"{Number(count)} {(count == 1 ? "script" : "scripts")}";
 
     /// <summary>"1 arquivo de roteiro", "1.254 arquivos de roteiro": o mesmo termo do passo da pasta e da estimativa de gasto.</summary>

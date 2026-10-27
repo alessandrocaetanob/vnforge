@@ -175,7 +175,7 @@ public sealed class ConferenceIssueRowViewModel
         {
             if (IsScriptSummary)
             {
-                return Count == 1 ? "1 linha sem tradução neste script." : $"{ProjectLabels.Number(Count)} linhas sem tradução neste script.";
+                return Count == 1 ? "1 linha sem tradução nesta cena." : $"{ProjectLabels.Number(Count)} linhas sem tradução nesta cena.";
             }
 
             if (IsMarkerMismatch)
@@ -193,7 +193,8 @@ public sealed class ConferenceIssueRowViewModel
                 return Excerpt(p.Before, p.After);
             }
 
-            return Count > 1 ? $"{Message} (+{Count - 1})" : Message;
+            var sentence = ProjectLabels.Sentence(Message);
+            return Count > 1 ? $"{sentence} (+{ProjectLabels.Number(Count - 1)})" : sentence;
         }
     }
 
@@ -492,5 +493,5 @@ internal readonly record struct MarkerDifference(IReadOnlyList<string> Missing, 
         [.. markers.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(m => MarkerLabels.Name(m, m.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control))
             .GroupBy(name => name, StringComparer.Ordinal)
-            .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} ({g.Count()} vezes)")];
+            .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} ({ProjectLabels.Number(g.Count())} vezes)")];
 }

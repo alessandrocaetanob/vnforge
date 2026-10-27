@@ -47,6 +47,57 @@ public sealed class EditorSceneTests : IDisposable
     private TextUnit Gravada(string script, int n) => ProjectFolder.Open(raiz).LoadText(script)[n];
 
     [Fact]
+    public void A_contagem_da_mesma_fala_usa_o_separador_de_milhar_do_pt_BR()
+    {
+        var unidade = Fala(1, 0, "美咲", "「うん」\\p", "Aham.\\p", TranslationStatus.Machine);
+        var vm = new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao())
+        {
+            SameSource = new FalasIguais(4016),
+        };
+
+        Assert.Equal("Esta fala aparece em mais 4.016 linhas.", vm.SameSourceText);
+        Assert.Equal("Esta fala aparece em mais 12 linhas.", new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao()) { SameSource = new FalasIguais(12) }.SameSourceText);
+    }
+
+    private sealed class NavegadorMudo : VNForge.App.Services.ILineNavigator
+    {
+        public void SelectNext()
+        {
+        }
+
+        public void SelectPrevious()
+        {
+        }
+    }
+
+    [Theory]
+    [InlineData(false, "1.500 destas linhas já têm outra tradução (1.200 aprovadas). Substituir todas?", "Aplicada a 4.016 linhas.")]
+    [InlineData(true, "1.500 destas linhas já têm outra tradução (1.200 aprovadas). Substituir todas?", "Aplicada a 1.234 de 4.016 linhas; as outras não foram gravadas. Tente de novo.")]
+    public void As_frases_do_Usar_em_todos_separam_o_milhar(bool failed, string confirm, string result)
+    {
+        var unidade = Fala(1, 0, "美咲", "「うん」\\p", "Aham.\\p", TranslationStatus.Machine);
+        var vm = new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao())
+        {
+            SameSource = new FalasIguais(4016, new(1_500, 1_200), failed ? new(1_234, 4_016, 1_234, true) : new(4_016, 4_016, 4_016, false)),
+        };
+
+        vm.UseForAllCommand.Execute(null);
+
+        Assert.Equal(confirm, vm.UseForAllConfirmText);
+        vm.ConfirmUseForAllCommand.Execute(null);
+        Assert.Equal(result, failed ? vm.ErrorMessage : vm.SameSourceResult);
+    }
+
+    private sealed class FalasIguais(int count, VNForge.App.Services.SameSourcePreview? preview = null, VNForge.App.Services.SameSourceOutcome? outcome = null) : VNForge.App.Services.ISameSourceLines
+    {
+        public int Count => count;
+
+        public VNForge.App.Services.SameSourcePreview Inspect(string translation) => preview ?? new(0, 0);
+
+        public VNForge.App.Services.SameSourceOutcome Apply(string translation) => outcome ?? new(0, 0, 0, false);
+    }
+
+    [Fact]
     public async Task Na_cena_mostra_a_fala_anterior_e_a_seguinte_sem_marcadores()
     {
         var vm = await Abrir();

@@ -258,7 +258,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     Assert.True(aprovar.TranslatePoint(default, window)!.Value.Y >= rolagem.TranslatePoint(new Point(0, rolagem.Bounds.Height), window)!.Value.Y - Tolerance, "a barra de ações fica abaixo da área que rola");
 
                     var tecnico = inspetor.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Text?.Contains("máximo", StringComparison.Ordinal) == true).Select(t => t.Text);
-                    Assert.True(!tecnico.Any(), $"frase técnica no inspetor: {string.Join(" | ", tecnico)}");
+                    Assert.False(tecnico.Any(), $"frase técnica no inspetor: {string.Join(" | ", tecnico)}");
                     Assert.Contains(inspetor.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text?.StartsWith("Passa 1 linha", StringComparison.Ordinal) == true);
                 }
                 finally
@@ -304,7 +304,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
             });
     }
 
-    private Task Run(Func<Task> body) =>
+    private Task<int> Run(Func<Task> body) =>
         fixture.Session.Dispatch<int>(
             async () =>
             {

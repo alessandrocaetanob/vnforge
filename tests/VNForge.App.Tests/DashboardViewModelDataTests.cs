@@ -279,7 +279,7 @@ public class DashboardViewModelDataTests
         var named = await Load(Dashboard(Mixed(), TwoChapters().WithGroup("yst00001", "Manhã de chuva").WithGroup("yst00002", "Manhã de chuva")));
         var numbered = await Load(Dashboard(Mixed(), TwoChapters()));
 
-        Assert.Equal("Manhã de chuva · capítulo 1", named.NextStepScene);
+        Assert.Equal("Capítulo 1 · Manhã de chuva", named.NextStepScene);
         Assert.Equal("Capítulo 1", numbered.NextStepScene);
     }
 

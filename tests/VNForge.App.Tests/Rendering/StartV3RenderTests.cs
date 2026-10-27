@@ -54,7 +54,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                     Assert.Contains("Escolher a pasta", VisibleButtons(view));
                     Assert.Equal("Continuar: revisar “A promessa”", start.Detail.ContinueLabel);
                     Assert.Contains(start.Detail.ContinueLabel, VisibleButtons(view));
-                    Assert.Equal("A promessa · capítulo 5", start.Detail.NextStepScene);
+                    Assert.Equal("Capítulo 5 · A promessa", start.Detail.NextStepScene);
                     Assert.Contains(start.Detail.NextStepScene, texts, StringComparison.Ordinal);
                     Assert.True(start.OpenNextStepCommand.CanExecute(null));
                     Assert.StartsWith("No seu ritmo", start.Detail.PaceText, StringComparison.Ordinal);

@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -329,6 +330,165 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         }, 1366, 768);
     }
 
+    [Theory]
+    [InlineData("Dark", 1366, 768)]
+    [InlineData("Light", 1366, 768)]
+    [InlineData("Dark", 1440, 900)]
+    [InlineData("Light", 1440, 900)]
+    public async Task Com_a_fala_anterior_o_roteiro_cabe_sem_cortar_e_a_barra_continua_inteira(string themeName, int width, int height)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var review = vm.Editor.Review!;
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.True(review.HasPrevious && review.HasNext);
+            Salvar(window, $"modo-revisao-anterior-{width}", theme);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var script = view.FindControl<ScrollViewer>("Script")!;
+            var viewport = Frame(window, script);
+            var previous = Assert.Single(view.GetVisualDescendants().OfType<ContextLines>(), c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala anterior");
+            Assert.True(Frame(window, previous).Top >= viewport.Top - 1, "a fala anterior abre o roteiro, acima do original");
+            Assert.True(script.Extent.Height <= script.Viewport.Height + 1, $"o roteiro inteiro cabe sem rolar ({script.Extent.Height} > {script.Viewport.Height})");
+            Assert.All(
+                view.GetVisualDescendants().OfType<ContextLines>().Where(c => c.IsEffectivelyVisible),
+                c => Assert.True(Frame(window, c).Bottom <= viewport.Bottom + 1, "nenhuma fala vizinha passa da borda do roteiro"));
+            if (width >= 1440)
+            {
+                Assert.Contains(view.GetVisualDescendants().OfType<ContextLines>(), c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+            }
+
+            var barFrame = Frame(window, view.FindControl<Border>("ActionBar")!);
+            var stageFrame = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            Assert.True(barFrame.Bottom <= window.Height, "a barra cabe na janela");
+            Assert.True(stageFrame.Bottom <= barFrame.Top, "o palco não passa para baixo da barra");
+        }, width, height);
+    }
+
+    [Fact]
+    public async Task A_1366_a_fala_seguinte_volta_quando_a_linha_seguinte_deixa_o_roteiro_caber()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var review = vm.Editor.Review!;
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            bool NextShown() => view.GetVisualDescendants().OfType<ContextLines>().Any(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+
+            Assert.True(NextShown(), "na primeira linha o roteiro cabe com a seguinte");
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.False(NextShown(), "na linha longa a seguinte cede o lugar");
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.False(review.HasNext);
+            review.BackCommand.Execute(null);
+            review.BackCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            var sv = view.FindControl<ScrollViewer>("Script")!;
+            Assert.True(NextShown(), $"de volta à primeira, a seguinte reaparece (extent {sv.Extent.Height}, viewport {sv.Viewport.Height}, pos {review.PositionText}, hasnext {review.HasNext})");
+        }, 1366, 768);
+    }
+
+    /// <summary>
+    /// A fala seguinte que cedeu na linha anterior não pode pesar na linha nova: chegar à terceira linha passando pela segunda (cuja seguinte é longa e some) e abrir a
+    /// revisão já na terceira têm que dar o mesmo resultado. A altura varia porque a diferença só aparece quando a janela está entre as duas medidas.
+    /// </summary>
+    [Theory]
+    [InlineData(800)]
+    [InlineData(808)]
+    [InlineData(816)]
+    [InlineData(824)]
+    [InlineData(832)]
+    [InlineData(840)]
+    [InlineData(848)]
+    [InlineData(856)]
+    [InlineData(864)]
+    [InlineData(872)]
+    [InlineData(880)]
+    public async Task Ao_trocar_de_linha_a_medida_da_fala_seguinte_recomeca_do_zero(int height)
+    {
+        var viaSecond = await NextShownOnThirdLine(height, reviewedFirstTwo: false);
+        var direct = await NextShownOnThirdLine(height, reviewedFirstTwo: true);
+
+        Assert.Equal(direct, viaSecond);
+    }
+
+    private async Task<bool> NextShownOnThirdLine(int height, bool reviewedFirstTwo)
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"), longNeighbours: true, reviewedFirstTwo);
+        var shown = false;
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var review = vm.Editor.Review!;
+            if (!reviewedFirstTwo)
+            {
+                review.SkipCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+                review.SkipCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+            }
+
+            Assert.True(review.HasPrevious && review.HasNext);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            shown = view.GetVisualDescendants().OfType<ContextLines>().Any(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+        }, 1366, height);
+
+        return shown;
+    }
+
+    /// <summary>
+    /// A view do modo revisão é reaproveitada entre sessões: a fala seguinte que cedeu no fim de uma sessão não pode pesar na abertura da seguinte.
+    /// Abrir a revisão de novo depois de uma sessão que terminou com a seguinte escondida tem que dar o mesmo que abrir a primeira vez.
+    /// </summary>
+    [Theory]
+    [InlineData(718)]
+    [InlineData(730)]
+    [InlineData(742)]
+    [InlineData(754)]
+    [InlineData(766)]
+    public async Task Uma_sessao_nova_nao_herda_a_fala_seguinte_escondida_da_anterior(int height)
+    {
+        var fresh = await NextShownOnFirstLine(height, previousSession: false);
+        var reopened = await NextShownOnFirstLine(height, previousSession: true);
+
+        Assert.Equal(fresh, reopened);
+    }
+
+    private async Task<bool> NextShownOnFirstLine(int height, bool previousSession)
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"), tallThird: true);
+        var shown = false;
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            if (previousSession)
+            {
+                vm.Editor.Review!.SkipCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+                vm.Editor.StopReview();
+                ScreenRenderer.Settle(window);
+                vm.Editor.StartReview();
+                ScreenRenderer.Settle(window);
+            }
+
+            Assert.Equal("Linha 1 de 4", vm.Editor.Review!.PositionText);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            shown = view.GetVisualDescendants().OfType<ContextLines>().Any(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+        }, 1366, height);
+
+        return shown;
+    }
+
     private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false)
     {
         await fixture.Session.Dispatch<int>(
@@ -385,7 +545,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
     }
 
-    private static string CreateProject(string parent)
+    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             DemoProject.Name,
@@ -398,6 +558,23 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada"), new CharacterEntry("健太", "Kenta")]);
         folder.SaveText(
             "yst00001",
+            tallThird
+            ?
+            [
+                Line("yst00001", 1, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
+                Line("yst00001", 2, "美咲", @"「うん」\p", @"Aham.\p"),
+                Line("yst00001", 3, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + " " + LongText + @"\p"),
+                Line("yst00001", 4, "美咲", @"「うん」\p", @"Aham.\p"),
+            ]
+            : longNeighbours
+            ?
+            [
+                Line("yst00001", 1, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p", reviewedFirstTwo ? TranslationStatus.Approved : TranslationStatus.Machine),
+                Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p", reviewedFirstTwo ? TranslationStatus.Approved : TranslationStatus.Machine),
+                Line("yst00001", 3, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
+                Line("yst00001", 4, "美咲", @"「うん」\p", @"Aham.\p"),
+            ]
+            :
             [
                 Line("yst00001", 1, "美咲", @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p"),
                 Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
@@ -407,6 +584,6 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         return folder.Root;
     }
 
-    private static TextUnit Line(string script, int number, string speaker, string source, string translation) =>
-        new($"{script}:{number:D6}", TextUnitKind.Dialogue, speaker, source, translation, TranslationStatus.Machine);
+    private static TextUnit Line(string script, int number, string speaker, string source, string translation, TranslationStatus status = TranslationStatus.Machine) =>
+        new($"{script}:{number:D6}", TextUnitKind.Dialogue, speaker, source, translation, status);
 }

@@ -55,7 +55,7 @@ public class ProjectLinesRecheckTests
         var linhas = ProjectLines.Read(projeto);
         var entrada = linhas.LinesOf(Script).Single();
         var aviso = Assert.Single(entrada.Issues, i => i.RuleId == "personagem-diferente");
-        Assert.Contains("'亀島' deveria ser traduzido como 'Kameshima'", aviso.Message, StringComparison.Ordinal);
+        Assert.Contains("“亀島” deveria ser traduzido como “Kameshima”", aviso.Message, StringComparison.Ordinal);
 
         var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Ele olhou para Kameshima." });
 

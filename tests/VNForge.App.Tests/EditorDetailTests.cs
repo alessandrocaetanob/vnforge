@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -48,9 +49,9 @@ public class EditorDetailTests : IDisposable
         var vm = await Abrir();
         Assert.True(vm.Lines[0].HasWarning);
         var aviso = Assert.Single(vm.Detail!.QaIssues);
-        Assert.Equal(vm.Lines[0].Entry.Issues[0].Message, aviso.Message);
+        Assert.Equal(ProjectLabels.Sentence(vm.Lines[0].Entry.Issues[0].Message), aviso.Message);
         Assert.False(aviso.IsError);
-        Assert.Contains(vm.Lines[0].Entry.Issues[0].Message, vm.Lines[0].IssueTip);
+        Assert.Contains(ProjectLabels.Sentence(vm.Lines[0].Entry.Issues[0].Message), vm.Lines[0].IssueTip);
 
         vm.Detail.Translation = "Bom dia.";
         vm.Detail.Flush();
@@ -126,6 +127,16 @@ public class EditorDetailTests : IDisposable
         var erro = Assert.Single(vm.Detail.QaIssues);
         Assert.True(erro.IsError);
         Assert.Contains("U+3002", erro.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_mensagem_do_QA_no_inspetor_abre_com_maiuscula()
+    {
+        var issue = new VNForge.Core.Qa.QaIssue("traducao-inconsistente", VNForge.Core.Qa.QaSeverity.Warning, "yst00001:000001", "yst00001", "o original “x” aparece traduzido como “y” em outras linhas");
+
+        var shown = Assert.Single(LineIssueViewModel.From([issue]));
+
+        Assert.Equal("O original “x” aparece traduzido como “y” em outras linhas", shown.Message);
     }
 
     [Fact]

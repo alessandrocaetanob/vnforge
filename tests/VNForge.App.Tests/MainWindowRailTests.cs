@@ -350,15 +350,20 @@ public class MainWindowRailTests
     }
 
     [Fact]
-    public void Lista_de_tarefas_conta_as_tarefas_do_servico()
+    public async Task Lista_de_tarefas_conta_as_tarefas_do_servico()
     {
+        // Os trabalhos esperam o portão: terminar na hora mudaria o estado numa thread do pool, e com o despachante inline o Refresh dela correria junto com o da thread do teste.
         var service = new BackgroundTaskService(a => a());
         var bar = new TaskBarViewModel(service);
+        var gate = new TaskCompletionSource();
         Assert.Equal("Tarefas (0)", bar.TasksLabel);
 
-        service.Start("Traduzindo yst00014", (_, _) => Task.CompletedTask);
-        service.Start("Build", (_, _) => Task.CompletedTask);
+        var first = service.Start("Traduzindo yst00014", (_, _) => gate.Task);
+        var second = service.Start("Build", (_, _) => gate.Task);
 
         Assert.Equal("Tarefas (2)", bar.TasksLabel);
+
+        gate.SetResult();
+        await Task.WhenAll(first.Completion, second.Completion);
     }
 }

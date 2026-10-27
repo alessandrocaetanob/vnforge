@@ -212,7 +212,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         var chosen = chosenKeys is { Count: > 1 } ? chosenKeys : null;
         scopes[0] = chosen is null
             ? sceneChoice
-            : Hooked(new ScopeChoice(TranslationScope.Selection, $"As cenas escolhidas ({chosen.Count})"));
+            : Hooked(new ScopeChoice(TranslationScope.Selection, $"As cenas escolhidas ({ProjectLabels.Number(chosen.Count)})"));
         byScope.Clear();
         // Os cartões vêm de uma abertura anterior: sem isto, o que estava apagado ou resumido ali ficaria assim até a leitura terminar, ou para sempre se ela falhar.
         foreach (var scope in scopes)

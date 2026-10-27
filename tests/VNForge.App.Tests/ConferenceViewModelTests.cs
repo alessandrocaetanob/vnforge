@@ -546,7 +546,7 @@ public class ConferenceViewModelTests
         var issue = new QaIssue("espaco-antes-pontuacao", QaSeverity.Warning, "yst00001:000001", "yst00001", @"fala\p {nome sem fechar");
         var row = new ConferenceIssueRowViewModel(issue, sceneName: "Cena 1");
 
-        Assert.Equal(@"fala(virar a página) {nome sem fechar", row.DetailMarked);
+        Assert.Equal(@"Fala(virar a página) {nome sem fechar", row.DetailMarked);
     }
 
     [Fact]
@@ -566,7 +566,7 @@ public class ConferenceViewModelTests
         var issue = new QaIssue("espaco-antes-pontuacao", QaSeverity.Warning, "yst00001:000001", "yst00001", @"fala\p e \z");
         var row = new ConferenceIssueRowViewModel(issue, sceneName: "Cena 1");
 
-        Assert.Equal(@"fala(virar a página) e \z", row.DetailMarked);
+        Assert.Equal(@"Fala(virar a página) e \z", row.DetailMarked);
     }
 
     [Fact]
@@ -871,6 +871,27 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public void A_mensagem_da_regra_abre_a_frase_com_maiuscula_e_mantem_as_aspas_tipograficas()
+    {
+        var issue = new QaIssue("traducao-inconsistente", QaSeverity.Warning, "yst00001:000001", "yst00001", "o original “おはよう” aparece traduzido como “Bom dia” em outras linhas");
+
+        var row = new ConferenceIssueRowViewModel(issue);
+        var repeated = new ConferenceIssueRowViewModel(issue, count: 4_017, occurrences: [issue]);
+
+        Assert.Equal("O original “おはよう” aparece traduzido como “Bom dia” em outras linhas", row.Detail);
+        Assert.Equal("O original “おはよう” aparece traduzido como “Bom dia” em outras linhas (+4.016)", repeated.Detail);
+        Assert.Equal(issue.Message, row.Message);
+    }
+
+    [Fact]
+    public void O_resumo_de_nao_traduzidas_fala_de_cena_e_separa_o_milhar()
+    {
+        var issue = new QaIssue(UntranslatedQaRule.RuleId, QaSeverity.Warning, "yst00001:000001", "yst00001", "x");
+
+        Assert.Equal("1.234 linhas sem tradução nesta cena.", new ConferenceIssueRowViewModel(issue, count: 1_234).Detail);
+    }
+
+    [Fact]
     public async Task Nao_traduzida_vira_uma_linha_por_script_com_a_contagem()
     {
         using var temp = new TempFolder();
@@ -886,8 +907,8 @@ public class ConferenceViewModelTests
         Assert.Equal(["yst00001", "yst00002"], rows.Select(r => r.LineLabel));
         Assert.Equal([2, 1], rows.Select(r => r.Count));
         Assert.Equal("Não traduzida", rows[0].Title);
-        Assert.Equal("2 linhas sem tradução neste script.", rows[0].Detail);
-        Assert.Equal("1 linha sem tradução neste script.", rows[1].Detail);
+        Assert.Equal("2 linhas sem tradução nesta cena.", rows[0].Detail);
+        Assert.Equal("1 linha sem tradução nesta cena.", rows[1].Detail);
         Assert.All(rows, r => Assert.False(r.CanMarkOk));
         Assert.Equal("3", vm.Filters[0].CountLabel);
         Assert.Equal("Mostrando 3 de 3 problemas abertos · agrupados por cena", vm.ListFooter);
@@ -919,7 +940,7 @@ public class ConferenceViewModelTests
         Assert.False(empty.HasProposal);
         Assert.Equal(string.Empty, empty.Tag);
         Assert.Equal("Tradução vazia", empty.Title);
-        Assert.Equal(empty.Message, empty.Detail);
+        Assert.Equal("Tradução vazia (status approved)", empty.Detail);
         Assert.False(empty.HasTranslation);
 
         Assert.Equal("Corrigir 2 com um clique", vm.FixAllLabel);

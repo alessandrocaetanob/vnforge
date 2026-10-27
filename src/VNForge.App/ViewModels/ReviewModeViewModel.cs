@@ -92,7 +92,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     /// <summary>O painel de detalhe da linha em exibição; é o do Editor, trocado a cada linha.</summary>
     public LineDetailViewModel? Detail => editor.Detail;
 
-    public string PositionText => Total == 0 ? "Nenhuma linha" : $"Linha {Math.Min(Position + 1, Total)} de {Total}";
+    public string PositionText => Total == 0 ? "Nenhuma linha" : $"Linha {ProjectLabels.Number(Math.Min(Position + 1, Total))} de {ProjectLabels.Number(Total)}";
 
     /// <summary>"Hoje: 12 linhas revisadas", do registro de aprovações; vazio enquanto nada foi aprovado hoje.</summary>
     public string TodayText => editor.ReviewedToday switch

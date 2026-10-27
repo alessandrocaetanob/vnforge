@@ -19,7 +19,7 @@ public sealed partial class LineDetailViewModel
 
     public bool HasSameSource => SameSourceCount > 0;
 
-    public string SameSourceText => SameSourceCount == 1 ? "Esta fala aparece em mais 1 linha." : $"Esta fala aparece em mais {SameSourceCount} linhas.";
+    public string SameSourceText => SameSourceCount == 1 ? "Esta fala aparece em mais 1 linha." : $"Esta fala aparece em mais {ProjectLabels.Number(SameSourceCount)} linhas.";
 
     /// <summary>O que o "Usar em todos" fez, em uma frase; nulo antes de usar.</summary>
     [ObservableProperty]
@@ -80,7 +80,7 @@ public sealed partial class LineDetailViewModel
 
         if (outcome.Failed)
         {
-            ErrorMessage = $"Aplicada a {outcome.Applied} de {outcome.Requested} linhas; as outras não foram gravadas. Tente de novo.";
+            ErrorMessage = $"Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas; as outras não foram gravadas. Tente de novo.";
             return;
         }
 
@@ -88,18 +88,18 @@ public sealed partial class LineDetailViewModel
         {
             0 => "As outras linhas já tinham esta tradução.",
             1 => "Aplicada a 1 linha.",
-            _ => $"Aplicada a {outcome.Changed} linhas.",
+            _ => $"Aplicada a {ProjectLabels.Number(outcome.Changed)} linhas.",
         };
     }
 
     private static string ConfirmText(SameSourcePreview preview)
     {
-        var lines = preview.Differing == 1 ? "1 destas linhas já tem" : $"{preview.Differing} destas linhas já têm";
+        var lines = preview.Differing == 1 ? "1 destas linhas já tem" : $"{ProjectLabels.Number(preview.Differing)} destas linhas já têm";
         var strong = preview.Strong switch
         {
             0 => string.Empty,
             1 => " (1 aprovada)",
-            _ => $" ({preview.Strong} aprovadas)",
+            _ => $" ({ProjectLabels.Number(preview.Strong)} aprovadas)",
         };
         return $"{lines} outra tradução{strong}. Substituir todas?";
     }

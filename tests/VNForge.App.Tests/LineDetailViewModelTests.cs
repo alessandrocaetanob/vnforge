@@ -64,7 +64,7 @@ public class LineDetailViewModelTests : IDisposable
         vm.ShowIssues(entrada.Issues);
 
         Assert.Equal(2, entrada.Issues.Count);
-        Assert.Equal(["espaço duplo"], vm.QaIssues.Select(i => i.Message));
+        Assert.Equal(["Espaço duplo"], vm.QaIssues.Select(i => i.Message));
     }
 
     [Fact]

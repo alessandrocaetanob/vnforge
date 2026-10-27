@@ -443,7 +443,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (saved.IsBatch)
         {
-            return saved.Batch.Count == 1 ? "Tradução aplicada a 1 linha." : $"Tradução aplicada a {saved.Batch.Count} linhas.";
+            return saved.Batch.Count == 1 ? "Tradução aplicada a 1 linha." : $"Tradução aplicada a {ProjectLabels.Number(saved.Batch.Count)} linhas.";
         }
 
         return saved.IsApproval ? $"Linha {saved.Number} aprovada." : $"Linha {saved.Number} gravada.";

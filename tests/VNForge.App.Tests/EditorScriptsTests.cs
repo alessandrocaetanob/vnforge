@@ -315,7 +315,7 @@ public class EditorScriptsTests
     {
         var vm = await Carregado();
 
-        Assert.Equal("4 linhas neste script", vm.LinesSummary);
+        Assert.Equal("4 linhas nesta cena", vm.LinesSummary);
         Assert.NotNull(vm.Distribution);
         Assert.Equal(25, vm.Distribution.Approved);
         Assert.Equal(25, vm.Distribution.Machine);
