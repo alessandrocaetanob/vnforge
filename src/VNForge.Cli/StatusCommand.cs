@@ -116,12 +116,12 @@ internal static class StatusCommand
         try
         {
             return project.LoadCharacters()
-                .GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal);
+                .GroupBy(c => c.Source.Trim(), VNForge.Core.Glossary.CharacterBook.NameComparer)
+                .ToDictionary(g => g.Key, g => g.First().Target, VNForge.Core.Glossary.CharacterBook.NameComparer);
         }
         catch (GlossaryFileException)
         {
-            return new Dictionary<string, string>(StringComparer.Ordinal);
+            return new Dictionary<string, string>(VNForge.Core.Glossary.CharacterBook.NameComparer);
         }
     }
 

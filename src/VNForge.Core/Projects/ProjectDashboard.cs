@@ -103,8 +103,8 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             Readiness = ReadinessFacts.Read(project, qa),
             GameState = GameStateFile.Load(project),
             ScriptNames = TryLoad(project.LoadScriptNames, ScriptNames.Empty),
-            CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First().Target, StringComparer.Ordinal),
+            CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), Glossary.CharacterBook.NameComparer)
+                .ToDictionary(g => g.Key, g => g.First().Target, Glossary.CharacterBook.NameComparer),
             Build = built ? BuildStatus.Current : BuildState.Load(project) is null ? BuildStatus.None : BuildStatus.Stale,
             LastBackupAt = restore?.Manifest.CreatedAt,
         };
