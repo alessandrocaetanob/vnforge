@@ -161,7 +161,7 @@ Cada controle fica em `src/VNForge.App/Controls` e a aparência em `Themes/Contr
 | `AiSuggestion` | `TemplatedControl` | `Model`, `Details`, `Current`, `Suggestion`, `IsBusy`, `UseCommand`, `CancelCommand`. O corpo é um `SelectableTextBlock` cujos `Inlines` saem de `WordDiff.Compute` (maior subsequência comum por palavra, sem os marcadores de pausa `\p`, `\c` e `\u`): `Run.ins` em `status-approved-*`, `Run.del` riscado em `text-secondary`. Sem tradução atual, o texto vai sem marcação. Gerando, aparece uma barra indeterminada e o botão vira "Cancelar" |
 | Legenda | `Legend : ItemsControl` com `WrapPanel` | `ItemsSource` de `LegendEntry(Text, Tone)` ou `Value` com um `StatusDistribution` (Aprovadas, Revisadas, Traduzidas, IA e Pendentes, com os percentuais). `Tone` também cobre `Error`, `Warning` e `Accent`, para as legendas do Painel |
 | Cartão de número | `StatCard : ContentControl` | `Title` (overline), `Value` (28/32 bold na fonte de exibição), `Description`, `Content` (a barra e a legenda) e `Footer` (o link de ação, num rodapé de 40px de borda a borda) |
-| Cabeçalho de página | `PageHeader : ContentControl` | `Breadcrumb` (mono 12/16), `Title` (`title-lg`) e `Content` (as ações, à direita, alinhadas à base) |
+| Cabeçalho de página | `PageHeader : ContentControl` | `Breadcrumb` (fonte da interface, caption 12/16), `Title` (`title-lg`) e `Content` (as ações, à direita, alinhadas à base) |
 
 A distribuição de status é o `DistributionBar` (barra) mais o `Legend` (legenda). `Border.panel`, `Border.divider-*` e `ProgressBar.thin` completam o que o Painel usa.
 
@@ -176,7 +176,7 @@ $env:VNFORGE_RENDER_DIR = "$PWD\artifacts\render"
 dotnet test --project tests/VNForge.App.Tests --filter-class "*ScreenRenderTests"
 ```
 
-  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` (26/32) e `title-md` resolvem para a Zen Kaku Gothic New embutida.
+  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` (26/38) e `title-md` resolvem para a Zen Kaku Gothic New embutida.
 
 ## Ícones
 

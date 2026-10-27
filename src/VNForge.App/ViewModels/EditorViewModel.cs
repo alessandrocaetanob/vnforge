@@ -181,9 +181,13 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [ObservableProperty]
     public partial int IssueCount { get; private set; }
 
+    /// <summary>Quantas dessas ocorrências são erros, os que travam o teste no jogo; os avisos não entram.</summary>
+    [ObservableProperty]
+    public partial int ErrorCount { get; private set; }
+
     public string ProjectName => Project?.Name ?? string.Empty;
 
-    /// <summary>A linha de cima do cabeçalho, em mono: a chave do script aberto.</summary>
+    /// <summary>A linha de cima do cabeçalho, em caption na fonte da interface: a chave do script aberto.</summary>
     public string Breadcrumb => SelectedScript?.Key ?? string.Empty;
 
     /// <summary>O título do cabeçalho: o nome do capítulo, ou a chave quando o projeto ainda não guarda o nome.</summary>
@@ -700,6 +704,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var updated = data?.WithUnit(entry, unit) ?? entry.WithUnit(unit);
+        ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(entry.Issues);
         IssueCount += updated.Issues.Count - entry.Issues.Count;
         data?.Replace(updated);
         RequestRecheck();
@@ -729,6 +734,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         var previous = line.Entry.Unit;
         var updated = data?.WithUnit(line.Entry, saved) ?? line.Entry.WithUnit(saved);
+        ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(line.Entry.Issues);
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
         line.Update(updated);
@@ -846,6 +852,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
+            ErrorCount = loaded is null ? 0 : CountErrors(loaded);
             IssueCount = loaded is null ? 0 : CountIssues(loaded);
             Scripts.Clear();
             foreach (var script in loaded?.Scripts ?? [])

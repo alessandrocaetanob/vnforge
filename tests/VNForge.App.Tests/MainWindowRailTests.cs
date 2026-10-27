@@ -18,13 +18,16 @@ public class MainWindowRailTests
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Approved, TranslationStatus.Approved);
         var folder = ProjectFolder.Open(root);
         var units = folder.LoadText("yst00001").ToList();
-        units[1] = units[1] with { Translation = "duas  palavras" };
+        units[1] = WithMarkerError(units[1]);
         folder.SaveText("yst00001", units);
         var vm = Create(temp, root);
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
         return vm;
     }
+
+    /// <summary>Uma linha com erro (o <c>\p</c> do original falta na tradução), dos que travam o teste no jogo.</summary>
+    private static TextUnit WithMarkerError(TextUnit unit) => unit with { Source = @"「行こう」\p", Translation = "Vamos" };
 
     [Fact]
     public void Trilho_tem_os_itens_no_alto_Ajustes_no_pe_e_nenhuma_Busca()
@@ -82,7 +85,7 @@ public class MainWindowRailTests
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Approved);
         var folder = ProjectFolder.Open(root);
         var units = folder.LoadText("yst00001").ToList();
-        units[0] = units[0] with { Translation = "duas  palavras" };
+        units[0] = WithMarkerError(units[0]);
         folder.SaveText("yst00001", units);
         var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)))
         {
@@ -119,6 +122,77 @@ public class MainWindowRailTests
 
         Assert.Null(item.Badge);
         Assert.False(item.HasBadge);
+    }
+
+    private static async Task<MainWindowViewModel> OpenedWith(TempFolder temp, Func<TextUnit, TextUnit>? first, Func<TextUnit, TextUnit>? second)
+    {
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Approved, TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        var units = folder.LoadText("yst00001").ToList();
+        units[0] = first?.Invoke(units[0]) ?? units[0];
+        units[1] = second?.Invoke(units[1]) ?? units[1];
+        folder.SaveText("yst00001", units);
+        var vm = Create(temp, root);
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        return vm;
+    }
+
+    private static TextUnit WithWarning(TextUnit unit) => unit with { Translation = "duas  palavras" };
+
+    [Fact]
+    public async Task Contador_conta_so_os_erros_e_deixa_os_avisos_de_fora()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWith(temp, WithMarkerError, WithWarning);
+        var item = vm.Nav.Single(n => n.Key == NavKey.Conference);
+
+        Assert.Equal(2, vm.Editor.IssueCount);
+        Assert.Equal(1, item.Badge);
+        Assert.Equal("1", item.BadgeText);
+        Assert.False(item.ShowNotice);
+
+        vm.SelectedNav = item;
+        await vm.ConferenceLoading;
+
+        Assert.Equal(1, vm.Conference.ErrorCount);
+        Assert.Equal(1, item.Badge);
+        Assert.False(item.ShowNotice);
+    }
+
+    [Fact]
+    public async Task So_avisos_mostram_um_ponto_sem_numero()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWith(temp, null, WithWarning);
+        var item = vm.Nav.Single(n => n.Key == NavKey.Conference);
+
+        Assert.Equal(0, item.Badge);
+        Assert.False(item.HasBadge);
+        Assert.True(item.ShowNotice);
+
+        vm.SelectedNav = item;
+        await vm.ConferenceLoading;
+
+        Assert.False(item.HasBadge);
+        Assert.True(item.ShowNotice);
+    }
+
+    [Fact]
+    public async Task Sem_problema_nenhum_o_item_fica_limpo()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWith(temp, null, null);
+        var item = vm.Nav.Single(n => n.Key == NavKey.Conference);
+
+        Assert.False(item.HasBadge);
+        Assert.False(item.ShowNotice);
+
+        vm.SelectedNav = item;
+        await vm.ConferenceLoading;
+
+        Assert.False(item.HasBadge);
+        Assert.False(item.ShowNotice);
     }
 
     [Fact]
@@ -235,7 +309,11 @@ public class MainWindowRailTests
     public async Task Contador_baixa_quando_o_Editor_corrige_uma_linha_depois_da_conferencia()
     {
         using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated, TranslationStatus.Approved);
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        var units = folder.LoadText("yst00001").ToList();
+        units[0] = WithMarkerError(units[0]);
+        folder.SaveText("yst00001", units);
         var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)))
         {
             Editor = new EditorViewModel(clock: new FixedClock(Now), postToUi: a => a()),
@@ -249,7 +327,7 @@ public class MainWindowRailTests
 
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
         vm.Editor.SelectedLine = vm.Editor.Lines[0];
-        vm.Editor.Detail!.Translation = "Bom dia.";
+        vm.Editor.Detail!.Translation = @"Bom dia.\p";
         vm.Editor.Detail.Flush();
 
         Assert.Equal(0, vm.Editor.IssueCount);
