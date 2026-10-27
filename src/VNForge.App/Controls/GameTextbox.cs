@@ -6,12 +6,13 @@ using VNForge.App.ViewModels;
 
 namespace VNForge.App.Controls;
 
-/// <summary>Tamanho da caixa do jogo: <c>Small</c> no cartão de acentos, <c>Medium</c> no editor e <c>Large</c> no modo revisão.</summary>
+/// <summary>Tamanho da caixa do jogo: <c>Small</c> no cartão de acentos, <c>Medium</c> no editor, <c>Large</c> na prévia grande e <c>Stage</c> no palco do modo revisão.</summary>
 public enum GameTextboxSize
 {
     Medium,
     Small,
     Large,
+    Stage,
 }
 
 /// <summary>O que uma linha da grade da caixa mostra.</summary>
@@ -430,6 +431,7 @@ public sealed class GameTextbox : Control
         {
             GameTextboxSize.Small => new(20, 16, 24, 22, 12, 24, 12, 14, 12, 12, 12, 5),
             GameTextboxSize.Large => new(30, 32, 34, 32, 17, 28, 14, 28, 14, 13, 20, 11),
+            GameTextboxSize.Stage => new(34, 40, 38, 40, 24, 34, 17, 36, 18, 17, 28, 14),
             _ => new(24, 26, 28, 26, 14, 24, 12, 22, 12, 12, 20, 5),
         };
     }

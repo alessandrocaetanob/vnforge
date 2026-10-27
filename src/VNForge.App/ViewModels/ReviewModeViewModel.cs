@@ -165,8 +165,11 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>A próxima cena com linhas da IA para revisar; nulo na última.</summary>
-    public string? NextSceneName => editor.NextScriptToReview()?.Display;
+    /// <summary>O nome da cena aberta, o mesmo da lista de cenas e do título do Editor; "Cena 13" quando ela não tem nome.</summary>
+    public string SceneName => editor.SelectedScript?.Name ?? string.Empty;
+
+    /// <summary>O nome da próxima cena com linhas da IA para revisar, como na lista de cenas; nulo na última.</summary>
+    public string? NextSceneName => editor.NextScriptToReview()?.Name;
 
     public bool HasNextScene => NextSceneName is not null;
 
