@@ -193,13 +193,10 @@ public sealed class ConferenceIssueRowViewModel
                 return Excerpt(p.Before, p.After);
             }
 
-            var sentence = CapitalizeFirst(Message);
+            var sentence = ProjectLabels.Sentence(Message);
             return Count > 1 ? $"{sentence} (+{ProjectLabels.Number(Count - 1)})" : sentence;
         }
     }
-
-    /// <summary>As regras do Core escrevem a mensagem em minúscula porque a CLI a emenda ao nome da regra; na tela ela abre a frase.</summary>
-    private static string CapitalizeFirst(string text) => text.Length > 0 && char.IsLower(text[0]) ? char.ToUpperInvariant(text[0]) + text[1..] : text;
 
     /// <summary>O <see cref="RawDetail"/> é texto de tradução ou mensagem do QA, que pode trazer marcadores; as frases próprias da tela (falta, caractere, contagem) não.</summary>
     private bool HasRawMarkers => !IsScriptSummary && !IsMarkerMismatch && RuleId != UnencodableCharacterRule.RuleId;

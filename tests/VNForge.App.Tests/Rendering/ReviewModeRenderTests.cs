@@ -445,6 +445,50 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         return shown;
     }
 
+    /// <summary>
+    /// A view do modo revisão é reaproveitada entre sessões: a fala seguinte que cedeu no fim de uma sessão não pode pesar na abertura da seguinte.
+    /// Abrir a revisão de novo depois de uma sessão que terminou com a seguinte escondida tem que dar o mesmo que abrir a primeira vez.
+    /// </summary>
+    [Theory]
+    [InlineData(718)]
+    [InlineData(730)]
+    [InlineData(742)]
+    [InlineData(754)]
+    [InlineData(766)]
+    public async Task Uma_sessao_nova_nao_herda_a_fala_seguinte_escondida_da_anterior(int height)
+    {
+        var fresh = await NextShownOnFirstLine(height, previousSession: false);
+        var reopened = await NextShownOnFirstLine(height, previousSession: true);
+
+        Assert.Equal(fresh, reopened);
+    }
+
+    private async Task<bool> NextShownOnFirstLine(int height, bool previousSession)
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"), tallThird: true);
+        var shown = false;
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            if (previousSession)
+            {
+                vm.Editor.Review!.SkipCommand.Execute(null);
+                ScreenRenderer.Settle(window);
+                vm.Editor.StopReview();
+                ScreenRenderer.Settle(window);
+                vm.Editor.StartReview();
+                ScreenRenderer.Settle(window);
+            }
+
+            Assert.Equal("Linha 1 de 4", vm.Editor.Review!.PositionText);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            shown = view.GetVisualDescendants().OfType<ContextLines>().Any(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+        }, 1366, height);
+
+        return shown;
+    }
+
     private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false)
     {
         await fixture.Session.Dispatch<int>(
@@ -501,7 +545,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
     }
 
-    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false)
+    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             DemoProject.Name,
@@ -514,7 +558,15 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada"), new CharacterEntry("健太", "Kenta")]);
         folder.SaveText(
             "yst00001",
-            longNeighbours
+            tallThird
+            ?
+            [
+                Line("yst00001", 1, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
+                Line("yst00001", 2, "美咲", @"「うん」\p", @"Aham.\p"),
+                Line("yst00001", 3, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + " " + LongText + @"\p"),
+                Line("yst00001", 4, "美咲", @"「うん」\p", @"Aham.\p"),
+            ]
+            : longNeighbours
             ?
             [
                 Line("yst00001", 1, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p", reviewedFirstTwo ? TranslationStatus.Approved : TranslationStatus.Machine),

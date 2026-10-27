@@ -44,7 +44,6 @@ public sealed partial class ReviewModeView : UserControl
     private void OnScriptLayoutUpdated(object? sender, EventArgs e)
     {
         const double Tolerance = 0.5;
-        const double Spacing = 12;
         var viewport = Script.Viewport.Height;
         var wanted = ScriptStack.DesiredSize.Height;
         if (viewport <= 0 || wanted <= 0)
@@ -54,7 +53,7 @@ public sealed partial class ReviewModeView : UserControl
 
         if (NextBlock.IsVisible && wanted > viewport + Tolerance)
         {
-            squeezedHeight = NextBlock.Bounds.Height + Spacing;
+            squeezedHeight = NextBlock.Bounds.Height;
             NextBlock.IsVisible = false;
         }
         else if (!NextBlock.IsVisible && wanted + squeezedHeight <= viewport + Tolerance)
@@ -108,6 +107,8 @@ public sealed partial class ReviewModeView : UserControl
         }
 
         held.Clear();
+        NextBlock.IsVisible = true;
+        squeezedHeight = 0;
         current = DataContext as ReviewModeViewModel;
         if (current is null)
         {
