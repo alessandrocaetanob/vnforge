@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using VNForge.App.ViewModels;
@@ -8,7 +9,18 @@ namespace VNForge.App.Views;
 /// <summary>A lista de cenas do Editor, ligada ao <see cref="EditorViewModel"/>; a grade e o flyout do modo compacto usam o mesmo controle.</summary>
 public sealed partial class ScenesPanel : UserControl
 {
+    /// <summary>Mostra o botão que recolhe a coluna (#393); só a coluna da grade o liga.</summary>
+    public static readonly StyledProperty<bool> CanCollapseProperty = AvaloniaProperty.Register<ScenesPanel, bool>(nameof(CanCollapse));
+
     private EditorViewModel? editor;
+
+    static ScenesPanel() => CanCollapseProperty.Changed.AddClassHandler<ScenesPanel>((panel, e) => panel.CollapseButton.IsVisible = (bool)e.NewValue!);
+
+    public bool CanCollapse
+    {
+        get => GetValue(CanCollapseProperty);
+        set => SetValue(CanCollapseProperty, value);
+    }
 
     public ScenesPanel()
     {

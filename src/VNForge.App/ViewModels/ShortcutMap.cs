@@ -16,6 +16,7 @@ public static class ShortcutMap
             new(["Ctrl", "Espaço"], "Pedir a sugestão da IA"),
             new(["Alt", "↓"], "Próxima linha"),
             new(["Alt", "↑"], "Linha anterior"),
+            new(["Ctrl", "B"], "Recolher ou abrir a lista de cenas"),
         ]),
         new("Modo revisão",
         [

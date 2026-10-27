@@ -109,7 +109,24 @@
 
       <!-- Cenas -->
       <Border x:Name="ScenesBorder" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Cenas">
-        <v:ScenesPanel/>
+        <v:ScenesPanel CanCollapse="True"/>
+      </Border>
+
+      <!-- Cenas recolhidas (#393): uma faixa que abre a lista ao clicar, com o nome da cena aberta de pé. -->
+      <Border x:Name="ScenesStrip" Classes="panel" ClipToBounds="True" IsVisible="False" AutomationProperties.Name="Cenas recolhidas">
+        <Button Classes="subtle" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Top"
+                Padding="0,14,0,12" CornerRadius="0" Command="{Binding ToggleScenesCommand}" ToolTip.Tip="{Binding ScenesToggleTip}"
+                AutomationProperties.Name="Abrir a lista de cenas">
+          <DockPanel LastChildFill="True">
+            <PathIcon DockPanel.Dock="Top" Width="14" Height="14" Margin="0,0,0,14" HorizontalAlignment="Center" Data="{StaticResource Icon.ChevronRight}"/>
+            <LayoutTransformControl HorizontalAlignment="Center" VerticalAlignment="Top">
+              <LayoutTransformControl.LayoutTransform>
+                <RotateTransform Angle="90"/>
+              </LayoutTransformControl.LayoutTransform>
+              <TextBlock Classes="body-sm" Text="{Binding ScriptTitle}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxWidth="360"/>
+            </LayoutTransformControl>
+          </DockPanel>
+        </Button>
       </Border>
 
       <!-- Grade de linhas: somente leitura; a edição acontece no inspetor. -->
