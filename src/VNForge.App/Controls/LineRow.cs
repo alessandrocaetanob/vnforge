@@ -147,7 +147,8 @@ public sealed class LineRow : TemplatedControl
 
     private void OnSpeakerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && this.FindAncestorOfType<ListBoxItem>() is { IsSelected: false } item)
+        if (e.GetCurrentPoint(this).Properties.PointerUpdateKind is PointerUpdateKind.LeftButtonPressed or PointerUpdateKind.RightButtonPressed
+            && this.FindAncestorOfType<ListBoxItem>() is { IsSelected: false } item)
         {
             item.IsSelected = true;
         }
@@ -168,7 +169,14 @@ public sealed class LineRow : TemplatedControl
         var narration = string.IsNullOrEmpty(Speaker);
         var untranslated = string.IsNullOrEmpty(Translation);
         NumberText = Number.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
-        SpeakerText = narration ? NarrationLabel : Speaker!;
+        var speaker = narration ? NarrationLabel : Speaker!;
+        if (speaker != SpeakerText)
+        {
+            // A linha é reciclada pela lista: a seleção do nome anterior não vale para o novo.
+            speakerBlock?.ClearSelection();
+        }
+
+        SpeakerText = speaker;
         TranslationText = !untranslated ? Translation! : Status == TranslationStatus.Keep ? KeepLabel : NoTranslationLabel;
         PseudoClasses.Set(":narration", narration);
         PseudoClasses.Set(":untranslated", untranslated);
