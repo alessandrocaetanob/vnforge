@@ -284,6 +284,33 @@ A reconstrução foi escrita a partir das fontes acima e de scripts sintéticos 
 5. **Nome do falante**: o injetor grava o `Speaker` que o Core resolveu (tradução do personagem, ou o nome do locator quando a unidade não tem falante) e os delimitadores `「」` em Shift-JIS (#390). Ainda não confirmado no jogo: como os bytes `81 75` e `81 76` aparecem na caixa de texto com a fonte em `cp1252`, e se o jogo usa o nome da mensagem para algo além de exibir (histórico, voz, teste de nome).
 6. **Primeiro argumento com chave fora da lista**: confirmar se algum script real tem uma instrução de texto como a primeira; a recusa só vale para chave derivada.
 
+## Configuração do jogo e título da janela (`yscfg.ybn`, #427)
+
+O título da barra da janela do jogo não está nos scripts: vem de `ysbin/yscfg.ybn`, dentro do `ysbin.ypf`. Sem tradução, o jogo abre com o título em japonês, que num Windows sem a localidade japonesa aparece quebrado.
+
+Layout, conferido em um único arquivo real (jogo de referência da teste.12, versão 485 = `0x1E5`, 106 bytes). Nenhuma fonte aberta que eu tenha achado documenta o formato (o RxYuris cita um leitor de YSCFG, mas o código não foi lido), então o que segue vale para esse arquivo e para o que o leitor aceita:
+
+| Posição | Tamanho | Campo |
+|---|---|---|
+| 0 | 4 | Assinatura `YSCF` |
+| 4 | 4 | Versão, inteiro de 32 bits little-endian (a mesma faixa 200 a 599 dos outros `.ybn`) |
+| 8 | 68 no arquivo de referência | Configuração do jogo (resolução, opções de janela e afins); o VNForge não a interpreta |
+| 76 | 2 | Tamanho do título em bytes, `uint16` little-endian (`0x1C`) |
+| 78 | tamanho acima | Título em Shift-JIS, sem terminador, até o fim do arquivo |
+
+Nenhum campo diz onde o título começa, e o tamanho da configuração pode mudar entre versões. O leitor (`YscfgReader`) procura a posição `p` a partir do byte 8 em que o `uint16` lido bate exatamente com o que sobra até o fim do arquivo e os bytes seguintes são Shift-JIS válido, sem byte abaixo de `0x20`. Mais de uma posição possível recusa o arquivo em vez de adivinhar; nenhuma também recusa, com a mensagem citando o `yscfg.ybn`.
+
+Um título que o build gravou com a estratégia `cp1252` (`í` é `0xED`, que o Shift-JIS não aceita nessa posição) não passa na leitura em Shift-JIS; sem candidato, o leitor tenta Windows-1252 e marca `YscfgFile.TitleIsShiftJis` como falso. Serve para reler um jogo já injetado; o `vnf extract` deve rodar no jogo original, como para os scripts.
+
+**Reescrita mínima.** O `YscfgWriter` copia os bytes de antes do campo de tamanho como foram lidos e regrava só o tamanho e o título. Com o título original, o arquivo sai idêntico (teste de ida e volta). Dentro do YPF, o `YuRisRepacker` troca só a entrada `ysbin/yscfg.ybn` (`YpfArchive.WriteTo`) e copia as outras byte a byte. O título cabe em 65.535 bytes.
+
+**Codificação.** O build codifica o título com o `ITextEncoder` da estratégia do projeto (`GameTitleText.Resolve`): com `cp1252` o `í` sai como `0xED`, com `fold` as letras perdem o acento, com `sjis` o `í` é recusado. A Conferência acusa o título pela regra `titulo-nao-codificavel` (erro, categoria Acentos), que usa a mesma função do build. Largura total (`ＡＢＣ`) vira largura normal (NFKC) só quando a estratégia não grava a original, como no nome de falante.
+
+### O que confirmar no jogo (#427)
+
+1. **Título em `cp1252` na barra da janela.** Falta ver, no jogo de referência, se a barra mostra `Título` quando o `yscfg.ybn` leva o `í` em `0xED`: a janela é criada pela API ANSI, então o resultado depende da página de código do Windows. Com `fold` não há risco.
+2. **Outras versões do YU-RIS.** Só a versão 485 foi vista. Se uma versão grava campos depois do título, o leitor recusa o arquivo (nenhuma posição fecha com o fim do arquivo) em vez de gravar errado.
+
 ## Detecção da pasta do jogo (E2.8)
 
 `YuRisEngine.Detect` (`src/VNForge.Engines.YuRis/YuRisDetector.cs`) só lê. Procura `*.ypf` na pasta do jogo e na subpasta `pac` (sem diferenciar maiúsculas) e reconhece o jogo quando algum arquivo abre com a assinatura `YPF\0`. No pacote de scripts (`ysbin.ypf` primeiro; vale o primeiro que tenha algum `yst<dígitos>.ybn`, o `ysc.ybn` sozinho não basta) lê o `ysc.ybn` e, entre os 8 primeiros `yst<dígitos>.ybn`, o primeiro que o `YstbReader` decifra: dele saem a versão do YSTB e a chave XOR. O que não der para ler (índice corrompido, `ysc.ybn` ausente, YSTB abaixo da 300, entrada de mais de 32 MiB) não derruba a detecção: vira o detalhe `warnings`, e a versão do YSTB sai do cabeçalho do primeiro script que tenha a assinatura. Pasta inexistente, vazia ou sem YPF devolve `EngineDetection.NotDetected`; se houve falha ao listar a pasta ou ao abrir um `.ypf` (por exemplo, bloqueado por outro programa), o resultado não reconhecido traz só o detalhe `warnings`. Passando de 64 arquivos `.ypf`, só os 64 primeiros são examinados e um aviso diz isso.

@@ -180,7 +180,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private static readonly HashSet<string> ConfigInputs =
     [
-        nameof(SelectedModel), nameof(SelectedEffort), nameof(BatchSize), nameof(EncodingStrategy),
+        nameof(SelectedModel), nameof(SelectedEffort), nameof(BatchSize), nameof(EncodingStrategy), nameof(GameTitleTranslation),
     ];
 
     private static readonly HashSet<string> FormattingInputs =
@@ -469,6 +469,25 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string StyleGuide { get; set; } = string.Empty;
 
+    /// <summary>O projeto já leu o título da janela do jogo (<c>vnf extract</c>); sem ele não há o que traduzir e o campo some da tela.</summary>
+    [ObservableProperty]
+    public partial bool HasGameTitle { get; private set; }
+
+    /// <summary>O título da janela do jogo como o jogo o traz, em somente leitura.</summary>
+    [ObservableProperty]
+    public partial string GameTitleOriginal { get; private set; } = string.Empty;
+
+    /// <summary>A tradução do título, gravada em <c>game.title.translation</c> do <c>vnforge.json</c> a cada mudança; vazia deixa o título original no jogo.</summary>
+    [ObservableProperty]
+    public partial string GameTitleTranslation { get; set; } = string.Empty;
+
+    /// <summary>Por que o build recusaria o título digitado (caractere que a estratégia de acentos não grava); nulo quando ele passa.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasGameTitleNotice))]
+    public partial string? GameTitleNotice { get; private set; }
+
+    public bool HasGameTitleNotice => GameTitleNotice is not null;
+
     /// <summary>Campo de digitação da chave nova; esvazia assim que a chave vai para o cofre.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveKeyCommand))]
@@ -613,6 +632,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(HasProject));
         RefreshPreview();
         RefreshEncodingConflicts();
+        RefreshGameTitleNotice();
         RefreshSpent();
         StartEstimate(folder);
     }
@@ -730,6 +750,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (name is nameof(EncodingStrategy) or nameof(SelectedQuotes) or nameof(SelectedEllipsis))
         {
             RefreshEncodingConflicts();
+        }
+
+        if (name is nameof(EncodingStrategy) or nameof(GameTitleTranslation))
+        {
+            RefreshGameTitleNotice();
         }
 
         if (folder is null)
@@ -1053,6 +1078,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         EncodingStrategy = project.Encoding.Strategy;
         AccentChoices.Recommend(EncodingStrategies, engines.FirstOrDefault(e => string.Equals(e.Id, project.Engine.Id, StringComparison.Ordinal)));
         StyleGuide = style;
+        HasGameTitle = project.Game.Title is not null;
+        GameTitleOriginal = project.Game.Title?.Original ?? string.Empty;
+        GameTitleTranslation = project.Game.Title?.Translation ?? string.Empty;
         Style.Load(project.Style);
         Nfc = profile.Normalization.Nfc;
         InvisibleSpaces = profile.Normalization.InvisibleSpaces;
@@ -1101,6 +1129,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             },
             Encoding = new EncodingConfig(EncodingStrategy),
             Style = Style.ToConfig(),
+            Game = config.Game.Title is { } title
+                ? config.Game with { Title = title with { Translation = GameTitleText.Normalize(GameTitleTranslation) } }
+                : config.Game,
         };
         folder.SaveConfig(updated);
         config = updated;
@@ -1135,6 +1166,26 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// Desliga em Reticências e em Aspas a opção que a estratégia de acentuação do projeto não grava (com a dica de qual caractere) e levanta a faixa de aviso
     /// quando a opção que está escolhida é uma delas, por exemplo depois de trocar a estratégia. Estratégia sem encoder pronto não desliga nada.
     /// </summary>
+    /// <summary>Confere o título digitado com a estratégia de acentos, pela mesma regra do build e da Conferência (<see cref="GameTitleText.Resolve"/>).</summary>
+    private void RefreshGameTitleNotice()
+    {
+        if (!HasGameTitle)
+        {
+            GameTitleNotice = null;
+            return;
+        }
+
+        try
+        {
+            GameTitleNotice = GameTitleText.Resolve(GameTitleTranslation, TextEncoderRegistry.Default.Create(EncodingStrategy)).Error;
+        }
+        catch (VNForgeException)
+        {
+            // Estratégia sem encoder nesta versão: o build recusa o projeto por outro motivo, e aqui não há o que conferir.
+            GameTitleNotice = null;
+        }
+    }
+
     private void RefreshEncodingConflicts()
     {
         ITextEncoder? encoder = null;
