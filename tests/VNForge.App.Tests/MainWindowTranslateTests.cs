@@ -77,6 +77,8 @@ public sealed class MainWindowTranslateTests : IDisposable
         var task = vm.TaskService.Tasks.Single();
         Assert.Equal("Traduzindo as cenas escolhidas", task.Title);
         Assert.Equal(BackgroundTaskState.Completed, task.State);
+        Assert.True(task.UsesAi);
+        Assert.Null(task.Group);
         Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
         Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00002")[0].Status);
     }

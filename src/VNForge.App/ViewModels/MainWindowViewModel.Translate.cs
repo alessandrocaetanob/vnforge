@@ -110,7 +110,7 @@ public sealed partial class MainWindowViewModel
                 failure = e is IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
                 throw new InvalidOperationException(failure, e);
             }
-        });
+        }, usesAi: true);
 
         await task.Completion;
         translating = false;
