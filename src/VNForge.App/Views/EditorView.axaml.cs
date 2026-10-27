@@ -87,7 +87,7 @@ public sealed partial class EditorView : UserControl
         ScenesStrip.IsVisible = placement == ScenesPlacement.Strip;
         var strip = EditorBreakpoints.ScenesStripWidth;
         ScenesColumn.MinWidth = placement switch { ScenesPlacement.Flyout => 0, ScenesPlacement.Strip => strip, _ => 180 };
-        ScenesColumn.MaxWidth = placement switch { ScenesPlacement.Flyout => 0, ScenesPlacement.Strip => strip, _ => 248 };
+        ScenesColumn.MaxWidth = placement switch { ScenesPlacement.Flyout => 0, ScenesPlacement.Strip => strip, _ => EditorBreakpoints.ScenesMaxWidth };
         ScenesColumn.Width = placement switch
         {
             ScenesPlacement.Flyout => new GridLength(0),

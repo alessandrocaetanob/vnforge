@@ -38,12 +38,20 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
     [ObservableProperty]
     public partial bool IsVisible { get; set; } = true;
 
-    /// <summary>O contador do item (problemas da Conferência); nulo ou zero não mostra nada.</summary>
+    /// <summary>O contador do item: os erros da Conferência, que travam o teste no jogo; nulo ou zero não mostra número.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasBadge), nameof(BadgeText))]
+    [NotifyPropertyChangedFor(nameof(HasBadge), nameof(BadgeText), nameof(ShowNotice))]
     public partial int? Badge { get; set; }
 
+    /// <summary>Há aviso aberto; sem erro, o item ganha um ponto neutro no lugar do número.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowNotice))]
+    public partial bool HasNotice { get; set; }
+
     public bool HasBadge => Badge is > 0;
+
+    /// <summary>O ponto neutro: há aviso aberto e nenhum erro.</summary>
+    public bool ShowNotice => HasNotice && !HasBadge;
 
     public string BadgeText => Badge is > 99 ? "99+" : Badge?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
 }
@@ -351,7 +359,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
                 else if (value.Key == NavKey.Build)
                 {
-                    Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Display);
+                    Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Name);
                     _ = Build.ReloadAsync();
                 }
 
@@ -684,7 +692,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(EditorViewModel.IssueCount))
+        if (e.PropertyName is nameof(EditorViewModel.IssueCount) or nameof(EditorViewModel.ErrorCount))
         {
             editorCountIsNewer = true;
             UpdateProblemBadge();
@@ -697,7 +705,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void OnConferenceChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ConferenceViewModel.IssueCount))
+        if (e.PropertyName is nameof(ConferenceViewModel.IssueCount) or nameof(ConferenceViewModel.ErrorCount))
         {
             editorCountIsNewer = false;
             UpdateProblemBadge();
@@ -705,11 +713,24 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// O contador vem da última conferência. Antes da primeira, ou depois de o Editor contar de novo (uma edição ou uma releitura), vem das
-    /// ocorrências do Editor, que é o número mais recente.
+    /// O número é o de erros, os que travam o teste no jogo; só avisos viram um ponto, sem número. Vem da última conferência. Antes da primeira,
+    /// ou depois de o Editor contar de novo (uma edição ou uma releitura), vem das ocorrências do Editor, que é o número mais recente.
     /// </summary>
-    private void UpdateProblemBadge() =>
-        conferenceItem.Badge = CurrentProject is null ? null : editorCountIsNewer ? Editor.IssueCount : Conference.IssueCount ?? Editor.IssueCount;
+    private void UpdateProblemBadge()
+    {
+        if (CurrentProject is null)
+        {
+            conferenceItem.Badge = null;
+            conferenceItem.HasNotice = false;
+            return;
+        }
+
+        var fromEditor = editorCountIsNewer || Conference.IssueCount is null;
+        var errors = fromEditor ? Editor.ErrorCount : Conference.ErrorCount ?? 0;
+        var total = fromEditor ? Editor.IssueCount : Conference.IssueCount ?? 0;
+        conferenceItem.Badge = errors;
+        conferenceItem.HasNotice = total > errors;
+    }
 
     /// <summary>Ajustes gravou o projeto: relê a acentuação e o modelo do <c>vnforge.json</c> e os limites da caixa do <c>formatting.json</c>.</summary>
     private void ReloadProjectSettings()
