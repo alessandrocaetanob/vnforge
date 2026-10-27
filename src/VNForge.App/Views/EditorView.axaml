@@ -98,13 +98,13 @@
       <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
     </Border>
 
-    <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,69* (320 a 420): a 1440 px de janela dá 248 · 628 · 420, como o artboard.
+    <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 248 · 598 · 450; o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
     <Grid Grid.Row="3" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="248"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
-        <ColumnDefinition Width="1.69*" MinWidth="320" MaxWidth="420"/>
+        <ColumnDefinition Width="1.9*" MinWidth="320" MaxWidth="600"/>
       </Grid.ColumnDefinitions>
 
       <!-- Cenas -->

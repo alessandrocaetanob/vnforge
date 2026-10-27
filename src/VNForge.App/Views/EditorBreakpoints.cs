@@ -15,6 +15,16 @@ public static class EditorBreakpoints
 
     public const double InspectorTabsWidth = 360;
 
+    /// <summary>
+    /// O inspetor inteiro (sem abas) cresce até 600 px para a caixa do jogo mostrar as 73 colunas do perfil sem encolher (#392): 73 colunas de 7 px mais as bordas da caixa
+    /// e o recuo do painel. Abaixo disso a caixa encolhe em proporção, nunca rola. A 1440 px o inspetor tem cerca de 450 px.
+    /// </summary>
+    public const double InspectorMinWidth = 320;
+
+    public const double InspectorMaxWidth = 600;
+
+    public const double InspectorStars = 1.9;
+
     public static bool UsesSceneFlyout(double windowWidth) => windowWidth < SceneFlyoutBelow;
 
     public static bool UsesInspectorTabs(double windowWidth) => windowWidth < InspectorTabsBelow;

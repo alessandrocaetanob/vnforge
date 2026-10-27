@@ -120,9 +120,10 @@
           <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{x:Static vm:LineDetailViewModel.FieldRawNotice}" IsVisible="{Binding FieldIsRaw}"/>
           <!-- A caixa do jogo logo abaixo do campo, com o que cabe ou o quanto passa. -->
           <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding Preview.HasLayout}">
-              <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Left" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
-            </ScrollViewer>
+            <!-- Sem rolagem: a caixa encolhe em proporção quando as colunas do perfil não cabem na largura do inspetor (#392). -->
+            <Panel IsVisible="{Binding Preview.HasLayout}">
+              <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Left" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
+            </Panel>
             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
               <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
               <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>

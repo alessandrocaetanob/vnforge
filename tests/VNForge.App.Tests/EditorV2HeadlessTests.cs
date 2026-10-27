@@ -44,7 +44,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
-    public async Task A_1440_as_colunas_seguem_o_artboard_scripts_248_e_inspetor_420()
+    public async Task A_1440_as_colunas_seguem_o_artboard_scripts_248_e_inspetor_mais_largo_para_a_caixa_do_jogo()
     {
         var (vm, temp) = await Abrir();
         using var _ = temp;
@@ -53,7 +53,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch(
             () =>
             {
-                // A 1440 px de janela as colunas chegam aos tetos do artboard: 248 e 420.
+                // A 1440 px de janela a lista de cenas chega ao teto do artboard (248) e o inspetor fica mais largo que os 420 do artboard (#392): 1,9 de 4,43 partes do que sobra.
                 var window = Show(new EditorView { DataContext = vm }, 1440);
                 var panels = window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible).ToList();
                 scripts = panels.Single(b => b.Name == "ScenesBorder").Bounds.Width;
@@ -63,7 +63,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
             CancellationToken.None);
 
         Assert.InRange(scripts, 247, 249);
-        Assert.InRange(inspector, 419, 421);
+        Assert.InRange(inspector, 479, 481);
     }
 
     [Theory]

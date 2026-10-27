@@ -64,9 +64,9 @@ public sealed partial class EditorView : UserControl
         // Sem a coluna das cenas sobra o espaço entre colunas ao lado dela.
         Columns.Margin = new Thickness(flyout ? -Columns.ColumnSpacing : 0, 0, 0, 0);
 
-        InspectorColumn.MinWidth = tabs ? EditorBreakpoints.InspectorTabsWidth : 320;
-        InspectorColumn.MaxWidth = tabs ? EditorBreakpoints.InspectorTabsWidth : 420;
-        InspectorColumn.Width = tabs ? new GridLength(EditorBreakpoints.InspectorTabsWidth) : new GridLength(1.69, GridUnitType.Star);
+        InspectorColumn.MinWidth = tabs ? EditorBreakpoints.InspectorTabsWidth : EditorBreakpoints.InspectorMinWidth;
+        InspectorColumn.MaxWidth = tabs ? EditorBreakpoints.InspectorTabsWidth : EditorBreakpoints.InspectorMaxWidth;
+        InspectorColumn.Width = tabs ? new GridLength(EditorBreakpoints.InspectorTabsWidth) : new GridLength(EditorBreakpoints.InspectorStars, GridUnitType.Star);
     }
 
     private void OnSearchShortcut(object? sender, KeyEventArgs e)
