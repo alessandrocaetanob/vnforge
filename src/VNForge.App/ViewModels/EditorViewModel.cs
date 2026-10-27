@@ -187,7 +187,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     public string ProjectName => Project?.Name ?? string.Empty;
 
-    /// <summary>A linha de cima do cabeçalho, em mono: a chave do script aberto.</summary>
+    /// <summary>A linha de cima do cabeçalho, em caption na fonte da interface: a chave do script aberto.</summary>
     public string Breadcrumb => SelectedScript?.Key ?? string.Empty;
 
     /// <summary>O título do cabeçalho: o nome do capítulo, ou a chave quando o projeto ainda não guarda o nome.</summary>
