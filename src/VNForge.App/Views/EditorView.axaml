@@ -42,7 +42,7 @@
 
   <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
 
-    <!-- Cabeçalho: chave em mono e nome do capítulo. As ações moram na barra logo abaixo (#394). -->
+    <!-- Cabeçalho: "Capítulo 1 · cena 13 de 45" e o nome da cena. As ações moram na barra logo abaixo (#394). -->
     <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding !IsReviewing}"/>
 
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
@@ -122,13 +122,14 @@
       <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
     </Border>
 
-    <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 248 · 598 · 450; o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
+    <!-- O texto ganha a largura (v4): scripts 1* (180 a 190), linhas 2,26*, inspetor 1* (340 a 600). A 1440 px de janela dá 190 · 766 · 340, e Original e
+         Tradução ficam com mais da metade da grade; o inspetor só passa dos 340 px a partir de uns 1470 px de janela, e a caixa do jogo encolhe em proporção até lá.
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
     <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="248"/>
-        <ColumnDefinition Width="2.53*" MinWidth="240"/>
-        <ColumnDefinition Width="1.9*" MinWidth="320" MaxWidth="600"/>
+        <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="190"/>
+        <ColumnDefinition Width="2.26*" MinWidth="240"/>
+        <ColumnDefinition Width="1*" MinWidth="340" MaxWidth="600"/>
       </Grid.ColumnDefinitions>
 
       <!-- Cenas -->
@@ -156,11 +157,11 @@
       <!-- Grade de linhas: somente leitura; a edição acontece no inspetor. -->
       <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Linhas">
         <Grid RowDefinitions="32,*,Auto">
-          <Border Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}">
-            <Grid ColumnDefinitions="52,96,96,*,*,24" ColumnSpacing="12">
+          <Border Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}">
+            <Grid ColumnDefinitions="56,92,132,*,1.2*,32" ColumnSpacing="8">
               <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="2" Classes="overline" Text="Personagem" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="2" Classes="overline" Text="Quem fala" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="3" Classes="overline" Text="Original" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>

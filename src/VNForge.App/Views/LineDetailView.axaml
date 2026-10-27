@@ -13,17 +13,14 @@
     <Style Selector="c|AiSuggestion /template/ Button#PART_Use">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <!-- Em abas o "Usar sugestão" sai da linha de Aprovar e vai para a aba Sugestão; em coluna única é o contrário. -->
+    <!-- Nas abas o "Usar esta sugestão" também fica junto do cartão, na aba Sugestão; a barra fixa do rodapé vale nas duas disposições. -->
     <Style Selector="StackPanel.tab-only">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
     <Style Selector=":is(UserControl).tabbed StackPanel.tab-only">
       <Setter Property="IsVisible" Value="True"/>
     </Style>
-    <Style Selector=":is(UserControl).tabbed Button.use-in-row">
-      <Setter Property="IsVisible" Value="False"/>
-    </Style>
-    <!-- Inspetor estreito (janela mínima): a tecla e o ícone saem dos botões para o texto não quebrar nem ser cortado. -->
+    <!-- Inspetor estreito (janela mínima e abas): a tecla e o ícone saem dos botões para o texto não quebrar nem ser cortado. -->
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
@@ -38,10 +35,12 @@
     <KeyBinding Gesture="Alt+Down" Command="{Binding NextCommand}"/>
   </UserControl.KeyBindings>
 
-  <Panel>
-    <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard. -->
+  <!-- O conteúdo rola; a barra de ações fica fora da rolagem, no rodapé, para "Aprovar e próxima" estar sempre à vista. -->
+  <Grid RowDefinitions="*,Auto">
+    <Panel>
+    <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard. A margem direita deixa a barra de rolagem fora do texto. -->
     <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel x:Name="WideStack" Spacing="16">
+      <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,0">
 
         <!-- Cabeçalho: id em mono, selo de status, tipo da linha, histórico e menu. -->
         <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
@@ -135,13 +134,6 @@
             </StackPanel>
             <StackPanel Spacing="4" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
               <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
-              <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="x:String">
-                    <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding}"/>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
               <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Problem}"
                          IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
@@ -160,23 +152,6 @@
         <c:FitWarning x:Name="FitFragment" IsVisible="{Binding Fit.IsVisible, FallbackValue=False}" Message="{Binding Fit.Message}" SplitText="{Binding Fit.SplitText}" ShortenText="{Binding Fit.ShortenText}"
                       SplitCommand="{Binding Fit.SplitCommand}" ShortenCommand="{Binding Fit.ShortenCommand}" ShowShorten="{Binding Fit.HasShortener}"
                       ErrorText="{Binding Fit.Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
-
-        <!-- Aprovar e próxima ocupa o que sobra da linha; "Usar sugestão" tem a largura do texto. Nada quebra com o inspetor em 400 px. Nas abas o "Usar" sai da linha e vai para a aba Sugestão. -->
-        <Grid x:Name="ActionsFragment" ColumnDefinitions="*,Auto">
-          <Button x:Name="ApproveButton" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveAndNextCommand}"
-                  ToolTip.Tip="Aprova a linha e vai para a próxima (Ctrl+Enter)">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="Aprovar e próxima" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+Enter"/></Border>
-            </StackPanel>
-          </Button>
-          <Button Grid.Column="1" Classes="use-in-row" Margin="8,0,0,0" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
-              <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-        </Grid>
 
         <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
         <StackPanel x:Name="SameSourceFragment" Spacing="6" IsVisible="{Binding HasSameSource}">
@@ -318,5 +293,25 @@
         </TabItem>
       </TabControl>
     </DockPanel>
-  </Panel>
+    </Panel>
+
+    <Border Grid.Row="1" Classes="divider-top" Padding="0,12,0,0" Margin="0,8,0,0">
+        <!-- Aprovar e próxima ocupa o que sobra da linha; "Usar sugestão" tem a largura do texto. Nada quebra com o inspetor em 400 px. -->
+        <Grid x:Name="ActionsFragment" ColumnDefinitions="*,Auto">
+          <Button x:Name="ApproveButton" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveAndNextCommand}"
+                  ToolTip.Tip="Aprova a linha e vai para a próxima (Ctrl+Enter)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Aprovar e próxima" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+Enter"/></Border>
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="1" Classes="use-in-row" Margin="8,0,0,0" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+              <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+        </Grid>
+    </Border>
+  </Grid>
 </UserControl>

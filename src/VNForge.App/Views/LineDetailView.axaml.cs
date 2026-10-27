@@ -63,14 +63,14 @@ public sealed partial class LineDetailView : UserControl
         }
     }
 
-    /// <summary>Nas abas o inspetor tem 328 px de conteúdo e as teclas dos botões cabem; só a janela mínima, em coluna única, as tira.</summary>
-    private void UpdateCompact() => Classes.Set("compact", !tabbed && Bounds.Width is > 0 and < CompactWidth);
+    /// <summary>Com menos de 360 px (as abas e a janela mínima) a barra de ações larga a tecla e o ícone dos botões para os dois textos caberem.</summary>
+    private void UpdateCompact() => Classes.Set("compact", Bounds.Width is > 0 and < CompactWidth);
 
     /// <summary>Na ordem do artboard, numa coluna só.</summary>
     private Control[] WideOrder =>
     [
         HeaderFragment, OriginalFragment, ExplainFragment, SceneFragment, TranslationFragment, FitFragment,
-        ActionsFragment, SameSourceFragment, SuggestFragment, ProblemsFragment, ContextFragment,
+        SameSourceFragment, SuggestFragment, ProblemsFragment, ContextFragment,
     ];
 
     /// <summary>Muda os blocos de lugar entre a coluna única e as abas; nada é recriado, então o campo de tradução guarda o texto e o cursor.</summary>
@@ -93,7 +93,7 @@ public sealed partial class LineDetailView : UserControl
         if (useTabs)
         {
             TabbedHeaderHost.Child = HeaderFragment;
-            TranslationTab.Children.AddRange([OriginalFragment, TranslationFragment, FitFragment, ActionsFragment, SameSourceFragment, ProblemsFragment]);
+            TranslationTab.Children.AddRange([OriginalFragment, TranslationFragment, FitFragment, SameSourceFragment, ProblemsFragment]);
             SuggestionTab.Children.Add(SuggestFragment);
             ContextTab.Children.AddRange([ExplainFragment, SceneFragment, ContextFragment]);
         }
