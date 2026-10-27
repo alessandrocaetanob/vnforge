@@ -31,18 +31,20 @@ public sealed partial class ScopeChoice(TranslationScope scope, string title) : 
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+
+    /// <summary>Falso quando o escopo não tem linha pendente: o cartão fica desligado, com "Nada para traduzir aqui". Verdadeiro enquanto o projeto é lido.</summary>
+    [ObservableProperty]
+    public partial bool IsAvailable { get; internal set; } = true;
 }
 
-/// <summary>Uma resposta à pergunta "com que qualidade": o preço e o tempo do escopo escolhido, e o modelo só em letra pequena.</summary>
-public sealed partial class QualityChoice(TranslationQuality quality, string title, string description, string model) : ObservableObject
+/// <summary>Uma resposta à pergunta "com que qualidade": o preço e o tempo do escopo escolhido. O modelo não aparece: fica em Detalhes técnicos dos Ajustes.</summary>
+public sealed partial class QualityChoice(TranslationQuality quality, string title, string description) : ObservableObject
 {
     public TranslationQuality Quality { get; } = quality;
 
     public string Title { get; } = title;
 
     public string Description { get; } = description;
-
-    public string Model { get; } = model;
 
     [ObservableProperty]
     public partial decimal Price { get; internal set; }
@@ -75,9 +77,9 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         Scopes = new(scopes);
         Qualities =
         [
-            new(TranslationQuality.Fast, "Rápida", "Rascunho barato e veloz, para ler a história e revisar com calma.", "Haiku"),
-            new(TranslationQuality.Balanced, "Equilibrada", "O meio-termo: boa para a maior parte do jogo.", "Sonnet"),
-            new(TranslationQuality.Careful, "Caprichada", "A mais fiel ao tom e aos personagens.", "Opus"),
+            new(TranslationQuality.Fast, "Rápida", "Rascunho barato e veloz, para ler a história e revisar com calma."),
+            new(TranslationQuality.Balanced, "Equilibrada", "O meio-termo: boa para a maior parte do jogo."),
+            new(TranslationQuality.Careful, "Caprichada", "A mais fiel ao tom e aos personagens."),
         ];
         SelectedScope = Scopes[0];
         SelectedQuality = Qualities[^1];
@@ -212,6 +214,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             ? sceneChoice
             : Hooked(new ScopeChoice(TranslationScope.Selection, $"As cenas escolhidas ({chosen.Count})"));
         byScope.Clear();
+        // Os cartões vêm de uma abertura anterior: sem isto, o que estava apagado ou resumido ali ficaria assim até a leitura terminar, ou para sempre se ela falhar.
+        foreach (var scope in scopes)
+        {
+            scope.Lines = 0;
+            scope.Summary = string.Empty;
+            scope.IsAvailable = true;
+        }
+
         LoadError = string.Empty;
         CanStart = false;
         StartCommand.NotifyCanExecuteChanged();
@@ -319,6 +329,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             byScope[scope] = (value.Keys, value.Quotes);
             var choice = Scopes.Single(s => s.Scope == scope);
             choice.Lines = value.Quotes.Lines;
+            choice.IsAvailable = value.Quotes.Lines > 0;
             choice.Summary = Describe(scope, value.Quotes.Lines, value.Scenes);
         }
 
@@ -362,7 +373,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     {
         if (lines == 0)
         {
-            return "nenhuma linha pendente";
+            return "Nada para traduzir aqui";
         }
 
         var text = lines == 1 ? "1 linha para traduzir" : $"{ProjectLabels.Number(lines)} linhas para traduzir";

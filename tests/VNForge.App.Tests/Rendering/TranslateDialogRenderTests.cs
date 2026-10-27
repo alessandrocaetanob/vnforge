@@ -98,6 +98,19 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 Assert.Empty(window.OwnedWindows);
                 Assert.Same(window, TopLevel.GetTopLevel(surface));
 
+                // Qualidade em vez de modelo: nenhum cartão diz Haiku, Sonnet ou Opus.
+                var texts = surface.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+                Assert.DoesNotContain(texts, t => t is "Haiku" or "Sonnet" or "Opus");
+
+                // A cena aberta não tem linha pendente: o cartão fica desligado, apagado e sem escolha, e o padrão é o escopo seguinte com linhas.
+                var scopes = surface.GetVisualDescendants().OfType<RadioButton>().Where(r => r is not QualityCard).ToList();
+                Assert.False(scopes[0].IsEffectivelyEnabled);
+                Assert.Equal(0.5, scopes[0].Opacity);
+                Assert.NotEqual(true, scopes[0].IsChecked);
+                Assert.All(scopes.Skip(1), r => Assert.True(r.IsEffectivelyEnabled));
+                Assert.Contains("Nada para traduzir aqui", texts);
+                Assert.Equal(true, scopes[1].IsChecked);
+
                 // O cartão pinta o próprio fundo por cima do véu: o canto do cartão difere do fundo da página no mesmo ponto.
                 var card = Card(surface);
                 var probe = PixelProbe.Capture(window, card);

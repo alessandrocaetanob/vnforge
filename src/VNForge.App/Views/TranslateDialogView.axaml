@@ -8,6 +8,12 @@
   <!-- Traduzir com IA (U12): o diálogo vive na camada de sobreposição, sobre o Editor; Escape e o X fecham. Três perguntas: o que, com que qualidade e por quanto. -->
   <c:ScreenDialog Title="Traduzir com IA" IsOpen="{Binding IsOpen, Mode=TwoWay}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <ScrollViewer.Styles>
+        <!-- Escopo sem linha pendente: o cartão fica apagado, como o QualityCard desligado. O diálogo sobe para a camada de sobreposição, então o estilo mora dentro dele. -->
+        <Style Selector="RadioButton.option:disabled">
+          <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+      </ScrollViewer.Styles>
       <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
 
         <StackPanel Spacing="8">
@@ -21,7 +27,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ScopeChoice">
                 <RadioButton Classes="option" GroupName="TranslateScope" VerticalAlignment="Stretch" VerticalContentAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                             AutomationProperties.Name="{Binding Title}">
+                             IsEnabled="{Binding IsAvailable}" AutomationProperties.Name="{Binding Title}">
                   <StackPanel Spacing="2">
                     <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}"/>
                     <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
@@ -43,7 +49,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:QualityChoice">
                 <c:QualityCard GroupName="TranslateQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
-                               Model="{Binding Model}" Price="{Binding Price}" Duration="{Binding Duration}"
+                               Price="{Binding Price}" Duration="{Binding Duration}"
                                IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

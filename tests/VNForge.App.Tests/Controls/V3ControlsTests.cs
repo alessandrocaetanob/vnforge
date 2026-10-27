@@ -478,7 +478,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
         ["capitulo"] = () => new ChapterRow { Width = 900, Number = 1, Title = "Manhã de chuva", Done = 2840, Review = 1210, Total = 4100, Note = "Você está aqui · 1 erro em Manhã de chuva", IsHere = true },
         ["custo"] = () => new CostLabel { Brl = 142.56m, Usd = 26.4m },
         ["orcamento"] = () => new BudgetBar { Width = 400, Spent = 142.56, Ask = 180, Limit = 300 },
-        ["qualidade"] = () => new QualityCard { Width = 260, Title = "Equilibrada", Model = "Sonnet", Price = 58.1m, Duration = "cerca de 78 min", Description = "O meio-termo.", IsChecked = true },
+        ["qualidade"] = () => new QualityCard { Width = 260, Title = "Equilibrada", Price = 58.1m, Duration = "cerca de 78 min", Description = "O meio-termo.", IsChecked = true },
         ["contexto"] = () => new ContextLines { Width = 400, ItemsSource = new[] { new ContextLine("Kenta", "「おはよう、美咲」", "Bom dia, Misaki.") } },
         ["explicacao"] = () => new ExplainCard { Width = 400, Model = "Claude Haiku", Footnote = "Só para você ler.", ItemsSource = new[] { new ExplainPart("今日も", "de novo hoje") } },
         ["grupo-de-cenas"] = () => new ScriptGroup { Width = 260, Title = "Capítulo 1", CountText = "14", Content = new TextBlock { Text = "yst00001" } },

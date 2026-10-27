@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- QualityCard (v3.css ".qcards .opt"): o OptionCard com o preço em 20/24 bold na fonte de exibição, o tempo em letra pequena e o modelo no canto.
+  <!-- QualityCard (v3.css ".qcards .opt"): o OptionCard com o preço em 20/24 bold na fonte de exibição e o tempo em letra pequena. Sem nome de modelo: a qualidade basta.
        Marcado, a borda vira accent de 2px. -->
   <Style Selector="c|QualityCard">
     <Setter Property="Padding" Value="14,12"/>
@@ -13,14 +13,12 @@
         <Border Name="PART_Card" Padding="{TemplateBinding Padding}" Background="{DynamicResource Vnf.BgLayer}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
                 BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}">
           <StackPanel Spacing="4">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <Panel Width="16" Height="16" VerticalAlignment="Center">
                 <Ellipse Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
                 <Ellipse Name="PART_Dot" Width="8" Height="8" Fill="{DynamicResource Vnf.Accent}" IsVisible="False"/>
               </Panel>
               <TextBlock Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-              <TextBlock Name="PART_Model" Grid.Column="2" FontSize="11" LineHeight="14" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{TemplateBinding Model}"
-                         VerticalAlignment="Center" IsVisible="{TemplateBinding Model, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </Grid>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
