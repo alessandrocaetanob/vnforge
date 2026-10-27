@@ -172,7 +172,7 @@ public class ConferenceSettingTests
 
     private static ConferenceIssueRowViewModel Row(int codePoint) =>
         new(new QaIssue("caractere-nao-codificavel", QaSeverity.Error, "yst00001:000001", "yst00001", $"o caractere '{char.ConvertFromUtf32(codePoint)}' (U+{codePoint:X4}) não existe na estratégia 'cp1252'."),
-            encoder: TextEncoderRegistry.Default.Create("cp1252"));
+            characters: new ConferenceRowCharacterContext(TextEncoderRegistry.Default.Create("cp1252")));
 
     [Theory]
     [InlineData(0x2026, "O … (reticências, U+2026) não existe na acentuação do projeto. Use três pontos (...) no lugar das reticências (…).")]
@@ -201,7 +201,7 @@ public class ConferenceSettingTests
         FormattingConflict conflict = new(FormattingConflicts.EllipsisField, "Reticências", "character", "Caractere …", "…", "dots", "Três pontos");
         var row = new ConferenceIssueRowViewModel(
             new QaIssue("caractere-nao-codificavel", QaSeverity.Error, "yst00001:000001", "yst00001", "o caractere '…' (U+2026) não existe na estratégia 'cp1252'."),
-            settings: [conflict]);
+            characters: new ConferenceRowCharacterContext(Settings: [conflict]));
 
         Assert.DoesNotContain("Troque por um que ela aceite", row.Explanation, StringComparison.Ordinal);
         Assert.Contains("ajuste Reticências (Caractere …)", row.Explanation, StringComparison.Ordinal);
