@@ -38,6 +38,7 @@ public static class QaCategories
         [UnencodableCharacterRule.RuleId] = Accents,
         [FormattingConflictRule.RuleId] = Accents,
         [SpeakerEncodingRule.RuleId] = Accents,
+        [GameTitleEncodingRule.RuleId] = Accents,
         ["glossario-diferente"] = Glossary,
         ["personagem-diferente"] = Glossary,
         ["traducao-inconsistente"] = Consistency,

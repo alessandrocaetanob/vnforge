@@ -54,6 +54,18 @@ public static class ProjectConfigSerializer
             writer.WriteStartObject("game");
             writer.WriteString("path", config.Game.Path);
             writer.WriteString("exe", config.Game.Exe);
+            if (config.Game.Title is { } title)
+            {
+                writer.WriteStartObject("title");
+                writer.WriteString("original", title.Original);
+                if (!string.IsNullOrWhiteSpace(title.Translation))
+                {
+                    writer.WriteString("translation", title.Translation);
+                }
+
+                writer.WriteEndObject();
+            }
+
             writer.WriteEndObject();
 
             writer.WriteStartObject("engine");
@@ -106,6 +118,13 @@ public static class ProjectConfigSerializer
         var game = reader.RequiredObject("game");
         var gamePath = game.RequiredString("path");
         var gameExe = game.RequiredString("exe");
+        GameTitleConfig? gameTitle = null;
+        if (game.OptionalObject("title") is { } titleReader)
+        {
+            gameTitle = new GameTitleConfig(titleReader.RequiredString("original"), titleReader.OptionalString("translation"));
+            titleReader.EnsureNoUnknownProperties();
+        }
+
         game.EnsureNoUnknownProperties();
 
         var engine = reader.RequiredObject("engine");
@@ -140,7 +159,7 @@ public static class ProjectConfigSerializer
 
         return new ProjectConfig(
             name,
-            new GameConfig(gamePath, gameExe),
+            new GameConfig(gamePath, gameExe) { Title = gameTitle },
             new EngineConfig(engineId, engineVersion, scriptKey),
             new LanguagesConfig(source, target),
             new EncodingConfig(strategy),

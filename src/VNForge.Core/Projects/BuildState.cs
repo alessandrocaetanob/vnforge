@@ -58,10 +58,11 @@ internal sealed record BuildState(
     /// que o build grava, o que entra nos bytes. Mudar status, notas ou origem não a altera, e copiar o projeto sem preservar datas também não.
     /// O Painel a compara com a gravada no último build para saber se o <c>build/</c> ainda vale.
     /// </summary>
-    public static string FingerprintTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, string encoderId, string formattingPath)
+    public static string FingerprintTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, string encoderId, string formattingPath, string? gameTitle = null)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, encoderId);
+        Append(hash, gameTitle);
         Append(hash, File.Exists(formattingPath) ? Convert.ToBase64String(File.ReadAllBytes(formattingPath)) : null);
         foreach (var (key, units) in texts.OrderBy(t => t.Key, StringComparer.Ordinal))
         {
@@ -76,6 +77,17 @@ internal sealed record BuildState(
             }
         }
 
+        return Convert.ToHexString(hash.GetHashAndReset())[..32].ToLowerInvariant();
+    }
+
+    /// <summary>Hash do que determina os bytes do arquivo do título: o original, a estratégia e o título que o build grava.</summary>
+    public static string HashTitle(byte[] original, string encoderId, string title)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(original);
+        Append(hash, encoderId);
+        Append(hash, typeof(BuildState).Assembly.GetName().Version?.ToString());
+        Append(hash, title);
         return Convert.ToHexString(hash.GetHashAndReset())[..32].ToLowerInvariant();
     }
 

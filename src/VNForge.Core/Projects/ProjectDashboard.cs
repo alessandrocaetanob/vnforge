@@ -130,7 +130,7 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         {
             var config = project.LoadConfig();
             var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy);
-            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style };
+            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title };
             var report = QaEngine.Default.Run(context);
             var issues = report.BlockingIssues;
             var totals = new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning)) { StyleAdvice = report.StyleAdviceCount };
@@ -168,8 +168,9 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             return false;
         }
 
-        var strategy = project.LoadConfig().Encoding.Strategy;
-        return string.Equals(saved, BuildState.FingerprintTexts(texts, strategy, project.FormattingPath), StringComparison.Ordinal);
+        var config = project.LoadConfig();
+        var fingerprint = BuildState.FingerprintTexts(texts, config.Encoding.Strategy, project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
+        return string.Equals(saved, fingerprint, StringComparison.Ordinal);
     }
 
     /// <summary>

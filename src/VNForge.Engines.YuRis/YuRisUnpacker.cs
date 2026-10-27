@@ -15,6 +15,7 @@ internal static class YuRisUnpacker
 {
     internal const string CommandsFile = "ysc.ybn";
     internal const string ScriptListFile = "yst_list.ybn";
+    internal const string ConfigFile = "yscfg.ybn";
 
     private static readonly YpfArchiveFormat Format = new();
 

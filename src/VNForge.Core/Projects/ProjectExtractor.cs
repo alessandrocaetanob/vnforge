@@ -31,6 +31,9 @@ public sealed record ExtractionResult(
     /// <summary>O que aconteceu com as linhas que já estavam em <c>text/</c>; nulo quando não havia nenhuma.</summary>
     public ReextractionSummary? Reextraction { get; init; }
 
+    /// <summary>Título da janela do jogo que a extração leu; nulo quando a engine não o oferece ou o jogo não tem o arquivo do título.</summary>
+    public string? GameTitle { get; init; }
+
     /// <summary>Total de unidades de texto em todos os scripts.</summary>
     public int TotalLines => Scripts.Sum(s => s.Lines);
 }
@@ -78,11 +81,13 @@ public static class ProjectExtractor
         warnings.AddRange(game.Warnings);
         var extracted = ReadScripts(game, warnings, progress, cancellationToken);
         var originals = HashOriginals(gameDirectory, unpacked.Archives);
+        var gameTitle = (unpacker as IGameTitleSource)?.ReadTitle(project.GameCacheDirectory)?.Title;
 
         var plan = TextReextraction.Merge(
             existing,
             extracted.ToDictionary(e => e.Key, e => e.Units, StringComparer.Ordinal));
         var backups = BackUpReplacedText(project, plan, out var backupFolder);
+        var previousConfig = config;
         try
         {
             foreach (var key in plan.Changed)
@@ -97,6 +102,10 @@ public static class ProjectExtractor
             }
 
             SaveScriptNames(project, extracted);
+            if (gameTitle is not null)
+            {
+                config = SaveGameTitle(project, config, gameTitle);
+            }
 
             // Dentro do try: se o estado não grava, o texto volta ao que era e a extração pode ser repetida.
             project.SaveState(new PipelineState(
@@ -106,6 +115,7 @@ public static class ProjectExtractor
         }
         catch
         {
+            RestoreConfig(project, config, previousConfig);
             RestoreText(project, plan, backups);
             if (backupFolder is not null)
             {
@@ -137,7 +147,38 @@ public static class ProjectExtractor
             warnings)
         {
             Reextraction = existing.Count > 0 ? plan.Summary : null,
+            GameTitle = gameTitle,
         };
+    }
+
+    /// <summary>Grava no <c>vnforge.json</c> o título que o jogo traz, sem tocar na tradução que o usuário deu. Devolve a configuração gravada.</summary>
+    private static ProjectConfig SaveGameTitle(ProjectFolder project, ProjectConfig config, string original)
+    {
+        if (config.Game.Title?.Original == original)
+        {
+            return config;
+        }
+
+        var updated = config with { Game = config.Game with { Title = new GameTitleConfig(original, config.Game.Title?.Translation) } };
+        project.SaveConfig(updated);
+        return updated;
+    }
+
+    private static void RestoreConfig(ProjectFolder project, ProjectConfig current, ProjectConfig previous)
+    {
+        if (current == previous)
+        {
+            return;
+        }
+
+        try
+        {
+            project.SaveConfig(previous);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // O título lido fica no vnforge.json; a próxima extração o regrava.
+        }
     }
 
     /// <summary>Grava no <c>scripts.json</c> os nomes que a engine leu do jogo, sem tocar nos que o usuário deu. Sem nome nenhum e sem arquivo antes, não cria o arquivo.</summary>

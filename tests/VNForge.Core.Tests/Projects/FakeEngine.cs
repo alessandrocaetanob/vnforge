@@ -6,9 +6,12 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>Engine de mentira dos testes do build: os scripts são <c>.fake</c> com uma linha <c>tipo|texto</c> por unidade e o pacote é um arquivo só.</summary>
-internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePatchProvider
+internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePatchProvider, IGameTitleSource
 {
     internal const string PackageName = "pacote.fake";
+
+    /// <summary>O arquivo do título, na pasta do jogo e dentro do pacote: o texto dele, em UTF-8, é o título.</summary>
+    internal const string TitleFileName = "titulo.cfg";
 
     private readonly FakeFormat _format = new();
 
@@ -41,7 +44,7 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
     {
         var archive = Path.Combine(destinationDirectory, PackageName);
         Directory.CreateDirectory(archive);
-        foreach (var file in Directory.EnumerateFiles(gameDir, "*.fake"))
+        foreach (var file in Directory.EnumerateFiles(gameDir, "*.fake").Concat(Directory.EnumerateFiles(gameDir, TitleFileName)))
         {
             File.Copy(file, Path.Combine(archive, Path.GetFileName(file)), overwrite: true);
         }
@@ -49,10 +52,32 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
         return new GameUnpackResult([new UnpackedArchive(PackageName, PackageName, 2, 0)]);
     }
 
+    /// <summary>Quantas vezes o build pediu o título da pasta descompactada.</summary>
+    public int TitleReads { get; private set; }
+
+    public GameTitleFile? ReadTitle(string unpackedDirectory)
+    {
+        TitleReads++;
+        var path = Path.Combine(unpackedDirectory, PackageName, TitleFileName);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var bytes = File.ReadAllBytes(path);
+        return new GameTitleFile(path, bytes, Encoding.UTF8.GetString(bytes));
+    }
+
+    public byte[] WithTitle(GameTitleFile file, string title, ITextEncoder encoder)
+    {
+        _ = encoder.Encode(title);
+        return Encoding.UTF8.GetBytes(title);
+    }
+
     public UnpackedGame Open(string unpackedDirectory) =>
         new(
             new FakeContext(),
-            Directory.EnumerateFiles(unpackedDirectory, "*", SearchOption.AllDirectories)
+            Directory.EnumerateFiles(unpackedDirectory, "*.fake", SearchOption.AllDirectories)
                 .Order(StringComparer.Ordinal)
                 .Select(f => new UnpackedScript(Path.GetFileName(f), f, _format, null))
                 .ToList());

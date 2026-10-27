@@ -39,6 +39,7 @@ public sealed class QaEngine
         new UnencodableCharacterRule(),
         new FormattingConflictRule(),
         new SpeakerEncodingRule(),
+        new GameTitleEncodingRule(),
         new BoxLineLimitRule(),
         new FieldByteLimitRule(),
         new HonorificsRule(),

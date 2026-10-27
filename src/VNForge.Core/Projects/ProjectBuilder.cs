@@ -44,6 +44,9 @@ public sealed record BuildResult(
     /// <summary>Scripts com tradução cujo resultado do build anterior foi reaproveitado, sem chamar <see cref="IScriptFormat.Rebuild"/> (só no build incremental).</summary>
     public int ReusedScripts { get; init; }
 
+    /// <summary>Título traduzido que o build gravou no arquivo de configuração do jogo; nulo quando o projeto não tem tradução do título e o jogo fica com o original.</summary>
+    public string? GameTitle { get; init; }
+
     /// <summary>Total de unidades de texto trocadas.</summary>
     public int TotalLines => RebuiltScripts.Sum(s => s.Lines);
 }
@@ -123,7 +126,8 @@ public static class ProjectBuilder
             loaded = select(loaded);
         }
 
-        var fingerprint = BuildState.FingerprintTexts(loaded, encoder.Id, project.FormattingPath);
+        var title = ResolveTitle(engine, config, project, encoder);
+        var fingerprint = BuildState.FingerprintTexts(loaded, encoder.Id, project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
         var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
@@ -145,6 +149,11 @@ public static class ProjectBuilder
 
         var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;
         var (rebuilt, built, state, reused) = RebuildScripts(project, game, ResolveSpeakers(texts, new CharacterBook(characters), encoder, gameKeys), encoder, previous, warnings, progress, cancellationToken);
+        if (title is not null)
+        {
+            rebuilt.Add(title.Script);
+            state[GameTitleKey] = new BuildStateScript(BuildState.HashTitle(title.Script.Original, encoder.Id, title.Text), Identical: false, 0);
+        }
 
         if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
         {
@@ -154,7 +163,7 @@ public static class ProjectBuilder
                 (previous with { TextFingerprint = fingerprint }).TrySave(project);
             }
 
-            return new BuildResult(gameDirectory, project.BuildDirectory, [.. previous.Archives.Select(a => new RepackedArchive(a.GamePath, a.ReplacedFiles))], game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
+            return new BuildResult(gameDirectory, project.BuildDirectory, [.. previous.Archives.Select(a => new RepackedArchive(a.GamePath, a.ReplacedFiles))], game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused, GameTitle = title?.Text };
         }
 
         var staging = project.BuildDirectory + ".tmp";
@@ -167,12 +176,54 @@ public static class ProjectBuilder
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
             new BuildState(BuildState.CurrentVersion, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings], fingerprint).TrySave(project);
-            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused };
+            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused, GameTitle = title?.Text };
         }
         catch
         {
             DeleteIfExists(staging);
             throw;
+        }
+    }
+
+    /// <summary>Chave do título no <see cref="BuildState"/>: não é a de nenhum script (<c>yst00012</c>).</summary>
+    private const string GameTitleKey = "@titulo-do-jogo";
+
+    /// <summary>O título traduzido pronto para o pacote: o texto que vai para o jogo e o arquivo de configuração já reescrito.</summary>
+    private sealed record ResolvedTitle(string Text, RebuiltScript Script);
+
+    /// <summary>
+    /// O título que o build grava, ou nulo quando o projeto não o traduz. Lê o arquivo do título da pasta descompactada e troca só o campo do título
+    /// (<see cref="IGameTitleSource.WithTitle"/>); se o arquivo já tem esse título, nada muda e o resultado é nulo, como se não houvesse tradução.
+    /// </summary>
+    /// <exception cref="VNForgeException">A engine não suporta título, o arquivo não está em <c>.cache/game</c> ou a estratégia não grava o título.</exception>
+    private static ResolvedTitle? ResolveTitle(IEngine engine, ProjectConfig config, ProjectFolder project, ITextEncoder encoder)
+    {
+        var name = GameTitleText.Resolve(config.Game.Title?.Translation, encoder);
+        if (name.Error is not null)
+        {
+            throw new VNForgeException(name.Error);
+        }
+
+        if (name.Text is not { } text)
+        {
+            return null;
+        }
+
+        if (engine is not IGameTitleSource source)
+        {
+            throw new VNForgeException($"A engine {engine.DisplayName} não suporta traduzir o título do jogo; apague a tradução do título do {ProjectFolder.ConfigFileName}.");
+        }
+
+        var file = source.ReadTitle(project.GameCacheDirectory)
+            ?? throw new VNForgeException($"O arquivo do título do jogo não está em '{project.GameCacheDirectory}'. Rode vnf extract antes do build.");
+        try
+        {
+            var content = source.WithTitle(file, text, encoder);
+            return content.AsSpan().SequenceEqual(file.Content) ? null : new ResolvedTitle(text, new RebuiltScript(file.Path, file.Content, content));
+        }
+        catch (Exception ex) when (ex is EncoderFallbackException or ArgumentException)
+        {
+            throw new VNForgeException($"Não foi possível gravar o título do jogo: {ex.Message}", ex);
         }
     }
 
