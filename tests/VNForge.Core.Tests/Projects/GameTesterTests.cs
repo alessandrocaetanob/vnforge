@@ -177,6 +177,17 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Teste_de_acentos_com_falante_japones_passa_na_cp1252_com_o_nome_de_teste()
+    {
+        _project.SaveText("a001", [.. _project.LoadText("a001").Select((u, i) => i == 0 ? u with { Speaker = "犬井" } : u)]);
+
+        var result = Run(new GameTestOptions(AccentTest: true), QaEngine.Default);
+
+        Assert.Equal(GameTestKind.AccentTest, result.Kind);
+        Assert.Equal(GameTester.AccentSpeaker, Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).Speaker);
+    }
+
+    [Fact]
     public void Teste_de_acentos_nao_depende_da_conferencia_do_resto_do_projeto()
     {
         Translate("a001", 1, string.Empty);

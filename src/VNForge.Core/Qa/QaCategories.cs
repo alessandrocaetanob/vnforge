@@ -36,6 +36,7 @@ public static class QaCategories
         ["espaco-antes-pontuacao"] = Spaces,
         ["aspas-desbalanceadas"] = Punctuation,
         [UnencodableCharacterRule.RuleId] = Accents,
+        [SpeakerEncodingRule.RuleId] = Accents,
         ["glossario-diferente"] = Glossary,
         ["personagem-diferente"] = Glossary,
         ["traducao-inconsistente"] = Consistency,

@@ -274,6 +274,8 @@ O texto do YU-RIS é Shift-JIS (CP932), que **não tem** á, ã, ç, é, õ etc.
 
 `Cp1252TextEncoder` (`VNForge.Core.Text`, id `cp1252`) implementa o lado do Core da estratégia `cp1252`: grava em Windows-1252 com fallback de exceção, então nada é trocado ou descartado em silêncio. O byte `0xEF` (`ï`) colide com o prefixo dos códigos de controle, por isso `ï` é recusado: `FindUnencodable` o aponta e `Encode` lança `EncoderFallbackException`. O patch no executável não faz parte do encoder.
 
+O Core é dono de como o falante entra no texto gravado (`SpeakerText`, `VNForge.Core.Text`): `Resolve` escolhe o nome (a tradução de `characters.json`; sem cadastro, o original, com a largura normalizada quando a estratégia não o grava) e `Delimiter` troca `「」` por aspas curvas quando o encoder não grava os japoneses. O `ProjectBuilder` põe o nome resolvido no `TextUnit.Speaker` antes de chamar a engine, a engine usa `Delimiter` ao montar a mensagem, e a regra de QA `falante-nao-codificavel` (`SpeakerEncodingRule`) usa o mesmo `Resolve`: o que passa na Conferência compila. O nome japonês sem cadastro que a estratégia não grava é erro na Conferência, com a ação de cadastrá-lo no Glossário > Personagens (#380).
+
 O QA avisa qualquer caractere que a estratégia escolhida não consegue representar, e o `vnf build --report` lista cada um com a linha, a posição e o substituto (E5.1). A estratégia `sjis` (Shift-JIS pura, sem tratar acentos) existe como base e para texto sem acentos; o padrão do `vnf init` é `fold` (ver "Em aberto"). Detalhes técnicos em [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md).
 
 ### 5. QA (conferência)

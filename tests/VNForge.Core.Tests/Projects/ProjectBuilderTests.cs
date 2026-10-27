@@ -1,6 +1,7 @@
 using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
 using VNForge.Core.Qa;
 using VNForge.Core.Tests.Qa;
 using VNForge.Core.Projects;
@@ -505,6 +506,95 @@ public sealed class ProjectBuilderTests : IDisposable
         var ex = Assert.Throws<EncodingReportException>(() => Build());
 
         Assert.Contains("a001:000001 posição 2: 'ï' (U+00EF)", ex.Message);
+    }
+
+    private void TranslateAs(string speaker, string text)
+    {
+        Translate("a001", (0, text));
+        var units = _project.LoadAllText()["a001"];
+        _project.SaveText("a001", [.. units.Select((u, i) => i == 0 ? u with { Speaker = speaker } : u)]);
+    }
+
+    [Fact]
+    public void Cp1252_entrega_ao_script_o_nome_cadastrado_no_lugar_do_japones()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        _project.SaveCharacters([new CharacterEntry("犬井", "Inui")]);
+        TranslateAs("犬井", "Bom dia!");
+
+        Build();
+
+        Assert.Equal("Inui", Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).Speaker);
+        Assert.Equal("犬井", _project.LoadAllText()["a001"][0].Speaker);
+    }
+
+    [Fact]
+    public void Cp1252_entrega_ao_script_o_falante_de_sinais_largos_normalizado()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        TranslateAs("？？？", "Quem?");
+
+        Build();
+
+        Assert.Equal("???", Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).Speaker);
+    }
+
+    [Fact]
+    public void Cp1252_com_nome_japones_sem_cadastro_e_recusado_pela_conferencia_antes_do_script()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        TranslateAs("犬井", "Bom dia!");
+
+        var ex = Assert.Throws<QaBlockedException>(() =>
+            ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, allowWarnings: true));
+
+        var issue = Assert.Single(ex.Report.BlockingIssues, i => i.RuleId == SpeakerEncodingRule.RuleId);
+        Assert.Equal(FirstUnit, issue.UnitId);
+        Assert.Contains("O nome do personagem 犬井 não existe na codificação do jogo (cp1252)", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, _engine.RebuildCalls);
+    }
+
+    [Fact]
+    public void Build_sem_a_regra_de_conferencia_ainda_recusa_o_nome_japones_citando_a_linha()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        TranslateAs("犬井", "Bom dia!");
+
+        var ex = Assert.Throws<VNForgeException>(Build);
+
+        Assert.Contains(FirstUnit, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Glossário > Personagens", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, _engine.RebuildCalls);
+    }
+
+    [Fact]
+    public void Falante_sem_traducao_nao_e_reconstruido_mesmo_em_cp1252()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        var units = _engine.Scripts[0].Extract(new ScriptFile(A001Fake, File.ReadAllBytes(Path.Combine(_project.GameCacheDirectory, PackageFake, A001Fake))), new FakeContext()).Units;
+        _project.SaveText("a001", [.. units.Select((u, i) => i == 0 ? u with { Speaker = "犬井" } : u)]);
+
+        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, allowWarnings: true);
+
+        Assert.Empty(result.RebuiltScripts);
+        Assert.Equal(0, _engine.RebuildCalls);
+    }
+
+    [Fact]
+    public void Mudar_o_nome_do_personagem_refaz_o_script_no_build_incremental()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        _project.SaveCharacters([new CharacterEntry("犬井", "Inui")]);
+        TranslateAs("犬井", "Bom dia!");
+        var options = new BuildOptions(OnlyChanged: true);
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: options);
+        var calls = _engine.RebuildCalls;
+
+        _project.SaveCharacters([new CharacterEntry("犬井", "Inui-kun")]);
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: options);
+
+        Assert.Equal(calls + 1, _engine.RebuildCalls);
+        Assert.Equal("Inui-kun", Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).Speaker);
     }
 
     [Fact]

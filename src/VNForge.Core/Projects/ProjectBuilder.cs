@@ -1,6 +1,7 @@
 using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
@@ -133,7 +134,8 @@ public static class ProjectBuilder
         }
 
         // Depois do relatório de codificação: o erro específico (com a posição) vem antes do QA genérico. O QA vê só os scripts do jogo, como o relatório; texto de script que não existe mais não é gravado.
-        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), project.LoadCharacters(), profile, encoder) { Style = config.Style });
+        var characters = project.LoadCharacters();
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style });
         if (qaReport.Blocks(allowWarnings))
         {
             throw new QaBlockedException(qaReport, allowWarnings);
@@ -142,7 +144,7 @@ public static class ProjectBuilder
         DropWarningsReportedByQa(warnings, qaReport);
 
         var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;
-        var (rebuilt, built, state, reused) = RebuildScripts(project, game, texts, encoder, previous, warnings, progress, cancellationToken);
+        var (rebuilt, built, state, reused) = RebuildScripts(project, game, ResolveSpeakers(texts, new CharacterBook(characters), encoder, gameKeys), encoder, previous, warnings, progress, cancellationToken);
 
         if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
         {
@@ -230,6 +232,38 @@ public static class ProjectBuilder
 
         var covered = qa.OtherIssues.Concat(qa.Silenced).Select(i => $"{i.UnitId}: {i.Message}").ToHashSet(StringComparer.Ordinal);
         warnings.RemoveAll(covered.Contains);
+    }
+
+    /// <summary>
+    /// Troca o <see cref="TextUnit.Speaker"/> de cada unidade que o build grava pelo nome que vai para o jogo (<see cref="SpeakerText.Resolve"/>): a tradução de
+    /// <c>characters.json</c> ou, sem cadastro, o nome original (largura normalizada só quando a estratégia não o grava). O <c>text/*.json</c> em disco não muda.
+    /// A Conferência já recusa o nome que não dá para gravar (<see cref="SpeakerEncodingRule"/>); aqui a recusa só vale para quem roda o build sem essa regra.
+    /// </summary>
+    /// <exception cref="VNForgeException">O nome de uma linha não pode ser gravado na estratégia.</exception>
+    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> ResolveSpeakers(
+        IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
+        CharacterBook characters,
+        ITextEncoder encoder,
+        HashSet<string> keys)
+    {
+        var resolved = new SortedDictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal);
+        foreach (var (key, units) in texts)
+        {
+            resolved[key] = keys.Contains(key) ? [.. units.Select(unit => ResolveSpeaker(unit, characters, encoder))] : units;
+        }
+
+        return resolved;
+    }
+
+    private static TextUnit ResolveSpeaker(TextUnit unit, CharacterBook characters, ITextEncoder encoder)
+    {
+        if (!unit.NeedsRewrite || string.IsNullOrWhiteSpace(unit.Speaker))
+        {
+            return unit;
+        }
+
+        var name = SpeakerText.Resolve(unit.Speaker, characters, encoder);
+        return name.Error is { } error ? throw new VNForgeException($"A linha {unit.Id} não pode ser gravada: {error}") : unit with { Speaker = name.Name };
     }
 
     private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings)

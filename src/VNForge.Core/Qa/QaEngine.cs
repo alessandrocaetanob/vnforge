@@ -37,6 +37,7 @@ public sealed class QaEngine
         new InconsistentTranslationRule(),
         .. TextQaRules.All,
         new UnencodableCharacterRule(),
+        new SpeakerEncodingRule(),
         new BoxLineLimitRule(),
         new FieldByteLimitRule(),
         new HonorificsRule(),
