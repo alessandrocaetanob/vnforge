@@ -69,8 +69,8 @@
                 </Grid>
               </Border>
 
-              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="32">
-                <c:ProgressRing VerticalAlignment="Top" Done="{Binding Selected.ReadyLines}" Review="{Binding Selected.ReviewLines}" Total="{Binding Selected.TotalLines}"
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="28">
+                <c:ProgressRing VerticalAlignment="Center" Done="{Binding Selected.ReadyLines}" Review="{Binding Selected.ReviewLines}" Total="{Binding Selected.TotalLines}"
                                 AutomationProperties.Name="{Binding Selected.ReadyDescription}"/>
 
                 <StackPanel Grid.Column="1" Spacing="16" VerticalAlignment="Center" MinWidth="0">
@@ -101,24 +101,11 @@
                           IsVisible="{Binding Detail.HasNextStep}"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Spacing="8" VerticalAlignment="Center" MaxWidth="440" IsVisible="{Binding HasContinueLayout}">
-                  <TextBlock Classes="caption secondary" Text="{Binding ContinueLineCaption}"/>
-                  <c:GameTextbox Size="Small" FitToWidth="True" HorizontalAlignment="Left" Layout="{Binding ContinueLayout}" AutomationProperties.Name="Caixa do jogo"/>
+                <StackPanel Grid.Column="2" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="420" IsVisible="{Binding HasContinueLayout}">
+                  <TextBlock Classes="caption secondary" HorizontalAlignment="Left" Text="{Binding ContinueLineCaption}"/>
+                  <c:GameTextbox Size="Large" FitToWidth="True" HorizontalAlignment="Left" Layout="{Binding ContinueLayout}" AutomationProperties.Name="Caixa do jogo"/>
                 </StackPanel>
               </Grid>
-
-              <c:TechnicalDetails Key="start" AutomationProperties.Name="Detalhes técnicos">
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" Margin="0,8,0,0">
-                  <TextBlock Classes="body-sm secondary" Text="Motor"/>
-                  <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.EngineLabel}"/>
-                  <TextBlock Grid.Row="1" Classes="body-sm secondary" Text="Pasta"/>
-                  <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.Path}"/>
-                  <TextBlock Grid.Row="2" Classes="body-sm secondary" Text="Acentos"/>
-                  <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.EncodingLabel}"/>
-                  <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Qualidade"/>
-                  <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.QualityLabel}"/>
-                </Grid>
-              </c:TechnicalDetails>
             </StackPanel>
           </Border>
 
@@ -216,6 +203,20 @@
                 </Border>
               </StackPanel>
             </Border>
+
+            <!-- Os dados do projeto selecionado que a pessoa raramente precisa: fora do cartão, fechados. -->
+            <c:TechnicalDetails Key="start" IsVisible="{Binding Selected.IsSupported}" AutomationProperties.Name="Detalhes técnicos">
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" Margin="0,8,0,0">
+                <TextBlock Classes="body-sm secondary" Text="Motor"/>
+                <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.EngineLabel}"/>
+                <TextBlock Grid.Row="1" Classes="body-sm secondary" Text="Pasta"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.Path}"/>
+                <TextBlock Grid.Row="2" Classes="body-sm secondary" Text="Acentos"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.EncodingLabel}"/>
+                <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Qualidade"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.QualityLabel}"/>
+              </Grid>
+            </c:TechnicalDetails>
           </StackPanel>
         </StackPanel>
 

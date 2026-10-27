@@ -204,6 +204,7 @@ public class StartScreenTests
         var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN", lines: Lines("yst00001", TranslationStatus.Approved));
         var vm = Create(temp);
         await vm.OpenAsync(root);
+        await vm.DetailLoading;
         File.WriteAllText(Path.Combine(root, "text", "yst00001.json"), "{ quebrado");
         var pedidos = 0;
         vm.DashboardRequested += (_, _) => pedidos++;
@@ -241,6 +242,7 @@ public class StartScreenTests
         var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN");
         var vm = Create(temp);
         await vm.OpenAsync(root);
+        await vm.DetailLoading;
         Directory.Delete(root, recursive: true);
         await vm.LoadAsync();
 

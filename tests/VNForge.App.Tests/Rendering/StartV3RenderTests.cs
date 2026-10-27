@@ -74,7 +74,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
 
                     // O cartão tem a fala onde a pessoa vai continuar, na caixa do jogo pequena, e o botão principal fica na área visível.
                     var box = Assert.Single(view.GetVisualDescendants().OfType<GameTextbox>(), g => g.IsEffectivelyVisible);
-                    Assert.Equal(GameTextboxSize.Small, box.Size);
+                    Assert.Equal(GameTextboxSize.Large, box.Size);
                     Assert.NotNull(box.Layout);
                     Assert.Equal("Próxima fala a revisar", start.ContinueLineCaption);
                     Assert.Contains(start.ContinueLineCaption, texts, StringComparison.Ordinal);
@@ -221,6 +221,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                 {
                     window.Show();
                     await start.OpenAsync(root);
+                    await start.DetailLoading;
                     Directory.Delete(root, recursive: true);
                     await start.LoadAsync();
                     ScreenRenderer.Settle(window);
