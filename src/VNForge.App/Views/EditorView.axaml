@@ -23,70 +23,94 @@
     <Style Selector=":is(UserControl).scenes-flyout TextBlock.btn-label">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
+
+    <!-- Botão da barra (#394): 28 px como os chips de filtro, contorno discreto e fundo transparente; só Traduzir com IA é cheio. -->
+    <Style Selector="Button.tool">
+      <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
+      <Setter Property="Height" Value="{DynamicResource Vnf.ControlSm}"/>
+      <Setter Property="Padding" Value="10,0"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
+    <Style Selector="Button.tool:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.tool:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
 
-    <!-- Cabeçalho: chave em mono, nome do capítulo, filtros com contagem e as duas ações do arquivo. -->
-    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding !IsReviewing}">
-      <WrapPanel ItemSpacing="6" LineSpacing="8" MaxWidth="960" VerticalAlignment="Bottom" HorizontalAlignment="Right">
-        <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
-        <Button x:Name="ScenesTrigger" Classes="scenes-trigger sm" AutomationProperties.Name="Cenas" ToolTip.Tip="Abre a lista de cenas">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
-            <TextBlock Text="Cenas" TextWrapping="NoWrap"/>
-            <PathIcon Width="12" Height="12" Data="{StaticResource Icon.ChevronDown}"/>
-          </StackPanel>
-          <Button.Flyout>
-            <Flyout Placement="BottomEdgeAlignedLeft">
-              <v:ScenesPanel Width="300" Height="440"/>
-            </Flyout>
-          </Button.Flyout>
-        </Button>
-        <ItemsControl ItemsSource="{Binding Filters}" AutomationProperties.Name="Filtro de linhas" VerticalAlignment="Center">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="6"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:FilterChipViewModel">
-              <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}"
-                            Command="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
-                            CommandParameter="{Binding}"/>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <Button Classes="sm" Command="{Binding ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
+    <!-- Cabeçalho: chave em mono e nome do capítulo. As ações moram na barra logo abaixo (#394). -->
+    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding !IsReviewing}"/>
+
+    <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
+         Buscar, Conferir arquivo e Modo revisão têm o mesmo estilo e tamanho; abaixo de 1400 px largam o texto e ficam como ícones com dica. -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding !IsReviewing}">
+      <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Top">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
+          <Button x:Name="ScenesTrigger" Classes="scenes-trigger tool" AutomationProperties.Name="Cenas" ToolTip.Tip="Abre a lista de cenas (Ctrl+B)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+              <TextBlock Text="Cenas" TextWrapping="NoWrap"/>
+              <PathIcon Width="12" Height="12" Data="{StaticResource Icon.ChevronDown}"/>
+            </StackPanel>
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedLeft">
+                <v:ScenesPanel Width="300" Height="440"/>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <ItemsControl ItemsSource="{Binding Filters}" AutomationProperties.Name="Filtro de linhas" VerticalAlignment="Center">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="6"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:FilterChipViewModel">
+                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}"
+                              Command="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
+                              CommandParameter="{Binding}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+        <Button Classes="tool" Command="{Binding ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
                 ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
             <TextBlock Classes="btn-label" Text="Buscar" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="sm" Command="{Binding CheckFileCommand}" AutomationProperties.Name="Conferir arquivo" ToolTip.Tip="Conferir arquivo: abre Conferir a tradução">
+        <Button Classes="tool" Command="{Binding CheckFileCommand}" AutomationProperties.Name="Conferir arquivo" ToolTip.Tip="Conferir arquivo: abre Conferir a tradução">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Shield}"/>
             <TextBlock Classes="btn-label" Text="Conferir arquivo" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="sm" Command="{Binding StartReviewCommand}" AutomationProperties.Name="Modo revisão"
+        <Button Classes="tool" Command="{Binding StartReviewCommand}" AutomationProperties.Name="Modo revisão"
                 ToolTip.Tip="Modo revisão: passa pelas linhas traduzidas pela IA, uma a uma, com a caixa do jogo ao lado">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
             <TextBlock Classes="btn-label" Text="Modo revisão" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="accent sm" Command="{Binding TranslatePendingCommand}" ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
+        <Button Classes="accent sm" Margin="6,0,0,0" Command="{Binding TranslatePendingCommand}" AutomationProperties.Name="Traduzir com IA"
+                ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
             <TextBlock Text="Traduzir com IA" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-      </WrapPanel>
-    </c:PageHeader>
+      </StackPanel>
+    </Grid>
 
-    <Border Grid.Row="1" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+    <Border Grid.Row="2" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
       <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
         <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
         <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
@@ -94,13 +118,13 @@
     </Border>
 
     <!-- Busca e substituição no projeto: abre aqui, sobre a grade, para quem traduz procurar a partir da linha em que está. -->
-    <Border Grid.Row="2" Classes="panel" ClipToBounds="True" IsVisible="{Binding IsSearchOpen}" AutomationProperties.Name="Busca e substituição">
+    <Border Grid.Row="3" Classes="panel" ClipToBounds="True" IsVisible="{Binding IsSearchOpen}" AutomationProperties.Name="Busca e substituição">
       <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
     </Border>
 
     <!-- Scripts 1* (180 a 248), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 248 · 598 · 450; o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="3" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
+    <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="248"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
@@ -195,7 +219,7 @@
     </Grid>
 
     <!-- Modo revisão: ocupa o lugar do cabeçalho e da grade enquanto houver uma revisão aberta. -->
-    <v:ReviewModeView Grid.RowSpan="4" DataContext="{Binding Review}" IsVisible="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsReviewing}"
+    <v:ReviewModeView Grid.RowSpan="5" DataContext="{Binding Review}" IsVisible="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsReviewing}"
                       Background="{DynamicResource Vnf.BgLayer}"/>
   </Grid>
 </UserControl>
