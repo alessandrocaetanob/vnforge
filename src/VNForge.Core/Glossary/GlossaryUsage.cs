@@ -19,14 +19,14 @@ public sealed class GlossaryUsage
     }
 
     /// <summary>Projeto sem linhas: tudo conta zero.</summary>
-    public static GlossaryUsage Empty { get; } = new([], new Dictionary<string, int>(StringComparer.Ordinal));
+    public static GlossaryUsage Empty { get; } = new([], new Dictionary<string, int>(CharacterBook.NameComparer));
 
     public static GlossaryUsage From(IEnumerable<TextUnit> units)
     {
         ArgumentNullException.ThrowIfNull(units);
 
         var sources = new List<string>();
-        var speakers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var speakers = new Dictionary<string, int>(CharacterBook.NameComparer);
         foreach (var unit in units)
         {
             sources.Add(unit.Source);
