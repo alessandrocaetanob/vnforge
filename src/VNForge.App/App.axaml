@@ -78,6 +78,7 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/ProgressRing.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/CostLabel.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/TodoItem.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/ReviewStage.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/GameStateBanner.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/QualityCard.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/ContextLines.axaml"/>

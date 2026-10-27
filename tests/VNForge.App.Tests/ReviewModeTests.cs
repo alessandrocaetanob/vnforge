@@ -39,9 +39,9 @@ public sealed class ReviewModeTests : IDisposable
     private static TextUnit Fala(int script, int n, string? falante, string original, string? traducao, TranslationStatus status) =>
         new($"yst0000{script}:{n:D6}", falante is null ? TextUnitKind.Narration : TextUnitKind.Dialogue, falante, original, traducao, status);
 
-    private async Task<EditorViewModel> Abrir(IApprovalLog? registro = null, Func<TextUnit, string>? preco = null)
+    private async Task<EditorViewModel> Abrir(IApprovalLog? registro = null, Func<TextUnit, string>? preco = null, Func<string, string?>? nomes = null)
     {
-        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao())
+        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao(), scriptLabel: nomes)
         {
             ApprovalLogFactory = registro is null ? null : _ => registro,
             SuggestionPrice = preco,
@@ -193,8 +193,22 @@ public sealed class ReviewModeTests : IDisposable
         Assert.False(revisao.IsActive);
         Assert.Equal("Revisão da cena concluída", revisao.FinishedTitle);
         Assert.Equal("1 linha aprovada, 1 deixada para depois e 1 pulada.", revisao.FinishedText);
-        Assert.Equal("yst00002", revisao.NextSceneName);
+        Assert.Equal("Cena 2", revisao.NextSceneName);
         Assert.True(revisao.HasNextScene);
+    }
+
+    [Fact]
+    public async Task A_cena_se_chama_pelo_nome_da_lista_ou_por_Cena_N_e_nunca_pelo_id()
+    {
+        var semNome = await Abrir();
+        semNome.StartReview();
+        Assert.Equal("Cena 1", semNome.Review!.SceneName);
+        Assert.Equal("Cena 2", semNome.Review.NextSceneName);
+
+        var comNome = await Abrir(nomes: chave => chave == "yst00002" ? "Manhã de chuva" : null);
+        comNome.StartReview();
+        Assert.Equal("Cena 1", comNome.Review!.SceneName);
+        Assert.Equal("Manhã de chuva", comNome.Review.NextSceneName);
     }
 
     [Fact]

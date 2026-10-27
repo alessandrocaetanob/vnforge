@@ -54,18 +54,34 @@
     <Style Selector="PathIcon.fit.over">
       <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
     </Style>
+    <Style Selector="Border.card.current">
+      <Setter Property="Padding" Value="20"/>
+    </Style>
+    <Style Selector="StackPanel.neighbour">
+      <Setter Property="Opacity" Value="0.75"/>
+    </Style>
+    <Style Selector="Border.actionbar">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+      <Setter Property="Padding" Value="16,10"/>
+    </Style>
   </UserControl.Styles>
 
   <!-- As teclas (Enter, E, M, setas e Esc) são tratadas em ReviewModeView.axaml.cs: o KeyBinding age antes de qualquer filtro e não deixa ignorar a tecla segurada. -->
-  <Grid x:Name="Root" RowDefinitions="Auto,*" RowSpacing="16" Focusable="True" AutomationProperties.Name="Modo revisão">
+  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="16" Focusable="True" AutomationProperties.Name="Modo revisão">
 
-    <!-- Topo: voltar ao Editor, "Linha 1 de 6" com um bloco por linha e as linhas revisadas hoje. -->
+    <!-- Topo numa linha: voltar ao Editor, o nome da cena com "Linha 1 de 6" e um bloco por linha, e as linhas revisadas hoje. -->
     <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
       <Button Classes="sm" Command="{Binding CloseCommand}" VerticalAlignment="Center" HorizontalAlignment="Left" ToolTip.Tip="Volta à lista de linhas (Esc)">
         <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap"/>
       </Button>
       <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Center">
-        <TextBlock Classes="title-md" HorizontalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding IsActive}"/>
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+          <TextBlock x:Name="SceneTitle" Classes="title-md" Text="{Binding SceneName}" TextWrapping="NoWrap" AutomationProperties.Name="Cena"/>
+          <TextBlock Classes="body secondary" VerticalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding IsActive}"/>
+        </StackPanel>
         <ItemsControl ItemsSource="{Binding Blocks}" HorizontalAlignment="Center" AutomationProperties.Name="Linhas da revisão">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -83,23 +99,23 @@
       <TextBlock Grid.Column="2" Classes="body-sm secondary" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding TodayText}" IsVisible="{Binding HasToday}"/>
     </Grid>
 
-    <!-- Uma fala por vez, em duas colunas: a conversa à esquerda, "Como fica no jogo" à direita. -->
-    <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="16" IsVisible="{Binding IsActive}">
+    <!-- Uma fala por vez: à esquerda o roteiro (anterior, atual, seguinte), que rola sozinho; à direita o palco, a tela do jogo. -->
+    <Grid Grid.Row="1" ColumnDefinitions="42*,58*" ColumnSpacing="24" IsVisible="{Binding IsActive}">
 
-      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="12" Margin="0,0,0,4">
+      <ScrollViewer x:Name="Script" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Roteiro">
+        <StackPanel Spacing="12" Margin="0,0,12,4">
 
-          <StackPanel Spacing="4" IsVisible="{Binding HasPrevious}" Opacity="0.8">
+          <StackPanel Classes="neighbour" Spacing="4" IsVisible="{Binding HasPrevious}">
             <TextBlock Classes="overline" Text="Fala anterior"/>
             <c:ContextLines ItemsSource="{Binding PreviousLines}" AutomationProperties.Name="Fala anterior"/>
           </StackPanel>
 
           <!-- O original, com quem fala e como fala. -->
-          <Border Classes="card">
+          <Border Classes="card current">
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                 <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                <TextBlock Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
                            Text="{Binding SpeakerText}" AutomationProperties.Name="Quem fala"/>
               </Grid>
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" FontSize="18" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
@@ -121,10 +137,10 @@
           </Border>
 
           <!-- A tradução em destaque, com "Outra sugestão" e o preço. -->
-          <Border Classes="card translation">
-            <StackPanel Spacing="10">
+          <Border Classes="card translation current">
+            <StackPanel Spacing="12">
               <TextBlock Classes="overline" Text="Tradução"/>
-              <TextBlock FontSize="18" LineHeight="26" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
+              <TextBlock FontSize="20" LineHeight="30" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
               <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.SuggestCommand}"
                       ToolTip.Tip="Pede à IA outra tradução para esta fala. A atual só muda se você usar a sugestão.">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -143,64 +159,30 @@
             </StackPanel>
           </Border>
 
-          <StackPanel Spacing="4" IsVisible="{Binding HasNext}" Opacity="0.8">
+          <StackPanel Classes="neighbour" Spacing="4" IsVisible="{Binding HasNext}">
             <TextBlock Classes="overline" Text="Fala seguinte"/>
             <c:ContextLines ItemsSource="{Binding NextLines}" AutomationProperties.Name="Fala seguinte"/>
           </StackPanel>
-
-          <!-- Dois botões grandes e dois discretos. -->
-          <Grid ColumnDefinitions="*,*,Auto,Auto" ColumnSpacing="8" Margin="0,4,0,0">
-            <Button Classes="accent lg" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveCommand}"
-                    ToolTip.Tip="Aprova a tradução e mostra a próxima fala (Enter)">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
-                <TextBlock Text="Está boa" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-                <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Enter"/></Border>
-              </StackPanel>
-            </Button>
-            <Button Grid.Column="1" Classes="lg" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding CorrectCommand}"
-                    ToolTip.Tip="Abre a fala no editor para escrever a tradução (E)">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Corrigir" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-                <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="E"/></Border>
-              </StackPanel>
-            </Button>
-            <Button Grid.Column="2" Classes="subtle lg" Command="{Binding LaterCommand}" ToolTip.Tip="Deixa esta fala para mais tarde e mostra a próxima (M)">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="Depois" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-                <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="M"/></Border>
-              </StackPanel>
-            </Button>
-            <Button Grid.Column="3" Classes="subtle lg" Command="{Binding SkipCommand}" ToolTip.Tip="Mostra a próxima fala sem marcar esta (seta para a direita)">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="Pular" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.ArrowRight}"/>
-              </StackPanel>
-            </Button>
-          </Grid>
         </StackPanel>
       </ScrollViewer>
 
-      <!-- Como fica no jogo: a caixa em tamanho grande é a resposta mais direta a "esta fala está boa?". -->
-      <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="12" Margin="0,0,0,4">
-          <Border Classes="card">
-            <StackPanel Spacing="12">
-              <TextBlock Classes="title-md" Text="Como fica no jogo"/>
-              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}">
-                <c:GameTextbox Size="Large" HorizontalAlignment="Left" Layout="{Binding Detail.Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
-              </ScrollViewer>
-              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A caixa do jogo aparece quando o projeto tem o perfil de formatação."
-                         IsVisible="{Binding !Detail.Preview.HasLayout, FallbackValue=True}"/>
-              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Detail.FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
-                <PathIcon Width="16" Height="16" Classes="fit" Data="{StaticResource Icon.Check}"
-                          IsVisible="{Binding !Detail.DoesNotFit, FallbackValue=False}"/>
-                <PathIcon Width="16" Height="16" Classes="fit over" Data="{StaticResource Icon.Warning}" IsVisible="{Binding Detail.DoesNotFit, FallbackValue=False}"/>
-                <TextBlock Classes="fit" Classes.over="{Binding Detail.DoesNotFit}" Text="{Binding Detail.FitText}" VerticalAlignment="Center"
-                           AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
-              </StackPanel>
-            </StackPanel>
-          </Border>
+      <!-- O palco: a caixa do jogo em tamanho grande, como no jogo de verdade, é a resposta mais direta a "esta fala está boa?". Sob ele, se cabe ou o que fazer. -->
+      <c:StageColumn Grid.Column="1" Spacing="12" HorizontalAlignment="Left" VerticalAlignment="Top">
+        <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" AutomationProperties.Name="Palco">
+          <c:GameTextbox x:Name="StageBox" Size="Stage" Layout="{Binding Detail.Preview.Layout}" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}"
+                         AutomationProperties.Name="Caixa do jogo"/>
+        </c:ReviewStage>
+
+        <StackPanel Spacing="12">
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A caixa do jogo aparece quando o projeto tem o perfil de formatação."
+                     IsVisible="{Binding !Detail.Preview.HasLayout, FallbackValue=True}"/>
+          <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Detail.FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
+            <PathIcon Width="16" Height="16" Classes="fit" Data="{StaticResource Icon.Check}"
+                      IsVisible="{Binding !Detail.DoesNotFit, FallbackValue=False}"/>
+            <PathIcon Width="16" Height="16" Classes="fit over" Data="{StaticResource Icon.Warning}" IsVisible="{Binding Detail.DoesNotFit, FallbackValue=False}"/>
+            <TextBlock Classes="fit" Classes.over="{Binding Detail.DoesNotFit}" Text="{Binding Detail.FitText}" VerticalAlignment="Center"
+                       AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
+          </StackPanel>
 
           <c:FitWarning IsVisible="{Binding Detail.Fit.IsVisible, FallbackValue=False}" Message="{Binding Detail.Fit.Message}" SplitText="{Binding Detail.Fit.SplitText}"
                         ShortenText="{Binding Detail.Fit.ShortenText}" SplitCommand="{Binding Detail.Fit.SplitCommand}" ShortenCommand="{Binding Detail.Fit.ShortenCommand}"
@@ -236,19 +218,60 @@
             </Grid>
           </Border>
         </StackPanel>
-      </ScrollViewer>
+      </c:StageColumn>
     </Grid>
 
-    <!-- O fim da fila: quantas foram aprovadas e qual é a próxima cena. -->
-    <Border Grid.Row="1" Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" Width="520" Padding="32"
+    <!-- A barra de ações fica fixa no rodapé, fora de qualquer rolagem e de ponta a ponta da tela: dois botões grandes à esquerda e dois discretos à direita. -->
+    <Border x:Name="ActionBar" Grid.Row="2" Classes="actionbar" IsVisible="{Binding IsActive}" AutomationProperties.Name="Ações da revisão">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="accent lg" MinWidth="168" HorizontalContentAlignment="Center" Command="{Binding ApproveCommand}"
+                  ToolTip.Tip="Aprova a tradução e mostra a próxima fala (Enter)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
+              <TextBlock Text="Está boa" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Enter"/></Border>
+            </StackPanel>
+          </Button>
+          <Button Classes="lg" MinWidth="132" HorizontalContentAlignment="Center" Command="{Binding CorrectCommand}"
+                  ToolTip.Tip="Abre a fala no editor para escrever a tradução (E)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Corrigir" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="E"/></Border>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button Classes="subtle lg" Command="{Binding LaterCommand}" ToolTip.Tip="Deixa esta fala para mais tarde e mostra a próxima (M)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Depois" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="M"/></Border>
+            </StackPanel>
+          </Button>
+          <Button Classes="subtle lg" Command="{Binding SkipCommand}" ToolTip.Tip="Mostra a próxima fala sem marcar esta (seta para a direita)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Pular" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <PathIcon Width="14" Height="14" Data="{StaticResource Icon.ArrowRight}"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- O fim da fila: o que foi feito, quantas linhas a pessoa revisou hoje e a próxima cena pelo nome. -->
+    <Border x:Name="FinishCard" Grid.Row="1" Grid.RowSpan="2" Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" Width="520" Padding="32"
             IsVisible="{Binding IsFinished}" AutomationProperties.Name="Fim da revisão">
       <StackPanel Spacing="14" HorizontalAlignment="Stretch">
         <PathIcon Width="32" Height="32" HorizontalAlignment="Center" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
         <TextBlock Classes="title-md" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Text="{Binding FinishedTitle}"/>
         <TextBlock Classes="body secondary" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Text="{Binding FinishedText}"/>
-        <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding HasNextScene}">
-          <Run Text="Próxima cena: "/><Run FontWeight="SemiBold" Text="{Binding NextSceneName}"/>
-        </TextBlock>
+        <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Text="{Binding TodayText}" IsVisible="{Binding HasToday}"/>
+        <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="16,10" HorizontalAlignment="Center" IsVisible="{Binding HasNextScene}">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="overline" HorizontalAlignment="Center" Text="Próxima cena"/>
+            <TextBlock x:Name="NextSceneTitle" Classes="title-md" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Text="{Binding NextSceneName}"/>
+          </StackPanel>
+        </Border>
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,8,0,0">
           <Button Classes="accent lg" Command="{Binding GoToNextSceneCommand}" IsVisible="{Binding HasNextScene}">
             <TextBlock Text="Revisar a próxima cena" FontWeight="SemiBold" TextWrapping="NoWrap"/>
