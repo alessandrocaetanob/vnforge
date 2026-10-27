@@ -333,15 +333,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var filter = new LineFilter(Query: text);
         foreach (var script in data.Scripts)
         {
-            foreach (var entry in data.LinesOf(script.Key))
+            foreach (var entry in data.LinesOf(script.Key).Where(filter.Matches))
             {
-                if (filter.Matches(entry))
+                found.Add(entry);
+                if (found.Count >= limit)
                 {
-                    found.Add(entry);
-                    if (found.Count >= limit)
-                    {
-                        return found;
-                    }
+                    return found;
                 }
             }
         }

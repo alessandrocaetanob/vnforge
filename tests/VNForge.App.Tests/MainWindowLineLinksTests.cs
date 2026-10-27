@@ -22,7 +22,7 @@ public class MainWindowLineLinksTests
 
     private static LineRequest FirstIdOf(string message)
     {
-        var mention = LineIds.Find(message).First();
+        var mention = LineIds.Find(message)[0];
         return new LineRequest(mention.ScriptKey, mention.UnitId);
     }
 
