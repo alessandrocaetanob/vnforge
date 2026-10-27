@@ -44,10 +44,11 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.True(view.Bounds.Width > 1200 && view.Bounds.Height > 600, "a tela ocupa o Editor");
 
             var box = Assert.Single(view.GetVisualDescendants().OfType<GameTextbox>());
-            Assert.Equal(GameTextboxSize.Large, box.Size);
-            var origin = box.TranslatePoint(default, window) ?? throw new InvalidOperationException("a caixa não está na janela");
-            Assert.True(origin.X > window.Width / 2 - 40, "a caixa do jogo fica na coluna da direita");
-            Assert.True(origin.X + box.Bounds.Width <= window.Width && origin.Y + box.Bounds.Height <= window.Height, "a caixa cabe na janela");
+            Assert.Equal(GameTextboxSize.Stage, box.Size);
+            var frame = Frame(window, box);
+            Assert.True(frame.Left > window.Width / 2 - 40, "a caixa do jogo fica na coluna da direita");
+            Assert.True(frame.Right <= window.Width && frame.Bottom <= window.Height, "a caixa cabe na janela");
+            Assert.Equal(1d, box.FitScale);
 
             var probe = PixelProbe.Capture(window, box);
             var ink = Token(box, "Vnf.TextboxInk");
@@ -118,7 +119,11 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.True(origin.X > 0 && origin.X + card.Bounds.Width < window.Width && origin.Y > 0 && origin.Y + card.Bounds.Height < window.Height);
             Assert.DoesNotContain(view.GetVisualDescendants().OfType<GameTextbox>(), b => b.IsEffectivelyVisible);
             Assert.Equal("1 linha aprovada, 1 deixada para depois e 1 pulada.", review.FinishedText);
-            Assert.Equal("yst00002", review.NextSceneName);
+            Assert.Equal("Cena 2", review.NextSceneName);
+            Assert.Equal("Cena 2", view.FindControl<TextBlock>("NextSceneTitle")!.Text);
+            Assert.Equal("1 linha revisada hoje", review.TodayText);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible), t => t.Text?.Contains("yst0", StringComparison.Ordinal) == true);
+            Assert.Equal("Cena 1", view.FindControl<TextBlock>("SceneTitle")!.Text);
             Assert.Single(view.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == review.GoToNextSceneCommand);
             Salvar(window, "modo-revisao-fim", theme);
         });
@@ -147,12 +152,190 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         }, 1366, 768);
     }
 
-    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height)
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_palco_e_16_por_9_maior_que_o_roteiro_e_guarda_a_caixa_na_metade_de_baixo(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
+            var script = view.FindControl<ScrollViewer>("Script")!;
+            var stageFrame = Frame(window, stage);
+            Assert.InRange(stageFrame.Width / stageFrame.Height, (16d / 9) - 0.02, (16d / 9) + 0.02);
+            Assert.True(stageFrame.Width > script.Bounds.Width, $"o palco ({stageFrame.Width}) é mais largo que o roteiro ({script.Bounds.Width})");
+            Assert.True(stageFrame.Right <= window.Width && stageFrame.Bottom <= window.Height);
+            Assert.Equal("Cena 1", stage.SceneName);
+
+            var box = Assert.Single(stage.GetVisualDescendants().OfType<GameTextbox>());
+            var boxFrame = Frame(window, box);
+            Assert.True(stageFrame.Contains(boxFrame.TopLeft) && stageFrame.Contains(boxFrame.BottomRight), "a caixa do jogo está dentro do palco");
+            Assert.True(boxFrame.Top > stageFrame.Top + (stageFrame.Height / 2) - 60 && boxFrame.Bottom > stageFrame.Bottom - 40, "a caixa está encostada na base do palco");
+            Assert.True(boxFrame.Width > stageFrame.Width * 0.6, $"a caixa ocupa a largura útil do palco ({boxFrame.Width} de {stageFrame.Width})");
+            Salvar(window, "modo-revisao-palco", theme);
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_fundo_do_palco_e_escuro_nos_dois_temas(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
+            var probe = PixelProbe.Capture(window, stage);
+            var top = Token(stage, "Vnf.StageTop");
+            var bottom = Token(stage, "Vnf.StageBottom");
+
+            // Faixa do alto, à direita do cartão de capítulo e longe da caixa: só o degradê (a vinheta começa depois dos 55% do raio).
+            var area = new Rect(probe.Width * 0.45, probe.Height * 0.08, probe.Width * 0.3, probe.Height * 0.12);
+            var expected = PixelProbe.Blend(bottom, 0.14, top);
+            Assert.True(probe.CountInArea(area, expected, 14) > area.Width * area.Height * 0.9, "o alto do palco é o degradê escuro do tema");
+            Assert.True(((0.2126 * expected.R) + (0.7152 * expected.G) + (0.0722 * expected.B)) / 255 < 0.3, "o palco é escuro mesmo no tema claro");
+        });
+    }
+
+    [Theory]
+    [InlineData(1440, 1000)]
+    [InlineData(1366, 768)]
+    public async Task A_barra_de_acoes_fica_inteira_na_janela_e_Esta_boa_aparece_sem_rolar(int width, int height)
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var bar = view.FindControl<Border>("ActionBar")!;
+            var barFrame = Frame(window, bar);
+            Assert.True(barFrame.Left >= 0 && barFrame.Right <= window.Width && barFrame.Bottom <= window.Height, $"a barra cabe na janela ({barFrame})");
+            Assert.True(barFrame.Width > window.Width - 160, "a barra vai de ponta a ponta do Editor");
+            Assert.DoesNotContain(bar.GetVisualAncestors(), a => a is ScrollViewer);
+
+            var review = vm.Editor.Review!;
+            var approve = Assert.Single(view.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == review.ApproveCommand);
+            var later = Assert.Single(view.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == review.LaterCommand);
+            var approveFrame = Frame(window, approve);
+            Assert.True(barFrame.Contains(approveFrame.TopLeft) && barFrame.Contains(approveFrame.BottomRight), "Está boa fica dentro da barra");
+            Assert.True(approveFrame.Bottom <= window.Height - 20, "Está boa está à vista");
+            Assert.DoesNotContain(approve.GetVisualAncestors(), a => a is ScrollViewer);
+            Assert.True(approveFrame.Right < Frame(window, later).Left, "Depois e Pular ficam à direita");
+
+            var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
+            Assert.True(Frame(window, stage).Bottom <= barFrame.Top, "o palco não passa para baixo da barra");
+        }, width, height);
+    }
+
+    [Fact]
+    public async Task A_1440_por_1000_o_bloco_das_colunas_fica_centrado_entre_o_topo_e_a_barra_e_o_palco_passa_de_60_por_cento()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var top = Frame(window, view.FindControl<Grid>("TopBar")!);
+            var body = Frame(window, view.FindControl<Grid>("Body")!);
+            var bar = Frame(window, view.FindControl<Border>("ActionBar")!);
+            var above = body.Top - top.Bottom;
+            var below = bar.Top - body.Bottom;
+            Assert.True(Math.Abs(above - below) <= 24, $"o vazio se divide em cima ({above}) e embaixo ({below})");
+
+            var stage = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            var script = Frame(window, view.FindControl<ScrollViewer>("Script")!);
+            Assert.True(stage.Width / body.Width > 0.6, $"o palco ocupa mais de 60% da largura ({stage.Width / body.Width:P0})");
+            Assert.True(Math.Abs(script.Top - stage.Top) <= 1, "roteiro e palco se alinham pelo topo");
+            Salvar(window, "modo-revisao-centrado", ThemeVariant.Dark);
+        });
+    }
+
+    [Fact]
+    public async Task Com_pouca_altura_o_palco_nao_passa_de_180_px_e_so_a_pilha_de_baixo_rola()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            vm.Editor.Review!.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var stageFrame = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            var below = Frame(window, view.FindControl<ScrollViewer>("BelowStage")!);
+            var barFrame = Frame(window, view.FindControl<Border>("ActionBar")!);
+            Assert.True(stageFrame.Height >= 179, $"o palco tem {stageFrame.Height} px");
+            Assert.True(below.Top >= stageFrame.Bottom && below.Bottom <= barFrame.Top, "a pilha de baixo cabe entre o palco e a barra");
+            Assert.True(barFrame.Bottom <= window.Height, "a barra segue dentro da janela");
+            Assert.True(view.FindControl<ScrollViewer>("BelowStage")!.Extent.Height > below.Height, "o que não cabe rola dentro da pilha");
+            Salvar(window, "modo-revisao-passa-baixo", ThemeVariant.Dark);
+        }, 1366, 560);
+    }
+
+    [Fact]
+    public async Task Trocar_de_linha_no_meio_do_fade_termina_com_o_roteiro_e_o_palco_opacos()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var script = view.FindControl<ScrollViewer>("Script")!;
+            var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
+
+            vm.Editor.Review!.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            vm.Editor.Review.SkipCommand.Execute(null);
+            for (var n = 0; n < 12; n++)
+            {
+                SpinWait.SpinUntil(static () => false, 60);
+                ScreenRenderer.Settle(window);
+            }
+
+            Assert.Equal("Linha 3 de 3", vm.Editor.Review.PositionText);
+            Assert.Equal(1d, script.Opacity);
+            Assert.Equal(1d, stage.Opacity);
+        }, animations: true);
+    }
+
+    [Fact]
+    public async Task A_1366_com_aviso_o_palco_encolhe_e_a_barra_continua_inteira()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            vm.Editor.Review!.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var stageFrame = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            var barFrame = Frame(window, view.FindControl<Border>("ActionBar")!);
+            Assert.True(barFrame.Bottom <= window.Height);
+            Assert.True(stageFrame.Bottom <= barFrame.Top);
+            var warning = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<FitWarning>(), w => w.IsEffectivelyVisible));
+            Assert.True(warning.Top >= stageFrame.Bottom && warning.Bottom <= barFrame.Top, "o aviso cabe entre o palco e a barra");
+            Salvar(window, "modo-revisao-passa-1366", ThemeVariant.Dark);
+        }, 1366, 768);
+    }
+
+    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
             {
                 using var config = new TempFolder();
+                using var motion = MotionPreferences.Force(animations);
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
                 var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
@@ -180,6 +363,14 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Onde o controle está na janela, em pixels dela, já com qualquer escala que um Viewbox aplique.</summary>
+    private static Rect Frame(Visual root, Control control)
+    {
+        var origin = control.TranslatePoint(default, root) ?? throw new InvalidOperationException("O controle não está na janela.");
+        var end = control.TranslatePoint(new Point(control.Bounds.Width, control.Bounds.Height), root) ?? throw new InvalidOperationException("O controle não está na janela.");
+        return new Rect(origin, end);
     }
 
     private static Color Token(Control host, string key)

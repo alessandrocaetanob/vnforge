@@ -83,6 +83,16 @@
       <SolidColorBrush x:Key="Vnf.TextboxOverflow" Color="#FF9B85"/>
       <Color x:Key="Vnf.TextboxPlateColor">#2B4C7E</Color>
       <SolidColorBrush x:Key="Vnf.TextboxPlate" Color="#2B4C7E"/>
+      <Color x:Key="Vnf.StageTopColor">#3A4A72</Color>
+      <SolidColorBrush x:Key="Vnf.StageTop" Color="#3A4A72"/>
+      <Color x:Key="Vnf.StageBottomColor">#141929</Color>
+      <SolidColorBrush x:Key="Vnf.StageBottom" Color="#141929"/>
+      <Color x:Key="Vnf.StageVignetteColor">#5204060B</Color>
+      <SolidColorBrush x:Key="Vnf.StageVignette" Color="#5204060B"/>
+      <Color x:Key="Vnf.StageCardColor">#66070A12</Color>
+      <SolidColorBrush x:Key="Vnf.StageCard" Color="#66070A12"/>
+      <Color x:Key="Vnf.StageStrokeColor">#26FFFFFF</Color>
+      <SolidColorBrush x:Key="Vnf.StageStroke" Color="#26FFFFFF"/>
       <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #80000000</BoxShadows>
     </ResourceDictionary>
     <ResourceDictionary x:Key="Light">
@@ -166,6 +176,16 @@
       <SolidColorBrush x:Key="Vnf.TextboxOverflow" Color="#FF9B85"/>
       <Color x:Key="Vnf.TextboxPlateColor">#2B4C7E</Color>
       <SolidColorBrush x:Key="Vnf.TextboxPlate" Color="#2B4C7E"/>
+      <Color x:Key="Vnf.StageTopColor">#3A4A72</Color>
+      <SolidColorBrush x:Key="Vnf.StageTop" Color="#3A4A72"/>
+      <Color x:Key="Vnf.StageBottomColor">#141929</Color>
+      <SolidColorBrush x:Key="Vnf.StageBottom" Color="#141929"/>
+      <Color x:Key="Vnf.StageVignetteColor">#5204060B</Color>
+      <SolidColorBrush x:Key="Vnf.StageVignette" Color="#5204060B"/>
+      <Color x:Key="Vnf.StageCardColor">#66070A12</Color>
+      <SolidColorBrush x:Key="Vnf.StageCard" Color="#66070A12"/>
+      <Color x:Key="Vnf.StageStrokeColor">#26FFFFFF</Color>
+      <SolidColorBrush x:Key="Vnf.StageStroke" Color="#26FFFFFF"/>
       <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #29141C2C</BoxShadows>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
