@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using VNForge.Core.Glossary;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -43,7 +45,7 @@ public sealed class LineEditor
     public TextUnit SetTranslation(string scriptKey, string id, string? translation)
     {
         translation = translation is null ? null : PunctuationOption()?.Apply(translation) ?? translation;
-        return Update(scriptKey, id, unit =>
+        var saved = Update(scriptKey, id, unit =>
         {
             if (string.IsNullOrWhiteSpace(translation))
             {
@@ -66,6 +68,65 @@ public sealed class LineEditor
                     Origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()),
                 };
         });
+
+        if (saved.Kind == TextUnitKind.Name && saved.HasTranslation)
+        {
+            ShareNameTranslation(saved);
+        }
+
+        return saved;
+    }
+
+    /// <summary>
+    /// Um nome do jogo tem uma só tradução (#426): a que acabou de ser gravada na unidade <c>name</c> vai também para o personagem do mesmo original em
+    /// <c>characters.json</c> (se o arquivo existe; quem o cria é a página Glossário) e para as outras unidades <c>name</c> desse original.
+    /// A linha já está gravada: um <c>characters.json</c> inválido ou um script ilegível não a desfazem, e a página Glossário refaz a ligação quando abrir.
+    /// </summary>
+    private void ShareNameTranslation(TextUnit unit)
+    {
+        var translation = unit.Translation!;
+        lock (ProjectTextLock.For(project))
+        {
+            if (File.Exists(project.CharactersPath))
+            {
+                try
+                {
+                    var characters = project.LoadCharacters().ToList();
+                    var current = new CharacterBook(characters).Find(unit.Source);
+                    if (current is not null && !string.Equals(current.Target, translation, StringComparison.Ordinal))
+                    {
+                        characters[characters.IndexOf(current)] = current with { Target = translation };
+                        project.SaveCharacters(characters);
+                    }
+                }
+                catch (Exception e) when (e is GlossaryFileException or IOException or UnauthorizedAccessException)
+                {
+                    Debug.WriteLine(e);
+                }
+            }
+
+            try
+            {
+                var same = new CharacterBook([new CharacterEntry(unit.Source, translation)]);
+                var others = project.LoadAllText()
+                    .SelectMany(script => script.Value.Select(u => (ScriptKey: script.Key, Unit: u)))
+                    .Where(x => x.Unit.Kind == TextUnitKind.Name && x.Unit.Status != TranslationStatus.Keep && x.Unit.Id != unit.Id && same.Find(x.Unit.Source) is not null)
+                    .Select(x => (x.ScriptKey, x.Unit.Id))
+                    .ToList();
+                if (others.Count > 0)
+                {
+                    var result = SetTranslationForLocked(others, translation);
+                    if (result.Failure is not null)
+                    {
+                        Debug.WriteLine(result.Failure);
+                    }
+                }
+            }
+            catch (Exception e) when (e is TextFileException or IOException or UnauthorizedAccessException)
+            {
+                Debug.WriteLine(e);
+            }
+        }
     }
 
     /// <summary>

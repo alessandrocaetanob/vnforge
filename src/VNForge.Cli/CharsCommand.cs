@@ -81,6 +81,8 @@ internal static class CharsCommand
         }
 
         project.SaveCharacters(characters);
+        // Um nome do jogo tem uma só tradução: as unidades name do mesmo original recebem a do personagem.
+        CharacterNameSync.ApplyToUnits(project, new LineEditor(project, TimeProvider.System), [entry]);
         if (parseResult.GetValue(cli.Options.Json))
         {
             output.WriteLine(JsonEnvelope.Result(new
