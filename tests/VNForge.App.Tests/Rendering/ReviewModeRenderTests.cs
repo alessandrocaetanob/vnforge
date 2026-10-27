@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -326,6 +327,72 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var warning = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<FitWarning>(), w => w.IsEffectivelyVisible));
             Assert.True(warning.Top >= stageFrame.Bottom && warning.Bottom <= barFrame.Top, "o aviso cabe entre o palco e a barra");
             Salvar(window, "modo-revisao-passa-1366", ThemeVariant.Dark);
+        }, 1366, 768);
+    }
+
+    [Theory]
+    [InlineData("Dark", 1366, 768)]
+    [InlineData("Light", 1366, 768)]
+    [InlineData("Dark", 1440, 900)]
+    [InlineData("Light", 1440, 900)]
+    public async Task Com_a_fala_anterior_o_roteiro_cabe_sem_cortar_e_a_barra_continua_inteira(string themeName, int width, int height)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var review = vm.Editor.Review!;
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.True(review.HasPrevious && review.HasNext);
+            Salvar(window, $"modo-revisao-anterior-{width}", theme);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var script = view.FindControl<ScrollViewer>("Script")!;
+            var viewport = Frame(window, script);
+            var previous = Assert.Single(view.GetVisualDescendants().OfType<ContextLines>(), c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala anterior");
+            Assert.True(Frame(window, previous).Top >= viewport.Top - 1, "a fala anterior abre o roteiro, acima do original");
+            Assert.True(script.Extent.Height <= script.Viewport.Height + 1, $"o roteiro inteiro cabe sem rolar ({script.Extent.Height} > {script.Viewport.Height})");
+            Assert.All(
+                view.GetVisualDescendants().OfType<ContextLines>().Where(c => c.IsEffectivelyVisible),
+                c => Assert.True(Frame(window, c).Bottom <= viewport.Bottom + 1, "nenhuma fala vizinha passa da borda do roteiro"));
+            if (width >= 1440)
+            {
+                Assert.Contains(view.GetVisualDescendants().OfType<ContextLines>(), c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+            }
+
+            var barFrame = Frame(window, view.FindControl<Border>("ActionBar")!);
+            var stageFrame = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            Assert.True(barFrame.Bottom <= window.Height, "a barra cabe na janela");
+            Assert.True(stageFrame.Bottom <= barFrame.Top, "o palco não passa para baixo da barra");
+        }, width, height);
+    }
+
+    [Fact]
+    public async Task A_1366_a_fala_seguinte_volta_quando_a_linha_seguinte_deixa_o_roteiro_caber()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var review = vm.Editor.Review!;
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            bool NextShown() => view.GetVisualDescendants().OfType<ContextLines>().Any(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == "Fala seguinte");
+
+            Assert.True(NextShown(), "na primeira linha o roteiro cabe com a seguinte");
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.False(NextShown(), "na linha longa a seguinte cede o lugar");
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.False(review.HasNext);
+            review.BackCommand.Execute(null);
+            review.BackCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            var sv = view.FindControl<ScrollViewer>("Script")!;
+            Assert.True(NextShown(), $"de volta à primeira, a seguinte reaparece (extent {sv.Extent.Height}, viewport {sv.Viewport.Height}, pos {review.PositionText}, hasnext {review.HasNext})");
         }, 1366, 768);
     }
 

@@ -98,7 +98,7 @@ public sealed partial class EditorViewModel
         pendingChapterKeys = keys;
         ChapterMessage = null;
         NewChapterName = string.Empty;
-        NewChapterHint = keys.Count == 1 ? "Nome do capítulo novo, com 1 cena." : $"Nome do capítulo novo, com {keys.Count} cenas.";
+        NewChapterHint = keys.Count == 1 ? "Nome do capítulo novo, com 1 cena." : $"Nome do capítulo novo, com {ProjectLabels.Number(keys.Count)} cenas.";
         IsNamingChapter = true;
     }
 

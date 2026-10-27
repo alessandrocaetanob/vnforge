@@ -47,6 +47,39 @@ public sealed class EditorSceneTests : IDisposable
     private TextUnit Gravada(string script, int n) => ProjectFolder.Open(raiz).LoadText(script)[n];
 
     [Fact]
+    public void A_contagem_da_mesma_fala_usa_o_separador_de_milhar_do_pt_BR()
+    {
+        var unidade = Fala(1, 0, "美咲", "「うん」\\p", "Aham.\\p", TranslationStatus.Machine);
+        var vm = new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao())
+        {
+            SameSource = new FalasIguais(4016),
+        };
+
+        Assert.Equal("Esta fala aparece em mais 4.016 linhas.", vm.SameSourceText);
+        Assert.Equal("Esta fala aparece em mais 12 linhas.", new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao()) { SameSource = new FalasIguais(12) }.SameSourceText);
+    }
+
+    private sealed class NavegadorMudo : VNForge.App.Services.ILineNavigator
+    {
+        public void SelectNext()
+        {
+        }
+
+        public void SelectPrevious()
+        {
+        }
+    }
+
+    private sealed class FalasIguais(int count) : VNForge.App.Services.ISameSourceLines
+    {
+        public int Count => count;
+
+        public VNForge.App.Services.SameSourcePreview Inspect(string translation) => new(0, 0);
+
+        public VNForge.App.Services.SameSourceOutcome Apply(string translation) => new(0, 0, 0, false);
+    }
+
+    [Fact]
     public async Task Na_cena_mostra_a_fala_anterior_e_a_seguinte_sem_marcadores()
     {
         var vm = await Abrir();

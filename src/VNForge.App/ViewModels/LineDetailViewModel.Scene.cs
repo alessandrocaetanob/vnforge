@@ -19,7 +19,7 @@ public sealed partial class LineDetailViewModel
 
     public bool HasSameSource => SameSourceCount > 0;
 
-    public string SameSourceText => SameSourceCount == 1 ? "Esta fala aparece em mais 1 linha." : $"Esta fala aparece em mais {SameSourceCount} linhas.";
+    public string SameSourceText => SameSourceCount == 1 ? "Esta fala aparece em mais 1 linha." : $"Esta fala aparece em mais {ProjectLabels.Number(SameSourceCount)} linhas.";
 
     /// <summary>O que o "Usar em todos" fez, em uma frase; nulo antes de usar.</summary>
     [ObservableProperty]

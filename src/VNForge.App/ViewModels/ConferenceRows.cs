@@ -175,7 +175,7 @@ public sealed class ConferenceIssueRowViewModel
         {
             if (IsScriptSummary)
             {
-                return Count == 1 ? "1 linha sem tradução neste script." : $"{ProjectLabels.Number(Count)} linhas sem tradução neste script.";
+                return Count == 1 ? "1 linha sem tradução nesta cena." : $"{ProjectLabels.Number(Count)} linhas sem tradução nesta cena.";
             }
 
             if (IsMarkerMismatch)
@@ -193,9 +193,13 @@ public sealed class ConferenceIssueRowViewModel
                 return Excerpt(p.Before, p.After);
             }
 
-            return Count > 1 ? $"{Message} (+{Count - 1})" : Message;
+            var sentence = CapitalizeFirst(Message);
+            return Count > 1 ? $"{sentence} (+{ProjectLabels.Number(Count - 1)})" : sentence;
         }
     }
+
+    /// <summary>As regras do Core escrevem a mensagem em minúscula porque a CLI a emenda ao nome da regra; na tela ela abre a frase.</summary>
+    private static string CapitalizeFirst(string text) => text.Length > 0 && char.IsLower(text[0]) ? char.ToUpperInvariant(text[0]) + text[1..] : text;
 
     /// <summary>O <see cref="RawDetail"/> é texto de tradução ou mensagem do QA, que pode trazer marcadores; as frases próprias da tela (falta, caractere, contagem) não.</summary>
     private bool HasRawMarkers => !IsScriptSummary && !IsMarkerMismatch && RuleId != UnencodableCharacterRule.RuleId;
@@ -492,5 +496,5 @@ internal readonly record struct MarkerDifference(IReadOnlyList<string> Missing, 
         [.. markers.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(m => MarkerLabels.Name(m, m.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control))
             .GroupBy(name => name, StringComparer.Ordinal)
-            .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} ({g.Count()} vezes)")];
+            .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} ({ProjectLabels.Number(g.Count())} vezes)")];
 }

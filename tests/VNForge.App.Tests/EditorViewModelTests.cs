@@ -45,7 +45,7 @@ public class EditorViewModelTests
         Assert.Equal(5, vm.Lines.Count);
         Assert.Equal("yst00001:000001", vm.SelectedLine?.Id);
         Assert.Equal("2", vm.ScriptsCount);
-        Assert.Equal("5 linhas neste script", vm.LinesSummary);
+        Assert.Equal("5 linhas nesta cena", vm.LinesSummary);
         Assert.Equal("Minha VN", vm.ProjectName);
         Assert.False(vm.IsEmpty);
         Assert.False(vm.IsLoading);
@@ -97,7 +97,7 @@ public class EditorViewModelTests
         Assert.NotSame(antes, vm.Lines);
         Assert.Equal(5, antes.Count);
         Assert.Equal(1, mudancas.Count(n => n == nameof(EditorViewModel.Lines)));
-        Assert.Equal("2 de 5 linhas neste script", vm.LinesSummary);
+        Assert.Equal("2 de 5 linhas nesta cena", vm.LinesSummary);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class EditorViewModelTests
         Filtrar(vm, LineStatusFilter.All);
 
         Assert.Equal(5, vm.Lines.Count);
-        Assert.Equal("5 linhas neste script", vm.LinesSummary);
+        Assert.Equal("5 linhas nesta cena", vm.LinesSummary);
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class EditorViewModelTests
         Filtrar(vm, LineStatusFilter.Pending);
 
         Assert.Equal([1], vm.Lines.Select(l => l.Number));
-        Assert.Equal("1 de 5 linhas neste script", vm.LinesSummary);
+        Assert.Equal("1 de 5 linhas nesta cena", vm.LinesSummary);
     }
 
     [Fact]
@@ -538,6 +538,6 @@ public class EditorViewModelTests
         Assert.InRange(avisosDaAna, 1, avisos - 1);
         Assert.Equal(12_500, vm.Lines.Count);
         Assert.InRange(relogio.ElapsedMilliseconds, 0, 1_000);
-        Assert.Equal("12.500 de 50.000 linhas neste script", vm.LinesSummary);
+        Assert.Equal("12.500 de 50.000 linhas nesta cena", vm.LinesSummary);
     }
 }

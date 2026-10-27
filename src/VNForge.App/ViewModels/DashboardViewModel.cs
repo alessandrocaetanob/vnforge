@@ -196,7 +196,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// <summary>O botão do cartão "Continuar de onde parou" do Início: "Continuar: revisar “A promessa”".</summary>
     public string ContinueLabel => NextStepLabel.Length == 0 ? string.Empty : $"Continuar: {char.ToLowerInvariant(NextStepLabel[0])}{NextStepLabel[1..]}";
 
-    /// <summary>O capítulo do próximo passo como o cartão do Início o chama ("A promessa · capítulo 5"); vazio quando o passo não é de um capítulo.</summary>
+    /// <summary>O capítulo do próximo passo como o cartão do Início o chama ("Capítulo 5 · A promessa"); vazio quando o passo não é de um capítulo.</summary>
     [ObservableProperty]
     public partial string NextStepScene { get; private set; } = string.Empty;
 
@@ -879,11 +879,11 @@ public sealed partial class DashboardViewModel : ObservableObject
         NextStepScene = scene;
     }
 
-    /// <summary>"A promessa · capítulo 5": o nome do capítulo e o número; "Capítulo 5" e "Parte 2" já dizem o número, e "Menus e nomes" não tem.</summary>
+    /// <summary>"Capítulo 5 · A promessa": o número e o nome do capítulo, na ordem do Editor; "Capítulo 5" e "Parte 2" já dizem o número, e "Menus e nomes" não tem.</summary>
     private static string SceneLabel(ScriptGroupTotals chapter) =>
         chapter.IsExtra || chapter.Name.StartsWith("Capítulo ", StringComparison.Ordinal) || chapter.Name.StartsWith("Parte ", StringComparison.Ordinal)
             ? chapter.Name
-            : $"{chapter.Name} · capítulo {chapter.Number}";
+            : $"Capítulo {chapter.Number} · {chapter.Name}";
 
     /// <summary>"o capítulo 1", "a parte 2", "“Manhã de chuva”" ou "menus e nomes": o capítulo como a frase do botão o chama.</summary>
     private static string Phrase(ScriptGroupTotals chapter) => chapter.Name switch

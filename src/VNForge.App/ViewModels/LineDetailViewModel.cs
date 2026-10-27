@@ -198,7 +198,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string LinesOf(int count) => count == 1 ? "1 linha" : $"{count} linhas";
+    private static string LinesOf(int count) => count == 1 ? "1 linha" : $"{ProjectLabels.Number(count)} linhas";
 
     /// <summary>Quantas linhas passam do limite do perfil, somadas as páginas; zero quando cabe ou não há perfil.</summary>
     public int OverflowLines => Preview?.Layout is { } layout ? layout.Boxes.Sum(b => b.Lines.Count(l => l.Overflow)) : 0;

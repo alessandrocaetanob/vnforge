@@ -451,7 +451,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     {
         0 => string.Empty,
         1 => "1 linha ainda não foi salva porque falta o nome ou ele se repete. As outras já foram. Corrija a linha marcada.",
-        var n => $"{n} linhas ainda não foram salvas porque falta o nome ou ele se repete. As outras já foram. Corrija as linhas marcadas.",
+        var n => $"{ProjectLabels.Number(n)} linhas ainda não foram salvas porque falta o nome ou ele se repete. As outras já foram. Corrija as linhas marcadas.",
     };
 
     private void NotifyProblems()
@@ -543,7 +543,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private static string Summarize(int count, string one, string many, IEnumerable<int?> uses, string suffix)
     {
-        var head = $"{count} {(count == 1 ? one : many)}";
+        var head = $"{ProjectLabels.Number(count)} {(count == 1 ? one : many)}";
         var known = uses.ToList();
         if (known.Count == 0 || known.Any(u => u is null))
         {

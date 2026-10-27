@@ -118,7 +118,7 @@ public sealed partial class GlossaryViewModel
     {
         0 => string.Empty,
         1 => "1 personagem está sem gênero. A IA precisa dele para concordar o texto (ele ou ela, cansado ou cansada).",
-        var n => $"{n} personagens estão sem gênero. A IA precisa dele para concordar o texto (ele ou ela, cansado ou cansada).",
+        var n => $"{ProjectLabels.Number(n)} personagens estão sem gênero. A IA precisa dele para concordar o texto (ele ou ela, cansado ou cansada).",
     };
 
     /// <summary>Quantos personagens a sugestão cobriria: os sem gênero e os falantes do jogo que ainda não estão na tabela.</summary>
@@ -147,7 +147,7 @@ public sealed partial class GlossaryViewModel
 
             return count == 0
                 ? "Nenhum termo novo aparece 5 vezes ou mais."
-                : $"{count} {Plural(count, "termo aparece", "termos aparecem")} 5 vezes ou mais e {Plural(count, "não está", "não estão")} no glossário.";
+                : $"{ProjectLabels.Number(count)} {Plural(count, "termo aparece", "termos aparecem")} 5 vezes ou mais e {Plural(count, "não está", "não estão")} no glossário.";
         }
     }
 
@@ -356,7 +356,7 @@ public sealed partial class GlossaryViewModel
             if (version == usageVersion)
             {
                 ApplyTerms(suggestions);
-                SuggestionNotice = $"{suggestions.Count} {Plural(suggestions.Count, "termo traduzido", "termos traduzidos")}. Adicione os que servirem.";
+                SuggestionNotice = $"{ProjectLabels.Number(suggestions.Count)} {Plural(suggestions.Count, "termo traduzido", "termos traduzidos")}. Adicione os que servirem.";
             }
         }
         catch (OperationCanceledException)

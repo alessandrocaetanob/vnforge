@@ -101,7 +101,7 @@
     <Grid x:Name="Body" Grid.Row="1" ColumnDefinitions="36*,64*" ColumnSpacing="24" VerticalAlignment="Center" IsVisible="{Binding IsActive}">
 
       <ScrollViewer x:Name="Script" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Roteiro">
-        <StackPanel Spacing="12" Margin="0,0,12,4">
+        <StackPanel x:Name="ScriptStack" Spacing="12" Margin="0,0,12,4">
 
           <StackPanel Classes="neighbour" Spacing="4" IsVisible="{Binding HasPrevious}">
             <TextBlock Classes="overline" Text="Fala anterior"/>
@@ -157,10 +157,13 @@
             </StackPanel>
           </Border>
 
-          <StackPanel Classes="neighbour" Spacing="4" IsVisible="{Binding HasNext}">
-            <TextBlock Classes="overline" Text="Fala seguinte"/>
-            <c:ContextLines ItemsSource="{Binding NextLines}" AutomationProperties.Name="Fala seguinte"/>
-          </StackPanel>
+          <!-- A fala seguinte é a que cede quando o roteiro não cabe (ReviewModeView.axaml.cs): a anterior diz a quem a linha responde e fica sempre. -->
+          <Panel IsVisible="{Binding HasNext}">
+            <StackPanel x:Name="NextBlock" Classes="neighbour" Spacing="4">
+              <TextBlock Classes="overline" Text="Fala seguinte"/>
+              <c:ContextLines ItemsSource="{Binding NextLines}" AutomationProperties.Name="Fala seguinte"/>
+            </StackPanel>
+          </Panel>
         </StackPanel>
       </ScrollViewer>
 

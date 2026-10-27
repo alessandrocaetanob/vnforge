@@ -29,7 +29,7 @@ internal static class TermTranslation
             if (unit.Source.Contains(source, StringComparison.Ordinal)
                 && !translation.Contains(target, StringComparison.OrdinalIgnoreCase))
             {
-                yield return $"{noun} '{source}' deveria ser traduzido como '{target}'";
+                yield return $"{noun} “{source}” deveria ser traduzido como “{target}”";
             }
         }
     }

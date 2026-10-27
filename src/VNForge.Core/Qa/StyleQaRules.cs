@@ -64,8 +64,8 @@ public sealed partial class HonorificsRule : UnitQaRule
         {
             HonorificsPolicy.Keep when found.Count == 0 && SourceHasHonorific(unit, context) =>
                 ["O original tem honorífico, mas o estilo do projeto manda manter e a tradução não traz nenhum (-san, -kun, -chan, -sama, senpai)."],
-            HonorificsPolicy.Remove => [.. found.Select(h => $"'{h}' ficou na tradução; o estilo do projeto manda remover os honoríficos.")],
-            HonorificsPolicy.Adapt => [.. found.Where(h => h != "senpai" && h != "sempai").Select(h => $"'{h}' ficou na tradução; o estilo do projeto manda adaptar os honoríficos.")],
+            HonorificsPolicy.Remove => [.. found.Select(h => $"“{h}” ficou na tradução; o estilo do projeto manda remover os honoríficos.")],
+            HonorificsPolicy.Adapt => [.. found.Where(h => h != "senpai" && h != "sempai").Select(h => $"“{h}” ficou na tradução; o estilo do projeto manda adaptar os honoríficos.")],
             _ => [],
         };
     }
@@ -153,7 +153,7 @@ public sealed class GenderRule : IQaRule
             var lines = count == 1 ? "1 fala traduzida" : $"{count} falas traduzidas";
             yield return new QaIssue(
                 RuleId, QaSeverity.Warning, first.Id, key,
-                $"'{character.Source}' não tem gênero definido em characters.json ({lines}); a concordância da tradução pode sair errada.");
+                $"“{character.Source}” não tem gênero definido em characters.json ({lines}); a concordância da tradução pode sair errada.");
         }
     }
 }

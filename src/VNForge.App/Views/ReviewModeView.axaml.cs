@@ -23,6 +23,7 @@ public sealed partial class ReviewModeView : UserControl
     private ReviewModeViewModel? current;
     private WindowBase? watchedWindow;
     private CancellationTokenSource? entering;
+    private double squeezedHeight;
 
     public ReviewModeView()
     {
@@ -32,6 +33,34 @@ public sealed partial class ReviewModeView : UserControl
         AddHandler(KeyDownEvent, OnKeyDownTunnel, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnKeyUpTunnel, RoutingStrategies.Tunnel);
         LostFocus += (_, _) => held.Clear();
+        Script.LayoutUpdated += OnScriptLayoutUpdated;
+    }
+
+    /// <summary>
+    /// Com a fala anterior, o original, a tradução e a seguinte, o roteiro passa da altura de uma janela de 1366×768 quando a tradução é longa. Em vez de cortar a
+    /// seguinte na borda, ela some até o roteiro caber de novo; <see cref="squeezedHeight"/> guarda o que ela ocupava para saber quando cabe de volta.
+    /// A conta usa a altura pedida pela pilha, porque a extensão do <c>ScrollViewer</c> nunca fica abaixo da área visível.
+    /// </summary>
+    private void OnScriptLayoutUpdated(object? sender, EventArgs e)
+    {
+        const double Tolerance = 0.5;
+        const double Spacing = 12;
+        var viewport = Script.Viewport.Height;
+        var wanted = ScriptStack.DesiredSize.Height;
+        if (viewport <= 0 || wanted <= 0)
+        {
+            return;
+        }
+
+        if (NextBlock.IsVisible && wanted > viewport + Tolerance)
+        {
+            squeezedHeight = NextBlock.Bounds.Height + Spacing;
+            NextBlock.IsVisible = false;
+        }
+        else if (!NextBlock.IsVisible && wanted + squeezedHeight <= viewport + Tolerance)
+        {
+            NextBlock.IsVisible = true;
+        }
     }
 
     /// <summary>Enter aprova, E corrige, M deixa para depois, a seta para a direita pula, a da esquerda volta e Esc sai. Só a primeira batida de cada tecla vale.</summary>

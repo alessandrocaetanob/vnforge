@@ -337,11 +337,13 @@ public sealed class ReviewModeTests : IDisposable
         Assert.Equal("Aham.", revisao.Previous.Translation);
         Assert.Equal("Kenta", revisao.Next!.Who);
         Assert.Equal([revisao.Next], revisao.NextLines);
+        Assert.Equal([revisao.Previous], revisao.PreviousLines);
 
         revisao.BackCommand.Execute(null);
 
         Assert.Null(revisao.Previous);
         Assert.False(revisao.HasPrevious);
+        Assert.Empty(revisao.PreviousLines);
         Assert.Equal("Narração", revisao.Next!.Who);
     }
 

@@ -48,9 +48,9 @@ public sealed class StyleRulesTests
         var issues = Honorifics(HonorificsPolicy.Remove, "Misaki-chan, o senpai e o Ken-kun, de novo Misaki-chan.");
 
         Assert.True(issues.Count == 3, string.Join(" / ", issues.Select(i => i.Message)));
-        Assert.Contains(issues, i => i.Message.Contains("'-chan'"));
-        Assert.Contains(issues, i => i.Message.Contains("'senpai'"));
-        Assert.Contains(issues, i => i.Message.Contains("'-kun'"));
+        Assert.Contains(issues, i => i.Message.Contains("“-chan”"));
+        Assert.Contains(issues, i => i.Message.Contains("“senpai”"));
+        Assert.Contains(issues, i => i.Message.Contains("“-kun”"));
     }
 
     [Theory]
@@ -62,7 +62,7 @@ public sealed class StyleRulesTests
     {
         var issue = Assert.Single(Honorifics(HonorificsPolicy.Adapt, translation));
 
-        Assert.Contains($"'{suffix}'", issue.Message);
+        Assert.Contains($"“{suffix}”", issue.Message);
         Assert.Contains("adaptar", issue.Message);
         Assert.Empty(Honorifics(HonorificsPolicy.Adapt, "Misaki, o senpai chamou."));
     }
@@ -227,7 +227,7 @@ public sealed class StyleRulesTests
 
         var issues = new GenderRule().Check(context).ToList();
 
-        Assert.Equal(["春花", "秋人"], issues.Select(i => i.Message.Split('\'')[1]));
+        Assert.Equal(["春花", "秋人"], issues.Select(i => i.Message.Split('“', '”')[1]));
         Assert.Contains("1 fala traduzida", issues[0].Message);
         Assert.Contains("2 falas traduzidas", issues[1].Message);
     }

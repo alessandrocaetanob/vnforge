@@ -199,10 +199,10 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
             if (script.Chapter is not { } chapter)
             {
-                return $"Cena {script.Position} de {Scripts.Count}";
+                return $"Cena {ProjectLabels.Number(script.Position)} de {ProjectLabels.Number(Scripts.Count)}";
             }
 
-            var scene = $"cena {script.Position} de {chapter.Scripts.Count}";
+            var scene = $"cena {ProjectLabels.Number(script.Position)} de {ProjectLabels.Number(chapter.Scripts.Count)}";
             return chapter.Number is { } number ? $"Capítulo {number} · {scene}" : char.ToUpperInvariant(scene[0]) + scene[1..];
         }
     }
@@ -219,7 +219,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     public string DistributionDescription => SelectedScript?.DistributionDescription ?? string.Empty;
 
-    /// <summary>Total do script; com filtro ativo, "12 de 890 linhas neste script".</summary>
+    /// <summary>Total da cena; com filtro ativo, "12 de 890 linhas nesta cena".</summary>
     public string LinesSummary
     {
         get
@@ -227,8 +227,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             var total = entries.Length;
             var noun = total == 1 ? "linha" : "linhas";
             return Lines.Count == total
-                ? $"{ProjectLabels.Number(total)} {noun} neste script"
-                : $"{ProjectLabels.Number(Lines.Count)} de {ProjectLabels.Number(total)} {noun} neste script";
+                ? $"{ProjectLabels.Number(total)} {noun} nesta cena"
+                : $"{ProjectLabels.Number(Lines.Count)} de {ProjectLabels.Number(total)} {noun} nesta cena";
         }
     }
 
