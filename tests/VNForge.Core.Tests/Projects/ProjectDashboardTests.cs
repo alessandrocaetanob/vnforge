@@ -224,6 +224,7 @@ public class ProjectDashboardTests
         Assert.Equal("Prólogo", painel.ScriptNames.DisplayName("yst00001"));
         Assert.Null(painel.ScriptNames.DisplayName("yst00002"));
         Assert.Equal("Misaki", painel.CharacterNames["美咲"]);
+        Assert.Equal("Misaki", painel.CharacterNames["　美咲"]);
     }
 
     [Fact]
