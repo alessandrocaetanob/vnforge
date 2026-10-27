@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.AI.Cost;
@@ -77,6 +79,108 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
         });
     }
 
+    public static TheoryData<string, int> ThemesAndWidths => new() { { "Dark", 1366 }, { "Light", 1366 }, { "Dark", 1440 }, { "Light", 1440 } };
+
+    [Theory]
+    [MemberData(nameof(ThemesAndWidths))]
+    public async Task Passos_do_stepper_e_notas_dos_capitulos_aparecem_inteiros_sem_reticencias(string themeName, int width)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await Abrir(theme, width == 1366 ? 768 : ScreenRenderer.Height, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
+            var stepper = Assert.Single(view.GetVisualDescendants().OfType<PipelineStepper>());
+            var steps = stepper.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).ToList();
+            Assert.Equal(vm.Dashboard.Steps.Select(s => s.Subtitle), steps.Where(t => vm.Dashboard.Steps.Any(s => s.Subtitle == t.Text)).Select(t => t.Text));
+            Assert.Equal(["48.211 linhas lidas", "62% traduzido", "18.802 revisadas", "2 erros travam", "Testado em 22/10"], vm.Dashboard.Steps.Select(s => s.Subtitle));
+            Assert.All(steps, t => Assert.False(IsTrimmed(t), $"Stepper @{width}: \"{t.Text}\" aparado ({t.Bounds.Width:0.#}x{t.Bounds.Height:0.#})"));
+
+            var notes = view.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Name == "PART_Note" && !string.IsNullOrEmpty(t.Text)).ToList();
+            Assert.NotEmpty(notes);
+            Assert.All(notes, t =>
+            {
+                Assert.Equal(TextWrapping.Wrap, t.TextWrapping);
+                Assert.Equal(2, t.MaxLines);
+                Assert.False(IsTrimmed(t), $"Nota @{width}: \"{t.Text}\" aparada ({t.Bounds.Width:0.#}x{t.Bounds.Height:0.#})");
+            });
+
+            var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First();
+            Assert.True(scroll.Extent.Width <= scroll.Viewport.Width + 0.5, "o Painel passa da largura da janela");
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"painel-v4-{width}", theme)));
+        }, width);
+    }
+
+    [Fact]
+    public async Task A_coluna_de_linhas_dos_capitulos_usa_a_fonte_da_interface_com_algarismos_tabulares_alinhada_a_direita()
+    {
+        await Abrir(ThemeVariant.Dark, ScreenRenderer.Height, (window, _) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
+            var rows = view.GetVisualDescendants().OfType<ChapterRow>().ToList();
+            var title = rows[0].GetVisualDescendants().OfType<TextBlock>().First(t => t.Name == "PART_Title");
+            var lines = rows.Select(r => r.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == r.LinesText)).ToList();
+
+            Assert.All(lines, t =>
+            {
+                Assert.Equal(title.FontFamily, t.FontFamily);
+                Assert.Equal(TextAlignment.Right, t.TextAlignment);
+                Assert.NotNull(t.FontFeatures);
+                Assert.NotEmpty(t.FontFeatures);
+            });
+            var right = lines.Select(t => Math.Round(t.TranslatePoint(new Point(t.Bounds.Width, 0), view)!.Value.X, 1)).Distinct().ToList();
+            Assert.Single(right);
+        });
+    }
+
+    [Fact]
+    public async Task Nota_comprida_do_capitulo_quebra_em_duas_linhas_dentro_da_linha_de_44_px()
+    {
+        await fixture.Session.Dispatch<int>(
+            () =>
+            {
+                var row = new ChapterRow { Title = "Manhã de chuva", Number = 1, Done = 10, Review = 5, Total = 20, Note = "Você está aqui · 1 erro em Manhã de chuva" };
+                var window = new Window { Width = 760, Height = 120, Content = row };
+                try
+                {
+                    window.Show();
+                    ScreenRenderer.Settle(window);
+
+                    var note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+                    Assert.True(note.Bounds.Height > note.LineHeight * 1.5, $"a nota não quebrou: {note.Bounds.Height}");
+                    Assert.True(note.Bounds.Height <= (note.LineHeight * 2) + 0.5);
+                    Assert.False(IsTrimmed(note));
+                    Assert.True(note.Bounds.Height <= row.Bounds.Height);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return Task.FromResult(0);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// O texto perde letras ou linhas: um bloco igual, medido na largura que o bloco recebeu (sem limite de linhas), pede mais largura ou mais altura do que o bloco tem.
+    /// </summary>
+    private static bool IsTrimmed(TextBlock block)
+    {
+        var natural = new TextBlock
+        {
+            Text = block.Text,
+            FontFamily = block.FontFamily,
+            FontSize = block.FontSize,
+            FontWeight = block.FontWeight,
+            FontStyle = block.FontStyle,
+            LineHeight = block.LineHeight,
+            TextWrapping = block.TextWrapping,
+        };
+        natural.Measure(block.TextWrapping == TextWrapping.Wrap ? new Size(block.Bounds.Width, double.PositiveInfinity) : Size.Infinity);
+        return block.Bounds.Width + 0.5 < natural.DesiredSize.Width || block.Bounds.Height + 0.5 < natural.DesiredSize.Height;
+    }
+
     [Fact]
     public async Task Renomear_troca_a_linha_do_capitulo_pelo_campo_de_nome_e_cancelar_a_devolve()
     {
@@ -103,7 +207,7 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
         });
     }
 
-    private async Task Abrir(ThemeVariant theme, int height, Action<MainWindow, MainWindowViewModel> verificar)
+    private async Task Abrir(ThemeVariant theme, int height, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width)
     {
         Prepare(demoFolder.Root);
         await fixture.Session.Dispatch<int>(
@@ -113,7 +217,7 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(demoFolder.Root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
                 vm.Dashboard.Context = () => new DashboardContext(new ExchangeRate(5.40m, new DateOnly(2026, 10, 22)), new BudgetLimits(300m, 50m), true);
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();

@@ -273,6 +273,7 @@ public class StartV3Tests
         var root = Project(temp);
         var vm = Create(temp);
         await vm.OpenAsync(root);
+        await vm.DetailLoading;
         Directory.Delete(root, recursive: true);
         await vm.LoadAsync();
 

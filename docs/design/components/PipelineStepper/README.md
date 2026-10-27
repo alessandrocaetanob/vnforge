@@ -4,7 +4,7 @@ As cinco etapas do pipeline (Extrair, Traduzir, Conferir, Build, Injetar) como b
 
 - Concluída: círculo cheio em `seg-approved` com Checkmark.
 - Atual (a primeira não concluída): número em `accent-text` e sublinhado de 2px `accent`.
-- O subtítulo sempre diz o que falta, não o que já foi feito, exceto em Extrair.
+- O subtítulo é uma frase curta que cabe numa linha, sem reticências, a 1366 e a 1440: "48.211 linhas lidas", "62% traduzido", "18.802 revisadas", "2 erros travam", "Testado em 22/10".
 
 ## Avalonia
 

@@ -190,7 +190,19 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// <summary>O texto do botão do próximo passo ("Revisar o capítulo 1"); vazio sem passo a dar.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasNextStep))]
+    [NotifyPropertyChangedFor(nameof(ContinueLabel))]
     public partial string NextStepLabel { get; private set; } = string.Empty;
+
+    /// <summary>O botão do cartão "Continuar de onde parou" do Início: "Continuar: revisar “A promessa”".</summary>
+    public string ContinueLabel => NextStepLabel.Length == 0 ? string.Empty : $"Continuar: {char.ToLowerInvariant(NextStepLabel[0])}{NextStepLabel[1..]}";
+
+    /// <summary>O capítulo do próximo passo como o cartão do Início o chama ("A promessa · capítulo 5"); vazio quando o passo não é de um capítulo.</summary>
+    [ObservableProperty]
+    public partial string NextStepScene { get; private set; } = string.Empty;
+
+    /// <summary>O último teste no jogo em poucas palavras ("Testado em 22/10", "Ainda não testado"), o mesmo texto do passo Testar no jogo.</summary>
+    [ObservableProperty]
+    public partial string LastTestText { get; private set; } = string.Empty;
 
     /// <summary>As linhas prontas, esperando revisão e o total: o que o anel e a barra do mapa desenham.</summary>
     [ObservableProperty]
@@ -464,10 +476,19 @@ public sealed partial class DashboardViewModel : ObservableObject
     [RelayCommand]
     private void OpenTest() => NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Build));
 
-    /// <summary>Ao trocar de projeto os números do anterior saem na hora, e uma leitura ainda em curso deixa de valer.</summary>
-    partial void OnProjectChanged(ProjectSummary? value)
+    /// <summary>
+    /// Ao trocar de projeto os números do anterior saem na hora, e uma leitura ainda em curso deixa de valer. O mesmo projeto com outro resumo
+    /// (as linhas mudaram) mantém o que está na tela até a leitura nova chegar, para o Início não piscar.
+    /// </summary>
+    partial void OnProjectChanged(ProjectSummary? oldValue, ProjectSummary? newValue)
     {
         loadVersion++;
+        if (oldValue is not null && newValue is not null && loaded && string.Equals(oldValue.Root, newValue.Root, StringComparison.OrdinalIgnoreCase))
+        {
+            IsLoading = false;
+            return;
+        }
+
         Clear();
     }
 
@@ -477,31 +498,14 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private static string Lines(int count) => Plural(count, "linha", "linhas");
 
-    /// <summary>
-    /// "10 erros · 30 avisos": a conta do passo Conferir. Ela deixa de fora as linhas sem tradução e os avisos de estilo, que a tela Conferir
-    /// lista em "Todos"; quando há algum, a frase diz o que ficou fora para os dois números não parecerem discordar.
-    /// </summary>
-    private static string QaPhrase(ProjectDashboard dashboard)
+    /// <summary>A frase do passo Conferir, curta para caber numa linha do stepper: só o que trava o teste no jogo, que os avisos têm lugar próprio no Painel.</summary>
+    private static string QaPhrase(ProjectDashboard dashboard) => dashboard.Qa switch
     {
-        if (dashboard.Qa is not { } qa)
-        {
-            return "A conferência não pôde rodar";
-        }
-
-        var counted = qa.Total == 0 ? "Nenhum problema" : $"{Plural(qa.Errors, "erro", "erros")} · {Plural(qa.Warnings, "aviso", "avisos")}";
-        List<string> left = [];
-        if (dashboard.Status.Total.Untranslated > 0)
-        {
-            left.Add($"{Lines(dashboard.Status.Total.Untranslated)} sem tradução");
-        }
-
-        if (qa.StyleAdvice > 0)
-        {
-            left.Add(Plural(qa.StyleAdvice, "aviso de estilo", "avisos de estilo"));
-        }
-
-        return left.Count == 0 ? counted : $"{counted} · sem contar {string.Join(" e ", left)}";
-    }
+        null => "Não pôde rodar",
+        { Errors: 0 } => "Sem erros",
+        { Errors: 1 } => "1 erro trava",
+        var qa => $"{ProjectLabels.Number(qa.Errors)} erros travam",
+    };
 
     private static string ReviewPhrase(StatusCounts total, bool reviewed)
     {
@@ -510,15 +514,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             return "Tudo revisado";
         }
 
-        if (total.ToReview == 0)
-        {
-            return "Espera a tradução";
-        }
-
-        // O que já passou pela tradução é o universo da revisão: as linhas em japonês ainda nem chegaram a ela.
-        var reviewable = total.Ready + total.ToReview;
-        var left = total.ToReview == 1 ? "falta 1" : $"faltam {ProjectLabels.Number(total.ToReview)}";
-        return $"{ProjectLabels.Number(total.Ready)} de {ProjectLabels.Number(reviewable)} {(reviewable == 1 ? "revisada" : "revisadas")} · {left}";
+        return total.ToReview == 0 ? "Espera a tradução" : Plural(total.Ready, "revisada", "revisadas");
     }
 
     private static string MoreText(int more)
@@ -583,7 +579,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         nextStep = null;
         NextStepLabel = string.Empty;
         ReadyLines = ReviewLines = TotalLines = 0;
-        MapSummary = PaceText = MoreTodosText = SpentText = SpendHint = GameTitle = GameMessage = string.Empty;
+        MapSummary = PaceText = MoreTodosText = SpentText = SpendHint = GameTitle = GameMessage = NextStepScene = LastTestText = string.Empty;
         SpentBrl = LimitBrl = 0;
         GameState = GameState.Original;
         GameActionText = TestInGame;
@@ -649,13 +645,14 @@ public sealed partial class DashboardViewModel : ObservableObject
         string[] phrases =
         [
             stage[PipelineStageKey.Extract].IsComplete
-                ? $"{Lines(total.Total)} em {Plural(dashboard.Status.Files.Count, "cena", "cenas")}"
-                : "O texto do jogo ainda não foi lido",
-            translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido · faltam {Lines(total.Untranslated)}",
+                ? Plural(total.Total, "linha lida", "linhas lidas")
+                : "Ainda não lido",
+            translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido",
             ReviewPhrase(total, reviewed),
             QaPhrase(dashboard),
             TestPhrase(dashboard, tested),
         ];
+        LastTestText = phrases[4];
         var states = PipelineStepper.Resolve(complete);
         Steps.Clear();
         for (var i = 0; i < complete.Length; i++)
@@ -670,14 +667,26 @@ public sealed partial class DashboardViewModel : ObservableObject
         dashboard.GameState.InGame is not null
         || dashboard.Stages.Where(s => s.Key is PipelineStageKey.Build or PipelineStageKey.Inject).All(s => s.IsComplete);
 
+    /// <summary>A frase do passo Testar no jogo e o "último teste" do cartão do Início: "Testado em 22/10" ou "Ainda não testado".</summary>
     private static string TestPhrase(ProjectDashboard dashboard, bool tested)
     {
         if (tested && dashboard.GameState.InGame is { } inGame)
         {
-            return DescribeGame(inGame);
+            var when = DateText(inGame.AppliedAt);
+            return inGame switch
+            {
+                { Kind: GameTestKind.AccentTest } => $"Acentos testados em {when}",
+                { ScriptKey: not null } => $"Uma cena testada em {when}",
+                _ => $"Testado em {when}",
+            };
         }
 
-        return dashboard.Build == BuildStatus.Stale ? "Os textos mudaram desde o último teste" : "Ainda não testado no jogo";
+        if (tested)
+        {
+            return "Testado no jogo";
+        }
+
+        return dashboard.Build == BuildStatus.Stale ? "Teste desatualizado" : "Ainda não testado";
     }
 
     private void ApplyChapters(ProjectSummary project, ProjectDashboard dashboard, IReadOnlyList<ScriptGroupTotals> chapters, bool limitReached)
@@ -832,14 +841,15 @@ public sealed partial class DashboardViewModel : ObservableObject
         {
             nextStep = null;
             NextStepLabel = string.Empty;
+            NextStepScene = string.Empty;
         }
         else if (ChapterToWorkOn(chapters, c => c.ToReview > 0) is { } review)
         {
-            SetNextStep($"Revisar {Phrase(review)}", ChapterRowFor(review));
+            SetNextStep($"Revisar {Phrase(review)}", ChapterRowFor(review), SceneLabel(review));
         }
         else if (ChapterToWorkOn(chapters, c => c.Japanese > 0) is { } pending)
         {
-            SetNextStep($"Traduzir {Phrase(pending)}", ChapterRowFor(pending));
+            SetNextStep($"Traduzir {Phrase(pending)}", ChapterRowFor(pending), SceneLabel(pending));
         }
         else if (dashboard.Qa is { Total: > 0 })
         {
@@ -862,11 +872,18 @@ public sealed partial class DashboardViewModel : ObservableObject
         return ScriptGrouping.ChapterToWorkOn(chapters, Chapters.FirstOrDefault(c => c.IsHere)?.Name, needsWork);
     }
 
-    private void SetNextStep(string label, DashboardNavigation target)
+    private void SetNextStep(string label, DashboardNavigation target, string scene = "")
     {
         nextStep = target;
         NextStepLabel = label;
+        NextStepScene = scene;
     }
+
+    /// <summary>"A promessa · capítulo 5": o nome do capítulo e o número; "Capítulo 5" e "Parte 2" já dizem o número, e "Menus e nomes" não tem.</summary>
+    private static string SceneLabel(ScriptGroupTotals chapter) =>
+        chapter.IsExtra || chapter.Name.StartsWith("Capítulo ", StringComparison.Ordinal) || chapter.Name.StartsWith("Parte ", StringComparison.Ordinal)
+            ? chapter.Name
+            : $"{chapter.Name} · capítulo {chapter.Number}";
 
     /// <summary>"o capítulo 1", "a parte 2", "“Manhã de chuva”" ou "menus e nomes": o capítulo como a frase do botão o chama.</summary>
     private static string Phrase(ScriptGroupTotals chapter) => chapter.Name switch
