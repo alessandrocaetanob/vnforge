@@ -35,7 +35,7 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
-                var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "yst00001 · linha 1");
+                var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Cena 1 · linha 1");
                 var center = cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
                 window.MouseDown(center, MouseButton.Left);
                 window.MouseUp(center, MouseButton.Left);
@@ -105,7 +105,7 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                 Assert.Contains("Conferir a tradução", texts);
                 Assert.Contains("Travam o teste", texts);
                 Assert.Contains("Espaço duplo", texts);
-                Assert.Contains("yst00001 · linha 1", texts);
+                Assert.Contains("Cena 1 · linha 1", texts);
                 Assert.Contains("Um clique", texts);
                 Assert.Contains("Corrigir 1 com um clique", texts);
                 Assert.Contains("Conferir de novo", texts);

@@ -85,9 +85,9 @@
     <StackPanel Spacing="8">
       <TextBlock Classes="overline" Text="QualityCard · Rápida, Equilibrada (marcada), Caprichada"/>
       <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-        <c:QualityCard x:Name="QualityFast" Title="Rápida" Model="Haiku" Price="2.92" Duration="cerca de 40 min" Description="Boa para um rascunho."/>
-        <c:QualityCard x:Name="QualityBalanced" Grid.Column="1" Title="Equilibrada" Model="Sonnet" Price="58.10" Duration="cerca de 78 min" Description="O meio-termo." IsChecked="True"/>
-        <c:QualityCard x:Name="QualityBest" Grid.Column="2" Title="Caprichada" Model="Opus" Price="116.19" Duration="cerca de 2 h" Description="A mais fiel ao tom."/>
+        <c:QualityCard x:Name="QualityFast" Title="Rápida" Price="2.92" Duration="cerca de 40 min" Description="Boa para um rascunho."/>
+        <c:QualityCard x:Name="QualityBalanced" Grid.Column="1" Title="Equilibrada" Price="58.10" Duration="cerca de 78 min" Description="O meio-termo." IsChecked="True"/>
+        <c:QualityCard x:Name="QualityBest" Grid.Column="2" Title="Caprichada" Price="116.19" Duration="cerca de 2 h" Description="A mais fiel ao tom."/>
       </Grid>
     </StackPanel>
 

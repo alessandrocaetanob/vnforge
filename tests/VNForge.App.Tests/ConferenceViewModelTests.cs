@@ -127,7 +127,7 @@ public class ConferenceViewModelTests
         var unnamed = IssueRows(vm).Single(r => r.UnitId == "yst00002:000005" && r.RuleId == "espaco-duplo");
 
         Assert.Equal("Manhã de chuva · linha 1", named.Where);
-        Assert.Equal("yst00002 · linha 1", unnamed.Where);
+        Assert.Equal("Cena 2 · linha 1", unnamed.Where);
         Assert.Equal("yst00001:0000", named.LineLabel);
         Assert.Equal("Manhã de chuva", IssueRows(vm).Single(r => r.IsScriptSummary).Where);
         Assert.Equal("Não traduzida em Manhã de chuva", IssueRows(vm).Single(r => r.IsScriptSummary).DetailTitle);
@@ -183,7 +183,7 @@ public class ConferenceViewModelTests
         var editor = ProjectLines.Read(folder).LinesOf("yst00013").Single(l => l.Unit.Id == row.UnitId);
         Assert.Equal(3, editor.Number);
         Assert.Equal(editor.Number, row.LineNumber);
-        Assert.Equal("yst00013 · linha 3", row.Where);
+        Assert.Equal("Cena 2 · linha 3", row.Where);
         Assert.Equal("yst00013:0137", row.LineLabel);
     }
 
@@ -481,6 +481,59 @@ public class ConferenceViewModelTests
     public void A_lista_troca_o_marcador_cru_pelo_nome_em_portugues(string text, string expected)
     {
         Assert.Equal(expected, ConferenceIssueRowViewModel.PlainMarkers(text));
+    }
+
+    [Fact]
+    public async Task Cena_sem_nome_vira_Cena_N_pela_posicao_no_jogo_e_nunca_mostra_o_id()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        folder.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("yst00001", null, "Manhã de chuva")]));
+        await vm.RefreshAsync();
+
+        var texts = IssueRows(vm).SelectMany(r => new[] { r.Where, r.DetailTitle }).ToList();
+
+        Assert.Contains("Cena 2 · linha 1", texts);
+        Assert.Contains("Manhã de chuva · linha 1", texts);
+        Assert.All(texts, t => Assert.DoesNotContain("yst000", t, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_lista_guarda_o_marcador_cru_para_virar_selo_e_o_texto_por_extenso_para_a_dica()
+    {
+        var issue = new QaIssue("espaco-antes-pontuacao", QaSeverity.Warning, "yst00001:000001", "yst00001", @"“anda !\p”");
+        var row = new ConferenceIssueRowViewModel(issue, sceneName: "Cena 1");
+
+        Assert.Equal(@"“anda !\p”", row.DetailMarked);
+        Assert.Equal("“anda !(virar a página)”", row.Detail);
+        Assert.Equal(@"“anda !\p”", row.Message);
+    }
+
+    [Fact]
+    public void Marcador_fora_da_gramatica_do_jogo_nao_vira_selo_e_cai_no_texto_por_extenso()
+    {
+        var issue = new QaIssue("espaco-antes-pontuacao", QaSeverity.Warning, "yst00001:000001", "yst00001", @"fala\p e \z");
+        var row = new ConferenceIssueRowViewModel(issue, sceneName: "Cena 1");
+
+        Assert.Equal(@"fala(virar a página) e \z", row.DetailMarked);
+    }
+
+    [Fact]
+    public async Task O_botao_de_destaque_do_cabecalho_e_corrigir_com_um_clique_e_sem_correcao_conferir_de_novo()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        Assert.True(vm.HasFixable);
+        Assert.False(vm.RefreshIsPrimary);
+
+        var root = SampleProjects.Create(temp.SubFolder("sem-correcao"), "Sem correção", TranslationStatus.Approved);
+        ProjectFolder.Open(root).SaveText("yst00001", [Unit("yst00001", 0, null, TranslationStatus.Approved)]);
+        var none = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+        await none.RefreshAsync();
+
+        Assert.False(none.HasFixable);
+        Assert.True(none.RefreshIsPrimary);
     }
 
     [Fact]
@@ -842,6 +895,8 @@ public class ConferenceViewModelTests
 
         Assert.True(vm.HasBlockingErrors);
         Assert.Equal("1 problema trava o teste no jogo.", vm.BlockingMessage);
+        Assert.Equal("1", vm.BlockingCount);
+        Assert.Equal("problema trava o teste no jogo.", vm.BlockingRest);
 
         var root = SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Approved, TranslationStatus.Approved);
         var folder = ProjectFolder.Open(root);
@@ -849,11 +904,13 @@ public class ConferenceViewModelTests
         var many = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
         await many.RefreshAsync();
         Assert.Equal("2 problemas travam o teste no jogo.", many.BlockingMessage);
+        Assert.Equal(("2", "problemas travam o teste no jogo."), (many.BlockingCount, many.BlockingRest));
 
         var clean = new ConferenceViewModel { Project = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("limpo"), "Limpa", TranslationStatus.Approved)) };
         await clean.RefreshAsync();
         Assert.False(clean.HasBlockingErrors);
         Assert.Equal(string.Empty, clean.BlockingMessage);
+        Assert.Equal((string.Empty, string.Empty), (clean.BlockingCount, clean.BlockingRest));
     }
 
     [Fact]

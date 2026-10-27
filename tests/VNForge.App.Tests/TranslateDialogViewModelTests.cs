@@ -73,6 +73,29 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Escopo_sem_linhas_pendentes_fica_desligado_e_diz_que_nao_ha_nada_para_traduzir()
+    {
+        var vm = await OpenAsync(Project(), Settings(), scene: "yst00003");
+
+        var scene = vm.Scopes.Single(s => s.Scope == TranslationScope.Scene);
+        Assert.False(scene.IsAvailable);
+        Assert.Equal("Nada para traduzir aqui", scene.Summary);
+        Assert.All(vm.Scopes.Where(s => s.Scope != TranslationScope.Scene), s => Assert.True(s.IsAvailable));
+        Assert.False(scene.IsSelected);
+        Assert.True(vm.Scopes.Single(s => s.IsSelected).IsAvailable);
+    }
+
+    [Fact]
+    public async Task Os_escopos_ficam_ligados_enquanto_o_projeto_e_lido()
+    {
+        var vm = new TranslateDialogViewModel();
+
+        Assert.All(vm.Scopes, s => Assert.True(s.IsAvailable));
+        await vm.OpenAsync(Project(), "yst00001", Settings());
+        Assert.All(vm.Scopes, s => Assert.True(s.IsAvailable));
+    }
+
+    [Fact]
     public async Task Cada_escopo_conta_as_linhas_pendentes_e_o_preco_acompanha()
     {
         var vm = await OpenAsync(Project(), Settings());
@@ -88,12 +111,12 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Os_tres_cartoes_trazem_preco_tempo_e_o_modelo_em_letra_pequena()
+    public async Task Os_tres_cartoes_trazem_preco_e_tempo_sem_nome_de_modelo()
     {
         var vm = await OpenAsync(Project(), Settings());
 
         Assert.Equal(["Rápida", "Equilibrada", "Caprichada"], vm.Qualities.Select(q => q.Title));
-        Assert.Equal(["Haiku", "Sonnet", "Opus"], vm.Qualities.Select(q => q.Model));
+        Assert.DoesNotContain(typeof(QualityChoice).GetProperties(), p => p.Name == "Model");
         Assert.True(vm.Qualities[0].Price < vm.Qualities[1].Price && vm.Qualities[1].Price < vm.Qualities[2].Price);
         Assert.All(vm.Qualities, q => Assert.False(string.IsNullOrEmpty(q.Duration)));
     }
