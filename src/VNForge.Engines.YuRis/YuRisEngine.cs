@@ -1,11 +1,14 @@
+using VNForge.Core;
 using VNForge.Core.Engines;
+using VNForge.Core.Text;
+using VNForge.Engines.YuRis.Yscfg;
 using VNForge.Engines.YuRis.Ypf;
 using VNForge.Engines.YuRis.Ystb;
 
 namespace VNForge.Engines.YuRis;
 
 /// <summary>A engine YU-RIS: pacotes YPF e scripts YSTB.</summary>
-public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePatchProvider
+public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePatchProvider, IGameTitleSource
 {
     /// <summary>Valor de <see cref="Id"/>, também o <see cref="EngineContext.EngineId"/> do <see cref="YuRisContext"/>.</summary>
     public const string EngineId = "yuris";
@@ -67,6 +70,63 @@ public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePa
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unpackedDirectory);
         return YuRisUnpacker.Open(unpackedDirectory, _scriptFormat);
+    }
+
+    /// <summary>
+    /// Lê o título da janela do <c>yscfg.ybn</c> que o <see cref="Unpack"/> deixou em qualquer subpasta de <paramref name="unpackedDirectory"/>
+    /// (<c>ysbin.ypf/ysbin/yscfg.ybn</c> no jogo de referência). Pasta sem o arquivo devolve nulo.
+    /// </summary>
+    /// <exception cref="InvalidFileException">O <c>yscfg.ybn</c> não segue o formato.</exception>
+    /// <exception cref="VNForgeException">Há mais de um <c>yscfg.ybn</c>, então não dá para saber qual vale.</exception>
+    public GameTitleFile? ReadTitle(string unpackedDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(unpackedDirectory);
+        if (!Directory.Exists(unpackedDirectory))
+        {
+            return null;
+        }
+
+        var found = Directory.EnumerateFiles(unpackedDirectory, "*", SearchOption.AllDirectories)
+            .Where(f => string.Equals(Path.GetFileName(f), YuRisUnpacker.ConfigFile, StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (found.Count == 0)
+        {
+            return null;
+        }
+
+        if (found.Count > 1)
+        {
+            throw new VNForgeException(
+                $"Há {found.Count} arquivos {YuRisUnpacker.ConfigFile} em '{unpackedDirectory}' ({string.Join(", ", found.Select(f => Path.GetRelativePath(unpackedDirectory, f)))}), e não dá para saber qual traz o título da janela.");
+        }
+
+        var content = File.ReadAllBytes(found[0]);
+        return new GameTitleFile(found[0], content, YscfgReader.Read(content, found[0]).Title);
+    }
+
+    /// <summary>
+    /// O <c>yscfg.ybn</c> com o título trocado, codificado por <paramref name="encoder"/>; o cabeçalho e a configuração saem como estavam.
+    /// </summary>
+    /// <exception cref="InvalidFileException"><paramref name="file"/> não segue o formato.</exception>
+    /// <exception cref="EncoderFallbackException">O <paramref name="encoder"/> não grava algum caractere.</exception>
+    /// <exception cref="VNForgeException">O título passa do que o campo de tamanho do arquivo guarda.</exception>
+    public byte[] WithTitle(GameTitleFile file, string title, ITextEncoder encoder)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(encoder);
+
+        var parsed = YscfgReader.Read(file.Content, file.Path);
+        var encoded = encoder.Encode(title);
+        try
+        {
+            return YscfgWriter.WithTitle(parsed, encoded);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new VNForgeException(ex.Message, ex);
+        }
     }
 
     /// <summary>

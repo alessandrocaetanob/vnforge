@@ -24,6 +24,9 @@ public sealed record QaContext(
     /// <summary>Escolhas de estilo do <c>vnforge.json</c>, que as regras de honorífico consultam; o padrão quando o contexto não vem de um projeto.</summary>
     public StyleConfig Style { get; init; } = StyleConfig.Default;
 
+    /// <summary>Título do jogo do <c>vnforge.json</c>, que a <see cref="GameTitleEncodingRule"/> confere; nulo quando o projeto não tem título ou o contexto não vem de um projeto.</summary>
+    public GameTitleConfig? GameTitle { get; init; }
+
     /// <summary>Contexto só com textos, para regras que não precisam do resto.</summary>
     public static QaContext ForTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts) =>
         new(texts, [], [], FormattingProfile.Default);
@@ -44,6 +47,6 @@ public sealed record QaContext(
         ArgumentNullException.ThrowIfNull(project);
         var config = project.LoadConfig();
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy);
-        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style };
+        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title };
     }
 }

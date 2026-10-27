@@ -351,6 +351,25 @@
               </StackPanel>
             </Grid>
 
+            <StackPanel Spacing="8" IsVisible="{Binding HasGameTitle}" MaxWidth="760" HorizontalAlignment="Left">
+              <TextBlock Classes="overline" Text="Título do jogo"/>
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                <TextBlock Classes="body-sm secondary" VerticalAlignment="Center" Text="Original"/>
+                <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding GameTitleOriginal}" AutomationProperties.Name="Título original do jogo"/>
+                <TextBlock Grid.Row="1" Classes="body-sm secondary" VerticalAlignment="Center" Text="Tradução"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GameTitleTranslation}"
+                         PlaceholderText="Em branco, o jogo fica com o título original" AutomationProperties.Name="Tradução do título do jogo"/>
+              </Grid>
+              <Border Classes="infobar warning" IsVisible="{Binding HasGameTitleNotice}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                  <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding GameTitleNotice}"/>
+                </Grid>
+              </Border>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                         Text="É o título da barra da janela do jogo. O build o grava no yscfg.ybn com a codificação escolhida na aba Acentos."/>
+            </StackPanel>
+
             <Border Classes="panel" ClipToBounds="True">
               <StackPanel>
                 <Grid Height="48" ColumnDefinitions="*,Auto" Margin="16,0">

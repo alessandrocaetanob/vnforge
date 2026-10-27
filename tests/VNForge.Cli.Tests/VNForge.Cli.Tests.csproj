@@ -12,6 +12,7 @@
     <Compile Include="..\VNForge.Engines.YuRis.Tests\Yscm\Synthetic\*.cs" LinkBase="Synthetic\Yscm" />
     <Compile Include="..\VNForge.Engines.YuRis.Tests\Ystb\Synthetic\*.cs" LinkBase="Synthetic\Ystb" />
     <Compile Include="..\VNForge.Engines.YuRis.Tests\Ystl\Synthetic\*.cs" Exclude="..\VNForge.Engines.YuRis.Tests\Ystl\Synthetic\*Tests.cs" LinkBase="Synthetic\Ystl" />
+    <Compile Include="..\VNForge.Engines.YuRis.Tests\Yscfg\Synthetic\*.cs" LinkBase="Synthetic\Yscfg" />
   </ItemGroup>
 
 </Project>

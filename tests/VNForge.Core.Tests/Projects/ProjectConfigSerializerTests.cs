@@ -222,6 +222,66 @@ public class ProjectConfigSerializerTests
         Assert.Equal("$.encoding.strategy", erro.Field);
     }
 
+    [Fact]
+    public void Sem_titulo_do_jogo_o_campo_e_nulo_e_nao_e_gravado()
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
+
+        Assert.Null(config.Game.Title);
+        Assert.DoesNotContain("title", ProjectConfigSerializer.Serialize(config), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Titulo_do_jogo_faz_ida_e_volta_com_original_e_traducao()
+    {
+        var json = ExemploDoDoc02.Replace(
+            "\"game\": { \"path\": \"D:/Jogos/MinhaVN\", \"exe\": \"MinhaVN.exe\" }",
+            "\"game\": { \"path\": \"D:/Jogos/MinhaVN\", \"exe\": \"MinhaVN.exe\", \"title\": { \"original\": \"原題\", \"translation\": \"Meu título\" } }");
+
+        var config = ProjectConfigSerializer.Parse(json);
+        var volta = ProjectConfigSerializer.Parse(ProjectConfigSerializer.Serialize(config));
+
+        Assert.Equal(new GameTitleConfig("原題", "Meu título"), config.Game.Title);
+        Assert.Equal(config, volta);
+    }
+
+    [Fact]
+    public void Titulo_do_jogo_sem_traducao_grava_so_o_original()
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
+        config = config with { Game = config.Game with { Title = new GameTitleConfig("原題", null) } };
+
+        var texto = ProjectConfigSerializer.Serialize(config);
+
+        Assert.Contains("\"original\": \"原題\"", texto, StringComparison.Ordinal);
+        Assert.DoesNotContain("translation", texto, StringComparison.Ordinal);
+        Assert.Equal(config, ProjectConfigSerializer.Parse(texto));
+    }
+
+    [Fact]
+    public void Titulo_do_jogo_sem_original_aponta_o_campo()
+    {
+        var json = ExemploDoDoc02.Replace(
+            "\"exe\": \"MinhaVN.exe\" }",
+            "\"exe\": \"MinhaVN.exe\", \"title\": { \"translation\": \"x\" } }");
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Equal("$.game.title.original", erro.Field);
+    }
+
+    [Fact]
+    public void Titulo_do_jogo_com_campo_desconhecido_e_recusado()
+    {
+        var json = ExemploDoDoc02.Replace(
+            "\"exe\": \"MinhaVN.exe\" }",
+            "\"exe\": \"MinhaVN.exe\", \"title\": { \"original\": \"a\", \"extra\": 1 } }");
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Equal("$.game.title.extra", erro.Field);
+    }
+
     private static string RemoverLinha(string texto, string trecho) =>
         string.Join('\n', texto.Split('\n').Where(l => !l.Contains(trecho)));
 }

@@ -868,6 +868,120 @@ public class SettingsViewModelTests
 
         public bool Delete() => false;
     }
+
+    private static ProjectSummary OpenProjectWithTitle(TempFolder temp, string? translation = null, string strategy = "cp1252")
+    {
+        var summary = OpenProject(temp);
+        var folder = ProjectFolder.Open(summary.Root);
+        var config = folder.LoadConfig();
+        folder.SaveConfig(config with
+        {
+            Encoding = new EncodingConfig(strategy),
+            Game = config.Game with { Title = new GameTitleConfig("原題", translation) },
+        });
+        return summary;
+    }
+
+    [Fact]
+    public async Task Projeto_sem_titulo_lido_esconde_o_campo_do_titulo()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
+        await LoadAsync(vm, OpenProject(temp));
+
+        Assert.False(vm.HasGameTitle);
+        Assert.Equal(string.Empty, vm.GameTitleOriginal);
+        Assert.Equal(string.Empty, vm.GameTitleTranslation);
+        Assert.Null(vm.GameTitleNotice);
+    }
+
+    [Fact]
+    public async Task Abrir_projeto_carrega_o_titulo_original_e_a_traducao()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
+        await LoadAsync(vm, OpenProjectWithTitle(temp, "Meu Jogo"));
+
+        Assert.True(vm.HasGameTitle);
+        Assert.Equal("原題", vm.GameTitleOriginal);
+        Assert.Equal("Meu Jogo", vm.GameTitleTranslation);
+        Assert.Null(vm.GameTitleNotice);
+    }
+
+    [Fact]
+    public async Task Editar_o_titulo_grava_no_vnforge_json_e_mantem_o_original()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProjectWithTitle(temp);
+        var vm = Create(temp);
+        await LoadAsync(vm, summary);
+        var avisos = 0;
+        vm.ProjectSaved += (_, _) => avisos++;
+
+        vm.GameTitleTranslation = "  Meu Título  ";
+
+        Assert.Equal(new GameTitleConfig("原題", "Meu Título"), ProjectFolder.Open(summary.Root).LoadConfig().Game.Title);
+        Assert.Equal(1, avisos);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Apagar_o_titulo_traduzido_remove_a_traducao_do_projeto()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProjectWithTitle(temp, "Meu Jogo");
+        var vm = Create(temp);
+        await LoadAsync(vm, summary);
+
+        vm.GameTitleTranslation = string.Empty;
+
+        Assert.Equal(new GameTitleConfig("原題", null), ProjectFolder.Open(summary.Root).LoadConfig().Game.Title);
+    }
+
+    [Fact]
+    public async Task Abrir_o_projeto_nao_regrava_o_titulo()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProjectWithTitle(temp, "Meu Jogo");
+        var vm = Create(temp);
+        var avisos = 0;
+        vm.ProjectSaved += (_, _) => avisos++;
+
+        await LoadAsync(vm, summary);
+
+        Assert.Equal(0, avisos);
+    }
+
+    [Fact]
+    public async Task Titulo_com_caractere_que_a_estrategia_nao_grava_mostra_o_aviso_e_some_ao_trocar_de_estrategia()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        await LoadAsync(vm, OpenProjectWithTitle(temp, "Título", "sjis"));
+
+        Assert.NotNull(vm.GameTitleNotice);
+        Assert.Contains("í", vm.GameTitleNotice, StringComparison.Ordinal);
+
+        vm.EncodingStrategies.Options.Single(o => o.Id == "cp1252").IsSelected = true;
+
+        Assert.Null(vm.GameTitleNotice);
+    }
+
+    [Fact]
+    public async Task Digitar_um_titulo_que_a_estrategia_nao_grava_acende_o_aviso_mas_grava()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProjectWithTitle(temp, strategy: "sjis");
+        var vm = Create(temp);
+        await LoadAsync(vm, summary);
+
+        vm.GameTitleTranslation = "Título";
+
+        Assert.NotNull(vm.GameTitleNotice);
+        Assert.Equal("Título", ProjectFolder.Open(summary.Root).LoadConfig().Game.Title!.Translation);
+    }
 }
 
 public class MemoryApiKeyStoreTests
