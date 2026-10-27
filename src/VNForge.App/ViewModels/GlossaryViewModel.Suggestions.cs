@@ -238,7 +238,7 @@ public sealed partial class GlossaryViewModel
 
     private List<CharacterVoiceRequest> BuildVoiceRequests()
     {
-        var known = Characters.GroupBy(c => c.Source.Trim(), StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var known = Characters.GroupBy(c => c.Source, CharacterBook.NameComparer).ToDictionary(g => g.Key, g => g.First(), CharacterBook.NameComparer);
         return
         [
             .. scan.Samples
@@ -286,7 +286,7 @@ public sealed partial class GlossaryViewModel
     private async Task SuggestVoicesAsync()
     {
         var requests = voiceRequests;
-        var inTable = Characters.Select(c => c.Source.Trim()).ToHashSet(StringComparer.Ordinal);
+        var inTable = Characters.Select(c => c.Source).ToHashSet(CharacterBook.NameComparer);
         var token = BeginSuggesting();
         var version = usageVersion;
         try
@@ -322,7 +322,7 @@ public sealed partial class GlossaryViewModel
         var changed = 0;
         foreach (var suggestion in suggestions)
         {
-            var row = Characters.FirstOrDefault(c => c.Source.Trim() == suggestion.Name);
+            var row = Characters.FirstOrDefault(c => CharacterBook.NameComparer.Equals(c.Source, suggestion.Name));
             if (row is null)
             {
                 if (inTable.Contains(suggestion.Name))

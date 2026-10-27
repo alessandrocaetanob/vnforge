@@ -17,7 +17,7 @@ public class GlossarySuggestionsTests
         new($"yst00001:{n:D6}", TextUnitKind.Dialogue, speaker, source, null, TranslationStatus.Untranslated);
 
     private static async Task<(GlossaryViewModel Vm, ProjectFolder Folder)> OpenAsync(
-        TempFolder temp, IGlossarySuggester? suggester = null, FakeTimeProvider? clock = null, IReadOnlyList<CharacterEntry>? characters = null)
+        TempFolder temp, IGlossarySuggester? suggester = null, FakeTimeProvider? clock = null, IReadOnlyList<CharacterEntry>? characters = null, IEnumerable<TextUnit>? extraUnits = null)
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated);
         var folder = ProjectFolder.Open(root);
@@ -35,6 +35,7 @@ public class GlossarySuggestionsTests
         // Um rótulo de desconhecido que fala bastante: não é personagem e não vai à IA.
         units.AddRange(Enumerable.Range(40, 5).Select(n => Line(n, $"誰かの声その{n}", "？？？")));
         units.AddRange(Enumerable.Range(10, 6).Select(n => Line(n, $"魔法学院の噂その{n}")));
+        units.AddRange(extraUnits ?? []);
         folder.SaveText("yst00001", units);
         folder.SaveGlossary([new GlossaryTerm("先輩", "veterano")]);
         folder.SaveCharacters(characters ?? [new CharacterEntry("美咲", "Misaki", CharacterGender.Female), new CharacterEntry("健太", "Kenta")]);
@@ -118,6 +119,22 @@ public class GlossarySuggestionsTests
         Assert.Contains("2 personagens receberam", vm.SuggestionNotice);
         Assert.Null(vm.SuggestionError);
         Assert.False(vm.IsSuggesting);
+    }
+
+    [Fact]
+    public async Task Sugerir_voz_nao_pede_o_falante_cadastrado_com_letra_de_largura_diferente()
+    {
+        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "direto"));
+        using var temp = new TempFolder();
+        TextUnit[] wide = [Line(60, "おはよう", "学生Ｃ"), Line(61, "さようなら", "学生Ｃ"), Line(62, "ありがとう", "学生Ｃ")];
+        var (vm, _) = await OpenAsync(temp, fake, characters: [new CharacterEntry("学生C", "Estudante C", CharacterGender.Female)], extraUnits: wide);
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+
+        var asked = Assert.Single(fake.ReceivedVoices);
+        Assert.DoesNotContain(asked, r => r.Name == "学生Ｃ");
+        Assert.DoesNotContain(vm.Characters, c => c.Source == "学生Ｃ");
+        Assert.Equal(CharacterGender.Female, vm.Characters.Single(c => c.Source == "学生C").Gender);
     }
 
     [Fact]
