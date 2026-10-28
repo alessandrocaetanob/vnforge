@@ -101,6 +101,7 @@
                         <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center" Margin="0,4">
                           <TextBlock Classes="body-sm" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
                           <TextBlock Classes="caption secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Classes="caption" Text="{Binding UndoMessage}" TextWrapping="Wrap" IsVisible="{Binding HasUndoMessage}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="2" Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
                           <Border Classes="task-state" Classes.run="{Binding IsRunning}" Classes.err="{Binding IsFailed}" Classes.warn="{Binding IsCancelled}"
@@ -111,6 +112,8 @@
                             </StackPanel>
                           </Border>
                           <TextBlock Classes="caption secondary" Text="{Binding CostText}" HorizontalAlignment="Right" IsVisible="{Binding ShowsCost}"/>
+                          <Button Classes="subtle sm" Content="Desfazer" Command="{Binding UndoCommand}" IsVisible="{Binding CanUndo}"
+                                  HorizontalAlignment="Right" AutomationProperties.Name="Desfazer esta tarefa"/>
                         </StackPanel>
                       </Grid>
                       <ItemsControl ItemsSource="{Binding Steps}" Margin="28,0,0,4">
