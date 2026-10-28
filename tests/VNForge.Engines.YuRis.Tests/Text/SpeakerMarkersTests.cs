@@ -97,6 +97,14 @@ public class SpeakerMarkersTests
     }
 
     [Fact]
+    public void Cp1252_OCorretorDaTraducaoGravaOMesmoParentesesDoMarcador()
+    {
+        Assert.Equal(
+            SpeakerDelimiters.Cp1252ThoughtOpen + "x" + SpeakerDelimiters.Cp1252ThoughtClose,
+            UnwritableCharacters.Fix("（x）", Cp1252));
+    }
+
+    [Fact]
     public void Inject_Cp1252SemUnidades_TrocaOsMarcadoresPorDelimitadoresDeUmByte()
     {
         var bytes = SystemScript().Build().Bytes;
