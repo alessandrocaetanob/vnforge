@@ -1,3 +1,4 @@
+using VNForge.App.Controls;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -21,6 +22,10 @@ public sealed class SpeakerNaming(CharacterBook characters, ITextEncoder? encode
 
     /// <summary>O nome que o build grava na caixa de nome da <paramref name="unit"/>; nulo na narração (<see cref="SpeakerText.WrittenName"/>).</summary>
     public string? NameOf(TextUnit unit) => SpeakerText.WrittenName(unit, Characters, Encoder);
+
+    /// <summary>A cor do personagem da <paramref name="unit"/> na paleta; nula na narração e sem cadastro.</summary>
+    public CharacterColor? ColorOf(TextUnit unit) =>
+        SpeakerText.WrittenName(unit, Characters, Encoder) is null ? null : CharacterPalette.For(Characters.Find(unit.EffectiveSpeaker));
 
     /// <summary>Lê os personagens e a codificação da pasta; o que não abre fica de fora, sem derrubar a tela.</summary>
     public static SpeakerNaming Read(ProjectFolder folder)
