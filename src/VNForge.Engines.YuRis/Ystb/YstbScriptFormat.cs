@@ -53,6 +53,30 @@ public sealed class YstbScriptFormat : IScriptFormat
         }
     }
 
+    /// <inheritdoc />
+    public bool RequiresRebuild(ScriptFile file, ITextEncoder encoder, EngineContext ctx)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(encoder);
+        var context = Require(ctx);
+
+        // Só o script que cadastra os marcadores do falante interessa, e só quando a codificação não grava o 「: nas outras (Shift-JIS) nada a ler.
+        if (SpeakerDelimiters.Resolve(encoder, "「") == "「")
+        {
+            return false;
+        }
+
+        try
+        {
+            return SpeakerMarkers.NeedsPatch(YstbReader.Read(file.Content, file.Name, context.Commands), encoder);
+        }
+        catch (VNForgeException)
+        {
+            // Arquivo que não é um YSTB legível (como o yst_list.ybn) não cadastra marcador; a extração é quem acusa script inválido.
+            return false;
+        }
+    }
+
     private static YuRisContext Require(EngineContext ctx)
     {
         ArgumentNullException.ThrowIfNull(ctx);
