@@ -90,6 +90,18 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Script_que_a_engine_pede_para_reconstruir_passa_pelo_Rebuild_mesmo_sem_traducao()
+    {
+        _engine.ScriptsRequiringRebuild.Add("a002.fake");
+
+        var result = Build();
+
+        Assert.Equal(1, _engine.RebuildCalls);
+        Assert.Empty(_engine.LastRebuiltUnits);
+        Assert.Equal(2, result.ScriptCount);
+    }
+
+    [Fact]
     public void Linha_nao_traduzir_gera_o_mesmo_pacote_que_a_linha_sem_traducao()
     {
         var semMarca = Build();

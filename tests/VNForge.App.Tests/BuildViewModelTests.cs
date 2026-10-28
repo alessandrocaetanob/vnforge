@@ -622,7 +622,10 @@ public sealed class BuildViewModelTests : IDisposable
         await vm.ConfirmCommand.ExecuteAsync(null);
         Assert.Equal(BuildResultTone.Warning, vm.ResultTone);
         Assert.Equal("Originais restaurados.", vm.ResultTitle);
-        Assert.Equal($"O jogo voltou aos arquivos de backup{Path.DirectorySeparatorChar}{name}. O build continua disponível para injetar.", vm.ResultText);
+        Assert.Equal(
+            $"O jogo voltou aos arquivos de backup{Path.DirectorySeparatorChar}{name}. Para testar de novo, use Testar no jogo (Ctrl+B): ele refaz o build e copia por cima, sem restaurar antes.",
+            vm.ResultText);
+        Assert.Contains("Testar no jogo", vm.ResultText, StringComparison.Ordinal);
         Assert.Equal("Icon.Warning", vm.ResultIconKey);
     }
 

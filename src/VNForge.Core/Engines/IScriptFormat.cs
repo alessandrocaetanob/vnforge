@@ -55,7 +55,7 @@ public interface IScriptFormat
     /// texto nos marcadores e codifica só os trechos de texto). Se os bytes codificados forem iguais aos originais (ex.: o <c>fold</c> reduz a
     /// tradução ao mesmo texto), o argumento é copiado cru, como se não houvesse tradução; a regra 3 do <c>CLAUDE.md</c> vale também aqui.</description></item>
     /// </list>
-    /// Sem nenhuma unidade a reescrever, o resultado é idêntico ao <see cref="ScriptFile.Content"/>.
+    /// Sem nenhuma unidade a reescrever, o resultado é idêntico ao <see cref="ScriptFile.Content"/>, salvo num script que <see cref="RequiresRebuild"/> aponta.
     /// </remarks>
     /// <param name="file">Script original, o mesmo que foi extraído.</param>
     /// <param name="units">Unidades com as traduções, normalmente lidas de <c>text/*.json</c>.</param>
@@ -71,6 +71,15 @@ public interface IScriptFormat
     /// </exception>
     /// <exception cref="ArgumentException">O contexto é de outra engine, ou os ids de <paramref name="units"/> não passam na validação acima.</exception>
     byte[] Rebuild(ScriptFile file, IReadOnlyList<TextUnit> units, ITextEncoder encoder, EngineContext ctx);
+
+    /// <summary>
+    /// Verdadeiro quando o script precisa passar pelo <see cref="Rebuild"/> mesmo sem nenhuma unidade a reescrever, porque a codificação escolhida
+    /// muda algo que não é texto traduzido (no YU-RIS, os marcadores de falante que o jogo procura, #434). O padrão é falso.
+    /// </summary>
+    /// <param name="file">Script original.</param>
+    /// <param name="encoder">Codificador do texto para os bytes do jogo.</param>
+    /// <param name="ctx">Contexto da engine deste jogo.</param>
+    bool RequiresRebuild(ScriptFile file, ITextEncoder encoder, EngineContext ctx) => false;
 }
 
 /// <summary>
