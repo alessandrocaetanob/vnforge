@@ -51,6 +51,28 @@ public class BuildPatchHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
     }
 
     [Fact]
+    public async Task Nenhum_botao_dos_detalhes_tecnicos_tem_destaque_e_o_unico_da_pagina_e_o_Testar_no_jogo()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenAsync(temp, "cp1252");
+
+        await fixture.Session.Dispatch(
+            () => Abrir(vm, window =>
+            {
+                var detalhes = window.GetVisualDescendants().OfType<VNForge.App.Controls.TechnicalDetails>().Single();
+                var botoes = detalhes.GetVisualDescendants().OfType<Button>().ToList();
+                Assert.Contains(botoes, b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Aplicar patch da fonte");
+                Assert.Contains(botoes, b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Injetar no jogo");
+                Assert.Contains(botoes, b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Ver erros");
+                Assert.DoesNotContain(botoes, b => b.Classes.Contains("accent"));
+
+                var destaques = window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Classes.Contains("accent")).ToList();
+                Assert.Equal([Botao(window, "Testar no jogo")], destaques);
+            }),
+            CancellationToken.None);
+    }
+
+    [Fact]
     public async Task Com_cp1252_o_cartao_mostra_o_botao_e_a_confirmacao_lista_o_executavel()
     {
         using var temp = new TempFolder();

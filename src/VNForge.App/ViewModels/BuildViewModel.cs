@@ -1351,7 +1351,7 @@ public sealed partial class BuildViewModel : ObservableObject
             SetResult(
                 BuildResultTone.Warning,
                 "Originais restaurados.",
-                $"O jogo voltou aos arquivos de {BackupRelative(Path.GetFileName(restoredFrom))}. O build continua disponível para injetar.");
+                $"O jogo voltou aos arquivos de {BackupRelative(Path.GetFileName(restoredFrom))}. Para testar de novo, use Testar no jogo (Ctrl+B): ele refaz o build e copia por cima, sem restaurar antes.");
         }
         else if (!state.HasBuild)
         {

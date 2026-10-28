@@ -50,6 +50,8 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 window.UpdateLayout();
 
                 var line = window.GetVisualDescendants().OfType<TextBlock>().First(t => LineLinks.GetSource(t) == Message);
+                line.BringIntoView();
+                window.UpdateLayout();
                 Click(window, CenterOf(line, window, "yst00112:033792"));
 
                 Assert.Equal(new LineRequest("yst00112", "yst00112:033792"), requested);
@@ -75,6 +77,8 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 window.UpdateLayout();
 
                 var line = window.GetVisualDescendants().OfType<TextBlock>().First(t => LineLinks.GetSource(t) == Message);
+                line.BringIntoView();
+                window.UpdateLayout();
                 Click(window, CenterOf(line, window, "Build falhou"));
 
                 Assert.Equal(0, requests);
