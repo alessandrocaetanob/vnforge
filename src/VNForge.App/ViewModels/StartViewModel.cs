@@ -19,6 +19,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 {
     private readonly SemaphoreSlim loadGate = new(1, 1);
     private readonly FormattingProfileCache profiles = new();
+    private readonly DateTimeOffset startedAt = clock.GetUtcNow();
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OpenSelectedCommand))]
@@ -63,6 +64,10 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     public partial string ContinueLineCaption { get; private set; } = string.Empty;
 
     public bool HasContinueLayout => ContinueLayout is not null;
+
+    /// <summary>O Diário de tradução do projeto selecionado: o mapa das últimas 12 semanas, os dias seguidos e o que foi aprovado ontem. Vazio sem projeto.</summary>
+    [ObservableProperty]
+    public partial DiaryCard Diary { get; private set; } = DiaryCard.Pending;
 
     /// <summary>A leitura do <see cref="Detail"/> em curso; os testes esperam por ela.</summary>
     public Task DetailLoading { get; private set; } = Task.CompletedTask;
@@ -386,6 +391,15 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
             ShowContinueLine(null, string.Empty, null);
         }
 
+        if (project is null)
+        {
+            ShowDiary(DiaryCard.Empty, null);
+        }
+        else if (!SamePath(project.Root, diaryRoot))
+        {
+            ShowDiary(DiaryCard.Pending, null);
+        }
+
         var rapid = lastSelectionAt != 0 && Stopwatch.GetElapsedTime(lastSelectionAt) < TimeSpan.FromMilliseconds(500);
         lastSelectionAt = Stopwatch.GetTimestamp();
         Detail.Project = project;
@@ -430,6 +444,11 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         if (!token.IsCancellationRequested)
         {
             await Detail.ReloadAsync();
+            if (!token.IsCancellationRequested)
+            {
+                ShowDiary(new DiaryCard(Detail.Diary), Selected?.IsSupported == true ? Selected.Path : null);
+            }
+
             OnPropertyChanged(nameof(DetailError));
             await ReloadContinueLineAsync(token);
         }
@@ -468,6 +487,15 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
     private string? continueRoot;
 
+    private string? diaryRoot;
+
+    /// <summary>Mostra o diário de <paramref name="root"/>; sem raiz, o diário não é de nenhum projeto lido e a próxima seleção começa do zero.</summary>
+    private void ShowDiary(DiaryCard card, string? root)
+    {
+        diaryRoot = root;
+        Diary = card;
+    }
+
     private void ShowContinueLine(TextboxLayout? layout, string caption, string? root)
     {
         continueRoot = layout is null ? null : root;
@@ -502,6 +530,29 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         catch (Exception e) when (IsExpected(e))
         {
             return (null, string.Empty);
+        }
+    }
+
+    /// <summary>
+    /// O resumo curto da sessão para mostrar ao fechar o app: as linhas aprovadas em <paramref name="projectRoot"/> desde que o app abriu e o tempo trabalhado.
+    /// Nulo quando nada foi aprovado ou o registro não pôde ser lido; ler o registro nunca impede o app de fechar.
+    /// </summary>
+    public string? CloseSummary(string? projectRoot)
+    {
+        if (projectRoot is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var now = clock.GetUtcNow();
+            var read = SessionsFile.Read(ProjectFolder.Open(projectRoot));
+            return DiaryCard.SessionText(SessionSummary.Compute(read.File, startedAt, now), ReviewDiary.Compute(read.File, now, clock.LocalTimeZone));
+        }
+        catch (Exception e) when (IsExpected(e))
+        {
+            return null;
         }
     }
 

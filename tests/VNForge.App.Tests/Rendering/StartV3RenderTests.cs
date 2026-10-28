@@ -138,7 +138,9 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                     AssertInside(box, card);
                     var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First();
                     Assert.True(accent.TranslatePoint(new Avalonia.Point(0, accent.Bounds.Height), scroll)!.Value.Y <= scroll.Viewport.Height, "o botão principal passa da área visível");
-                    Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 0.5, "o Início com um projeto passa da janela");
+                    // O diário abaixo da lista pode rolar a 768 de altura, mas o que vem antes dele (a lista e a área para soltar a pasta) fica na área visível.
+                    var drop = Assert.Single(view.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Name == "ListDropArea");
+                    Assert.True(drop.TranslatePoint(new Avalonia.Point(0, drop.Bounds.Height), scroll)!.Value.Y <= scroll.Viewport.Height + 0.5, "a lista de projetos passa da área visível");
                     var clipped = ClippedTextHeadlessTests.FindClipped(card);
                     Assert.True(clipped.Count == 0, string.Join("; ", clipped));
 

@@ -213,21 +213,46 @@
                 </Border>
               </StackPanel>
             </Border>
-
-            <!-- Os dados do projeto selecionado que a pessoa raramente precisa: fora do cartão, fechados. -->
-            <c:TechnicalDetails Key="start" IsVisible="{Binding Selected.IsSupported}" AutomationProperties.Name="Detalhes técnicos">
-              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" Margin="0,8,0,0">
-                <TextBlock Classes="body-sm secondary" Text="Motor"/>
-                <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.EngineLabel}"/>
-                <TextBlock Grid.Row="1" Classes="body-sm secondary" Text="Pasta"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.Path}"/>
-                <TextBlock Grid.Row="2" Classes="body-sm secondary" Text="Acentos"/>
-                <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.EncodingLabel}"/>
-                <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Qualidade"/>
-                <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.QualityLabel}"/>
-              </Grid>
-            </c:TechnicalDetails>
           </StackPanel>
+
+          <!-- Diário de tradução: o trabalho dos últimos dias, no espaço que a lista de um projeto só deixa vazio. -->
+          <Border Classes="panel" Padding="24" IsVisible="{Binding Selected.IsSupported}" AutomationProperties.Name="Diário de tradução">
+            <StackPanel Spacing="16">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="title-md" Text="Diário de tradução"/>
+                <TextBlock Grid.Column="1" Classes="body-sm secondary" VerticalAlignment="Center" Text="{x:Static vm:DiaryCard.RangeText}"/>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,48,*">
+                <c:ReviewHeatmap Diary="{Binding Diary.Source}" HorizontalAlignment="Left" AutomationProperties.Name="{Binding Diary.MapDescription}"/>
+                <StackPanel Grid.Column="2" Spacing="12" VerticalAlignment="Center" MinWidth="0">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="title-lg" FontFeatures="tnum" Text="{Binding Diary.StreakValue}" VerticalAlignment="Center"/>
+                    <TextBlock Classes="body-sm secondary" Text="{Binding Diary.StreakCaption}" VerticalAlignment="Center"/>
+                  </StackPanel>
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Diary.YesterdayText}"/>
+                    <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Diary.TodayText}"/>
+                    <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Diary.TotalText}" IsVisible="{Binding Diary.HasActivity}"/>
+                    <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{x:Static vm:DiaryCard.EmptyText}" IsVisible="{Binding Diary.IsEmpty}"/>
+                  </StackPanel>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Os dados do projeto selecionado que a pessoa raramente precisa: fora do cartão, fechados. -->
+          <c:TechnicalDetails Key="start" IsVisible="{Binding Selected.IsSupported}" AutomationProperties.Name="Detalhes técnicos">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" Margin="0,8,0,0">
+              <TextBlock Classes="body-sm secondary" Text="Motor"/>
+              <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.EngineLabel}"/>
+              <TextBlock Grid.Row="1" Classes="body-sm secondary" Text="Pasta"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Selected.Path}"/>
+              <TextBlock Grid.Row="2" Classes="body-sm secondary" Text="Acentos"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.EncodingLabel}"/>
+              <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Qualidade"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Selected.QualityLabel}"/>
+            </Grid>
+          </c:TechnicalDetails>
         </StackPanel>
 
         <!-- Primeira vez: os quatro passos do caminho inteiro, a área para soltar a pasta e o que ter à mão. -->
