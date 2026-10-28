@@ -288,13 +288,13 @@ public class EditorViewModelTests
     }
 
     [Fact]
-    public async Task Item_do_script_mostra_percentual_concluido_e_a_IA_no_tooltip()
+    public async Task Item_do_script_mostra_percentual_concluido_e_a_IA_no_tooltip_junto_com_o_id()
     {
         var vm = await Carregado();
         var item = vm.Scripts[0];
 
         Assert.Equal("40%", item.PercentLabel);
-        Assert.Equal("IA 20%", item.Tooltip);
+        Assert.Equal($"{item.Name}\n{item.Key} · IA 20%", item.Tooltip);
         Assert.False(item.IsComplete);
         Assert.Equal("5", item.LinesLabel);
         Assert.True(vm.Scripts[1].IsComplete);
