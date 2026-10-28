@@ -66,7 +66,7 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     }
 
     [Fact]
-    public async Task Detalhes_tecnicos_abrem_com_a_faixa_que_aponta_o_Testar_no_jogo_e_o_link_volta_ao_botao()
+    public async Task Detalhes_tecnicos_abrem_com_a_faixa_que_explica_o_botao_do_topo_sem_botao_proprio()
     {
         using var temp = new TempFolder();
         var game = temp.SubFolder("jogo");
@@ -94,17 +94,58 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                     Assert.True(faixa.IsEffectivelyVisible);
                     var texto = string.Concat(faixa.GetVisualDescendants().OfType<TextBlock>().SelectMany(t => t.Inlines!.OfType<Run>()).Select(r => r.Text));
                     Assert.Contains("Testar no jogo", texto, StringComparison.Ordinal);
+                    Assert.Contains("botão do topo", texto, StringComparison.Ordinal);
                     Assert.Contains("Não precisa restaurar os originais entre um teste e outro", texto, StringComparison.Ordinal);
 
-                    var testar = Botao(window, "Testar no jogo");
-                    testar.Focusable = true;
-                    Assert.False(testar.IsFocused);
+                    Assert.Empty(faixa.GetVisualDescendants().OfType<Button>());
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Ir para Testar no jogo");
+                    Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Testar no jogo");
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+    }
 
-                    var link = Botao(window, "Ir para Testar no jogo");
-                    Assert.DoesNotContain("accent", link.Classes);
-                    link.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-                    Dispatcher.UIThread.RunJobs();
-                    Assert.True(testar.IsFocused);
+    [Fact]
+    public async Task As_opcoes_ficam_todas_numa_lista_so_no_corpo_e_Detalhes_tecnicos_nao_repete_Opcoes()
+    {
+        using var temp = new TempFolder();
+        var game = temp.SubFolder("jogo");
+        File.WriteAllText(Path.Combine(game, "ysbin.ypf"), "original");
+        File.WriteAllText(Path.Combine(game, "jogo.exe"), "MZ");
+        var folder = ProjectFolder.Create(temp.SubFolder("projeto"), new ProjectConfig(
+            "Teste",
+            new GameConfig(game, "jogo.exe"),
+            new EngineConfig("yuris"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("fold"),
+            AiConfig.Default));
+        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
+        vm.Project = ProjectSummaryReader.Read(folder.Root);
+        await vm.ReloadAsync();
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                try
+                {
+                    var nomeado = (Border b) => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty);
+                    var paineis = window.GetVisualDescendants().OfType<Border>().Where(b => nomeado(b) is { } n && n.StartsWith("Opções", StringComparison.Ordinal)).ToList();
+                    var opcoes = Assert.Single(paineis);
+                    Assert.Equal("Opções do teste", nomeado(opcoes));
+
+                    var regras = opcoes.GetVisualDescendants().OfType<VNForge.App.Controls.ToggleRule>().Select(r => r.Title).ToList();
+                    Assert.Equal(["Só a cena aberta no editor", "Testar mesmo com avisos", "Reconstruir só scripts alterados"], regras);
+
+                    var tecnicos = window.GetVisualDescendants().OfType<VNForge.App.Controls.TechnicalDetails>().Single();
+                    Assert.DoesNotContain(tecnicos.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Opções");
+                    Assert.Empty(tecnicos.GetVisualDescendants().OfType<VNForge.App.Controls.ToggleRule>());
+                    Assert.Equal(["Resultado", "Log do build", "Backups"], tecnicos.GetVisualDescendants().OfType<Border>()
+                        .Select(b => nomeado(b)).Where(n => n is "Resultado" or "Log do build" or "Backups").ToList());
                 }
                 finally
                 {

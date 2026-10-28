@@ -296,6 +296,32 @@ public sealed class BuildTestViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Reconstruir_so_scripts_alterados_chega_ao_teste_no_jogo()
+    {
+        var vm = await OpenAsync();
+        Assert.True(vm.OnlyChanged);
+        var buildFiles = () => Directory.EnumerateFiles(Path.Combine(root, "build"), "*", SearchOption.AllDirectories).ToList();
+        var old = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        await vm.TestCommand.ExecuteAsync(null);
+        Assert.Null(vm.ErrorMessage);
+        Assert.NotEmpty(buildFiles());
+        foreach (var file in buildFiles())
+        {
+            File.SetLastWriteTimeUtc(file, old);
+        }
+
+        await vm.TestCommand.ExecuteAsync(null);
+        Assert.Null(vm.ErrorMessage);
+        Assert.All(buildFiles(), f => Assert.Equal(old, File.GetLastWriteTimeUtc(f)));
+
+        vm.OnlyChanged = false;
+        await vm.TestCommand.ExecuteAsync(null);
+        Assert.Null(vm.ErrorMessage);
+        Assert.Contains(buildFiles(), f => File.GetLastWriteTimeUtc(f) != old);
+    }
+
+    [Fact]
     public async Task Jogo_sem_o_executavel_nao_recebe_nada_e_a_mensagem_nao_mostra_o_caminho()
     {
         var vm = await OpenAsync();
