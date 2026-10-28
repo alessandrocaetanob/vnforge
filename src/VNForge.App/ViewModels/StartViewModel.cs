@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Demo;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -14,7 +15,7 @@ namespace VNForge.App.ViewModels;
 public sealed record FirstStep(int Number, string Title, string Description);
 
 /// <summary>Tela Início: abrir um projeto, ver os recentes e o progresso do projeto selecionado.</summary>
-public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock) : ObservableObject, IDisposable
+public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPicker picker, TimeProvider clock, string? sampleParent = null) : ObservableObject, IDisposable
 {
     private readonly SemaphoreSlim loadGate = new(1, 1);
     private readonly FormattingProfileCache profiles = new();
@@ -77,6 +78,9 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     public partial bool ApiKeyConfigured { get; set; }
 
     public bool HasRecents => Recents.Count > 0;
+
+    /// <summary>O botão "Experimentar com uma cena de exemplo" só aparece na primeira vez, enquanto não há projeto nos recentes.</summary>
+    public bool ShowSampleButton => !HasRecents;
 
     /// <summary>Os quatro passos da primeira vez, na ordem em que a pessoa os faz.</summary>
     public static IReadOnlyList<FirstStep> FirstSteps { get; } =
@@ -150,6 +154,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
             Selected = Recents.FirstOrDefault(i => SamePath(i.Path, keep)) ?? Recents.FirstOrDefault();
             forceDetailReload = false;
             OnPropertyChanged(nameof(HasRecents));
+            OnPropertyChanged(nameof(ShowSampleButton));
             OnPropertyChanged(nameof(DropTitle));
             OnPropertyChanged(nameof(DefaultFolder));
             OnPropertyChanged(nameof(RecentsSummary));
@@ -240,6 +245,32 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
         ClearMessages();
         if (await OpenAsync(item.Path) is { } summary)
+        {
+            DashboardRequested?.Invoke(this, summary);
+        }
+    }
+
+    /// <summary>
+    /// "Experimentar com uma cena de exemplo": grava (ou reaproveita) o projeto sintético na pasta de exemplos do usuário, nunca na de um jogo,
+    /// abre e leva ao Painel. A IA dele é a falsa; não precisa de jogo nem de chave.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenSampleAsync()
+    {
+        ClearMessages();
+        string root;
+        var parent = sampleParent ?? System.IO.Path.Combine(RecentProjectsFile.DefaultDirectory(), "exemplo");
+        try
+        {
+            root = await Task.Run(() => SampleProject.Create(parent), CancellationToken.None);
+        }
+        catch (Exception e) when (IsExpected(e))
+        {
+            ErrorMessage = $"Não foi possível preparar a cena de exemplo: {WithoutPath(e.Message, parent)}";
+            return;
+        }
+
+        if (await OpenAsync(root) is { } summary)
         {
             DashboardRequested?.Invoke(this, summary);
         }

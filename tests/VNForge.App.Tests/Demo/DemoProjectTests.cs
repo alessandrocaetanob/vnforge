@@ -1,3 +1,4 @@
+using VNForge.Core.Demo;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
