@@ -227,6 +227,24 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
         });
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task LineRow_com_duvida_mostra_o_selo_sem_mudar_a_altura_nem_cortar_a_traducao(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var plain = new LineRow { Number = 1, Status = TranslationStatus.Machine, Original = "原文", Translation = "Bom dia." };
+            var doubt = new LineRow { Number = 2, Status = TranslationStatus.Machine, Original = "原文", Translation = "Bom dia.", HasDoubt = true, DoubtTip = "Tom: Ironia?" };
+            ui.Show(new StackPanel { Children = { plain, doubt } });
+
+            Assert.False(Part<Border>(plain, "PART_Doubt").IsVisible);
+            Assert.True(Part<Border>(doubt, "PART_Doubt").IsVisible);
+            Assert.Contains(":doubt", doubt.Classes);
+            Assert.Equal(36, doubt.Bounds.Height);
+            Assert.True(Part<TextBlock>(doubt, "PART_Translation").Bounds.Width > 0);
+        });
+    }
+
     [Fact]
     public async Task LineRow_na_lista_tem_altura_fixa_e_a_selecionada_mostra_a_barra()
     {

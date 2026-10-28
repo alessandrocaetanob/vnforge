@@ -343,4 +343,37 @@ public class TextUnitTests
         Assert.Equal(string.Empty, (Unidade() with { ChosenSpeaker = string.Empty }).EffectiveSpeaker);
         Assert.Null((Unidade() with { Speaker = null }).EffectiveSpeaker);
     }
+
+    [Fact]
+    public void Doubt_nula_nao_entra_no_json()
+    {
+        Assert.DoesNotContain("doubt", TextUnitJson.Serialize(Unidade()));
+    }
+
+    [Theory]
+    [InlineData(DoubtKind.Pun, "pun")]
+    [InlineData(DoubtKind.HiddenSubject, "hidden-subject")]
+    [InlineData(DoubtKind.UncertainGender, "uncertain-gender")]
+    [InlineData(DoubtKind.CulturalReference, "cultural-reference")]
+    [InlineData(DoubtKind.Tone, "tone")]
+    public void Doubt_faz_ida_e_volta_no_json_com_o_nome_do_tipo(DoubtKind kind, string nome)
+    {
+        var unidade = Unidade(translation: "Oi", status: TranslationStatus.Machine) with { Doubt = new TranslationDoubt(kind, "Não sei quem fala.") };
+
+        var json = TextUnitJson.Serialize(unidade);
+
+        Assert.Contains($"\"doubt\":{{\"kind\":\"{nome}\",\"note\":\"Não sei quem fala.\"}}", json, StringComparison.Ordinal);
+        Assert.Equal(unidade.Doubt, TextUnitJson.Deserialize(json).Doubt);
+    }
+
+    [Fact]
+    public void Doubt_com_tipo_desconhecido_ou_sem_frase_e_recusada()
+    {
+        var json = TextUnitJson.Serialize(Unidade());
+        var tipoNovo = json[..^1] + ",\"doubt\":{\"kind\":\"vibe\",\"note\":\"x\"}}";
+        var semFrase = json[..^1] + ",\"doubt\":{\"kind\":\"tone\"}}";
+
+        Assert.Throws<System.Text.Json.JsonException>(() => TextUnitJson.Deserialize(tipoNovo));
+        Assert.Throws<System.Text.Json.JsonException>(() => TextUnitJson.Deserialize(semFrase));
+    }
 }

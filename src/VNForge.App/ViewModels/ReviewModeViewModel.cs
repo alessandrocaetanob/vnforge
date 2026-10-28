@@ -169,7 +169,10 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     public string SceneName => editor.SelectedScript?.Name ?? string.Empty;
 
     /// <summary>O nome da próxima cena com linhas da IA para revisar, como na lista de cenas; nulo na última.</summary>
-    public string? NextSceneName => editor.NextScriptToReview()?.Name;
+    public string? NextSceneName => DoubtsOnly ? null : editor.NextScriptToReview()?.Name;
+
+    /// <summary>A fila é só das linhas com dúvida da IA (<see cref="EditorViewModel.StartDoubtReview"/>): a tela final não oferece a próxima cena, que seguiria a regra das linhas da IA.</summary>
+    public bool DoubtsOnly { get; init; }
 
     public bool HasNextScene => NextSceneName is not null;
 

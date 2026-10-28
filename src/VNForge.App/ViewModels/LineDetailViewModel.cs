@@ -69,6 +69,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         {
             field = value;
             OnPropertyChanged(nameof(HistoryText));
+            NotifyDoubtChanged();
             SavedChanged?.Invoke(value);
         }
     }

@@ -98,6 +98,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Pending, "Em japonês"),
             new FilterChipViewModel(LineStatusFilter.Machine, "Para revisar"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
+            new FilterChipViewModel(LineStatusFilter.Doubt, "Com dúvida"),
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
         ];
         SelectedSpeaker = Speakers[0];
@@ -215,6 +216,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     /// <summary>Linhas do script aberto que ainda não têm tradução.</summary>
     public int PendingLines { get; private set; }
+
+    /// <summary>Quantas linhas do script aberto a IA marcou com dúvida; o botão que abre o modo revisão nelas só aparece quando há alguma.</summary>
+    public int DoubtLines { get; private set; }
+
+    public bool HasDoubts => DoubtLines > 0;
 
     public string ScriptsCount => ProjectLabels.Number(Scripts.Count);
 
@@ -1082,6 +1088,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         PendingLines = new LineFilter(LineStatusFilter.Pending).Count(entries);
         OnPropertyChanged(nameof(PendingLines));
+        DoubtLines = new LineFilter(LineStatusFilter.Doubt).Count(entries);
+        OnPropertyChanged(nameof(DoubtLines));
+        OnPropertyChanged(nameof(HasDoubts));
         TranslatePendingCommand.NotifyCanExecuteChanged();
     }
 

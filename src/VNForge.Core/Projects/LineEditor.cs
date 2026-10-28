@@ -56,7 +56,7 @@ public sealed class LineEditor
 
                 return string.IsNullOrEmpty(unit.Translation) && unit.Status == TranslationStatus.Untranslated && unit.Origin is null
                     ? unit
-                    : unit with { Translation = null, Status = TranslationStatus.Untranslated, Origin = null };
+                    : unit with { Translation = null, Status = TranslationStatus.Untranslated, Origin = null, Doubt = null };
             }
 
             return string.Equals(unit.Translation, translation, StringComparison.Ordinal)
@@ -66,6 +66,7 @@ public sealed class LineEditor
                     Translation = translation,
                     Status = TranslationStatus.Translated,
                     Origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()),
+                    Doubt = null,
                 };
         });
 
@@ -175,7 +176,7 @@ public sealed class LineEditor
                 continue;
             }
 
-            units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin };
+            units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin, Doubt = null };
             if (!pending.TryGetValue(scriptKey, out var list))
             {
                 pending[scriptKey] = list = [];
@@ -255,7 +256,7 @@ public sealed class LineEditor
     }
 
     private static TextUnit WithKeep(TextUnit unit, bool keep) => keep
-        ? unit.Status == TranslationStatus.Keep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null }
+        ? unit.Status == TranslationStatus.Keep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null, Doubt = null }
         : unit.Status == TranslationStatus.Keep ? unit with { Status = TranslationStatus.Untranslated } : unit;
 
     /// <summary>Grava as notas da linha, sem mexer na tradução nem no status.</summary>
@@ -339,7 +340,7 @@ public sealed class LineEditor
                 throw new InvalidOperationException($"A linha '{unit.Id}' não tem tradução e não pode ser aprovada. Escreva a tradução antes de aprovar.");
             }
 
-            return unit.Status == TranslationStatus.Approved ? unit : unit with { Status = TranslationStatus.Approved };
+            return unit.Status == TranslationStatus.Approved ? unit : unit with { Status = TranslationStatus.Approved, Doubt = null };
         });
 
     /// <summary>
@@ -359,7 +360,7 @@ public sealed class LineEditor
                 throw new VNForgeException("A linha mudou depois deste aviso; nada foi desfeito.");
             }
 
-            var restored = unit with { Translation = previous.Translation, Status = previous.Status, Origin = previous.Origin };
+            var restored = unit with { Translation = previous.Translation, Status = previous.Status, Origin = previous.Origin, Doubt = previous.Doubt };
             return restored == unit ? unit : restored;
         });
     }

@@ -89,6 +89,7 @@ public static class ReviewImporter
                 {
                     Translation = row.Translation.Length == 0 ? null : row.Translation,
                     Status = status,
+                    Doubt = status == TranslationStatus.Approved || !string.Equals(current.Translation ?? string.Empty, row.Translation, StringComparison.Ordinal) ? null : current.Doubt,
                     Notes = row.Notes,
                 }));
             }

@@ -1,4 +1,5 @@
 using VNForge.AI.Translation;
+using VNForge.Core.Text;
 
 namespace VNForge.AI.Cost;
 
@@ -34,20 +35,23 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
         // Linhas repetidas no mesmo lote pagam uma vez só.
         ledger?.RecordCacheHits(hits + (batch.Lines.Count - hits - toSend.Count));
 
-        var refused = toSend.Count > 0
+        var (refused, doubts) = toSend.Count > 0
             ? await TranslateMissingAsync(batch, keys, toSend, ct).ConfigureAwait(false)
-            : [];
+            : ([], new Dictionary<string, TranslationDoubt>(StringComparer.Ordinal));
 
         return [.. batch.Lines.Select((u, i) =>
         {
             return cache.TryGet(keys[i], out var translation)
-                ? new TranslationResult(u.Id, translation)
+                ? new TranslationResult(u.Id, translation, Doubt: doubts.GetValueOrDefault(keys[i]))
                 : new TranslationResult(u.Id, string.Empty, Refused: refused.Contains(keys[i]));
         })];
     }
 
-    /// <summary>Manda ao provedor só as linhas fora do cache e guarda as traduções. Devolve as chaves das linhas recusadas.</summary>
-    private async Task<HashSet<string>> TranslateMissingAsync(TranslationBatch batch, List<string> keys, List<int> toSend, CancellationToken ct)
+    /// <summary>
+    /// Manda ao provedor só as linhas fora do cache e guarda as traduções. Devolve as chaves das linhas recusadas e as dúvidas que o provedor
+    /// registrou, que não vão para o cache: a linha que sai do cache na próxima execução não traz dúvida.
+    /// </summary>
+    private async Task<(HashSet<string> Refused, Dictionary<string, TranslationDoubt> Doubts)> TranslateMissingAsync(TranslationBatch batch, List<string> keys, List<int> toSend, CancellationToken ct)
     {
         var request = batch.ForLines([.. toSend.Select(i => batch.Lines[i])]);
 
@@ -57,6 +61,7 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
             byId[r.Id] = r;
 
         var refused = new HashSet<string>(StringComparer.Ordinal);
+        var doubts = new Dictionary<string, TranslationDoubt>(StringComparer.Ordinal);
         foreach (var i in toSend)
         {
             if (!byId.TryGetValue(batch.Lines[i].Id, out var result))
@@ -66,9 +71,13 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
             if (result.Refused || string.IsNullOrEmpty(result.Translation))
                 refused.Add(keys[i]);
             else
+            {
                 cache.Set(keys[i], result.Translation);
+                if (result.Doubt is not null)
+                    doubts[keys[i]] = result.Doubt;
+            }
         }
 
-        return refused;
+        return (refused, doubts);
     }
 }

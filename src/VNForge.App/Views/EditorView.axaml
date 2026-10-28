@@ -100,6 +100,13 @@
             <TextBlock Classes="btn-label" Text="Modo revisão" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
+        <Button Classes="tool" Command="{Binding StartDoubtReviewCommand}" IsVisible="{Binding HasDoubts}" AutomationProperties.Name="Revisar dúvidas"
+                ToolTip.Tip="Modo revisão só nas linhas em que a IA ficou em dúvida">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Info}"/>
+            <TextBlock Classes="btn-label" Text="{Binding DoubtLines, StringFormat='Dúvidas ({0})'}" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
         <Button Classes="accent sm" Margin="6,0,0,0" Command="{Binding TranslatePendingCommand}" AutomationProperties.Name="Traduzir com IA"
                 ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -185,7 +192,7 @@
               <DataTemplate x:DataType="vm:LineViewModel">
                 <c:LineRow Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
                            Translation="{Binding TranslationPlain}" Issue="{Binding Issue}" IssueLabel="{Binding IssueLabel}" IssueTip="{Binding IssueTip}"
-                           SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}"
+                           SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}" HasDoubt="{Binding HasDoubt}" DoubtTip="{Binding DoubtTip}"
                            ToolTip.Tip="{Binding Id}" c:Motion.PulseOnApproval="{Binding Status}"/>
               </DataTemplate>
             </ListBox.ItemTemplate>

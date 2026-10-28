@@ -40,6 +40,8 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<LineIssue> IssueProperty = AvaloniaProperty.Register<LineRow, LineIssue>(nameof(Issue));
     public static readonly StyledProperty<string?> IssueLabelProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueLabel));
     public static readonly StyledProperty<string?> IssueTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueTip));
+    public static readonly StyledProperty<bool> HasDoubtProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(HasDoubt));
+    public static readonly StyledProperty<string?> DoubtTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(DoubtTip));
 
     public static readonly DirectProperty<LineRow, string> NumberTextProperty =
         AvaloniaProperty.RegisterDirect<LineRow, string>(nameof(NumberText), o => o.NumberText);
@@ -130,6 +132,20 @@ public sealed class LineRow : TemplatedControl
         set => SetValue(IssueTipProperty, value);
     }
 
+    /// <summary>A IA registrou uma dúvida sobre a tradução: o selo "Dúvida" aparece ao lado do texto.</summary>
+    public bool HasDoubt
+    {
+        get => GetValue(HasDoubtProperty);
+        set => SetValue(HasDoubtProperty, value);
+    }
+
+    /// <summary>Dica do selo "Dúvida": o tipo e a frase da IA.</summary>
+    public string? DoubtTip
+    {
+        get => GetValue(DoubtTipProperty);
+        set => SetValue(DoubtTipProperty, value);
+    }
+
     /// <summary>O número da linha em mono, com zeros à esquerda (<c>0038</c>).</summary>
     public string NumberText
     {
@@ -182,7 +198,7 @@ public sealed class LineRow : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == TranslationProperty
-            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty)
+            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == HasDoubtProperty)
         {
             Apply();
         }
@@ -215,6 +231,7 @@ public sealed class LineRow : TemplatedControl
         PseudoClasses.Set(":speaker-changed", SpeakerChanged);
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);
         PseudoClasses.Set(":error", Issue == LineIssue.Error);
+        PseudoClasses.Set(":doubt", HasDoubt);
         AutomationProperties.SetName(this, SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}");
     }
 }

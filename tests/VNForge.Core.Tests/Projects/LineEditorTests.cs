@@ -151,6 +151,61 @@ public class LineEditorTests
         Assert.Equal(TranslationStatus.Untranslated, Gravada(projeto, 2).Status);
     }
 
+    private static TextUnit ComDuvida(int n) =>
+        Linha(n, TranslationStatus.Machine, "Bom dia.") with { Doubt = new TranslationDoubt(DoubtKind.HiddenSubject, "Quem cumprimenta?") };
+
+    [Fact]
+    public void Approve_encerra_a_duvida_da_linha()
+    {
+        using var pasta = new TempFolder();
+        var (projeto, editor) = Preparar(pasta.Path, ComDuvida(1), ComDuvida(2));
+
+        var gravada = editor.Approve("yst00001", "yst00001:000001");
+
+        Assert.Null(gravada.Doubt);
+        Assert.Null(Gravada(projeto, 1).Doubt);
+        Assert.NotNull(Gravada(projeto, 2).Doubt);
+    }
+
+    [Fact]
+    public void SetTranslation_com_texto_novo_encerra_a_duvida_e_com_texto_igual_a_mantem()
+    {
+        using var pasta = new TempFolder();
+        var (projeto, editor) = Preparar(pasta.Path, ComDuvida(1));
+
+        editor.SetTranslation("yst00001", "yst00001:000001", "Bom dia.");
+        Assert.NotNull(Gravada(projeto, 1).Doubt);
+
+        editor.SetTranslation("yst00001", "yst00001:000001", "Olá.");
+        Assert.Null(Gravada(projeto, 1).Doubt);
+    }
+
+    [Fact]
+    public void SetTranslationFor_e_Keep_encerram_a_duvida()
+    {
+        using var pasta = new TempFolder();
+        var (projeto, editor) = Preparar(pasta.Path, ComDuvida(1), ComDuvida(2));
+
+        editor.SetTranslationFor([("yst00001", "yst00001:000001")], "Olá.");
+        editor.SetKeep("yst00001", "yst00001:000002", true);
+
+        Assert.Null(Gravada(projeto, 1).Doubt);
+        Assert.Null(Gravada(projeto, 2).Doubt);
+    }
+
+    [Fact]
+    public void Restore_devolve_a_duvida_que_a_linha_tinha()
+    {
+        using var pasta = new TempFolder();
+        var antes = ComDuvida(1);
+        var (projeto, editor) = Preparar(pasta.Path, antes);
+        var gravada = editor.Approve("yst00001", antes.Id);
+
+        editor.Restore("yst00001", antes, gravada);
+
+        Assert.Equal(antes.Doubt, Gravada(projeto, 1).Doubt);
+    }
+
     [Fact]
     public void Restore_de_linha_que_nao_existe_falha()
     {

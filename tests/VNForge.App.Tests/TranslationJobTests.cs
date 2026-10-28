@@ -51,6 +51,26 @@ public sealed class TranslationJobTests
     }
 
     [Fact]
+    public async Task Grava_a_duvida_da_IA_na_linha_e_a_retraducao_troca_a_duvida_antiga()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProjects.Create(temp.Path, "Teste", TranslationStatus.Untranslated, TranslationStatus.Untranslated));
+        var doubt = new TranslationDoubt(DoubtKind.Pun, "Jogo de palavras com 'hashi'.");
+        var provider = new UsageProvider { DoubtFor = u => u.Source.EndsWith('0') ? doubt : null };
+
+        await Job(folder, provider).RunAsync(Request(), new Reporter(), TestContext.Current.CancellationToken);
+
+        var saved = folder.LoadText("yst00001");
+        Assert.Equal(doubt, saved[0].Doubt);
+        Assert.Null(saved[1].Doubt);
+
+        folder.SaveText("yst00001", [saved[0] with { Status = TranslationStatus.Untranslated }, saved[1] with { Doubt = doubt, Status = TranslationStatus.Untranslated }]);
+        await Job(folder, new UsageProvider()).RunAsync(Request(), new Reporter(), TestContext.Current.CancellationToken);
+
+        Assert.All(folder.LoadText("yst00001"), u => Assert.Null(u.Doubt));
+    }
+
+    [Fact]
     public async Task So_traduz_os_scripts_do_escopo()
     {
         using var temp = new TempFolder();
@@ -281,6 +301,8 @@ public sealed class TranslationJobTests
 
         public Action? DuringCall { get; init; }
 
+        public Func<TextUnit, TranslationDoubt?>? DoubtFor { get; init; }
+
         public int Calls => Volatile.Read(ref calls);
 
         public ClaudeUsage Usage => new(0, Interlocked.Read(ref output), 0, 0);
@@ -290,7 +312,7 @@ public sealed class TranslationJobTests
             Interlocked.Increment(ref calls);
             Interlocked.Add(ref output, OutputTokensPerCall);
             DuringCall?.Invoke();
-            IReadOnlyList<TranslationResult> results = [.. batch.Lines.Select(u => new TranslationResult(u.Id, $"[PT] {u.Source}"))];
+            IReadOnlyList<TranslationResult> results = [.. batch.Lines.Select(u => new TranslationResult(u.Id, $"[PT] {u.Source}", Doubt: DoubtFor?.Invoke(u)))];
             return Task.FromResult(results);
         }
     }

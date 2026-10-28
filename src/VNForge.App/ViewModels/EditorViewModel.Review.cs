@@ -52,6 +52,24 @@ public sealed partial class EditorViewModel
         Review = new ReviewModeViewModel(this, queue);
     }
 
+    /// <summary>Abre o modo revisão só nas linhas com dúvida da IA do script aberto, na ordem do script. Sem dúvida no script, não faz nada.</summary>
+    [RelayCommand]
+    public void StartDoubtReview()
+    {
+        if (SelectedScript is null || lineEditor is null || DoubtLines == 0 || !FlushPendingEdits())
+        {
+            return;
+        }
+
+        SelectFilter(chips[0]);
+        SelectedSpeaker = Speakers[0];
+
+        Review?.Dispose();
+        var queue = scriptLines.Where(l => l.HasDoubt).ToList();
+        RefreshReviewedToday();
+        Review = new ReviewModeViewModel(this, queue) { DoubtsOnly = true };
+    }
+
     /// <summary>Fecha o modo revisão e volta à grade com a linha de agora selecionada.</summary>
     [RelayCommand]
     public void StopReview()

@@ -175,6 +175,7 @@ internal static class TranslateCommand
             Status = TranslationStatus.Machine,
             Origin = origin,
             PreviousSource = null,
+            Doubt = result.Doubt,
         };
     }
 

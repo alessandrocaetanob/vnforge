@@ -72,6 +72,9 @@ public enum LineStatusFilter
 
     /// <summary>Linhas "Não traduzir" (<see cref="TranslationStatus.Keep"/>).</summary>
     Keep,
+
+    /// <summary>Linhas em que a IA registrou uma dúvida (<see cref="TextUnit.Doubt"/>).</summary>
+    Doubt,
 }
 
 /// <summary>Filtro da grade: um status, opcionalmente um personagem e opcionalmente um texto de busca. Os três valem juntos.</summary>
@@ -147,6 +150,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         LineStatusFilter.Machine => line.Unit.Status == TranslationStatus.Machine,
         LineStatusFilter.Warnings => line.HasIssues,
         LineStatusFilter.Keep => line.Unit.Status == TranslationStatus.Keep,
+        LineStatusFilter.Doubt => line.Unit.Doubt is not null,
         _ => true,
     };
 

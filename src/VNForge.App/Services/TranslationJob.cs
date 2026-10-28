@@ -148,6 +148,7 @@ public sealed class TranslationJob(
             Status = TranslationStatus.Machine,
             Origin = origin,
             PreviousSource = null,
+            Doubt = result.Doubt,
         };
     }
 

@@ -177,6 +177,7 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
   "translation": "Hoje está um dia bonito, né?\\p",
   "status": "reviewed",           // untranslated | machine | translated | reviewed | approved | keep
   "origin": { "provider": "anthropic", "model": "claude-opus-5-5", "at": "2026-10-17T18:00:00Z" },
+  "doubt": null,                  // dúvida da IA ao traduzir (#471): { "kind": "pun | hidden-subject | uncertain-gender | cultural-reference | tone", "note": "frase" }; omitido quando nulo. Aprovar a linha ou reescrever a tradução a apaga
   "notes": "",
   "flags": [],                    // avisos do QA que o revisor marcou como "ok"
   "previousSource": null,         // original anterior, quando a re-extração achou o original mudado (E3.5)

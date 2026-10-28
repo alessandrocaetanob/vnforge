@@ -174,6 +174,26 @@ public class CostTests
         Assert.Equal(0, cache.Count);
     }
 
+    [Fact]
+    public async Task Duvida_do_provedor_chega_ao_resultado_da_linha_nova_e_a_do_cache_nao_tem_duvida()
+    {
+        var doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
+        var provider = new CachingTranslationProvider(new DoubtingProvider(doubt), new TranslationCache(), ClaudeModels.Opus);
+        var batch = new TranslationBatch([Unit("a", "はい")]);
+
+        var first = await provider.TranslateAsync(batch, CancellationToken.None);
+        var second = await provider.TranslateAsync(batch, CancellationToken.None);
+
+        Assert.Equal(doubt, Assert.Single(first).Doubt);
+        Assert.Null(Assert.Single(second).Doubt);
+    }
+
+    private sealed class DoubtingProvider(TranslationDoubt doubt) : ITranslationProvider
+    {
+        public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<TranslationResult>>([.. batch.Lines.Select(l => new TranslationResult(l.Id, "Sim", Doubt: doubt))]);
+    }
+
     private sealed class RefusingProvider : ITranslationProvider
     {
         public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
