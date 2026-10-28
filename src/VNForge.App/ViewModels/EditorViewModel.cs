@@ -6,6 +6,7 @@ using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
+using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
@@ -639,8 +640,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks());
         detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
@@ -713,6 +714,80 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null);
     }
 
+    /// <summary>
+    /// O cartão de "mesmo original, traduções diferentes" da linha: os grupos do Core (<see cref="ConsistencyGroups"/>) sobre esta linha e as outras com o
+    /// mesmo original, com as linhas nomeadas pela cena e pela posição, como na Conferência. Nulo quando o original tem uma tradução só ou o usuário as manteve diferentes.
+    /// </summary>
+    private ConferenceConsistencyCardViewModel? BuildConsistencyCard(LineViewModel line, ConsistencyCardActions actions)
+    {
+        if (data is null)
+        {
+            return null;
+        }
+
+        var all = data.SameSourceAs(line.Entry).Append(line.Entry)
+            .OrderBy(e => e.ScriptKey, StringComparer.Ordinal).ThenBy(e => e.Number).ToList();
+        var texts = all.GroupBy(e => e.ScriptKey, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<TextUnit>)[.. g.Select(e => e.Unit)], StringComparer.Ordinal);
+        if (ConsistencyGroups.Find(QaContext.ForTexts(texts)).FirstOrDefault(g => !g.IsKept) is not { } group)
+        {
+            return null;
+        }
+
+        var positions = all.ToDictionary(e => e.Unit.Id, e => (int?)e.Number, StringComparer.Ordinal);
+        var scenes = Scripts.ToDictionary(s => s.Key, s => s.Name, StringComparer.Ordinal);
+        string Label(ConsistencyLine l) => $"{scenes.GetValueOrDefault(l.ScriptKey, "Cena")} · {positions.GetValueOrDefault(l.UnitId)?.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        return new ConferenceConsistencyCardViewModel(group, Label, [], positions, actions);
+    }
+
+    /// <summary>
+    /// "Manter diferentes de propósito" no Editor: grava a marca do grupo (<see cref="ConsistencyFlags.Keep"/>), põe as marcas nas linhas carregadas e reconfere já,
+    /// para o aviso sumir da grade e do painel sem esperar a próxima gravação. Devolve a mensagem de falha, ou nulo.
+    /// </summary>
+    private async Task<string?> KeepConsistencyAsync(ConsistencyGroup group)
+    {
+        if (data is not { } lines || Project?.Root is not { } root)
+        {
+            return "Não foi possível manter as traduções diferentes: o projeto não está aberto.";
+        }
+
+        try
+        {
+            await Task.Run(() => ConsistencyFlags.Keep(ProjectFolder.Open(root), group));
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return $"Não foi possível manter as traduções diferentes: {e.Message.TrimEnd('.', ' ')}. O aviso continua.";
+        }
+
+        if (!ReferenceEquals(data, lines))
+        {
+            return null;
+        }
+
+        var flag = ConsistencyGroups.FlagFor(group);
+        foreach (var script in group.Lines.GroupBy(l => l.ScriptKey, StringComparer.Ordinal))
+        {
+            var wanted = script.Select(l => l.UnitId).ToHashSet(StringComparer.Ordinal);
+            foreach (var entry in lines.LinesOf(script.Key).Where(e => wanted.Contains(e.Unit.Id)))
+            {
+                IReadOnlyList<string> flags = [.. entry.Unit.Flags.Where(f => !f.StartsWith(ConsistencyGroups.FlagPrefix, StringComparison.Ordinal)), flag];
+                var updated = entry with { Unit = entry.Unit with { Flags = flags } };
+                lines.Replace(updated);
+                savedUnits.Remove(updated.Unit.Id);
+                var index = entry.Number - 1;
+                if (entry.ScriptKey == SelectedScript?.Key && index < scriptLines.Length)
+                {
+                    scriptLines[index].Update(updated);
+                    entries[index] = updated;
+                }
+            }
+        }
+
+        await RecheckAsync();
+        return null;
+    }
+
     /// <summary>Leva uma unidade gravada por fora do painel (o "Usar em todos") para os dados, o QA e a grade do script aberto.</summary>
     private void ShowSavedUnit(LineEntry entry, TextUnit unit)
     {
@@ -735,8 +810,14 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
     }
 
-    private sealed class SameSourceBinding(EditorViewModel editor, LineViewModel line) : ISameSourceLines
+    private sealed class SameSourceBinding(EditorViewModel editor, LineViewModel line) : ISameSourceLines, IConsistencyLines
     {
+        public ConferenceConsistencyCardViewModel? Build(ConsistencyCardActions actions) => editor.BuildConsistencyCard(line, actions);
+
+        public Task<string?> KeepAsync(ConsistencyGroup group) => editor.KeepConsistencyAsync(group);
+
+        public Task OpenAsync(LineRequest request) => editor.GoToLineAsync(request.ScriptKey, request.UnitId);
+
         public int Count => editor.data?.SameSourceAs(line.Entry).Count ?? 0;
 
         public SameSourcePreview Inspect(string translation) => editor.InspectSameSource(line, translation);

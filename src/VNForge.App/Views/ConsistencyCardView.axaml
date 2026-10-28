@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.ConsistencyCardView"
+             x:DataType="vm:ConferenceConsistencyCardViewModel">
+  <!-- O cartão de "mesmo original, traduções diferentes" (#455, #457): na Conferência e no detalhe da linha do Editor. Os comandos vêm do VM do cartão, que cada tela preenche com os dela. -->
+  <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="14,12" AutomationProperties.Name="{Binding AutomationName}">
+  <StackPanel Spacing="10">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"/>
+        <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
+      </StackPanel>
+      <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding LinesText}" VerticalAlignment="Center"/>
+    </Grid>
+    <TextBlock Classes="jp-body" Text="{Binding Source}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+    <ItemsControl ItemsSource="{Binding Variants}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ConferenceVariantViewModel">
+          <Border Classes="divider-top" Padding="0,10,0,10">
+            <Grid ColumnDefinitions="88,*" ColumnSpacing="10" AutomationProperties.Name="{Binding AutomationName}">
+              <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                <TextBlock Text="{Binding Marker}" Foreground="{DynamicResource Vnf.AccentText}"/>
+                <TextBlock Classes="caption secondary" Text="{Binding CountText}" VerticalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="6" MinWidth="0">
+                <TextBlock FontSize="14" LineHeight="22" TextWrapping="Wrap" c:DiffText.Segments="{Binding Segments}"/>
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                  <ItemsControl ItemsSource="{Binding VisibleLines}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel ItemSpacing="4" LineSpacing="0"/>
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ConferenceLineLink">
+                        <Button Classes="link sm" Content="{Binding Label}"
+                                Command="{Binding Open}"
+                                CommandParameter="{Binding Request}" AutomationProperties.Name="{Binding Label, StringFormat='Abrir {0} no Editor'}"/>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Button Grid.Column="1" Classes="link sm" VerticalAlignment="Top" IsVisible="{Binding HasMore}" Command="{Binding ToggleLinesCommand}"
+                          Content="{Binding MoreLabel}" AutomationProperties.Name="Mostrar ou esconder as outras linhas desta tradução"/>
+                  <Button Grid.Column="2" Classes="sm" VerticalAlignment="Top" Content="{Binding UseLabel}"
+                          Command="{Binding Card.UseCommand}"
+                          CommandParameter="{Binding}" AutomationProperties.Name="{Binding UseAutomationName}"/>
+                </Grid>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Classes="subtle sm" HorizontalAlignment="Right" Content="{Binding KeepLabel}"
+            Command="{Binding KeepCommand}"
+            CommandParameter="{Binding}" AutomationProperties.Name="Manter as traduções diferentes de propósito e deixar de avisar deste original"/>
+  </StackPanel>
+</Border>
+</UserControl>

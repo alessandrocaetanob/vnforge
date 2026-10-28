@@ -77,6 +77,6 @@ public sealed partial class LineDetailViewModel
     {
         ArgumentNullException.ThrowIfNull(issues);
 
-        QaIssues = LineIssueViewModel.From(issues.Where(i => i.RuleId != BoxLineLimitRule.RuleId));
+        QaIssues = LineIssueViewModel.From(ShowConsistency(issues, issues.Where(i => i.RuleId != BoxLineLimitRule.RuleId)));
     }
 }
