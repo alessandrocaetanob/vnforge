@@ -34,6 +34,9 @@ public sealed class BackgroundTaskGroup(string key, string title)
     public string Title { get; } = title;
 }
 
+/// <summary>O ponto de restauração que uma tarefa em lote deixou: o projeto e o ponto, e quantas linhas ela mudou.</summary>
+public sealed record BatchRestore(string ProjectRoot, string PointId, int LineCount);
+
 /// <summary>Uma tarefa longa (extrair, traduzir, build, injetar). As propriedades só mudam na thread da interface.</summary>
 public sealed partial class BackgroundTaskItem : ObservableObject
 {
@@ -66,6 +69,22 @@ public sealed partial class BackgroundTaskItem : ObservableObject
     public BackgroundTaskGroup? Group { get; }
 
     public IRelayCommand CancelCommand { get; }
+
+    /// <summary>O ponto de restauração da tarefa em lote, quando ela mudou linhas; <c>null</c> nas demais. O "Desfazer" da lista depende dele.</summary>
+    [ObservableProperty]
+    public partial BatchRestore? Restore { get; internal set; }
+
+    /// <summary>O "Desfazer" já foi feito: o ponto saiu do disco.</summary>
+    [ObservableProperty]
+    public partial bool IsUndone { get; internal set; }
+
+    /// <summary>O "Desfazer" está gravando.</summary>
+    [ObservableProperty]
+    public partial bool IsUndoing { get; internal set; }
+
+    /// <summary>O que o "Desfazer" fez, ou por que não deu; vazio antes de usar.</summary>
+    [ObservableProperty]
+    public partial string UndoMessage { get; internal set; } = "";
 
     /// <summary>Completa quando a tarefa termina, de qualquer jeito; nunca lança.</summary>
     public Task Completion { get; internal set; } = Task.CompletedTask;
@@ -206,6 +225,31 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null, TimeP
         var created = new BackgroundTaskGroup(spec.Key, spec.Title);
         openGroups[spec.Key] = created;
         return created;
+    }
+
+    /// <summary>
+    /// Põe na lista uma tarefa que já terminou, como a operação em lote que o usuário acabou de fazer (substituição, correção) ou o ponto de restauração de uma sessão
+    /// anterior. Pode ser chamado de qualquer thread.
+    /// </summary>
+    public void AddFinished(string title, DateTimeOffset at, string message, BatchRestore? restore)
+    {
+        var cts = new CancellationTokenSource();
+        cts.Dispose();
+        var item = new BackgroundTaskItem(title, cts, () => rate, at)
+        {
+            State = BackgroundTaskState.Completed,
+            Progress = 1,
+            FinishedAt = at,
+            Message = message,
+            Restore = restore,
+        };
+        post(() =>
+        {
+            if (restore is null || !Tasks.Any(t => t.Restore == restore))
+            {
+                Tasks.Add(item);
+            }
+        });
     }
 
     /// <summary>Tira da lista as tarefas que já terminaram. Chame da thread da interface.</summary>
