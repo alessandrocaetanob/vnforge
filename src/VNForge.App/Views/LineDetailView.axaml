@@ -40,7 +40,8 @@
     <KeyBinding Gesture="Alt+Down" Command="{Binding NextCommand}"/>
   </UserControl.KeyBindings>
 
-  <!-- O conteúdo rola; a barra de ações fica fora da rolagem, no rodapé, para "Aprovar e próxima" estar sempre à vista. -->
+  <!-- O conteúdo rola; a barra de ações fica fora da rolagem, no rodapé, para "Aprovar e próxima" estar sempre à vista. A margem de baixo de cada coluna que rola
+       tem a altura da barra (LineDetailView.axaml.cs): o último bloco, como o "Usar em todos", para acima dela e do degradê quando se rola até o fim. -->
   <Grid RowDefinitions="*,Auto">
     <Panel>
       <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard. A margem direita deixa a barra de rolagem fora do texto. -->
@@ -339,7 +340,7 @@
       </Border>
     </Panel>
 
-    <Border Grid.Row="1" Classes="divider-top" Padding="0,12,0,0" Margin="0,8,0,0">
+    <Border x:Name="ActionsBar" Grid.Row="1" Classes="divider-top" Padding="0,12,0,0" Margin="0,8,0,0">
       <!-- Aprovar e próxima ocupa o que sobra da linha; "Usar sugestão" tem a largura do texto. Nada quebra com o inspetor em 400 px. -->
       <Grid x:Name="ActionsFragment" ColumnDefinitions="*,Auto">
         <Button x:Name="ApproveButton" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveAndNextCommand}"

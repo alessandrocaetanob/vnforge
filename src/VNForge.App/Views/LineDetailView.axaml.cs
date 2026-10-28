@@ -41,6 +41,13 @@ public sealed partial class LineDetailView : UserControl
         TranslationEditor.TextArea.TextView.ElementGenerators.Add(new MarkerChipGenerator());
         TranslationEditor.TextChanged += OnEditorTextChanged;
         InspectorTabs.SelectionChanged += (_, _) => UpdateSuggestionTab();
+        ActionsBar.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+            {
+                UpdateScrollMargins();
+            }
+        };
 
         // O "há 2 min" do cartão da IA envelhece sozinho enquanto a linha fica aberta.
         ageTimer = new DispatcherTimer { Interval = AgeRefresh };
@@ -66,6 +73,16 @@ public sealed partial class LineDetailView : UserControl
 
     /// <summary>Com menos de 360 px (as abas e a janela mínima) a barra de ações larga a tecla e o ícone dos botões para os dois textos caberem.</summary>
     private void UpdateCompact() => Classes.Set("compact", Bounds.Width is > 0 and < CompactWidth);
+
+    /// <summary>A margem de baixo das colunas que rolam (a larga e as três abas) é a altura da barra fixa, que muda com a fonte e com o botão "Usar sugestão" e o ícone saindo.</summary>
+    private void UpdateScrollMargins()
+    {
+        var bottom = ActionsBar.Bounds.Height;
+        foreach (var column in new[] { WideStack, TranslationTab, SuggestionTab, ContextTab })
+        {
+            column.Margin = new Thickness(column.Margin.Left, column.Margin.Top, column.Margin.Right, bottom);
+        }
+    }
 
     private void UpdateSuggestionTab() => Classes.Set("suggestion-tab", tabbed && InspectorTabs.SelectedIndex == SuggestionTabIndex);
 
