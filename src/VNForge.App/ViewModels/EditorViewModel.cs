@@ -454,6 +454,13 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>O painel de busca e substituição do projeto, que abre dentro do Editor.</summary>
     public SearchReplaceViewModel Search { get; }
 
+    /// <summary>Guarda o ponto de restauração do "Usar em todos" e da substituição e dá o "Desfazer" à lista de tarefas; nulo grava sem ponto.</summary>
+    public BatchHistory? History
+    {
+        get => Search.History;
+        set => Search.History = value;
+    }
+
     /// <summary>O painel de busca está aberto sobre a grade.</summary>
     [ObservableProperty]
     public partial bool IsSearchOpen { get; set; }
@@ -642,8 +649,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
@@ -693,7 +700,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var others = data.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
-        var result = lineEditor.SetTranslationFor(others.Values.Select(o => (o.ScriptKey, o.Unit.Id)), translation);
+        var targets = others.Values.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
+        var editor = lineEditor;
+        var result = History is { } history && Project?.Root is { } root
+            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation), targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList(), changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
+            : editor.SetTranslationFor(targets, translation);
         var current = result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit));
         foreach (var unit in current)
         {
@@ -802,6 +813,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(entry.Issues);
         IssueCount += updated.Issues.Count - entry.Issues.Count;
         data?.Replace(updated);
+        speakerCounts = null;
         RequestRecheck();
         savedUnits.Remove(unit.Id);
         var index = entry.Number - 1;
@@ -846,6 +858,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
         data?.Replace(updated);
+        speakerCounts = null;
         RequestRecheck();
         RefreshScriptProgress(updated.ScriptKey);
 
@@ -973,6 +986,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
+            speakerCounts = null;
             ErrorCount = loaded is null ? 0 : CountErrors(loaded);
             IssueCount = loaded is null ? 0 : CountIssues(loaded);
             Scripts.Clear();

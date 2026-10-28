@@ -91,7 +91,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Glossary.Rate = () => Settings.Rate;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
-        Tasks = new TaskBarViewModel(TaskService);
+        History = new BatchHistory(TaskService);
+        History.Undone += (_, undone) => OnBatchUndone(undone);
+        Conference.History = History;
+        Tasks = new TaskBarViewModel(TaskService, history: History);
         Build = new BuildViewModel(TaskService);
         Build.PropertyChanged += (_, e) =>
         {
@@ -118,6 +121,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Glossary.Saved += (_, _) => RecheckEditor();
         Glossary.LinesChanged += (_, _) => Editor.Reload();
+        Glossary.ReviewCharacterRequested += (_, name) => ReviewSpeaker(name);
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LinesSaved += (_, saved) => Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => _ = UndoConferenceSaveAsync(saved));
@@ -173,6 +177,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public BackgroundTaskService TaskService { get; }
 
     public TaskBarViewModel Tasks { get; }
+
+    /// <summary>Os pontos de restauração das operações em lote; é ele que dá o "Desfazer" à lista de tarefas.</summary>
+    public BatchHistory History { get; }
 
     public DashboardViewModel Dashboard { get; } = new();
 
@@ -391,6 +398,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void AttachEditor(EditorViewModel value)
     {
+        value.History = History;
         value.LineSaved += OnLineSaved;
         value.ChaptersChanged += OnChaptersChanged;
         value.HideEmptyScenes = Settings.HideEmptyScenes;
@@ -713,6 +721,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Build.Project = summary;
         Conference.Project = summary;
+        History.LoadPersisted(summary.Root);
         editorStale = false;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;
@@ -725,6 +734,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ProjectLoading = Task.WhenAll(Editor.Loading, Glossary.Loading, Settings.EstimateLoading);
     }
 
+    /// <summary>O "Desfazer" de uma tarefa em lote gravou: o que está aberto relê o projeto, e o aviso diz quantas linhas voltaram.</summary>
+    private void OnBatchUndone(BatchUndone undone)
+    {
+        if (CurrentProject?.Root != undone.ProjectRoot)
+        {
+            return;
+        }
+
+        Editor.Reload();
+        editorStale = false;
+        _ = RefreshSummaryPageAsync();
+        Toasts.Show(BatchHistory.Describe(undone.Result), undone.Result.EditedSince > 0 || undone.Result.Missing > 0 ? ToastKind.Warning : ToastKind.Success, key: "batch-undo");
+    }
+
     private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
 
     /// <summary>"Cadastrar personagem" no erro do falante: Glossário > Personagens com o nome como está no texto, pronto para a tradução.</summary>
@@ -732,6 +755,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         Glossary.RegisterCharacter(name);
         SelectedNav = glossaryItem;
+    }
+
+    /// <summary>Leva ao Editor e abre o modo revisão nas falas do personagem em todas as cenas.</summary>
+    private void ReviewSpeaker(string name) => LineNavigation = ReviewSpeakerAsync(name);
+
+    private async Task ReviewSpeakerAsync(string name)
+    {
+        if (!GoTo(editorItem))
+        {
+            return;
+        }
+
+        // Voltar ao Editor defasado o relê, e a leitura solta o gravador de linhas até acabar: o modo revisão só abre depois.
+        Task loading;
+        do
+        {
+            // Uma releitura pedida enquanto esta esperava troca o Editor.Loading: espera a mais nova também.
+            loading = Editor.Loading;
+            await loading;
+        }
+        while (!ReferenceEquals(loading, Editor.Loading));
+
+        if (ReferenceEquals(SelectedNav, editorItem))
+        {
+            Editor.StartReviewOf(ReviewSource.OfSpeaker(name));
+        }
     }
 
     private void OnEditorDefineGenderRequested(object? sender, EventArgs e)
@@ -880,6 +929,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
             }));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
+            foreach (var speaker in Editor.ReviewableSpeakers)
+            {
+                var source = speaker.Source;
+                entries.Add(new PaletteEntry(PaletteGroup.Command, $"Revisar falas de {speaker.Name}", (speaker.Count == 1 ? "1 linha da IA" : $"{ProjectLabels.Number(speaker.Count)} linhas da IA") + " em todas as cenas", () => ReviewSpeaker(source)) { OnlyWhenSearching = true });
+            }
+
             entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));
             entries.Add(BuildEntry("Novo build", "Gera a pasta de build do projeto", Build.BuildCommand));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));

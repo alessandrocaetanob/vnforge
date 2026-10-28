@@ -13,9 +13,13 @@ public sealed partial class TaskBarViewModel : ObservableObject
     private readonly TimeProvider clock;
     private readonly Dictionary<object, TaskEntry> entryByKey = [];
 
-    public TaskBarViewModel(BackgroundTaskService service, TimeProvider? clock = null)
+    private readonly BatchHistory? history;
+
+    /// <param name="history">Dá o "Desfazer" às tarefas em lote; sem ele a lista não mostra o botão.</param>
+    public TaskBarViewModel(BackgroundTaskService service, TimeProvider? clock = null, BatchHistory? history = null)
     {
         Service = service;
+        this.history = history;
         this.clock = clock ?? TimeProvider.System;
         service.Tasks.CollectionChanged += OnTasksChanged;
         Refresh();
@@ -119,7 +123,7 @@ public sealed partial class TaskBarViewModel : ObservableObject
         {
             if (!entryByKey.TryGetValue(key, out var entry))
             {
-                entryByKey[key] = entry = new TaskEntry(key as BackgroundTaskGroup, clock);
+                entryByKey[key] = entry = new TaskEntry(key as BackgroundTaskGroup, clock, history is null ? null : history.UndoAsync);
             }
 
             entry.Update(items);
