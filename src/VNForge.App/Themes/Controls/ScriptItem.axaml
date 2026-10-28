@@ -42,7 +42,7 @@
               <TextBlock Name="PART_PercentText" Text="{TemplateBinding PercentText}" FontSize="12" LineHeight="18"
                          Foreground="{DynamicResource Vnf.TextSecondary}"/>
               <PathIcon Name="PART_Done" Width="14" Height="14" IsVisible="False" Data="{DynamicResource Icon.Check}"
-                        Foreground="{DynamicResource Vnf.StatusApprovedFg}"/>
+                        Foreground="{DynamicResource Vnf.StatusApprovedFg}" AutomationProperties.Name="Pronta"/>
             </StackPanel>
           </Grid>
           <ProgressBar Name="PART_Bar" Grid.Row="1" Classes="thin slim" Minimum="0" Maximum="100" Value="{TemplateBinding Percent}" ShowProgressText="False"/>

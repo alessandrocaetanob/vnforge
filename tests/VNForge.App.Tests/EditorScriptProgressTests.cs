@@ -150,7 +150,7 @@ public sealed class EditorScriptProgressTests : IDisposable
         Assert.Equal("0%", segunda.PercentLabel);
         Assert.Equal(0, segunda.Distribution.Approved);
         Assert.Equal(50, segunda.Distribution.Translated);
-        Assert.Equal("yst00002 · IA 0%", segunda.Tooltip);
+        Assert.Equal($"{segunda.Name}\nyst00002 · IA 0%", segunda.Tooltip);
         Assert.Same(primeira, vm.SelectedScript);
         Assert.Equal(25, vm.Distribution!.Pending);
         Assert.Equal(75, vm.Distribution.Translated);

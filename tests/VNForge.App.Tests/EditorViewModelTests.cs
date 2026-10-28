@@ -294,7 +294,7 @@ public class EditorViewModelTests
         var item = vm.Scripts[0];
 
         Assert.Equal("40%", item.PercentLabel);
-        Assert.Equal($"{item.Key} · IA 20%", item.Tooltip);
+        Assert.Equal($"{item.Name}\n{item.Key} · IA 20%", item.Tooltip);
         Assert.False(item.IsComplete);
         Assert.Equal("5", item.LinesLabel);
         Assert.True(vm.Scripts[1].IsComplete);

@@ -32,7 +32,7 @@ public sealed class ScriptItem : TemplatedControl
         set => SetValue(KeyProperty, value);
     }
 
-    /// <summary>O nome da cena ("Manhã de chuva" ou "Cena 13"); sem ele o item mostra só a chave pequena.</summary>
+    /// <summary>O nome da cena ("Manhã de chuva" ou "Cena 13"); sem ele o item mostra só o percentual e a barra (a lista do Editor sempre passa um nome).</summary>
     public string? Label
     {
         get => GetValue(LabelProperty);
