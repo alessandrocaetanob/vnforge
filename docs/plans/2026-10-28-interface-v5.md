@@ -27,7 +27,7 @@ As capturas saíram de `dotnet test tests/VNForge.App.Tests --filter FullyQualif
 
 ## Ondas
 
-As ondas definem a ordem dos merges, não a dos workers: dentro de uma onda as issues não dependem uma da outra. Cada issue tem um PR próprio, com teste de Rendering novo ou ajustado e as capturas antes e depois na descrição. Item que muda o Core entra primeiro no Core, com teste, e depois na tela.
+As ondas definem a ordem dos merges, não a dos workers. Dentro de uma onda, as issues sem dependência escrita abaixo da tabela podem ir em paralelo; as outras esperam o merge da que vem antes. Cada issue tem um PR próprio, com teste de Rendering novo ou ajustado e as capturas antes e depois na descrição. Item que muda o Core entra primeiro no Core, com teste, e depois na tela.
 
 ### Onda 1 · Polimento das telas atuais
 
@@ -62,9 +62,8 @@ O `a8` (Início com metade vazia) não vira issue própria: o Diário de traduç
 | b3 | Reescrever com um toque | Chips no inspetor e no Modo revisão pedem uma variação dirigida: mais curta, mais natural, mais fiel, mais formal ou "como o personagem falaria" (o "Como fala" do Glossário). Vêm duas opções, cada uma medida contra a caixa do jogo. O encurtador (`ShortenInstruction`) vira o chip "Mais curta" | `ClaudeTranslationProvider.cs`, `LineDetailViewModel.Suggestion.cs`, `ReviewModeView.axaml` |
 | b4 | A IA aprende com as suas correções | O Core compara a tradução da IA com a que a pessoa gravou e procura trocas que se repetem, por personagem ou no projeto. Passado um limite, o app oferece a regra para o `style.md` ou para o "Como fala" do personagem. Não chama a IA | `Core` (comparador novo), `StyleSettingsViewModel.cs`, `ToastService.cs` |
 | b7 | Sugerir termo para o glossário | Quando o mesmo trecho japonês ganha a mesma tradução em várias falas corrigidas, o app oferece o par para o Glossário, ao lado dos "Termos que se repetem" | `RepeatedTerms.cs`, `GlossaryView.axaml` |
-| b6 | Pedido em lote em português | A paleta de comandos aceita um pedido escrito ("nas falas do Kenta, trocar você por tu"). A IA acha as falas e reescreve; a prévia é a do painel de busca e substituição, antes e depois por linha, nada gravado até Aplicar. Aplicar passa pelo ponto de restauração do `b14` | `CommandPaletteViewModel.cs`, `SearchReplaceViewModel.cs`, `ProjectSearch.cs`, IA (pedido novo) |
 
-`b4` e `b7` precisam da tradução que a IA escreveu depois que a pessoa a edita. Hoje `TextUnit` guarda só a origem (`Origin`), então a primeira issue da onda que chegar ao Core acrescenta o campo com o texto da IA, com teste de ida e volta do JSON. `b6` entra depois do `b14`.
+`b4` e `b7` precisam da tradução que a IA escreveu depois que a pessoa a edita. Hoje `TextUnit` guarda só a origem (`Origin`), então o `b4` acrescenta o campo com o texto da IA, com teste de ida e volta do JSON, e o `b7` entra depois dele.
 
 ### Onda 4 · Ler a história e confiar no que mudou
 
@@ -74,6 +73,9 @@ O `a8` (Início com metade vazia) não vira issue própria: o Diário de traduç
 | b12 | O que mudou desde o último teste | No teste no jogo, o Core guarda o retrato das traduções (hash por linha) junto do `GameLastTest`. A página Testar e o Painel listam as cenas que mudaram desde então, com quantas falas, na ordem da história, e "Abrir" leva ao Editor com o filtro | `GameStateFile.cs`, `GameTester`, `BuildView.axaml`, `DashboardView.axaml` |
 | b13 | Diário de tradução no Início | Mapa de calor das aprovações por dia nas últimas 12 semanas (o `sessions.json` guarda 90 dias, `SessionsFile.Retention`), dias seguidos e o que foi fechado ontem. Ocupa o espaço vazio do Início (`a8`). Ao fechar o app, um resumo curto da sessão | `SessionsFile.cs`, `ReviewPace`, `StartView.axaml` |
 | b14 | Desfazer qualquer lote | Antes de cada operação em lote (tradução da IA, substituição, corrigir com um clique, usar em todos), o Core guarda o estado das linhas que vão mudar em `.cache/`. A lista de tarefas ganha "Desfazer" em cada uma, mesmo dias depois; linha editada depois do lote fica como está, e o "Desfazer" diz quantas | Core (ponto de restauração por tarefa), `TaskEntry.cs`, `TaskBarViewModel.cs` |
+| b6 | Pedido em lote em português | A paleta de comandos aceita um pedido escrito ("nas falas do Kenta, trocar você por tu"). A IA acha as falas e reescreve; a prévia é a do painel de busca e substituição, antes e depois por linha, nada gravado até Aplicar. Aplicar passa pelo ponto de restauração do `b14` | `CommandPaletteViewModel.cs`, `SearchReplaceViewModel.cs`, `ProjectSearch.cs`, IA (pedido novo) |
+
+`b6` entra depois do `b14`.
 
 ### Onda 5 · Começar e ficar confortável
 
@@ -96,7 +98,7 @@ O `b17` vira duas issues em sequência, porque o Core não lê os saltos dos scr
 
 ## Issues
 
-São 25 issues: 7 da onda 1, 4 da onda 2, 5 da onda 3, 4 da onda 4, 3 da onda 5 e 2 da onda 6 (`b17a` e `b17b`). Cada uma leva o id da página no título ("v5 · a1 Editor: densidade Roteiro na grade") e o label "área: app"; as que mudam o Core ou a IA levam também "área: core" ou "área: ia". Elas são abertas depois que este plano for aprovado.
+São 25 issues: 7 da onda 1, 4 da onda 2, 4 da onda 3, 5 da onda 4, 3 da onda 5 e 2 da onda 6 (`b17a` e `b17b`). Cada uma leva o id da página no título ("v5 · a1 Editor: densidade Roteiro na grade") e o label "área: app"; as que mudam o Core ou a IA levam também "área: core" ou "área: ia". Elas são abertas depois que este plano for aprovado.
 
 ## Fora deste plano
 
