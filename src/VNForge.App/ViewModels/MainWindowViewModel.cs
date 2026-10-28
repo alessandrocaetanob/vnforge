@@ -120,6 +120,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Glossary.LinesChanged += (_, _) => Editor.Reload();
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
+        Conference.LinesSaved += (_, saved) => Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => _ = UndoConferenceSaveAsync(saved));
         Conference.SettingsChanged += (_, _) => ReloadFormattingFromConference();
         AttachEditor(editor);
         Dashboard.HideEmptyScenes = Settings.HideEmptyScenes;
@@ -458,6 +459,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!Editor.Undo(saved))
         {
             Toasts.Show(Editor.ErrorMessage ?? $"Não foi possível desfazer a gravação da linha {saved.Number}.", ToastKind.Error, key: "line-undo");
+        }
+    }
+
+    private async Task UndoConferenceSaveAsync(LineSavedEventArgs saved)
+    {
+        if (!await Conference.UndoAsync(saved))
+        {
+            Toasts.Show(Conference.ErrorMessage ?? "Não foi possível desfazer a gravação das linhas.", ToastKind.Error, key: "line-undo");
+            return;
+        }
+
+        // Com o Editor à vista, só marcar como defasado não basta: a grade continuaria mostrando as traduções desfeitas.
+        if (ReferenceEquals(CurrentPage, Editor))
+        {
+            editorStale = false;
+            Editor.Reload();
         }
     }
 

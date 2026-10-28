@@ -49,6 +49,55 @@ public sealed class CheckCommandTests : IDisposable
         _cli.RunAsync(["check", "--project", _projectPath, .. args], TestContext.Current.CancellationToken);
 
     [Fact]
+    public async Task Traducoes_diferentes_do_mesmo_original_saem_num_bloco_com_variantes_e_linhas()
+    {
+        Save("Olá mundo.", "Olá mundo.", "Olá  mundo.", "Olá mundo");
+        UseRules(new InconsistentTranslationRule());
+
+        var result = await Check();
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Mesmo original, 3 traduções (4 linhas): 原文", result.Output);
+        Assert.Contains("● 2 linhas  Olá mundo.", result.Output);
+        Assert.Contains("yst00001:000001, yst00001:000002", result.Output);
+        Assert.Contains("○ 1 linha  Olá ·mundo.", result.Output);
+        Assert.Contains("○ 1 linha  Olá mundo⟨.⟩", result.Output);
+        Assert.Single(Regex.Matches(result.Output, "Mesmo original"));
+        Assert.DoesNotContain("aparece traduzido como", result.Output);
+        Assert.Contains("2 avisos", result.Output);
+    }
+
+    [Fact]
+    public async Task Json_traz_os_grupos_com_variantes_linhas_e_diferenca()
+    {
+        Save("Olá mundo.", "Olá mundo.", "Olá mundo");
+        UseRules(new InconsistentTranslationRule());
+
+        var result = await Check("--json");
+
+        using var doc = JsonDocument.Parse(result.Output);
+        var group = doc.RootElement.GetProperty("data").GetProperty("consistencyGroups").EnumerateArray().Single();
+        Assert.Equal("原文", group.GetProperty("source").GetString());
+        var variants = group.GetProperty("variants").EnumerateArray().ToList();
+        Assert.Equal(2, variants.Count);
+        Assert.True(variants[0].GetProperty("reference").GetBoolean());
+        Assert.Equal(2, variants[0].GetProperty("lines").GetArrayLength());
+        Assert.Contains(variants[1].GetProperty("diff").EnumerateArray(), d => d.GetProperty("kind").GetString() == "missing" && d.GetProperty("text").GetString() == ".");
+    }
+
+    [Fact]
+    public async Task Grupo_mantido_diferente_de_proposito_nao_aparece()
+    {
+        Save("Olá mundo.", "Olá mundo");
+        ConsistencyFlags.Keep(_project, Assert.Single(ConsistencyGroups.Find(QaContext.ForTexts(_project.LoadAllText()))));
+        UseRules(new InconsistentTranslationRule());
+
+        var result = await Check();
+
+        Assert.DoesNotContain("Mesmo original", result.Output);
+    }
+
+    [Fact]
     public async Task Erro_bloqueante_sai_com_2_e_lista_no_formato_do_doc()
     {
         Save("Olá", Forbidden);

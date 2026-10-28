@@ -51,17 +51,19 @@ internal static class CheckCommand
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
         var fixes = parseResult.GetValue(FixOption) ? ApplyFixes(project, engine, rules) : NoFixes;
 
-        var report = engine.Run(QaContext.FromProject(project), new QaOptions(rules.Count == 0 ? null : rules, severity));
+        var context = QaContext.FromProject(project);
+        var report = engine.Run(context, new QaOptions(rules.Count == 0 ? null : rules, severity));
         var exitCode = report.HasErrors ? ErrorHandler.QaBlockedExitCode : ErrorHandler.OkExitCode;
         var settings = SettingGroup.Build(project, report);
+        var inconsistent = InconsistentGroups(context, report);
 
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(Data(report, fixes, settings), exitCode));
+            output.WriteLine(JsonEnvelope.Result(Data(report, fixes, settings, inconsistent), exitCode));
             return exitCode;
         }
 
-        WriteText(cli.Ansi, report, fixes, settings, rules.Contains(UntranslatedQaRule.RuleId));
+        WriteText(cli.Ansi, report, fixes, settings, inconsistent, rules.Contains(UntranslatedQaRule.RuleId));
         return exitCode;
     }
 
@@ -91,7 +93,7 @@ internal static class CheckCommand
         return fixable.Count == 0 ? NoFixes : QaFixer.Apply(project, engine, fixable);
     }
 
-    private static void WriteText(IAnsiConsole ansi, QaReport report, QaFixResult result, IReadOnlyList<SettingGroup> settings, bool listUntranslated)
+    private static void WriteText(IAnsiConsole ansi, QaReport report, QaFixResult result, IReadOnlyList<SettingGroup> settings, IReadOnlyList<ConsistencyGroup> inconsistent, bool listUntranslated)
     {
         var fixes = result.Fixes;
         foreach (var setting in result.SettingsFixed)
@@ -109,7 +111,7 @@ internal static class CheckCommand
             ansi.MarkupLine($"{fixes.Count} {(fixes.Count == 1 ? "correção aplicada" : "correções aplicadas")} em text/*.json.");
         }
 
-        foreach (var group in GroupByCategory(report, settings, listUntranslated))
+        foreach (var group in GroupByCategory(report, settings, inconsistent, listUntranslated))
         {
             ansi.WriteLine();
             ansi.MarkupLine($"[bold {Accent}]{CliViews.Escape(group.Category)}[/] [dim]· {Describe(group.Errors, group.Warnings)}[/]");
@@ -128,7 +130,7 @@ internal static class CheckCommand
     }
 
     // Categorias com erro primeiro, depois na ordem do app; dentro de cada uma, erros antes de avisos.
-    private static IEnumerable<CategoryGroup> GroupByCategory(QaReport report, IReadOnlyList<SettingGroup> settings, bool listUntranslated)
+    private static IEnumerable<CategoryGroup> GroupByCategory(QaReport report, IReadOnlyList<SettingGroup> settings, IReadOnlyList<ConsistencyGroup> inconsistent, bool listUntranslated)
     {
         var byCategory = report.Issues.GroupBy(i => QaCategories.Of(i.RuleId), StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         var ordered = QaCategories.All
@@ -153,6 +155,12 @@ internal static class CheckCommand
                     continue;
                 }
 
+                // Um original com várias traduções é um bloco só (abaixo), não um aviso por linha.
+                if (issue.RuleId == InconsistentTranslationRule.RuleId && inconsistent.Count > 0)
+                {
+                    continue;
+                }
+
                 if (!listUntranslated && issue.RuleId == UntranslatedQaRule.RuleId)
                 {
                     untranslated.Add(issue);
@@ -160,6 +168,14 @@ internal static class CheckCommand
                 }
 
                 lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(issue.UnitId)}  {CliViews.Escape(issue.Message)}  {RuleTag(issue.RuleId)}");
+            }
+
+            if (category == QaCategories.Consistency)
+            {
+                foreach (var group in inconsistent)
+                {
+                    lines.AddRange(DescribeGroup(group));
+                }
             }
 
             foreach (var script in untranslated.GroupBy(i => i.ScriptKey, StringComparer.Ordinal))
@@ -175,6 +191,42 @@ internal static class CheckCommand
             yield return new CategoryGroup(category, issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning), lines);
         }
     }
+
+    /// <summary>Os originais com várias traduções que a regra apontou: os grupos do Core menos os que o usuário manteve diferentes. Vazio quando a regra não rodou.</summary>
+    private static IReadOnlyList<ConsistencyGroup> InconsistentGroups(QaContext context, QaReport report)
+    {
+        if (!report.Issues.Any(i => i.RuleId == InconsistentTranslationRule.RuleId))
+        {
+            return [];
+        }
+
+        var flagged = report.Issues.Where(i => i.RuleId == InconsistentTranslationRule.RuleId).Select(i => i.UnitId).ToHashSet(StringComparer.Ordinal);
+        return [.. ConsistencyGroups.Find(context).Where(g => !g.IsKept && g.Lines.Any(l => flagged.Contains(l.UnitId)))];
+    }
+
+    private const int MaxListedLines = 6;
+
+    // "AVISO Mesmo original, 3 traduções (12 linhas): 原文" e, por variante, a quantidade, o texto com a diferença marcada e os ids das linhas.
+    private static IEnumerable<string> DescribeGroup(ConsistencyGroup group)
+    {
+        yield return $"  {Label(QaSeverity.Warning)} Mesmo original, {CliFormat.Count(group.Variants.Count, "tradução", "traduções")} ({CliFormat.Count(group.LineCount, "linha", "linhas")}): {CliViews.Escape(group.Source)}  {RuleTag(InconsistentTranslationRule.RuleId)}";
+        foreach (var variant in group.Variants)
+        {
+            var marker = variant.IsReference ? "●" : "○";
+            yield return $"    {marker} {CliFormat.Count(variant.Lines.Count, "linha", "linhas")}  {MarkDifference(variant)}";
+            var ids = variant.Lines.Take(MaxListedLines).Select(l => l.UnitId).ToList();
+            var more = variant.Lines.Count > ids.Count ? $" e mais {variant.Lines.Count - ids.Count}" : string.Empty;
+            yield return $"      [dim]{CliViews.Escape(string.Join(", ", ids) + more)}[/]";
+        }
+    }
+
+    // A diferença para a referência: o que a variante tem a mais em [aviso]negrito[/] com os espaços como ·, o que falta entre ⟨ ⟩.
+    private static string MarkDifference(ConsistencyVariant variant) => string.Concat(variant.Diff.Select(segment => segment.Kind switch
+    {
+        TextDiffKind.Added => $"[bold {CliPalette.Hex(CliPalette.Warning)}]{CliViews.Escape(segment.Visible)}[/]",
+        TextDiffKind.Missing => $"[{CliPalette.Hex(CliPalette.Warning)}]{CliViews.Escape("⟨" + segment.Visible + "⟩")}[/]",
+        _ => CliViews.Escape(segment.Text),
+    }));
 
     private static Color SummaryColor(QaReport report)
     {
@@ -285,7 +337,7 @@ internal static class CheckCommand
         _ => throw new UsageException($"--severity aceita error ou warn (recebeu '{text}')."),
     };
 
-    private static object Data(QaReport report, QaFixResult result, IReadOnlyList<SettingGroup> settings) => new
+    private static object Data(QaReport report, QaFixResult result, IReadOnlyList<SettingGroup> settings, IReadOnlyList<ConsistencyGroup> inconsistent) => new
     {
         errors = report.Errors.Count,
         warnings = report.Warnings.Count,
@@ -304,6 +356,18 @@ internal static class CheckCommand
             characters = g.Characters,
             errors = g.Errors,
             lines = g.Lines,
+        }),
+        consistencyGroups = inconsistent.Select(g => new
+        {
+            source = g.Source,
+            lines = g.LineCount,
+            variants = g.Variants.Select(v => new
+            {
+                translation = v.Translation,
+                reference = v.IsReference,
+                lines = v.Lines.Select(l => new { unit = l.UnitId, script = l.ScriptKey }),
+                diff = v.Diff.Select(d => new { kind = d.Kind == TextDiffKind.Same ? "same" : d.Kind == TextDiffKind.Added ? "added" : "missing", text = d.Text }),
+            }),
         }),
         issues = report.Issues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
     };
