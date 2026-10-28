@@ -721,9 +721,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Leva ao Editor e abre o modo revisão nas falas do personagem em todas as cenas.</summary>
-    private void ReviewSpeaker(string name)
+    private void ReviewSpeaker(string name) => LineNavigation = ReviewSpeakerAsync(name);
+
+    private async Task ReviewSpeakerAsync(string name)
     {
-        if (GoTo(editorItem))
+        if (!GoTo(editorItem))
+        {
+            return;
+        }
+
+        // Voltar ao Editor defasado o relê, e a leitura solta o gravador de linhas até acabar: o modo revisão só abre depois.
+        await Editor.Loading;
+        if (ReferenceEquals(SelectedNav, editorItem))
         {
             Editor.StartReviewOf(ReviewSource.OfSpeaker(name));
         }
@@ -878,7 +887,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             foreach (var speaker in Editor.ReviewableSpeakers)
             {
                 var source = speaker.Source;
-                entries.Add(new PaletteEntry(PaletteGroup.Command, $"Revisar falas de {speaker.Name}", (speaker.Count == 1 ? "1 linha da IA" : $"{ProjectLabels.Number(speaker.Count)} linhas da IA") + " em todas as cenas", () => ReviewSpeaker(source)));
+                entries.Add(new PaletteEntry(PaletteGroup.Command, $"Revisar falas de {speaker.Name}", (speaker.Count == 1 ? "1 linha da IA" : $"{ProjectLabels.Number(speaker.Count)} linhas da IA") + " em todas as cenas", () => ReviewSpeaker(source)) { OnlyWhenSearching = true });
             }
 
             entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));

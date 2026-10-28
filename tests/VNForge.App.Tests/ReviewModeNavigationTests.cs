@@ -16,6 +16,8 @@ public sealed class ReviewModeNavigationTests
         [
             Line(1, 0, "美咲", "Bom dia."),
             Line(1, 1, "健太", "Oi."),
+            Line(1, 2, "花子", "Yo."),
+            Line(1, 3, "太郎", "Hey."),
         ]);
         folder.SaveText("yst00002",
         [
@@ -117,6 +119,45 @@ public sealed class ReviewModeNavigationTests
         Assert.True(main.Editor.IsReviewing);
         Assert.Equal("Falas de Kenta em todas as cenas", main.Editor.Review!.SourceText);
         Assert.Equal("yst00001:000001", main.Editor.Review.Detail!.Id);
+    }
+
+    [Fact]
+    public async Task A_paleta_sem_texto_continua_mostrando_os_comandos_fixos_mesmo_com_varios_personagens()
+    {
+        using var temp = new TempFolder();
+        var (main, _) = await OpenAsync(temp);
+        main.Editor.StopReview();
+        Assert.True(main.Editor.ReviewableSpeakers.Count >= 3);
+
+        main.Palette.Open();
+
+        var titulos = main.Palette.Results.Where(r => r.Group == PaletteGroup.Command).Select(r => r.Title).ToList();
+        Assert.Contains("Testar no jogo", titulos);
+        Assert.Contains("Novo build", titulos);
+        Assert.Contains("Abrir pasta do projeto", titulos);
+        Assert.DoesNotContain(titulos, t => t.StartsWith("Revisar falas", StringComparison.Ordinal));
+
+        main.Palette.Query = "Revisar falas";
+        Assert.Equal(["Revisar falas de Misaki", "Revisar falas de Kenta", "Revisar falas de 花子", "Revisar falas de 太郎"], main.Palette.Results.Select(r => r.Title).Take(4));
+    }
+
+    [Fact]
+    public async Task O_Glossario_abre_a_revisao_mesmo_com_o_Editor_defasado_e_recarregando()
+    {
+        using var temp = new TempFolder();
+        var (main, _) = await OpenAsync(temp);
+        main.Editor.StopReview();
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Glossary);
+        await main.Glossary.Loading;
+        typeof(MainWindowViewModel).GetField("editorStale", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(main, true);
+        var row = main.Glossary.Characters.Single(c => c.Source == "美咲");
+
+        main.Glossary.ReviewCharacterCommand.Execute(row);
+        await main.LineNavigation;
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.True(main.Editor.IsReviewing);
+        Assert.Equal("yst00001:000000", main.Editor.Review!.Detail!.Id);
     }
 
     [Fact]

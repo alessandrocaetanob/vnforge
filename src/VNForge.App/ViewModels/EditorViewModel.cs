@@ -801,6 +801,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(entry.Issues);
         IssueCount += updated.Issues.Count - entry.Issues.Count;
         data?.Replace(updated);
+        speakerCounts = null;
         RequestRecheck();
         savedUnits.Remove(unit.Id);
         var index = entry.Number - 1;
@@ -845,6 +846,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
         data?.Replace(updated);
+        speakerCounts = null;
         RequestRecheck();
         RefreshScriptProgress(updated.ScriptKey);
 
@@ -972,6 +974,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
+            speakerCounts = null;
             ErrorCount = loaded is null ? 0 : CountErrors(loaded);
             IssueCount = loaded is null ? 0 : CountIssues(loaded);
             Scripts.Clear();

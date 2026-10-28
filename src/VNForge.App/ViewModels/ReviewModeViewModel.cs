@@ -144,13 +144,13 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
     public string FinishedTitle => Total == 0
         ? "Nenhuma linha da IA para revisar"
-        : source.Speaker is not null ? $"Revisão das falas de {SourceName} concluída" : "Revisão da cena concluída";
+        : source.FinishedTitle(SourceName);
 
     /// <summary>O nome do personagem da fila, em português quando está cadastrado; vazio quando a fila é da cena.</summary>
     public string SourceName => source.Speaker is { } speaker ? editor.DisplayNameOf(speaker) : string.Empty;
 
     /// <summary>"Falas de Misaki em todas as cenas", no topo da tela; vazio quando a fila é da cena aberta.</summary>
-    public string SourceText => source.Speaker is null ? string.Empty : $"Falas de {SourceName} em todas as cenas";
+    public string SourceText => source.Caption(SourceName) ?? string.Empty;
 
     public bool HasSourceText => SourceText.Length > 0;
 
@@ -160,9 +160,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         {
             if (Total == 0)
             {
-                return source.Speaker is null
-                    ? "Esta cena não tem linhas traduzidas pela IA esperando revisão."
-                    : $"{SourceName} não tem falas traduzidas pela IA esperando revisão.";
+                return source.EmptyText(SourceName);
             }
 
             var text = Plural(ApprovedCount, "linha aprovada", "linhas aprovadas");

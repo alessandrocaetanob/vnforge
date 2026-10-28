@@ -11,6 +11,7 @@ namespace VNForge.App.ViewModels;
 /// <summary>O ponto de entrada do modo revisão e o registro de aprovações; a tela e as regras da sequência estão em <see cref="ReviewModeViewModel"/>.</summary>
 public sealed partial class EditorViewModel
 {
+    private List<(string Source, int Count)>? speakerCounts;
     private IApprovalLog? approvalLog;
     private string? approvalLogRoot;
 
@@ -68,26 +69,33 @@ public sealed partial class EditorViewModel
                 return [];
             }
 
-            var counts = new Dictionary<string, int>(CharacterBook.NameComparer);
-            var order = new List<string>();
-            foreach (var line in Scripts.SelectMany(s => data.LinesOf(s.Key)).Where(IsAwaitingReview))
+            // A paleta pede a lista a cada tecla: a contagem fica guardada até uma gravação ou uma releitura mudar os dados; o nome em português é de agora.
+            speakerCounts ??= CountSpeakersAwaitingReview(data);
+            return [.. speakerCounts.Select(c => new ReviewableSpeaker(c.Source, DisplayNameOf(c.Source), c.Count))];
+        }
+    }
+
+    private List<(string Source, int Count)> CountSpeakersAwaitingReview(ProjectLines lines)
+    {
+        var counts = new Dictionary<string, int>(CharacterBook.NameComparer);
+        var order = new List<string>();
+        foreach (var line in Scripts.SelectMany(s => lines.LinesOf(s.Key)).Where(IsAwaitingReview))
+        {
+            var speaker = line.Unit.EffectiveSpeaker;
+            if (string.IsNullOrEmpty(speaker))
             {
-                var speaker = line.Unit.EffectiveSpeaker;
-                if (string.IsNullOrEmpty(speaker))
-                {
-                    continue;
-                }
-
-                if (!counts.TryGetValue(speaker, out var count))
-                {
-                    order.Add(speaker);
-                }
-
-                counts[speaker] = count + 1;
+                continue;
             }
 
-            return [.. order.Select(speaker => new ReviewableSpeaker(speaker, DisplayNameOf(speaker), counts[speaker]))];
+            if (!counts.TryGetValue(speaker, out var count))
+            {
+                order.Add(speaker);
+            }
+
+            counts[speaker] = count + 1;
         }
+
+        return [.. order.Select(speaker => (speaker, counts[speaker]))];
     }
 
     /// <summary>O nome do personagem em português quando está cadastrado; senão o do texto.</summary>
@@ -100,9 +108,10 @@ public sealed partial class EditorViewModel
     {
         IEnumerable<LineEntry> lines = source.Kind switch
         {
+            ReviewSourceKind.OpenScene => entries.Where(IsAwaitingReview),
             ReviewSourceKind.Speaker => Scripts.SelectMany(s => data!.LinesOf(s.Key))
-                .Where(l => IsAwaitingReview(l) && source.Speaker is { } speaker && CharacterBook.NameComparer.Equals(l.Unit.EffectiveSpeaker ?? string.Empty, speaker)),
-            _ => entries.Where(IsAwaitingReview),
+                .Where(l => IsAwaitingReview(l) && CharacterBook.NameComparer.Equals(l.Unit.EffectiveSpeaker ?? string.Empty, source.Speaker!)),
+            _ => throw new ArgumentOutOfRangeException(nameof(source), source.Kind, "Fonte de revisão desconhecida."),
         };
 
         return [.. lines.Select(l => new ReviewItem(l.ScriptKey, l.Number, l.Unit.Id))];

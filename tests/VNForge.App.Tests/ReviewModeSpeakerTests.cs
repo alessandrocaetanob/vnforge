@@ -187,6 +187,67 @@ public sealed class ReviewModeSpeakerTests : IDisposable
     }
 
     [Fact]
+    public async Task Linha_com_falante_trocado_entra_na_fila_de_quem_foi_escolhido_e_sai_da_do_falante_do_jogo()
+    {
+        ProjectFolder.Open(raiz).SaveText("yst00002",
+        [
+            Fala(2, 0, "健太", "Sim.\\p", TranslationStatus.Machine),
+            Fala(2, 1, "健太", "Isso.\\p", TranslationStatus.Machine) with { ChosenSpeaker = "美咲" },
+        ]);
+        var vm = await Abrir();
+
+        vm.StartReviewOf(ReviewSource.OfSpeaker("美咲"));
+        var misaki = new List<string> { vm.Review!.Detail!.Id };
+        for (var i = 1; i < vm.Review.Total; i++)
+        {
+            vm.Review.SkipCommand.Execute(null);
+            misaki.Add(vm.Review.Detail!.Id);
+        }
+
+        Assert.Equal(["yst00001:000000", "yst00001:000003", "yst00002:000001", "yst00003:000000", "yst00003:000001"], misaki);
+        vm.StartReviewOf(ReviewSource.OfSpeaker("健太"));
+        Assert.Equal(2, vm.Review!.Total);
+        Assert.Equal(("健太", "Kenta", 2), (vm.ReviewableSpeakers[1].Source, vm.ReviewableSpeakers[1].Name, vm.ReviewableSpeakers[1].Count));
+        Assert.Equal(5, vm.ReviewableSpeakers[0].Count);
+    }
+
+    [Fact]
+    public async Task A_lista_de_personagens_acompanha_uma_aprovacao()
+    {
+        var vm = await Abrir();
+        Assert.Equal(4, vm.ReviewableSpeakers[0].Count);
+
+        vm.StartReviewOf(ReviewSource.OfSpeaker("美咲"));
+        vm.Review!.ApproveCommand.Execute(null);
+
+        Assert.Equal(3, vm.ReviewableSpeakers.Single(s => s.Source == "美咲").Count);
+    }
+
+    [Fact]
+    public void Uma_fonte_de_personagem_exige_o_nome_e_o_tipo_tem_de_existir()
+    {
+        Assert.Throws<ArgumentException>(() => new ReviewSource(ReviewSourceKind.Speaker, null));
+        Assert.Throws<ArgumentException>(() => new ReviewSource(ReviewSourceKind.Speaker, " "));
+        Assert.Throws<ArgumentException>(() => new ReviewSource((ReviewSourceKind)99));
+    }
+
+    [Fact]
+    public void A_fonte_diz_a_legenda_o_titulo_final_e_o_texto_vazio()
+    {
+        var cena = ReviewSource.OpenScene;
+        var personagem = ReviewSource.OfSpeaker("美咲");
+
+        Assert.False(cena.SpansScenes);
+        Assert.Null(cena.Caption("Misaki"));
+        Assert.Equal("Revisão da cena concluída", cena.FinishedTitle("Misaki"));
+        Assert.Equal("Esta cena não tem linhas traduzidas pela IA esperando revisão.", cena.EmptyText("Misaki"));
+        Assert.True(personagem.SpansScenes);
+        Assert.Equal("Falas de Misaki em todas as cenas", personagem.Caption("Misaki"));
+        Assert.Equal("Revisão das falas de Misaki concluída", personagem.FinishedTitle("Misaki"));
+        Assert.Equal("Misaki não tem falas traduzidas pela IA esperando revisão.", personagem.EmptyText("Misaki"));
+    }
+
+    [Fact]
     public async Task Os_personagens_para_revisar_trazem_o_nome_traduzido_e_quantas_linhas_da_IA_tem()
     {
         var vm = await Abrir();
