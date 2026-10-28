@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
@@ -14,7 +15,7 @@ public sealed record TextboxLine(string Text, int Columns, bool Overflow, IReadO
 public sealed record TextboxBox(IReadOnlyList<TextboxLine> Lines);
 
 /// <summary>O que o controle <c>GameTextbox</c> desenha.</summary>
-/// <param name="Speaker">Nome da placa; nulo quando a linha não tem falante.</param>
+/// <param name="Speaker">Nome da placa, o que o build grava na caixa de nome (a tradução do Glossário, ou o falante escolhido na linha); nulo quando a linha não tem falante.</param>
 /// <param name="Columns">Largura da caixa em colunas.</param>
 /// <param name="MaxLines">Limite de linhas por caixa do perfil; nulo sem limite.</param>
 /// <param name="Boxes">As caixas, com as linhas já quebradas.</param>
@@ -29,13 +30,17 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly TextUnit unit;
-    public TextboxPreviewViewModel(TextUnit unit, FormattingProfile profile, string translation, SpeakerBoxMarks marks = default)
+    public TextboxPreviewViewModel(TextUnit unit, FormattingProfile profile, string translation, SpeakerBoxMarks marks = default, SpeakerNaming? naming = null)
     {
         this.unit = unit ?? throw new ArgumentNullException(nameof(unit));
         Profile = profile ?? throw new ArgumentNullException(nameof(profile));
         Marks = marks;
+        Naming = naming ?? SpeakerNaming.None;
         Update(translation);
     }
+
+    /// <summary>De onde vem o nome da placa: o que o build grava na caixa de nome (#464), não o nome do jogo.</summary>
+    public SpeakerNaming Naming { get; }
 
     /// <summary>O perfil com que a prévia foi montada.</summary>
     public FormattingProfile Profile { get; }
@@ -99,8 +104,7 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
         var boxes = preview.Boxes
             .Select(box => new TextboxBox([.. box.Select((line, n) => new TextboxLine(line.Text, line.Columns, preview.Formatted && preview.MaxLines is { } max && n >= max, line.Segments))]))
             .ToArray();
-        var speaker = string.IsNullOrEmpty(unit.EffectiveSpeaker) ? null : unit.EffectiveSpeaker;
-        Show(new TextboxLayout(speaker, columns, preview.Formatted ? preview.MaxLines : null, boxes), Describe(preview, columns), preview.Warnings, null, preview.Notice);
+        Show(new TextboxLayout(Naming.NameOf(unit), columns, preview.Formatted ? preview.MaxLines : null, boxes), Describe(preview, columns), preview.Warnings, null, preview.Notice);
     }
 
     private void Show(TextboxLayout? layout, string summary, IReadOnlyList<string> warnings, string? problem, string? notice)

@@ -63,9 +63,12 @@ public sealed partial class ConferenceViewModel
         }
 
         FormattingProfile profile;
+        SpeakerNaming naming;
         try
         {
-            profile = ProjectFolder.Open(root).LoadFormatting();
+            var folder = ProjectFolder.Open(root);
+            profile = folder.LoadFormatting();
+            naming = SpeakerNaming.Read(folder);
         }
         catch (VNForgeException)
         {
@@ -85,7 +88,7 @@ public sealed partial class ConferenceViewModel
             return (null, null);
         }
 
-        return (fit, new TextboxPreviewViewModel(unit, profile, unit.Translation ?? string.Empty).Layout);
+        return (fit, new TextboxPreviewViewModel(unit, profile, unit.Translation ?? string.Empty, naming: naming).Layout);
     }
 
     /// <summary>Grava a tradução nova da linha do problema, avisa o Editor e reconfere o projeto.</summary>

@@ -1,4 +1,5 @@
 using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -60,7 +61,11 @@ public static class LinePreviewer
         }
 
         var config = project.LoadConfig();
-        return Create(project.LoadFormatting(), unit, unit.Translation, SpeakerBoxMarks.For(config.Encoding.Strategy, config.Style.SpeakerDelimiter));
+        var preview = Create(project.LoadFormatting(), unit, unit.Translation, SpeakerBoxMarks.For(config.Encoding.Strategy, config.Style.SpeakerDelimiter));
+
+        // O nome da caixa de nome é o que o build grava (#464), como na placa do app.
+        var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
+        return preview with { Speaker = SpeakerText.WrittenName(unit, new CharacterBook(project.LoadCharacters()), encoder) };
     }
 
     /// <summary>

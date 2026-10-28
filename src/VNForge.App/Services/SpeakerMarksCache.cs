@@ -14,7 +14,12 @@ public sealed class SpeakerMarksCache
     private readonly Lock gate = new();
 
     /// <summary>As marcas do projeto; <see cref="SpeakerBoxMarks.None"/> sem arquivo legível ou com uma estratégia que não as tem.</summary>
-    public SpeakerBoxMarks Get(string root)
+    public SpeakerBoxMarks Get(string root) => Find(root).Marks;
+
+    /// <summary>A codificação do projeto, a mesma que o build usa para resolver o nome da placa (#464); a mesma instância enquanto o arquivo não muda. Nula sem arquivo legível ou com estratégia desconhecida.</summary>
+    public ITextEncoder? GetEncoder(string root) => Find(root).Encoder;
+
+    private Entry Find(string root)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
 
@@ -24,27 +29,27 @@ public sealed class SpeakerMarksCache
         {
             if (entries.TryGetValue(root, out var entry) && entry.Stamp == stamp)
             {
-                return entry.Marks;
+                return entry;
             }
 
-            var marks = Load(root);
-            entries[root] = new Entry(stamp, marks);
-            return marks;
+            var loaded = Load(root, stamp);
+            entries[root] = loaded;
+            return loaded;
         }
     }
 
-    private static SpeakerBoxMarks Load(string root)
+    private static Entry Load(string root, (DateTime LastWrite, long Length) stamp)
     {
         try
         {
-            var config = ProjectFolder.Open(root).LoadConfig();
-            return SpeakerBoxMarks.For(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
+            var encoder = SpeakerNaming.ReadEncoder(ProjectFolder.Open(root));
+            return new Entry(stamp, SpeakerBoxMarks.For(encoder), encoder);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
-            return SpeakerBoxMarks.None;
+            return new Entry(stamp, SpeakerBoxMarks.None, null);
         }
     }
 
-    private sealed record Entry((DateTime LastWrite, long Length) Stamp, SpeakerBoxMarks Marks);
+    private sealed record Entry((DateTime LastWrite, long Length) Stamp, SpeakerBoxMarks Marks, ITextEncoder? Encoder);
 }

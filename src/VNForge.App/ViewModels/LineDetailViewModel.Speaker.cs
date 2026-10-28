@@ -88,7 +88,7 @@ public sealed partial class LineDetailViewModel
 
         if (saved && Preview is { } preview)
         {
-            Preview = new TextboxPreviewViewModel(Saved, preview.Profile, Translation, preview.Marks);
+            Preview = new TextboxPreviewViewModel(Saved, preview.Profile, Translation, preview.Marks, preview.Naming);
         }
 
         NotifySpeakerChanged();
