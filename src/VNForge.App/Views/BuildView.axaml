@@ -28,7 +28,7 @@
               <TextBlock Text="Voltar ao jogo original"/>
             </StackPanel>
           </Button>
-          <Button x:Name="TestButton" Classes="accent lg" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
+          <Button Classes="accent lg" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
               <TextBlock Text="Testar no jogo" VerticalAlignment="Center"/>
@@ -78,7 +78,7 @@
       </Border>
 
       <Grid>
-        <!-- Opções, em linguagem comum. Os acentos vêm de Ajustes. -->
+        <!-- Todas as opções do teste e do build numa lista só, em linguagem comum. Os acentos vêm de Ajustes. -->
         <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do teste">
           <StackPanel>
             <Border Classes="divider-bottom" Height="48" Padding="16,0">
@@ -91,6 +91,9 @@
             <c:ToggleRule Title="Testar mesmo com avisos"
                           Description="{Binding AllowWarningsDescription}"
                           IsChecked="{Binding AllowWarnings}"/>
+            <c:ToggleRule Title="Reconstruir só scripts alterados"
+                          Description="Os demais arquivos do pacote são copiados byte a byte do original."
+                          IsChecked="{Binding OnlyChanged}"/>
             <Border Classes="divider-top" Padding="16,12">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="2" VerticalAlignment="Center">
@@ -133,16 +136,14 @@
       <!-- Build, injeção, patch do executável, registro e cópias de segurança: o que a pessoa que só quer testar não precisa ver. -->
       <c:TechnicalDetails x:Name="Technical" Key="build" AutomationProperties.Name="Detalhes técnicos">
         <StackPanel Spacing="16" Margin="0,8,0,0">
-          <!-- O caminho de um clique: quem abre os detalhes costuma achar que build, patch, injeção e restauração são os passos do teste. Nenhum botão daqui tem destaque. -->
+          <!-- O caminho de um clique: quem abre os detalhes costuma achar que build, patch, injeção e restauração são os passos do teste. A faixa só explica; o botão é o do topo. -->
           <Border Classes="infobar" AutomationProperties.Name="Testar no jogo faz tudo">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
               <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
               <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center">
                 <Run FontWeight="SemiBold" Text="Testar no jogo (Ctrl+B) já faz tudo."/>
-                <Run Text="Ele refaz o build, guarda a cópia de segurança e copia para o jogo (com acentos no ajuste cp1252, aplica também o patch da fonte). Não precisa restaurar os originais entre um teste e outro."/>
+                <Run Text="Use o botão do topo da página: ele refaz o build, guarda a cópia de segurança e copia para o jogo (com acentos no ajuste cp1252, aplica também o patch da fonte). Não precisa restaurar os originais entre um teste e outro."/>
               </TextBlock>
-              <Button Grid.Column="2" Classes="sm" Click="GoToTest_Click" Content="Ir para Testar no jogo"
-                      VerticalAlignment="Center" AutomationProperties.Name="Ir para Testar no jogo"/>
             </Grid>
           </Border>
 
@@ -162,16 +163,13 @@
           <Grid ColumnDefinitions="*,400" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
 
             <StackPanel Spacing="12">
-              <!-- Opções -->
-              <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Opções do build">
+              <!-- Só o botão: as opções do build (reconstruir só o que mudou) ficam em "Opções", no corpo da página. -->
+              <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Build">
                 <StackPanel>
                   <Border Classes="divider-bottom" Height="48" Padding="16,0">
-                    <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Opções"/>
+                    <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Build"/>
                   </Border>
-                  <c:ToggleRule Title="Reconstruir só scripts alterados"
-                                Description="Os demais arquivos do pacote são copiados byte a byte do original."
-                                IsChecked="{Binding OnlyChanged}"/>
-                  <Border Classes="divider-top" Padding="16,12">
+                  <Border Padding="16,12">
                     <Button Command="{Binding BuildCommand}" HorizontalAlignment="Left" AutomationProperties.Name="Novo build">
                       <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="Novo build" VerticalAlignment="Center"/>
