@@ -409,7 +409,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
                     .ToList();
                 if (groupRows.Count > 0)
                 {
-                    consistency.Add(new ConferenceConsistencyCardViewModel(group, Label, groupRows, positions));
+                    consistency.Add(new ConferenceConsistencyCardViewModel(group, Label, groupRows, positions, new ConsistencyCardActions(UseVariantCommand, KeepDifferentCommand, OpenLineByIdCommand)));
                     rows.AddRange(groupRows);
                 }
             }

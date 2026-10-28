@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:v="using:VNForge.App.Views"
              xmlns:ae="using:AvaloniaEdit"
              xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.LineDetailView"
@@ -241,6 +242,8 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <!-- O aviso de "mesmo original, traduções diferentes" com as outras variantes, as linhas de cada uma e a diferença marcada (#457). -->
+            <v:ConsistencyCardView DataContext="{Binding ConsistencyCard}" IsVisible="{Binding $parent[UserControl].((vm:LineDetailViewModel)DataContext).HasConsistencyCard}"/>
             <Border Classes="infobar error" IsVisible="{Binding HasMissingMarkers}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>

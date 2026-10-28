@@ -1,3 +1,6 @@
+using VNForge.App.ViewModels;
+using VNForge.Core.Qa;
+
 namespace VNForge.App.Services;
 
 /// <summary>O que o "Usar em todos" vai sobrescrever, para a pergunta antes de gravar.</summary>
@@ -23,4 +26,17 @@ public interface ISameSourceLines
 
     /// <summary>Grava <paramref name="translation"/> nessas linhas e registra o "Desfazer" do lote.</summary>
     SameSourceOutcome Apply(string translation);
+}
+
+/// <summary>O que o Editor oferece ao aviso de "mesmo original, traduções diferentes" do detalhe da linha (#457).</summary>
+public interface IConsistencyLines
+{
+    /// <summary>O cartão do original da linha aberta, ou nulo quando as traduções do original não divergem ou o usuário as manteve diferentes. Os comandos do cartão vêm do detalhe (<paramref name="actions"/>).</summary>
+    ConferenceConsistencyCardViewModel? Build(ConsistencyCardActions actions);
+
+    /// <summary>Grava "manter diferentes de propósito" para o grupo e atualiza os avisos já. Devolve a mensagem de falha, ou nulo quando gravou.</summary>
+    Task<string?> KeepAsync(ConsistencyGroup group);
+
+    /// <summary>Abre a linha no Editor.</summary>
+    Task OpenAsync(LineRequest request);
 }
