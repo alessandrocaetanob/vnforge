@@ -243,6 +243,23 @@ public sealed class ReadSceneTests : IDisposable
     }
 
     [Fact]
+    public async Task Sair_com_um_personagem_escolhido_ainda_mostra_a_fala_marcada_de_outro()
+    {
+        var vm = await Abrir();
+        vm.SelectedSpeaker = vm.Speakers.Single(s => s.Value == "美咲");
+        vm.StartReading();
+        var leitor = vm.Reading!;
+        leitor.NextCommand.Execute(null);
+        leitor.NextCommand.Execute(null);
+        leitor.ToggleOddCommand.Execute(null);
+
+        leitor.CloseCommand.Execute(null);
+
+        Assert.Equal(LineStatusFilter.Odd, vm.Filters.Single(f => f.IsSelected).Filter);
+        Assert.Equal(["yst00001:000002"], vm.Lines.Select(l => l.Id));
+    }
+
+    [Fact]
     public async Task Sair_sem_marca_deixa_o_filtro_como_estava()
     {
         var vm = await Abrir();

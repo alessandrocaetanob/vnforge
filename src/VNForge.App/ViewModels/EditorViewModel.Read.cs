@@ -44,7 +44,15 @@ public sealed partial class EditorViewModel
     [RelayCommand]
     public void StopReading()
     {
-        if (EndReading() && chips.FirstOrDefault(c => c.Filter == LineStatusFilter.Odd) is { Count: > 0 } chip)
+        if (!EndReading())
+        {
+            return;
+        }
+
+        // A contagem do chip respeita o personagem escolhido: sem voltar a "Todos", uma fala marcada de outro personagem não apareceria.
+        SelectedSpeaker = Speakers[0];
+        UpdateCounts();
+        if (chips.FirstOrDefault(c => c.Filter == LineStatusFilter.Odd) is { Count: > 0 } chip)
         {
             // Com o filtro já ligado, SelectFilter não refaz a grade, e as marcas novas ainda não estariam nela.
             SelectFilter(chip);
