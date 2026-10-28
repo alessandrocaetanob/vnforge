@@ -811,7 +811,8 @@ public sealed partial class ConferenceViewModel : ObservableObject
             }
 
             var gone = card.Rows.Select(r => r.Issue).ToHashSet(ReferenceEqualityComparer.Instance);
-            report = new QaReport([.. report.Issues.Where(i => !gone.Contains(i))], [.. report.Silenced, .. report.Issues.Where(gone.Contains)], report.RulesRun);
+            // O grupo mantido não entra em Silenced: a regra deixa de apontá-lo, então uma releitura também não o contaria.
+            report = new QaReport([.. report.Issues.Where(i => !gone.Contains(i))], report.Silenced, report.RulesRun);
             all = [.. all.Where(r => !card.Rows.Contains(r))];
             allConsistency = [.. allConsistency.Where(c => !ReferenceEquals(c, card))];
             Rebuild();

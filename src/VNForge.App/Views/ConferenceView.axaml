@@ -16,6 +16,20 @@
     <Style Selector="TextBlock.body-sm.chips">
       <Setter Property="LineHeight" Value="22"/>
     </Style>
+    <!-- Lista dos cartões de "mesmo original": o cartão não é um item selecionável, então o item não muda de cor. -->
+    <Style Selector="ListBox.cards">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.cards > ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.cards > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.cards > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
     <Style Selector="Border.original.proposal">
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
       <Setter Property="BorderThickness" Value="1"/>
@@ -129,14 +143,15 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
           <!-- Um cartão por original com mais de uma tradução, no lugar de um aviso por linha: as variantes, as linhas de cada uma (links para o Editor) e o que difere da mais usada. -->
-          <ScrollViewer Grid.Row="1" MaxHeight="300" Margin="0,0,0,4" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasConsistencyCards}">
-            <ItemsControl ItemsSource="{Binding ConsistencyCards}" Margin="12,8,12,4" AutomationProperties.Name="Originais com traduções diferentes">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel Spacing="8"/>
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
+          <!-- Virtualizada: um projeto pode ter milhares de originais repetidos. Sem seleção visível; os botões do cartão são o que se clica. -->
+          <ListBox Grid.Row="1" Classes="cards" MaxHeight="300" Margin="12,8,12,4" ItemsSource="{Binding ConsistencyCards}" IsVisible="{Binding HasConsistencyCards}"
+                   SelectionMode="Toggle" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Originais com traduções diferentes">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel/>
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ConferenceConsistencyCardViewModel">
                   <Border Classes="original" Padding="14,12" AutomationProperties.Name="{Binding AutomationName}">
                     <StackPanel Spacing="10">
@@ -192,9 +207,8 @@
                     </StackPanel>
                   </Border>
                 </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
+              </ListBox.ItemTemplate>
+            </ListBox>
           <Panel Grid.Row="2">
             <ListBox Classes="projects" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" SelectionMode="Single"
                      AutomationProperties.Name="Problemas encontrados">

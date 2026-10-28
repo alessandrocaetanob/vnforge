@@ -61,6 +61,12 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                     AssertBlockingBanner(window, view, vm.Conference, theme);
                     AssertSceneNamesAndChips(view);
 
+                    // O cartão de "mesmo original": as duas ações não são o botão de destaque (esse é um por tela, no cabeçalho).
+                    var cardButtons = view.GetVisualDescendants().OfType<Button>()
+                        .Where(b => b.IsEffectivelyVisible && (b.Command == vm.Conference.UseVariantCommand || b.Command == vm.Conference.KeepDifferentCommand)).ToList();
+                    Assert.True(cardButtons.Count >= 4, "o cartão mostra Usar em todas por variante e Manter diferentes");
+                    Assert.All(cardButtons, b => Assert.DoesNotContain("accent", b.Classes));
+
                     // Erro sem correção automática: só "Abrir no editor", em destaque, na barra do pé do painel.
                     var open = ActionButton(view, vm.Conference.OpenLineCommand);
                     Assert.Contains("accent", open.Classes);

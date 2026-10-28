@@ -467,6 +467,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!await Conference.UndoAsync(saved))
         {
             Toasts.Show(Conference.ErrorMessage ?? "Não foi possível desfazer a gravação das linhas.", ToastKind.Error, key: "line-undo");
+            return;
+        }
+
+        // Com o Editor à vista, só marcar como defasado não basta: a grade continuaria mostrando as traduções desfeitas.
+        if (ReferenceEquals(CurrentPage, Editor))
+        {
+            editorStale = false;
+            Editor.Reload();
         }
     }
 

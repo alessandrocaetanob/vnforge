@@ -222,14 +222,39 @@ public class ConferenceConsistencyTests
     }
 
     [Fact]
-    public async Task Os_botoes_do_cartao_nao_sao_de_destaque_e_a_tela_tem_um_de_destaque_so()
+    public async Task Os_rotulos_do_cartao_sao_os_da_issue()
     {
         using var temp = new TempFolder();
         var (vm, _) = await Loaded(temp);
 
-        // "Usar em todas" e "Manter diferentes" ficam nas classes comuns: o destaque é do cabeçalho (Conferir de novo / Corrigir N).
-        Assert.True(vm.RefreshIsPrimary != vm.HasFixable);
         Assert.Equal("Usar em todas", vm.ConsistencyCards.Single().Variants[0].UseLabel);
         Assert.Equal("Manter diferentes de propósito", vm.ConsistencyCards.Single().KeepLabel);
+    }
+
+    [Fact]
+    public async Task Sem_a_regra_no_motor_nao_ha_cartao_e_as_outras_linhas_seguem_na_lista()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        ProjectFolder.Open(root).SaveText("yst00001", [Line("yst00001", 0, "a  b"), Line("yst00001", 1, "c")]);
+        var vm = new ConferenceViewModel(new QaEngine([new DoubleSpaceRule()])) { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.RefreshAsync();
+
+        Assert.Empty(vm.ConsistencyCards);
+        Assert.Contains(vm.Rows, r => r.RuleId == "espaco-duplo");
+    }
+
+    [Fact]
+    public async Task Manter_diferentes_nao_conta_como_aviso_marcado_como_certo()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        await vm.KeepDifferentCommand.ExecuteAsync(vm.ConsistencyCards.Single());
+        var afterKeep = vm.SilencedSummary;
+        await vm.RefreshAsync();
+
+        Assert.Equal(afterKeep, vm.SilencedSummary);
     }
 }
