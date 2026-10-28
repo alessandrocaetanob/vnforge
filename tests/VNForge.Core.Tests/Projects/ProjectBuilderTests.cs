@@ -676,8 +676,10 @@ public sealed class ProjectBuilderTests : IDisposable
         var written = Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).EffectiveSpeaker;
         var encoder = TextEncoderRegistry.Default.Create(strategy, _project.LoadConfig().Style.SpeakerDelimiter);
         var unit = _project.LoadAllText()["a001"][0];
-        Assert.Equal(string.IsNullOrEmpty(written) ? null : written, SpeakerText.WrittenName(unit, new CharacterBook(_project.LoadCharacters()), encoder));
-        Assert.Equal(plate, SpeakerText.WrittenName(unit, new CharacterBook(_project.LoadCharacters()), encoder));
+        var shown = SpeakerText.WrittenName(unit, new CharacterBook(_project.LoadCharacters()), encoder);
+        Assert.Equal(string.IsNullOrEmpty(written) ? null : written, shown);
+        Assert.Equal(plate, shown);
+        Assert.Equal(plate, LinePreviewer.Create(_project, FirstUnit).Speaker);
     }
 
     [Fact]
