@@ -51,7 +51,7 @@ public sealed class ChangedSinceTestTests
         var vm = await OpenEditorAsync(now, test);
 
         Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-        Assert.Equal(5, vm.Filters.Count);
+        Assert.Equal(5, vm.Filters.Count(f => f.IsShown));
     }
 
     [Fact]
