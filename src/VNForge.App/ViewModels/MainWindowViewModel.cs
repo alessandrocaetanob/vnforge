@@ -134,6 +134,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.CharacterRegistrationRequested += (_, name) => OpenCharacterInGlossary(name);
         Build.LineRequested += (_, request) => OpenLineInEditor(request);
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
+        Build.SinceTest.OpenRequested += (_, key) =>
+        {
+            SelectedNav = editorItem;
+            LineNavigation = ShowChangedSinceTestAsync(key);
+        };
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured);
@@ -545,6 +550,26 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>Abre a cena no Editor só com as falas que mudaram desde o último teste; se o teste não guardou o retrato, abre a cena como está.</summary>
+    private async Task ShowChangedSinceTestAsync(string scriptKey)
+    {
+        try
+        {
+            if (await Editor.ShowChangedSinceTestAsync(scriptKey))
+            {
+                return;
+            }
+        }
+        catch (Exception e)
+        {
+            // O Editor já mostra o erro de carga; sem ele não há cena a abrir.
+            Debug.WriteLine(e);
+            return;
+        }
+
+        await ShowScriptAsync(scriptKey);
+    }
+
     /// <summary>Um botão do Painel: troca de página e, no Editor, abre o script pedido.</summary>
     private void OpenFromDashboard(DashboardNavigation request)
     {
@@ -557,7 +582,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (request.ScriptKey is { } key)
         {
             // Vindo do Início o projeto acabou de abrir e o Editor ainda carrega os scripts: ShowScriptAsync espera a carga.
-            LineNavigation = ShowScriptAsync(key);
+            LineNavigation = request.ChangedSinceTest ? ShowChangedSinceTestAsync(key) : ShowScriptAsync(key);
             if (request.NewChapter)
             {
                 LineNavigation = BeginNewChapterAfterAsync(LineNavigation);
@@ -602,6 +627,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>
     private void PrepareLeavingAndEntering(NavKey target)
     {
+        if (target == NavKey.Editor)
+        {
+            Editor.DropChangedSinceTestIfOutdated();
+        }
+
         if (target == NavKey.Conference)
         {
             ConferenceLoading = Conference.RefreshAsync();

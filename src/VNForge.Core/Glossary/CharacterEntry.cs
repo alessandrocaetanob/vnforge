@@ -7,8 +7,10 @@ namespace VNForge.Core.Glossary;
 /// <param name="Target">Nome traduzido.</param>
 /// <param name="Gender">Gênero do personagem, para concordância na tradução; <see cref="CharacterGender.Unknown"/> quando não definido.</param>
 /// <param name="Tone">Tom de fala em texto livre (por exemplo "formal, usa honoríficos"); nulo quando não definido.</param>
+/// <param name="Color">Id da cor do personagem na paleta do app (por exemplo <c>blue</c>), que marca o nome dele na grade, na caixa do jogo e no Modo revisão; nulo quando o app escolhe. O Core só guarda o id.</param>
 public sealed record CharacterEntry(
     [property: JsonRequired] string Source,
     [property: JsonRequired] string Target,
     CharacterGender Gender = CharacterGender.Unknown,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Tone = null) : IGlossaryEntry;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Tone = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Color = null) : IGlossaryEntry;

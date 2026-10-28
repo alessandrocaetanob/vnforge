@@ -33,8 +33,8 @@ public class GlossaryFilesTests : IDisposable
 
     private static IReadOnlyList<CharacterEntry> Personagens() =>
     [
-        new("美咲", "Misaki", CharacterGender.Female, "animada, fala informal"),
-        new("先生", "Professor", CharacterGender.Male, null),
+        new("美咲", "Misaki", CharacterGender.Female, "animada, fala informal", "rose"),
+        new("先生", "Professor", CharacterGender.Male, null, "green"),
         new("？？？", "???", CharacterGender.Unknown, string.Empty),
         new("ナレーション", "Narrador", CharacterGender.Other, "neutro"),
     ];
@@ -84,6 +84,18 @@ public class GlossaryFilesTests : IDisposable
     }
 
     [Fact]
+    public void Cor_do_personagem_vai_e_volta_e_some_do_arquivo_quando_nao_definida()
+    {
+        var json = CharacterSerializer.Serialize([new("美咲", "Misaki", Color: "rose"), new("先生", "Professor")]);
+
+        Assert.Contains("\"color\":\"rose\"", json);
+        Assert.Equal(1, json.Split("\"color\"").Length - 1);
+        var lido = CharacterSerializer.Parse(json, "characters.json");
+        Assert.Equal("rose", lido[0].Color);
+        Assert.Null(lido[1].Color);
+    }
+
+    [Fact]
     public void Personagem_sem_genero_nem_tom_le_como_desconhecido_sem_tom()
     {
         var json = """{ "version": 1, "entries": [ { "source": "美咲", "target": "Misaki" } ] }""";
@@ -92,6 +104,7 @@ public class GlossaryFilesTests : IDisposable
 
         Assert.Equal(CharacterGender.Unknown, personagem.Gender);
         Assert.Null(personagem.Tone);
+        Assert.Null(personagem.Color);
     }
 
     [Theory]

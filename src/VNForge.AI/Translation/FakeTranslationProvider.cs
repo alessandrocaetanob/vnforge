@@ -7,8 +7,10 @@ namespace VNForge.AI.Translation;
 /// Provedor determinístico para testes e para o app sem chave: não usa rede nem SDK. Por padrão traduz <c>X</c> como
 /// <c>[PT] X</c>, o que mantém os marcadores de controle e deixa a linha visivelmente "traduzida".
 /// </summary>
-public sealed class FakeTranslationProvider : ITranslationProvider
+public sealed class FakeTranslationProvider : ITranslationProvider, IRewriteProvider
 {
+    private readonly ConcurrentQueue<(TranslationBatch Batch, RewriteRequest Request)> _rewrites = new();
+
     private readonly Func<TextUnit, string> _translate;
     private readonly ConcurrentQueue<TranslationBatch> _received = new();
     private int _calls;
@@ -36,5 +38,20 @@ public sealed class FakeTranslationProvider : ITranslationProvider
 
         IReadOnlyList<TranslationResult> results = [.. batch.Lines.Select(u => new TranslationResult(u.Id, _translate(u)))];
         return Task.FromResult(results);
+    }
+
+    /// <summary>Pedidos de reescrita recebidos, na ordem das chamadas.</summary>
+    public IReadOnlyCollection<(TranslationBatch Batch, RewriteRequest Request)> ReceivedRewrites => _rewrites;
+
+    /// <summary>Devolve duas opções determinísticas, <c>[Direção 1] tradução</c> e <c>[Direção 2] tradução</c>, que mantêm os marcadores da tradução de hoje.</summary>
+    public Task<RewriteResult> RewriteAsync(TranslationBatch batch, RewriteRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        ArgumentNullException.ThrowIfNull(request);
+        if (ct.IsCancellationRequested)
+            return Task.FromCanceled<RewriteResult>(ct);
+
+        _rewrites.Enqueue((batch, request));
+        return Task.FromResult(new RewriteResult(batch.Lines[0].Id, [$"[{request.Direction} 1] {request.Current}", $"[{request.Direction} 2] {request.Current}"]));
     }
 }

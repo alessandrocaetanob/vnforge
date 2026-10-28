@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using VNForge.App.Controls;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Spelling;
@@ -86,6 +87,7 @@ public sealed partial class EditorViewModel
 
         // O glossário lido vale mesmo que outra reconferência mais nova tenha tomado o lugar desta.
         context = loadedContext;
+        RefreshSpeakerLooks();
         if (version != recheckVersion)
         {
             return;
@@ -94,6 +96,16 @@ public sealed partial class EditorViewModel
         Detail?.SpellWords = ProjectDictionary.Create(context.Glossary, context.Characters.Entries);
 
         ShowRechecked(lines.Apply(result), lines);
+    }
+
+    /// <summary>O Glossário pode ter mudado o nome ou a cor de um personagem: a grade do script aberto relê os dois do contexto novo.</summary>
+    private void RefreshSpeakerLooks()
+    {
+        foreach (var line in scriptLines)
+        {
+            var character = context.Characters.Find(line.Entry.Unit.EffectiveSpeaker);
+            line.UpdateSpeaker(character?.Target, CharacterPalette.For(character));
+        }
     }
 
     /// <summary>Leva as linhas cujas ocorrências mudaram para a grade do script aberto, o painel da linha e os contadores.</summary>

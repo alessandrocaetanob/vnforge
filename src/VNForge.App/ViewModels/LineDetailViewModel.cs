@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
@@ -121,6 +122,9 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     /// <summary>O nome do personagem em português, quando ele está cadastrado em <c>characters.json</c>.</summary>
     public string? SpeakerTarget => Context?.SpeakerTarget;
+
+    /// <summary>A cor do personagem, que o Modo revisão usa no nome de quem fala; nula na narração e sem cadastro.</summary>
+    public CharacterColor? SpeakerColor => Speaker is null ? null : Context?.SpeakerColor;
 
     /// <summary>"美咲 → Misaki" no alto do original; só o nome original sem cadastro; "Narração" sem falante.</summary>
     public string SpeakerPair => Speaker is null ? "Narração" : SpeakerTarget is null ? Speaker : $"{Speaker} → {SpeakerTarget}";
@@ -449,6 +453,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         disposed = true;
         CancelSuggestion();
         CancelExplanation();
+        CancelRewrite();
         Fit?.Cancel();
         timer?.Dispose();
         timer = null;
