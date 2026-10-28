@@ -731,7 +731,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         // Voltar ao Editor defasado o relê, e a leitura solta o gravador de linhas até acabar: o modo revisão só abre depois.
-        await Editor.Loading;
+        Task loading;
+        do
+        {
+            // Uma releitura pedida enquanto esta esperava troca o Editor.Loading: espera a mais nova também.
+            loading = Editor.Loading;
+            await loading;
+        }
+        while (!ReferenceEquals(loading, Editor.Loading));
+
         if (ReferenceEquals(SelectedNav, editorItem))
         {
             Editor.StartReviewOf(ReviewSource.OfSpeaker(name));
