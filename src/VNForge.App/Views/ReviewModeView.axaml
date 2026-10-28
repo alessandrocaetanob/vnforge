@@ -191,6 +191,9 @@
                           ShowShorten="{Binding Detail.Fit.HasShortener, FallbackValue=False}" ErrorText="{Binding Detail.Fit.Error}"
                           AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
 
+            <!-- "Reescrever com um toque" fica sob a caixa do jogo: cada versão vem medida contra ela, e o roteiro à esquerda não ganha altura. -->
+            <c:RewriteBar Classes="rewrite-compact" DataContext="{Binding Detail}"/>
+
             <Border Classes="infobar warning" IsVisible="{Binding GenderMissing}" AutomationProperties.Name="Aviso: personagem sem gênero">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>

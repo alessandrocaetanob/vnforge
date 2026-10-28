@@ -449,6 +449,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         disposed = true;
         CancelSuggestion();
         CancelExplanation();
+        CancelRewrite();
         Fit?.Cancel();
         timer?.Dispose();
         timer = null;

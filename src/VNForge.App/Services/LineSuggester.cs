@@ -38,7 +38,7 @@ public interface ILineShortener
 /// </summary>
 /// <param name="openProvider">Abre o provedor real a cada pedido (a chave pode mudar em Ajustes); nulo quando não há chave.</param>
 /// <param name="currentModel">Diz qual modelo o provedor real usa, para o cartão da sugestão; nulo não informa o modelo.</param>
-public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func<string>? currentModel = null) : ILineSuggester, ILineShortener
+public sealed partial class LineSuggester(Func<ITranslationProvider?> openProvider, Func<string>? currentModel = null) : ILineSuggester, ILineShortener
 {
     private readonly Func<ITranslationProvider?> openProvider = openProvider ?? throw new ArgumentNullException(nameof(openProvider));
 

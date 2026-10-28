@@ -1,0 +1,85 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Controls.RewriteBar"
+             x:DataType="vm:LineDetailViewModel">
+
+  <UserControl.Styles>
+    <!-- No modo revisão os chips ficam sob a caixa do jogo, sem o título, para não tirar altura do palco. -->
+    <Style Selector="UserControl.rewrite-compact TextBlock.title">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="TextBlock.fit">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="TextBlock.fit.over">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <!-- "Reescrever com um toque": cinco chips pedem duas versões da tradução numa direção; cada versão vem medida contra a caixa do jogo. O DataContext é o painel da linha. -->
+  <StackPanel Spacing="8" IsVisible="{Binding HasRewriter}">
+    <TextBlock Classes="overline title" Text="Reescrever com um toque"/>
+    <ItemsControl ItemsSource="{Binding RewriteChips}" AutomationProperties.Name="Reescrever com um toque">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel ItemSpacing="6" LineSpacing="6"/>
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:RewriteChip">
+          <Button Classes="sm" Command="{Binding Command}" ToolTip.Tip="{Binding Tip}">
+            <TextBlock Text="{Binding Label}" TextWrapping="NoWrap"/>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <StackPanel Spacing="8" IsVisible="{Binding ShowRewriteResult}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="body-sm" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding RewriteTitle}"/>
+        <Button Grid.Column="1" Classes="subtle sm" Command="{Binding CancelRewriteCommand}" IsVisible="{Binding IsRewriting}">
+          <TextBlock Text="Cancelar" TextWrapping="NoWrap"/>
+        </Button>
+        <Button Grid.Column="1" Classes="subtle sm" Command="{Binding DiscardRewriteCommand}" IsVisible="{Binding !IsRewriting}"
+                ToolTip.Tip="Descarta as versões e mantém a tradução">
+          <TextBlock Text="Descartar" TextWrapping="NoWrap"/>
+        </Button>
+      </Grid>
+      <TextBlock Classes="caption secondary" Text="Reescrevendo..." IsVisible="{Binding IsRewriting}"/>
+      <ItemsControl ItemsSource="{Binding RewriteOptions}" AutomationProperties.Name="Versões reescritas">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Spacing="8"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:RewriteOption">
+            <Border Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+                    CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Spacing="4">
+                  <TextBlock TextWrapping="Wrap" Text="{Binding Text}"/>
+                  <TextBlock Classes="caption fit" TextWrapping="Wrap" Text="{Binding FitText}" IsVisible="{Binding HasFit}" Classes.over="{Binding Overflows}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Classes="sm" VerticalAlignment="Top" Command="{Binding UseCommand}" ToolTip.Tip="Troca a tradução por esta versão">
+                  <TextBlock Text="Usar" TextWrapping="NoWrap"/>
+                </Button>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RewriteNote}"
+               IsVisible="{Binding RewriteNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+    <Border Classes="infobar error" IsVisible="{Binding HasRewriteError}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding RewriteError}"/>
+      </Grid>
+    </Border>
+  </StackPanel>
+</UserControl>

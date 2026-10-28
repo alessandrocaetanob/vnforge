@@ -9,7 +9,7 @@ namespace VNForge.AI.Claude;
 /// Provedor de tradução sobre o Claude. Monta o pedido, exige saída JSON por <c>output_config.format</c> e confere que
 /// a resposta traz exatamente os ids do lote. Retry, reenvio de linhas ruins e fallback de recusa ficam acima dele.
 /// </summary>
-public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, ClaudeOptions? options = null) : ITranslationProvider
+public sealed partial class ClaudeTranslationProvider(IClaudeMessageClient client, ClaudeOptions? options = null) : ITranslationProvider
 {
     private readonly ClaudeBatchCaller _caller = new(client, options ?? new ClaudeOptions());
 

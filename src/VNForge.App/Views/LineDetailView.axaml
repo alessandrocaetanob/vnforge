@@ -218,6 +218,7 @@
                 <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding SuggestionError}"/>
               </Grid>
             </Border>
+            <c:RewriteBar/>
 
           </StackPanel>
           <StackPanel x:Name="ProblemsFragment" Spacing="16">
