@@ -364,7 +364,12 @@ public static class ProjectBuilder
                     $"Os scripts '{keys[file.Key]}' e '{script.Path}' têm a mesma chave '{file.Key}'; dois scripts não podem usar o mesmo text/{file.Key}.json.");
             }
 
-            if (!texts.TryGetValue(file.Key, out var units) || !units.Any(u => u.NeedsRewrite))
+            if (!texts.TryGetValue(file.Key, out var units))
+            {
+                units = [];
+            }
+
+            if (!units.Any(u => u.NeedsRewrite) && !script.Format.RequiresRebuild(file, encoder, game.Context))
             {
                 continue;
             }

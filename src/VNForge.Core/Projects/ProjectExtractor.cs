@@ -38,6 +38,11 @@ public sealed record ExtractionResult(
     public int TotalLines => Scripts.Sum(s => s.Lines);
 }
 
+/// <summary>Resultado de <see cref="ProjectExtractor.RefreshGameTitle"/>.</summary>
+/// <param name="Original">O título que o jogo traz, já gravado no <c>vnforge.json</c>; nulo quando não foi possível lê-lo.</param>
+/// <param name="Warning">Por que o título não foi lido, em português; nulo quando foi.</param>
+public sealed record GameTitleRefresh(string? Original, string? Warning);
+
 /// <summary>
 /// A primeira extração de um projeto (<c>vnf extract</c>): descompacta os pacotes do jogo para <c>.cache/game/</c>, lê cada script com o
 /// <see cref="IScriptFormat"/> da engine e grava <c>text/&lt;chave&gt;.json</c>. Só lê a pasta do jogo. Com <c>text/*.json</c> já existente
@@ -80,7 +85,7 @@ public static class ProjectExtractor
         var warnings = new List<string>(unpacked.Warnings);
         warnings.AddRange(game.Warnings);
         var extracted = ReadScripts(game, warnings, progress, cancellationToken);
-        var gameTitle = ReadGameTitle(unpacker, project, warnings);
+        var gameTitle = ReadGameTitle(unpacker as IGameTitleSource, project, warnings);
         var originals = HashOriginals(gameDirectory, unpacked.Archives);
 
         var plan = TextReextraction.Merge(
@@ -151,13 +156,70 @@ public static class ProjectExtractor
         };
     }
 
+    /// <summary>A engine do projeto oferece o título da janela do jogo (<see cref="IGameTitleSource"/>), então <see cref="RefreshGameTitle"/> tem o que ler.</summary>
+    public static bool CanReadGameTitle(ProjectConfig config, IReadOnlyList<IEngine> engines)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(engines);
+        return engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal)) is IGameTitleSource;
+    }
+
+    /// <summary>
+    /// Lê o título da janela do jogo do <c>.cache/</c> que a extração deixou e o grava no <c>vnforge.json</c>, para o projeto extraído antes de o título
+    /// entrar na extração. Não descompacta, não lê script e não mexe em <c>text/</c> nem no estado do pipeline; a tradução já digitada fica como está.
+    /// Como na extração, a falha vira aviso e o projeto continua como estava.
+    /// </summary>
+    public static GameTitleRefresh RefreshGameTitle(ProjectFolder project, IReadOnlyList<IEngine> engines)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(engines);
+
+        var config = project.LoadConfig();
+        if (engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal)) is not IGameTitleSource source)
+        {
+            return new GameTitleRefresh(null, $"A engine '{config.Engine.Id}' não oferece o título da janela do jogo.");
+        }
+
+        if (!Directory.Exists(project.GameCacheDirectory))
+        {
+            return new GameTitleRefresh(null, "Os arquivos do jogo não estão no projeto (a pasta .cache/ não existe). Extraia o jogo de novo para ler o título.");
+        }
+
+        var warnings = new List<string>();
+        string? original;
+        try
+        {
+            original = ReadGameTitle(source, project, warnings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new GameTitleRefresh(null, $"Não foi possível ler o título do jogo: {ex.Message}");
+        }
+
+        if (string.IsNullOrEmpty(original))
+        {
+            return new GameTitleRefresh(null, warnings.FirstOrDefault() ?? "O jogo não traz o arquivo do título da janela.");
+        }
+
+        try
+        {
+            SaveGameTitle(project, config, original);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new GameTitleRefresh(null, $"Não foi possível gravar o título no {ProjectFolder.ConfigFileName}: {ex.Message}");
+        }
+
+        return new GameTitleRefresh(original, null);
+    }
+
     /// <summary>
     /// O título da janela do jogo, se a engine o oferece. É um extra: um arquivo do título ilegível (outra versão do formato) não pode impedir a extração
     /// dos scripts, então a falha vira aviso e o <c>vnforge.json</c> fica como está.
     /// </summary>
-    private static string? ReadGameTitle(IGameUnpacker unpacker, ProjectFolder project, List<string> warnings)
+    private static string? ReadGameTitle(IGameTitleSource? source, ProjectFolder project, List<string> warnings)
     {
-        if (unpacker is not IGameTitleSource source)
+        if (source is null)
         {
             return null;
         }
