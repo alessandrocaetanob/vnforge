@@ -40,9 +40,6 @@ public sealed partial class EditorViewModel
     [RelayCommand]
     private void ToggleScenes() => IsScenesCollapsed = !IsScenesCollapsed;
 
-    [RelayCommand]
-    private void ToggleDensity() => IsScriptDensity = !IsScriptDensity;
-
     partial void OnIsScenesCollapsedChanged(bool value)
     {
         if (layoutMemory is not null)

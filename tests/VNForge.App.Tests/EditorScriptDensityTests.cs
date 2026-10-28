@@ -68,20 +68,10 @@ public sealed class EditorScriptDensityTests
         Assert.Contains("colunas", Assert.Single(tips), StringComparison.OrdinalIgnoreCase);
         Assert.True(new EditorViewModel(layoutMemory: new EditorLayoutMemory(config)).IsScriptDensity);
 
-        vm.ToggleDensityCommand.Execute(null);
+        vm.IsScriptDensity = false;
 
         Assert.False(vm.IsScriptDensity);
         Assert.False(new EditorLayoutMemory(config).ScriptDensity);
         Assert.False(new EditorViewModel(layoutMemory: new EditorLayoutMemory(config)).IsScriptDensity);
-    }
-
-    [Fact]
-    public void Sem_memoria_o_Editor_aceita_a_troca_de_densidade()
-    {
-        var vm = new EditorViewModel();
-
-        vm.ToggleDensityCommand.Execute(null);
-
-        Assert.True(vm.IsScriptDensity);
     }
 }

@@ -53,7 +53,7 @@
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
 
-  <!-- Roteiro (#460): o nome de quem fala é o rótulo em cima, o original embaixo dele e a tradução por último, até duas linhas cada; o resto da linha fica no alto.
+  <!-- Roteiro (#460): o nome de quem fala é o rótulo em cima (medium; o falante trocado segue em semibold), o original embaixo dele e a tradução por último, até duas linhas cada; o resto da linha fica no alto.
        A altura acompanha o texto, de 72 px (uma linha de cada) a 108 px (duas de cada): a lista mede os itens que mostra e estima o resto pela média. -->
   <Style Selector="c|LineRow:script">
     <Setter Property="Height" Value="NaN"/>
@@ -72,7 +72,7 @@
     <Setter Property="Grid.ColumnSpan" Value="3"/>
     <Setter Property="FontSize" Value="12"/>
     <Setter Property="LineHeight" Value="16"/>
-    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="FontWeight" Value="Medium"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
   <Style Selector="c|LineRow:script /template/ TextBlock#PART_Original">
