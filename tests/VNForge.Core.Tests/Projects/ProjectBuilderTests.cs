@@ -652,6 +652,34 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.Equal(string.Empty, Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).ChosenSpeaker);
     }
 
+    [Theory]
+    [InlineData("sjis", "犬井", null, "犬井", "Inui", "Inui")]
+    [InlineData("cp1252", "犬井", null, "犬井", "Inui", "Inui")]
+    [InlineData("sjis", "犬井", null, null, null, "犬井")]
+    [InlineData("sjis", "美咲", null, "美咲", "Mísaki", "美咲")]
+    [InlineData("cp1252", "？？？", null, null, null, "???")]
+    [InlineData("cp1252", "犬井", "美咲", "美咲", "Misaki", "Misaki")]
+    [InlineData("sjis", "犬井", "美咲", "美咲", "Misaki", "Misaki")]
+    [InlineData("cp1252", "犬井", "Misaki", null, null, "Misaki")]
+    [InlineData("cp1252", "犬井", "", null, null, null)]
+    public void Placa_da_caixa_do_jogo_mostra_o_nome_que_o_build_entrega_a_engine(string strategy, string extracted, string? chosen, string? characterSource, string? characterTarget, string? plate)
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig(strategy) });
+        if (characterSource is not null)
+        {
+            _project.SaveCharacters([new CharacterEntry(characterSource, characterTarget!)]);
+        }
+
+        ChooseSpeaker("Bom dia!", chosen, extracted);
+        Build();
+
+        var written = Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).EffectiveSpeaker;
+        var encoder = TextEncoderRegistry.Default.Create(strategy, _project.LoadConfig().Style.SpeakerDelimiter);
+        var unit = _project.LoadAllText()["a001"][0];
+        Assert.Equal(string.IsNullOrEmpty(written) ? null : written, SpeakerText.WrittenName(unit, new CharacterBook(_project.LoadCharacters()), encoder));
+        Assert.Equal(plate, SpeakerText.WrittenName(unit, new CharacterBook(_project.LoadCharacters()), encoder));
+    }
+
     [Fact]
     public void Falante_escolhido_livra_o_extraido_japones_sem_cadastro_da_conferencia()
     {

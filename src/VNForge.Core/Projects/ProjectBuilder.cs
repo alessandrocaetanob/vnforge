@@ -317,20 +317,14 @@ public static class ProjectBuilder
         }
 
         // O falante escolhido vale no lugar do extraído; vazio (narração) não tem nome a resolver e segue como está para a engine.
-        if (unit.ChosenSpeaker is { Length: > 0 } chosen)
+        // É a mesma resolução da placa da caixa do jogo no app (SpeakerText.WrittenName).
+        if (SpeakerText.ResolveUnit(unit, characters, encoder) is not { } name)
         {
-            return unit with { ChosenSpeaker = ResolveName(unit, chosen, characters, encoder) };
+            return unit;
         }
 
-        return unit.ChosenSpeaker is null && !string.IsNullOrWhiteSpace(unit.Speaker)
-            ? unit with { Speaker = ResolveName(unit, unit.Speaker, characters, encoder) }
-            : unit;
-    }
-
-    private static string ResolveName(TextUnit unit, string speaker, CharacterBook characters, ITextEncoder encoder)
-    {
-        var name = SpeakerText.Resolve(speaker, characters, encoder);
-        return name.Error is { } error ? throw new VNForgeException($"A linha {unit.Id} não pode ser gravada: {error}") : name.Name;
+        var written = name.Error is { } error ? throw new VNForgeException($"A linha {unit.Id} não pode ser gravada: {error}") : name.Name;
+        return unit.ChosenSpeaker is not null ? unit with { ChosenSpeaker = written } : unit with { Speaker = written };
     }
 
     private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings)

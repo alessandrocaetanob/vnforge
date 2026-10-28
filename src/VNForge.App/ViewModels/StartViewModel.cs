@@ -451,14 +451,16 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     {
         try
         {
-            var units = ProjectFolder.Open(root).LoadText(key);
+            var folder = ProjectFolder.Open(root);
+            var units = folder.LoadText(key);
+            var naming = SpeakerNaming.Read(folder);
             var speech = units.Where(u => u.Kind is TextUnitKind.Dialogue or TextUnitKind.Narration && !string.IsNullOrWhiteSpace(u.Translation)).ToList();
             var toReview = speech.Where(u => u.Status is TranslationStatus.Machine or TranslationStatus.Translated);
             var reviewed = speech.Where(u => u.Status is TranslationStatus.Reviewed or TranslationStatus.Approved).Reverse();
             var profile = profiles.Get(root) ?? FormattingProfile.Default;
             foreach (var (unit, isToReview) in toReview.Select(u => (u, true)).Concat(reviewed.Select(u => (u, false))).Take(MaxContinueTries))
             {
-                if (new TextboxPreviewViewModel(unit, profile, unit.Translation!).Layout is { } layout)
+                if (new TextboxPreviewViewModel(unit, profile, unit.Translation!, naming: naming).Layout is { } layout)
                 {
                     return (layout, isToReview ? "Próxima fala a revisar" : "Última fala revisada");
                 }

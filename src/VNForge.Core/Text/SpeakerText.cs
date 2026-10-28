@@ -50,6 +50,45 @@ public static class SpeakerText
                 $"O nome do personagem {speaker.Trim()} não existe na codificação do jogo ({encoder.Id}). Cadastre a tradução do nome no Glossário > Personagens.");
     }
 
+    /// <summary>
+    /// O nome que o build entrega à engine para <paramref name="unit"/>: o <see cref="TextUnit.ChosenSpeaker"/> quando há, senão o <see cref="TextUnit.Speaker"/> extraído,
+    /// cada um por <see cref="Resolve"/>. Nulo quando o build deixa a unidade como está: narração escolhida (vazio) ou sem falante.
+    /// </summary>
+    public static SpeakerName? ResolveUnit(TextUnit unit, CharacterBook characters, ITextEncoder encoder)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+
+        if (unit.ChosenSpeaker is { Length: > 0 } chosen)
+        {
+            return Resolve(chosen, characters, encoder);
+        }
+
+        return unit.ChosenSpeaker is null && !string.IsNullOrWhiteSpace(unit.Speaker) ? Resolve(unit.Speaker, characters, encoder) : null;
+    }
+
+    /// <summary>
+    /// O nome que o jogo mostra na caixa de nome da linha, o da placa da prévia: o que <see cref="ResolveUnit"/> dá ao build (a tradução do Glossário, o falante escolhido na linha),
+    /// sem recusar o que a estratégia não grava (a Conferência é quem avisa). Nulo na narração. Sem <paramref name="encoder"/> (estratégia desconhecida), vale a tradução do cadastro ou o nome como está.
+    /// </summary>
+    public static string? WrittenName(TextUnit unit, CharacterBook characters, ITextEncoder? encoder)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        ArgumentNullException.ThrowIfNull(characters);
+
+        string? name;
+        if (encoder is not null)
+        {
+            name = ResolveUnit(unit, characters, encoder)?.Name ?? unit.EffectiveSpeaker;
+        }
+        else
+        {
+            var entry = string.IsNullOrWhiteSpace(unit.EffectiveSpeaker) ? null : characters.Find(unit.EffectiveSpeaker);
+            name = entry is not null && !string.IsNullOrWhiteSpace(entry.Target) ? entry.Target.Trim() : unit.EffectiveSpeaker;
+        }
+
+        return string.IsNullOrEmpty(name) ? null : name;
+    }
+
     private static string FirstRefused(string text, ITextEncoder encoder) => EncodingMessages.Character(text, encoder.FindUnencodable(text)[0]);
 
     /// <summary>O <paramref name="name"/> como está, ou normalizado em largura (NFKC) quando só assim o <paramref name="encoder"/> o grava; nulo se nem assim.</summary>
