@@ -701,6 +701,21 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    /// Mostra o resumo da sessão (linhas aprovadas e tempo trabalhado) num aviso, ao fechar o app. Falso, sem mostrar nada, quando a sessão não aprovou nenhuma
+    /// linha; a janela fecha logo nesse caso.
+    /// </summary>
+    public bool ShowCloseSummary()
+    {
+        if (Start.CloseSummary(CurrentProject?.Root) is not { } text)
+        {
+            return false;
+        }
+
+        Toasts.Show(text, ToastKind.Info, key: "session-summary");
+        return true;
+    }
+
     private void SetProject(ProjectSummary summary)
     {
         if (CurrentProject?.Root != summary.Root)
