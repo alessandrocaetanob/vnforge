@@ -271,14 +271,8 @@ public sealed class SpellChecker
             }
 
             var start = i;
-            while (i < flat.Length && (char.IsLetter(flat[i]) || (flat[i] is '-' or '\'' or '’' && i + 1 < flat.Length && char.IsLetter(flat[i + 1]))))
-            {
-                i++;
-            }
-
-            var touchesMarker = (start > 0 && flat[start - 1] == Blocked) || (i < flat.Length && flat[i] == Blocked);
-            var latin = text[start..i].All(c => c <= 'ɏ' || c == '’');
-            if (!touchesMarker && latin)
+            i = EndOfWord(flat, i);
+            if (!TouchesMarker(flat, start, i) && text[start..i].All(c => c <= 'ɏ' || c == '’'))
             {
                 tokens.Add(new Token(start, text.Substring(start, i - start), StartsSentence(flat, start)));
             }
@@ -286,6 +280,20 @@ public sealed class SpellChecker
 
         return tokens;
     }
+
+    // Onde termina a palavra que começa em flat[start]: letras, e hífen ou apóstrofo entre letras.
+    private static int EndOfWord(char[] flat, int start)
+    {
+        var i = start;
+        while (i < flat.Length && (char.IsLetter(flat[i]) || (flat[i] is '-' or '\'' or '’' && i + 1 < flat.Length && char.IsLetter(flat[i + 1]))))
+        {
+            i++;
+        }
+
+        return i;
+    }
+
+    private static bool TouchesMarker(char[] flat, int start, int end) => (start > 0 && flat[start - 1] == Blocked) || (end < flat.Length && flat[end] == Blocked);
 
     private static bool StartsSentence(char[] flat, int start)
     {

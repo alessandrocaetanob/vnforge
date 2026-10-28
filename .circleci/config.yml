@@ -66,8 +66,8 @@ jobs:
               "/d:sonar.token=$SONAR_TOKEN"
               '/d:sonar.host.url=https://sonarcloud.io'
               '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml'
-              # docs/design é referência copiada do design system (telas .dc.html e READMEs), não código do produto.
-              '/d:sonar.exclusions=docs/design/**'
+              # docs/design é referência copiada do design system (telas .dc.html e READMEs) e licenses/ traz textos de licença copiados, não código do produto.
+              '/d:sonar.exclusions=docs/design/**,licenses/**'
               # Tokens.axaml e Icons.axaml são gerados por tools/ e repetem a mesma estrutura por tema.
               '/d:sonar.cpd.exclusions=src/VNForge.App/Themes/Tokens.axaml,src/VNForge.App/Assets/Icons.axaml,src/VNForge.App/Assets/Brand.axaml'
               # tools/ são scripts de geração (tokens e ícones) rodados à mão, sem suíte de testes.
