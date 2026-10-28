@@ -166,7 +166,7 @@ internal static class YuRisUnpacker
         }
         catch (Exception ex) when (YuRisDetector.IsReadFailure(ex))
         {
-            warnings.Add($"{LabelListFile}: {YuRisDetector.ReasonOf(ex)}; o mapa de cenas fica sem saltos.");
+            warnings.Add($"{LabelListFile}: {YuRisDetector.ReasonOf(ex)}; sem o grafo de saltos entre scripts.");
             return null;
         }
     }

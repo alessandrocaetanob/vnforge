@@ -147,6 +147,35 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     }
 
     [Fact]
+    public void Es_sel_go_com_rotulo_vazio_no_meio_mantem_o_id_posicional_dos_seguintes()
+    {
+        var b = NewScript();
+        b.AddCommand(Gosub, 1, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_B"), b.StringExpression(string.Empty), b.StringExpression("SCENE_C"));
+        b.AddCommand(Gosub, 2, b.StringExpression(ChoiceTexts), b.StringExpression("はい"), b.StringExpression("いいえ"), b.StringExpression("さん"));
+
+        var choices = Read(ReadLabels(Labels()), (1, b), (2, Empty()), (3, Empty())).Where(e => e.Kind == SceneEdgeKind.Choice).ToList();
+
+        Assert.Equal(2, choices.Count);
+        Assert.Equal("yst00001:000257", choices.Single(e => e.To == "yst00002").ChoiceUnitId);
+        Assert.Equal("yst00001:000259", choices.Single(e => e.To == "yst00003").ChoiceUnitId);
+    }
+
+    [Fact]
+    public void Es_sel_go_ignora_argumentos_alem_dos_oito_que_a_rotina_copia()
+    {
+        var b = NewScript();
+        var arguments = new List<SyntheticYstbArgument> { b.StringExpression(ChoiceTargets) };
+        arguments.AddRange(Enumerable.Repeat("SCENE_B", 8).Select(l => b.StringExpression(l)));
+        arguments.Add(b.StringExpression("SCENE_C"));
+        b.AddCommand(Gosub, 1, [.. arguments]);
+
+        var choices = Read(ReadLabels(Labels()), (1, b), (2, Empty()), (3, Empty())).Where(e => e.Kind == SceneEdgeKind.Choice).ToList();
+
+        Assert.DoesNotContain(choices, e => e.To == "yst00003");
+        Assert.Contains(choices, e => e.To == "yst00002");
+    }
+
+    [Fact]
     public void Es_sel_go_sem_es_sel_set_depois_deixa_o_texto_sem_unidade()
     {
         var b = NewScript();

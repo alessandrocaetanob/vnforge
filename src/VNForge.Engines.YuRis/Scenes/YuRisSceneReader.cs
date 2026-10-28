@@ -29,6 +29,9 @@ internal static class YuRisSceneReader
     private const string ChoiceTargetsRoutine = "ES.SEL.GO";
     private const int ArgumentsPerInstruction = 256;
 
+    /// <summary>Quantos rótulos o <c>ES.SEL.GO</c> do E-ris copia (o <c>LOOP 8</c> da rotina); os demais argumentos são ignorados.</summary>
+    private const int MaxChoiceTargets = 8;
+
     public static IReadOnlyList<SceneEdge> Read(YuRisContext context, IReadOnlyList<UnpackedScript> scripts)
     {
         if (context.Labels is not { } labels
@@ -102,7 +105,7 @@ internal static class YuRisSceneReader
         private void ScanChoices(int index, YstbInstruction instruction)
         {
             var textUnits = TextUnitsOfNextChoiceSet(index);
-            for (var i = 1; i < instruction.Arguments.Count; i++)
+            for (var i = 1; i < instruction.Arguments.Count && i <= MaxChoiceTargets; i++)
             {
                 if (Literal(instruction, i) is not { Length: > 0 } label || Resolve(label) is not { } target)
                 {

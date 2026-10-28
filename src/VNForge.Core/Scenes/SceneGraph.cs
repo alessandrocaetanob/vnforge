@@ -6,7 +6,8 @@ namespace VNForge.Core.Scenes;
 /// O grafo de cenas de um jogo: quais scripts levam a quais, por salto, chamada ou escolha. Imutável. Quem monta é a engine
 /// (<see cref="IEngine.ReadSceneEdges"/>); o grafo só normaliza as arestas: tira repetidas, descarta salto e chamada para o
 /// próprio script (rótulos internos, que não são ligação entre cenas) e ordena de forma estável. A aresta de escolha para o próprio
-/// script fica, porque diz que a cena tem uma escolha mesmo quando os ramos voltam a se encontrar nela.
+/// script fica, porque diz que a cena tem uma escolha mesmo quando os ramos voltam a se encontrar nela. Arestas iguais em todos os
+/// campos se juntam; duas escolhas com o mesmo rótulo e destino que não têm <see cref="SceneEdge.ChoiceUnitId"/> viram uma só.
 /// </summary>
 public sealed class SceneGraph
 {

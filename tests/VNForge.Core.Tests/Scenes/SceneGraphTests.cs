@@ -92,6 +92,22 @@ public class SceneGraphTests
     }
 
     [Fact]
+    public void ReachableFrom_CicloQueVoltaAOrigem_IncluiAOrigem()
+    {
+        var graph = new SceneGraph([Jump("a", "b"), Jump("b", "a")]);
+
+        Assert.Equal(["a", "b"], graph.ReachableFrom("a").Order());
+    }
+
+    [Fact]
+    public void Construtor_EscolhasComMesmoRotuloEDestinoSemUnidade_ViramUma()
+    {
+        var graph = new SceneGraph([Choice("a", "b", "L"), Choice("a", "b", "L")]);
+
+        Assert.Single(graph.Edges);
+    }
+
+    [Fact]
     public void ReachableFrom_SemSaidas_DevolveVazio()
     {
         var graph = new SceneGraph([Jump("a", "b")]);
