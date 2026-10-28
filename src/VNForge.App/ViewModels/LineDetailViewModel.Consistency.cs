@@ -31,23 +31,34 @@ public sealed partial class LineDetailViewModel
     }
 
     /// <summary>
-    /// "Usar em todas" de uma variante: põe a tradução dela nesta linha e a grava nas outras do original pelo "Usar em todos" (a pergunta antes de substituir
-    /// traduções diferentes, o "Desfazer" do lote).
+    /// "Usar em todas" de uma variante: grava a tradução dela nesta linha e nas outras do original, pelo "Usar em todos" (a pergunta antes de substituir
+    /// traduções diferentes, o "Desfazer" do lote). Cancelar a pergunta não muda nenhuma linha, nem esta.
     /// </summary>
     [RelayCommand]
     private void UseVariant(ConferenceVariantViewModel? variant)
     {
-        if (variant is null || SameSource is null)
+        if (variant is null || SameSource is null || !Flush())
         {
             return;
         }
 
-        if (!string.Equals(Translation, variant.Translation, StringComparison.Ordinal))
+        SameSourceResult = null;
+        var preview = new SameSourcePreview(0, 0);
+        if (!TrySave(() => preview = SameSource.Inspect(variant.Translation)))
         {
-            Translation = variant.Translation;
+            return;
         }
 
-        UseForAll();
+        pendingVariant = variant.Translation;
+        if (preview.Differing == 0)
+        {
+            AdoptPendingVariant();
+            UseForAll();
+            return;
+        }
+
+        UseForAllConfirmText = ConfirmText(preview);
+        IsUseForAllConfirmOpen = true;
     }
 
     /// <summary>"Manter diferentes de propósito": o aviso some desta linha e das outras do original até o original ou uma tradução mudar.</summary>

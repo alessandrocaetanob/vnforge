@@ -139,7 +139,7 @@ public sealed class EditorConsistencyTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_a_pergunta_nao_grava_nas_outras_linhas()
+    public async Task Cancelar_a_pergunta_nao_muda_nenhuma_linha_nem_a_aberta()
     {
         var vm = await Abrir();
         vm.SelectedLine = vm.Lines[2];
@@ -147,8 +147,8 @@ public sealed class EditorConsistencyTests : IDisposable
 
         vm.Detail.CancelUseForAllCommand.Execute(null);
 
-        // A linha aberta já foi gravada com a variante (como no "Usar em todos"); as outras ficam como estavam.
-        Assert.Equal("Bom dia.", Traducoes()[2]);
+        // Cancelar não muda nenhuma linha, nem a aberta.
+        Assert.Equal("Bom dia", Traducoes()[2]);
         Assert.Equal("Bom  dia.", Traducoes()[3]);
     }
 

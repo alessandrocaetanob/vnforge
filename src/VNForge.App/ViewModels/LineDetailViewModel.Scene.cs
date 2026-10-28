@@ -64,11 +64,28 @@ public sealed partial class LineDetailViewModel
     private void ConfirmUseForAll()
     {
         IsUseForAllConfirmOpen = false;
+        AdoptPendingVariant();
         ApplyToAll();
     }
 
     [RelayCommand]
-    private void CancelUseForAll() => IsUseForAllConfirmOpen = false;
+    private void CancelUseForAll()
+    {
+        IsUseForAllConfirmOpen = false;
+        pendingVariant = null;
+    }
+
+    /// <summary>A tradução de uma variante do cartão (#457) à espera da confirmação: só entra no campo desta linha quando o usuário confirma, para cancelar não mudar nada.</summary>
+    private string? pendingVariant;
+
+    private void AdoptPendingVariant()
+    {
+        if (pendingVariant is { } text)
+        {
+            pendingVariant = null;
+            Translation = text;
+        }
+    }
 
     private void ApplyToAll()
     {
