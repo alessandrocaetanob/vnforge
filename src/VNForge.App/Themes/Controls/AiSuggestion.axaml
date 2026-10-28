@@ -12,12 +12,12 @@
           <StackPanel Spacing="8">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <PathIcon Width="16" Height="16" Data="{DynamicResource Icon.Sparkle}" Foreground="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"/>
-              <TextBlock Name="PART_Model" Text="{TemplateBinding Model}" FontSize="12" LineHeight="16" FontWeight="SemiBold"
+              <TextBlock Name="PART_Model" Text="{TemplateBinding Model}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" FontWeight="SemiBold"
                          Foreground="{DynamicResource Vnf.StatusAiFg}" VerticalAlignment="Center"/>
-              <TextBlock Name="PART_Details" Text="{TemplateBinding Details}" FontSize="12" LineHeight="16"
+              <TextBlock Name="PART_Details" Text="{TemplateBinding Details}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}"
                          Foreground="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"/>
             </StackPanel>
-            <SelectableTextBlock Name="PART_Body" FontSize="14" LineHeight="22" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextPrimary}"/>
+            <SelectableTextBlock Name="PART_Body" FontSize="{DynamicResource Vnf.FontSize.BodyLoose}" LineHeight="{DynamicResource Vnf.LineHeight.BodyLoose}" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextPrimary}"/>
             <ProgressBar Name="PART_Busy" Classes="thin" IsIndeterminate="True" IsVisible="False" ShowProgressText="False"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
               <Button Name="PART_Use" Classes="sm" Content="Usar sugestão" Command="{TemplateBinding UseCommand}"/>

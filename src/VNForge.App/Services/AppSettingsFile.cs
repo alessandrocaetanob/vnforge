@@ -13,6 +13,15 @@ public enum ThemeChoice
     Dark,
 }
 
+/// <summary>A fonte do texto japonês (original) nas telas; <see cref="Default"/> é a Noto Sans JP embutida no app.</summary>
+public enum JapaneseFontChoice
+{
+    Default,
+    YuGothic,
+    Meiryo,
+    MsGothic,
+}
+
 /// <summary>Ajustes do app que valem para o usuário e não para um projeto. Nunca contêm a chave de API.</summary>
 /// <param name="Concurrency">Chamadas à IA ao mesmo tempo, de <see cref="MinConcurrency"/> a <see cref="MaxConcurrency"/>.</param>
 /// <param name="Theme">Tema escolhido nos Ajustes; <see cref="ThemeChoice.System"/> segue o Windows.</param>
@@ -24,7 +33,18 @@ public sealed record AppSettings(int Concurrency, ThemeChoice Theme = ThemeChoic
     /// <summary>Teto da cotação aceita: acima disso é quase certo um erro de digitação.</summary>
     public const decimal MaxBrlPerUsd = AppBudgetFile.MaxBrlPerUsd;
 
+    /// <summary>Tamanhos do texto do Editor em porcentagem, na ordem de <c>Ctrl</c> <c>+</c>; o padrão é <see cref="DefaultTextScale"/>.</summary>
+    public static IReadOnlyList<int> TextScaleSteps { get; } = [90, 100, 110, 125, 150];
+
+    public const int DefaultTextScale = 100;
+
     public static AppSettings Default { get; } = new(2);
+
+    /// <summary>Tamanho do texto da grade, do inspetor e do Modo revisão, em porcentagem; sempre um dos <see cref="TextScaleSteps"/>.</summary>
+    public int TextScalePercent { get; init; } = DefaultTextScale;
+
+    /// <summary>A fonte do japonês nas telas.</summary>
+    public JapaneseFontChoice JapaneseFont { get; init; } = JapaneseFontChoice.Default;
 
     /// <summary>Reais por dólar, como a pessoa informou; <see langword="null"/> enquanto ela não informou.</summary>
     public decimal? BrlPerUsd { get; init; }
@@ -100,6 +120,18 @@ public sealed class AppSettingsFile(string directory)
                 && Enum.IsDefined(picked)
                     ? picked
                     : TranslationQuality.Careful;
+            var textScale = root.TryGetProperty("textScale", out var scaleValue)
+                && scaleValue.ValueKind == JsonValueKind.Number
+                && scaleValue.TryGetInt32(out var percent)
+                && AppSettings.TextScaleSteps.Contains(percent)
+                    ? percent
+                    : AppSettings.DefaultTextScale;
+            var japaneseFont = root.TryGetProperty("japaneseFont", out var fontValue)
+                && fontValue.ValueKind == JsonValueKind.String
+                && Enum.TryParse<JapaneseFontChoice>(fontValue.GetString(), ignoreCase: true, out var font)
+                && Enum.IsDefined(font)
+                    ? font
+                    : JapaneseFontChoice.Default;
             var rate = AppBudgetFile.ReadMoney(root, "exchangeRate", AppSettings.MaxBrlPerUsd);
             return new AppSettings(concurrency, theme)
             {
@@ -108,6 +140,8 @@ public sealed class AppSettingsFile(string directory)
                 SpendLimit = AppBudgetFile.ReadMoney(root, "spendLimit", decimal.MaxValue),
                 WarnAbove = AppBudgetFile.ReadMoney(root, "warnAbove", decimal.MaxValue),
                 Quality = quality,
+                TextScalePercent = textScale,
+                JapaneseFont = japaneseFont,
                 HideEmptyScenes = !root.TryGetProperty("hideEmptyScenes", out var hide) || hide.ValueKind != JsonValueKind.False,
             };
         }
@@ -137,6 +171,16 @@ public sealed class AppSettingsFile(string directory)
         if (!settings.HideEmptyScenes)
         {
             data["hideEmptyScenes"] = false;
+        }
+
+        if (settings.TextScalePercent != AppSettings.DefaultTextScale)
+        {
+            data["textScale"] = settings.TextScalePercent;
+        }
+
+        if (settings.JapaneseFont != JapaneseFontChoice.Default)
+        {
+            data["japaneseFont"] = settings.JapaneseFont.ToString().ToLowerInvariant();
         }
 
         if (settings.BrlPerUsd is { } rate)

@@ -70,8 +70,8 @@
   </Style>
   <Style Selector="c|LineRow:script /template/ SelectableTextBlock#PART_Speaker">
     <Setter Property="Grid.ColumnSpan" Value="3"/>
-    <Setter Property="FontSize" Value="12"/>
-    <Setter Property="LineHeight" Value="16"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
     <Setter Property="FontWeight" Value="Medium"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>

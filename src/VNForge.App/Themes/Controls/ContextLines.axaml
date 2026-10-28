@@ -19,8 +19,8 @@
       <DataTemplate x:DataType="c:ContextLine">
         <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2">
           <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="{Binding Who}" TextTrimming="CharacterEllipsis"/>
-          <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="18" Text="{Binding Original}" TextWrapping="Wrap"/>
-          <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="18" Text="{Binding Translation}" TextWrapping="Wrap"
+          <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Original}" TextWrapping="Wrap"/>
+          <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Translation}" TextWrapping="Wrap"
                      IsVisible="{Binding Translation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
         </Grid>
       </DataTemplate>

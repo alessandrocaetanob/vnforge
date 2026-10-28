@@ -116,7 +116,7 @@
                 <SelectableTextBlock Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
                                      Text="{Binding SpeakerText}" c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" AutomationProperties.Name="Quem fala"/>
               </Grid>
-              <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" FontSize="18" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+              <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" FontSize="{DynamicResource Vnf.FontSize.ReviewSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
               <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
                       ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -138,7 +138,7 @@
           <Border Classes="card translation current">
             <StackPanel Spacing="12">
               <TextBlock Classes="overline" Text="Tradução"/>
-              <TextBlock FontSize="20" LineHeight="30" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
+              <TextBlock FontSize="{DynamicResource Vnf.FontSize.ReviewTranslation}" LineHeight="{DynamicResource Vnf.LineHeight.ReviewTranslation}" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
               <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.SuggestCommand}"
                       ToolTip.Tip="Pede à IA outra tradução para esta fala. A atual só muda se você usar a sugestão.">
                 <StackPanel Orientation="Horizontal" Spacing="6">
