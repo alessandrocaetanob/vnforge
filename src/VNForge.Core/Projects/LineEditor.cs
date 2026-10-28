@@ -347,7 +347,7 @@ public sealed class LineEditor
                 throw new InvalidOperationException($"A linha '{unit.Id}' não tem tradução e não pode ser aprovada. Escreva a tradução antes de aprovar.");
             }
 
-            return unit.Status == TranslationStatus.Approved ? unit : unit with { Status = TranslationStatus.Approved, Doubt = null };
+            return unit.Status == TranslationStatus.Approved && unit.Doubt is null ? unit : unit with { Status = TranslationStatus.Approved, Doubt = null };
         });
 
     /// <summary>

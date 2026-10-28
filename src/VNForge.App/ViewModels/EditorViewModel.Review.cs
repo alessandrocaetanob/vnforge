@@ -61,11 +61,17 @@ public sealed partial class EditorViewModel
             return;
         }
 
+        // Gravar a edição pendente pode ter encerrado a última dúvida: a fila se monta depois, e vazia não abre.
+        var queue = scriptLines.Where(l => l.HasDoubt).ToList();
+        if (queue.Count == 0)
+        {
+            return;
+        }
+
         SelectFilter(chips[0]);
         SelectedSpeaker = Speakers[0];
 
         Review?.Dispose();
-        var queue = scriptLines.Where(l => l.HasDoubt).ToList();
         RefreshReviewedToday();
         Review = new ReviewModeViewModel(this, queue) { DoubtsOnly = true };
     }

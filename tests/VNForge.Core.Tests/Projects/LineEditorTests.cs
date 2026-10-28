@@ -168,6 +168,17 @@ public class LineEditorTests
     }
 
     [Fact]
+    public void Approve_de_linha_ja_aprovada_ainda_encerra_a_duvida()
+    {
+        using var pasta = new TempFolder();
+        var (projeto, editor) = Preparar(pasta.Path, ComDuvida(1) with { Status = TranslationStatus.Approved });
+
+        editor.Approve("yst00001", "yst00001:000001");
+
+        Assert.Null(Gravada(projeto, 1).Doubt);
+    }
+
+    [Fact]
     public void SetTranslation_com_texto_novo_encerra_a_duvida_e_com_texto_igual_a_mantem()
     {
         using var pasta = new TempFolder();
