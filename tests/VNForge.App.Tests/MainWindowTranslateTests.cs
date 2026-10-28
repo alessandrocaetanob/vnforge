@@ -117,6 +117,49 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task A_traducao_da_IA_deixa_um_ponto_de_restauracao_e_o_Desfazer_da_lista_devolve_as_linhas()
+    {
+        var (vm, root) = await OpenAsync();
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        var entry = Assert.Single(vm.Tasks.Entries);
+        Assert.True(entry.CanUndo);
+        Assert.Equal(2, entry.Steps[0].Restore!.LineCount);
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+
+        await entry.UndoCommand.ExecuteAsync(null);
+
+        var restored = ProjectFolder.Open(root).LoadText("yst00001");
+        Assert.Equal([TranslationStatus.Untranslated, TranslationStatus.Untranslated, TranslationStatus.Approved], restored.Select(u => u.Status));
+        Assert.False(entry.CanUndo);
+        Assert.Equal("2 linhas voltaram ao que eram.", entry.UndoMessage);
+        Assert.Contains("2 linhas voltaram", vm.Toasts.Toasts.Last().Message);
+    }
+
+    [Fact]
+    public async Task Desfazer_a_traducao_da_IA_deixa_a_linha_editada_depois_e_diz_quantas()
+    {
+        var (vm, root) = await OpenAsync();
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        var id = ProjectFolder.Open(root).LoadText("yst00001")[0].Id;
+        new LineEditor(ProjectFolder.Open(root), TimeProvider.System).SetTranslation("yst00001", id, "Minha versão");
+
+        var entry = Assert.Single(vm.Tasks.Entries);
+        await entry.UndoCommand.ExecuteAsync(null);
+
+        var after = ProjectFolder.Open(root).LoadText("yst00001");
+        Assert.Equal("Minha versão", after[0].Translation);
+        Assert.Equal(TranslationStatus.Untranslated, after[1].Status);
+        Assert.Equal("1 linha voltou ao que era. 1 foi editada depois e ficou como está.", entry.UndoMessage);
+    }
+
+    [Fact]
     public async Task Painel_aberto_durante_a_traducao_rele_os_numeros_quando_ela_termina()
     {
         var (vm, _) = await OpenAsync();

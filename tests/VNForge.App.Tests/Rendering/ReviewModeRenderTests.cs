@@ -254,6 +254,48 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         });
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_menu_do_nome_revisa_as_falas_do_personagem_em_todas_as_cenas_e_a_tela_diz_de_quem_sao(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            Assert.Equal(string.Empty, vm.Editor.Review!.SourceText);
+            var speaker = Assert.Single(view.GetVisualDescendants().OfType<SelectableTextBlock>(), b => AutomationProperties.GetName(b) == "Quem fala");
+            var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout, exactMatch: false);
+            flyout.ShowAt(speaker);
+            ScreenRenderer.Settle(window);
+            var item = Assert.Single(flyout.Items.OfType<MenuItem>(), i => Equals(i.Header, SpeakerMenu.ReviewHeader));
+            Assert.True(item.IsVisible);
+            item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            flyout.Hide();
+            ScreenRenderer.Settle(window);
+
+            var review = vm.Editor.Review!;
+            Assert.Equal(3, review.Total);
+            Assert.Equal("Linha 1 de 3", review.PositionText);
+            Assert.Equal("Falas de Misaki em todas as cenas", review.SourceText);
+            var caption = Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Name == "SourceCaption");
+            Assert.True(caption.IsEffectivelyVisible);
+            Assert.Equal("Falas de Misaki em todas as cenas", caption.Text);
+
+            var scene = Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Name == "SceneTitle");
+            var first = scene.Text;
+            review.SkipCommand.Execute(null);
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.Equal("yst00002", vm.Editor.SelectedScript!.Key);
+            Assert.NotEqual(first, scene.Text);
+            Assert.Equal(vm.Editor.SelectedScript.Name, scene.Text);
+            Salvar(window, "modo-revisao-personagem", theme);
+        });
+    }
+
     [Fact]
     public async Task Os_chips_de_reescrever_ficam_sob_a_caixa_do_jogo()
     {

@@ -16,6 +16,9 @@ public enum PaletteGroup
 /// <summary>Um resultado da paleta: o que mostrar e o que fazer quando o usuário o escolhe. <see cref="ShowGroup"/> marca o primeiro de cada grupo, que leva o cabeçalho.</summary>
 public sealed record PaletteEntry(PaletteGroup Group, string Title, string Subtitle, Action Execute)
 {
+    /// <summary>Resultado que só aparece quando há texto na busca: não disputa com os comandos fixos o corte da lista vazia.</summary>
+    public bool OnlyWhenSearching { get; init; }
+
     public bool ShowGroup { get; init; }
 
     public string GroupLabel => Group switch
@@ -169,7 +172,7 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     {
         var needle = Fold(query);
         return entries
-            .Where(e => e.Group == group)
+            .Where(e => e.Group == group && (needle.Length > 0 || !e.OnlyWhenSearching))
             .Select(e => (Entry: e, Position: Fold(e.Title).IndexOf(needle, StringComparison.Ordinal)))
             .Where(m => m.Position >= 0)
             .OrderBy(m => m.Position == 0 ? 0 : 1)
