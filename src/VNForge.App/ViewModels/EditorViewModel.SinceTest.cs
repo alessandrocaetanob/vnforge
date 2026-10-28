@@ -34,7 +34,7 @@ public sealed partial class EditorViewModel
         var script = Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal));
         var lastTest = ReadLastTest(root);
         var changes = TranslationChanges.Since(lastTest, TextsOf(data));
-        if (script is null || changes.State is ChangesSinceTestState.NoTest or ChangesSinceTestState.NoSnapshot)
+        if (script is null || changes.State is not (ChangesSinceTestState.Changed or ChangesSinceTestState.Unchanged))
         {
             return false;
         }
@@ -67,9 +67,9 @@ public sealed partial class EditorViewModel
 
     private GameLastTest? ReadLastTest(string root)
     {
-        if (LastTestLoader is { } loader)
+        if (LastTestLoader is { } lastTestLoader)
         {
-            return loader(root);
+            return lastTestLoader(root);
         }
 
         try

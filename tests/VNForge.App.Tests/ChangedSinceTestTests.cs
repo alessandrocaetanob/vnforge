@@ -236,6 +236,48 @@ public sealed class ChangedSinceTestTests
     }
 
     [Fact]
+    public void Cena_so_com_falas_removidas_aparece_sem_Abrir_e_o_comando_nao_pede_nada()
+    {
+        var (now, test) = Scenario();
+        now["yst00002"] = [];
+        var list = new ChangedScenesViewModel();
+        string? requested = null;
+        list.OpenRequested += (_, key) => requested = key;
+
+        list.Update(TranslationChanges.Since(test, now), scene => scene.Key);
+
+        var removed = list.Rows.Single(r => r.Key == "yst00002");
+        Assert.False(removed.CanOpen);
+        Assert.Equal("1 fala removida", removed.LinesText);
+        Assert.All(list.Rows.Where(r => r.Key != "yst00002"), r => Assert.True(r.CanOpen));
+        list.OpenCommand.Execute(removed);
+        Assert.Null(requested);
+    }
+
+    [Fact]
+    public void Teste_que_nao_leu_os_textos_nao_diz_que_e_de_uma_versao_anterior()
+    {
+        var (now, test) = Scenario();
+        var list = new ChangedScenesViewModel();
+
+        list.Update(TranslationChanges.Since(test with { Snapshot = null, SnapshotFailed = true }, now), scene => scene.Key);
+
+        Assert.DoesNotContain("versão anterior", list.Message);
+        Assert.Contains("não guardou as traduções", list.Message);
+        Assert.Empty(list.Rows);
+        Assert.False(list.IsInformative);
+    }
+
+    [Fact]
+    public async Task Sem_o_retrato_por_falha_de_leitura_o_Editor_nao_liga_o_filtro()
+    {
+        var (now, test) = Scenario();
+        var vm = await OpenEditorAsync(now, test with { Snapshot = null, SnapshotFailed = true });
+
+        Assert.False(await vm.ShowChangedSinceTestAsync("yst00001"));
+    }
+
+    [Fact]
     public void Abrir_numa_linha_pede_a_cena_pela_chave()
     {
         var (now, test) = Scenario();
