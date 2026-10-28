@@ -66,6 +66,23 @@ public sealed class LineDoubtTests : IDisposable
     }
 
     [Fact]
+    public async Task O_chip_Com_duvida_so_aparece_quando_ha_duvida_ou_ele_e_o_filtro_ativo()
+    {
+        var vm = await Abrir();
+        var chip = vm.Filters.Single(f => f.Filter == LineStatusFilter.Doubt);
+        Assert.True(chip.IsShown);
+        Assert.True(vm.Filters.Where(f => f != chip).All(f => f.IsShown));
+
+        ProjectFolder.Open(raiz).SaveText("yst00001", [Fala(0, "Oi.\\p", TranslationStatus.Machine, null)]);
+        var semDuvida = await Abrir();
+        var vazio = semDuvida.Filters.Single(f => f.Filter == LineStatusFilter.Doubt);
+
+        Assert.False(vazio.IsShown);
+        vazio.IsSelected = true;
+        Assert.True(vazio.IsShown);
+    }
+
+    [Fact]
     public async Task O_inspetor_mostra_o_cartao_da_duvida_e_aprovar_a_linha_o_encerra_na_grade_no_arquivo_e_no_filtro()
     {
         var vm = await Abrir();

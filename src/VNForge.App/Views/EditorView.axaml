@@ -71,7 +71,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:FilterChipViewModel">
-                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}"
+                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}" IsVisible="{Binding IsShown}"
                               Command="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
                               CommandParameter="{Binding}"/>
               </DataTemplate>

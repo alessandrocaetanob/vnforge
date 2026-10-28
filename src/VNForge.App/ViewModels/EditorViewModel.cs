@@ -98,7 +98,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Pending, "Em japonês"),
             new FilterChipViewModel(LineStatusFilter.Machine, "Para revisar"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
-            new FilterChipViewModel(LineStatusFilter.Doubt, "Com dúvida"),
+            new FilterChipViewModel(LineStatusFilter.Doubt, "Com dúvida", hideWhenEmpty: true),
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
         ];
         SelectedSpeaker = Speakers[0];

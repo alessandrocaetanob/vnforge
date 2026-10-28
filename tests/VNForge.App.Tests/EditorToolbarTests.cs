@@ -41,8 +41,8 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                 }
 
                 var header = window.GetVisualDescendants().OfType<PageHeader>().Single();
-                var chips = window.GetVisualDescendants().OfType<FilterChip>().ToList();
-                var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger")).ToList();
+                var chips = window.GetVisualDescendants().OfType<FilterChip>().Where(c => c.IsEffectivelyVisible).ToList();
+                var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger") && b.IsEffectivelyVisible).ToList();
                 var translate = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.TranslatePendingCommand);
 
                 Rect Box(Control c) => new(c.TranslatePoint(default, window)!.Value, c.Bounds.Size);
