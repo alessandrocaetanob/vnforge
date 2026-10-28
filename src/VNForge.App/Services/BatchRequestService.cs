@@ -83,7 +83,7 @@ public sealed class BatchRequestService(
 
         var model = QualityProfiles.For(current.Quality).Model;
         var (builder, batchSize) = Builder(project);
-        var dollars = BatchRequestRunner.Estimate([.. candidates.Select(c => c.Unit)], builder, model, Effort, batchSize).Dollars;
+        var dollars = BatchRequestRunner.Estimate([.. candidates.Select(c => c.Unit)], builder, model, Effort, batchSize, request).Dollars;
         var brl = current.Rate.ToBrl(dollars);
         var tracker = new RunCostTracker(project, model, current.Rate, () => null);
         if (tracker.CreateGuard(current.Limits, _ => brl, null).LimitReached)
@@ -118,7 +118,7 @@ public sealed class BatchRequestService(
         var tracker = new RunCostTracker(project, plan.Model, current.Rate, () => usageOf(provider));
         var guard = tracker.CreateGuard(
             current.Limits,
-            lines => current.Rate.ToBrl(BatchRequestRunner.Estimate(lines, builder, plan.Model, Effort, batchSize).Dollars),
+            lines => current.Rate.ToBrl(BatchRequestRunner.Estimate(lines, builder, plan.Model, Effort, batchSize, plan.Request).Dollars),
             // O plano já mostrou o custo e o aviso de orçamento; o clique em "Pedir à IA" é a confirmação, então a pergunta do valor de aviso seria a mesma.
             (_, _) => Task.FromResult(true));
         var runner = new BatchRequestRunner(

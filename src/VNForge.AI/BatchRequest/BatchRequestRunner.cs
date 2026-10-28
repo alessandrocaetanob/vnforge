@@ -26,11 +26,13 @@ public sealed class BatchRequestRunner(IBatchRequestProvider provider, Translati
     /// Estima o gasto de pedir a reescrita de <paramref name="lines"/>. O pedido leva o original e a tradução de cada linha, e a resposta só as que
     /// mudam; contar as duas na entrada e a resposta inteira dá um teto, não o valor exato.
     /// </summary>
-    public static CostEstimate Estimate(IReadOnlyList<TextUnit> lines, TranslationBatchBuilder builder, string model, ClaudeEffort effort, int batchSize)
+    public static CostEstimate Estimate(IReadOnlyList<TextUnit> lines, TranslationBatchBuilder builder, string model, ClaudeEffort effort, int batchSize, string request = "")
     {
         ArgumentNullException.ThrowIfNull(lines);
         ArgumentNullException.ThrowIfNull(builder);
-        var batches = lines.Chunk(batchSize).Select(chunk => builder.Build([.. chunk.Select(u => u with { Source = $"{u.Source} {u.Translation}" })]));
+
+        // O texto do pedido vai inteiro em cada lote; entra na estimativa como parte da primeira linha de cada um.
+        var batches = lines.Chunk(batchSize).Select(chunk => builder.Build([.. chunk.Select((u, i) => u with { Source = $"{(i == 0 ? request + " " : string.Empty)}{u.Source} {u.Translation}" })]));
         return CostEstimator.EstimateBatches(batches, model, null, effort);
     }
 

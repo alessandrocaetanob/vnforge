@@ -173,6 +173,18 @@ public class BatchRequestTests
     }
 
     [Fact]
+    public void O_texto_do_pedido_entra_na_estimativa_de_cada_lote()
+    {
+        var builder = new TranslationBatchBuilder([], new CharacterBook([]));
+        var lines = new[] { Unit("a", "Você sabe?") };
+
+        var curto = BatchRequestRunner.Estimate(lines, builder, ClaudeModels.Sonnet, ClaudeEffort.Low, 30, "trocar você por tu");
+        var longo = BatchRequestRunner.Estimate(lines, builder, ClaudeModels.Sonnet, ClaudeEffort.Low, 30, string.Concat(Enumerable.Repeat("trocar você por tu, ", 200)));
+
+        Assert.True(longo.Dollars > curto.Dollars);
+    }
+
+    [Fact]
     public void A_estimativa_cresce_com_as_linhas_e_conta_original_e_traducao()
     {
         var builder = new TranslationBatchBuilder([], new CharacterBook([]));
