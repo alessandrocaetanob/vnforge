@@ -702,7 +702,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var targets = others.Values.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
         var editor = lineEditor;
         var result = History is { } history && Project?.Root is { } root
-            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation), targets.Select(t => t.ScriptKey))
+            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation), targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList(), changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
             : editor.SetTranslationFor(targets, translation);
         var current = result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit));
         foreach (var unit in current)

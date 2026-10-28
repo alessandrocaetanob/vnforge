@@ -24,14 +24,22 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
     /// "Desfazer". Pode ser chamado de qualquer thread. Se o ponto não puder ser guardado, a operação roda do mesmo jeito.
     /// </summary>
     /// <param name="scriptKeys">Os scripts que a operação pode mudar; nulo guarda todos.</param>
-    public T Run<T>(string projectRoot, string title, Func<ProjectFolder, T> operation, IEnumerable<string>? scriptKeys = null)
+    /// <param name="changedLines">As linhas que a operação diz ter gravado, tiradas do que ela devolveu; sem isso o ponto guarda toda linha que mudou nos scripts, inclusive a que outra operação gravou na mesma janela.</param>
+    /// <param name="trackFormatting">A operação pode trocar o <c>formatting.json</c> (o "Corrigir com um clique"); o ponto o guarda e o Desfazer o devolve.</param>
+    public T Run<T>(
+        string projectRoot,
+        string title,
+        Func<ProjectFolder, T> operation,
+        IEnumerable<string>? scriptKeys = null,
+        Func<T, IEnumerable<(string ScriptKey, string UnitId)>>? changedLines = null,
+        bool trackFormatting = false)
     {
         var folder = ProjectFolder.Open(projectRoot);
         var store = new RestorePointStore(folder, clock);
         RestorePointRecorder? recorder = null;
         try
         {
-            recorder = store.Begin(title, scriptKeys);
+            recorder = store.Begin(title, scriptKeys, trackFormatting: trackFormatting);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -45,17 +53,24 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
         }
         catch
         {
-            TryRegister(projectRoot, recorder, title);
+            TryRegister(projectRoot, recorder, title, null);
             throw;
         }
 
-        TryRegister(projectRoot, recorder, title);
+        TryRegister(projectRoot, recorder, title, changedLines?.Invoke(result));
         return result;
     }
 
-    /// <summary>Como <see cref="Run{T}(string, string, Func{ProjectFolder, T}, IEnumerable{string}?)"/>, quando <paramref name="history"/> existe; sem ele, só a operação.</summary>
-    public static T Run<T>(BatchHistory? history, string projectRoot, string title, Func<ProjectFolder, T> operation, IEnumerable<string>? scriptKeys = null) =>
-        history is null ? operation(ProjectFolder.Open(projectRoot)) : history.Run(projectRoot, title, operation, scriptKeys);
+    /// <summary>Como <see cref="Run{T}(string, string, Func{ProjectFolder, T}, IEnumerable{string}?, Func{T, IEnumerable{ValueTuple{string, string}}}?, bool)"/>, quando <paramref name="history"/> existe; sem ele, só a operação.</summary>
+    public static T Run<T>(
+        BatchHistory? history,
+        string projectRoot,
+        string title,
+        Func<ProjectFolder, T> operation,
+        IEnumerable<string>? scriptKeys = null,
+        Func<T, IEnumerable<(string ScriptKey, string UnitId)>>? changedLines = null,
+        bool trackFormatting = false) =>
+        history is null ? operation(ProjectFolder.Open(projectRoot)) : history.Run(projectRoot, title, operation, scriptKeys, changedLines, trackFormatting);
 
     /// <summary>Guarda o estado dos scripts antes de uma operação longa que já tem tarefa na lista; <see cref="AttachAsync"/> liga o resultado a ela.</summary>
     public async Task<RestorePointRecorder?> BeginAsync(string projectRoot, string title, IEnumerable<string>? scriptKeys = null, Func<TextUnit, TextUnit, bool>? include = null)
@@ -71,7 +86,7 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
     }
 
     /// <summary>Fecha a captura de <see cref="Begin"/> e dá ao <paramref name="task"/> o ponto de restauração, se a operação mudou linhas. Chame da thread da interface.</summary>
-    public async Task AttachAsync(BackgroundTaskItem task, string projectRoot, RestorePointRecorder? recorder)
+    public static async Task AttachAsync(BackgroundTaskItem task, string projectRoot, RestorePointRecorder? recorder)
     {
         ArgumentNullException.ThrowIfNull(task);
         if (recorder is null)
@@ -81,7 +96,7 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
 
         try
         {
-            if (await Task.Run(recorder.Complete).ConfigureAwait(true) is { } point)
+            if (await Task.Run(() => recorder.Complete()).ConfigureAwait(true) is { } point)
             {
                 task.Restore = new BatchRestore(projectRoot, point.Id, point.LineCount);
             }
@@ -105,9 +120,10 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
             return;
         }
 
-        foreach (var point in points.OrderBy(p => p.CreatedAt))
+        var now = clock.GetUtcNow();
+        foreach (var point in points.Where(p => now - p.CreatedAt <= RestorePointStore.Retention).OrderBy(p => p.CreatedAt))
         {
-            tasks.AddFinished(point.Title, point.CreatedAt.ToLocalTime(), Lines(point.LineCount), new BatchRestore(projectRoot, point.Id, point.LineCount));
+            tasks.AddFinished(point.Title, point.CreatedAt.ToLocalTime(), Lines(point), new BatchRestore(projectRoot, point.Id, point.LineCount));
         }
     }
 
@@ -124,7 +140,7 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
         try
         {
             var result = await Task.Run(() => new RestorePointStore(ProjectFolder.Open(restore.ProjectRoot), clock).Undo(restore.PointId)).ConfigureAwait(true);
-            task.IsUndone = true;
+            task.IsUndone = !result.PointKept;
             task.UndoMessage = Describe(result);
             Undone?.Invoke(this, new BatchUndone(restore.ProjectRoot, result));
         }
@@ -152,9 +168,22 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
         {
             parts.Add(result.Restored == 1 ? "1 linha voltou ao que era." : $"{ProjectLabels.Number(result.Restored)} linhas voltaram ao que eram.");
         }
+        else if (result.FormattingRestored)
+        {
+            parts.Add("Nenhuma linha precisou voltar.");
+        }
         else
         {
             parts.Add("Nenhuma linha voltou.");
+        }
+
+        if (result.FormattingRestored)
+        {
+            parts.Add("O ajuste de formatação voltou ao de antes.");
+        }
+        else if (result.FormattingKept)
+        {
+            parts.Add("O ajuste de formatação foi mudado depois e ficou como está.");
         }
 
         if (result.EditedSince > 0)
@@ -171,19 +200,29 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
                 : $"{ProjectLabels.Number(result.Missing)} já não existem no script.");
         }
 
+        if (result.PointKept)
+        {
+            parts.Add("O Desfazer continua disponível.");
+        }
+
         return string.Join(' ', parts);
     }
 
-    private static string Lines(int count) => count == 1 ? "1 linha" : $"{ProjectLabels.Number(count)} linhas";
+    private static string Lines(RestorePoint point) => point.LineCount switch
+    {
+        0 => "Ajuste de formatação",
+        1 => "1 linha",
+        var count => $"{ProjectLabels.Number(count)} linhas",
+    };
 
-    private void TryRegister(string projectRoot, RestorePointRecorder recorder, string title)
+    private void TryRegister(string projectRoot, RestorePointRecorder recorder, string title, IEnumerable<(string ScriptKey, string UnitId)>? only)
     {
         try
         {
-            var point = recorder.Complete();
+            var point = recorder.Complete(only);
             if (point is not null)
             {
-                tasks.AddFinished(title, clock.GetLocalNow(), Lines(point.LineCount), new BatchRestore(projectRoot, point.Id, point.LineCount));
+                tasks.AddFinished(title, clock.GetLocalNow(), Lines(point), new BatchRestore(projectRoot, point.Id, point.LineCount));
             }
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)

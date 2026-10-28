@@ -272,7 +272,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         await RunAsync(
             async token =>
             {
-                result = await Task.Run(() => BatchHistory.Run(History, root, title, folder => ProjectSearch.Apply(folder, planned, clock), scripts), token);
+                result = await Task.Run(() => BatchHistory.Run(History, root, title, folder => ProjectSearch.Apply(folder, planned, clock), scripts, applied => AppliedLines(planned, applied)), token);
                 return () =>
                 {
                     preview = null;
@@ -299,6 +299,9 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(IsCancellable))]
     private void Cancel() => cancellation?.Cancel();
+
+    private static IEnumerable<(string ScriptKey, string UnitId)> AppliedLines(ReplacePreview planned, ReplaceResult applied) =>
+        planned.Items.Where(i => !applied.Stale.Any(s => s.UnitId == i.UnitId)).Select(i => (i.ScriptKey, i.UnitId));
 
     private static string Quoted(string text) => $"\"{(text.Length > 30 ? text[..30] + "…" : text)}\"";
 

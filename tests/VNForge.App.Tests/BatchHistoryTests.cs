@@ -114,6 +114,40 @@ public sealed class BatchHistoryTests : IDisposable
     }
 
     [Fact]
+    public async Task Quando_nenhuma_linha_volta_por_edicao_posterior_o_Desfazer_continua_na_lista()
+    {
+        var (_, history, bar) = Build();
+        var preview = Preview("tradução", "ZZ");
+        history.Run(root, "Substituir lote", folder => ProjectSearch.Apply(folder, preview, clock));
+        var editor = new LineEditor(ProjectFolder.Open(root), clock);
+        foreach (var index in new[] { 0, 1, 2 })
+        {
+            editor.SetTranslation("yst00001", Line(index).Id, $"Minha versão {index}");
+        }
+
+        var entry = Assert.Single(bar.Entries);
+        await entry.UndoCommand.ExecuteAsync(null);
+
+        Assert.True(entry.CanUndo);
+        Assert.Contains("3 foram editadas depois e ficaram como estão. O Desfazer continua disponível.", entry.UndoMessage);
+        Assert.Single(new RestorePointStore(ProjectFolder.Open(root), clock).List());
+    }
+
+    [Fact]
+    public void Ponto_com_mais_de_30_dias_nao_volta_para_a_lista()
+    {
+        var first = Build();
+        var preview = Preview("tradução", "ZZ");
+        first.History.Run(root, "Substituir lote", folder => ProjectSearch.Apply(folder, preview, clock));
+        clock.Advance(RestorePointStore.Retention + TimeSpan.FromDays(1));
+
+        var (service, history, _) = Build();
+        history.LoadPersisted(root);
+
+        Assert.Empty(service.Tasks);
+    }
+
+    [Fact]
     public async Task Ponto_que_ja_foi_desfeito_em_outra_janela_some_do_Desfazer_com_aviso()
     {
         var (_, history, bar) = Build();
@@ -132,7 +166,7 @@ public sealed class BatchHistoryTests : IDisposable
     [Theory]
     [InlineData(3, 0, 0, "3 linhas voltaram ao que eram.")]
     [InlineData(1, 1, 0, "1 linha voltou ao que era. 1 foi editada depois e ficou como está.")]
-    [InlineData(0, 4, 0, "Nenhuma linha voltou. 4 foram editadas depois e ficaram como estão.")]
+    [InlineData(0, 4, 0, "Nenhuma linha voltou. 4 foram editadas depois e ficaram como estão. O Desfazer continua disponível.")]
     [InlineData(2, 0, 1, "2 linhas voltaram ao que eram. 1 já não existe no script.")]
     public void O_aviso_do_Desfazer_diz_quantas_voltaram_e_quantas_ficaram(int restored, int edited, int missing, string expected) =>
         Assert.Equal(expected, BatchHistory.Describe(new RestoreUndoResult(restored, edited, missing)));

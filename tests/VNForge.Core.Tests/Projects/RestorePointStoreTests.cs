@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Search;
@@ -158,7 +159,7 @@ public sealed class RestorePointStoreTests : IDisposable
     {
         _project.SaveText("a", [Linha("a", 1, "Oi"), Linha("a", 2, "Olá")]);
         var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor([("a", "a:000001"), ("a", "a:000002")], "Igual"));
-        _project.SaveText("a", [Linha("a", 1, "Igual")]);
+        _project.SaveText("a", [Gravada("a", 1)]);
 
         var desfeito = _store.Undo(feito.Point!.Id);
 
@@ -264,5 +265,123 @@ public sealed class RestorePointStoreTests : IDisposable
 
         Assert.Equal(new RestoreUndoResult(0, 1, 0), desfeito);
         Assert.Equal(antes, File.GetLastWriteTimeUtc(_project.TextPath("a")));
+        Assert.NotNull(_store.Find(feito.Point.Id));
+    }
+
+    [Fact]
+    public void Aprovar_a_mao_durante_o_lote_da_IA_uma_linha_com_origem_da_IA_nao_entra_no_ponto()
+    {
+        _project.SaveText("a", [Pendente("a", 1), Linha("a", 2, "Dois")]);
+
+        var feito = _store.Record(
+            "Traduzindo o jogo",
+            () =>
+            {
+                var unidades = _project.LoadText("a").ToList();
+                unidades[0] = unidades[0] with { Translation = "Um", Status = TranslationStatus.Machine, Origin = new TranslationOrigin("anthropic", "claude-opus-5-5", Agora) };
+                _project.SaveText("a", unidades);
+                Editor().Approve("a", "a:000002");
+                return 0;
+            },
+            include: RestorePointStore.IsAiWrite);
+
+        Assert.Equal(1, feito.Point!.LineCount);
+        var desfeito = _store.Undo(feito.Point.Id);
+
+        Assert.Equal(new RestoreUndoResult(1, 0, 0), desfeito);
+        Assert.Equal(TranslationStatus.Approved, Gravada("a", 2).Status);
+    }
+
+    [Fact]
+    public void Reedicao_a_mao_com_o_mesmo_texto_e_status_nao_e_revertida()
+    {
+        _project.SaveText("a", [Linha("a", 1, "Oi")]);
+        var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor([("a", "a:000001")], "Igual"));
+        _clock.Advance(TimeSpan.FromMinutes(5));
+        var linha = Gravada("a", 1);
+        _project.SaveText("a", [linha with { Origin = new TranslationOrigin("manual", null, _clock.GetUtcNow()) }]);
+
+        var desfeito = _store.Undo(feito.Point!.Id);
+
+        Assert.Equal(new RestoreUndoResult(0, 1, 0), desfeito);
+        Assert.Equal("Igual", Gravada("a", 1).Translation);
+    }
+
+    [Fact]
+    public void Lote_curto_so_guarda_as_linhas_que_a_propria_operacao_devolve_e_ignora_notas()
+    {
+        _project.SaveText("a", [Linha("a", 1, "Oi"), Linha("a", 2, "Olá"), Linha("a", 3, "Alô")]);
+
+        var feito = _store.Record(
+            "Usar em todos",
+            () =>
+            {
+                var resultado = Editor().SetTranslationFor([("a", "a:000001")], "Igual");
+                Editor().SetTranslation("a", "a:000002", "Outra operação ao mesmo tempo");
+                Editor().SetNotes("a", "a:000003", "nota nova");
+                return resultado;
+            },
+            changedLines: r => r.Changes.Select(c => (c.ScriptKey, c.Saved.Id)));
+
+        Assert.Equal(1, feito.Point!.LineCount);
+        Assert.Equal(new RestoreUndoResult(1, 0, 0), _store.Undo(feito.Point.Id));
+        Assert.Equal("Oi", Gravada("a", 1).Translation);
+        Assert.Equal("Outra operação ao mesmo tempo", Gravada("a", 2).Translation);
+    }
+
+    [Fact]
+    public void Mudar_so_as_notas_nao_gera_ponto()
+    {
+        _project.SaveText("a", [Linha("a", 1, "Oi")]);
+
+        var feito = _store.Record("Notas", () => Editor().SetNotes("a", "a:000001", "nota nova"));
+
+        Assert.Null(feito.Point);
+    }
+
+    [Fact]
+    public void Ajuste_de_formatacao_trocado_pelo_lote_volta_no_Desfazer()
+    {
+        _project.SaveText("a", [Linha("a", 1, "Oi")]);
+        _project.SaveFormatting(FormattingProfile.Default);
+        var antes = File.ReadAllText(_project.FormattingPath);
+        var outro = FormattingProfile.Default with { Wrap = new WrapRule(MaxWidth: 33) };
+
+        var feito = _store.Record("Corrigir com um clique", () =>
+        {
+            _project.SaveFormatting(outro);
+            return 0;
+        }, trackFormatting: true);
+
+        Assert.True(feito.Point!.Formatting);
+        Assert.Equal(0, feito.Point.LineCount);
+        Assert.NotEqual(antes, File.ReadAllText(_project.FormattingPath));
+
+        var desfeito = _store.Undo(feito.Point.Id);
+
+        Assert.True(desfeito.FormattingRestored);
+        Assert.Equal(antes, File.ReadAllText(_project.FormattingPath));
+        Assert.Null(_store.Find(feito.Point.Id));
+    }
+
+    [Fact]
+    public void Ajuste_de_formatacao_mudado_depois_do_lote_fica_como_esta_e_o_ponto_continua()
+    {
+        _project.SaveText("a", [Linha("a", 1, "Oi")]);
+        var feito = _store.Record("Corrigir com um clique", () =>
+        {
+            _project.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(MaxWidth: 33) });
+            return 0;
+        }, trackFormatting: true);
+        var depois = FormattingProfile.Default with { Wrap = new WrapRule(MaxWidth: 44) };
+        _project.SaveFormatting(depois);
+        var atual = File.ReadAllText(_project.FormattingPath);
+
+        var desfeito = _store.Undo(feito.Point!.Id);
+
+        Assert.True(desfeito.FormattingKept);
+        Assert.False(desfeito.FormattingRestored);
+        Assert.Equal(atual, File.ReadAllText(_project.FormattingPath));
+        Assert.NotNull(_store.Find(feito.Point.Id));
     }
 }

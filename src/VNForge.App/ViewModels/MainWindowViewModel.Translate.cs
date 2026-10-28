@@ -94,30 +94,38 @@ public sealed partial class MainWindowViewModel
         var canceled = false;
         string? failure = null;
         translating = true;
-
-        // Só as linhas que a IA gravou entram no ponto: a pessoa segue editando enquanto o lote roda, e essas edições não voltam no "Desfazer" dele.
-        var restore = await History.BeginAsync(project.Root, TranslationTitle(request.Scope), include: RestorePointStore.IsAiWrite);
-        var task = TaskService.Start(TranslationTitle(request.Scope), async (reporter, ct) =>
+        RestorePointRecorder? restore;
+        BackgroundTaskItem task;
+        try
         {
-            try
+            // Só as linhas que a IA gravou entram no ponto: a pessoa segue editando enquanto o lote roda, e essas edições não voltam no "Desfazer" dele.
+            restore = await History.BeginAsync(project.Root, TranslationTitle(request.Scope), request.ScriptKeys, RestorePointStore.IsAiWrite);
+            task = TaskService.Start(TranslationTitle(request.Scope), async (reporter, ct) =>
             {
-                result = await job.RunAsync(request, reporter, ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                canceled = true;
-                throw;
-            }
-            catch (Exception e)
-            {
-                failure = e is IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
-                throw new InvalidOperationException(failure, e);
-            }
-        }, usesAi: true);
+                try
+                {
+                    result = await job.RunAsync(request, reporter, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    canceled = true;
+                    throw;
+                }
+                catch (Exception e)
+                {
+                    failure = e is IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
+                    throw new InvalidOperationException(failure, e);
+                }
+            }, usesAi: true);
 
-        await task.Completion;
-        translating = false;
-        await History.AttachAsync(task, project.Root, restore);
+            await task.Completion;
+        }
+        finally
+        {
+            translating = false;
+        }
+
+        await BatchHistory.AttachAsync(task, project.Root, restore);
         Editor.Reload();
 
         // O estado da tarefa chega por post depois do Completion: o que decide o aviso é o que a própria tarefa guardou.
