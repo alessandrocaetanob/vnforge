@@ -768,6 +768,11 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.Contains("manifesto", vm.Backups[1].Note);
         Assert.Equal($"Pasta backup{separator} do projeto · fora do git · 2 backups", vm.BackupFooter);
         Assert.EndsWith($" no total · mais recente em {Now.ToLocalTime():dd/MM}", vm.BackupSummary, StringComparison.Ordinal);
+
+        Directory.Delete(folder.BackupDirectory, recursive: true);
+        await vm.ReloadAsync();
+        Assert.Empty(vm.Backups);
+        Assert.Equal(string.Empty, vm.BackupSummary);
     }
 
     [Fact]

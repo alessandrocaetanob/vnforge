@@ -265,7 +265,7 @@
             </Border>
 
             <!-- Log -->
-            <Border Grid.Row="1" Classes="panel" ClipToBounds="True" Height="380" AutomationProperties.Name="Log do build">
+            <Border Grid.Row="1" Classes="panel" ClipToBounds="True" MinHeight="160" MaxHeight="380" AutomationProperties.Name="Log do build">
               <Grid RowDefinitions="Auto,*">
                 <Grid ColumnDefinitions="*,Auto,Auto" Height="48" Margin="16,0" ColumnSpacing="12">
                   <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Log"/>
@@ -300,7 +300,7 @@
             </Border>
 
             <!-- Backups -->
-            <Border Grid.Row="1" Grid.Column="1" Classes="panel" ClipToBounds="True" Height="380" AutomationProperties.Name="Backups">
+            <Border Grid.Row="1" Grid.Column="1" Classes="panel" ClipToBounds="True" MinHeight="160" MaxHeight="380" AutomationProperties.Name="Backups">
               <DockPanel>
                 <Border DockPanel.Dock="Top" Height="48" Padding="16,0">
                   <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">

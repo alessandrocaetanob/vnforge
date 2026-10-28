@@ -1305,10 +1305,9 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         var summary = $"{FormatSize(backups.Sum(b => b.SizeBytes))} no total";
-        var newest = backups.Where(b => b.Manifest is not null).Select(b => b.Manifest!.CreatedAt).DefaultIfEmpty().Max();
-        return newest == default
-            ? summary
-            : $"{summary} · mais recente em {newest.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}";
+        return backups.Max(b => b.Manifest?.CreatedAt) is { } newest
+            ? $"{summary} · mais recente em {newest.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}"
+            : summary;
     }
 
     private static string BackupRelative(string name) => $"backup{Path.DirectorySeparatorChar}{name}";

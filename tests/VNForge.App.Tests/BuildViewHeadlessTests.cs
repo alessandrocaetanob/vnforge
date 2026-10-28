@@ -263,7 +263,7 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     }
 
     [Fact]
-    public async Task Log_acompanha_o_fim_e_a_primeira_linha_visivel_nao_sai_cortada()
+    public async Task Log_acompanha_o_fim_e_usa_a_altura_do_cartao()
     {
         var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
 
