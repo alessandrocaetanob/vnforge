@@ -89,7 +89,7 @@ public sealed partial class MainWindowViewModel
         var job = new TranslationJob(
             folder,
             project.IsSample ? static (_, _) => SampleAi.CreateProvider() : TranslationProviderFactory,
-            new TranslationJobSettings(Settings.Rate, Settings.Budget, Settings.Concurrency),
+            new TranslationJobSettings(Settings.Rate, project.IsSample ? BudgetLimits.None : Settings.Budget, Settings.Concurrency),
             (_, _) => Task.FromResult(true),
             project.IsSample ? static _ => SampleAi.NoUsage : null);
         TranslationJobResult? result = null;
