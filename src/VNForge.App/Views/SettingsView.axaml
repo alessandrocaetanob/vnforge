@@ -351,6 +351,19 @@
               </StackPanel>
             </Grid>
 
+            <StackPanel Spacing="8" IsVisible="{Binding CanReadGameTitle}" MaxWidth="760" HorizontalAlignment="Left">
+              <TextBlock Classes="overline" Text="Título do jogo"/>
+              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                         Text="O título da barra da janela do jogo ainda não foi lido neste projeto. Ele vem dos arquivos que já estão na pasta do projeto; o texto não muda."/>
+              <Button Classes="sm" HorizontalAlignment="Left" Content="Ler o título do jogo" Command="{Binding ReadGameTitleCommand}"/>
+              <Border Classes="infobar warning" IsVisible="{Binding HasGameTitleReadMessage}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+                  <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding GameTitleReadMessage}"/>
+                </Grid>
+              </Border>
+            </StackPanel>
+
             <StackPanel Spacing="8" IsVisible="{Binding HasGameTitle}" MaxWidth="760" HorizontalAlignment="Left">
               <TextBlock Classes="overline" Text="Título do jogo"/>
               <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">

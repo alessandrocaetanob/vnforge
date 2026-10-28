@@ -488,6 +488,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool HasGameTitleNotice => GameTitleNotice is not null;
 
+    /// <summary>O projeto ainda não leu o título (extraído antes de a extração lê-lo) e a engine sabe lê-lo do <c>.cache/</c>: a tela mostra "Ler o título do jogo" no lugar do campo.</summary>
+    [ObservableProperty]
+    public partial bool CanReadGameTitle { get; private set; }
+
+    /// <summary>Por que a última leitura do título não achou nada (sem <c>.cache/</c>, arquivo ilegível); nulo quando não houve problema.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasGameTitleReadMessage))]
+    public partial string? GameTitleReadMessage { get; private set; }
+
+    public bool HasGameTitleReadMessage => GameTitleReadMessage is not null;
+
     /// <summary>Campo de digitação da chave nova; esvazia assim que a chave vai para o cofre.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveKeyCommand))]
@@ -605,6 +616,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         config = null;
         ErrorMessage = null;
         ProjectName = project?.Name;
+        CanReadGameTitle = false;
+        GameTitleReadMessage = null;
         if (project is not null)
         {
             try
@@ -635,6 +648,57 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshGameTitleNotice();
         RefreshSpent();
         StartEstimate(folder);
+    }
+
+    /// <summary>
+    /// Lê o título da janela do jogo do <c>.cache/</c> do projeto e o grava no <c>vnforge.json</c> (<see cref="ProjectExtractor.RefreshGameTitle"/>), sem o
+    /// <c>vnf extract</c>. Não toca no texto; quando não acha o título, a tela explica o motivo e o botão continua lá.
+    /// </summary>
+    [RelayCommand]
+    private void ReadGameTitle()
+    {
+        if (folder is null)
+        {
+            return;
+        }
+
+        GameTitleReadMessage = null;
+        GameTitleRefresh result;
+        try
+        {
+            result = ProjectExtractor.RefreshGameTitle(folder, engines);
+            if (result.Original is not null)
+            {
+                config = folder.LoadConfig();
+            }
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            GameTitleReadMessage = $"Não foi possível ler o título do jogo: {e.Message}";
+            return;
+        }
+
+        if (result.Original is null)
+        {
+            GameTitleReadMessage = result.Warning;
+            return;
+        }
+
+        loading = true;
+        try
+        {
+            GameTitleOriginal = result.Original;
+            GameTitleTranslation = config?.Game.Title?.Translation ?? string.Empty;
+            HasGameTitle = true;
+            CanReadGameTitle = false;
+        }
+        finally
+        {
+            loading = false;
+        }
+
+        RefreshGameTitleNotice();
+        ProjectSaved?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
@@ -1081,6 +1145,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         HasGameTitle = project.Game.Title is not null;
         GameTitleOriginal = project.Game.Title?.Original ?? string.Empty;
         GameTitleTranslation = project.Game.Title?.Translation ?? string.Empty;
+        CanReadGameTitle = project.Game.Title is null && ProjectExtractor.CanReadGameTitle(project, engines);
         Style.Load(project.Style);
         Nfc = profile.Normalization.Nfc;
         InvisibleSpaces = profile.Normalization.InvisibleSpaces;
