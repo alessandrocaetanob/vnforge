@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.CharacterSheetView"
+             x:DataType="vm:CharacterSheetViewModel"
+             AutomationProperties.Name="Ficha do personagem">
+
+  <Border Classes="divider-bottom" Padding="16,12" Background="{DynamicResource Vnf.BgInset}">
+    <StackPanel Spacing="12">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center" c:SpeakerColorTint.Color="{Binding Color}"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBlock Classes="title-md" Text="{Binding Name}" c:SpeakerColorTint.Color="{Binding Color}" AutomationProperties.Name="Nome do personagem"/>
+          <TextBlock Classes="jp-row secondary" VerticalAlignment="Center" Text="{Binding SourceName}" IsVisible="{Binding ShowsSourceName}"/>
+        </StackPanel>
+        <Button Grid.Column="2" Classes="icon subtle sm" Command="{Binding CloseCommand}" ToolTip.Tip="Fechar a ficha" AutomationProperties.Name="Fechar a ficha">
+          <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Dismiss}"/>
+        </Button>
+      </Grid>
+
+      <Grid ColumnDefinitions="140,120,*,Auto" ColumnSpacing="16">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="overline" Text="Gênero"/>
+          <TextBlock Classes="body-sm" Text="{Binding GenderLabel}" AutomationProperties.Name="Gênero do personagem"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="2">
+          <TextBlock Classes="overline" Text="Cor"/>
+          <TextBlock Classes="body-sm" Text="{Binding Color.Label}" AutomationProperties.Name="Cor do personagem"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="2">
+          <TextBlock Classes="overline" Text="Como fala"/>
+          <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ToneText}" AutomationProperties.Name="Como o personagem fala"/>
+        </StackPanel>
+        <StackPanel Grid.Column="3" Spacing="2">
+          <TextBlock Classes="overline" Text="Falas"/>
+          <TextBlock Classes="body-sm" Text="{Binding UsesText}"/>
+        </StackPanel>
+      </Grid>
+
+      <StackPanel Spacing="6">
+        <TextBlock Classes="overline" Text="As falas mais longas"/>
+        <ItemsControl ItemsSource="{Binding Lines}" IsVisible="{Binding HasLines}" AutomationProperties.Name="Falas mais longas">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SheetLine">
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="16" Margin="0,3">
+                <TextBlock Classes="jp-row" TextWrapping="Wrap" Text="{Binding Source}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding TranslationText}"
+                           Classes.secondary="{Binding !HasTranslation}"/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="body-sm secondary" Text="{Binding LinesEmptyText}" IsVisible="{Binding !HasLines}"/>
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock Classes="body-sm" VerticalAlignment="Center" Text="{Binding AwaitingReviewText}" AutomationProperties.Name="Linhas esperando revisão"/>
+        <Button Grid.Column="1" Classes="sm accent" Command="{Binding ReviewCommand}" AutomationProperties.Name="Revisar este personagem">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Checkmark}"/>
+            <TextBlock Text="Revisar este personagem"/>
+          </StackPanel>
+        </Button>
+      </Grid>
+    </StackPanel>
+  </Border>
+</UserControl>

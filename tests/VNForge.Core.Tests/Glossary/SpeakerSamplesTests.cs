@@ -94,4 +94,59 @@ public class SpeakerSamplesTests
 
         Assert.Equal(3, SpeakerSamples.From(units, maxLines: 3)["美咲"].Count);
     }
+
+    private static TextUnit Spoken(int n, string source, string? speaker, string? translation = null, TranslationStatus status = TranslationStatus.Untranslated, string? chosen = null) =>
+        new($"s:{n}", TextUnitKind.Dialogue, speaker, source, translation, status) { ChosenSpeaker = chosen };
+
+    [Fact]
+    public void Ficha_traz_as_cinco_falas_mais_longas_com_a_traducao_da_mais_longa_para_a_menor()
+    {
+        var units = Enumerable.Range(1, 8).Select(n => Spoken(n, new string('あ', n), "美咲", $"t{n}", TranslationStatus.Translated));
+
+        var sheet = SpeakerSamples.Sheets(units)["美咲"];
+
+        Assert.Equal([8, 7, 6, 5, 4], sheet.Longest.Select(l => l.Source.Length));
+        Assert.Equal(["t8", "t7", "t6", "t5", "t4"], sheet.Longest.Select(l => l.Translation));
+    }
+
+    [Fact]
+    public void Ficha_desempata_pela_ordem_do_texto_e_nao_repete_a_mesma_fala()
+    {
+        var sheet = SpeakerSamples.Sheets([Spoken(0, "いいえ", "美咲"), Spoken(1, "はいはい", "美咲"), Spoken(2, "はいはい", "美咲"), Spoken(3, "うんうん", "美咲")])["美咲"];
+
+        Assert.Equal(["はいはい", "うんうん", "いいえ"], sheet.Longest.Select(l => l.Source));
+    }
+
+    [Fact]
+    public void Ficha_deixa_a_traducao_vazia_como_nula_e_ignora_narracao_sinais_e_falas_em_branco()
+    {
+        var sheets = SpeakerSamples.Sheets([
+            Spoken(0, "こんにちは", "美咲", "  "), Spoken(1, "narração", null), Spoken(2, "…", "？？？"), Spoken(3, "   ", "美咲")]);
+
+        Assert.Equal(["美咲"], sheets.Keys);
+        var only = Assert.Single(sheets["美咲"].Longest);
+        Assert.Equal(("こんにちは", null), (only.Source, only.Translation));
+    }
+
+    [Fact]
+    public void Ficha_conta_so_as_linhas_da_IA_esperando_revisao_e_segue_o_falante_escolhido()
+    {
+        var sheets = SpeakerSamples.Sheets([
+            Spoken(0, "a", "美咲", "x", TranslationStatus.Machine),
+            Spoken(1, "b", "美咲", "x", TranslationStatus.Translated),
+            Spoken(2, "c", "美咲", "x", TranslationStatus.Machine),
+            Spoken(3, "d", "美咲", null, TranslationStatus.Untranslated),
+            Spoken(4, "e", "健太", "x", TranslationStatus.Machine, chosen: "美咲")]);
+
+        Assert.Equal(3, sheets["美咲"].AwaitingReview);
+        Assert.False(sheets.ContainsKey("健太"));
+    }
+
+    [Fact]
+    public void Ficha_acha_o_personagem_pelo_nome_de_largura_diferente()
+    {
+        var sheets = SpeakerSamples.Sheets([Spoken(0, "a", "Ａ子")]);
+
+        Assert.True(sheets.ContainsKey("A子"));
+    }
 }

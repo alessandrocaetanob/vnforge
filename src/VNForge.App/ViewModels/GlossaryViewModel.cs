@@ -179,6 +179,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         CancelSaveTimer();
         try
         {
+            Sheet = null;
             Terms.Clear();
             Characters.Clear();
             ErrorMessage = null;
@@ -257,6 +258,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         NotifySummaries();
         RefreshRepeatedTerms();
         NotifyVoices();
+        Sheet?.Refresh();
     }
 
     /// <summary>
@@ -392,6 +394,11 @@ public sealed partial class GlossaryViewModel : ObservableObject
     {
         if (row is not null)
         {
+            if (Sheet?.Row == row)
+            {
+                Sheet = null;
+            }
+
             Characters.Remove(row);
         }
     }
