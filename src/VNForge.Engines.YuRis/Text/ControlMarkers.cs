@@ -31,6 +31,8 @@ public static class ControlMarkers
     private const byte PageCode = 0xF2;
     private const byte ClickCode = 0xF3;
     private const byte UnknownCode = 0xF5;
+    private const byte Space = 0x20;
+    private const string Cp1252Id = "cp1252";
 
     private static readonly Encoding StrictShiftJis = CreateStrictShiftJis();
 
@@ -131,7 +133,7 @@ public static class ControlMarkers
         {
             var code = ControlCodeOf(next, i);
             builder.Flush();
-            builder.AddBytes([ControlPrefix, code]);
+            builder.AddControl(code);
         }
 
         return i + 2;
@@ -146,19 +148,51 @@ public static class ControlMarkers
         }
 
         builder.Flush();
-        builder.AddBytes(ParseGeneric(text.AsSpan(i + 1, close - i - 1), i));
+        var (bytes, isControl) = ParseGeneric(text.AsSpan(i + 1, close - i - 1), i);
+        if (isControl)
+        {
+            builder.AddControl(bytes[1]);
+        }
+        else
+        {
+            builder.AddBytes(bytes);
+        }
+
         return close + 1;
     }
 
-    /// <summary>Junta texto (que só passa pelo codificador ao fechar o trecho) e bytes de controle, na ordem.</summary>
+    /// <summary>
+    /// Junta texto (que só passa pelo codificador ao fechar o trecho) e bytes de controle, na ordem. É o único ponto que aplica o espaço de
+    /// guarda da <c>cp1252</c> (#435): o exe do jogo trata <c>0xE0</c> a <c>0xFC</c> como lead byte mesmo com a tabela de fonte em Windows-1252,
+    /// então uma letra acentuada se junta ao byte seguinte. Quando esse byte é o <c>EF</c> de um controle, ele se perde e o código vira <c>ïð</c>;
+    /// um <c>0x20</c> depois da letra fica com o par e deixa o <c>EF</c> ser lido como controle. Texto comum depois do acento (inclusive o espaço) não perde nada (#62).
+    /// A varredura é a do motor, da esquerda para a direita: dois acentos seguidos formam um par só, e o controle depois deles não precisa de guarda.
+    /// Vale só para a <c>cp1252</c>; o Shift-JIS e a <c>fold</c> não gravam esses bytes. Os bytes do <c>{RAW:...}</c> não são tocados.
+    /// </summary>
     private sealed class BytesBuilder(int capacity, ITextEncoder encoder)
     {
         private readonly List<byte> _output = new(capacity);
         private readonly StringBuilder _pending = new();
+        private readonly bool _guardLeadBytes = string.Equals(encoder.Id, Cp1252Id, StringComparison.Ordinal);
+        private bool _leadOpen;
 
         public void AppendText(char c) => _pending.Append(c);
 
-        public void AddBytes(IEnumerable<byte> bytes) => _output.AddRange(bytes);
+        public void AddBytes(IEnumerable<byte> bytes)
+        {
+            _output.AddRange(bytes);
+            _leadOpen = false;
+        }
+
+        public void AddControl(byte code)
+        {
+            if (_leadOpen)
+            {
+                _output.Add(Space);
+            }
+
+            AddBytes([ControlPrefix, code]);
+        }
 
         public void Flush()
         {
@@ -167,8 +201,19 @@ public static class ControlMarkers
                 return;
             }
 
-            _output.AddRange(encoder.Encode(_pending.ToString()));
+            var encoded = encoder.Encode(_pending.ToString());
             _pending.Clear();
+            if (!_guardLeadBytes)
+            {
+                _output.AddRange(encoded);
+                return;
+            }
+
+            foreach (var b in encoded)
+            {
+                _output.Add(b);
+                _leadOpen = !_leadOpen && IsLeadByte(b);
+            }
         }
 
         public byte[] ToArray()
@@ -228,7 +273,7 @@ public static class ControlMarkers
     private static void AppendRaw(StringBuilder sb, ReadOnlySpan<byte> bytes) =>
         sb.Append("{RAW:").Append(Convert.ToHexString(bytes)).Append('}');
 
-    private static byte[] ParseGeneric(ReadOnlySpan<char> body, int position)
+    private static (byte[] Bytes, bool IsControl) ParseGeneric(ReadOnlySpan<char> body, int position)
     {
         var colon = body.IndexOf(':');
         if (colon < 0)
@@ -245,7 +290,7 @@ public static class ControlMarkers
                 throw Invalid(position, $"marcador \"{{{body}}}\" inválido; {{EF:xx}} leva exatamente dois dígitos hexadecimais");
             }
 
-            return [ControlPrefix, code[0]];
+            return ([ControlPrefix, code[0]], true);
         }
 
         if (name.SequenceEqual("RAW"))
@@ -255,7 +300,7 @@ public static class ControlMarkers
                 throw Invalid(position, $"marcador \"{{{body}}}\" inválido; {{RAW:hex}} leva um número par de dígitos hexadecimais");
             }
 
-            return bytes;
+            return (bytes, false);
         }
 
         throw Invalid(position, $"marcador \"{{{body}}}\" desconhecido; esperado {{EF:xx}} ou {{RAW:hex}}");
