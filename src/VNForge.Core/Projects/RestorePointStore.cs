@@ -466,6 +466,7 @@ public sealed class RestorePointRecorder
         completed = true;
         var wanted = only is null ? null : only.ToHashSet();
         var changes = new Dictionary<string, (List<TextUnit> Before, List<TextUnit> After)>(StringComparer.Ordinal);
+        (string? Before, string? After)? format = null;
         lock (ProjectTextLock.For(project))
         {
             foreach (var (key, before) in snapshot)
@@ -475,18 +476,8 @@ public sealed class RestorePointRecorder
                     changes[key] = pair;
                 }
             }
-        }
 
-        (string? Before, string? After)? format = null;
-        if (formatting.Tracked)
-        {
-            string? current;
-            lock (ProjectTextLock.For(project))
-            {
-                current = RestorePointStore.ReadFormatting(project).Text;
-            }
-
-            if (!string.Equals(current, formatting.Text, StringComparison.Ordinal))
+            if (formatting.Tracked && RestorePointStore.ReadFormatting(project).Text is var current && !string.Equals(current, formatting.Text, StringComparison.Ordinal))
             {
                 format = (formatting.Text, current);
             }
