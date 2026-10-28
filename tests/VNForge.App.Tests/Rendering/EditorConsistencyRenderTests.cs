@@ -54,6 +54,7 @@ public sealed class EditorConsistencyRenderTests(HeadlessFixture fixture) : ICla
 
                     var card = Assert.Single(window.GetVisualDescendants().OfType<ConsistencyCardView>(), c => c.IsEffectivelyVisible);
                     Assert.True(card.Bounds.Height > 100);
+                    RawMarkers.AssertCardUsesChips(card, minChips: 4);
                     card.BringIntoView();
                     ScreenRenderer.Settle(window);
                     var buttons = card.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();

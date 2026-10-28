@@ -29,26 +29,30 @@ public static class MarkedText
             return;
         }
 
-        IReadOnlyList<TextSegment> segments;
+        foreach (var segment in Split(text))
+        {
+            block.Inlines?.Add(segment.IsMarker ? Chip(segment.Text) : new Run(segment.Text));
+        }
+    }
+
+    /// <summary>O texto em trechos comuns e marcadores; com marcador fora da gramática, um trecho comum só.</summary>
+    internal static IReadOnlyList<TextSegment> Split(string text)
+    {
         try
         {
-            segments = ControlMarkers.Split(text);
+            return ControlMarkers.Split(text);
         }
         catch (ArgumentException)
         {
-            segments = [new TextSegment(text, IsMarker: false)];
-        }
-
-        foreach (var segment in segments)
-        {
-            if (!segment.IsMarker)
-            {
-                block.Inlines?.Add(new Run(segment.Text));
-                continue;
-            }
-
-            var kind = segment.Text.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control;
-            block.Inlines?.Add(new InlineUIContainer(MarkerChipGenerator.CreateChip(segment.Text, kind)) { BaselineAlignment = BaselineAlignment.Center });
+            return [new TextSegment(text, IsMarker: false)];
         }
     }
+
+    /// <summary>O selo de <paramref name="marker"/> como trecho de texto, alinhado ao meio da linha.</summary>
+    internal static InlineUIContainer Chip(string marker) => Embed(Create(marker, isMissing: false));
+
+    internal static InlineUIContainer Embed(Control content) => new(content) { BaselineAlignment = BaselineAlignment.Center };
+
+    internal static MarkerChip Create(string marker, bool isMissing) =>
+        new() { Marker = marker, Kind = marker.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control, IsMissing = isMissing };
 }

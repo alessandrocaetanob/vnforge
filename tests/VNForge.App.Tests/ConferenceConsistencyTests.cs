@@ -1,4 +1,5 @@
 using VNForge.App.ViewModels;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -116,6 +117,32 @@ public class ConferenceConsistencyTests
         Assert.Contains(semPonto.Segments, s => s is { Kind: TextDiffKind.Missing, Text: "." });
         Assert.Contains(duplo.Segments, s => s.Kind == TextDiffKind.Added && s.Visible == "·");
         Assert.All(variants[0].Segments, s => Assert.Equal(TextDiffKind.Same, s.Kind));
+    }
+
+    [Fact]
+    public async Task Os_trechos_da_diferenca_trazem_cada_marcador_inteiro_para_a_tela_poder_desenhar_o_selo()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        ProjectFolder.Open(root).SaveText("yst00001",
+        [
+            Line("yst00001", 0, @"Mayumi passou na sala.\pDepois saiu.\p"),
+            Line("yst00001", 1, @"Mayumi passou na sala.\pDepois saiu.\p"),
+            Line("yst00001", 2, @"Mayumi passou na sala.\nDepois saiu.\p"),
+            Line("yst00001", 3, @"Mayumi passou na sala.\pDepois saiu."),
+        ]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+        await vm.RefreshAsync();
+
+        var variants = vm.ConsistencyCards.Single().Variants;
+
+        Assert.Equal(3, variants.Count);
+        Assert.All(variants, v => Assert.All(v.Segments, s => ControlMarkers.Split(s.Text)));
+        var trocado = variants.Single(v => v.Translation.Contains(@"\nDepois", StringComparison.Ordinal));
+        Assert.Contains(trocado.Segments, s => s is { Kind: TextDiffKind.Missing, Text: @"\p" });
+        Assert.Contains(trocado.Segments, s => s is { Kind: TextDiffKind.Added, Text: @"\n" });
+        var semFim = variants.Single(v => v.Translation.EndsWith("saiu.", StringComparison.Ordinal));
+        Assert.Contains(semFim.Segments, s => s is { Kind: TextDiffKind.Missing, Text: @"\p" });
     }
 
     [Fact]

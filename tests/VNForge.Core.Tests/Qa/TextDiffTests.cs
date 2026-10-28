@@ -1,3 +1,4 @@
+using VNForge.Core.Formatting;
 using VNForge.Core.Qa;
 
 namespace VNForge.Core.Tests.Qa;
@@ -118,5 +119,46 @@ public sealed class TextDiffTests
     public void Visivel_do_trecho_usa_o_mesmo_mapa()
     {
         Assert.Equal("··", new TextDiffSegment("  ", TextDiffKind.Added).Visible);
+    }
+
+    [Fact]
+    public void Marcador_trocado_por_outro_e_um_trecho_inteiro_e_nao_corta_a_barra_do_resto()
+    {
+        var diff = TextDiff.Compare(@"Oi\pTchau", @"Oi\nTchau");
+
+        Assert.Equal(
+            [
+                new TextDiffSegment("Oi", TextDiffKind.Same),
+                new TextDiffSegment(@"\p", TextDiffKind.Missing),
+                new TextDiffSegment(@"\n", TextDiffKind.Added),
+                new TextDiffSegment("Tchau", TextDiffKind.Same),
+            ],
+            diff);
+    }
+
+    [Fact]
+    public void Marcador_que_falta_no_fim_vem_inteiro_no_trecho_faltando()
+    {
+        var diff = TextDiff.Compare(@"Bom dia.\p", "Bom dia.");
+
+        Assert.Equal([new TextDiffSegment("Bom dia.", TextDiffKind.Same), new TextDiffSegment(@"\p", TextDiffKind.Missing)], diff);
+    }
+
+    [Fact]
+    public void Nenhum_trecho_corta_um_marcador_ao_meio()
+    {
+        var diff = TextDiff.Compare(@"Antes\p{VAR:nome} saiu\\ ok", @"Antes\n{VAR:nome} saiu\p ok");
+
+        Assert.All(diff, s => ControlMarkers.Split(s.Text));
+        Assert.Equal(@"Antes\n{VAR:nome} saiu\p ok", Join(diff, TextDiffKind.Same, TextDiffKind.Added));
+        Assert.Equal(@"Antes\p{VAR:nome} saiu\\ ok", Join(diff, TextDiffKind.Same, TextDiffKind.Missing));
+    }
+
+    [Fact]
+    public void Texto_com_marcador_invalido_compara_por_caractere_sem_falhar()
+    {
+        var diff = TextDiff.Compare(@"a\", @"a\p");
+
+        Assert.Equal(@"a\p", Join(diff, TextDiffKind.Same, TextDiffKind.Added));
     }
 }
