@@ -31,6 +31,12 @@ public sealed partial class SearchReplaceViewModel
     /// <summary>Procura as falas que o pedido alcança e mostra o custo estimado. Não chama a IA nem grava nada.</summary>
     public Task BeginRequestAsync(string request)
     {
+        if (IsBusy)
+        {
+            ErrorMessage = "Espere a operação em andamento terminar, ou cancele, para fazer um novo pedido.";
+            return Task.CompletedTask;
+        }
+
         Invalidate();
         if (Project is null || Requests is null)
         {
@@ -129,12 +135,16 @@ public sealed partial class SearchReplaceViewModel
     {
         var outcome = result.Outcome;
         var read = outcome.Items.Count + outcome.Unchanged + outcome.Refused;
-        var parts = new List<string>
+        var parts = new List<string>();
+        if (outcome.Canceled)
         {
+            parts.Add("Pedido cancelado: a prévia tem só as linhas que já voltaram.");
+        }
+
+        parts.Add(
             outcome.Items.Count == 0
                 ? $"A IA leu {Plural(read, "fala", "falas")} e não mudou nenhuma."
-                : $"A IA reescreveu {Plural(outcome.Items.Count, "linha", "linhas")} de {Plural(read, "lida", "lidas")}. Nada foi gravado ainda.",
-        };
+                : $"A IA reescreveu {Plural(outcome.Items.Count, "linha", "linhas")} de {Plural(read, "lida", "lidas")}. Nada foi gravado ainda.");
 
         var preview = result.Preview;
         if (preview.ApprovedLines > 0 || preview.ReviewedLines > 0)

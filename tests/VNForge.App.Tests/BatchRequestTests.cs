@@ -247,6 +247,64 @@ public sealed class BatchRequestTests : IDisposable
         Assert.Equal("Você sabe o que houve?", Translation(0));
     }
 
+    private sealed class GatedProvider(Task gate) : IBatchRequestProvider
+    {
+        public async Task<IReadOnlyList<BatchRewrite>> RewriteAsync(string request, VNForge.AI.Translation.TranslationBatch batch, CancellationToken ct)
+        {
+            await gate.WaitAsync(ct);
+            return [.. batch.Lines.Select(l => new BatchRewrite(l.Id, l.Translation!.Replace("você", "tu", StringComparison.Ordinal)))];
+        }
+    }
+
+    [Fact]
+    public async Task Novo_pedido_com_a_IA_trabalhando_e_recusado_e_o_Cancelar_vale_para_o_pedido_ativo()
+    {
+        var gate = new TaskCompletionSource();
+        var vm = new SearchReplaceViewModel(clock)
+        {
+            Project = ProjectSummaryReader.Read(root),
+            Requests = new BatchRequestService((_, _) => new GatedProvider(gate.Task), () => Settings()),
+        };
+        await vm.BeginRequestAsync(Request);
+        var running = vm.RunRequestCommand.ExecuteAsync(null);
+        Assert.True(vm.IsBusy);
+
+        await vm.BeginRequestAsync("nas falas da Misaki, trocar você por tu");
+
+        Assert.Contains("Espere a operação", vm.ErrorMessage);
+        vm.CancelCommand.Execute(null);
+        await running;
+        Assert.False(vm.IsBusy);
+        Assert.Contains("Cancelado", vm.Summary);
+        Assert.Equal("Você sabe o que houve?", Translation(0));
+    }
+
+    [Fact]
+    public async Task Cancelar_depois_de_um_lote_voltar_mantem_a_previa_das_linhas_prontas()
+    {
+        var folder = ProjectFolder.Open(root);
+        folder.SaveText("yst00002", [.. Enumerable.Range(0, 70).Select(i => Line(i, "健太", $"Você vai {i}?", TranslationStatus.Machine) with { Id = $"yst00002:{i:D6}" })]);
+        using var cancel = new CancellationTokenSource();
+        var calls = 0;
+        var provider = new FakeBatchRequestProvider(unit =>
+        {
+            if (Interlocked.Increment(ref calls) == 31)
+            {
+                cancel.Cancel();
+            }
+
+            return unit.Translation!.Replace("Você", "Tu", StringComparison.Ordinal);
+        });
+        var service = new BatchRequestService((_, _) => provider, () => Settings() with { Concurrency = 1 });
+        var plan = service.Plan(folder, "na yst00002, trocar você por tu", TestContext.Current.CancellationToken);
+
+        var result = await service.RunAsync(folder, plan, cancel.Token);
+
+        Assert.True(result.Outcome.Canceled);
+        Assert.InRange(result.Preview.Items.Count, 30, 69);
+        Assert.Contains("Tu vai 0?", result.Preview.Items[0].After);
+    }
+
     [Fact]
     public void A_paleta_oferece_o_pedido_primeiro_quando_o_texto_tem_tres_palavras_ou_mais()
     {

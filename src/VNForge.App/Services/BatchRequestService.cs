@@ -95,7 +95,7 @@ public sealed class BatchRequestService(
 
     /// <summary>Manda as falas do <paramref name="plan"/> à IA e devolve a prévia. O gasto fica registrado no projeto mesmo se o pedido for cancelado.</summary>
     /// <exception cref="BatchRequestException">Sem provedor de IA, ou nenhum lote voltou.</exception>
-    /// <exception cref="OperationCanceledException">A pessoa cancelou; nada foi gravado.</exception>
+    /// <exception cref="OperationCanceledException">A pessoa cancelou antes de qualquer linha voltar; nada foi gravado. Com linhas prontas, a prévia as traz e <see cref="BatchRequestOutcome.Canceled"/> fica verdadeiro.</exception>
     public async Task<BatchRequestResult> RunAsync(ProjectFolder project, BatchRequestPlan plan, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -133,7 +133,12 @@ public sealed class BatchRequestService(
             tracker.Record();
         }
 
-        ct.ThrowIfCancellationRequested();
+        // Cancelar depois de um lote voltar não joga fora o que já foi pago: a prévia fica com essas linhas e o resumo diz que foi cancelado.
+        if (outcome.Canceled && outcome.Items.Count == 0)
+        {
+            ct.ThrowIfCancellationRequested();
+        }
+
         if (outcome.Items.Count == 0 && outcome.Failed > 0 && outcome.Problem is not null)
         {
             throw new BatchRequestException($"A IA não respondeu: {outcome.Problem}");
