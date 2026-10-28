@@ -99,6 +99,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Machine, "Para revisar"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
+            new FilterChipViewModel(LineStatusFilter.Odd, "Soa estranho") { HidesWhenEmpty = true },
         ];
         SelectedSpeaker = Speakers[0];
     }
@@ -482,7 +483,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenSearch()
     {
-        if (IsReviewing)
+        if (IsReviewing || IsReadingScene)
         {
             return;
         }
@@ -495,7 +496,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenReplace()
     {
-        if (IsReviewing)
+        if (IsReviewing || IsReadingScene)
         {
             return;
         }
@@ -528,7 +529,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     /// <summary>Com o modo revisão aberto o Esc é dele: o atalho da busca não pode marcá-lo como tratado antes de a tela de revisão vê-lo.</summary>
-    private bool CanCloseSearch() => !IsReviewing;
+    private bool CanCloseSearch() => !IsReviewing && !IsReadingScene;
 
     /// <summary>Leva a grade à linha de um resultado: troca de script e tira os filtros que a escondem. Avisa quando a linha não existe mais.</summary>
     [RelayCommand]
@@ -981,6 +982,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         // As linhas da fila do modo revisão são as de antes da releitura (um "Desfazer", uma busca com substituição): a fila já não vale.
         StopReview();
+        EndReading();
         applying = true;
         try
         {

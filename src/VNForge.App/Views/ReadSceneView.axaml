@@ -1,0 +1,110 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.ReadSceneView"
+             x:DataType="vm:ReadSceneViewModel">
+
+  <UserControl.Styles>
+    <!-- O foco fica na tela para as teclas valerem depois de um clique: os botões não o levam embora. -->
+    <Style Selector="Button">
+      <Setter Property="Focusable" Value="False"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+      <Setter Property="Padding" Value="16"/>
+    </Style>
+    <Style Selector="Border.actionbar">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+      <Setter Property="Padding" Value="16,10"/>
+    </Style>
+  </UserControl.Styles>
+
+  <!-- As teclas (Espaço, setas, F e Esc) são tratadas em ReadSceneView.axaml.cs, que ignora a tecla segurada. -->
+  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="12" Focusable="True" AutomationProperties.Name="Ler como jogador">
+
+    <Grid x:Name="TopBar" ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
+      <Button Classes="sm" Command="{Binding CloseCommand}" VerticalAlignment="Center" HorizontalAlignment="Left" ToolTip.Tip="Volta ao Editor (Esc)">
+        <TextBlock Text="Sair da leitura" TextWrapping="NoWrap"/>
+      </Button>
+      <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding SceneName}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding SceneName}" AutomationProperties.Name="Cena"/>
+        <TextBlock x:Name="Position" Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding IsActive}"/>
+      </StackPanel>
+      <TextBlock Grid.Column="2" Classes="body-sm secondary" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding OddText}" IsVisible="{Binding HasOdd}"
+                 AutomationProperties.Name="Falas marcadas"/>
+    </Grid>
+
+    <!-- A cena em tela cheia: o palco com a caixa do jogo no centro, e sob ele só o que a fala pede (original no lugar da tradução, marca, falha ao gravar). -->
+    <c:StageColumn x:Name="Column" Grid.Row="1" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsActive}">
+      <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" AutomationProperties.Name="Palco">
+        <Panel>
+          <c:GameTextbox x:Name="StageBox" Size="Stage" Layout="{Binding Layout}" IsVisible="{Binding HasLayout}" AutomationProperties.Name="Caixa do jogo"/>
+          <TextBlock Classes="body" TextWrapping="Wrap" MaxWidth="560" Foreground="{DynamicResource Vnf.TextboxInk}" Text="{Binding Problem}" IsVisible="{Binding HasProblem}"
+                     AutomationProperties.Name="Por que a caixa não aparece"/>
+        </Panel>
+      </c:ReviewStage>
+
+      <StackPanel Spacing="8" HorizontalAlignment="Center">
+        <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="Sem tradução ainda: a caixa mostra o original." IsVisible="{Binding ShowsSource}"/>
+        <StackPanel x:Name="OddBadge" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" IsVisible="{Binding IsOdd}" AutomationProperties.Name="Fala marcada">
+          <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}" Data="{StaticResource Icon.Bookmark}"/>
+          <TextBlock Classes="body-sm" Foreground="{DynamicResource Vnf.SignalWarningFg}" FontWeight="SemiBold" Text="Marcada: soa estranho" VerticalAlignment="Center"/>
+        </StackPanel>
+        <TextBlock Classes="body-sm" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Error}"
+                   IsVisible="{Binding HasError}" AutomationProperties.Name="Falha ao marcar"/>
+      </StackPanel>
+    </c:StageColumn>
+
+    <!-- As teclas à vista, fixas no rodapé: avançar e voltar à esquerda, a marca no meio e sair à direita. -->
+    <Border x:Name="HintBar" Grid.Row="2" Classes="actionbar" AutomationProperties.Name="Teclas da leitura">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="accent lg" MinWidth="148" HorizontalContentAlignment="Center" Command="{Binding NextCommand}" IsVisible="{Binding IsActive}"
+                  ToolTip.Tip="Mostra a fala seguinte (Espaço)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Avançar" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Espaço"/></Border>
+            </StackPanel>
+          </Button>
+          <Button Classes="lg" Command="{Binding BackCommand}" IsEnabled="{Binding CanGoBack}" ToolTip.Tip="Volta à fala anterior (seta para a esquerda)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Voltar" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="←"/></Border>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button x:Name="OddButton" Classes="lg" Classes.accent="{Binding IsOdd}" Command="{Binding ToggleOddCommand}" IsVisible="{Binding IsActive}"
+                  ToolTip.Tip="Marca esta fala como estranha para olhar depois no Editor; aperte de novo para tirar a marca (F)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Bookmark}"/>
+              <TextBlock Text="Soa estranho" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+              <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="F"/></Border>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- O fim da cena: quantas falas ficaram marcadas e o que acontece ao sair. -->
+    <Border x:Name="FinishCard" Grid.Row="1" Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" Width="520" Padding="32"
+            IsVisible="{Binding IsFinished}" AutomationProperties.Name="Fim da cena">
+      <StackPanel Spacing="14" HorizontalAlignment="Stretch">
+        <PathIcon Width="32" Height="32" HorizontalAlignment="Center" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
+        <TextBlock Classes="title-md" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Text="Fim da cena"/>
+        <TextBlock x:Name="FinishedText" Classes="body secondary" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Text="{Binding FinishedText}"/>
+        <Button Classes="accent lg" HorizontalAlignment="Center" Margin="0,8,0,0" Command="{Binding CloseCommand}">
+          <TextBlock Text="Voltar ao editor" FontWeight="SemiBold" TextWrapping="NoWrap"/>
+        </Button>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

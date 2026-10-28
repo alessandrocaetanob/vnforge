@@ -72,6 +72,9 @@ public enum LineStatusFilter
 
     /// <summary>Linhas "Não traduzir" (<see cref="TranslationStatus.Keep"/>).</summary>
     Keep,
+
+    /// <summary>Linhas que quem leu a cena marcou como "soa estranho" (<see cref="ReadingFlags.SoundsOdd"/>).</summary>
+    Odd,
 }
 
 /// <summary>Filtro da grade: um status, opcionalmente um personagem e opcionalmente um texto de busca. Os três valem juntos.</summary>
@@ -147,6 +150,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         LineStatusFilter.Machine => line.Unit.Status == TranslationStatus.Machine,
         LineStatusFilter.Warnings => line.HasIssues,
         LineStatusFilter.Keep => line.Unit.Status == TranslationStatus.Keep,
+        LineStatusFilter.Odd => line.Unit.IsOdd(),
         _ => true,
     };
 

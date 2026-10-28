@@ -258,6 +258,10 @@ public sealed class LineEditor
         ? unit.Status == TranslationStatus.Keep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null }
         : unit.Status == TranslationStatus.Keep ? unit with { Status = TranslationStatus.Untranslated } : unit;
 
+    /// <summary>Põe ou tira a marca "soa estranho" (<see cref="ReadingFlags.SoundsOdd"/>) da linha, sem mexer na tradução nem no status. Sem mudança, o arquivo não é regravado.</summary>
+    /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>
+    public TextUnit SetOdd(string scriptKey, string id, bool odd) => Update(scriptKey, id, unit => unit.WithOdd(odd));
+
     /// <summary>Grava as notas da linha, sem mexer na tradução nem no status.</summary>
     /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>
     public TextUnit SetNotes(string scriptKey, string id, string notes)
