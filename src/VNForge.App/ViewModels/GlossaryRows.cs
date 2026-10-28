@@ -83,7 +83,7 @@ public sealed partial class CharacterRow : UsageRow
     public partial string Target { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeedsGender))]
+    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(HasSuggestion), nameof(TonePlaceholder))]
     public partial CharacterGender Gender { get; set; }
 
     [ObservableProperty]
@@ -92,6 +92,30 @@ public sealed partial class CharacterRow : UsageRow
 
     /// <summary>Personagem preenchido e sem gênero: o seletor fica em destaque, porque a IA precisa dele para concordar o texto.</summary>
     public bool NeedsGender => Gender == CharacterGender.Unknown && !IsBlank;
+
+    /// <summary>O gênero que a IA sugeriu e a pessoa ainda não aceitou. Não vai para o arquivo.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSuggestion), nameof(SuggestedGenderLabel), nameof(TonePlaceholder))]
+    public partial CharacterGender SuggestedGender { get; set; }
+
+    /// <summary>O jeito de falar que veio junto com a sugestão de gênero; só entra no aceite, e só se a coluna estiver vazia.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TonePlaceholder))]
+    public partial string SuggestedTone { get; set; } = string.Empty;
+
+    /// <summary>Há uma sugestão da IA esperando o visto: o seletor mostra o valor esmaecido no lugar do vazio.</summary>
+    public bool HasSuggestion => Gender == CharacterGender.Unknown && SuggestedGender != CharacterGender.Unknown;
+
+    public string SuggestedGenderLabel => ProjectLabels.Gender(SuggestedGender);
+
+    /// <summary>O texto esmaecido da coluna "Como fala": a sugestão da IA enquanto espera o aceite, ou o rótulo da coluna.</summary>
+    public string TonePlaceholder => HasSuggestion && SuggestedTone.Length > 0 ? SuggestedTone : "Como fala";
+
+    public void ClearSuggestion()
+    {
+        SuggestedGender = CharacterGender.Unknown;
+        SuggestedTone = string.Empty;
+    }
 
     public override string Key => Source;
 
