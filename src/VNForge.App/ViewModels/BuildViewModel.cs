@@ -183,6 +183,10 @@ public sealed partial class BuildViewModel : ObservableObject
     [ObservableProperty]
     public partial string BackupFooter { get; private set; } = string.Empty;
 
+    /// <summary>Resumo no cabeçalho do cartão de backups: o tamanho de todos juntos e a data do mais recente; a lista detalhada rola abaixo.</summary>
+    [ObservableProperty]
+    public partial string BackupSummary { get; private set; } = string.Empty;
+
     [ObservableProperty]
     public partial string PlanMessage { get; private set; } = string.Empty;
 
@@ -1290,6 +1294,21 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         BackupFooter = count == 0 ? footer : $"{footer} · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
+        BackupSummary = SummarizeBackups(state?.Backups ?? []);
+    }
+
+    private static string SummarizeBackups(IReadOnlyList<BackupInfo> backups)
+    {
+        if (backups.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var summary = $"{FormatSize(backups.Sum(b => b.SizeBytes))} no total";
+        var newest = backups.Where(b => b.Manifest is not null).Select(b => b.Manifest!.CreatedAt).DefaultIfEmpty().Max();
+        return newest == default
+            ? summary
+            : $"{summary} · mais recente em {newest.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}";
     }
 
     private static string BackupRelative(string name) => $"backup{Path.DirectorySeparatorChar}{name}";

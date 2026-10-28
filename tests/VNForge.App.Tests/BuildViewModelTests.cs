@@ -767,6 +767,7 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.Equal($"backup{separator}2020-01-02_0304", vm.Backups[1].Name);
         Assert.Contains("manifesto", vm.Backups[1].Note);
         Assert.Equal($"Pasta backup{separator} do projeto · fora do git · 2 backups", vm.BackupFooter);
+        Assert.EndsWith($" no total · mais recente em {Now.ToLocalTime():dd/MM}", vm.BackupSummary, StringComparison.Ordinal);
     }
 
     [Fact]
