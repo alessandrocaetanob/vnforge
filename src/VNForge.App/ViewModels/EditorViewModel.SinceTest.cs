@@ -10,6 +10,9 @@ public sealed partial class EditorViewModel
 {
     private IReadOnlySet<(string ScriptKey, string UnitId)>? changedLines;
 
+    /// <summary>Quando foi o teste de que <see cref="changedLines"/> saiu; um teste novo troca esse instante e o conjunto fica velho.</summary>
+    private DateTimeOffset? changedLinesTestAt;
+
     /// <summary>Os chips que a barra mostra: os cinco de sempre e, depois de "Abrir" na lista do que mudou, o "Mudou desde o teste".</summary>
     private readonly ObservableCollection<FilterChipViewModel> filters;
 
@@ -29,13 +32,15 @@ public sealed partial class EditorViewModel
         }
 
         var script = Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal));
-        var changes = TranslationChanges.Since(ReadLastTest(root), TextsOf(data));
+        var lastTest = ReadLastTest(root);
+        var changes = TranslationChanges.Since(lastTest, TextsOf(data));
         if (script is null || changes.State is ChangesSinceTestState.NoTest or ChangesSinceTestState.NoSnapshot)
         {
             return false;
         }
 
         changedLines = changes.Scenes.SelectMany(scene => scene.UnitIds.Select(id => (scene.Key, id))).ToHashSet();
+        changedLinesTestAt = lastTest?.At;
         var chip = chips.First(c => c.Filter == LineStatusFilter.ChangedSinceTest);
         if (!filters.Contains(chip))
         {
@@ -82,10 +87,28 @@ public sealed partial class EditorViewModel
 
     private LineFilter FilterFor(LineStatusFilter status, string? speaker) => new(status, speaker) { ChangedLines = changedLines };
 
-    /// <summary>Ao trocar de projeto o filtro some, e a grade volta a mostrar tudo se ele estava ligado.</summary>
+    /// <summary>
+    /// Tira o filtro quando houve um teste novo depois de ele ser ligado: as linhas que ele guarda são as de antes do teste, e o chip mostraria falas que o
+    /// jogo já tem. A janela chama ao entrar no Editor, e a carga chama a cada leitura das linhas.
+    /// </summary>
+    public void DropChangedSinceTestIfOutdated()
+    {
+        if (changedLines is null || Project?.Root is not { } root)
+        {
+            return;
+        }
+
+        if (ReadLastTest(root)?.At != changedLinesTestAt)
+        {
+            ClearChangedSinceTest();
+        }
+    }
+
+    /// <summary>Ao trocar de projeto, ou depois de um teste novo, o filtro some, e a grade volta a mostrar tudo se ele estava ligado.</summary>
     private void ClearChangedSinceTest()
     {
         changedLines = null;
+        changedLinesTestAt = null;
         var chip = chips.First(c => c.Filter == LineStatusFilter.ChangedSinceTest);
         filters.Remove(chip);
         if (statusFilter == LineStatusFilter.ChangedSinceTest)

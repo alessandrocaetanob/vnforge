@@ -310,6 +310,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             ChapterMessage = namesError;
         }
 
+        DropChangedSinceTestIfOutdated();
         Apply(loaded);
     }
 

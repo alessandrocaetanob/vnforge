@@ -619,6 +619,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>
     private void PrepareLeavingAndEntering(NavKey target)
     {
+        if (target == NavKey.Editor)
+        {
+            Editor.DropChangedSinceTestIfOutdated();
+        }
+
         if (target == NavKey.Conference)
         {
             ConferenceLoading = Conference.RefreshAsync();

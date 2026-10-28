@@ -114,6 +114,62 @@ public sealed class ChangedSinceTestTests
     }
 
     [Fact]
+    public async Task Um_teste_novo_tira_o_chip_e_zera_as_falas_quando_o_Editor_recarrega()
+    {
+        var (now, test) = Scenario();
+        var current = test;
+        var vm = new EditorViewModel(_ => ProjectLines.Create(now)) { LastTestLoader = _ => current };
+        vm.Project = Summary();
+        await vm.Loading;
+        await vm.ShowChangedSinceTestAsync("yst00001");
+        Assert.Contains(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
+
+        current = new GameLastTest(TestAt.AddHours(1), GameTestKind.Translation, [], TranslationChanges.Snapshot(now));
+        vm.Reload();
+        await vm.Loading;
+
+        Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
+        Assert.True(vm.Filters.Single(f => f.Filter == LineStatusFilter.All).IsSelected);
+        Assert.Equal(3, vm.Lines.Count);
+        var again = await vm.ShowChangedSinceTestAsync("yst00001");
+        Assert.True(again);
+        Assert.Empty(vm.Lines);
+    }
+
+    [Fact]
+    public async Task Sem_teste_novo_o_Reload_mantem_o_chip()
+    {
+        var (now, test) = Scenario();
+        var vm = await OpenEditorAsync(now, test);
+        await vm.ShowChangedSinceTestAsync("yst00001");
+
+        vm.Reload();
+        await vm.Loading;
+
+        Assert.Contains(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
+        Assert.Equal(["yst00001:000001", "yst00001:000003"], vm.Lines.Select(l => l.Id));
+    }
+
+    [Fact]
+    public async Task Um_teste_novo_tira_o_chip_ao_voltar_ao_Editor()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenMainAsync(temp);
+        await main.Build.ReloadAsync();
+        main.Build.SinceTest.OpenCommand.Execute(main.Build.SinceTest.Rows[0]);
+        await main.LineNavigation;
+        Assert.Contains(main.Editor.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
+
+        main.SelectedNav = main.Nav.First(n => n.Key == NavKey.Build);
+        var project = ProjectFolder.Open(main.Editor.Project!.Root);
+        GameStateFile.Save(project, new GameStateFile(GameStateFile.CurrentVersion, null, new GameLastTest(TestAt.AddHours(2), GameTestKind.Translation, [], TranslationChanges.Snapshot(project.LoadAllText()))));
+        main.SelectedNav = main.Nav.First(n => n.Key == NavKey.Editor);
+
+        Assert.DoesNotContain(main.Editor.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
+        Assert.True(main.Editor.Filters.Single(f => f.Filter == LineStatusFilter.All).IsSelected);
+    }
+
+    [Fact]
     public void A_lista_mostra_as_cenas_na_ordem_com_o_nome_e_a_contagem_de_falas()
     {
         var (now, test) = Scenario();
