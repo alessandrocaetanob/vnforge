@@ -1081,14 +1081,16 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private void UpdateCounts()
     {
         var speaker = SelectedSpeaker?.Value;
+
+        // O chip e o botão "Dúvidas (N)" dizem o mesmo número: as dúvidas do script, sem o filtro de personagem (o modo revisão das dúvidas também o ignora).
+        DoubtLines = new LineFilter(LineStatusFilter.Doubt).Count(entries);
         foreach (var chip in chips)
         {
-            chip.Count = new LineFilter(chip.Filter, speaker).Count(entries);
+            chip.Count = chip.Filter == LineStatusFilter.Doubt ? DoubtLines : new LineFilter(chip.Filter, speaker).Count(entries);
         }
 
         PendingLines = new LineFilter(LineStatusFilter.Pending).Count(entries);
         OnPropertyChanged(nameof(PendingLines));
-        DoubtLines = new LineFilter(LineStatusFilter.Doubt).Count(entries);
         OnPropertyChanged(nameof(DoubtLines));
         OnPropertyChanged(nameof(HasDoubts));
         TranslatePendingCommand.NotifyCanExecuteChanged();

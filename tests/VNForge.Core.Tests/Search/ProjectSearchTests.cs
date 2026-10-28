@@ -380,6 +380,21 @@ public class ProjectSearchTests
     }
 
     [Fact]
+    public void Aplicar_encerra_a_duvida_das_linhas_trocadas_e_mantem_a_das_outras()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        var duvida = new TranslationDoubt(DoubtKind.UncertainGender, "Quem fala?");
+        projeto.SaveText("a", [Linha("a", 1, "Misaki chegou.", TranslationStatus.Machine) with { Doubt = duvida }, Linha("a", 2, "Nada.", TranslationStatus.Machine) with { Doubt = duvida }]);
+
+        ProjectSearch.Apply(projeto, Previa(projeto, new SearchOptions("Misaki"), "Aoi"));
+
+        var a = projeto.LoadText("a");
+        Assert.Null(a[0].Doubt);
+        Assert.Equal(duvida, a[1].Doubt);
+    }
+
+    [Fact]
     public void Aplicar_preserva_os_campos_da_linha_alem_da_traducao()
     {
         using var pasta = new TempFolder();

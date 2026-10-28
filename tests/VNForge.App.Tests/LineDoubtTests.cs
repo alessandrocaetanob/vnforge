@@ -66,6 +66,26 @@ public sealed class LineDoubtTests : IDisposable
     }
 
     [Fact]
+    public async Task O_chip_e_o_botao_Duvidas_dizem_o_mesmo_numero_mesmo_com_um_personagem_escolhido()
+    {
+        ProjectFolder.Open(raiz).SaveText("yst00001",
+        [
+            Fala(0, "Bom dia.\\p", TranslationStatus.Machine, Sujeito),
+            Fala(1, "Chovia.\\p", TranslationStatus.Machine, Sujeito) with { Speaker = "健太" },
+            Fala(2, "Aham.\\p", TranslationStatus.Machine, null),
+        ]);
+        var vm = await Abrir();
+        var chip = vm.Filters.Single(f => f.Filter == LineStatusFilter.Doubt);
+
+        vm.SelectedSpeaker = vm.Speakers.Single(s => s.Value == "健太");
+
+        Assert.Equal(2, vm.DoubtLines);
+        Assert.Equal(vm.DoubtLines, chip.Count);
+        vm.StartDoubtReview();
+        Assert.Equal(vm.DoubtLines, vm.Review!.Total);
+    }
+
+    [Fact]
     public async Task O_chip_Com_duvida_so_aparece_quando_ha_duvida_ou_ele_e_o_filtro_ativo()
     {
         var vm = await Abrir();

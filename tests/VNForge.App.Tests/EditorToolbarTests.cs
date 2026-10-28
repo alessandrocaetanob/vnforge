@@ -15,6 +15,71 @@ namespace VNForge.App.Tests;
 public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     [Theory]
+    [InlineData(960)]
+    [InlineData(1440)]
+    public async Task Com_duvida_no_script_o_chip_e_o_botao_Duvidas_aparecem_e_a_barra_segue_numa_linha_sem_sobrepor(int windowWidth)
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine, TranslationStatus.Machine, TranslationStatus.Untranslated);
+        var project = ProjectFolder.Open(root);
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select((u, i) => i == 0 ? u with { Doubt = new TranslationDoubt(DoubtKind.Pun, "Trocadilho.") } : u)]);
+        var vm = new EditorViewModel(postToUi: acao => acao(), layoutMemory: new Services.EditorLayoutMemory());
+        vm.Project = EditorFixtures.Summary("Minha VN", root);
+        await vm.Loading;
+        var failures = new List<string>();
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = new Window { Width = windowWidth, Height = 800, Content = new EditorView { DataContext = vm } };
+                window.Show();
+                for (var i = 0; i < 3; i++)
+                {
+                    window.UpdateLayout();
+                    Dispatcher.UIThread.RunJobs();
+                }
+
+                Rect Box(Control c) => new(c.TranslatePoint(default, window)!.Value, c.Bounds.Size);
+                var chips = window.GetVisualDescendants().OfType<FilterChip>().Where(c => c.IsEffectivelyVisible).ToList();
+                var doubtButton = window.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Command == vm.StartDoubtReviewCommand);
+                var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger") && b.IsEffectivelyVisible).ToList();
+                var translate = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.TranslatePendingCommand);
+
+                if (chips.Count != 6)
+                {
+                    failures.Add($"esperava 6 chips visíveis, vieram {chips.Count}");
+                }
+
+                if (doubtButton is not { IsEffectivelyVisible: true } || !tools.Contains(doubtButton))
+                {
+                    failures.Add("o botão Dúvidas não está visível na barra");
+                }
+
+                if (tools.Select(t => Math.Round(Box(t).Y)).Distinct().Count() != 1 || Math.Abs(Box(translate).Y - Box(tools[0]).Y) > 4)
+                {
+                    failures.Add("as ações saíram da linha da barra");
+                }
+
+                // Quando os seis chips não cabem, a área deles rola e é cortada na borda: o que importa é que essa área não entre nas ações.
+                var filters = chips[0].GetVisualAncestors().OfType<ScrollViewer>().First();
+                if (Box(filters).Right > tools.Min(t => Box(t).X) + 1)
+                {
+                    failures.Add("a área dos filtros passa por cima das ações");
+                }
+
+                if (Box(translate).Right > window.ClientSize.Width - 23 || Box(translate).Right < window.ClientSize.Width - 25)
+                {
+                    failures.Add($"Traduzir com IA deve encostar na margem direita ({Box(translate).Right:0} de {window.ClientSize.Width:0})");
+                }
+
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.True(failures.Count == 0, string.Join("; ", failures));
+    }
+
+    [Theory]
     [InlineData(960, true)]
     [InlineData(1280, true)]
     [InlineData(1366, true)]

@@ -255,9 +255,16 @@ public sealed class LineEditor
         }
     }
 
-    private static TextUnit WithKeep(TextUnit unit, bool keep) => keep
-        ? unit.Status == TranslationStatus.Keep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null, Doubt = null }
-        : unit.Status == TranslationStatus.Keep ? unit with { Status = TranslationStatus.Untranslated } : unit;
+    private static TextUnit WithKeep(TextUnit unit, bool keep)
+    {
+        var isKeep = unit.Status == TranslationStatus.Keep;
+        if (keep)
+        {
+            return isKeep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null, Doubt = null };
+        }
+
+        return isKeep ? unit with { Status = TranslationStatus.Untranslated } : unit;
+    }
 
     /// <summary>Grava as notas da linha, sem mexer na tradução nem no status.</summary>
     /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>

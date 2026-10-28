@@ -64,10 +64,14 @@ public sealed class TranslationJobTests
         Assert.Equal(doubt, saved[0].Doubt);
         Assert.Null(saved[1].Doubt);
 
-        folder.SaveText("yst00001", [saved[0] with { Status = TranslationStatus.Untranslated }, saved[1] with { Doubt = doubt, Status = TranslationStatus.Untranslated }]);
+        // A linha 0 volta com a mesma tradução e sem dúvida (como quando sai do cache): a dúvida que já tinha fica. A linha 1 muda de tradução: a dúvida antiga cai.
+        folder.SaveText("yst00001", [saved[0] with { Status = TranslationStatus.Untranslated }, saved[1] with { Translation = "velha", Doubt = doubt, Status = TranslationStatus.Untranslated }]);
         await Job(folder, new UsageProvider()).RunAsync(Request(), new Reporter(), TestContext.Current.CancellationToken);
 
-        Assert.All(folder.LoadText("yst00001"), u => Assert.Null(u.Doubt));
+        var again = folder.LoadText("yst00001");
+        Assert.Equal(doubt, again[0].Doubt);
+        Assert.Null(again[1].Doubt);
+        Assert.Equal("[PT] 原文1", again[1].Translation);
     }
 
     [Fact]
