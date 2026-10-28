@@ -35,6 +35,7 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<string?> SpeakerProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Speaker));
     public static readonly StyledProperty<bool> SpeakerChangedProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(SpeakerChanged));
     public static readonly StyledProperty<string?> SpeakerTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(SpeakerTip));
+    public static readonly StyledProperty<CharacterColor?> SpeakerColorProperty = AvaloniaProperty.Register<LineRow, CharacterColor?>(nameof(SpeakerColor));
     public static readonly StyledProperty<string?> SpeakerOriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(SpeakerOriginal));
     public static readonly StyledProperty<string?> OriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Original));
     public static readonly StyledProperty<string?> TranslationProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Translation));
@@ -90,6 +91,13 @@ public sealed class LineRow : TemplatedControl
     {
         get => GetValue(SpeakerTipProperty);
         set => SetValue(SpeakerTipProperty, value);
+    }
+
+    /// <summary>A cor do personagem (#467): pinta o nome. Narração não tem cor, e o falante trocado fica no destaque da linha.</summary>
+    public CharacterColor? SpeakerColor
+    {
+        get => GetValue(SpeakerColorProperty);
+        set => SetValue(SpeakerColorProperty, value);
     }
 
     /// <summary>O nome do personagem como está no texto extraído, quando <see cref="Speaker"/> mostra a tradução; é o que o menu do nome copia. Sem ele vale o próprio <see cref="Speaker"/>.</summary>
@@ -190,7 +198,7 @@ public sealed class LineRow : TemplatedControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == TranslationProperty
+        if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == SpeakerColorProperty || change.Property == TranslationProperty
             || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty)
         {
             Apply();
@@ -216,6 +224,8 @@ public sealed class LineRow : TemplatedControl
             var original = narration ? null : SpeakerOriginal ?? Speaker;
             SpeakerMenu.SetOriginal(speakerBlock, original);
             SpeakerMenu.SetTranslation(speakerBlock, original is not null && original != Speaker ? Speaker : null);
+            // O falante trocado fica sem a cor do personagem: o destaque accent da troca prevalece na grade (a placa e o Modo revisão seguem pintados).
+            SpeakerColorTint.SetColor(speakerBlock, narration || SpeakerChanged ? null : SpeakerColor);
         }
 
         TranslationText = !untranslated ? Translation! : Status == TranslationStatus.Keep ? KeepLabel : NoTranslationLabel;
