@@ -224,6 +224,7 @@ public sealed class LineRow : TemplatedControl
             var original = narration ? null : SpeakerOriginal ?? Speaker;
             SpeakerMenu.SetOriginal(speakerBlock, original);
             SpeakerMenu.SetTranslation(speakerBlock, original is not null && original != Speaker ? Speaker : null);
+            // O falante trocado fica sem a cor do personagem: o destaque accent da troca prevalece na grade (a placa e o Modo revisão seguem pintados).
             SpeakerColorTint.SetColor(speakerBlock, narration || SpeakerChanged ? null : SpeakerColor);
         }
 

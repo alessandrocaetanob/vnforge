@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core.Glossary;
@@ -82,8 +83,15 @@ public sealed partial class CharacterRow : UsageRow
 
     /// <summary>O id da cor que a pessoa escolheu (ou que o arquivo traz); nulo deixa o app escolher pelo nome. Só vai para o arquivo quando definido.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Color))]
+    [NotifyPropertyChangedFor(nameof(Color), nameof(HasCustomColor))]
     public partial string? ColorKey { get; set; }
+
+    /// <summary>A linha tem uma cor gravada (escolhida ou lida do arquivo): o botão de voltar à automática aparece.</summary>
+    public bool HasCustomColor => !string.IsNullOrWhiteSpace(ColorKey);
+
+    /// <summary>Tira a cor gravada e deixa o app escolher pelo nome de novo; o <c>color</c> some do <c>characters.json</c> no próximo salvamento.</summary>
+    [RelayCommand]
+    private void UseAutomaticColor() => ColorKey = null;
 
     /// <summary>A cor da linha para o seletor: a escolhida ou, sem escolha, a que o app dá a esse nome. Escolher grava o id.</summary>
     public CharacterColor Color

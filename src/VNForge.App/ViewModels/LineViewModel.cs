@@ -38,7 +38,7 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null,
     }
 
     /// <summary>Como <see cref="Update(LineEntry)"/>, e troca o nome em português do falante (a gravação mudou o falante escolhido da linha).</summary>
-    public void Update(LineEntry updated, string? newSpeakerTarget, CharacterColor? newSpeakerColor = null)
+    public void Update(LineEntry updated, string? newSpeakerTarget, CharacterColor? newSpeakerColor)
     {
         speakerTarget = newSpeakerTarget;
         speakerColor = newSpeakerColor;

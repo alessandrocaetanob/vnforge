@@ -82,6 +82,12 @@ public static class CharacterPalette
             hash = (hash ^ c) * 16777619u;
         }
 
+        // O FNV-1a sozinho deixa nomes que só diferem num bit alto da última letra (学生A e 学生I) na mesma cor do módulo: o finalizador do Murmur3 espalha os bits.
+        hash ^= hash >> 16;
+        hash *= 0x85EBCA6B;
+        hash ^= hash >> 13;
+        hash *= 0xC2B2AE35;
+        hash ^= hash >> 16;
         return All[(int)(hash % (uint)All.Count)];
     }
 

@@ -176,6 +176,99 @@ public sealed class CharacterColorTests(HeadlessFixture fixture) : IClassFixture
     }
 
     [Fact]
+    public void Nomes_que_so_diferem_nos_bits_baixos_da_ultima_letra_nao_caem_todos_na_mesma_cor()
+    {
+        var cores = new[] { "学生A", "学生I", "学生Q", "学生Y" }.Select(n => CharacterPalette.Resolve(null, n)).Distinct().ToList();
+
+        Assert.True(cores.Count > 1);
+    }
+
+    [Fact]
+    public void Voltar_a_automatica_tira_a_cor_do_arquivo()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", Color: "green")]);
+        var vm = new GlossaryViewModel { Project = ProjectSummaryReader.Read(root) };
+        var row = vm.Characters[0];
+        Assert.True(row.HasCustomColor);
+
+        row.UseAutomaticColorCommand.Execute(null);
+
+        Assert.False(row.HasCustomColor);
+        Assert.Same(CharacterPalette.Resolve(null, "美咲"), row.Color);
+        Assert.True(vm.IsDirty);
+        vm.SaveCommand.Execute(null);
+        Assert.Null(Assert.Single(folder.LoadCharacters()).Color);
+        Assert.DoesNotContain("color", File.ReadAllText(folder.CharactersPath));
+    }
+
+    [Fact]
+    public async Task Abrir_a_tela_do_Glossario_com_personagens_sem_cor_nao_suja_o_projeto()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        ProjectFolder.Open(root).SaveCharacters([new CharacterEntry("美咲", "Misaki"), new CharacterEntry("健太", "Kenta", Color: "rose")]);
+        var vm = new GlossaryViewModel { Project = ProjectSummaryReader.Read(root) };
+        vm.SelectedTab = GlossaryTab.Characters;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = new Window { Width = 1200, Height = 800, Content = new Views.GlossaryView { DataContext = vm } };
+                window.Show();
+                ScreenRenderer.Settle(window);
+
+                var combos = window.GetVisualDescendants().OfType<ComboBox>().Where(c => Avalonia.Automation.AutomationProperties.GetName(c) == "Cor do personagem").ToList();
+                Assert.Equal(2, combos.Count);
+                Assert.Same(CharacterPalette.Resolve(null, "美咲"), combos[0].SelectedItem);
+                Assert.Same(CharacterPalette.Find("rose"), combos[1].SelectedItem);
+                Assert.False(vm.IsDirty);
+                Assert.Null(vm.Characters[0].ColorKey);
+                Assert.Equal(["Voltar à cor automática"], window.GetVisualDescendants().OfType<Button>()
+                    .Where(b => b.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(b) == "Voltar à cor automática")
+                    .Select(b => Avalonia.Automation.AutomationProperties.GetName(b)));
+                window.Close();
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Inspetor_e_Modo_revisao_trazem_a_cor_so_do_falante_cadastrado()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.Path, "Teste");
+        var projeto = ProjectFolder.Open(root);
+        projeto.SaveText("yst00001",
+        [
+            new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "美咲", "「おはよう」", "Bom dia.", TranslationStatus.Machine),
+            new TextUnit("yst00001:000001", TextUnitKind.Dialogue, "犬井", "「うん」", "Aham.", TranslationStatus.Machine),
+            new TextUnit("yst00001:000002", TextUnitKind.Narration, null, "雨が降っている。", "Chove.", TranslationStatus.Machine),
+        ]);
+        projeto.SaveCharacters([new CharacterEntry("美咲", "Misaki", Color: "teal")]);
+        var vm = new EditorViewModel(postToUi: acao => acao());
+        vm.Project = EditorFixtures.Summary("Teste", root);
+        await vm.Loading;
+
+        vm.SelectedLine = vm.Lines[0];
+        Assert.Same(CharacterPalette.Find("teal"), vm.Detail!.SpeakerColor);
+        Assert.Same(CharacterPalette.Find("teal"), vm.Lines[0].SpeakerColor);
+        vm.SelectedLine = vm.Lines[1];
+        Assert.Null(vm.Detail!.SpeakerColor);
+        Assert.Null(vm.Lines[1].SpeakerColor);
+        vm.SelectedLine = vm.Lines[2];
+        Assert.Null(vm.Detail!.SpeakerColor);
+        Assert.Null(vm.Lines[2].SpeakerColor);
+
+        vm.SelectedLine = vm.Lines[0];
+        vm.StartReview();
+        Assert.Same(CharacterPalette.Find("teal"), vm.Review!.Detail!.SpeakerColor);
+        vm.Review.SkipCommand.Execute(null);
+        Assert.Null(vm.Review.Detail!.SpeakerColor);
+    }
+
+    [Fact]
     public async Task Nome_da_linha_leva_a_cor_nos_dois_temas_e_a_narracao_e_o_falante_trocado_ficam_sem_ela()
     {
         await fixture.Session.Dispatch(
