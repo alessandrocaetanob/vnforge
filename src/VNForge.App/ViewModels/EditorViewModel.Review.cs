@@ -193,15 +193,6 @@ public sealed partial class EditorViewModel
         return lines is not null && index >= 0 && index < lines.Count && lines[index].Unit.Id == item.Id ? lines[index] : null;
     }
 
-    /// <summary>A fala anterior e a seguinte de um item da fila na cena aberta; vazias quando a cena do item não é a aberta.</summary>
-    internal (ContextLine? Previous, ContextLine? Next) NeighboursOf(ReviewItem item)
-    {
-        var index = item.Number - 1;
-        return string.Equals(SelectedScript?.Key, item.ScriptKey, StringComparison.Ordinal) && index >= 0 && index < scriptLines.Length
-            ? NeighboursOf(scriptLines[index])
-            : (null, null);
-    }
-
     /// <summary>Abre outro script no Editor; o modo revisão usa para ir à próxima cena.</summary>
     internal void OpenScript(ScriptItemViewModel script) => SelectedScript = script;
 
@@ -210,6 +201,15 @@ public sealed partial class EditorViewModel
     {
         var index = SelectedScript is { } open ? Scripts.IndexOf(open) : -1;
         return index < 0 ? null : Scripts.Skip(index + 1).FirstOrDefault(s => s.Progress.Counts.Machine > 0);
+    }
+
+    /// <summary>A fala anterior e a seguinte de um item da fila na cena aberta; vazias quando a cena do item não é a aberta.</summary>
+    internal (ContextLine? Previous, ContextLine? Next) NeighboursOf(ReviewItem item)
+    {
+        var index = item.Number - 1;
+        return string.Equals(SelectedScript?.Key, item.ScriptKey, StringComparison.Ordinal) && index >= 0 && index < scriptLines.Length
+            ? NeighboursOf(scriptLines[index])
+            : (null, null);
     }
 
     /// <summary>A fala anterior e a seguinte de uma linha do script aberto, mesmo que o filtro da grade as esconda.</summary>

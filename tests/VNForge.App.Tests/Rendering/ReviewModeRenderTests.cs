@@ -267,7 +267,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
             Assert.Equal(string.Empty, vm.Editor.Review!.SourceText);
             var speaker = Assert.Single(view.GetVisualDescendants().OfType<SelectableTextBlock>(), b => AutomationProperties.GetName(b) == "Quem fala");
-            var flyout = Assert.IsAssignableFrom<MenuFlyout>(speaker.ContextFlyout);
+            var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout, exactMatch: false);
             flyout.ShowAt(speaker);
             ScreenRenderer.Settle(window);
             var item = Assert.Single(flyout.Items.OfType<MenuItem>(), i => Equals(i.Header, SpeakerMenu.ReviewHeader));
