@@ -456,6 +456,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     partial void OnFieldTextChanged(string value)
     {
+        UpdateMisspellings();
         if (loading || syncingField)
         {
             return;

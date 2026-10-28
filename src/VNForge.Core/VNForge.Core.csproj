@@ -3,6 +3,20 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="WeCantSpell.Hunspell" />
+  </ItemGroup>
+
+  <!-- Dicionário pt-BR do corretor (VERO, LGPLv3 e MPL): embutido, nunca baixado em tempo de execução. Detalhes em THIRD-PARTY-NOTICES.md. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Spelling/Dictionaries/pt_BR.dic" LogicalName="VNForge.Core.Spelling.pt_BR.dic" />
+    <EmbeddedResource Include="Spelling/Dictionaries/pt_BR.aff" LogicalName="VNForge.Core.Spelling.pt_BR.aff" />
+    <EmbeddedResource Include="Spelling/Dictionaries/README_pt_BR.txt" LogicalName="VNForge.Core.Spelling.README_pt_BR.txt" />
+  </ItemGroup>
+
+  <!-- Os avisos de licença seguem o app e a CLI na pasta licenses/ ao lado do executável. -->
+  <ItemGroup>
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="licenses\THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Spelling/Dictionaries/README_pt_BR.txt" Link="licenses\VERO-README_pt_BR.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
