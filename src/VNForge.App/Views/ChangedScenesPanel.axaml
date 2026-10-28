@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.ChangedScenesPanel"
+             x:DataType="vm:ChangedScenesViewModel">
+
+  <!-- As cenas cuja tradução mudou desde o último teste no jogo; o mesmo painel na página Testar e no Painel. Cada linha abre o Editor só com as falas que mudaram. -->
+  <StackPanel Spacing="6" AutomationProperties.Name="Mudou desde o último teste">
+    <TextBlock Classes="body-strong" Text="Mudou desde o último teste"/>
+    <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Message}" AutomationProperties.Name="Resumo do que mudou"/>
+    <ItemsControl ItemsSource="{Binding Rows}" IsVisible="{Binding HasRows}" AutomationProperties.Name="Cenas que mudaram">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ChangedSceneRow">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,2">
+            <TextBlock Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}"/>
+            <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LinesText}"/>
+            <Button Grid.Column="2" Classes="link" Content="Abrir" FontSize="12" IsVisible="{Binding CanOpen}"
+                    Command="{Binding $parent[UserControl].((vm:ChangedScenesViewModel)DataContext).OpenCommand}"
+                    CommandParameter="{Binding}" AutomationProperties.Name="{Binding Name, StringFormat='Abrir {0} só com as falas que mudaram'}"/>
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="caption secondary" Text="{Binding MoreText}" IsVisible="{Binding HasMore}"/>
+    <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{x:Static vm:ChangedScenesViewModel.Limit}" IsVisible="{Binding IsInformative}" AutomationProperties.Name="Limite da lista"/>
+  </StackPanel>
+</UserControl>

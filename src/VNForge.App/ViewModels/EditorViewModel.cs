@@ -100,7 +100,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
             new FilterChipViewModel(LineStatusFilter.Doubt, "Com dúvida", hideWhenEmpty: true),
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
+            new FilterChipViewModel(LineStatusFilter.ChangedSinceTest, "Mudou desde o teste"),
         ];
+        filters = [.. chips.Where(c => c.Filter != LineStatusFilter.ChangedSinceTest)];
         SelectedSpeaker = Speakers[0];
     }
 
@@ -152,7 +154,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [NotifyCanExecuteChangedFor(nameof(CheckFileCommand), nameof(TranslatePendingCommand))]
     public partial ScriptItemViewModel? SelectedScript { get; set; }
 
-    public IReadOnlyList<FilterChipViewModel> Filters => chips;
+    public IReadOnlyList<FilterChipViewModel> Filters => filters;
 
     [ObservableProperty]
     public partial IReadOnlyList<SpeakerOption> Speakers { get; private set; } = [new SpeakerOption(AllSpeakersLabel, null)];
@@ -314,6 +316,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             ChapterMessage = namesError;
         }
 
+        DropChangedSinceTestIfOutdated();
         Apply(loaded);
     }
 
@@ -599,6 +602,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     partial void OnProjectChanged(ProjectSummary? value)
     {
         StopReview();
+        ClearChangedSinceTest();
         Search.Project = value;
         Loading = LoadAsync();
     }
@@ -1100,7 +1104,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         DoubtLines = new LineFilter(LineStatusFilter.Doubt).Count(entries);
         foreach (var chip in chips)
         {
-            chip.Count = chip.Filter == LineStatusFilter.Doubt ? DoubtLines : new LineFilter(chip.Filter, speaker).Count(entries);
+            chip.Count = chip.Filter == LineStatusFilter.Doubt ? DoubtLines : FilterFor(chip.Filter, speaker).Count(entries);
         }
 
         PendingLines = new LineFilter(LineStatusFilter.Pending).Count(entries);
@@ -1112,7 +1116,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     private void Refresh()
     {
-        var filter = new LineFilter(statusFilter, SelectedSpeaker?.Value);
+        var filter = FilterFor(statusFilter, SelectedSpeaker?.Value);
         var filtered = filter.Apply(entries);
 
         IReadOnlyList<LineViewModel> next = scriptLines;
