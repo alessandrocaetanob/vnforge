@@ -71,6 +71,9 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         this.find = find ?? ((root, options, token) => ProjectSearch.Find(ProjectFolder.Open(root), options, token));
     }
 
+    /// <summary>Guarda o ponto de restauração da substituição e dá o "Desfazer" à lista de tarefas; nulo grava sem ponto.</summary>
+    public BatchHistory? History { get; set; }
+
     /// <summary>Disparado quando o usuário escolhe um resultado da lista, para o Editor ir à linha dele.</summary>
     public event EventHandler<SearchResultRow>? ResultOpened;
 
@@ -263,11 +266,13 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         }
 
         var root = Project.Root;
+        var title = $"Substituir {Quoted(Pattern)} por {Quoted(Replacement)}";
+        var scripts = planned.Items.Select(i => i.ScriptKey).Distinct(StringComparer.Ordinal).ToList();
         ReplaceResult? result = null;
         await RunAsync(
             async token =>
             {
-                result = await Task.Run(() => ProjectSearch.Apply(ProjectFolder.Open(root), planned, clock), token);
+                result = await Task.Run(() => BatchHistory.Run(History, root, title, folder => ProjectSearch.Apply(folder, planned, clock), scripts, applied => AppliedLines(planned, applied)), token);
                 return () =>
                 {
                     preview = null;
@@ -294,6 +299,11 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(IsCancellable))]
     private void Cancel() => cancellation?.Cancel();
+
+    private static IEnumerable<(string ScriptKey, string UnitId)> AppliedLines(ReplacePreview planned, ReplaceResult applied) =>
+        planned.Items.Where(i => !applied.Stale.Any(s => s.UnitId == i.UnitId)).Select(i => (i.ScriptKey, i.UnitId));
+
+    private static string Quoted(string text) => $"\"{(text.Length > 30 ? text[..30] + "…" : text)}\"";
 
     private SearchOptions Options() => new(Pattern, UseRegex, MatchCase, WholeWord && !SearchSource, SearchSource ? SearchField.Source : SearchField.Translation);
 
