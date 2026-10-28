@@ -44,16 +44,19 @@ public sealed partial class ReviewBlock(int number) : ObservableObject
 public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 {
     private readonly EditorViewModel editor;
-    private readonly IReadOnlyList<LineViewModel> queue;
+    private readonly IReadOnlyList<ReviewItem> queue;
+    private readonly ReviewSource source;
     private bool disposed;
     private bool navigating;
 
     /// <param name="editor">O Editor dono da lista de linhas e do painel de detalhe.</param>
-    /// <param name="queue">As linhas a rever, na ordem do script.</param>
-    public ReviewModeViewModel(EditorViewModel editor, IReadOnlyList<LineViewModel> queue)
+    /// <param name="queue">As linhas a rever, na ordem em que a fonte as dá (a do script, ou a da história para um personagem).</param>
+    /// <param name="source">De onde a fila veio; sem ela, a cena aberta.</param>
+    public ReviewModeViewModel(EditorViewModel editor, IReadOnlyList<ReviewItem> queue, ReviewSource? source = null)
     {
         this.editor = editor ?? throw new ArgumentNullException(nameof(editor));
         this.queue = queue ?? throw new ArgumentNullException(nameof(queue));
+        this.source = source ?? ReviewSource.OpenScene;
         Blocks = [.. queue.Select((_, i) => new ReviewBlock(i + 1))];
         editor.PropertyChanged += OnEditorChanged;
         if (queue.Count == 0)
@@ -83,7 +86,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     public int Total => queue.Count;
 
     /// <summary>Quantas linhas da fila estão aprovadas de fato, pelo status que o Editor gravou, e não pelo que a tela marcou.</summary>
-    public int ApprovedCount => queue.Count(l => l.Status == TranslationStatus.Approved);
+    public int ApprovedCount => queue.Count(IsApproved);
 
     public int LaterCount => Count(ReviewBlockState.Later);
 
@@ -139,7 +142,17 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     /// <summary>O personagem da linha não tem gênero definido: a fala pode sair com a concordância errada.</summary>
     public bool GenderMissing => Detail?.Context?.GenderMissing ?? false;
 
-    public string FinishedTitle => Total == 0 ? "Nenhuma linha da IA para revisar" : "Revisão da cena concluída";
+    public string FinishedTitle => Total == 0
+        ? "Nenhuma linha da IA para revisar"
+        : source.FinishedTitle(SourceName);
+
+    /// <summary>O nome do personagem da fila, em português quando está cadastrado; vazio quando a fila é da cena.</summary>
+    public string SourceName => source.Speaker is { } speaker ? editor.DisplayNameOf(speaker) : string.Empty;
+
+    /// <summary>"Falas de Misaki em todas as cenas", no topo da tela; vazio quando a fila é da cena aberta.</summary>
+    public string SourceText => source.Caption(SourceName) ?? string.Empty;
+
+    public bool HasSourceText => SourceText.Length > 0;
 
     public string FinishedText
     {
@@ -147,7 +160,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         {
             if (Total == 0)
             {
-                return "Esta cena não tem linhas traduzidas pela IA esperando revisão.";
+                return source.EmptyText(SourceName);
             }
 
             var text = Plural(ApprovedCount, "linha aprovada", "linhas aprovadas");
@@ -169,23 +182,20 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     public string SceneName => editor.SelectedScript?.Name ?? string.Empty;
 
     /// <summary>O nome da próxima cena com linhas da IA para revisar, como na lista de cenas; nulo na última.</summary>
-    public string? NextSceneName => DoubtsOnly ? null : editor.NextScriptToReview()?.Name;
-
-    /// <summary>A fila é só das linhas com dúvida da IA (<see cref="EditorViewModel.StartDoubtReview"/>): a tela final não oferece a próxima cena, que seguiria a regra das linhas da IA.</summary>
-    public bool DoubtsOnly { get; init; }
+    public string? NextSceneName => source.OffersNextScene ? editor.NextScriptToReview()?.Name : null;
 
     public bool HasNextScene => NextSceneName is not null;
 
-    private LineViewModel? Current => !IsFinished && Position < queue.Count ? queue[Position] : null;
+    private ReviewItem? Current => !IsFinished && Position < queue.Count ? queue[Position] : null;
 
-    private (ContextLine? Previous, ContextLine? Next) Neighbours => Current is { } line ? editor.NeighboursOf(line) : (null, null);
+    private (ContextLine? Previous, ContextLine? Next) Neighbours => Current is { } item ? editor.NeighboursOf(item) : (null, null);
 
     /// <summary>"Está boa" (Enter): aprova a linha e vai para a próxima. Se a gravação falha, fica na linha e o painel mostra o erro.</summary>
     [RelayCommand]
     private void Approve()
     {
         // O painel tem de ser o da linha em exibição: uma troca por fora (Ctrl+K, a paleta) que passasse despercebida aprovaria a linha errada.
-        if (Detail is not { } detail || Current is not { } line || detail.Id != line.Id)
+        if (Detail is not { } detail || Current is not { } item || detail.Id != item.Id)
         {
             return;
         }
@@ -263,12 +273,14 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
     private static string Plural(int count, string one, string many) => count == 1 ? $"1 {one}" : $"{ProjectLabels.Number(count)} {many}";
 
+    private bool IsApproved(ReviewItem item) => editor.EntryOf(item)?.Unit.Status == TranslationStatus.Approved;
+
     private int Count(ReviewBlockState state) => Blocks.Count(b => b.State == state);
 
     /// <summary>Marca a linha em exibição e passa para a seguinte; depois da última, a fila acaba.</summary>
     private void Finish(ReviewBlockState state)
     {
-        if (Current is not { } line)
+        if (Current is not { } item)
         {
             return;
         }
@@ -277,7 +289,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         var before = block.State;
 
         // Uma linha já aprovada (a pessoa voltou a ela) só segue adiante: Depois e Pular não desfazem a aprovação.
-        if (line.Status == TranslationStatus.Approved)
+        if (IsApproved(item))
         {
             state = ReviewBlockState.Approved;
         }
@@ -306,7 +318,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
         bool shown;
         try
         {
-            shown = editor.ShowLine(queue[index]);
+            shown = editor.ShowReviewItem(queue[index]);
         }
         finally
         {
@@ -326,9 +338,10 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         Position = index;
         Blocks[index].IsCurrent = true;
-        SuggestionPriceText = editor.SuggestionPrice is { } price ? price(queue[index].Entry.Unit) : string.Empty;
+        SuggestionPriceText = editor.SuggestionPrice is { } price && editor.EntryOf(queue[index]) is { } entry ? price(entry.Unit) : string.Empty;
 
         OnPropertyChanged(nameof(Detail));
+        OnPropertyChanged(nameof(SceneName));
         NotifyLineChanged();
         return true;
     }

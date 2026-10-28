@@ -1,3 +1,5 @@
+using VNForge.Core.Scenes;
+
 namespace VNForge.Core.Engines;
 
 /// <summary>
@@ -27,4 +29,13 @@ public interface IEngine
 
     /// <summary>Alterações opcionais no jogo além dos scripts e pacotes (ex.: patch de codepage no executável).</summary>
     IReadOnlyList<IGamePatch> Patches { get; }
+
+    /// <summary>
+    /// Lê, só lendo, para onde cada script do jogo leva: saltos, chamadas entre scripts e o destino de cada escolha. A engine devolve uma aresta
+    /// por ligação que consegue resolver com segurança e ignora o resto (destino calculado em tempo de execução, rótulo que não existe).
+    /// Pode incluir ligações para o próprio script; <see cref="SceneGraph"/> as normaliza. O padrão é nenhuma aresta, para
+    /// engine sem suporte.
+    /// </summary>
+    /// <param name="game">Pasta descompactada de <see cref="IGameUnpacker.Open"/>, com os scripts e o contexto da engine.</param>
+    IReadOnlyList<SceneEdge> ReadSceneEdges(UnpackedGame game) => [];
 }

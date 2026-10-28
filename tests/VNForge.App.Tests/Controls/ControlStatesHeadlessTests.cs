@@ -287,7 +287,15 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.Contains(":complete", done.Classes);
             Assert.Equal(Token(done, "Vnf.SegApproved"), ColorOf(Part<ProgressBar>(done, "PART_Bar").Foreground));
             Assert.Equal(Token(current, "Vnf.Accent"), ColorOf(Part<ProgressBar>(current, "PART_Bar").Foreground));
-            Assert.Equal(4, Part<ProgressBar>(current, "PART_Bar").Bounds.Height);
+            Assert.Equal(3, Part<ProgressBar>(current, "PART_Bar").Bounds.Height);
+            Assert.Equal(36, current.Bounds.Height);
+
+            // Cena pronta: um visto no lugar de "100%"; o texto continua no nome de acessibilidade.
+            Assert.True(Part<PathIcon>(done, "PART_Done").IsVisible);
+            Assert.False(Part<TextBlock>(done, "PART_PercentText").IsVisible);
+            Assert.False(Part<PathIcon>(current, "PART_Done").IsVisible);
+            Assert.True(Part<TextBlock>(current, "PART_PercentText").IsVisible);
+            Assert.Equal("yst00012, Prólogo, 100%", Avalonia.Automation.AutomationProperties.GetName(done));
 
             Assert.True(Part<PathIcon>(running, "PART_Running").IsVisible);
             Assert.False(Part<PathIcon>(current, "PART_Running").IsVisible);
@@ -299,8 +307,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             var items = list.GetVisualDescendants().OfType<ListBoxItem>().ToList();
             Assert.Equal(FontWeight.SemiBold, Part<TextBlock>(current, "PART_Label").FontWeight);
             Assert.NotEqual(FontWeight.SemiBold, Part<TextBlock>(done, "PART_Label").FontWeight);
-            Assert.Equal("yst00013", Part<TextBlock>(current, "PART_Id").Text);
-            Assert.True(Part<TextBlock>(current, "PART_Id").FontSize < Part<TextBlock>(current, "PART_Label").FontSize);
+            Assert.DoesNotContain(current.GetVisualDescendants().OfType<TextBlock>(), t => t.Name == "PART_Id");
             // O fundo de atual é do cartão da cena (Border.scene), não do item: o item também leva o cabeçalho do capítulo.
             Assert.Equal(Token(items[1], "Vnf.AccentSoft"), ColorOf(((Border)items[1].Content!).Background));
         });

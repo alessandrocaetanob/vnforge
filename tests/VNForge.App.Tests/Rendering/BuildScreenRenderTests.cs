@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
@@ -74,6 +75,12 @@ public sealed class BuildScreenRenderTests(HeadlessFixture fixture) : IClassFixt
         var buttons = window.GetVisualDescendants().OfType<Button>().Where(b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) is "Injetar no jogo" or "Abrir jogo").ToList();
         Assert.Equal(2, buttons.Count);
         Assert.Equal(buttons[0].Bounds.Width, buttons[1].Bounds.Width);
+
+        // Uma lista de opções só, no corpo; a faixa dos detalhes explica o botão do topo e não tem botão próprio.
+        var names = window.GetVisualDescendants().OfType<Control>().Select(c => c.GetValue(Avalonia.Automation.AutomationProperties.NameProperty)).ToList();
+        Assert.Single(names, n => n is not null && n.StartsWith("Opções", StringComparison.Ordinal));
+        Assert.DoesNotContain("Ir para Testar no jogo", names);
+        Assert.Single(window.GetVisualDescendants().OfType<ToggleRule>(), r => r.Title == "Reconstruir só scripts alterados");
     }
 
     private sealed class NoLaunchStarter : IGameProcessStarter

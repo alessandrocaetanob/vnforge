@@ -36,10 +36,10 @@
     <Style Selector="TextBlock.jp">
       <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontJp}"/>
     </Style>
-    <!-- Personagem sem gênero: o seletor vazio ganha o tom de aviso, porque é o que trava a tradução. -->
-    <Style Selector="ComboBox.needs /template/ Border#Background">
-      <Setter Property="Background" Value="{DynamicResource Vnf.SignalWarningBg}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+    <!-- Sugestão da IA esperando o visto: o valor fica esmaecido e em itálico até a pessoa aceitar. -->
+    <Style Selector="Border.suggested TextBlock.value">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+      <Setter Property="FontStyle" Value="Italic"/>
     </Style>
     <Style Selector="TextBlock.uses">
       <Setter Property="HorizontalAlignment" Value="Right"/>
@@ -118,21 +118,31 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                       <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SuggestingText}"
                                  IsVisible="{Binding IsSuggesting}"/>
-                      <Button Classes="sm" Command="{Binding SuggestVoicesCommand}" ToolTip.Tip="{Binding VoiceHint}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
-                          <TextBlock Text="Sugerir voz e gênero pelas falas"/>
-                          <TextBlock Classes="secondary" Text="{Binding VoicePriceText}"
-                                     IsVisible="{Binding VoicePriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                        </StackPanel>
-                      </Button>
                     </StackPanel>
                   </Grid>
                 </Border>
-                <Border Classes="infobar warning" Margin="16,12,16,0" IsVisible="{Binding HasMissingGender}">
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
-                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding MissingGenderText}"/>
+                <Border Classes="infobar" Classes.warning="{Binding HasMissingGender}" Margin="16,12,16,0" IsVisible="{Binding HasVoiceStrip}">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}" IsVisible="{Binding HasMissingGender}"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding VoiceStripText}"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                      <Button Classes="sm" Classes.accent="{Binding !HasPendingSuggestions}" Command="{Binding SuggestVoicesCommand}"
+                              IsVisible="{Binding HasVoiceRequests}" ToolTip.Tip="{Binding VoiceHint}" AutomationProperties.Name="Pedir à IA o gênero">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+                          <TextBlock Text="Pedir à IA"/>
+                          <TextBlock Text="{Binding VoicePriceText}"
+                                     IsVisible="{Binding VoicePriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                      </Button>
+                      <Button Classes="sm accent" Command="{Binding AcceptAllSuggestionsCommand}" IsVisible="{Binding HasPendingSuggestions}"
+                              ToolTip.Tip="Passa as sugestões da IA para o gênero e o jeito de falar das linhas" AutomationProperties.Name="Aceitar todas as sugestões">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Checkmark}"/>
+                          <TextBlock Text="{Binding AcceptAllText}"/>
+                        </StackPanel>
+                      </Button>
+                    </StackPanel>
                   </Grid>
                 </Border>
                 <Grid ColumnDefinitions="*,*,150,1.4*,72,36" ColumnSpacing="12" Margin="16,8,16,0">
@@ -145,10 +155,10 @@
                 <ItemsControl ItemsSource="{Binding VisibleCharacters}" Margin="0,4,0,8" AutomationProperties.Name="Personagens">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:CharacterRow">
-                      <Grid ColumnDefinitions="*,*,150,1.4*,72,36" ColumnSpacing="12" Margin="16,2">
+                      <Grid ColumnDefinitions="*,*,150,1.4*,72,36" ColumnSpacing="12" Margin="16,2" Background="Transparent">
                         <TextBox Classes="cell jp" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}" Text="{Binding Source}" AutomationProperties.Name="Nome no jogo"/>
                         <TextBox Grid.Column="1" Classes="cell" Text="{Binding Target}" AutomationProperties.Name="Nome na tradução"/>
-                        <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" MinHeight="30" Classes.needs="{Binding NeedsGender}"
+                        <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" MinHeight="30" IsVisible="{Binding !HasSuggestion}"
                                   ItemsSource="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Genders}"
                                   SelectedItem="{Binding Gender}" AutomationProperties.Name="Gênero">
                           <ComboBox.ItemTemplate>
@@ -157,9 +167,32 @@
                             </DataTemplate>
                           </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <TextBox Grid.Column="3" Classes="cell" Text="{Binding Tone}" PlaceholderText="Como fala" AutomationProperties.Name="Como fala"/>
+                        <Border Grid.Column="2" Classes="suggested" IsVisible="{Binding HasSuggestion}" MinHeight="30"
+                                Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+                                CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="8,0,2,0">
+                          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="2" ToolTip.Tip="Sugestão da IA, ainda não aceita">
+                            <TextBlock Classes="value" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding SuggestedGenderLabel}"/>
+                            <Button Grid.Column="1" Classes="icon subtle sm" VerticalAlignment="Center"
+                                    Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).AcceptSuggestionCommand}"
+                                    CommandParameter="{Binding}" ToolTip.Tip="Aceitar a sugestão" AutomationProperties.Name="Aceitar a sugestão">
+                              <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Checkmark}"/>
+                            </Button>
+                            <Button Grid.Column="2" Classes="icon subtle sm" VerticalAlignment="Center"
+                                    Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).DismissSuggestionCommand}"
+                                    CommandParameter="{Binding}" ToolTip.Tip="Descartar a sugestão" AutomationProperties.Name="Descartar a sugestão">
+                              <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Dismiss}"/>
+                            </Button>
+                          </Grid>
+                        </Border>
+                        <TextBox Grid.Column="3" Classes="cell" Text="{Binding Tone}" PlaceholderText="{Binding TonePlaceholder}" AutomationProperties.Name="Como fala"/>
                         <TextBlock Grid.Column="4" Classes="mono uses" Classes.unused="{Binding IsUnused}" Text="{Binding UsesLabel}"
                                    ToolTip.Tip="Linhas faladas pelo personagem"/>
+                        <Grid.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Revisar falas deste personagem"
+                                      Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).ReviewCharacterCommand}" CommandParameter="{Binding}"/>
+                          </ContextMenu>
+                        </Grid.ContextMenu>
                         <Button Grid.Column="5" Classes="icon subtle sm" VerticalAlignment="Center"
                                 Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).RemoveCharacterCommand}"
                                 CommandParameter="{Binding}" ToolTip.Tip="Remover personagem" AutomationProperties.Name="Remover personagem">

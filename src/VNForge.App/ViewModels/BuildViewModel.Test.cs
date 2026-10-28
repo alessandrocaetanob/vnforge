@@ -152,7 +152,7 @@ public sealed partial class BuildViewModel
 
     [RelayCommand(CanExecute = nameof(CanTest))]
     private Task TestAsync() =>
-        RunTestAsync(new GameTestOptions(OnlyOpenScene ? openSceneKey : null, AllowWarnings: AllowWarnings));
+        RunTestAsync(new GameTestOptions(OnlyOpenScene ? openSceneKey : null, AllowWarnings: AllowWarnings, OnlyChanged: OnlyChanged));
 
     [RelayCommand(CanExecute = nameof(CanTestAccents))]
     private Task TestAccentsAsync() => RunTestAsync(new GameTestOptions(AccentTest: true));

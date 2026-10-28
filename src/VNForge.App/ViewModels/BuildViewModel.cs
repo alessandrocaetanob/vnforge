@@ -197,7 +197,7 @@ public sealed partial class BuildViewModel : ObservableObject
     [ObservableProperty]
     public partial string BackupMessage { get; private set; } = string.Empty;
 
-    /// <summary>Reconstrói só os scripts cuja tradução mudou desde o build anterior (<c>--only-changed</c>).</summary>
+    /// <summary>Reconstrói só os scripts cuja tradução mudou desde o build anterior (<c>--only-changed</c>); vale para o Novo build e para o Testar no jogo.</summary>
     [ObservableProperty]
     public partial bool OnlyChanged { get; set; } = true;
 

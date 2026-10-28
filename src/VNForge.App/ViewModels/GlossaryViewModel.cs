@@ -396,6 +396,18 @@ public sealed partial class GlossaryViewModel : ObservableObject
         }
     }
 
+    /// <summary>Pedido da linha de um personagem: o modo revisão com as falas dele em todas as cenas. O argumento é o nome como o texto o guarda.</summary>
+    public event EventHandler<string>? ReviewCharacterRequested;
+
+    [RelayCommand]
+    private void ReviewCharacter(CharacterRow? row)
+    {
+        if (row is not null && !string.IsNullOrWhiteSpace(row.Source))
+        {
+            ReviewCharacterRequested?.Invoke(this, row.Source.Trim());
+        }
+    }
+
     private bool CanSave() => IsDirty && CanEdit;
 
     /// <summary>Disparado depois de uma gravação que chegou ao disco: o Editor refaz os avisos do QA com o glossário e os personagens novos.</summary>
@@ -551,8 +563,14 @@ public sealed partial class GlossaryViewModel : ObservableObject
         row.PropertyChanged += (_, e) =>
         {
             // A contagem não é dado do arquivo: mexer nela não suja a página.
-            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem))
+            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem)
+                or nameof(CharacterRow.SuggestedGender) or nameof(CharacterRow.SuggestedGenderLabel) or nameof(CharacterRow.SuggestedTone) or nameof(CharacterRow.TonePlaceholder))
             {
+                if (e.PropertyName == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
+                {
+                    NotifyVoices();
+                }
+
                 NotifySummaries();
                 return;
             }

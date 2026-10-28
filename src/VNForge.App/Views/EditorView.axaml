@@ -12,6 +12,11 @@
     <KeyBinding Gesture="Escape" Command="{Binding CloseSearchCommand}"/>
   </UserControl.KeyBindings>
 
+  <UserControl.Resources>
+    <!-- Três linhas de texto, a última mais curta: a densidade Roteiro da grade (#460). Mesma grade de 20 px dos ícones do app. -->
+    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14Z</StreamGeometry>
+  </UserControl.Resources>
+
   <UserControl.Styles>
     <!-- Janela abaixo de 1400 px (EditorBreakpoints): o botão das cenas aparece e os botões secundários largam o texto. -->
     <Style Selector="Button.scenes-trigger">
@@ -37,6 +42,26 @@
     <Style Selector="Button.tool:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.tool:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    </Style>
+
+    <!-- A densidade da grade é um botão de dois estados com o mesmo tamanho e contorno dos outros; marcado, ganha o accent-soft dos filtros. -->
+    <Style Selector="ToggleButton.density">
+      <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
+      <Setter Property="Height" Value="{DynamicResource Vnf.ControlSm}"/>
+      <Setter Property="Padding" Value="10,0"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
+    <Style Selector="ToggleButton.density:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    </Style>
+    <Style Selector="ToggleButton.density:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
     </Style>
   </UserControl.Styles>
 
@@ -80,6 +105,13 @@
         </StackPanel>
       </ScrollViewer>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+        <!-- Densidade da grade (#460): marcado, cada linha vira roteiro (nome, original e tradução empilhados); a escolha fica em editor-layout.json. -->
+        <ToggleButton x:Name="DensityToggle" Classes="density" VerticalContentAlignment="Center" IsChecked="{Binding IsScriptDensity}" ToolTip.Tip="{Binding DensityTip}" AutomationProperties.Name="Linhas como roteiro">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Script}"/>
+            <TextBlock Classes="btn-label" Text="Roteiro" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+          </StackPanel>
+        </ToggleButton>
         <Button Classes="tool" Command="{Binding ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
                 ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -163,7 +195,8 @@
       <!-- Grade de linhas: somente leitura; a edição acontece no inspetor. -->
       <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Linhas">
         <Grid RowDefinitions="32,*,Auto">
-          <Border Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}">
+          <!-- Dois cabeçalhos, um por densidade (#460): as colunas de sempre e o do Roteiro, onde quem fala, o original e a tradução dividem uma coluna só. -->
+          <Border x:Name="ColumnsHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding !IsScriptDensity}">
             <Grid ColumnDefinitions="56,92,132,*,1.2*,32" ColumnSpacing="8">
               <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
@@ -172,8 +205,15 @@
               <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
           </Border>
+          <Border x:Name="ScriptHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding IsScriptDensity}">
+            <Grid ColumnDefinitions="56,92,*" ColumnSpacing="8">
+              <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="2" Classes="overline" Text="Quem fala · original · tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
 
-          <ListBox Grid.Row="1" x:Name="LinesList" Classes="projects lines" ItemsSource="{Binding Lines}"
+          <ListBox Grid.Row="1" x:Name="LinesList" Classes="projects lines" Classes.script="{Binding IsScriptDensity}" ItemsSource="{Binding Lines}"
                    SelectedItem="{Binding SelectedLine}" SelectionMode="Single" AutomationProperties.Name="Linhas do script">
             <ListBox.ContextMenu>
               <ContextMenu>
@@ -190,7 +230,7 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:LineViewModel">
-                <c:LineRow Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
+                <c:LineRow IsScript="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsScriptDensity}" Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
                            Translation="{Binding TranslationPlain}" Issue="{Binding Issue}" IssueLabel="{Binding IssueLabel}" IssueTip="{Binding IssueTip}"
                            SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}" HasDoubt="{Binding HasDoubt}" DoubtTip="{Binding DoubtTip}"
                            ToolTip.Tip="{Binding Id}" c:Motion.PulseOnApproval="{Binding Status}"/>

@@ -151,7 +151,8 @@ public sealed class LineDoubtTests : IDisposable
         var revisao = vm.Review!;
         Assert.Equal(2, revisao.Total);
         Assert.Equal("yst00001:000000", revisao.Detail!.Id);
-        Assert.True(revisao.DoubtsOnly);
+        Assert.Equal("Linha 1 de 2", revisao.PositionText);
+        Assert.Equal(string.Empty, revisao.SourceText);
         Assert.False(revisao.HasNextScene);
     }
 
@@ -167,6 +168,73 @@ public sealed class LineDoubtTests : IDisposable
 
         vm.StartReview();
         Assert.Equal(1, vm.Review!.Total);
-        Assert.False(vm.Review.DoubtsOnly);
+    }
+
+    [Fact]
+    public async Task A_fonte_Duvidas_segue_a_ordem_do_script_pula_e_volta_entre_as_duas_linhas()
+    {
+        var vm = await Abrir();
+        vm.StartReviewOf(ReviewSource.Doubts);
+        var revisao = vm.Review!;
+
+        Assert.Equal(vm.DoubtLines, revisao.Total);
+        Assert.Equal("yst00001:000000", revisao.Detail!.Id);
+
+        revisao.SkipCommand.Execute(null);
+        Assert.Equal("yst00001:000002", revisao.Detail!.Id);
+        Assert.Equal("Linha 2 de 2", revisao.PositionText);
+
+        revisao.BackCommand.Execute(null);
+        Assert.Equal("yst00001:000000", revisao.Detail!.Id);
+        Assert.Equal("Linha 1 de 2", revisao.PositionText);
+    }
+
+    [Fact]
+    public async Task Terminar_as_duvidas_mostra_a_tela_final_sem_proxima_cena_e_aprovar_encerra_cada_duvida()
+    {
+        var vm = await Abrir();
+        vm.StartDoubtReview();
+        var revisao = vm.Review!;
+
+        revisao.ApproveCommand.Execute(null);
+        revisao.ApproveCommand.Execute(null);
+
+        Assert.True(revisao.IsFinished);
+        Assert.Equal("Revisão da cena concluída", revisao.FinishedTitle);
+        Assert.False(revisao.HasNextScene);
+        Assert.Null(Gravada(0).Doubt);
+        Assert.Null(Gravada(2).Doubt);
+        Assert.Equal(0, vm.DoubtLines);
+    }
+
+    [Fact]
+    public async Task Sair_das_duvidas_e_voltar_refaz_a_fila_so_com_as_que_restam()
+    {
+        var vm = await Abrir();
+        vm.StartDoubtReview();
+        vm.Review!.ApproveCommand.Execute(null);
+
+        vm.StopReview();
+        Assert.False(vm.IsReviewing);
+        Assert.Equal(1, vm.DoubtLines);
+
+        vm.StartDoubtReview();
+
+        Assert.Equal(1, vm.Review!.Total);
+        Assert.Equal("yst00001:000002", vm.Review.Detail!.Id);
+        Assert.Equal("Linha 1 de 1", vm.Review.PositionText);
+    }
+
+    [Fact]
+    public void A_fonte_Duvidas_nao_oferece_a_proxima_cena_e_tem_os_textos_da_cena()
+    {
+        var duvidas = ReviewSource.Doubts;
+
+        Assert.False(duvidas.OffersNextScene);
+        Assert.False(duvidas.SpansScenes);
+        Assert.True(ReviewSource.OpenScene.OffersNextScene);
+        Assert.Null(duvidas.Caption("x"));
+        Assert.Equal("Revisão da cena concluída", duvidas.FinishedTitle("x"));
+        Assert.Equal("Esta cena não tem linhas com dúvida da IA.", duvidas.EmptyText("x"));
     }
 }

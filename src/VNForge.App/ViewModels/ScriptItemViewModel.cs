@@ -27,6 +27,7 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
     /// <summary>A posição da cena entre todas as cenas do projeto, em ordem de chave, a partir de 1; dá o "Cena 13" das cenas sem nome e não muda quando a cena troca de capítulo.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Name))]
+    [NotifyPropertyChangedFor(nameof(Tooltip))]
     public partial int Number { get; set; } = 1;
 
     /// <summary>O que as telas do Editor mostram como nome: o da cena ou "Cena N" (N é o <see cref="Number"/>), nunca a chave.</summary>
@@ -45,6 +46,7 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
         OnPropertyChanged(nameof(Label));
         OnPropertyChanged(nameof(Display));
         OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(Tooltip));
     }
 
     public int CompletedPercent => Progress.CompletedPercent;
@@ -81,8 +83,8 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
 
     public StatusDistribution Distribution { get; private set; } = StatusDistribution.Of(progress.Counts);
 
-    /// <summary>O percentual de IA aparece só aqui; o de "concluído" conta Revisadas e Aprovadas.</summary>
-    public string Tooltip => $"IA {Progress.MachinePercent}%";
+    /// <summary>A dica do item, em duas linhas: o nome por inteiro (a lista o corta em uma linha) e o id (a chave do script, que a lista não desenha) com o percentual de IA; o de "concluído" conta Revisadas e Aprovadas.</summary>
+    public string Tooltip => $"{Name}\n{Key} · IA {Progress.MachinePercent}%";
 
     public string LinesLabel => ProjectLabels.Number(Progress.Counts.Total);
 

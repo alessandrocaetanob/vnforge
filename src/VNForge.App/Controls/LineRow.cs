@@ -20,6 +20,7 @@ public enum LineIssue
 /// <summary>
 /// O conteúdo de uma linha da grade de tradução (docs/design/components/LineRow): número, status, personagem, original, tradução e indicador do QA,
 /// nas colunas <c>52 · 96 · 96 · 1* · 1* · 24</c>. Seleção, hover e foco vêm do <c>ListBoxItem</c> que a contém (<c>ListBox.lines</c>).
+/// Com <see cref="IsScript"/> a linha vira roteiro (#460): o nome de quem fala como rótulo e, embaixo dele, o original e a tradução, até duas linhas cada.
 /// </summary>
 public sealed class LineRow : TemplatedControl
 {
@@ -37,6 +38,7 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<string?> SpeakerOriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(SpeakerOriginal));
     public static readonly StyledProperty<string?> OriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Original));
     public static readonly StyledProperty<string?> TranslationProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Translation));
+    public static readonly StyledProperty<bool> IsScriptProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(IsScript));
     public static readonly StyledProperty<LineIssue> IssueProperty = AvaloniaProperty.Register<LineRow, LineIssue>(nameof(Issue));
     public static readonly StyledProperty<string?> IssueLabelProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueLabel));
     public static readonly StyledProperty<string?> IssueTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueTip));
@@ -110,6 +112,13 @@ public sealed class LineRow : TemplatedControl
     {
         get => GetValue(TranslationProperty);
         set => SetValue(TranslationProperty, value);
+    }
+
+    /// <summary>A linha é desenhada como roteiro (densidade da grade): rótulo, original e tradução empilhados.</summary>
+    public bool IsScript
+    {
+        get => GetValue(IsScriptProperty);
+        set => SetValue(IsScriptProperty, value);
     }
 
     public LineIssue Issue
@@ -198,7 +207,7 @@ public sealed class LineRow : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == TranslationProperty
-            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == HasDoubtProperty)
+            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty || change.Property == HasDoubtProperty)
         {
             Apply();
         }
@@ -229,6 +238,7 @@ public sealed class LineRow : TemplatedControl
         PseudoClasses.Set(":narration", narration);
         PseudoClasses.Set(":untranslated", untranslated);
         PseudoClasses.Set(":speaker-changed", SpeakerChanged);
+        PseudoClasses.Set(":script", IsScript);
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);
         PseudoClasses.Set(":error", Issue == LineIssue.Error);
         PseudoClasses.Set(":doubt", HasDoubt);

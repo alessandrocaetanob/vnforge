@@ -111,14 +111,132 @@ public class GlossarySuggestionsTests
         Assert.DoesNotContain(vm.Characters, c => c.Source == "？？？");
         Assert.Equal(CharacterGender.Female, vm.Characters.Single(c => c.Source == "美咲").Gender);
         var kenta = vm.Characters.Single(c => c.Source == "健太");
-        Assert.Equal(CharacterGender.Male, kenta.Gender);
-        Assert.Equal("direto", kenta.Tone);
         var teacher = vm.Characters.Single(c => c.Source == "先生");
-        Assert.Equal((CharacterGender.Male, string.Empty, "direto"), (teacher.Gender, teacher.Target, teacher.Tone));
-        Assert.Equal(0, vm.MissingGenderCount);
-        Assert.Contains("2 personagens receberam", vm.SuggestionNotice);
+
+        // A resposta da IA fica como sugestão: o gênero e o jeito de falar só mudam no aceite.
+        Assert.Equal((CharacterGender.Unknown, string.Empty), (kenta.Gender, kenta.Tone));
+        Assert.Equal((CharacterGender.Male, "direto", true), (kenta.SuggestedGender, kenta.SuggestedTone, kenta.HasSuggestion));
+        Assert.Equal((CharacterGender.Unknown, string.Empty, CharacterGender.Male), (teacher.Gender, teacher.Target, teacher.SuggestedGender));
+        Assert.Equal("direto", kenta.TonePlaceholder);
+        Assert.Equal(2, vm.PendingSuggestionCount);
+        Assert.Equal("Aceitar as 2", vm.AcceptAllText);
+        Assert.Contains("2 personagens têm sugestão", vm.SuggestionNotice);
         Assert.Null(vm.SuggestionError);
         Assert.False(vm.IsSuggesting);
+
+        vm.AcceptAllSuggestionsCommand.Execute(null);
+
+        Assert.Equal((CharacterGender.Male, "direto"), (kenta.Gender, kenta.Tone));
+        Assert.Equal((CharacterGender.Male, string.Empty, "direto"), (teacher.Gender, teacher.Target, teacher.Tone));
+        Assert.Equal(0, vm.MissingGenderCount);
+        Assert.Equal(0, vm.PendingSuggestionCount);
+        Assert.False(vm.HasPendingSuggestions);
+        Assert.Equal("Como fala", kenta.TonePlaceholder);
+    }
+
+    [Fact]
+    public async Task Aceitar_uma_sugestao_so_mexe_na_linha_e_grava_no_arquivo()
+    {
+        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "calma"));
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, fake);
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+        var kenta = vm.Characters.Single(c => c.Source == "健太");
+        var teacher = vm.Characters.Single(c => c.Source == "先生");
+
+        vm.AcceptSuggestionCommand.Execute(kenta);
+        Assert.True(vm.Flush());
+
+        Assert.Equal((CharacterGender.Female, "calma", false), (kenta.Gender, kenta.Tone, kenta.HasSuggestion));
+        Assert.True(teacher.HasSuggestion);
+        Assert.Equal(1, vm.PendingSuggestionCount);
+        Assert.Equal(CharacterGender.Female, folder.LoadCharacters().Single(c => c.Source == "健太").Gender);
+    }
+
+    [Fact]
+    public async Task Descartar_a_sugestao_devolve_o_seletor_e_mexer_no_genero_a_substitui()
+    {
+        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "calma"));
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, fake);
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+        var kenta = vm.Characters.Single(c => c.Source == "健太");
+        var teacher = vm.Characters.Single(c => c.Source == "先生");
+
+        vm.DismissSuggestionCommand.Execute(kenta);
+
+        Assert.False(kenta.HasSuggestion);
+        Assert.Equal(CharacterGender.Unknown, kenta.Gender);
+        Assert.Equal("Como fala", kenta.TonePlaceholder);
+        Assert.Equal(1, vm.PendingSuggestionCount);
+        Assert.Equal(1, vm.VoiceRequestCount);
+        Assert.True(vm.CanSuggestVoices);
+        Assert.True(vm.SuggestVoicesCommand.CanExecute(null));
+
+        teacher.Gender = CharacterGender.Male;
+        teacher.Gender = CharacterGender.Unknown;
+
+        Assert.False(teacher.HasSuggestion);
+        Assert.Equal(0, vm.PendingSuggestionCount);
+        Assert.False(vm.AcceptAllSuggestionsCommand.CanExecute(null));
+        Assert.Equal(2, vm.VoiceRequestCount);
+    }
+
+    [Fact]
+    public async Task Aceitar_suja_a_pagina_mas_sugerir_e_descartar_nao()
+    {
+        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "calma"));
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, fake, characters: [new CharacterEntry("美咲", "Misaki", CharacterGender.Female), new CharacterEntry("健太", "Kenta"), new CharacterEntry("先生", "Sensei")]);
+        var kenta = vm.Characters.Single(c => c.Source == "健太");
+        Assert.False(vm.IsDirty);
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+        Assert.Equal(2, vm.PendingSuggestionCount);
+        Assert.False(vm.IsDirty);
+
+        vm.DismissSuggestionCommand.Execute(kenta);
+        Assert.False(vm.IsDirty);
+        Assert.Equal(CharacterGender.Unknown, folder.LoadCharacters().Single(c => c.Source == "健太").Gender);
+
+        vm.AcceptSuggestionCommand.Execute(vm.Characters.Single(c => c.Source == "先生"));
+        Assert.True(vm.IsDirty);
+        Assert.True(vm.Flush());
+        Assert.Equal(CharacterGender.Female, folder.LoadCharacters().Single(c => c.Source == "先生").Gender);
+        Assert.Equal(CharacterGender.Unknown, folder.LoadCharacters().Single(c => c.Source == "健太").Gender);
+    }
+
+    [Fact]
+    public async Task Pedir_de_novo_nao_manda_quem_ja_tem_sugestao()
+    {
+        var fake = new FakeGlossarySuggester(voice: c => c.Name == "健太" ? new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "x") : new CharacterVoiceSuggestion(c.Name, CharacterGender.Unknown, string.Empty));
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, fake);
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+        Assert.Equal(1, vm.PendingSuggestionCount);
+        Assert.Equal(1, vm.VoiceRequestCount);
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+        Assert.Equal(["先生"], fake.ReceivedVoices.Last().Select(r => r.Name));
+    }
+
+    [Fact]
+    public async Task A_faixa_aparece_com_o_preco_enquanto_ha_personagem_sem_genero_e_a_sugestao_nao_suja_a_pagina()
+    {
+        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "x"));
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, fake, characters: [new CharacterEntry("美咲", "Misaki", CharacterGender.Female), new CharacterEntry("健太", "Kenta"), new CharacterEntry("先生", "Sensei", CharacterGender.Male)]);
+
+        Assert.True(vm.HasVoiceStrip);
+        Assert.True(vm.HasVoiceRequests);
+        Assert.NotEqual(string.Empty, vm.VoicePriceText);
+        Assert.StartsWith("1 personagem está sem gênero.", vm.VoiceStripText);
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+
+        Assert.True(vm.HasPendingSuggestions);
+        Assert.False(vm.IsDirty);
     }
 
     [Fact]
@@ -147,6 +265,10 @@ public class GlossarySuggestionsTests
         await vm.SuggestVoicesCommand.ExecuteAsync(null);
 
         var kenta = vm.Characters.Single(c => c.Source == "健太");
+        Assert.Equal((CharacterGender.Unknown, "meu jeito"), (kenta.Gender, kenta.Tone));
+
+        vm.AcceptSuggestionCommand.Execute(kenta);
+
         Assert.Equal((CharacterGender.Female, "meu jeito"), (kenta.Gender, kenta.Tone));
     }
 
@@ -425,6 +547,7 @@ public class GlossarySuggestionsTests
         Assert.Equal("O modelo recusou fazer esta sugestão (stop_reason: refusal).", vm.SuggestionError);
         Assert.Null(vm.SuggestionNotice);
         Assert.Equal(CharacterGender.Unknown, vm.Characters.Single(c => c.Source == "健太").Gender);
+        Assert.Equal(0, vm.PendingSuggestionCount);
         Assert.False(vm.IsSuggesting);
         Assert.True(vm.CanSuggestVoices);
     }
