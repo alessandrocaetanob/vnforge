@@ -123,6 +123,28 @@ public sealed class TranslationChangesTests
     }
 
     [Fact]
+    public void Cena_apagada_do_projeto_depois_do_teste_nao_entra_na_lista()
+    {
+        var test = Tested(Texts(("a001", [Line("1", "Oi")]), ("a002", [Line("1", "Tchau")])));
+
+        var changes = TranslationChanges.Since(test, Texts(("a002", [Line("1", "Tchau")])));
+
+        Assert.Equal(ChangesSinceTestState.Unchanged, changes.State);
+        Assert.Empty(changes.Scenes);
+    }
+
+    [Fact]
+    public void Teste_que_nao_leu_os_textos_diz_isso_em_vez_de_versao_anterior()
+    {
+        var failed = new GameLastTest(TestAt, GameTestKind.Translation, [], null, SnapshotFailed: true);
+
+        var changes = TranslationChanges.Since(failed, Texts(("a001", [Line("1", "Oi")])));
+
+        Assert.Equal(ChangesSinceTestState.SnapshotFailed, changes.State);
+        Assert.Empty(changes.Scenes);
+    }
+
+    [Fact]
     public void Mudar_so_notas_ou_status_nao_conta()
     {
         var texts = Texts(("a001", [Line("1", "Oi")]));

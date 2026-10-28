@@ -27,6 +27,9 @@ public enum ChangesSinceTestState
     /// <summary>O último teste não guardou o retrato: foi feito por uma versão anterior ou foi o teste só dos acentos.</summary>
     NoSnapshot,
 
+    /// <summary>O último teste não guardou o retrato porque os textos do projeto não leram na hora.</summary>
+    SnapshotFailed,
+
     /// <summary>Nada mudou desde o último teste.</summary>
     Unchanged,
 
@@ -87,6 +90,11 @@ public static class TranslationChanges
         }
 
         var accentOnly = lastTest.Kind == GameTestKind.AccentTest;
+        if (lastTest.SnapshotFailed && !accentOnly)
+        {
+            return new ChangesSinceTest(ChangesSinceTestState.SnapshotFailed, lastTest.At, false, []);
+        }
+
         if (lastTest.Snapshot is not { } snapshot || accentOnly)
         {
             return new ChangesSinceTest(ChangesSinceTestState.NoSnapshot, lastTest.At, accentOnly, []);

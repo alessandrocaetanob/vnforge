@@ -314,8 +314,58 @@ public sealed class GameTesterTests : IDisposable
 
         Assert.Throws<GameOpenException>(() => Run());
 
-        Assert.NotNull(GameStateFile.Load(_project).InGame);
-        Assert.Null(GameStateFile.Load(_project).LastTest);
+        var state = GameStateFile.Load(_project);
+        Assert.NotNull(state.InGame);
+        Assert.NotNull(state.LastTest?.Snapshot);
+        Assert.False(state.LastTest.SnapshotFailed);
+        Assert.DoesNotContain(state.LastTest.Steps, s => s.Step == GameTestStep.Open);
+        Assert.Equal(ChangesSinceTestState.Unchanged, TranslationChanges.Since(state.LastTest, _project.LoadAllText()).State);
+    }
+
+    [Fact]
+    public void Jogo_que_nao_abre_troca_o_ultimo_teste_e_o_retrato_pelos_do_texto_novo()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var before = GameStateFile.Load(_project).LastTest!;
+        Translate("a001", 0, "Hi");
+        _clock.Advance(TimeSpan.FromHours(1));
+        _starter.Failure = new VNForgeException("sem permissão");
+
+        Assert.Throws<GameOpenException>(() => Run());
+
+        var after = GameStateFile.Load(_project).LastTest!;
+        Assert.True(after.At > before.At);
+        Assert.NotEqual(before.Snapshot!.Scripts["a001"], after.Snapshot!.Scripts["a001"]);
+    }
+
+    [Fact]
+    public void Falha_da_Conferencia_mantem_o_ultimo_teste_anterior()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var before = GameStateFile.Load(_project).LastTest!;
+        Translate("a001", 0, string.Empty);
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Throws<QaBlockedException>(() => Run(qa: QaEngine.Default));
+
+        var after = GameStateFile.Load(_project).LastTest!;
+        Assert.Equal(before.At, after.At);
+        Assert.Equal(before.Snapshot!.Scripts, after.Snapshot!.Scripts);
+    }
+
+    [Fact]
+    public void Falha_do_build_mantem_o_ultimo_teste_anterior()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var before = GameStateFile.Load(_project).LastTest!;
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Throws<VNForgeException>(() => Run(new GameTestOptions(OnlyScript: "naoexiste")));
+
+        Assert.Equal(before.At, GameStateFile.Load(_project).LastTest!.At);
     }
 
     [Fact]

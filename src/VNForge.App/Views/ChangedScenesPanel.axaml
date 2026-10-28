@@ -14,7 +14,7 @@
           <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,2">
             <TextBlock Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}"/>
             <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LinesText}"/>
-            <Button Grid.Column="2" Classes="link" Content="Abrir" FontSize="12"
+            <Button Grid.Column="2" Classes="link" Content="Abrir" FontSize="12" IsVisible="{Binding CanOpen}"
                     Command="{Binding $parent[UserControl].((vm:ChangedScenesViewModel)DataContext).OpenCommand}"
                     CommandParameter="{Binding}" AutomationProperties.Name="{Binding Name, StringFormat='Abrir {0} só com as falas que mudaram'}"/>
           </Grid>
@@ -22,5 +22,6 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <TextBlock Classes="caption secondary" Text="{Binding MoreText}" IsVisible="{Binding HasMore}"/>
+    <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{x:Static vm:ChangedScenesViewModel.Limit}" IsVisible="{Binding IsInformative}" AutomationProperties.Name="Limite da lista"/>
   </StackPanel>
 </UserControl>

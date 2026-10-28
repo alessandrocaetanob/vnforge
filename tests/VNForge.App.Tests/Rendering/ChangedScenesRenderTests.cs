@@ -92,6 +92,40 @@ public sealed class ChangedScenesRenderTests(HeadlessFixture fixture) : IClassFi
             TestContext.Current.CancellationToken);
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_Painel_com_mais_de_oito_cenas_mostra_e_mais_N_cenas_sem_texto_cortado(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = DemoProject.Create(temp.SubFolder("projeto"));
+        Edit(root, withSnapshot: true);
+        var vm = new DashboardViewModel { Project = DemoProject.Summary(root) };
+        var scenes = Enumerable.Range(1, 12).Select(n => new ChangedScene($"yst{n:00000}", n, n, [$"yst{n:00000}:000001"])).ToList();
+        var changes = new ChangesSinceTest(ChangesSinceTestState.Changed, TestAt, false, scenes);
+
+        await fixture.Session.Dispatch(
+            async () =>
+            {
+                await vm.ReloadAsync();
+                vm.SinceTest.Update(changes, scene => $"Cena {scene.Number}");
+                var path = RenderOutput.PathFor(ScreenRenderer.FileName("mudou-desde-o-teste-painel-12-cenas", theme));
+                ScreenRenderer.Render(new DashboardView { DataContext = vm }, theme, path, 1366, 768, window =>
+                {
+                    var panel = window.GetVisualDescendants().OfType<ChangedScenesPanel>().Single();
+                    Assert.True(panel.IsEffectivelyVisible);
+                    var texts = panel.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
+                    Assert.Equal(ChangedScenesViewModel.MaxRows, vm.SinceTest.Rows.Count);
+                    Assert.Contains("e mais 4 cenas", texts);
+                    Assert.Contains(ChangedScenesViewModel.Limit, texts);
+                    var clipped = ClippedTextHeadlessTests.FindClipped(panel);
+                    Assert.True(clipped.Count == 0, string.Join("; ", clipped));
+                });
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     private static void AssertList(Window window, ChangedScenesViewModel list, int scenes)
     {
         var panel = window.GetVisualDescendants().OfType<ChangedScenesPanel>().Single();
@@ -104,6 +138,7 @@ public sealed class ChangedScenesRenderTests(HeadlessFixture fixture) : IClassFi
             Assert.Contains(row.Name, texts);
             Assert.Contains(row.LinesText, texts);
         });
+        Assert.Contains(ChangedScenesViewModel.Limit, texts);
         var open = panel.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && Equals(b.Content, "Abrir")).ToList();
         Assert.Equal(scenes, open.Count);
         Assert.All(open, b => Assert.True(b.IsEffectivelyEnabled));

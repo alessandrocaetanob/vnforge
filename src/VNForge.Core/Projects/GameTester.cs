@@ -101,7 +101,7 @@ public sealed class GameTester(
         var kind = options.AccentTest ? GameTestKind.AccentTest : GameTestKind.Translation;
         var timeline = new StepTimeline(_clock, steps);
         // O retrato sai antes do build: uma edição durante o teste deixa o retrato mais velho que o jogo, e a linha aparece como mudada em vez de sumir da lista.
-        var snapshot = SnapshotOf(project, options);
+        var (snapshot, snapshotFailed) = SnapshotOf(project, options);
 
         timeline.Begin(GameTestStep.Check);
         var build = ProjectBuilder.Build(
@@ -135,30 +135,44 @@ public sealed class GameTester(
         if (executable is not null)
         {
             timeline.Begin(GameTestStep.Open);
-            Open(project);
+            try
+            {
+                Open(project);
+            }
+            catch (GameOpenException)
+            {
+                // O texto novo já está no jogo: o último teste e o retrato têm que ser os dele, senão a lista do que mudou compara com um jogo que não existe mais.
+                SaveLastTest(project, kind, timeline.Finish().Where(r => r.Step != GameTestStep.Open), snapshot, snapshotFailed);
+                throw;
+            }
         }
 
         var results = timeline.Finish();
-        var times = results.Select(r => new GameTestStepTime(r.Step, (long)r.Elapsed.TotalMilliseconds)).ToList();
-        GameStateFile.TryUpdate(project, saved => saved with { LastTest = new GameLastTest(_clock.GetUtcNow(), kind, times, snapshot) });
+        SaveLastTest(project, kind, results, snapshot, snapshotFailed);
         return new GameTestResult(kind, results, build, injection, executable);
     }
 
-    /// <summary>O retrato das traduções que foram para o jogo; nulo no teste de acentos, que não leva a tradução, e quando os textos não leem (o retrato só alimenta a tela).</summary>
-    private static TranslationSnapshot? SnapshotOf(ProjectFolder project, GameTestOptions options)
+    private void SaveLastTest(ProjectFolder project, GameTestKind kind, IEnumerable<GameTestStepResult> results, TranslationSnapshot? snapshot, bool snapshotFailed)
+    {
+        var times = results.Select(r => new GameTestStepTime(r.Step, (long)r.Elapsed.TotalMilliseconds)).ToList();
+        GameStateFile.TryUpdate(project, saved => saved with { LastTest = new GameLastTest(_clock.GetUtcNow(), kind, times, snapshot, snapshotFailed) });
+    }
+
+    /// <summary>O retrato das traduções que foram para o jogo; nulo no teste de acentos, que não leva a tradução, e quando os textos não leem (o retrato só alimenta a tela); nesse caso <c>Failed</c> é verdadeiro, para a tela não dizer que o teste é de uma versão anterior.</summary>
+    private static (TranslationSnapshot? Snapshot, bool Failed) SnapshotOf(ProjectFolder project, GameTestOptions options)
     {
         if (options.AccentTest)
         {
-            return null;
+            return (null, false);
         }
 
         try
         {
-            return TranslationChanges.Snapshot(project.LoadAllText(), options.OnlyScript);
+            return (TranslationChanges.Snapshot(project.LoadAllText(), options.OnlyScript), false);
         }
         catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException)
         {
-            return null;
+            return (null, true);
         }
     }
 

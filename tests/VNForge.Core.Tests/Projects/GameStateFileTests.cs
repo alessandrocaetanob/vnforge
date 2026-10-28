@@ -85,6 +85,17 @@ public sealed class GameStateFileTests : IDisposable
     }
 
     [Fact]
+    public void Retrato_que_falhou_vai_e_volta_no_json_e_arquivo_antigo_le_como_falso()
+    {
+        GameStateFile.Save(_project, Sample() with { LastTest = Sample().LastTest! with { SnapshotFailed = true } });
+        Assert.True(GameStateFile.Load(_project).LastTest!.SnapshotFailed);
+
+        File.WriteAllText(GameStateFile.PathFor(_project), "{\"version\": 1, \"lastTest\": {\"at\": \"2026-10-22T23:17:00+00:00\", \"kind\": \"translation\", \"steps\": []}}");
+
+        Assert.False(GameStateFile.Load(_project).LastTest!.SnapshotFailed);
+    }
+
+    [Fact]
     public void Arquivo_antigo_sem_retrato_le_com_o_retrato_nulo()
     {
         Directory.CreateDirectory(_project.CacheDirectory);
