@@ -13,13 +13,14 @@ namespace VNForge.App.ViewModels;
 /// </summary>
 /// <param name="entry">A linha da grade.</param>
 /// <param name="speakerTarget">O nome do falante em português (<c>characters.json</c>); nulo mostra o nome original.</param>
-public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null) : INotifyPropertyChanged
+/// <param name="speakerColor">A cor do personagem (<c>characters.json</c> ou a da paleta); nula para quem não está cadastrado.</param>
+public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null, CharacterColor? speakerColor = null) : INotifyPropertyChanged
 {
     private static readonly string[] Changeable =
     [
         nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
         nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel), nameof(IssueTip),
-        nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
+        nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerColor), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -37,10 +38,26 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
     }
 
     /// <summary>Como <see cref="Update(LineEntry)"/>, e troca o nome em português do falante (a gravação mudou o falante escolhido da linha).</summary>
-    public void Update(LineEntry updated, string? newSpeakerTarget)
+    public void Update(LineEntry updated, string? newSpeakerTarget, CharacterColor? newSpeakerColor = null)
     {
         speakerTarget = newSpeakerTarget;
+        speakerColor = newSpeakerColor;
         Update(updated);
+    }
+
+    /// <summary>O Glossário mudou o nome ou a cor do personagem: a grade passa a mostrar os novos, sem tocar na linha.</summary>
+    public void UpdateSpeaker(string? newSpeakerTarget, CharacterColor? newSpeakerColor)
+    {
+        if (string.Equals(speakerTarget, newSpeakerTarget, StringComparison.Ordinal) && ReferenceEquals(speakerColor, newSpeakerColor))
+        {
+            return;
+        }
+
+        speakerTarget = newSpeakerTarget;
+        speakerColor = newSpeakerColor;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeakerName)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeakerLabel)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeakerColor)));
     }
 
     public int Number => Entry.Number;
@@ -57,6 +74,9 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
 
     /// <summary>O falante como a grade o mostra: o nome em português quando o personagem está cadastrado, o original quando não; nulo na narração.</summary>
     public string? SpeakerName => IsNarration ? null : speakerTarget ?? Entry.Unit.EffectiveSpeaker;
+
+    /// <summary>A cor do personagem que fala; nula na narração e quando o falante não está no Glossário.</summary>
+    public CharacterColor? SpeakerColor => IsNarration ? null : speakerColor;
 
     /// <summary>A linha tem o falante trocado por quem traduz (<see cref="TextUnit.ChosenSpeaker"/>): a grade a marca.</summary>
     public bool IsSpeakerChanged => Entry.Unit.ChosenSpeaker is not null;

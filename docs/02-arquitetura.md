@@ -387,7 +387,7 @@ minha-vn-ptbr/
 ├─ vnforge.json            # jogo, engine, idiomas, estratégia de codificação, provedor de IA
 ├─ formatting.json         # perfil de espaçamento e quebra de linha
 ├─ glossary.json           # termos fixos
-├─ characters.json         # nomes de personagens: original → tradução, gênero, tom de fala
+├─ characters.json         # nomes de personagens: original → tradução, gênero, tom de fala, cor
 ├─ scripts.json            # nome legível de cada script: o que a engine leu do jogo e o que o usuário escolheu
 ├─ style.md                # guia de estilo livre, vai junto no prompt da IA
 ├─ text/                   # UMA unidade de texto por linha, um arquivo por script
@@ -431,7 +431,7 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 | Arquivo | Entrada | Campos |
 |---|---|---|
 | `glossary.json` | `GlossaryTerm` | `source`, `target`, `notes` (opcional) |
-| `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional) |
+| `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional), `color` (opcional: id da cor na paleta do app, como `blue` ou `rose`; sem ele o app escolhe uma pelo nome e o Glossário grava só a que a pessoa trocou) |
 
 `GlossaryUsage.From(units)` conta, para a página Glossário, as linhas do projeto que contêm cada termo (`LinesContaining`, mesmo critério do `GlossaryMatcher`) e as linhas faladas por cada personagem (`LinesSpokenBy`); conta linhas, não ocorrências dentro da linha.
 

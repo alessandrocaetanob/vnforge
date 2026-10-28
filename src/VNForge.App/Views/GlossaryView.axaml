@@ -145,17 +145,18 @@
                     </StackPanel>
                   </Grid>
                 </Border>
-                <Grid ColumnDefinitions="*,*,150,1.4*,72,36" ColumnSpacing="12" Margin="16,8,16,0">
+                <Grid ColumnDefinitions="*,*,150,112,1.2*,72,36" ColumnSpacing="12" Margin="16,8,16,0">
                   <TextBlock Classes="overline" Text="Nome no jogo"/>
                   <TextBlock Grid.Column="1" Classes="overline" Text="Nome na tradução"/>
                   <TextBlock Grid.Column="2" Classes="overline" Text="Gênero"/>
-                  <TextBlock Grid.Column="3" Classes="overline" Text="Como fala"/>
-                  <TextBlock Grid.Column="4" Classes="overline" Text="Falas" HorizontalAlignment="Right"/>
+                  <TextBlock Grid.Column="3" Classes="overline" Text="Cor"/>
+                  <TextBlock Grid.Column="4" Classes="overline" Text="Como fala"/>
+                  <TextBlock Grid.Column="5" Classes="overline" Text="Falas" HorizontalAlignment="Right"/>
                 </Grid>
                 <ItemsControl ItemsSource="{Binding VisibleCharacters}" Margin="0,4,0,8" AutomationProperties.Name="Personagens">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:CharacterRow">
-                      <Grid ColumnDefinitions="*,*,150,1.4*,72,36" ColumnSpacing="12" Margin="16,2">
+                      <Grid ColumnDefinitions="*,*,150,112,1.2*,72,36" ColumnSpacing="12" Margin="16,2">
                         <TextBox Classes="cell jp" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}" Text="{Binding Source}" AutomationProperties.Name="Nome no jogo"/>
                         <TextBox Grid.Column="1" Classes="cell" Text="{Binding Target}" AutomationProperties.Name="Nome na tradução"/>
                         <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" MinHeight="30" IsVisible="{Binding !HasSuggestion}"
@@ -184,10 +185,22 @@
                             </Button>
                           </Grid>
                         </Border>
-                        <TextBox Grid.Column="3" Classes="cell" Text="{Binding Tone}" PlaceholderText="{Binding TonePlaceholder}" AutomationProperties.Name="Como fala"/>
-                        <TextBlock Grid.Column="4" Classes="mono uses" Classes.unused="{Binding IsUnused}" Text="{Binding UsesLabel}"
+                        <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" MinHeight="30"
+                                  ItemsSource="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Colors}"
+                                  SelectedItem="{Binding Color}" AutomationProperties.Name="Cor do personagem">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="c:CharacterColor">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center" c:SpeakerColorTint.Color="{Binding}"/>
+                                <TextBlock Text="{Binding Label}"/>
+                              </StackPanel>
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBox Grid.Column="4" Classes="cell" Text="{Binding Tone}" PlaceholderText="{Binding TonePlaceholder}" AutomationProperties.Name="Como fala"/>
+                        <TextBlock Grid.Column="5" Classes="mono uses" Classes.unused="{Binding IsUnused}" Text="{Binding UsesLabel}"
                                    ToolTip.Tip="Linhas faladas pelo personagem"/>
-                        <Button Grid.Column="5" Classes="icon subtle sm" VerticalAlignment="Center"
+                        <Button Grid.Column="6" Classes="icon subtle sm" VerticalAlignment="Center"
                                 Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).RemoveCharacterCommand}"
                                 CommandParameter="{Binding}" ToolTip.Tip="Remover personagem" AutomationProperties.Name="Remover personagem">
                           <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>

@@ -142,6 +142,17 @@ public sealed class GlossaryCharsCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Chars_set_preserva_a_cor_do_personagem()
+    {
+        _project.SaveCharacters([new CharacterEntry("美咲", Misaki, CharacterGender.Female, null, "rose")]);
+
+        var result = await Run(CharsVerb, "set", "美咲", "Misaki-chan");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal("rose", Assert.Single(_project.LoadCharacters()).Color);
+    }
+
+    [Fact]
     public async Task Chars_set_com_genero_invalido_falha_listando_os_validos()
     {
         var result = await Run(CharsVerb, "set", "美咲", Misaki, GenderOption, "x");

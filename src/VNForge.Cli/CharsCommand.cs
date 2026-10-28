@@ -70,7 +70,7 @@ internal static class CharsCommand
         var index = characters.FindIndex(c => CharacterBook.NameComparer.Equals(c.Source, original));
 
         var current = index >= 0 ? characters[index] : null;
-        var entry = new CharacterEntry(original, target, gender ?? current?.Gender ?? CharacterGender.Unknown, tone ?? current?.Tone);
+        var entry = new CharacterEntry(original, target, gender ?? current?.Gender ?? CharacterGender.Unknown, tone ?? current?.Tone, current?.Color);
         if (current is null)
         {
             characters.Add(entry);

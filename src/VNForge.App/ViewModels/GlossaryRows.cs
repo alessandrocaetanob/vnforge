@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core.Glossary;
 
@@ -66,17 +67,36 @@ public sealed partial class GlossaryTermRow : UsageRow
 /// <summary>Linha editável da tabela de personagens.</summary>
 public sealed partial class CharacterRow : UsageRow
 {
-    public CharacterRow(string source = "", string target = "", CharacterGender gender = CharacterGender.Unknown, string? tone = null)
+    public CharacterRow(string source = "", string target = "", CharacterGender gender = CharacterGender.Unknown, string? tone = null, string? color = null)
     {
         Source = source;
         Target = target;
         Gender = gender;
         Tone = tone ?? string.Empty;
+        ColorKey = CharacterPalette.Find(color)?.Key ?? color;
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeedsGender))]
+    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(Color))]
     public partial string Source { get; set; }
+
+    /// <summary>O id da cor que a pessoa escolheu (ou que o arquivo traz); nulo deixa o app escolher pelo nome. Só vai para o arquivo quando definido.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Color))]
+    public partial string? ColorKey { get; set; }
+
+    /// <summary>A cor da linha para o seletor: a escolhida ou, sem escolha, a que o app dá a esse nome. Escolher grava o id.</summary>
+    public CharacterColor Color
+    {
+        get => CharacterPalette.Resolve(ColorKey, Source);
+        set
+        {
+            if (value is not null)
+            {
+                ColorKey = value.Key;
+            }
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NeedsGender))]
@@ -132,7 +152,7 @@ public sealed partial class CharacterRow : UsageRow
         string.IsNullOrWhiteSpace(Source) && string.IsNullOrWhiteSpace(Target) && string.IsNullOrWhiteSpace(Tone) && Gender == CharacterGender.Unknown;
 
     public CharacterEntry ToEntry() =>
-        new(Source.Trim(), Target.Trim(), Gender, string.IsNullOrWhiteSpace(Tone) ? null : Tone.Trim());
+        new(Source.Trim(), Target.Trim(), Gender, string.IsNullOrWhiteSpace(Tone) ? null : Tone.Trim(), string.IsNullOrWhiteSpace(ColorKey) ? null : ColorKey.Trim());
 }
 
 /// <summary>
