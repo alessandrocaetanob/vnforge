@@ -14,7 +14,7 @@
       </StackPanel>
       <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding LinesText}" VerticalAlignment="Center"/>
     </Grid>
-    <TextBlock Classes="jp-body" Text="{Binding Source}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+    <TextBlock Classes="jp-body" c:MarkedText.Source="{Binding Source}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
     <ItemsControl ItemsSource="{Binding Variants}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:ConferenceVariantViewModel">

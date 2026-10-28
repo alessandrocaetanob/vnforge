@@ -66,6 +66,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                         .Where(b => b.IsEffectivelyVisible && (b.Command == vm.Conference.UseVariantCommand || b.Command == vm.Conference.KeepDifferentCommand)).ToList();
                     Assert.True(cardButtons.Count >= 4, "o cartão mostra Usar em todas por variante e Manter diferentes");
                     Assert.All(cardButtons, b => Assert.DoesNotContain("accent", b.Classes));
+                    RawMarkers.AssertCardUsesChips(view.GetVisualDescendants().OfType<ConsistencyCardView>().Single(c => c.IsEffectivelyVisible), minChips: 4);
 
                     // Erro sem correção automática: só "Abrir no editor", em destaque, na barra do pé do painel.
                     var open = ActionButton(view, vm.Conference.OpenLineCommand);

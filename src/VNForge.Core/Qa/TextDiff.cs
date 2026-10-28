@@ -1,4 +1,5 @@
 using System.Text;
+using VNForge.Core.Formatting;
 
 namespace VNForge.Core.Qa;
 
@@ -23,7 +24,7 @@ public readonly record struct TextDiffSegment(string Text, TextDiffKind Kind)
 }
 
 /// <summary>
-/// Diferença por caractere entre a tradução de referência e a de uma variante (E7, "mesmo original, traduções diferentes"): a maior subsequência comum
+/// Diferença por caractere (cada marcador do jogo conta como um só) entre a tradução de referência e a de uma variante (E7, "mesmo original, traduções diferentes"): a maior subsequência comum
 /// depois de tirar o começo e o fim iguais. Os trechos em ordem formam a variante (<see cref="TextDiffKind.Same"/> e <see cref="TextDiffKind.Added"/>) e a
 /// referência (<see cref="TextDiffKind.Same"/> e <see cref="TextDiffKind.Missing"/>), então a tela mostra o texto da variante com o que difere marcado.
 /// </summary>
@@ -31,6 +32,9 @@ public static class TextDiff
 {
     // Acima disto o miolo diferente não cabe numa tabela de comprimentos razoável: vira um bloco só de faltando e acrescentado.
     private const int MaxCells = 1_500_000;
+
+    // Fora do intervalo do Unicode (0x10FFFF): as fichas a partir daqui são marcadores do jogo.
+    private const int MarkerBase = 0x110000;
 
     /// <summary>Compara <paramref name="variant"/> com <paramref name="reference"/>. Textos iguais viram um trecho <see cref="TextDiffKind.Same"/> só.</summary>
     public static IReadOnlyList<TextDiffSegment> Compare(string reference, string variant)
@@ -42,8 +46,8 @@ public static class TextDiff
             return reference.Length == 0 ? [] : [new TextDiffSegment(reference, TextDiffKind.Same)];
         }
 
-        var a = Runes(reference);
-        var b = Runes(variant);
+        var markers = new List<string>();
+        var (a, b) = Tokens(reference, variant, markers);
         var start = 0;
         while (start < a.Length && start < b.Length && a[start] == b[start])
         {
@@ -60,7 +64,7 @@ public static class TextDiff
         steps.AddRange(a.Take(start).Select(r => (TextDiffKind.Same, r)));
         MiddleSteps(a.AsSpan(start, a.Length - start - end), b.AsSpan(start, b.Length - start - end), steps);
         steps.AddRange(a.Skip(a.Length - end).Select(r => (TextDiffKind.Same, r)));
-        return Merge(steps);
+        return Merge(steps, markers);
     }
 
     /// <summary>
@@ -87,7 +91,48 @@ public static class TextDiff
         return builder.ToString();
     }
 
-    private static int[] Runes(string text) => [.. text.EnumerateRunes().Select(r => r.Value)];
+    /// <summary>
+    /// Os dois textos em fichas: cada caractere é uma ficha e cada marcador do jogo (<c>\p</c>, <c>{VAR:nome}</c>) é uma ficha só, numerada a partir de
+    /// <see cref="MarkerBase"/>. Assim a diferença nunca corta um marcador ao meio, e a tela pode desenhar o selo. Se um dos textos tem marcador fora
+    /// da gramática, os dois são comparados por caractere.
+    /// </summary>
+    private static (int[] Reference, int[] Variant) Tokens(string reference, string variant, List<string> markers)
+    {
+        try
+        {
+            var ids = new Dictionary<string, int>(StringComparer.Ordinal);
+            return (Tokenize(reference, ids, markers), Tokenize(variant, ids, markers));
+        }
+        catch (ArgumentException)
+        {
+            markers.Clear();
+            return ([.. reference.EnumerateRunes().Select(r => r.Value)], [.. variant.EnumerateRunes().Select(r => r.Value)]);
+        }
+    }
+
+    private static int[] Tokenize(string text, Dictionary<string, int> ids, List<string> markers)
+    {
+        var tokens = new List<int>(text.Length);
+        foreach (var segment in ControlMarkers.Split(text))
+        {
+            if (!segment.IsMarker)
+            {
+                tokens.AddRange(segment.Text.EnumerateRunes().Select(r => r.Value));
+                continue;
+            }
+
+            if (!ids.TryGetValue(segment.Text, out var id))
+            {
+                id = MarkerBase + markers.Count;
+                ids[segment.Text] = id;
+                markers.Add(segment.Text);
+            }
+
+            tokens.Add(id);
+        }
+
+        return [.. tokens];
+    }
 
     private static void MiddleSteps(ReadOnlySpan<int> a, ReadOnlySpan<int> b, List<(TextDiffKind Kind, int Rune)> steps)
     {
@@ -144,7 +189,7 @@ public static class TextDiff
     /// Junta os passos em trechos. Um caractere igual espremido entre duas mudanças (a letra que sobra por acaso numa troca de palavra) não vira trecho:
     /// entra nas duas mudanças, para a marcação não ficar picada. Dentro de cada bloco de mudança o que falta vem antes do que foi acrescentado.
     /// </summary>
-    private static List<TextDiffSegment> Merge(List<(TextDiffKind Kind, int Rune)> steps)
+    private static List<TextDiffSegment> Merge(List<(TextDiffKind Kind, int Rune)> steps, List<string> markers)
     {
         var runs = new List<(TextDiffKind Kind, StringBuilder Text, int Runes)>();
         foreach (var (kind, rune) in steps)
@@ -155,7 +200,7 @@ public static class TextDiff
             }
 
             var last = runs[^1];
-            last.Text.Append(char.ConvertFromUtf32(rune));
+            last.Text.Append(rune >= MarkerBase ? markers[rune - MarkerBase] : char.ConvertFromUtf32(rune));
             runs[^1] = last with { Runes = last.Runes + 1 };
         }
 
