@@ -326,7 +326,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Preview = profile is null ? null : new TextboxPreviewViewModel(unit, profile, Translation);
+        Preview = profile is null ? null : new TextboxPreviewViewModel(Saved, profile, Translation);
         AttachFit(profile);
         NotifyFitChanged();
     }

@@ -76,6 +76,7 @@ public sealed partial class LineDetailViewModel
     {
         if (!Flush())
         {
+            NotifySpeakerChanged();
             return false;
         }
 
