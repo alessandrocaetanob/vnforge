@@ -105,6 +105,9 @@ jobs:
                   - ~/.nuget/packages
       - run:
           name: Testes
+          # O dotnet-coverage só imprime quando uma suíte termina, e a do App roda calada por uns 10 minutos: o limite
+          # padrão de 10 minutos sem saída derrubava o job sem nenhum teste vermelho.
+          no_output_timeout: 30m
           command: |
             set -euo pipefail
             if [ -f .sonar-begun ]; then
