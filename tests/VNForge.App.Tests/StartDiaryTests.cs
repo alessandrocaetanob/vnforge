@@ -152,6 +152,7 @@ public class StartDiaryTests
         Seed(second, [.. Day(Now.AddHours(-1), 3)]);
         var vm = Create(temp, new FixedClock(Now));
         await vm.OpenAsync(first);
+        await vm.DetailLoading;
         await vm.OpenAsync(second);
         await vm.DetailLoading;
         Assert.Equal(3, vm.Diary.Source.Today);
@@ -162,29 +163,5 @@ public class StartDiaryTests
         await vm.DetailLoading;
         Assert.Equal(7, vm.Diary.Source.Today);
         Assert.False(vm.Diary.IsLoading);
-    }
-
-    [Fact]
-    public async Task Uma_leitura_cancelada_pela_troca_de_projeto_nao_grava_o_diario()
-    {
-        using var temp = new TempFolder();
-        var first = SampleProjects.Create(temp.SubFolder("a"), "Projeto A", TranslationStatus.Machine);
-        var second = SampleProjects.Create(temp.SubFolder("b"), "Projeto B", TranslationStatus.Machine);
-        Seed(first, [.. Day(Now.AddHours(-1), 7)]);
-        Seed(second, [.. Day(Now.AddHours(-1), 3)]);
-        var vm = Create(temp, new FixedClock(Now));
-        await vm.OpenAsync(first);
-        await vm.OpenAsync(second);
-        await vm.DetailLoading;
-
-        var a = vm.Recents.Single(r => r.Name == "Projeto A");
-        var b = vm.Recents.Single(r => r.Name == "Projeto B");
-        vm.Selected = a;
-        var cancelled = vm.DetailLoading;
-        vm.Selected = b;
-        await cancelled;
-        await vm.DetailLoading;
-
-        Assert.Equal(3, vm.Diary.Source.Today);
     }
 }

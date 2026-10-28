@@ -14,6 +14,7 @@ using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.Tests.Rendering;
 
@@ -333,6 +334,37 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
         }
 
         Assert.True(condition(), "o tooltip não abriu");
+    }
+
+    [Fact]
+    public async Task Uma_leitura_cancelada_pela_troca_de_projeto_nao_grava_o_diario()
+    {
+        using var temp = new TempFolder();
+        var first = SampleProjects.Create(temp.SubFolder("a"), "Projeto A", TranslationStatus.Machine);
+        var second = SampleProjects.Create(temp.SubFolder("b"), "Projeto B", TranslationStatus.Machine);
+        SessionsFile.Save(ProjectFolder.Open(first), new SessionsFile(SessionsFile.CurrentVersion, [.. Enumerable.Range(0, 7).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddHours(-1).AddSeconds(i * 30)))]));
+        SessionsFile.Save(ProjectFolder.Open(second), new SessionsFile(SessionsFile.CurrentVersion, [.. Enumerable.Range(0, 3).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddHours(-1).AddSeconds(i * 30)))]));
+        // Na thread da tela, como no app: as leituras de dois projetos nunca mexem nas coleções ao mesmo tempo.
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var vm = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
+                await vm.OpenAsync(first);
+                await vm.DetailLoading;
+                await vm.OpenAsync(second);
+                await vm.DetailLoading;
+
+                vm.Selected = vm.Recents.Single(r => r.Name == "Projeto A");
+                var cancelled = vm.DetailLoading;
+                vm.Selected = vm.Recents.Single(r => r.Name == "Projeto B");
+                await cancelled;
+                await vm.DetailLoading;
+
+                Assert.Equal(3, vm.Diary.Source.Today);
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
     }
 
     /// <summary>Doze semanas de trabalho com a sequência de hoje: 24 linhas hoje, 120 ontem, 80 anteontem, nenhuma antes de ontem-ontem e dias soltos no resto.</summary>

@@ -30,17 +30,13 @@ public sealed class DiaryCard(ReviewDiary diary, bool isLoading = false)
     /// <summary>O número grande: "3".</summary>
     public string StreakValue => IsLoading ? string.Empty : ProjectLabels.Number(Source.Streak);
 
-    public string StreakCaption => IsLoading ? string.Empty : Source.Streak == 1 ? "dia seguido" : "dias seguidos";
+    public string StreakCaption => IsLoading ? string.Empty : StreakCaptionFor(Source.Streak);
 
     /// <summary>"Ontem você aprovou 120 linhas." ou "Ontem você não aprovou linhas.".</summary>
-    public string YesterdayText => IsLoading ? string.Empty : Source.Yesterday == 0
-        ? "Ontem você não aprovou linhas."
-        : $"Ontem você aprovou {Lines(Source.Yesterday)}.";
+    public string YesterdayText => IsLoading ? string.Empty : YesterdayFor(Source.Yesterday);
 
     /// <summary>"Hoje: 30 linhas." ou "Hoje ainda não há linhas aprovadas.".</summary>
-    public string TodayText => IsLoading ? string.Empty : Source.Today == 0
-        ? "Hoje ainda não há linhas aprovadas."
-        : $"Hoje: {Lines(Source.Today)}.";
+    public string TodayText => IsLoading ? string.Empty : TodayFor(Source.Today);
 
     /// <summary>"1.240 linhas aprovadas nas últimas 12 semanas."</summary>
     public string TotalText => $"{Lines(Source.Total)} {(Source.Total == 1 ? "aprovada" : "aprovadas")} nas últimas {ReviewDiary.Weeks} semanas.";
@@ -48,9 +44,20 @@ public sealed class DiaryCard(ReviewDiary diary, bool isLoading = false)
     public static string EmptyText => "Aprove algumas linhas e o diário começa a se preencher.";
 
     /// <summary>A frase que lê o mapa inteiro para quem não o enxerga.</summary>
-    public string MapDescription => IsLoading ? "Mapa das aprovações por dia, carregando." : Source.HasActivity
-        ? $"Mapa das aprovações por dia nas últimas {ReviewDiary.Weeks} semanas. {TotalText} {Source.Streak} {StreakCaption}."
-        : $"Mapa das aprovações por dia nas últimas {ReviewDiary.Weeks} semanas, ainda sem aprovações.";
+    public string MapDescription
+    {
+        get
+        {
+            if (IsLoading)
+            {
+                return "Mapa das aprovações por dia, carregando.";
+            }
+
+            return Source.HasActivity
+                ? $"Mapa das aprovações por dia nas últimas {ReviewDiary.Weeks} semanas. {TotalText} {Source.Streak} {StreakCaption}."
+                : $"Mapa das aprovações por dia nas últimas {ReviewDiary.Weeks} semanas, ainda sem aprovações.";
+        }
+    }
 
     /// <summary>
     /// O resumo da sessão que aparece ao fechar o app, ou nulo quando nada foi aprovado nela:
@@ -68,6 +75,14 @@ public sealed class DiaryCard(ReviewDiary diary, bool isLoading = false)
         var text = $"Nesta sessão: {Lines(session.Lines)} {(session.Lines == 1 ? "aprovada" : "aprovadas")} em {ProjectLabels.Duration(session.Worked)}.";
         return diary.Streak >= 2 ? $"{text} Já são {diary.Streak} dias seguidos." : text;
     }
+
+    private static string StreakCaptionFor(int streak) => streak == 1 ? "dia seguido" : "dias seguidos";
+
+    private static string YesterdayFor(int lines) =>
+        lines == 0 ? "Ontem você não aprovou linhas." : $"Ontem você aprovou {Lines(lines)}.";
+
+    private static string TodayFor(int lines) =>
+        lines == 0 ? "Hoje ainda não há linhas aprovadas." : $"Hoje: {Lines(lines)}.";
 
     private static string Lines(int count) => count == 1 ? "1 linha" : $"{ProjectLabels.Number(count)} linhas";
 }
