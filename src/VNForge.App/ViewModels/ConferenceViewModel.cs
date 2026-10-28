@@ -28,6 +28,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private QaReport report = QaReport.Empty;
     private IReadOnlyList<ConferenceIssueRowViewModel> all = [];
     private IReadOnlyList<ConferenceSettingCardViewModel> allCards = [];
+    private IReadOnlyList<ConferenceConsistencyCardViewModel> allConsistency = [];
     private ConferenceFilterKind activeFilter = ConferenceFilterKind.All;
     private int loadVersion;
     private int lineCount;
@@ -61,18 +62,21 @@ public sealed partial class ConferenceViewModel : ObservableObject
     /// <summary>Um <c>text/*.json</c> foi alterado aqui (correção ou "ok"); o Editor precisa reler.</summary>
     public event EventHandler? TextsChanged;
 
+    /// <summary>"Usar em todas" gravou traduções; o argumento traz as linhas de antes e de depois (<see cref="LineSavedEventArgs.Batch"/>) para o aviso "Desfazer" da janela principal, que chama <see cref="UndoAsync"/>.</summary>
+    public event EventHandler<LineSavedEventArgs>? LinesSaved;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FixAllCommand))]
     public partial ProjectSummary? Project { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(RegisterCharacterCommand), nameof(FixAndNextCommand), nameof(ApplySettingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(RegisterCharacterCommand), nameof(FixAndNextCommand), nameof(ApplySettingCommand), nameof(UseVariantCommand), nameof(KeepDifferentCommand))]
     [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(RegisterCharacterCommand), nameof(FixAndNextCommand), nameof(RefreshCommand), nameof(ApplySettingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(RegisterCharacterCommand), nameof(FixAndNextCommand), nameof(RefreshCommand), nameof(ApplySettingCommand), nameof(UseVariantCommand), nameof(KeepDifferentCommand))]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsFixing { get; private set; }
 
@@ -108,6 +112,16 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public partial IReadOnlyList<ConferenceSettingCardViewModel> SettingCards { get; private set; } = [];
 
     public bool HasSettingCards => SettingCards.Count > 0;
+
+    /// <summary>
+    /// Os cartões de "mesmo original, traduções diferentes", um por original, na ordem em que o original aparece no projeto. Só os que o filtro escolhido inclui;
+    /// é trocada por inteiro. As linhas que cada cartão representa contam nos totais, mas a lista de problemas não as repete.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasConsistencyCards), nameof(ShowEmptyText))]
+    public partial IReadOnlyList<ConferenceConsistencyCardViewModel> ConsistencyCards { get; private set; } = [];
+
+    public bool HasConsistencyCards => ConsistencyCards.Count > 0;
 
     /// <summary>O problema aberto no detalhe. Ao sair da lista (corrigido, silenciado ou filtrado), passa para o vizinho.</summary>
     [ObservableProperty]
@@ -170,7 +184,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public bool IsEmpty => Rows.Count == 0;
 
     /// <summary>A frase de <see cref="EmptyMessage"/> aparece quando a lista está vazia e o estado vazio do <see cref="IsClear"/> não a substitui.</summary>
-    public bool ShowEmptyText => IsEmpty && !IsClear && !HasSettingCards;
+    public bool ShowEmptyText => IsEmpty && !IsClear && !HasSettingCards && !HasConsistencyCards;
 
     /// <summary>A conferência rodou e não achou nada: a página mostra o estado vazio com o selo 訳.</summary>
     public bool IsClear => checkedAt is not null && Project is not null && !IsLoading && ErrorMessage is null && all.Count == 0;
@@ -307,12 +321,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
         lineCount = loaded?.LineCount ?? 0;
         fixableCount = loaded?.Fixable ?? 0;
         allCards = loaded?.Cards ?? [];
+        allConsistency = loaded?.Consistency ?? [];
         checkedAt = loaded is null ? null : clock.GetUtcNow();
         Rebuild();
     }
 
     /// <summary>O que uma conferência devolve: o relatório, as linhas já com a correção proposta e os números do cabeçalho.</summary>
-    private sealed record Checked(QaReport Report, IReadOnlyList<ConferenceIssueRowViewModel> Rows, int LineCount, int Fixable, IReadOnlyList<ConferenceSettingCardViewModel> Cards);
+    private sealed record Checked(QaReport Report, IReadOnlyList<ConferenceIssueRowViewModel> Rows, int LineCount, int Fixable, IReadOnlyList<ConferenceSettingCardViewModel> Cards, IReadOnlyList<ConferenceConsistencyCardViewModel> Consistency);
 
     private Checked Check(string root)
     {
@@ -325,10 +340,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
         var conflicts = SettingConflicts(folder);
         var settingIssues = SettingIssues(result.Issues, conflicts);
         var inCards = settingIssues.Select(x => x.Issue).ToHashSet(ReferenceEqualityComparer.Instance);
+        var grouped = result.RulesRun.Contains(InconsistentTranslationRule.RuleId, StringComparer.Ordinal)
+            ? result.Issues.Where(i => i.RuleId == InconsistentTranslationRule.RuleId).ToLookup(i => i.UnitId, StringComparer.Ordinal)
+            : null;
 
         // "Não traduzida" é resumo por script: só a primeira linha de cada um vai para o detalhe, as outras ficam fora da memória da tela.
         var untranslated = result.Issues.Where(i => i.RuleId == UntranslatedQaRule.RuleId).GroupBy(i => i.ScriptKey, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
-        var others = result.Issues.Where(i => i.RuleId != UntranslatedQaRule.RuleId && !inCards.Contains(i)).ToList();
+        var others = result.Issues.Where(i => i.RuleId != UntranslatedQaRule.RuleId && !inCards.Contains(i) && !(grouped is not null && i.RuleId == InconsistentTranslationRule.RuleId)).ToList();
         var wanted = others.Select(i => i.UnitId).Concat(untranslated.Select(g => g.First().UnitId)).ToHashSet(StringComparer.Ordinal);
         var units = UnitsById(context, wanted);
         var order = engine.Rules.Select((rule, index) => (rule.Id, index)).ToDictionary(x => x.Id, x => x.index, StringComparer.Ordinal);
@@ -378,7 +396,26 @@ public sealed partial class ConferenceViewModel : ObservableObject
             }
         }
 
-        return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count + cards.Sum(c => c.Count), cards);
+        var consistency = new List<ConferenceConsistencyCardViewModel>();
+        if (grouped is not null)
+        {
+            var description = engine.Find(InconsistentTranslationRule.RuleId)?.Description;
+            string Label(ConsistencyLine line) => positions.GetValueOrDefault(line.UnitId) is { } position ? $"{sceneOf(line.ScriptKey)} · {position.ToString(CultureInfo.InvariantCulture)}" : sceneOf(line.ScriptKey);
+            foreach (var group in ConsistencyGroups.Find(context).Where(g => !g.IsKept))
+            {
+                var groupRows = group.Variants.Where(v => !v.IsReference).SelectMany(v => v.Lines)
+                    .SelectMany(line => grouped[line.UnitId])
+                    .Select(issue => new ConferenceIssueRowViewModel(issue, labels: new ConferenceRowLabels(description, sceneOf(issue.ScriptKey), positions.GetValueOrDefault(issue.UnitId))) { InGroup = true })
+                    .ToList();
+                if (groupRows.Count > 0)
+                {
+                    consistency.Add(new ConferenceConsistencyCardViewModel(group, Label, groupRows, positions));
+                    rows.AddRange(groupRows);
+                }
+            }
+        }
+
+        return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count + cards.Sum(c => c.Count), cards, consistency);
     }
 
     /// <summary>O nome da cena na tela. Sem nome, "Cena N" com N a posição do script entre todos do projeto (ordem de chave, de 1 em diante); script fora da lista fica só "Cena", sem inventar número.</summary>
@@ -641,6 +678,152 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     private bool CanFixAndNext() => !IsBusy && (SelectedRow is { HasProposal: true } || SelectedFit?.SplitCommand.CanExecute(null) == true);
 
+    /// <summary>
+    /// "Usar em todas": grava a tradução da variante em todas as linhas do original, pelo <see cref="LineEditor"/> do Editor (o mesmo "Usar em todos"), e
+    /// avisa a janela principal em <see cref="LinesSaved"/> para o "Desfazer". Reconfere em seguida: o texto novo pode cair em outra regra.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanUseVariant))]
+    private async Task UseVariantAsync(ConferenceVariantViewModel? variant)
+    {
+        var root = Project?.Root;
+        if (variant is null || root is null)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        NoticeMessage = null;
+        var positions = variant.Card.Positions;
+        IsFixing = true;
+        try
+        {
+            BatchTranslationResult? result = null;
+            string? failure = null;
+            try
+            {
+                var targets = variant.Card.Group.Lines.Select(l => (l.ScriptKey, l.UnitId)).ToList();
+                result = await Task.Run(() => new LineEditor(ProjectFolder.Open(root), clock).SetTranslationFor(targets, variant.Translation));
+                if (result.Failure is { } partial)
+                {
+                    failure = $"Nem todas as linhas foram gravadas: {Reason(partial)}. As que foram continuam gravadas; use Desfazer se não quiser.";
+                }
+            }
+            catch (Exception e)
+            {
+                failure = $"Não foi possível usar esta tradução em todas as linhas: {Reason(e)}. As traduções continuam como estavam.";
+            }
+
+            if (result is { Changes.Count: > 0 })
+            {
+                TextsChanged?.Invoke(this, EventArgs.Empty);
+                var batch = result.Changes.Select(c => new LineSavedEventArgs(root, c.ScriptKey, positions.GetValueOrDefault(c.Saved.Id) ?? 0, c.Previous, c.Saved)).ToList();
+                LinesSaved?.Invoke(this, batch[0] with { Batch = batch });
+            }
+
+            await RefreshAsync();
+            if (failure is not null)
+            {
+                ErrorMessage = failure;
+            }
+        }
+        finally
+        {
+            IsFixing = false;
+        }
+    }
+
+    private bool CanUseVariant(ConferenceVariantViewModel? variant) => !IsBusy && variant is not null;
+
+    /// <summary>Desfaz um "Usar em todas" (o argumento de <see cref="LinesSaved"/>) e confere de novo. Falso, com <see cref="ErrorMessage"/>, quando alguma linha mudou depois ou não deu para gravar.</summary>
+    public async Task<bool> UndoAsync(LineSavedEventArgs saved)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        var root = Project?.Root;
+        if (root is null || !string.Equals(root, saved.ProjectRoot, StringComparison.Ordinal))
+        {
+            ErrorMessage = "Não foi possível desfazer a gravação das linhas: o projeto aberto mudou.";
+            return false;
+        }
+
+        IsFixing = true;
+        try
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    var editor = new LineEditor(ProjectFolder.Open(root), clock);
+                    foreach (var item in saved.IsBatch ? saved.Batch : [saved])
+                    {
+                        editor.Restore(item.ScriptKey, item.Previous, item.Saved);
+                    }
+                });
+            }
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException)
+            {
+                ErrorMessage = $"Não foi possível desfazer a gravação das linhas: {e.Message}";
+                return false;
+            }
+
+            TextsChanged?.Invoke(this, EventArgs.Empty);
+            await RefreshAsync();
+            return true;
+        }
+        finally
+        {
+            IsFixing = false;
+        }
+    }
+
+    /// <summary>
+    /// "Manter diferentes de propósito": grava a marca do original (<see cref="ConsistencyFlags.Keep"/>) e o cartão sai da lista sem reler o projeto.
+    /// Volta sozinho se o original ou uma das traduções mudar.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanKeepDifferent))]
+    private async Task KeepDifferentAsync(ConferenceConsistencyCardViewModel? card)
+    {
+        var root = Project?.Root;
+        if (card is null || root is null)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        NoticeMessage = null;
+        var version = loadVersion;
+        IsFixing = true;
+        try
+        {
+            try
+            {
+                await Task.Run(() => ConsistencyFlags.Keep(ProjectFolder.Open(root), card.Group));
+            }
+            catch (Exception e)
+            {
+                ErrorMessage = $"Não foi possível manter as traduções diferentes: {Reason(e)}. O cartão continua na lista.";
+                return;
+            }
+
+            TextsChanged?.Invoke(this, EventArgs.Empty);
+            if (version != loadVersion)
+            {
+                return;
+            }
+
+            var gone = card.Rows.Select(r => r.Issue).ToHashSet(ReferenceEqualityComparer.Instance);
+            report = new QaReport([.. report.Issues.Where(i => !gone.Contains(i))], [.. report.Silenced, .. report.Issues.Where(gone.Contains)], report.RulesRun);
+            all = [.. all.Where(r => !card.Rows.Contains(r))];
+            allConsistency = [.. allConsistency.Where(c => !ReferenceEquals(c, card))];
+            Rebuild();
+        }
+        finally
+        {
+            IsFixing = false;
+        }
+    }
+
+    private bool CanKeepDifferent(ConferenceConsistencyCardViewModel? card) => !IsBusy && card is not null;
+
     /// <summary>O botão do card ("Usar três pontos"): troca o ajuste pelo valor seguro no <c>formatting.json</c>, avisa o app e confere de novo.</summary>
     [RelayCommand(CanExecute = nameof(CanApplySetting))]
     private async Task ApplySettingAsync(ConferenceSettingCardViewModel? card)
@@ -787,13 +970,15 @@ public sealed partial class ConferenceViewModel : ObservableObject
         SyncSelection();
 
         var active = filters.Single(f => f.Kind == activeFilter);
-        List<ConferenceIssueRowViewModel> shown = [.. all.Where(r => r.SettingField is null && active.Passes(r))];
+        List<ConferenceIssueRowViewModel> shown = [.. all.Where(r => r.SettingField is null && !r.InGroup && active.Passes(r))];
         List<ConferenceSettingCardViewModel> cards = [.. allCards.Where(card => active.Passes(card.Rows[0]))];
-        var cardLines = cards.Sum(card => card.Count);
+        List<ConferenceConsistencyCardViewModel> consistency = [.. allConsistency.Where(card => active.Passes(card.Rows[0]))];
+        var cardLines = cards.Sum(card => card.Count) + consistency.Sum(card => card.Count);
         var previous = SelectedRow;
         var previousIndex = previous is null ? -1 : Rows.ToList().IndexOf(previous);
         Rows = shown;
         SettingCards = cards;
+        ConsistencyCards = consistency;
         SelectedRow = Reselect(shown, previous, previousIndex);
 
         SilencedSummary = DescribeSilenced(report.Silenced.Count);

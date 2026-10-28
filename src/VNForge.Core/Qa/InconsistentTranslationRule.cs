@@ -1,13 +1,16 @@
 namespace VNForge.Core.Qa;
 
 /// <summary>
-/// Regra entre linhas: o mesmo original traduzido de jeitos diferentes no projeto inteiro. Dentro de cada grupo de originais iguais, a
-/// tradução mais usada (no empate, a que aparece primeiro) é a referência e cada linha que difere dela recebe um aviso. Linhas sem
-/// tradução utilizável não entram.
+/// Regra entre linhas: o mesmo original traduzido de jeitos diferentes no projeto inteiro. Dentro de cada grupo de originais iguais
+/// (<see cref="ConsistencyGroups.Find"/>), a tradução mais usada (no empate, a que aparece primeiro) é a referência e cada linha que difere dela recebe
+/// um aviso. Linhas sem tradução utilizável não entram, e um grupo que o usuário mandou manter diferente (<see cref="ConsistencyFlags.Keep"/>) não
+/// avisa até o original ou uma das traduções mudar. A Conferência e <c>vnf check</c> montam a visão por original com os mesmos grupos.
 /// </summary>
 public sealed class InconsistentTranslationRule : IQaRule
 {
-    public string Id => "traducao-inconsistente";
+    public const string RuleId = "traducao-inconsistente";
+
+    public string Id => RuleId;
 
     public string Description => "Mesmo original traduzido de jeitos diferentes.";
 
@@ -19,38 +22,19 @@ public sealed class InconsistentTranslationRule : IQaRule
 
     private IEnumerable<QaIssue> CheckCore(QaContext context)
     {
-        var groups = new Dictionary<string, List<(string UnitId, string Key, string Translation)>>(StringComparer.Ordinal);
-        foreach (var (key, units) in context.Texts)
+        foreach (var group in ConsistencyGroups.Find(context))
         {
-            foreach (var unit in units)
+            if (group.IsKept)
             {
-                var source = unit.Source.Trim();
-                if (source.Length == 0 || !unit.HasTranslation || unit.Translation is not { } translation)
-                {
-                    continue;
-                }
-
-                if (!groups.TryGetValue(source, out var list))
-                {
-                    groups[source] = list = [];
-                }
-
-                list.Add((unit.Id, key, translation.Trim()));
+                continue;
             }
-        }
 
-        foreach (var (source, list) in groups)
-        {
-            var reference = list
-                .GroupBy(x => x.Translation, StringComparer.Ordinal)
-                .OrderByDescending(g => g.Count())
-                .First().Key;
-            foreach (var (unitId, key, translation) in list)
+            foreach (var variant in group.Variants.Where(v => !v.IsReference))
             {
-                if (!string.Equals(translation, reference, StringComparison.Ordinal))
+                foreach (var line in variant.Lines)
                 {
-                    yield return new QaIssue(Id, QaSeverity.Warning, unitId, key,
-                        $"o original “{source}” aparece traduzido como “{reference}” em outras linhas");
+                    yield return new QaIssue(Id, QaSeverity.Warning, line.UnitId, line.ScriptKey,
+                        $"o original “{group.Source}” aparece traduzido como “{group.Reference.Translation}” em outras linhas");
                 }
             }
         }

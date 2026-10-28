@@ -19,7 +19,7 @@ public static class ConferenceRuleTexts
         ["marcador-diferente"] = ("Falta ou sobra um marcador", "No fim de cada fala o jogo espera o clique para virar a página, e o nome do jogador também vem num selo. Cada virada de página e cada nome do original precisam estar na tradução, senão o jogo não abre a cena. A quebra de linha não entra na conta, porque o teste no jogo a refaz. Não corrijo sozinho porque o lugar do selo pode mudar na tradução."),
         ["glossario-diferente"] = ("Termo diferente do glossário", "O glossário fixa a tradução deste termo. Se a fala pede outra escolha, use Está certo assim para registrar a exceção na linha."),
         ["personagem-diferente"] = ("Nome de personagem diferente", "O nome do personagem foi traduzido diferente do que está no Glossário. Use Está certo assim se a variação for de propósito."),
-        ["traducao-inconsistente"] = ("Mesmo original, traduções diferentes", "O mesmo original foi traduzido de jeitos diferentes. Pode ser de propósito (personagens diferentes); a lista completa abre na busca."),
+        ["traducao-inconsistente"] = ("Mesmo original, traduções diferentes", "O mesmo original foi traduzido de jeitos diferentes. O cartão mostra cada tradução, as linhas dela e o que difere da mais usada. Pode ser de propósito (personagens diferentes): use Manter diferentes de propósito."),
         ["espaco-duplo"] = ("Espaço duplo", "Dois espaços seguidos viram uma coluna a mais na caixa e costumam ser sobra de edição."),
         ["espaco-antes-pontuacao"] = ("Espaço antes de pontuação", "Em português não há espaço antes de vírgula, ponto e vírgula, dois-pontos, interrogação ou exclamação. A fala fica errada até ser corrigida."),
         ["aspas-desbalanceadas"] = ("Aspas ou parênteses sem par", "Falta fechar ou abrir um par de aspas ou parênteses. Confira se a fala termina onde o original termina."),
@@ -138,6 +138,9 @@ public sealed class ConferenceIssueRowViewModel
 
     /// <summary>O campo do ajuste de formatação de que esta linha é uma ocorrência (<c>typography.ellipsis</c>); nulo nas outras. Essas linhas contam, mas o card do ajuste as representa na lista.</summary>
     public string? SettingField { get; }
+
+    /// <summary>O aviso é de "mesmo original, traduções diferentes" e o cartão do original (<see cref="ConferenceConsistencyCardViewModel"/>) o representa na lista; conta nos totais.</summary>
+    public bool InGroup { get; init; }
 
     /// <summary>"Não traduzida" de um script inteiro numa linha só.</summary>
     public bool IsScriptSummary => RuleId == UntranslatedQaRule.RuleId;
