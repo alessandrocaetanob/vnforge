@@ -1,3 +1,4 @@
+using VNForge.Core.Demo;
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.VisualTree;

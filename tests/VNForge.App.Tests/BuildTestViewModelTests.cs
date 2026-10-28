@@ -1,3 +1,4 @@
+using VNForge.Core.Demo;
 using System.Globalization;
 using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Controls;

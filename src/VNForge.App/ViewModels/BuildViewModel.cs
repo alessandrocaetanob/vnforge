@@ -329,15 +329,15 @@ public sealed partial class BuildViewModel : ObservableObject
         UpdateTestCommands();
     }
 
-    private bool CanBuild() => Project is not null && !IsBusy && !HasQaErrors;
+    private bool CanBuild() => Project is { IsSample: false } && !IsBusy && !HasQaErrors;
 
-    private bool CanInject() => !IsBusy && injectionPlan is { Files.Count: > 0 };
+    private bool CanInject() => Project is { IsSample: false } && !IsBusy && injectionPlan is { Files.Count: > 0 };
 
-    private bool CanPatch() => !IsBusy && PatchState == BuildPatchState.Available;
+    private bool CanPatch() => Project is { IsSample: false } && !IsBusy && PatchState == BuildPatchState.Available;
 
-    private bool CanRestore() => !IsBusy && restorePlan is not null;
+    private bool CanRestore() => Project is { IsSample: false } && !IsBusy && restorePlan is not null;
 
-    private bool CanLaunch() => Project is not null && !IsBusy;
+    private bool CanLaunch() => Project is { IsSample: false } && !IsBusy;
 
     private bool CanConfirm() => IsConfirming && !IsBusy;
 

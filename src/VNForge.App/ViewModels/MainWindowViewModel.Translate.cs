@@ -50,7 +50,7 @@ public sealed partial class MainWindowViewModel
             TranslateOpening = Translate.OpenAsync(
                 folder,
                 Editor.SelectedScript?.Key is { } open && scriptKeys.Contains(open) ? open : scriptKeys[0],
-                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured, Settings.BudgetProblem),
+                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured || project.IsSample, Settings.BudgetProblem),
                 scriptKeys);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
@@ -85,11 +85,13 @@ public sealed partial class MainWindowViewModel
         }
 
         // A janela já mostrou o preço e a pessoa confirmou: a pergunta do valor de aviso, se viesse, seria a mesma.
+        // A cena de exemplo traduz com a IA falsa: sem chave, sem rede e com custo zero.
         var job = new TranslationJob(
             folder,
-            TranslationProviderFactory,
+            project.IsSample ? static (_, _) => SampleAi.CreateProvider() : TranslationProviderFactory,
             new TranslationJobSettings(Settings.Rate, Settings.Budget, Settings.Concurrency),
-            (_, _) => Task.FromResult(true));
+            (_, _) => Task.FromResult(true),
+            project.IsSample ? static _ => SampleAi.NoUsage : null);
         TranslationJobResult? result = null;
         var canceled = false;
         string? failure = null;

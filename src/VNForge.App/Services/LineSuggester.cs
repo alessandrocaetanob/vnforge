@@ -91,7 +91,7 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func
         ArgumentNullException.ThrowIfNull(unit);
 
         var real = await Task.Run(openProvider, ct).ConfigureAwait(false);
-        var provider = new ValidatingTranslationProvider(real ?? new FakeTranslationProvider());
+        var provider = new ValidatingTranslationProvider(real ?? SampleAi.CreateProvider());
         var results = await provider.TranslateAsync(new TranslationBatch([unit]), ct).ConfigureAwait(false);
         var result = results.FirstOrDefault(r => r.Id == unit.Id);
         if (result is null || result.Refused || string.IsNullOrWhiteSpace(result.Translation))

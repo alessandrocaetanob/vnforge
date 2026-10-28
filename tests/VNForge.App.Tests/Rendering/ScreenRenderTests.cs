@@ -1,3 +1,4 @@
+using VNForge.Core.Demo;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;

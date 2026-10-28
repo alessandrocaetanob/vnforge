@@ -1,3 +1,4 @@
+using VNForge.Core.Demo;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;

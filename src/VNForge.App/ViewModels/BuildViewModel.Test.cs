@@ -137,11 +137,11 @@ public sealed partial class BuildViewModel
         return string.IsNullOrEmpty(name) ? key : name;
     }
 
-    private bool CanTest() => Project is not null && !IsBusy && !HasQaErrors;
+    private bool CanTest() => Project is { IsSample: false } && !IsBusy && !HasQaErrors;
 
-    private bool CanTestAccents() => Project is not null && !IsBusy;
+    private bool CanTestAccents() => Project is { IsSample: false } && !IsBusy;
 
-    private bool CanReturnToOriginal() => !IsBusy && gameReturnable;
+    private bool CanReturnToOriginal() => Project is { IsSample: false } && !IsBusy && gameReturnable;
 
     private void UpdateTestCommands()
     {
@@ -403,6 +403,14 @@ public sealed partial class BuildViewModel
     /// <summary>A faixa: travada pela Conferência, avisando que a cópia de segurança sumiu, ou o estado do jogo (traduzido ou como veio).</summary>
     private void ShowBanner(ProjectState? state, GameInGame? inGame, string? lost)
     {
+        if (Project is { IsSample: true })
+        {
+            GameBannerState = GameState.Original;
+            GameBannerTitle = "Esta é uma cena de exemplo, sem jogo para testar";
+            GameBannerMessage = "Como não há jogo, o build e a injeção não se aplicam. Traduza, revise e confira o texto à vontade: nada aqui escreve em pasta de jogo.";
+            return;
+        }
+
         if (QaErrorCount > 0)
         {
             var title = lost is null ? DescribeGame(inGame) : DescribeGame(savedGame.InGame);

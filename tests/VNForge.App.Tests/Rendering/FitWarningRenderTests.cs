@@ -1,3 +1,4 @@
+using VNForge.Core.Demo;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
