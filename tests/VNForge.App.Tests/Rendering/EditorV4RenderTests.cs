@@ -144,7 +144,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task A_lista_de_cenas_e_o_cabecalho_chamam_a_cena_pelo_nome_e_o_id_vai_pequeno(string themeName)
+    public async Task A_lista_de_cenas_e_o_cabecalho_chamam_a_cena_pelo_nome_e_o_id_vai_para_a_dica(string themeName)
     {
         var demo = demoFolder;
         await Run(
@@ -159,14 +159,24 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     foreach (var item in itens)
                     {
                         var nome = item.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
-                        var id = item.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Id");
                         Assert.True(nome.IsEffectivelyVisible, $"{item.Key} tem nome");
                         Assert.DoesNotMatch(@"^yst\d+$", nome.Text!);
-                        Assert.Equal(item.Key, id.Text);
-                        Assert.Contains("mono", id.Classes);
-                        Assert.True(id.FontSize < nome.FontSize, "o id é menor que o nome");
-                        Assert.True(id.Bounds.Width > 0 && id.Bounds.Right <= item.Bounds.Width + Tolerance && nome.Bounds.Right <= item.Bounds.Width + Tolerance);
+                        Assert.DoesNotContain(item.GetVisualDescendants().OfType<TextBlock>(), t => t.Name == "PART_Id" || t.Text == item.Key);
+                        Assert.Equal(36, item.Bounds.Height);
+                        Assert.True(nome.Bounds.Right <= item.Bounds.Width + Tolerance);
+
+                        var barra = item.GetVisualDescendants().OfType<ProgressBar>().Single(b => b.Name == "PART_Bar");
+                        Assert.True(barra.Bounds.Height <= 3, $"a barra de {item.Key} é fina ({barra.Bounds.Height} px)");
+                        Assert.True(Math.Abs(barra.TranslatePoint(new Point(0, barra.Bounds.Height), item)!.Value.Y - item.Bounds.Height) <= 8 + Tolerance, "a barra fica embaixo do item");
+
+                        var icone = item.GetVisualDescendants().OfType<PathIcon>().Single(i => i.Name == "PART_Done");
+                        var percentual = item.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_PercentText");
+                        Assert.Equal(item.Percent == 100, icone.IsEffectivelyVisible);
+                        Assert.Equal(item.Percent != 100, percentual.IsEffectivelyVisible);
                     }
+
+                    // O id (a chave do script) mora na dica do mouse, junto com o percentual da IA.
+                    Assert.All(itens, item => Assert.Contains(item.Key!, ToolTip.GetTip(item)?.ToString()));
 
                     var atual = itens.Single(i => i.Key == DemoProject.CurrentScript);
                     Assert.Equal(FontWeight.SemiBold, atual.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label").FontWeight);
@@ -203,7 +213,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     Assert.Equal("Capítulo 1 · cena 1 de 1", cabecalho.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Breadcrumb").Text);
                     var item = window.GetVisualDescendants().OfType<ScriptItem>().Single(i => i.IsEffectivelyVisible);
                     Assert.Equal("Cena 1", item.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label").Text);
-                    Assert.Equal(FitWarningRenderTests.Script, item.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Id").Text);
+                    Assert.Contains(FitWarningRenderTests.Script, ToolTip.GetTip(item)?.ToString());
                     Assert.DoesNotContain("yst", editor.ScriptTitle, StringComparison.Ordinal);
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-v4-sem-nome", Of(themeName))));
                 }
