@@ -641,8 +641,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
@@ -801,6 +801,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(entry.Issues);
         IssueCount += updated.Issues.Count - entry.Issues.Count;
         data?.Replace(updated);
+        speakerCounts = null;
         RequestRecheck();
         savedUnits.Remove(unit.Id);
         var index = entry.Number - 1;
@@ -845,6 +846,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         // Voltar a este script reconstrói as linhas a partir de data: a edição tem de estar lá.
         data?.Replace(updated);
+        speakerCounts = null;
         RequestRecheck();
         RefreshScriptProgress(updated.ScriptKey);
 
@@ -972,6 +974,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
+            speakerCounts = null;
             ErrorCount = loaded is null ? 0 : CountErrors(loaded);
             IssueCount = loaded is null ? 0 : CountIssues(loaded);
             Scripts.Clear();

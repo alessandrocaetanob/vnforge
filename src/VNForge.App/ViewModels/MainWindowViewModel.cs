@@ -118,6 +118,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Glossary.Saved += (_, _) => RecheckEditor();
         Glossary.LinesChanged += (_, _) => Editor.Reload();
+        Glossary.ReviewCharacterRequested += (_, name) => ReviewSpeaker(name);
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LinesSaved += (_, saved) => Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => _ = UndoConferenceSaveAsync(saved));
@@ -734,6 +735,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
         SelectedNav = glossaryItem;
     }
 
+    /// <summary>Leva ao Editor e abre o modo revisão nas falas do personagem em todas as cenas.</summary>
+    private void ReviewSpeaker(string name) => LineNavigation = ReviewSpeakerAsync(name);
+
+    private async Task ReviewSpeakerAsync(string name)
+    {
+        if (!GoTo(editorItem))
+        {
+            return;
+        }
+
+        // Voltar ao Editor defasado o relê, e a leitura solta o gravador de linhas até acabar: o modo revisão só abre depois.
+        Task loading;
+        do
+        {
+            // Uma releitura pedida enquanto esta esperava troca o Editor.Loading: espera a mais nova também.
+            loading = Editor.Loading;
+            await loading;
+        }
+        while (!ReferenceEquals(loading, Editor.Loading));
+
+        if (ReferenceEquals(SelectedNav, editorItem))
+        {
+            Editor.StartReviewOf(ReviewSource.OfSpeaker(name));
+        }
+    }
+
     private void OnEditorDefineGenderRequested(object? sender, EventArgs e)
     {
         Glossary.SelectedTab = GlossaryTab.Characters;
@@ -880,6 +907,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
             }));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
+            foreach (var speaker in Editor.ReviewableSpeakers)
+            {
+                var source = speaker.Source;
+                entries.Add(new PaletteEntry(PaletteGroup.Command, $"Revisar falas de {speaker.Name}", (speaker.Count == 1 ? "1 linha da IA" : $"{ProjectLabels.Number(speaker.Count)} linhas da IA") + " em todas as cenas", () => ReviewSpeaker(source)) { OnlyWhenSearching = true });
+            }
+
             entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));
             entries.Add(BuildEntry("Novo build", "Gera a pasta de build do projeto", Build.BuildCommand));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));
