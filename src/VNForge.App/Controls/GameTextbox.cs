@@ -256,7 +256,7 @@ public sealed class GameTextbox : Control
         DrawNext(context, ink, paint.Width, y + m.NextTop, m);
         if (layout.Speaker is { } speaker)
         {
-            DrawPlate(context, speaker, paint.Typeface, ink, m);
+            DrawPlate(context, speaker, paint.Typeface, layout.SpeakerColor?.DarkBrush ?? ink, m);
         }
     }
 

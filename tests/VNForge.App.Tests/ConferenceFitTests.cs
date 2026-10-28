@@ -181,7 +181,7 @@ public sealed class ConferenceFitTests : IDisposable
     [Fact]
     public async Task Encurtar_com_a_ia_recusando_deixa_a_traducao_e_mostra_o_motivo_no_aviso()
     {
-        var recusa = new LineSuggester(() => new FakeTranslationProvider(_ => string.Empty));
+        var recusa = new LineSuggester(() => new ReescritaFixa(refused: true));
         var vm = await Conferir(recusa);
         var aviso = vm.SelectedFit!;
 

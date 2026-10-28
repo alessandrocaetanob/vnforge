@@ -177,7 +177,7 @@ public sealed class LineSpeakerTests : IDisposable
         Assert.Null(linha.SpeakerChangedTip);
 
         var trocada = unidade with { ChosenSpeaker = "健太" };
-        linha.Update(EditorFixtures.Lines(("yst00001", [trocada])).LinesOf("yst00001").Single(), "Kenta");
+        linha.Update(EditorFixtures.Lines(("yst00001", [trocada])).LinesOf("yst00001").Single(), "Kenta", null);
 
         Assert.True(linha.IsSpeakerChanged);
         Assert.Equal("Kenta", linha.SpeakerName);

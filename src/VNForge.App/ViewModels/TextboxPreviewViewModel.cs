@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
@@ -19,7 +20,8 @@ public sealed record TextboxBox(IReadOnlyList<TextboxLine> Lines);
 /// <param name="Columns">Largura da caixa em colunas.</param>
 /// <param name="MaxLines">Limite de linhas por caixa do perfil; nulo sem limite.</param>
 /// <param name="Boxes">As caixas, com as linhas já quebradas.</param>
-public sealed record TextboxLayout(string? Speaker, int Columns, int? MaxLines, IReadOnlyList<TextboxBox> Boxes);
+/// <param name="SpeakerColor">A cor do personagem da placa (#467); nula sem placa ou sem cadastro, e a placa fica como o jogo a desenha.</param>
+public sealed record TextboxLayout(string? Speaker, int Columns, int? MaxLines, IReadOnlyList<TextboxBox> Boxes, CharacterColor? SpeakerColor = null);
 
 /// <summary>
 /// Prévia da caixa de texto do painel de detalhe: a linha selecionada depois do mesmo pipeline do build e do <c>vnf preview</c>
@@ -104,7 +106,7 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
         var boxes = preview.Boxes
             .Select(box => new TextboxBox([.. box.Select((line, n) => new TextboxLine(line.Text, line.Columns, preview.Formatted && preview.MaxLines is { } max && n >= max, line.Segments))]))
             .ToArray();
-        Show(new TextboxLayout(Naming.NameOf(unit), columns, preview.Formatted ? preview.MaxLines : null, boxes), Describe(preview, columns), preview.Warnings, null, preview.Notice);
+        Show(new TextboxLayout(Naming.NameOf(unit), columns, preview.Formatted ? preview.MaxLines : null, boxes, Naming.ColorOf(unit)), Describe(preview, columns), preview.Warnings, null, preview.Notice);
     }
 
     private void Show(TextboxLayout? layout, string summary, IReadOnlyList<string> warnings, string? problem, string? notice)

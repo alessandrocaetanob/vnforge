@@ -114,7 +114,7 @@ public sealed partial class LineDetailViewModel
     {
         foreach (var name in new[]
         {
-            nameof(Speaker), nameof(HasSpeaker), nameof(SpeakerTarget), nameof(SpeakerPair), nameof(Voice), nameof(HasVoice), nameof(SpeakerName), nameof(VoiceText),
+            nameof(Speaker), nameof(HasSpeaker), nameof(SpeakerTarget), nameof(SpeakerColor), nameof(SpeakerPair), nameof(Voice), nameof(HasVoice), nameof(SpeakerName), nameof(VoiceText),
             nameof(GameSpeakerLabel), nameof(IsSpeakerChanged), nameof(SpeakerSummary), nameof(SelectedSpeakerChoice),
         })
         {

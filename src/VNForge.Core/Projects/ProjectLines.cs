@@ -72,6 +72,9 @@ public enum LineStatusFilter
 
     /// <summary>Linhas "Não traduzir" (<see cref="TranslationStatus.Keep"/>).</summary>
     Keep,
+
+    /// <summary>Linhas cuja tradução mudou desde o último teste no jogo; vale junto com <see cref="LineFilter.ChangedLines"/>, que diz quais são.</summary>
+    ChangedSinceTest,
 }
 
 /// <summary>Filtro da grade: um status, opcionalmente um personagem e opcionalmente um texto de busca. Os três valem juntos.</summary>
@@ -88,6 +91,9 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
 
     /// <summary>Filtro que aceita tudo.</summary>
     public static LineFilter None { get; } = new();
+
+    /// <summary>As linhas (chave do script e id) que <see cref="LineStatusFilter.ChangedSinceTest"/> aceita; sem ela esse filtro não aceita nada.</summary>
+    public IReadOnlySet<(string ScriptKey, string UnitId)>? ChangedLines { get; init; }
 
     private bool IsNone => Status == LineStatusFilter.All && Speaker is null && string.IsNullOrWhiteSpace(Query);
 
@@ -147,6 +153,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         LineStatusFilter.Machine => line.Unit.Status == TranslationStatus.Machine,
         LineStatusFilter.Warnings => line.HasIssues,
         LineStatusFilter.Keep => line.Unit.Status == TranslationStatus.Keep,
+        LineStatusFilter.ChangedSinceTest => ChangedLines?.Contains((line.ScriptKey, line.Unit.Id)) == true,
         _ => true,
     };
 

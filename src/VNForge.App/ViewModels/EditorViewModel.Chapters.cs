@@ -241,9 +241,9 @@ public sealed partial class EditorViewModel
     /// <summary>
     /// Relê os nomes de <c>scripts.json</c> e refaz os capítulos, para quando outra tela mudou o arquivo (o renomear do Painel). A lista mantém a cena aberta e as marcadas.
     /// </summary>
-    public Task RefreshChaptersAsync() => ChapterRefresh = RefreshAsync();
+    public Task RefreshChaptersAsync() => ChapterRefresh = RefreshChapterNamesAsync();
 
-    private async Task RefreshAsync()
+    private async Task RefreshChapterNamesAsync()
     {
         if (Project?.Root is not { } root)
         {
