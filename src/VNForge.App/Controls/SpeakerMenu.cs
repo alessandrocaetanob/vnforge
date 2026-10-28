@@ -59,9 +59,9 @@ public static class SpeakerMenu
         public SpeakerFlyout(SelectableTextBlock block)
         {
             var original = new MenuItem { Header = CopyOriginalHeader };
-            original.Click += (_, _) => CopyText(block, GetOriginal(block));
+            original.Click += (_, _) => _ = CopyTextAsync(block, GetOriginal(block));
             var translation = new MenuItem { Header = CopyTranslationHeader };
-            translation.Click += (_, _) => CopyText(block, GetTranslation(block));
+            translation.Click += (_, _) => _ = CopyTextAsync(block, GetTranslation(block));
             var selection = new MenuItem { Header = CopySelectionHeader };
             selection.Click += (_, _) => block.Copy();
             Items.Add(original);
@@ -77,7 +77,7 @@ public static class SpeakerMenu
         }
     }
 
-    private static async void CopyText(Control owner, string? text)
+    private static async Task CopyTextAsync(Control owner, string? text)
     {
         if (string.IsNullOrEmpty(text) || TopLevel.GetTopLevel(owner)?.Clipboard is not { } clipboard)
         {
