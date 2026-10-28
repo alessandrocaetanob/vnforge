@@ -16,6 +16,8 @@ public static class SampleProject
     public const string MarkerFileName = "exemplo.txt";
     public const int LineCount = 30;
 
+    private const string MarkerText = "Cena de exemplo do VNForge: o texto é sintético, não há jogo nesta pasta e o build e a injeção não se aplicam.";
+
     private const string Misaki = "美咲";
     private const string Kenta = "健太";
     private const string Teacher = "先生";
@@ -74,7 +76,18 @@ public static class SampleProject
     public static string? TranslationOf(string source) => BySource.Value.GetValueOrDefault(source);
 
     /// <summary>A pasta <paramref name="root"/> é uma cena de exemplo (tem o marcador gravado por <see cref="Create"/>).</summary>
-    public static bool IsSample(string root) => File.Exists(Path.Combine(root, MarkerFileName));
+    public static bool IsSample(string root)
+    {
+        try
+        {
+            var marker = Path.Combine(root, MarkerFileName);
+            return File.Exists(marker) && File.ReadLines(marker).FirstOrDefault() == MarkerText;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// Grava o projeto em <c>parent/cena-de-exemplo</c> e devolve a pasta. Se a pasta já é uma cena de exemplo, devolve ela como está: o que a pessoa

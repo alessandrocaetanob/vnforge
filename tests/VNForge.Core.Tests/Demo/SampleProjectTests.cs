@@ -92,4 +92,14 @@ public class SampleProjectTests
         var issue = Assert.Single(report.Issues, i => i.RuleId == "espaco-duplo");
         Assert.Equal("yst00001:0003", issue.UnitId);
     }
+
+    [Fact]
+    public void Um_arquivo_exemplo_txt_qualquer_nao_faz_do_projeto_um_exemplo()
+    {
+        using var temp = new TempFolder();
+        var root = DemoProject.Create(temp.Path);
+        File.WriteAllText(Path.Combine(root, SampleProject.MarkerFileName), "minhas anotações");
+
+        Assert.False(SampleProject.IsSample(root));
+    }
 }
