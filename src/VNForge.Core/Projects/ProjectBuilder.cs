@@ -2,6 +2,7 @@ using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
+using VNForge.Core.Injection;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
@@ -171,7 +172,7 @@ public static class ProjectBuilder
         try
         {
             Directory.CreateDirectory(staging);
-            var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, cancellationToken);
+            var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, GameInjector.CreateOriginalResolver(project, gameDirectory), cancellationToken);
             warnings.AddRange(packed.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);

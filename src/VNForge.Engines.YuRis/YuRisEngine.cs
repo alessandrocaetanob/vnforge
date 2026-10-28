@@ -139,12 +139,13 @@ public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePa
         string unpackedDirectory,
         IReadOnlyList<RebuiltScript> rebuilt,
         string outputDirectory,
+        Func<string, string>? originalOf = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
         ArgumentException.ThrowIfNullOrWhiteSpace(unpackedDirectory);
         ArgumentNullException.ThrowIfNull(rebuilt);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
-        return YuRisRepacker.Repack(gameDir, unpackedDirectory, rebuilt, outputDirectory, cancellationToken);
+        return YuRisRepacker.Repack(gameDir, unpackedDirectory, rebuilt, outputDirectory, originalOf, cancellationToken);
     }
 }

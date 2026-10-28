@@ -90,6 +90,46 @@ public sealed partial class GameInjector
         return new InjectionPlan(gameDirectory, project.BackupDirectory, files, unchanged);
     }
 
+    /// <summary>
+    /// Onde ler o original de um arquivo do jogo para reconstruí-lo. Com o jogo ainda no build de uma injeção anterior nossa (o hash do arquivo é o gravado
+    /// no manifesto), o original é a cópia do backup, a mesma que <see cref="Plan"/> usa; em qualquer outro caso é o próprio arquivo do jogo, e quem o lê
+    /// confere se ainda é o que a extração viu. Os manifestos são lidos sob demanda e o arquivo só é lido quando algum backup já mexeu nele.
+    /// </summary>
+    /// <param name="gameDirectory">Pasta do jogo já resolvida (<c>config.Game.Path</c>).</param>
+    /// <returns>Função do caminho relativo ao jogo, com <c>/</c>, para o caminho do arquivo a ler.</returns>
+    /// <exception cref="InjectionException">
+    /// Na chamada da função: manifesto de backup ilegível, ou a cópia do original não existe mais ou não confere com o hash do manifesto.
+    /// </exception>
+    public static Func<string, string> CreateOriginalResolver(ProjectFolder project, string gameDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
+
+        var history = new BackupHistory(ReadBackups(project));
+        return relative =>
+        {
+            var current = ResolveInside(gameDirectory, relative);
+            if (!File.Exists(current) || history.FindLatestEntry(relative) is not { Entry.Existed: true } earlier)
+            {
+                return current;
+            }
+
+            if (FileHash.Sha256(current) != earlier.Entry.InjectedSha256)
+            {
+                return current;
+            }
+
+            var copy = ResolveInside(earlier.Directory, relative);
+            if (!File.Exists(copy) || FileHash.Sha256(copy) != earlier.Entry.OriginalSha256)
+            {
+                throw new InjectionException(
+                    $"O jogo está com a tradução de uma injeção anterior, e a cópia do original de '{relative}' no backup '{earlier.Directory}' sumiu ou não confere com o manifesto. Reponha o backup, ou reinstale o jogo e rode vnf extract; extrair agora leria o pacote já traduzido.");
+            }
+
+            return copy;
+        };
+    }
+
     /// <summary>Faz o backup, confere as cópias e grava o build no jogo. Sem arquivos no plano, não cria backup nem toca no jogo.</summary>
     /// <param name="phases">Recebe <see cref="InjectionPhase.Backup"/> antes de copiar os originais e <see cref="InjectionPhase.Write"/> antes da primeira gravação no jogo; nada quando não há o que injetar.</param>
     /// <exception cref="InjectionException">

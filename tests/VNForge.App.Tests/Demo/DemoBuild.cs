@@ -94,7 +94,7 @@ internal sealed class DemoBuildEngine : IEngine, IGameUnpacker, IGameRepacker
                 return new UnpackedScript(name, f, format, DemoProject.Label(Path.GetFileNameWithoutExtension(name)) is { Length: > 0 } label ? label : null);
             })]);
 
-    public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, CancellationToken cancellationToken = default)
+    public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, Func<string, string>? originalOf = null, CancellationToken cancellationToken = default)
     {
         File.WriteAllBytes(Path.Combine(outputDirectory, DemoBuild.Archive), DemoBuild.Payload(DemoBuild.RebuiltBytes, 4));
         return new GameRepackResult([new RepackedArchive(DemoBuild.Archive, rebuilt.Count)]);
