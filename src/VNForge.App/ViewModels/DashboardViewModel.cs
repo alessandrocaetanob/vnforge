@@ -222,6 +222,10 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial string PaceText { get; private set; } = string.Empty;
 
+    /// <summary>O diário de aprovações do projeto (as últimas 12 semanas, os dias seguidos), que o Início mostra.</summary>
+    [ObservableProperty]
+    public partial ReviewDiary Diary { get; private set; } = ReviewDiary.Empty;
+
     /// <summary>"Mais 2 coisas para ver depois", quando a lista tem mais itens do que cabem.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMoreTodos))]
@@ -580,6 +584,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         NextStepLabel = string.Empty;
         ReadyLines = ReviewLines = TotalLines = 0;
         MapSummary = PaceText = MoreTodosText = SpentText = SpendHint = GameTitle = GameMessage = NextStepScene = LastTestText = string.Empty;
+        Diary = ReviewDiary.Empty;
         SpentBrl = LimitBrl = 0;
         GameState = GameState.Original;
         GameActionText = TestInGame;
@@ -602,6 +607,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         TotalLines = total.Total;
         MapSummary = $"{ProjectLabels.Number(total.Ready)} de {Lines(total.Total)} prontas";
         PaceText = PaceSentence(pace, total.ToReview);
+        Diary = ReviewDiary.Compute(dashboard.Sessions, clock.GetUtcNow(), clock.LocalTimeZone);
         MapLegend.Clear();
         MapLegend.Add(new LegendEntry($"Pronto {ProjectLabels.Number(total.Ready)}", LegendTone.Approved));
         MapLegend.Add(new LegendEntry($"Esperando revisão {ProjectLabels.Number(total.ToReview)}", LegendTone.Machine));

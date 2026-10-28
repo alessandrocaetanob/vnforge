@@ -130,6 +130,15 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
             .Count();
     }
 
+    /// <summary>Quantas linhas diferentes foram aprovadas em cada dia (no fuso <paramref name="zone"/>); os dias sem aprovação não aparecem.</summary>
+    public IReadOnlyDictionary<DateOnly, int> ReviewedPerDay(TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        return Approvals
+            .GroupBy(a => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(a.At, zone).DateTime))
+            .ToDictionary(g => g.Key, g => g.Select(a => (a.ScriptKey, a.UnitId)).Distinct().Count());
+    }
+
     /// <summary>O registro sem a última aprovação da linha, quando a pessoa desfaz a aprovação; sem ela, devolve o próprio registro.</summary>
     public SessionsFile Without(string scriptKey, string unitId)
     {
