@@ -124,4 +124,65 @@ public sealed class LinesCommandTests : IDisposable
         Assert.Equal(2, files[Yst00002].GetProperty("keep").GetInt32());
         Assert.Equal(100, files[Yst00002].GetProperty("percent").GetDouble());
     }
+
+    [Fact]
+    public async Task Speaker_nome_troca_o_falante_so_das_linhas_pedidas_e_o_json_conta()
+    {
+        var result = await Run("speaker", "yst00001:000001,yst00002:000002", "--nome", "Inui", JsonOption);
+
+        Assert.Equal(0, result.ExitCode);
+        using var doc = JsonDocument.Parse(result.Output);
+        var data = doc.RootElement.GetProperty("data");
+        Assert.Equal("speaker", data.GetProperty("action").GetString());
+        Assert.Equal("nome", data.GetProperty("speaker").GetString());
+        Assert.Equal(2, data.GetProperty("changed").GetInt32());
+        Assert.Equal("Inui", Line(Yst00001, 0).ChosenSpeaker);
+        Assert.Equal("Inui", Line(Yst00002, 1).ChosenSpeaker);
+        Assert.Null(Line(Yst00001, 1).ChosenSpeaker);
+        Assert.Null(Line(Yst00001, 0).Speaker);
+    }
+
+    [Fact]
+    public async Task Speaker_narracao_e_original_gravam_vazio_e_limpam_a_escolha()
+    {
+        _project.SaveText(Yst00002, [.. _project.LoadText(Yst00002).Select(u => u with { Speaker = "美咲" })]);
+        await Run("speaker", Yst00002, "--nome", "Inui");
+
+        var cleared = await Run("speaker", "yst00002:000001", "--original", JsonOption);
+        var narration = await Run("speaker", "yst00002:000002", "--narracao");
+
+        Assert.Equal(0, cleared.ExitCode);
+        Assert.Null(Line(Yst00002, 0).ChosenSpeaker);
+        Assert.Equal(string.Empty, Line(Yst00002, 1).ChosenSpeaker);
+        Assert.Contains("Narração", narration.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Speaker_repetido_nao_muda_nada_e_alvo_desconhecido_nao_grava()
+    {
+        await Run("speaker", "yst00001:000001", "--nome", "Inui");
+
+        var again = await Run("speaker", "yst00001:000001", "--nome", "Inui", JsonOption);
+        var unknown = await Run("speaker", "yst00001:000002,yst00001:009999", "--nome", "Inui");
+
+        using var doc = JsonDocument.Parse(again.Output);
+        Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("changed").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("data").GetProperty("unchanged").GetInt32());
+        Assert.Equal(1, unknown.ExitCode);
+        Assert.Null(Line(Yst00001, 1).ChosenSpeaker);
+    }
+
+    [Theory]
+    [InlineData]
+    [InlineData("--nome", "Inui", "--narracao")]
+    [InlineData("--narracao", "--original")]
+    [InlineData("--nome", " ")]
+    public async Task Speaker_exige_exatamente_uma_das_tres_formas(params string[] extra)
+    {
+        var result = await Run(["speaker", "yst00001:000001", .. extra]);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("--nome", result.Error, StringComparison.Ordinal);
+        Assert.Null(Line(Yst00001, 0).ChosenSpeaker);
+    }
 }

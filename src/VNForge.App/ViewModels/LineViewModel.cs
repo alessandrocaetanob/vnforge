@@ -19,6 +19,7 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
     [
         nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
         nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel), nameof(IssueTip),
+        nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -35,6 +36,13 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
         }
     }
 
+    /// <summary>Como <see cref="Update(LineEntry)"/>, e troca o nome em português do falante (a gravação mudou o falante escolhido da linha).</summary>
+    public void Update(LineEntry updated, string? newSpeakerTarget)
+    {
+        speakerTarget = newSpeakerTarget;
+        Update(updated);
+    }
+
     public int Number => Entry.Number;
 
     public string Id => Entry.Unit.Id;
@@ -43,15 +51,23 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
 
     public string StatusLabel => ProjectLabels.Status(Status);
 
-    public bool IsNarration => string.IsNullOrEmpty(Entry.Unit.Speaker);
+    public bool IsNarration => string.IsNullOrEmpty(Entry.Unit.EffectiveSpeaker);
 
     public string SpeakerLabel => IsNarration ? "Narração" : SpeakerName!;
 
     /// <summary>O falante como a grade o mostra: o nome em português quando o personagem está cadastrado, o original quando não; nulo na narração.</summary>
-    public string? SpeakerName => IsNarration ? null : speakerTarget ?? Entry.Unit.Speaker;
+    public string? SpeakerName => IsNarration ? null : speakerTarget ?? Entry.Unit.EffectiveSpeaker;
 
-    /// <summary>O falante exatamente como o texto extraído o guarda, mesmo quando a grade mostra a tradução; nulo na narração. É o que o menu do nome copia.</summary>
-    public string? SpeakerOriginal => IsNarration ? null : Entry.Unit.Speaker;
+    /// <summary>A linha tem o falante trocado por quem traduz (<see cref="TextUnit.ChosenSpeaker"/>): a grade a marca.</summary>
+    public bool IsSpeakerChanged => Entry.Unit.ChosenSpeaker is not null;
+
+    /// <summary>Dica da marca de falante trocado: o que o jogo diz nessa linha; nula quando o falante é o do jogo.</summary>
+    public string? SpeakerChangedTip => IsSpeakerChanged
+        ? $"Falante trocado nesta linha. No jogo: {(string.IsNullOrEmpty(Entry.Unit.Speaker) ? "Narração" : Entry.Unit.Speaker)}."
+        : null;
+
+    /// <summary>O falante exatamente como o texto o guarda, mesmo quando a grade mostra a tradução: o escolhido na linha (<see cref="TextUnit.ChosenSpeaker"/>), quando há, senão o extraído; nulo na narração. É o que o menu do nome copia.</summary>
+    public string? SpeakerOriginal => IsNarration ? null : Entry.Unit.EffectiveSpeaker;
 
     public string Source => Entry.Unit.Source;
 

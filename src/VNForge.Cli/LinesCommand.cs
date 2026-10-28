@@ -7,15 +7,76 @@ using VNForge.Core.Text;
 
 namespace VNForge.Cli;
 
-/// <summary><c>vnf lines keep|unkeep</c>: marca ou desmarca linhas como "Não traduzir" (<see cref="TranslationStatus.Keep"/>), que o build copia como estão.</summary>
+/// <summary>
+/// <c>vnf lines keep|unkeep</c>: marca ou desmarca linhas como "Não traduzir" (<see cref="TranslationStatus.Keep"/>), que o build copia como estão.
+/// <c>vnf lines speaker</c>: troca o falante de linhas (<see cref="TextUnit.ChosenSpeaker"/>), sem mexer no falante extraído.
+/// </summary>
 internal static class LinesCommand
 {
     public static Command Create(VnfCli cli)
     {
-        var command = new Command("lines", "Marca linhas que ficam como no original (Não traduzir).");
+        var command = new Command("lines", "Marca linhas que ficam como no original (Não traduzir) e troca o falante de linhas.");
         command.Subcommands.Add(CreateChange(cli, "keep", true, "Marca linhas como Não traduzir: o build copia o original e elas contam como prontas."));
         command.Subcommands.Add(CreateChange(cli, "unkeep", false, "Tira linhas de Não traduzir; elas voltam a ficar sem tradução."));
+        command.Subcommands.Add(CreateSpeaker(cli));
         return command;
+    }
+
+    private static Command CreateSpeaker(VnfCli cli)
+    {
+        var targets = new Argument<string[]>("alvos")
+        {
+            Description = "Ids de linha (yst00012:000034) e chaves de script (yst00012, todas as linhas dele), separados por vírgula ou espaço.",
+            Arity = ArgumentArity.OneOrMore,
+        };
+        var name = new Option<string?>("--nome") { Description = "O nome que o jogo mostra como falante nas linhas (texto livre ou o nome original de um personagem do Glossário, que vai com a tradução do cadastro)." };
+        var narration = new Option<bool>("--narracao") { Description = "Tira o nome: a fala fica sem falante (Narração). As aspas do jogo continuam." };
+        var original = new Option<bool>("--original") { Description = "Volta ao falante que a extração achou no script." };
+        var command = new Command("speaker", "Troca o falante de linhas: um nome, Narração ou o do jogo. A re-extração mantém a troca.");
+        command.Arguments.Add(targets);
+        command.Options.Add(name);
+        command.Options.Add(narration);
+        command.Options.Add(original);
+        command.SetAction(parseResult =>
+        {
+            var chosen = parseResult.GetValue(name);
+            var choices = (chosen is null ? 0 : 1) + (parseResult.GetValue(narration) ? 1 : 0) + (parseResult.GetValue(original) ? 1 : 0);
+            if (choices != 1 || chosen is not null && string.IsNullOrWhiteSpace(chosen))
+            {
+                throw new UsageException("Diga o falante com exatamente uma opção: --nome <nome>, --narracao ou --original.");
+            }
+
+            return ChangeSpeaker(cli, parseResult, parseResult.GetRequiredValue(targets), parseResult.GetValue(original) ? null : chosen ?? string.Empty);
+        });
+        return command;
+    }
+
+    private static int ChangeSpeaker(VnfCli cli, ParseResult parseResult, string[] tokens, string? speaker)
+    {
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var byScript = Resolve(project.LoadAllText(), tokens);
+        var editor = new LineEditor(project, TimeProvider.System);
+        var changed = new List<string>();
+        var requested = 0;
+        foreach (var (key, ids) in byScript)
+        {
+            requested += ids.Count;
+            changed.AddRange(editor.SetChosenSpeakerMany(key, ids, speaker).Select(c => c.Saved.Id));
+        }
+
+        var unchanged = requested - changed.Count;
+        var output = parseResult.InvocationConfiguration.Output;
+        var kind = speaker is null ? "original" : speaker.Length == 0 ? "narracao" : "nome";
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { action = "speaker", speaker = kind, name = speaker, changed = changed.Count, unchanged, lines = changed, scripts = byScript.Keys }));
+            return ErrorHandler.OkExitCode;
+        }
+
+        var what = speaker is null ? "devolvidas ao falante do jogo" : speaker.Length == 0 ? "com o falante trocado para Narração" : $"com o falante trocado para {speaker}";
+        var rest = unchanged > 0 ? $" ({CliFormat.Count(unchanged, "linha já estava", "linhas já estavam")} assim)" : string.Empty;
+        output.WriteLine($"{CliFormat.Count(changed.Count, "linha", "linhas")} {what}{rest}.");
+        return ErrorHandler.OkExitCode;
     }
 
     private static Command CreateChange(VnfCli cli, string name, bool keep, string description)

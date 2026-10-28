@@ -5,7 +5,7 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Projects;
 
 /// <summary>
-/// Edição manual de uma linha de <c>text/&lt;script&gt;.json</c>: tradução, notas e aprovação. Cada operação lê o script, troca a unidade pelo
+/// Edição manual de uma linha de <c>text/&lt;script&gt;.json</c>: tradução, notas, falante e aprovação. Cada operação lê o script, troca a unidade pelo
 /// <c>id</c> e grava de volta com <see cref="ProjectFolder.SaveText"/> (atômico); se nada mudou, o arquivo não é regravado.
 /// </summary>
 public sealed class LineEditor
@@ -264,6 +264,68 @@ public sealed class LineEditor
     {
         ArgumentNullException.ThrowIfNull(notes);
         return Update(scriptKey, id, unit => string.Equals(unit.Notes, notes, StringComparison.Ordinal) ? unit : unit with { Notes = notes });
+    }
+
+    /// <summary>
+    /// Grava o falante escolhido da linha (<see cref="TextUnit.ChosenSpeaker"/>), sem mexer na tradução, no status nem no falante extraído. Nulo devolve a linha ao falante do jogo;
+    /// vazio (ou só espaços) é "Narração"; um nome igual ao que o jogo já traz (ou narração numa linha que já não tem falante) também volta ao do jogo, para o arquivo
+    /// não guardar uma escolha que não muda nada.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">O script não tem uma linha com esse <paramref name="id"/>.</exception>
+    public TextUnit SetChosenSpeaker(string scriptKey, string id, string? speaker) => Update(scriptKey, id, unit => WithChosenSpeaker(unit, speaker));
+
+    /// <summary>
+    /// <see cref="SetChosenSpeaker"/> para várias linhas de um script, com uma só gravação do arquivo. Devolve só as linhas que mudaram. Se alguma não existe, nada é gravado.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">Alguma linha não existe no script.</exception>
+    public IReadOnlyList<LineChange> SetChosenSpeakerMany(string scriptKey, IEnumerable<string> ids, string? speaker)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var wanted = ids.ToHashSet(StringComparer.Ordinal);
+
+        lock (ProjectTextLock.For(project))
+        {
+            var units = project.LoadText(scriptKey).ToList();
+            var missing = wanted.Except(units.Select(u => u.Id), StringComparer.Ordinal).FirstOrDefault();
+            if (missing is not null)
+            {
+                throw new KeyNotFoundException($"A linha '{missing}' não existe no script '{scriptKey}'. Reabra o projeto e tente de novo.");
+            }
+
+            var changes = new List<LineChange>();
+            for (var i = 0; i < units.Count; i++)
+            {
+                if (!wanted.Contains(units[i].Id))
+                {
+                    continue;
+                }
+
+                var updated = WithChosenSpeaker(units[i], speaker);
+                if (!ReferenceEquals(updated, units[i]))
+                {
+                    changes.Add(new LineChange(scriptKey, units[i], updated));
+                    units[i] = updated;
+                }
+            }
+
+            if (changes.Count > 0)
+            {
+                save(scriptKey, units);
+            }
+
+            return changes;
+        }
+    }
+
+    private static TextUnit WithChosenSpeaker(TextUnit unit, string? speaker)
+    {
+        var chosen = speaker?.Trim();
+        if (chosen is not null && string.Equals(chosen, unit.Speaker ?? string.Empty, StringComparison.Ordinal))
+        {
+            chosen = null;
+        }
+
+        return string.Equals(unit.ChosenSpeaker, chosen, StringComparison.Ordinal) ? unit : unit with { ChosenSpeaker = chosen };
     }
 
     /// <summary>Marca a linha como <see cref="TranslationStatus.Approved"/>, mantendo a origem. Exige texto de tradução na linha.</summary>

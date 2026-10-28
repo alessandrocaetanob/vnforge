@@ -74,7 +74,7 @@ public sealed partial class HonorificsRule : UnitQaRule
     {
         var matcher = SourceMatchers.GetValue(context, c => BuildSourceMatcher(KnownNames(c)));
         return matcher.IsMatch(unit.Source)
-            || NameTokens(unit.Speaker).Any(name => NameSuffixes.Any(suffix => unit.Source.Contains(name + suffix, StringComparison.Ordinal)));
+            || NameTokens(unit.EffectiveSpeaker).Any(name => NameSuffixes.Any(suffix => unit.Source.Contains(name + suffix, StringComparison.Ordinal)));
     }
 
     private static IEnumerable<string> KnownNames(QaContext context) =>
@@ -138,7 +138,7 @@ public sealed class GenderRule : IQaRule
         {
             foreach (var unit in units)
             {
-                if (!unit.HasTranslation || book.Find(unit.Speaker) is not { Gender: CharacterGender.Unknown } character)
+                if (!unit.HasTranslation || book.Find(unit.EffectiveSpeaker) is not { Gender: CharacterGender.Unknown } character)
                 {
                     continue;
                 }

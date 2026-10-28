@@ -13,7 +13,7 @@
           <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}" VerticalAlignment="Center"/>
           <c:StatusBadge Grid.Column="1" Status="{TemplateBinding Status}"/>
           <SelectableTextBlock Name="PART_Speaker" Grid.Column="2" Classes="body-sm" Text="{TemplateBinding SpeakerText}"
-                               TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
+                               TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
           <TextBlock Name="PART_Original" Grid.Column="3" Classes="jp-row" Text="{TemplateBinding Original}"
                      TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
           <TextBlock Name="PART_Translation" Grid.Column="4" Classes="body-sm" Text="{TemplateBinding TranslationText}"
@@ -32,6 +32,11 @@
   <!-- Narração e "sem tradução" em text-secondary, sem itálico. -->
   <Style Selector="c|LineRow:narration /template/ SelectableTextBlock#PART_Speaker">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <!-- Falante trocado nesta linha: o nome em accent e semibold; a dica diz o que o jogo traz. -->
+  <Style Selector="c|LineRow:speaker-changed /template/ SelectableTextBlock#PART_Speaker">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
   <Style Selector="c|LineRow:untranslated /template/ TextBlock#PART_Translation">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>

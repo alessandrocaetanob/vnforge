@@ -95,7 +95,7 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
         var boxes = preview.Boxes
             .Select(box => new TextboxBox([.. box.Select((line, n) => new TextboxLine(line.Text, line.Columns, preview.Formatted && preview.MaxLines is { } max && n >= max, line.Segments))]))
             .ToArray();
-        var speaker = string.IsNullOrEmpty(unit.Speaker) ? null : unit.Speaker;
+        var speaker = string.IsNullOrEmpty(unit.EffectiveSpeaker) ? null : unit.EffectiveSpeaker;
         Show(new TextboxLayout(speaker, columns, preview.Formatted ? preview.MaxLines : null, boxes), Describe(preview, columns), preview.Warnings, null, preview.Notice);
     }
 

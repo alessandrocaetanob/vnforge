@@ -95,7 +95,7 @@ public static class LinePreviewer
                 profile.Wrap.Enabled,
                 result.Warnings)
             {
-                Speaker = string.IsNullOrEmpty(unit.Speaker) ? null : unit.Speaker,
+                Speaker = string.IsNullOrEmpty(unit.EffectiveSpeaker) ? null : unit.EffectiveSpeaker,
             };
         }
         catch (Exception ex) when (ex is ArgumentException or FormattingException)

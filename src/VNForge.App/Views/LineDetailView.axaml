@@ -265,6 +265,32 @@
           <Border x:Name="ContextFragment" Classes="divider-top" Padding="0,12,0,0">
             <StackPanel Spacing="8">
               <TextBlock Classes="overline" Text="Contexto"/>
+              <!-- Falante da linha: o do jogo, Narração, um personagem do Glossário ou um nome digitado. Vale só nesta linha. -->
+              <Grid x:Name="SpeakerChoiceRow" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock FontSize="13" LineHeight="18" TextWrapping="Wrap" Classes="secondary" Text="{Binding SpeakerSummary}" VerticalAlignment="Center"
+                           AutomationProperties.Name="Falante da linha"/>
+                <Button Grid.Column="1" Classes="subtle sm" AutomationProperties.Name="Trocar o falante da linha"
+                        ToolTip.Tip="Troca o falante só nesta linha. O jogo mostra o nome escolhido; uma nova extração mantém a troca.">
+                  <TextBlock Text="Trocar falante" VerticalAlignment="Center"/>
+                  <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedRight">
+                      <StackPanel Spacing="8" Width="280">
+                        <ListBox ItemsSource="{Binding SpeakerChoices}" SelectedItem="{Binding SelectedSpeakerChoice}" MaxHeight="220" AutomationProperties.Name="Falantes">
+                          <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SpeakerChoice">
+                              <TextBlock Classes="body-sm" Text="{Binding Label}" TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                          <TextBox Text="{Binding SpeakerDraft}" PlaceholderText="Outro nome" AutomationProperties.Name="Outro nome para o falante"/>
+                          <Button Grid.Column="1" Classes="subtle sm" Content="Usar" Command="{Binding UseSpeakerDraftCommand}" AutomationProperties.Name="Usar o nome digitado"/>
+                        </Grid>
+                      </StackPanel>
+                    </Flyout>
+                  </Button.Flyout>
+                </Button>
+              </Grid>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" IsVisible="{Binding HasSpeaker}">
                 <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Person}"/>
                 <SelectableTextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" AutomationProperties.Name="Quem fala no contexto">

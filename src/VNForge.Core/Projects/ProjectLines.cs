@@ -199,8 +199,8 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
     private bool MatchesSpeaker(LineEntry line) => Speaker switch
     {
         null => true,
-        Narration => string.IsNullOrEmpty(line.Unit.Speaker),
-        _ => string.Equals(line.Unit.Speaker, Speaker, StringComparison.Ordinal),
+        Narration => string.IsNullOrEmpty(line.Unit.EffectiveSpeaker),
+        _ => string.Equals(line.Unit.EffectiveSpeaker, Speaker, StringComparison.Ordinal),
     };
 }
 
@@ -413,7 +413,7 @@ public sealed class ProjectLines
     {
         ArgumentNullException.ThrowIfNull(lines);
         return lines
-            .Select(l => l.Unit.Speaker)
+            .Select(l => l.Unit.EffectiveSpeaker)
             .OfType<string>()
             .Where(s => s.Length > 0)
             .GroupBy(s => s, StringComparer.Ordinal)

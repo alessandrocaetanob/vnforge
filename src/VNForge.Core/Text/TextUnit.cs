@@ -40,6 +40,19 @@ public sealed record TextUnit(
     public IReadOnlyList<string> Flags { get; init => field = value ?? []; } = [];
 
     /// <summary>
+    /// O falante que quem traduz escolheu para esta linha, separado do <see cref="Speaker"/> extraído (que a re-extração reescreve): nulo segue o falante do jogo;
+    /// vazio é "Narração" (a linha sai sem nome); qualquer outro valor é o nome que o build grava no lugar do extraído, pelo mesmo <see cref="SpeakerText.Resolve"/>
+    /// (um nome de <c>characters.json</c> vai com a tradução do cadastro). Só vale nas linhas que o build grava (<see cref="NeedsRewrite"/>). As pontas são aparadas: só espaços viram vazio.
+    /// A re-extração o preserva, como preserva a tradução. Fica fora do JSON quando nulo.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ChosenSpeaker { get; init => field = value?.Trim(); }
+
+    /// <summary>O falante que vale para a linha: o <see cref="ChosenSpeaker"/> quando há (vazio é narração), senão o <see cref="Speaker"/> extraído.</summary>
+    [JsonIgnore]
+    public string? EffectiveSpeaker => ChosenSpeaker ?? Speaker;
+
+    /// <summary>
     /// Original anterior, gravado pela re-extração quando o <see cref="Source"/> da linha mudou no jogo e ela já tinha tradução. É a marca de "revisar":
     /// a <see cref="Translation"/> antiga fica na linha, o <see cref="Status"/> volta para <see cref="TranslationStatus.Untranslated"/> (o build a ignora) e
     /// este campo guarda o original que ela traduzia. A re-extração o apaga quando a linha sai de <see cref="TranslationStatus.Untranslated"/>. Nulo quando não há o que revisar.

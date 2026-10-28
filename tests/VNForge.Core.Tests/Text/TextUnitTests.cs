@@ -316,4 +316,31 @@ public class TextUnitTests
         Assert.DoesNotContain("hasTranslation", json);
         Assert.DoesNotContain("needsRewrite", json);
     }
+
+    [Fact]
+    public void ChosenSpeaker_nulo_nao_entra_no_json_e_o_valor_faz_ida_e_volta()
+    {
+        Assert.DoesNotContain("chosenSpeaker", TextUnitJson.Serialize(Unidade()));
+
+        var json = TextUnitJson.Serialize(Unidade() with { ChosenSpeaker = "Inui" });
+        Assert.Contains("\"chosenSpeaker\":\"Inui\"", json, StringComparison.Ordinal);
+        Assert.Equal("Inui", TextUnitJson.Deserialize(json).ChosenSpeaker);
+        Assert.Equal(string.Empty, TextUnitJson.Deserialize(TextUnitJson.Serialize(Unidade() with { ChosenSpeaker = string.Empty })).ChosenSpeaker);
+    }
+
+    [Fact]
+    public void ChosenSpeaker_tira_os_espacos_das_pontas_e_so_espacos_vira_narracao()
+    {
+        Assert.Equal("Inui", (Unidade() with { ChosenSpeaker = "  Inui " }).ChosenSpeaker);
+        Assert.Equal(string.Empty, (Unidade() with { ChosenSpeaker = " 　 " }).ChosenSpeaker);
+    }
+
+    [Fact]
+    public void EffectiveSpeaker_e_o_escolhido_quando_existe_e_o_extraido_quando_nao()
+    {
+        Assert.Equal("美咲", Unidade().EffectiveSpeaker);
+        Assert.Equal("Inui", (Unidade() with { ChosenSpeaker = "Inui" }).EffectiveSpeaker);
+        Assert.Equal(string.Empty, (Unidade() with { ChosenSpeaker = string.Empty }).EffectiveSpeaker);
+        Assert.Null((Unidade() with { Speaker = null }).EffectiveSpeaker);
+    }
 }
