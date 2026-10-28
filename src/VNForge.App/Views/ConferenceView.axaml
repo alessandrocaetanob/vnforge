@@ -195,7 +195,7 @@
                   <StackPanel Spacing="6" IsVisible="{Binding HasSpeaker}">
                     <TextBlock Classes="overline" Text="Quem fala"/>
                     <Border Classes="original">
-                      <SelectableTextBlock Classes="jp-body" Text="{Binding Speaker}" TextWrapping="Wrap" c:CopyMenu.Enabled="True" AutomationProperties.Name="Quem fala"/>
+                      <SelectableTextBlock Classes="jp-body" Text="{Binding Speaker}" TextWrapping="Wrap" c:SpeakerMenu.Original="{Binding Speaker}" AutomationProperties.Name="Quem fala"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasCharacterList}">

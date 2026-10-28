@@ -183,7 +183,7 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:LineViewModel">
-                <c:LineRow Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" Original="{Binding SourcePlain}"
+                <c:LineRow Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
                            Translation="{Binding TranslationPlain}" Issue="{Binding Issue}" IssueLabel="{Binding IssueLabel}" IssueTip="{Binding IssueTip}"
                            SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}"
                            ToolTip.Tip="{Binding Id}" c:Motion.PulseOnApproval="{Binding Status}"/>

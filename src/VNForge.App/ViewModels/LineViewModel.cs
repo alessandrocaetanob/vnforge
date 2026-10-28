@@ -19,7 +19,7 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
     [
         nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
         nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel), nameof(IssueTip),
-        nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
+        nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -65,6 +65,9 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
     public string? SpeakerChangedTip => IsSpeakerChanged
         ? $"Falante trocado nesta linha. No jogo: {(string.IsNullOrEmpty(Entry.Unit.Speaker) ? "Narração" : Entry.Unit.Speaker)}."
         : null;
+
+    /// <summary>O falante exatamente como o texto o guarda, mesmo quando a grade mostra a tradução: o escolhido na linha (<see cref="TextUnit.ChosenSpeaker"/>), quando há, senão o extraído; nulo na narração. É o que o menu do nome copia.</summary>
+    public string? SpeakerOriginal => IsNarration ? null : Entry.Unit.EffectiveSpeaker;
 
     public string Source => Entry.Unit.Source;
 

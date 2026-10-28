@@ -83,6 +83,21 @@ public sealed class LineSpeakerTests : IDisposable
     }
 
     [Fact]
+    public async Task O_menu_do_nome_copia_o_falante_trocado_e_a_narracao_fica_sem_menu()
+    {
+        var vm = await Abrir();
+        var detail = vm.Detail!;
+        Assert.Equal("美咲", vm.Lines[0].SpeakerOriginal);
+
+        detail.SelectedSpeakerChoice = Escolha(detail, "健太");
+        Assert.Equal("健太", vm.Lines[0].SpeakerOriginal);
+        Assert.Equal("Kenta", vm.Lines[0].SpeakerName);
+
+        detail.SelectedSpeakerChoice = Escolha(detail, string.Empty);
+        Assert.Null(vm.Lines[0].SpeakerOriginal);
+    }
+
+    [Fact]
     public async Task Narracao_tira_o_nome_da_linha_e_o_falante_do_jogo_volta_a_ele()
     {
         var vm = await Abrir();

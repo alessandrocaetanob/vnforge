@@ -237,7 +237,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
-    public async Task O_nome_de_quem_fala_e_texto_selecionavel_com_Copiar_no_menu()
+    public async Task O_nome_de_quem_fala_e_texto_selecionavel_com_o_menu_de_copiar_o_nome_original()
     {
         using var temp = new TempFolder();
         var root = CreateProject(temp.SubFolder("projeto"));
@@ -247,8 +247,10 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
             var speaker = Assert.Single(view.GetVisualDescendants().OfType<SelectableTextBlock>(), b => AutomationProperties.GetName(b) == "Quem fala");
             Assert.StartsWith("美咲", speaker.Text, StringComparison.Ordinal);
-            var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout);
-            Assert.Equal("Copiar", Assert.IsType<MenuItem>(Assert.Single(flyout.Items)).Header);
+            // O texto da tela pode trazer a tradução e a voz; o menu copia o nome do jogo.
+            Assert.Equal("美咲", SpeakerMenu.GetOriginal(speaker));
+            var flyout = Assert.IsAssignableFrom<MenuFlyout>(speaker.ContextFlyout);
+            Assert.Contains(flyout.Items.OfType<MenuItem>(), i => Equals(i.Header, SpeakerMenu.CopyOriginalHeader));
         });
     }
 
