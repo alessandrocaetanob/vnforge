@@ -24,7 +24,8 @@ public sealed record BatchRequestSettings(ExchangeRate Rate, BudgetLimits Limits
 /// <param name="Model">O modelo da qualidade escolhida nos Ajustes.</param>
 /// <param name="Brl">Estimativa de gasto em reais, um teto.</param>
 /// <param name="Rate">A cotação usada em <paramref name="Brl"/>.</param>
-public sealed record BatchRequestPlan(string Request, BatchRequestScope Scope, IReadOnlyList<BatchCandidate> Candidates, IReadOnlyList<string> SpeakerNames, string Model, decimal Brl, ExchangeRate Rate)
+/// <param name="BudgetNote">Aviso quando a estimativa passa do valor de aviso ou do que sobra do limite de gasto; nulo quando cabe.</param>
+public sealed record BatchRequestPlan(string Request, BatchRequestScope Scope, IReadOnlyList<BatchCandidate> Candidates, IReadOnlyList<string> SpeakerNames, string Model, decimal Brl, ExchangeRate Rate, string? BudgetNote = null)
 {
     public string CostText => Money.BrlEstimate(Brl, Rate);
 }
@@ -84,13 +85,14 @@ public sealed class BatchRequestService(
         var (builder, batchSize) = Builder(project);
         var dollars = BatchRequestRunner.Estimate([.. candidates.Select(c => c.Unit)], builder, model, Effort, batchSize).Dollars;
         var brl = current.Rate.ToBrl(dollars);
-        if (new RunCostTracker(project, model, current.Rate, () => null).CreateGuard(current.Limits, _ => brl, null).LimitReached)
+        var tracker = new RunCostTracker(project, model, current.Rate, () => null);
+        if (tracker.CreateGuard(current.Limits, _ => brl, null).LimitReached)
         {
             throw new BatchRequestException("O limite de gasto do projeto foi atingido. Aumente o limite em Ajustes para pedir à IA.");
         }
 
         var names = characters.Where(c => scope.Speakers.Contains(c.Source, CharacterBook.NameComparer)).Select(c => c.Target).ToList();
-        return new BatchRequestPlan(request, scope, candidates, names, model, brl, current.Rate);
+        return new BatchRequestPlan(request, scope, candidates, names, model, brl, current.Rate, BudgetNote(current.Limits, brl, tracker.SpentBrl()));
     }
 
     /// <summary>Manda as falas do <paramref name="plan"/> à IA e devolve a prévia. O gasto fica registrado no projeto mesmo se o pedido for cancelado.</summary>
@@ -117,6 +119,7 @@ public sealed class BatchRequestService(
         var guard = tracker.CreateGuard(
             current.Limits,
             lines => current.Rate.ToBrl(BatchRequestRunner.Estimate(lines, builder, plan.Model, Effort, batchSize).Dollars),
+            // O plano já mostrou o custo e o aviso de orçamento; o clique em "Pedir à IA" é a confirmação, então a pergunta do valor de aviso seria a mesma.
             (_, _) => Task.FromResult(true));
         var runner = new BatchRequestRunner(
             provider,
@@ -146,6 +149,22 @@ public sealed class BatchRequestService(
 
         var preview = new ReplacePreview(new SearchOptions(plan.Request, Field: SearchField.Translation), plan.Request, outcome.Items, 0, [], 0);
         return new BatchRequestResult(preview, outcome, tracker.RunBrl);
+    }
+
+    private static string? BudgetNote(BudgetLimits limits, decimal brl, decimal spent)
+    {
+        var notes = new List<string>();
+        if (limits.Limit is { } limit && spent + brl > limit)
+        {
+            notes.Add($"passa do que sobra do limite de gasto ({Money.Brl(Math.Max(0m, limit - spent))}), então o pedido pode parar no meio");
+        }
+
+        if (limits.WarnAbove is { } warn && brl > warn)
+        {
+            notes.Add($"passa do valor de aviso dos Ajustes ({Money.Brl(warn)})");
+        }
+
+        return notes.Count == 0 ? null : $"Atenção: {string.Join(" e ", notes)}. Clicar em Pedir à IA confirma o gasto.";
     }
 
     private static (TranslationBatchBuilder Builder, int BatchSize) Builder(ProjectFolder project)

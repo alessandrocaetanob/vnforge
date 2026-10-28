@@ -357,8 +357,20 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
     private void Invalidate()
     {
         version++;
+
+        // Mudar um campo ou o projeto no meio de uma busca, prévia ou pedido à IA descartaria o resultado em silêncio: cancela a operação e diz.
+        var interrupted = IsBusy && IsCancellable && cancellation is not null;
+        if (interrupted)
+        {
+            cancellation!.Cancel();
+        }
+
         Clear();
         ErrorMessage = null;
+        if (interrupted)
+        {
+            Summary = "O painel mudou durante a operação, que foi cancelada. Nada foi gravado.";
+        }
     }
 
     private void Clear()

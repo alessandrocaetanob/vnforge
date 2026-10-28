@@ -35,7 +35,8 @@ public sealed class ClaudeBatchRequestProvider(IClaudeMessageClient client, Clau
                 b => ClaudePromptParts.BatchContext(b, "Glossário (termos obrigatórios):"),
                 b => BuildUser(request, b),
                 Parse,
-                line => new BatchRewrite(line.Id, string.Empty, Refused: true)),
+                line => new BatchRewrite(line.Id, string.Empty, Refused: true),
+                TruncatedMessage: "A resposta da IA foi cortada por limite de tokens. Peça de novo com um filtro mais específico (personagem, cena ou palavra) para ela ler menos falas."),
             ct);
     }
 

@@ -151,8 +151,10 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
             var screens = Take(named, PaletteGroup.Screen, query, ScreenLimit).ToList();
             var scripts = Take(named, PaletteGroup.Script, query, ScriptLimit).ToList();
 
-            // Um texto que já nomeia um comando, tela ou script é uma busca: o Enter executa esse resultado, não um pedido à IA.
-            if (commands.Count + screens.Count + scripts.Count == 0 && requestEntry?.Invoke(query) is { } request)
+            var lines = lineSearch(query, LineLimit).Take(LineLimit).ToList();
+
+            // Um texto que já nomeia um comando, tela ou script, ou que acha linhas, é uma busca: o Enter executa esse resultado, não um pedido à IA.
+            if (commands.Count + screens.Count + scripts.Count + lines.Count == 0 && requestEntry?.Invoke(query) is { } request)
             {
                 results.Add(request);
             }
@@ -160,7 +162,7 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
             results.AddRange(commands);
             results.AddRange(screens);
             results.AddRange(scripts);
-            results.AddRange(lineSearch(query, LineLimit).Take(LineLimit));
+            results.AddRange(lines);
         }
 
         Results = MarkGroups(results);

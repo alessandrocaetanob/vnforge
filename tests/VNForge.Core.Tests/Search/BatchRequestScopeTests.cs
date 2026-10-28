@@ -75,6 +75,33 @@ public class BatchRequestScopeTests
         Assert.Equal([term], Parse(request).Terms);
     }
 
+    [Theory]
+    [InlineData("mudar as falas do Kenta para o tom formal")]
+    [InlineData("mudar o tom para mais formal")]
+    [InlineData("trocar o estilo das frases para algo mais seco")]
+    public void Pedido_de_estilo_nao_vira_termo_literal(string request)
+    {
+        Assert.Empty(Parse(request).Terms);
+    }
+
+    [Fact]
+    public void Pedido_de_estilo_ainda_restringe_pelo_personagem()
+    {
+        var scope = Parse("mudar as falas do Kenta para o tom formal");
+
+        Assert.Equal(["健太"], scope.Speakers);
+        Assert.Equal(["a1", "a3", "b1"], scope.Select(Texts(), Characters, TestContext.Current.CancellationToken).Select(c => c.Unit.Id));
+    }
+
+    [Fact]
+    public void O_nome_que_e_o_termo_da_troca_nao_conta_como_falante()
+    {
+        var scope = Parse("trocar Kenta por Kento");
+
+        Assert.Equal(["Kenta"], scope.Terms);
+        Assert.Empty(scope.Speakers);
+    }
+
     [Fact]
     public void Pedido_sem_filtro_nao_restringe_nada()
     {

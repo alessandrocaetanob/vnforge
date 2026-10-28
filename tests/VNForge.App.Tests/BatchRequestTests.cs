@@ -76,7 +76,7 @@ public sealed class BatchRequestTests : IDisposable
 
         Assert.True(vm.HasRequestPlan);
         Assert.Equal(["yst00001:000000", "yst00001:000003"], vm.RequestPlan!.Candidates.Select(c => c.Unit.Id));
-        Assert.Contains("2 falas de Kenta com “você”", vm.Summary);
+        Assert.Contains("A IA vai ler 2 falas. Filtro: personagem Kenta; palavra “você”.", vm.Summary);
         Assert.Contains("Custo estimado: até", vm.Summary);
         Assert.Contains("Nada é gravado", vm.Summary);
         Assert.Empty(provider.Received);
@@ -142,6 +142,9 @@ public sealed class BatchRequestTests : IDisposable
 
         Assert.Equal("Você sabe o que houve?", Translation(0));
         Assert.Equal("Eu vi você ontem.", Translation(3));
+        var unit = ProjectFolder.Open(root).LoadText("yst00001")[0];
+        Assert.Equal(TranslationStatus.Approved, unit.Status);
+        Assert.Null(unit.Origin);
     }
 
     [Fact]
@@ -268,6 +271,7 @@ public sealed class BatchRequestTests : IDisposable
         await vm.BeginRequestAsync(Request);
         var running = vm.RunRequestCommand.ExecuteAsync(null);
         Assert.True(vm.IsBusy);
+        Assert.False(vm.DiscardRequestCommand.CanExecute(null));
 
         await vm.BeginRequestAsync("nas falas da Misaki, trocar você por tu");
 
@@ -303,6 +307,97 @@ public sealed class BatchRequestTests : IDisposable
         Assert.True(result.Outcome.Canceled);
         Assert.InRange(result.Preview.Items.Count, 30, 69);
         Assert.Contains("Tu vai 0?", result.Preview.Items[0].After);
+    }
+
+    [Fact]
+    public async Task Mudar_um_campo_com_a_IA_trabalhando_cancela_o_pedido_e_avisa()
+    {
+        var gate = new TaskCompletionSource();
+        var vm = new SearchReplaceViewModel(clock)
+        {
+            Project = ProjectSummaryReader.Read(root),
+            Requests = new BatchRequestService((_, _) => new GatedProvider(gate.Task), () => Settings()),
+        };
+        await vm.BeginRequestAsync(Request);
+        var running = vm.RunRequestCommand.ExecuteAsync(null);
+
+        vm.Pattern = "outra coisa";
+        await running;
+
+        Assert.False(vm.IsBusy);
+        Assert.False(vm.HasPreview);
+        Assert.Contains("O painel mudou durante a operação", vm.Summary);
+        Assert.Equal("Você sabe o que houve?", Translation(0));
+    }
+
+    [Fact]
+    public async Task Trocar_o_projeto_com_a_IA_trabalhando_cancela_o_pedido_e_avisa()
+    {
+        var gate = new TaskCompletionSource();
+        var vm = new SearchReplaceViewModel(clock)
+        {
+            Project = ProjectSummaryReader.Read(root),
+            Requests = new BatchRequestService((_, _) => new GatedProvider(gate.Task), () => Settings()),
+        };
+        await vm.BeginRequestAsync(Request);
+        var running = vm.RunRequestCommand.ExecuteAsync(null);
+
+        vm.Project = null;
+        await running;
+
+        Assert.False(vm.HasPreview);
+        Assert.Contains("O painel mudou durante a operação", vm.Summary);
+    }
+
+    [Fact]
+    public async Task O_plano_destaca_a_estimativa_que_passa_do_valor_de_aviso()
+    {
+        var (vm, provider, _) = Build(limits: new BudgetLimits(null, 0.0001m));
+
+        await vm.BeginRequestAsync(Request);
+
+        Assert.Contains("Atenção: passa do valor de aviso dos Ajustes", vm.Summary);
+        Assert.Contains("Clicar em Pedir à IA confirma o gasto", vm.Summary);
+        Assert.Empty(provider.Received);
+    }
+
+    [Fact]
+    public async Task O_plano_destaca_a_estimativa_que_passa_do_que_sobra_do_limite()
+    {
+        AiUsageLog.TryRecord(ProjectFolder.Open(root), new AiUsageTotals(1, 1, 0, 0, 1m, 1, 0));
+        var (vm, _, _) = Build(limits: new BudgetLimits(5.4001m, null));
+
+        await vm.BeginRequestAsync(Request);
+
+        Assert.Contains("passa do que sobra do limite de gasto", vm.Summary);
+    }
+
+    [Fact]
+    public async Task Limite_que_para_tudo_no_comeco_nao_diz_que_a_IA_leu_zero_falas()
+    {
+        var (vm, provider, _) = Build(limits: new BudgetLimits(5m, null));
+        await vm.BeginRequestAsync(Request);
+        AiUsageLog.TryRecord(ProjectFolder.Open(root), new AiUsageTotals(1, 1, 0, 0, 100m, 1, 0));
+
+        await vm.RunRequestCommand.ExecuteAsync(null);
+
+        Assert.Equal("O pedido parou no limite de gasto antes de ler qualquer fala. Nada foi gasto nem gravado.", vm.Summary);
+        Assert.Empty(provider.Received);
+        Assert.False(vm.HasPreview);
+    }
+
+    [Fact]
+    public void A_paleta_nao_oferece_o_pedido_quando_a_frase_acha_linhas()
+    {
+        var palette = new CommandPaletteViewModel(
+            () => [],
+            (_, _) => [new PaletteEntry(PaletteGroup.Line, "Você sabe o que houve?", "yst00001 · linha 1", () => { })],
+            query => new PaletteEntry(PaletteGroup.Command, $"Pedir à IA: {query}", "", () => { }));
+        palette.Open();
+
+        palette.Query = "você sabe o que";
+
+        Assert.Equal([PaletteGroup.Line], palette.Results.Select(r => r.Group));
     }
 
     [Fact]

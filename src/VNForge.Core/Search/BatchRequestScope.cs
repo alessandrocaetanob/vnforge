@@ -33,8 +33,12 @@ public sealed partial record BatchRequestScope(IReadOnlyList<string> Speakers, I
         ArgumentNullException.ThrowIfNull(scriptKeys);
         var folded = SearchText.Fold(request);
 
+        var terms = TermsOf(request);
+        var foldedTerms = terms.Select(SearchText.Fold).ToList();
+
+        // "trocar Kenta por Kento": o nome é a palavra a trocar, não o falante; contá-lo como falante perderia as falas dos outros que o citam.
         var speakers = characters
-            .Where(c => Names(c).Any(name => ContainsWord(folded, SearchText.Fold(name))))
+            .Where(c => Names(c).Any(name => ContainsWord(folded, SearchText.Fold(name))) && !Names(c).Any(name => foldedTerms.Contains(SearchText.Fold(name).Trim())))
             .Select(c => c.Source)
             .Distinct(CharacterBook.NameComparer)
             .ToList();
@@ -42,7 +46,7 @@ public sealed partial record BatchRequestScope(IReadOnlyList<string> Speakers, I
             .Where(key => key.Length > 0 && ContainsWord(folded, SearchText.Fold(key)))
             .Distinct(StringComparer.Ordinal)
             .ToList();
-        return new BatchRequestScope(speakers, scripts, TermsOf(request));
+        return new BatchRequestScope(speakers, scripts, terms);
     }
 
     /// <summary>
@@ -125,7 +129,7 @@ public sealed partial record BatchRequestScope(IReadOnlyList<string> Speakers, I
             {
                 var term = match.Groups["q"].Success ? match.Groups["q"].Value : match.Groups["x"].Value;
                 term = term.Trim();
-                if (term.Length > 0 && !terms.Contains(term, StringComparer.OrdinalIgnoreCase))
+                if (term.Length > 0 && (match.Groups["q"].Success || IsPlausibleTerm(term)) && !terms.Contains(term, StringComparer.OrdinalIgnoreCase))
                 {
                     terms.Add(term);
                 }
@@ -133,6 +137,24 @@ public sealed partial record BatchRequestScope(IReadOnlyList<string> Speakers, I
         }
 
         return terms;
+    }
+
+    private static readonly HashSet<string> MetaWords = new(StringComparer.Ordinal)
+    {
+        "fala", "falas", "frase", "frases", "linha", "linhas", "texto", "textos", "dialogo", "dialogos", "cena", "cenas",
+        "personagem", "personagens", "tom", "estilo", "jeito", "tudo", "traducao", "traducoes",
+    };
+
+    private static readonly HashSet<string> Prepositions = new(StringComparer.Ordinal) { "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas" };
+
+    /// <summary>
+    /// Uma palavra ou expressão curta que alguém trocaria no texto. "As falas do Kenta" (em "mudar as falas do Kenta para o tom formal") descreve onde ou como,
+    /// não o que trocar: sem aspas, esses pedidos não viram termo literal e a IA decide sobre as falas que o resto do pedido alcança.
+    /// </summary>
+    private static bool IsPlausibleTerm(string term)
+    {
+        var words = SearchText.Fold(term).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return words.Length > 0 && !Prepositions.Contains(words[0]) && !words.Any(MetaWords.Contains);
     }
 
     /// <summary>A palavra aparece em <paramref name="text"/> sem letra nem número colados nas pontas; ambos já sem acento e em minúsculas.</summary>

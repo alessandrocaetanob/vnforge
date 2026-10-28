@@ -105,8 +105,10 @@ internal sealed class BatchRequestAdapter(IBatchRequestProvider inner, string re
                 }
             }
 
+            // Só as linhas que a IA reescreveu vão à validação: a que ela deixou de fora está sem mudança, não faltando, e pedir de novo seria gasto à toa.
             // Os marcadores se comparam com a tradução de agora, não com o original em japonês: o validador compara com Source.
-            var view = current.ForLines([.. current.Lines.Select(l => l with { Source = l.Translation ?? string.Empty })]);
+            var proposedIds = proposed.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+            var view = current.ForLines([.. current.Lines.Where(l => proposedIds.Contains(l.Id)).Select(l => l with { Source = l.Translation ?? string.Empty })]);
             var report = TranslationResponseValidator.Validate(view, proposed);
             foreach (var result in report.Valid)
             {

@@ -91,7 +91,7 @@ public sealed partial class SearchReplaceViewModel
             cancellable: true);
     }
 
-    [RelayCommand(CanExecute = nameof(HasRequestPlan))]
+    [RelayCommand(CanExecute = nameof(CanDiscardRequest))]
     private void DiscardRequest()
     {
         Invalidate();
@@ -103,7 +103,14 @@ public sealed partial class SearchReplaceViewModel
 
     private bool CanRunRequest() => RequestPlan is not null && !IsBusy;
 
-    partial void OnIsBusyChanged(bool value) => RunRequestCommand.NotifyCanExecuteChanged();
+    // Durante a chamada paga quem interrompe é o Cancelar; Descartar com a IA trabalhando diria "nada foi gasto" sem ser verdade.
+    private bool CanDiscardRequest() => RequestPlan is not null && !IsBusy;
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        RunRequestCommand.NotifyCanExecuteChanged();
+        DiscardRequestCommand.NotifyCanExecuteChanged();
+    }
 
     private static string DescribePlan(BatchRequestPlan plan)
     {
@@ -111,30 +118,36 @@ public sealed partial class SearchReplaceViewModel
         var filters = new List<string>();
         if (plan.SpeakerNames.Count > 0)
         {
-            filters.Add($"de {string.Join(" e ", plan.SpeakerNames)}");
+            filters.Add($"{(plan.SpeakerNames.Count == 1 ? "personagem" : "personagens")} {string.Join(" e ", plan.SpeakerNames)}");
         }
 
         if (scope.Scripts.Count > 0)
         {
-            filters.Add($"em {string.Join(", ", scope.Scripts)}");
+            filters.Add($"{(scope.Scripts.Count == 1 ? "cena" : "cenas")} {string.Join(", ", scope.Scripts)}");
         }
 
         if (scope.Terms.Count > 0)
         {
-            filters.Add($"com {string.Join(" ou ", scope.Terms.Select(t => $"“{t}”"))}");
+            filters.Add($"{(scope.Terms.Count == 1 ? "palavra" : "palavras")} {string.Join(" ou ", scope.Terms.Select(t => $"“{t}”"))}");
         }
 
         var lines = Plural(plan.Candidates.Count, "fala", "falas");
         var what = scope.IsNarrowed
-            ? $"A IA vai ler {lines} {string.Join(' ', filters)}."
+            ? $"A IA vai ler {lines}. Filtro: {string.Join("; ", filters)}."
             : $"O pedido não cita personagem, cena nem palavra: a IA vai ler todas as {lines} traduzidas.";
-        return $"{what} Custo estimado: até {plan.CostText}. Nada é gravado: depois você vê a prévia e confirma em Aplicar.";
+        var note = plan.BudgetNote is null ? string.Empty : $" {plan.BudgetNote}";
+        return $"{what} Custo estimado: até {plan.CostText}.{note} Nada é gravado: depois você vê a prévia e confirma em Aplicar.";
     }
 
     private static string DescribeRequestResult(BatchRequestResult result)
     {
         var outcome = result.Outcome;
         var read = outcome.Items.Count + outcome.Unchanged + outcome.Refused;
+        if (read == 0 && outcome.Failed == 0 && outcome.Stopped == BudgetStop.LimitReached)
+        {
+            return "O pedido parou no limite de gasto antes de ler qualquer fala. Nada foi gasto nem gravado.";
+        }
+
         var parts = new List<string>();
         if (outcome.Canceled)
         {

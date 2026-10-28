@@ -98,6 +98,42 @@ public class BatchRequestTests
     }
 
     [Fact]
+    public async Task Linha_que_a_IA_nao_devolveu_nao_gera_segunda_chamada_paga()
+    {
+        var provider = FakeBatchRequestProvider.Replacing("você", "tu");
+        var runner = Runner(provider);
+
+        var outcome = await runner.RunAsync("trocar você por tu", Candidates(Unit("a", "Você sabe?"), Unit("b", "Oi."), Unit("c", "Tchau.")), CancellationToken.None);
+
+        Assert.Single(provider.Received);
+        Assert.Single(outcome.Items);
+        Assert.Equal(2, outcome.Unchanged);
+    }
+
+    [Fact]
+    public async Task So_a_linha_com_marcador_diferente_volta_na_segunda_chamada()
+    {
+        var provider = new FakeBatchRequestProvider(u => u.Id == "a" ? "Tu sabes?" : "Oi!");
+        var runner = Runner(provider);
+
+        await runner.RunAsync("pedido qualquer aqui", Candidates(Unit("a", "Você sabe?\\nVem."), Unit("b", "Oi.")), CancellationToken.None);
+
+        Assert.Equal(2, provider.Received.Count);
+        Assert.Equal(["a"], provider.Received.Last().Batch.Lines.Select(l => l.Id));
+    }
+
+    [Fact]
+    public async Task Resposta_cortada_por_limite_de_tokens_diz_isso_sem_falar_em_lote()
+    {
+        var client = new StubClient(_ => new ClaudeReply("max_tokens", string.Empty));
+        var provider = new ClaudeBatchRequestProvider(client);
+
+        var error = await Assert.ThrowsAsync<ClaudeResponseException>(() => provider.RewriteAsync("trocar você por tu", new TranslationBatch([Unit("a", "Você sabe?")]), CancellationToken.None));
+
+        Assert.DoesNotContain("lote", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Reescrita_que_muda_os_marcadores_e_pedida_de_novo_e_depois_recusada()
     {
         var provider = new FakeBatchRequestProvider(u => u.Translation!.Replace("\\n", " ", StringComparison.Ordinal).Replace("Você", "Tu", StringComparison.Ordinal));
