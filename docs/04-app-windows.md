@@ -60,6 +60,8 @@ O Início responde "o que eu faço agora" (artboard 1 do canvas v3): no alto, o 
 
 **Primeira vez.** Sem projetos, o Início mostra "Como começar" (quatro passos numerados: apontar a pasta do jogo, escolher os acentos, traduzir, testar no jogo) e "O que você precisa" (o jogo instalado, uma chave do Claude, que aparece marcada quando já está guardada, e espaço para a cópia de segurança), com a mesma área para soltar a pasta.
 
+**Cena de exemplo** (#481). Na primeira vez, "Experimentar com uma cena de exemplo" fica entre "Abrir projeto" e "Novo projeto" e some quando há projetos nos recentes. Ela grava (ou reaproveita) o projeto sintético de `SampleProject` (Core, 30 falas originais em japonês, em três cenas) em `%APPDATA%/VNForge/exemplo/cena-de-exemplo`, nunca numa pasta de jogo, e leva ao Painel. O marcador `exemplo.txt` na pasta vira `ProjectSummary.IsSample`: a tradução usa a IA falsa (`SampleAi`, no app, porque o Core não depende de `VNForge.AI`) com custo zero e sem chave, a sugestão de uma fala do exemplo devolve o português dela, e o Testar no jogo fica desligado com a faixa "Esta é uma cena de exemplo, sem jogo para testar". O gerador de demonstração das capturas (`DemoProject`) também mora no Core, em `VNForge.Core.Demo`.
+
 **Barra de status.** No Início ela mostra só a versão do app e se a chave do Claude está guardada; nas outras telas a versão fica e voltam a gravação, a acentuação e os limites da caixa. O trilho segue desabilitado, exceto Início e Ajustes, até um projeto abrir.
 
 **Estados.**

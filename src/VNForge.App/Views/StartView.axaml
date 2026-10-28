@@ -16,7 +16,7 @@
     <Border MaxWidth="1180" Padding="24,32,24,40">
       <StackPanel Spacing="16">
 
-        <Grid ColumnDefinitions="*,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
           <TextBlock Classes="title-lg" Text="Projetos" VerticalAlignment="Center"/>
           <Button Grid.Column="1" Margin="0,0,12,0" Command="{Binding OpenFolderCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -24,8 +24,16 @@
               <TextBlock Text="Abrir projeto"/>
             </StackPanel>
           </Button>
+          <!-- Na primeira vez, a cena de exemplo mostra o app funcionando sem jogo e sem chave. -->
+          <Button Grid.Column="2" Margin="0,0,12,0" Command="{Binding OpenSampleCommand}" IsVisible="{Binding ShowSampleButton}"
+                  AutomationProperties.Name="Experimentar com uma cena de exemplo">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+              <TextBlock Text="Experimentar com uma cena de exemplo"/>
+            </StackPanel>
+          </Button>
           <!-- Com projetos, o único destaque da tela é o botão do cartão; na primeira vez, o caminho começa aqui. -->
-          <Button Grid.Column="2" Classes.accent="{Binding !HasRecents}" Command="{Binding NewProjectCommand}">
+          <Button Grid.Column="3" Classes.accent="{Binding !HasRecents}" Command="{Binding NewProjectCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
               <TextBlock Text="Novo projeto"/>

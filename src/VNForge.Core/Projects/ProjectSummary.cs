@@ -1,6 +1,7 @@
 namespace VNForge.Core.Projects;
 
 /// <summary>O que uma tela precisa para mostrar um projeto: dados do <c>vnforge.json</c> e o progresso de <c>text/*.json</c>.</summary>
+/// <param name="IsSample">É a cena de exemplo da primeira vez: não tem jogo, então o build e a injeção não se aplicam.</param>
 public sealed record ProjectSummary(
     string Name,
     string Root,
@@ -12,7 +13,8 @@ public sealed record ProjectSummary(
     StatusCounts Counts,
     LastBuild? LastBuild = null,
     string? LastEditedScript = null,
-    string? Effort = null);
+    string? Effort = null,
+    bool IsSample = false);
 
 /// <summary>O que a pasta <c>build/</c> de um projeto guarda do último <c>vnf build</c>.</summary>
 /// <param name="BuiltAt">Quando o arquivo mais novo de <c>build/</c> foi gravado.</param>
@@ -40,7 +42,8 @@ public static class ProjectSummaryReader
             status.Total,
             ReadLastBuild(folder),
             FindLastEditedScript(folder, status),
-            config.Ai.Effort);
+            config.Ai.Effort,
+            Demo.SampleProject.IsSample(folder.Root));
     }
 
     /// <summary>Data e scripts do último build, lidos de <c>build/</c> e do estado do build; nulo quando <c>build/</c> não tem arquivo.</summary>
