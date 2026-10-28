@@ -100,7 +100,7 @@
 
       <!-- Problemas: o que é, a cena e a linha; "não traduzida" resumida por cena. -->
       <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
-        <Grid RowDefinitions="Auto,*,Auto">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
           <!-- Um card por ajuste de formatação que a estratégia de acentuação não grava, no lugar das linhas que ele causa; o botão troca o ajuste. -->
           <ItemsControl ItemsSource="{Binding SettingCards}" IsVisible="{Binding HasSettingCards}" Margin="12,12,12,4"
                         AutomationProperties.Name="Ajustes que o jogo não grava">
@@ -128,7 +128,74 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <Panel Grid.Row="1">
+          <!-- Um cartão por original com mais de uma tradução, no lugar de um aviso por linha: as variantes, as linhas de cada uma (links para o Editor) e o que difere da mais usada. -->
+          <ScrollViewer Grid.Row="1" MaxHeight="300" Margin="0,0,0,4" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasConsistencyCards}">
+            <ItemsControl ItemsSource="{Binding ConsistencyCards}" Margin="12,8,12,4" AutomationProperties.Name="Originais com traduções diferentes">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="8"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ConferenceConsistencyCardViewModel">
+                  <Border Classes="original" Padding="14,12" AutomationProperties.Name="{Binding AutomationName}">
+                    <StackPanel Spacing="10">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"/>
+                          <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding LinesText}" VerticalAlignment="Center"/>
+                      </Grid>
+                      <TextBlock Classes="jp-body" Text="{Binding Source}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+                      <ItemsControl ItemsSource="{Binding Variants}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:ConferenceVariantViewModel">
+                            <Border Classes="divider-top" Padding="0,10,0,10">
+                              <Grid ColumnDefinitions="88,*" ColumnSpacing="10" AutomationProperties.Name="{Binding AutomationName}">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                                  <TextBlock Text="{Binding Marker}" Foreground="{DynamicResource Vnf.AccentText}"/>
+                                  <TextBlock Classes="caption secondary" Text="{Binding CountText}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="6" MinWidth="0">
+                                  <TextBlock FontSize="14" LineHeight="22" TextWrapping="Wrap" c:DiffText.Segments="{Binding Segments}"/>
+                                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <ItemsControl ItemsSource="{Binding VisibleLines}">
+                                      <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                          <WrapPanel ItemSpacing="4" LineSpacing="0"/>
+                                        </ItemsPanelTemplate>
+                                      </ItemsControl.ItemsPanel>
+                                      <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ConferenceLineLink">
+                                          <Button Classes="link sm" Content="{Binding Label}"
+                                                  Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).OpenLineByIdCommand}"
+                                                  CommandParameter="{Binding Request}" AutomationProperties.Name="{Binding Label, StringFormat='Abrir {0} no Editor'}"/>
+                                        </DataTemplate>
+                                      </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Button Grid.Column="1" Classes="link sm" VerticalAlignment="Top" IsVisible="{Binding HasMore}" Command="{Binding ToggleLinesCommand}"
+                                            Content="{Binding MoreLabel}" AutomationProperties.Name="Mostrar ou esconder as outras linhas desta tradução"/>
+                                    <Button Grid.Column="2" Classes="sm" VerticalAlignment="Top" Content="{Binding UseLabel}"
+                                            Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).UseVariantCommand}"
+                                            CommandParameter="{Binding}" AutomationProperties.Name="{Binding UseAutomationName}"/>
+                                  </Grid>
+                                </StackPanel>
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <Button Classes="subtle sm" HorizontalAlignment="Right" Content="{Binding KeepLabel}"
+                              Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).KeepDifferentCommand}"
+                              CommandParameter="{Binding}" AutomationProperties.Name="Manter as traduções diferentes de propósito e deixar de avisar deste original"/>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Panel Grid.Row="2">
             <ListBox Classes="projects" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" SelectionMode="Single"
                      AutomationProperties.Name="Problemas encontrados">
               <ListBox.ItemsPanel>
@@ -167,7 +234,7 @@
                           Message="Nada trava o teste no jogo. A tradução está pronta para testar."
                           ActionText="Conferir de novo" ActionCommand="{Binding RefreshCommand}"/>
           </Panel>
-          <Border Grid.Row="2" Classes="divider-top" Padding="16,10">
+          <Border Grid.Row="3" Classes="divider-top" Padding="16,10">
             <TextBlock Classes="caption secondary" Text="{Binding ListFooter}" TextTrimming="CharacterEllipsis"/>
           </Border>
         </Grid>
