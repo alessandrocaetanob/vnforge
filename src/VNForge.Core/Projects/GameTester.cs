@@ -138,8 +138,27 @@ public sealed class GameTester(
 
         var results = timeline.Finish();
         var times = results.Select(r => new GameTestStepTime(r.Step, (long)r.Elapsed.TotalMilliseconds)).ToList();
-        GameStateFile.TryUpdate(project, saved => saved with { LastTest = new GameLastTest(_clock.GetUtcNow(), kind, times) });
+        var snapshot = SnapshotOf(project, options);
+        GameStateFile.TryUpdate(project, saved => saved with { LastTest = new GameLastTest(_clock.GetUtcNow(), kind, times, snapshot) });
         return new GameTestResult(kind, results, build, injection, executable);
+    }
+
+    /// <summary>O retrato das traduções que foram para o jogo; nulo no teste de acentos, que não leva a tradução, e quando os textos não leem (o retrato só alimenta a tela).</summary>
+    private static TranslationSnapshot? SnapshotOf(ProjectFolder project, GameTestOptions options)
+    {
+        if (options.AccentTest)
+        {
+            return null;
+        }
+
+        try
+        {
+            return TranslationChanges.Snapshot(project.LoadAllText(), options.OnlyScript);
+        }
+        catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

@@ -44,8 +44,8 @@ public sealed record GameTestStepTime(GameTestStep Step, long Milliseconds);
 /// <param name="TextFingerprint">Impressão digital dos textos que entraram no build (<see cref="BuildState.FingerprintTexts"/>).</param>
 public sealed record GameInGame(GameTestKind Kind, DateTimeOffset AppliedAt, string? BackupDirectory, string? ScriptKey, string? TextFingerprint);
 
-/// <summary>O último teste que chegou ao fim: quando, de que tipo e o tempo de cada passo.</summary>
-public sealed record GameLastTest(DateTimeOffset At, GameTestKind Kind, IReadOnlyList<GameTestStepTime> Steps);
+/// <summary>O último teste que chegou ao fim: quando, de que tipo, o tempo de cada passo e o retrato das traduções que foram para o jogo (<see cref="TranslationChanges.Snapshot"/>); o retrato é nulo no teste de acentos e em arquivos de versões anteriores.</summary>
+public sealed record GameLastTest(DateTimeOffset At, GameTestKind Kind, IReadOnlyList<GameTestStepTime> Steps, TranslationSnapshot? Snapshot = null);
 
 /// <summary>
 /// O estado do jogo em <c>.cache/game-state.json</c>: o build que está na pasta do jogo (<see cref="InGame"/>) e o último teste (<see cref="LastTest"/>).

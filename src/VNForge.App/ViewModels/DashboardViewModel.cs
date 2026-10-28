@@ -89,7 +89,8 @@ public sealed class TodoRowViewModel(SeverityLevel severity, string title, strin
 }
 
 /// <summary>Para onde um botão do Painel leva: a tela e, no Editor, o script a abrir e, com <paramref name="NewChapter"/>, o campo do nome de um capítulo novo já aberto.</summary>
-public sealed record DashboardNavigation(NavKey Target, string? ScriptKey = null, bool NewChapter = false);
+/// <param name="ChangedSinceTest">Abre a cena só com as falas que mudaram desde o último teste no jogo (o filtro "Mudou desde o teste").</param>
+public sealed record DashboardNavigation(NavKey Target, string? ScriptKey = null, bool NewChapter = false, bool ChangedSinceTest = false);
 
 /// <summary>
 /// Página Painel: onde o projeto está e o que fazer agora. Um botão com o próximo passo, a jornada em cinco passos, o mapa do jogo (anel e sumário de capítulos
@@ -119,6 +120,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         this.loader = loader ?? (root => ProjectDashboard.Read(ProjectFolder.Open(root)));
         this.clock = clock ?? TimeProvider.System;
         this.renamer = renamer ?? ((root, group, name) => ScriptGroupEditor.RenameGroup(ProjectFolder.Open(root), group, name));
+        SinceTest.OpenRequested += (_, key) => NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Editor, key, ChangedSinceTest: true));
     }
 
     /// <summary>Disparado depois de o renomear da linha gravar o <c>scripts.json</c>: o Editor relê os nomes dos capítulos.</summary>
@@ -249,6 +251,9 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string GameMessage { get; private set; } = string.Empty;
+
+    /// <summary>As cenas cuja tradução mudou desde o último teste no jogo; "Abrir" leva ao Editor só com as falas que mudaram.</summary>
+    public ChangedScenesViewModel SinceTest { get; } = new();
 
     /// <summary>"Testar de novo", ou "Testar no jogo" enquanto nenhum teste foi feito.</summary>
     [ObservableProperty]
@@ -583,6 +588,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         SpentBrl = LimitBrl = 0;
         GameState = GameState.Original;
         GameActionText = TestInGame;
+        SinceTest.Clear();
         OnPropertyChanged(nameof(HasNextStep));
     }
 
@@ -804,6 +810,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private void ApplyGame(ProjectDashboard dashboard)
     {
         var inGame = dashboard.GameState.InGame;
+        SinceTest.Update(dashboard.ChangesSinceTest, scene => dashboard.ScriptNames.DisplayName(scene.Key) ?? $"Cena {scene.Number}");
         GameActionText = dashboard.GameState.LastTest is not null || inGame is not null ? "Testar de novo" : TestInGame;
         if (inGame is { BackupDirectory: not null } && dashboard.LastBackupAt is null)
         {

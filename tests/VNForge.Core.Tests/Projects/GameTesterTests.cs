@@ -129,6 +129,45 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void O_ultimo_teste_guarda_o_retrato_das_traducoes_e_a_lista_de_mudancas_parte_dele()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+
+        var state = GameStateFile.Load(_project);
+        Assert.NotNull(state.LastTest!.Snapshot);
+        Assert.Equal(ChangesSinceTestState.Unchanged, TranslationChanges.Since(state.LastTest, _project.LoadAllText()).State);
+
+        Translate("a002", 0, "Rain");
+        var changes = TranslationChanges.Since(GameStateFile.Load(_project).LastTest, _project.LoadAllText());
+
+        Assert.Equal(["a002"], changes.Scenes.Select(s => s.Key));
+        Assert.DoesNotContain("Hello", File.ReadAllText(GameStateFile.PathFor(_project)));
+    }
+
+    [Fact]
+    public void Teste_de_acentos_nao_guarda_retrato()
+    {
+        Translate("a001", 0, "Hello");
+
+        Run(new GameTestOptions(AccentTest: true));
+
+        Assert.Null(GameStateFile.Load(_project).LastTest!.Snapshot);
+    }
+
+    [Fact]
+    public void Teste_de_uma_cena_guarda_o_retrato_so_dela()
+    {
+        Translate("a001", 0, "Hello");
+        Translate("a002", 0, "Rain");
+
+        Run(new GameTestOptions(OnlyScript: "a002"));
+
+        var snapshot = GameStateFile.Load(_project).LastTest!.Snapshot!;
+        Assert.Equal(["a002"], snapshot.Scripts.Keys);
+    }
+
+    [Fact]
     public void Voltar_ao_jogo_original_restaura_byte_a_byte_e_limpa_o_estado()
     {
         var before = File.ReadAllBytes(GamePackage);
