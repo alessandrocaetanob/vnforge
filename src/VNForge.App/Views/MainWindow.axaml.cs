@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using VNForge.App.Controls;
 
 namespace VNForge.App.Views;
@@ -19,13 +20,42 @@ public sealed partial class MainWindow : Window
         UpdateMicaFallback();
         Motion.Follow(this);
         AddHandler(KeyDownEvent, OnShortcutKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        Closing += (_, e) =>
+        Closing += OnClosing;
+    }
+
+    /// <summary>Quanto o resumo da sessão fica na tela antes de a janela fechar sozinha; fechar de novo antes disso fecha na hora.</summary>
+    public static readonly TimeSpan CloseSummaryTime = TimeSpan.FromMilliseconds(2500);
+
+    private bool closeSummaryShown;
+
+    private void OnClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (DataContext is not ViewModels.MainWindowViewModel vm)
         {
-            if (DataContext is ViewModels.MainWindowViewModel vm && !vm.TryClose())
+            return;
+        }
+
+        if (!vm.TryClose())
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        // O resumo só adia o fechamento pedido pela pessoa, uma vez: o desligamento do Windows, o fim do app e um segundo pedido de fechar não esperam.
+        if (closeSummaryShown || e.CloseReason != WindowCloseReason.WindowClosing || !vm.ShowCloseSummary())
+        {
+            return;
+        }
+
+        closeSummaryShown = true;
+        e.Cancel = true;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (IsVisible)
             {
-                e.Cancel = true;
+                Close();
             }
-        };
+        }, CloseSummaryTime);
     }
 
     /// <summary>

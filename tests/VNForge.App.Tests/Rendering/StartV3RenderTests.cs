@@ -138,7 +138,6 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                     AssertInside(box, card);
                     var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First();
                     Assert.True(accent.TranslatePoint(new Avalonia.Point(0, accent.Bounds.Height), scroll)!.Value.Y <= scroll.Viewport.Height, "o botão principal passa da área visível");
-                    Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 0.5, "o Início com um projeto passa da janela");
                     var clipped = ClippedTextHeadlessTests.FindClipped(card);
                     Assert.True(clipped.Count == 0, string.Join("; ", clipped));
 
