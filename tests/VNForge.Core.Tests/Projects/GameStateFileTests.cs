@@ -72,6 +72,42 @@ public sealed class GameStateFileTests : IDisposable
     }
 
     [Fact]
+    public void Retrato_das_traducoes_vai_e_volta_no_json_so_com_hashes()
+    {
+        var snapshot = new TranslationSnapshot(new Dictionary<string, IReadOnlyDictionary<string, string>> { ["a001"] = new Dictionary<string, string> { ["1"] = "0123456789ab" } });
+        var state = Sample() with { LastTest = Sample().LastTest! with { Snapshot = snapshot } };
+
+        GameStateFile.Save(_project, state);
+
+        var loaded = GameStateFile.Load(_project).LastTest!.Snapshot!;
+        Assert.Equal("0123456789ab", loaded.Scripts["a001"]["1"]);
+        Assert.Contains("\"snapshot\"", File.ReadAllText(GameStateFile.PathFor(_project)));
+    }
+
+    [Fact]
+    public void Retrato_que_falhou_vai_e_volta_no_json_e_arquivo_antigo_le_como_falso()
+    {
+        GameStateFile.Save(_project, Sample() with { LastTest = Sample().LastTest! with { SnapshotFailed = true } });
+        Assert.True(GameStateFile.Load(_project).LastTest!.SnapshotFailed);
+
+        File.WriteAllText(GameStateFile.PathFor(_project), "{\"version\": 1, \"lastTest\": {\"at\": \"2026-10-22T23:17:00+00:00\", \"kind\": \"translation\", \"steps\": []}}");
+
+        Assert.False(GameStateFile.Load(_project).LastTest!.SnapshotFailed);
+    }
+
+    [Fact]
+    public void Arquivo_antigo_sem_retrato_le_com_o_retrato_nulo()
+    {
+        Directory.CreateDirectory(_project.CacheDirectory);
+        File.WriteAllText(GameStateFile.PathFor(_project), "{\"version\": 1, \"lastTest\": {\"at\": \"2026-10-22T23:17:00+00:00\", \"kind\": \"translation\", \"steps\": []}}");
+
+        var loaded = GameStateFile.Load(_project);
+
+        Assert.NotNull(loaded.LastTest);
+        Assert.Null(loaded.LastTest.Snapshot);
+    }
+
+    [Fact]
     public void Limpar_o_jogo_guarda_o_ultimo_teste()
     {
         GameStateFile.Save(_project, Sample());

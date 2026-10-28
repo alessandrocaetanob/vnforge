@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="using:VNForge.App.Controls"
              xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:v="using:VNForge.App.Views"
              x:Class="VNForge.App.Views.BuildView"
              x:DataType="vm:BuildViewModel">
 
@@ -68,6 +69,10 @@
           </StackPanel>
         </c:GameStateBanner.Footer>
       </c:GameStateBanner>
+
+      <Border Classes="panel" Padding="16" AutomationProperties.Name="O que mudou desde o último teste">
+        <v:ChangedScenesPanel DataContext="{Binding SinceTest}"/>
+      </Border>
 
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
