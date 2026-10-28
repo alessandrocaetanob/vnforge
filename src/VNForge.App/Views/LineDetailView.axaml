@@ -81,7 +81,7 @@
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
               <SelectableTextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" AutomationProperties.Name="Falante"/>
+                                   VerticalAlignment="Center" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Falante"/>
             </Grid>
             <Border Classes="original">
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
@@ -297,7 +297,7 @@
               </Grid>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" IsVisible="{Binding HasSpeaker}">
                 <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Person}"/>
-                <SelectableTextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" AutomationProperties.Name="Quem fala no contexto">
+                <SelectableTextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala no contexto">
                   <Run FontWeight="SemiBold" Text="{Binding SpeakerName}"/><Run Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding VoiceText}"/>
                 </SelectableTextBlock>
               </Grid>

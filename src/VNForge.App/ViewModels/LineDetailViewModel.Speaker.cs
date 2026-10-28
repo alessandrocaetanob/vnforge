@@ -18,6 +18,21 @@ public sealed partial class LineDetailViewModel
     /// <summary>Refaz o contexto da linha (nome em português, voz, gênero) para um falante; o Editor o fornece. Sem ele o contexto fica como estava.</summary>
     public Func<string?, LineContext?>? ContextForSpeaker { get; init; }
 
+    /// <summary>Abre o modo revisão nas falas de um personagem em todas as cenas; o Editor o fornece. Sem ele o comando não pode rodar.</summary>
+    public Action<string>? SpeakerReviewStarter { get; init; }
+
+    /// <summary>"Revisar falas deste personagem": o modo revisão com as falas de quem fala nesta linha, em todas as cenas.</summary>
+    [RelayCommand(CanExecute = nameof(CanReviewSpeaker))]
+    private void ReviewSpeaker()
+    {
+        if (Speaker is { } speaker)
+        {
+            SpeakerReviewStarter?.Invoke(speaker);
+        }
+    }
+
+    private bool CanReviewSpeaker() => SpeakerReviewStarter is not null && HasSpeaker;
+
     /// <summary>O que o seletor oferece: o falante do jogo, Narração e cada personagem do Glossário.</summary>
     public IReadOnlyList<SpeakerChoice> SpeakerChoices => speakerChoices ??= BuildSpeakerChoices();
 

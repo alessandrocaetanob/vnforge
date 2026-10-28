@@ -97,4 +97,43 @@ public sealed class ReviewModeNavigationTests
         Assert.False(review.GenderMissing);
         Assert.Equal(1, review.Position);
     }
+
+    [Fact]
+    public async Task A_paleta_oferece_revisar_as_falas_do_personagem_pelo_nome_traduzido()
+    {
+        using var temp = new TempFolder();
+        var (main, _) = await OpenAsync(temp);
+        main.Editor.StopReview();
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Dashboard);
+
+        main.Palette.Open();
+        main.Palette.Query = "Revisar falas de Kenta";
+        var entry = Assert.Single(main.Palette.Results);
+        Assert.Equal(PaletteGroup.Command, entry.Group);
+        Assert.Equal("1 linha da IA em todas as cenas", entry.Subtitle);
+        main.Palette.ExecuteSelected();
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.True(main.Editor.IsReviewing);
+        Assert.Equal("Falas de Kenta em todas as cenas", main.Editor.Review!.SourceText);
+        Assert.Equal("yst00001:000001", main.Editor.Review.Detail!.Id);
+    }
+
+    [Fact]
+    public async Task O_Glossario_abre_a_revisao_do_personagem_da_linha()
+    {
+        using var temp = new TempFolder();
+        var (main, _) = await OpenAsync(temp);
+        main.Editor.StopReview();
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Glossary);
+        await main.Glossary.Loading;
+        var row = main.Glossary.Characters.Single(c => c.Source == "美咲");
+
+        main.Glossary.ReviewCharacterCommand.Execute(row);
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.True(main.Editor.IsReviewing);
+        Assert.Equal("Misaki", main.Editor.Review!.SourceName);
+        Assert.Equal("yst00001:000000", main.Editor.Review.Detail!.Id);
+    }
 }

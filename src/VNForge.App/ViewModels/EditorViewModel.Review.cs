@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core.Glossary;
+using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
@@ -35,9 +37,13 @@ public sealed partial class EditorViewModel
 
     /// <summary>Abre o modo revisão nas linhas da IA do script aberto, da primeira à última. Sem script ou sem como gravar, não faz nada.</summary>
     [RelayCommand]
-    public void StartReview()
+    public void StartReview() => StartReviewOf(ReviewSource.OpenScene);
+
+    /// <summary>Abre o modo revisão na fonte pedida: a cena aberta ou as falas de um personagem em todas as cenas. Sem script ou sem como gravar, não faz nada.</summary>
+    public void StartReviewOf(ReviewSource source)
     {
-        if (SelectedScript is null || lineEditor is null || !FlushPendingEdits())
+        ArgumentNullException.ThrowIfNull(source);
+        if (SelectedScript is null || lineEditor is null || data is null || !FlushPendingEdits())
         {
             return;
         }
@@ -47,9 +53,59 @@ public sealed partial class EditorViewModel
         SelectedSpeaker = Speakers[0];
 
         Review?.Dispose();
-        var queue = scriptLines.Where(l => l.Status == TranslationStatus.Machine).ToList();
+        var queue = ReviewQueueOf(source);
         RefreshReviewedToday();
-        Review = new ReviewModeViewModel(this, queue);
+        Review = new ReviewModeViewModel(this, queue, source);
+    }
+
+    /// <summary>Os personagens que têm linhas da IA para revisar, na ordem em que aparecem na história.</summary>
+    public IReadOnlyList<ReviewableSpeaker> ReviewableSpeakers
+    {
+        get
+        {
+            if (data is null)
+            {
+                return [];
+            }
+
+            var counts = new Dictionary<string, int>(CharacterBook.NameComparer);
+            var order = new List<string>();
+            foreach (var line in Scripts.SelectMany(s => data.LinesOf(s.Key)).Where(IsAwaitingReview))
+            {
+                var speaker = line.Unit.EffectiveSpeaker;
+                if (string.IsNullOrEmpty(speaker))
+                {
+                    continue;
+                }
+
+                if (!counts.TryGetValue(speaker, out var count))
+                {
+                    order.Add(speaker);
+                }
+
+                counts[speaker] = count + 1;
+            }
+
+            return [.. order.Select(speaker => new ReviewableSpeaker(speaker, DisplayNameOf(speaker), counts[speaker]))];
+        }
+    }
+
+    /// <summary>O nome do personagem em português quando está cadastrado; senão o do texto.</summary>
+    internal string DisplayNameOf(string speaker) =>
+        context.Characters.Find(speaker)?.Target is { Length: > 0 } target ? target : speaker;
+
+    private static bool IsAwaitingReview(LineEntry line) => line.Unit.Status == TranslationStatus.Machine;
+
+    private List<ReviewItem> ReviewQueueOf(ReviewSource source)
+    {
+        IEnumerable<LineEntry> lines = source.Kind switch
+        {
+            ReviewSourceKind.Speaker => Scripts.SelectMany(s => data!.LinesOf(s.Key))
+                .Where(l => IsAwaitingReview(l) && source.Speaker is { } speaker && CharacterBook.NameComparer.Equals(l.Unit.EffectiveSpeaker ?? string.Empty, speaker)),
+            _ => entries.Where(IsAwaitingReview),
+        };
+
+        return [.. lines.Select(l => new ReviewItem(l.ScriptKey, l.Number, l.Unit.Id))];
     }
 
     /// <summary>Fecha o modo revisão e volta à grade com a linha de agora selecionada.</summary>
@@ -93,11 +149,48 @@ public sealed partial class EditorViewModel
 
     internal void RequestDefineGender() => DefineGenderRequested?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>Seleciona a linha na grade e abre o detalhe dela; falso quando a seleção foi recusada (a gravação da linha anterior falhou).</summary>
-    internal bool ShowLine(LineViewModel line)
+    /// <summary>
+    /// Abre a cena do item (se não for a aberta), seleciona a linha na grade e abre o detalhe dela; falso quando a cena não abre ou a seleção foi recusada
+    /// (a gravação da linha anterior falhou).
+    /// </summary>
+    internal bool ShowReviewItem(ReviewItem item)
     {
-        SelectedLine = line;
-        return ReferenceEquals(SelectedLine, line);
+        if (!string.Equals(SelectedScript?.Key, item.ScriptKey, StringComparison.Ordinal))
+        {
+            var script = Scripts.FirstOrDefault(s => string.Equals(s.Key, item.ScriptKey, StringComparison.Ordinal));
+            if (script is null || !FlushPendingEdits())
+            {
+                return false;
+            }
+
+            SelectedScript = script;
+        }
+
+        var index = item.Number - 1;
+        if (index < 0 || index >= scriptLines.Length || scriptLines[index].Id != item.Id)
+        {
+            return false;
+        }
+
+        SelectedLine = scriptLines[index];
+        return ReferenceEquals(SelectedLine, scriptLines[index]);
+    }
+
+    /// <summary>A linha de um item da fila como está nos dados agora, com a gravação mais recente; nula quando o item já não existe.</summary>
+    internal LineEntry? EntryOf(ReviewItem item)
+    {
+        var lines = data?.LinesOf(item.ScriptKey);
+        var index = item.Number - 1;
+        return lines is not null && index >= 0 && index < lines.Count && lines[index].Unit.Id == item.Id ? lines[index] : null;
+    }
+
+    /// <summary>A fala anterior e a seguinte de um item da fila na cena aberta; vazias quando a cena do item não é a aberta.</summary>
+    internal (ContextLine? Previous, ContextLine? Next) NeighboursOf(ReviewItem item)
+    {
+        var index = item.Number - 1;
+        return string.Equals(SelectedScript?.Key, item.ScriptKey, StringComparison.Ordinal) && index >= 0 && index < scriptLines.Length
+            ? NeighboursOf(scriptLines[index])
+            : (null, null);
     }
 
     /// <summary>Abre outro script no Editor; o modo revisão usa para ir à próxima cena.</summary>

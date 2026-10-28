@@ -160,6 +160,12 @@
                         <TextBox Grid.Column="3" Classes="cell" Text="{Binding Tone}" PlaceholderText="Como fala" AutomationProperties.Name="Como fala"/>
                         <TextBlock Grid.Column="4" Classes="mono uses" Classes.unused="{Binding IsUnused}" Text="{Binding UsesLabel}"
                                    ToolTip.Tip="Linhas faladas pelo personagem"/>
+                        <Grid.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Revisar falas deste personagem"
+                                      Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).ReviewCharacterCommand}" CommandParameter="{Binding}"/>
+                          </ContextMenu>
+                        </Grid.ContextMenu>
                         <Button Grid.Column="5" Classes="icon subtle sm" VerticalAlignment="Center"
                                 Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).RemoveCharacterCommand}"
                                 CommandParameter="{Binding}" ToolTip.Tip="Remover personagem" AutomationProperties.Name="Remover personagem">
