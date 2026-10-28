@@ -186,8 +186,17 @@ public static class ProjectExtractor
         }
 
         var warnings = new List<string>();
-        var original = ReadGameTitle(source, project, warnings);
-        if (original is null)
+        string? original;
+        try
+        {
+            original = ReadGameTitle(source, project, warnings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new GameTitleRefresh(null, $"Não foi possível ler o título do jogo: {ex.Message}");
+        }
+
+        if (string.IsNullOrEmpty(original))
         {
             return new GameTitleRefresh(null, warnings.FirstOrDefault() ?? "O jogo não traz o arquivo do título da janela.");
         }
