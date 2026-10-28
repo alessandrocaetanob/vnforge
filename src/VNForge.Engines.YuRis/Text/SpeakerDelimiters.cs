@@ -18,6 +18,12 @@ namespace VNForge.Engines.YuRis.Text;
 /// faixa de lead bytes (<c>0xAB</c> e <c>0xBB</c>). Ficaram por não aparecerem em tradução nem em narração, o que evita o jogo tomar um trecho de
 /// narração por nome; a alternativa são as aspas retas, que aparecem em qualquer fala. Para trocar, mude só as duas constantes.
 /// </para>
+/// <para>
+/// A fala de pensamento (<c>nome（fala）</c>) é outra forma: o <c>（ ）</c> faz parte do corpo da tradução, que já sai com os parênteses ASCII
+/// (<see cref="Cp1252ThoughtOpen"/> e <see cref="Cp1252ThoughtClose"/>; o corretor e a pontuação do teclado trocam <c>（ ）</c> por eles), e o
+/// marcador do <c>yst00073</c> precisa ser esse mesmo caractere. Valem <c>(</c> e <c>)</c> por serem o que a tradução já tem e o que o leitor espera ver
+/// em torno de um pensamento, e porque não repetem o <c>«</c> da fala. O custo é que <c>(</c> também aparece em narração; o risco está no PR do #448.
+/// </para>
 /// </remarks>
 public static class SpeakerDelimiters
 {
@@ -27,8 +33,14 @@ public static class SpeakerDelimiters
     /// <summary>Fechamento que a <c>cp1252</c> usa no lugar de <c>」</c> e <c>』</c>.</summary>
     public const string Cp1252Close = "»";
 
+    /// <summary>Abertura que a <c>cp1252</c> usa no lugar de <c>（</c>, o marcador da fala de pensamento (<c>nome（fala）</c>, #448).</summary>
+    public const string Cp1252ThoughtOpen = "(";
+
+    /// <summary>Fechamento que a <c>cp1252</c> usa no lugar de <c>）</c>.</summary>
+    public const string Cp1252ThoughtClose = ")";
+
     /// <summary>
-    /// O que gravar no lugar de <paramref name="delimiter"/> (<c>「 」 『 』</c>, ou vazio) com a codificação do projeto: o próprio delimitador se ela o grava,
+    /// O que gravar no lugar de <paramref name="delimiter"/> (<c>「 」 『 』 （ ）</c>, ou vazio) com a codificação do projeto: o próprio delimitador se ela o grava,
     /// o par da <c>cp1252</c> se não e ela grava o par, e o delimitador de novo se nem o par é gravável (aí o chamador usa o Shift-JIS).
     /// </summary>
     public static string Resolve(ITextEncoder encoder, string delimiter)
@@ -47,6 +59,8 @@ public static class SpeakerDelimiters
     {
         "「" or "『" => Cp1252Open,
         "」" or "』" => Cp1252Close,
+        "（" => Cp1252ThoughtOpen,
+        "）" => Cp1252ThoughtClose,
         _ => null,
     };
 }
