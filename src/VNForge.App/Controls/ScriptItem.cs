@@ -6,9 +6,10 @@ using Avalonia.Controls.Primitives;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// O conteúdo de um item da lista de scripts (docs/design/components/ScriptItem): nome da cena, id pequeno, percentual concluído e barra de progresso.
+/// O conteúdo de um item da lista de scripts (docs/design/components/ScriptItem): 36 px com o nome da cena, o percentual concluído e uma barra fina embaixo.
+/// O id (<see cref="Key"/>) não é desenhado; quem usa o controle o põe na dica do mouse.
 /// "Atual" é a seleção do <c>ListBoxItem</c> que o contém (<c>ListBox.scripts</c>). Com <see cref="IsRunning"/>, um ícone de sincronização
-/// em <c>status-ai-fg</c> aparece antes do percentual; com 100%, a barra fica em <c>seg-approved</c>.
+/// em <c>status-ai-fg</c> aparece antes do percentual; com 100%, um visto toma o lugar do texto e a barra fica em <c>seg-approved</c>.
 /// </summary>
 public sealed class ScriptItem : TemplatedControl
 {
@@ -31,7 +32,7 @@ public sealed class ScriptItem : TemplatedControl
         set => SetValue(KeyProperty, value);
     }
 
-    /// <summary>O nome da cena ("Manhã de chuva" ou "Cena 13"); sem ele o item mostra só a chave pequena.</summary>
+    /// <summary>O nome da cena ("Manhã de chuva" ou "Cena 13"); sem ele o item mostra só o percentual e a barra (a lista do Editor sempre passa um nome).</summary>
     public string? Label
     {
         get => GetValue(LabelProperty);
