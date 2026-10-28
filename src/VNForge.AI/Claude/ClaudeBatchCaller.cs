@@ -37,7 +37,7 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
         if (reply.StopReason == "refusal")
             throw new ClaudeRefusalException($"O modelo recusou {spec.Verb} este lote (stop_reason: refusal).");
         if (reply.StopReason == "max_tokens")
-            throw new ClaudeResponseException("A resposta foi cortada por limite de tokens; reduza o lote.");
+            throw new ClaudeResponseException(spec.TruncatedMessage ?? "A resposta foi cortada por limite de tokens; reduza o lote.");
 
         return spec.Parse(reply.Text, batch);
     }
@@ -47,6 +47,7 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
 /// <param name="Verb">O que o modelo recusa fazer, no infinitivo ("traduzir"); entra na mensagem de recusa.</param>
 /// <param name="Parse">Lê a resposta e confere os ids do lote.</param>
 /// <param name="Refused">O resultado de uma linha que o modelo recusou sozinha.</param>
+/// <param name="TruncatedMessage">A mensagem quando a resposta é cortada por limite de tokens; nulo usa a do lote.</param>
 internal sealed record ClaudeBatchSpec<T>(
     string Schema,
     string Verb,
@@ -54,4 +55,5 @@ internal sealed record ClaudeBatchSpec<T>(
     Func<TranslationBatch, string> BuildBatchContext,
     Func<TranslationBatch, string> BuildUser,
     Func<string, TranslationBatch, IReadOnlyList<T>> Parse,
-    Func<TextUnit, T> Refused);
+    Func<TextUnit, T> Refused,
+    string? TruncatedMessage = null);

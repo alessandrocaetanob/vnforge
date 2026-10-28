@@ -63,7 +63,8 @@
                   <TextBlock TextWrapping="Wrap" Text="{Binding Text}"/>
                   <TextBlock Classes="caption fit" TextWrapping="Wrap" Text="{Binding FitText}" IsVisible="{Binding HasFit}" Classes.over="{Binding Overflows}"/>
                 </StackPanel>
-                <Button Grid.Column="1" Classes="sm" VerticalAlignment="Top" Command="{Binding UseCommand}" ToolTip.Tip="Troca a tradução por esta versão">
+                <Button Grid.Column="1" Classes="sm" VerticalAlignment="Top" Command="{Binding UseCommand}" ToolTip.Tip="Troca a tradução por esta versão"
+                        AutomationProperties.Name="{Binding UseLabel}">
                   <TextBlock Text="Usar" TextWrapping="NoWrap"/>
                 </Button>
               </Grid>

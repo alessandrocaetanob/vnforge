@@ -671,7 +671,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             if (neighbour >= 0 && neighbour < scriptLines.Length)
             {
                 var other = scriptLines[neighbour];
-                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null));
+                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null, neighbour > index));
             }
         }
 

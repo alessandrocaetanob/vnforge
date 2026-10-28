@@ -155,7 +155,7 @@ public sealed class FitWarningViewModelTests
     [Fact]
     public async Task Recusa_da_ia_aparece_como_erro_e_a_traducao_nao_muda()
     {
-        var recusa = new LineSuggester(() => new Recusa());
+        var recusa = new LineSuggester(() => new ReescritaFixa(refused: true));
         var cenario = new Cenario(Palavras(16), recusa);
 
         await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
@@ -168,7 +168,7 @@ public sealed class FitWarningViewModelTests
     [Fact]
     public async Task Provedor_falso_devolve_uma_versao_curta_e_ela_e_entregue()
     {
-        var falso = new FakeTranslationProvider(_ => @"Versão curta.\p");
+        var falso = new ReescritaFixa(@"Versão curta.\p");
         var cenario = new Cenario(Palavras(16), new LineSuggester(() => falso));
 
         await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
@@ -267,11 +267,5 @@ public sealed class FitWarningViewModelTests
 
         Assert.False(cenario.Aviso.HasError);
         Assert.Equal("Passa 2 linhas: a caixa do jogo tem 3 linhas.", cenario.Aviso.Message);
-    }
-
-    private sealed class Recusa : ITranslationProvider
-    {
-        public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<TranslationResult>>([.. batch.Lines.Select(l => new TranslationResult(l.Id, string.Empty, Refused: true))]);
     }
 }

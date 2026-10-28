@@ -100,6 +100,18 @@ public class ClaudeRewriteTests
     }
 
     [Fact]
+    public async Task Resposta_cortada_por_limite_de_tokens_explica_sem_falar_em_lote()
+    {
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("max_tokens", "{")));
+
+        var erro = await Assert.ThrowsAsync<ClaudeResponseException>(() =>
+            provider.RewriteAsync(new TranslationBatch([Unit("a", "x")]), new RewriteRequest(RewriteDirection.Shorter, "t"), CancellationToken.None));
+
+        Assert.Contains("limite de tokens", erro.Message);
+        Assert.DoesNotContain("lote", erro.Message);
+    }
+
+    [Fact]
     public async Task Mais_de_uma_linha_no_lote_e_recusado()
     {
         var provider = new ClaudeTranslationProvider(new StubClient(_ => Ok("{}")));

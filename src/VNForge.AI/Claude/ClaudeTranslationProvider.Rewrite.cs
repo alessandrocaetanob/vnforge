@@ -29,7 +29,8 @@ public sealed partial class ClaudeTranslationProvider : IRewriteProvider
             b => RewriteBatchContext(b, request),
             b => BuildRewriteUser(b, request),
             ParseRewrite,
-            line => new RewriteResult(line.Id, [], Refused: true));
+            line => new RewriteResult(line.Id, [], Refused: true),
+            "A resposta da IA foi cortada por limite de tokens. Tente de novo ou edite o texto à mão.");
         var results = await _caller.RunAsync(batch, spec, ct).ConfigureAwait(false);
         return results[0];
     }

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Time.Testing;
 using VNForge.AI.Translation;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Formatting;
@@ -20,25 +21,31 @@ public sealed class LineRewriteTests : IDisposable
     public LineRewriteTests()
     {
         raiz = SampleProjects.Create(pasta.Path, "Teste", TranslationStatus.Machine);
-        ProjectFolder.Open(raiz).SaveText("yst00001", [new("yst00001:000000", TextUnitKind.Dialogue, "美咲", @"原文\p", @"Olá, tudo bem?\p", TranslationStatus.Machine)]);
+        ProjectFolder.Open(raiz).SaveText("yst00001",
+        [
+            new("yst00001:000000", TextUnitKind.Dialogue, "美咲", @"原文\p", @"Olá, tudo bem?\p", TranslationStatus.Machine),
+            new("yst00001:000001", TextUnitKind.Dialogue, "？？？", @"原文2\p", @"Quem é?\p", TranslationStatus.Machine),
+        ]);
     }
 
     public void Dispose() => pasta.Dispose();
 
     private static string Palavras(int quantas) => string.Join(' ', Enumerable.Repeat("aaaaaaaaa", quantas));
 
-    private LineDetailViewModel Abrir(ILineSuggester? sugestor, string? voz = "seco e resmungão", bool comCaixa = true)
+    private LineDetailViewModel Abrir(ILineSuggester? sugestor, string? voz = "seco e resmungão", bool comCaixa = true, int indice = 0, FormattingProfile? perfil = null, IReadOnlyList<ContextLine>? cena = null)
     {
-        var unidade = ProjectFolder.Open(raiz).LoadText("yst00001")[0];
+        var unidade = ProjectFolder.Open(raiz).LoadText("yst00001")[indice];
         var vm = new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorNulo(), relogio, acao => acao())
         {
             Suggester = sugestor,
             Context = new LineContext("Misaki", voz, [new GlossaryTerm("先輩", "senpai")]),
-            Characters = [new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "seco e resmungão")],
+            Characters = [new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "seco e resmungão"), new CharacterEntry("？？？", "???", CharacterGender.Unknown, "misterioso")],
+            ProjectRoot = raiz,
+            Scene = cena ?? [],
         };
         if (comCaixa)
         {
-            vm.AttachPreview(Caixa);
+            vm.AttachPreview(perfil ?? Caixa);
         }
 
         return vm;
@@ -292,6 +299,83 @@ public sealed class LineRewriteTests : IDisposable
         Assert.False(vm.IsRewriting);
         Assert.Null(vm.RewriteError);
         Assert.False(vm.HasRewriteOptions);
+    }
+
+    [Fact]
+    public async Task Depois_de_trocar_o_falante_para_Narracao_a_medida_e_o_pedido_usam_o_falante_de_agora()
+    {
+        var provedor = new FakeTranslationProvider();
+        using var vm = Abrir(new LineSuggester(() => provedor));
+        vm.SelectedSpeakerChoice = vm.SpeakerChoices.First(c => c.Value == string.Empty);
+
+        await Chip(vm, RewriteDirection.MoreFormal).Command.ExecuteAsync(null);
+
+        var (lote, _) = Assert.Single(provedor.ReceivedRewrites);
+        Assert.Null(lote.Lines[0].Speaker);
+        Assert.Empty(lote.Characters);
+        Assert.Equal(2, vm.RewriteOptions.Count);
+        Assert.All(vm.RewriteOptions, o => Assert.StartsWith("Cabe", o.FitText));
+    }
+
+    [Fact]
+    public async Task O_pedido_leva_o_estilo_e_o_guia_do_projeto_e_as_falas_vizinhas_da_cena()
+    {
+        var pasta = ProjectFolder.Open(raiz);
+        pasta.SaveConfig(pasta.LoadConfig() with { Style = StyleConfig.Default with { Address = AddressForm.Tu } });
+        File.WriteAllText(Path.Combine(raiz, "style.md"), "  Tom de comédia.  ");
+        var provedor = new FakeTranslationProvider();
+        using var vm = Abrir(new LineSuggester(() => provedor), cena: [new ContextLine("A", "antes"), new ContextLine("B", "depois", "Depois.", Following: true)]);
+
+        await Chip(vm, RewriteDirection.MoreNatural).Command.ExecuteAsync(null);
+
+        var (lote, _) = Assert.Single(provedor.ReceivedRewrites);
+        Assert.Equal(AddressForm.Tu, lote.Style.Address);
+        Assert.Equal("Tom de comédia.", lote.StyleGuide);
+        Assert.Equal(["antes"], lote.PreviousLines.Select(l => l.Source));
+        Assert.Equal(["depois"], lote.NextLines.Select(l => l.Source));
+    }
+
+    [Fact]
+    public async Task Falante_so_de_sinais_nao_leva_personagem_ao_pedido()
+    {
+        var provedor = new FakeTranslationProvider();
+        using var vm = Abrir(new LineSuggester(() => provedor), indice: 1);
+
+        await Chip(vm, RewriteDirection.MoreNatural).Command.ExecuteAsync(null);
+
+        Assert.Empty(Assert.Single(provedor.ReceivedRewrites).Batch.Characters);
+    }
+
+    [Fact]
+    public async Task Com_a_quebra_desligada_a_caixa_nao_vai_ao_pedido()
+    {
+        var provedor = new FakeTranslationProvider();
+        using var vm = Abrir(new LineSuggester(() => provedor), perfil: FormattingProfile.Default with { Wrap = new WrapRule(Enabled: false, MaxWidth: 40, MaxLines: 3) });
+
+        await Chip(vm, RewriteDirection.Shorter).Command.ExecuteAsync(null);
+
+        Assert.Equal(new RewriteRequest(RewriteDirection.Shorter, @"Olá, tudo bem?\p"), Assert.Single(provedor.ReceivedRewrites).Request);
+    }
+
+    [Fact]
+    public async Task Mais_curta_sem_chave_explica_em_vez_de_oferecer_uma_versao_de_teste_maior()
+    {
+        using var vm = Abrir(new LineSuggester(() => null));
+
+        await Chip(vm, RewriteDirection.Shorter).Command.ExecuteAsync(null);
+
+        Assert.False(vm.HasRewriteOptions);
+        Assert.Contains("chave", vm.RewriteError);
+    }
+
+    [Fact]
+    public async Task Os_botoes_Usar_tem_nome_para_leitor_de_tela()
+    {
+        using var vm = Abrir(new LineSuggester(() => new FakeTranslationProvider()));
+
+        await Chip(vm, RewriteDirection.MoreFaithful).Command.ExecuteAsync(null);
+
+        Assert.Equal(["Usar a versão 1", "Usar a versão 2"], vm.RewriteOptions.Select(o => o.UseLabel));
     }
 
     private sealed class NavegadorNulo : ILineNavigator
