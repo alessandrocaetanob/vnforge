@@ -28,6 +28,13 @@ public sealed partial class BuildView : UserControl
         set => Technical.IsExpanded = value;
     }
 
+    /// <summary>O link da faixa de "Detalhes técnicos": volta ao topo da página, onde fica o botão que faz o teste inteiro, e põe o foco nele.</summary>
+    private void GoToTest_Click(object? sender, RoutedEventArgs e)
+    {
+        TestButton.BringIntoView();
+        TestButton.Focus();
+    }
+
     /// <summary>Copia o log inteiro, com data e hora, para a área de transferência; é o que o usuário cola ao relatar um problema.</summary>
     private async void CopyLog_Click(object? sender, RoutedEventArgs e)
     {

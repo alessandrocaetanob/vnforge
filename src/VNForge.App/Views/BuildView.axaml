@@ -28,7 +28,7 @@
               <TextBlock Text="Voltar ao jogo original"/>
             </StackPanel>
           </Button>
-          <Button Classes="accent lg" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
+          <Button x:Name="TestButton" Classes="accent lg" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
               <TextBlock Text="Testar no jogo" VerticalAlignment="Center"/>
@@ -133,6 +133,19 @@
       <!-- Build, injeção, patch do executável, registro e cópias de segurança: o que a pessoa que só quer testar não precisa ver. -->
       <c:TechnicalDetails x:Name="Technical" Key="build" AutomationProperties.Name="Detalhes técnicos">
         <StackPanel Spacing="16" Margin="0,8,0,0">
+          <!-- O caminho de um clique: quem abre os detalhes costuma achar que build, patch, injeção e restauração são os passos do teste. Nenhum botão daqui tem destaque. -->
+          <Border Classes="infobar" AutomationProperties.Name="Testar no jogo faz tudo">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run FontWeight="SemiBold" Text="Testar no jogo (Ctrl+B) já faz tudo."/>
+                <Run Text="Ele refaz o build, aplica o patch da fonte, guarda a cópia de segurança e copia para o jogo. Não precisa restaurar os originais entre um teste e outro."/>
+              </TextBlock>
+              <Button Grid.Column="2" Classes="sm" Click="GoToTest_Click" Content="Ir para Testar no jogo"
+                      VerticalAlignment="Center" AutomationProperties.Name="Ir para Testar no jogo"/>
+            </Grid>
+          </Border>
+
           <!-- Erros novos de QA: o build recusaria, então "Novo build" fica travado; o build que já existe segue válido para injetar. -->
           <Border Classes="infobar warning" IsVisible="{Binding HasQaErrors}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
@@ -141,7 +154,7 @@
                 <Run FontWeight="SemiBold" Text="{Binding QaBannerTitle, Mode=OneWay}"/>
                 <Run Text="{Binding QaBannerDetail, Mode=OneWay}"/>
               </TextBlock>
-              <Button Grid.Column="2" Classes="sm accent" Command="{Binding ShowErrorsCommand}" Content="Ver erros"
+              <Button Grid.Column="2" Classes="sm" Command="{Binding ShowErrorsCommand}" Content="Ver erros"
                       VerticalAlignment="Center" AutomationProperties.Name="Ver erros"/>
             </Grid>
           </Border>
@@ -186,7 +199,7 @@
                         </TextBlock>
                       </Grid>
                     </Border>
-                    <Button Classes="accent" HorizontalAlignment="Left" Command="{Binding PatchCommand}"
+                    <Button HorizontalAlignment="Left" Command="{Binding PatchCommand}"
                             Content="Aplicar patch da fonte" AutomationProperties.Name="Aplicar patch da fonte"/>
                   </StackPanel>
                 </StackPanel>
@@ -229,7 +242,7 @@
                   </ItemsControl>
 
                   <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
-                    <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                             Command="{Binding InjectCommand}" Content="Injetar no jogo" AutomationProperties.Name="Injetar no jogo"/>
                     <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                             Command="{Binding LaunchCommand}" AutomationProperties.Name="Abrir jogo">
