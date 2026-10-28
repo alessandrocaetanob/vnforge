@@ -2,23 +2,24 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- docs/design/components/LineRow: colunas 56 · 92 · 132 · 1* · 1.2* · 32 com gap de 8 e recuo de 12 (v4: o texto leva o que sobra). Original em jp-row, o resto em body-sm, o número em mono. -->
+  <!-- docs/design/components/LineRow: colunas 56 · 92 · 132 · 1* · 1.2* · 32 com gap de 8 e recuo de 12 (v4: o texto leva o que sobra). Original em jp-row, o resto em body-sm, o número em mono.
+       As três colunas de texto moram numa grade interna (PART_Text): a mesma conta de larguras, e a densidade Roteiro (#460) as empilha em três linhas dessa grade, sem coluna de falante. -->
   <Style Selector="c|LineRow">
     <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
     <Setter Property="Padding" Value="12,0"/>
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Background}">
-        <Grid ColumnDefinitions="56,92,132,*,1.2*,32" ColumnSpacing="8" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
-          <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}" VerticalAlignment="Center"/>
-          <c:StatusBadge Grid.Column="1" Status="{TemplateBinding Status}"/>
-          <SelectableTextBlock Name="PART_Speaker" Grid.Column="2" Classes="body-sm" Text="{TemplateBinding SpeakerText}"
-                               TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
-          <TextBlock Name="PART_Original" Grid.Column="3" Classes="jp-row" Text="{TemplateBinding Original}"
-                     TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
-          <TextBlock Name="PART_Translation" Grid.Column="4" Classes="body-sm" Text="{TemplateBinding TranslationText}"
-                     TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"/>
-          <Panel Grid.Column="5" VerticalAlignment="Center">
+        <Grid Name="PART_Row" ColumnDefinitions="56,92,*,32" ColumnSpacing="8" Margin="{TemplateBinding Padding}">
+          <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}"/>
+          <c:StatusBadge Name="PART_Status" Grid.Column="1" Status="{TemplateBinding Status}"/>
+          <Grid Name="PART_Text" Grid.Column="2" ColumnDefinitions="132,*,1.2*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="2" VerticalAlignment="Center">
+            <SelectableTextBlock Name="PART_Speaker" Classes="body-sm" Text="{TemplateBinding SpeakerText}"
+                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
+            <TextBlock Name="PART_Original" Classes="jp-row" Text="{TemplateBinding Original}" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Name="PART_Translation" Classes="body-sm" Text="{TemplateBinding TranslationText}" TextTrimming="CharacterEllipsis"/>
+          </Grid>
+          <Panel Name="PART_Issue" Grid.Column="3">
             <PathIcon Name="PART_Warning" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Warning}"
                       Foreground="{DynamicResource Vnf.SignalWarningFg}" AutomationProperties.Name="{TemplateBinding IssueLabel}" ToolTip.Tip="{TemplateBinding IssueTip}"/>
             <PathIcon Name="PART_Error" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Error}"
@@ -28,6 +29,67 @@
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- Colunas: tudo numa linha só, centrado, com reticências. -->
+  <Style Selector="c|LineRow /template/ Grid#PART_Row">
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="c|LineRow /template/ TextBlock#PART_Number, c|LineRow /template/ c|StatusBadge#PART_Status, c|LineRow /template/ Panel#PART_Issue">
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="c|LineRow /template/ SelectableTextBlock#PART_Speaker">
+    <Setter Property="Grid.Column" Value="0"/>
+    <Setter Property="MaxLines" Value="1"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="c|LineRow /template/ TextBlock#PART_Original">
+    <Setter Property="Grid.Column" Value="1"/>
+    <Setter Property="MaxLines" Value="1"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="c|LineRow /template/ TextBlock#PART_Translation">
+    <Setter Property="Grid.Column" Value="2"/>
+    <Setter Property="MaxLines" Value="1"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Roteiro (#460): o nome de quem fala é o rótulo em cima (medium; o falante trocado segue em semibold), o original embaixo dele e a tradução por último, até duas linhas cada; o resto da linha fica no alto.
+       A altura acompanha o texto, de 72 px (uma linha de cada) a 108 px (duas de cada): a lista mede os itens que mostra e estima o resto pela média. -->
+  <Style Selector="c|LineRow:script">
+    <Setter Property="Height" Value="NaN"/>
+    <Setter Property="Padding" Value="12,8"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ Grid#PART_Row">
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ TextBlock#PART_Number, c|LineRow:script /template/ c|StatusBadge#PART_Status, c|LineRow:script /template/ Panel#PART_Issue">
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ Grid#PART_Text">
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ SelectableTextBlock#PART_Speaker">
+    <Setter Property="Grid.ColumnSpan" Value="3"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="16"/>
+    <Setter Property="FontWeight" Value="Medium"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ TextBlock#PART_Original">
+    <Setter Property="Grid.Row" Value="1"/>
+    <Setter Property="Grid.Column" Value="0"/>
+    <Setter Property="Grid.ColumnSpan" Value="3"/>
+    <Setter Property="MaxLines" Value="2"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ TextBlock#PART_Translation">
+    <Setter Property="Grid.Row" Value="2"/>
+    <Setter Property="Grid.Column" Value="0"/>
+    <Setter Property="Grid.ColumnSpan" Value="3"/>
+    <Setter Property="MaxLines" Value="2"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
   <!-- Narração e "sem tradução" em text-secondary, sem itálico. -->
   <Style Selector="c|LineRow:narration /template/ SelectableTextBlock#PART_Speaker">
@@ -54,5 +116,11 @@
   </Style>
   <Style Selector="ListBox.lines > ListBoxItem /template/ Border#SelectionBar">
     <Setter Property="Margin" Value="0,6"/>
+  </Style>
+  <Style Selector="ListBox.lines.script > ListBoxItem">
+    <Setter Property="Height" Value="NaN"/>
+  </Style>
+  <Style Selector="ListBox.lines.script > ListBoxItem /template/ Border#SelectionBar">
+    <Setter Property="Margin" Value="0,8"/>
   </Style>
 </Styles>

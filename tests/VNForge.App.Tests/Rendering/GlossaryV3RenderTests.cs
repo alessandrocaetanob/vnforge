@@ -58,7 +58,7 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Personagens_destaca_o_seletor_de_genero_vazio_e_oferece_a_sugestao(string themeName)
+    public async Task Personagens_deixa_o_seletor_vazio_neutro_e_oferece_Pedir_a_IA_na_faixa(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         await fixture.Session.Dispatch<int>(
@@ -87,21 +87,33 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
                         Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
                     }
 
-                    var selectors = window.GetVisualDescendants().OfType<ComboBox>().ToList();
-                    var empty = Assert.Single(selectors, c => c.Classes.Contains("needs"));
-                    var filled = Assert.Single(selectors, c => !c.Classes.Contains("needs") && c.IsVisible);
                     var warning = Brush(window, "Vnf.SignalWarningFg", theme);
-
-                    Assert.True(Edge(PixelProbe.Capture(window, empty), warning) > empty.Bounds.Width / 2, "a borda do seletor vazio deveria ter o tom de aviso");
-                    Assert.Equal(0, Edge(PixelProbe.Capture(window, filled), warning));
+                    var selectors = window.GetVisualDescendants().OfType<ComboBox>().Where(c => c.IsVisible).ToList();
+                    Assert.NotEmpty(selectors);
+                    Assert.All(selectors, c => Assert.Equal(0, Edge(PixelProbe.Capture(window, c), warning)));
 
                     var banner = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("infobar") && b.Classes.Contains("warning") && b.IsVisible);
                     Assert.True(banner.Bounds.Height > 20 && banner.Bounds.Right <= ScreenRenderer.Width);
 
-                    var suggest = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Glossary.SuggestVoicesCommand);
-                    Assert.True(suggest.IsEffectivelyEnabled);
-                    var corner = suggest.TranslatePoint(new Point(suggest.Bounds.Width, suggest.Bounds.Height), window)!.Value;
+                    var ask = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Glossary.SuggestVoicesCommand);
+                    Assert.True(ask.IsEffectivelyEnabled && ask.Classes.Contains("accent"), "Pedir à IA é o botão principal da faixa");
+                    Assert.True(new Rect(banner.Bounds.Size).Contains(ask.TranslatePoint(new Point(ask.Bounds.Width / 2, ask.Bounds.Height / 2), banner)!.Value), "o botão fica dentro da faixa");
+                    var corner = ask.TranslatePoint(new Point(ask.Bounds.Width, ask.Bounds.Height), window)!.Value;
                     Assert.True(corner.X <= ScreenRenderer.Width && corner.Y <= ScreenRenderer.Height, "o botão de sugestão cabe na janela");
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Glossary.AcceptAllSuggestionsCommand && b.IsEffectivelyVisible);
+
+                    await vm.Glossary.SuggestVoicesCommand.ExecuteAsync(null);
+                    ScreenRenderer.Settle(window);
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("glossario-v5-genero-sugerido", theme)));
+
+                    var suggested = window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("suggested") && b.IsEffectivelyVisible).ToList();
+                    Assert.Equal(vm.Glossary.PendingSuggestionCount, suggested.Count);
+                    Assert.NotEmpty(suggested);
+                    var acceptAll = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Glossary.AcceptAllSuggestionsCommand);
+                    Assert.True(acceptAll.IsEffectivelyVisible && acceptAll.IsEffectivelyEnabled && acceptAll.Classes.Contains("accent"));
+                    Assert.False(ask.Classes.Contains("accent"), "com sugestões esperando, o aceite passa a ser o botão principal");
+                    var check = Assert.Single(suggested[0].GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Glossary.AcceptSuggestionCommand);
+                    Assert.True(check.IsEffectivelyVisible && check.Bounds.Right <= suggested[0].Bounds.Width);
                 }
                 finally
                 {

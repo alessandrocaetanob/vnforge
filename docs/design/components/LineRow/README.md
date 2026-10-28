@@ -11,6 +11,10 @@ Uma linha da grade de tradução: número, status, quem fala, original, traduç�
 
 `56px · 92px · 132px · 1* · 1.2* · 32px`, gap 8 e recuo de 12 nas bordas (v4: Linha, Situação, Quem fala e o aviso têm largura fixa e pequena; Original e Tradução dividem o resto e a tradução leva um pouco mais, porque o português é mais longo). Original em `jp-row`; demais em `body-sm`; id em `mono`.
 
+## Roteiro (v5, #460)
+
+Com `IsScript` (pseudo-classe `:script`) a linha empilha o texto numa coluna só, depois de Linha e Situação: o nome de quem fala em `caption` semibold, o original e a tradução embaixo, cada um com `MaxLines` 2 e reticências. A altura deixa de ser fixa (72 a 108 px, recuo vertical de 8) e o número, a situação e o aviso do QA ficam no alto. O cabeçalho da grade troca para "Quem fala · original · tradução".
+
 ## Avalonia
 
 `ListBox` com `ItemsPanel` = `VirtualizingStackPanel` e `ItemTemplate` com `Grid ColumnDefinitions="56,92,132,*,1.2*,32"`. Seleção, hover e foco vêm do `ControlTheme` de `ListBoxItem` (`^:selected`, `^:pointerover`, `^:focus-visible`). Não usar `TreeDataGrid`: a versão mantida virou parte do Avalonia Accelerate (comercial); a grade aqui não precisa de edição em célula, ordenação por coluna nem hierarquia.
