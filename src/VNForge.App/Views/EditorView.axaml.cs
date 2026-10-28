@@ -205,6 +205,10 @@ public sealed partial class EditorView : UserControl
         {
             ApplyScenesColumn();
         }
+        else if (e.PropertyName == nameof(EditorViewModel.IsScriptDensity))
+        {
+            KeepSelectedLineInView();
+        }
 
         if ((e.PropertyName == nameof(EditorViewModel.IsSearchOpen) && current is { IsSearchOpen: false })
             || (e.PropertyName == nameof(EditorViewModel.IsReviewing) && current is { IsReviewing: false }))
@@ -224,6 +228,20 @@ public sealed partial class EditorView : UserControl
                 DispatcherPriority.Input);
         }
     }
+
+    /// <summary>
+    /// Trocar a densidade muda a altura das linhas e a rolagem, que está em pixels, passa a apontar para outras linhas: depois do novo layout a linha aberta volta para a tela.
+    /// </summary>
+    private void KeepSelectedLineInView() =>
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (current?.SelectedLine is { } line)
+                {
+                    LinesList.ScrollIntoView(line);
+                }
+            },
+            DispatcherPriority.Loaded);
 
     /// <summary>Ctrl+F e Ctrl+H abrem o painel; o foco vai para o campo da busca.</summary>
     private void OnSearchOpened(object? sender, bool replace) => SearchPanel.FocusField(replace);
