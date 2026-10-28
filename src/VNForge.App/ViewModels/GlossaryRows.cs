@@ -111,6 +111,15 @@ public sealed partial class CharacterRow : UsageRow
     /// <summary>O texto esmaecido da coluna "Como fala": a sugestão da IA enquanto espera o aceite, ou o rótulo da coluna.</summary>
     public string TonePlaceholder => HasSuggestion && SuggestedTone.Length > 0 ? SuggestedTone : "Como fala";
 
+    // Quem escolhe um gênero à mão encerra a sugestão: ela não volta se a pessoa devolver o seletor a "não definido".
+    partial void OnGenderChanged(CharacterGender value)
+    {
+        if (value != CharacterGender.Unknown)
+        {
+            ClearSuggestion();
+        }
+    }
+
     public void ClearSuggestion()
     {
         SuggestedGender = CharacterGender.Unknown;

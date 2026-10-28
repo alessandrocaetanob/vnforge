@@ -556,7 +556,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             {
                 if (e.PropertyName == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
                 {
-                    NotifyPending();
+                    NotifyVoices();
                 }
 
                 NotifySummaries();

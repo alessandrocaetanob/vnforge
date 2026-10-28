@@ -164,14 +164,46 @@ public class GlossarySuggestionsTests
         var teacher = vm.Characters.Single(c => c.Source == "先生");
 
         vm.DismissSuggestionCommand.Execute(kenta);
-        teacher.Gender = CharacterGender.Male;
 
         Assert.False(kenta.HasSuggestion);
         Assert.Equal(CharacterGender.Unknown, kenta.Gender);
         Assert.Equal("Como fala", kenta.TonePlaceholder);
+        Assert.Equal(1, vm.PendingSuggestionCount);
+        Assert.Equal(1, vm.VoiceRequestCount);
+        Assert.True(vm.CanSuggestVoices);
+        Assert.True(vm.SuggestVoicesCommand.CanExecute(null));
+
+        teacher.Gender = CharacterGender.Male;
+        teacher.Gender = CharacterGender.Unknown;
+
         Assert.False(teacher.HasSuggestion);
         Assert.Equal(0, vm.PendingSuggestionCount);
         Assert.False(vm.AcceptAllSuggestionsCommand.CanExecute(null));
+        Assert.Equal(2, vm.VoiceRequestCount);
+    }
+
+    [Fact]
+    public async Task Aceitar_suja_a_pagina_mas_sugerir_e_descartar_nao()
+    {
+        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "calma"));
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, fake, characters: [new CharacterEntry("美咲", "Misaki", CharacterGender.Female), new CharacterEntry("健太", "Kenta"), new CharacterEntry("先生", "Sensei")]);
+        var kenta = vm.Characters.Single(c => c.Source == "健太");
+        Assert.False(vm.IsDirty);
+
+        await vm.SuggestVoicesCommand.ExecuteAsync(null);
+        Assert.Equal(2, vm.PendingSuggestionCount);
+        Assert.False(vm.IsDirty);
+
+        vm.DismissSuggestionCommand.Execute(kenta);
+        Assert.False(vm.IsDirty);
+        Assert.Equal(CharacterGender.Unknown, folder.LoadCharacters().Single(c => c.Source == "健太").Gender);
+
+        vm.AcceptSuggestionCommand.Execute(vm.Characters.Single(c => c.Source == "先生"));
+        Assert.True(vm.IsDirty);
+        Assert.True(vm.Flush());
+        Assert.Equal(CharacterGender.Female, folder.LoadCharacters().Single(c => c.Source == "先生").Gender);
+        Assert.Equal(CharacterGender.Unknown, folder.LoadCharacters().Single(c => c.Source == "健太").Gender);
     }
 
     [Fact]
