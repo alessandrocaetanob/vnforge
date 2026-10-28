@@ -164,9 +164,9 @@ public static class ControlMarkers
     /// <summary>
     /// Junta texto (que só passa pelo codificador ao fechar o trecho) e bytes de controle, na ordem. É o único ponto que aplica o espaço de
     /// guarda da <c>cp1252</c> (#435): o exe do jogo trata <c>0xE0</c> a <c>0xFC</c> como lead byte mesmo com a tabela de fonte em Windows-1252,
-    /// então uma letra acentuada se junta ao byte seguinte. Quando esse byte é um espaço ou o <c>EF</c> de um controle, ele se perde (o espaço
-    /// some, o controle vira <c>ïð</c>); um <c>0x20</c> a mais depois da letra fica com o par e deixa o byte seguinte ser lido como era.
-    /// A varredura é a do motor, da esquerda para a direita: dois acentos seguidos formam um par só, e o espaço depois deles não precisa de guarda.
+    /// então uma letra acentuada se junta ao byte seguinte. Quando esse byte é o <c>EF</c> de um controle, ele se perde e o código vira <c>ïð</c>;
+    /// um <c>0x20</c> depois da letra fica com o par e deixa o <c>EF</c> ser lido como controle. Texto comum depois do acento (inclusive o espaço) não perde nada (#62).
+    /// A varredura é a do motor, da esquerda para a direita: dois acentos seguidos formam um par só, e o controle depois deles não precisa de guarda.
     /// Vale só para a <c>cp1252</c>; o Shift-JIS e a <c>fold</c> não gravam esses bytes. Os bytes do <c>{RAW:...}</c> não são tocados.
     /// </summary>
     private sealed class BytesBuilder(int capacity, ITextEncoder encoder)
@@ -212,18 +212,7 @@ public static class ControlMarkers
             foreach (var b in encoded)
             {
                 _output.Add(b);
-                if (_leadOpen)
-                {
-                    _leadOpen = false;
-                    if (b == Space)
-                    {
-                        _output.Add(Space);
-                    }
-                }
-                else
-                {
-                    _leadOpen = IsLeadByte(b);
-                }
+                _leadOpen = !_leadOpen && IsLeadByte(b);
             }
         }
 

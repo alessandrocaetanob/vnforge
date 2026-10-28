@@ -5,7 +5,7 @@ namespace VNForge.Engines.YuRis.Tests.Text;
 
 /// <summary>
 /// Na <c>cp1252</c> o exe do jogo ainda lê <c>0xE0</c> a <c>0xFC</c> como lead byte: a letra acentuada se junta ao byte seguinte, e um <c>EF</c> de controle
-/// ou um espaço nessa posição se perde (#435). O <see cref="ControlMarkers.ToBytes"/> grava um <c>0x20</c> a mais depois da letra.
+/// nessa posição se perde (#435). O <see cref="ControlMarkers.ToBytes"/> grava um <c>0x20</c> entre a letra e o <c>EF</c>; texto comum depois do acento, espaço incluído, não muda.
 /// </summary>
 public class Cp1252LeadByteSpacingTests
 {
@@ -50,15 +50,10 @@ public class Cp1252LeadByteSpacingTests
     }
 
     [Fact]
-    public void Espaco_depois_de_letra_acentuada_ganha_um_espaco_a_mais()
+    public void Espaco_depois_de_letra_acentuada_sai_como_a_pagina_1252_grava()
     {
-        Assert.Equal([.. "s"u8, 0xF3, 0x20, 0x20, .. "na teoria"u8], ToBytes("só na teoria"));
-    }
-
-    [Fact]
-    public void Espacos_seguidos_depois_do_acento_ganham_um_so()
-    {
-        Assert.Equal([0xE9, 0x20, 0x20, 0x20, (byte)'x'], ToBytes("é  x"));
+        Assert.Equal([.. "s"u8, 0xF3, 0x20, .. "na teoria"u8], ToBytes("só na teoria"));
+        Assert.Equal([0xE9, 0x20, 0x20, (byte)'x'], ToBytes("é  x"));
     }
 
     [Theory]
@@ -72,11 +67,11 @@ public class Cp1252LeadByteSpacingTests
     }
 
     [Fact]
-    public void Dois_acentos_seguidos_formam_o_par_e_o_espaco_que_vem_depois_fica_como_esta()
+    public void Dois_acentos_seguidos_formam_o_par_e_o_controle_que_vem_depois_fica_como_esta()
     {
-        // O motor lê (E3 E9) como um caractere e o 0x20 seguinte como espaço comum.
-        Assert.Equal([0xE3, 0xE9, 0x20, (byte)'x'], ToBytes("ãé x"));
-        Assert.Equal([0xE3, 0xE9, 0xE1, 0x20, 0x20, (byte)'x'], ToBytes("ãéá x"));
+        // O motor lê (E3 E9) como um caractere; o EF seguinte já começa um controle.
+        Assert.Equal([0xE3, 0xE9, 0xEF, 0xF0], ToBytes("ãé\\n"));
+        Assert.Equal([0xE3, 0xE9, 0xE1, 0x20, 0xEF, 0xF0], ToBytes("ãéá\\n"));
     }
 
     [Fact]
@@ -86,12 +81,12 @@ public class Cp1252LeadByteSpacingTests
     }
 
     [Theory]
-    [InlineData("ß x", 0xDF)]
-    [InlineData("ý x", 0xFD)]
-    [InlineData("ÿ x", 0xFF)]
+    [InlineData("ß", 0xDF)]
+    [InlineData("ý", 0xFD)]
+    [InlineData("ÿ", 0xFF)]
     public void Byte_fora_da_faixa_de_lead_byte_nao_ganha_espaco(string text, byte letter)
     {
-        Assert.Equal([letter, 0x20, (byte)'x'], ToBytes(text));
+        Assert.Equal([letter, 0xEF, 0xF0], ToBytes(text + "\\n"));
     }
 
     [Fact]
@@ -110,7 +105,7 @@ public class Cp1252LeadByteSpacingTests
     [Fact]
     public void Acento_antes_do_delimitador_do_falante_da_cp1252_nao_ganha_espaco()
     {
-        // « (AB) e » (BB) são letras comuns para o motor, como qualquer byte que não é espaço nem EF: a evidência do #62 vale para eles.
+        // « (AB) e » (BB) são texto comum para o motor: a evidência do #62 vale para eles.
         Assert.Equal([.. "Jos"u8, 0xE9, 0xAB], ToBytes("José«"));
         Assert.Equal([.. "oi"u8, 0xE1, 0xBB], ToBytes("oiá»"));
     }

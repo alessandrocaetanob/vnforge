@@ -220,8 +220,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        // Cada espaço depois de uma letra acentuada leva um 0x20 a mais (#435): o motor junta a letra com o byte seguinte.
-        Assert.Equal([.. GameEncodings.Windows1252.GetBytes("Teste ç  ã  é  ô"), 0xAB, .. GameEncodings.Windows1252.GetBytes("Olá, ação!"), 0xBB], FirstMessage(raw));
+        Assert.Equal([.. GameEncodings.Windows1252.GetBytes("Teste ç ã é ô"), 0xAB, .. GameEncodings.Windows1252.GetBytes("Olá, ação!"), 0xBB], FirstMessage(raw));
     }
 
     [Fact]
