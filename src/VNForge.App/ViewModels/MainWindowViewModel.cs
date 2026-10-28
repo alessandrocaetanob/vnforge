@@ -132,7 +132,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
-        Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured || CurrentProject?.IsSample == true);
+        Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured);
         start.Detail.Context = Dashboard.Context;
         start.GameFolderChosen += (_, folder) => ShowWizard(newProjectWizard, folder);
         start.NextStepRequested += (_, request) => OpenFromDashboard(request);

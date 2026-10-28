@@ -83,14 +83,45 @@ public sealed class SampleSceneTests : IDisposable
     }
 
     [Fact]
-    public async Task A_sugestao_de_uma_fala_do_exemplo_devolve_o_portugues_dela_sem_chave()
+    public async Task A_sugestao_do_exemplo_vem_da_IA_de_demonstracao_mesmo_com_a_chave_configurada()
     {
-        var suggester = new LineSuggester(() => null);
-        var unit = SampleProject.Texts["yst00001"][1];
+        var (vm, _) = await OpenSampleAsync();
+        vm.Editor.SelectedLine = vm.Editor.Lines.Single(l => l.Id == "yst00001:0002");
+        var detail = vm.Editor.Detail!;
 
-        var suggestion = await suggester.SuggestAsync(unit, CancellationToken.None);
+        await detail.SuggestCommand.ExecuteAsync(null);
 
-        Assert.Equal("Ei, você já terminou este livro?", suggestion.Text);
+        Assert.Equal("Ei, você já terminou este livro?", detail.Suggestion);
+        Assert.Equal("IA de demonstração", detail.SuggestionModel);
+        Assert.Contains("demonstração", detail.SuggestionSource);
+        Assert.DoesNotContain("Configure a chave", detail.SuggestionSource);
+        Assert.Contains("gratuito", detail.SuggestionDetails);
+    }
+
+    [Fact]
+    public async Task A_sugestao_de_um_projeto_comum_sem_chave_continua_dizendo_que_e_de_teste()
+    {
+        var suggestion = await new LineSuggester(() => null).SuggestAsync(SampleProject.Texts["yst00001"][1], CancellationToken.None);
+
+        Assert.True(suggestion.FromFakeProvider);
+        Assert.False(suggestion.IsDemo);
+        Assert.StartsWith("[PT]", suggestion.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Uma_criacao_com_a_pasta_em_estado_invalido_mostra_a_mensagem_clara_sem_o_caminho()
+    {
+        var start = CreateStart();
+        await start.LoadAsync();
+        var root = Path.Combine(temp.SubFolder("exemplo"), SampleProject.FolderName);
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, ProjectFolder.ConfigFileName), "{}");
+
+        await start.OpenSampleCommand.ExecuteAsync(null);
+
+        Assert.NotNull(start.ErrorMessage);
+        Assert.Contains("renomeie ou mova", start.ErrorMessage);
+        Assert.DoesNotContain(temp.Path, start.ErrorMessage);
     }
 
     [Fact]
@@ -118,6 +149,9 @@ public sealed class SampleSceneTests : IDisposable
         Assert.False(vm.TestAccentsCommand.CanExecute(null));
         Assert.False(vm.InjectCommand.CanExecute(null));
         Assert.False(vm.LaunchCommand.CanExecute(null));
+        Assert.False(vm.PatchCommand.CanExecute(null));
+        Assert.False(vm.RestoreCommand.CanExecute(null));
+        Assert.False(vm.ReturnToOriginalCommand.CanExecute(null));
         Assert.Equal(GameState.Original, vm.GameBannerState);
         Assert.Equal("Esta é uma cena de exemplo, sem jogo para testar", vm.GameBannerTitle);
         Assert.Contains("não há jogo", vm.GameBannerMessage, StringComparison.Ordinal);

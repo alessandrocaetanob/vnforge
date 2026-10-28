@@ -50,7 +50,7 @@ public sealed partial class MainWindowViewModel
             TranslateOpening = Translate.OpenAsync(
                 folder,
                 Editor.SelectedScript?.Key is { } open && scriptKeys.Contains(open) ? open : scriptKeys[0],
-                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured || project.IsSample, Settings.BudgetProblem),
+                new TranslateDialogSettings(Settings.Rate, Settings.Budget, Settings.DefaultQuality, ApiKeyConfigured || project.IsSample, Settings.BudgetProblem, project.IsSample),
                 scriptKeys);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)

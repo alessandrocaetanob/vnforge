@@ -1,10 +1,10 @@
-using VNForge.Core.Demo;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Demo;
 using VNForge.Core.Projects;
 using VNForge.App.Tests.Demo;
 

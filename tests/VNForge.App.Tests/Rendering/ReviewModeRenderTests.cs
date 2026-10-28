@@ -1,4 +1,3 @@
-using VNForge.Core.Demo;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -11,6 +10,7 @@ using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Demo;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;

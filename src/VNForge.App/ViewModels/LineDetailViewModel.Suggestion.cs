@@ -44,6 +44,7 @@ public sealed partial class LineDetailViewModel
     public string SuggestionModel => suggestionResult switch
     {
         null => string.Empty,
+        { IsDemo: true } => "IA de demonstração",
         { FromFakeProvider: true } => "Provedor de teste",
         { Model: { Length: > 0 } model } => ProjectLabels.Model(model),
         _ => "IA",
@@ -59,7 +60,8 @@ public sealed partial class LineDetailViewModel
                 return string.Empty;
             }
 
-            var how = suggestionResult.FromFakeProvider ? "sem chave de API"
+            var how = suggestionResult.IsDemo ? "gratuito"
+                : suggestionResult.FromFakeProvider ? "sem chave de API"
                 : suggestionResult.Effort is { Length: > 0 } effort ? $"esforço {effort}"
                 : string.Empty;
             var age = RelativeTime.Format(suggestedAt, clock.GetUtcNow());
@@ -92,9 +94,11 @@ public sealed partial class LineDetailViewModel
                 suggestionResult = result;
                 suggestedAt = clock.GetUtcNow();
                 Suggestion = result.Text;
-                SuggestionSource = result.FromFakeProvider
-                    ? "Sugestão de teste, sem chave de API. Configure a chave em Ajustes para usar o Claude."
-                    : "Sugestão da IA";
+                SuggestionSource = result.IsDemo
+                    ? "Sugestão de demonstração: a cena de exemplo usa uma IA de mentira, sem custo e sem rede."
+                    : result.FromFakeProvider
+                        ? "Sugestão de teste, sem chave de API. Configure a chave em Ajustes para usar o Claude."
+                        : "Sugestão da IA";
             }
         }
         catch (Exception e)

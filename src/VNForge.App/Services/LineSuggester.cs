@@ -12,7 +12,8 @@ namespace VNForge.App.Services;
 /// <param name="FromFakeProvider">Veio do provedor falso (app sem chave de API), não do Claude.</param>
 /// <param name="Model">O id do modelo que respondeu (<c>claude-opus-5-5</c>); nulo no provedor falso.</param>
 /// <param name="Effort">O esforço pedido ao modelo, em português ("baixo"); nulo no provedor falso.</param>
-public sealed record LineSuggestion(string Text, bool FromFakeProvider, string? Model = null, string? Effort = null);
+/// <param name="IsDemo">Veio da IA de demonstração da cena de exemplo: sem chave, sem rede e sem custo.</param>
+public sealed record LineSuggestion(string Text, bool FromFakeProvider, string? Model = null, string? Effort = null, bool IsDemo = false);
 
 /// <summary>A IA respondeu, mas sem uma sugestão aproveitável; a mensagem, em português, vai direto ao usuário.</summary>
 public sealed class LineSuggestionException(string message) : Exception(message);
@@ -91,7 +92,7 @@ public sealed class LineSuggester(Func<ITranslationProvider?> openProvider, Func
         ArgumentNullException.ThrowIfNull(unit);
 
         var real = await Task.Run(openProvider, ct).ConfigureAwait(false);
-        var provider = new ValidatingTranslationProvider(real ?? SampleAi.CreateProvider());
+        var provider = new ValidatingTranslationProvider(real ?? new FakeTranslationProvider());
         var results = await provider.TranslateAsync(new TranslationBatch([unit]), ct).ConfigureAwait(false);
         var result = results.FirstOrDefault(r => r.Id == unit.Id);
         if (result is null || result.Refused || string.IsNullOrWhiteSpace(result.Translation))

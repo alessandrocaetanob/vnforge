@@ -1,4 +1,3 @@
-using VNForge.Core.Demo;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -9,6 +8,7 @@ using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Demo;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
