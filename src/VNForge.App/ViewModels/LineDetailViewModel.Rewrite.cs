@@ -27,6 +27,9 @@ public sealed partial class LineDetailViewModel
 {
     private CancellationTokenSource? rewriteCancellation;
     private IReadOnlyList<RewriteChip>? rewriteChips;
+    private string rewriteBase = string.Empty;
+
+    private const string RewriteStaleText = "A tradução mudou enquanto a IA reescrevia. Peça de novo para partir do texto de agora.";
 
     /// <summary>Quem reescreve: o mesmo sugestor do painel, quando ele sabe reescrever; sem ele os chips não aparecem.</summary>
     public ILineRewriter? Rewriter => Suggester as ILineRewriter;
@@ -110,8 +113,14 @@ public sealed partial class LineDetailViewModel
         try
         {
             var result = await rewriter.RewriteAsync(unit, direction, current, SpeakerInfo(), Context?.Glossary ?? [], Preview?.Profile.Wrap, cancellation.Token);
-            if (!cancellation.IsCancellationRequested)
+            if (!cancellation.IsCancellationRequested && Translation != current)
             {
+                RewriteTitle = string.Empty;
+                RewriteError = RewriteStaleText;
+            }
+            else if (!cancellation.IsCancellationRequested)
+            {
+                rewriteBase = current;
                 RewriteOptions = [.. result.Options.Select(MakeOption)];
                 RewriteTitle = result.Options.Count == 1 ? $"{label} · 1 versão" : $"{label} · {result.Options.Count} versões";
                 RewriteNote = result.FromFakeProvider ? "Versões de teste, sem chave de API. Configure a chave em Ajustes para usar o Claude." : string.Empty;
@@ -193,6 +202,14 @@ public sealed partial class LineDetailViewModel
 
     private void UseRewrite(string text)
     {
+        // As versões partem da tradução de quando foram pedidas: se a pessoa a editou depois, usar uma delas apagaria a edição.
+        if (Translation != rewriteBase)
+        {
+            ClearRewrite();
+            RewriteError = RewriteStaleText;
+            return;
+        }
+
         Translation = text;
         ClearRewrite();
     }

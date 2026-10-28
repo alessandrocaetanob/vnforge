@@ -242,6 +242,38 @@ public sealed class LineRewriteTests : IDisposable
     }
 
     [Fact]
+    public async Task Editar_a_traducao_enquanto_a_ia_responde_descarta_as_versoes_atrasadas()
+    {
+        var espera = new TaskCompletionSource<IReadOnlyList<string>>();
+        var provedor = new ProvedorDeReescrita(_ => []) { Espera = () => espera.Task };
+        using var vm = Abrir(new LineSuggester(() => provedor));
+        var pedido = Chip(vm, RewriteDirection.MoreNatural).Command.ExecuteAsync(null);
+
+        vm.Translation = @"Editei à mão.\p";
+        espera.SetResult([@"Oi.\p", @"E aí.\p"]);
+        await pedido;
+
+        Assert.False(vm.HasRewriteOptions);
+        Assert.Contains("mudou", vm.RewriteError);
+        Assert.Equal(@"Editei à mão.\p", vm.Translation);
+    }
+
+    [Fact]
+    public async Task Editar_a_traducao_depois_das_versoes_impede_que_Usar_apague_a_edicao()
+    {
+        var provedor = new ProvedorDeReescrita(_ => [@"Oi.\p", @"E aí.\p"]);
+        using var vm = Abrir(new LineSuggester(() => provedor));
+        await Chip(vm, RewriteDirection.MoreNatural).Command.ExecuteAsync(null);
+
+        vm.Translation = @"Editei à mão.\p";
+        vm.RewriteOptions[0].UseCommand.Execute(null);
+
+        Assert.Equal(@"Editei à mão.\p", vm.Translation);
+        Assert.Empty(vm.RewriteOptions);
+        Assert.Contains("mudou", vm.RewriteError);
+    }
+
+    [Fact]
     public async Task Cancelar_interrompe_o_pedido_sem_mostrar_erro()
     {
         var espera = new TaskCompletionSource<IReadOnlyList<string>>();
