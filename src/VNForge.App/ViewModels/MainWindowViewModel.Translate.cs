@@ -94,6 +94,9 @@ public sealed partial class MainWindowViewModel
         var canceled = false;
         string? failure = null;
         translating = true;
+
+        // Só as linhas que a IA gravou entram no ponto: a pessoa segue editando enquanto o lote roda, e essas edições não voltam no "Desfazer" dele.
+        var restore = await History.BeginAsync(project.Root, TranslationTitle(request.Scope), include: RestorePointStore.IsAiWrite);
         var task = TaskService.Start(TranslationTitle(request.Scope), async (reporter, ct) =>
         {
             try
@@ -114,6 +117,7 @@ public sealed partial class MainWindowViewModel
 
         await task.Completion;
         translating = false;
+        await History.AttachAsync(task, project.Root, restore);
         Editor.Reload();
 
         // O estado da tarefa chega por post depois do Completion: o que decide o aviso é o que a própria tarefa guardou.
