@@ -34,104 +34,13 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
             { "Light", 1366, 768 },
         };
 
+    private static readonly bool[] BackToColumnsThenScript = [false, true];
+
     private static ThemeVariant Of(string name) => name == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
 
     [Theory]
     [MemberData(nameof(Sizes))]
-    public async Task No_Roteiro_o_nome_vai_acima_do_par_e_o_original_fica_em_cima_da_traducao_com_mais_largura_que_nas_colunas(string themeName, int width, int height)
-    {
-        var demo = demoFolder;
-        await Run(
-            async () =>
-            {
-                using var config = new TempFolder();
-                var (window, editor) = await OpenDemo(config, demo.Root, Of(themeName), width, height);
-                try
-                {
-                    var linhas = LinesList(window);
-                    var colunas = Original(linhas.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible)).Bounds.Width;
-
-                    editor.IsScriptDensity = true;
-                    ScreenRenderer.Settle(window);
-                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"editor-roteiro-{width}", Of(themeName))));
-
-                    Assert.Contains("script", linhas.Classes);
-                    var visiveis = linhas.GetVisualDescendants().OfType<LineRow>().Where(l => l.IsEffectivelyVisible).ToList();
-                    Assert.NotEmpty(visiveis);
-
-                    foreach (var linha in visiveis)
-                    {
-                        Assert.True(linha.IsScript);
-                        var nome = Speaker(linha);
-                        var original = Original(linha);
-                        var traducao = Translation(linha);
-                        Assert.Equal(RowPadding + nome.Bounds.Height + Gap + original.Bounds.Height + Gap + traducao.Bounds.Height, linha.Bounds.Height, Tolerance);
-                        Assert.InRange(linha.Bounds.Height, 72 - Tolerance, 108 + Tolerance);
-
-                        Assert.True(Top(nome, window) < Top(original, window), "o nome é o rótulo acima do par");
-                        Assert.True(Top(original, window) + original.Bounds.Height <= Top(traducao, window) + Tolerance, "o original fica em cima da tradução");
-                        Assert.True(original.Bounds.Height <= 2 * TextLine + Tolerance && traducao.Bounds.Height <= 2 * TextLine + Tolerance, "até duas linhas cada");
-                        Assert.True(Math.Abs(Left(nome, window) - Left(original, window)) <= Tolerance && Math.Abs(Left(original, window) - Left(traducao, window)) <= Tolerance, "os três alinham à esquerda");
-                        Assert.Equal(original.Bounds.Width, traducao.Bounds.Width, Tolerance);
-
-                        var area = new Rect(linha.TranslatePoint(default, window)!.Value, linha.Bounds.Size).Inflate(Tolerance);
-                        foreach (var parte in new[] { nome, original, traducao })
-                        {
-                            Assert.True(area.Contains(new Rect(parte.TranslatePoint(default, window)!.Value, parte.Bounds.Size)), $"{parte.Name} cabe na linha");
-                        }
-                    }
-
-                    var largura = Original(visiveis[0]).Bounds.Width;
-                    Assert.True(largura >= colunas * 2.5 && largura >= 250, $"o original tinha {colunas:0} px nas colunas e agora tem {largura:0} px");
-                }
-                finally
-                {
-                    window.Close();
-                }
-            });
-    }
-
-    [Theory]
-    [MemberData(nameof(Sizes))]
-    public async Task Texto_longo_do_original_e_da_traducao_quebra_em_duas_linhas_e_o_resto_vira_reticencias(string themeName, int width, int height)
-    {
-        var demo = demoFolder;
-        await Run(
-            async () =>
-            {
-                using var config = new TempFolder();
-                var (window, editor) = await OpenDemo(config, demo.Root, Of(themeName), width, height);
-                try
-                {
-                    editor.IsScriptDensity = true;
-                    ScreenRenderer.Settle(window);
-                    var linha = LinesList(window).GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible);
-                    var curta = Original(linha).Bounds.Height;
-
-                    linha.Original = string.Concat(Enumerable.Repeat("窓の外では、朝から雨が降り続いている。", 30));
-                    linha.Translation = string.Concat(Enumerable.Repeat("Lá fora, a chuva não parou desde cedo. ", 30));
-                    ScreenRenderer.Settle(window);
-
-                    Assert.True(curta <= 2 * TextLine + Tolerance);
-                    Assert.Equal(2 * TextLine, Original(linha).Bounds.Height, Tolerance);
-                    Assert.Equal(2 * TextLine, Translation(linha).Bounds.Height, Tolerance);
-                    Assert.Equal(TextTrimming.CharacterEllipsis, Original(linha).TextTrimming);
-                    Assert.Equal(TextTrimming.CharacterEllipsis, Translation(linha).TextTrimming);
-                    Assert.Equal(2, Original(linha).MaxLines);
-                    Assert.Equal(2, Translation(linha).MaxLines);
-                    Assert.Equal(108, linha.Bounds.Height, Tolerance);
-                    Assert.True(Top(Translation(linha), window) + Translation(linha).Bounds.Height <= Top(linha, window) + linha.Bounds.Height + Tolerance, "a tradução de duas linhas cabe na linha");
-                }
-                finally
-                {
-                    window.Close();
-                }
-            });
-    }
-
-    [Theory]
-    [MemberData(nameof(Sizes))]
-    public async Task O_cabecalho_do_Roteiro_troca_as_colunas_e_o_botao_de_densidade_volta_para_elas(string themeName, int width, int height)
+    public async Task O_botao_troca_as_colunas_pelo_Roteiro_com_o_nome_acima_do_par_e_o_original_em_cima_da_traducao(string themeName, int width, int height)
     {
         var demo = demoFolder;
         await Run(
@@ -145,7 +54,9 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
                     var botao = window.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "DensityToggle");
                     var colunas = Header(window, "ColumnsHeader");
                     var roteiro = Header(window, "ScriptHeader");
-                    var alturaColunas = window.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible).Bounds.Height;
+                    var primeira = linhas.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible);
+                    var alturaColunas = primeira.Bounds.Height;
+                    var larguraColunas = Original(primeira).Bounds.Width;
 
                     Assert.False(botao.IsChecked);
                     Assert.True(botao.IsEffectivelyVisible);
@@ -156,6 +67,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
 
                     botao.IsChecked = true;
                     ScreenRenderer.Settle(window);
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"editor-roteiro-{width}", Of(themeName))));
 
                     Assert.True(editor.IsScriptDensity);
                     Assert.False(colunas.IsEffectivelyVisible);
@@ -163,23 +75,10 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
                     Assert.Contains("script", linhas.Classes);
                     Assert.Equal(["Linha", "Situação", "Quem fala · original · tradução"], Titles(roteiro));
                     Assert.True(botao.IsEffectivelyVisible);
-                    Assert.True(window.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible).Bounds.Height >= alturaColunas * 2 - Tolerance);
 
-                    var linha = linhas.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible);
-                    var titulos = roteiro.GetVisualDescendants().OfType<TextBlock>().ToList();
-                    foreach (var (parte, indice) in new[] { (Number(linha), 0), (Speaker(linha), 2) })
-                    {
-                        Assert.True(Math.Abs(Left(parte, window) - Left(titulos[indice], window)) <= Tolerance, $"{parte.Name} alinha com o título do cabeçalho");
-                    }
-
-                    botao.IsChecked = false;
-                    ScreenRenderer.Settle(window);
-
-                    Assert.False(editor.IsScriptDensity);
-                    Assert.True(colunas.IsEffectivelyVisible);
-                    Assert.False(roteiro.IsEffectivelyVisible);
-                    Assert.DoesNotContain("script", linhas.Classes);
-                    Assert.Equal(alturaColunas, window.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible).Bounds.Height, Tolerance);
+                    AssertScriptRows(window, linhas, roteiro, larguraColunas, alturaColunas);
+                    AssertSelectedLineStaysInView(window, linhas, editor, botao, alturaColunas);
+                    AssertLongTextWrapsInTwoLines(window, linhas);
                 }
                 finally
                 {
@@ -188,44 +87,9 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
             });
     }
 
-    [Theory]
-    [MemberData(nameof(Sizes))]
-    public async Task Ao_trocar_a_densidade_nos_dois_sentidos_a_linha_aberta_continua_a_vista(string themeName, int width, int height)
-    {
-        var demo = demoFolder;
-        await Run(
-            async () =>
-            {
-                using var config = new TempFolder();
-                var (window, editor) = await OpenDemo(config, demo.Root, Of(themeName), width, height);
-                try
-                {
-                    var linhas = LinesList(window);
-                    var aberta = editor.SelectedLine!;
-                    Assert.Same(aberta, linhas.SelectedItem);
-
-                    foreach (var roteiro in new[] { true, false, true })
-                    {
-                        editor.IsScriptDensity = roteiro;
-                        ScreenRenderer.Settle(window);
-
-                        var linha = linhas.GetVisualDescendants().OfType<LineRow>().SingleOrDefault(l => l.IsEffectivelyVisible && l.DataContext == aberta);
-                        Assert.NotNull(linha);
-                        var area = new Rect(linha.TranslatePoint(default, window)!.Value, linha.Bounds.Size);
-                        var lista = new Rect(linhas.TranslatePoint(default, window)!.Value, linhas.Bounds.Size).Inflate(Tolerance);
-                        Assert.True(lista.Contains(area), $"{(roteiro ? "Roteiro" : "Colunas")}: a linha {area} cabe na lista {lista}");
-                    }
-                }
-                finally
-                {
-                    window.Close();
-                }
-            });
-    }
-
-    [Theory]
-    [MemberData(nameof(Sizes))]
-    public async Task A_escolha_fica_em_editor_layout_json_e_o_proximo_Editor_abre_no_Roteiro(string themeName, int width, int height)
+    /// <summary>A escolha fica em editor-layout.json e o próximo Editor abre no Roteiro; não depende de tema nem de tamanho, então roda uma vez.</summary>
+    [Fact]
+    public async Task A_escolha_fica_em_editor_layout_json_e_o_proximo_Editor_abre_no_Roteiro()
     {
         var demo = demoFolder;
         await Run(
@@ -233,7 +97,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
             {
                 using var config = new TempFolder();
                 var layout = config.SubFolder("layout");
-                var (first, editor) = await OpenDemo(config, demo.Root, Of(themeName), width, height, layout);
+                var (first, editor) = await OpenDemo(config, demo.Root, ThemeVariant.Dark, 1440, 1000, layout);
                 try
                 {
                     Assert.False(editor.IsScriptDensity);
@@ -246,7 +110,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
                 }
 
                 Assert.True(File.Exists(Path.Combine(layout, "editor-layout.json")));
-                var (second, next) = await OpenDemo(config, demo.Root, Of(themeName), width, height, layout);
+                var (second, next) = await OpenDemo(config, demo.Root, ThemeVariant.Dark, 1440, 1000, layout);
                 try
                 {
                     Assert.True(next.IsScriptDensity);
@@ -260,6 +124,88 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
                     second.Close();
                 }
             });
+    }
+
+    /// <summary>Cada linha visível: o nome é o rótulo acima do par, o original fica em cima da tradução, até duas linhas cada, tudo alinhado e dentro da linha, e o original ganha largura sobre as colunas.</summary>
+    private static void AssertScriptRows(MainWindow window, ListBox linhas, Border roteiro, double larguraColunas, double alturaColunas)
+    {
+        var visiveis = linhas.GetVisualDescendants().OfType<LineRow>().Where(l => l.IsEffectivelyVisible).ToList();
+        Assert.NotEmpty(visiveis);
+        var titulos = roteiro.GetVisualDescendants().OfType<TextBlock>().ToList();
+
+        foreach (var linha in visiveis)
+        {
+            Assert.True(linha.IsScript);
+            var nome = Speaker(linha);
+            var original = Original(linha);
+            var traducao = Translation(linha);
+            Assert.Equal(RowPadding + nome.Bounds.Height + Gap + original.Bounds.Height + Gap + traducao.Bounds.Height, linha.Bounds.Height, Tolerance);
+            Assert.InRange(linha.Bounds.Height, 72 - Tolerance, 108 + Tolerance);
+            Assert.True(linha.Bounds.Height >= alturaColunas * 2 - Tolerance);
+
+            Assert.True(Top(nome, window) < Top(original, window), "o nome é o rótulo acima do par");
+            Assert.True(Top(original, window) + original.Bounds.Height <= Top(traducao, window) + Tolerance, "o original fica em cima da tradução");
+            Assert.True(original.Bounds.Height <= 2 * TextLine + Tolerance && traducao.Bounds.Height <= 2 * TextLine + Tolerance, "até duas linhas cada");
+            Assert.True(Math.Abs(Left(nome, window) - Left(original, window)) <= Tolerance && Math.Abs(Left(original, window) - Left(traducao, window)) <= Tolerance, "os três alinham à esquerda");
+            Assert.Equal(original.Bounds.Width, traducao.Bounds.Width, Tolerance);
+            Assert.True(Math.Abs(Left(Number(linha), window) - Left(titulos[0], window)) <= Tolerance, "o número alinha com o título Linha");
+            Assert.True(Math.Abs(Left(nome, window) - Left(titulos[2], window)) <= Tolerance, "o texto alinha com o título do cabeçalho");
+
+            var area = new Rect(linha.TranslatePoint(default, window)!.Value, linha.Bounds.Size).Inflate(Tolerance);
+            foreach (var parte in new[] { nome, original, traducao })
+            {
+                Assert.True(area.Contains(new Rect(parte.TranslatePoint(default, window)!.Value, parte.Bounds.Size)), $"{parte.Name} cabe na linha");
+            }
+        }
+
+        var largura = Original(visiveis[0]).Bounds.Width;
+        Assert.True(largura >= larguraColunas * 2.5 && largura >= 250, $"o original tinha {larguraColunas:0} px nas colunas e agora tem {largura:0} px");
+    }
+
+    /// <summary>Trocar a densidade pelo botão, nos dois sentidos, muda a altura das linhas e a linha aberta continua à vista; de volta às colunas a altura é a de antes. Termina no Roteiro.</summary>
+    private static void AssertSelectedLineStaysInView(MainWindow window, ListBox linhas, EditorViewModel editor, ToggleButton botao, double alturaColunas)
+    {
+        var aberta = editor.SelectedLine!;
+        Assert.Same(aberta, linhas.SelectedItem);
+
+        foreach (var roteiro in BackToColumnsThenScript)
+        {
+            botao.IsChecked = roteiro;
+            ScreenRenderer.Settle(window);
+
+            Assert.Equal(roteiro, editor.IsScriptDensity);
+            Assert.Equal(!roteiro, Header(window, "ColumnsHeader").IsEffectivelyVisible);
+            Assert.Equal(roteiro, Header(window, "ScriptHeader").IsEffectivelyVisible);
+            Assert.Equal(roteiro, linhas.Classes.Contains("script"));
+            var linha = linhas.GetVisualDescendants().OfType<LineRow>().SingleOrDefault(l => l.IsEffectivelyVisible && l.DataContext == aberta);
+            Assert.NotNull(linha);
+            if (!roteiro)
+            {
+                Assert.Equal(alturaColunas, linha.Bounds.Height, Tolerance);
+            }
+
+            var area = new Rect(linha.TranslatePoint(default, window)!.Value, linha.Bounds.Size);
+            var lista = new Rect(linhas.TranslatePoint(default, window)!.Value, linhas.Bounds.Size).Inflate(Tolerance);
+            Assert.True(lista.Contains(area), $"{(roteiro ? "Roteiro" : "Colunas")}: a linha {area} cabe na lista {lista}");
+        }
+    }
+
+    /// <summary>Texto longo do original e da tradução ocupa duas linhas cada, o resto vira reticências e a linha chega aos 108 px.</summary>
+    private static void AssertLongTextWrapsInTwoLines(MainWindow window, ListBox linhas)
+    {
+        var linha = linhas.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible);
+
+        linha.Original = string.Concat(Enumerable.Repeat("窓の外では、朝から雨が降り続いている。", 30));
+        linha.Translation = string.Concat(Enumerable.Repeat("Lá fora, a chuva não parou desde cedo. ", 30));
+        ScreenRenderer.Settle(window);
+
+        Assert.Equal(2 * TextLine, Original(linha).Bounds.Height, Tolerance);
+        Assert.Equal(2 * TextLine, Translation(linha).Bounds.Height, Tolerance);
+        Assert.Equal(TextTrimming.CharacterEllipsis, Original(linha).TextTrimming);
+        Assert.Equal(TextTrimming.CharacterEllipsis, Translation(linha).TextTrimming);
+        Assert.Equal(2, Original(linha).MaxLines);
+        Assert.Equal(2, Translation(linha).MaxLines);
+        Assert.Equal(108, linha.Bounds.Height, Tolerance);
     }
 
     private static ListBox LinesList(Visual window) => window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LinesList");
