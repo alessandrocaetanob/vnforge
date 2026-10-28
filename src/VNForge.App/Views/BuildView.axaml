@@ -92,7 +92,7 @@
                           Description="{Binding AllowWarningsDescription}"
                           IsChecked="{Binding AllowWarnings}"/>
             <c:ToggleRule Title="Reconstruir só scripts alterados"
-                          Description="Os demais arquivos do pacote são copiados byte a byte do original."
+                          Description="Vale para o teste e para o Novo build: reaproveita o que não mudou desde o último build. Os demais arquivos do pacote são copiados byte a byte do original."
                           IsChecked="{Binding OnlyChanged}"/>
             <Border Classes="divider-top" Padding="16,12">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
@@ -164,19 +164,14 @@
 
             <StackPanel Spacing="12">
               <!-- Só o botão: as opções do build (reconstruir só o que mudou) ficam em "Opções", no corpo da página. -->
-              <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Build">
-                <StackPanel>
-                  <Border Classes="divider-bottom" Height="48" Padding="16,0">
-                    <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Build"/>
-                  </Border>
-                  <Border Padding="16,12">
-                    <Button Command="{Binding BuildCommand}" HorizontalAlignment="Left" AutomationProperties.Name="Novo build">
-                      <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Novo build" VerticalAlignment="Center"/>
-                      </StackPanel>
-                    </Button>
-                  </Border>
-                </StackPanel>
+              <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Novo build do projeto">
+                <Border Padding="16,12">
+                  <Button Command="{Binding BuildCommand}" HorizontalAlignment="Left" AutomationProperties.Name="Novo build">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="Novo build" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </Button>
+                </Border>
               </Border>
 
               <!-- Patch do executável (cp1252): troca o nome da fonte das falas. Mesmo fluxo da injeção: confirmação, backup e hash conferido. -->

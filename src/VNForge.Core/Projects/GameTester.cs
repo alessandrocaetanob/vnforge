@@ -10,7 +10,8 @@ namespace VNForge.Core.Projects;
 /// <param name="AccentTest">Injeta só <see cref="GameTester.AccentPhrase"/> na primeira fala do primeiro script, sem olhar a tradução do projeto.</param>
 /// <param name="AllowWarnings">Segue mesmo com avisos da Conferência; erros travam sempre.</param>
 /// <param name="OpenGame">Abre o executável no fim.</param>
-public sealed record GameTestOptions(string? OnlyScript = null, bool AccentTest = false, bool AllowWarnings = false, bool OpenGame = true);
+/// <param name="OnlyChanged">Build incremental (<see cref="BuildOptions.OnlyChanged"/>): reaproveita os scripts que não mudaram desde o build anterior. <c>false</c> reconstrói todos. Não vale com <paramref name="OnlyScript"/> nem <paramref name="AccentTest"/>, que montam o próprio conjunto de textos.</param>
+public sealed record GameTestOptions(string? OnlyScript = null, bool AccentTest = false, bool AllowWarnings = false, bool OpenGame = true, bool OnlyChanged = true);
 
 /// <summary>Os nomes dos passos em português, os mesmos na tela e na linha de comando.</summary>
 public static class GameTestStepLabels
@@ -231,7 +232,7 @@ public sealed class GameTester(
 
         return options.OnlyScript is { } key
             ? new BuildOptions(SelectTexts: texts => OnlyScript(texts, key))
-            : new BuildOptions(OnlyChanged: true);
+            : new BuildOptions(OnlyChanged: options.OnlyChanged);
     }
 
     private static Dictionary<string, IReadOnlyList<TextUnit>> OnlyScript(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, string key)

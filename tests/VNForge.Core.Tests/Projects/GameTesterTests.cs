@@ -84,6 +84,21 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Com_OnlyChanged_falso_reconstroi_todos_os_scripts_em_vez_de_reaproveitar_o_build_anterior()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+
+        var incremental = Run();
+        var callsAfterIncremental = _engine.RebuildCalls;
+        var completo = Run(new GameTestOptions(OnlyChanged: false));
+
+        Assert.True(incremental.Build.ReusedScripts > 0);
+        Assert.Equal(0, completo.Build.ReusedScripts);
+        Assert.True(_engine.RebuildCalls > callsAfterIncremental);
+    }
+
+    [Fact]
     public void Devolve_os_cinco_passos_na_ordem_e_cada_um_com_tempo()
     {
         Translate("a001", 0, "Hello");
