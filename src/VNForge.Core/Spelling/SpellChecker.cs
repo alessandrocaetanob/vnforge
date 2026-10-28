@@ -211,7 +211,7 @@ public sealed class SpellChecker
             }
 
             var touchesMarker = (start > 0 && flat[start - 1] == Blocked) || (i < flat.Length && flat[i] == Blocked);
-            var latin = text.AsSpan(start, i - start).IndexOfAnyExceptInRange('\0', 'ɏ') < 0;
+            var latin = text[start..i].All(c => c <= 'ɏ' || c == '’');
             if (!touchesMarker && latin)
             {
                 tokens.Add(new Token(start, text.Substring(start, i - start), StartsSentence(flat, start)));

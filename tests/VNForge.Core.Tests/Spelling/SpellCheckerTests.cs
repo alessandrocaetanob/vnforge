@@ -131,6 +131,7 @@ public sealed class SpellCheckerTests
     public void Apostrofo_tipografico_vale_como_o_reto()
     {
         Assert.Empty(Checker.Find("A gota d’água caiu."));
+        Assert.Equal(["d’águaa"], Wrong("A gota d’águaa caiu."));
     }
 
     [Fact]
