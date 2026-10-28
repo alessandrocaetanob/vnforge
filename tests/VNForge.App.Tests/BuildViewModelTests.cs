@@ -898,7 +898,7 @@ public sealed class BuildViewModelTests : IDisposable
         public UnpackedGame Open(string unpackedDirectory) =>
             new(new BuildableContext(), [.. Directory.EnumerateFiles(unpackedDirectory, "*", SearchOption.AllDirectories).Select(f => new UnpackedScript(Path.GetFileName(f), f, format, null))]);
 
-        public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, CancellationToken cancellationToken = default)
+        public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, Func<string, string>? originalOf = null, CancellationToken cancellationToken = default)
         {
             File.WriteAllText(Path.Combine(outputDirectory, Ysbin), "reconstruido");
             return new GameRepackResult([new RepackedArchive(Ysbin, rebuilt.Count)]);

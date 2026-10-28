@@ -21,6 +21,7 @@ internal static class YuRisRepacker
         string unpackedDirectory,
         IReadOnlyList<RebuiltScript> rebuilt,
         string outputDirectory,
+        Func<string, string>? originalOf,
         CancellationToken cancellationToken)
     {
         var root = Path.GetFullPath(gameDir);
@@ -48,7 +49,7 @@ internal static class YuRisRepacker
             pending.RemoveAll(mine.Contains);
             var target = Path.Combine(output, relative.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            archives.Add(new RepackedArchive(relative, WriteArchive(file, relative, folder, mine, target)));
+            archives.Add(new RepackedArchive(relative, WriteArchive(originalOf?.Invoke(relative) ?? file, relative, folder, mine, target)));
         }
 
         if (pending.Count > 0)

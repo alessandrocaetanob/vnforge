@@ -278,6 +278,64 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Testar_de_novo_com_o_jogo_injetado_e_uma_edicao_no_meio_injeta_por_cima_sem_restaurar()
+    {
+        var before = File.ReadAllBytes(GamePackage);
+        Translate("a001", 0, "Hello");
+        Run();
+        Translate("a001", 0, "Hi");
+
+        Run();
+
+        Assert.Equal("dialogue|Hi\nname|Ana\u0001narration|Chovia.", File.ReadAllText(GamePackage));
+        Assert.All(BackupFolders(), backup => Assert.Equal(OriginalPackage, File.ReadAllText(Path.Combine(backup, Package))));
+        Assert.Equal(2, BackupFolders().Length);
+
+        Tester().ReturnToOriginal(_project);
+
+        Assert.Equal(before, File.ReadAllBytes(GamePackage));
+    }
+
+    [Fact]
+    public void Testar_de_novo_sem_o_estado_do_build_reempacota_a_partir_do_original_e_nao_do_jogo_traduzido()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        // Atualizar o VNForge troca os hashes do estado do build (entram a versão do assembly): o build reconstrói tudo e reempacota com o jogo injetado.
+        File.Delete(Path.Combine(_project.CacheDirectory, "build-state.json"));
+
+        Run();
+
+        Assert.Equal(2, _engine.RepackCalls);
+        Assert.Equal(OriginalAfterTest, File.ReadAllText(GamePackage));
+    }
+
+    [Fact]
+    public void Testar_de_novo_depois_de_tirar_a_traducao_devolve_o_original_ao_jogo()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        Translate("a001", 0, string.Empty);
+
+        Run();
+
+        Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
+    }
+
+    [Fact]
+    public void Pacote_do_jogo_que_mudou_por_fora_depois_da_injecao_continua_recusado_pedindo_vnf_extract()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        File.WriteAllText(GamePackage, "dialogue|Atualizado\nname|Ana\u0001narration|Chovia.");
+        Translate("a001", 0, "Hi");
+
+        var erro = Assert.Throws<VNForgeException>(() => Run());
+
+        Assert.Contains("Rode vnf extract de novo", erro.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Dois_testes_ao_mesmo_tempo_o_segundo_recusa_e_o_backup_do_primeiro_fica_intacto()
     {
         Translate("a001", 0, "Hello");

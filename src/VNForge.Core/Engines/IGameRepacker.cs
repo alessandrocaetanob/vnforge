@@ -17,6 +17,10 @@ public interface IGameRepacker
     /// <param name="unpackedDirectory">Pasta que o <see cref="IGameUnpacker.Unpack"/> gerou (<c>.cache/game</c>).</param>
     /// <param name="rebuilt">Só os scripts cujo conteúdo mudou. Cada um confere se <see cref="RebuiltScript.Original"/> ainda é o conteúdo do pacote do jogo.</param>
     /// <param name="outputDirectory">Pasta de destino; o chamador a cria e a descarta se a chamada falhar.</param>
+    /// <param name="originalOf">
+    /// Recebe o caminho de um pacote relativo à pasta do jogo (<c>ysbin.ypf</c>, com <c>/</c>) e devolve o arquivo de onde ler o pacote original: com o jogo já
+    /// injetado, o do backup da injeção, e não o traduzido que está na pasta. <c>null</c>, ou um caminho que o chamador não conhece, lê o da pasta do jogo.
+    /// </param>
     /// <param name="cancellationToken">Cancela entre um pacote e outro.</param>
     /// <exception cref="VNForgeException">
     /// Um script fora de qualquer pacote descompactado, um pacote do jogo que mudou depois da extração (o original não confere), ou
@@ -27,6 +31,7 @@ public interface IGameRepacker
         string unpackedDirectory,
         IReadOnlyList<RebuiltScript> rebuilt,
         string outputDirectory,
+        Func<string, string>? originalOf = null,
         CancellationToken cancellationToken = default);
 }
 

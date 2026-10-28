@@ -93,7 +93,7 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
                 .Select(f => new UnpackedScript(Path.GetFileName(f), f, _format, null))
                 .ToList());
 
-    public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, CancellationToken cancellationToken = default)
+    public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, Func<string, string>? originalOf = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (RepackFailure is not null)
@@ -103,8 +103,15 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
 
         RepackCalls++;
         LastRebuilt = rebuilt;
-        var contents = Directory.EnumerateFiles(Path.Combine(unpackedDirectory, PackageName))
-            .Order(StringComparer.Ordinal)
+        var originals = Directory.EnumerateFiles(Path.Combine(unpackedDirectory, PackageName)).Order(StringComparer.Ordinal).ToList();
+        // Como a engine de verdade: o pacote original lido (o do jogo, ou o que o build indicou) tem que ser o que a extração descompactou.
+        var source = originalOf?.Invoke(PackageName) ?? Path.Combine(gameDir, PackageName);
+        if (File.Exists(source) && File.ReadAllText(source) != string.Join('', originals.Select(f => Encoding.UTF8.GetString(File.ReadAllBytes(f)))))
+        {
+            throw new VNForgeException($"A entrada de {PackageName} não é mais a que o vnf extract descompactou: o jogo mudou depois da extração. Rode vnf extract de novo.");
+        }
+
+        var contents = originals
             .Select(f => rebuilt.FirstOrDefault(r => r.Path == f)?.Content ?? File.ReadAllBytes(f))
             .Select(Encoding.UTF8.GetString);
         File.WriteAllText(Path.Combine(outputDirectory, PackageName), string.Join('\u0001', contents));

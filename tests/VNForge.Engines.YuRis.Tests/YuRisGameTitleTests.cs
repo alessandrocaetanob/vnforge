@@ -146,13 +146,49 @@ public sealed class YuRisGameTitleTests : IDisposable
         var output = Path.Combine(_root, "build");
         Directory.CreateDirectory(output);
 
-        var result = _engine.Repack(_game, _cache, [new RebuiltScript(file.Path, file.Content, content)], output, TestContext.Current.CancellationToken);
+        var result = _engine.Repack(_game, _cache, [new RebuiltScript(file.Path, file.Content, content)], output, cancellationToken: TestContext.Current.CancellationToken);
 
         var built = Path.Combine(output, "ysbin.ypf");
         Assert.Equal(1, Assert.Single(result.Archives).ReplacedFiles);
         Assert.Equal("New title", YscfgReader.Read(ReadEntry(built, ConfigEntry), "yscfg.ybn").Title);
         Assert.Equal(_script, ReadEntry(built, ScriptEntry));
         Assert.Equal(Yscm.Bytes, ReadEntry(built, "ysc.ybn"));
+    }
+
+    [Fact]
+    public void Repack_de_jogo_ja_injetado_le_o_pacote_original_indicado_e_nao_o_traduzido_da_pasta()
+    {
+        WriteGame(SyntheticYscfgBuilder.Build(Title));
+        var file = Unpack()!;
+        var gamePackage = Path.Combine(_game, "ysbin.ypf");
+        var original = Path.Combine(_root, "backup-ysbin.ypf");
+        File.Copy(gamePackage, original);
+        var cp1252 = TextEncoderRegistry.Default.Create("cp1252");
+        var firstOutput = Path.Combine(_root, "build-1");
+        Directory.CreateDirectory(firstOutput);
+        _engine.Repack(_game, _cache, [new RebuiltScript(file.Path, file.Content, _engine.WithTitle(file, "First", cp1252))], firstOutput, cancellationToken: TestContext.Current.CancellationToken);
+        File.Copy(Path.Combine(firstOutput, "ysbin.ypf"), gamePackage, overwrite: true);
+        var output = Path.Combine(_root, "build-2");
+        Directory.CreateDirectory(output);
+
+        _engine.Repack(_game, _cache, [new RebuiltScript(file.Path, file.Content, _engine.WithTitle(file, "Second", cp1252))], output, relative => relative == "ysbin.ypf" ? original : gamePackage, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Second", YscfgReader.Read(ReadEntry(Path.Combine(output, "ysbin.ypf"), ConfigEntry), "yscfg.ybn").Title);
+        Assert.Equal(_script, ReadEntry(Path.Combine(output, "ysbin.ypf"), ScriptEntry));
+    }
+
+    [Fact]
+    public void Repack_de_pacote_do_jogo_que_nao_e_o_extraido_continua_recusado_pedindo_vnf_extract()
+    {
+        WriteGame(SyntheticYscfgBuilder.Build(Title));
+        var file = Unpack()!;
+        File.WriteAllBytes(Path.Combine(_game, "ysbin.ypf"), new SyntheticYpfBuilder(500).AddFile("ysc.ybn", Yscm.Bytes).AddFile(ScriptEntry, _script).AddFile(ConfigEntry, SyntheticYscfgBuilder.Build("Outro")).Build().Bytes);
+        var output = Path.Combine(_root, "build");
+        Directory.CreateDirectory(output);
+
+        var ex = Assert.Throws<VNForgeException>(() => _engine.Repack(_game, _cache, [new RebuiltScript(file.Path, file.Content, file.Content.Reverse().ToArray())], output, cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("Rode vnf extract de novo", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -163,7 +199,7 @@ public sealed class YuRisGameTitleTests : IDisposable
         var output = Path.Combine(_root, "build");
         Directory.CreateDirectory(output);
 
-        _engine.Repack(_game, _cache, [new RebuiltScript(file.Path, file.Content, _engine.WithTitle(file, Title, TextEncoderRegistry.Default.Create("sjis")))], output, TestContext.Current.CancellationToken);
+        _engine.Repack(_game, _cache, [new RebuiltScript(file.Path, file.Content, _engine.WithTitle(file, Title, TextEncoderRegistry.Default.Create("sjis")))], output, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(file.Content, ReadEntry(Path.Combine(output, "ysbin.ypf"), ConfigEntry));
     }
