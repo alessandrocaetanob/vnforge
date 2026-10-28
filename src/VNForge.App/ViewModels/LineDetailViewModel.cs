@@ -318,15 +318,15 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial TextboxPreviewViewModel? Preview { get; private set; }
 
-    /// <summary>Liga a prévia da caixa de texto com a tradução que está no campo; sem perfil (nulo), tira a prévia. O mesmo perfil não refaz nada.</summary>
-    public void AttachPreview(FormattingProfile? profile)
+    /// <summary>Liga a prévia da caixa de texto com a tradução que está no campo; sem perfil (nulo), tira a prévia. O mesmo perfil e as mesmas marcas da fala (#453) não refazem nada.</summary>
+    public void AttachPreview(FormattingProfile? profile, SpeakerBoxMarks marks = default)
     {
-        if (Preview is not null && ReferenceEquals(Preview.Profile, profile))
+        if (Preview is not null && ReferenceEquals(Preview.Profile, profile) && Preview.Marks == marks)
         {
             return;
         }
 
-        Preview = profile is null ? null : new TextboxPreviewViewModel(Saved, profile, Translation);
+        Preview = profile is null ? null : new TextboxPreviewViewModel(Saved, profile, Translation, marks);
         AttachFit(profile);
         NotifyFitChanged();
     }

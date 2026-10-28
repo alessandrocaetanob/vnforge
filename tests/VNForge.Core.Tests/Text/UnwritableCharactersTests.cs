@@ -157,4 +157,13 @@ public sealed class UnwritableCharactersTests
         public IReadOnlyList<int> FindUnencodable(string text) =>
             [.. Enumerable.Range(0, text.Length).Where(i => !writes(text[i]))];
     }
+
+    [Fact]
+    public void Espaco_nao_separavel_vira_espaco_comum_na_cp1252_sem_sinal_e_fica_com_guillemets()
+    {
+        Assert.Equal("a b", UnwritableCharacters.Fix("a\u00A0b", new Cp1252TextEncoder()));
+        Assert.Equal("a\u00A0b", UnwritableCharacters.Fix("a\u00A0b", new Cp1252TextEncoder(SpeakerDelimiterStyle.Guillemets)));
+        Assert.Equal(" ", UnwritableCharacters.SubstituteFor(0xA0, new Cp1252TextEncoder()));
+        Assert.Null(UnwritableCharacters.SubstituteFor(0xA0, new Cp1252TextEncoder(SpeakerDelimiterStyle.Guillemets)));
+    }
 }

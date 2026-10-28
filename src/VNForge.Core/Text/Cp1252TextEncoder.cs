@@ -9,17 +9,47 @@ namespace VNForge.Core.Text;
 /// marcador, <c>™</c> e afins) são lead bytes do Shift-JIS: o motor junta o byte com o seguinte e a letra depois deles some.
 /// Caractere fora da página 1252 não é substituído nem descartado: <see cref="CodePageTextEncoder.Encode"/> lança exceção.
 /// </summary>
-public sealed class Cp1252TextEncoder() : CodePageTextEncoder(GameEncodings.Windows1252), IExplainingTextEncoder
+/// <remarks>
+/// Como a página não grava <c>「 」</c>, a fala com falante usa os delimitadores de <see cref="ISpeakerDelimiterEncoder"/> (#434, #453). Sem sinal
+/// (<see cref="SpeakerDelimiterStyle.None"/>, o padrão) a abertura é o espaço não separável <c>0xA0</c>, que a fonte desenha em branco: fica fora da faixa de lead bytes e não é
+/// o <c>0x20</c>, que aparece em todo texto e faria o jogo tomar a primeira palavra da narração por nome. Como o jogo o toma por marcador, ele não pode aparecer na
+/// tradução, e este codificador o recusa nesse estilo; o corretor da regra de caractere não codificável o troca por espaço comum.
+/// </remarks>
+public sealed class Cp1252TextEncoder(SpeakerDelimiterStyle speakerDelimiter = SpeakerDelimiterStyle.None) : CodePageTextEncoder(GameEncodings.Windows1252), IExplainingTextEncoder, ISpeakerDelimiterEncoder
 {
+    private const char NoBreakSpace = '\u00A0';
     private const char ControlPrefixLetter = 'ï';
     private const int FirstLeadByte = 0x81;
     private const int LastLeadByte = 0x9F;
 
     public override string Id => "cp1252";
 
+    /// <inheritdoc />
+    public SpeakerDelimiterStyle SpeakerDelimiter { get; } = Enum.IsDefined(speakerDelimiter) ? speakerDelimiter : throw new ArgumentOutOfRangeException(nameof(speakerDelimiter));
+
+    /// <inheritdoc />
+    public string SpeakerOpen => SpeakerDelimiter == SpeakerDelimiterStyle.None ? NoBreakSpace.ToString() : "«";
+
+    /// <inheritdoc />
+    public string SpeakerClose => SpeakerDelimiter == SpeakerDelimiterStyle.None ? string.Empty : "»";
+
+    /// <inheritdoc />
+    public byte[] EncodeSpeakerDelimiter(string delimiter)
+    {
+        ArgumentNullException.ThrowIfNull(delimiter);
+        if (delimiter.Length == 0 || (delimiter != SpeakerOpen && delimiter != SpeakerClose))
+        {
+            throw new ArgumentException("O texto não é a abertura nem o fechamento da fala.", nameof(delimiter));
+        }
+
+        return GameEncodings.Windows1252.GetBytes(delimiter);
+    }
+
     protected override string DisplayName => "a estratégia cp1252 não grava";
 
-    protected override bool IsRefused(Rune rune) => rune.Value == ControlPrefixLetter || IsLeadByteCharacter(rune);
+    protected override bool IsRefused(Rune rune) => rune.Value == ControlPrefixLetter || IsLeadByteCharacter(rune) || IsSpeakerMarker(rune);
+
+    private bool IsSpeakerMarker(Rune rune) => rune.Value == NoBreakSpace && SpeakerDelimiter == SpeakerDelimiterStyle.None;
 
     protected override string Hint(string text, IReadOnlyList<int> invalid)
     {
@@ -27,6 +57,11 @@ public sealed class Cp1252TextEncoder() : CodePageTextEncoder(GameEncodings.Wind
         if (invalid.Any(i => text[i] == ControlPrefixLetter))
         {
             hints.Add(ExplainRefusal(ControlPrefixLetter)!);
+        }
+
+        if (invalid.Any(i => text[i] == NoBreakSpace))
+        {
+            hints.Add(ExplainRefusal(NoBreakSpace)!);
         }
 
         var lead = invalid.FirstOrDefault(i => Rune.TryGetRuneAt(text, i, out var rune) && IsLeadByteCharacter(rune), -1);
@@ -44,6 +79,11 @@ public sealed class Cp1252TextEncoder() : CodePageTextEncoder(GameEncodings.Wind
         if (codePoint == ControlPrefixLetter)
         {
             return "O ï vira o byte 0xEF, o prefixo dos códigos de controle.";
+        }
+
+        if (codePoint == NoBreakSpace && SpeakerDelimiter == SpeakerDelimiterStyle.None)
+        {
+            return "O espaço não separável vira o byte 0xA0, que o jogo usa como abertura da fala com falante. Troque por um espaço comum.";
         }
 
         if (!Rune.TryCreate(codePoint, out var rune) || !IsLeadByteCharacter(rune))

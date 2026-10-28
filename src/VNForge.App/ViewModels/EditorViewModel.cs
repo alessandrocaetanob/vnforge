@@ -41,6 +41,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private readonly Func<string, string?> scriptLabel;
     private readonly Dictionary<string, TextUnit> savedUnits = new(StringComparer.Ordinal);
     private readonly FormattingProfileCache profiles = new();
+    private readonly SpeakerMarksCache speakerMarks = new();
     private LineEditor? lineEditor;
     private EditorContext context = EditorContext.Empty;
     private ProjectLines? data;
@@ -640,7 +641,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var detail = postToUi is null
             ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
             : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
-        detail.AttachPreview(CurrentProfile());
+        detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks());
         detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
@@ -817,10 +818,13 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// Refaz a prévia da linha aberta com o <c>formatting.json</c> de agora. A página do Editor chama ao voltar à tela, depois de Ajustes ter gravado o perfil;
     /// sem mudança no arquivo, a prévia fica como está.
     /// </summary>
-    public void RefreshPreview() => Detail?.AttachPreview(CurrentProfile());
+    public void RefreshPreview() => Detail?.AttachPreview(CurrentProfile(), CurrentSpeakerMarks());
 
     /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
     private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;
+
+    /// <summary>A abertura e o fechamento que o jogo desenha em volta da fala com falante, para a prévia medir a caixa como ela aparece no jogo (#453).</summary>
+    private SpeakerBoxMarks CurrentSpeakerMarks() => Project is { } project ? speakerMarks.Get(project.Root) : SpeakerBoxMarks.None;
 
     private LineEditor? CreateLineEditor(ProjectLines? loaded, string root)
     {

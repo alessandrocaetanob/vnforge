@@ -36,7 +36,8 @@ public sealed record QaContext(
     public static QaContext ForFixing(ProjectFolder project, TextEncoderRegistry? encoders = null)
     {
         ArgumentNullException.ThrowIfNull(project);
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(project.LoadConfig().Encoding.Strategy);
+        var config = project.LoadConfig();
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
         return new QaContext(new Dictionary<string, IReadOnlyList<TextUnit>>(), [], [], FormattingProfile.Default, encoder);
     }
 
@@ -46,7 +47,7 @@ public sealed record QaContext(
     {
         ArgumentNullException.ThrowIfNull(project);
         var config = project.LoadConfig();
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
         return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title };
     }
 }

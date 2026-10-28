@@ -739,6 +739,32 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.Empty(result.Encoding.Issues);
     }
 
+    [Theory]
+    [InlineData(SpeakerDelimiterStyle.None)]
+    [InlineData(SpeakerDelimiterStyle.Guillemets)]
+    public void Cp1252_entrega_a_engine_o_encoder_com_o_estilo_do_delimitador_da_fala(SpeakerDelimiterStyle style)
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252"), Style = StyleConfig.Default with { SpeakerDelimiter = style } });
+        Translate("a001", (0, "Olá"));
+
+        Build();
+
+        Assert.Equal(style, Assert.IsType<Cp1252TextEncoder>(_engine.LastEncoder).SpeakerDelimiter);
+    }
+
+    [Fact]
+    public void Cp1252_sem_sinal_recusa_o_espaco_nao_separavel_na_traducao_e_com_guillemets_aceita()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        Translate("a001", (0, "um\u00A0dois"));
+
+        var ex = Assert.Throws<EncodingReportException>(() => Build());
+
+        Assert.Contains("U+00A0", ex.Message);
+        _project.SaveConfig(_project.LoadConfig() with { Style = StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets } });
+        Assert.Empty(Build().Encoding.Issues);
+    }
+
     [Fact]
     public void Fold_builda_e_o_resultado_traz_os_caracteres_trocados()
     {

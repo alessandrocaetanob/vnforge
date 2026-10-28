@@ -1,3 +1,5 @@
+using VNForge.Core.Text;
+
 namespace VNForge.Core.Projects;
 
 /// <summary>O que fazer com os sufixos de tratamento japoneses (-san, -kun, -chan, -sama) e com senpai.</summary>
@@ -78,6 +80,12 @@ public sealed record StyleConfig
     /// ocidental à IA. Fica fora de <see cref="CacheKey"/>: a troca vem depois do cache, então ligar ou desligar vale para o que já foi pago.
     /// </summary>
     public bool KeyboardPunctuation { get; init; } = true;
+
+    /// <summary>
+    /// Como a fala com falante aparece na caixa de texto quando a codificação não grava <c>「 」</c> (hoje só a <c>cp1252</c>, #453): sem sinal (o padrão) ou entre <c>« »</c>.
+    /// Mexe só nos bytes que o build grava, então fica fora de <see cref="CacheKey"/>; as outras codificações a ignoram.
+    /// </summary>
+    public SpeakerDelimiterStyle SpeakerDelimiter { get; init; } = SpeakerDelimiterStyle.None;
 
     /// <summary>
     /// Forma estável das escolhas, para entrar na chave do cache de traduções. O nome do narrador sem espaços nas pontas e o

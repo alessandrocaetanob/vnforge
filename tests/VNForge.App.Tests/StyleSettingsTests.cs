@@ -51,6 +51,63 @@ public class StyleSettingsTests
     }
 
     [Fact]
+    public void O_delimitador_da_fala_vem_sem_sinal_e_a_tela_oferece_sem_sinal_ou_guillemets()
+    {
+        var style = new StyleSettingsViewModel();
+
+        Assert.Equal(SpeakerDelimiterStyle.None, style.SelectedSpeakerDelimiter?.Value);
+        Assert.Equal(["Sem sinal", "« »"], style.SpeakerDelimiters.Select(o => o.Label));
+        Assert.Equal([SpeakerDelimiterStyle.None, SpeakerDelimiterStyle.Guillemets], style.SpeakerDelimiters.Select(o => o.Value));
+    }
+
+    [Fact]
+    public void Carregar_o_estilo_com_guillemets_mostra_a_escolha_sem_avisar_e_volta_na_config()
+    {
+        var style = new StyleSettingsViewModel();
+        var changes = 0;
+        style.Changed += (_, _) => changes++;
+        var loaded = StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets };
+
+        style.Load(loaded);
+
+        Assert.Equal(0, changes);
+        Assert.Equal(SpeakerDelimiterStyle.Guillemets, style.SelectedSpeakerDelimiter?.Value);
+        Assert.Equal(loaded, style.ToConfig());
+    }
+
+    [Fact]
+    public async Task Escolher_guillemets_grava_no_vnforge_json_e_voltar_ao_padrao_tira_o_campo()
+    {
+        using var temp = new TempFolder();
+        var (vm, root) = await Opened(temp);
+        var saves = 0;
+        vm.ProjectSaved += (_, _) => saves++;
+
+        vm.Style.SelectedSpeakerDelimiter = vm.Style.SpeakerDelimiters.Single(o => o.Value == SpeakerDelimiterStyle.Guillemets);
+
+        Assert.Equal(1, saves);
+        Assert.Equal(SpeakerDelimiterStyle.Guillemets, ProjectFolder.Open(root).LoadConfig().Style.SpeakerDelimiter);
+        Assert.Contains("\"speakerDelimiter\": \"guillemets\"", File.ReadAllText(Path.Combine(root, ProjectFolder.ConfigFileName)));
+
+        vm.Style.SelectedSpeakerDelimiter = vm.Style.SpeakerDelimiters.Single(o => o.Value == SpeakerDelimiterStyle.None);
+
+        Assert.DoesNotContain("speakerDelimiter", File.ReadAllText(Path.Combine(root, ProjectFolder.ConfigFileName)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_escolha_do_delimitador_so_aparece_com_a_acentuacao_cp1252()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Opened(temp);
+
+        vm.EncodingStrategy = "cp1252";
+        Assert.True(vm.ShowCp1252Warning);
+
+        vm.EncodingStrategy = "fold";
+        Assert.False(vm.ShowCp1252Warning);
+    }
+
+    [Fact]
     public void O_exemplo_muda_com_honorifico_tratamento_e_onomatopeia()
     {
         var style = new StyleSettingsViewModel();

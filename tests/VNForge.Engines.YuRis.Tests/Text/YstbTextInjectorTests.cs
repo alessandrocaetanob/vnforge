@@ -161,6 +161,8 @@ public class YstbTextInjectorTests
 
     private static readonly ITextEncoder Cp1252 = TextEncoderRegistry.Default.Create("cp1252");
 
+    private static readonly ITextEncoder Cp1252Guillemets = TextEncoderRegistry.Default.Create("cp1252", SpeakerDelimiterStyle.Guillemets);
+
     private static byte[] FirstMessage(byte[] raw)
     {
         var reloaded = YstbReader.Read(raw, ScriptName, Commands);
@@ -175,8 +177,72 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        byte[] expected = [.. "Inui"u8, 0xAB, .. "Bom dia!"u8, 0xBB];
+        byte[] expected = [.. "Inui"u8, 0xA0, .. "Bom dia!"u8];
         Assert.Equal(expected, FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComEstiloGuillemets_GravaOParDeUmByteDoDelimitadorAntigo()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Bom dia!") with { Speaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252Guillemets);
+
+        Assert.Equal([.. "Inui"u8, 0xAB, .. "Bom dia!"u8, 0xBB], FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252SemSinal_FalaTerminadaEmAcentoGravaUmEspacoDeGuardaNoFim()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Eu vou já") with { Speaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        Assert.Equal([.. "Inui"u8, 0xA0, .. "Eu vou j"u8, 0xE1, 0x20], FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252SemSinal_FalaTerminadaEmAcentoSeguidoDeControleMantemSoOEspacoDoControle()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Eu vou já\\p") with { Speaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        Assert.Equal([.. "Inui"u8, 0xA0, .. "Eu vou j"u8, 0xE1, 0x20, 0xEF, 0xF2], FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_Cp1252SemSinal_FalaTerminadaEmLetraSemAcentoOuEmPontuacaoNaoGanhaEspaco()
+    {
+        var loaded = Load(FullScript());
+
+        Assert.Equal([.. "Inui"u8, 0xA0, .. "Oi."u8], FirstMessage(YstbTextInjector.Inject(loaded.File, loaded.Script, [Translate(loaded, UnitId(0), "Oi.") with { Speaker = "Inui" }], Cp1252)));
+        Assert.Equal([.. "Inui"u8, 0xA0, .. "Oi"u8], FirstMessage(YstbTextInjector.Inject(loaded.File, loaded.Script, [Translate(loaded, UnitId(0), "Oi") with { Speaker = "Inui" }], Cp1252)));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComEstiloGuillemets_FalaTerminadaEmAcentoMantemOFechamentoSemEspaco()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Eu vou já") with { Speaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252Guillemets);
+
+        Assert.Equal([.. "Inui"u8, 0xAB, .. "Eu vou j"u8, 0xE1, 0xBB], FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_FoldComFalante_GravaOsDelimitadoresJaponesesComoNoShiftJis()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Bom dia!") with { Speaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], TextEncoderRegistry.Default.Create("fold"));
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("Inui「Bom dia!」"), FirstMessage(raw));
     }
 
     [Fact]
@@ -187,7 +253,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        byte[] expected = [.. "Inui"u8, 0xAB, .. "Oi"u8, 0xBB];
+        byte[] expected = [.. "Inui"u8, 0xA0, .. "Oi"u8];
         Assert.Equal(expected, FirstMessage(raw));
     }
 
@@ -209,7 +275,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal([.. "???"u8, 0xAB, .. "Quem?"u8, 0xBB], FirstMessage(raw));
+        Assert.Equal([.. "???"u8, 0xA0, .. "Quem?"u8], FirstMessage(raw));
     }
 
     [Fact]
@@ -220,7 +286,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal([.. GameEncodings.Windows1252.GetBytes("Teste ç ã é ô"), 0xAB, .. GameEncodings.Windows1252.GetBytes("Olá, ação!"), 0xBB], FirstMessage(raw));
+        Assert.Equal([.. GameEncodings.Windows1252.GetBytes("Teste ç ã é ô"), 0xA0, .. GameEncodings.Windows1252.GetBytes("Olá, ação!")], FirstMessage(raw));
     }
 
     [Fact]
@@ -231,7 +297,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        byte[] expected = [.. "Inui"u8, 0xAB, .. "do que j"u8, 0xE1, 0x20, 0xEF, 0xF0, .. "era...?"u8, 0xEF, 0xF2, .. "que at"u8, 0xE9, 0x20, 0xEF, 0xF0, .. "h"u8, 0xE1, 0xBB];
+        byte[] expected = [.. "Inui"u8, 0xA0, .. "do que j"u8, 0xE1, 0x20, 0xEF, 0xF0, .. "era...?"u8, 0xEF, 0xF2, .. "que at"u8, 0xE9, 0x20, 0xEF, 0xF0, .. "h"u8, 0xE1, 0x20];
         Assert.Equal(expected, FirstMessage(raw));
     }
 
@@ -342,7 +408,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal([.. "Inui"u8, 0xAB, .. "Bom dia!"u8, 0xBB], FirstMessage(raw));
+        Assert.Equal([.. "Inui"u8, 0xA0, .. "Bom dia!"u8], FirstMessage(raw));
     }
 
     [Fact]
@@ -366,7 +432,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal([0xAB, .. "Bom dia!"u8, 0xBB], FirstMessage(raw));
+        Assert.Equal([0xA0, .. "Bom dia!"u8], FirstMessage(raw));
     }
 
     [Fact]
@@ -410,7 +476,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal([.. "Inui"u8, 0xAB, .. "Vento."u8, 0xBB], MessageAt(raw, 3));
+        Assert.Equal([.. "Inui"u8, 0xA0, .. "Vento."u8], MessageAt(raw, 3));
     }
 
     [Fact]

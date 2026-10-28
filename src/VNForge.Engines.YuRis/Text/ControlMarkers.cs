@@ -87,9 +87,10 @@ public static class ControlMarkers
     /// Converte texto com marcadores nos bytes do jogo. Os trechos de texto passam pelo <paramref name="encoder"/>; os bytes de
     /// controle são concatenados entre eles sem passar pelo codificador.
     /// </summary>
+    /// <param name="guardTrailingLead">Na <c>cp1252</c>, grava um <c>0x20</c> no fim se o texto termina num lead byte sem par: a fala com falante sem fechamento (#453) é o fim da mensagem.</param>
     /// <exception cref="FormatException">Marcador inválido; a mensagem cita a posição (em caracteres, a partir de 0).</exception>
     /// <exception cref="EncoderFallbackException">Um trecho de texto tem caractere que o codificador não representa.</exception>
-    public static byte[] ToBytes(string text, ITextEncoder encoder)
+    public static byte[] ToBytes(string text, ITextEncoder encoder, bool guardTrailingLead = false)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(encoder);
@@ -114,7 +115,7 @@ public static class ControlMarkers
             }
         }
 
-        return builder.ToArray();
+        return builder.ToArray(guardTrailingLead);
     }
 
     private static int ReadEscape(string text, int i, BytesBuilder builder)
@@ -216,9 +217,14 @@ public static class ControlMarkers
             }
         }
 
-        public byte[] ToArray()
+        public byte[] ToArray(bool guardTrailingLead)
         {
             Flush();
+            if (guardTrailingLead && _leadOpen)
+            {
+                _output.Add(Space);
+            }
+
             return _output.ToArray();
         }
     }

@@ -95,7 +95,7 @@ public static class ProjectBuilder
             throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta o build.");
         }
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(options?.EncodingStrategy ?? config.Encoding.Strategy);
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(options?.EncodingStrategy ?? config.Encoding.Strategy, config.Style.SpeakerDelimiter);
 
         var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
         if (!Directory.Exists(gameDirectory))
@@ -238,7 +238,8 @@ public static class ProjectBuilder
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? project.LoadConfig().Encoding.Strategy);
+        var config = project.LoadConfig();
+        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? config.Encoding.Strategy, config.Style.SpeakerDelimiter);
         return EncodingReporter.Create(ApplyFormatting(project.LoadFormatting(), project.LoadAllText(), null, []), encoder);
     }
 

@@ -29,15 +29,19 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly TextUnit unit;
-    public TextboxPreviewViewModel(TextUnit unit, FormattingProfile profile, string translation)
+    public TextboxPreviewViewModel(TextUnit unit, FormattingProfile profile, string translation, SpeakerBoxMarks marks = default)
     {
         this.unit = unit ?? throw new ArgumentNullException(nameof(unit));
         Profile = profile ?? throw new ArgumentNullException(nameof(profile));
+        Marks = marks;
         Update(translation);
     }
 
     /// <summary>O perfil com que a prévia foi montada.</summary>
     public FormattingProfile Profile { get; }
+
+    /// <summary>A abertura e o fechamento que o jogo desenha em volta da fala com falante (#453); a primeira linha da caixa ganha a abertura, e a última, o fechamento.</summary>
+    public SpeakerBoxMarks Marks { get; }
 
     /// <summary>Por que a caixa não mostra o que o build faria, quando o build grava a linha como está (o mesmo texto do <c>vnf preview</c>); nulo caso contrário.</summary>
     [ObservableProperty]
@@ -82,7 +86,7 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
         LinePreview preview;
         try
         {
-            preview = LinePreviewer.Create(Profile, unit, translation);
+            preview = LinePreviewer.Create(Profile, unit, translation, Marks);
         }
         catch (VNForgeException e)
         {
