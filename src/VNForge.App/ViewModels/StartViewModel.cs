@@ -254,14 +254,14 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     {
         ClearMessages();
         string root;
+        var parent = sampleParent ?? System.IO.Path.Combine(RecentProjectsFile.DefaultDirectory(), "exemplo");
         try
         {
-            var parent = sampleParent ?? System.IO.Path.Combine(RecentProjectsFile.DefaultDirectory(), "exemplo");
             root = await Task.Run(() => SampleProject.Create(parent), CancellationToken.None);
         }
         catch (Exception e) when (IsExpected(e))
         {
-            ErrorMessage = $"Não foi possível preparar a cena de exemplo: {e.Message}";
+            ErrorMessage = $"Não foi possível preparar a cena de exemplo: {WithoutPath(e.Message, parent)}";
             return;
         }
 

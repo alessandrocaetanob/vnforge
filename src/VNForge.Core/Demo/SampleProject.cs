@@ -90,21 +90,97 @@ public static class SampleProject
     }
 
     /// <summary>
-    /// Grava o projeto em <c>parent/cena-de-exemplo</c> e devolve a pasta. Se a pasta já é uma cena de exemplo, devolve ela como está: o que a pessoa
-    /// traduziu ali não se perde.
+    /// Grava o projeto em <c>parent/cena-de-exemplo</c> e devolve a pasta. O projeto é montado numa pasta temporária ao lado e movido de uma vez
+    /// no fim, então uma criação interrompida não deixa nada pela metade. Se a pasta já é uma cena de exemplo, devolve ela como está: o que a
+    /// pessoa traduziu ali não se perde. Uma pasta com o mesmo nome em outro estado (só <c>vnforge.json</c>, só o marcador ou outro conteúdo)
+    /// não é tocada: o método avisa em vez de sobrescrever.
     /// </summary>
+    /// <exception cref="ProjectConfigException">A pasta existe e não é uma cena de exemplo completa.</exception>
     public static string Create(string parent)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(parent);
         var root = Path.GetFullPath(Path.Combine(parent, FolderName));
-        if (IsSample(root) && File.Exists(Path.Combine(root, ProjectFolder.ConfigFileName)))
+        if (TryReuse(root))
         {
             return root;
         }
 
-        var folder = ProjectFolder.Create(root, new ProjectConfig(
+        var staging = Path.Combine(Path.GetFullPath(parent), $".{FolderName}-{Guid.NewGuid():N}");
+        try
+        {
+            WriteTo(staging, root);
+            try
+            {
+                Directory.Move(staging, root);
+            }
+            catch (IOException) when (TryReuse(root))
+            {
+                return root;
+            }
+        }
+        finally
+        {
+            TryDelete(staging);
+        }
+
+        return root;
+    }
+
+    /// <summary>Verdadeiro quando <paramref name="root"/> já é uma cena de exemplo completa; falha com uma explicação quando existe em outro estado.</summary>
+    private static bool TryReuse(string root)
+    {
+        var hasConfig = File.Exists(Path.Combine(root, ProjectFolder.ConfigFileName));
+        var isSample = IsSample(root);
+        if (hasConfig && isSample)
+        {
+            return true;
+        }
+
+        if (hasConfig)
+        {
+            throw new ProjectConfigException(
+                $"Já existe um projeto na pasta '{FolderName}' que não é a cena de exemplo. Nada foi alterado; renomeie ou mova essa pasta e tente de novo.");
+        }
+
+        if (isSample)
+        {
+            throw new ProjectConfigException(
+                $"A pasta '{FolderName}' tem o marcador da cena de exemplo, mas falta o {ProjectFolder.ConfigFileName}. Nada foi apagado, para não perder traduções; renomeie ou mova essa pasta e tente de novo.");
+        }
+
+        if (Directory.Exists(root))
+        {
+            if (Directory.EnumerateFileSystemEntries(root).Any())
+            {
+                throw new ProjectConfigException(
+                    $"Já existe uma pasta '{FolderName}' com outro conteúdo. Nada foi alterado; renomeie ou mova essa pasta e tente de novo.");
+            }
+
+            Directory.Delete(root);
+        }
+
+        return false;
+    }
+
+    private static void TryDelete(string folder)
+    {
+        try
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void WriteTo(string staging, string finalRoot)
+    {
+        var folder = ProjectFolder.Create(staging, new ProjectConfig(
             Name,
-            new GameConfig(Path.Combine(root, "sem-jogo"), "exemplo.exe"),
+            new GameConfig(Path.Combine(finalRoot, "sem-jogo"), "exemplo.exe"),
             new EngineConfig("yuris", 500),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("cp1252"),
@@ -123,10 +199,7 @@ public static class SampleProject
             new GlossaryTerm("職員室", "sala dos professores"),
             new GlossaryTerm("勉強会", "grupo de estudos"),
         ]);
-        File.WriteAllText(
-            Path.Combine(folder.Root, MarkerFileName),
-            "Cena de exemplo do VNForge: o texto é sintético, não há jogo nesta pasta e o build e a injeção não se aplicam.\n");
-        return folder.Root;
+        File.WriteAllText(Path.Combine(folder.Root, MarkerFileName), MarkerText + "\n");
     }
 
     private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Generate()
