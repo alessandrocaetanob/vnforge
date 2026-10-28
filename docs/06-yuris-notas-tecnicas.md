@@ -329,7 +329,7 @@ Lbl[lbl_count]
     u8  name_size
     u8  name[name_size]   // Shift-JIS
     u32 name_hash         // o mesmo hash do YPF; o leitor não o confere
-    u32 code_position     // versão >= 300: índice da instrução no YSTB
+    u32 code_position     // versão >= 300: índice da instrução no YSTB; abaixo disso, deslocamento na seção de comandos (o campo tem o mesmo tamanho)
     u16 script_id         // índice na lista do yst_list.ybn: o script é yst<script_id com 5 dígitos>.ybn
     u8  if_level
     u8  loop_level
