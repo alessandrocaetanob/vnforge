@@ -60,13 +60,37 @@ public sealed partial class LineDetailViewModel
                 return string.Empty;
             }
 
-            var how = suggestionResult.IsDemo ? "gratuito"
-                : suggestionResult.FromFakeProvider ? "sem chave de API"
-                : suggestionResult.Effort is { Length: > 0 } effort ? $"esforço {effort}"
-                : string.Empty;
+            var how = DescribeHow(suggestionResult);
             var age = RelativeTime.Format(suggestedAt, clock.GetUtcNow());
             return how.Length == 0 ? $"· {age}" : $"· {how} · {age}";
         }
+    }
+
+    private static string DescribeHow(LineSuggestion result)
+    {
+        if (result.IsDemo)
+        {
+            return "gratuito";
+        }
+
+        if (result.FromFakeProvider)
+        {
+            return "sem chave de API";
+        }
+
+        return result.Effort is { Length: > 0 } effort ? $"esforço {effort}" : string.Empty;
+    }
+
+    private static string DescribeSource(LineSuggestion result)
+    {
+        if (result.IsDemo)
+        {
+            return "Sugestão de demonstração: a cena de exemplo usa uma IA de mentira, sem custo e sem rede.";
+        }
+
+        return result.FromFakeProvider
+            ? "Sugestão de teste, sem chave de API. Configure a chave em Ajustes para usar o Claude."
+            : "Sugestão da IA";
     }
 
     /// <summary>Refaz o "há quanto tempo" do cartão; a tela chama de tempos em tempos enquanto ele está aberto.</summary>
@@ -94,11 +118,7 @@ public sealed partial class LineDetailViewModel
                 suggestionResult = result;
                 suggestedAt = clock.GetUtcNow();
                 Suggestion = result.Text;
-                SuggestionSource = result.IsDemo
-                    ? "Sugestão de demonstração: a cena de exemplo usa uma IA de mentira, sem custo e sem rede."
-                    : result.FromFakeProvider
-                        ? "Sugestão de teste, sem chave de API. Configure a chave em Ajustes para usar o Claude."
-                        : "Sugestão da IA";
+                SuggestionSource = DescribeSource(result);
             }
         }
         catch (Exception e)

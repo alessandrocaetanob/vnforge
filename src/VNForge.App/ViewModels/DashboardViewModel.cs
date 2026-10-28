@@ -851,29 +851,26 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         var total = dashboard.Status.Total;
         var tested = IsTested(dashboard);
-        if (total.Total == 0)
+        var review = ChapterToWorkOn(chapters, c => c.ToReview > 0);
+        var pending = review is null ? ChapterToWorkOn(chapters, c => c.Japanese > 0) : null;
+        var needsCheck = dashboard.Qa is { Total: > 0 };
+        if (total.Total == 0 || (IsSample && review is null && pending is null && !needsCheck))
         {
             nextStep = null;
             NextStepLabel = string.Empty;
             NextStepScene = string.Empty;
         }
-        else if (ChapterToWorkOn(chapters, c => c.ToReview > 0) is { } review)
+        else if (review is not null)
         {
             SetNextStep($"Revisar {Phrase(review)}", ChapterRowFor(review), SceneLabel(review));
         }
-        else if (ChapterToWorkOn(chapters, c => c.Japanese > 0) is { } pending)
+        else if (pending is not null)
         {
             SetNextStep($"Traduzir {Phrase(pending)}", ChapterRowFor(pending), SceneLabel(pending));
         }
-        else if (dashboard.Qa is { Total: > 0 })
+        else if (needsCheck)
         {
             SetNextStep("Conferir a tradução", new DashboardNavigation(NavKey.Conference));
-        }
-        else if (IsSample)
-        {
-            nextStep = null;
-            NextStepLabel = string.Empty;
-            NextStepScene = string.Empty;
         }
         else
         {

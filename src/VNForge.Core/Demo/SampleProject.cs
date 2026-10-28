@@ -173,6 +173,7 @@ public static class SampleProject
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
+            // Limpeza de melhor esforço: uma pasta temporária que não saiu fica para trás sem atrapalhar, e a próxima criação usa outro nome.
         }
     }
 
@@ -202,7 +203,7 @@ public static class SampleProject
         File.WriteAllText(Path.Combine(folder.Root, MarkerFileName), MarkerText + "\n");
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Generate()
+    private static Dictionary<string, IReadOnlyList<TextUnit>> Generate()
     {
         var texts = new Dictionary<string, IReadOnlyList<TextUnit>>(StringComparer.Ordinal);
         foreach (var (scene, (key, _, _)) in Scenes.Index())

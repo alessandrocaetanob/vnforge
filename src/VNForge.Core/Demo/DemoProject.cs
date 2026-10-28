@@ -60,13 +60,16 @@ public static class DemoProject
     public static ProjectSummary Summary(string? root = null) =>
         new(Name, root ?? Root, "yuris", 500, "cp1252", ModelId, ScriptCount, Counts);
 
+    /// <summary>Texto de demonstração do artboard: a pasta do jogo que o projeto de exemplo registra. Não existe na máquina e nunca é aberta.</summary>
+    private const string ArtboardGameDirectory = @"D:\Jogos\MinhaVN";
+
     /// <summary>Grava a pasta do projeto (<c>project.json</c>, <c>text/*.json</c>, glossário e personagens) em <paramref name="parent"/> e devolve o caminho.</summary>
     /// <param name="gameDirectory">Pasta do jogo registrada no projeto; sem ela, a do artboard (<c>D:\Jogos\MinhaVN</c>, que não existe aqui).</param>
     public static string Create(string parent, string? gameDirectory = null)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             Name,
-            new GameConfig(gameDirectory ?? @"D:\Jogos\MinhaVN", "MinhaVN.exe"),
+            new GameConfig(gameDirectory ?? ArtboardGameDirectory, "MinhaVN.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("cp1252"),
