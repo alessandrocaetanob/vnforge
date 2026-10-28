@@ -139,7 +139,7 @@
               <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
               <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center">
                 <Run FontWeight="SemiBold" Text="Testar no jogo (Ctrl+B) já faz tudo."/>
-                <Run Text="Ele refaz o build, aplica o patch da fonte, guarda a cópia de segurança e copia para o jogo. Não precisa restaurar os originais entre um teste e outro."/>
+                <Run Text="Ele refaz o build, guarda a cópia de segurança e copia para o jogo (com acentos no ajuste cp1252, aplica também o patch da fonte). Não precisa restaurar os originais entre um teste e outro."/>
               </TextBlock>
               <Button Grid.Column="2" Classes="sm" Click="GoToTest_Click" Content="Ir para Testar no jogo"
                       VerticalAlignment="Center" AutomationProperties.Name="Ir para Testar no jogo"/>
