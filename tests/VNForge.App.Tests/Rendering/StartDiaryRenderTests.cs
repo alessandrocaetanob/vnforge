@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -72,8 +73,9 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                     Assert.Equal("sábado, 24/10: 120 linhas", map.TipAt(CellCenter(column - 1, 6)));
                     Assert.Equal("sexta, 23/10: 80 linhas", map.TipAt(CellCenter(column - 1, 5)));
                     Assert.Equal("quinta, 22/10: nenhuma linha", map.TipAt(CellCenter(column - 1, 4)));
-                    Assert.Null(map.TipAt(CellCenter(column, 1)));
-                    Assert.Null(map.TipAt(new Point(ReviewHeatmap.CellSize + 1, 0)));
+                    Assert.Equal("dia que ainda não chegou", map.TipAt(CellCenter(column, 1)));
+                    Assert.Equal(map.TipAt(CellCenter(0, 0)), map.TipAt(new Point(ReviewHeatmap.CellSize + 1, 2)));
+                    Assert.Null(map.TipAt(new Point(-1, 2)));
 
                     // O dia mais cheio tem a cor de pronto do tema e um dia sem aprovação, a cor de pendente.
                     var approved = Resolve(map, "Vnf.SegApproved", theme);
@@ -129,7 +131,7 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                     var panel = Assert.Single(view.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Diário de tradução");
                     var map = Assert.Single(panel.GetVisualDescendants().OfType<ReviewHeatmap>());
                     Assert.Equal(ReviewHeatmap.MapWidth, map.Bounds.Width, 0.5);
-                    Assert.Null(map.TipAt(new Point(2, 2)));
+                    Assert.Equal("nenhuma aprovação ainda", map.TipAt(new Point(2, 2)));
                     var texts = VisibleText(panel);
                     Assert.Contains("Aprove algumas linhas e o diário começa a se preencher.", texts, StringComparison.Ordinal);
                     Assert.DoesNotContain("nas últimas 12 semanas.", texts, StringComparison.Ordinal);
@@ -210,6 +212,127 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Passar_pelo_vao_entre_as_celulas_nao_fecha_o_tooltip_e_voltar_a_uma_celula_mostra_o_dia()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                var sessions = new SessionsFile(SessionsFile.CurrentVersion, [.. Enumerable.Range(0, 5).Select(i => new ApprovalRecord("yst00013", $"yst00013:{i:D6}", Now.AddHours(-1).AddDays(-1).AddSeconds(i * 30)))]);
+                var map = new ReviewHeatmap { Diary = ReviewDiary.Compute(sessions, Now, TimeZoneInfo.Utc), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top, Margin = new Thickness(40) };
+                var window = new Window { Width = 400, Height = 300, Content = map };
+                try
+                {
+                    window.Show();
+                    ScreenRenderer.Settle(window);
+                    var origin = map.TranslatePoint(default, window)!.Value;
+                    var column = ReviewDiary.Weeks - 2;
+                    var onCell = origin + CellCenter(column, 6);
+                    var inGap = origin + new Point(column * (ReviewHeatmap.CellSize + ReviewHeatmap.Gap) + ReviewHeatmap.CellSize + ReviewHeatmap.Gap / 2, CellCenter(column, 6).Y);
+                    var other = origin + CellCenter(column, 5);
+
+                    window.MouseMove(onCell);
+                    await WaitFor(() => ToolTip.GetIsOpen(map));
+                    Assert.Contains("sábado, 24/10: 5 linhas", TipText(map));
+
+                    var tip = ToolTip.GetTip(map);
+                    window.MouseMove(inGap);
+                    ScreenRenderer.Settle(window);
+                    Assert.NotNull(ToolTip.GetTip(map));
+                    Assert.Same(tip, ToolTip.GetTip(map));
+                    Assert.True(ToolTip.GetIsOpen(map), "passar pelo vão fechou o tooltip");
+
+                    window.MouseMove(other);
+                    ScreenRenderer.Settle(window);
+                    Assert.True(ToolTip.GetIsOpen(map), "o tooltip não voltou numa célula depois do vão");
+                    Assert.Contains("sexta, 23/10: nenhuma linha", TipText(map));
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task O_mapa_de_calor_expoe_o_nome_ao_leitor_de_tela()
+    {
+        await fixture.Session.Dispatch<int>(
+            () =>
+            {
+                var map = new ReviewHeatmap();
+                AutomationProperties.SetName(map, "Mapa das aprovações por dia nas últimas 12 semanas, ainda sem aprovações.");
+                var window = new Window { Width = 400, Height = 300, Content = map };
+                try
+                {
+                    window.Show();
+                    var peer = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(map);
+
+                    Assert.Equal("Mapa das aprovações por dia nas últimas 12 semanas, ainda sem aprovações.", peer.GetName());
+                    Assert.Equal(Avalonia.Automation.Peers.AutomationControlType.Image, peer.GetAutomationControlType());
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return Task.FromResult(0);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Uma_falha_inesperada_no_resumo_so_fecha_a_janela_na_hora()
+    {
+        using var temp = new TempFolder();
+        var root = DemoProject.Create(temp.SubFolder("projeto"));
+        var clock = new ThrowingClock(Now);
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), clock);
+                var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, DataContext = vm };
+                window.Show();
+                await start.OpenAsync(root);
+                await start.DetailLoading;
+                clock.Throw = true;
+
+                window.Close();
+
+                Assert.False(window.IsVisible);
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    private sealed class ThrowingClock(DateTimeOffset now) : TimeProvider
+    {
+        public bool Throw { get; set; }
+
+        public override DateTimeOffset GetUtcNow() => Throw ? throw new InvalidOperationException("falha inesperada do relógio") : now;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    }
+
+    private static string? TipText(Control owner) => ToolTip.GetTip(owner) is TextBlock block ? block.Text : ToolTip.GetTip(owner)?.ToString();
+
+    private static async Task WaitFor(Func<bool> condition)
+    {
+        var until = DateTime.UtcNow.AddSeconds(5);
+        while (!condition() && DateTime.UtcNow < until)
+        {
+            await Task.Delay(25);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        }
+
+        Assert.True(condition(), "o tooltip não abriu");
     }
 
     /// <summary>Doze semanas de trabalho com a sequência de hoje: 24 linhas hoje, 120 ontem, 80 anteontem, nenhuma antes de ontem-ontem e dias soltos no resto.</summary>

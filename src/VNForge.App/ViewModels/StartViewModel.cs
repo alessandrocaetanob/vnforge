@@ -66,7 +66,7 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
 
     /// <summary>O Diário de tradução do projeto selecionado: o mapa das últimas 12 semanas, os dias seguidos e o que foi aprovado ontem. Vazio sem projeto.</summary>
     [ObservableProperty]
-    public partial DiaryCard Diary { get; private set; } = DiaryCard.Empty;
+    public partial DiaryCard Diary { get; private set; } = DiaryCard.Pending;
 
     /// <summary>A leitura do <see cref="Detail"/> em curso; os testes esperam por ela.</summary>
     public Task DetailLoading { get; private set; } = Task.CompletedTask;
@@ -360,12 +360,20 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
             ShowContinueLine(null, string.Empty, null);
         }
 
+        if (project is null)
+        {
+            ShowDiary(DiaryCard.Empty, null);
+        }
+        else if (!SamePath(project.Root, diaryRoot))
+        {
+            ShowDiary(DiaryCard.Pending, null);
+        }
+
         var rapid = lastSelectionAt != 0 && Stopwatch.GetElapsedTime(lastSelectionAt) < TimeSpan.FromMilliseconds(500);
         lastSelectionAt = Stopwatch.GetTimestamp();
         Detail.Project = project;
         if (project is null)
         {
-            Diary = DiaryCard.Empty;
             DetailLoading = Detail.ReloadAsync();
             return;
         }
@@ -405,7 +413,11 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
         if (!token.IsCancellationRequested)
         {
             await Detail.ReloadAsync();
-            Diary = new DiaryCard(Detail.Diary);
+            if (!token.IsCancellationRequested)
+            {
+                ShowDiary(new DiaryCard(Detail.Diary), Selected?.IsSupported == true ? Selected.Path : null);
+            }
+
             OnPropertyChanged(nameof(DetailError));
             await ReloadContinueLineAsync(token);
         }
@@ -443,6 +455,15 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     }
 
     private string? continueRoot;
+
+    private string? diaryRoot;
+
+    /// <summary>Mostra o diário de <paramref name="root"/>; sem raiz, o diário não é de nenhum projeto lido e a próxima seleção começa do zero.</summary>
+    private void ShowDiary(DiaryCard card, string? root)
+    {
+        diaryRoot = root;
+        Diary = card;
+    }
 
     private void ShowContinueLine(TextboxLayout? layout, string caption, string? root)
     {

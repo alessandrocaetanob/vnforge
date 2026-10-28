@@ -28,6 +28,20 @@ public sealed partial class MainWindow : Window
 
     private bool closeSummaryShown;
 
+    /// <summary>O resumo é enfeite: qualquer falha ao montá-lo só deixa a janela fechar na hora, e nunca derruba o processo no meio do fechamento.</summary>
+    private static bool TryShowCloseSummary(ViewModels.MainWindowViewModel vm)
+    {
+        try
+        {
+            return vm.ShowCloseSummary();
+        }
+        catch (Exception e)
+        {
+            System.Diagnostics.Debug.WriteLine($"Resumo da sessão: não foi possível montar: {e}");
+            return false;
+        }
+    }
+
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         if (DataContext is not ViewModels.MainWindowViewModel vm)
@@ -42,7 +56,7 @@ public sealed partial class MainWindow : Window
         }
 
         // O resumo só adia o fechamento pedido pela pessoa, uma vez: o desligamento do Windows, o fim do app e um segundo pedido de fechar não esperam.
-        if (closeSummaryShown || e.CloseReason != WindowCloseReason.WindowClosing || !vm.ShowCloseSummary())
+        if (closeSummaryShown || e.CloseReason != WindowCloseReason.WindowClosing || !TryShowCloseSummary(vm))
         {
             return;
         }

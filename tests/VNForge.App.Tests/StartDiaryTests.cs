@@ -53,7 +53,7 @@ public class StartDiaryTests
         Assert.Equal("0", vm.Diary.StreakValue);
         Assert.Equal("Ontem você não aprovou linhas.", vm.Diary.YesterdayText);
         Assert.Equal("Hoje ainda não há linhas aprovadas.", vm.Diary.TodayText);
-        Assert.Equal("Aprove algumas linhas e o diário começa a se preencher.", vm.Diary.EmptyText);
+        Assert.Equal("Aprove algumas linhas e o diário começa a se preencher.", DiaryCard.EmptyText);
     }
 
     [Fact]
@@ -118,5 +118,73 @@ public class StartDiaryTests
         var text = DiaryCard.SessionText(new SessionSummary(1, TimeSpan.FromSeconds(20)), new ReviewDiary([], 1, 0, 1, 1));
 
         Assert.Equal("Nesta sessão: 1 linha aprovada em menos de 1 min.", text);
+    }
+
+    [Fact]
+    public void Antes_da_primeira_leitura_o_diario_nao_mostra_o_convite_nem_numeros()
+    {
+        var pending = DiaryCard.Pending;
+
+        Assert.True(pending.IsLoading);
+        Assert.False(pending.IsEmpty);
+        Assert.False(pending.HasActivity);
+        Assert.Equal(string.Empty, pending.StreakValue);
+        Assert.Equal(string.Empty, pending.StreakCaption);
+        Assert.Equal(string.Empty, pending.YesterdayText);
+        Assert.Equal(string.Empty, pending.TodayText);
+        Assert.False(new DiaryCard(ReviewDiary.Empty).IsLoading);
+        Assert.True(new StartViewModel(new RecentProjectsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-recentes")), new FakeFolderPicker(null), new FixedClock(Now)).Diary.IsLoading);
+    }
+
+    [Fact]
+    public void O_titulo_do_painel_usa_o_numero_de_semanas_do_diario()
+    {
+        Assert.Equal($"Últimas {ReviewDiary.Weeks} semanas · um quadrado por dia", DiaryCard.RangeText);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_zera_o_diario_na_hora_e_so_mostra_o_do_novo_depois_da_leitura()
+    {
+        using var temp = new TempFolder();
+        var first = SampleProjects.Create(temp.SubFolder("a"), "Projeto A", TranslationStatus.Machine);
+        var second = SampleProjects.Create(temp.SubFolder("b"), "Projeto B", TranslationStatus.Machine);
+        Seed(first, [.. Day(Now.AddHours(-1), 7)]);
+        Seed(second, [.. Day(Now.AddHours(-1), 3)]);
+        var vm = Create(temp, new FixedClock(Now));
+        await vm.OpenAsync(first);
+        await vm.OpenAsync(second);
+        await vm.DetailLoading;
+        Assert.Equal(3, vm.Diary.Source.Today);
+
+        vm.Selected = vm.Recents.Single(r => r.Name == "Projeto A");
+
+        Assert.True(vm.Diary.IsLoading, "o diário do projeto anterior ficou na tela");
+        await vm.DetailLoading;
+        Assert.Equal(7, vm.Diary.Source.Today);
+        Assert.False(vm.Diary.IsLoading);
+    }
+
+    [Fact]
+    public async Task Uma_leitura_cancelada_pela_troca_de_projeto_nao_grava_o_diario()
+    {
+        using var temp = new TempFolder();
+        var first = SampleProjects.Create(temp.SubFolder("a"), "Projeto A", TranslationStatus.Machine);
+        var second = SampleProjects.Create(temp.SubFolder("b"), "Projeto B", TranslationStatus.Machine);
+        Seed(first, [.. Day(Now.AddHours(-1), 7)]);
+        Seed(second, [.. Day(Now.AddHours(-1), 3)]);
+        var vm = Create(temp, new FixedClock(Now));
+        await vm.OpenAsync(first);
+        await vm.OpenAsync(second);
+        await vm.DetailLoading;
+
+        var a = vm.Recents.Single(r => r.Name == "Projeto A");
+        var b = vm.Recents.Single(r => r.Name == "Projeto B");
+        vm.Selected = a;
+        var cancelled = vm.DetailLoading;
+        vm.Selected = b;
+        await cancelled;
+        await vm.DetailLoading;
+
+        Assert.Equal(3, vm.Diary.Source.Today);
     }
 }

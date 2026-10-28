@@ -212,7 +212,7 @@
             <StackPanel Spacing="16">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Classes="title-md" Text="Diário de tradução"/>
-                <TextBlock Grid.Column="1" Classes="body-sm secondary" VerticalAlignment="Center" Text="Últimas 12 semanas · um quadrado por dia"/>
+                <TextBlock Grid.Column="1" Classes="body-sm secondary" VerticalAlignment="Center" Text="{x:Static vm:DiaryCard.RangeText}"/>
               </Grid>
               <Grid ColumnDefinitions="Auto,48,*">
                 <c:ReviewHeatmap Diary="{Binding Diary.Source}" HorizontalAlignment="Left" AutomationProperties.Name="{Binding Diary.MapDescription}"/>
@@ -225,7 +225,7 @@
                     <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Diary.YesterdayText}"/>
                     <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Diary.TodayText}"/>
                     <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Diary.TotalText}" IsVisible="{Binding Diary.HasActivity}"/>
-                    <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Diary.EmptyText}" IsVisible="{Binding Diary.IsEmpty}"/>
+                    <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{x:Static vm:DiaryCard.EmptyText}" IsVisible="{Binding Diary.IsEmpty}"/>
                   </StackPanel>
                 </StackPanel>
               </Grid>

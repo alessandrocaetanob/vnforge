@@ -1,5 +1,7 @@
 using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -32,8 +34,11 @@ public sealed class ReviewHeatmap : Control
         AffectsMeasure<ReviewHeatmap>(DiaryProperty);
     }
 
+    private readonly TextBlock tipText = new();
+
     public ReviewHeatmap()
     {
+        ToolTip.SetTip(this, tipText);
         ActualThemeVariantChanged += (_, _) => InvalidateVisual();
     }
 
@@ -53,6 +58,8 @@ public sealed class ReviewHeatmap : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        // Sem isto os vãos entre as células não recebem o ponteiro: o mouse "sai" do mapa a cada vão e o tooltip fecha.
+        context.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, MapWidth, MapHeight));
         var empty = Resolve("Vnf.SegPending", Colors.Gray);
         var full = Resolve("Vnf.SegApproved", Colors.SeaGreen);
         var brushes = LevelMix.Select(mix => (IBrush)new SolidColorBrush(Blend(empty, full, mix))).ToArray();
@@ -68,29 +75,36 @@ public sealed class ReviewHeatmap : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        ToolTip.SetTip(this, TipAt(e.GetPosition(this)));
+        if (TipAt(e.GetPosition(this)) is { } text)
+        {
+            tipText.Text = text;
+        }
     }
 
-    protected override void OnPointerExited(PointerEventArgs e)
-    {
-        base.OnPointerExited(e);
-        ToolTip.SetTip(this, null);
-    }
+    protected override AutomationPeer OnCreateAutomationPeer() => new HeatmapPeer(this);
 
-    /// <summary>O texto da célula sob o ponto: "terça, 27/10: 42 linhas". Nulo fora de uma célula com dia.</summary>
+    /// <summary>
+    /// O texto da célula sob o ponto: "terça, 27/10: 42 linhas". O vão entre duas células vale pela célula de antes e um dia que ainda não chegou diz isso;
+    /// só fora do mapa o resultado é nulo. O tooltip nunca fica sem texto, porque o ToolTipService não reabre um tooltip fechado enquanto o dono não muda.
+    /// </summary>
     public string? TipAt(Point point)
     {
-        if (Diary is not { Days.Count: > 0 } diary)
+        if (point.X < 0 || point.Y < 0 || point.X > MapWidth || point.Y > MapHeight)
         {
             return null;
         }
 
-        var column = (int)Math.Floor(point.X / (CellSize + Gap));
-        var row = (int)Math.Floor(point.Y / (CellSize + Gap));
-        var index = column * Rows + row;
-        if (point.X < 0 || point.Y < 0 || column >= ReviewDiary.Weeks || row >= Rows || index >= diary.Days.Count || !CellRect(column, row).Contains(point))
+        if (Diary is not { Days.Count: > 0 } diary)
         {
-            return null;
+            return "nenhuma aprovação ainda";
+        }
+
+        var column = Math.Min((int)Math.Floor(point.X / (CellSize + Gap)), ReviewDiary.Weeks - 1);
+        var row = Math.Min((int)Math.Floor(point.Y / (CellSize + Gap)), Rows - 1);
+        var index = column * Rows + row;
+        if (index >= diary.Days.Count)
+        {
+            return "dia que ainda não chegou";
         }
 
         var day = diary.Days[index];
@@ -101,6 +115,14 @@ public sealed class ReviewHeatmap : Control
             var n => $"{n} linhas",
         };
         return $"{WeekdayNames[(int)day.Date.DayOfWeek]}, {day.Date.ToString("dd/MM", CultureInfo.InvariantCulture)}: {lines}";
+    }
+
+    /// <summary>O mapa é uma imagem para o leitor de tela: o nome vem de <c>AutomationProperties.Name</c>, que diz o total e os dias seguidos.</summary>
+    private sealed class HeatmapPeer(ReviewHeatmap owner) : ControlAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Image;
+
+        protected override string? GetNameCore() => AutomationProperties.GetName(owner) is { Length: > 0 } name ? name : base.GetNameCore();
     }
 
     private static Rect CellRect(int column, int row) => new(column * (CellSize + Gap), row * (CellSize + Gap), CellSize, CellSize);

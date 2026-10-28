@@ -13,7 +13,7 @@ public sealed record DiaryDay(DateOnly Date, int Lines, int Level);
 /// </param>
 /// <param name="Today">Linhas aprovadas hoje.</param>
 /// <param name="Yesterday">Linhas aprovadas ontem.</param>
-/// <param name="Streak">Dias seguidos com pelo menos uma aprovação, contados de hoje para trás. Hoje sem aprovação ainda não quebra a sequência: ela vale até ontem.</param>
+/// <param name="Streak">Dias seguidos com pelo menos uma aprovação, contados de hoje para trás. Hoje sem aprovação ainda não quebra a sequência: ela vale até ontem. A sequência é limitada pelos 90 dias que o registro guarda (<see cref="SessionsFile.Retention"/>): uma sequência maior aparece como 90 no máximo.</param>
 /// <param name="Total">Linhas aprovadas na janela.</param>
 public sealed record ReviewDiary(IReadOnlyList<DiaryDay> Days, int Today, int Yesterday, int Streak, int Total)
 {
