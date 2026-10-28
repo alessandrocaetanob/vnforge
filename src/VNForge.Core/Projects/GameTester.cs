@@ -100,6 +100,8 @@ public sealed class GameTester(
     {
         var kind = options.AccentTest ? GameTestKind.AccentTest : GameTestKind.Translation;
         var timeline = new StepTimeline(_clock, steps);
+        // O retrato sai antes do build: uma edição durante o teste deixa o retrato mais velho que o jogo, e a linha aparece como mudada em vez de sumir da lista.
+        var snapshot = SnapshotOf(project, options);
 
         timeline.Begin(GameTestStep.Check);
         var build = ProjectBuilder.Build(
@@ -138,7 +140,6 @@ public sealed class GameTester(
 
         var results = timeline.Finish();
         var times = results.Select(r => new GameTestStepTime(r.Step, (long)r.Elapsed.TotalMilliseconds)).ToList();
-        var snapshot = SnapshotOf(project, options);
         GameStateFile.TryUpdate(project, saved => saved with { LastTest = new GameLastTest(_clock.GetUtcNow(), kind, times, snapshot) });
         return new GameTestResult(kind, results, build, injection, executable);
     }
