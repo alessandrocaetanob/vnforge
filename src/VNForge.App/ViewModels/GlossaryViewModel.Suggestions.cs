@@ -131,8 +131,24 @@ public sealed partial class GlossaryViewModel
         var n => $"{ProjectLabels.Number(n)} personagens estão sem gênero. A IA precisa dele para concordar o texto (ele ou ela, cansado ou cansada).",
     };
 
+    /// <summary>Quantas linhas têm uma sugestão de gênero da IA esperando o aceite.</summary>
+    public int PendingSuggestionCount => Characters.Count(c => c.HasSuggestion);
+
+    public bool HasPendingSuggestions => PendingSuggestionCount > 0;
+
+    public string AcceptAllText => $"Aceitar as {ProjectLabels.Number(PendingSuggestionCount)}";
+
+    /// <summary>A faixa do alto da tabela aparece com personagens sem gênero ou com falantes do jogo que a IA ainda não leu.</summary>
+    public bool HasVoiceStrip => HasMissingGender || voiceRequests.Count > 0;
+
+    public string VoiceStripText => HasMissingGender
+        ? MissingGenderText
+        : $"{ProjectLabels.Number(voiceRequests.Count)} {Plural(voiceRequests.Count, "falante do jogo ainda não está", "falantes do jogo ainda não estão")} na tabela. A IA lê as falas e sugere o gênero e o jeito de falar.";
+
     /// <summary>Quantos personagens a sugestão cobriria: os sem gênero e os falantes do jogo que ainda não estão na tabela.</summary>
     public int VoiceRequestCount => voiceRequests.Count;
+
+    public bool HasVoiceRequests => voiceRequests.Count > 0;
 
     /// <summary>O preço da sugestão de voz e gênero em reais; vazio enquanto não há o que sugerir ou o texto não foi lido.</summary>
     public string VoicePriceText => voiceRequests.Count == 0
@@ -223,9 +239,21 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(HasMissingGender));
         OnPropertyChanged(nameof(MissingGenderText));
         OnPropertyChanged(nameof(VoiceRequestCount));
+        OnPropertyChanged(nameof(HasVoiceRequests));
         OnPropertyChanged(nameof(VoicePriceText));
         OnPropertyChanged(nameof(VoiceHint));
+        OnPropertyChanged(nameof(HasVoiceStrip));
+        OnPropertyChanged(nameof(VoiceStripText));
+        NotifyPending();
         NotifySuggestionState();
+    }
+
+    private void NotifyPending()
+    {
+        OnPropertyChanged(nameof(PendingSuggestionCount));
+        OnPropertyChanged(nameof(HasPendingSuggestions));
+        OnPropertyChanged(nameof(AcceptAllText));
+        AcceptAllSuggestionsCommand.NotifyCanExecuteChanged();
     }
 
     private void NotifySuggestionState()
@@ -242,7 +270,7 @@ public sealed partial class GlossaryViewModel
         return
         [
             .. scan.Samples
-                .Where(p => !known.TryGetValue(p.Key, out var row) || row.Gender == CharacterGender.Unknown)
+                .Where(p => !known.TryGetValue(p.Key, out var row) || (row.Gender == CharacterGender.Unknown && !row.HasSuggestion))
                 .Select(p => new CharacterVoiceRequest(p.Key, p.Value)),
         ];
     }
@@ -281,7 +309,7 @@ public sealed partial class GlossaryViewModel
         return row;
     }
 
-    /// <summary>Pede à IA o gênero e o jeito de falar dos personagens sem gênero e dos falantes que ainda não estão na tabela. Só preenche o que está vazio.</summary>
+    /// <summary>Pede à IA o gênero e o jeito de falar dos personagens sem gênero e dos falantes que ainda não estão na tabela. A resposta fica como sugestão em cada linha: nada muda até a pessoa aceitar.</summary>
     [RelayCommand(CanExecute = nameof(CanSuggestVoices))]
     private async Task SuggestVoicesAsync()
     {
@@ -297,7 +325,7 @@ public sealed partial class GlossaryViewModel
                 var changed = ApplyVoices(suggestions, inTable);
                 SuggestionNotice = changed == 0
                     ? "A IA não achou nada novo nas falas. Preencha o gênero à mão."
-                    : $"{changed} {Plural(changed, "personagem recebeu", "personagens receberam")} gênero e jeito de falar. Confira e ajuste o que não bater.";
+                    : $"{changed} {Plural(changed, "personagem tem", "personagens têm")} sugestão de gênero e jeito de falar. Aceite as que servirem.";
             }
         }
         catch (OperationCanceledException)
@@ -330,27 +358,65 @@ public sealed partial class GlossaryViewModel
                     continue;
                 }
 
-                Characters.Add(Watch(new CharacterRow(suggestion.Name, string.Empty, suggestion.Gender, suggestion.Voice), MarkCharactersDirty));
+                var added = Watch(new CharacterRow(suggestion.Name, string.Empty, CharacterGender.Unknown, suggestion.Gender == CharacterGender.Unknown ? suggestion.Voice : null), MarkCharactersDirty);
+                Stage(added, suggestion);
+                Characters.Add(added);
                 changed++;
                 continue;
             }
 
-            var gender = row.Gender == CharacterGender.Unknown && suggestion.Gender != CharacterGender.Unknown;
-            var tone = string.IsNullOrWhiteSpace(row.Tone) && suggestion.Voice.Length > 0;
-            if (gender)
+            if (row.Gender == CharacterGender.Unknown && suggestion.Gender != CharacterGender.Unknown)
             {
-                row.Gender = suggestion.Gender;
+                Stage(row, suggestion);
+                changed++;
             }
-
-            if (tone)
+            else if (string.IsNullOrWhiteSpace(row.Tone) && suggestion.Voice.Length > 0)
             {
                 row.Tone = suggestion.Voice;
+                changed++;
             }
-
-            changed += gender || tone ? 1 : 0;
         }
 
         return changed;
+    }
+
+    private static void Stage(CharacterRow row, CharacterVoiceSuggestion suggestion)
+    {
+        row.SuggestedGender = suggestion.Gender;
+        row.SuggestedTone = suggestion.Voice;
+    }
+
+    /// <summary>Passa a sugestão da IA para o gênero da linha e, se o jeito de falar estiver vazio, para a coluna "Como fala".</summary>
+    [RelayCommand]
+    private void AcceptSuggestion(CharacterRow? row)
+    {
+        if (row is null || !CanEdit || !row.HasSuggestion)
+        {
+            return;
+        }
+
+        var tone = row.SuggestedTone;
+        var gender = row.SuggestedGender;
+        row.ClearSuggestion();
+        if (string.IsNullOrWhiteSpace(row.Tone) && tone.Length > 0)
+        {
+            row.Tone = tone;
+        }
+
+        row.Gender = gender;
+    }
+
+    /// <summary>Descarta a sugestão da linha e devolve o seletor de gênero.</summary>
+    [RelayCommand]
+    private void DismissSuggestion(CharacterRow? row) => row?.ClearSuggestion();
+
+    [RelayCommand(CanExecute = nameof(HasPendingSuggestions))]
+    private void AcceptAllSuggestions()
+    {
+        foreach (var row in Characters.Where(c => c.HasSuggestion).ToList())
+        {
+            AcceptSuggestion(row);
+        }
     }
 
     /// <summary>Pede à IA a tradução dos termos do painel que ainda não têm uma, com o motivo em uma frase.</summary>
