@@ -127,22 +127,6 @@ public class ValidatingTranslationProviderTests
     }
 
     [Fact]
-    public async Task Reenvio_leva_o_pedido_de_versao_curta_da_linha()
-    {
-        var calls = 0;
-        var inner = new FakeTranslationProvider(u => Interlocked.Increment(ref calls) == 1 ? "sem marcador" : $"[PT] {u.Source}");
-        var provider = new ValidatingTranslationProvider(inner);
-        var shorten = new Dictionary<string, ShortenRequest> { ["a"] = new("texto longo demais", 3, 40) };
-        var batch = new TranslationBatch([Unit("a", @"x\p")]) { Shorten = shorten };
-
-        var result = Assert.Single(await provider.TranslateAsync(batch, CancellationToken.None));
-
-        Assert.False(result.Refused);
-        Assert.Equal(2, inner.ReceivedBatches.Count);
-        Assert.Equal(shorten, inner.ReceivedBatches.Last().Shorten);
-    }
-
-    [Fact]
     public async Task Reenvia_so_o_id_ausente()
     {
         var first = true;

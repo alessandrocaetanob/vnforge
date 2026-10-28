@@ -3,7 +3,7 @@ using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
-namespace VNForge.App.Tests.Demo;
+namespace VNForge.Core.Demo;
 
 /// <summary>
 /// Projeto de demonstração gerado em código com os nomes, números e estados dos artboards do canvas "VNForge v2 · App Windows"
@@ -11,7 +11,7 @@ namespace VNForge.App.Tests.Demo;
 /// (18.320 pendentes), os oito scripts da tabela do Painel com as suas linhas e os 23 personagens com a contagem de linhas da tabela.
 /// Nenhum arquivo ou texto de jogo: as falas são as do artboard, escritas para o design.
 /// </summary>
-internal static class DemoProject
+public static class DemoProject
 {
     public const string Name = "Minha VN — PT-BR";
     public const string Root = @"D:\Traducoes\minha-vn-ptbr";
@@ -60,13 +60,16 @@ internal static class DemoProject
     public static ProjectSummary Summary(string? root = null) =>
         new(Name, root ?? Root, "yuris", 500, "cp1252", ModelId, ScriptCount, Counts);
 
+    /// <summary>Texto de demonstração do artboard: a pasta do jogo que o projeto de exemplo registra. Não existe na máquina e nunca é aberta.</summary>
+    private const string ArtboardGameDirectory = @"D:\Jogos\MinhaVN";
+
     /// <summary>Grava a pasta do projeto (<c>project.json</c>, <c>text/*.json</c>, glossário e personagens) em <paramref name="parent"/> e devolve o caminho.</summary>
     /// <param name="gameDirectory">Pasta do jogo registrada no projeto; sem ela, a do artboard (<c>D:\Jogos\MinhaVN</c>, que não existe aqui).</param>
     public static string Create(string parent, string? gameDirectory = null)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             Name,
-            new GameConfig(gameDirectory ?? @"D:\Jogos\MinhaVN", "MinhaVN.exe"),
+            new GameConfig(gameDirectory ?? ArtboardGameDirectory, "MinhaVN.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("cp1252"),
@@ -295,7 +298,7 @@ internal static class DemoProject
 }
 
 /// <summary>Um script da tabela do Painel e a porcentagem de linhas aprovadas, revisadas e da IA; o resto é pendente.</summary>
-internal sealed record DemoScript(string Key, string Label, int Lines, int ApprovedPercent, int ReviewedPercent, int MachinePercent)
+public sealed record DemoScript(string Key, string Label, int Lines, int ApprovedPercent, int ReviewedPercent, int MachinePercent)
 {
     public StatusCounts Plan()
     {
@@ -306,4 +309,4 @@ internal sealed record DemoScript(string Key, string Label, int Lines, int Appro
     }
 }
 
-internal sealed record DemoCharacter(string? Japanese, string Portuguese, int Lines);
+public sealed record DemoCharacter(string? Japanese, string Portuguese, int Lines);

@@ -646,14 +646,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var shortener = Shortener ?? suggester as ILineShortener;
+        ILineSuggester lineSuggester = Project is { IsSample: true } ? SampleLineSuggester.Instance : suggester;
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
         var lineContext = context.For(unit.EffectiveSpeaker, unit.Source);
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
@@ -675,7 +676,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             if (neighbour >= 0 && neighbour < scriptLines.Length)
             {
                 var other = scriptLines[neighbour];
-                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null));
+                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null, neighbour > index));
             }
         }
 

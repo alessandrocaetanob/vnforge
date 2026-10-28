@@ -53,6 +53,24 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Na_cena_de_exemplo_o_preco_e_gratuito_e_o_limite_de_gasto_nao_vale()
+    {
+        var folder = Project();
+        Directory.CreateDirectory(folder.CacheDirectory);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 2m, 1));
+
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(0.01m, 0.001m)) with { IsSample = true, BudgetProblem = "app.json ilegível" });
+
+        Assert.Equal("Gratuito: IA de demonstração", vm.RequestText);
+        Assert.False(vm.IsOverLimit);
+        Assert.False(vm.AboveWarning);
+        Assert.False(vm.HasBudgetProblem);
+        Assert.True(vm.CanStart);
+        Assert.Equal("Traduzir", vm.StartLabel);
+        Assert.All(vm.Qualities, q => Assert.Equal(0m, q.Price));
+    }
+
+    [Fact]
     public async Task Limite_desconhecido_porque_o_app_json_nao_leu_pede_confirmacao_no_botao()
     {
         var vm = await OpenAsync(Project(), Settings() with { BudgetProblem = "app.json ilegível" });
