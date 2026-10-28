@@ -56,6 +56,9 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
     /// <summary>O que o jogo tem hoje e quando foi o último teste (<c>.cache/game-state.json</c>).</summary>
     public GameStateFile GameState { get; init; } = GameStateFile.Empty;
 
+    /// <summary>As cenas cuja tradução mudou desde o último teste no jogo (<see cref="TranslationChanges.Since"/>).</summary>
+    public ChangesSinceTest ChangesSinceTest { get; init; } = ChangesSinceTest.None;
+
     /// <summary>Os capítulos: os scripts agrupados (<see cref="ScriptGrouping"/>) com os totais de pronto, para revisar e em japonês.</summary>
     public IReadOnlyList<ScriptGroupTotals> Chapters() => ScriptGrouping.Build(ScriptNames, Status.Files);
 
@@ -95,13 +98,15 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             new(PipelineStageKey.Inject, injected, injected ? 0 : 1),
         ];
         var (qa, qaByScript) = TryQa(project, texts);
+        var gameState = GameStateFile.Load(project);
         return new ProjectDashboard(status, stages, AiUsageLog.Load(project))
         {
             Qa = qa,
             QaByScript = qaByScript,
             Sessions = SessionsFile.Load(project),
             Readiness = ReadinessFacts.Read(project, qa),
-            GameState = GameStateFile.Load(project),
+            GameState = gameState,
+            ChangesSinceTest = TranslationChanges.Since(gameState.LastTest, texts),
             ScriptNames = TryLoad(project.LoadScriptNames, ScriptNames.Empty),
             CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), Glossary.CharacterBook.NameComparer)
                 .ToDictionary(g => g.Key, g => g.First().Target, Glossary.CharacterBook.NameComparer),

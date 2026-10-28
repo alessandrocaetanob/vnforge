@@ -77,6 +77,9 @@ public sealed partial class BuildViewModel
     [ObservableProperty]
     public partial string ReturnToOriginalHint { get; private set; } = "Devolve os arquivos originais ao jogo. A tradução continua no projeto.";
 
+    /// <summary>As cenas cuja tradução mudou desde o último teste no jogo.</summary>
+    public ChangedScenesViewModel SinceTest { get; } = new();
+
     /// <summary>"Jogo com a tradução de 22/10" ou "Jogo original", para a barra de status.</summary>
     [ObservableProperty]
     public partial string GameStatusText { get; private set; } = string.Empty;
@@ -382,6 +385,15 @@ public sealed partial class BuildViewModel
         GameStatusText = StatusText(state, lost, inGame);
         ShowBanner(state, inGame, lost);
         ShowLastTest(state is null ? null : savedGame.LastTest);
+        if (state is null)
+        {
+            SinceTest.Clear();
+        }
+        else
+        {
+            SinceTest.Update(state.Changes, scene => state.SceneNames.DisplayName(scene.Key) ?? $"Cena {scene.Number}");
+        }
+
         UpdateTestCommands();
     }
 

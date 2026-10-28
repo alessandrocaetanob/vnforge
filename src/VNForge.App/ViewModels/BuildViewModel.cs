@@ -1469,11 +1469,39 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         var qaCounts = CountQaIssues(project, engine);
+        var saved = GameStateFile.Load(project);
         return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaCounts.Errors, qaCounts.Warnings, config.Game.Exe, ReadPatch(project, config))
         {
-            Saved = GameStateFile.Load(project),
+            Saved = saved,
             QaErrorKinds = qaCounts.ErrorKinds,
+            Changes = ReadChanges(project, saved),
+            SceneNames = TryScriptNames(project),
         };
+    }
+
+    /// <summary>As cenas que mudaram desde o último teste; sem textos legíveis a lista fica como se não houvesse teste, porque a página não trava por causa dela.</summary>
+    private static ChangesSinceTest ReadChanges(ProjectFolder project, GameStateFile saved)
+    {
+        try
+        {
+            return TranslationChanges.Since(saved.LastTest, project.LoadAllText());
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return ChangesSinceTest.None;
+        }
+    }
+
+    private static ScriptNames TryScriptNames(ProjectFolder project)
+    {
+        try
+        {
+            return project.LoadScriptNames();
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return ScriptNames.Empty;
+        }
     }
 
     /// <summary>O <c>.gitignore</c> do projeto lista <c>backup/</c>: só então o rodapé garante que os originais ficam fora do git.</summary>
@@ -1558,6 +1586,12 @@ public sealed partial class BuildViewModel : ObservableObject
 
         /// <summary>Os tipos de erro da Conferência, em português, para a faixa de "Testar no jogo".</summary>
         public string QaErrorKinds { get; init; } = string.Empty;
+
+        /// <summary>As cenas cuja tradução mudou desde o último teste.</summary>
+        public ChangesSinceTest Changes { get; init; } = ChangesSinceTest.None;
+
+        /// <summary>Os nomes das cenas (<c>scripts.json</c>), para a lista do que mudou.</summary>
+        public ScriptNames SceneNames { get; init; } = ScriptNames.Empty;
 
         public static ProjectState Unreadable(string message) =>
             new(string.Empty, string.Empty, false, null, null, message, null, string.Empty, string.Empty, [], false, 0, 0, string.Empty, PatchInfo.None);
