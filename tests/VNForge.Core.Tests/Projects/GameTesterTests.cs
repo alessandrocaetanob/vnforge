@@ -129,6 +129,45 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void O_ultimo_teste_guarda_o_retrato_das_traducoes_e_a_lista_de_mudancas_parte_dele()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+
+        var state = GameStateFile.Load(_project);
+        Assert.NotNull(state.LastTest!.Snapshot);
+        Assert.Equal(ChangesSinceTestState.Unchanged, TranslationChanges.Since(state.LastTest, _project.LoadAllText()).State);
+
+        Translate("a002", 0, "Rain");
+        var changes = TranslationChanges.Since(GameStateFile.Load(_project).LastTest, _project.LoadAllText());
+
+        Assert.Equal(["a002"], changes.Scenes.Select(s => s.Key));
+        Assert.DoesNotContain("Hello", File.ReadAllText(GameStateFile.PathFor(_project)));
+    }
+
+    [Fact]
+    public void Teste_de_acentos_nao_guarda_retrato()
+    {
+        Translate("a001", 0, "Hello");
+
+        Run(new GameTestOptions(AccentTest: true));
+
+        Assert.Null(GameStateFile.Load(_project).LastTest!.Snapshot);
+    }
+
+    [Fact]
+    public void Teste_de_uma_cena_guarda_o_retrato_so_dela()
+    {
+        Translate("a001", 0, "Hello");
+        Translate("a002", 0, "Rain");
+
+        Run(new GameTestOptions(OnlyScript: "a002"));
+
+        var snapshot = GameStateFile.Load(_project).LastTest!.Snapshot!;
+        Assert.Equal(["a002"], snapshot.Scripts.Keys);
+    }
+
+    [Fact]
     public void Voltar_ao_jogo_original_restaura_byte_a_byte_e_limpa_o_estado()
     {
         var before = File.ReadAllBytes(GamePackage);
@@ -275,8 +314,58 @@ public sealed class GameTesterTests : IDisposable
 
         Assert.Throws<GameOpenException>(() => Run());
 
-        Assert.NotNull(GameStateFile.Load(_project).InGame);
-        Assert.Null(GameStateFile.Load(_project).LastTest);
+        var state = GameStateFile.Load(_project);
+        Assert.NotNull(state.InGame);
+        Assert.NotNull(state.LastTest?.Snapshot);
+        Assert.False(state.LastTest.SnapshotFailed);
+        Assert.DoesNotContain(state.LastTest.Steps, s => s.Step == GameTestStep.Open);
+        Assert.Equal(ChangesSinceTestState.Unchanged, TranslationChanges.Since(state.LastTest, _project.LoadAllText()).State);
+    }
+
+    [Fact]
+    public void Jogo_que_nao_abre_troca_o_ultimo_teste_e_o_retrato_pelos_do_texto_novo()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var before = GameStateFile.Load(_project).LastTest!;
+        Translate("a001", 0, "Hi");
+        _clock.Advance(TimeSpan.FromHours(1));
+        _starter.Failure = new VNForgeException("sem permissão");
+
+        Assert.Throws<GameOpenException>(() => Run());
+
+        var after = GameStateFile.Load(_project).LastTest!;
+        Assert.True(after.At > before.At);
+        Assert.NotEqual(before.Snapshot!.Scripts["a001"], after.Snapshot!.Scripts["a001"]);
+    }
+
+    [Fact]
+    public void Falha_da_Conferencia_mantem_o_ultimo_teste_anterior()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var before = GameStateFile.Load(_project).LastTest!;
+        Translate("a001", 0, string.Empty);
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Throws<QaBlockedException>(() => Run(qa: QaEngine.Default));
+
+        var after = GameStateFile.Load(_project).LastTest!;
+        Assert.Equal(before.At, after.At);
+        Assert.Equal(before.Snapshot!.Scripts, after.Snapshot!.Scripts);
+    }
+
+    [Fact]
+    public void Falha_do_build_mantem_o_ultimo_teste_anterior()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var before = GameStateFile.Load(_project).LastTest!;
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Throws<VNForgeException>(() => Run(new GameTestOptions(OnlyScript: "naoexiste")));
+
+        Assert.Equal(before.At, GameStateFile.Load(_project).LastTest!.At);
     }
 
     [Fact]
