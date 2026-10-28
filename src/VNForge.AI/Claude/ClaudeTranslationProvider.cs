@@ -9,7 +9,7 @@ namespace VNForge.AI.Claude;
 /// Provedor de tradução sobre o Claude. Monta o pedido, exige saída JSON por <c>output_config.format</c> e confere que
 /// a resposta traz exatamente os ids do lote. Retry, reenvio de linhas ruins e fallback de recusa ficam acima dele.
 /// </summary>
-public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, ClaudeOptions? options = null) : ITranslationProvider
+public sealed partial class ClaudeTranslationProvider(IClaudeMessageClient client, ClaudeOptions? options = null) : ITranslationProvider
 {
     private readonly ClaudeBatchCaller _caller = new(client, options ?? new ClaudeOptions());
 
@@ -39,25 +39,9 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         return _caller.RunAsync(batch, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, BatchContext, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)), ct);
     }
 
-    private const string ShortenInstruction =
-        "Linhas com \"current\" já têm tradução, mas ela não cabe na caixa do jogo (\"maxLines\" linhas de \"maxWidth\" colunas). Para elas, devolva em \"translation\" uma versão mais curta, com o mesmo sentido, o mesmo tom e os mesmos marcadores de controle, que caiba na caixa.";
-
-    /// <summary>
-    /// O bloco do sistema que muda a cada lote (glossário, personagens e, num pedido de versão curta, a instrução de encurtar). Fica depois do
-    /// ponto de cache, para o bloco estável continuar igual com e sem o pedido.
-    /// </summary>
-    private static string BatchContext(TranslationBatch batch)
-    {
-        var context = ClaudePromptParts.BatchContext(batch, "Glossário (use sempre estes termos):");
-        if (batch.Shorten.Count == 0)
-        {
-            return context;
-        }
-
-        return context.Length == 0
-            ? ShortenInstruction + Environment.NewLine
-            : context + Environment.NewLine + ShortenInstruction + Environment.NewLine;
-    }
+    /// <summary>O bloco do sistema que muda a cada lote (glossário e personagens). Fica depois do ponto de cache, para o bloco estável continuar igual de um lote para outro.</summary>
+    private static string BatchContext(TranslationBatch batch) =>
+        ClaudePromptParts.BatchContext(batch, "Glossário (use sempre estes termos):");
 
     private static string BuildSystem(TranslationBatch batch)
     {
@@ -77,15 +61,12 @@ public sealed class ClaudeTranslationProvider(IClaudeMessageClient client, Claud
         ClaudePromptParts.AppendNext(sb, batch, "Contexto seguinte (não traduzir):");
         sb.AppendLine("Traduza estas linhas:");
         sb.AppendLine(JsonSerializer.Serialize(
-            batch.Lines.Select(u => PromptLine(u, batch)),
+            batch.Lines.Select(PromptLine),
             PromptJson));
         return sb.ToString();
     }
 
-    private static object PromptLine(TextUnit u, TranslationBatch batch) =>
-        batch.Shorten.TryGetValue(u.Id, out var shorten)
-            ? new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source, current = shorten.Current, maxLines = shorten.MaxLines, maxWidth = shorten.MaxWidth }
-            : new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source };
+    private static object PromptLine(TextUnit u) => new { id = u.Id, kind = u.Kind.ToString(), speaker = u.Speaker, text = u.Source };
 
     private static IReadOnlyList<TranslationResult> Parse(string text, TranslationBatch batch)
     {

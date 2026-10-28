@@ -99,3 +99,18 @@ internal sealed class FakeEngine(bool matches = true) : IEngine
 
     public IReadOnlyList<IGamePatch> Patches => [];
 }
+
+/// <summary>Provedor de IA que reescreve com as opções dadas, ou recusa; a tradução comum não existe nele.</summary>
+internal sealed class ReescritaFixa(bool refused, params string[] opcoes) : VNForge.AI.Translation.ITranslationProvider, VNForge.AI.Translation.IRewriteProvider
+{
+    public ReescritaFixa(params string[] opcoes)
+        : this(false, opcoes)
+    {
+    }
+
+    public Task<IReadOnlyList<VNForge.AI.Translation.TranslationResult>> TranslateAsync(VNForge.AI.Translation.TranslationBatch batch, CancellationToken ct) =>
+        throw new NotSupportedException();
+
+    public Task<VNForge.AI.Translation.RewriteResult> RewriteAsync(VNForge.AI.Translation.TranslationBatch batch, VNForge.AI.Translation.RewriteRequest request, CancellationToken ct) =>
+        Task.FromResult(new VNForge.AI.Translation.RewriteResult(batch.Lines[0].Id, opcoes, refused));
+}

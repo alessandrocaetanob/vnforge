@@ -115,7 +115,7 @@
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                 <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
                 <SelectableTextBlock Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
-                                     Text="{Binding SpeakerText}" c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
+                                     Text="{Binding SpeakerText}" c:SpeakerColorTint.Color="{Binding Detail.SpeakerColor}" c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
               </Grid>
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" FontSize="18" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
               <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
@@ -191,6 +191,9 @@
                           ShortenText="{Binding Detail.Fit.ShortenText}" SplitCommand="{Binding Detail.Fit.SplitCommand}" ShortenCommand="{Binding Detail.Fit.ShortenCommand}"
                           ShowShorten="{Binding Detail.Fit.HasShortener, FallbackValue=False}" ErrorText="{Binding Detail.Fit.Error}"
                           AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
+
+            <!-- "Reescrever com um toque" fica sob a caixa do jogo: cada versão vem medida contra ela, e o roteiro à esquerda não ganha altura. -->
+            <c:RewriteBar Classes="rewrite-compact" DataContext="{Binding Detail}"/>
 
             <Border x:Name="DoubtNotice" Classes="infobar" IsVisible="{Binding Detail.HasDoubt, FallbackValue=False}" AutomationProperties.Name="Dúvida da IA">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">

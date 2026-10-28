@@ -322,6 +322,23 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task Os_chips_de_reescrever_ficam_sob_a_caixa_do_jogo()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var bar = Assert.Single(view.GetVisualDescendants().OfType<RewriteBar>(), b => b.IsEffectivelyVisible);
+            var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
+            Assert.True(Frame(window, bar).Top >= Frame(window, stage).Bottom - 1, "os chips ficam sob o palco");
+            var labels = bar.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).Select(b => (b.Content as TextBlock)?.Text).ToList();
+            Assert.Equal(["Mais curta", "Mais natural", "Mais fiel", "Mais formal", "Como o personagem falaria"], labels);
+        });
+    }
+
+    [Fact]
     public async Task A_1440_por_1000_o_bloco_das_colunas_fica_centrado_entre_o_topo_e_a_barra_e_o_palco_passa_de_60_por_cento()
     {
         using var temp = new TempFolder();

@@ -681,7 +681,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             if (neighbour >= 0 && neighbour < scriptLines.Length)
             {
                 var other = scriptLines[neighbour];
-                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null));
+                scene.Add(new ContextLine(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null, neighbour > index));
             }
         }
 
@@ -859,7 +859,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(line.Entry.Issues);
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
-        line.Update(updated, context.Characters.Find(saved.EffectiveSpeaker)?.Target);
+        var character = context.Characters.Find(saved.EffectiveSpeaker);
+        line.Update(updated, character?.Target, CharacterPalette.For(character));
         if (Detail is { } open && string.Equals(open.Id, line.Id, StringComparison.Ordinal))
         {
             open.ShowIssues(updated.Issues);
@@ -1029,7 +1030,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         scriptLines = new LineViewModel[entries.Length];
         for (var i = 0; i < scriptLines.Length; i++)
         {
-            scriptLines[i] = new LineViewModel(entries[i], context.Characters.Find(entries[i].Unit.EffectiveSpeaker)?.Target);
+            var character = context.Characters.Find(entries[i].Unit.EffectiveSpeaker);
+            scriptLines[i] = new LineViewModel(entries[i], character?.Target, CharacterPalette.For(character));
         }
 
         applying = true;

@@ -105,7 +105,7 @@ public sealed class EditorSceneTests : IDisposable
         vm.SelectedLine = vm.Lines[1];
 
         Assert.Equal(
-            [new ContextLine("美咲", "「おはよう」", "Bom dia."), new ContextLine("健太", "「うん」", "Aham.")],
+            [new ContextLine("美咲", "「おはよう」", "Bom dia."), new ContextLine("健太", "「うん」", "Aham.", Following: true)],
             vm.Detail!.Scene);
         Assert.True(vm.Detail.HasScene);
     }
@@ -115,7 +115,7 @@ public sealed class EditorSceneTests : IDisposable
     {
         var vm = await Abrir();
 
-        Assert.Equal([new ContextLine("Narração", "雨が降っている。")], vm.Detail!.Scene);
+        Assert.Equal([new ContextLine("Narração", "雨が降っている。", Following: true)], vm.Detail!.Scene);
 
         vm.SelectedLine = vm.Lines[^1];
 

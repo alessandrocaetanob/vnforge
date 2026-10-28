@@ -1,3 +1,4 @@
+using VNForge.App.Controls;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -29,7 +30,7 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
     public LineContext For(string? speaker, string source)
     {
         var character = Characters.Find(speaker);
-        return new LineContext(character?.Target, character?.Tone, GlossaryMatcher.Find(source, Glossary), character is { Gender: CharacterGender.Unknown });
+        return new LineContext(character?.Target, character?.Tone, GlossaryMatcher.Find(source, Glossary), character is { Gender: CharacterGender.Unknown }, CharacterPalette.For(character));
     }
 
     private static IReadOnlyList<T> Try<T>(Func<IReadOnlyList<T>> read)
@@ -50,4 +51,5 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
 /// <param name="Voice">O tom de voz do personagem (<c>characters.json</c>); nulo quando não há.</param>
 /// <param name="Glossary">Os termos do glossário que aparecem no original, na ordem do glossário.</param>
 /// <param name="GenderMissing">O falante está cadastrado sem gênero definido, e a concordância da tradução pode sair errada.</param>
-public sealed record LineContext(string? SpeakerTarget, string? Voice, IReadOnlyList<GlossaryTerm> Glossary, bool GenderMissing = false);
+/// <param name="SpeakerColor">A cor do falante cadastrado (#467); nula quando ele não está no Glossário.</param>
+public sealed record LineContext(string? SpeakerTarget, string? Voice, IReadOnlyList<GlossaryTerm> Glossary, bool GenderMissing = false, CharacterColor? SpeakerColor = null);

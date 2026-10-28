@@ -309,7 +309,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
             foreach (var c in folder.LoadCharacters())
             {
-                Characters.Add(Watch(new CharacterRow(c.Source, c.Target, c.Gender, c.Tone), MarkCharactersDirty));
+                Characters.Add(Watch(new CharacterRow(c.Source, c.Target, c.Gender, c.Tone, c.Color), MarkCharactersDirty));
             }
         }
         catch (GlossaryFileException e)
