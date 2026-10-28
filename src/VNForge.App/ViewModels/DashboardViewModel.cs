@@ -597,8 +597,16 @@ public sealed partial class DashboardViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNextStep));
     }
 
+    /// <summary>O projeto mostrado é a cena de exemplo: sem jogo, sem chave e sem gasto, então esses avisos e o passo de testar no jogo não valem.</summary>
+    private bool IsSample => Project is { IsSample: true };
+
     private void Apply(ProjectSummary project, ProjectDashboard dashboard, DashboardContext context)
     {
+        if (project.IsSample)
+        {
+            context = context with { HasApiKey = true };
+        }
+
         var total = dashboard.Status.Total;
         var chapters = dashboard.Chapters();
         var spent = context.Rate.ToBrl(dashboard.AiUsage.Dollars);
@@ -651,7 +659,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         var translated = stage[PipelineStageKey.Translate].IsComplete;
         var reviewed = stage[PipelineStageKey.Review].IsComplete;
         var checkedOk = dashboard.Qa is { Total: 0 } && translated;
-        var tested = IsTested(dashboard);
+        var tested = IsSample || IsTested(dashboard);
         bool[] complete = [stage[PipelineStageKey.Extract].IsComplete, translated, reviewed, checkedOk, tested];
         string[] titles = ["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", TestInGame];
         string[] phrases =
@@ -662,7 +670,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             translated ? "Tudo traduzido" : $"{Math.Floor(total.Percent)}% traduzido",
             ReviewPhrase(total, reviewed),
             QaPhrase(dashboard),
-            TestPhrase(dashboard, tested),
+            IsSample ? "Sem jogo na cena de exemplo" : TestPhrase(dashboard, tested),
         ];
         LastTestText = phrases[4];
         var states = PipelineStepper.Resolve(complete);
@@ -753,7 +761,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private void ApplyTodos(ProjectDashboard dashboard, DashboardContext context, bool limitReached)
     {
-        var facts = dashboard.Readiness with { HasApiKey = context.HasApiKey, SpendLimitReached = limitReached };
+        var facts = dashboard.Readiness with { HasApiKey = context.HasApiKey, SpendLimitReached = limitReached, TestedInGame = dashboard.Readiness.TestedInGame || IsSample };
         var items = ProjectReadiness.Evaluate(facts);
         Todos.Clear();
         foreach (var item in items.Take(MaxTodos))
@@ -850,21 +858,24 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         var total = dashboard.Status.Total;
         var tested = IsTested(dashboard);
-        if (total.Total == 0)
+        var review = ChapterToWorkOn(chapters, c => c.ToReview > 0);
+        var pending = review is null ? ChapterToWorkOn(chapters, c => c.Japanese > 0) : null;
+        var needsCheck = dashboard.Qa is { Total: > 0 };
+        if (total.Total == 0 || (IsSample && review is null && pending is null && !needsCheck))
         {
             nextStep = null;
             NextStepLabel = string.Empty;
             NextStepScene = string.Empty;
         }
-        else if (ChapterToWorkOn(chapters, c => c.ToReview > 0) is { } review)
+        else if (review is not null)
         {
             SetNextStep($"Revisar {Phrase(review)}", ChapterRowFor(review), SceneLabel(review));
         }
-        else if (ChapterToWorkOn(chapters, c => c.Japanese > 0) is { } pending)
+        else if (pending is not null)
         {
             SetNextStep($"Traduzir {Phrase(pending)}", ChapterRowFor(pending), SceneLabel(pending));
         }
-        else if (dashboard.Qa is { Total: > 0 })
+        else if (needsCheck)
         {
             SetNextStep("Conferir a tradução", new DashboardNavigation(NavKey.Conference));
         }
