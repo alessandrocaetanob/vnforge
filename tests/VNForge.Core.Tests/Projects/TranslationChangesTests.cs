@@ -101,6 +101,16 @@ public sealed class TranslationChangesTests
     }
 
     [Fact]
+    public void Falante_escolhido_vazio_difere_de_nenhum_falante_escolhido()
+    {
+        var test = Tested(Texts(("a001", [Line("1", "Oi")])));
+
+        var changes = TranslationChanges.Since(test, Texts(("a001", [Line("1", "Oi", chosenSpeaker: string.Empty)])));
+
+        Assert.Equal(1, Assert.Single(changes.Scenes).Lines);
+    }
+
+    [Fact]
     public void Falante_escolhido_depois_do_teste_conta_como_mudanca()
     {
         var test = Tested(Texts(("a001", [Line("1", "Oi")])));

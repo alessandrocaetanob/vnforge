@@ -145,7 +145,8 @@ public static class TranslationChanges
 
     private static string HashOf(TextUnit unit)
     {
-        var bytes = Encoding.UTF8.GetBytes($"{unit.Translation}\u0000{unit.ChosenSpeaker}");
+        // Falante escolhido nulo (usa o original) e vazio (some o nome) dão arquivos de jogo diferentes, então o hash os separa.
+        var bytes = Encoding.UTF8.GetBytes($"{unit.Translation}\u0000{(unit.ChosenSpeaker is null ? "-" : "+" + unit.ChosenSpeaker)}");
         return Convert.ToHexString(SHA256.HashData(bytes))[..HashHexLength].ToLowerInvariant();
     }
 }
