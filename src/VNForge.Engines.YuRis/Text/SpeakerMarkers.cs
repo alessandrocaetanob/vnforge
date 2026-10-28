@@ -8,7 +8,7 @@ namespace VNForge.Engines.YuRis.Text;
 /// Os marcadores do falante que o script do sistema cadastra com <c>GOSUB es.CHAR.NAME.MARK.SET "「"</c> (no jogo de referência, o <c>yst00073</c>:
 /// <c>「</c>, <c>『</c> e <c>（</c>). O jogo separa o nome da fala procurando esses textos na mensagem, então o delimitador que o injetor grava
 /// (<see cref="SpeakerDelimiters"/>) precisa ser o mesmo que está cadastrado. Quando a codificação não grava o marcador japonês, este tipo troca
-/// o argumento pelo substituto e deixa os outros como estão (<c>（</c> não tem substituto).
+/// o argumento pelo substituto (<c>«</c> para <c>「 』</c>, <c>(</c> para <c>（</c>) e deixa os outros como estão.
 /// </summary>
 internal static class SpeakerMarkers
 {

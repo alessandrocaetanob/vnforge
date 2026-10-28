@@ -28,7 +28,7 @@ namespace VNForge.Engines.YuRis.Text;
 /// <para>
 /// <b>Falante.</b> Vale o <see cref="TextUnit.ChosenSpeaker"/> da unidade quando há (vazio tira o nome; numa mensagem sem falante monta <c>nome「fala」</c>);
 /// senão o <see cref="TextUnit.Speaker"/> quando preenchido; vazio, o nome do locator. O nome e a tradução vão na codificação do projeto e os delimitadores
-/// <c>「」</c> pelo <see cref="SpeakerDelimiters"/> (<c>«»</c> quando a codificação é a <c>cp1252</c>). O script que cadastra os marcadores de falante
+/// <c>「」</c> pelo <see cref="SpeakerDelimiters"/> (<c>«»</c> quando a codificação é a <c>cp1252</c>; o pensamento <c>nome（fala）</c> leva os parênteses ASCII no corpo da tradução e <c>(</c> no marcador, #448). O script que cadastra os marcadores de falante
 /// (<c>es.CHAR.NAME.MARK.SET</c>) é reescrito junto, mesmo sem unidade traduzida (<see cref="SpeakerMarkers"/>).
 /// </para>
 /// </remarks>
