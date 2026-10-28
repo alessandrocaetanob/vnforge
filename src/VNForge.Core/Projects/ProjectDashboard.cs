@@ -169,7 +169,7 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         }
 
         var config = project.LoadConfig();
-        var fingerprint = BuildState.FingerprintTexts(texts, config.Encoding.Strategy, project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
+        var fingerprint = BuildState.FingerprintTexts(texts, BuildState.EncoderKey(config.Encoding.Strategy, config.Style.SpeakerDelimiter), project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
         return string.Equals(saved, fingerprint, StringComparison.Ordinal);
     }
 

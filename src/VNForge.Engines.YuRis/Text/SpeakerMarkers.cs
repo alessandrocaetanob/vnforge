@@ -8,7 +8,8 @@ namespace VNForge.Engines.YuRis.Text;
 /// Os marcadores do falante que o script do sistema cadastra com <c>GOSUB es.CHAR.NAME.MARK.SET "「"</c> (no jogo de referência, o <c>yst00073</c>:
 /// <c>「</c>, <c>『</c> e <c>（</c>). O jogo separa o nome da fala procurando esses textos na mensagem, então o delimitador que o injetor grava
 /// (<see cref="SpeakerDelimiters"/>) precisa ser o mesmo que está cadastrado. Quando a codificação não grava o marcador japonês, este tipo troca
-/// o argumento pelo substituto (<c>«</c> para <c>「 』</c>, <c>(</c> para <c>（</c>) e deixa os outros como estão.
+/// o argumento pelo substituto da codificação (<see cref="ISpeakerDelimiterEncoder.SpeakerOpen"/> para <c>「 』</c>, <c>(</c> para <c>（</c>) e deixa os outros como estão.
+/// Um marcador nunca vira vazio: o jogo tomaria a mensagem inteira por nome.
 /// </summary>
 internal static class SpeakerMarkers
 {
@@ -31,7 +32,7 @@ internal static class SpeakerMarkers
     {
         foreach (var (argumentIndex, original, replacement) in Find(script, encoder))
         {
-            var content = ControlMarkers.ToBytes(replacement, encoder);
+            var content = SpeakerDelimiters.ToBytes(encoder, replacement);
             replacements[argumentIndex] = YstbTextInjector.BuildExpression($"{GosubCommand} {RoutineName} em {script.Source}", content, original);
         }
     }
@@ -58,7 +59,7 @@ internal static class SpeakerMarkers
 
                 var marker = ControlMarkers.ToMarkers(text);
                 var replacement = SpeakerDelimiters.Resolve(encoder, marker);
-                if (!string.Equals(replacement, marker, StringComparison.Ordinal))
+                if (replacement.Length > 0 && !string.Equals(replacement, marker, StringComparison.Ordinal))
                 {
                     yield return (instruction.FirstArgumentIndex + i, script.GetResource(argument).ToArray(), replacement);
                 }

@@ -19,6 +19,10 @@ public class SpeakerMarkersTests
 
     private static readonly ITextEncoder Cp1252 = TextEncoderRegistry.Default.Create("cp1252");
 
+    private static readonly ITextEncoder Cp1252Guillemets = TextEncoderRegistry.Default.Create("cp1252", SpeakerDelimiterStyle.Guillemets);
+
+    private static readonly ITextEncoder Fold = TextEncoderRegistry.Default.Create("fold");
+
     private static readonly ShiftJisTextEncoder ShiftJis = new();
 
     private static readonly YuRisContext Context = new(Commands);
@@ -45,15 +49,27 @@ public class SpeakerMarkersTests
         YstbTextInjector.Inject(new ScriptFile(ScriptName, bytes), Read(bytes), [], encoder);
 
     [Theory]
+    [InlineData("「", "\u00A0")]
+    [InlineData("『", "\u00A0")]
+    [InlineData("」", "")]
+    [InlineData("』", "")]
+    [InlineData("（", "(")]
+    [InlineData("）", ")")]
+    public void Resolve_Cp1252SemSinal_AbreComEspacoNaoSeparavelEOmiteOFechamento(string delimiter, string expected)
+    {
+        Assert.Equal(expected, SpeakerDelimiters.Resolve(Cp1252, delimiter));
+    }
+
+    [Theory]
     [InlineData("「", "«")]
     [InlineData("『", "«")]
     [InlineData("」", "»")]
     [InlineData("』", "»")]
     [InlineData("（", "(")]
     [InlineData("）", ")")]
-    public void Resolve_Cp1252_TrocaOsDelimitadoresJaponesesPelosDeUmByte(string delimiter, string expected)
+    public void Resolve_Cp1252ComGuillemets_TrocaOsDelimitadoresJaponesesPelosDeUmByte(string delimiter, string expected)
     {
-        Assert.Equal(expected, SpeakerDelimiters.Resolve(Cp1252, delimiter));
+        Assert.Equal(expected, SpeakerDelimiters.Resolve(Cp1252Guillemets, delimiter));
     }
 
     [Theory]
@@ -61,9 +77,10 @@ public class SpeakerMarkersTests
     [InlineData("』")]
     [InlineData("（")]
     [InlineData("）")]
-    public void Resolve_ShiftJis_MantemOsDelimitadoresJaponeses(string delimiter)
+    public void Resolve_ShiftJisEFold_MantemOsDelimitadoresJaponeses(string delimiter)
     {
         Assert.Equal(delimiter, SpeakerDelimiters.Resolve(ShiftJis, delimiter));
+        Assert.Equal(delimiter, SpeakerDelimiters.Resolve(Fold, delimiter));
     }
 
     [Theory]
@@ -75,12 +92,41 @@ public class SpeakerMarkersTests
     }
 
     [Fact]
-    public void Cp1252_OsSubstitutosSaoGravaveisEFicamForaDaFaixaDeLeadBytes()
+    public void Cp1252_AAberturaSemSinalEUmByteForaDaFaixaDeLeadBytesEDiferenteDoEspacoComum()
     {
-        var bytes = GameEncodings.Windows1252.GetBytes(SpeakerDelimiters.Cp1252Open + SpeakerDelimiters.Cp1252Close);
+        var open = Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252).SpeakerOpen;
+        var bytes = Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252).EncodeSpeakerDelimiter(open);
 
-        Assert.Empty(Cp1252.FindUnencodable(SpeakerDelimiters.Cp1252Open + SpeakerDelimiters.Cp1252Close));
+        Assert.Equal("\u00A0", open);
+        Assert.Equal([0xA0], bytes);
+        Assert.Empty(Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252).SpeakerClose);
+        Assert.All(bytes, b => Assert.False(b is (>= 0x81 and <= 0x9F) or (>= 0xE0 and <= 0xFC) or 0x20));
+    }
+
+    [Fact]
+    public void Cp1252_OsSubstitutosDoEstiloGuillemetsSaoGravaveisEFicamForaDaFaixaDeLeadBytes()
+    {
+        var encoder = Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252Guillemets);
+        var bytes = GameEncodings.Windows1252.GetBytes(encoder.SpeakerOpen + encoder.SpeakerClose);
+
+        Assert.Equal(["«", "»"], new[] { encoder.SpeakerOpen, encoder.SpeakerClose });
+        Assert.Empty(Cp1252Guillemets.FindUnencodable(encoder.SpeakerOpen + encoder.SpeakerClose));
         Assert.All(bytes, b => Assert.False(b is (>= 0x81 and <= 0x9F) or (>= 0xE0 and <= 0xFC)));
+    }
+
+    [Fact]
+    public void Cp1252_SemSinalOEspacoNaoSeparavelNaTraducaoERecusadoEOCorretorTrocaPorEspacoComum()
+    {
+        Assert.Equal([1], Cp1252.FindUnencodable("a\u00A0b"));
+        Assert.Equal("a b", UnwritableCharacters.Fix("a\u00A0b", Cp1252));
+        Assert.Contains("0xA0", Assert.IsAssignableFrom<IExplainingTextEncoder>(Cp1252).ExplainRefusal(0xA0));
+    }
+
+    [Fact]
+    public void Cp1252_ComGuillemetsOEspacoNaoSeparavelNaTraducaoContinuaGravavel()
+    {
+        Assert.Empty(Cp1252Guillemets.FindUnencodable("a\u00A0b"));
+        Assert.Equal("a\u00A0b", UnwritableCharacters.Fix("a\u00A0b", Cp1252Guillemets));
     }
 
     [Fact]
@@ -92,8 +138,11 @@ public class SpeakerMarkersTests
         Assert.Empty(Cp1252.FindUnencodable(thought));
         Assert.Equal(2, bytes.Length);
         Assert.All(bytes, b => Assert.False(b is (>= 0x81 and <= 0x9F) or (>= 0xE0 and <= 0xFC)));
-        Assert.NotEqual(SpeakerDelimiters.Cp1252Open, SpeakerDelimiters.Cp1252ThoughtOpen);
-        Assert.NotEqual(SpeakerDelimiters.Cp1252Close, SpeakerDelimiters.Cp1252ThoughtClose);
+        foreach (var encoder in new[] { Cp1252, Cp1252Guillemets }.Cast<ISpeakerDelimiterEncoder>())
+        {
+            Assert.NotEqual(SpeakerDelimiters.Cp1252ThoughtOpen, encoder.SpeakerOpen);
+            Assert.NotEqual(SpeakerDelimiters.Cp1252ThoughtClose, encoder.SpeakerClose);
+        }
     }
 
     [Fact]
@@ -111,9 +160,37 @@ public class SpeakerMarkersTests
 
         var rewritten = Read(Inject(bytes, Cp1252));
 
+        Assert.Equal(Expression((byte)'"', 0xA0), Argument(rewritten, 0, 1));
+        Assert.Equal(Expression((byte)'"', 0xA0), Argument(rewritten, 1, 1));
+        Assert.Equal(Expression((byte)'"', 0x28), Argument(rewritten, 2, 1));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComGuillemets_TrocaOsMarcadoresDaFalaPeloParDeUmByteDoDelimitadorAntigo()
+    {
+        var rewritten = Read(Inject(SystemScript().Build().Bytes, Cp1252Guillemets));
+
         Assert.Equal(Expression((byte)'"', 0xAB), Argument(rewritten, 0, 1));
         Assert.Equal(Expression((byte)'"', 0xAB), Argument(rewritten, 1, 1));
         Assert.Equal(Expression((byte)'"', 0x28), Argument(rewritten, 2, 1));
+    }
+
+    [Fact]
+    public void Inject_FoldSemUnidades_GeraArquivoIdentico()
+    {
+        var bytes = SystemScript().Build().Bytes;
+
+        Assert.Equal(bytes, Inject(bytes, Fold));
+    }
+
+    [Fact]
+    public void Inject_Cp1252_ONovoMarcadorNaoUsaOEspacoNemOLeadByte()
+    {
+        var rewritten = Read(Inject(SystemScript().Build().Bytes, Cp1252));
+
+        var marker = Argument(rewritten, 0, 1)[4];
+        Assert.NotEqual((byte)0x20, marker);
+        Assert.False(marker is (>= 0x81 and <= 0x9F) or (>= 0xE0 and <= 0xFC));
     }
 
     [Fact]
@@ -160,9 +237,30 @@ public class SpeakerMarkersTests
 
         var marker = Argument(rewritten, 0, 1);
         var message = Argument(rewritten, 4, 0);
+        Assert.Equal(Expression((byte)'"', 0xA0), marker);
+        Assert.Equal([.. "Misaki"u8, 0xA0, .. "Bom dia!"u8], message);
+        Assert.Equal(0xA0, marker[4]);
+        Assert.Equal(marker[4], message["Misaki".Length]);
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComGuillemets_OMarcadorBateComODelimitadorDaMensagem()
+    {
+        var b = SystemScript();
+        b.AddWord("美咲「今日は」", 18);
+        b.AddReturnCode(0, 19);
+        var bytes = b.Build().Bytes;
+        var file = new ScriptFile(ScriptName, bytes);
+        var script = Read(bytes);
+        var unit = YstbTextExtractor.Extract(file, script, Commands).Units.Single(u => u.Kind == TextUnitKind.Dialogue)
+            with { Translation = "Bom dia!", Speaker = "Misaki", Status = TranslationStatus.Translated };
+
+        var rewritten = Read(YstbTextInjector.Inject(file, script, [unit], Cp1252Guillemets));
+
+        var marker = Argument(rewritten, 0, 1);
+        var message = Argument(rewritten, 4, 0);
         Assert.Equal(Expression((byte)'"', 0xAB), marker);
         Assert.Equal([.. "Misaki"u8, 0xAB, .. "Bom dia!"u8, 0xBB], message);
-        Assert.Equal(0xAB, marker[4]);
         Assert.Equal(marker[4], message["Misaki".Length]);
     }
 
@@ -174,7 +272,7 @@ public class SpeakerMarkersTests
 
         var rewritten = Read(Inject(b.Build().Bytes, Cp1252));
 
-        Assert.Equal(Expression((byte)'"', 0xAB), Argument(rewritten, 0, 1));
+        Assert.Equal(Expression((byte)'"', 0xA0), Argument(rewritten, 0, 1));
     }
 
     [Fact]
@@ -250,6 +348,6 @@ public class SpeakerMarkersTests
 
         var rebuilt = format.Rebuild(new ScriptFile(ScriptName, bytes), [], Cp1252, Context);
 
-        Assert.Equal(Expression((byte)'"', 0xAB), Argument(Read(rebuilt), 0, 1));
+        Assert.Equal(Expression((byte)'"', 0xA0), Argument(Read(rebuilt), 0, 1));
     }
 }

@@ -56,6 +56,7 @@ internal static partial class ProjectConfigValidator
         OneOf(style.Address, StyleNames.Addresses, "$.style.address");
         OneOf(style.Narrator.Person, StyleNames.Persons, "$.style.narrator.person");
         OneOf(style.Narrator.Gender, StyleNames.Genders, "$.style.narrator.gender");
+        OneOf(style.SpeakerDelimiter, StyleNames.SpeakerDelimiters, "$.style.speakerDelimiter");
     }
 
     private static void NotBlank(string? value, string field)

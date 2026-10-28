@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
@@ -26,7 +27,7 @@ public sealed class StyleOption<T>(T value, string name, string sample, string d
 }
 
 /// <summary>
-/// A aba Estilo dos Ajustes: honoríficos, tratamento, narrador, onomatopeias e ordem dos nomes (<see cref="StyleConfig"/>, em
+/// A aba Estilo dos Ajustes: honoríficos, tratamento, narrador, onomatopeias, ordem dos nomes e delimitador da fala (<see cref="StyleConfig"/>, em
 /// <c>vnforge.json</c>) e o exemplo que muda conforme as escolhas. O guia de estilo em texto livre (<c>style.md</c>) continua no
 /// <see cref="SettingsViewModel"/>, que grava os dois arquivos.
 /// </summary>
@@ -55,6 +56,7 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
         ];
         NarratorPersons = [new(NarratorPerson.First, "Primeira"), new(NarratorPerson.Third, "Terceira")];
         NarratorGenders = [new(NarratorGender.Male, "Masculino"), new(NarratorGender.Female, "Feminino"), new(NarratorGender.Neutral, "Neutro")];
+        SpeakerDelimiters = [new(SpeakerDelimiterStyle.None, "Sem sinal"), new(SpeakerDelimiterStyle.Guillemets, "« »")];
 
         Watch(Honorifics, o => SelectedHonorific = o);
         Watch(Addresses, o => SelectedAddress = o);
@@ -71,6 +73,9 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
     public ReadOnlyCollection<ChoiceItem<NarratorPerson>> NarratorPersons { get; }
 
     public ReadOnlyCollection<ChoiceItem<NarratorGender>> NarratorGenders { get; }
+
+    /// <summary>Como a fala com falante aparece na caixa de texto com a acentuação <c>cp1252</c> (#453).</summary>
+    public ReadOnlyCollection<ChoiceItem<SpeakerDelimiterStyle>> SpeakerDelimiters { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExampleTranslation))]
@@ -89,6 +94,9 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial ChoiceItem<NarratorGender>? SelectedNarratorGender { get; set; }
+
+    [ObservableProperty]
+    public partial ChoiceItem<SpeakerDelimiterStyle>? SelectedSpeakerDelimiter { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExampleTranslation))]
@@ -119,6 +127,7 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
             TranslateOnomatopoeia = style.TranslateOnomatopoeia;
             WesternNameOrder = style.WesternNameOrder;
             KeyboardPunctuation = style.KeyboardPunctuation;
+            SelectedSpeakerDelimiter = SpeakerDelimiters.First(o => o.Value == style.SpeakerDelimiter);
         }
         finally
         {
@@ -142,6 +151,7 @@ public sealed partial class StyleSettingsViewModel : ObservableObject
         TranslateOnomatopoeia = TranslateOnomatopoeia,
         WesternNameOrder = WesternNameOrder,
         KeyboardPunctuation = KeyboardPunctuation,
+        SpeakerDelimiter = SelectedSpeakerDelimiter?.Value ?? StyleConfig.Default.SpeakerDelimiter,
     };
 
     /// <summary>

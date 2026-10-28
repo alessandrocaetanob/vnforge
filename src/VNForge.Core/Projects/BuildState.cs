@@ -58,6 +58,14 @@ internal sealed record BuildState(
     /// que o build grava, o que entra nos bytes. Mudar status, notas ou origem não a altera, e copiar o projeto sem preservar datas também não.
     /// O Painel a compara com a gravada no último build para saber se o <c>build/</c> ainda vale.
     /// </summary>
+    /// <summary>O id do encoder mais o estilo do delimitador da fala, quando ele tem um (#453): trocar o estilo muda os bytes gravados e invalida o build incremental.</summary>
+    public static string EncoderKey(ITextEncoder encoder) =>
+        encoder is ISpeakerDelimiterEncoder own ? EncoderKey(encoder.Id, own.SpeakerDelimiter) : encoder.Id;
+
+    /// <summary>A mesma chave a partir do <c>vnforge.json</c>, para o Painel comparar com a do último build sem criar o encoder.</summary>
+    public static string EncoderKey(string strategy, SpeakerDelimiterStyle speakerDelimiter) =>
+        strategy == "cp1252" ? $"{strategy}:{speakerDelimiter}" : strategy;
+
     public static string FingerprintTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, string encoderId, string formattingPath, string? gameTitle = null)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

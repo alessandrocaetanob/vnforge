@@ -95,6 +95,88 @@ public class TextboxPreviewTests : IDisposable
     }
 
     [Fact]
+    public void Abertura_invisivel_da_cp1252_ocupa_uma_coluna_na_primeira_linha_da_fala_com_falante()
+    {
+        var marks = SpeakerBoxMarks.For(new Cp1252TextEncoder());
+
+        var vm = new TextboxPreviewViewModel(Unidade("Misaki"), Parse(Perfil), "um dois tres", marks);
+
+        var linhas = vm.Layout!.Boxes[0].Lines;
+        Assert.Equal(["\u00A0um dois", "tres"], linhas.Select(l => l.Text));
+        Assert.Equal([8, 4], linhas.Select(l => l.Columns));
+        Assert.Equal(marks, vm.Marks);
+    }
+
+    [Fact]
+    public void Com_guillemets_o_par_entra_na_primeira_e_na_ultima_linha()
+    {
+        var vm = new TextboxPreviewViewModel(Unidade("Misaki"), Parse(Perfil), "um dois tres", SpeakerBoxMarks.For(new Cp1252TextEncoder(SpeakerDelimiterStyle.Guillemets)));
+
+        Assert.Equal(["«um dois", "tres»"], vm.Layout!.Boxes[0].Lines.Select(l => l.Text));
+    }
+
+    [Fact]
+    public void Narracao_e_a_previa_sem_marcas_medem_so_a_traducao()
+    {
+        var marks = SpeakerBoxMarks.For(new Cp1252TextEncoder());
+
+        Assert.Equal([7, 4], new TextboxPreviewViewModel(Unidade(), Parse(Perfil), "um dois tres", marks).Layout!.Boxes[0].Lines.Select(l => l.Columns));
+        Assert.Equal([7, 4], new TextboxPreviewViewModel(Unidade("Misaki"), Parse(Perfil), "um dois tres").Layout!.Boxes[0].Lines.Select(l => l.Columns));
+    }
+
+    [Fact]
+    public void Update_mantem_as_marcas_da_fala()
+    {
+        var vm = new TextboxPreviewViewModel(Unidade("Misaki"), Parse(Perfil), "um", SpeakerBoxMarks.For(new Cp1252TextEncoder()));
+
+        vm.Update("um dois");
+
+        Assert.Equal([8], vm.Layout!.Boxes[0].Lines.Select(l => l.Columns));
+    }
+
+    [Fact]
+    public void O_cache_das_marcas_le_o_vnforge_json_e_so_o_relê_quando_ele_muda()
+    {
+        var arquivo = Path.Combine(raiz, ProjectFolder.ConfigFileName);
+        var projeto = ProjectFolder.Open(raiz);
+        var cache = new SpeakerMarksCache();
+        Assert.Equal(SpeakerBoxMarks.None, cache.Get(raiz));
+
+        projeto.SaveConfig(projeto.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 5, 0, DateTimeKind.Utc));
+        Assert.Equal(new SpeakerBoxMarks("\u00A0", string.Empty), cache.Get(raiz));
+
+        projeto.SaveConfig(projeto.LoadConfig() with { Style = StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets } });
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 6, 0, DateTimeKind.Utc));
+        Assert.Equal(new SpeakerBoxMarks("«", "»"), cache.Get(raiz));
+
+        File.WriteAllText(arquivo, "{ isto nao e json");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 7, 0, DateTimeKind.Utc));
+        Assert.Equal(SpeakerBoxMarks.None, cache.Get(raiz));
+    }
+
+    [Fact]
+    public async Task Editor_com_cp1252_mede_a_abertura_e_voltar_dos_ajustes_com_o_estilo_mudado_refaz_a_previa()
+    {
+        GravarPerfil(Perfil);
+        var projeto = ProjectFolder.Open(raiz);
+        var arquivo = Path.Combine(raiz, ProjectFolder.ConfigFileName);
+        projeto.SaveConfig(projeto.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 0, 0, DateTimeKind.Utc));
+        projeto.SaveText("yst00001", [new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "Misaki", "原文", "um dois", TranslationStatus.Translated)]);
+        var vm = await Abrir();
+        var painel = vm.Detail!;
+        Assert.Equal([8], painel.Preview!.Layout!.Boxes[0].Lines.Select(l => l.Columns));
+
+        projeto.SaveConfig(projeto.LoadConfig() with { Style = StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets } });
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 5, 0, DateTimeKind.Utc));
+        vm.RefreshPreview();
+
+        Assert.Same(painel, vm.Detail);
+        Assert.Equal(["«um dois»"], painel.Preview!.Layout!.Boxes[0].Lines.Select(l => l.Text));
+    }
+
+    [Fact]
     public void Falante_vai_para_a_placa_e_o_resumo_conta_linhas_e_colunas()
     {
         var vm = new TextboxPreviewViewModel(Unidade("美咲"), Parse(Perfil), "um dois tres");

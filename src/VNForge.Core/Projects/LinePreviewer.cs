@@ -59,7 +59,8 @@ public static class LinePreviewer
             throw new VNForgeException($"A linha {id} ainda não tem tradução para mostrar.");
         }
 
-        return Create(project.LoadFormatting(), unit, unit.Translation);
+        var config = project.LoadConfig();
+        return Create(project.LoadFormatting(), unit, unit.Translation, SpeakerBoxMarks.For(config.Encoding.Strategy, config.Style.SpeakerDelimiter));
     }
 
     /// <summary>
@@ -69,8 +70,12 @@ public static class LinePreviewer
     /// <param name="profile">Perfil de formatação do projeto.</param>
     /// <param name="unit">A linha; só o id, o original e o papel são usados.</param>
     /// <param name="translation">Tradução a mostrar, no lugar da gravada em <paramref name="unit"/>.</param>
+    /// <param name="marks">
+    /// O que o jogo desenha em volta da fala com falante (#453): a abertura invisível da <c>cp1252</c> ocupa uma coluna na primeira linha, e o fechamento (<c>»</c> no estilo <c>« »</c>) na última.
+    /// Só a medida e o texto de <see cref="LinePreview.Boxes"/> os contam; <see cref="LinePreview.Text"/> e a quebra de linha do pipeline seguem a tradução. Sem falante, nada é somado.
+    /// </param>
     /// <exception cref="VNForgeException">Texto que o pipeline recusa.</exception>
-    public static LinePreview Create(FormattingProfile profile, TextUnit unit, string translation)
+    public static LinePreview Create(FormattingProfile profile, TextUnit unit, string translation, SpeakerBoxMarks marks = default)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(unit);
@@ -89,7 +94,7 @@ public static class LinePreviewer
                 translation,
                 result.Text,
                 formatted,
-                LineMeasure.Lines(result.Text, width),
+                LineMeasure.Lines(marks.Wrap(unit, result.Text), width),
                 profile.Wrap.MaxWidth,
                 profile.Wrap.MaxLines,
                 profile.Wrap.Enabled,

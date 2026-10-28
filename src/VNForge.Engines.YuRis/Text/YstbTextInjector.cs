@@ -28,7 +28,7 @@ namespace VNForge.Engines.YuRis.Text;
 /// <para>
 /// <b>Falante.</b> Vale o <see cref="TextUnit.ChosenSpeaker"/> da unidade quando há (vazio tira o nome; numa mensagem sem falante monta <c>nome「fala」</c>);
 /// senão o <see cref="TextUnit.Speaker"/> quando preenchido; vazio, o nome do locator. O nome e a tradução vão na codificação do projeto e os delimitadores
-/// <c>「」</c> pelo <see cref="SpeakerDelimiters"/> (<c>«»</c> quando a codificação é a <c>cp1252</c>; o pensamento <c>nome（fala）</c> leva os parênteses ASCII no corpo da tradução e <c>(</c> no marcador, #448). O script que cadastra os marcadores de falante
+/// <c>「」</c> pelo <see cref="SpeakerDelimiters"/> (na <c>cp1252</c>, o <c>0xA0</c> invisível de abertura sem fechamento, ou <c>«»</c> se o projeto escolheu esse estilo, #453; o pensamento <c>nome（fala）</c> leva os parênteses ASCII no corpo da tradução e <c>(</c> no marcador, #448). O script que cadastra os marcadores de falante
 /// (<c>es.CHAR.NAME.MARK.SET</c>) é reescrito junto, mesmo sem unidade traduzida (<see cref="SpeakerMarkers"/>).
 /// </para>
 /// </remarks>
@@ -107,7 +107,7 @@ public static class YstbTextInjector
     /// <summary>
     /// Os bytes de <c>nome + abertura + tradução + fechamento</c>. O nome é o <see cref="TextUnit.Speaker"/> que o Core já resolveu (<see cref="SpeakerText.Resolve"/>)
     /// e vai na codificação do projeto, como a tradução. Os delimitadores vão pelo <see cref="SpeakerDelimiters"/>, o ponto único da escolha: a abertura e o fechamento
-    /// ficam na caixa de texto do jogo, e na <c>cp1252</c> o <c>81 75</c> do <c>「</c> aparecia como <c>u</c> (#434); se nem o substituto é gravável, vale o Shift-JIS. Com <see cref="TextUnit.ChosenSpeaker"/>, vale <see cref="ComposeChosen"/>.
+    /// ficam na caixa de texto do jogo, e na <c>cp1252</c> o <c>81 75</c> do <c>「</c> aparecia como <c>u</c> (#434); se a codificação não tem delimitador próprio, vale o Shift-JIS. Com <see cref="TextUnit.ChosenSpeaker"/>, vale <see cref="ComposeChosen"/>.
     /// </summary>
     private static byte[] Compose(Locator locator, TextUnit unit, ITextEncoder encoder)
     {
@@ -122,7 +122,18 @@ public static class YstbTextInjector
         }
 
         var name = string.IsNullOrEmpty(unit.Speaker) ? speaker.Name : unit.Speaker;
-        return [.. EncodeName(unit, name, encoder), .. EncodeDelimiter(unit, speaker.Open, encoder), .. Encode(unit, unit.Translation!, encoder), .. EncodeDelimiter(unit, speaker.Close, encoder)];
+        return [.. EncodeName(unit, name, encoder), .. Speech(unit, speaker.Open, unit.Translation!, speaker.Close, encoder)];
+    }
+
+    /// <summary>
+    /// <c>abertura + fala + fechamento</c>. Sem fechamento (a <c>cp1252</c> sem sinal, #453) a fala é o fim da mensagem: se ela termina em letra acentuada, o byte de lead do
+    /// motor ficaria sem par, então um espaço de guarda (<c>0x20</c>) fecha o par, como o <see cref="ControlMarkers"/> faz antes de um controle (#435).
+    /// </summary>
+    private static byte[] Speech(TextUnit unit, string open, string text, string close, ITextEncoder encoder)
+    {
+        var opening = EncodeDelimiter(unit, open, encoder);
+        var closing = EncodeDelimiter(unit, close, encoder);
+        return [.. opening, .. Encode(unit, text, encoder, guardTrailingLead: opening.Length > 0 && closing.Length == 0), .. closing];
     }
 
     /// <summary>
@@ -136,7 +147,7 @@ public static class YstbTextInjector
         if (chosen.Length == 0)
         {
             return locator.Speaker is { } game
-                ? [.. EncodeDelimiter(unit, game.Open, encoder), .. Encode(unit, translation, encoder), .. EncodeDelimiter(unit, game.Close, encoder)]
+                ? Speech(unit, game.Open, translation, game.Close, encoder)
                 : Encode(unit, translation, encoder);
         }
 
@@ -148,12 +159,12 @@ public static class YstbTextInjector
         var name = EncodeName(unit, chosen, encoder);
         if (locator.Speaker is { } speaker)
         {
-            return [.. name, .. EncodeDelimiter(unit, speaker.Open, encoder), .. Encode(unit, translation, encoder), .. EncodeDelimiter(unit, speaker.Close, encoder)];
+            return [.. name, .. Speech(unit, speaker.Open, translation, speaker.Close, encoder)];
         }
 
         return SpeakerSplitter.IsQuoted(translation)
             ? [.. name, .. Encode(unit, translation, encoder)]
-            : [.. name, .. EncodeDelimiter(unit, DefaultOpen, encoder), .. Encode(unit, translation, encoder), .. EncodeDelimiter(unit, DefaultClose, encoder)];
+            : [.. name, .. Speech(unit, DefaultOpen, translation, DefaultClose, encoder)];
     }
 
     private static byte[] EncodeName(TextUnit unit, string name, ITextEncoder encoder)
@@ -170,14 +181,19 @@ public static class YstbTextInjector
     private static byte[] EncodeDelimiter(TextUnit unit, string delimiter, ITextEncoder encoder)
     {
         var resolved = SpeakerDelimiters.Resolve(encoder, delimiter);
+        if (SpeakerDelimiters.IsOwn(encoder, resolved))
+        {
+            return SpeakerDelimiters.ToBytes(encoder, resolved);
+        }
+
         return Encode(unit, resolved, resolved.Length == 0 || encoder.FindUnencodable(resolved).Count == 0 ? encoder : OriginalEncoder);
     }
 
-    private static byte[] Encode(TextUnit unit, string text, ITextEncoder encoder)
+    private static byte[] Encode(TextUnit unit, string text, ITextEncoder encoder, bool guardTrailingLead = false)
     {
         try
         {
-            return ControlMarkers.ToBytes(text, encoder);
+            return ControlMarkers.ToBytes(text, encoder, guardTrailingLead);
         }
         catch (EncoderFallbackException e)
         {

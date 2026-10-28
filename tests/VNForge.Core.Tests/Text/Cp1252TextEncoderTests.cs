@@ -142,4 +142,60 @@ public class Cp1252TextEncoderTests
         Assert.Contains(trecho, ex.Message);
         Assert.Contains("0xEF", ex.Message);
     }
+
+    [Fact]
+    public void SemSinal_AAberturaEOEspacoNaoSeparavelDeUmByteEAFalaNaoTemFechamento()
+    {
+        ISpeakerDelimiterEncoder encoder = _encoder;
+
+        Assert.Equal(SpeakerDelimiterStyle.None, encoder.SpeakerDelimiter);
+        Assert.Equal("\u00A0", encoder.SpeakerOpen);
+        Assert.Equal(string.Empty, encoder.SpeakerClose);
+        Assert.Equal([0xA0], encoder.EncodeSpeakerDelimiter(encoder.SpeakerOpen));
+    }
+
+    [Fact]
+    public void ComGuillemets_AAberturaEOFechamentoSaoOParDeUmByteDoEstiloAntigo()
+    {
+        ISpeakerDelimiterEncoder encoder = new Cp1252TextEncoder(SpeakerDelimiterStyle.Guillemets);
+
+        Assert.Equal(("«", "»"), (encoder.SpeakerOpen, encoder.SpeakerClose));
+        Assert.Equal([0xAB], encoder.EncodeSpeakerDelimiter("«"));
+        Assert.Equal([0xBB], encoder.EncodeSpeakerDelimiter("»"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("x")]
+    [InlineData("»")]
+    public void SemSinal_OTextoQueNaoEDelimitadorDoEncoderEhRecusado(string texto)
+    {
+        Assert.Throws<ArgumentException>(() => _encoder.EncodeSpeakerDelimiter(texto));
+    }
+
+    [Fact]
+    public void SemSinal_OEspacoNaoSeparavelNaTraducaoEhRecusadoComAExplicacaoDoByte()
+    {
+        Assert.Equal([1], _encoder.FindUnencodable("a\u00A0b"));
+        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("a\u00A0b"));
+        Assert.Contains("0xA0", ex.Message);
+        Assert.Contains("espaço comum", ex.Message);
+        Assert.Contains("0xA0", _encoder.ExplainRefusal(0xA0));
+    }
+
+    [Fact]
+    public void ComGuillemets_OEspacoNaoSeparavelNaTraducaoContinuaGravavel()
+    {
+        var encoder = new Cp1252TextEncoder(SpeakerDelimiterStyle.Guillemets);
+
+        Assert.Empty(encoder.FindUnencodable("a\u00A0b"));
+        Assert.Equal([(byte)'a', 0xA0, (byte)'b'], encoder.Encode("a\u00A0b"));
+        Assert.Null(encoder.ExplainRefusal(0xA0));
+    }
+
+    [Fact]
+    public void EstiloForaDoEnumEhRecusado()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Cp1252TextEncoder((SpeakerDelimiterStyle)9));
+    }
 }

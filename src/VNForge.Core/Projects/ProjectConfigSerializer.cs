@@ -189,6 +189,12 @@ public static class ProjectConfigSerializer
         {
             writer.WriteBoolean("keyboardPunctuation", style.KeyboardPunctuation);
         }
+
+        if (style.SpeakerDelimiter != StyleConfig.Default.SpeakerDelimiter)
+        {
+            writer.WriteString("speakerDelimiter", StyleNames.Of(style.SpeakerDelimiter));
+        }
+
         writer.WriteEndObject();
     }
 
@@ -215,6 +221,7 @@ public static class ProjectConfigSerializer
             TranslateOnomatopoeia = reader.OptionalBool("onomatopoeia") ?? defaults.TranslateOnomatopoeia,
             WesternNameOrder = reader.OptionalBool("westernNameOrder") ?? defaults.WesternNameOrder,
             KeyboardPunctuation = reader.OptionalBool("keyboardPunctuation") ?? defaults.KeyboardPunctuation,
+            SpeakerDelimiter = reader.OptionalChoice("speakerDelimiter", StyleNames.SpeakerDelimiters, defaults.SpeakerDelimiter),
         };
         reader.EnsureNoUnknownProperties();
         return style;

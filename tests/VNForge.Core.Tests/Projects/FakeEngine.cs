@@ -37,6 +37,9 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
 
     public IReadOnlyList<TextUnit> LastRebuiltUnits => _format.LastUnits;
 
+    /// <summary>O codificador que o build entregou à engine na última chamada.</summary>
+    public ITextEncoder? LastEncoder => _format.LastEncoder;
+
     public IReadOnlyList<RebuiltScript> LastRebuilt { get; private set; } = [];
 
     public int RepackCalls { get; private set; }
@@ -127,10 +130,17 @@ internal sealed class FakeFormat : IScriptFormat
 
     public HashSet<string> RequiringRebuild { get; } = [];
 
-    public bool RequiresRebuild(ScriptFile file, ITextEncoder encoder, EngineContext ctx) => RequiringRebuild.Contains(file.Name);
+    public bool RequiresRebuild(ScriptFile file, ITextEncoder encoder, EngineContext ctx)
+    {
+        LastEncoder = encoder;
+        return RequiringRebuild.Contains(file.Name);
+    }
 
     /// <summary>As unidades da última chamada de <see cref="Rebuild"/>, como o build as entregou.</summary>
     public IReadOnlyList<TextUnit> LastUnits { get; private set; } = [];
+
+    /// <summary>O codificador da última chamada de <see cref="Rebuild"/> e de <see cref="RequiresRebuild"/>.</summary>
+    public ITextEncoder? LastEncoder { get; private set; }
 
     public string Id => "fake";
 
@@ -150,6 +160,7 @@ internal sealed class FakeFormat : IScriptFormat
     {
         Calls++;
         LastUnits = units;
+        LastEncoder = encoder;
         var lines = Encoding.UTF8.GetString(file.Content.Span).Split('\n');
         foreach (var unit in units.Where(u => u.NeedsRewrite))
         {

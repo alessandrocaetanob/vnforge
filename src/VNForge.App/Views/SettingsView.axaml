@@ -320,6 +320,15 @@
                                   IsChecked="{Binding Style.KeyboardPunctuation}"/>
                   </StackPanel>
                 </Border>
+                <TextBlock Classes="overline" Text="Fala com falante na caixa de texto" IsVisible="{Binding ShowCp1252Warning}"/>
+                <Border Classes="panel" Padding="16,12" IsVisible="{Binding ShowCp1252Warning}">
+                  <StackPanel Spacing="8">
+                    <ListBox Classes="seg" HorizontalAlignment="Left" ItemsSource="{Binding Style.SpeakerDelimiters}"
+                             SelectedItem="{Binding Style.SelectedSpeakerDelimiter}" DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Delimitador da fala"/>
+                    <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                               Text="Sem sinal, a fala aparece sem aspas e o nome vai na caixa de nome. Com « », o par aparece em volta da fala; volte a ele se o jogo desenhar um símbolo no começo da fala."/>
+                  </StackPanel>
+                </Border>
               </StackPanel>
             </Grid>
 

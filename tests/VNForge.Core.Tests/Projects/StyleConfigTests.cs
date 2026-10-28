@@ -1,4 +1,5 @@
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
@@ -62,6 +63,31 @@ public class StyleConfigTests
         Assert.Contains("\"keyboardPunctuation\": false", json);
         Assert.False(ProjectConfigSerializer.Parse(json).Style.KeyboardPunctuation);
         Assert.False(Parse(", \"style\": { \"keyboardPunctuation\": false }").Style.KeyboardPunctuation);
+    }
+
+    [Fact]
+    public void O_delimitador_da_fala_vem_sem_sinal_e_faz_ida_e_volta_com_guillemets()
+    {
+        Assert.Equal(SpeakerDelimiterStyle.None, StyleConfig.Default.SpeakerDelimiter);
+        Assert.Equal(SpeakerDelimiterStyle.None, Parse().Style.SpeakerDelimiter);
+        var guillemets = Parse() with { Style = StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets } };
+
+        var json = ProjectConfigSerializer.Serialize(guillemets);
+
+        Assert.Contains("\"speakerDelimiter\": \"guillemets\"", json);
+        Assert.Equal(SpeakerDelimiterStyle.Guillemets, ProjectConfigSerializer.Parse(json).Style.SpeakerDelimiter);
+        Assert.Equal(SpeakerDelimiterStyle.Guillemets, Parse(", \"style\": { \"speakerDelimiter\": \"guillemets\" }").Style.SpeakerDelimiter);
+        Assert.Equal(SpeakerDelimiterStyle.None, Parse(", \"style\": { \"speakerDelimiter\": \"none\" }").Style.SpeakerDelimiter);
+    }
+
+    [Fact]
+    public void O_delimitador_da_fala_no_padrao_nao_e_gravado_e_fora_da_lista_e_recusado()
+    {
+        Assert.DoesNotContain("speakerDelimiter", ProjectConfigSerializer.Serialize(Parse(", \"style\": { \"honorifics\": \"keep\" }")), StringComparison.Ordinal);
+        var ex = Assert.Throws<ProjectConfigException>(() => Parse(", \"style\": { \"speakerDelimiter\": \"aspas\" }"));
+        Assert.Equal("$.style.speakerDelimiter", ex.Field);
+        var invalid = Parse() with { Style = StyleConfig.Default with { SpeakerDelimiter = (SpeakerDelimiterStyle)9 } };
+        Assert.Equal("$.style.speakerDelimiter", Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(invalid)).Field);
     }
 
     [Fact]
@@ -153,6 +179,9 @@ public class StyleConfigTests
 
         // A troca da pontuação vem depois do cache: ligar ou desligar não invalida o que já foi pago.
         Assert.Equal(baseKey, (StyleConfig.Default with { KeyboardPunctuation = false }).CacheKey());
+
+        // O delimitador da fala só muda os bytes gravados no jogo; a tradução que a IA devolve é a mesma.
+        Assert.Equal(baseKey, (StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets }).CacheKey());
         Assert.Equal(
             (StyleConfig.Default with { Narrator = new NarratorStyle { Who = "Kenta" } }).CacheKey(),
             (StyleConfig.Default with { Narrator = new NarratorStyle { Who = " Kenta " } }).CacheKey());

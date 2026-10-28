@@ -157,7 +157,7 @@ public static class UnwritableCharacters
         Add("^", 0x02C6);
         Add("~", 0x02DC, 0x266A, 0x266B, 0x2665, 0x2661, 0xFF5E, 0x301C);
         Add("i", 0x00EF);
-        Add(" ", 0x30FB, 0xFF65, 0x3000);
+        Add(" ", 0x00A0, 0x30FB, 0xFF65, 0x3000);
         Add("->", 0x2192);
         Add("<-", 0x2190);
         return table;

@@ -409,14 +409,15 @@ minha-vn-ptbr/
   "languages": { "source": "ja", "target": "pt-BR" },
   "encoding": { "strategy": "fold" },
   "ai": { "provider": "anthropic", "model": "claude-opus-5-5", "effort": "medium", "batchSize": 30 },
-  // opcional: só é gravado quando difere do padrão (adapt, voce, narrador neutro em primeira pessoa, onomatopeias traduzidas, ordem ocidental, pontuação do teclado)
+  // opcional: só é gravado quando difere do padrão (adapt, voce, narrador neutro em primeira pessoa, onomatopeias traduzidas, ordem ocidental, pontuação do teclado, fala com falante sem sinal)
   "style": {
     "honorifics": "adapt",                 // keep | remove | adapt
     "address": "voce",                     // voce | tu
     "narrator": { "who": "Kenta (protagonista)", "person": "first", "gender": "neutral" },  // person: first | third; gender: neutral | male | female
     "onomatopoeia": true,
     "westernNameOrder": true,
-    "keyboardPunctuation": false           // padrão true e só é gravado quando false: troca 。 ～ （ pela pontuação do teclado na tradução da IA e na que você grava
+    "keyboardPunctuation": false,          // padrão true e só é gravado quando false: troca 。 ～ （ pela pontuação do teclado na tradução da IA e na que você grava
+    "speakerDelimiter": "guillemets"       // none | guillemets; padrão none e só é gravado quando guillemets (#453): com a cp1252, a fala com falante sai sem sinal visível ou entre « »
   }
 }
 ```
