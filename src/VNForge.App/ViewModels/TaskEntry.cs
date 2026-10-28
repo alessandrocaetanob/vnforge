@@ -12,11 +12,13 @@ namespace VNForge.App.ViewModels;
 public sealed partial class TaskEntry : ObservableObject
 {
     private readonly TimeProvider clock;
+    private readonly Func<BackgroundTaskItem, Task>? undo;
 
-    internal TaskEntry(BackgroundTaskGroup? group, TimeProvider clock)
+    internal TaskEntry(BackgroundTaskGroup? group, TimeProvider clock, Func<BackgroundTaskItem, Task>? undo = null)
     {
         Group = group;
         this.clock = clock;
+        this.undo = undo;
     }
 
     /// <summary>O grupo que a linha representa; <c>null</c> na tarefa avulsa.</summary>
@@ -96,6 +98,25 @@ public sealed partial class TaskEntry : ObservableObject
 
     public string CostText => Steps[0].CostText;
 
+    /// <summary>A tarefa em lote deixou um ponto de restauração que ainda não foi usado: a linha mostra "Desfazer".</summary>
+    public bool CanUndo => !IsGroup && Steps[0] is { Restore: not null, IsUndone: false, IsRunning: false };
+
+    /// <summary>O que o "Desfazer" fez (quantas linhas voltaram e quantas ficaram por terem sido editadas depois); vazio antes de usar.</summary>
+    public string UndoMessage => Steps[0].UndoMessage;
+
+    public bool HasUndoMessage => !IsGroup && UndoMessage.Length > 0;
+
+    private bool CanRunUndo() => CanUndo && !Steps[0].IsUndoing;
+
+    [RelayCommand(CanExecute = nameof(CanRunUndo))]
+    private async Task Undo()
+    {
+        if (undo is not null && !IsGroup)
+        {
+            await undo(Steps[0]);
+        }
+    }
+
     [RelayCommand]
     private void ToggleExpanded() => IsExpanded = !IsExpanded;
 
@@ -106,7 +127,11 @@ public sealed partial class TaskEntry : ObservableObject
     }
 
     /// <summary>Avisa a lista de que algo mudou numa etapa: título, estado, mensagem e custo são derivados dela.</summary>
-    internal void Notify() => OnPropertyChanged(string.Empty);
+    internal void Notify()
+    {
+        OnPropertyChanged(string.Empty);
+        UndoCommand.NotifyCanExecuteChanged();
+    }
 
     internal static string FormatTime(DateTimeOffset when, DateTimeOffset now) =>
         when.ToString(when.Date == now.Date ? "HH:mm" : "dd/MM HH:mm", CultureInfo.InvariantCulture);

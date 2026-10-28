@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using VNForge.App.Controls;
 
 namespace VNForge.App.Views;
@@ -20,13 +21,56 @@ public sealed partial class MainWindow : Window
         Motion.Follow(this);
         AddHandler(KeyDownEvent, OnShortcutKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         DataContextChanged += (_, _) => FollowTextAppearance();
-        Closing += (_, e) =>
+        Closing += OnClosing;
+    }
+
+    /// <summary>Quanto o resumo da sessão fica na tela antes de a janela fechar sozinha; fechar de novo antes disso fecha na hora.</summary>
+    public static readonly TimeSpan CloseSummaryTime = TimeSpan.FromMilliseconds(2500);
+
+    private bool closeSummaryShown;
+
+    /// <summary>O resumo é enfeite: qualquer falha ao montá-lo só deixa a janela fechar na hora, e nunca derruba o processo no meio do fechamento.</summary>
+    private static bool TryShowCloseSummary(ViewModels.MainWindowViewModel vm)
+    {
+        try
         {
-            if (DataContext is ViewModels.MainWindowViewModel vm && !vm.TryClose())
+            return vm.ShowCloseSummary();
+        }
+        catch (Exception e)
+        {
+            System.Diagnostics.Debug.WriteLine($"Resumo da sessão: não foi possível montar: {e}");
+            return false;
+        }
+    }
+
+    private void OnClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (DataContext is not ViewModels.MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        if (!vm.TryClose())
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        // O resumo só adia o fechamento pedido pela pessoa, uma vez: o desligamento do Windows, o fim do app e um segundo pedido de fechar não esperam.
+        if (closeSummaryShown || e.CloseReason != WindowCloseReason.WindowClosing || !TryShowCloseSummary(vm))
+        {
+            return;
+        }
+
+        closeSummaryShown = true;
+        e.Cancel = true;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (IsVisible)
             {
-                e.Cancel = true;
+                Close();
             }
-        };
+        }, CloseSummaryTime);
     }
 
     /// <summary>

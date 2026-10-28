@@ -35,6 +35,9 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private int fixableCount;
     private DateTimeOffset? checkedAt;
 
+    /// <summary>Guarda o ponto de restauração de "Corrigir com um clique" e de "Usar em todas" e dá o "Desfazer" à lista de tarefas; nulo grava sem ponto.</summary>
+    public BatchHistory? History { get; set; }
+
     public ConferenceViewModel(QaEngine? qa = null, TimeProvider? clock = null)
     {
         engine = qa ?? QaEngine.Default;
@@ -702,7 +705,13 @@ public sealed partial class ConferenceViewModel : ObservableObject
             try
             {
                 var targets = variant.Card.Group.Lines.Select(l => (l.ScriptKey, l.UnitId)).ToList();
-                result = await Task.Run(() => new LineEditor(ProjectFolder.Open(root), clock).SetTranslationFor(targets, variant.Translation));
+                result = await Task.Run(() => BatchHistory.Run(
+                    History,
+                    root,
+                    "Usar em todas as linhas",
+                    folder => new LineEditor(folder, clock).SetTranslationFor(targets, variant.Translation),
+                    targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList(),
+                    changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id))));
                 if (result.Failure is { } partial)
                 {
                     failure = $"Nem todas as linhas foram gravadas: {Reason(partial)}. As que foram continuam gravadas; use Desfazer se não quiser.";
@@ -892,7 +901,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
             string? failure = null;
             try
             {
-                result = await Task.Run(() => QaFixer.Apply(ProjectFolder.Open(root), engine));
+                result = await Task.Run(() => BatchHistory.Run(History, root, "Corrigir com um clique", folder => QaFixer.Apply(folder, engine), changedLines: applied => applied.Fixes.Select(f => (f.ScriptKey, f.UnitId)), trackFormatting: true));
             }
             catch (Exception e)
             {

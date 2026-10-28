@@ -52,7 +52,8 @@ public sealed record ReviewPace(int Today, int? PerHour, int? HoursLeft)
         return new ReviewPace(today, perHour, left);
     }
 
-    private static TimeSpan WorkedTime(List<DateTimeOffset> times)
+    /// <summary>O tempo trabalhado para as aprovações dadas, em ordem: cada intervalo até <see cref="IdleCutoff"/> conta, e cada pausa maior abre uma sessão nova.</summary>
+    internal static TimeSpan WorkedTime(List<DateTimeOffset> times)
     {
         var worked = FirstLineTime;
         for (var i = 1; i < times.Count; i++)
