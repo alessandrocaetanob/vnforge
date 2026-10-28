@@ -19,6 +19,9 @@ public sealed class CharacterBook
         }
     }
 
+    /// <summary>Os personagens na ordem do <c>characters.json</c>, para listá-los (o seletor de falante do Editor).</summary>
+    public IReadOnlyCollection<CharacterEntry> Entries => _bySource.Values;
+
     /// <summary>
     /// Procura o personagem pelo falante extraído. A comparação é ordinal, ignorando só espaços nas pontas
     /// (inclusive o ideográfico U+3000) e a largura; nulo, vazio ou desconhecido devolvem <c>null</c>.

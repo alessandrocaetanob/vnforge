@@ -597,6 +597,100 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.Equal("Inui-kun", Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).Speaker);
     }
 
+    private void ChooseSpeaker(string text, string? speaker, string? extracted = null)
+    {
+        TranslateAs(extracted ?? "犬井", text);
+        var units = _project.LoadAllText()["a001"];
+        _project.SaveText("a001", [.. units.Select((u, i) => i == 0 ? u with { ChosenSpeaker = speaker } : u)]);
+    }
+
+    [Fact]
+    public void Falante_escolhido_vai_para_o_script_e_o_text_json_nao_muda()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        ChooseSpeaker("Bom dia!", "Misaki");
+
+        Build();
+
+        Assert.Equal("Misaki", Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).ChosenSpeaker);
+        var saved = _project.LoadAllText()["a001"][0];
+        Assert.Equal(("犬井", "Misaki"), (saved.Speaker, saved.ChosenSpeaker));
+    }
+
+    [Fact]
+    public void Falante_escolhido_que_e_um_personagem_do_glossario_vai_com_a_traducao_do_cadastro()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        _project.SaveCharacters([new CharacterEntry("美咲", "Misaki")]);
+        ChooseSpeaker("Bom dia!", "美咲");
+
+        Build();
+
+        Assert.Equal("Misaki", Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).ChosenSpeaker);
+    }
+
+    [Fact]
+    public void Narracao_escolhida_chega_ao_script_como_nome_vazio()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        ChooseSpeaker("Bom dia!", string.Empty);
+
+        Build();
+
+        Assert.Equal(string.Empty, Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).ChosenSpeaker);
+    }
+
+    [Fact]
+    public void Falante_escolhido_livra_o_extraido_japones_sem_cadastro_da_conferencia()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        ChooseSpeaker("Bom dia!", "Inui");
+
+        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, allowWarnings: true);
+
+        Assert.Single(result.RebuiltScripts);
+    }
+
+    [Fact]
+    public void Falante_escolhido_japones_sem_cadastro_e_recusado_pela_conferencia()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        ChooseSpeaker("Bom dia!", "犬井", extracted: "Inui");
+
+        var ex = Assert.Throws<QaBlockedException>(() =>
+            ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, allowWarnings: true));
+
+        Assert.Equal(FirstUnit, Assert.Single(ex.Report.BlockingIssues, i => i.RuleId == SpeakerEncodingRule.RuleId).UnitId);
+        Assert.Equal(0, _engine.RebuildCalls);
+    }
+
+    [Fact]
+    public void Build_sem_a_regra_de_conferencia_recusa_o_falante_escolhido_que_nao_grava()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        ChooseSpeaker("Bom dia!", "犬井", extracted: "Inui");
+
+        var ex = Assert.Throws<VNForgeException>(Build);
+
+        Assert.Contains(FirstUnit, ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, _engine.RebuildCalls);
+    }
+
+    [Fact]
+    public void Trocar_o_falante_escolhido_refaz_o_script_no_build_incremental()
+    {
+        ChooseSpeaker("Bom dia!", "Misaki");
+        var options = new BuildOptions(OnlyChanged: true);
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: options);
+        var calls = _engine.RebuildCalls;
+
+        ChooseSpeaker("Bom dia!", string.Empty);
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: options);
+
+        Assert.Equal(calls + 1, _engine.RebuildCalls);
+        Assert.Equal(string.Empty, Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).ChosenSpeaker);
+    }
+
     [Fact]
     public void Lista_de_uma_vez_os_casos_de_varias_linhas_e_scripts()
     {

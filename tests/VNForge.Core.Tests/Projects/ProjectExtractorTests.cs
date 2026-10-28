@@ -210,6 +210,23 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Reextrair_mantem_o_falante_escolhido_da_linha_igual_e_da_de_original_alterado()
+    {
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem?");
+        var project = NewProject();
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+        project.SaveText("a001", [Translated(FirstUnitId, "Olá", HelloText) with { ChosenSpeaker = "Inui" }, Translated("a001:000001", "Tudo bem?", "All good?") with { ChosenSpeaker = string.Empty }]);
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem mesmo?");
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+
+        var units = project.LoadText("a001");
+        Assert.Equal("Inui", units[0].ChosenSpeaker);
+        Assert.Equal(string.Empty, units[1].ChosenSpeaker);
+        Assert.Equal("Tudo bem mesmo?", units[1].Source);
+    }
+
+    [Fact]
     public void Reextrair_acrescenta_linhas_novas_e_guarda_o_texto_anterior_quando_algo_sai()
     {
         WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tchau");

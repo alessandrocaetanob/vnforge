@@ -287,7 +287,8 @@ public static class ProjectBuilder
 
     /// <summary>
     /// Troca o <see cref="TextUnit.Speaker"/> de cada unidade que o build grava pelo nome que vai para o jogo (<see cref="SpeakerText.Resolve"/>): a tradução de
-    /// <c>characters.json</c> ou, sem cadastro, o nome original (largura normalizada só quando a estratégia não o grava). O <c>text/*.json</c> em disco não muda.
+    /// <c>characters.json</c> ou, sem cadastro, o nome original (largura normalizada só quando a estratégia não o grava). Na unidade com <see cref="TextUnit.ChosenSpeaker"/>
+    /// o mesmo vale para o nome escolhido, que a engine grava no lugar do extraído (vazio, narração, passa como está). O <c>text/*.json</c> em disco não muda.
     /// A Conferência já recusa o nome que não dá para gravar (<see cref="SpeakerEncodingRule"/>); aqui a recusa só vale para quem roda o build sem essa regra.
     /// </summary>
     /// <exception cref="VNForgeException">O nome de uma linha não pode ser gravado na estratégia.</exception>
@@ -308,13 +309,26 @@ public static class ProjectBuilder
 
     private static TextUnit ResolveSpeaker(TextUnit unit, CharacterBook characters, ITextEncoder encoder)
     {
-        if (!unit.NeedsRewrite || string.IsNullOrWhiteSpace(unit.Speaker))
+        if (!unit.NeedsRewrite)
         {
             return unit;
         }
 
-        var name = SpeakerText.Resolve(unit.Speaker, characters, encoder);
-        return name.Error is { } error ? throw new VNForgeException($"A linha {unit.Id} não pode ser gravada: {error}") : unit with { Speaker = name.Name };
+        // O falante escolhido vale no lugar do extraído; vazio (narração) não tem nome a resolver e segue como está para a engine.
+        if (unit.ChosenSpeaker is { Length: > 0 } chosen)
+        {
+            return unit with { ChosenSpeaker = ResolveName(unit, chosen, characters, encoder) };
+        }
+
+        return unit.ChosenSpeaker is null && !string.IsNullOrWhiteSpace(unit.Speaker)
+            ? unit with { Speaker = ResolveName(unit, unit.Speaker, characters, encoder) }
+            : unit;
+    }
+
+    private static string ResolveName(TextUnit unit, string speaker, CharacterBook characters, ITextEncoder encoder)
+    {
+        var name = SpeakerText.Resolve(speaker, characters, encoder);
+        return name.Error is { } error ? throw new VNForgeException($"A linha {unit.Id} não pode ser gravada: {error}") : name.Name;
     }
 
     private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings)

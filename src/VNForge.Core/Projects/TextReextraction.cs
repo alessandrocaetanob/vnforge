@@ -90,6 +90,7 @@ internal static class TextReextraction
             Origin = saved.Origin,
             Notes = saved.Notes,
             Flags = saved.Flags,
+            ChosenSpeaker = saved.ChosenSpeaker,
             PreviousSource = hadTranslation || pending is not null ? pending ?? saved.Source : null,
         };
     }

@@ -26,7 +26,8 @@ namespace VNForge.Engines.YuRis.Text;
 /// escape de aspas, mas só confere a primeira e a última). Texto com os três é recusado.
 /// </para>
 /// <para>
-/// <b>Falante.</b> Vale o <see cref="TextUnit.Speaker"/> da unidade quando preenchido; vazio, o nome do locator. O nome e a tradução vão na codificação do projeto e os delimitadores
+/// <b>Falante.</b> Vale o <see cref="TextUnit.ChosenSpeaker"/> da unidade quando há (vazio tira o nome; numa mensagem sem falante monta <c>nome「fala」</c>);
+/// senão o <see cref="TextUnit.Speaker"/> quando preenchido; vazio, o nome do locator. O nome e a tradução vão na codificação do projeto e os delimitadores
 /// <c>「」</c> em Shift-JIS quando essa codificação não os grava (<c>cp1252</c>).
 /// </para>
 /// </remarks>
@@ -38,6 +39,8 @@ public static class YstbTextInjector
     private const byte LineBreakCode = 0xF0;
     private const byte Tab = 0x09;
     private const string WordCommand = "WORD";
+    private const string DefaultOpen = "「";
+    private const string DefaultClose = "」";
 
     private static readonly ShiftJisTextEncoder OriginalEncoder = new();
 
@@ -102,29 +105,64 @@ public static class YstbTextInjector
     /// Os bytes de <c>nome + abertura + tradução + fechamento</c>. O nome é o <see cref="TextUnit.Speaker"/> que o Core já resolveu (<see cref="SpeakerText.Resolve"/>)
     /// e vai na codificação do projeto, como a tradução. Os delimitadores vão na do projeto quando ela grava os japoneses (Shift-JIS) e, quando não grava
     /// (<c>cp1252</c>), em Shift-JIS mesmo: o jogo separa o nome da fala procurando o <c>「</c> (<c>81 75</c>), e uma aspa curva no lugar dele deixa a mensagem
-    /// inteira como fala e ainda engole a letra seguinte (<c>0x93</c> é lead byte).
+    /// inteira como fala e ainda engole a letra seguinte (<c>0x93</c> é lead byte). Com <see cref="TextUnit.ChosenSpeaker"/>, vale <see cref="ComposeChosen"/>.
     /// </summary>
     private static byte[] Compose(Locator locator, TextUnit unit, ITextEncoder encoder)
     {
+        if (unit.ChosenSpeaker is { } chosen)
+        {
+            return ComposeChosen(locator, unit, chosen, encoder);
+        }
+
         if (locator.Speaker is not { } speaker)
         {
             return Encode(unit, unit.Translation!, encoder);
         }
 
         var name = string.IsNullOrEmpty(unit.Speaker) ? speaker.Name : unit.Speaker;
+        return [.. EncodeName(unit, name, encoder), .. EncodeDelimiter(unit, speaker.Open, encoder), .. Encode(unit, unit.Translation!, encoder), .. EncodeDelimiter(unit, speaker.Close, encoder)];
+    }
+
+    /// <summary>
+    /// A mensagem com o falante que quem traduz escolheu (o Core já o resolveu). Vazio é narração: sai sem o nome, com a fala como está, e os delimitadores do jogo ficam
+    /// (<c>「fala」</c> sem nome é uma forma que o jogo já tem). Um nome numa mensagem que já tinha falante troca só o nome. Numa que não tinha, vira <c>nome「fala」</c>:
+    /// se a tradução já vem entre <c>「 」</c> (a fala sem nome, que a extração guarda com as aspas), só o nome é posto na frente.
+    /// </summary>
+    private static byte[] ComposeChosen(Locator locator, TextUnit unit, string chosen, ITextEncoder encoder)
+    {
+        var translation = unit.Translation!;
+        if (chosen.Length == 0)
+        {
+            return locator.Speaker is { } game
+                ? [.. EncodeDelimiter(unit, game.Open, encoder), .. Encode(unit, translation, encoder), .. EncodeDelimiter(unit, game.Close, encoder)]
+                : Encode(unit, translation, encoder);
+        }
+
+        if (locator.Command != WordCommand)
+        {
+            throw Fail(unit, "só uma mensagem (WORD) tem falante; uma string de expressão (escolha, sistema) não aceita o falante escolhido.");
+        }
+
+        var name = EncodeName(unit, chosen, encoder);
+        if (locator.Speaker is { } speaker)
+        {
+            return [.. name, .. EncodeDelimiter(unit, speaker.Open, encoder), .. Encode(unit, translation, encoder), .. EncodeDelimiter(unit, speaker.Close, encoder)];
+        }
+
+        return SpeakerSplitter.IsQuoted(translation)
+            ? [.. name, .. Encode(unit, translation, encoder)]
+            : [.. name, .. EncodeDelimiter(unit, DefaultOpen, encoder), .. Encode(unit, translation, encoder), .. EncodeDelimiter(unit, DefaultClose, encoder)];
+    }
+
+    private static byte[] EncodeName(TextUnit unit, string name, ITextEncoder encoder)
+    {
         if (encoder.FindUnencodable(name) is [var first, ..])
         {
             throw new EncoderFallbackException(
                 $"O nome do falante da unidade '{unit.Id}' ({name}) tem {EncodingMessages.Character(name, first)}, que a codificação do jogo ({encoder.Id}) não grava. Cadastre a tradução do nome no Glossário > Personagens.");
         }
 
-        return
-        [
-            .. Encode(unit, name, encoder),
-            .. EncodeDelimiter(unit, speaker.Open, encoder),
-            .. Encode(unit, unit.Translation!, encoder),
-            .. EncodeDelimiter(unit, speaker.Close, encoder),
-        ];
+        return Encode(unit, name, encoder);
     }
 
     private static byte[] EncodeDelimiter(TextUnit unit, string delimiter, ITextEncoder encoder) =>

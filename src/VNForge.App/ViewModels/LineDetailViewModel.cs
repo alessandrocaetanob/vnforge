@@ -78,10 +78,10 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
     public string ScriptKey => scriptKey;
 
-    public string? Speaker => string.IsNullOrEmpty(unit.Speaker) ? null : unit.Speaker;
+    public string? Speaker => string.IsNullOrEmpty(Saved.EffectiveSpeaker) ? null : Saved.EffectiveSpeaker;
 
     /// <summary>Personagem e glossário da linha, para o contexto do inspetor; nulo quando o Editor não os carregou.</summary>
-    public LineContext? Context { get; init; }
+    public LineContext? Context { get; set; }
 
     /// <summary>O id da linha no cabeçalho do inspetor ("yst00013:0043").</summary>
     public string FullId => unit.Id;

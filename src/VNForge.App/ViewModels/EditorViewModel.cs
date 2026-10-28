@@ -634,12 +634,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var shortener = Shortener ?? suggester as ILineShortener;
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
-        var lineContext = context.For(unit.Speaker, unit.Source);
+        var lineContext = context.For(unit.EffectiveSpeaker, unit.Source);
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root };
         detail.AttachPreview(CurrentProfile());
         detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
@@ -754,7 +754,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(line.Entry.Issues);
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
-        line.Update(updated);
+        line.Update(updated, context.Characters.Find(saved.EffectiveSpeaker)?.Target);
         if (Detail is { } open && string.Equals(open.Id, line.Id, StringComparison.Ordinal))
         {
             open.ShowIssues(updated.Issues);
@@ -902,7 +902,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         scriptLines = new LineViewModel[entries.Length];
         for (var i = 0; i < scriptLines.Length; i++)
         {
-            scriptLines[i] = new LineViewModel(entries[i], context.Characters.Find(entries[i].Unit.Speaker)?.Target);
+            scriptLines[i] = new LineViewModel(entries[i], context.Characters.Find(entries[i].Unit.EffectiveSpeaker)?.Target);
         }
 
         applying = true;
@@ -940,7 +940,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private static List<SpeakerOption> SpeakerOptionsOf(IReadOnlyList<LineEntry> lines)
     {
         var options = new List<SpeakerOption> { new(AllSpeakersLabel, null) };
-        if (lines.Any(l => string.IsNullOrEmpty(l.Unit.Speaker)))
+        if (lines.Any(l => string.IsNullOrEmpty(l.Unit.EffectiveSpeaker)))
         {
             options.Add(new SpeakerOption("Narração", LineFilter.Narration));
         }

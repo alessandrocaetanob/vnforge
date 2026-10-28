@@ -113,8 +113,8 @@ public sealed class ConferenceIssueRowViewModel
 
     public TextUnit? Unit { get; }
 
-    /// <summary>O nome de quem fala exatamente como o texto extraído o guarda (sem aparar nem normalizar); nulo na narração e no resumo por script.</summary>
-    public string? Speaker => IsScriptSummary || string.IsNullOrEmpty(Unit?.Speaker) ? null : Unit.Speaker;
+    /// <summary>O nome de quem fala exatamente como o texto o guarda (sem aparar nem normalizar): o falante escolhido na linha, quando há, senão o extraído; nulo na narração e no resumo por script.</summary>
+    public string? Speaker => IsScriptSummary || string.IsNullOrEmpty(Unit?.EffectiveSpeaker) ? null : Unit.EffectiveSpeaker;
 
     public bool HasSpeaker => Speaker is not null;
 

@@ -32,6 +32,8 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<int> NumberProperty = AvaloniaProperty.Register<LineRow, int>(nameof(Number));
     public static readonly StyledProperty<TranslationStatus> StatusProperty = AvaloniaProperty.Register<LineRow, TranslationStatus>(nameof(Status));
     public static readonly StyledProperty<string?> SpeakerProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Speaker));
+    public static readonly StyledProperty<bool> SpeakerChangedProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(SpeakerChanged));
+    public static readonly StyledProperty<string?> SpeakerTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(SpeakerTip));
     public static readonly StyledProperty<string?> OriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Original));
     public static readonly StyledProperty<string?> TranslationProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Translation));
     public static readonly StyledProperty<LineIssue> IssueProperty = AvaloniaProperty.Register<LineRow, LineIssue>(nameof(Issue));
@@ -71,6 +73,20 @@ public sealed class LineRow : TemplatedControl
     {
         get => GetValue(SpeakerProperty);
         set => SetValue(SpeakerProperty, value);
+    }
+
+    /// <summary>A linha tem o falante trocado por quem traduz: o nome sai em destaque.</summary>
+    public bool SpeakerChanged
+    {
+        get => GetValue(SpeakerChangedProperty);
+        set => SetValue(SpeakerChangedProperty, value);
+    }
+
+    /// <summary>Dica do nome do falante trocado: o que o jogo diz nessa linha.</summary>
+    public string? SpeakerTip
+    {
+        get => GetValue(SpeakerTipProperty);
+        set => SetValue(SpeakerTipProperty, value);
     }
 
     public string? Original
@@ -158,7 +174,7 @@ public sealed class LineRow : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == TranslationProperty
-            || change.Property == IssueProperty || change.Property == StatusProperty)
+            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty)
         {
             Apply();
         }
@@ -180,8 +196,9 @@ public sealed class LineRow : TemplatedControl
         TranslationText = !untranslated ? Translation! : Status == TranslationStatus.Keep ? KeepLabel : NoTranslationLabel;
         PseudoClasses.Set(":narration", narration);
         PseudoClasses.Set(":untranslated", untranslated);
+        PseudoClasses.Set(":speaker-changed", SpeakerChanged);
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);
         PseudoClasses.Set(":error", Issue == LineIssue.Error);
-        AutomationProperties.SetName(this, $"Linha {NumberText}");
+        AutomationProperties.SetName(this, SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}");
     }
 }

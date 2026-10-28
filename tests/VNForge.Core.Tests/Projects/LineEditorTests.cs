@@ -408,4 +408,52 @@ public class LineEditorTests
         var editor = new LineEditor(projeto, relogio);
         Assert.Throws<ArgumentNullException>(() => editor.SetNotes("yst00001", "yst00001:000001", null!));
     }
+
+    [Fact]
+    public void SetChosenSpeaker_grava_o_nome_sem_mexer_na_traducao_nem_no_falante_extraido()
+    {
+        using var pasta = new TempFolder();
+        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Approved, "Oi"));
+
+        var salva = editor.SetChosenSpeaker("yst00001", "yst00001:000001", "  Inui ");
+
+        Assert.Equal("Inui", salva.ChosenSpeaker);
+        var lida = Gravada(projeto, 1);
+        Assert.Equal(("Inui", "美咲", "Oi", TranslationStatus.Approved), (lida.ChosenSpeaker, lida.Speaker, lida.Translation, lida.Status));
+    }
+
+    [Fact]
+    public void SetChosenSpeaker_vazio_e_narracao_e_nulo_volta_ao_falante_do_jogo()
+    {
+        using var pasta = new TempFolder();
+        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Translated, "Oi"));
+
+        editor.SetChosenSpeaker("yst00001", "yst00001:000001", string.Empty);
+        Assert.Equal(string.Empty, Gravada(projeto, 1).ChosenSpeaker);
+
+        editor.SetChosenSpeaker("yst00001", "yst00001:000001", null);
+        Assert.Null(Gravada(projeto, 1).ChosenSpeaker);
+    }
+
+    [Fact]
+    public void SetChosenSpeaker_igual_ao_do_jogo_ou_a_narracao_numa_linha_sem_falante_nao_grava_nada()
+    {
+        using var pasta = new TempFolder();
+        var semFalante = Linha(2, TranslationStatus.Translated, "Oi") with { Speaker = null };
+        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Translated, "Oi"), semFalante);
+
+        Assert.Null(editor.SetChosenSpeaker("yst00001", "yst00001:000001", "美咲").ChosenSpeaker);
+        Assert.Null(editor.SetChosenSpeaker("yst00001", "yst00001:000002", string.Empty).ChosenSpeaker);
+
+        Assert.All(projeto.LoadText("yst00001"), u => Assert.Null(u.ChosenSpeaker));
+    }
+
+    [Fact]
+    public void SetChosenSpeaker_em_linha_inexistente_lanca()
+    {
+        using var pasta = new TempFolder();
+        var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Translated, "Oi"));
+
+        Assert.Throws<KeyNotFoundException>(() => editor.SetChosenSpeaker("yst00001", "yst00001:000099", "Inui"));
+    }
 }

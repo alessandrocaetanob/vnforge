@@ -283,6 +283,151 @@ public class YstbTextInjectorTests
             reloaded.Script.GetResource(reloaded.Script.Instructions[0].Arguments[0]).ToArray());
     }
 
+    private static byte[] MessageAt(byte[] raw, int instruction)
+    {
+        var reloaded = YstbReader.Read(raw, ScriptName, Commands);
+        return reloaded.GetResource(reloaded.Instructions[instruction].Arguments[0]).ToArray();
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhido_TrocaOnomeEMantemOsDelimitadoresDoJogo()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Hello.") with { ChosenSpeaker = "Misaki-chan" };
+
+        var raw = Inject(loaded, unit);
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("Misaki-chan「Hello.」"), FirstMessage(raw));
+        var read = Load(raw).Extraction.Units.Single(u => u.Id == UnitId(0));
+        Assert.Equal(("Misaki-chan", "Hello.", TextUnitKind.Dialogue), (read.Speaker, read.Source, read.Kind));
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhido_ValeSobreOFalanteResolvidoDaUnidade()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Hello.") with { Speaker = "Outro", ChosenSpeaker = "Misaki" };
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("Misaki「Hello.」"), FirstMessage(Inject(loaded, unit)));
+    }
+
+    [Fact]
+    public void Inject_Cp1252ComFalanteEscolhido_GravaOsColchetesEmShiftJis()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Bom dia!") with { ChosenSpeaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        Assert.Equal([.. "Inui"u8, 0x81, 0x75, .. "Bom dia!"u8, 0x81, 0x76], FirstMessage(raw));
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoComoNarracao_TiraSoONomeEMantemAsAspas()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Hello.") with { ChosenSpeaker = string.Empty };
+
+        var raw = Inject(loaded, unit);
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("「Hello.」"), FirstMessage(raw));
+        var read = Load(raw).Extraction.Units.Single(u => u.Id == UnitId(0));
+        Assert.Equal((null, "「Hello.」", TextUnitKind.Dialogue), (read.Speaker, read.Source, read.Kind));
+    }
+
+    [Fact]
+    public void Inject_NarracaoEscolhidaNumFalanteComParenteses_DeixaOsParenteses()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(7), "（Tired.）") with { ChosenSpeaker = string.Empty };
+
+        var read = Load(Inject(loaded, unit)).Extraction.Units.Single(u => u.Id == UnitId(7));
+
+        Assert.Equal((null, "（Tired.）"), (read.Speaker, read.Source));
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoNumaNarracao_MontaNomeEAspasJaponesas()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(3), "The wind blew.") with { ChosenSpeaker = "Misaki" };
+
+        var raw = Inject(loaded, unit);
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("Misaki「The wind blew.」"), MessageAt(raw, 3));
+        var read = Load(raw).Extraction.Units.Single(u => u.Id == UnitId(3));
+        Assert.Equal(("Misaki", "The wind blew.", TextUnitKind.Dialogue), (read.Speaker, read.Source, read.Kind));
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoNumaFalaJaEntreAspasSemNome_PoeSoONome()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(5), "「Hi, all」") with { ChosenSpeaker = "Misaki" };
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("Misaki「Hi, all」"), MessageAt(Inject(loaded, unit), 5));
+    }
+
+    [Fact]
+    public void Inject_Cp1252FalanteEscolhidoNumaNarracao_GravaAsAspasEmShiftJis()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(3), "Vento.") with { ChosenSpeaker = "Inui" };
+
+        var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
+
+        Assert.Equal([.. "Inui"u8, 0x81, 0x75, .. "Vento."u8, 0x81, 0x76], MessageAt(raw, 3));
+    }
+
+    [Fact]
+    public void Inject_NarracaoEscolhidaNumaLinhaSemFalante_NaoMudaNada()
+    {
+        var loaded = Load(FullScript());
+        var plain = Translate(loaded, UnitId(3), "The wind blew.");
+
+        Assert.Equal(Inject(loaded, plain), Inject(loaded, plain with { ChosenSpeaker = string.Empty }));
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoSemTraducao_IdaEVoltaIdentica()
+    {
+        var built = FullScript().Build();
+        var loaded = Load(built.Bytes);
+        var units = loaded.Extraction.Units.Select((u, i) => u with { ChosenSpeaker = i % 2 == 0 ? "Misaki" : string.Empty }).ToArray();
+
+        Assert.Equal(built.Bytes, Inject(loaded, units));
+        Assert.Equal(built.Bytes, YstbTextInjector.Inject(loaded.File, loaded.Script, units, Cp1252));
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoForaDaCodificacao_LancaCitandoAUnidadeEONome()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Bom dia!") with { ChosenSpeaker = "犬井" };
+
+        var ex = Assert.Throws<EncoderFallbackException>(() => YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252));
+
+        Assert.Contains(UnitId(0), ex.Message, StringComparison.Ordinal);
+        Assert.Contains("犬井", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoEmStringDeExpressao_LancaDizendoQueSoMensagemTemFalante()
+    {
+        var loaded = Load(FullScript());
+        var unit = loaded.Extraction.Units.First(u => u.Locator!.Value.GetProperty("command").GetString() != "WORD") with
+        {
+            Translation = "Yes",
+            Status = TranslationStatus.Translated,
+            ChosenSpeaker = "Misaki",
+        };
+
+        var ex = Assert.Throws<InvalidDataException>(() => Inject(loaded, unit));
+
+        Assert.Contains(unit.Id, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("falante", ex.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Inject_MarcadoresDeControle_VoltamACodigosDeControle()
     {

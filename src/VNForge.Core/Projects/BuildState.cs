@@ -71,6 +71,7 @@ internal sealed record BuildState(
                 Append(hash, key);
                 Append(hash, unit.Id);
                 Append(hash, unit.Kind.ToString());
+                Append(hash, unit.ChosenSpeaker);
                 Append(hash, unit.Source);
                 Append(hash, unit.Translation);
                 Append(hash, unit.Locator?.GetRawText());
@@ -103,6 +104,7 @@ internal sealed record BuildState(
             Append(hash, unit.Id);
             Append(hash, unit.Kind.ToString());
             Append(hash, unit.Speaker);
+            Append(hash, unit.ChosenSpeaker);
             Append(hash, unit.Source);
             Append(hash, unit.Translation);
             Append(hash, unit.Locator?.GetRawText());

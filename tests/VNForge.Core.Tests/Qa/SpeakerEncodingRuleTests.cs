@@ -64,6 +64,24 @@ public sealed class SpeakerEncodingRuleTests
     }
 
     [Fact]
+    public void Falante_escolhido_vale_no_lugar_do_extraido()
+    {
+        var rule = new SpeakerEncodingRule();
+
+        Assert.Empty(rule.Check(Context(Unit("犬井") with { ChosenSpeaker = "Inui" })));
+        Assert.Empty(rule.Check(Context(Unit("犬井") with { ChosenSpeaker = string.Empty })));
+        var issue = Assert.Single(rule.Check(Context(Unit("Inui") with { ChosenSpeaker = "犬井" })));
+        Assert.Contains("犬井", issue.Message, StringComparison.Ordinal);
+        Assert.Equal("a:1", issue.UnitId);
+    }
+
+    [Fact]
+    public void Falante_escolhido_cadastrado_no_glossario_nao_dispara()
+    {
+        Assert.Empty(new SpeakerEncodingRule().Check(Context(Unit("Inui") with { ChosenSpeaker = "犬井" }, "cp1252", new CharacterEntry("犬井", "Inui"))));
+    }
+
+    [Fact]
     public void Faz_parte_das_regras_do_vnf_na_categoria_de_acentos()
     {
         Assert.Contains(QaEngine.Default.Rules, r => r.Id == SpeakerEncodingRule.RuleId);
