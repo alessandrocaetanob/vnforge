@@ -1,5 +1,6 @@
 using VNForge.Core.Engines;
 using VNForge.Engines.YuRis.Yscm;
+using VNForge.Engines.YuRis.Yslb;
 using VNForge.Engines.YuRis.Ystl;
 
 namespace VNForge.Engines.YuRis;
@@ -14,12 +15,14 @@ public sealed class YuRisContext : EngineContext
     /// <summary>Cria o contexto.</summary>
     /// <param name="commands">O <c>ysc.ybn</c> do jogo.</param>
     /// <param name="scriptList">O <c>yst_list.ybn</c>, ou nulo se o jogo não tem ou não foi lido.</param>
-    public YuRisContext(YscmFile commands, YstlFile? scriptList = null)
+    /// <param name="labels">O <c>ysl.ybn</c> (lista de rótulos), ou nulo se o jogo não tem ou não foi lido; sem ele não há saltos entre scripts.</param>
+    public YuRisContext(YscmFile commands, YstlFile? scriptList = null, YslbFile? labels = null)
         : base(YuRisEngine.EngineId)
     {
         ArgumentNullException.ThrowIfNull(commands);
         Commands = commands;
         ScriptList = scriptList;
+        Labels = labels;
     }
 
     /// <summary>Comandos do <c>ysc.ybn</c>, na ordem do id.</summary>
@@ -27,4 +30,7 @@ public sealed class YuRisContext : EngineContext
 
     /// <summary>Lista de scripts do <c>yst_list.ybn</c>, ou nulo.</summary>
     public YstlFile? ScriptList { get; }
+
+    /// <summary>Lista de rótulos do <c>ysl.ybn</c>, ou nulo.</summary>
+    public YslbFile? Labels { get; }
 }

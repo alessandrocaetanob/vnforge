@@ -57,6 +57,10 @@ internal sealed class YbnReader(ReadOnlyMemory<byte> data, string source)
 
     public byte ReadByte(string what) => Take(1, what)[0];
 
+    public ushort ReadUInt16(string what) => BinaryPrimitives.ReadUInt16LittleEndian(Take(2, what));
+
+    public void Skip(int count, string what) => Take(count, what);
+
     public string ReadShiftJis(int count, string what) => GameEncodings.ShiftJis.GetString(Take(count, what));
 
     /// <summary>Lê uma string em Shift-JIS terminada em zero (o zero é consumido).</summary>

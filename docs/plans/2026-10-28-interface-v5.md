@@ -92,13 +92,15 @@ O `b17` vira duas issues em sequência, porque o Core não lê os saltos dos scr
 | Id | Issue | O que muda | Arquivos principais |
 |---|---|---|---|
 | b17a · #483 | YU-RIS: ler os saltos e o destino das escolhas | Pesquisa no formato YSTB dos comandos de salto e de chamada entre scripts e do destino de cada escolha, registrada no docs/06 com o que foi confirmado no jogo de referência. Termina num grafo de cenas no Core (`IEngine` devolve as arestas; engine sem suporte devolve nenhuma), com teste sobre script sintético | `Engines.YuRis/Ystb`, `docs/06-yuris-notas-tecnicas.md`, `Core` |
-| b17b · #484 | Mapa das escolhas no Painel | As cenas ligadas pelas escolhas, como um mapa de rotas, com a parte pronta de cada cena. Clicar abre a cena no Editor | `DashboardView.axaml`, controle novo |
+| ~~b17b · #484~~ (removido) | ~~Mapa das escolhas no Painel~~ | As cenas ligadas pelas escolhas, como um mapa de rotas, com a parte pronta de cada cena. Clicar abre a cena no Editor | `DashboardView.axaml`, controle novo |
 
-`b17b` só começa com o `b17a` mesclado. Se a pesquisa mostrar que o destino das escolhas não pode ser lido com segurança, o `b17b` sai do plano e o docs/06 registra o porquê.
+O `b17b` só começaria com o `b17a` mesclado e sairia do plano se o destino das escolhas não pudesse ser lido com segurança (o docs/06 registraria o porquê). Foi o que aconteceu.
+
+Resultado do `b17a` (#483): no jogo de referência o rótulo de cada escolha se lê, mas ele cai no mesmo script, e a troca de cena vem depois, por `GO` com variável. O `b17b` sai do plano; o porquê está em `06-yuris-notas-tecnicas.md` ("O destino das escolhas se lê com segurança?").
 
 ## Issues
 
-São 25 issues: 7 da onda 1, 4 da onda 2, 4 da onda 3, 5 da onda 4, 3 da onda 5 e 2 da onda 6 (`b17a` e `b17b`). Cada uma leva o id da página no título ("v5 · a1 Editor: densidade Roteiro na grade") e o label "área: app"; as que mudam o Core ou a IA levam também "área: core" ou "área: ia". Foram abertas em 28/10/2026, de #460 a #484, depois da aprovação do plano.
+São 24 issues: 7 da onda 1, 4 da onda 2, 4 da onda 3, 5 da onda 4, 3 da onda 5 e 1 da onda 6 (`b17a`; a `b17b`, #484, saiu do plano). Cada uma leva o id da página no título ("v5 · a1 Editor: densidade Roteiro na grade") e o label "área: app"; as que mudam o Core ou a IA levam também "área: core" ou "área: ia". Foram abertas em 28/10/2026, de #460 a #484 (a #484 foi removida), depois da aprovação do plano.
 
 ## Fora deste plano
 
