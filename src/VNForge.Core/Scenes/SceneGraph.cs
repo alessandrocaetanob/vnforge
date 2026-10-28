@@ -82,12 +82,9 @@ public sealed class SceneGraph
         pending.Enqueue(scene);
         while (pending.TryDequeue(out var current))
         {
-            foreach (var edge in _from[current])
+            foreach (var edge in _from[current].Where(e => seen.Add(e.To)))
             {
-                if (seen.Add(edge.To))
-                {
-                    pending.Enqueue(edge.To);
-                }
+                pending.Enqueue(edge.To);
             }
         }
 
@@ -96,7 +93,7 @@ public sealed class SceneGraph
 
     /// <summary>
     /// Subgrafo com as arestas cujas duas pontas estão em <paramref name="scenes"/>. Serve para tirar do grafo os scripts que não são cenas
-    /// (no YU-RIS, as rotinas do E-ris que todo script chama).
+    /// (no YU-RIS, as rotinas do E-ris que cada script chama).
     /// </summary>
     public SceneGraph Restrict(IReadOnlySet<string> scenes)
     {
