@@ -161,8 +161,7 @@ public sealed class RestorePointStore
                         continue;
                     }
 
-                    var back = before[written.Id] with { Notes = current.Notes, Flags = current.Flags, ChosenSpeaker = current.ChosenSpeaker };
-                    units[index] = back;
+                    units[index] = Revert(before[written.Id], written, current);
                     changed = true;
                     restored++;
                 }
@@ -222,6 +221,18 @@ public sealed class RestorePointStore
             Delete(folder);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Devolve só o que um lote escreve (tradução, status, origem e o original a revisar) e deixa o resto como está: notas, avisos, falante escolhido e o que uma
+    /// nova extração atualizou (locator, original). Um campo novo que um lote passe a gravar entra aqui.
+    /// </summary>
+    private static TextUnit Revert(TextUnit before, TextUnit written, TextUnit current)
+    {
+        var back = current with { Translation = before.Translation, Status = before.Status, Origin = before.Origin };
+        return string.Equals(before.PreviousSource, written.PreviousSource, StringComparison.Ordinal)
+            ? back
+            : back with { PreviousSource = before.PreviousSource };
     }
 
     private static void TryComplete(RestorePointRecorder recorder)
