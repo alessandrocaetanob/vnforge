@@ -265,7 +265,7 @@
             </Border>
 
             <!-- Log -->
-            <Border Grid.Row="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Log do build">
+            <Border Grid.Row="1" Classes="panel" ClipToBounds="True" MinHeight="160" MaxHeight="380" AutomationProperties.Name="Log do build">
               <Grid RowDefinitions="Auto,*">
                 <Grid ColumnDefinitions="*,Auto,Auto" Height="48" Margin="16,0" ColumnSpacing="12">
                   <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Log"/>
@@ -279,7 +279,7 @@
                   <Panel>
                     <TextBlock Classes="body-sm secondary" Margin="16,12" Text="Nada executado ainda neste projeto."
                                IsVisible="{Binding !HasLog}"/>
-                    <ScrollViewer x:Name="LogScroll" MaxHeight="280" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasLog}">
+                    <ScrollViewer x:Name="LogScroll" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasLog}">
                       <ItemsControl ItemsSource="{Binding Log}" Margin="16,12" AutomationProperties.Name="Linhas do log">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="vm:BuildLogLine">
@@ -300,10 +300,14 @@
             </Border>
 
             <!-- Backups -->
-            <Border Grid.Row="1" Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Backups">
+            <Border Grid.Row="1" Grid.Column="1" Classes="panel" ClipToBounds="True" MinHeight="160" MaxHeight="380" AutomationProperties.Name="Backups">
               <DockPanel>
                 <Border DockPanel.Dock="Top" Height="48" Padding="16,0">
-                  <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Backups"/>
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Backups"/>
+                    <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" HorizontalAlignment="Right"
+                               TextTrimming="CharacterEllipsis" Text="{Binding BackupSummary}" AutomationProperties.Name="Resumo dos backups"/>
+                  </Grid>
                 </Border>
                 <Border DockPanel.Dock="Bottom" Classes="divider-top" Height="40" Padding="16,0">
                   <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding BackupFooter}"
@@ -313,19 +317,21 @@
                            IsVisible="{Binding !HasBackups}"/>
                 <TextBlock DockPanel.Dock="Bottom" Classes="caption secondary" TextWrapping="Wrap" Margin="16,8,16,12" Text="{Binding BackupMessage}"
                            IsVisible="{Binding HasRestoreProblem}" AutomationProperties.Name="Por que não dá para restaurar"/>
-                <ItemsControl ItemsSource="{Binding Backups}" IsVisible="{Binding HasBackups}" AutomationProperties.Name="Lista de backups">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:BackupRow">
-                      <Border Classes="divider-top" Padding="16,10">
-                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
-                          <TextBlock Classes="mono" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SizeText}"/>
-                          <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Note}"/>
-                        </Grid>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasBackups}" AutomationProperties.Name="Rolagem dos backups">
+                  <ItemsControl ItemsSource="{Binding Backups}" AutomationProperties.Name="Lista de backups">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:BackupRow">
+                        <Border Classes="divider-top" Padding="16,10">
+                          <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                            <TextBlock Classes="mono" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SizeText}"/>
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Note}"/>
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
               </DockPanel>
             </Border>
           </Grid>
