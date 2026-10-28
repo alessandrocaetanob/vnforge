@@ -336,6 +336,20 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Backup_sem_a_copia_do_original_recusa_em_vez_de_reempacotar_o_jogo_traduzido()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        File.Delete(Path.Combine(Assert.Single(BackupFolders()), Package));
+        Translate("a001", 0, "Hi");
+
+        var erro = Assert.Throws<InjectionException>(() => Run());
+
+        Assert.Contains("cópia do original", erro.Message, StringComparison.Ordinal);
+        Assert.Equal(OriginalAfterTest, File.ReadAllText(GamePackage));
+    }
+
+    [Fact]
     public async Task Dois_testes_ao_mesmo_tempo_o_segundo_recusa_e_o_backup_do_primeiro_fica_intacto()
     {
         Translate("a001", 0, "Hello");

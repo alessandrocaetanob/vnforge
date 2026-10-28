@@ -114,7 +114,7 @@ public sealed partial class GameInjector
                 return current;
             }
 
-            if (FileHash.Sha256(current) != earlier.Entry.InjectedSha256 || earlier.Entry.InjectedSha256 == earlier.Entry.OriginalSha256)
+            if (FileHash.Sha256(current) != earlier.Entry.InjectedSha256)
             {
                 return current;
             }
@@ -123,7 +123,7 @@ public sealed partial class GameInjector
             if (!File.Exists(copy) || FileHash.Sha256(copy) != earlier.Entry.OriginalSha256)
             {
                 throw new InjectionException(
-                    $"O jogo está com a tradução de uma injeção anterior, e a cópia do original de '{relative}' no backup '{earlier.Directory}' sumiu ou não confere com o manifesto. Rode vnf extract de novo.");
+                    $"O jogo está com a tradução de uma injeção anterior, e a cópia do original de '{relative}' no backup '{earlier.Directory}' sumiu ou não confere com o manifesto. Reponha o backup, ou reinstale o jogo e rode vnf extract; extrair agora leria o pacote já traduzido.");
             }
 
             return copy;
