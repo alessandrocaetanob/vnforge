@@ -1,6 +1,8 @@
 using VNForge.Core;
 using VNForge.Core.Engines;
+using VNForge.Core.Scenes;
 using VNForge.Core.Text;
+using VNForge.Engines.YuRis.Scenes;
 using VNForge.Engines.YuRis.Yscfg;
 using VNForge.Engines.YuRis.Ypf;
 using VNForge.Engines.YuRis.Ystb;
@@ -70,6 +72,22 @@ public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePa
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unpackedDirectory);
         return YuRisUnpacker.Open(unpackedDirectory, _scriptFormat);
+    }
+
+    /// <summary>
+    /// Lê os saltos (<c>GO</c>), as chamadas (<c>GOSUB</c>) e o destino das escolhas (<c>GOSUB ES.SEL.GO</c>) de cada script que o
+    /// <see cref="Open"/> achou, e resolve os rótulos pelo <c>ysl.ybn</c>. Sem o <c>ysl.ybn</c> no contexto devolve lista vazia.
+    /// </summary>
+    /// <exception cref="ArgumentException">O contexto de <paramref name="game"/> não é do YU-RIS.</exception>
+    public IReadOnlyList<SceneEdge> ReadSceneEdges(UnpackedGame game)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        if (game.Context is not YuRisContext context)
+        {
+            throw new ArgumentException($"O contexto é da engine '{game.Context.EngineId}', não do YU-RIS.", nameof(game));
+        }
+
+        return YuRisSceneReader.Read(context, game.Scripts);
     }
 
     /// <summary>
