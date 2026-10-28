@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Glossary;
@@ -97,9 +96,6 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     /// <summary>Valores do combo de gênero, na ordem do enum.</summary>
     public IReadOnlyList<CharacterGender> Genders { get; } = Enum.GetValues<CharacterGender>();
-
-    /// <summary>As cores que o seletor da coluna "Cor" oferece (#467).</summary>
-    public IReadOnlyList<CharacterColor> Colors => CharacterPalette.All;
 
     [ObservableProperty]
     public partial ProjectSummary? Project { get; set; }

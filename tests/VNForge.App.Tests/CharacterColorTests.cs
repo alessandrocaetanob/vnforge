@@ -172,13 +172,14 @@ public sealed class CharacterColorTests(HeadlessFixture fixture) : IClassFixture
         Assert.Equal(
             [new CharacterEntry("美咲", "Misaki", Color: "green"), new CharacterEntry("健太", "Kenta")],
             folder.LoadCharacters());
-        Assert.Equal(CharacterPalette.All, vm.Colors);
     }
+
+    private static readonly string[] SimilarNames = ["学生A", "学生I", "学生Q", "学生Y"];
 
     [Fact]
     public void Nomes_que_so_diferem_nos_bits_baixos_da_ultima_letra_nao_caem_todos_na_mesma_cor()
     {
-        var cores = new[] { "学生A", "学生I", "学生Q", "学生Y" }.Select(n => CharacterPalette.Resolve(null, n)).Distinct().ToList();
+        var cores = SimilarNames.Select(n => CharacterPalette.Resolve(null, n)).Distinct().ToList();
 
         Assert.True(cores.Count > 1);
     }

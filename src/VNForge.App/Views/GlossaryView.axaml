@@ -187,7 +187,7 @@
                         </Border>
                         <Grid Grid.Column="3" ColumnDefinitions="*,Auto" ColumnSpacing="2">
                         <ComboBox HorizontalAlignment="Stretch" MinHeight="30"
-                                  ItemsSource="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Colors}"
+                                  ItemsSource="{x:Static c:CharacterPalette.All}"
                                   SelectedItem="{Binding Color}" AutomationProperties.Name="Cor do personagem">
                           <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="c:CharacterColor">
