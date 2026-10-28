@@ -91,7 +91,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Glossary.Rate = () => Settings.Rate;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
-        Tasks = new TaskBarViewModel(TaskService);
+        History = new BatchHistory(TaskService);
+        History.Undone += (_, undone) => OnBatchUndone(undone);
+        Conference.History = History;
+        Tasks = new TaskBarViewModel(TaskService, history: History);
         Build = new BuildViewModel(TaskService);
         Build.PropertyChanged += (_, e) =>
         {
@@ -174,6 +177,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public BackgroundTaskService TaskService { get; }
 
     public TaskBarViewModel Tasks { get; }
+
+    /// <summary>Os pontos de restauração das operações em lote; é ele que dá o "Desfazer" à lista de tarefas.</summary>
+    public BatchHistory History { get; }
 
     public DashboardViewModel Dashboard { get; } = new();
 
@@ -392,6 +398,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void AttachEditor(EditorViewModel value)
     {
+        value.History = History;
         value.LineSaved += OnLineSaved;
         value.ChaptersChanged += OnChaptersChanged;
         value.HideEmptyScenes = Settings.HideEmptyScenes;
@@ -714,6 +721,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Build.Project = summary;
         Conference.Project = summary;
+        History.LoadPersisted(summary.Root);
         editorStale = false;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;
@@ -724,6 +732,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));
         ProjectLoading = Task.WhenAll(Editor.Loading, Glossary.Loading, Settings.EstimateLoading);
+    }
+
+    /// <summary>O "Desfazer" de uma tarefa em lote gravou: o que está aberto relê o projeto, e o aviso diz quantas linhas voltaram.</summary>
+    private void OnBatchUndone(BatchUndone undone)
+    {
+        if (CurrentProject?.Root != undone.ProjectRoot)
+        {
+            return;
+        }
+
+        Editor.Reload();
+        editorStale = false;
+        _ = RefreshSummaryPageAsync();
+        Toasts.Show(BatchHistory.Describe(undone.Result), undone.Result.EditedSince > 0 || undone.Result.Missing > 0 ? ToastKind.Warning : ToastKind.Success, key: "batch-undo");
     }
 
     private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;

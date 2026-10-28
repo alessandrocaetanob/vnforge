@@ -454,6 +454,13 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>O painel de busca e substituição do projeto, que abre dentro do Editor.</summary>
     public SearchReplaceViewModel Search { get; }
 
+    /// <summary>Guarda o ponto de restauração do "Usar em todos" e da substituição e dá o "Desfazer" à lista de tarefas; nulo grava sem ponto.</summary>
+    public BatchHistory? History
+    {
+        get => Search.History;
+        set => Search.History = value;
+    }
+
     /// <summary>O painel de busca está aberto sobre a grade.</summary>
     [ObservableProperty]
     public partial bool IsSearchOpen { get; set; }
@@ -692,7 +699,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var others = data.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
-        var result = lineEditor.SetTranslationFor(others.Values.Select(o => (o.ScriptKey, o.Unit.Id)), translation);
+        var targets = others.Values.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
+        var editor = lineEditor;
+        var result = History is { } history && Project?.Root is { } root
+            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation), targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList(), changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
+            : editor.SetTranslationFor(targets, translation);
         var current = result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit));
         foreach (var unit in current)
         {
