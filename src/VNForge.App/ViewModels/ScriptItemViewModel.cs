@@ -81,8 +81,8 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
 
     public StatusDistribution Distribution { get; private set; } = StatusDistribution.Of(progress.Counts);
 
-    /// <summary>O percentual de IA aparece só aqui; o de "concluído" conta Revisadas e Aprovadas.</summary>
-    public string Tooltip => $"IA {Progress.MachinePercent}%";
+    /// <summary>A dica do item: o id (a chave do script), que a lista não desenha, e o percentual de IA; o de "concluído" conta Revisadas e Aprovadas.</summary>
+    public string Tooltip => $"{Key} · IA {Progress.MachinePercent}%";
 
     public string LinesLabel => ProjectLabels.Number(Progress.Counts.Total);
 

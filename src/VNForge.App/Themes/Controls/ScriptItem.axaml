@@ -16,27 +16,37 @@
   <Style Selector="ProgressBar.thin /template/ Border#PART_Indicator">
     <Setter Property="CornerRadius" Value="2"/>
   </Style>
+  <!-- A lista de cenas usa a barra de 3px. -->
+  <Style Selector="ProgressBar.thin.slim">
+    <Setter Property="MinHeight" Value="3"/>
+    <Setter Property="Height" Value="3"/>
+    <Setter Property="CornerRadius" Value="1.5"/>
+  </Style>
+  <Style Selector="ProgressBar.thin.slim /template/ Border#PART_Indicator">
+    <Setter Property="CornerRadius" Value="1.5"/>
+  </Style>
 
-  <!-- v4: a cena se chama pelo nome (quebra em até duas linhas e só vira reticências se passar disso); o id fica pequeno, em mono e em cor secundária, embaixo. Percentual à direita e barra de 4px. -->
+  <!-- v5: 36px de altura. O nome numa linha só (reticências se passar), o percentual (ou o visto, com a cena pronta) à direita e a barra de 3px embaixo. O id da cena não aparece: vai na dica do mouse (ScriptItemViewModel.Tooltip). -->
   <Style Selector="c|ScriptItem">
-    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="Padding" Value="10,0,10,6"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <StackPanel Spacing="4" Margin="{TemplateBinding Padding}">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <TextBlock Name="PART_Label" Text="{TemplateBinding Label}" FontSize="13" LineHeight="18" TextWrapping="Wrap" MaxLines="2"
+        <Grid RowDefinitions="*,Auto" Margin="{TemplateBinding Padding}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+            <TextBlock Name="PART_Label" Text="{TemplateBinding Label}" FontSize="13" LineHeight="18" TextWrapping="NoWrap"
                        TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Vnf.TextPrimary}"/>
-            <StackPanel Name="PART_Percent" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+            <StackPanel Name="PART_Percent" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
               <PathIcon Name="PART_Running" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.ArrowSync}"
                         Foreground="{DynamicResource Vnf.StatusAiFg}" AutomationProperties.Name="IA traduzindo"/>
               <TextBlock Name="PART_PercentText" Text="{TemplateBinding PercentText}" FontSize="12" LineHeight="18"
                          Foreground="{DynamicResource Vnf.TextSecondary}"/>
+              <PathIcon Name="PART_Done" Width="14" Height="14" IsVisible="False" Data="{DynamicResource Icon.Check}"
+                        Foreground="{DynamicResource Vnf.StatusApprovedFg}"/>
             </StackPanel>
           </Grid>
-          <TextBlock Name="PART_Id" Classes="mono" Text="{TemplateBinding Key}" TextTrimming="CharacterEllipsis"
-                     FontSize="11" LineHeight="14" Foreground="{DynamicResource Vnf.TextSecondary}"/>
-          <ProgressBar Name="PART_Bar" Classes="thin" Minimum="0" Maximum="100" Value="{TemplateBinding Percent}" ShowProgressText="False"/>
-        </StackPanel>
+          <ProgressBar Name="PART_Bar" Grid.Row="1" Classes="thin slim" Minimum="0" Maximum="100" Value="{TemplateBinding Percent}" ShowProgressText="False"/>
+        </Grid>
       </ControlTemplate>
     </Setter>
   </Style>
@@ -51,6 +61,13 @@
   </Style>
   <Style Selector="c|ScriptItem:complete /template/ ProgressBar#PART_Bar">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.SegApproved}"/>
+  </Style>
+  <!-- Pronta: o visto toma o lugar de "100%" (o nome de acessibilidade do item continua dizendo o percentual). -->
+  <Style Selector="c|ScriptItem:complete /template/ TextBlock#PART_PercentText">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="c|ScriptItem:complete /template/ PathIcon#PART_Done">
+    <Setter Property="IsVisible" Value="True"/>
   </Style>
   <!-- O script atual é o item selecionado da lista: accent-soft e nome em 600. -->
   <Style Selector="ListBoxItem:selected c|ScriptItem /template/ TextBlock#PART_Label">
