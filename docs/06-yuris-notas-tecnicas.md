@@ -303,6 +303,89 @@ A reconstrução foi escrita a partir das fontes acima e de scripts sintéticos 
 5. **Nome do falante** (e #437): o injetor grava o `Speaker` que o Core resolveu (tradução do personagem, ou o nome do locator quando a unidade não tem falante). Resolvido nos prints da teste.13 (#434): com os delimitadores `「」` em Shift-JIS e a fonte em `cp1252`, a caixa de texto desenhava `u` e `v` (`81 75` e `81 76`); a correção é `«»` mais a troca dos marcadores no `yst00073`. Para o falante escolhido (#437), falta confirmar também que `nome«fala»` montado numa mensagem que era narração separa o nome como nas falas originais, e que `«fala»` sem nome (narração escolhida) aparece sem placa de nome. Confirmado na teste.14 (#445): a fala aparece como `«fala»`, sem `u` nem `v` (`«Pessoal, vamos dar início agora à aula especial. Esta aula pode vir a ser decisiva para o futuro de vocês.»`). Falta confirmar no jogo que o nome continua na caixa de nome e se o jogo usa o nome da mensagem para algo além de exibir (histórico, voz, teste de nome). Na teste.15 (#453) a abertura vira o `0xA0` invisível, sem fechamento; falta confirmar no jogo: (a) a fala com falante aparece sem sinal e o nome continua na caixa de nome; (b) o `0xA0` não aparece como símbolo (se aparecer, `style.speakerDelimiter: guillemets` volta ao `« »`) e o recuo de uma coluna no começo da fala é aceitável; (c) uma fala sem fechamento não quebra o avanço, o histórico (LOG) nem a voz; (d) um nome de personagem que termina em letra acentuada (`José`, `André`) seguido do `0xA0` ou do `«` forma um par para o motor (`E9 A0`) e pode esconder o marcador: o injetor não põe guarda entre o nome e a abertura. A fala de pensamento (`nome（fala）`, #448) passou a usar `(` como marcador na `cp1252`, igual aos parênteses ASCII do corpo da tradução; falta confirmar na teste seguinte, numa fala de pensamento, que o nome vai para a caixa de nome e que a fala aparece como `(fala)`, e contar no projeto quantas linhas de narração têm `(` no meio (o jogo poderia tomá-las por nome) e se uma fala com `«»` e `(` dentro mantém o nome certo.
 6. **Primeiro argumento com chave fora da lista**: confirmar se algum script real tem uma instrução de texto como a primeira; a recusa só vale para chave derivada.
 
+## Saltos entre scripts e destino das escolhas (`ysl.ybn`, #483)
+
+Fontes, sobre as cópias lidas em 2026-10-28 (as linhas podem se mover no repositório). A busca foi feita direto no GitHub, porque o Tavily não estava disponível nesta sessão; o manual oficial do YU-RIS (`yu-ris.net/manual`) não foi lido.
+
+- `yuri.md` e `yslb.py`: [shimamura-sakura/yuri](https://github.com/shimamura-sakura/yuri), `yuri.md` e `yuri/fileformat/yslb.py`
+
+### Comandos de salto e de chamada
+
+- **`GO`**: salto sem volta para um rótulo, que pode estar em outro arquivo (`yuri.md:210-217`: `GO[#=LABELNAME]` e `#LABELNAME // GO jumps to here, can be in another file`).
+- **`GOSUB`**: chamada com volta (`yuri.md:219-236`: `GOSUB[#=LABELNAME PINT=1 PSTR2="StringArg"]`, com `RETURN` no fim da rotina).
+- **Onde está o rótulo no YSTB**: no primeiro argumento (`#`, que o dump mostra como `[0] # (string) = NOME`), como string literal (`4D <u16 tamanho> "NOME"`, a mesma forma de `ExpressionStrings`). Quando o destino é calculado (`[0] # (expressão) = 480300243E04`, uma variável), o YSTB não traz o nome do rótulo.
+- **Os opcodes** vêm do YSCM por nome (`GO`, `GOSUB`), como os outros (seção acima).
+
+### `ysl.ybn` (YSLB): em que script está cada rótulo
+
+O YSTB não guarda a posição dos rótulos; quem guarda é o `ysl.ybn`, que lista os rótulos de todos os scripts (`yuri.md:690-728`, `yslb.py:8,22-26,42,45`):
+
+```
+u8  magic[4] = "YSLB"
+u32 version
+u32 lbl_count
+u32 idx_begin[256]    // índice de busca por hash do nome; o leitor o pula
+Lbl[lbl_count]
+    u8  name_size
+    u8  name[name_size]   // Shift-JIS
+    u32 name_hash         // o mesmo hash do YPF; o leitor não o confere
+    u32 code_position     // versão >= 300: índice da instrução no YSTB; abaixo disso, deslocamento na seção de comandos (o campo tem o mesmo tamanho)
+    u16 script_id         // índice na lista do yst_list.ybn: o script é yst<script_id com 5 dígitos>.ybn
+    u8  if_level
+    u8  loop_level
+```
+
+- O leitor é `YslbReader` (`src/VNForge.Engines.YuRis/Yslb/`). Exige que o arquivo termine no último rótulo, como o `r.assert_eof` do `yslb.py:45`, e confere a contagem contra o tamanho antes de alocar. O `ysl.ybn` não é cifrado.
+- **Busca por nome** (`YslbFile.Find`): vale o nome com a mesma caixa; sem ele, o único script que declara o nome ignorando a caixa. Nome que cai em mais de um script não resolve. O jogo de referência tem `ES.SAVE.END` (no `yst00051`) e `es.Save.end` (no `yst00019`): são dois rótulos, e quem chama com a caixa exata acha o certo.
+- O `YuRisContext` ganhou `Labels` (nulo se o `ysl.ybn` não está na pasta descompactada ou não abre; neste caso o `Open` acrescenta o aviso `ysl.ybn: ...` e não há saltos). O `vnf extract` já descompacta o pacote inteiro, então o `ysl.ybn` está em qualquer `.cache/` existente.
+
+### O destino de cada escolha: `ES.SEL.GO`
+
+`ES.SEL.SET` guarda os textos das escolhas (já extraídos, `PSTR`, `PSTR2`...). O jogo de referência chama antes dele a rotina `ES.SEL.GO` do E-ris, com um rótulo por escolha, na mesma ordem:
+
+```
+GOSUB ES.SEL.GO  PSTR=NEXT_STORY01  PSTR2=NEXT_STORY02  PSTR3="" ...
+GOSUB ES.SEL.N   PINT=1
+GOSUB ES.SEL.SET PSTR=<texto 1>     PSTR2=<texto 2>     PSTR3="" ...
+WAIT
+```
+
+As duas rotinas, no `yst00023` do jogo de referência (labels `ES.SEL.SET` e `ES.SEL.GO`), copiam o parâmetro de texto `n` para um vetor global na posição `n` (o `ES.SEL.SET` os nove primeiros para um vetor, o `ES.SEL.GO` os oito primeiros para outro). É o que sustenta ligar o rótulo `n` ao texto `n`. O leitor olha só os 8 primeiros rótulos do `ES.SEL.GO` (os que a rotina copia) e liga cada um ao próximo `ES.SEL.SET` do mesmo script, desde que não apareça outro `ES.SEL.GO` no meio, e grava na aresta o id da unidade de texto da escolha (o mesmo id da extração: `instrução * 256 + argumento`, só quando a extração tem o texto: os literais não vazios do começo).
+
+### Como o leitor trabalha (`YuRisSceneReader`, `IEngine.ReadSceneEdges`)
+
+`YuRisEngine.ReadSceneEdges(UnpackedGame)` percorre os scripts que o `Open` achou e devolve `SceneEdge` (Core, `VNForge.Core.Scenes`). Só gera aresta com destino que se lê com segurança:
+
+1. `GO` com rótulo literal: `Jump`. `GOSUB` com rótulo literal: `Call`. `GOSUB ES.SEL.GO`: uma `Choice` por rótulo literal não vazio (além do `Call` da própria rotina).
+2. O rótulo precisa existir no `ysl.ybn` em um único script (`Find`), e o script precisa ser um dos que o `Open` achou. Destino calculado, rótulo que não existe, rótulo em dois scripts e script ilegível não geram aresta e não geram erro.
+3. A cena é identificada pela chave do script (`yst00122`, a mesma de `ScriptFile.Key` e dos ids das unidades).
+
+O Core monta o grafo (`SceneGraph.Read(engine, game)`): tira arestas repetidas, descarta `Jump` e `Call` para o próprio script (rótulos internos), guarda a `Choice` para o próprio script (diz que a cena tem escolha), ordena de forma estável e oferece `From`, `To`, `ReachableFrom` e `Restrict`. `IEngine.ReadSceneEdges` tem implementação padrão que devolve nenhuma aresta, então engine sem suporte dá o grafo vazio. Como o E-ris é chamado por quase todo script, o grafo inteiro tem milhares de `Call`; quem desenha o mapa usa `Restrict` com as cenas da história.
+
+### Resultado no jogo de referência
+
+Original lido do backup da injeção (o `ysbin.ypf` da pasta do jogo já tem a tradução), descompactado em pasta temporária com `vnf ypf unpack` e lido com o próprio `YuRisEngine.Open` + `ReadSceneEdges`; nada foi gravado no jogo e o texto extraído não entra no repositório. **O jogo não foi executado**: tudo abaixo vem do bytecode.
+
+- `ysl.ybn` v485, 2.043 rótulos em 130 scripts; o arquivo é consumido exatamente (o leitor confere).
+- 131 scripts, 24.030 `GOSUB` e 242 `GO`. Dos `GO`, 52 têm destino calculado (49 nos 24 scripts da pasta `userscript`, 3 no resto). 32 `GOSUB` têm destino calculado e 97 nomeiam rótulo que o `ysl.ybn` não tem (provavelmente comandos do E-ris; não investigado).
+- Grafo normalizado: 2.086 arestas entre 129 scripts (1.957 `Call`, 125 `Jump`, 4 `Choice`). Restrito aos 24 scripts de `userscript`: 128 arestas.
+- **A história é uma cadeia de `GO`**: `yst00112` (prólogo) → `yst00114` (`story01`) → ... → `yst00121` (`story08`) → `yst00122` (`story09`); `yst00123` e `yst00124` (`story10_1` e `story10_2`) → `yst00125` (`story11`) → `yst00126` → `yst00127` → `yst00128` (`story14`); `yst00130` → `yst00131` e `yst00132` → `yst00133`, sem `GO` literal que chegue a `yst00130` ou `yst00132` (o `yst00128` também escolhe por variável). Os scripts da cadeia também saltam para `SCENARIO_TITLE` (`yst00113`, volta ao título) e para o `yst00134` (rótulos `START_ANIM*` e `END_ANIM*`, uma sub-rotina compartilhada).
+- **As duas escolhas** (4 textos, as mesmas da extração) estão em `yst00122` e `yst00128`. Os ids das arestas coincidem com as unidades extraídas (`yst00122:268289`, ...). Os rótulos de `ES.SEL.GO` são `NEXT_STORY01` e `NEXT_STORY02` no `yst00122`, e `LAST_STORY01` e `LAST_STORY02` no `yst00128`, **todos declarados no próprio script da escolha**. Ou seja, a aresta de cada escolha volta para a mesma cena.
+- **Onde a história de fato se divide** (inferido da ordem das instruções, sem decifrar as expressões): no `yst00122`, o ramo da escolha só grava uma marca numa variável e salta (`GO NEXT_STORY03`, literal, no mesmo script). Mais adiante o script grava `"SCENARIO_STORY10_1"` e `"SCENARIO_STORY10_2"` em variáveis de texto e faz `GO <variável>` (quatro `GO` com expressão, condicionados à marca). Quem escolhe entre `yst00123` e `yst00124` é uma condição sobre uma variável que o ramo da escolha grava (um `LET` no começo de `NEXT_STORY01` e de `NEXT_STORY02`, e um `IF` sobre ela antes dos `GO`), e o `GO` não traz o nome do rótulo. As expressões não foram decifradas uma a uma; isto vem da ordem das instruções.
+
+### O destino das escolhas se lê com segurança?
+
+- **O rótulo de cada escolha: sim.** O `ES.SEL.GO` traz o nome como string literal, o `ysl.ybn` o resolve e a ordem acompanha o texto. É o que o leitor entrega.
+- **A cena a que cada escolha leva: não, no jogo de referência.** Os rótulos das escolhas ficam dentro do mesmo script, e a troca de cena depois deles é um `GO` por variável, decidido por `IF` sobre uma marca que a escolha gravou. Ler isso exige avaliar as expressões do YU-RIS (`IF`, `LET` e variáveis globais, `docs/06` não as descreve) e seguir o fluxo do script; qualquer atalho (juntar as strings `SCENARIO_*` atribuídas antes do `GO`) mostraria as duas rotas sem dizer qual escolha leva a qual, e um mapa de rotas errado é pior que nenhum. Por isso o **b17b (#484, mapa das escolhas no Painel) sai do plano**. O que o Core entrega serve para um mapa de cenas por salto (`Jump`), sem ramificação por escolha, e para marcar quais cenas têm escolha.
+- Outro jogo YU-RIS pode apontar as escolhas para rótulos de outros scripts; nesse caso as arestas `Choice` já saem ligando cenas diferentes, sem mudar o leitor.
+
+### O que confirmar no jogo (#483)
+
+1. **Execução**: que o `ES.SEL.GO` e o `ES.SEL.SET` casam por posição quando o jogo roda (hoje só se viu que as rotinas copiam `PSTR(n)` na posição `n`; o caminho do índice escolhido até o `GO` não foi percorrido).
+2. **Os 97 `GOSUB` para rótulos ausentes do `ysl.ybn`**: quais são (comandos embutidos do E-ris ou macros) e se algum leva a outro script.
+3. **`code_position` e `if_level`/`loop_level`**: lidos e guardados, mas nada os usa ainda; a posição só serviria para seguir o fluxo dentro do script.
+4. **Versões ≠ 485**: o `ysl.ybn` foi lido só na v485; o limiar de 300 para `code_position` (índice, não deslocamento) é o do `yuri.md:725-728` e não foi testado.
+
 ## Configuração do jogo e título da janela (`yscfg.ybn`, #427)
 
 O título da barra da janela do jogo não está nos scripts: vem de `ysbin/yscfg.ybn`, dentro do `ysbin.ypf`. Sem tradução, o jogo abre com o título em japonês, que num Windows sem a localidade japonesa aparece quebrado.

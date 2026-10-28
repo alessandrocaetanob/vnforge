@@ -2,6 +2,7 @@ using VNForge.Core;
 using VNForge.Core.Engines;
 using VNForge.Engines.YuRis.Yscm;
 using VNForge.Engines.YuRis.Ypf;
+using VNForge.Engines.YuRis.Yslb;
 using VNForge.Engines.YuRis.Ystl;
 
 namespace VNForge.Engines.YuRis;
@@ -15,6 +16,7 @@ internal static class YuRisUnpacker
 {
     internal const string CommandsFile = "ysc.ybn";
     internal const string ScriptListFile = "yst_list.ybn";
+    internal const string LabelListFile = "ysl.ybn";
     internal const string ConfigFile = "yscfg.ybn";
 
     private static readonly YpfArchiveFormat Format = new();
@@ -67,6 +69,7 @@ internal static class YuRisUnpacker
         var warnings = new List<string>();
         var commands = YscmReader.ReadFile(commandsPath);
         var scriptList = ReadScriptList(files.FirstOrDefault(f => IsNamed(f, ScriptListFile)), warnings);
+        var labels = ReadLabelList(files.FirstOrDefault(f => IsNamed(f, LabelListFile)), warnings);
 
         var scripts = files
             .Where(f => YuRisDetector.IsScriptName(Path.GetFileName(f)))
@@ -76,7 +79,7 @@ internal static class YuRisUnpacker
             .Select(f => new UnpackedScript(f.Name, f.Path, scriptFormat, NameOf(scriptList, f.Name)) { Folder = FolderOf(scriptList, f.Name) })
             .ToList();
 
-        return new UnpackedGame(new YuRisContext(commands, scriptList), scripts) { Warnings = warnings };
+        return new UnpackedGame(new YuRisContext(commands, scriptList, labels), scripts) { Warnings = warnings };
     }
 
     private static UnpackedArchive? UnpackIfNeeded(string file, string relative, string destination, List<string> warnings, CancellationToken cancellationToken)
@@ -146,6 +149,24 @@ internal static class YuRisUnpacker
         catch (Exception ex) when (YuRisDetector.IsReadFailure(ex))
         {
             warnings.Add($"{ScriptListFile}: {YuRisDetector.ReasonOf(ex)}; os scripts ficam sem nome legível.");
+            return null;
+        }
+    }
+
+    private static YslbFile? ReadLabelList(string? path, List<string> warnings)
+    {
+        if (path is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return YslbReader.ReadFile(path);
+        }
+        catch (Exception ex) when (YuRisDetector.IsReadFailure(ex))
+        {
+            warnings.Add($"{LabelListFile}: {YuRisDetector.ReasonOf(ex)}; sem o grafo de saltos entre scripts.");
             return null;
         }
     }
