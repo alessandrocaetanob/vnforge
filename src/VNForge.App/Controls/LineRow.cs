@@ -32,6 +32,7 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<int> NumberProperty = AvaloniaProperty.Register<LineRow, int>(nameof(Number));
     public static readonly StyledProperty<TranslationStatus> StatusProperty = AvaloniaProperty.Register<LineRow, TranslationStatus>(nameof(Status));
     public static readonly StyledProperty<string?> SpeakerProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Speaker));
+    public static readonly StyledProperty<string?> SpeakerOriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(SpeakerOriginal));
     public static readonly StyledProperty<string?> OriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Original));
     public static readonly StyledProperty<string?> TranslationProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Translation));
     public static readonly StyledProperty<LineIssue> IssueProperty = AvaloniaProperty.Register<LineRow, LineIssue>(nameof(Issue));
@@ -71,6 +72,13 @@ public sealed class LineRow : TemplatedControl
     {
         get => GetValue(SpeakerProperty);
         set => SetValue(SpeakerProperty, value);
+    }
+
+    /// <summary>O nome do personagem como está no texto extraído, quando <see cref="Speaker"/> mostra a tradução; é o que o menu do nome copia. Sem ele vale o próprio <see cref="Speaker"/>.</summary>
+    public string? SpeakerOriginal
+    {
+        get => GetValue(SpeakerOriginalProperty);
+        set => SetValue(SpeakerOriginalProperty, value);
     }
 
     public string? Original
@@ -126,7 +134,7 @@ public sealed class LineRow : TemplatedControl
     }
 
     /// <summary>
-    /// O nome de quem fala é selecionável, com "Copiar" no menu. O <see cref="SelectableTextBlock"/> trata o clique para começar a seleção, e a lista
+    /// O nome de quem fala é selecionável, com o menu do <see cref="SpeakerMenu"/> (copiar o nome original, a tradução ou a seleção). O <see cref="SelectableTextBlock"/> trata o clique para começar a seleção, e a lista
     /// deixaria de ouvi-lo: a linha se seleciona aqui.
     /// </summary>
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -140,8 +148,8 @@ public sealed class LineRow : TemplatedControl
         speakerBlock = e.NameScope.Find<SelectableTextBlock>("PART_Speaker");
         if (speakerBlock is not null)
         {
-            CopyMenu.Attach(speakerBlock);
             speakerBlock.AddHandler(PointerPressedEvent, OnSpeakerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
+            Apply();
         }
     }
 
@@ -157,7 +165,7 @@ public sealed class LineRow : TemplatedControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == TranslationProperty
+        if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == TranslationProperty
             || change.Property == IssueProperty || change.Property == StatusProperty)
         {
             Apply();
@@ -177,6 +185,14 @@ public sealed class LineRow : TemplatedControl
         }
 
         SpeakerText = speaker;
+        if (speakerBlock is not null)
+        {
+            // A narração não tem menu; com personagem cadastrado a grade mostra a tradução e o menu copia o original (ou a tradução, à escolha).
+            var original = narration ? null : SpeakerOriginal ?? Speaker;
+            SpeakerMenu.SetOriginal(speakerBlock, original);
+            SpeakerMenu.SetTranslation(speakerBlock, original is not null && original != Speaker ? Speaker : null);
+        }
+
         TranslationText = !untranslated ? Translation! : Status == TranslationStatus.Keep ? KeepLabel : NoTranslationLabel;
         PseudoClasses.Set(":narration", narration);
         PseudoClasses.Set(":untranslated", untranslated);

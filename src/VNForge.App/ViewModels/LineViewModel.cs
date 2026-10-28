@@ -50,6 +50,9 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null)
     /// <summary>O falante como a grade o mostra: o nome em português quando o personagem está cadastrado, o original quando não; nulo na narração.</summary>
     public string? SpeakerName => IsNarration ? null : speakerTarget ?? Entry.Unit.Speaker;
 
+    /// <summary>O falante exatamente como o texto extraído o guarda, mesmo quando a grade mostra a tradução; nulo na narração. É o que o menu do nome copia.</summary>
+    public string? SpeakerOriginal => IsNarration ? null : Entry.Unit.Speaker;
+
     public string Source => Entry.Unit.Source;
 
     /// <summary>O original sem marcadores de pausa, para a coluna cortada com reticências.</summary>
