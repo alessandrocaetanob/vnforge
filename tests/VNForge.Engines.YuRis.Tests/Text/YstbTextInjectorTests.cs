@@ -168,26 +168,26 @@ public class YstbTextInjectorTests
     }
 
     [Fact]
-    public void Inject_Cp1252ComFalanteTraduzido_GravaOsColchetesEmShiftJis()
+    public void Inject_Cp1252ComFalanteTraduzido_GravaOsDelimitadoresDeUmByteEmVezDoShiftJis()
     {
         var loaded = Load(FullScript());
         var unit = Translate(loaded, UnitId(0), "Bom dia!") with { Speaker = "Inui" };
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        byte[] expected = [.. "Inui"u8, 0x81, 0x75, .. "Bom dia!"u8, 0x81, 0x76];
+        byte[] expected = [.. "Inui"u8, 0xAB, .. "Bom dia!"u8, 0xBB];
         Assert.Equal(expected, FirstMessage(raw));
     }
 
     [Fact]
-    public void Inject_Cp1252ComFalanteEmAspasDuplasJaponesas_GravaOs8177E8178()
+    public void Inject_Cp1252ComFalanteEmAspasDuplasJaponesas_GravaOsMesmosDelimitadores()
     {
         var loaded = Load(NewBuilder().AddWord("美咲『こんにちは』", 1).AddReturnCode(0, 2));
         var unit = Translate(loaded, UnitId(0), "Oi") with { Speaker = "Inui" };
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        byte[] expected = [.. "Inui"u8, 0x81, 0x77, .. "Oi"u8, 0x81, 0x78];
+        byte[] expected = [.. "Inui"u8, 0xAB, .. "Oi"u8, 0xBB];
         Assert.Equal(expected, FirstMessage(raw));
     }
 
@@ -209,7 +209,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal([.. "???"u8, 0x81, 0x75, .. "Quem?"u8, 0x81, 0x76], FirstMessage(raw));
+        Assert.Equal([.. "???"u8, 0xAB, .. "Quem?"u8, 0xBB], FirstMessage(raw));
     }
 
     [Fact]
@@ -220,7 +220,7 @@ public class YstbTextInjectorTests
 
         var raw = YstbTextInjector.Inject(loaded.File, loaded.Script, [unit], Cp1252);
 
-        Assert.Equal([.. GameEncodings.Windows1252.GetBytes("Teste ç ã é ô"), 0x81, 0x75, .. GameEncodings.Windows1252.GetBytes("Olá, ação!"), 0x81, 0x76], FirstMessage(raw));
+        Assert.Equal([.. GameEncodings.Windows1252.GetBytes("Teste ç ã é ô"), 0xAB, .. GameEncodings.Windows1252.GetBytes("Olá, ação!"), 0xBB], FirstMessage(raw));
     }
 
     [Fact]

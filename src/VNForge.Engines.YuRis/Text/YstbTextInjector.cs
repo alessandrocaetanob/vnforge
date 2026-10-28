@@ -27,7 +27,8 @@ namespace VNForge.Engines.YuRis.Text;
 /// </para>
 /// <para>
 /// <b>Falante.</b> Vale o <see cref="TextUnit.Speaker"/> da unidade quando preenchido; vazio, o nome do locator. O nome e a tradução vão na codificação do projeto e os delimitadores
-/// <c>「」</c> em Shift-JIS quando essa codificação não os grava (<c>cp1252</c>).
+/// <c>「」</c> pelo <see cref="SpeakerDelimiters"/> (<c>«»</c> quando a codificação é a <c>cp1252</c>). O script que cadastra os marcadores de falante
+/// (<c>es.CHAR.NAME.MARK.SET</c>) é reescrito junto, mesmo sem unidade traduzida (<see cref="SpeakerMarkers"/>).
 /// </para>
 /// </remarks>
 public static class YstbTextInjector
@@ -70,6 +71,8 @@ public static class YstbTextInjector
             }
         }
 
+        SpeakerMarkers.Plan(script, encoder, replacements);
+
         return YstbWriter.Write(script, replacements);
     }
 
@@ -83,7 +86,7 @@ public static class YstbTextInjector
 
         var encoded = Compose(locator, unit, encoder);
 
-        var rewritten = locator.Command == WordCommand ? encoded : BuildExpression(unit, encoded, original);
+        var rewritten = locator.Command == WordCommand ? encoded : BuildExpression(unit.Id, encoded, original);
         if (rewritten.AsSpan().SequenceEqual(original))
         {
             return;
@@ -100,9 +103,8 @@ public static class YstbTextInjector
 
     /// <summary>
     /// Os bytes de <c>nome + abertura + tradução + fechamento</c>. O nome é o <see cref="TextUnit.Speaker"/> que o Core já resolveu (<see cref="SpeakerText.Resolve"/>)
-    /// e vai na codificação do projeto, como a tradução. Os delimitadores vão na do projeto quando ela grava os japoneses (Shift-JIS) e, quando não grava
-    /// (<c>cp1252</c>), em Shift-JIS mesmo: o jogo separa o nome da fala procurando o <c>「</c> (<c>81 75</c>), e uma aspa curva no lugar dele deixa a mensagem
-    /// inteira como fala e ainda engole a letra seguinte (<c>0x93</c> é lead byte).
+    /// e vai na codificação do projeto, como a tradução. Os delimitadores vão pelo <see cref="SpeakerDelimiters"/>, o ponto único da escolha: a abertura e o fechamento
+    /// ficam na caixa de texto do jogo, e na <c>cp1252</c> o <c>81 75</c> do <c>「</c> aparecia como <c>u</c> (#434); se nem o substituto é gravável, vale o Shift-JIS.
     /// </summary>
     private static byte[] Compose(Locator locator, TextUnit unit, ITextEncoder encoder)
     {
@@ -127,8 +129,11 @@ public static class YstbTextInjector
         ];
     }
 
-    private static byte[] EncodeDelimiter(TextUnit unit, string delimiter, ITextEncoder encoder) =>
-        Encode(unit, delimiter, delimiter.Length == 0 || encoder.FindUnencodable(delimiter).Count == 0 ? encoder : OriginalEncoder);
+    private static byte[] EncodeDelimiter(TextUnit unit, string delimiter, ITextEncoder encoder)
+    {
+        var resolved = SpeakerDelimiters.Resolve(encoder, delimiter);
+        return Encode(unit, resolved, resolved.Length == 0 || encoder.FindUnencodable(resolved).Count == 0 ? encoder : OriginalEncoder);
+    }
 
     private static byte[] Encode(TextUnit unit, string text, ITextEncoder encoder)
     {
@@ -188,7 +193,7 @@ public static class YstbTextInjector
     }
 
     /// <summary>Refaz <c>4D &lt;u16 tamanho&gt; aspas texto aspas</c> a partir dos bytes do jogo já codificados.</summary>
-    private static byte[] BuildExpression(TextUnit unit, byte[] content, byte[] original)
+    internal static byte[] BuildExpression(string id, byte[] content, byte[] original)
     {
         var originalQuote = original[3];
         var inner = new List<byte>(content.Length + 8);
@@ -204,16 +209,16 @@ public static class YstbTextInjector
         if (quote is null)
         {
             throw new ArgumentException(
-                $"A tradução da unidade '{unit.Id}' tem aspas duplas, crase e apóstrofo ao mesmo tempo, e o YU-RIS não tem escape de aspas para delimitar a string; tire um dos três.",
-                nameof(unit));
+                $"A tradução da unidade '{id}' tem aspas duplas, crase e apóstrofo ao mesmo tempo, e o YU-RIS não tem escape de aspas para delimitar a string; tire um dos três.",
+                nameof(id));
         }
 
         var length = inner.Count + 2;
         if (length > MaxExpressionLength)
         {
             throw new ArgumentException(
-                $"A tradução da unidade '{unit.Id}' ocupa {Number(length)} bytes na string de expressão, acima do limite de {Number(MaxExpressionLength)}.",
-                nameof(unit));
+                $"A tradução da unidade '{id}' ocupa {Number(length)} bytes na string de expressão, acima do limite de {Number(MaxExpressionLength)}.",
+                nameof(id));
         }
 
         var result = new byte[3 + length];

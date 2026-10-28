@@ -32,6 +32,9 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
 
     public int RebuildCalls => _format.Calls;
 
+    /// <summary>Nomes de script que a engine pede para reconstruir mesmo sem tradução (<see cref="IScriptFormat.RequiresRebuild"/>).</summary>
+    public HashSet<string> ScriptsRequiringRebuild => _format.RequiringRebuild;
+
     public IReadOnlyList<TextUnit> LastRebuiltUnits => _format.LastUnits;
 
     public IReadOnlyList<RebuiltScript> LastRebuilt { get; private set; } = [];
@@ -114,6 +117,10 @@ internal sealed class FakeContext() : EngineContext("fake");
 internal sealed class FakeFormat : IScriptFormat
 {
     public int Calls { get; private set; }
+
+    public HashSet<string> RequiringRebuild { get; } = [];
+
+    public bool RequiresRebuild(ScriptFile file, ITextEncoder encoder, EngineContext ctx) => RequiringRebuild.Contains(file.Name);
 
     /// <summary>As unidades da última chamada de <see cref="Rebuild"/>, como o build as entregou.</summary>
     public IReadOnlyList<TextUnit> LastUnits { get; private set; } = [];
