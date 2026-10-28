@@ -1,6 +1,18 @@
 # Avisos de terceiros
 
-O VNForge usa os componentes abaixo além dos pacotes NuGet de uso geral listados em `Directory.Packages.props`. Este arquivo acompanha o app (pasta `licenses/` ao lado do executável, com o `README_pt_BR.txt` do dicionário) e registra o que cada licença exige de quem distribui o VNForge.
+O VNForge usa os componentes abaixo além dos pacotes NuGet de uso geral listados em `Directory.Packages.props`. Este arquivo acompanha o App e a CLI (pasta `licenses/` ao lado do executável, em cada pacote de release: `vnforge-app-<versão>-win-x64.zip`, `vnf-<versão>-win-x64.zip` e `vnf-<versão>-linux-x64.tar.gz`) e registra o que cada licença exige de quem distribui o VNForge.
+
+### O que vai na pasta `licenses/` de cada pacote
+
+| Arquivo | O que é | Origem |
+|---|---|---|
+| `THIRD-PARTY-NOTICES.md` | Este arquivo | Raiz do repositório |
+| `VERO-README_pt_BR.txt` | Créditos e aviso de licença do dicionário pt-BR | `README_pt_BR.txt` do VERO, sem alteração |
+| `WeCantSpell.Hunspell-license.txt` | `license.txt` do pacote WeCantSpell.Hunspell 7.0.1 (herda a licença do Hunspell) | Pacote NuGet, sem alteração |
+| `LGPL-3.0.txt` e `GPL-3.0.txt` | Texto da LGPL versão 3 (que remete à GPL versão 3) citada pelo README do VERO | [gnu.org/licenses](https://www.gnu.org/licenses/lgpl-3.0.txt) |
+| `MPL-2.0.txt` e `MPL-1.1.html` | Texto da Mozilla Public License 2.0 e da 1.1 | [mozilla.org/MPL](https://www.mozilla.org/en-US/MPL/) |
+
+O README do VERO cita a "Mozilla Public License" sem versão; por isso os dois textos vão no pacote. Os arquivos ficam em `licenses/` na raiz do repositório e entram em `VNForge.Core.csproj` como conteúdo copiado para a saída; a etapa `publicar` do CircleCI copia a pasta para cada pacote e confere que ela chegou.
 
 ## Corretor ortográfico (#482)
 

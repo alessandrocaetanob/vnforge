@@ -185,4 +185,60 @@ public sealed class SpellCheckerTests
         Assert.Equal(QaCategories.Spelling, QaCategories.Of("ortografia"));
         Assert.Contains(QaCategories.Spelling, QaCategories.All);
     }
+
+    [Fact]
+    public void Aviso_de_ortografia_e_sugestao_e_nao_trava_o_build()
+    {
+        var unit = new TextUnit("a:1", TextUnitKind.Dialogue, null, "原文", "Eita, kyaa! Isso é um ramen.", TranslationStatus.Translated);
+        var context = QaContext.ForTexts(new Dictionary<string, IReadOnlyList<TextUnit>> { ["a"] = [unit] });
+        var report = new QaReport([.. new SpellingRule().Check(context)], [], []);
+
+        Assert.NotEmpty(report.Issues);
+        Assert.False(report.Blocks(allowWarnings: false));
+        Assert.Empty(report.BlockingIssues);
+        Assert.Equal(report.Issues.Count, report.StyleAdviceCount);
+    }
+
+    [Theory]
+    [InlineData("Sr. Tanaka chegou.")]
+    [InlineData("Olá, Sra. Zorgblat.")]
+    [InlineData("Dr. Takeshi chegou. Prof. Zorgblat, Profa. Zorgblat e Srta. Zorgblat também.")]
+    [InlineData("Ele disse: Takeshi chegou.")]
+    [InlineData("Eu... Kenji?")]
+    [InlineData("Eu… Kenji?")]
+    public void Nome_depois_de_abreviacao_dois_pontos_ou_reticencias_nao_e_erro(string text)
+    {
+        Assert.Empty(Checker.Find(text));
+    }
+
+    [Fact]
+    public void Ponto_final_comum_ainda_comeca_frase()
+    {
+        Assert.Equal(["Zorgblat"], Wrong("Ele saiu. Zorgblat chegou."));
+        Assert.Equal(["Nao"], Wrong("Sr. Silva. Nao vi."));
+    }
+
+    [Fact]
+    public void Dicionario_ilegivel_desliga_a_regra_com_uma_mensagem_e_nao_derruba_a_conferencia()
+    {
+        var unit = new TextUnit("a:1", TextUnitKind.Dialogue, null, "原文", "Oi.", TranslationStatus.Translated);
+        var context = QaContext.ForTexts(new Dictionary<string, IReadOnlyList<TextUnit>> { ["a"] = [unit] });
+        var rule = new SpellingRule(() => throw new VNForgeException("arquivo corrompido"));
+
+        var issue = Assert.Single(rule.Check(context));
+
+        Assert.Equal("a:1", issue.UnitId);
+        Assert.Contains("desligada", issue.Message);
+        Assert.Contains("arquivo corrompido", issue.Message);
+        Assert.False(new QaReport([issue], [], []).Blocks(allowWarnings: false));
+    }
+
+    [Theory]
+    [InlineData("Ahh, Ohh, Haha, Hehe, Hihi, Kyaa!")]
+    [InlineData("Shh. Uhm. Huh? Aham. Uhum.")]
+    [InlineData("Ahhhh! Hahaha! Kyaaa! Shhh!")]
+    public void Interjeicoes_e_onomatopeias_comuns_nao_sao_erro(string text)
+    {
+        Assert.Empty(Checker.Find(text));
+    }
 }

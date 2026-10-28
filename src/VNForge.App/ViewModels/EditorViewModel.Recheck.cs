@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
+using VNForge.Core.Spelling;
 
 namespace VNForge.App.ViewModels;
 
@@ -89,6 +90,8 @@ public sealed partial class EditorViewModel
         {
             return;
         }
+
+        Detail?.SpellWords = ProjectDictionary.Create(context.Glossary, context.Characters.Entries);
 
         ShowRechecked(lines.Apply(result), lines);
     }

@@ -38,6 +38,38 @@ public sealed class SpellingRule : UnitQaRule
     /// <inheritdoc />
     public override QaSeverity Severity => QaSeverity.Warning;
 
+    /// <summary>
+    /// Se o dicionário não pôde ser lido, a regra se desliga nesta conferência: devolve um único aviso, na primeira linha, dizendo por quê, em vez de derrubar a
+    /// conferência inteira. A próxima conferência tenta ler o dicionário de novo.
+    /// </summary>
+    public override IEnumerable<QaIssue> Check(QaContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        try
+        {
+            _ = checker();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Disabled(context, ex);
+        }
+
+        return base.Check(context);
+    }
+
+    private IEnumerable<QaIssue> Disabled(QaContext context, Exception error)
+    {
+        foreach (var (key, units) in context.Texts)
+        {
+            if (units.Count > 0)
+            {
+                return [new QaIssue(Id, Severity, units[0].Id, key, $"A conferência de ortografia ficou desligada: {error.Message}")];
+            }
+        }
+
+        return [];
+    }
+
     /// <inheritdoc />
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
     {

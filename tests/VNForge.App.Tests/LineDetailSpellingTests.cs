@@ -66,6 +66,33 @@ public sealed class LineDetailSpellingTests : IDisposable
     }
 
     [Fact]
+    public void Trocar_o_dicionario_do_projeto_refaz_os_trechos()
+    {
+        using var vm = Abrir(ProjectDictionary.Empty);
+        vm.FieldText = "Zorgblat chegou cedo.";
+        Assert.Single(vm.Misspellings);
+
+        vm.SpellWords = ProjectDictionary.Create([new GlossaryTerm("ゾーグ", "Zorgblat")], []);
+
+        Assert.Empty(vm.Misspellings);
+    }
+
+    [Fact]
+    public void Misspellings_so_notifica_quando_os_trechos_mudam()
+    {
+        using var vm = Abrir(ProjectDictionary.Empty);
+        var avisos = new List<string?>();
+        vm.PropertyChanged += (_, e) => avisos.Add(e.PropertyName);
+
+        vm.FieldText = "Eu esquesi a chave.";
+        var primeiro = avisos.Count(n => n == nameof(LineDetailViewModel.Misspellings));
+        vm.SpellWords = ProjectDictionary.Empty;
+
+        Assert.Equal(1, primeiro);
+        Assert.Equal(1, avisos.Count(n => n == nameof(LineDetailViewModel.Misspellings)));
+    }
+
+    [Fact]
     public void Marcador_no_campo_nao_vira_erro()
     {
         using var vm = Abrir(ProjectDictionary.Empty);

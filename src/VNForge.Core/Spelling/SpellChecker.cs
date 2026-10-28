@@ -20,7 +20,16 @@ public sealed class SpellChecker
 
     private const string OpeningPunctuation = "\"“”«»‘'([「『-—–";
 
-    private const string SentenceEnd = ".!?…:";
+    // ":" e "…" não fecham a frase ("Ele disse: Takeshi", "Eu… Kenji?"); o ponto só fecha fora de abreviação e de reticências ("Sr. Tanaka", "Eu... Kenji").
+    private static readonly char[] PartSeparators = ['-', '\'', '’'];
+
+    private const string SentenceEnd = ".!?";
+
+    /// <summary>Abreviações de tratamento que terminam em ponto sem fechar a frase: o nome que vem depois continua sendo nome.</summary>
+    private static readonly HashSet<string> Abbreviations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sr", "sra", "srta", "srs", "sras", "dr", "dra", "drs", "dras", "prof", "profa", "profs", "profas", "eng", "exmo", "exma", "ilmo", "ilma", "d", "mr", "mrs", "ms",
+    };
 
     /// <summary>Honoríficos que o dicionário pt-BR não tem; um nome com inicial maiúscula colado a um deles ("Misaki-chan") é nome, mesmo no começo da frase.</summary>
     private static readonly HashSet<string> Honorifics = new(StringComparer.OrdinalIgnoreCase)
@@ -32,9 +41,11 @@ public sealed class SpellChecker
     private static readonly HashSet<string> Interjections = new(StringComparer.OrdinalIgnoreCase)
     {
         "hmm", "hum", "ahn", "uhn", "ahá", "ué", "uau", "ufa", "aff", "nhe", "tsc", "ok", "okay",
+        "ahh", "ohh", "uhh", "ehh", "haha", "hehe", "hihi", "hoho", "huhu", "kyaa", "kya", "shh", "uhm", "huh", "aham", "uhum", "hm", "hmph", "tch", "geh", "eek", "ugh", "ow",
     };
 
-    private static readonly Lazy<SpellChecker> PortugueseChecker = new(LoadPortuguese, LazyThreadSafetyMode.ExecutionAndPublication);
+    private static readonly Lock LoadLock = new();
+    private static SpellChecker? portugueseChecker;
 
     private readonly WordList dictionary;
 
@@ -46,10 +57,27 @@ public sealed class SpellChecker
     }
 
     /// <summary>O corretor com o dicionário pt-BR embutido. A primeira chamada lê o dicionário (cerca de um segundo); use <see cref="WarmUpAsync"/> fora da tela.</summary>
-    public static SpellChecker Portuguese => PortugueseChecker.Value;
+    public static SpellChecker Portuguese
+    {
+        get
+        {
+            // Sem Lazy: uma falha de leitura não fica guardada, a próxima conferência tenta de novo.
+            var loaded = Volatile.Read(ref portugueseChecker);
+            if (loaded is not null)
+            {
+                return loaded;
+            }
+
+            lock (LoadLock)
+            {
+                loaded = portugueseChecker ??= LoadPortuguese();
+                return loaded;
+            }
+        }
+    }
 
     /// <summary>O dicionário pt-BR já foi lido: <see cref="Portuguese"/> responde na hora.</summary>
-    public static bool IsPortugueseReady => PortugueseChecker.IsValueCreated;
+    public static bool IsPortugueseReady => Volatile.Read(ref portugueseChecker) is not null;
 
     /// <summary>Lê o dicionário pt-BR em segundo plano, para a primeira conferência não travar quem a pediu.</summary>
     public static Task WarmUpAsync() => Task.Run(() => Portuguese);
@@ -60,16 +88,7 @@ public sealed class SpellChecker
         ArgumentNullException.ThrowIfNull(text);
         project ??= ProjectDictionary.Empty;
 
-        var spans = new List<QaSpan>();
-        foreach (var token in Tokenize(text))
-        {
-            if (!Accepts(token, project))
-            {
-                spans.Add(new QaSpan(token.Start, token.Text.Length, token.Text));
-            }
-        }
-
-        return spans;
+        return [.. Tokenize(text).Where(token => !Accepts(token, project)).Select(token => new QaSpan(token.Start, token.Text.Length, token.Text))];
     }
 
     private static SpellChecker LoadPortuguese()
@@ -77,7 +96,14 @@ public sealed class SpellChecker
         var assembly = typeof(SpellChecker).Assembly;
         using var dic = assembly.GetManifestResourceStream("VNForge.Core.Spelling.pt_BR.dic") ?? throw new VNForgeException("O dicionário pt-BR do corretor não está embutido neste build.");
         using var aff = assembly.GetManifestResourceStream("VNForge.Core.Spelling.pt_BR.aff") ?? throw new VNForgeException("O dicionário pt-BR do corretor não está embutido neste build.");
-        return new SpellChecker(WordList.CreateFromStreams(dic, aff));
+        try
+        {
+            return new SpellChecker(WordList.CreateFromStreams(dic, aff));
+        }
+        catch (Exception ex) when (ex is not VNForgeException)
+        {
+            throw new VNForgeException($"Não foi possível ler o dicionário pt-BR do corretor: {ex.Message}", ex);
+        }
     }
 
     private bool Accepts(Token token, ProjectDictionary project)
@@ -94,7 +120,7 @@ public sealed class SpellChecker
             return true;
         }
 
-        var parts = word.Split('-', '\'', '’');
+        var parts = word.Split(PartSeparators);
         if (parts.Length < 2)
         {
             return false;
@@ -121,7 +147,45 @@ public sealed class SpellChecker
     private bool IsKnown(string word, ProjectDictionary project)
     {
         var plain = word.Replace('’', '\'');
-        return plain.Length < 2 || project.Contains(plain) || Honorifics.Contains(plain) || Interjections.Contains(plain) || dictionary.Check(plain);
+        return plain.Length < 2 || project.Contains(plain) || Honorifics.Contains(plain) || Abbreviations.Contains(plain) || IsInterjection(plain) || dictionary.Check(plain);
+    }
+
+    // "Ahh", "Kyaa" e "Shhh" saem da lista ou da forma sem letras repetidas; "Hahaha" e "Hehehe" são sílabas de riso repetidas.
+    private static bool IsInterjection(string word)
+    {
+        if (Interjections.Contains(word) || Interjections.Contains(Collapse(word)))
+        {
+            return true;
+        }
+
+        return word.Length >= 4 && word.Length % 2 == 0 && word.Length / 2 >= 2 && IsLaugh(word);
+    }
+
+    private static bool IsLaugh(string word)
+    {
+        for (var i = 0; i < word.Length; i += 2)
+        {
+            if (char.ToLowerInvariant(word[i]) != 'h' || char.ToLowerInvariant(word[i + 1]) is not ('a' or 'e' or 'i' or 'o' or 'u'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string Collapse(string word)
+    {
+        var builder = new System.Text.StringBuilder(word.Length);
+        foreach (var c in word)
+        {
+            if (builder.Length == 0 || char.ToLowerInvariant(builder[^1]) != char.ToLowerInvariant(c))
+            {
+                builder.Append(c);
+            }
+        }
+
+        return builder.ToString();
     }
 
     private static bool IsAllUpper(string word) => word.Length >= 2 && word.All(c => !char.IsLetter(c) || char.IsUpper(c));
@@ -153,27 +217,7 @@ public sealed class SpellChecker
         {
             if (flat[i] == '\\')
             {
-                var next = i + 1 < flat.Length ? flat[i + 1] : '\0';
-                switch (next)
-                {
-                    case 'n':
-                        flat[i] = flat[i + 1] = ' ';
-                        i += 2;
-                        break;
-                    case 'p':
-                        flat[i] = '.';
-                        flat[i + 1] = ' ';
-                        i += 2;
-                        break;
-                    case 'c' or 'u' or '\\' or '{':
-                        flat[i] = flat[i + 1] = Blocked;
-                        i += 2;
-                        break;
-                    default:
-                        flat[i] = Blocked;
-                        i++;
-                        break;
-                }
+                i += FlattenEscape(flat, i);
             }
             else if (flat[i] == '{')
             {
@@ -189,6 +233,28 @@ public sealed class SpellChecker
         }
 
         return flat;
+    }
+
+    // Troca o marcador de barra que começa em flat[i] e devolve quantos caracteres ele ocupa.
+    private static int FlattenEscape(char[] flat, int i)
+    {
+        var next = i + 1 < flat.Length ? flat[i + 1] : '\0';
+        switch (next)
+        {
+            case 'n':
+                flat[i] = flat[i + 1] = ' ';
+                return 2;
+            case 'p':
+                flat[i] = '.';
+                flat[i + 1] = ' ';
+                return 2;
+            case 'c' or 'u' or '\\' or '{':
+                flat[i] = flat[i + 1] = Blocked;
+                return 2;
+            default:
+                flat[i] = Blocked;
+                return 1;
+        }
     }
 
     private static List<Token> Tokenize(string text)
@@ -229,7 +295,29 @@ public sealed class SpellChecker
             j--;
         }
 
-        return j < 0 || SentenceEnd.Contains(flat[j]);
+        if (j < 0)
+        {
+            return true;
+        }
+
+        if (!SentenceEnd.Contains(flat[j]))
+        {
+            return false;
+        }
+
+        return flat[j] != '.' || !(EndsAbbreviation(flat, j) || (j > 0 && flat[j - 1] == '.'));
+    }
+
+    // O ponto em flat[dot] fecha uma abreviação de tratamento ("Sr.", "Dra.")?
+    private static bool EndsAbbreviation(char[] flat, int dot)
+    {
+        var start = dot;
+        while (start > 0 && char.IsLetter(flat[start - 1]))
+        {
+            start--;
+        }
+
+        return start < dot && (start == 0 || !char.IsLetter(flat[start - 1])) && Abbreviations.Contains(new string(flat, start, dot - start));
     }
 
     private readonly record struct Token(int Start, string Text, bool AtSentenceStart);

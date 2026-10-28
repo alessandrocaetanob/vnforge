@@ -15,7 +15,7 @@ public abstract class UnitQaRule : IQaRule
     public abstract QaSeverity Severity { get; }
 
     /// <inheritdoc />
-    public IEnumerable<QaIssue> Check(QaContext context)
+    public virtual IEnumerable<QaIssue> Check(QaContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
         return CheckAll(context);

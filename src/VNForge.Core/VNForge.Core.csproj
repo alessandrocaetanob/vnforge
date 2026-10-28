@@ -17,6 +17,7 @@
   <ItemGroup>
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="licenses\THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Spelling/Dictionaries/README_pt_BR.txt" Link="licenses\VERO-README_pt_BR.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\licenses\*" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

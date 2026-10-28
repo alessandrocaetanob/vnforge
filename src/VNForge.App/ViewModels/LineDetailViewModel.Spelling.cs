@@ -12,12 +12,12 @@ public sealed partial class LineDetailViewModel
 
     /// <summary>
     /// O dicionário do projeto (Glossário e personagens). Só com ele o painel confere a ortografia: sem ele <see cref="Misspellings"/> fica vazio.
-    /// O Editor o entrega ao criar o painel.
+    /// O Editor o entrega ao criar o painel e de novo quando o Glossário ou os personagens mudam; trocar o dicionário refaz os trechos.
     /// </summary>
     public ProjectDictionary? SpellWords
     {
         get => spellWords;
-        init
+        set
         {
             spellWords = value;
             UpdateMisspellings();
@@ -41,7 +41,13 @@ public sealed partial class LineDetailViewModel
             return;
         }
 
-        Misspellings = SpellChecker.Portuguese.Find(FieldText, spellWords);
+        var found = SpellChecker.Portuguese.Find(FieldText, spellWords);
+
+        // Só avisa o campo quando os trechos mudam: cada tecla chega aqui e a maioria não muda nada.
+        if (!found.SequenceEqual(Misspellings))
+        {
+            Misspellings = found;
+        }
     }
 
     // A primeira leitura do dicionário leva cerca de um segundo: fora da thread da interface, e o sublinhado aparece quando ela termina.
@@ -59,6 +65,11 @@ public sealed partial class LineDetailViewModel
                 if (task.IsCompletedSuccessfully)
                 {
                     postToUi(UpdateMisspellings);
+                }
+                else
+                {
+                    // Dicionário ilegível: o sublinhado fica desligado, e a próxima edição tenta ler de novo.
+                    spellWarmUpRequested = false;
                 }
             },
             TaskScheduler.Default);

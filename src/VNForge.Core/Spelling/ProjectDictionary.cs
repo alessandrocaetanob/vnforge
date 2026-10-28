@@ -8,6 +8,8 @@ namespace VNForge.Core.Spelling;
 /// </summary>
 public sealed class ProjectDictionary
 {
+    private static readonly char[] PartSeparators = ['-', '\''];
+
     private readonly HashSet<string> words = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Dicionário sem nenhuma palavra do projeto.</summary>
@@ -73,7 +75,7 @@ public sealed class ProjectDictionary
         if (trimmed.Length >= 2)
         {
             words.Add(trimmed);
-            foreach (var part in trimmed.Split('-', '\''))
+            foreach (var part in trimmed.Split(PartSeparators))
             {
                 if (part.Length >= 2)
                 {

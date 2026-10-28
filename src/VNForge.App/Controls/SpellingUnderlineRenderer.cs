@@ -16,7 +16,6 @@ public sealed class SpellingUnderlineRenderer : IBackgroundRenderer
     private const double Amplitude = 1.5;
 
     private IReadOnlyList<QaSpan> spans = [];
-    private int? caret;
 
     public KnownLayer Layer => KnownLayer.Selection;
 
@@ -28,14 +27,10 @@ public sealed class SpellingUnderlineRenderer : IBackgroundRenderer
     }
 
     /// <summary>O offset do cursor enquanto o campo tem o foco; <c>null</c> sublinha tudo.</summary>
-    public int? Caret
-    {
-        get => caret;
-        set => caret = value;
-    }
+    public int? Caret { get; set; }
 
     /// <summary>Os trechos que o campo desenha: os de <see cref="Spans"/> menos o da palavra em que está o cursor.</summary>
-    public IEnumerable<QaSpan> Visible => spans.Where(span => caret is not { } offset || offset <= span.Start || offset > span.Start + span.Length);
+    public IEnumerable<QaSpan> Visible => spans.Where(span => Caret is not { } offset || offset <= span.Start || offset > span.Start + span.Length);
 
     public void Draw(TextView textView, DrawingContext drawingContext)
     {
