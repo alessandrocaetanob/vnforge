@@ -93,6 +93,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
         History = new BatchHistory(TaskService);
         History.Undone += (_, undone) => OnBatchUndone(undone);
+        batchRequests = NewBatchRequestService();
         Conference.History = History;
         Tasks = new TaskBarViewModel(TaskService, history: History);
         Build = new BuildViewModel(TaskService);
@@ -111,7 +112,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         BottomNav = [settingsItem];
         selectedNav = startItem;
         CurrentPage = start;
-        Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines);
+        Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
@@ -399,6 +400,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void AttachEditor(EditorViewModel value)
     {
         value.History = History;
+        value.Search.Requests = batchRequests;
         value.LineSaved += OnLineSaved;
         value.ChaptersChanged += OnChaptersChanged;
         value.HideEmptyScenes = Settings.HideEmptyScenes;
