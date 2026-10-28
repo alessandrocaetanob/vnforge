@@ -766,6 +766,21 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Trocar_o_estilo_do_delimitador_da_fala_refaz_o_build_incremental()
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        Translate("a001", (0, "Oi, tudo bem"));
+        var options = new BuildOptions(OnlyChanged: true);
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: options);
+        var calls = _engine.RebuildCalls;
+
+        _project.SaveConfig(_project.LoadConfig() with { Style = StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets } });
+        ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: options);
+
+        Assert.True(_engine.RebuildCalls > calls, $"antes {calls}, depois {_engine.RebuildCalls}");
+    }
+
+    [Fact]
     public void Fold_builda_e_o_resultado_traz_os_caracteres_trocados()
     {
         _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("fold") });

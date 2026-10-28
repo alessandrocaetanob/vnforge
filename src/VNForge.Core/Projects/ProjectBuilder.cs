@@ -128,7 +128,7 @@ public static class ProjectBuilder
         }
 
         var title = ResolveTitle(engine, config, project, encoder);
-        var fingerprint = BuildState.FingerprintTexts(loaded, encoder.Id, project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
+        var fingerprint = BuildState.FingerprintTexts(loaded, BuildState.EncoderKey(encoder), project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
         var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
@@ -153,7 +153,7 @@ public static class ProjectBuilder
         if (title is not null)
         {
             rebuilt.Add(title.Script);
-            state[GameTitleKey] = new BuildStateScript(BuildState.HashTitle(title.Script.Original, encoder.Id, title.Text), Identical: false, 0);
+            state[GameTitleKey] = new BuildStateScript(BuildState.HashTitle(title.Script.Original, BuildState.EncoderKey(encoder), title.Text), Identical: false, 0);
         }
 
         if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
@@ -390,7 +390,7 @@ public static class ProjectBuilder
                 continue;
             }
 
-            var hash = BuildState.HashInputs(original, encoder.Id, units);
+            var hash = BuildState.HashInputs(original, BuildState.EncoderKey(encoder), units);
             if (TryReuse(project, previous, file.Key, hash) is { } reuse)
             {
                 state[file.Key] = reuse.Entry;
