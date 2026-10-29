@@ -275,7 +275,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.StartsWith("美咲", speaker.Text, StringComparison.Ordinal);
             // O texto da tela pode trazer a tradução e a voz; o menu copia o nome do jogo.
             Assert.Equal("美咲", SpeakerMenu.GetOriginal(speaker));
-            var flyout = Assert.IsAssignableFrom<MenuFlyout>(speaker.ContextFlyout);
+            var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout, exactMatch: false);
             Assert.Contains(flyout.Items.OfType<MenuItem>(), i => Equals(i.Header, SpeakerMenu.CopyOriginalHeader));
         });
     }
