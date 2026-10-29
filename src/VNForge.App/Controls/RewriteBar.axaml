@@ -60,7 +60,7 @@
                     CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <StackPanel Spacing="4">
-                  <TextBlock TextWrapping="Wrap" Text="{Binding Text}"/>
+                  <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Text}"/>
                   <TextBlock Classes="caption fit" TextWrapping="Wrap" Text="{Binding FitText}" IsVisible="{Binding HasFit}" Classes.over="{Binding Overflows}"/>
                 </StackPanel>
                 <Button Grid.Column="1" Classes="sm" VerticalAlignment="Top" Command="{Binding UseCommand}" ToolTip.Tip="Troca a tradução por esta versão"
