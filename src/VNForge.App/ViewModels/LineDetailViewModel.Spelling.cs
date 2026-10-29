@@ -35,12 +35,15 @@ public sealed partial class LineDetailViewModel
     /// <summary>Avisa o Editor que uma palavra entrou em <c>ignored-words.json</c>, para ele refazer o QA das outras linhas.</summary>
     public Action? WordIgnored { get; init; }
 
-    /// <summary>O trecho sublinhado que cobre o <paramref name="offset"/> do texto do campo (a borda direita conta, onde o cursor para ao clicar), ou nulo.</summary>
-    public QaSpan? MisspellingAt(int offset)
+    /// <summary>
+    /// O trecho sublinhado que cobre o <paramref name="offset"/> do texto do campo, ou nulo. Com <paramref name="includeEnd"/> a borda direita conta (o cursor
+    /// do teclado para ali); sem ele só valem os caracteres do trecho, que é o que um clique do ponteiro acerta.
+    /// </summary>
+    public QaSpan? MisspellingAt(int offset, bool includeEnd = true)
     {
         foreach (var span in Misspellings)
         {
-            if (offset >= span.Start && offset <= span.Start + span.Length)
+            if (offset >= span.Start && (offset < span.Start + span.Length || (includeEnd && offset == span.Start + span.Length)))
             {
                 return span;
             }

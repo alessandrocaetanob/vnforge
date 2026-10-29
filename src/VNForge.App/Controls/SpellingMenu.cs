@@ -8,10 +8,13 @@ public static class SpellingMenu
 {
     public const string IgnoreHeader = "Ignorar esta palavra no projeto";
 
-    /// <summary>O menu da palavra sublinhada que cobre <paramref name="offset"/> do texto do campo; nulo quando não há palavra marcada ali.</summary>
-    public static MenuFlyout? Create(LineDetailViewModel? detail, int offset)
+    /// <summary>
+    /// O menu da palavra sublinhada que cobre <paramref name="offset"/> do texto do campo; nulo quando não há palavra marcada ali.
+    /// <paramref name="includeEnd"/> vale para o cursor do teclado; um clique do ponteiro passa falso.
+    /// </summary>
+    public static MenuFlyout? Create(LineDetailViewModel? detail, int offset, bool includeEnd = true)
     {
-        if (detail?.MisspellingAt(offset) is not { } span)
+        if (detail?.MisspellingAt(offset, includeEnd) is not { } span)
         {
             return null;
         }

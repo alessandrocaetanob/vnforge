@@ -237,7 +237,7 @@ public sealed class ProjectFolder
         lock (ProjectTextLock.For(this))
         {
             var current = LoadIgnoredWords();
-            if (current.Any(w => string.Equals(w.Word.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
+            if (current.Any(w => string.Equals(IgnoredWordsSerializer.KeyOf(w.Word), IgnoredWordsSerializer.KeyOf(trimmed), StringComparison.OrdinalIgnoreCase)))
             {
                 return false;
             }

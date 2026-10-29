@@ -213,6 +213,8 @@ public sealed partial class LineDetailView : UserControl
         }
 
         current = DataContext as LineDetailViewModel;
+        SpellingFlyout?.Hide();
+        SpellingFlyout = null;
         wasSuggesting = current?.IsSuggesting ?? false;
         SourceText.Inlines?.Clear();
         if (current is null)
@@ -300,20 +302,34 @@ public sealed partial class LineDetailView : UserControl
         var textView = TranslationEditor.TextArea.TextView;
         var fromPointer = e.TryGetPosition(textView, out var point);
         var offset = fromPointer ? OffsetAt(point) : TranslationEditor.TextArea.Caret.Offset;
-        if (offset is not { } at || SpellingMenu.Create(current, at) is not { } menu)
+        if (offset is not { } at || SpellingMenu.Create(current, at, includeEnd: !fromPointer) is not { } menu)
         {
             return;
         }
 
         e.Handled = true;
         SpellingFlyout = menu;
+
+        // O flyout guarda o ViewModel pelo comando do item: soltá-lo ao fechar evita reter a linha antiga.
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(SpellingFlyout, menu))
+            {
+                SpellingFlyout = null;
+            }
+        };
         menu.ShowAt(TranslationEditor, fromPointer);
     }
 
-    private int? OffsetAt(Point point) =>
-        TranslationEditor.TextArea.TextView.GetPosition(point) is { } position && TranslationEditor.Document is { } document
+    // O ponto vem relativo ao TextView visível; o editor pede coordenadas do documento, então soma a rolagem. A posição "floor" é o caractere sob o ponteiro:
+    // o espaço vazio depois do fim da linha cai no fim dela, fora de qualquer trecho.
+    private int? OffsetAt(Point point)
+    {
+        var textView = TranslationEditor.TextArea.TextView;
+        return textView.GetPositionFloor(point + textView.ScrollOffset) is { } position && TranslationEditor.Document is { } document
             ? document.GetOffset(position.Location)
             : null;
+    }
 
     private void SetEditorText(string text)
     {

@@ -13,6 +13,9 @@ public static class IgnoredWordsSerializer
     public static IReadOnlyList<IgnoredWord> Parse(string json, string filePath) =>
         EntryFile.Parse<IgnoredWord>(json, filePath, Check);
 
+    /// <summary>Como duas palavras são comparadas: sem espaços nas pontas e com o apóstrofo curvo igual ao reto (o corretor trata os dois como um só).</summary>
+    internal static string KeyOf(string word) => word.Trim().Replace('’', '\'');
+
     private static void Check(IReadOnlyList<IgnoredWord> words, string filePath)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -24,7 +27,7 @@ public static class IgnoredWordsSerializer
                 throw new GlossaryFileException(filePath, $"$.entries[{i}].word: a palavra não pode ser vazia.");
             }
 
-            if (!seen.Add(word.Trim()))
+            if (!seen.Add(KeyOf(word)))
             {
                 throw new GlossaryFileException(filePath, $"'{word.Trim()}' aparece mais de uma vez no arquivo.");
             }

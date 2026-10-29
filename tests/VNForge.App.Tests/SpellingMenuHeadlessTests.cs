@@ -1,8 +1,12 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
+using AvaloniaEdit.Document;
+using AvaloniaEdit.Rendering;
 using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Controls;
 using VNForge.App.Services;
@@ -101,6 +105,103 @@ public sealed class SpellingMenuHeadlessTests(HeadlessFixture fixture) : IClassF
                 var item = Assert.IsType<MenuItem>(Assert.Single(view.SpellingFlyout!.Items));
                 Assert.Equal(SpellingMenu.IgnoreHeader, item.Header);
 
+                window.Close();
+            },
+            CancellationToken.None);
+    }
+
+    private static (Window Window, LineDetailView View, TextEditor Editor) Show(LineDetailViewModel vm)
+    {
+        var view = new LineDetailView { DataContext = vm };
+        var window = new Window { Width = 900, Height = 800, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, view, view.GetVisualDescendants().OfType<TextEditor>().Single());
+    }
+
+    // O ponto da janela onde o texto do offset aparece, com a rolagem do editor já descontada.
+    private static Point PointAt(Window window, TextEditor editor, int offset)
+    {
+        var textView = editor.TextArea.TextView;
+        var location = editor.Document.GetLocation(offset);
+        var inDocument = textView.GetVisualPosition(new TextViewPosition(location), VisualYPosition.LineMiddle);
+        return textView.TranslatePoint(inDocument - textView.ScrollOffset, window)!.Value;
+    }
+
+    private static void RightClick(Window window, Point point)
+    {
+        window.MouseDown(point, MouseButton.Right);
+        window.MouseUp(point, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [Fact]
+    public async Task Botao_direito_sobre_a_palavra_abre_o_menu_e_fora_dela_o_menu_padrao_segue()
+    {
+        var (vm, _) = Abrir();
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var (window, view, editor) = Show(vm);
+
+                RightClick(window, PointAt(window, editor, 6));
+                Assert.True(view.SpellingFlyout?.IsOpen);
+                view.SpellingFlyout!.Hide();
+                Dispatcher.UIThread.RunJobs();
+                Assert.Null(view.SpellingFlyout);
+
+                RightClick(window, PointAt(window, editor, 13));
+                Assert.Null(view.SpellingFlyout);
+
+                window.Close();
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Botao_direito_no_espaco_vazio_depois_da_palavra_no_fim_da_linha_nao_abre_o_menu()
+    {
+        var (vm, _) = Abrir();
+        vm.FieldText = "Eu esquesi";
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var (window, view, editor) = Show(vm);
+                var fimDaPalavra = PointAt(window, editor, 10);
+
+                RightClick(window, fimDaPalavra + new Point(150, 0));
+                Assert.Null(view.SpellingFlyout);
+
+                RightClick(window, PointAt(window, editor, 9));
+                Assert.NotNull(view.SpellingFlyout);
+
+                window.Close();
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Botao_direito_com_o_campo_rolado_acha_a_palavra_sob_o_ponteiro()
+    {
+        var (vm, _) = Abrir();
+        vm.FieldText = string.Concat(Enumerable.Repeat("linha de enchimento\n", 12)) + "Eu esquesi a chave.";
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var (window, view, editor) = Show(vm);
+                editor.MaxHeight = 70;
+                window.UpdateLayout();
+                editor.ScrollToEnd();
+                window.UpdateLayout();
+                Assert.True(editor.TextArea.TextView.ScrollOffset.Y > 0);
+                var offset = vm.FieldText.IndexOf("esquesi", StringComparison.Ordinal) + 3;
+
+                RightClick(window, PointAt(window, editor, offset));
+
+                Assert.True(view.SpellingFlyout?.IsOpen);
                 window.Close();
             },
             CancellationToken.None);

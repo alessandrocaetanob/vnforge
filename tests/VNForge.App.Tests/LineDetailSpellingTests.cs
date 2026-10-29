@@ -130,6 +130,8 @@ public sealed class LineDetailSpellingTests : IDisposable
         Assert.Equal("esquesi", vm.MisspellingAt(6)?.Text);
         Assert.Equal("esquesi", vm.MisspellingAt(10)?.Text);
         Assert.Null(vm.MisspellingAt(11));
+        Assert.Equal("esquesi", vm.MisspellingAt(9, includeEnd: false)?.Text);
+        Assert.Null(vm.MisspellingAt(10, includeEnd: false));
     }
 
     [Fact]
