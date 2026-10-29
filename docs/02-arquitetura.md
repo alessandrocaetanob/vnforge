@@ -391,6 +391,7 @@ minha-vn-ptbr/
 ├─ formatting.json         # perfil de espaçamento e quebra de linha
 ├─ glossary.json           # termos fixos
 ├─ characters.json         # nomes de personagens: original → tradução, gênero, tom de fala, cor
+├─ address-terms.json      # quem chama quem de quê: por par de personagens, o tratamento no original e na tradução (opcional)
 ├─ scripts.json            # nome legível de cada script: o que a engine leu do jogo e o que o usuário escolheu
 ├─ style.md                # guia de estilo livre, vai junto no prompt da IA
 ├─ text/                   # UMA unidade de texto por linha, um arquivo por script
@@ -434,7 +435,10 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 | Arquivo | Entrada | Campos |
 |---|---|---|
 | `glossary.json` | `GlossaryTerm` | `source`, `target`, `notes` (opcional) |
+| `address-terms.json` | `AddressTerm` | `from` e `to` (os `source` de dois personagens), `source` (como `from` chama `to` no japonês, por exemplo `美咲ちゃん`) e `target` (como a tradução o chama, por exemplo `Misaki-chan`); a chave é o par, comparado como o `CharacterBook` compara nomes |
 | `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional), `color` (opcional: id da cor na paleta do app, como `blue` ou `rose`; sem ele o app escolhe uma pelo nome e o Glossário grava só a que a pessoa trocou) |
+
+O `address-terms.json` (#470) é um arquivo à parte, com o mesmo envelope e as mesmas regras de leitura, mas a chave é o par `from` e `to` (par vazio ou repetido é erro). Projeto antigo não o tem, e `ProjectFolder.LoadAddressTerms` devolve lista vazia sem criar o arquivo. O tratamento segue três caminhos: `TranslationBatchBuilder` leva ao pedido de tradução os pares de quem fala no lote, com os nomes já traduzidos ("Kenta chama Misaki de 美咲ちゃん => Misaki-chan" no bloco `BatchContext` de `ClaudePromptParts`, e na chave do cache de traduções); a regra de QA `tratamento-fora-do-combinado` (`AddressTermRule`, categoria "Estilo") avisa a fala cujo original traz o tratamento do falante e cuja tradução não traz nenhum dos combinados (sem diferenciar maiúsculas), e **não trava o build** (entra em `QaReport.IsStyleAdvice`); e `IGlossarySuggester.SuggestAddressTermsAsync` preenche a tabela. `AddressSamples.From(units, characters)` guarda até 12 falas de cada falante em que ele cita outro personagem ou traz um honorífico, com quem falou antes dele; o `ClaudeGlossarySuggester` as manda ao Haiku em blocos de 10 falantes, com `output_config.format` (`pairs` com `from`, `to`, `source`, `target`) e descarta o par cujo falante ou destino não é um dos pedidos.
 
 `GlossaryUsage.From(units)` conta, para a página Glossário, as linhas do projeto que contêm cada termo (`LinesContaining`, mesmo critério do `GlossaryMatcher`) e as linhas faladas por cada personagem (`LinesSpokenBy`); conta linhas, não ocorrências dentro da linha.
 

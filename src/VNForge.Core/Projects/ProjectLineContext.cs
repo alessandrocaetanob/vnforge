@@ -19,6 +19,7 @@ internal sealed class ProjectLineContext
     private FileStamp formatting;
     private FileStamp glossary;
     private FileStamp characters;
+    private FileStamp addressTerms;
 
     /// <param name="project">A pasta do projeto.</param>
     /// <param name="initial">O contexto lido de <paramref name="project"/> (os textos são ignorados).</param>
@@ -31,6 +32,7 @@ internal sealed class ProjectLineContext
         formatting = stamps.Formatting;
         glossary = stamps.Glossary;
         characters = stamps.Characters;
+        addressTerms = stamps.AddressTerms;
     }
 
     /// <summary>As datas de gravação dos arquivos de que o contexto depende.</summary>
@@ -38,7 +40,8 @@ internal sealed class ProjectLineContext
         FileStamp.Of(project.ConfigPath),
         FileStamp.Of(project.FormattingPath),
         FileStamp.Of(project.GlossaryPath),
-        FileStamp.Of(project.CharactersPath));
+        FileStamp.Of(project.CharactersPath),
+        FileStamp.Of(project.AddressTermsPath));
 
     /// <summary>O contexto de agora, com os textos vazios.</summary>
     public QaContext Current()
@@ -63,6 +66,11 @@ internal sealed class ProjectLineContext
             if (Changed(project.CharactersPath, ref characters) && Try(project.LoadCharacters) is { } people)
             {
                 current = current with { Characters = people };
+            }
+
+            if (Changed(project.AddressTermsPath, ref addressTerms) && Try(project.LoadAddressTerms) is { } pairs)
+            {
+                current = current with { AddressTerms = pairs };
             }
 
             return current;
@@ -103,5 +111,5 @@ internal sealed class ProjectLineContext
         }
     }
 
-    internal readonly record struct Stamps(FileStamp Config, FileStamp Formatting, FileStamp Glossary, FileStamp Characters);
+    internal readonly record struct Stamps(FileStamp Config, FileStamp Formatting, FileStamp Glossary, FileStamp Characters, FileStamp AddressTerms);
 }

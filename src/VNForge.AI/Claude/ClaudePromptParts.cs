@@ -39,6 +39,13 @@ internal static class ClaudePromptParts
                 sb.AppendLine(CharacterLine(c));
         }
 
+        if (batch.Addressing.Count > 0)
+        {
+            sb.AppendLine().AppendLine("Tratamento entre personagens (como um chama o outro; use na tradução):");
+            foreach (var a in batch.Addressing)
+                sb.AppendLine($"- {a.From} chama {a.To} de {a.Source} => {a.Target}");
+        }
+
         return sb.ToString().TrimStart();
     }
 

@@ -24,11 +24,14 @@ internal sealed record ProjectScan(
     /// <summary>As chaves dos scripts que têm unidades <c>name</c>: só esses são relidos quando um personagem muda de tradução.</summary>
     public IReadOnlyList<string> NameScripts { get; init; } = [];
 
+    /// <summary>Todas as unidades na ordem do jogo, de onde a tabela de tratamentos tira as falas que a IA lê.</summary>
+    public IReadOnlyList<TextUnit> Units { get; init; } = [];
+
     public static ProjectScan From(IEnumerable<TextUnit> units)
     {
         var all = units.ToList();
         var sources = all.Select(u => u.Source).ToList();
-        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all));
+        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all)) { Units = all };
     }
 
     public static ProjectScan From(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> scripts) =>
@@ -212,7 +215,11 @@ public sealed partial class GlossaryViewModel
 
     public bool CanSuggestTerms => CanEdit && !IsSuggesting && Suggester is not null && RepeatedTermRows.Any(r => !r.HasSuggestion);
 
-    partial void OnSuggesterChanged(IGlossarySuggester? value) => NotifySuggestionState();
+    partial void OnSuggesterChanged(IGlossarySuggester? value)
+    {
+        NotifySuggestionState();
+        AddressTerms.NotifySuggestionState();
+    }
 
     private void ResetSuggestions()
     {
@@ -513,10 +520,11 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(VoiceHint));
         OnPropertyChanged(nameof(TermsPriceText));
         OnPropertyChanged(nameof(TermsHint));
+        AddressTerms.RefreshPrices();
     }
 
     // O detalhe técnico (stop_reason, o que faltou na resposta) vai para o log; a tela só recebe a frase em português.
-    private static string Explain(Exception error)
+    internal static string Explain(Exception error)
     {
         var detail = error switch
         {

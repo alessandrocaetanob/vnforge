@@ -140,7 +140,7 @@ public static class ProjectBuilder
 
         // Depois do relatório de codificação: o erro específico (com a posição) vem antes do QA genérico. O QA vê só os scripts do jogo, como o relatório; texto de script que não existe mais não é gravado.
         var characters = project.LoadCharacters();
-        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style });
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = project.LoadAddressTerms() });
         if (qaReport.Blocks(allowWarnings))
         {
             throw new QaBlockedException(qaReport, allowWarnings);

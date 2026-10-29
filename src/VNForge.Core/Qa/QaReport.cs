@@ -26,7 +26,7 @@ public sealed record QaReport(IReadOnlyList<QaIssue> Issues, IReadOnlyList<QaIss
 
     /// <summary>
     /// As ocorrências que o build pode recusar: erros e avisos, sem as linhas sem tradução e sem os avisos de estilo
-    /// (<see cref="HonorificsRule"/> e <see cref="GenderRule"/>), que são sugestões de revisão. Sem essa exceção, um projeto antigo com
+    /// (<see cref="HonorificsRule"/>, <see cref="GenderRule"/> e <see cref="AddressTermRule"/>), que são sugestões de revisão. Sem essa exceção, um projeto antigo com
     /// personagens sem gênero deixaria de compilar. É a lista que a mensagem de bloqueio, o Build e o Painel contam.
     /// </summary>
     public IReadOnlyList<QaIssue> BlockingIssues => [.. Issues.Where(i => !IsUntranslated(i) && !IsStyleAdvice(i))];
@@ -39,5 +39,5 @@ public sealed record QaReport(IReadOnlyList<QaIssue> Issues, IReadOnlyList<QaIss
 
     private static bool IsUntranslated(QaIssue issue) => issue.RuleId == UntranslatedQaRule.RuleId;
 
-    private static bool IsStyleAdvice(QaIssue issue) => issue.RuleId is HonorificsRule.RuleId or GenderRule.RuleId;
+    private static bool IsStyleAdvice(QaIssue issue) => issue.RuleId is HonorificsRule.RuleId or GenderRule.RuleId or AddressTermRule.RuleId;
 }

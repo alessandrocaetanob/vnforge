@@ -18,8 +18,15 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
     /// <summary>Termos por chamada.</summary>
     public const int TermChunk = 30;
 
+    /// <summary>Falantes por chamada: cada um leva até <see cref="AddressSamples.DefaultLines"/> falas.</summary>
+    public const int AddressChunk = 10;
+
     internal const string VoiceSchema = """
         {"type":"object","properties":{"characters":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"gender":{"type":"string","enum":["female","male","other","unknown"]},"voice":{"type":"string"}},"required":["name","gender","voice"],"additionalProperties":false}}},"required":["characters"],"additionalProperties":false}
+        """;
+
+    internal const string AddressSchema = """
+        {"type":"object","properties":{"pairs":{"type":"array","items":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"source":{"type":"string"},"target":{"type":"string"}},"required":["from","to","source","target"],"additionalProperties":false}}},"required":["pairs"],"additionalProperties":false}
         """;
 
     internal const string TermSchema = """
@@ -64,6 +71,21 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
         return all;
     }
 
+    public async Task<IReadOnlyList<AddressTermSuggestion>> SuggestAddressTermsAsync(
+        IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(speakers);
+        ArgumentNullException.ThrowIfNull(characters);
+        List<AddressTermSuggestion> all = [];
+        foreach (var chunk in speakers.Chunk(AddressChunk))
+        {
+            var text = await CallAsync(AddressSystem, AddressUser(chunk, characters), AddressSchema, ct).ConfigureAwait(false);
+            all.AddRange(ParseAddress(text, chunk, characters));
+        }
+
+        return all;
+    }
+
     private async Task<string> CallAsync(string system, string user, string schema, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -100,6 +122,47 @@ public sealed class ClaudeGlossarySuggester(IClaudeMessageClient client, ClaudeO
         e, em "reason", uma frase em português explicando a escolha (nome próprio, gíria, título, termo do enredo).
         Mantenha nomes próprios na grafia usual (Hepburn). Devolva um item por termo, com o mesmo "source" recebido. Responda apenas com o JSON pedido.
         """;
+
+    private const string AddressSystem = """
+        Você ajuda a traduzir visual novels do japonês para o português do Brasil.
+        Para cada falante, leia as falas em que ele chama alguém e devolva um item por par: "from" é o falante, "to" é o personagem chamado
+        (um dos nomes da lista "characters", exatamente como recebido), "source" é como o falante o chama no japonês (美咲ちゃん, 先輩, 田中さん)
+        e "target" é como a tradução deve chamá-lo, mantendo o tratamento (Misaki-chan, senpai, Tanaka-san). Se o falante usa só o nome,
+        repita o nome traduzido em "target". O campo "replyingTo" de uma fala diz com quem ele provavelmente fala.
+        Devolva só pares que as falas sustentam, no máximo um por par; sem pista clara, não devolva o par. Nunca use o falante como "to".
+        Responda apenas com o JSON pedido.
+        """;
+
+    private static string AddressUser(AddressTermRequest[] chunk, IReadOnlyList<AddressTermCharacter> characters) =>
+        "Falantes e falas:\n" + JsonSerializer.Serialize(chunk.Select(s => new { speaker = s.Speaker, lines = s.Lines.Select(l => new { text = l.Text, replyingTo = l.ReplyingTo }) }), PromptJson)
+        + "\nPersonagens:\n" + JsonSerializer.Serialize(characters.Select(c => new { name = c.Name, translation = c.Translation }), PromptJson);
+
+    /// <summary>
+    /// Fica com os pares que valem: o falante é um dos pedidos, o "to" é um personagem da lista (e não o próprio falante) e o tratamento não é vazio.
+    /// Um item fora disso é descartado em vez de derrubar a resposta, e o primeiro de cada par vence.
+    /// </summary>
+    private static List<AddressTermSuggestion> ParseAddress(string text, AddressTermRequest[] chunk, IReadOnlyList<AddressTermCharacter> characters)
+    {
+        var speakers = chunk.Select(s => s.Speaker).ToDictionary(n => n, n => n, CharacterBook.NameComparer);
+        var names = characters.Select(c => c.Name).Distinct(CharacterBook.NameComparer).ToDictionary(n => n, n => n, CharacterBook.NameComparer);
+        List<AddressTermSuggestion> pairs = [];
+        foreach (var item in ReadItems(text, "pairs", "from", "to", "source", "target"))
+        {
+            if (!speakers.TryGetValue(item[0], out var from) || !names.TryGetValue(item[1], out var to) || CharacterBook.NameComparer.Equals(from, to))
+            {
+                continue;
+            }
+
+            var source = item[2].Trim();
+            var target = item[3].Trim();
+            if (source.Length > 0 && target.Length > 0 && !pairs.Any(p => CharacterBook.NameComparer.Equals(p.From, from) && CharacterBook.NameComparer.Equals(p.To, to)))
+            {
+                pairs.Add(new AddressTermSuggestion(from, to, source, target));
+            }
+        }
+
+        return pairs;
+    }
 
     private static string VoiceUser(CharacterVoiceRequest[] chunk) =>
         "Personagens e falas:\n" + JsonSerializer.Serialize(chunk.Select(c => new { name = c.Name, lines = c.Lines }), PromptJson);

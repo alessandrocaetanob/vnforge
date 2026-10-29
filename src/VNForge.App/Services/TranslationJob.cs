@@ -70,7 +70,8 @@ public sealed class TranslationJob(
             project.LoadGlossary(),
             new CharacterBook(project.LoadCharacters()),
             TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, TranslationContextSummary.StyleGuideFileName)),
-            style: projectConfig.Style);
+            style: projectConfig.Style,
+            addressTerms: project.LoadAddressTerms());
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
         var raw = providerFactory(profile.Model, effort);

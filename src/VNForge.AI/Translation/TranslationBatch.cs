@@ -9,6 +9,11 @@ public sealed record GlossaryEntry(string Source, string Target, string? Notes =
 /// <summary>Um personagem presente no lote: nome original e traduzido, com o tom de fala quando definido.</summary>
 public sealed record CharacterInfo(string Source, string Target, string? Tone = null, string? Gender = null);
 
+/// <summary>Como um personagem chama outro na tradução: <paramref name="From"/> e <paramref name="To"/> são os nomes traduzidos (ou os originais, sem tradução).</summary>
+/// <param name="Source">O tratamento no original (<c>美咲ちゃん</c>).</param>
+/// <param name="Target">O tratamento que a tradução usa (<c>Misaki-chan</c>).</param>
+public sealed record AddressInfo(string From, string To, string Source, string Target);
+
 /// <summary>Pedido de uma versão mais curta de uma tradução que não cabe na caixa do jogo.</summary>
 /// <param name="Current">A tradução de hoje, que passa do limite.</param>
 /// <param name="MaxLines">Máximo de linhas por caixa do perfil de formatação.</param>
@@ -38,6 +43,9 @@ public sealed record TranslationBatch
     /// <summary>Personagens presentes no lote.</summary>
     public IReadOnlyList<CharacterInfo> Characters { get; init; } = [];
 
+    /// <summary>Quem chama quem de quê (<c>address-terms.json</c>) entre os personagens que falam no lote.</summary>
+    public IReadOnlyList<AddressInfo> Addressing { get; init; } = [];
+
     /// <summary>Guia de estilo livre do projeto (<c>style.md</c>); vazio quando não há.</summary>
     public string StyleGuide { get; init; } = string.Empty;
 
@@ -54,6 +62,7 @@ public sealed record TranslationBatch
         NextLines = NextLines,
         Glossary = Glossary,
         Characters = Characters,
+        Addressing = Addressing,
         StyleGuide = StyleGuide,
         Style = Style,
         Shorten = Shorten,

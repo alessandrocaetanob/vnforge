@@ -44,6 +44,7 @@ public sealed class QaEngine
         new FieldByteLimitRule(),
         new HonorificsRule(),
         new GenderRule(),
+        new AddressTermRule(),
     ]);
 
     /// <summary>Regras registradas, na ordem em que rodam.</summary>

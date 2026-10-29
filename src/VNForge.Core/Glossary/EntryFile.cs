@@ -29,10 +29,15 @@ internal static class EntryFile
         new(@"The JSON property '([^']+)' could not be mapped", System.Text.RegularExpressions.RegexOptions.CultureInvariant, RegexTimeout);
 
     public static string Serialize<T>(IReadOnlyList<T> entries, string filePath)
-        where T : IGlossaryEntry
+        where T : IGlossaryEntry =>
+        Serialize<T>(entries, filePath, CheckEntries<T>, e => e.Source);
+
+    /// <param name="check">Confere as entradas antes de gravar ou depois de ler e lança <see cref="GlossaryFileException"/>; cada tipo de arquivo tem a sua chave.</param>
+    /// <param name="label">Como a entrada se chama na mensagem de uma falha de gravação.</param>
+    public static string Serialize<T>(IReadOnlyList<T> entries, string filePath, Action<IReadOnlyList<T>, string> check, Func<T, string> label)
     {
         ArgumentNullException.ThrowIfNull(entries);
-        CheckEntries(entries, filePath);
+        check(entries, filePath);
 
         var sb = new StringBuilder("{\n  \"version\": ").Append(CurrentVersion).Append(",\n  \"entries\": [");
         if (entries.Count == 0)
@@ -50,7 +55,7 @@ internal static class EntryFile
             }
             catch (JsonException ex)
             {
-                throw new GlossaryFileException(filePath, $"a entrada '{entries[i].Source}' não pôde ser gravada: {ex.Message}", ex);
+                throw new GlossaryFileException(filePath, $"a entrada '{label(entries[i])}' não pôde ser gravada: {ex.Message}", ex);
             }
 
             sb.Append("    ").Append(line).Append(i < entries.Count - 1 ? ",\n" : "\n");
@@ -60,7 +65,11 @@ internal static class EntryFile
     }
 
     public static IReadOnlyList<T> Parse<T>(string json, string filePath)
-        where T : class, IGlossaryEntry
+        where T : class, IGlossaryEntry =>
+        Parse<T>(json, filePath, CheckEntries<T>);
+
+    public static IReadOnlyList<T> Parse<T>(string json, string filePath, Action<IReadOnlyList<T>, string> check)
+        where T : class
     {
         ArgumentNullException.ThrowIfNull(json);
         ArgumentNullException.ThrowIfNull(filePath);
@@ -84,7 +93,7 @@ internal static class EntryFile
             entries.Add(envelope.Entries[i] ?? throw new GlossaryFileException(filePath, $"$.entries[{i}]: a entrada é nula."));
         }
 
-        CheckEntries(entries, filePath);
+        check(entries, filePath);
         return entries;
     }
 

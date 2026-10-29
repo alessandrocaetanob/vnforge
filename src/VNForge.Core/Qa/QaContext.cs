@@ -24,6 +24,9 @@ public sealed record QaContext(
     /// <summary>Escolhas de estilo do <c>vnforge.json</c>, que as regras de honorífico consultam; o padrão quando o contexto não vem de um projeto.</summary>
     public StyleConfig Style { get; init; } = StyleConfig.Default;
 
+    /// <summary>Tratamentos entre personagens de <c>address-terms.json</c>, que a <see cref="AddressTermRule"/> confere; vazio quando o projeto não os tem ou o contexto não vem de um projeto.</summary>
+    public IReadOnlyList<AddressTerm> AddressTerms { get; init; } = [];
+
     /// <summary>Título do jogo do <c>vnforge.json</c>, que a <see cref="GameTitleEncodingRule"/> confere; nulo quando o projeto não tem título ou o contexto não vem de um projeto.</summary>
     public GameTitleConfig? GameTitle { get; init; }
 
@@ -48,6 +51,6 @@ public sealed record QaContext(
         ArgumentNullException.ThrowIfNull(project);
         var config = project.LoadConfig();
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
-        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title };
+        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTerms() };
     }
 }

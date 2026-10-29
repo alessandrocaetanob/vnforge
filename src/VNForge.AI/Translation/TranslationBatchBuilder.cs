@@ -15,7 +15,8 @@ public sealed class TranslationBatchBuilder(
     string? styleGuide = null,
     int maxPreviousLines = TranslationBatchBuilder.DefaultContextLines,
     StyleConfig? style = null,
-    int maxNextLines = TranslationBatchBuilder.DefaultContextLines)
+    int maxNextLines = TranslationBatchBuilder.DefaultContextLines,
+    IReadOnlyList<AddressTerm>? addressTerms = null)
 {
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
     public const int DefaultContextLines = 2;
@@ -24,6 +25,7 @@ public sealed class TranslationBatchBuilder(
     private readonly CharacterBook _characters = characters ?? throw new ArgumentNullException(nameof(characters));
     private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
     private readonly StyleConfig _style = style ?? StyleConfig.Default;
+    private readonly AddressBook _addressing = new(addressTerms ?? []);
 
     /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
@@ -49,6 +51,13 @@ public sealed class TranslationBatchBuilder(
             .Select(c => new CharacterInfo(c.Source, c.Target, c.Tone, c.Gender == CharacterGender.Unknown ? null : c.Gender.ToString().ToLowerInvariant()))
             .ToList();
 
+        // Os pares incompletos (a pessoa ainda preenche a tabela) não dizem nada à IA.
+        var addressing = matchedCharacters
+            .SelectMany(c => _addressing.From(c.Source))
+            .Where(t => !string.IsNullOrWhiteSpace(t.Source) && !string.IsNullOrWhiteSpace(t.Target))
+            .Select(t => new AddressInfo(NameInTranslation(t.From), NameInTranslation(t.To), t.Source.Trim(), t.Target.Trim()))
+            .ToList();
+
         var context = (previous ?? [])
             .Where(u => u.HasTranslation)
             .TakeLast(Math.Max(0, maxPreviousLines))
@@ -63,12 +72,16 @@ public sealed class TranslationBatchBuilder(
         {
             Glossary = matchedGlossary,
             Characters = matchedCharacters,
+            Addressing = addressing,
             PreviousLines = context,
             NextLines = following,
             StyleGuide = _styleGuide,
             Style = _style,
         };
     }
+
+    private string NameInTranslation(string name) =>
+        _characters.Find(name) is { Target: { } target } && !string.IsNullOrWhiteSpace(target) ? target.Trim() : name.Trim();
 
     /// <summary>Lê o <c>style.md</c> do projeto; devolve vazio quando o arquivo não existe.</summary>
     public static string ReadStyleGuide(string path) =>
