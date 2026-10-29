@@ -118,6 +118,15 @@ public class SpeakerSamplesTests
     }
 
     [Fact]
+    public void Ficha_da_fala_repetida_fica_com_a_traducao_de_uma_ocorrencia_traduzida()
+    {
+        var sheet = SpeakerSamples.Sheets([Spoken(0, "はい", "美咲"), Spoken(1, "はい", "美咲", "Sim.", TranslationStatus.Translated)])["美咲"];
+
+        var only = Assert.Single(sheet.Longest);
+        Assert.Equal("Sim.", only.Translation);
+    }
+
+    [Fact]
     public void Ficha_deixa_a_traducao_vazia_como_nula_e_ignora_narracao_sinais_e_falas_em_branco()
     {
         var sheets = SpeakerSamples.Sheets([

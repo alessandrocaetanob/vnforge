@@ -70,7 +70,7 @@ public static class SpeakerSamples
         ArgumentOutOfRangeException.ThrowIfLessThan(longest, 1);
 
         var lines = new Dictionary<string, List<SpokenLine>>(CharacterBook.NameComparer);
-        var seen = new Dictionary<string, HashSet<string>>(CharacterBook.NameComparer);
+        var at = new Dictionary<string, Dictionary<string, int>>(CharacterBook.NameComparer);
         var awaiting = new Dictionary<string, int>(CharacterBook.NameComparer);
         foreach (var unit in units)
         {
@@ -84,7 +84,7 @@ public static class SpeakerSamples
             if (!lines.TryGetValue(speaker, out var spoken))
             {
                 lines[speaker] = spoken = [];
-                seen[speaker] = new HashSet<string>(StringComparer.Ordinal);
+                at[speaker] = new Dictionary<string, int>(StringComparer.Ordinal);
             }
 
             if (unit.Status == TranslationStatus.Machine)
@@ -92,9 +92,16 @@ public static class SpeakerSamples
                 awaiting[speaker] = awaiting.GetValueOrDefault(speaker) + 1;
             }
 
-            if (seen[speaker].Add(line))
+            var translation = string.IsNullOrWhiteSpace(unit.Translation) ? null : unit.Translation.Trim();
+            if (!at[speaker].TryGetValue(line, out var index))
             {
-                spoken.Add(new SpokenLine(line, string.IsNullOrWhiteSpace(unit.Translation) ? null : unit.Translation.Trim()));
+                at[speaker][line] = spoken.Count;
+                spoken.Add(new SpokenLine(line, translation));
+            }
+            else if (spoken[index].Translation is null && translation is not null)
+            {
+                // A mesma fala repetida: a primeira ocorrência sem tradução fica com a de uma ocorrência traduzida.
+                spoken[index] = spoken[index] with { Translation = translation };
             }
         }
 
