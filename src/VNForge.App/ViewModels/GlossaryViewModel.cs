@@ -585,42 +585,45 @@ public sealed partial class GlossaryViewModel : ObservableObject
         where T : UsageRow
     {
         ApplyUses(row);
-        row.PropertyChanged += (_, e) =>
+        row.PropertyChanged += (_, e) => OnRowChanged(row, e.PropertyName, markDirty);
+        return row;
+    }
+
+    private void OnRowChanged(UsageRow row, string? property, Action markDirty)
+    {
+        // A contagem não é dado do arquivo: mexer nela não suja a página.
+        if (IsDerivedProperty(property))
         {
-            // A contagem não é dado do arquivo: mexer nela não suja a página.
-            if (IsDerivedProperty(e.PropertyName))
-            {
-                if (e.PropertyName == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
-                {
-                    NotifyVoices();
-                }
-
-                NotifySummaries();
-                return;
-            }
-
-            if (e.PropertyName == nameof(GlossaryTermRow.Source))
-            {
-                ApplyUses(row);
-            }
-
-            if (row is CharacterRow)
+            if (property == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
             {
                 NotifyVoices();
-                if (e.PropertyName is nameof(CharacterRow.Source) or nameof(CharacterRow.Target))
-                {
-                    AddressTerms.CharactersEdited();
-                }
             }
 
-            if (e.PropertyName == nameof(GlossaryTermRow.Source))
+            NotifySummaries();
+            return;
+        }
+
+        var isSource = property == nameof(GlossaryTermRow.Source);
+        if (isSource)
+        {
+            ApplyUses(row);
+        }
+
+        if (row is CharacterRow)
+        {
+            NotifyVoices();
+            if (property is nameof(CharacterRow.Source) or nameof(CharacterRow.Target))
             {
-                RefreshRepeatedTerms();
+                AddressTerms.CharactersEdited();
             }
+        }
 
-            markDirty();
-        };
-        return row;
+        if (isSource)
+        {
+            RefreshRepeatedTerms();
+        }
+
+        markDirty();
     }
 
     private static bool IsDerivedProperty(string? property) =>
