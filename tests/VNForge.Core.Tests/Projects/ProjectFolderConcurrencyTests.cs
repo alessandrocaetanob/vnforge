@@ -264,7 +264,10 @@ public class ProjectFolderConcurrencyTests
             if (tentativas == 1)
             {
                 // Uma thread sem CPU volta tarde: o orçamento conta as esperas pedidas, e não o relógio, para ela não perder as tentativas.
+                // A espera real é o próprio cenário do teste, não uma sincronização.
+#pragma warning disable S2925
                 Thread.Sleep(320);
+#pragma warning restore S2925
                 throw new UnauthorizedAccessException();
             }
 
