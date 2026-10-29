@@ -476,10 +476,10 @@ public sealed partial class GlossaryViewModel : ObservableObject
                 if (characters.Count > 0 || File.Exists(folder.CharactersPath))
                 {
                     folder.SaveCharacters(characters);
+                    RememberStaleAddressNames(renames);
                     ShareNamesWithLines(folder, characters);
                 }
 
-                RememberStaleAddressNames(renames);
                 charactersDirty = false;
             }
 

@@ -45,9 +45,16 @@ public sealed partial class GlossaryViewModel
     // Os personagens já estão no disco com o nome novo e os tratamentos, se a gravação deles falhar, ainda citam o antigo.
     private void RememberStaleAddressNames(Dictionary<string, string> renames)
     {
-        foreach (var (oldName, newName) in renames)
+        // Um nome renomeado de novo antes de os tratamentos serem gravados continua citado no arquivo pelo primeiro nome: A vira B e B vira C fica "A agora é C".
+        var merged = staleAddressNames
+            .Select(r => (Cited: r.Key, Now: renames.GetValueOrDefault(r.Value, r.Value)))
+            .Concat(renames.Where(r => !staleAddressNames.Values.Contains(r.Key, CharacterBook.NameComparer)).Select(r => (Cited: r.Key, Now: r.Value)))
+            .Where(r => !CharacterBook.NameComparer.Equals(r.Cited, r.Now))
+            .ToList();
+        staleAddressNames.Clear();
+        foreach (var (cited, now) in merged)
         {
-            staleAddressNames[oldName] = newName;
+            staleAddressNames[cited] = now;
         }
     }
 

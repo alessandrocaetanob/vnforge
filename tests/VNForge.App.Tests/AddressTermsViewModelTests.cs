@@ -525,6 +525,25 @@ public class AddressTermsViewModelTests
     }
 
     [Fact]
+    public async Task Renomear_de_novo_depois_da_falha_o_aviso_cita_o_nome_que_o_arquivo_ainda_tem()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+        File.Delete(folder.AddressTermsPath);
+        Directory.CreateDirectory(folder.AddressTermsPath);
+        var misaki = vm.Characters.Single(c => c.Source == "美咲");
+
+        misaki.Source = "みさき";
+        vm.Flush();
+        misaki.Source = "ミサキ";
+        vm.Flush();
+
+        Assert.True(vm.SaveFailed);
+        Assert.Contains("美咲 agora é ミサキ", vm.ErrorMessage);
+        Assert.DoesNotContain("みさき agora", vm.ErrorMessage);
+    }
+
+    [Fact]
     public async Task Descartar_depois_da_falha_entre_os_arquivos_avisa_quais_nomes_os_tratamentos_ainda_citam()
     {
         using var temp = new TempFolder();
