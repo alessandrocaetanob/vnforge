@@ -19,6 +19,10 @@ public sealed partial class SameSourceBatch : ObservableObject
     [ObservableProperty]
     public partial double Progress { get; private set; }
 
+    /// <summary>O que o último lote fez; o painel da linha aberta o mostra mesmo quando o lote começou em outra linha. Nulo durante um lote e depois de uma falha sem resultado.</summary>
+    [ObservableProperty]
+    public partial SameSourceOutcome? LastOutcome { get; private set; }
+
     /// <summary>O que o lote está fazendo, com a porcentagem; vazio quando não há lote.</summary>
     [ObservableProperty]
     public partial string Text { get; private set; } = string.Empty;
@@ -36,6 +40,7 @@ public sealed partial class SameSourceBatch : ObservableObject
         token = cancellation.Token;
         Progress = 0;
         Text = Describe(0);
+        LastOutcome = null;
         IsRunning = true;
         return true;
     }
@@ -55,14 +60,15 @@ public sealed partial class SameSourceBatch : ObservableObject
     /// <summary>Pede ao lote que pare entre um script e outro; o que já foi gravado fica gravado.</summary>
     public void Cancel() => cancellation?.Cancel();
 
-    /// <summary>Encerra o lote, terminando, cancelado ou com falha.</summary>
-    public void Finish()
+    /// <summary>Encerra o lote, terminando, cancelado ou com falha, e guarda o que ele fez em <see cref="LastOutcome"/>.</summary>
+    public void Finish(SameSourceOutcome? outcome = null)
     {
         var source = cancellation;
         cancellation = null;
         IsRunning = false;
         Progress = 0;
         Text = string.Empty;
+        LastOutcome = outcome;
         source?.Dispose();
     }
 

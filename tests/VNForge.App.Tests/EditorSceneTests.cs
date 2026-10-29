@@ -107,13 +107,15 @@ public sealed class EditorSceneTests : IDisposable
             }
 
             Token = token;
+            VNForge.App.Services.SameSourceOutcome? feito = null;
             try
             {
-                return await (gate?.Task ?? Task.FromResult(outcome ?? new(0, 0, 0, false)));
+                feito = await (gate?.Task ?? Task.FromResult(outcome ?? new(0, 0, 0, false)));
+                return feito;
             }
             finally
             {
-                Batch.Finish();
+                Batch.Finish(feito);
             }
         }
     }
@@ -201,6 +203,33 @@ public sealed class EditorSceneTests : IDisposable
         await execucao;
         Assert.False(segunda.IsApplyingToAll);
         Assert.True(segunda.UseForAllCommand.CanExecute(null));
+        Assert.Equal("Cancelado. Aplicada a 10 de 40 linhas; as outras continuam como estavam.", segunda.SameSourceResult);
+        Assert.Equal(segunda.SameSourceResult, primeira.SameSourceResult);
+    }
+
+    [Fact]
+    public async Task Linha_que_sumiu_diz_para_reabrir_o_projeto_e_nao_para_tentar_de_novo()
+    {
+        var porta = Porta();
+        var vm = DetalheComFalas(new FalasIguais(5, gate: porta));
+        var execucao = vm.UseForAllCommand.ExecuteAsync(null);
+
+        porta.SetResult(new VNForge.App.Services.SameSourceOutcome(2, 5, 2, true, FailureReason: "A linha 'x' não existe no script 'y'. Reabra o projeto e tente de novo.", Stale: true));
+        await execucao;
+
+        Assert.Equal("Aplicada a 2 de 5 linhas; as outras não foram gravadas. A linha 'x' não existe no script 'y'. Reabra o projeto e tente de novo. O que já foi gravado pode ser desfeito pela lista de tarefas.", vm.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(1, "Aplicada a 3 linhas. 1 linha foi editada enquanto isso e ficou como estava.")]
+    [InlineData(2, "Aplicada a 3 linhas. 2 linhas foram editadas enquanto isso e ficaram como estavam.")]
+    public async Task O_resultado_cita_as_linhas_editadas_durante_o_lote(int editadas, string frase)
+    {
+        var vm = DetalheComFalas(new FalasIguais(5, outcome: new(3, 5, 3, false, Edited: editadas)));
+
+        await vm.UseForAllCommand.ExecuteAsync(null);
+
+        Assert.Equal(frase, vm.SameSourceResult);
     }
 
     [Fact]
@@ -301,6 +330,39 @@ public sealed class EditorSceneTests : IDisposable
         Assert.Equal("Tá bom.", vm.Lines[2].TranslationPlain);
         Assert.Equal(TranslationStatus.Translated, vm.Lines[2].Status);
         Assert.False(vm.Detail!.IsApplyingToAll);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_no_meio_do_lote_cancela_o_lote()
+    {
+        var entrou = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var liberar = new ManualResetEventSlim();
+        var projeto = ProjectFolder.Open(raiz);
+        var segurar = false;
+        var vm = await Abrir(_ => new LineEditor(projeto, relogio, (chave, unidades) =>
+        {
+            if (chave == "yst00001" && Volatile.Read(ref segurar))
+            {
+                entrou.TrySetResult();
+                liberar.Wait(TimeSpan.FromSeconds(30));
+            }
+
+            projeto.SaveText(chave, unidades);
+        }));
+        vm.SelectedLine = vm.Lines[3];
+        vm.Detail!.FieldText = "Tá bom.";
+        var detalhe = vm.Detail;
+        await detalhe.UseForAllCommand.ExecuteAsync(null);
+        Volatile.Write(ref segurar, true);
+        var lote = detalhe.ConfirmUseForAllCommand.ExecuteAsync(null);
+        await entrou.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        vm.Project = EditorFixtures.Summary("Outro nome", raiz);
+        liberar.Set();
+        await lote;
+
+        Assert.StartsWith("Cancelado.", detalhe.SameSourceResult);
+        Assert.Equal("Sim.\\p", Gravada("yst00002", 0).Translation);
     }
 
     [Fact]

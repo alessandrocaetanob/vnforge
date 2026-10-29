@@ -117,7 +117,7 @@ public sealed class LineEditor
                     .ToList();
                 if (others.Count > 0)
                 {
-                    var result = SetTranslationForScripts(others, translation);
+                    var result = SetTranslationForScripts(others, NewRun(translation, null));
                     if (result.Failure is not null)
                     {
                         Debug.WriteLine(result.Failure);
@@ -154,59 +154,65 @@ public sealed class LineEditor
         IEnumerable<(string ScriptKey, string Id)> targets,
         string translation,
         IProgress<BatchProgress>? progress,
-        CancellationToken cancellation)
+        CancellationToken cancellation) =>
+        SetTranslationFor(targets, translation, progress, cancellation, null);
+
+    /// <summary>
+    /// <see cref="SetTranslationFor(IEnumerable{ValueTuple{string, string}}, string, IProgress{BatchProgress}?, CancellationToken)"/> que só troca a linha que ainda é a que o
+    /// chamador leu: com a trava por script, a pessoa pode gravar outra linha-alvo no meio do lote, e essa edição vale mais que o lote.
+    /// </summary>
+    /// <param name="read">As unidades como o chamador as leu, por <see cref="TextUnit.Id"/>. A linha cuja tradução ou situação no disco já é outra fica como está e vem em <see cref="BatchTranslationResult.Edited"/>; nulo troca todas.</param>
+    public BatchTranslationResult SetTranslationFor(
+        IEnumerable<(string ScriptKey, string Id)> targets,
+        string translation,
+        IProgress<BatchProgress>? progress,
+        CancellationToken cancellation,
+        IReadOnlyDictionary<string, TextUnit>? read)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
         translation = PunctuationOption()?.Apply(translation) ?? translation;
-        return SetTranslationForScripts([.. targets], translation, progress, cancellation);
+        return SetTranslationForScripts([.. targets], NewRun(translation, read), progress, cancellation);
     }
+
+    private TranslationRun NewRun(string translation, IReadOnlyDictionary<string, TextUnit>? read) =>
+        new(translation, new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()), read);
 
     private BatchTranslationResult SetTranslationForScripts(
         IReadOnlyList<(string ScriptKey, string Id)> targets,
-        string translation,
+        TranslationRun run,
         IProgress<BatchProgress>? progress = null,
         CancellationToken cancellation = default)
     {
-        var origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow());
         var scripts = targets.GroupBy(t => t.ScriptKey, StringComparer.Ordinal).ToList();
-        var saved = new List<LineChange>();
-        var unchanged = new List<(string ScriptKey, TextUnit Unit)>();
         var done = 0;
         foreach (var script in scripts)
         {
             if (cancellation.IsCancellationRequested)
             {
-                return new BatchTranslationResult(saved, unchanged, targets.Count, null, Canceled: true);
+                return run.Result(targets.Count, canceled: true);
             }
 
             try
             {
-                if (!SetTranslationInScript(script.Key, script.Select(t => t.Id), translation, origin, saved, unchanged, cancellation))
+                if (!SetTranslationInScript(script.Key, script.Select(t => t.Id), run, cancellation))
                 {
-                    return new BatchTranslationResult(saved, unchanged, targets.Count, null, Canceled: true);
+                    return run.Result(targets.Count, canceled: true);
                 }
             }
             catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException)
             {
-                return new BatchTranslationResult(saved, unchanged, targets.Count, e);
+                return run.Result(targets.Count, e);
             }
 
             progress?.Report(new BatchProgress(++done, scripts.Count));
         }
 
-        return new BatchTranslationResult(saved, unchanged, targets.Count, null);
+        return run.Result(targets.Count);
     }
 
     /// <summary>Falso quando o cancelamento chegou enquanto esperava a trava: nada foi lido nem gravado neste script.</summary>
-    private bool SetTranslationInScript(
-        string scriptKey,
-        IEnumerable<string> ids,
-        string translation,
-        TranslationOrigin origin,
-        List<LineChange> saved,
-        List<(string ScriptKey, TextUnit Unit)> unchanged,
-        CancellationToken cancellation)
+    private bool SetTranslationInScript(string scriptKey, IEnumerable<string> ids, TranslationRun run, CancellationToken cancellation)
     {
         lock (ProjectTextLock.For(project))
         {
@@ -219,27 +225,20 @@ public sealed class LineEditor
             var changes = new List<LineChange>();
             foreach (var id in ids)
             {
-                PlanLine(units, scriptKey, id, translation, origin, changes, unchanged);
+                PlanLine(units, scriptKey, id, run, changes);
             }
 
             if (changes.Count > 0)
             {
                 save(scriptKey, units);
-                saved.AddRange(changes);
+                run.Saved.AddRange(changes);
             }
 
             return true;
         }
     }
 
-    private static void PlanLine(
-        List<TextUnit> units,
-        string scriptKey,
-        string id,
-        string translation,
-        TranslationOrigin origin,
-        List<LineChange> changes,
-        List<(string ScriptKey, TextUnit Unit)> unchanged)
+    private static void PlanLine(List<TextUnit> units, string scriptKey, string id, TranslationRun run, List<LineChange> changes)
     {
         var index = units.FindIndex(u => string.Equals(u.Id, id, StringComparison.Ordinal));
         if (index < 0)
@@ -248,14 +247,38 @@ public sealed class LineEditor
         }
 
         var previous = units[index];
-        if (string.Equals(previous.Translation, translation, StringComparison.Ordinal))
+        if (string.Equals(previous.Translation, run.Translation, StringComparison.Ordinal))
         {
-            unchanged.Add((scriptKey, previous));
+            run.Unchanged.Add((scriptKey, previous));
             return;
         }
 
-        units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin, Doubt = null, AiTranslation = previous.AiTranslationAfterEdit(translation) };
+        if (run.Read is { } read && read.TryGetValue(id, out var wasRead) && (previous.Translation != wasRead.Translation || previous.Status != wasRead.Status))
+        {
+            run.Edited.Add((scriptKey, previous));
+            return;
+        }
+
+        units[index] = previous with { Translation = run.Translation, Status = TranslationStatus.Translated, Origin = run.Origin, Doubt = null, AiTranslation = previous.AiTranslationAfterEdit(run.Translation) };
         changes.Add(new LineChange(scriptKey, previous, units[index]));
+    }
+
+    private sealed class TranslationRun(string translation, TranslationOrigin origin, IReadOnlyDictionary<string, TextUnit>? read)
+    {
+        public string Translation => translation;
+
+        public TranslationOrigin Origin => origin;
+
+        public IReadOnlyDictionary<string, TextUnit>? Read => read;
+
+        public List<LineChange> Saved { get; } = [];
+
+        public List<(string ScriptKey, TextUnit Unit)> Unchanged { get; } = [];
+
+        public List<(string ScriptKey, TextUnit Unit)> Edited { get; } = [];
+
+        public BatchTranslationResult Result(int requested, Exception? failure = null, bool canceled = false) =>
+            new(Saved, Unchanged, requested, failure, canceled, Edited);
     }
 
     /// <summary>
@@ -515,8 +538,12 @@ public sealed record BatchProgress(int Done, int Total)
 /// <param name="Requested">Quantas linhas foram pedidas.</param>
 /// <param name="Failure">Por que um script não gravou; nulo quando tudo foi gravado.</param>
 /// <param name="Canceled">O usuário cancelou; <paramref name="Changes"/> traz o que já tinha sido gravado e o resto ficou como estava.</param>
-public sealed record BatchTranslationResult(IReadOnlyList<LineChange> Changes, IReadOnlyList<(string ScriptKey, TextUnit Unit)> Unchanged, int Requested, Exception? Failure, bool Canceled = false)
+/// <param name="Edited">Linhas que a pessoa editou depois de o chamador lê-las e que o lote deixou como estavam, com a unidade do disco; nulo quando o chamador não pediu a conferência.</param>
+public sealed record BatchTranslationResult(IReadOnlyList<LineChange> Changes, IReadOnlyList<(string ScriptKey, TextUnit Unit)> Unchanged, int Requested, Exception? Failure, bool Canceled = false, IReadOnlyList<(string ScriptKey, TextUnit Unit)>? Edited = null)
 {
+    /// <summary>Quantas linhas ficaram como estavam por terem sido editadas durante o lote.</summary>
+    public int EditedCount => Edited?.Count ?? 0;
+
     /// <summary>Quantas linhas passam a ter o texto: as gravadas agora e as que já o tinham.</summary>
     public int Applied => Changes.Count + Unchanged.Count;
 }

@@ -301,7 +301,8 @@ public class SameSourceTests
 
             var edicao = Task.Run(() => editor.SetTranslation("yst00002", "yst00002:000001", "Editada."), TestContext.Current.CancellationToken);
 
-            Assert.Same(edicao, await Task.WhenAny(edicao, Task.Delay(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)));
+            await edicao.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Assert.False(lote.IsCompleted, "A edição terminou depois do lote: ela esperou a trava do lote inteiro.");
         }
         finally
         {
@@ -334,31 +335,49 @@ public class SameSourceTests
     {
         using var pasta = new TempFolder();
         var projeto = NovoProjeto(pasta.Path);
-        projeto.SaveText("yst00001", Textos()["yst00001"]);
+        foreach (var (chave, unidades) in Textos())
+        {
+            projeto.SaveText(chave, unidades);
+        }
+
         var editor = new LineEditor(projeto, new FakeTimeProvider(Agora));
         using var cancelamento = new CancellationTokenSource();
-        using var segura = new ManualResetEventSlim();
-        using var solta = new ManualResetEventSlim();
+        var alvos = new[] { ("yst00001", "yst00001:000002"), ("yst00002", "yst00002:000000") };
+        Thread? threadDoLote = null;
+        using var noMeio = new ManualResetEventSlim();
+        var seguindo = false;
+        var andamento = new SincronoProgress(p =>
+        {
+            if (p.Done != 1)
+            {
+                return;
+            }
+
+            threadDoLote = Thread.CurrentThread;
+            noMeio.Set();
+            while (!Volatile.Read(ref seguindo))
+            {
+                Thread.SpinWait(100);
+            }
+        });
+        var lote = Task.Run(() => editor.SetTranslationFor(alvos, "Tá.\\p", andamento, cancelamento.Token), TestContext.Current.CancellationToken);
+        Assert.True(noMeio.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
         var segurando = Task.Run(() =>
         {
             lock (ProjectTextLock.For(projeto))
             {
-                segura.Set();
-                solta.Wait(TimeSpan.FromSeconds(30));
+                Volatile.Write(ref seguindo, true);
+                Assert.True(SpinWait.SpinUntil(() => threadDoLote!.ThreadState.HasFlag(ThreadState.WaitSleepJoin), TimeSpan.FromSeconds(30)));
+                cancelamento.Cancel();
             }
         }, TestContext.Current.CancellationToken);
-        Assert.True(segura.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
-        var lote = Task.Run(() => editor.SetTranslationFor([("yst00001", "yst00001:000002")], "Tá.\\p", null, cancelamento.Token), TestContext.Current.CancellationToken);
-        await Task.Delay(300, TestContext.Current.CancellationToken);
-        await cancelamento.CancelAsync();
-        solta.Set();
         await segurando;
-
         var resultado = await lote;
 
         Assert.True(resultado.Canceled);
-        Assert.Empty(resultado.Changes);
-        Assert.Equal("Aham.\\p", projeto.LoadText("yst00001")[2].Translation);
+        Assert.Equal("yst00001:000002", Assert.Single(resultado.Changes).Saved.Id);
+        Assert.Null(projeto.LoadText("yst00002")[0].Translation);
     }
 
     private sealed class SincronoProgress(Action<BatchProgress> report) : IProgress<BatchProgress>

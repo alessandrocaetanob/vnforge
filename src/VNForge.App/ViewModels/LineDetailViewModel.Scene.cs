@@ -54,6 +54,11 @@ public sealed partial class LineDetailViewModel
         OnPropertyChanged(nameof(IsApplyingToAll));
         OnPropertyChanged(nameof(ApplyProgress));
         OnPropertyChanged(nameof(ApplyProgressText));
+        if (e.PropertyName == nameof(SameSourceBatch.LastOutcome) && !startedBatch && SameSource?.Batch.LastOutcome is { } outcome)
+        {
+            ShowApplyOutcome(outcome);
+        }
+
         if (e.PropertyName == nameof(SameSourceBatch.IsRunning))
         {
             UseForAllCommand.NotifyCanExecuteChanged();
@@ -62,6 +67,9 @@ public sealed partial class LineDetailViewModel
             CancelApplyToAllCommand.NotifyCanExecuteChanged();
         }
     }
+
+    /// <summary>Este painel começou o lote que está rodando e mostra o resultado dele; os outros painéis o mostram pelo <see cref="SameSourceBatch.LastOutcome"/>.</summary>
+    private bool startedBatch;
 
     private void StopObservingBatch()
     {
@@ -121,6 +129,7 @@ public sealed partial class LineDetailViewModel
         IsUseForAllConfirmOpen = false;
         if (IsApplyingToAll)
         {
+            pendingVariant = null;
             return;
         }
 
@@ -159,33 +168,49 @@ public sealed partial class LineDetailViewModel
         }
 
         var outcome = new SameSourceOutcome(0, 0, 0, Failed: false);
-        if (await TrySaveAsync(async () => outcome = await SameSource!.ApplyAsync(Translation)))
+        startedBatch = true;
+        try
         {
-            ShowApplyOutcome(outcome);
+            if (await TrySaveAsync(async () => outcome = await SameSource!.ApplyAsync(Translation)))
+            {
+                ShowApplyOutcome(outcome);
+            }
+        }
+        finally
+        {
+            startedBatch = false;
         }
     }
 
     private void ShowApplyOutcome(SameSourceOutcome outcome)
     {
+        var applied = $"Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas";
         if (outcome.Failed)
         {
-            ErrorMessage = $"Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas; as outras não foram gravadas. Tente de novo.";
+            ErrorMessage = outcome.Stale
+                ? $"{applied}; as outras não foram gravadas. {outcome.FailureReason} O que já foi gravado pode ser desfeito pela lista de tarefas.{EditedNote(outcome)}"
+                : $"{applied}; as outras não foram gravadas. Tente de novo.{EditedNote(outcome)}";
             return;
         }
 
-        if (outcome.Canceled)
-        {
-            SameSourceResult = $"Cancelado. Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas; as outras continuam como estavam.";
-            return;
-        }
-
-        SameSourceResult = outcome.Changed switch
-        {
-            0 => "As outras linhas já tinham esta tradução.",
-            1 => "Aplicada a 1 linha.",
-            _ => $"Aplicada a {ProjectLabels.Number(outcome.Changed)} linhas.",
-        };
+        SameSourceResult = outcome.Canceled
+            ? $"Cancelado. {applied}; as outras continuam como estavam.{EditedNote(outcome)}"
+            : ChangedText(outcome.Changed) + EditedNote(outcome);
     }
+
+    private static string ChangedText(int changed) => changed switch
+    {
+        0 => "As outras linhas já tinham esta tradução.",
+        1 => "Aplicada a 1 linha.",
+        _ => $"Aplicada a {ProjectLabels.Number(changed)} linhas.",
+    };
+
+    private static string EditedNote(SameSourceOutcome outcome) => outcome.Edited switch
+    {
+        0 => string.Empty,
+        1 => " 1 linha foi editada enquanto isso e ficou como estava.",
+        _ => $" {ProjectLabels.Number(outcome.Edited)} linhas foram editadas enquanto isso e ficaram como estavam.",
+    };
 
     private static string ConfirmText(SameSourcePreview preview)
     {

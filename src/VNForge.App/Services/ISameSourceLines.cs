@@ -14,7 +14,10 @@ public sealed record SameSourcePreview(int Differing, int Strong);
 /// <param name="Changed">Quantas foram gravadas agora.</param>
 /// <param name="Failed">Algum script não gravou; as linhas dele continuam como estavam.</param>
 /// <param name="Canceled">O usuário cancelou; o que já estava gravado fica gravado e as outras linhas continuam como estavam.</param>
-public sealed record SameSourceOutcome(int Applied, int Requested, int Changed, bool Failed, bool Canceled = false);
+/// <param name="Edited">Quantas linhas a pessoa editou durante o lote e ficaram com o valor dela.</param>
+/// <param name="FailureReason">Por que o lote parou, com a orientação do Core; nulo quando não falhou.</param>
+/// <param name="Stale">O projeto mudou por baixo do lote (uma linha não existe mais): reabrir o projeto resolve, tentar de novo não.</param>
+public sealed record SameSourceOutcome(int Applied, int Requested, int Changed, bool Failed, bool Canceled = false, int Edited = 0, string? FailureReason = null, bool Stale = false);
 
 /// <summary>As outras linhas do projeto que têm o mesmo original da linha aberta, para o "Usar em todos" do inspetor.</summary>
 public interface ISameSourceLines

@@ -612,6 +612,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         StopReview();
         ClearChangedSinceTest();
         Search.Project = value;
+        sameSourceBatch.Cancel();
         Loading = LoadAsync();
     }
 
@@ -722,31 +723,35 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             throw new InvalidOperationException("Já há um Usar em todos gravando. Espere ele terminar ou cancele.");
         }
 
+        SameSourceOutcome? outcome = null;
+        var root = Project?.Root;
         try
         {
             var snapshot = data;
-            var root = Project?.Root;
             var others = snapshot.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
-            var result = await WriteSameSourceAsync(others.Values, translation, root, new Progress<BatchProgress>(sameSourceBatch.Report), cancellation);
+            var result = await WriteSameSourceAsync(others, translation, root, new Progress<BatchProgress>(sameSourceBatch.Report), cancellation);
             ShowSameSourceResult(result, others, snapshot, root);
-            return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null, result.Canceled);
+            outcome = new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null, result.Canceled, result.EditedCount, result.Failure?.Message, result.Failure is KeyNotFoundException);
+            return outcome;
         }
         finally
         {
-            sameSourceBatch.Finish();
+            // O resultado é do projeto que começou o lote; outro projeto aberto no meio do caminho não o mostra.
+            sameSourceBatch.Finish(IsOpenProject(root) ? outcome : null);
         }
     }
 
-    private Task<BatchTranslationResult> WriteSameSourceAsync(IEnumerable<LineEntry> others, string translation, string? root, IProgress<BatchProgress> progress, CancellationToken cancellation)
+    private Task<BatchTranslationResult> WriteSameSourceAsync(Dictionary<string, LineEntry> others, string translation, string? root, IProgress<BatchProgress> progress, CancellationToken cancellation)
     {
         var editor = lineEditor!;
         var history = History;
-        var targets = others.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
+        var read = others.ToDictionary(o => o.Key, o => o.Value.Unit, StringComparer.Ordinal);
+        var targets = others.Values.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
         var scripts = targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList();
         // O token vai para o Core, que para entre um script e outro e devolve o que gravou; um Task.Run cancelado antes de começar lançaria e perderia esse resultado.
         return Task.Run(() => history is not null && root is not null
-            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, cancellation), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
-            : editor.SetTranslationFor(targets, translation, progress, cancellation), CancellationToken.None);
+            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, cancellation, read), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
+            : editor.SetTranslationFor(targets, translation, progress, cancellation, read), CancellationToken.None);
     }
 
     /// <summary>
@@ -761,7 +766,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return;
         }
 
-        var stale = !ReferenceEquals(data, snapshot);
+        var stale = !ReferenceEquals(data, snapshot) || result.Failure is KeyNotFoundException;
         if (!stale && result.Changes.Count + result.Unchanged.Count > 0)
         {
             stale = ShowBatchLines(result, others);
