@@ -16,6 +16,8 @@ public sealed partial class EditorViewModel
             return false;
         }
 
+        // O leitor de cena cobre a grade e o painel de busca: fecha o leitor, como o modo revisão faz ao abrir (StartReviewOf).
+        EndReading();
         IsSearchOpen = true;
         IsReplaceVisible = true;
         SearchOpened?.Invoke(this, true);

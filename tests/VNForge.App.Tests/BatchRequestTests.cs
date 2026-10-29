@@ -401,6 +401,25 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
+    public async Task O_pedido_fecha_o_leitor_de_cena_antes_de_abrir_o_painel()
+    {
+        var vm = new EditorViewModel(postToUi: action => action());
+        vm.Search.Requests = new BatchRequestService((_, _) => FakeBatchRequestProvider.Replacing("você", "tu"), () => Settings());
+        vm.Project = ProjectSummaryReader.Read(root);
+        await vm.Loading;
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00001");
+        vm.StartReading();
+        Assert.True(vm.IsReadingScene);
+
+        Assert.True(vm.OpenBatchRequest(Request));
+        await vm.BatchRequest;
+
+        Assert.False(vm.IsReadingScene);
+        Assert.True(vm.IsSearchOpen);
+        Assert.NotNull(vm.Search.RequestPlan);
+    }
+
+    [Fact]
     public void A_paleta_oferece_o_pedido_primeiro_quando_o_texto_tem_tres_palavras_ou_mais()
     {
         var asked = new List<string>();
