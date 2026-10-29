@@ -103,7 +103,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
             new FilterChipViewModel(LineStatusFilter.ChangedSinceTest, "Mudou desde o teste"),
         ];
-        filters = [.. chips.Where(c => c.Filter != LineStatusFilter.ChangedSinceTest)];
+        filters = [.. chips.Where(c => c.Filter is not (LineStatusFilter.ChangedSinceTest or LineStatusFilter.Doubt))];
         SelectedSpeaker = Speakers[0];
     }
 
@@ -588,6 +588,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             other.IsSelected = other == chip;
         }
 
+        SyncDoubtChip();
         Refresh();
     }
 
@@ -1100,6 +1101,21 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
     }
 
+    /// <summary>O chip "Com dúvida" fica fora da coleção da barra enquanto não há dúvida nem ele é o filtro ativo: escondido, ele ainda contaria o espaçamento entre os chips.</summary>
+    private void SyncDoubtChip()
+    {
+        var chip = chips.First(c => c.Filter == LineStatusFilter.Doubt);
+        var present = filters.Contains(chip);
+        if (chip.IsShown && !present)
+        {
+            filters.Insert(chips.TakeWhile(c => c != chip).Count(filters.Contains), chip);
+        }
+        else if (!chip.IsShown && present)
+        {
+            filters.Remove(chip);
+        }
+    }
+
     private void UpdateCounts()
     {
         var speaker = SelectedSpeaker?.Value;
@@ -1110,6 +1126,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         {
             chip.Count = chip.Filter == LineStatusFilter.Doubt ? DoubtLines : FilterFor(chip.Filter, speaker).Count(entries);
         }
+
+        SyncDoubtChip();
 
         PendingLines = new LineFilter(LineStatusFilter.Pending).Count(entries);
         OnPropertyChanged(nameof(PendingLines));

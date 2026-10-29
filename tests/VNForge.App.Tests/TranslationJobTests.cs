@@ -75,6 +75,21 @@ public sealed class TranslationJobTests
     }
 
     [Fact]
+    public async Task Resposta_nova_com_o_mesmo_texto_e_sem_duvida_encerra_a_duvida_antiga()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProjects.Create(temp.Path, "Teste", TranslationStatus.Untranslated, TranslationStatus.Untranslated));
+        var doubt = new TranslationDoubt(DoubtKind.Pun, "Jogo de palavras com 'hashi'.");
+        var saved = folder.LoadText("yst00001");
+        folder.SaveText("yst00001", [saved[0] with { Translation = "[PT] 原文0", Doubt = doubt }, saved[1]]);
+
+        await Job(folder, new UsageProvider()).RunAsync(Request(), new Reporter(), TestContext.Current.CancellationToken);
+
+        Assert.Equal("[PT] 原文0", folder.LoadText("yst00001")[0].Translation);
+        Assert.Null(folder.LoadText("yst00001")[0].Doubt);
+    }
+
+    [Fact]
     public async Task So_traduz_os_scripts_do_escopo()
     {
         using var temp = new TempFolder();

@@ -147,6 +147,7 @@ public class TextUnitTests
 
         Assert.Null(lida.Speaker);
         Assert.Null(lida.Translation);
+        Assert.Null(lida.Doubt);
         Assert.Null(lida.Origin);
         Assert.Null(lida.Locator);
         Assert.Equal(string.Empty, lida.Notes);

@@ -246,6 +246,10 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.Contains(":doubt", doubt.Classes);
             Assert.Equal(36, doubt.Bounds.Height);
             Assert.True(Part<TextBlock>(doubt, "PART_Translation").Bounds.Width > 0);
+            Assert.Equal("Linha 0002, dúvida da IA", AutomationProperties.GetName(doubt));
+            Assert.Equal("Tom: Ironia?", AutomationProperties.GetHelpText(doubt));
+            Assert.Equal("Linha 0001", AutomationProperties.GetName(plain));
+            Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(plain)));
         });
     }
 

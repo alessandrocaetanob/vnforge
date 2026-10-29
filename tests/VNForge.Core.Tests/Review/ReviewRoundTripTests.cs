@@ -142,6 +142,29 @@ public class ReviewRoundTripTests
     }
 
     [Fact]
+    public void Importacao_sem_mudanca_mantem_a_duvida_de_linha_com_traducao_nula_ou_vazia()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        Semear(projeto);
+        var duvida = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
+        var unidades = projeto.LoadText("yst00001").ToList();
+        unidades[1] = unidades[1] with { Doubt = duvida };
+        unidades[2] = unidades[2] with { Doubt = duvida };
+        projeto.SaveText("yst00001", unidades);
+        Assert.Null(unidades[1].Translation);
+        Assert.Equal(string.Empty, unidades[2].Translation);
+        var csv = Path.Combine(temp.Path, "revisao.csv");
+        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
+
+        ReviewImporter.Import(projeto, csv);
+
+        var depois = projeto.LoadText("yst00001");
+        Assert.Equal(duvida, depois[1].Doubt);
+        Assert.Equal(duvida, depois[2].Doubt);
+    }
+
+    [Fact]
     public void Traducao_apagada_na_planilha_vira_nula()
     {
         using var temp = new TempFolder();

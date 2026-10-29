@@ -18,11 +18,16 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
         var keys = batch.Lines.Select(u => TranslationCache.KeyFor(u, context)).ToList();
 
         var hits = 0;
+        var cached = new HashSet<string>(StringComparer.Ordinal);
         var toSend = new List<int>();
         var sentKeys = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < keys.Count; i++)
         {
-            if (cache.TryGet(keys[i], out _)) hits++;
+            if (cache.TryGet(keys[i], out _))
+            {
+                hits++;
+                cached.Add(keys[i]);
+            }
             else if (sentKeys.Add(keys[i])) toSend.Add(i);
         }
 
@@ -36,7 +41,7 @@ public sealed class CachingTranslationProvider(ITranslationProvider inner, Trans
         return [.. batch.Lines.Select((u, i) =>
         {
             return cache.TryGet(keys[i], out var translation)
-                ? new TranslationResult(u.Id, translation, Doubt: doubts.GetValueOrDefault(keys[i]))
+                ? new TranslationResult(u.Id, translation, Doubt: doubts.GetValueOrDefault(keys[i]), FromCache: cached.Contains(keys[i]))
                 : new TranslationResult(u.Id, string.Empty, Refused: refused.Contains(keys[i]));
         })];
     }

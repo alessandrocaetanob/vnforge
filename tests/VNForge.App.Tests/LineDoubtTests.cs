@@ -95,11 +95,9 @@ public sealed class LineDoubtTests : IDisposable
 
         ProjectFolder.Open(raiz).SaveText("yst00001", [Fala(0, "Oi.\\p", TranslationStatus.Machine, null)]);
         var semDuvida = await Abrir();
-        var vazio = semDuvida.Filters.Single(f => f.Filter == LineStatusFilter.Doubt);
-
-        Assert.False(vazio.IsShown);
-        vazio.IsSelected = true;
-        Assert.True(vazio.IsShown);
+        Assert.DoesNotContain(semDuvida.Filters, f => f.Filter == LineStatusFilter.Doubt);
+        Assert.All(semDuvida.Filters, f => Assert.True(f.IsShown));
+        Assert.Equal(5, semDuvida.Filters.Count);
     }
 
     [Fact]
@@ -205,6 +203,7 @@ public sealed class LineDoubtTests : IDisposable
         Assert.Null(Gravada(0).Doubt);
         Assert.Null(Gravada(2).Doubt);
         Assert.Equal(0, vm.DoubtLines);
+        Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.Doubt);
     }
 
     [Fact]

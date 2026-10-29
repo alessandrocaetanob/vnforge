@@ -132,7 +132,7 @@
             <TextBlock Classes="btn-label" Text="Modo revisão" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
-        <Button Classes="tool" Command="{Binding StartDoubtReviewCommand}" IsVisible="{Binding HasDoubts}" AutomationProperties.Name="Revisar dúvidas"
+        <Button Classes="tool" Command="{Binding StartDoubtReviewCommand}" IsVisible="{Binding HasDoubts}" AutomationProperties.Name="{Binding DoubtLines, StringFormat='Dúvidas ({0}), revisar as linhas com dúvida da IA'}"
                 ToolTip.Tip="Modo revisão só nas linhas em que a IA ficou em dúvida">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Info}"/>

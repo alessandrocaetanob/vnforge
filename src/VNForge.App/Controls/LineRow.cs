@@ -215,7 +215,7 @@ public sealed class LineRow : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == SpeakerColorProperty || change.Property == TranslationProperty
-            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty || change.Property == HasDoubtProperty)
+            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty || change.Property == HasDoubtProperty || change.Property == DoubtTipProperty)
         {
             Apply();
         }
@@ -252,6 +252,8 @@ public sealed class LineRow : TemplatedControl
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);
         PseudoClasses.Set(":error", Issue == LineIssue.Error);
         PseudoClasses.Set(":doubt", HasDoubt);
-        AutomationProperties.SetName(this, SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}");
+        var automationName = SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}";
+        AutomationProperties.SetName(this, HasDoubt ? $"{automationName}, dúvida da IA" : automationName);
+        AutomationProperties.SetHelpText(this, HasDoubt ? DoubtTip : null);
     }
 }

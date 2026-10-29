@@ -19,9 +19,9 @@
             <TextBlock Name="PART_Original" Classes="jp-row" Text="{TemplateBinding Original}" TextTrimming="CharacterEllipsis"/>
             <Grid Name="PART_TranslationCell" ColumnDefinitions="*,Auto">
               <TextBlock Name="PART_Translation" Classes="body-sm" Text="{TemplateBinding TranslationText}" TextTrimming="CharacterEllipsis"/>
-              <Border Name="PART_Doubt" Grid.Column="1" IsVisible="False" Height="18" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+              <Border Name="PART_Doubt" Grid.Column="1" IsVisible="False" MinHeight="{DynamicResource Vnf.PillHeight}" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                       Background="{DynamicResource Vnf.SignalWarningBg}" ToolTip.Tip="{TemplateBinding DoubtTip}">
-                <TextBlock Text="Dúvida" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.SignalWarningFg}"/>
+                <TextBlock Text="Dúvida" FontSize="{DynamicResource Vnf.FontSize.Pill}" LineHeight="{DynamicResource Vnf.LineHeight.Pill}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.SignalWarningFg}"/>
               </Border>
             </Grid>
           </Grid>

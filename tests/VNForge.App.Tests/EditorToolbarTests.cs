@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
@@ -53,6 +54,11 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                 if (doubtButton is not { IsEffectivelyVisible: true } || !tools.Contains(doubtButton))
                 {
                     failures.Add("o botão Dúvidas não está visível na barra");
+                }
+
+                if (doubtButton is not null && !(AutomationProperties.GetName(doubtButton) ?? string.Empty).StartsWith("Dúvidas (", StringComparison.Ordinal))
+                {
+                    failures.Add($"o nome acessível do botão Dúvidas não começa pelo texto visível: '{AutomationProperties.GetName(doubtButton)}'");
                 }
 
                 if (tools.Select(t => Math.Round(Box(t).Y)).Distinct().Count() != 1 || Math.Abs(Box(translate).Y - Box(tools[0]).Y) > 4)

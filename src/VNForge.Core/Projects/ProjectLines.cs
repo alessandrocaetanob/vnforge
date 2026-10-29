@@ -73,11 +73,11 @@ public enum LineStatusFilter
     /// <summary>Linhas "Não traduzir" (<see cref="TranslationStatus.Keep"/>).</summary>
     Keep,
 
-    /// <summary>Linhas em que a IA registrou uma dúvida (<see cref="TextUnit.Doubt"/>).</summary>
-    Doubt,
-
     /// <summary>Linhas cuja tradução mudou desde o último teste no jogo; vale junto com <see cref="LineFilter.ChangedLines"/>, que diz quais são.</summary>
     ChangedSinceTest,
+
+    /// <summary>Linhas em que a IA registrou uma dúvida (<see cref="TextUnit.Doubt"/>).</summary>
+    Doubt,
 }
 
 /// <summary>Filtro da grade: um status, opcionalmente um personagem e opcionalmente um texto de busca. Os três valem juntos.</summary>

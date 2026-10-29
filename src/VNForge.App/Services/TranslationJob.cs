@@ -148,7 +148,7 @@ public sealed class TranslationJob(
             Status = TranslationStatus.Machine,
             Origin = origin,
             PreviousSource = null,
-            Doubt = result.Doubt ?? (string.Equals(unit.Translation, result.Translation, StringComparison.Ordinal) ? unit.Doubt : null),
+            Doubt = result.DoubtFor(unit),
         };
     }
 

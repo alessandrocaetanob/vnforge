@@ -167,6 +167,36 @@ public class CostTests
 
         Assert.Equal(doubt, Assert.Single(first).Doubt);
         Assert.Null(Assert.Single(second).Doubt);
+        Assert.False(first[0].FromCache);
+        Assert.True(second[0].FromCache);
+    }
+
+    [Fact]
+    public async Task Linhas_repetidas_no_lote_dividem_a_resposta_nova_com_a_duvida_e_nao_contam_como_cache()
+    {
+        var doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
+        var inner = new DoubtingProvider(doubt);
+        var provider = new CachingTranslationProvider(inner, new TranslationCache(), ClaudeModels.Opus);
+        var batch = new TranslationBatch([Unit("a", "はい"), Unit("b", "はい")]);
+
+        var results = await provider.TranslateAsync(batch, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Equal(doubt, r.Doubt));
+        Assert.All(results, r => Assert.False(r.FromCache));
+    }
+
+    [Fact]
+    public void A_duvida_da_linha_so_fica_quando_a_traducao_veio_do_cache_com_o_mesmo_texto()
+    {
+        var antiga = new TranslationDoubt(DoubtKind.Pun, "Antiga.");
+        var nova = new TranslationDoubt(DoubtKind.Tone, "Nova.");
+        var unit = new TextUnit("a", TextUnitKind.Dialogue, null, "はい", "Sim", TranslationStatus.Untranslated) { Doubt = antiga };
+
+        Assert.Equal(nova, new TranslationResult("a", "Sim", Doubt: nova).DoubtFor(unit));
+        Assert.Equal(antiga, new TranslationResult("a", "Sim", FromCache: true).DoubtFor(unit));
+        Assert.Null(new TranslationResult("a", "Sim").DoubtFor(unit));
+        Assert.Null(new TranslationResult("a", "Outra", FromCache: true).DoubtFor(unit));
     }
 
     private sealed class DoubtingProvider(TranslationDoubt doubt) : ITranslationProvider
