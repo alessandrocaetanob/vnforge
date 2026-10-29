@@ -16,14 +16,19 @@ public sealed partial class EditorViewModel
 {
     /// <summary>O leitor aberto; nulo no Editor normal. A tela do Editor mostra o leitor no lugar da grade enquanto houver um.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsReadingScene))]
+    [NotifyPropertyChangedFor(nameof(IsReadingScene), nameof(IsGridShown))]
     [NotifyCanExecuteChangedFor(nameof(CloseSearchCommand))]
     public partial ReadSceneViewModel? Reading { get; private set; }
 
     public bool IsReadingScene => Reading is not null;
 
+    /// <summary>O cabeçalho, a barra e a grade do Editor aparecem; o modo revisão e o leitor tomam o lugar deles e os deixam fora da tela e do foco.</summary>
+    public bool IsGridShown => !IsReviewing && !IsReadingScene;
+
+    private bool CanStartReading() => SelectedScript is not null && scriptLines.Length > 0;
+
     /// <summary>Abre o leitor na cena aberta, a partir da linha selecionada (ou da primeira): uma fala por vez, sem nada para aprovar. Sem script ou sem linhas, não faz nada.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanStartReading))]
     public void StartReading()
     {
         if (SelectedScript is null || lineEditor is null || scriptLines.Length == 0 || !FlushPendingEdits())

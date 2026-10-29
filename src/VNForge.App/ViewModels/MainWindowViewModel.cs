@@ -631,6 +631,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             Editor.DropChangedSinceTestIfOutdated();
         }
+        else
+        {
+            // O leitor é a cena em tela cheia: sair da página do Editor o fecha, sem mexer no filtro.
+            Editor.EndReading();
+        }
 
         if (target == NavKey.Conference)
         {

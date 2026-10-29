@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
+using VNForge.Core.Demo;
 using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;

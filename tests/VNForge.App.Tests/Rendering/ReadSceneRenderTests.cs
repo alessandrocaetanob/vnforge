@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
+using VNForge.Core.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Formatting;

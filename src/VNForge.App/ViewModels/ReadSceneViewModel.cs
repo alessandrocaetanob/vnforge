@@ -37,7 +37,7 @@ public sealed partial class ReadSceneViewModel : ObservableObject, IDisposable
 
     /// <summary>Passou da última fala: a tela mostra o fim da cena e o que foi marcado.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsActive), nameof(FinishedText))]
+    [NotifyPropertyChangedFor(nameof(IsActive), nameof(FinishedText), nameof(CanGoBack))]
     public partial bool IsFinished { get; private set; }
 
     /// <summary>A fala em exibição como a caixa a desenha; nula quando a cena não tem fala.</summary>

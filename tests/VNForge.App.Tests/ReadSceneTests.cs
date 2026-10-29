@@ -340,6 +340,91 @@ public sealed class ReadSceneTests : IDisposable
     }
 
     [Fact]
+    public async Task Abrir_o_modo_revisao_por_StartReviewOf_fecha_o_leitor()
+    {
+        var vm = await Abrir();
+        vm.StartReading();
+
+        vm.StartReviewOf(ReviewSource.OfSpeaker("美咲"));
+
+        Assert.False(vm.IsReadingScene);
+        Assert.True(vm.IsReviewing);
+    }
+
+    [Fact]
+    public async Task Ir_a_uma_linha_da_mesma_cena_fecha_o_leitor()
+    {
+        var vm = await Abrir();
+        vm.StartReading();
+
+        Assert.True(await vm.GoToLineAsync("yst00001", "yst00001:000003"));
+
+        Assert.False(vm.IsReadingScene);
+        Assert.Equal("yst00001:000003", vm.SelectedLine!.Id);
+    }
+
+    [Fact]
+    public async Task Mostrar_as_pendentes_fecha_o_leitor()
+    {
+        var vm = await Abrir();
+        vm.StartReading();
+
+        vm.ShowPendingLines();
+
+        Assert.False(vm.IsReadingScene);
+        Assert.Equal(LineStatusFilter.Pending, vm.Filters.Single(f => f.IsSelected).Filter);
+    }
+
+    [Fact]
+    public async Task Sair_da_pagina_do_Editor_fecha_o_leitor_sem_mexer_no_filtro()
+    {
+        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(pasta.SubFolder("config")), new FakeFolderPicker(raiz), new FixedClock(DateTimeOffset.UnixEpoch)));
+        await main.Start.OpenFolderCommand.ExecuteAsync(null);
+        await main.Editor.Loading;
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Editor);
+        main.Editor.StartReading();
+        main.Editor.Reading!.ToggleOddCommand.Execute(null);
+        Assert.True(main.Editor.IsReadingScene);
+
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Settings);
+
+        Assert.False(main.Editor.IsReadingScene);
+        Assert.Equal(LineStatusFilter.All, main.Editor.Filters.Single(f => f.IsSelected).Filter);
+    }
+
+    [Fact]
+    public async Task Cena_de_uma_fala_avisa_que_voltar_ficou_possivel_ao_chegar_no_fim()
+    {
+        var vm = await Abrir();
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00002");
+        vm.StartReading();
+        var leitor = vm.Reading!;
+        var avisos = new List<string?>();
+        leitor.PropertyChanged += (_, e) => avisos.Add(e.PropertyName);
+        Assert.False(leitor.CanGoBack);
+
+        leitor.NextCommand.Execute(null);
+
+        Assert.True(leitor.IsFinished);
+        Assert.True(leitor.CanGoBack);
+        Assert.Contains(nameof(ReadSceneViewModel.CanGoBack), avisos);
+    }
+
+    [Fact]
+    public async Task O_botao_fica_desligado_sem_cena_aberta_e_ligado_com_falas()
+    {
+        var vm = new EditorViewModel(postToUi: acao => acao());
+        Assert.False(vm.StartReadingCommand.CanExecute(null));
+
+        vm.Project = EditorFixtures.Summary("Teste", raiz);
+        await vm.Loading;
+
+        Assert.True(vm.StartReadingCommand.CanExecute(null));
+        vm.StartReadingCommand.Execute(null);
+        Assert.True(vm.IsReadingScene);
+    }
+
+    [Fact]
     public async Task Releitura_do_projeto_fecha_o_leitor()
     {
         var vm = await Abrir();
