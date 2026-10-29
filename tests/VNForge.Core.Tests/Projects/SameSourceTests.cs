@@ -125,15 +125,17 @@ public class SameSourceTests
     }
 
     [Fact]
-    public void Usar_em_todos_com_linha_que_nao_existe_avisa_sem_gravar_nada()
+    public void Usar_em_todos_com_linha_que_nao_existe_avisa_sem_gravar_o_script()
     {
         using var pasta = new TempFolder();
         var projeto = NovoProjeto(pasta.Path);
         projeto.SaveText("yst00001", Textos()["yst00001"]);
         var editor = new LineEditor(projeto, new FakeTimeProvider(Agora));
 
-        Assert.Throws<KeyNotFoundException>(() => editor.SetTranslationFor([("yst00001", "yst00001:000000"), ("yst00001", "yst00001:000099")], "Tá.\\p"));
+        var resultado = editor.SetTranslationFor([("yst00001", "yst00001:000000"), ("yst00001", "yst00001:000099")], "Tá.\\p");
 
+        Assert.IsType<KeyNotFoundException>(resultado.Failure);
+        Assert.Empty(resultado.Changes);
         Assert.Null(projeto.LoadText("yst00001")[0].Translation);
     }
 
@@ -198,6 +200,189 @@ public class SameSourceTests
         Assert.Equal(["yst00002:000000", "yst00002:000002"], segunda.Changes.Select(c => c.Saved.Id));
         Assert.Equal("yst00001:000002", Assert.Single(segunda.Unchanged).Unit.Id);
         Assert.Equal(3, segunda.Applied);
+    }
+
+    [Fact]
+    public void Usar_em_todos_informa_o_andamento_a_cada_script_lido_e_gravado()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        foreach (var (chave, unidades) in Textos())
+        {
+            projeto.SaveText(chave, unidades);
+        }
+
+        var editor = new LineEditor(projeto, new FakeTimeProvider(Agora));
+        var alvos = new[] { ("yst00001", "yst00001:000002"), ("yst00002", "yst00002:000000") };
+        var andamento = new List<BatchProgress>();
+
+        editor.SetTranslationFor(alvos, "Tá.\\p", new SincronoProgress(andamento.Add), TestContext.Current.CancellationToken);
+
+        Assert.Equal([new BatchProgress(1, 2), new BatchProgress(2, 2)], andamento);
+    }
+
+    [Fact]
+    public void Cancelar_antes_de_ler_nao_grava_nada_e_volta_sem_lancar()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        foreach (var (chave, unidades) in Textos())
+        {
+            projeto.SaveText(chave, unidades);
+        }
+
+        var editor = new LineEditor(projeto, new FakeTimeProvider(Agora));
+        var alvos = new[] { ("yst00001", "yst00001:000002"), ("yst00002", "yst00002:000000") };
+        using var cancelamento = new CancellationTokenSource();
+        cancelamento.Cancel();
+
+        var resultado = editor.SetTranslationFor(alvos, "Tá.\\p", null, cancelamento.Token);
+
+        Assert.True(resultado.Canceled);
+        Assert.Empty(resultado.Changes);
+        Assert.Equal(2, resultado.Requested);
+        Assert.Equal("Aham.\\p", projeto.LoadText("yst00001")[2].Translation);
+        Assert.Null(projeto.LoadText("yst00002")[0].Translation);
+    }
+
+    [Fact]
+    public void Cancelar_no_meio_mantem_os_scripts_ja_gravados_e_deixa_os_outros_como_estavam()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        foreach (var (chave, unidades) in Textos())
+        {
+            projeto.SaveText(chave, unidades);
+        }
+
+        using var cancelamento = new CancellationTokenSource();
+        var editor = new LineEditor(projeto, new FakeTimeProvider(Agora), (chave, unidades) =>
+        {
+            projeto.SaveText(chave, unidades);
+            cancelamento.Cancel();
+        });
+        var alvos = new[] { ("yst00001", "yst00001:000002"), ("yst00002", "yst00002:000000"), ("yst00002", "yst00002:000002") };
+
+        var resultado = editor.SetTranslationFor(alvos, "Tá.\\p", null, cancelamento.Token);
+
+        Assert.True(resultado.Canceled);
+        Assert.Null(resultado.Failure);
+        Assert.Equal("yst00001:000002", Assert.Single(resultado.Changes).Saved.Id);
+        Assert.Equal("Tá.\\p", projeto.LoadText("yst00001")[2].Translation);
+        Assert.Null(projeto.LoadText("yst00002")[0].Translation);
+    }
+
+    [Fact]
+    public async Task Uma_edicao_de_outra_linha_nao_espera_o_lote_inteiro_do_Usar_em_todos()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        foreach (var (chave, unidades) in Textos())
+        {
+            projeto.SaveText(chave, unidades);
+        }
+
+        var editor = new LineEditor(projeto, new FakeTimeProvider(Agora));
+        var alvos = new[] { ("yst00001", "yst00001:000002"), ("yst00002", "yst00002:000000") };
+        using var noMeio = new ManualResetEventSlim();
+        using var liberar = new ManualResetEventSlim();
+        var segurar = new SincronoProgress(p =>
+        {
+            if (p.Done == 1)
+            {
+                noMeio.Set();
+                liberar.Wait(TimeSpan.FromSeconds(30));
+            }
+        });
+        var lote = Task.Run(() => editor.SetTranslationFor(alvos, "Tá.\\p", segurar, CancellationToken.None), TestContext.Current.CancellationToken);
+        try
+        {
+            Assert.True(noMeio.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+            var edicao = Task.Run(() => editor.SetTranslation("yst00002", "yst00002:000001", "Editada."), TestContext.Current.CancellationToken);
+
+            await edicao.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Assert.False(lote.IsCompleted, "A edição terminou depois do lote: ela esperou a trava do lote inteiro.");
+        }
+        finally
+        {
+            liberar.Set();
+        }
+
+        var resultado = await lote;
+        Assert.Null(resultado.Failure);
+        Assert.Equal("Editada.", projeto.LoadText("yst00002")[1].Translation);
+        Assert.Equal("Tá.\\p", projeto.LoadText("yst00002")[0].Translation);
+    }
+
+    [Fact]
+    public void O_andamento_conta_um_passo_por_script_mesmo_sem_mudanca()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        projeto.SaveText("yst00001", Textos()["yst00001"]);
+        projeto.SaveText("yst00002", Textos()["yst00002"]);
+        var editor = new LineEditor(projeto, new FakeTimeProvider(Agora));
+        var andamento = new List<BatchProgress>();
+
+        editor.SetTranslationFor([("yst00001", "yst00001:000002"), ("yst00002", "yst00002:000002")], "Hm.\\p", new SincronoProgress(andamento.Add), TestContext.Current.CancellationToken);
+
+        Assert.Equal([new BatchProgress(1, 2), new BatchProgress(2, 2)], andamento);
+    }
+
+    [Fact]
+    public async Task Cancelar_enquanto_espera_a_trava_nao_grava_o_script()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        foreach (var (chave, unidades) in Textos())
+        {
+            projeto.SaveText(chave, unidades);
+        }
+
+        var editor = new LineEditor(projeto, new FakeTimeProvider(Agora));
+        using var cancelamento = new CancellationTokenSource();
+        var alvos = new[] { ("yst00001", "yst00001:000002"), ("yst00002", "yst00002:000000") };
+        Thread? threadDoLote = null;
+        using var noMeio = new ManualResetEventSlim();
+        var seguindo = false;
+        var andamento = new SincronoProgress(p =>
+        {
+            if (p.Done != 1)
+            {
+                return;
+            }
+
+            threadDoLote = Thread.CurrentThread;
+            noMeio.Set();
+            while (!Volatile.Read(ref seguindo))
+            {
+                Thread.SpinWait(100);
+            }
+        });
+        var lote = Task.Run(() => editor.SetTranslationFor(alvos, "Tá.\\p", andamento, cancelamento.Token), TestContext.Current.CancellationToken);
+        Assert.True(noMeio.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+        var segurando = Task.Run(() =>
+        {
+            lock (ProjectTextLock.For(projeto))
+            {
+                Volatile.Write(ref seguindo, true);
+                Assert.True(SpinWait.SpinUntil(() => threadDoLote!.ThreadState.HasFlag(ThreadState.WaitSleepJoin), TimeSpan.FromSeconds(30)));
+                cancelamento.Cancel();
+            }
+        }, TestContext.Current.CancellationToken);
+        await segurando;
+        var resultado = await lote;
+
+        Assert.True(resultado.Canceled);
+        Assert.Equal("yst00001:000002", Assert.Single(resultado.Changes).Saved.Id);
+        Assert.Null(projeto.LoadText("yst00002")[0].Translation);
+    }
+
+    private sealed class SincronoProgress(Action<BatchProgress> report) : IProgress<BatchProgress>
+    {
+        public void Report(BatchProgress value) => report(value);
     }
 
     private static ProjectFolder NovoProjeto(string raiz) => ProjectFolder.Create(raiz, new ProjectConfig(

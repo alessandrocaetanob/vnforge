@@ -43,6 +43,53 @@ public sealed class RestorePointStoreTests : IDisposable
 
     private LineEditor Editor() => new(_project, _clock);
 
+    private sealed class PararNoPrimeiroScript(Action<BatchProgress> aoTerminar) : IProgress<BatchProgress>
+    {
+        public void Report(BatchProgress value) => aoTerminar(value);
+    }
+
+    [Fact]
+    public async Task Linha_editada_no_meio_do_lote_fica_com_o_valor_da_pessoa_e_o_Desfazer_nao_a_toca()
+    {
+        _project.SaveText("a", [Linha("a", 1, "Oi")]);
+        _project.SaveText("b", [Linha("b", 1, "Olá")]);
+        var alvos = new[] { ("a", "a:000001"), ("b", "b:000001") };
+        var lidas = alvos.ToDictionary(a => a.Item2, a => Gravada(a.Item1, 1), StringComparer.Ordinal);
+        using var noMeio = new ManualResetEventSlim();
+        using var liberar = new ManualResetEventSlim();
+        var parar = new PararNoPrimeiroScript(p =>
+        {
+            if (p.Done == 1)
+            {
+                noMeio.Set();
+                liberar.Wait(TimeSpan.FromSeconds(30));
+            }
+        });
+        var lote = Task.Run(
+            () => _store.Record("Usar em todos", () => Editor().SetTranslationFor(alvos, "Oi, tudo bem?", parar, lidas, CancellationToken.None), changedLines: r => r.Changes.Select(c => (c.ScriptKey, c.Saved.Id))),
+            TestContext.Current.CancellationToken);
+        try
+        {
+            Assert.True(noMeio.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+            Editor().SetTranslation("b", "b:000001", "Do usuário.");
+        }
+        finally
+        {
+            liberar.Set();
+        }
+
+        var feito = await lote;
+
+        Assert.Equal("a:000001", Assert.Single(feito.Result.Changes).Saved.Id);
+        Assert.Equal("b:000001", Assert.Single(feito.Result.Edited!).Unit.Id);
+        Assert.Equal(1, feito.Result.EditedCount);
+        Assert.Equal("Do usuário.", Gravada("b", 1).Translation);
+        var desfeito = _store.Undo(feito.Point!.Id);
+        Assert.Equal(1, desfeito.Restored);
+        Assert.Equal("Oi", Gravada("a", 1).Translation);
+        Assert.Equal("Do usuário.", Gravada("b", 1).Translation);
+    }
+
     [Fact]
     public void Desfazer_um_lote_nao_apaga_a_marca_soa_estranho_posta_antes_nem_depois()
     {

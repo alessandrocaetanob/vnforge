@@ -13,7 +13,11 @@ public sealed record SameSourcePreview(int Differing, int Strong);
 /// <param name="Requested">Quantas linhas foram pedidas.</param>
 /// <param name="Changed">Quantas foram gravadas agora.</param>
 /// <param name="Failed">Algum script não gravou; as linhas dele continuam como estavam.</param>
-public sealed record SameSourceOutcome(int Applied, int Requested, int Changed, bool Failed);
+/// <param name="Canceled">O usuário cancelou; o que já estava gravado fica gravado e as outras linhas continuam como estavam.</param>
+/// <param name="Edited">Quantas linhas a pessoa editou durante o lote e ficaram com o valor dela.</param>
+/// <param name="FailureReason">Por que o lote parou, com a orientação do Core; nulo quando não falhou.</param>
+/// <param name="Stale">O projeto mudou por baixo do lote (uma linha não existe mais): reabrir o projeto resolve, tentar de novo não.</param>
+public sealed record SameSourceOutcome(int Applied, int Requested, int Changed, bool Failed, bool Canceled = false, int Edited = 0, string? FailureReason = null, bool Stale = false);
 
 /// <summary>As outras linhas do projeto que têm o mesmo original da linha aberta, para o "Usar em todos" do inspetor.</summary>
 public interface ISameSourceLines
@@ -24,8 +28,15 @@ public interface ISameSourceLines
     /// <summary>O que gravar <paramref name="translation"/> nessas linhas sobrescreveria.</summary>
     SameSourcePreview Inspect(string translation);
 
-    /// <summary>Grava <paramref name="translation"/> nessas linhas e registra o "Desfazer" do lote.</summary>
-    SameSourceOutcome Apply(string translation);
+    /// <summary>O lote que está gravando, comum a todas as linhas do Editor: andamento e cancelamento.</summary>
+    SameSourceBatch Batch { get; }
+
+    /// <summary>
+    /// Grava <paramref name="translation"/> nessas linhas fora da thread da tela e registra o "Desfazer" do lote. O andamento e o cancelamento passam por <see cref="Batch"/>;
+    /// cancelar para entre um script e outro, sem lançar, e o resultado diz que foi cancelado.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Já há um lote gravando.</exception>
+    Task<SameSourceOutcome> ApplyAsync(string translation);
 }
 
 /// <summary>O que o Editor oferece ao aviso de "mesmo original, traduções diferentes" do detalhe da linha (#457).</summary>

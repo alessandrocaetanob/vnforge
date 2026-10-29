@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core;
+using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
 
@@ -13,7 +15,20 @@ public sealed partial class LineDetailViewModel
     public bool HasScene => Scene.Count > 0;
 
     /// <summary>As outras linhas do projeto com o mesmo original; nulo quando o Editor não montou o índice.</summary>
-    public ISameSourceLines? SameSource { get; init; }
+    public ISameSourceLines? SameSource
+    {
+        get => sameSource;
+        init
+        {
+            sameSource = value;
+            if (value is not null)
+            {
+                value.Batch.PropertyChanged += OnBatchChanged;
+            }
+        }
+    }
+
+    private readonly ISameSourceLines? sameSource;
 
     public int SameSourceCount => SameSource?.Count ?? 0;
 
@@ -25,6 +40,47 @@ public sealed partial class LineDetailViewModel
     [ObservableProperty]
     public partial string? SameSourceResult { get; private set; }
 
+    /// <summary>Um "Usar em todos" está gravando fora da thread da tela (esta linha ou outra do Editor); os botões ficam desligados e o andamento aparece com o "Cancelar".</summary>
+    public bool IsApplyingToAll => SameSource?.Batch.IsRunning ?? false;
+
+    /// <summary>O andamento do "Usar em todos", de 0 a 1.</summary>
+    public double ApplyProgress => SameSource?.Batch.Progress ?? 0;
+
+    /// <summary>O que o "Usar em todos" está fazendo, com a porcentagem.</summary>
+    public string ApplyProgressText => SameSource?.Batch.Text ?? string.Empty;
+
+    private void OnBatchChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(IsApplyingToAll));
+        OnPropertyChanged(nameof(ApplyProgress));
+        OnPropertyChanged(nameof(ApplyProgressText));
+        if (e.PropertyName == nameof(SameSourceBatch.LastOutcome) && !startedBatch && SameSource?.Batch.LastOutcome is { } outcome)
+        {
+            ShowApplyOutcome(outcome);
+        }
+
+        if (e.PropertyName == nameof(SameSourceBatch.IsRunning))
+        {
+            UseForAllCommand.NotifyCanExecuteChanged();
+            ConfirmUseForAllCommand.NotifyCanExecuteChanged();
+            UseVariantCommand.NotifyCanExecuteChanged();
+            CancelApplyToAllCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    /// <summary>Este painel começou o lote que está rodando e mostra o resultado dele; os outros painéis o mostram pelo <see cref="SameSourceBatch.LastOutcome"/>.</summary>
+    private bool startedBatch;
+
+    private void StopObservingBatch()
+    {
+        if (SameSource is { } source)
+        {
+            source.Batch.PropertyChanged -= OnBatchChanged;
+        }
+    }
+
+    private bool CanStartApply() => !IsApplyingToAll;
+
     /// <summary>O diálogo "Substituir todas?" está aberto: alguma das outras linhas já tem outra tradução.</summary>
     [ObservableProperty]
     public partial bool IsUseForAllConfirmOpen { get; set; }
@@ -34,9 +90,14 @@ public sealed partial class LineDetailViewModel
     public partial string UseForAllConfirmText { get; private set; } = string.Empty;
 
     /// <summary>Grava a tradução do campo em todas as outras linhas com o mesmo original. A linha aberta é gravada antes; se outras linhas já têm outra tradução, pergunta primeiro.</summary>
-    [RelayCommand(CanExecute = nameof(HasSameSource))]
-    private void UseForAll()
+    [RelayCommand(CanExecute = nameof(CanUseForAll))]
+    private async Task UseForAllAsync()
     {
+        if (IsApplyingToAll)
+        {
+            return;
+        }
+
         SameSourceResult = null;
         if (string.IsNullOrWhiteSpace(Translation))
         {
@@ -52,7 +113,7 @@ public sealed partial class LineDetailViewModel
 
         if (preview.Differing == 0)
         {
-            ApplyToAll();
+            await ApplyToAllAsync();
             return;
         }
 
@@ -60,13 +121,25 @@ public sealed partial class LineDetailViewModel
         IsUseForAllConfirmOpen = true;
     }
 
-    [RelayCommand]
-    private void ConfirmUseForAll()
+    private bool CanUseForAll() => HasSameSource && !IsApplyingToAll;
+
+    [RelayCommand(CanExecute = nameof(CanStartApply))]
+    private async Task ConfirmUseForAllAsync()
     {
         IsUseForAllConfirmOpen = false;
+        if (IsApplyingToAll)
+        {
+            pendingVariant = null;
+            return;
+        }
+
         AdoptPendingVariant();
-        ApplyToAll();
+        await ApplyToAllAsync();
     }
+
+    /// <summary>Para o "Usar em todos" entre um script e outro. O que já foi gravado fica gravado e pode ser desfeito pela lista de tarefas.</summary>
+    [RelayCommand(CanExecute = nameof(IsApplyingToAll))]
+    private void CancelApplyToAll() => SameSource?.Batch.Cancel();
 
     [RelayCommand]
     private void CancelUseForAll()
@@ -87,27 +160,57 @@ public sealed partial class LineDetailViewModel
         }
     }
 
-    private void ApplyToAll()
+    private async Task ApplyToAllAsync()
     {
-        var outcome = new SameSourceOutcome(0, 0, 0, Failed: false);
-        if (!Flush() || !TrySave(() => outcome = SameSource!.Apply(Translation)))
+        if (IsApplyingToAll || !Flush())
         {
             return;
         }
 
+        var outcome = new SameSourceOutcome(0, 0, 0, Failed: false);
+        startedBatch = true;
+        try
+        {
+            if (await TrySaveAsync(async () => outcome = await SameSource!.ApplyAsync(Translation)))
+            {
+                ShowApplyOutcome(outcome);
+            }
+        }
+        finally
+        {
+            startedBatch = false;
+        }
+    }
+
+    private void ShowApplyOutcome(SameSourceOutcome outcome)
+    {
+        var applied = $"Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas";
         if (outcome.Failed)
         {
-            ErrorMessage = $"Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas; as outras não foram gravadas. Tente de novo.";
+            ErrorMessage = outcome.Stale
+                ? $"{applied}; as outras não foram gravadas. {outcome.FailureReason} O que já foi gravado pode ser desfeito pela lista de tarefas.{EditedNote(outcome)}"
+                : $"{applied}; as outras não foram gravadas. Tente de novo.{EditedNote(outcome)}";
             return;
         }
 
-        SameSourceResult = outcome.Changed switch
-        {
-            0 => "As outras linhas já tinham esta tradução.",
-            1 => "Aplicada a 1 linha.",
-            _ => $"Aplicada a {ProjectLabels.Number(outcome.Changed)} linhas.",
-        };
+        SameSourceResult = outcome.Canceled
+            ? $"Cancelado. {applied}; as outras continuam como estavam.{EditedNote(outcome)}"
+            : ChangedText(outcome.Changed) + EditedNote(outcome);
     }
+
+    private static string ChangedText(int changed) => changed switch
+    {
+        0 => "As outras linhas já tinham esta tradução.",
+        1 => "Aplicada a 1 linha.",
+        _ => $"Aplicada a {ProjectLabels.Number(changed)} linhas.",
+    };
+
+    private static string EditedNote(SameSourceOutcome outcome) => outcome.Edited switch
+    {
+        0 => string.Empty,
+        1 => " 1 linha foi editada enquanto isso e ficou como estava.",
+        _ => $" {ProjectLabels.Number(outcome.Edited)} linhas foram editadas enquanto isso e ficaram como estavam.",
+    };
 
     private static string ConfirmText(SameSourcePreview preview)
     {

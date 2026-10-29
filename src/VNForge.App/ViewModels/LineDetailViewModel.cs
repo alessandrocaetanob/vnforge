@@ -452,6 +452,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
         Flush();
         disposed = true;
+        StopObservingBatch();
         CancelSuggestion();
         CancelExplanation();
         CancelRewrite();
@@ -587,12 +588,32 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             ErrorMessage = null;
             return true;
         }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException or InvalidOperationException)
+        catch (Exception e) when (IsSaveFailure(e))
         {
-            ErrorMessage = $"Não foi possível gravar a linha: {e.Message} O texto continua na tela e será gravado na próxima tentativa.";
+            ReportSaveFailure(e);
             return false;
         }
     }
+
+    private async Task<bool> TrySaveAsync(Func<Task> save)
+    {
+        try
+        {
+            await save();
+            ErrorMessage = null;
+            return true;
+        }
+        catch (Exception e) when (IsSaveFailure(e))
+        {
+            ReportSaveFailure(e);
+            return false;
+        }
+    }
+
+    private static bool IsSaveFailure(Exception e) => e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException or InvalidOperationException;
+
+    private void ReportSaveFailure(Exception e) =>
+        ErrorMessage = $"Não foi possível gravar a linha: {e.Message} O texto continua na tela e será gravado na próxima tentativa.";
 
     private void ScheduleSave()
     {

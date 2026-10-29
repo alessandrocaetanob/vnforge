@@ -117,7 +117,7 @@ public sealed class LineEditor
                     .ToList();
                 if (others.Count > 0)
                 {
-                    var result = SetTranslationForLocked(others, translation);
+                    var result = SetTranslationForScripts(others, NewRun(translation, null));
                     if (result.Failure is not null)
                     {
                         Debug.WriteLine(result.Failure);
@@ -136,72 +136,149 @@ public sealed class LineEditor
     /// Linhas que já têm exatamente esse texto ficam como estão (vêm em <see cref="BatchTranslationResult.Unchanged"/>, para quem mostra a lista se atualizar numa nova tentativa).
     /// Se um script não grava, os anteriores já estão no disco: o resultado traz o que foi gravado e a falha, em vez de perder a lista.
     /// </summary>
-    /// <exception cref="KeyNotFoundException">Alguma linha não existe no script indicado; nesse caso nada é gravado.</exception>
-    public BatchTranslationResult SetTranslationFor(IEnumerable<(string ScriptKey, string Id)> targets, string translation)
+    public BatchTranslationResult SetTranslationFor(IEnumerable<(string ScriptKey, string Id)> targets, string translation) =>
+        SetTranslationFor(targets, translation, null, CancellationToken.None);
+
+    /// <summary>
+    /// <see cref="SetTranslationFor(IEnumerable{ValueTuple{string, string}}, string)"/> com andamento e cancelamento, para rodar fora da thread da tela.
+    /// A trava do projeto (<see cref="ProjectTextLock"/>) é tomada por script: ler, trocar e gravar um script é atômico, mas uma edição de outra linha
+    /// espera no máximo um script, não o lote inteiro. Uma linha que não existe no script interrompe o lote nesse script, sem gravá-lo: o resultado traz
+    /// o que os scripts anteriores gravaram e a <see cref="KeyNotFoundException"/> em <see cref="BatchTranslationResult.Failure"/>.
+    /// </summary>
+    /// <param name="progress">Recebe o andamento a cada script terminado (um passo por script, tenha mudado ou não); pode ser chamado de qualquer thread, fora da trava.</param>
+    /// <param name="cancellation">
+    /// Pedido de cancelamento, olhado antes de cada script. Cancelar não lança: o resultado volta com <see cref="BatchTranslationResult.Canceled"/>
+    /// e traz o que já estava gravado, que continua no disco.
+    /// </param>
+    public BatchTranslationResult SetTranslationFor(
+        IEnumerable<(string ScriptKey, string Id)> targets,
+        string translation,
+        IProgress<BatchProgress>? progress,
+        CancellationToken cancellation) =>
+        SetTranslationFor(targets, translation, progress, null, cancellation);
+
+    /// <summary>
+    /// <see cref="SetTranslationFor(IEnumerable{ValueTuple{string, string}}, string, IProgress{BatchProgress}?, CancellationToken)"/> que só troca a linha que ainda é a que o
+    /// chamador leu: com a trava por script, a pessoa pode gravar outra linha-alvo no meio do lote, e essa edição vale mais que o lote.
+    /// </summary>
+    /// <param name="read">As unidades como o chamador as leu, por <see cref="TextUnit.Id"/>. A linha cuja tradução ou situação no disco já é outra fica como está e vem em <see cref="BatchTranslationResult.Edited"/>; nulo troca todas.</param>
+    public BatchTranslationResult SetTranslationFor(
+        IEnumerable<(string ScriptKey, string Id)> targets,
+        string translation,
+        IProgress<BatchProgress>? progress,
+        IReadOnlyDictionary<string, TextUnit>? read,
+        CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
         translation = PunctuationOption()?.Apply(translation) ?? translation;
+        return SetTranslationForScripts([.. targets], NewRun(translation, read), progress, cancellation);
+    }
 
+    private TranslationRun NewRun(string translation, IReadOnlyDictionary<string, TextUnit>? read) =>
+        new(translation, new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()), read);
+
+    private BatchTranslationResult SetTranslationForScripts(
+        IReadOnlyList<(string ScriptKey, string Id)> targets,
+        TranslationRun run,
+        IProgress<BatchProgress>? progress = null,
+        CancellationToken cancellation = default)
+    {
+        var scripts = targets.GroupBy(t => t.ScriptKey, StringComparer.Ordinal).ToList();
+        var done = 0;
+        foreach (var script in scripts)
+        {
+            if (cancellation.IsCancellationRequested)
+            {
+                return run.Result(targets.Count, canceled: true);
+            }
+
+            try
+            {
+                if (!SetTranslationInScript(script.Key, script.Select(t => t.Id), run, cancellation))
+                {
+                    return run.Result(targets.Count, canceled: true);
+                }
+            }
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException)
+            {
+                return run.Result(targets.Count, e);
+            }
+
+            progress?.Report(new BatchProgress(++done, scripts.Count));
+        }
+
+        return run.Result(targets.Count);
+    }
+
+    /// <summary>Falso quando o cancelamento chegou enquanto esperava a trava: nada foi lido nem gravado neste script.</summary>
+    private bool SetTranslationInScript(string scriptKey, IEnumerable<string> ids, TranslationRun run, CancellationToken cancellation)
+    {
         lock (ProjectTextLock.For(project))
         {
-            return SetTranslationForLocked(targets, translation);
+            if (cancellation.IsCancellationRequested)
+            {
+                return false;
+            }
+
+            var units = project.LoadText(scriptKey).ToList();
+            var changes = new List<LineChange>();
+            foreach (var id in ids)
+            {
+                PlanLine(units, scriptKey, id, run, changes);
+            }
+
+            if (changes.Count > 0)
+            {
+                save(scriptKey, units);
+                run.Saved.AddRange(changes);
+            }
+
+            return true;
         }
     }
 
-    private BatchTranslationResult SetTranslationForLocked(IEnumerable<(string ScriptKey, string Id)> targets, string translation)
+    private static void PlanLine(List<TextUnit> units, string scriptKey, string id, TranslationRun run, List<LineChange> changes)
     {
-        var origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow());
-        var scripts = new Dictionary<string, List<TextUnit>>(StringComparer.Ordinal);
-        var pending = new Dictionary<string, List<LineChange>>(StringComparer.Ordinal);
-        var unchanged = new List<(string ScriptKey, TextUnit Unit)>();
-        var requested = 0;
-        foreach (var (scriptKey, id) in targets)
+        var index = units.FindIndex(u => string.Equals(u.Id, id, StringComparison.Ordinal));
+        if (index < 0)
         {
-            requested++;
-            if (!scripts.TryGetValue(scriptKey, out var units))
-            {
-                scripts[scriptKey] = units = [.. project.LoadText(scriptKey)];
-            }
-
-            var index = units.FindIndex(u => string.Equals(u.Id, id, StringComparison.Ordinal));
-            if (index < 0)
-            {
-                throw new KeyNotFoundException($"A linha '{id}' não existe no script '{scriptKey}'. Reabra o projeto e tente de novo.");
-            }
-
-            var previous = units[index];
-            if (string.Equals(previous.Translation, translation, StringComparison.Ordinal))
-            {
-                unchanged.Add((scriptKey, previous));
-                continue;
-            }
-
-            units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin, Doubt = null, AiTranslation = previous.AiTranslationAfterEdit(translation) };
-            if (!pending.TryGetValue(scriptKey, out var list))
-            {
-                pending[scriptKey] = list = [];
-            }
-
-            list.Add(new LineChange(scriptKey, previous, units[index]));
+            throw new KeyNotFoundException($"A linha '{id}' não existe no script '{scriptKey}'. Reabra o projeto e tente de novo.");
         }
 
-        var saved = new List<LineChange>();
-        foreach (var (scriptKey, changes) in pending)
+        var previous = units[index];
+        if (string.Equals(previous.Translation, run.Translation, StringComparison.Ordinal))
         {
-            try
-            {
-                save(scriptKey, scripts[scriptKey]);
-            }
-            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-            {
-                return new BatchTranslationResult(saved, unchanged, requested, e);
-            }
-
-            saved.AddRange(changes);
+            run.Unchanged.Add((scriptKey, previous));
+            return;
         }
 
-        return new BatchTranslationResult(saved, unchanged, requested, null);
+        if (run.Read is { } read && read.TryGetValue(id, out var wasRead) && (previous.Translation != wasRead.Translation || previous.Status != wasRead.Status))
+        {
+            run.Edited.Add((scriptKey, previous));
+            return;
+        }
+
+        units[index] = previous with { Translation = run.Translation, Status = TranslationStatus.Translated, Origin = run.Origin, Doubt = null, AiTranslation = previous.AiTranslationAfterEdit(run.Translation) };
+        changes.Add(new LineChange(scriptKey, previous, units[index]));
+    }
+
+    private sealed class TranslationRun(string translation, TranslationOrigin origin, IReadOnlyDictionary<string, TextUnit>? read)
+    {
+        public string Translation => translation;
+
+        public TranslationOrigin Origin => origin;
+
+        public IReadOnlyDictionary<string, TextUnit>? Read => read;
+
+        public List<LineChange> Saved { get; } = [];
+
+        public List<(string ScriptKey, TextUnit Unit)> Unchanged { get; } = [];
+
+        public List<(string ScriptKey, TextUnit Unit)> Edited { get; } = [];
+
+        public BatchTranslationResult Result(int requested, Exception? failure = null, bool canceled = false) =>
+            new(Saved, Unchanged, requested, failure, canceled, Edited);
     }
 
     /// <summary>
@@ -448,13 +525,25 @@ public sealed class LineEditor
 /// <summary>Uma linha trocada pelo "Usar em todos": a unidade de antes e a de depois, para desfazer.</summary>
 public sealed record LineChange(string ScriptKey, TextUnit Previous, TextUnit Saved);
 
+/// <summary>O andamento de uma operação em lote, em passos (ler e gravar cada script).</summary>
+public sealed record BatchProgress(int Done, int Total)
+{
+    /// <summary>De 0 a 1; 0 quando não há passos.</summary>
+    public double Fraction => Total <= 0 ? 0 : Math.Min(1, (double)Done / Total);
+}
+
 /// <summary>O que o "Usar em todos" fez.</summary>
 /// <param name="Changes">As linhas gravadas agora.</param>
 /// <param name="Unchanged">As linhas que já tinham exatamente o texto (de uma tentativa anterior, por exemplo).</param>
 /// <param name="Requested">Quantas linhas foram pedidas.</param>
 /// <param name="Failure">Por que um script não gravou; nulo quando tudo foi gravado.</param>
-public sealed record BatchTranslationResult(IReadOnlyList<LineChange> Changes, IReadOnlyList<(string ScriptKey, TextUnit Unit)> Unchanged, int Requested, Exception? Failure)
+/// <param name="Canceled">O usuário cancelou; <paramref name="Changes"/> traz o que já tinha sido gravado e o resto ficou como estava.</param>
+/// <param name="Edited">Linhas que a pessoa editou depois de o chamador lê-las e que o lote deixou como estavam, com a unidade do disco; nulo quando o chamador não pediu a conferência.</param>
+public sealed record BatchTranslationResult(IReadOnlyList<LineChange> Changes, IReadOnlyList<(string ScriptKey, TextUnit Unit)> Unchanged, int Requested, Exception? Failure, bool Canceled = false, IReadOnlyList<(string ScriptKey, TextUnit Unit)>? Edited = null)
 {
+    /// <summary>Quantas linhas ficaram como estavam por terem sido editadas durante o lote.</summary>
+    public int EditedCount => Edited?.Count ?? 0;
+
     /// <summary>Quantas linhas passam a ter o texto: as gravadas agora e as que já o tinham.</summary>
     public int Applied => Changes.Count + Unchanged.Count;
 }
