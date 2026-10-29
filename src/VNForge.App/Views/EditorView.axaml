@@ -241,7 +241,7 @@
             <StackPanel Spacing="8">
               <c:DistributionBar Height="8" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
               <WrapPanel ItemSpacing="16" LineSpacing="4">
-                <TextBlock FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding LinesSummary}"/>
+                <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding LinesSummary}"/>
                 <c:Legend Value="{Binding Distribution}"/>
               </WrapPanel>
             </StackPanel>

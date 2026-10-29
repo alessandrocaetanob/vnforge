@@ -129,7 +129,7 @@
       </Grid>
 
       <!-- A área de conteúdo é sempre opaca: o Mica aparece só na barra de título, no trilho e na barra de status. -->
-      <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource Vnf.BgLayer}"
+      <Border Name="PageArea" Grid.Row="1" Grid.Column="1" TextElement.FontSize="{DynamicResource Vnf.FontSize.Body}" Background="{DynamicResource Vnf.BgLayer}"
               BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0">
         <!-- A troca de página entra com fade e 8 px de deslocamento em 150 ms; sem animações no Windows, imediata. -->
         <TransitioningContentControl Content="{Binding CurrentPage}">
