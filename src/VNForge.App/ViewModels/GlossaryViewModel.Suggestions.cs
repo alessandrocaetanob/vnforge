@@ -27,7 +27,7 @@ internal sealed record ProjectScan(
     /// <summary>Todas as unidades na ordem do jogo, de onde a tabela de tratamentos tira as falas que a IA lê.</summary>
     public IReadOnlyList<TextUnit> Units { get; init; } = [];
 
-    /// <summary>Os trechos que a pessoa traduziu do mesmo jeito em várias falas corrigidas, ainda sem tirar os que o glossário já tem.</summary>
+    /// <summary>Os pares trecho e troca concentrados nas falas corrigidas, ainda sem escolher o trecho de cada troca: isso só se faz depois de tirar o que o glossário e os personagens já cobrem.</summary>
     public IReadOnlyList<TermPair> Corrected { get; init; } = [];
 
     public static ProjectScan From(IEnumerable<TextUnit> units)
@@ -37,7 +37,7 @@ internal sealed record ProjectScan(
         return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all))
         {
             Units = all,
-            Corrected = RepeatedTerms.Corrected(all),
+            Corrected = RepeatedTerms.Concentrated(all),
         };
     }
 
@@ -329,7 +329,7 @@ public sealed partial class GlossaryViewModel
 
     private void RefreshCorrectedTerms(IEnumerable<string> known)
     {
-        var offered = RepeatedTerms.Excluding(scan.Corrected, known).Take(RepeatedShown).ToList();
+        var offered = RepeatedTerms.Offer(scan.Corrected, known).Take(RepeatedShown).ToList();
         if (!CorrectedTermRows.Select(r => (r.Source, r.Target)).SequenceEqual(offered.Select(p => (p.Source, p.Target))))
         {
             Replace(CorrectedTermRows, offered.Select(p => new CorrectedTermRow(p)));

@@ -152,6 +152,86 @@ public class CorrectedTermsTests
     }
 
     [Fact]
+    public void O_trecho_e_escolhido_depois_de_tirar_o_que_o_glossario_ja_cobre()
+    {
+        // 魔法学院 e 勇者 empatam na troca; com 勇者 já no glossário, a troca é de 魔法学院.
+        List<TextUnit> units =
+        [
+            Linha(0, "魔法学院と勇者", "A escola de magia e o herói.", "A Academia e o herói."),
+            Linha(1, "魔法学院と勇者だ", "A escola de magia, o herói.", "A Academia, o herói."),
+            Linha(2, "勇者と魔法学院", "O herói e a escola de magia.", "O herói e a Academia."),
+        ];
+
+        var concentrated = RepeatedTerms.Concentrated(units);
+
+        Assert.Empty(RepeatedTerms.Offer(concentrated, []));
+        var par = Assert.Single(RepeatedTerms.Offer(concentrated, ["勇者"]));
+        Assert.Equal(new TermPair("魔法学院", "Academia", "escola de magia", 3), par);
+    }
+
+    [Fact]
+    public void Nome_conhecido_que_vence_a_troca_nao_esconde_o_trecho_que_sobra()
+    {
+        // 健太 está em 4 falas e vence a troca; excluído, quem tem a troca é 新入生.
+        List<TextUnit> units =
+        [
+            Linha(0, "健太と新入生", "O novato chegou.", "O calouro chegou."),
+            Linha(1, "健太は新入生だ", "O novato é bom.", "O calouro é bom."),
+            Linha(2, "新入生と健太", "Um novato aqui.", "Um calouro aqui."),
+            Linha(3, "健太が来た", "O novato veio.", "O calouro veio."),
+        ];
+
+        var concentrated = RepeatedTerms.Concentrated(units);
+
+        Assert.Equal("健太", Assert.Single(RepeatedTerms.Offer(concentrated, [])).Source);
+        var par = Assert.Single(RepeatedTerms.Offer(concentrated, ["健太"]));
+        Assert.Equal(new TermPair("新入生", "calouro", "novato", 3), par);
+    }
+
+    [Fact]
+    public void Trecho_que_vence_em_duas_trocas_da_mesma_fala_e_ambiguo()
+    {
+        // "Ei" por "Ô" só acontece nestas três falas, então 魔法学院 concentra as duas trocas.
+        List<TextUnit> units =
+        [
+            Linha(0, "魔法学院に行く", "Ei, vou para a escola de magia.", "Ô, vou para a Academia."),
+            Linha(1, "魔法学院は広い", "Ei, a escola de magia é grande.", "Ô, a Academia é grande."),
+            Linha(2, "魔法学院の朝", "Ei, manhã na escola de magia.", "Ô, manhã na Academia."),
+        ];
+
+        Assert.Empty(RepeatedTerms.Corrected(units));
+    }
+
+    [Fact]
+    public void Dois_termos_novos_nas_mesmas_falas_nao_se_separam_e_nenhum_sai()
+    {
+        // Sem como saber qual trecho levou qual troca: as contagens são idênticas, então nenhum par é oferecido.
+        List<TextUnit> units =
+        [
+            Linha(0, "魔法学院の国王", "O rei da escola de magia.", "O Rei da Academia."),
+            Linha(1, "国王と魔法学院", "O rei e a escola de magia.", "O Rei e a Academia."),
+            Linha(2, "魔法学院、国王", "A escola de magia, o rei.", "A Academia, o Rei."),
+        ];
+
+        Assert.Empty(RepeatedTerms.Corrected(units));
+    }
+
+    [Fact]
+    public void Fala_corrigida_so_na_pontuacao_conta_para_o_trecho()
+    {
+        // 6 falas corrigidas com 魔法学院, só 3 com a troca: 3 de 6 não chega a dois terços.
+        List<TextUnit> units =
+        [
+            .. TresCorrigidas(),
+            Linha(3, "魔法学院です", "É a escola de magia.", "É a escola de magia!"),
+            Linha(4, "魔法学院だ", "A escola de magia.", "A escola de magia..."),
+            Linha(5, "魔法学院か", "Na escola de magia?", "Na escola de magia!"),
+        ];
+
+        Assert.Empty(RepeatedTerms.Corrected(units));
+    }
+
+    [Fact]
     public void Troca_em_falas_sem_trecho_japones_tambem_conta_como_de_estilo()
     {
         List<TextUnit> units =

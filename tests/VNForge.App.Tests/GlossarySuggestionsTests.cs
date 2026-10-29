@@ -902,6 +902,27 @@ public class GlossarySuggestionsTests
     }
 
     [Fact]
+    public async Task Personagem_com_o_mesmo_trecho_nao_esconde_o_par_que_sobra()
+    {
+        // 健太 é personagem e está em 4 falas com a troca, contra 3 de 新入生: o par é do trecho que sobra.
+        TextUnit Corrected(int n, string source, string ai, string edited) =>
+            new($"yst00001:{n:D6}", TextUnitKind.Dialogue, null, source, edited, TranslationStatus.Translated) { AiTranslation = ai };
+        List<TextUnit> extra =
+        [
+            Corrected(60, "健太と新入生", "O novato chegou.", "O calouro chegou."),
+            Corrected(61, "健太は新入生だ", "O novato é bom.", "O calouro é bom."),
+            Corrected(62, "新入生と健太", "Um novato aqui.", "Um calouro aqui."),
+            Corrected(63, "健太が来た", "O novato veio.", "O calouro veio."),
+        ];
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, extraUnits: extra);
+
+        var row = Assert.Single(vm.CorrectedTermRows);
+
+        Assert.Equal(("新入生", "calouro", "3 falas"), (row.Source, row.Target, row.LinesLabel));
+    }
+
+    [Fact]
     public async Task Termo_que_ja_esta_no_glossario_nao_volta_como_par()
     {
         using var temp = new TempFolder();
