@@ -234,15 +234,7 @@ public sealed class LineRow : TemplatedControl
         }
 
         SpeakerText = speaker;
-        if (speakerBlock is not null)
-        {
-            // A narração não tem menu; com personagem cadastrado a grade mostra a tradução e o menu copia o original (ou a tradução, à escolha).
-            var original = narration ? null : SpeakerOriginal ?? Speaker;
-            SpeakerMenu.SetOriginal(speakerBlock, original);
-            SpeakerMenu.SetTranslation(speakerBlock, original is not null && original != Speaker ? Speaker : null);
-            // O falante trocado fica sem a cor do personagem: o destaque accent da troca prevalece na grade (a placa e o Modo revisão seguem pintados).
-            SpeakerColorTint.SetColor(speakerBlock, narration || SpeakerChanged ? null : SpeakerColor);
-        }
+        ApplySpeakerMenu(narration);
 
         TranslationText = !untranslated ? Translation! : Status == TranslationStatus.Keep ? KeepLabel : NoTranslationLabel;
         PseudoClasses.Set(":narration", narration);
@@ -252,8 +244,28 @@ public sealed class LineRow : TemplatedControl
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);
         PseudoClasses.Set(":error", Issue == LineIssue.Error);
         PseudoClasses.Set(":doubt", HasDoubt);
-        var automationName = SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}";
-        AutomationProperties.SetName(this, HasDoubt ? $"{automationName}, dúvida da IA" : automationName);
+        ApplyAutomation();
+    }
+
+    private void ApplySpeakerMenu(bool narration)
+    {
+        if (speakerBlock is null)
+        {
+            return;
+        }
+
+        // A narração não tem menu; com personagem cadastrado a grade mostra a tradução e o menu copia o original (ou a tradução, à escolha).
+        var original = narration ? null : SpeakerOriginal ?? Speaker;
+        SpeakerMenu.SetOriginal(speakerBlock, original);
+        SpeakerMenu.SetTranslation(speakerBlock, original is not null && original != Speaker ? Speaker : null);
+        // O falante trocado fica sem a cor do personagem: o destaque accent da troca prevalece na grade (a placa e o Modo revisão seguem pintados).
+        SpeakerColorTint.SetColor(speakerBlock, narration || SpeakerChanged ? null : SpeakerColor);
+    }
+
+    private void ApplyAutomation()
+    {
+        var name = SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}";
+        AutomationProperties.SetName(this, HasDoubt ? $"{name}, dúvida da IA" : name);
         AutomationProperties.SetHelpText(this, HasDoubt ? DoubtTip : null);
     }
 }
