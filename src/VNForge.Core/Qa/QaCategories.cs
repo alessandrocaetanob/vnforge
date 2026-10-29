@@ -16,6 +16,8 @@ public static class QaCategories
 
     public const string Accents = "Acentuação";
 
+    public const string Spelling = "Ortografia";
+
     public const string Glossary = "Glossário";
 
     public const string Consistency = "Consistência";
@@ -39,6 +41,7 @@ public static class QaCategories
         [FormattingConflictRule.RuleId] = Accents,
         [SpeakerEncodingRule.RuleId] = Accents,
         [GameTitleEncodingRule.RuleId] = Accents,
+        [SpellingRule.RuleId] = Spelling,
         ["glossario-diferente"] = Glossary,
         ["personagem-diferente"] = Glossary,
         ["traducao-inconsistente"] = Consistency,
@@ -52,7 +55,7 @@ public static class QaCategories
 
     /// <summary>Categorias na ordem em que as telas as listam; <see cref="Other"/> vem por último.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Markers, TextBox, Spaces, Punctuation, Accents, Glossary, Consistency, Translation, Style, Other];
+        [Markers, TextBox, Spaces, Punctuation, Accents, Spelling, Glossary, Consistency, Translation, Style, Other];
 
     /// <summary>Categoria da regra <paramref name="ruleId"/>, ou <see cref="Other"/> quando a regra não está na tabela.</summary>
     public static string Of(string ruleId)

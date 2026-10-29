@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using AvaloniaEdit.Rendering;
 using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 
@@ -30,6 +31,7 @@ public sealed partial class LineDetailView : UserControl
     private const int SuggestionTabIndex = 1;
 
     private readonly DispatcherTimer ageTimer;
+    private readonly SpellingUnderlineRenderer spelling = new();
     private LineDetailViewModel? current;
     private bool syncing;
     private bool tabbed;
@@ -40,6 +42,10 @@ public sealed partial class LineDetailView : UserControl
         InitializeComponent();
         TranslationEditor.TextArea.TextView.ElementGenerators.Add(new MarkerChipGenerator());
         TranslationEditor.TextChanged += OnEditorTextChanged;
+        TranslationEditor.TextArea.TextView.BackgroundRenderers.Add(spelling);
+        TranslationEditor.TextArea.Caret.PositionChanged += (_, _) => RefreshSpelling();
+        TranslationEditor.TextArea.GotFocus += (_, _) => RefreshSpelling();
+        TranslationEditor.TextArea.LostFocus += (_, _) => RefreshSpelling();
         InspectorTabs.SelectionChanged += (_, _) => UpdateSuggestionTab();
         ActionsBar.PropertyChanged += (_, e) =>
         {
@@ -199,6 +205,7 @@ public sealed partial class LineDetailView : UserControl
 
         current.PropertyChanged += OnViewModelPropertyChanged;
         SetEditorText(current.FieldText);
+        RefreshSpelling();
         foreach (var segment in current.SourceSegments)
         {
             if (!segment.IsMarker)
@@ -244,10 +251,24 @@ public sealed partial class LineDetailView : UserControl
             }
         }
 
+        if (e.PropertyName == nameof(LineDetailViewModel.Misspellings))
+        {
+            RefreshSpelling();
+        }
+
         if (e.PropertyName == nameof(LineDetailViewModel.FieldText) && current is not null && TranslationEditor.Text != current.FieldText)
         {
             SetEditorText(current.FieldText);
         }
+    }
+
+    /// <summary>Passa os trechos do corretor ao sublinhado, sem a palavra que o cursor está digitando, e o redesenha.</summary>
+    private void RefreshSpelling()
+    {
+        var area = TranslationEditor.TextArea;
+        spelling.Spans = current?.Misspellings ?? [];
+        spelling.Caret = area.IsKeyboardFocusWithin ? area.Caret.Offset : null;
+        area.TextView.InvalidateLayer(KnownLayer.Selection);
     }
 
     private void SetEditorText(string text)

@@ -26,12 +26,12 @@ public sealed record QaReport(IReadOnlyList<QaIssue> Issues, IReadOnlyList<QaIss
 
     /// <summary>
     /// As ocorrências que o build pode recusar: erros e avisos, sem as linhas sem tradução e sem os avisos de estilo
-    /// (<see cref="HonorificsRule"/>, <see cref="GenderRule"/> e <see cref="AddressTermRule"/>), que são sugestões de revisão. Sem essa exceção, um projeto antigo com
-    /// personagens sem gênero deixaria de compilar. É a lista que a mensagem de bloqueio, o Build e o Painel contam.
+    /// (<see cref="HonorificsRule"/>, <see cref="GenderRule"/>, <see cref="SpellingRule"/> e <see cref="AddressTermRule"/>), que são sugestões de revisão. Sem essa exceção, um projeto antigo com
+    /// personagens sem gênero, ou um nome em romaji que o dicionário não conhece, deixaria de compilar. É a lista que a mensagem de bloqueio, o Build e o Painel contam.
     /// </summary>
     public IReadOnlyList<QaIssue> BlockingIssues => [.. Issues.Where(i => !IsUntranslated(i) && !IsStyleAdvice(i))];
 
-    /// <summary>Quantos avisos de estilo (<see cref="HonorificsRule"/> e <see cref="GenderRule"/>) há; aparecem na Conferência e no <c>vnf check</c>, mas não travam nada.</summary>
+    /// <summary>Quantas sugestões (<see cref="HonorificsRule"/>, <see cref="GenderRule"/>, <see cref="SpellingRule"/> e <see cref="AddressTermRule"/>) há; aparecem na Conferência e no <c>vnf check</c>, mas não travam nada.</summary>
     public int StyleAdviceCount => Issues.Count(IsStyleAdvice);
 
     /// <summary>Verdadeiro quando o <c>vnf build</c> deve parar: há erro, ou há aviso em <see cref="BlockingIssues"/> e o <paramref name="allowWarnings"/> é falso.</summary>
@@ -39,5 +39,5 @@ public sealed record QaReport(IReadOnlyList<QaIssue> Issues, IReadOnlyList<QaIss
 
     private static bool IsUntranslated(QaIssue issue) => issue.RuleId == UntranslatedQaRule.RuleId;
 
-    private static bool IsStyleAdvice(QaIssue issue) => issue.RuleId is HonorificsRule.RuleId or GenderRule.RuleId or AddressTermRule.RuleId;
+    private static bool IsStyleAdvice(QaIssue issue) => issue.RuleId is HonorificsRule.RuleId or GenderRule.RuleId or SpellingRule.RuleId or AddressTermRule.RuleId;
 }
