@@ -146,7 +146,13 @@ public static class ProjectBuilder
             warnings.Add(addressProblem);
         }
 
-        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = project.LoadIgnoredWordsOrEmpty(out _) });
+        var ignoredWords = project.LoadIgnoredWordsOrEmpty(out var ignoredProblem);
+        if (ignoredProblem is not null)
+        {
+            warnings.Add(ignoredProblem);
+        }
+
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = ignoredWords });
         if (qaReport.Blocks(allowWarnings))
         {
             throw new QaBlockedException(qaReport, allowWarnings);
