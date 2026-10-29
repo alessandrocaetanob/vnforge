@@ -83,52 +83,40 @@ public class ProjectFolderConcurrencyTests
     }
 
     [Fact]
-    public async Task SaveText_espera_uma_leitura_externa_que_segura_o_arquivo_por_pouco_tempo()
+    public void Move_espera_a_leitura_externa_e_conclui_quando_a_nova_tentativa_solta_o_arquivo()
     {
         using var temp = new TempFolder();
         var projeto = NovoProjeto(temp.Path);
         projeto.SaveText(Key, Unidades(2));
+        var destino = projeto.TextPath(Key);
+        var origem = destino + ".tmp";
+        File.WriteAllText(origem, "novo");
 
-        using var aberto = new FileStream(projeto.TextPath(Key), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        using var terminou = new ManualResetEventSlim();
-        var pendenteAoSoltar = false;
+        var aberto = new FileStream(destino, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var esperas = new List<int>();
 
-        // O temporário nasce vazio quando o File.WriteAllText cria o arquivo, antes do Move; com conteúdo, o SaveText está a um passo de
-        // trocar o arquivo, e é dali que contam os 100 ms de leitura externa. Abrir o temporário para saber se foi fechado atrasou o Move
-        // sob carga (29 falhas em 60 rodadas), por isso a checagem olha só o tamanho. A thread é própria (e não uma tarefa do pool)
-        // para a liberação não atrasar além da janela de novas tentativas com a máquina carregada.
-        var liberar = Task.Factory.StartNew(() =>
-        {
-            while (!TemporarioGravado(projeto.TextDirectory))
-            {
-                if (terminou.Wait(1))
-                {
-                    break;
-                }
-            }
-
-            terminou.Wait(100);
-            pendenteAoSoltar = Directory.EnumerateFiles(projeto.TextDirectory, "*.tmp").Any();
-            aberto.Dispose();
-        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-
+        // A leitura externa termina quando a primeira nova tentativa pede a espera: o arquivo é solto por sinal da própria nova tentativa,
+        // sem thread paralela nem relógio, então a máquina carregada não muda o resultado.
         try
         {
-            projeto.SaveText(Key, Unidades(3));
+            ProjectFileIo.Move(origem, destino, overwrite: true, wait: milissegundos =>
+            {
+                esperas.Add(milissegundos);
+                aberto.Dispose();
+            });
         }
         finally
         {
-            terminou.Set();
-            await liberar;
+            aberto.Dispose();
         }
 
         if (OperatingSystem.IsWindows())
         {
-            Assert.True(pendenteAoSoltar, "O arquivo foi solto antes de o SaveText tentar trocá-lo: a nova tentativa não foi exercida.");
+            Assert.Equal([5], esperas);
         }
 
-        Assert.Equal(3, projeto.LoadText(Key).Count);
-        Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
+        Assert.Equal("novo", File.ReadAllText(destino));
+        Assert.False(File.Exists(origem));
     }
 
     private static Task EmThreadPropria(Action trabalho) =>
@@ -147,22 +135,6 @@ public class ProjectFolderConcurrencyTests
         while (Stopwatch.GetElapsedTime(inicio) < TimeSpan.FromMicroseconds(500))
         {
             Thread.SpinWait(20);
-        }
-    }
-
-    private static bool TemporarioGravado(string diretorio) =>
-        Directory.EnumerateFiles(diretorio, "*.tmp").Any(TemporarioComConteudo);
-
-    // No Linux o Move pode trocar o temporário entre a listagem e a leitura do tamanho: sumiu, então já foi gravado.
-    private static bool TemporarioComConteudo(string temporario)
-    {
-        try
-        {
-            return new FileInfo(temporario).Length > 0;
-        }
-        catch (FileNotFoundException)
-        {
-            return true;
         }
     }
 

@@ -23,12 +23,33 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
         },
         TestContext.Current.CancellationToken);
 
+    // O quadro é gravado e relido numa pasta própria da execução: o caminho de RenderOutput é fixo, e duas execuções ao mesmo tempo (dois
+    // dotnet test, ou um worktree ao lado) gravariam o mesmo arquivo enquanto a outra o lia. A cópia para RenderOutput é só a publicação do PNG.
     private static void Render(Control page, string name)
     {
-        var path = RenderOutput.PathFor(ScreenRenderer.FileName(name, ThemeVariant.Dark));
+        using var temp = new TempFolder();
+        var fileName = ScreenRenderer.FileName(name, ThemeVariant.Dark);
+        var path = Path.Combine(temp.Path, fileName);
         ScreenRenderer.Render(page, ThemeVariant.Dark, path);
-        using var png = new Bitmap(path);
-        Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
+        using (var png = new Bitmap(path))
+        {
+            Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
+        }
+
+        Publish(path, RenderOutput.PathFor(fileName));
+    }
+
+    private static void Publish(string source, string destination)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(source, destination, overwrite: true);
+        }
+        catch (IOException)
+        {
+            // Outra execução está gravando o mesmo PNG: o teste já conferiu o quadro dele.
+        }
     }
 
     [Fact]

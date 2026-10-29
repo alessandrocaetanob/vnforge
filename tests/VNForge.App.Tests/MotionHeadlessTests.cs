@@ -43,8 +43,11 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
         return window;
     }
 
+    // A preferência é estática e vale para o processo todo. Forçá-la fora da thread da sessão deixava o valor mudado enquanto os testes de outras classes
+    // renderizavam (o xUnit roda as classes em paralelo), e dois Force sobrepostos, cada um restaurando o valor que viu ao entrar, podiam deixá-lo errado
+    // até o fim da execução. Na sessão, o Force dura só o item em andamento, porque ela roda um item por vez.
     [Fact]
-    public void Preferencia_forcada_vale_ate_ser_descartada()
+    public Task Preferencia_forcada_vale_ate_ser_descartada() => OnUi(() =>
     {
         using (MotionPreferences.Force(true))
         {
@@ -56,7 +59,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
 
             Assert.True(MotionPreferences.AnimationsEnabled);
         }
-    }
+    });
 
     [Theory]
     [InlineData(true)]
@@ -81,24 +84,32 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
 
     // Issue #283: o aviso de mudança é estático e chega a janelas de outras sessões. Se o tratador procurasse o Dispatcher.UIThread
     // na thread de quem chamou Force, criaria um despachante nela e as sessões headless seguintes falhavam ao subir (dono errado da thread).
+    // Uma thread própria muda a preferência enquanto a sessão está presa esperando por ela: nenhum outro teste de interface roda nesse intervalo.
     [Fact]
-    public async Task Mudar_a_preferencia_de_outra_thread_nao_cria_despachante_nela()
+    public Task Mudar_a_preferencia_de_outra_thread_nao_cria_despachante_nela() => OnUi(() =>
     {
-        Window? window = null;
-        await OnUi(() => window = Show(new Border()));
+        var window = Show(new Border());
         try
         {
-            using (MotionPreferences.Force(true))
+            Avalonia.Threading.Dispatcher? despachante = null;
+            var outra = new Thread(() =>
             {
-            }
+                using (MotionPreferences.Force(true))
+                {
+                }
 
-            Assert.Null(Avalonia.Threading.Dispatcher.FromThread(Thread.CurrentThread));
+                despachante = Avalonia.Threading.Dispatcher.FromThread(Thread.CurrentThread);
+            });
+            outra.Start();
+            outra.Join();
+
+            Assert.Null(despachante);
         }
         finally
         {
-            await OnUi(() => window!.Close());
+            window.Close();
         }
-    }
+    });
 
     [Fact]
     public void Transicao_de_pagina_dura_150_ms_com_8_px_de_deslocamento()
