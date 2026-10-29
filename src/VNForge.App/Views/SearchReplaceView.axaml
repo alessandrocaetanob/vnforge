@@ -66,6 +66,16 @@
       </Border>
       <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Summary}"
                  IsVisible="{Binding Summary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      <!-- Pedido em lote: o custo já está no resumo; a IA só é chamada ao confirmar aqui. -->
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasRequestPlan}">
+        <Button Classes="accent" Command="{Binding RunRequestCommand}" AutomationProperties.Name="Pedir à IA"
+                ToolTip.Tip="Chama a IA com as falas do resumo. É aqui que o gasto acontece; nada é gravado.">
+          <TextBlock Text="Pedir à IA" FontWeight="SemiBold"/>
+        </Button>
+        <Button Command="{Binding DiscardRequestCommand}" AutomationProperties.Name="Descartar o pedido">
+          <TextBlock Text="Descartar"/>
+        </Button>
+      </StackPanel>
       <ItemsControl ItemsSource="{Binding SkippedNotes}" IsVisible="{Binding HasSkippedNotes}" AutomationProperties.Name="Linhas deixadas como estão">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="x:String">

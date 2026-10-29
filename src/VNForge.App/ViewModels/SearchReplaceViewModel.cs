@@ -19,7 +19,12 @@ public sealed record SearchResultRow(string Location, string Before, string? Aft
 
     public bool HasAfter => After is not null;
 
-    public string CountText => Count == 1 ? "1 ocorrência" : $"{ProjectLabels.Number(Count)} ocorrências";
+    public string CountText => Count switch
+    {
+        0 => "reescrita pela IA",
+        1 => "1 ocorrência",
+        _ => $"{ProjectLabels.Number(Count)} ocorrências",
+    };
 
     public string BeforeExcerpt => Excerpt(Before, Focus);
 
@@ -266,7 +271,7 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
         }
 
         var root = Project.Root;
-        var title = $"Substituir {Quoted(Pattern)} por {Quoted(Replacement)}";
+        var title = RequestTitleFor(planned) ?? $"Substituir {Quoted(Pattern)} por {Quoted(Replacement)}";
         var scripts = planned.Items.Select(i => i.ScriptKey).Distinct(StringComparer.Ordinal).ToList();
         ReplaceResult? result = null;
         await RunAsync(
@@ -352,13 +357,26 @@ public sealed partial class SearchReplaceViewModel : ObservableObject
     private void Invalidate()
     {
         version++;
+
+        // Mudar um campo ou o projeto no meio de uma busca, prévia ou pedido à IA descartaria o resultado em silêncio: cancela a operação e diz.
+        var interrupted = IsBusy && IsCancellable && cancellation is not null;
+        if (interrupted)
+        {
+            cancellation!.Cancel();
+        }
+
         Clear();
         ErrorMessage = null;
+        if (interrupted)
+        {
+            Summary = "O painel mudou durante a operação, que foi cancelada. Nada foi gravado.";
+        }
     }
 
     private void Clear()
     {
         preview = null;
+        RequestPlan = null;
         Results = [];
         SelectedResult = null;
         Summary = string.Empty;
