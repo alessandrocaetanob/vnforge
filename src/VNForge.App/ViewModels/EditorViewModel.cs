@@ -716,6 +716,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             return new SameSourceOutcome(0, 0, 0, Failed: false);
         }
 
+        var snapshot = data;
         var others = data.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
         var targets = others.Values.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
         var editor = lineEditor;
@@ -725,26 +726,36 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var result = await Task.Run(() => history is not null && root is not null
             ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, cancellation), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
             : editor.SetTranslationFor(targets, translation, progress, cancellation));
+        ShowSameSourceResult(result, others, ReferenceEquals(data, snapshot), root);
+
+        return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null, result.Canceled);
+    }
+
+    /// <summary>Leva o lote gravado à grade, ao QA e aos contadores, e avisa o Desfazer. Com outro projeto aberto no meio do caminho, só avisa: a grade atual não é a do lote.</summary>
+    private void ShowSameSourceResult(BatchTranslationResult result, Dictionary<string, LineEntry> others, bool sameProject, string? root)
+    {
         var current = result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit));
-        foreach (var unit in current)
+        foreach (var unit in current.Where(_ => sameProject))
         {
             ShowSavedUnit(others[unit.Id], unit);
         }
 
-        foreach (var key in current.Select(u => others[u.Id].ScriptKey).Distinct(StringComparer.Ordinal))
+        foreach (var key in current.Where(_ => sameProject).Select(u => others[u.Id].ScriptKey).Distinct(StringComparer.Ordinal))
         {
             RefreshScriptProgress(key);
         }
 
         if (result.Changes.Count > 0)
         {
-            UpdateCounts();
-            LastSavedAt = clock.GetLocalNow();
-            var batch = result.Changes.Select(c => new LineSavedEventArgs(Project?.Root, c.ScriptKey, others[c.Saved.Id].Number, c.Previous, c.Saved)).ToList();
+            if (sameProject)
+            {
+                UpdateCounts();
+                LastSavedAt = clock.GetLocalNow();
+            }
+
+            var batch = result.Changes.Select(c => new LineSavedEventArgs(root, c.ScriptKey, others[c.Saved.Id].Number, c.Previous, c.Saved)).ToList();
             LineSaved?.Invoke(this, batch[0] with { Batch = batch });
         }
-
-        return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null, result.Canceled);
     }
 
     /// <summary>
