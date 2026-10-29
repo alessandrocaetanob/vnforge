@@ -67,10 +67,6 @@ public static class RepeatedTerms
         return [.. candidates.Where(c => !terms.Any(t => t.Contains(c.Source, StringComparison.Ordinal)))];
     }
 
-    /// <summary>Conta, tira o que já está em <paramref name="known"/> (termos do glossário e nomes de personagens) e guarda os <paramref name="maxResults"/> primeiros.</summary>
-    public static IReadOnlyList<TermCandidate> Find(IEnumerable<string> sources, IEnumerable<string> known, int minFrequency = MinFrequency, int maxResults = DefaultMaxResults) =>
-        [.. Excluding(Count(sources, minFrequency), known).Take(maxResults)];
-
     /// <summary>Tira dos pares o que o glossário já cobre, pela mesma regra de <see cref="Excluding(IEnumerable{TermCandidate}, IEnumerable{string})"/>.</summary>
     public static IReadOnlyList<TermPair> Excluding(IEnumerable<TermPair> pairs, IEnumerable<string> known)
     {
@@ -80,6 +76,10 @@ public static class RepeatedTerms
         var terms = known.Select(k => k.Trim()).Where(k => k.Length > 0).ToArray();
         return [.. pairs.Where(p => !terms.Any(t => t.Contains(p.Source, StringComparison.Ordinal)))];
     }
+
+    /// <summary>Conta, tira o que já está em <paramref name="known"/> (termos do glossário e nomes de personagens) e guarda os <paramref name="maxResults"/> primeiros.</summary>
+    public static IReadOnlyList<TermCandidate> Find(IEnumerable<string> sources, IEnumerable<string> known, int minFrequency = MinFrequency, int maxResults = DefaultMaxResults) =>
+        [.. Excluding(Count(sources, minFrequency), known).Take(maxResults)];
 
     /// <summary>
     /// Os pares trecho japonês e tradução que a pessoa repetiu nas falas que corrigiu (a tradução gravada difere da <see cref="TextUnit.AiTranslation"/>), os de mais falas primeiro,
