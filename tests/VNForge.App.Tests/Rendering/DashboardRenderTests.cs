@@ -245,7 +245,8 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
     private static void Prepare(string root)
     {
         var folder = ProjectFolder.Open(root);
-        var now = DateTimeOffset.UtcNow;
+        // As aprovações seguem o relógio fixo do Início: com o relógio real, o teste quebrava quando o dia passava de Now.
+        var now = Now;
         var approvals = new List<ApprovalRecord>();
         for (var day = 4; day >= 1; day--)
         {
