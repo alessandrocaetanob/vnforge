@@ -14,7 +14,7 @@ public class ConferenceConsistencyTests
         new($"{key}:{n:D6}", TextUnitKind.Dialogue, null, source ?? Source, translation, TranslationStatus.Translated);
 
     /// <summary>Um original com três traduções em dois scripts: a com ponto final (3 linhas), a sem o ponto (1) e a com espaço duplo (1).</summary>
-    private static async Task<(ConferenceViewModel Vm, ProjectFolder Folder)> Loaded(TempFolder temp)
+    private static async Task<(ConferenceViewModel Vm, ProjectFolder Folder)> Loaded(TempFolder temp, QaEngine? engine = null)
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
         var folder = ProjectFolder.Open(root);
@@ -30,7 +30,7 @@ public class ConferenceConsistencyTests
             Line("yst00002", 5, "Mayumi passou na sala dos professores."),
             Line("yst00002", 6, "Mayumi passou  na sala dos professores."),
         ]);
-        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+        var vm = new ConferenceViewModel(engine) { Project = ProjectSummaryReader.Read(root) };
         await vm.RefreshAsync();
         return (vm, folder);
     }
@@ -239,13 +239,27 @@ public class ConferenceConsistencyTests
     public async Task Com_a_pagina_ocupada_as_acoes_do_cartao_nao_executam()
     {
         using var temp = new TempFolder();
-        var (vm, _) = await Loaded(temp);
+        // A regra extra segura a conferência até o teste olhar os comandos: sem ela a leitura terminava, em outra thread, antes dos Assert
+        // quando a thread do teste ficava sem CPU, e os comandos já voltavam a executar.
+        using var gate = new ManualResetEventSlim(initialState: true);
+        var (vm, _) = await Loaded(temp, new QaEngine([.. QaEngine.Default.Rules, new GateRule(gate)]));
         var card = vm.ConsistencyCards.Single();
+        gate.Reset();
 
         var running = vm.RefreshAsync();
-        Assert.False(vm.KeepDifferentCommand.CanExecute(card));
-        Assert.False(vm.UseVariantCommand.CanExecute(card.Variants[0]));
-        await running;
+        try
+        {
+            Assert.True(vm.IsBusy);
+            Assert.False(vm.KeepDifferentCommand.CanExecute(card));
+            Assert.False(vm.UseVariantCommand.CanExecute(card.Variants[0]));
+        }
+        finally
+        {
+            gate.Set();
+            await running;
+        }
+
+        Assert.False(vm.IsBusy);
     }
 
     [Fact]
@@ -283,5 +297,18 @@ public class ConferenceConsistencyTests
         await vm.RefreshAsync();
 
         Assert.Equal(afterKeep, vm.SilencedSummary);
+    }
+
+    private sealed class GateRule(ManualResetEventSlim gate) : IQaRule
+    {
+        public string Id => "regra-porta";
+
+        public string Description => "Espera o teste liberar.";
+
+        public IEnumerable<QaIssue> Check(QaContext context)
+        {
+            gate.Wait(TimeSpan.FromSeconds(10));
+            return [];
+        }
     }
 }
