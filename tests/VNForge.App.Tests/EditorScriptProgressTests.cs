@@ -142,8 +142,8 @@ public sealed class EditorScriptProgressTests : IDisposable
 
         vm.SelectedLine = vm.Lines[3];
         vm.Detail!.FieldText = "Tá bom.";
-        vm.Detail.UseForAllCommand.Execute(null);
-        vm.Detail.ConfirmUseForAllCommand.Execute(null);
+        await vm.Detail.UseForAllCommand.ExecuteAsync(null);
+        await vm.Detail.ConfirmUseForAllCommand.ExecuteAsync(null);
 
         Assert.Equal("Tá bom.\\p", ProjectFolder.Open(raiz).LoadText("yst00002")[0].Translation);
         Assert.Equal(0, segunda.CompletedPercent);

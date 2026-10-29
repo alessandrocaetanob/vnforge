@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core;
+using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
 
@@ -25,6 +27,21 @@ public sealed partial class LineDetailViewModel
     [ObservableProperty]
     public partial string? SameSourceResult { get; private set; }
 
+    /// <summary>O "Usar em todos" está gravando fora da thread da tela; o botão fica desligado e o andamento aparece com o "Cancelar".</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CancelApplyToAllCommand))]
+    public partial bool IsApplyingToAll { get; private set; }
+
+    /// <summary>O andamento do "Usar em todos", de 0 a 1.</summary>
+    [ObservableProperty]
+    public partial double ApplyProgress { get; private set; }
+
+    /// <summary>O que o "Usar em todos" está fazendo, com a porcentagem.</summary>
+    [ObservableProperty]
+    public partial string ApplyProgressText { get; private set; } = string.Empty;
+
+    private CancellationTokenSource? applyCancellation;
+
     /// <summary>O diálogo "Substituir todas?" está aberto: alguma das outras linhas já tem outra tradução.</summary>
     [ObservableProperty]
     public partial bool IsUseForAllConfirmOpen { get; set; }
@@ -35,7 +52,7 @@ public sealed partial class LineDetailViewModel
 
     /// <summary>Grava a tradução do campo em todas as outras linhas com o mesmo original. A linha aberta é gravada antes; se outras linhas já têm outra tradução, pergunta primeiro.</summary>
     [RelayCommand(CanExecute = nameof(HasSameSource))]
-    private void UseForAll()
+    private async Task UseForAllAsync()
     {
         SameSourceResult = null;
         if (string.IsNullOrWhiteSpace(Translation))
@@ -52,7 +69,7 @@ public sealed partial class LineDetailViewModel
 
         if (preview.Differing == 0)
         {
-            ApplyToAll();
+            await ApplyToAllAsync();
             return;
         }
 
@@ -61,12 +78,16 @@ public sealed partial class LineDetailViewModel
     }
 
     [RelayCommand]
-    private void ConfirmUseForAll()
+    private async Task ConfirmUseForAllAsync()
     {
         IsUseForAllConfirmOpen = false;
         AdoptPendingVariant();
-        ApplyToAll();
+        await ApplyToAllAsync();
     }
+
+    /// <summary>Para o "Usar em todos" entre um script e outro. O que já foi gravado fica gravado e pode ser desfeito pela lista de tarefas.</summary>
+    [RelayCommand(CanExecute = nameof(IsApplyingToAll))]
+    private void CancelApplyToAll() => applyCancellation?.Cancel();
 
     [RelayCommand]
     private void CancelUseForAll()
@@ -87,17 +108,57 @@ public sealed partial class LineDetailViewModel
         }
     }
 
-    private void ApplyToAll()
+    private async Task ApplyToAllAsync()
     {
-        var outcome = new SameSourceOutcome(0, 0, 0, Failed: false);
-        if (!Flush() || !TrySave(() => outcome = SameSource!.Apply(Translation)))
+        if (IsApplyingToAll || !Flush())
         {
             return;
         }
 
+        var outcome = new SameSourceOutcome(0, 0, 0, Failed: false);
+        using var cancellation = new CancellationTokenSource();
+        applyCancellation = cancellation;
+        ApplyProgress = 0;
+        ApplyProgressText = "Aplicando nas outras linhas... 0%";
+        IsApplyingToAll = true;
+        try
+        {
+            if (!await TrySaveAsync(async () => outcome = await SameSource!.ApplyAsync(Translation, new Progress<BatchProgress>(ShowApplyProgress), cancellation.Token)))
+            {
+                return;
+            }
+        }
+        finally
+        {
+            applyCancellation = null;
+            IsApplyingToAll = false;
+        }
+
+        ShowApplyOutcome(outcome);
+    }
+
+    private void ShowApplyProgress(BatchProgress progress)
+    {
+        if (!IsApplyingToAll)
+        {
+            return;
+        }
+
+        ApplyProgress = progress.Fraction;
+        ApplyProgressText = $"Aplicando nas outras linhas... {(int)(progress.Fraction * 100)}%";
+    }
+
+    private void ShowApplyOutcome(SameSourceOutcome outcome)
+    {
         if (outcome.Failed)
         {
             ErrorMessage = $"Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas; as outras não foram gravadas. Tente de novo.";
+            return;
+        }
+
+        if (outcome.Canceled)
+        {
+            SameSourceResult = $"Cancelado. Aplicada a {ProjectLabels.Number(outcome.Applied)} de {ProjectLabels.Number(outcome.Requested)} linhas; as outras continuam como estavam.";
             return;
         }
 

@@ -1,4 +1,5 @@
 using VNForge.App.ViewModels;
+using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 
 namespace VNForge.App.Services;
@@ -13,7 +14,8 @@ public sealed record SameSourcePreview(int Differing, int Strong);
 /// <param name="Requested">Quantas linhas foram pedidas.</param>
 /// <param name="Changed">Quantas foram gravadas agora.</param>
 /// <param name="Failed">Algum script não gravou; as linhas dele continuam como estavam.</param>
-public sealed record SameSourceOutcome(int Applied, int Requested, int Changed, bool Failed);
+/// <param name="Canceled">O usuário cancelou; o que já estava gravado fica gravado e as outras linhas continuam como estavam.</param>
+public sealed record SameSourceOutcome(int Applied, int Requested, int Changed, bool Failed, bool Canceled = false);
 
 /// <summary>As outras linhas do projeto que têm o mesmo original da linha aberta, para o "Usar em todos" do inspetor.</summary>
 public interface ISameSourceLines
@@ -24,8 +26,11 @@ public interface ISameSourceLines
     /// <summary>O que gravar <paramref name="translation"/> nessas linhas sobrescreveria.</summary>
     SameSourcePreview Inspect(string translation);
 
-    /// <summary>Grava <paramref name="translation"/> nessas linhas e registra o "Desfazer" do lote.</summary>
-    SameSourceOutcome Apply(string translation);
+    /// <summary>
+    /// Grava <paramref name="translation"/> nessas linhas fora da thread da tela e registra o "Desfazer" do lote. <paramref name="progress"/> recebe o andamento;
+    /// cancelar para entre um script e outro, sem lançar, e o resultado diz que foi cancelado.
+    /// </summary>
+    Task<SameSourceOutcome> ApplyAsync(string translation, IProgress<BatchProgress>? progress, CancellationToken cancellation);
 }
 
 /// <summary>O que o Editor oferece ao aviso de "mesmo original, traduções diferentes" do detalhe da linha (#457).</summary>

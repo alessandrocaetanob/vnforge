@@ -35,7 +35,7 @@ public sealed partial class LineDetailViewModel
     /// traduções diferentes, o "Desfazer" do lote). Cancelar a pergunta não muda nenhuma linha, nem esta.
     /// </summary>
     [RelayCommand]
-    private void UseVariant(ConferenceVariantViewModel? variant)
+    private async Task UseVariantAsync(ConferenceVariantViewModel? variant)
     {
         if (variant is null || SameSource is null || !Flush())
         {
@@ -53,7 +53,7 @@ public sealed partial class LineDetailViewModel
         if (preview.Differing == 0)
         {
             AdoptPendingVariant();
-            UseForAll();
+            await UseForAllAsync();
             return;
         }
 

@@ -709,7 +709,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// "Usar em todos": grava a tradução nas outras linhas com o mesmo original e atualiza a grade, o QA e os contadores do que está aberto, mesmo quando um
     /// script não grava (as linhas dos scripts anteriores já estão no disco). Registra o "Desfazer" do lote.
     /// </summary>
-    private SameSourceOutcome ApplyToSameSource(LineViewModel line, string translation)
+    private async Task<SameSourceOutcome> ApplyToSameSourceAsync(LineViewModel line, string translation, IProgress<BatchProgress>? progress, CancellationToken cancellation)
     {
         if (data is null || lineEditor is null)
         {
@@ -719,9 +719,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var others = data.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
         var targets = others.Values.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
         var editor = lineEditor;
-        var result = History is { } history && Project?.Root is { } root
-            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation), targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList(), changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
-            : editor.SetTranslationFor(targets, translation);
+        var history = History;
+        var root = Project?.Root;
+        var scripts = targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList();
+        var result = await Task.Run(() => history is not null && root is not null
+            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, cancellation), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
+            : editor.SetTranslationFor(targets, translation, progress, cancellation));
         var current = result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit));
         foreach (var unit in current)
         {
@@ -741,7 +744,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             LineSaved?.Invoke(this, batch[0] with { Batch = batch });
         }
 
-        return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null);
+        return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null, result.Canceled);
     }
 
     /// <summary>
@@ -853,7 +856,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         public SameSourcePreview Inspect(string translation) => editor.InspectSameSource(line, translation);
 
-        public SameSourceOutcome Apply(string translation) => editor.ApplyToSameSource(line, translation);
+        public Task<SameSourceOutcome> ApplyAsync(string translation, IProgress<BatchProgress>? progress, CancellationToken cancellation) =>
+            editor.ApplyToSameSourceAsync(line, translation, progress, cancellation);
     }
 
     /// <summary>

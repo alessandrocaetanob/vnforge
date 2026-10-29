@@ -178,6 +178,12 @@
                     ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
               <TextBlock Text="Usar em todos"/>
             </Button>
+            <StackPanel Spacing="6" IsVisible="{Binding IsApplyingToAll}" AutomationProperties.Name="Andamento do Usar em todos">
+              <ProgressBar Classes="thin" Minimum="0" Maximum="1" Value="{Binding ApplyProgress}"/>
+              <TextBlock Classes="body-sm secondary" Text="{Binding ApplyProgressText}"/>
+              <Button Classes="sm" HorizontalAlignment="Left" Content="Cancelar" Command="{Binding CancelApplyToAllCommand}"
+                      ToolTip.Tip="Para entre um script e outro; o que já foi gravado fica gravado"/>
+            </StackPanel>
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceResult}"
                        IsVisible="{Binding SameSourceResult, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <c:ScreenDialog Title="Substituir as outras traduções?" IsOpen="{Binding IsUseForAllConfirmOpen, Mode=TwoWay}">

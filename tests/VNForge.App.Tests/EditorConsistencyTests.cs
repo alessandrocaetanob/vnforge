@@ -108,11 +108,11 @@ public sealed class EditorConsistencyTests : IDisposable
         vm.SelectedLine = vm.Lines[2];
         var chosen = vm.Detail!.ConsistencyCard!.Variants[0];
 
-        vm.Detail.UseVariantCommand.Execute(chosen);
+        await vm.Detail.UseVariantCommand.ExecuteAsync(chosen);
 
         // As outras linhas têm outra tradução: a pergunta de sempre do "Usar em todos" vem antes de gravar nelas.
         Assert.True(vm.Detail.IsUseForAllConfirmOpen);
-        vm.Detail.ConfirmUseForAllCommand.Execute(null);
+        await vm.Detail.ConfirmUseForAllCommand.ExecuteAsync(null);
 
         Assert.All(Traducoes().Take(4), t => Assert.Equal("Bom dia.", t));
         Assert.Equal("Tchau.", Traducoes()[4]);
@@ -129,8 +129,8 @@ public sealed class EditorConsistencyTests : IDisposable
         vm.SelectedLine = vm.Lines[3];
         LineSavedEventArgs? saved = null;
         vm.LineSaved += (_, e) => saved = e;
-        vm.Detail!.UseVariantCommand.Execute(vm.Detail.ConsistencyCard!.Variants[0]);
-        vm.Detail.ConfirmUseForAllCommand.Execute(null);
+        await vm.Detail!.UseVariantCommand.ExecuteAsync(vm.Detail.ConsistencyCard!.Variants[0]);
+        await vm.Detail.ConfirmUseForAllCommand.ExecuteAsync(null);
 
         Assert.True(saved!.IsBatch);
         Assert.True(vm.Undo(saved));
@@ -143,7 +143,7 @@ public sealed class EditorConsistencyTests : IDisposable
     {
         var vm = await Abrir();
         vm.SelectedLine = vm.Lines[2];
-        vm.Detail!.UseVariantCommand.Execute(vm.Detail.ConsistencyCard!.Variants[0]);
+        await vm.Detail!.UseVariantCommand.ExecuteAsync(vm.Detail.ConsistencyCard!.Variants[0]);
 
         vm.Detail.CancelUseForAllCommand.Execute(null);
 
