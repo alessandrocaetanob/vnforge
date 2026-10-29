@@ -40,6 +40,16 @@ public sealed class AddressSamplesTests
     }
 
     [Fact]
+    public void O_falante_escolhido_na_linha_vale_no_lugar_do_extraido()
+    {
+        var chosen = Line("凛", "美咲ちゃん、おはよう") with { ChosenSpeaker = "健太" };
+
+        var samples = AddressSamples.From([chosen], Cast);
+
+        Assert.Equal(["健太"], samples.Keys);
+    }
+
+    [Fact]
     public void A_fala_diz_com_quem_o_falante_estava_respondendo()
     {
         var samples = AddressSamples.From([Line("凛", "ねえ"), Line("健太", "美咲ちゃん？"), Line("健太", "先輩はどこ？")], Cast);

@@ -37,7 +37,7 @@ public sealed class AddressTermsViewHeadlessTests(HeadlessFixture fixture) : ICl
                 Assert.Equal("美咲", Find<ComboBox>("Com quem fala").SelectedItem);
                 Assert.Equal("美咲ちゃん", Find<TextBox>("Como chama, em japonês").Text);
                 Assert.Equal("Misaki-chan", Find<TextBox>("Como chama, na tradução").Text);
-                Assert.Equal("Pedir os tratamentos à IA", AutomationProperties.GetName(Find<Button>("Pedir os tratamentos à IA")));
+                Assert.NotNull(Find<Button>("Pedir à IA"));
                 Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBox>(), t => t.IsEffectivelyVisible && AutomationProperties.GetName(t) == "Buscar no glossário");
                 Assert.False(vm.IsDirty);
                 Assert.Equal("美咲", vm.AddressTerms.Rows[0].To);

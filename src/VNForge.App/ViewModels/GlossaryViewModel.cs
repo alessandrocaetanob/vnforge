@@ -255,8 +255,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
         usage = loaded.Usage;
         scan = loaded;
         usageLoaded = true;
-        AddressTerms.SetText(loaded.Units);
         AddGameCharacters();
+        AddressTerms.SetText(loaded.Units);
         bulkUpdate = true;
         foreach (var row in Terms)
         {
@@ -473,16 +473,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
                 charactersDirty = false;
             }
 
-            if (addressDirty)
-            {
-                // Só linhas em branco e arquivo ausente: não cria um address-terms.json vazio no projeto.
-                if (addressTerms.Count > 0 || File.Exists(folder.AddressTermsPath))
-                {
-                    folder.SaveAddressTerms(addressTerms);
-                }
-
-                addressDirty = false;
-            }
+            SaveAddressTerms(folder, addressTerms);
         }
         catch (GlossaryFileException e)
         {
@@ -579,8 +570,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
     public string ProblemsText => ProblemCount switch
     {
         0 => string.Empty,
-        1 => "1 linha ainda não foi salva porque falta o nome ou ele se repete. As outras já foram. Corrija a linha marcada.",
-        var n => $"{ProjectLabels.Number(n)} linhas ainda não foram salvas porque falta o nome ou ele se repete. As outras já foram. Corrija as linhas marcadas.",
+        1 => "1 linha ainda não foi salva porque está incompleta ou repetida (falta o nome, o par ou o tratamento, ou ele se repete). As outras já foram. Corrija a linha marcada.",
+        var n => $"{ProjectLabels.Number(n)} linhas ainda não foram salvas porque estão incompletas ou repetidas (falta o nome, o par ou o tratamento, ou ele se repete). As outras já foram. Corrija as linhas marcadas.",
     };
 
     private void NotifyProblems()
@@ -617,6 +608,10 @@ public sealed partial class GlossaryViewModel : ObservableObject
             if (row is CharacterRow)
             {
                 NotifyVoices();
+                if (e.PropertyName is nameof(CharacterRow.Source) or nameof(CharacterRow.Target))
+                {
+                    AddressTerms.CharactersEdited();
+                }
             }
 
             if (e.PropertyName == nameof(GlossaryTermRow.Source))

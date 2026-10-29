@@ -163,6 +163,24 @@ public sealed class ProjectFolder
     public IReadOnlyList<AddressTerm> LoadAddressTerms() =>
         File.Exists(AddressTermsPath) ? AddressTermSerializer.Parse(ReadGlossaryFile(AddressTermsPath), AddressTermsPath) : [];
 
+    /// <summary>
+    /// Lê o <c>address-terms.json</c> para quem só consulta (build, painel, QA): um arquivo ilegível não derruba nada, devolve lista vazia e o motivo em
+    /// <paramref name="problem"/> (nulo quando está tudo certo). Os tratamentos são sugestões de revisão, então não vale travar o projeto por eles.
+    /// </summary>
+    public IReadOnlyList<AddressTerm> LoadAddressTermsOrEmpty(out string? problem)
+    {
+        try
+        {
+            problem = null;
+            return LoadAddressTerms();
+        }
+        catch (GlossaryFileException e)
+        {
+            problem = $"O {AddressTermsFileName} está inválido e foi ignorado: {e.Reason}";
+            return [];
+        }
+    }
+
     /// <summary>Grava o <c>address-terms.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
     /// <exception cref="GlossaryFileException">Par vazio ou repetido; nada é gravado.</exception>
     public void SaveAddressTerms(IReadOnlyList<AddressTerm> terms) =>

@@ -8,8 +8,11 @@ using VNForge.Core.Text;
 
 namespace VNForge.AI.Tests;
 
-public class AddressTermsAiTests
+public partial class AddressTermsAiTests
 {
+    [System.Text.RegularExpressions.GeneratedRegex("\"id\":\"([^\"]+)\"")]
+    private static partial System.Text.RegularExpressions.Regex RequestId();
+
     private sealed class StubClient(Func<ClaudeRequest, ClaudeReply> reply) : IClaudeMessageClient
     {
         public List<ClaudeRequest> Requests { get; } = [];
@@ -182,7 +185,7 @@ public class AddressTermsAiTests
     {
         var client = new StubClient(request =>
         {
-            var ids = System.Text.RegularExpressions.Regex.Matches(request.User, "\"id\":\"([^\"]+)\"").Select(m => m.Groups[1].Value).Distinct();
+            var ids = RequestId().Matches(request.User).Select(m => m.Groups[1].Value).Distinct();
             return Ok($"{{\"translations\":[{string.Join(",", ids.Select(id => $"{{\"id\":\"{id}\",\"translation\":\"T-{id}\"}}"))}]}}");
         });
         await new ClaudeTranslationProvider(client).TranslateAsync(batch, CancellationToken.None);

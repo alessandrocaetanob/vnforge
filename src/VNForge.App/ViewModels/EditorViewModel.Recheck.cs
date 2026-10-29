@@ -93,7 +93,7 @@ public sealed partial class EditorViewModel
             return;
         }
 
-        Detail?.SpellWords = ProjectDictionary.Create(context.Glossary, context.Characters.Entries);
+        Detail?.SpellWords = context.SpellWords();
 
         ShowRechecked(lines.Apply(result), lines);
     }

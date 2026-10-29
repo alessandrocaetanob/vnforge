@@ -25,6 +25,7 @@ public sealed partial class AddressTermsViewModel : ObservableObject
     private IReadOnlyList<TextUnit> units = [];
     private bool textLoaded;
     private bool loading;
+    private bool requestsStale;
     private List<AddressTermRequest> requests = [];
     private CancellationTokenSource? cts;
 
@@ -54,16 +55,23 @@ public sealed partial class AddressTermsViewModel : ObservableObject
 
     public bool NoRows => Rows.Count == 0;
 
-    public int PairCount => Rows.Count(r => !r.IsSuggestion);
+    /// <summary>As linhas completas (par, original e tradução); a linha ainda incompleta e a sugestão pendente não contam. Repetida ou com o mesmo falante nos dois lados só é recusada ao salvar.</summary>
+    public int PairCount => Rows.Count(r => !r.IsSuggestion && r.IsComplete);
 
-    public string Summary => (PairCount, PendingCount) switch
+    public string Summary => Summarize(PairCount, PendingCount);
+
+    public string EmptyText { get; } = "Nenhum tratamento ainda. Peça à IA pelas falas ou adicione o primeiro.";
+
+    private static string Summarize(int pairs, int pending)
     {
-        (0, 0) => "Nenhum tratamento ainda",
-        (var n, 0) => $"{ProjectLabels.Number(n)} {(n == 1 ? "tratamento" : "tratamentos")}",
-        (var n, var p) => $"{ProjectLabels.Number(n)} {(n == 1 ? "tratamento" : "tratamentos")} · {ProjectLabels.Number(p)} {(p == 1 ? "sugestão" : "sugestões")} da IA",
-    };
+        if (pairs == 0 && pending == 0)
+        {
+            return "Nenhum tratamento ainda";
+        }
 
-    public string EmptyText => "Nenhum tratamento ainda. Peça à IA pelas falas ou adicione o primeiro.";
+        var head = $"{ProjectLabels.Number(pairs)} {(pairs == 1 ? "tratamento" : "tratamentos")}";
+        return pending == 0 ? head : $"{head} · {ProjectLabels.Number(pending)} {(pending == 1 ? "sugestão" : "sugestões")} da IA";
+    }
 
     /// <summary>Quantas linhas ficaram de fora do arquivo (quem fala ou com quem fala em branco, ou par repetido).</summary>
     public int ProblemCount => Rows.Count(r => r.HasProblem);
@@ -201,6 +209,11 @@ public sealed partial class AddressTermsViewModel : ObservableObject
             return "Escolha quem fala e com quem fala.";
         }
 
+        if (!row.IsComplete)
+        {
+            return "Falta como o personagem o chama, no japonês e na tradução.";
+        }
+
         if (CharacterBook.NameComparer.Equals(row.From, row.To))
         {
             return "Quem fala e com quem fala são a mesma pessoa.";
@@ -257,17 +270,16 @@ public sealed partial class AddressTermsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSuggest))]
     private async Task SuggestAsync()
     {
-        var asked = requests;
         var roster = Roster();
         var token = Begin();
         try
         {
+            // Editar um nome em Personagens só marca o pedido como velho: a leitura do texto inteiro roda aqui, fora da thread da tela, e só uma vez.
+            var asked = requestsStale ? await RebuildAsync(roster, token).ConfigureAwait(true) : requests;
             var suggestions = await suggester()!.SuggestAddressTermsAsync(asked, roster, token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             var added = Apply(suggestions);
-            SuggestionNotice = added == 0
-                ? "A IA não achou tratamento novo nas falas. Preencha a tabela à mão."
-                : $"{ProjectLabels.Number(added)} {(added == 1 ? "tratamento sugerido" : "tratamentos sugeridos")}. Aceite os que servirem.";
+            SuggestionNotice = SuggestionSummary(added);
         }
         catch (OperationCanceledException)
         {
@@ -281,6 +293,17 @@ public sealed partial class AddressTermsViewModel : ObservableObject
         {
             End(token);
         }
+    }
+
+    private static string SuggestionSummary(int added)
+    {
+        if (added == 0)
+        {
+            return "A IA não achou tratamento novo nas falas. Preencha a tabela à mão.";
+        }
+
+        var what = added == 1 ? "tratamento sugerido" : "tratamentos sugeridos";
+        return $"{ProjectLabels.Number(added)} {what}. Aceite os que servirem.";
     }
 
     private int Apply(IReadOnlyList<AddressTermSuggestion> suggestions)
@@ -335,13 +358,28 @@ public sealed partial class AddressTermsViewModel : ObservableObject
     private List<AddressTermCharacter> Roster() =>
         [.. characters.Where(c => !string.IsNullOrWhiteSpace(c.Source)).Select(c => new AddressTermCharacter(c.Source.Trim(), string.IsNullOrWhiteSpace(c.Target) ? null : c.Target.Trim()))];
 
-    private void RebuildRequests()
+    private static List<AddressTermRequest> BuildRequests(IReadOnlyList<TextUnit> units, List<AddressTermCharacter> roster)
     {
-        var people = Roster().Select(c => new CharacterEntry(c.Name, c.Translation ?? string.Empty)).ToList();
-        requests = textLoaded && people.Count > 1
+        var people = roster.Select(c => new CharacterEntry(c.Name, c.Translation ?? string.Empty)).ToList();
+        return people.Count > 1
             ? [.. AddressSamples.From(units, people).Select(p => new AddressTermRequest(p.Key, p.Value))]
             : [];
+    }
+
+    private void RebuildRequests()
+    {
+        requests = textLoaded ? BuildRequests(units, Roster()) : [];
+        requestsStale = false;
         NotifySuggestionState();
+    }
+
+    private async Task<List<AddressTermRequest>> RebuildAsync(List<AddressTermCharacter> roster, CancellationToken token)
+    {
+        var text = units;
+        var fresh = await Task.Run(() => BuildRequests(text, roster), token).ConfigureAwait(true);
+        requests = fresh;
+        requestsStale = false;
+        return fresh;
     }
 
     private void OnCharactersChanged()
@@ -351,6 +389,13 @@ public sealed partial class AddressTermsViewModel : ObservableObject
         {
             RebuildRequests();
         }
+    }
+
+    /// <summary>A pessoa editou o nome ou a tradução de um personagem: os seletores mostram o nome de agora e o pedido à IA é refeito quando for usado.</summary>
+    public void CharactersEdited()
+    {
+        RefreshNames();
+        requestsStale = true;
     }
 
     /// <summary>Refaz a lista de nomes para escolher, sem tirar o que já está escolhido de uma linha: só entra o que falta e sai o que sumiu.</summary>
@@ -374,6 +419,13 @@ public sealed partial class AddressTermsViewModel : ObservableObject
         {
             if (e.PropertyName is nameof(AddressTermRow.Problem) or nameof(AddressTermRow.HasProblem) or nameof(AddressTermRow.IsBlank))
             {
+                return;
+            }
+
+            if (e.PropertyName == nameof(AddressTermRow.IsComplete))
+            {
+                OnPropertyChanged(nameof(PairCount));
+                OnPropertyChanged(nameof(Summary));
                 return;
             }
 
@@ -449,8 +501,8 @@ public sealed partial class AddressTermsViewModel : ObservableObject
 /// <summary>Uma linha da tabela de tratamentos: quem fala, com quem, o tratamento no original e na tradução.</summary>
 public sealed partial class AddressTermRow : ObservableObject
 {
-    private string from = string.Empty;
-    private string to = string.Empty;
+    private string from;
+    private string to;
 
     public AddressTermRow(string from = "", string to = "", string source = "", string target = "")
     {
@@ -469,6 +521,7 @@ public sealed partial class AddressTermRow : ObservableObject
             if (value is not null && SetProperty(ref from, value))
             {
                 OnPropertyChanged(nameof(IsBlank));
+                OnPropertyChanged(nameof(IsComplete));
             }
         }
     }
@@ -482,18 +535,19 @@ public sealed partial class AddressTermRow : ObservableObject
             if (value is not null && SetProperty(ref to, value))
             {
                 OnPropertyChanged(nameof(IsBlank));
+                OnPropertyChanged(nameof(IsComplete));
             }
         }
     }
 
     /// <summary>Como quem fala o chama no japonês (<c>美咲ちゃん</c>, <c>先輩</c>).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsBlank))]
+    [NotifyPropertyChangedFor(nameof(IsBlank), nameof(IsComplete))]
     public partial string Source { get; set; }
 
     /// <summary>Como a tradução o chama (<c>Misaki-chan</c>, <c>senpai</c>).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsBlank))]
+    [NotifyPropertyChangedFor(nameof(IsBlank), nameof(IsComplete))]
     public partial string Target { get; set; }
 
     /// <summary>Sugestão da IA esperando o aceite: aparece esmaecida e não vai para o arquivo.</summary>
@@ -508,6 +562,9 @@ public sealed partial class AddressTermRow : ObservableObject
     public bool HasProblem => Problem is not null;
 
     /// <summary>Linha sem nada escrito: não vai para o arquivo e não conta como problema.</summary>
+    /// <summary>Tem o par e o tratamento nos dois idiomas: é o que vai para o arquivo.</summary>
+    public bool IsComplete => !string.IsNullOrWhiteSpace(From) && !string.IsNullOrWhiteSpace(To) && !string.IsNullOrWhiteSpace(Source) && !string.IsNullOrWhiteSpace(Target);
+
     public bool IsBlank => string.IsNullOrWhiteSpace(From) && string.IsNullOrWhiteSpace(To) && string.IsNullOrWhiteSpace(Source) && string.IsNullOrWhiteSpace(Target);
 
     public AddressTerm ToTerm() => new(From.Trim(), To.Trim(), Source.Trim(), Target.Trim());

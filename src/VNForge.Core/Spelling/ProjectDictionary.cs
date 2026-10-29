@@ -18,8 +18,8 @@ public sealed class ProjectDictionary
     /// <summary>Quantas palavras o projeto acrescenta.</summary>
     public int Count => words.Count;
 
-    /// <summary>As traduções dos termos do glossário e dos personagens, palavra por palavra.</summary>
-    public static ProjectDictionary Create(IEnumerable<GlossaryTerm> glossary, IEnumerable<CharacterEntry> characters)
+    /// <summary>As traduções dos termos do glossário, dos personagens e dos tratamentos entre eles ("Ken-chan"), palavra por palavra.</summary>
+    public static ProjectDictionary Create(IEnumerable<GlossaryTerm> glossary, IEnumerable<CharacterEntry> characters, IEnumerable<AddressTerm>? addressTerms = null)
     {
         ArgumentNullException.ThrowIfNull(glossary);
         ArgumentNullException.ThrowIfNull(characters);
@@ -33,6 +33,11 @@ public sealed class ProjectDictionary
         foreach (var character in characters)
         {
             dictionary.AddPhrase(character.Target);
+        }
+
+        foreach (var term in addressTerms ?? [])
+        {
+            dictionary.AddPhrase(term.Target);
         }
 
         return dictionary;

@@ -1,5 +1,6 @@
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
+using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Glossary;
@@ -115,6 +116,43 @@ public sealed class AddressTermsTests : IDisposable
     public void Quem_fala_e_com_quem_fala_nao_podem_ser_vazios(string from, string to)
     {
         Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Serialize([new AddressTerm(from, to, "a", "b")]));
+    }
+
+    [Fact]
+    public void Arquivo_com_par_repetido_ou_quem_fala_vazio_e_recusado_na_leitura()
+    {
+        const string repetido = """{"version":1,"entries":[{"from":"a","to":"b","source":"c","target":"d"},{"from":" a","to":"b ","source":"e","target":"f"}]}""";
+        const string semFalante = """{"version":1,"entries":[{"from":"","to":"b","source":"c","target":"d"}]}""";
+
+        Assert.Contains("mais de uma vez", Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(repetido, "x")).Reason);
+        Assert.Contains("quem fala", Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(semFalante, "x")).Reason);
+    }
+
+    [Fact]
+    public void Para_quem_so_consulta_o_arquivo_ilegivel_vira_lista_vazia_com_o_motivo()
+    {
+        var projeto = NovoProjeto();
+        File.WriteAllText(projeto.AddressTermsPath, "{ quebrado");
+
+        var termos = projeto.LoadAddressTermsOrEmpty(out var problema);
+
+        Assert.Empty(termos);
+        Assert.Contains("address-terms.json", problema);
+        Assert.Throws<GlossaryFileException>(projeto.LoadAddressTerms);
+
+        File.Delete(projeto.AddressTermsPath);
+        Assert.Empty(projeto.LoadAddressTermsOrEmpty(out problema));
+        Assert.Null(problema);
+    }
+
+    [Fact]
+    public void O_corretor_aceita_o_tratamento_combinado_como_palavra_do_projeto()
+    {
+        var sem = ProjectDictionary.Create([], []);
+        var com = ProjectDictionary.Create([], [], [new AddressTerm("健太", "美咲", "美咲ちゃん", "Zorgblat-chan")]);
+
+        Assert.False(sem.Contains("Zorgblat-chan"));
+        Assert.True(com.Contains("Zorgblat-chan"));
     }
 
     [Theory]

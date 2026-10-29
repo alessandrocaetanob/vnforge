@@ -86,15 +86,16 @@ public sealed class SpellingRule : UnitQaRule
     private ProjectDictionary ProjectOf(QaContext context)
     {
         var current = cached;
-        if (current is not null && ReferenceEquals(current.Glossary, context.Glossary) && ReferenceEquals(current.Characters, context.Characters))
+        if (current is not null && ReferenceEquals(current.Glossary, context.Glossary) && ReferenceEquals(current.Characters, context.Characters)
+            && ReferenceEquals(current.AddressTerms, context.AddressTerms))
         {
             return current.Words;
         }
 
-        var words = ProjectDictionary.Create(context.Glossary, context.Characters);
-        cached = new ProjectWords(context.Glossary, context.Characters, words);
+        var words = ProjectDictionary.Create(context.Glossary, context.Characters, context.AddressTerms);
+        cached = new ProjectWords(context.Glossary, context.Characters, context.AddressTerms, words);
         return words;
     }
 
-    private sealed record ProjectWords(IReadOnlyList<GlossaryTerm> Glossary, IReadOnlyList<CharacterEntry> Characters, ProjectDictionary Words);
+    private sealed record ProjectWords(IReadOnlyList<GlossaryTerm> Glossary, IReadOnlyList<CharacterEntry> Characters, IReadOnlyList<AddressTerm> AddressTerms, ProjectDictionary Words);
 }

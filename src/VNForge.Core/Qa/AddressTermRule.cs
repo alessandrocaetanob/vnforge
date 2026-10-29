@@ -7,52 +7,42 @@ namespace VNForge.Core.Qa;
 /// Fala que foge do tratamento combinado entre os personagens (#470): o falante tem em <c>address-terms.json</c> um tratamento para alguém
 /// (<c>美咲ちゃん</c> vira "Misaki-chan"), o original da fala traz esse tratamento e a tradução não traz o combinado. Só avisa, e o aviso
 /// não trava o build (<see cref="QaReport.BlockingIssues"/>): a pessoa decide se a fala muda ou se a exceção é de propósito.
+/// A conferência é por trecho de texto, sem fronteira de palavra: <c>先輩</c> também casa dentro de <c>田中先輩</c>, e um tratamento curto
+/// como "ele" casa dentro de "dele". O aviso é só uma sugestão de revisão, então prefere apontar a mais a deixar passar.
 /// </summary>
-public sealed class AddressTermRule : IQaRule
+public sealed class AddressTermRule : UnitQaRule
 {
     public const string RuleId = "tratamento-fora-do-combinado";
 
     /// <inheritdoc />
-    public string Id => RuleId;
+    public override string Id => RuleId;
 
     /// <inheritdoc />
-    public string Description => "Fala que não usa o tratamento combinado entre os personagens (address-terms.json).";
+    public override string Description => "Fala que não usa o tratamento combinado entre os personagens (address-terms.json).";
 
     /// <inheritdoc />
-    public IEnumerable<QaIssue> Check(QaContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        return context.AddressTerms.Count == 0 ? [] : CheckAll(context);
-    }
-
-    private static IEnumerable<QaIssue> CheckAll(QaContext context)
-    {
-        var book = new AddressBook(context.AddressTerms.Where(IsUsable));
-        foreach (var (key, units) in context.Texts)
-        {
-            foreach (var unit in units)
-            {
-                if (!unit.HasTranslation)
-                {
-                    continue;
-                }
-
-                foreach (var message in CheckUnit(unit, book))
-                {
-                    yield return new QaIssue(RuleId, QaSeverity.Warning, unit.Id, key, message);
-                }
-            }
-        }
-    }
+    public override QaSeverity Severity => QaSeverity.Warning;
 
     // Sem o original ou sem a tradução do tratamento não há o que conferir: a linha da tabela ainda está sendo preenchida.
-    private static bool IsUsable(AddressTerm term) =>
+    internal static bool IsUsable(AddressTerm term) =>
         !string.IsNullOrWhiteSpace(term.Source) && !string.IsNullOrWhiteSpace(term.Target);
 
-    private static IEnumerable<string> CheckUnit(TextUnit unit, AddressBook book)
+    /// <inheritdoc />
+    protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
+    {
+        if (!unit.HasTranslation || context.AddressBook.IsEmpty)
+        {
+            return [];
+        }
+
+        var terms = context.AddressBook.From(unit.EffectiveSpeaker);
+        return terms.Count == 0 ? [] : Check(unit, terms);
+    }
+
+    private static IEnumerable<string> Check(TextUnit unit, IReadOnlyList<AddressTerm> terms)
     {
         // O mesmo tratamento no original pode servir a mais de um par (先輩 para dois veteranos): basta a tradução trazer um dos combinados.
-        foreach (var group in book.From(unit.EffectiveSpeaker).GroupBy(t => t.Source.Trim(), StringComparer.Ordinal))
+        foreach (var group in terms.GroupBy(t => t.Source.Trim(), StringComparer.Ordinal))
         {
             if (!unit.Source.Contains(group.Key, StringComparison.Ordinal)
                 || group.Any(t => (unit.Translation ?? string.Empty).Contains(t.Target.Trim(), StringComparison.OrdinalIgnoreCase)))

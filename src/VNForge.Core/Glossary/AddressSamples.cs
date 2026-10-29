@@ -40,7 +40,7 @@ public static class AddressSamples
         foreach (var unit in units)
         {
             var text = unit.Source.Trim();
-            if (SpeakerNames.IsSignsOnly(unit.Speaker) || text.Length == 0 || book.Find(unit.Speaker) is not { } speaker)
+            if (SpeakerNames.IsSignsOnly(unit.EffectiveSpeaker) || text.Length == 0 || book.Find(unit.EffectiveSpeaker) is not { } speaker)
             {
                 previous = null;
                 continue;

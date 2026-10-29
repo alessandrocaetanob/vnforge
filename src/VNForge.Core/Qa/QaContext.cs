@@ -25,7 +25,18 @@ public sealed record QaContext(
     public StyleConfig Style { get; init; } = StyleConfig.Default;
 
     /// <summary>Tratamentos entre personagens de <c>address-terms.json</c>, que a <see cref="AddressTermRule"/> confere; vazio quando o projeto não os tem ou o contexto não vem de um projeto.</summary>
-    public IReadOnlyList<AddressTerm> AddressTerms { get; init; } = [];
+    public IReadOnlyList<AddressTerm> AddressTerms
+    {
+        get;
+        init
+        {
+            field = value;
+            AddressBook = new AddressBook(value.Where(AddressTermRule.IsUsable));
+        }
+    } = [];
+
+    /// <summary>Os <see cref="AddressTerms"/> completos (com o original e a tradução do tratamento) indexados por falante; refeito a cada troca de <see cref="AddressTerms"/>.</summary>
+    public AddressBook AddressBook { get; private set; } = new([]);
 
     /// <summary>Título do jogo do <c>vnforge.json</c>, que a <see cref="GameTitleEncodingRule"/> confere; nulo quando o projeto não tem título ou o contexto não vem de um projeto.</summary>
     public GameTitleConfig? GameTitle { get; init; }

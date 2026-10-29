@@ -9,6 +9,12 @@
     <Style Selector="Grid.pending">
       <Setter Property="Opacity" Value="0.72"/>
     </Style>
+    <Style Selector="Grid.pending TextBox">
+      <Setter Property="FontStyle" Value="Italic"/>
+    </Style>
+    <Style Selector="ComboBox.invalid">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    </Style>
   </UserControl.Styles>
 
   <StackPanel Spacing="12" Margin="0,12,0,0">
@@ -35,7 +41,8 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
               <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SuggestingText}" IsVisible="{Binding IsSuggesting}"/>
-              <Button Classes="sm" Command="{Binding SuggestCommand}" ToolTip.Tip="{Binding SuggestHint}" AutomationProperties.Name="Pedir os tratamentos à IA">
+              <Button Classes="sm" Command="{Binding SuggestCommand}" ToolTip.Tip="{Binding SuggestHint}" AutomationProperties.Name="Pedir à IA"
+                      AutomationProperties.HelpText="{Binding SuggestHint}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
                   <TextBlock Text="Pedir à IA"/>
@@ -64,16 +71,20 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:AddressTermRow">
               <Grid ColumnDefinitions="*,*,*,*,76" ColumnSpacing="12" Margin="16,2" Classes.pending="{Binding IsSuggestion}">
-                <ComboBox HorizontalAlignment="Stretch" MinHeight="30"
+                <ComboBox HorizontalAlignment="Stretch" MinHeight="30" Classes.invalid="{Binding HasProblem}"
                           ItemsSource="{Binding $parent[UserControl].((vm:AddressTermsViewModel)DataContext).CharacterNames}"
-                          SelectedItem="{Binding From}" ToolTip.Tip="{Binding Problem}" AutomationProperties.Name="Quem fala"/>
-                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" MinHeight="30"
+                          SelectedItem="{Binding From}" ToolTip.Tip="{Binding Problem}" AutomationProperties.Name="Quem fala"
+                          AutomationProperties.HelpText="{Binding Problem}"/>
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" MinHeight="30" Classes.invalid="{Binding HasProblem}"
                           ItemsSource="{Binding $parent[UserControl].((vm:AddressTermsViewModel)DataContext).CharacterNames}"
-                          SelectedItem="{Binding To}" ToolTip.Tip="{Binding Problem}" AutomationProperties.Name="Com quem fala"/>
+                          SelectedItem="{Binding To}" ToolTip.Tip="{Binding Problem}" AutomationProperties.Name="Com quem fala"
+                          AutomationProperties.HelpText="{Binding Problem}"/>
                 <TextBox Grid.Column="2" Classes="cell jp" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}"
-                         Text="{Binding Source}" PlaceholderText="美咲ちゃん" AutomationProperties.Name="Como chama, em japonês"/>
+                         Text="{Binding Source}" PlaceholderText="美咲ちゃん" AutomationProperties.Name="Como chama, em japonês"
+                         AutomationProperties.HelpText="{Binding Problem}"/>
                 <TextBox Grid.Column="3" Classes="cell" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}"
-                         Text="{Binding Target}" PlaceholderText="Misaki-chan" AutomationProperties.Name="Como chama, na tradução"/>
+                         Text="{Binding Target}" PlaceholderText="Misaki-chan" AutomationProperties.Name="Como chama, na tradução"
+                         AutomationProperties.HelpText="{Binding Problem}"/>
                 <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">
                   <Button Classes="icon subtle sm" IsVisible="{Binding IsSuggestion}"
                           Command="{Binding $parent[UserControl].((vm:AddressTermsViewModel)DataContext).AcceptCommand}"

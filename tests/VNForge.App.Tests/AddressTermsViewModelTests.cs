@@ -106,20 +106,32 @@ public class AddressTermsViewModelTests
         table.Add();
         table.Rows[1].From = "健太";
         table.Rows[1].To = "美咲";
+        table.Rows[1].Source = "美咲ちゃん";
+        table.Rows[1].Target = "Misaki-chan";
         table.Add();
         table.Rows[2].From = "健太";
         table.Rows[2].To = "美咲";
+        table.Rows[2].Source = "美咲";
+        table.Rows[2].Target = "Misaki";
         table.Add();
         table.Rows[3].From = "美咲";
         table.Rows[3].To = "美咲";
+        table.Rows[3].Source = "a";
+        table.Rows[3].Target = "b";
+        table.Add();
+        table.Rows[4].From = "凛";
+        table.Rows[4].To = "美咲";
         vm.Flush();
 
-        Assert.Equal([new AddressTerm("健太", "美咲", string.Empty, string.Empty)], folder.LoadAddressTerms());
+        Assert.Equal(Saved, folder.LoadAddressTerms());
         Assert.NotNull(incomplete.Problem);
         Assert.Null(table.Rows[1].Problem);
         Assert.Contains("já está", table.Rows[2].Problem);
         Assert.Contains("mesma pessoa", table.Rows[3].Problem);
-        Assert.Equal(3, vm.ProblemCount);
+        Assert.Contains("Falta como", table.Rows[4].Problem);
+        Assert.Equal(4, vm.ProblemCount);
+        Assert.Equal(3, table.PairCount);
+        Assert.StartsWith("4 linhas ainda não foram salvas", vm.ProblemsText);
     }
 
     [Fact]
@@ -160,9 +172,12 @@ public class AddressTermsViewModelTests
 
         vm.AddCharacterCommand.Execute(null);
         vm.Characters[^1].Source = "凛";
-        Assert.DoesNotContain("凛", vm.AddressTerms.CharacterNames);
-        vm.AddressTerms.RefreshNames();
         Assert.Contains("凛", vm.AddressTerms.CharacterNames);
+
+        // Editar o nome de uma linha que já existe também atualiza o seletor, sem chamar nada à mão.
+        vm.Characters.Single(c => c.Source == "凛").Source = "凛子";
+        Assert.Contains("凛子", vm.AddressTerms.CharacterNames);
+        Assert.DoesNotContain("凛", vm.AddressTerms.CharacterNames);
 
         vm.RemoveCharacterCommand.Execute(vm.Characters.Single(c => c.Source == "美咲"));
         var row = vm.AddressTerms.Rows[0];
@@ -262,6 +277,56 @@ public class AddressTermsViewModelTests
 
         Assert.Empty(vm.AddressTerms.Rows);
         Assert.Empty(vm.AddressTerms.CharacterNames);
+    }
+
+    [Fact]
+    public async Task Aceitar_com_a_pagina_travada_nao_muda_a_sugestao()
+    {
+        var fake = new FakeGlossarySuggester(address: (_, _) => [new AddressTermSuggestion("健太", "美咲", "美咲ちゃん", "Misaki-chan")]);
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, fake);
+        await vm.AddressTerms.SuggestCommand.ExecuteAsync(null);
+        File.WriteAllText(folder.CharactersPath, "{ isto não é json");
+        vm.Reload();
+        Assert.False(vm.CanEdit);
+
+        vm.AddressTerms.Rows.Add(new AddressTermRow("健太", "美咲", "美咲ちゃん", "Misaki-chan") { IsSuggestion = true });
+        vm.AddressTerms.AcceptCommand.Execute(vm.AddressTerms.Rows[0]);
+
+        Assert.True(vm.AddressTerms.Rows[0].IsSuggestion);
+    }
+
+    [Fact]
+    public async Task Editar_o_nome_de_um_personagem_refaz_o_pedido_da_IA_na_hora_de_pedir()
+    {
+        var fake = new FakeGlossarySuggester();
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, fake);
+
+        vm.Characters.Single(c => c.Source == "先生").Source = "先生B";
+        await vm.AddressTerms.SuggestCommand.ExecuteAsync(null);
+
+        Assert.Single(fake.ReceivedAddress);
+    }
+
+    [Fact]
+    public async Task Linha_incompleta_nao_conta_nos_tratamentos()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp);
+
+        vm.AddressTerms.Add();
+        vm.AddressTerms.Rows[0].From = "健太";
+        vm.AddressTerms.Rows[0].To = "美咲";
+
+        Assert.Equal(0, vm.AddressTerms.PairCount);
+        Assert.Equal("Nenhum tratamento ainda", vm.AddressTerms.Summary);
+
+        vm.AddressTerms.Rows[0].Source = "美咲ちゃん";
+        vm.AddressTerms.Rows[0].Target = "Misaki-chan";
+
+        Assert.Equal(1, vm.AddressTerms.PairCount);
+        Assert.Equal("1 tratamento", vm.AddressTerms.Summary);
     }
 
     private sealed class ThrowingAddressSuggester(Exception error) : IGlossarySuggester

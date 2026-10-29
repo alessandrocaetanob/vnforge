@@ -89,6 +89,33 @@ public sealed class AddressTermRuleTests
     }
 
     [Fact]
+    public void A_conferencia_e_por_trecho_sem_fronteira_de_palavra()
+    {
+        // 先輩 dentro de 田中先輩 conta como o tratamento do original, e "ele" dentro de "dele" conta como traduzido: prefere apontar a mais a deixar passar.
+        var terms = new AddressTerm[] { new("凛", "健太", "先輩", "ele") };
+        var context = Context(
+            terms,
+            Unit("a:1", "田中先輩、こっち", "Tanaka, aqui", "凛"),
+            Unit("a:2", "先輩、こっち", "A casa é dele", "凛"));
+
+        var issue = Assert.Single(new AddressTermRule().Check(context));
+
+        Assert.Equal("a:1", issue.UnitId);
+    }
+
+    [Fact]
+    public void O_contexto_refaz_o_livro_quando_os_tratamentos_mudam()
+    {
+        var empty = Context([], Unit("a:1", "美咲ちゃん", "Misaki", "健太"));
+        var filled = empty with { AddressTerms = Kenta };
+
+        Assert.True(empty.AddressBook.IsEmpty);
+        Assert.False(filled.AddressBook.IsEmpty);
+        Assert.Single(new AddressTermRule().Check(filled));
+        Assert.Empty(new AddressTermRule().Check(filled with { AddressTerms = [] }));
+    }
+
+    [Fact]
     public void Sem_tratamentos_no_projeto_nada_a_conferir()
     {
         Assert.Empty(new AddressTermRule().Check(Context([], Unit("a:1", "美咲ちゃん", "Misaki", "健太"))));
