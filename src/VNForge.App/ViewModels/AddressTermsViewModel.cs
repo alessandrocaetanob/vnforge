@@ -130,6 +130,63 @@ public sealed partial class AddressTermsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Leva para o nome novo as linhas que citam um personagem renomeado em Personagens. As linhas confirmadas seguem as regras de <see cref="AddressTermRenamer.ApplyEach"/>
+    /// (na colisão fica o par que já existia; o par com o mesmo falante nos dois lados some); as sugestões e as linhas incompletas só trocam o nome.
+    /// Devolve verdadeiro se alguma linha mudou ou saiu; quem chama marca a página como alterada.
+    /// </summary>
+    public bool ApplyRenames(IReadOnlyDictionary<string, string> renames)
+    {
+        var nameAfter = AddressTermRenamer.Renamer(renames);
+        var changed = false;
+        loading = true;
+        try
+        {
+            var confirmed = Rows.Where(r => !r.IsSuggestion && r.IsComplete).ToList();
+            var before = confirmed.Select(r => r.ToTerm()).ToList();
+            var after = AddressTermRenamer.ApplyEach(before, renames);
+            for (var i = 0; i < confirmed.Count; i++)
+            {
+                changed |= Follow(confirmed[i], before[i], after[i]);
+            }
+
+            foreach (var row in Rows.Where(r => r.IsSuggestion || !r.IsComplete))
+            {
+                changed |= Rename(row, nameAfter(row.From), nameAfter(row.To));
+            }
+        }
+        finally
+        {
+            loading = false;
+        }
+
+        return changed;
+    }
+
+    // Um par que some leva a linha junto; um par que o Core devolveu intacto não toca na linha (nem nos espaços que a pessoa digitou).
+    private bool Follow(AddressTermRow row, AddressTerm before, AddressTerm? after)
+    {
+        if (after is null)
+        {
+            Rows.Remove(row);
+            return true;
+        }
+
+        return !ReferenceEquals(before, after) && Rename(row, after.From, after.To);
+    }
+
+    private static bool Rename(AddressTermRow row, string from, string to)
+    {
+        if (from == row.From && to == row.To)
+        {
+            return false;
+        }
+
+        row.From = from;
+        row.To = to;
+        return true;
+    }
+
     /// <summary>Descarta as linhas e o texto lido: o projeto mudou ou a página vai reler os arquivos.</summary>
     public void Clear()
     {

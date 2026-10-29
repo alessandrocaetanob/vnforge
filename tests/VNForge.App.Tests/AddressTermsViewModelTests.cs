@@ -329,6 +329,239 @@ public class AddressTermsViewModelTests
         Assert.Equal("1 tratamento", vm.AddressTerms.Summary);
     }
 
+    private static readonly AddressTerm[] Both =
+    [
+        new("健太", "美咲", "美咲ちゃん", "Misaki-chan"),
+        new("美咲", "健太", "先輩", "senpai"),
+    ];
+
+    [Fact]
+    public async Task Renomear_o_personagem_leva_os_dois_lados_do_par_na_tabela_e_no_arquivo()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "みさき";
+        vm.Flush();
+
+        Assert.Equal(
+        [
+            new AddressTerm("健太", "みさき", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("みさき", "健太", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+        Assert.Equal([("健太", "みさき"), ("みさき", "健太")], vm.AddressTerms.Rows.Select(r => (r.From, r.To)));
+        Assert.Contains("みさき", vm.AddressTerms.CharacterNames);
+    }
+
+    [Fact]
+    public async Task Digitar_o_nome_aos_poucos_e_salvar_no_meio_nao_perde_o_par()
+    {
+        using var temp = new TempFolder();
+        var clock = new FakeTimeProvider();
+        var (vm, folder) = await OpenAsync(temp, clock: clock, terms: Both);
+        var misaki = vm.Characters.Single(c => c.Source == "美咲");
+
+        misaki.Source = "み";
+        clock.Advance(GlossaryViewModel.SaveDelay);
+        misaki.Source = "みさ";
+        misaki.Source = "みさき";
+        clock.Advance(GlossaryViewModel.SaveDelay);
+
+        Assert.Equal([
+            new AddressTerm("健太", "みさき", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("みさき", "健太", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
+
+    [Fact]
+    public async Task Renomear_para_um_nome_que_ja_existe_nao_mexe_nos_pares_ate_a_linha_ficar_certa()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+
+        var misaki = vm.Characters.Single(c => c.Source == "美咲");
+        misaki.Source = "健太";
+        vm.Flush();
+
+        Assert.Equal(Both, folder.LoadAddressTerms());
+        Assert.Equal([("健太", "美咲"), ("美咲", "健太")], vm.AddressTerms.Rows.Select(r => (r.From, r.To)));
+
+        misaki.Source = "みさき";
+        vm.Flush();
+
+        Assert.Equal([
+            new AddressTerm("健太", "みさき", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("みさき", "健太", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
+
+    [Fact]
+    public async Task Dois_personagens_que_trocam_de_nome_trocam_os_pares()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "tmp";
+        vm.Characters.Single(c => c.Source == "健太").Source = "美咲";
+        vm.Characters.Single(c => c.Source == "tmp").Source = "健太";
+        vm.Flush();
+
+        Assert.Equal(
+        [
+            new AddressTerm("美咲", "健太", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("健太", "美咲", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
+
+    [Fact]
+    public async Task Renomear_um_personagem_novo_que_ainda_nao_tem_par_nao_mexe_nos_tratamentos()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Saved);
+
+        vm.AddCharacterCommand.Execute(null);
+        vm.Characters[^1].Source = "凛";
+        vm.Characters[^1].Source = "凛子";
+        vm.Flush();
+
+        Assert.Equal(Saved, folder.LoadAddressTerms());
+    }
+
+    [Fact]
+    public async Task Renomear_com_um_par_orfao_no_destino_fica_o_que_ja_existia_como_no_Core()
+    {
+        var existente = new AddressTerm("健太", "みさき", "みさきさん", "Misaki-san");
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: [new("健太", "美咲", "美咲ちゃん", "Misaki-chan"), existente]);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "みさき";
+        vm.Flush();
+
+        Assert.Equal([existente], folder.LoadAddressTerms());
+        Assert.Equal([("健太", "みさき")], vm.AddressTerms.Rows.Select(r => (r.From, r.To)));
+        Assert.Equal("Misaki-san", Assert.Single(vm.AddressTerms.Rows).Target);
+    }
+
+    [Fact]
+    public async Task Remover_um_personagem_e_renomear_outro_para_o_nome_dele_descarta_o_par_que_viraria_consigo_mesmo()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms:
+        [
+            new("健太", "美咲", "美咲ちゃん", "Misaki-chan"),
+            new("美咲", "先生", "田中先生", "professor Tanaka"),
+            new("美咲", "健太", "先輩", "senpai"),
+        ]);
+
+        vm.RemoveCharacterCommand.Execute(vm.Characters.Single(c => c.Source == "先生"));
+        vm.Characters.Single(c => c.Source == "美咲").Source = "先生";
+        vm.Flush();
+
+        Assert.Equal(
+        [
+            new AddressTerm("健太", "先生", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("先生", "健太", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+        Assert.Equal(2, vm.AddressTerms.Rows.Count);
+    }
+
+    [Fact]
+    public async Task Depois_de_renomear_a_pagina_fica_salva_sem_falha()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, terms: Both);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "みさき";
+        Assert.True(vm.IsDirty);
+        vm.Flush();
+
+        Assert.False(vm.IsDirty);
+        Assert.False(vm.SaveFailed);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Sugestao_pendente_da_IA_segue_o_nome_novo_e_continua_sugestao()
+    {
+        var fake = new FakeGlossarySuggester(address: (_, _) => [new AddressTermSuggestion("健太", "美咲", "美咲ちゃん", "Misaki-chan")]);
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, fake);
+        await vm.AddressTerms.SuggestCommand.ExecuteAsync(null);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "みさき";
+        vm.Flush();
+
+        var row = Assert.Single(vm.AddressTerms.Rows);
+        Assert.Equal(("健太", "みさき", true), (row.From, row.To, row.IsSuggestion));
+        Assert.False(File.Exists(folder.AddressTermsPath));
+    }
+
+    [Fact]
+    public async Task Falha_ao_gravar_os_tratamentos_avisa_que_ainda_citam_o_nome_antigo_e_a_nova_tentativa_nao_troca_de_novo()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+        File.Delete(folder.AddressTermsPath);
+        Directory.CreateDirectory(folder.AddressTermsPath);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "tmp";
+        vm.Characters.Single(c => c.Source == "健太").Source = "美咲";
+        vm.Characters.Single(c => c.Source == "tmp").Source = "健太";
+        vm.Flush();
+
+        Assert.True(vm.SaveFailed);
+        Assert.Contains("ainda citam o nome antigo", vm.ErrorMessage);
+        Assert.Equal(["健太", "美咲", "先生"], folder.LoadCharacters().Select(c => c.Source));
+
+        Directory.Delete(folder.AddressTermsPath);
+        vm.Flush();
+
+        Assert.False(vm.SaveFailed);
+        Assert.Equal(
+        [
+            new AddressTerm("美咲", "健太", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("健太", "美咲", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
+
+    [Fact]
+    public async Task Renomear_de_novo_depois_da_falha_o_aviso_cita_o_nome_que_o_arquivo_ainda_tem()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+        File.Delete(folder.AddressTermsPath);
+        Directory.CreateDirectory(folder.AddressTermsPath);
+        var misaki = vm.Characters.Single(c => c.Source == "美咲");
+
+        misaki.Source = "みさき";
+        vm.Flush();
+        misaki.Source = "ミサキ";
+        vm.Flush();
+
+        Assert.True(vm.SaveFailed);
+        Assert.Contains("美咲 agora é ミサキ", vm.ErrorMessage);
+        Assert.DoesNotContain("みさき agora", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Descartar_depois_da_falha_entre_os_arquivos_avisa_quais_nomes_os_tratamentos_ainda_citam()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+        File.Delete(folder.AddressTermsPath);
+        Directory.CreateDirectory(folder.AddressTermsPath);
+        vm.Characters.Single(c => c.Source == "美咲").Source = "みさき";
+        vm.Flush();
+        Directory.Delete(folder.AddressTermsPath);
+        folder.SaveAddressTerms(Both);
+
+        vm.DiscardChangesCommand.Execute(null);
+
+        Assert.Contains("美咲", vm.NoticeMessage);
+        Assert.Contains("みさき", vm.NoticeMessage);
+        Assert.Contains("Tratamentos", vm.NoticeMessage);
+    }
+
     private sealed class ThrowingAddressSuggester(Exception error) : IGlossarySuggester
     {
         public Task<IReadOnlyList<CharacterVoiceSuggestion>> SuggestVoicesAsync(IReadOnlyList<CharacterVoiceRequest> characters, CancellationToken ct) =>

@@ -34,6 +34,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     private bool termsDirty;
     private bool charactersDirty;
     private bool addressDirty;
+    private readonly Dictionary<string, string> staleAddressNames = new(CharacterBook.NameComparer);
     private bool loadFailed;
     private bool loading;
     private GlossaryUsage usage = GlossaryUsage.Empty;
@@ -196,6 +197,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             AddressTerms.Clear();
             ErrorMessage = null;
             NoticeMessage = null;
+            staleAddressNames.Clear();
             loadFailed = false;
             usage = GlossaryUsage.Empty;
             usageLoaded = false;
@@ -453,6 +455,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         NoticeMessage = null;
         var terms = ValidRows(Terms, "Falta o termo em japonês.").Select(t => t.ToTerm()).ToList();
         var characters = ValidRows(Characters, "Falta o nome do personagem no jogo.").Select(c => c.ToEntry()).ToList();
+        var renames = FollowCharacterRenames();
         var addressTerms = AddressTerms.ValidTerms();
         NotifyProblems();
         try
@@ -473,6 +476,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
                 if (characters.Count > 0 || File.Exists(folder.CharactersPath))
                 {
                     folder.SaveCharacters(characters);
+                    RememberStaleAddressNames(renames);
                     ShareNamesWithLines(folder, characters);
                 }
 
@@ -480,6 +484,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             }
 
             SaveAddressTerms(folder, addressTerms);
+            staleAddressNames.Clear();
         }
         catch (GlossaryFileException e)
         {
@@ -529,7 +534,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private void FailSave(string message)
     {
-        ErrorMessage = message;
+        ErrorMessage = message + StaleAddressWarning("Tente salvar de novo antes de descartar.");
         SaveFailed = true;
     }
 
@@ -791,6 +796,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         addressDirty = false;
         IsDirty = false;
         var next = PendingProject;
+        var stale = StaleAddressWarning("Troque esses nomes nas linhas da aba Tratamentos.").TrimStart();
         PendingProject = null;
         if (next is not null)
         {
@@ -799,6 +805,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         else
         {
             Reload();
+            NoticeMessage = stale.Length > 0 ? stale : null;
         }
     }
 
