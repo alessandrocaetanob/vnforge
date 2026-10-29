@@ -6,7 +6,6 @@ using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
-using VNForge.Core.Demo;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 

@@ -3,6 +3,7 @@
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
              xmlns:g="using:VNForge.Core.Glossary"
+             xmlns:v="using:VNForge.App.Views"
              x:Class="VNForge.App.Views.GlossaryView"
              x:DataType="vm:GlossaryViewModel">
 
@@ -121,6 +122,7 @@
                     </StackPanel>
                   </Grid>
                 </Border>
+                <v:CharacterSheetView DataContext="{Binding Sheet}" IsVisible="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).HasSheet}"/>
                 <Border Classes="infobar" Classes.warning="{Binding HasMissingGender}" Margin="16,12,16,0" IsVisible="{Binding HasVoiceStrip}">
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                     <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}" IsVisible="{Binding HasMissingGender}"/>
@@ -157,7 +159,14 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:CharacterRow">
                       <Grid ColumnDefinitions="*,*,150,112,1.2*,72,36" ColumnSpacing="12" Margin="16,2" Background="Transparent">
-                        <TextBox Classes="cell jp" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}" Text="{Binding Source}" AutomationProperties.Name="Nome no jogo"/>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
+                          <TextBox Classes="cell jp" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}" Text="{Binding Source}" AutomationProperties.Name="Nome no jogo"/>
+                          <Button Grid.Column="1" Classes="icon subtle sm" VerticalAlignment="Center" IsEnabled="{Binding !IsBlank}"
+                                  Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).OpenSheetCommand}" CommandParameter="{Binding}"
+                                  ToolTip.Tip="Abrir a ficha do personagem" AutomationProperties.Name="{Binding OpenSheetLabel}">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Person}"/>
+                          </Button>
+                        </Grid>
                         <TextBox Grid.Column="1" Classes="cell" Text="{Binding Target}" AutomationProperties.Name="Nome na tradução"/>
                         <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" MinHeight="30" IsVisible="{Binding !HasSuggestion}"
                                   ItemsSource="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Genders}"

@@ -43,13 +43,16 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
 
     private readonly Func<IReadOnlyList<PaletteEntry>> namedEntries;
     private readonly Func<string, int, IReadOnlyList<PaletteEntry>> lineSearch;
+    private readonly Func<string, PaletteEntry?>? requestEntry;
 
     /// <param name="namedEntries">Comandos, telas e scripts de agora; a paleta os filtra pelo título.</param>
     /// <param name="lineSearch">Procura linhas pelo texto e devolve até o limite dado.</param>
-    public CommandPaletteViewModel(Func<IReadOnlyList<PaletteEntry>> namedEntries, Func<string, int, IReadOnlyList<PaletteEntry>> lineSearch)
+    /// <param name="requestEntry">Oferece o texto digitado como um pedido escrito à IA (um comando que não depende do título); nulo quando o texto não parece um pedido.</param>
+    public CommandPaletteViewModel(Func<IReadOnlyList<PaletteEntry>> namedEntries, Func<string, int, IReadOnlyList<PaletteEntry>> lineSearch, Func<string, PaletteEntry?>? requestEntry = null)
     {
         this.namedEntries = namedEntries;
         this.lineSearch = lineSearch;
+        this.requestEntry = requestEntry;
     }
 
     [ObservableProperty]
@@ -144,10 +147,22 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
         }
         else
         {
-            results.AddRange(Take(named, PaletteGroup.Command, query, CommandLimit));
-            results.AddRange(Take(named, PaletteGroup.Screen, query, ScreenLimit));
-            results.AddRange(Take(named, PaletteGroup.Script, query, ScriptLimit));
-            results.AddRange(lineSearch(query, LineLimit).Take(LineLimit));
+            var commands = Take(named, PaletteGroup.Command, query, CommandLimit).ToList();
+            var screens = Take(named, PaletteGroup.Screen, query, ScreenLimit).ToList();
+            var scripts = Take(named, PaletteGroup.Script, query, ScriptLimit).ToList();
+
+            var lines = lineSearch(query, LineLimit).Take(LineLimit).ToList();
+
+            // Um texto que já nomeia um comando, tela ou script, ou que acha linhas, é uma busca: o Enter executa esse resultado, não um pedido à IA.
+            if (commands.Count + screens.Count + scripts.Count + lines.Count == 0 && requestEntry?.Invoke(query) is { } request)
+            {
+                results.Add(request);
+            }
+
+            results.AddRange(commands);
+            results.AddRange(screens);
+            results.AddRange(scripts);
+            results.AddRange(lines);
         }
 
         Results = MarkGroups(results);

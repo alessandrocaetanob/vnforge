@@ -54,6 +54,9 @@ public sealed class App : Application
                 TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = effort }),
+                BatchRequestProviderFactory = (model, effort) => new ClaudeBatchRequestProvider(
+                    ClaudeProviderFactory.CreateClient(ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA.")),
+                    new ClaudeOptions { Model = model, Effort = effort }),
             };
             main.Conference.Shortener = suggester;
             window.DataContext = main;

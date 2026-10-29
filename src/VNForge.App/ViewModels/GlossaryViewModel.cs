@@ -179,6 +179,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         CancelSaveTimer();
         try
         {
+            Sheet = null;
             Terms.Clear();
             Characters.Clear();
             ErrorMessage = null;
@@ -392,6 +393,11 @@ public sealed partial class GlossaryViewModel : ObservableObject
     {
         if (row is not null)
         {
+            if (Sheet?.Row == row)
+            {
+                Sheet = null;
+            }
+
             Characters.Remove(row);
         }
     }
@@ -563,7 +569,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         row.PropertyChanged += (_, e) =>
         {
             // A contagem não é dado do arquivo: mexer nela não suja a página.
-            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem)
+            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem) or nameof(UsageRow.IsBlank)
                 or nameof(CharacterRow.SuggestedGender) or nameof(CharacterRow.SuggestedGenderLabel) or nameof(CharacterRow.SuggestedTone) or nameof(CharacterRow.TonePlaceholder))
             {
                 if (e.PropertyName == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
