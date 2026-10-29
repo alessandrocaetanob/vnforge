@@ -119,6 +119,39 @@ public class ProjectFolderConcurrencyTests
         Assert.False(File.Exists(origem));
     }
 
+    [Fact]
+    public void SaveText_espera_a_leitura_externa_e_conclui_quando_a_nova_tentativa_solta_o_arquivo()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        projeto.SaveText(Key, Unidades(2));
+
+        var aberto = new FileStream(projeto.TextPath(Key), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var esperas = new List<int>();
+
+        // Prova que o SaveText troca o arquivo por ProjectFileIo.Move: com File.Move direto a espera nunca seria chamada e a troca falharia no Windows.
+        try
+        {
+            projeto.SaveText(Key, Unidades(3), milissegundos =>
+            {
+                esperas.Add(milissegundos);
+                aberto.Dispose();
+            });
+        }
+        finally
+        {
+            aberto.Dispose();
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Equal([5], esperas);
+        }
+
+        Assert.Equal(3, projeto.LoadText(Key).Count);
+        Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
+    }
+
     private static Task EmThreadPropria(Action trabalho) =>
         Task.Factory.StartNew(trabalho, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 

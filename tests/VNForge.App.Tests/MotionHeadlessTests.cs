@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -92,16 +93,25 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
         try
         {
             Avalonia.Threading.Dispatcher? despachante = null;
+            ExceptionDispatchInfo? falha = null;
             var outra = new Thread(() =>
             {
-                using (MotionPreferences.Force(true))
+                try
                 {
-                }
+                    using (MotionPreferences.Force(true))
+                    {
+                    }
 
-                despachante = Avalonia.Threading.Dispatcher.FromThread(Thread.CurrentThread);
+                    despachante = Avalonia.Threading.Dispatcher.FromThread(Thread.CurrentThread);
+                }
+                catch (Exception ex)
+                {
+                    falha = ExceptionDispatchInfo.Capture(ex);
+                }
             });
             outra.Start();
             outra.Join();
+            falha?.Throw();
 
             Assert.Null(despachante);
         }
