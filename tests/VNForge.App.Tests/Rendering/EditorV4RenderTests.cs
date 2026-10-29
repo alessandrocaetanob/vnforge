@@ -8,6 +8,7 @@ using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Demo;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -70,7 +71,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
                     var largura = linha.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Original").Bounds.Width;
                     Assert.True(largura > 105, $"a coluna Original tem mais que os 97 px de antes da v4 ({largura:0} px)");
-                    Assert.Equal(["Todas", "Em japonês", "Para revisar", "Com aviso", "Não traduzir"], editor.Filters.Select(f => f.Label));
+                    Assert.Equal(["Todas", "Em japonês", "Para revisar", "Com aviso", "Não traduzir", "Soa estranho"], editor.Filters.Select(f => f.Label));
                 }
                 finally
                 {

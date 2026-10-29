@@ -230,6 +230,14 @@ public sealed partial class SettingsViewModel : ObservableObject
             new("Ollama / LM Studio", false),
         ];
         Themes = [new(ThemeChoice.System, "Sistema"), new(ThemeChoice.Light, "Claro"), new(ThemeChoice.Dark, "Escuro")];
+        TextSizes = [.. AppSettings.TextScaleSteps.Select(p => new ChoiceItem<int>(p, TextAppearance.PercentLabel(p)))];
+        JapaneseFonts =
+        [
+            new(JapaneseFontChoice.Default, "Noto Sans JP"),
+            new(JapaneseFontChoice.YuGothic, "Yu Gothic UI"),
+            new(JapaneseFontChoice.Meiryo, "Meiryo UI"),
+            new(JapaneseFontChoice.MsGothic, "MS Gothic"),
+        ];
         Models = [.. ClaudeModels.All.Select(Describe)];
         Qualities = [.. QualityProfiles.All.Select(QualityOption.Describe)];
         Efforts = [new("low", "Baixo"), new("medium", "Médio"), new("high", "Alto")];
@@ -261,6 +269,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         app = saved;
         Concurrency = saved.Concurrency;
         SelectedTheme = Themes.Single(t => t.Value == saved.Theme);
+        SelectedTextSize = TextSizes.Single(t => t.Value == saved.TextScalePercent);
+        SelectedJapaneseFont = JapaneseFonts.Single(f => f.Value == saved.JapaneseFont);
         SelectedModel = Models.Single(m => m.Id == QualityProfiles.For(saved.Quality).Model);
         ExchangeRateText = saved.BrlPerUsd is { } rate ? MoneyParser.Format(rate) : string.Empty;
         SpendLimitText = saved.SpendLimit is { } limit ? MoneyParser.Format(limit) : string.Empty;
@@ -329,6 +339,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Sistema, Claro e Escuro; o padrão segue o Windows.</summary>
     public ReadOnlyCollection<ChoiceItem<ThemeChoice>> Themes { get; }
 
+    /// <summary>Os tamanhos do texto (<see cref="AppSettings.TextScaleSteps"/>), do menor ao maior.</summary>
+    public ReadOnlyCollection<ChoiceItem<int>> TextSizes { get; }
+
+    /// <summary>A fonte do app e as do Windows que têm japonês.</summary>
+    public ReadOnlyCollection<ChoiceItem<JapaneseFontChoice>> JapaneseFonts { get; }
+
     /// <summary>A cotação que converte os custos; sem uma informada, o valor de exemplo.</summary>
     public ExchangeRate Rate => app.Rate;
 
@@ -359,6 +375,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Disparado quando o usuário troca o tema; o <c>App</c> aplica o <c>RequestedThemeVariant</c>.</summary>
     public event EventHandler<ThemeChoice>? ThemeChanged;
 
+    /// <summary>Disparado quando o tamanho do texto ou a fonte do japonês muda; a janela principal refaz os tokens de tamanho (<see cref="TextAppearance"/>).</summary>
+    public event EventHandler? TextAppearanceChanged;
+
+    /// <summary>O tamanho do texto da grade, do inspetor e do Modo revisão, em porcentagem.</summary>
+    public int TextScalePercent => SelectedTextSize?.Value ?? AppSettings.DefaultTextScale;
+
+    /// <summary>A fonte escolhida para o japonês.</summary>
+    public JapaneseFontChoice JapaneseFont => SelectedJapaneseFont?.Value ?? JapaneseFontChoice.Default;
+
     public int MinConcurrency => AppSettings.MinConcurrency;
 
     public int MaxConcurrency => AppSettings.MaxConcurrency;
@@ -385,6 +410,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial ChoiceItem<ThemeChoice>? SelectedTheme { get; set; }
+
+    [ObservableProperty]
+    public partial ChoiceItem<int>? SelectedTextSize { get; set; }
+
+    [ObservableProperty]
+    public partial ChoiceItem<JapaneseFontChoice>? SelectedJapaneseFont { get; set; }
 
     [ObservableProperty]
     public partial QualityOption? SelectedQuality { get; set; }
@@ -1084,6 +1115,39 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         ThemeChanged?.Invoke(this, value.Value);
+    }
+
+    partial void OnSelectedTextSizeChanged(ChoiceItem<int>? value) => SaveTextAppearance(value is null ? null : app with { TextScalePercent = value.Value });
+
+    partial void OnSelectedJapaneseFontChanged(ChoiceItem<JapaneseFontChoice>? value) => SaveTextAppearance(value is null ? null : app with { JapaneseFont = value.Value });
+
+    private void SaveTextAppearance(AppSettings? updated)
+    {
+        if (updated is null || loading)
+        {
+            return;
+        }
+
+        TrySaveApp(updated, "Não foi possível salvar o tamanho do texto e a fonte do japonês");
+        TextAppearanceChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Passa ao próximo tamanho do texto (<c>Ctrl</c> <c>+</c>); no maior, fica nele.</summary>
+    [RelayCommand]
+    private void IncreaseTextSize() => StepTextSize(1);
+
+    /// <summary>Passa ao tamanho anterior do texto (<c>Ctrl</c> <c>-</c>); no menor, fica nele.</summary>
+    [RelayCommand]
+    private void DecreaseTextSize() => StepTextSize(-1);
+
+    /// <summary>Volta o texto ao tamanho de 100% (<c>Ctrl</c> <c>0</c>).</summary>
+    [RelayCommand]
+    private void ResetTextSize() => SelectedTextSize = TextSizes.Single(t => t.Value == AppSettings.DefaultTextScale);
+
+    private void StepTextSize(int direction)
+    {
+        var index = TextSizes.ToList().FindIndex(t => t.Value == TextScalePercent);
+        SelectedTextSize = TextSizes[Math.Clamp(index + direction, 0, TextSizes.Count - 1)];
     }
 
     partial void OnConcurrencyChanged(int value)

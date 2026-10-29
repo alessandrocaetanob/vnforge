@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using AvaloniaEdit.Rendering;
 using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 
@@ -19,6 +20,9 @@ public sealed partial class LineDetailView : UserControl
     /// <summary>Abaixo desta largura os botões do inspetor largam a tecla e o ícone para o texto caber.</summary>
     private const double CompactWidth = 360;
 
+    /// <summary>Com o texto grande, abaixo de 80% do limite compacto os dois botões da barra de ações não cabem lado a lado nem sem a tecla.</summary>
+    private const double StackedFactor = 0.8;
+
     /// <summary>
     /// Com <c>true</c> o inspetor se divide nas abas Tradução, Sugestão e Contexto (janela abaixo de <see cref="EditorBreakpoints"/>). O Editor define o valor
     /// e ele desce até aqui pela árvore; os mesmos blocos mudam de lugar, então o ViewModel e as ligações são os de sempre.
@@ -30,6 +34,7 @@ public sealed partial class LineDetailView : UserControl
     private const int SuggestionTabIndex = 1;
 
     private readonly DispatcherTimer ageTimer;
+    private readonly SpellingUnderlineRenderer spelling = new();
     private LineDetailViewModel? current;
     private bool syncing;
     private bool tabbed;
@@ -40,7 +45,12 @@ public sealed partial class LineDetailView : UserControl
         InitializeComponent();
         TranslationEditor.TextArea.TextView.ElementGenerators.Add(new MarkerChipGenerator());
         TranslationEditor.TextChanged += OnEditorTextChanged;
+        TranslationEditor.TextArea.TextView.BackgroundRenderers.Add(spelling);
+        TranslationEditor.TextArea.Caret.PositionChanged += (_, _) => RefreshSpelling();
+        TranslationEditor.TextArea.GotFocus += (_, _) => RefreshSpelling();
+        TranslationEditor.TextArea.LostFocus += (_, _) => RefreshSpelling();
         InspectorTabs.SelectionChanged += (_, _) => UpdateSuggestionTab();
+        ResourcesChanged += (_, _) => UpdateCompact();
         ActionsBar.PropertyChanged += (_, e) =>
         {
             if (e.Property == BoundsProperty)
@@ -71,8 +81,19 @@ public sealed partial class LineDetailView : UserControl
         }
     }
 
-    /// <summary>Com menos de 360 px (as abas e a janela mínima) a barra de ações larga a tecla e o ícone dos botões para os dois textos caberem.</summary>
-    private void UpdateCompact() => Classes.Set("compact", Bounds.Width is > 0 and < CompactWidth);
+    /// <summary>
+    /// Com menos de 360 px (as abas e a janela mínima) a barra de ações larga a tecla e o ícone dos botões para os dois textos caberem. O texto maior pede
+    /// mais largura para os mesmos botões, então o limite cresce com o tamanho do texto (<c>Vnf.FontSize.Body</c> sobre os 14 de 100%).
+    /// </summary>
+    private void UpdateCompact()
+    {
+        var scale = TextScale();
+        Classes.Set("compact", Bounds.Width is > 0 && Bounds.Width < CompactWidth * scale);
+        Classes.Set("stacked", Bounds.Width is > 0 && Bounds.Width < CompactWidth * scale * StackedFactor);
+    }
+
+    private double TextScale() =>
+        this.TryFindResource("Vnf.FontSize.Body", ActualThemeVariant, out var size) && size is double points ? Math.Max(1, points / 14) : 1;
 
     /// <summary>A margem de baixo das colunas que rolam (a larga e as três abas) é a altura da barra fixa, que muda com a fonte e com o botão "Usar sugestão" e o ícone saindo.</summary>
     private void UpdateScrollMargins()
@@ -199,6 +220,7 @@ public sealed partial class LineDetailView : UserControl
 
         current.PropertyChanged += OnViewModelPropertyChanged;
         SetEditorText(current.FieldText);
+        RefreshSpelling();
         foreach (var segment in current.SourceSegments)
         {
             if (!segment.IsMarker)
@@ -244,10 +266,24 @@ public sealed partial class LineDetailView : UserControl
             }
         }
 
+        if (e.PropertyName == nameof(LineDetailViewModel.Misspellings))
+        {
+            RefreshSpelling();
+        }
+
         if (e.PropertyName == nameof(LineDetailViewModel.FieldText) && current is not null && TranslationEditor.Text != current.FieldText)
         {
             SetEditorText(current.FieldText);
         }
+    }
+
+    /// <summary>Passa os trechos do corretor ao sublinhado, sem a palavra que o cursor está digitando, e o redesenha.</summary>
+    private void RefreshSpelling()
+    {
+        var area = TranslationEditor.TextArea;
+        spelling.Spans = current?.Misspellings ?? [];
+        spelling.Caret = area.IsKeyboardFocusWithin ? area.Caret.Offset : null;
+        area.TextView.InvalidateLayer(KnownLayer.Selection);
     }
 
     private void SetEditorText(string text)

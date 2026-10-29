@@ -79,7 +79,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
         Toasts = toasts ?? new ToastService();
-        Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes")));
+        Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes", Guid.NewGuid().ToString("N"))));
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
         TaskService = taskService ?? new BackgroundTaskService();
         TaskService.Rate = Settings.Rate;
@@ -632,6 +632,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (target == NavKey.Editor)
         {
             Editor.DropChangedSinceTestIfOutdated();
+        }
+        else
+        {
+            // O leitor é a cena em tela cheia: sair da página do Editor o fecha, sem mexer no filtro.
+            Editor.EndReading();
         }
 
         if (target == NavKey.Conference)

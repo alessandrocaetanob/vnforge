@@ -210,6 +210,23 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Reextrair_mantem_a_marca_soa_estranho_da_linha_igual_e_da_de_original_alterado()
+    {
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem?");
+        var project = NewProject();
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+        project.SaveText("a001", [Translated(FirstUnitId, "Olá", HelloText).WithOdd(true), Translated("a001:000001", "Tudo bem?", "All good?").WithOdd(true)]);
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem mesmo?");
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+
+        var units = project.LoadText("a001");
+        Assert.True(units[0].IsOdd());
+        Assert.True(units[1].IsOdd());
+        Assert.Equal("Tudo bem mesmo?", units[1].Source);
+    }
+
+    [Fact]
     public void Reextrair_mantem_o_falante_escolhido_da_linha_igual_e_da_de_original_alterado()
     {
         WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem?");

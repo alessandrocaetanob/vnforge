@@ -106,6 +106,21 @@ public sealed class EditorRecheckTests : IDisposable
     }
 
     [Fact]
+    public async Task O_sublinhado_do_painel_aberto_acompanha_o_glossario_depois_da_reconferencia()
+    {
+        _ = VNForge.Core.Spelling.SpellChecker.Portuguese;
+        var vm = await Abrir();
+        vm.Detail!.FieldText = "Zorgblat chegou cedo.";
+        Assert.Equal(["Zorgblat"], vm.Detail.Misspellings.Select(s => s.Text));
+
+        projeto.SaveCharacters([new CharacterEntry("亀島", "Zorgblat", CharacterGender.Male)]);
+        Distinguir(projeto.CharactersPath);
+        await vm.RecheckAsync();
+
+        Assert.Empty(vm.Detail.Misspellings);
+    }
+
+    [Fact]
     public async Task Duas_linhas_com_o_mesmo_original_e_traducoes_diferentes_ganham_a_inconsistencia_depois_da_gravacao()
     {
         var vm = await Abrir();

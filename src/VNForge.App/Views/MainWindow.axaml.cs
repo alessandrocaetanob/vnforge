@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
         UpdateMicaFallback();
         Motion.Follow(this);
         AddHandler(KeyDownEvent, OnShortcutKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        DataContextChanged += (_, _) => FollowTextAppearance();
         Closing += OnClosing;
     }
 
@@ -87,11 +88,71 @@ public sealed partial class MainWindow : Window
             vm.CloseShortcutMapCommand.Execute(null);
             e.Handled = true;
         }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && !e.KeyModifiers.HasFlag(KeyModifiers.Alt) && TextSizeCommand(vm.Settings, e.Key) is { } command)
+        {
+            command.Execute(null);
+            e.Handled = true;
+        }
         else if (e.KeySymbol == "?" && FocusManager?.GetFocusedElement() is not (TextBox or AvaloniaEdit.Editing.TextArea))
         {
             vm.ToggleShortcutMapCommand.Execute(null);
             e.Handled = true;
         }
+    }
+
+    /// <summary><c>Ctrl</c> <c>+</c> e <c>Ctrl</c> <c>-</c> (também no teclado numérico) mudam o tamanho do texto; <c>Ctrl</c> <c>0</c> volta a 100%.</summary>
+    private static System.Windows.Input.ICommand? TextSizeCommand(ViewModels.SettingsViewModel settings, Key key) => key switch
+    {
+        Key.OemPlus or Key.Add => settings.IncreaseTextSizeCommand,
+        Key.OemMinus or Key.Subtract => settings.DecreaseTextSizeCommand,
+        Key.D0 or Key.NumPad0 => settings.ResetTextSizeCommand,
+        _ => null,
+    };
+
+    private ViewModels.MainWindowViewModel? followed;
+
+    private void FollowTextAppearance()
+    {
+        if (followed is not null)
+        {
+            followed.PropertyChanged -= OnFollowedChanged;
+            followed.Settings.TextAppearanceChanged -= OnTextAppearanceChanged;
+        }
+
+        followed = DataContext as ViewModels.MainWindowViewModel;
+        if (followed is not null)
+        {
+            followed.PropertyChanged += OnFollowedChanged;
+            followed.Settings.TextAppearanceChanged += OnTextAppearanceChanged;
+        }
+
+        ApplyTextAppearance();
+    }
+
+    private void OnFollowedChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ViewModels.MainWindowViewModel.CurrentPage))
+        {
+            ApplyTextAppearance();
+        }
+    }
+
+    private void OnTextAppearanceChanged(object? sender, EventArgs e) => ApplyTextAppearance();
+
+    /// <summary>
+    /// A fonte do japonês vale para a janela toda. O tamanho do texto vale só no Editor (grade, inspetor e Modo revisão): a área das páginas recebe os
+    /// tokens escalados enquanto ele é a página, e o trilho, a barra de título e as outras telas ficam em 100%.
+    /// </summary>
+    private void ApplyTextAppearance()
+    {
+        if (followed is null)
+        {
+            return;
+        }
+
+        var settings = followed.Settings;
+        Resources["Vnf.FontJp"] = Services.TextAppearance.JapaneseFamily(settings.JapaneseFont);
+        PageArea.Resources = Services.TextAppearance.Build(followed.CurrentPage is ViewModels.EditorViewModel ? settings.TextScalePercent : Services.AppSettings.DefaultTextScale);
     }
 
     /// <summary>O Windows desliga a transparência em sessão remota e em economia de bateria; sem Mica, a reserva bg-base cobre o fundo.</summary>

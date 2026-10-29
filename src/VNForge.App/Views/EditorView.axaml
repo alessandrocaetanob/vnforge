@@ -68,11 +68,20 @@
   <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
 
     <!-- Cabeçalho: "Capítulo 1 · cena 13 de 45" e o nome da cena. As ações moram na barra logo abaixo (#394). -->
-    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding !IsReviewing}"/>
+    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">
+      <!-- Ler como jogador (#475): fica no cabeçalho, junto do nome da cena que ele abre, e não na barra, que já enche a 960 px. -->
+      <Button Classes="sm" Command="{Binding StartReadingCommand}" AutomationProperties.Name="Ler como jogador"
+              ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Play}"/>
+          <TextBlock Text="Ler como jogador" TextWrapping="NoWrap"/>
+        </StackPanel>
+      </Button>
+    </c:PageHeader>
 
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
          Buscar, Conferir arquivo e Modo revisão têm o mesmo estilo e tamanho; abaixo de 1400 px largam o texto e ficam como ícones com dica. -->
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding !IsReviewing}">
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
       <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Top">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
@@ -96,7 +105,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:FilterChipViewModel">
-                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}"
+                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}" IsVisible="{Binding IsShown}"
                               Command="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
                               CommandParameter="{Binding}"/>
               </DataTemplate>
@@ -156,7 +165,7 @@
 
     <!-- Scripts 1* (180 a 190), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 190 · 632 · 474 (v4: a lista de cenas cede 58 px à grade); o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding !IsReviewing}">
+    <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="190"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
@@ -241,7 +250,7 @@
             <StackPanel Spacing="8">
               <c:DistributionBar Height="8" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
               <WrapPanel ItemSpacing="16" LineSpacing="4">
-                <TextBlock FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding LinesSummary}"/>
+                <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding LinesSummary}"/>
                 <c:Legend Value="{Binding Distribution}"/>
               </WrapPanel>
             </StackPanel>
@@ -262,5 +271,9 @@
     <!-- Modo revisão: ocupa o lugar do cabeçalho e da grade enquanto houver uma revisão aberta. -->
     <v:ReviewModeView Grid.RowSpan="5" DataContext="{Binding Review}" IsVisible="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsReviewing}"
                       Background="{DynamicResource Vnf.BgLayer}"/>
+
+    <!-- Leitor de cena (#475): a cena em tela cheia, uma fala por vez, sem nada para aprovar. -->
+    <v:ReadSceneView Grid.RowSpan="5" DataContext="{Binding Reading}" IsVisible="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsReadingScene}"
+                     Background="{DynamicResource Vnf.BgLayer}"/>
   </Grid>
 </UserControl>

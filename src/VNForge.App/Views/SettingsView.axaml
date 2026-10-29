@@ -595,6 +595,16 @@
             <ListBox Classes="seg" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tema"/>
             <TextBlock Classes="caption secondary" Text="Sistema segue o tema do Windows."/>
+
+            <TextBlock Classes="overline" Margin="0,16,0,0" Text="Tamanho do texto"/>
+            <ListBox Classes="seg" ItemsSource="{Binding TextSizes}" SelectedItem="{Binding SelectedTextSize}"
+                     DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tamanho do texto"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Vale para a grade, o inspetor e o Modo revisão. Ctrl+= e Ctrl+- (em qualquer tela) mudam o tamanho do texto do Editor; Ctrl+0 volta a 100%."/>
+
+            <TextBlock Classes="overline" Margin="0,16,0,0" Text="Fonte do japonês"/>
+            <ListBox Classes="seg" ItemsSource="{Binding JapaneseFonts}" SelectedItem="{Binding SelectedJapaneseFont}"
+                     DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Fonte do japonês"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Para o texto original. As fontes do Windows só valem se estiverem instaladas; senão o app usa a Noto Sans JP."/>
           </StackPanel>
         </TabItem>
       </TabControl>

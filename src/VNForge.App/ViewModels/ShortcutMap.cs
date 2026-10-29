@@ -27,8 +27,18 @@ public static class ShortcutMap
             new(["←"], "Voltar para a fala anterior da revisão"),
             new(["Esc"], "Voltar ao editor"),
         ]),
+        new("Ler como jogador",
+        [
+            new(["Espaço"], "Mostrar a fala seguinte"),
+            new(["←"], "Voltar para a fala anterior"),
+            new(["F"], "Marcar a fala como \"soa estranho\" (de novo, tira a marca)"),
+            new(["Esc"], "Sair; com falas marcadas, o Editor abre com o filtro delas"),
+        ]),
         new("Geral",
         [
+            new(["Ctrl", "+"], "Aumentar o texto do Editor (grade, inspetor e Modo revisão)"),
+            new(["Ctrl", "-"], "Diminuir o texto do Editor"),
+            new(["Ctrl", "0"], "Voltar o texto do Editor a 100%"),
             new(["?"], "Abrir ou fechar este mapa"),
             new(["Esc"], "Fechar este mapa"),
         ]),

@@ -7,6 +7,7 @@ using VNForge.Core;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
+using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
@@ -99,6 +100,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Machine, "Para revisar"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
+            new FilterChipViewModel(LineStatusFilter.Odd, "Soa estranho") { HidesWhenEmpty = true },
             new FilterChipViewModel(LineStatusFilter.ChangedSinceTest, "Mudou desde o teste"),
         ];
         filters = [.. chips.Where(c => c.Filter != LineStatusFilter.ChangedSinceTest)];
@@ -150,7 +152,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     public partial string? RunningScriptKey { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CheckFileCommand), nameof(TranslatePendingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CheckFileCommand), nameof(TranslatePendingCommand), nameof(StartReadingCommand))]
     public partial ScriptItemViewModel? SelectedScript { get; set; }
 
     public IReadOnlyList<FilterChipViewModel> Filters => filters;
@@ -377,10 +379,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     /// <summary>Deixa só as linhas pendentes na grade, como o chip "Em japonês".</summary>
-    public void ShowPendingLines() => SelectFilter(chips.First(c => c.Filter == LineStatusFilter.Pending));
+    public void ShowPendingLines()
+    {
+        EndReading();
+        SelectFilter(chips.First(c => c.Filter == LineStatusFilter.Pending));
+    }
 
     private bool SelectLine(string scriptKey, string unitId)
     {
+        EndReading();
         var script = Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal));
         var entry = data?.LinesOf(scriptKey).FirstOrDefault(l => string.Equals(l.Unit.Id, unitId, StringComparison.Ordinal));
         if (script is null || entry is null)
@@ -485,7 +492,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenSearch()
     {
-        if (IsReviewing)
+        if (IsReviewing || IsReadingScene)
         {
             return;
         }
@@ -498,7 +505,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenReplace()
     {
-        if (IsReviewing)
+        if (IsReviewing || IsReadingScene)
         {
             return;
         }
@@ -531,7 +538,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     /// <summary>Com o modo revisão aberto o Esc é dele: o atalho da busca não pode marcá-lo como tratado antes de a tela de revisão vê-lo.</summary>
-    private bool CanCloseSearch() => !IsReviewing;
+    private bool CanCloseSearch() => !IsReviewing && !IsReadingScene;
 
     /// <summary>Leva a grade à linha de um resultado: troca de script e tira os filtros que a escondem. Avisa quando a linha não existe mais.</summary>
     [RelayCommand]
@@ -646,14 +653,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var shortener = Shortener ?? suggester as ILineShortener;
+        ILineSuggester lineSuggester = Project is { IsSample: true } ? SampleLineSuggester.Instance : suggester;
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
         var lineContext = context.For(unit.EffectiveSpeaker, unit.Source);
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = suggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = ProjectDictionary.Create(context.Glossary, context.Characters.Entries), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = ProjectDictionary.Create(context.Glossary, context.Characters.Entries), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
@@ -986,6 +994,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         // As linhas da fila do modo revisão são as de antes da releitura (um "Desfazer", uma busca com substituição): a fila já não vale.
         StopReview();
+        EndReading();
         applying = true;
         try
         {
@@ -1022,6 +1031,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         entries = SelectedScript is { } script && data is not null ? [.. data.LinesOf(script.Key)] : [];
         scriptLines = new LineViewModel[entries.Length];
+        StartReadingCommand.NotifyCanExecuteChanged();
         for (var i = 0; i < scriptLines.Length; i++)
         {
             var character = context.Characters.Find(entries[i].Unit.EffectiveSpeaker);
@@ -1129,7 +1139,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     private void Move(int delta)
     {
-        if (Lines.Count == 0)
+        if (Lines.Count == 0 || IsReadingScene)
         {
             return;
         }
