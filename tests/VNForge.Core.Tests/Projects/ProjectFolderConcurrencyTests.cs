@@ -38,8 +38,9 @@ public class ProjectFolderConcurrencyTests
 
         // No Windows o escritor só troca o arquivo quando ninguém o segura: leitores em laço fechado o mantêm aberto quase o tempo todo
         // e esgotam a janela de novas tentativas sob carga. Por isso respiram entre as leituras; o escritor segue gravando até o leitor
-        // fazer o mínimo de leituras, para a pausa não reduzir a chance de pegar um arquivo parcial.
-        var leitor = Task.Run(() =>
+        // fazer o mínimo de leituras, para a pausa não reduzir a chance de pegar um arquivo parcial. Cada papel tem a própria thread (e não uma
+        // tarefa do pool): com o pool ocupado por outros testes, o escritor podia terminar as gravações antes de o leitor ter começado.
+        var leitor = EmThreadPropria(() =>
         {
             while (!parar.IsCancellationRequested)
             {
@@ -47,24 +48,24 @@ public class ProjectFolderConcurrencyTests
                 Interlocked.Increment(ref leituras);
                 Respirar();
             }
-        }, TestContext.Current.CancellationToken);
+        });
 
-        var leitorDeTudo = Task.Run(() =>
+        var leitorDeTudo = EmThreadPropria(() =>
         {
             while (!parar.IsCancellationRequested)
             {
                 Assert.Contains(projeto.LoadAllText()[Key].Count, tamanhosValidos);
                 Respirar();
             }
-        }, TestContext.Current.CancellationToken);
+        });
 
-        var escritor = Task.Run(() =>
+        var escritor = EmThreadPropria(() =>
         {
             for (var i = 0; i < MaximoDeGravacoes && (i < MinimoDeGravacoes || Volatile.Read(ref leituras) < MinimoDeLeituras); i++)
             {
                 projeto.SaveText(Key, Unidades(i % 2 == 0 ? 80 : 50));
             }
-        }, TestContext.Current.CancellationToken);
+        });
 
         try
         {
@@ -129,6 +130,9 @@ public class ProjectFolderConcurrencyTests
         Assert.Equal(3, projeto.LoadText(Key).Count);
         Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
     }
+
+    private static Task EmThreadPropria(Action trabalho) =>
+        Task.Factory.StartNew(trabalho, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
     // Uma espera de 1 ms no Windows dura cerca de 15 ms e deixaria os leitores com poucas dezenas de leituras; um giro curto
     // deixa o arquivo livre entre as leituras sem tirar a concorrência com o escritor.
@@ -196,13 +200,9 @@ public class ProjectFolderConcurrencyTests
 
         try
         {
-            var relogio = Stopwatch.StartNew();
             var erro = Record.Exception(() => projeto.SaveText(Key, Unidades(3)));
-            relogio.Stop();
 
             Assert.IsType<UnauthorizedAccessException>(erro);
-            // 250 ms fica abaixo dos 300 ms de novas tentativas: separa falhar na hora de esperar a nova tentativa e sobra folga para a máquina carregada.
-            Assert.True(relogio.ElapsedMilliseconds < 250, $"A falha permanente esperou {relogio.ElapsedMilliseconds} ms.");
         }
         finally
         {
@@ -211,6 +211,55 @@ public class ProjectFolderConcurrencyTests
 
         Assert.Equal(antes, File.ReadAllBytes(caminho));
         Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
+    }
+
+    // Contar as tentativas separa "falhou na hora" de "esperou a nova tentativa" sem olhar o relógio, que oscila com a máquina carregada.
+    [Fact]
+    public void Acesso_negado_em_destino_somente_leitura_nao_e_repetido()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Só o Windows trata o arquivo somente leitura como acesso negado permanente.");
+
+        using var temp = new TempFolder();
+        var caminho = Path.Combine(temp.Path, "somente-leitura.json");
+        File.WriteAllText(caminho, "{}");
+        File.SetAttributes(caminho, FileAttributes.ReadOnly);
+        var tentativas = 0;
+
+        try
+        {
+            Assert.Throws<UnauthorizedAccessException>(() => ProjectFileIo.Retry<int>(caminho, () =>
+            {
+                tentativas++;
+                throw new UnauthorizedAccessException();
+            }));
+        }
+        finally
+        {
+            File.SetAttributes(caminho, FileAttributes.Normal);
+        }
+
+        Assert.Equal(1, tentativas);
+    }
+
+    [Fact]
+    public void Acesso_negado_transitorio_e_repetido_mesmo_quando_a_espera_estoura_o_relogio()
+    {
+        var tentativas = 0;
+
+        var resultado = ProjectFileIo.Retry(null, () =>
+        {
+            tentativas++;
+            if (tentativas == 1)
+            {
+                // Uma thread sem CPU volta tarde: o orçamento conta as esperas pedidas, e não o relógio, para ela não perder as tentativas.
+                Thread.Sleep(320);
+                throw new UnauthorizedAccessException();
+            }
+
+            return tentativas;
+        });
+
+        Assert.Equal(2, resultado);
     }
 
     [Fact]

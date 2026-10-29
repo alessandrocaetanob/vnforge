@@ -14,7 +14,7 @@ internal static class ProjectFileIo
 
     private const int MaxDelayMilliseconds = 100;
 
-    private static readonly TimeSpan Budget = TimeSpan.FromMilliseconds(300);
+    private const int BudgetMilliseconds = 300;
 
     /// <summary>Lê o arquivo inteiro sem impedir que outro leitor ou a troca por rename o alcance.</summary>
     internal static byte[] ReadAllBytes(string path) =>
@@ -34,19 +34,25 @@ internal static class ProjectFileIo
             return 0;
         });
 
-    private static T Retry<T>(string? writeTarget, Func<T> action)
+    /// <summary>
+    /// Repete <paramref name="action"/> enquanto a falha for transitória. O orçamento é a soma das esperas pedidas (5, 10, 20, 40, 80, 100 e 100 ms: sete novas tentativas),
+    /// e não o relógio: com a máquina sobrecarregada uma única espera pode durar mais que o orçamento inteiro, e medir pelo relógio esgotaria as tentativas
+    /// sem que o arquivo tivesse tido chance de ser solto.
+    /// </summary>
+    internal static T Retry<T>(string? writeTarget, Func<T> action)
     {
-        var deadline = DateTime.UtcNow + Budget;
         var delay = FirstDelayMilliseconds;
+        var waited = 0;
         while (true)
         {
             try
             {
                 return action();
             }
-            catch (Exception ex) when (IsTransient(ex, writeTarget) && DateTime.UtcNow < deadline)
+            catch (Exception ex) when (IsTransient(ex, writeTarget) && waited < BudgetMilliseconds)
             {
                 Thread.Sleep(delay);
+                waited += delay;
                 delay = Math.Min(delay * 2, MaxDelayMilliseconds);
             }
         }
