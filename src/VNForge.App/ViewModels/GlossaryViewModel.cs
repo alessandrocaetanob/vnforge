@@ -10,11 +10,12 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>As duas tabelas da página Glossário.</summary>
+/// <summary>As tabelas da página Glossário.</summary>
 public enum GlossaryTab
 {
     Characters,
     Terms,
+    Address,
 }
 
 /// <summary>
@@ -32,6 +33,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     private bool savedOnce;
     private bool termsDirty;
     private bool charactersDirty;
+    private bool addressDirty;
     private bool loadFailed;
     private bool loading;
     private GlossaryUsage usage = GlossaryUsage.Empty;
@@ -54,6 +56,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
             RefreshRepeatedTerms();
             MarkCharactersDirty();
         };
+        AddressTerms = new AddressTermsViewModel(Characters, () => Suggester, () => Rate(), () => CanEdit);
+        AddressTerms.Changed += (_, _) => MarkAddressDirty();
     }
 
     /// <summary>Relógio do salvamento automático; nulo desliga o automático (os testes e a galeria não gravam sozinhos).</summary>
@@ -105,7 +109,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     public partial string Search { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedTabIndex), nameof(IsTermsTab), nameof(IsCharactersTab), nameof(AddLabel), nameof(SearchHint))]
+    [NotifyPropertyChangedFor(nameof(SelectedTabIndex), nameof(IsTermsTab), nameof(IsCharactersTab), nameof(IsAddressTab), nameof(AddLabel), nameof(SearchHint))]
     public partial GlossaryTab SelectedTab { get; set; }
 
     /// <summary>Índice da aba para o <c>TabControl</c>.</summary>
@@ -119,7 +123,14 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     public bool IsCharactersTab => SelectedTab == GlossaryTab.Characters;
 
-    public string AddLabel => IsTermsTab ? "Adicionar termo" : "Adicionar personagem";
+    public bool IsAddressTab => SelectedTab == GlossaryTab.Address;
+
+    public string AddLabel => SelectedTab switch
+    {
+        GlossaryTab.Terms => "Adicionar termo",
+        GlossaryTab.Address => "Adicionar tratamento",
+        _ => "Adicionar personagem",
+    };
 
     public string SearchHint => IsTermsTab ? "Buscar termo, tradução ou observação" : "Buscar por nome ou jeito de falar";
 
@@ -182,6 +193,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             Sheet = null;
             Terms.Clear();
             Characters.Clear();
+            AddressTerms.Clear();
             ErrorMessage = null;
             NoticeMessage = null;
             loadFailed = false;
@@ -205,8 +217,10 @@ public sealed partial class GlossaryViewModel : ObservableObject
             NotifyVoices();
             termsDirty = false;
             charactersDirty = false;
+            addressDirty = false;
             IsDirty = false;
             OnPropertyChanged(nameof(CanEdit));
+            AddressTerms.NotifySuggestionState();
             AddTermCommand.NotifyCanExecuteChanged();
             AddCharacterCommand.NotifyCanExecuteChanged();
             SaveCommand.NotifyCanExecuteChanged();
@@ -243,6 +257,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         scan = loaded;
         usageLoaded = true;
         AddGameCharacters();
+        AddressTerms.SetText(loaded.Units);
         bulkUpdate = true;
         foreach (var row in Terms)
         {
@@ -312,11 +327,14 @@ public sealed partial class GlossaryViewModel : ObservableObject
             {
                 Characters.Add(Watch(new CharacterRow(c.Source, c.Target, c.Gender, c.Tone, c.Color), MarkCharactersDirty));
             }
+
+            AddressTerms.Load(folder.LoadAddressTerms());
         }
         catch (GlossaryFileException e)
         {
             Terms.Clear();
             Characters.Clear();
+            AddressTerms.Clear();
             loadFailed = true;
             Debug.WriteLine(e);
             ErrorMessage = $"Um dos arquivos do glossário está inválido: {e.Reason} Corrija-o para editar aqui.";
@@ -327,13 +345,17 @@ public sealed partial class GlossaryViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private void Add()
     {
-        if (IsTermsTab)
+        switch (SelectedTab)
         {
-            AddTerm();
-        }
-        else
-        {
-            AddCharacter();
+            case GlossaryTab.Terms:
+                AddTerm();
+                break;
+            case GlossaryTab.Address:
+                AddressTerms.Add();
+                break;
+            default:
+                AddCharacter();
+                break;
         }
     }
 
@@ -431,6 +453,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         NoticeMessage = null;
         var terms = ValidRows(Terms, "Falta o termo em japonês.").Select(t => t.ToTerm()).ToList();
         var characters = ValidRows(Characters, "Falta o nome do personagem no jogo.").Select(c => c.ToEntry()).ToList();
+        var addressTerms = AddressTerms.ValidTerms();
         NotifyProblems();
         try
         {
@@ -455,6 +478,8 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
                 charactersDirty = false;
             }
+
+            SaveAddressTerms(folder, addressTerms);
         }
         catch (GlossaryFileException e)
         {
@@ -544,15 +569,15 @@ public sealed partial class GlossaryViewModel : ObservableObject
     }
 
     /// <summary>Quantas linhas ficaram de fora do arquivo por nome vazio ou repetido.</summary>
-    public int ProblemCount => Terms.Count(t => t.HasProblem) + Characters.Count(c => c.HasProblem);
+    public int ProblemCount => Terms.Count(t => t.HasProblem) + Characters.Count(c => c.HasProblem) + AddressTerms.ProblemCount;
 
     public bool HasProblems => ProblemCount > 0;
 
     public string ProblemsText => ProblemCount switch
     {
         0 => string.Empty,
-        1 => "1 linha ainda não foi salva porque falta o nome ou ele se repete. As outras já foram. Corrija a linha marcada.",
-        var n => $"{ProjectLabels.Number(n)} linhas ainda não foram salvas porque falta o nome ou ele se repete. As outras já foram. Corrija as linhas marcadas.",
+        1 => "1 linha ainda não foi salva porque está incompleta ou repetida (falta o nome, o par ou o tratamento, ou ele se repete). As outras já foram. Corrija a linha marcada.",
+        var n => $"{ProjectLabels.Number(n)} linhas ainda não foram salvas porque estão incompletas ou repetidas (falta o nome, o par ou o tratamento, ou ele se repete). As outras já foram. Corrija as linhas marcadas.",
     };
 
     private void NotifyProblems()
@@ -566,40 +591,50 @@ public sealed partial class GlossaryViewModel : ObservableObject
         where T : UsageRow
     {
         ApplyUses(row);
-        row.PropertyChanged += (_, e) =>
+        row.PropertyChanged += (_, e) => OnRowChanged(row, e.PropertyName, markDirty);
+        return row;
+    }
+
+    private void OnRowChanged(UsageRow row, string? property, Action markDirty)
+    {
+        // A contagem e o aviso de linha em branco não são dado do arquivo: mexer neles não suja a página.
+        if (IsDerivedProperty(property))
         {
-            // A contagem não é dado do arquivo: mexer nela não suja a página.
-            if (e.PropertyName is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem) or nameof(UsageRow.IsBlank)
-                or nameof(CharacterRow.SuggestedGender) or nameof(CharacterRow.SuggestedGenderLabel) or nameof(CharacterRow.SuggestedTone) or nameof(CharacterRow.TonePlaceholder))
-            {
-                if (e.PropertyName == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
-                {
-                    NotifyVoices();
-                }
-
-                NotifySummaries();
-                return;
-            }
-
-            if (e.PropertyName == nameof(GlossaryTermRow.Source))
-            {
-                ApplyUses(row);
-            }
-
-            if (row is CharacterRow)
+            if (property == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
             {
                 NotifyVoices();
             }
 
-            if (e.PropertyName == nameof(GlossaryTermRow.Source))
-            {
-                RefreshRepeatedTerms();
-            }
+            NotifySummaries();
+            return;
+        }
 
-            markDirty();
-        };
-        return row;
+        var isSource = property == nameof(GlossaryTermRow.Source);
+        if (isSource)
+        {
+            ApplyUses(row);
+        }
+
+        if (row is CharacterRow)
+        {
+            NotifyVoices();
+            if (property is nameof(CharacterRow.Source) or nameof(CharacterRow.Target))
+            {
+                AddressTerms.CharactersEdited();
+            }
+        }
+
+        if (isSource)
+        {
+            RefreshRepeatedTerms();
+        }
+
+        markDirty();
     }
+
+    private static bool IsDerivedProperty(string? property) =>
+        property is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem) or nameof(UsageRow.IsBlank)
+            or nameof(CharacterRow.SuggestedGender) or nameof(CharacterRow.SuggestedGenderLabel) or nameof(CharacterRow.SuggestedTone) or nameof(CharacterRow.TonePlaceholder);
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(Search);
 
@@ -753,6 +788,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         CancelSaveTimer();
         termsDirty = false;
         charactersDirty = false;
+        addressDirty = false;
         IsDirty = false;
         var next = PendingProject;
         PendingProject = null;

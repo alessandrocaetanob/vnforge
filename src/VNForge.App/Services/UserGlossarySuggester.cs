@@ -56,6 +56,10 @@ public sealed class UserGlossarySuggester(Func<IGlossarySuggester?> openSuggeste
     public async Task<IReadOnlyList<TermTranslationSuggestion>> SuggestTermsAsync(IReadOnlyList<TermTranslationRequest> terms, CancellationToken ct) =>
         await (await OpenAsync(ct).ConfigureAwait(false)).SuggestTermsAsync(terms, ct).ConfigureAwait(false);
 
+    public async Task<IReadOnlyList<AddressTermSuggestion>> SuggestAddressTermsAsync(
+        IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, CancellationToken ct) =>
+        await (await OpenAsync(ct).ConfigureAwait(false)).SuggestAddressTermsAsync(speakers, characters, ct).ConfigureAwait(false);
+
     private async Task<IGlossarySuggester> OpenAsync(CancellationToken ct) =>
         await Task.Run(openSuggester, ct).ConfigureAwait(false)
         ?? throw new GlossarySuggestionException("Informe a chave de API em Ajustes para pedir sugestões à IA.");

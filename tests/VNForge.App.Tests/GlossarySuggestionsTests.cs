@@ -51,6 +51,9 @@ public class GlossarySuggestionsTests
 
         public Task<IReadOnlyList<TermTranslationSuggestion>> SuggestTermsAsync(IReadOnlyList<TermTranslationRequest> terms, CancellationToken ct) =>
             Task.FromException<IReadOnlyList<TermTranslationSuggestion>>(error);
+
+        public Task<IReadOnlyList<AddressTermSuggestion>> SuggestAddressTermsAsync(IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, CancellationToken ct) =>
+            Task.FromException<IReadOnlyList<AddressTermSuggestion>>(error);
     }
 
     [Fact]
@@ -476,6 +479,9 @@ public class GlossarySuggestionsTests
         }
 
         public Task<IReadOnlyList<TermTranslationSuggestion>> SuggestTermsAsync(IReadOnlyList<TermTranslationRequest> terms, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AddressTermSuggestion>> SuggestAddressTermsAsync(IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, CancellationToken ct) =>
             throw new NotSupportedException();
     }
 

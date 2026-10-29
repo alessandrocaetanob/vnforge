@@ -34,6 +34,7 @@ public static class ConferenceRuleTexts
         [FieldByteLimitRule.RuleId] = ("Passa do limite do campo", "Este campo tem um tamanho máximo no jogo e a tradução passa dele. Encurte o texto."),
         [HonorificsRule.RuleId] = ("Honorífico fora do estilo", "A tradução trata -san, -kun, -chan, -sama ou senpai de um jeito diferente do estilo do projeto. Mude o texto ou a escolha em Ajustes, aba Estilo; use Está certo assim se a exceção for de propósito."),
         [GenderRule.RuleId] = ("Personagem sem gênero", "A fala é de um personagem sem gênero no Glossário. Sem ele, a concordância (cansado ou cansada) é um palpite. Defina o gênero do personagem no Glossário antes de traduzir as falas dele."),
+        [AddressTermRule.RuleId] = ("Tratamento fora do combinado", "O personagem chama alguém de um jeito no original e a tradução não usa o tratamento combinado no Glossário, aba Tratamentos. Mude o texto ou o tratamento do par; use Está certo assim se a exceção for de propósito."),
     };
 
     /// <summary>Título curto da regra; sem entrada, a descrição do Core (ou o id).</summary>

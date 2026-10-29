@@ -39,6 +39,8 @@ public sealed class TranslationCache
             sb.Append('\u001e').Append(g.Source).Append('>').Append(g.Target);
         foreach (var c in batch.Characters)
             sb.Append('\u001e').Append(c.Source).Append('>').Append(c.Target).Append('|').Append(c.Tone);
+        foreach (var a in batch.Addressing)
+            sb.Append('\u001e').Append(a.From).Append('>').Append(a.To).Append('|').Append(a.Source).Append('=').Append(a.Target);
         return sb.ToString();
     }
 

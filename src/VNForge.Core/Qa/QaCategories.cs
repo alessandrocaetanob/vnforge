@@ -50,6 +50,7 @@ public static class QaCategories
         ["japones-na-traducao"] = Translation,
         [HonorificsRule.RuleId] = Style,
         [GenderRule.RuleId] = Style,
+        [AddressTermRule.RuleId] = Style,
     };
 
     /// <summary>Categorias na ordem em que as telas as listam; <see cref="Other"/> vem por último.</summary>

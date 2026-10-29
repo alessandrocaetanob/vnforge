@@ -1,4 +1,5 @@
 using VNForge.AI.Cost;
+using VNForge.Core.Glossary;
 
 namespace VNForge.AI.Glossary;
 
@@ -13,6 +14,7 @@ public static class GlossaryCost
     private const int PerItemOverhead = 25;
     private const int VoiceOutputTokens = 45;
     private const int TermOutputTokens = 60;
+    private const int AddressOutputTokens = 50;
 
     public static CostEstimate Voices(IReadOnlyList<CharacterVoiceRequest> characters, string model)
     {
@@ -36,6 +38,22 @@ public static class GlossaryCost
         }
 
         return Estimate(terms.Count, input, terms.Count * (long)TermOutputTokens, model);
+    }
+
+    /// <summary>O pedido de tratamentos: as falas de cada falante e a lista de personagens, que vai uma vez por bloco de <see cref="ClaudeGlossarySuggester.AddressChunk"/> falantes.</summary>
+    public static CostEstimate AddressTerms(IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, string model)
+    {
+        ArgumentNullException.ThrowIfNull(speakers);
+        ArgumentNullException.ThrowIfNull(characters);
+        var roster = characters.Sum(c => CostEstimator.Tokens(c.Name) + CostEstimator.Tokens(c.Translation ?? string.Empty) + PerItemOverhead);
+        long input = (long)Math.Ceiling(speakers.Count / (double)ClaudeGlossarySuggester.AddressChunk) * roster;
+        foreach (var s in speakers)
+        {
+            input += CostEstimator.Tokens(s.Speaker) + PerItemOverhead + s.Lines.Sum(l => CostEstimator.Tokens(l.Text) + CostEstimator.Tokens(l.ReplyingTo ?? string.Empty));
+        }
+
+        // Cada falante rende em média dois pares de tratamento.
+        return Estimate(speakers.Count, input, speakers.Count * 2L * AddressOutputTokens, model);
     }
 
     private static CostEstimate Estimate(int items, long input, long output, string model)

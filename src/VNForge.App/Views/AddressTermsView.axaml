@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.AddressTermsView"
+             x:DataType="vm:AddressTermsViewModel">
+
+  <UserControl.Styles>
+    <!-- As células (TextBox.cell, TextBox.jp) vêm dos estilos do GlossaryView, que hospeda esta tabela. -->
+    <Style Selector="Grid.pending">
+      <Setter Property="Opacity" Value="0.72"/>
+    </Style>
+    <Style Selector="Grid.pending TextBox">
+      <Setter Property="FontStyle" Value="Italic"/>
+    </Style>
+    <Style Selector="ComboBox.invalid">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Spacing="12" Margin="0,12,0,0">
+    <Border Classes="infobar error" IsVisible="{Binding SuggestionError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding SuggestionError}"/>
+      </Grid>
+    </Border>
+    <Border Classes="infobar success" IsVisible="{Binding SuggestionNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Checkmark}"/>
+        <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding SuggestionNotice}"/>
+      </Grid>
+    </Border>
+
+    <Border Classes="panel" ClipToBounds="True">
+      <StackPanel>
+        <Border Classes="divider-bottom" Padding="16,8" MinHeight="56">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+              <TextBlock Classes="title-md" Text="Quem chama quem" VerticalAlignment="Center"/>
+              <TextBlock Classes="caption secondary" Text="{Binding Summary}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+              <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SuggestingText}" IsVisible="{Binding IsSuggesting}"/>
+              <Button Classes="sm" Command="{Binding SuggestCommand}" ToolTip.Tip="{Binding SuggestHint}" AutomationProperties.Name="Pedir à IA"
+                      AutomationProperties.HelpText="{Binding SuggestHint}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+                  <TextBlock Text="Pedir à IA"/>
+                  <TextBlock Classes="secondary" Text="{Binding PriceText}"
+                             IsVisible="{Binding PriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+              </Button>
+              <Button Classes="sm accent" Command="{Binding AcceptAllCommand}" IsVisible="{Binding HasPending}"
+                      ToolTip.Tip="Passa as sugestões da IA para a tabela" AutomationProperties.Name="Aceitar todas as sugestões de tratamento">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Checkmark}"/>
+                  <TextBlock Text="{Binding AcceptAllText}"/>
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Grid ColumnDefinitions="*,*,*,*,76" ColumnSpacing="12" Margin="16,8,16,0">
+          <TextBlock Classes="overline" Text="Quem fala"/>
+          <TextBlock Grid.Column="1" Classes="overline" Text="Com quem"/>
+          <TextBlock Grid.Column="2" Classes="overline" Text="Como chama, em japonês"/>
+          <TextBlock Grid.Column="3" Classes="overline" Text="Como chama, na tradução"/>
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Rows}" Margin="0,4,0,8" AutomationProperties.Name="Tratamentos entre personagens">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AddressTermRow">
+              <Grid ColumnDefinitions="*,*,*,*,76" ColumnSpacing="12" Margin="16,2" Classes.pending="{Binding IsSuggestion}">
+                <ComboBox HorizontalAlignment="Stretch" MinHeight="30" Classes.invalid="{Binding HasProblem}"
+                          ItemsSource="{Binding $parent[UserControl].((vm:AddressTermsViewModel)DataContext).CharacterNames}"
+                          SelectedItem="{Binding From}" ToolTip.Tip="{Binding Problem}" AutomationProperties.Name="Quem fala"
+                          AutomationProperties.HelpText="{Binding Problem}"/>
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" MinHeight="30" Classes.invalid="{Binding HasProblem}"
+                          ItemsSource="{Binding $parent[UserControl].((vm:AddressTermsViewModel)DataContext).CharacterNames}"
+                          SelectedItem="{Binding To}" ToolTip.Tip="{Binding Problem}" AutomationProperties.Name="Com quem fala"
+                          AutomationProperties.HelpText="{Binding Problem}"/>
+                <TextBox Grid.Column="2" Classes="cell jp" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}"
+                         Text="{Binding Source}" PlaceholderText="美咲ちゃん" AutomationProperties.Name="Como chama, em japonês"
+                         AutomationProperties.HelpText="{Binding Problem}"/>
+                <TextBox Grid.Column="3" Classes="cell" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}"
+                         Text="{Binding Target}" PlaceholderText="Misaki-chan" AutomationProperties.Name="Como chama, na tradução"
+                         AutomationProperties.HelpText="{Binding Problem}"/>
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                  <Button Classes="icon subtle sm" IsVisible="{Binding IsSuggestion}"
+                          Command="{Binding $parent[UserControl].((vm:AddressTermsViewModel)DataContext).AcceptCommand}"
+                          CommandParameter="{Binding}" ToolTip.Tip="Aceitar a sugestão" AutomationProperties.Name="Aceitar o tratamento sugerido">
+                    <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Checkmark}"/>
+                  </Button>
+                  <Button Classes="icon subtle sm"
+                          Command="{Binding $parent[UserControl].((vm:AddressTermsViewModel)DataContext).RemoveCommand}"
+                          CommandParameter="{Binding}" ToolTip.Tip="Remover tratamento" AutomationProperties.Name="Remover tratamento">
+                    <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="body-sm secondary" Margin="16,8,16,16" Text="{Binding EmptyText}" IsVisible="{Binding NoRows}"/>
+        <Border Classes="divider-top" Padding="16,0" Height="40">
+          <TextBlock Classes="caption secondary" VerticalAlignment="Center"
+                     Text="A tradução usa o tratamento de cada par, e Conferir a tradução avisa a fala que foge dele. Linhas esmaecidas são sugestões da IA: só valem depois do aceite."/>
+        </Border>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

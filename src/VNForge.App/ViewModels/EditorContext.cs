@@ -2,12 +2,19 @@ using VNForge.App.Controls;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
+using VNForge.Core.Spelling;
 
 namespace VNForge.App.ViewModels;
 
 /// <summary>Os personagens e o glossário do projeto, que o Editor consulta para mostrar o falante em português e o contexto da linha.</summary>
 public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<GlossaryTerm> Glossary)
 {
+    /// <summary>Os tratamentos entre personagens (<c>address-terms.json</c>), que o corretor aceita como palavras do projeto ("Ken-chan").</summary>
+    public IReadOnlyList<AddressTerm> AddressTerms { get; init; } = [];
+
+    /// <summary>As palavras do projeto que o corretor aceita: traduções do glossário, dos personagens e dos tratamentos.</summary>
+    public ProjectDictionary SpellWords() => ProjectDictionary.Create(Glossary, Characters.Entries, AddressTerms);
+
     public static EditorContext Empty { get; } = new(new CharacterBook([]), []);
 
     /// <summary>Lê <c>characters.json</c> e <c>glossary.json</c> da pasta; um arquivo que não abre deixa aquela parte vazia, sem derrubar o Editor.</summary>
@@ -23,7 +30,7 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
             return Empty;
         }
 
-        return new EditorContext(new CharacterBook(Try(folder.LoadCharacters)), Try(folder.LoadGlossary));
+        return new EditorContext(new CharacterBook(Try(folder.LoadCharacters)), Try(folder.LoadGlossary)) { AddressTerms = Try(folder.LoadAddressTerms) };
     }
 
     /// <summary>O contexto de uma linha: o falante cadastrado e os termos do glossário que aparecem no original.</summary>

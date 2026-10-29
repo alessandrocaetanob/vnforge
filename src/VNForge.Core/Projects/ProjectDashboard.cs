@@ -135,7 +135,7 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         {
             var config = project.LoadConfig();
             var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy);
-            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title };
+            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTermsOrEmpty(out _) };
             var report = QaEngine.Default.Run(context);
             var issues = report.BlockingIssues;
             var totals = new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning)) { StyleAdvice = report.StyleAdviceCount };

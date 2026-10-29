@@ -16,6 +16,8 @@ public sealed class ProjectFolder
 
     public const string CharactersFileName = "characters.json";
 
+    public const string AddressTermsFileName = "address-terms.json";
+
     public const string ScriptNamesFileName = "scripts.json";
 
     private const string InvalidUtf8Reason = "o arquivo não está em UTF-8 válido.";
@@ -152,6 +154,37 @@ public sealed class ProjectFolder
     /// <exception cref="GlossaryFileException">Nome original vazio ou repetido; nada é gravado.</exception>
     public void SaveCharacters(IReadOnlyList<CharacterEntry> characters) =>
         WriteAtomically(CharactersPath, CharacterSerializer.Serialize(characters, CharactersPath), overwrite: true);
+
+    /// <summary><c>address-terms.json</c>, como cada personagem chama os outros (#470). É opcional.</summary>
+    public string AddressTermsPath => Path.Combine(Root, AddressTermsFileName);
+
+    /// <summary>Lê o <c>address-terms.json</c>; sem o arquivo (projeto antigo), devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<AddressTerm> LoadAddressTerms() =>
+        File.Exists(AddressTermsPath) ? AddressTermSerializer.Parse(ReadGlossaryFile(AddressTermsPath), AddressTermsPath) : [];
+
+    /// <summary>
+    /// Lê o <c>address-terms.json</c> para quem só consulta (build, painel, QA): um arquivo ilegível não derruba nada, devolve lista vazia e o motivo em
+    /// <paramref name="problem"/> (nulo quando está tudo certo). Os tratamentos são sugestões de revisão, então não vale travar o projeto por eles.
+    /// </summary>
+    public IReadOnlyList<AddressTerm> LoadAddressTermsOrEmpty(out string? problem)
+    {
+        try
+        {
+            problem = null;
+            return LoadAddressTerms();
+        }
+        catch (GlossaryFileException e)
+        {
+            problem = $"O {AddressTermsFileName} está inválido e foi ignorado: {e.Reason}";
+            return [];
+        }
+    }
+
+    /// <summary>Grava o <c>address-terms.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Par vazio ou repetido; nada é gravado.</exception>
+    public void SaveAddressTerms(IReadOnlyList<AddressTerm> terms) =>
+        WriteAtomically(AddressTermsPath, AddressTermSerializer.Serialize(terms, AddressTermsPath), overwrite: true);
 
     /// <summary><c>scripts.json</c>, os nomes legíveis dos scripts (o que a engine leu do jogo e o que o usuário escolheu). É opcional.</summary>
     public string ScriptNamesPath => Path.Combine(Root, ScriptNamesFileName);
