@@ -66,7 +66,7 @@ public sealed class RestorePointStoreTests : IDisposable
             }
         });
         var lote = Task.Run(
-            () => _store.Record("Usar em todos", () => Editor().SetTranslationFor(alvos, "Oi, tudo bem?", parar, CancellationToken.None, lidas), changedLines: r => r.Changes.Select(c => (c.ScriptKey, c.Saved.Id))),
+            () => _store.Record("Usar em todos", () => Editor().SetTranslationFor(alvos, "Oi, tudo bem?", parar, lidas, CancellationToken.None), changedLines: r => r.Changes.Select(c => (c.ScriptKey, c.Saved.Id))),
             TestContext.Current.CancellationToken);
         try
         {

@@ -750,8 +750,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var scripts = targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList();
         // O token vai para o Core, que para entre um script e outro e devolve o que gravou; um Task.Run cancelado antes de começar lançaria e perderia esse resultado.
         return Task.Run(() => history is not null && root is not null
-            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, cancellation, read), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
-            : editor.SetTranslationFor(targets, translation, progress, cancellation, read), CancellationToken.None);
+            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, read, cancellation), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
+            : editor.SetTranslationFor(targets, translation, progress, read, cancellation), CancellationToken.None);
     }
 
     /// <summary>

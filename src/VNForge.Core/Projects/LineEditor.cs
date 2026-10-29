@@ -155,7 +155,7 @@ public sealed class LineEditor
         string translation,
         IProgress<BatchProgress>? progress,
         CancellationToken cancellation) =>
-        SetTranslationFor(targets, translation, progress, cancellation, null);
+        SetTranslationFor(targets, translation, progress, null, cancellation);
 
     /// <summary>
     /// <see cref="SetTranslationFor(IEnumerable{ValueTuple{string, string}}, string, IProgress{BatchProgress}?, CancellationToken)"/> que só troca a linha que ainda é a que o
@@ -166,8 +166,8 @@ public sealed class LineEditor
         IEnumerable<(string ScriptKey, string Id)> targets,
         string translation,
         IProgress<BatchProgress>? progress,
-        CancellationToken cancellation,
-        IReadOnlyDictionary<string, TextUnit>? read)
+        IReadOnlyDictionary<string, TextUnit>? read,
+        CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
