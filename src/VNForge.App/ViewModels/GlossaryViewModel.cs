@@ -453,6 +453,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         NoticeMessage = null;
         var terms = ValidRows(Terms, "Falta o termo em japonês.").Select(t => t.ToTerm()).ToList();
         var characters = ValidRows(Characters, "Falta o nome do personagem no jogo.").Select(c => c.ToEntry()).ToList();
+        FollowCharacterRenames();
         var addressTerms = AddressTerms.ValidTerms();
         NotifyProblems();
         try

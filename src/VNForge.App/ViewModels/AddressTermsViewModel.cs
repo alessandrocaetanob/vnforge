@@ -130,6 +130,33 @@ public sealed partial class AddressTermsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Troca nas linhas o nome de quem foi renomeado em Personagens, nos dois lados do par. Devolve verdadeiro se alguma linha mudou; quem chama marca a página como alterada.</summary>
+    public bool ApplyRenames(IReadOnlyDictionary<string, string> renames)
+    {
+        var changed = false;
+        loading = true;
+        try
+        {
+            foreach (var row in Rows)
+            {
+                var from = AddressTermRenamer.NameAfter(row.From, renames);
+                var to = AddressTermRenamer.NameAfter(row.To, renames);
+                if (from != row.From || to != row.To)
+                {
+                    row.From = from;
+                    row.To = to;
+                    changed = true;
+                }
+            }
+        }
+        finally
+        {
+            loading = false;
+        }
+
+        return changed;
+    }
+
     /// <summary>Descarta as linhas e o texto lido: o projeto mudou ou a página vai reler os arquivos.</summary>
     public void Clear()
     {
