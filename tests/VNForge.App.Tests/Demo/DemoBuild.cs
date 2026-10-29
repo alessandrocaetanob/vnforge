@@ -1,3 +1,4 @@
+using VNForge.Core.Demo;
 using VNForge.Core.Engines;
 using VNForge.Core.Injection;
 using VNForge.Core.Projects;

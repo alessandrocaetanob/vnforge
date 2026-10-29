@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.AI.Claude;
 using VNForge.AI.Explain;
+using VNForge.Core.Demo;
 using VNForge.Core.Projects;
 using VNForge.App.Controls;
 using VNForge.App.Services;

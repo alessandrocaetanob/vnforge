@@ -9,19 +9,41 @@ public sealed class LineShortenerTests
 {
     private static readonly TextUnit Linha = new("yst00001:000000", TextUnitKind.Dialogue, "美咲", @"原文\p", @"Uma tradução longa demais para a caixa\p", TranslationStatus.Machine);
 
-    private static readonly WrapRule Caixa = new(Enabled: true, MaxWidth: 40, MaxLines: 3);
+    private static readonly WrapRule Caixa = new(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform);
+
+    private static string Palavras(int quantas) => string.Join(' ', Enumerable.Repeat("aaaaaaaaa", quantas));
 
     [Fact]
-    public async Task Pede_a_versao_curta_com_a_traducao_de_hoje_e_o_tamanho_da_caixa()
+    public async Task Pede_a_versao_curta_pelo_caminho_da_reescrita_com_a_traducao_de_hoje_e_o_tamanho_da_caixa()
     {
-        var provedor = new FakeTranslationProvider(u => @"Tradução curta\p");
+        var provedor = new FakeTranslationProvider();
 
         var curta = await new LineSuggester(() => provedor).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken);
 
-        Assert.Equal(@"Tradução curta\p", curta);
-        var lote = Assert.Single(provedor.ReceivedBatches);
+        Assert.StartsWith("[Shorter 1]", curta);
+        var (lote, pedido) = Assert.Single(provedor.ReceivedRewrites);
         Assert.Equal([Linha.Id], lote.Lines.Select(l => l.Id));
-        Assert.Equal(new ShortenRequest(Linha.Translation!, 3, 40), lote.Shorten[Linha.Id]);
+        Assert.Equal(new RewriteRequest(RewriteDirection.Shorter, Linha.Translation!, 3, 40), pedido);
+    }
+
+    [Fact]
+    public async Task Escolhe_a_primeira_versao_que_cabe_na_caixa()
+    {
+        var provedor = new Reescritor(Palavras(20) + @"\p", @"Cabe.\p");
+
+        var curta = await new LineSuggester(() => provedor).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken);
+
+        Assert.Equal(@"Cabe.\p", curta);
+    }
+
+    [Fact]
+    public async Task Se_nenhuma_cabe_devolve_a_primeira_para_o_aviso_conferir()
+    {
+        var provedor = new Reescritor(Palavras(20) + @"\p", Palavras(30) + @"\p");
+
+        var curta = await new LineSuggester(() => provedor).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken);
+
+        Assert.Equal(Palavras(20) + @"\p", curta);
     }
 
     [Fact]
@@ -37,21 +59,18 @@ public sealed class LineShortenerTests
     public async Task Recusa_da_ia_vira_mensagem_em_portugues()
     {
         var erro = await Assert.ThrowsAsync<LineSuggestionException>(() =>
-            new LineSuggester(() => new Recusa()).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken));
+            new LineSuggester(() => new Reescritor(refused: true)).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken));
 
         Assert.Contains("recus", erro.Message);
     }
 
     [Fact]
-    public async Task Marcador_perdido_na_versao_curta_esgota_as_tentativas_e_vira_mensagem()
+    public async Task Versao_que_perde_o_marcador_sai_da_lista_e_sem_nenhuma_aproveitavel_vira_mensagem()
     {
-        var provedor = new FakeTranslationProvider(u => "sem o marcador");
-
         var erro = await Assert.ThrowsAsync<LineSuggestionException>(() =>
-            new LineSuggester(() => provedor).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken));
+            new LineSuggester(() => new Reescritor("sem o marcador", "tambem sem")).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken));
 
-        Assert.Equal(3, provedor.ReceivedBatches.Count);
-        Assert.Contains("recus", erro.Message);
+        Assert.Contains("aproveitável", erro.Message);
     }
 
     [Fact]
@@ -65,9 +84,17 @@ public sealed class LineShortenerTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => suggester.ShortenAsync(Linha, "x", null!, ct));
     }
 
-    private sealed class Recusa : ITranslationProvider
+    private sealed class Reescritor(params string[] opcoes) : ITranslationProvider, IRewriteProvider
     {
+        private readonly bool refused;
+
+        public Reescritor(bool refused)
+            : this() => this.refused = refused;
+
         public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<TranslationResult>>([.. batch.Lines.Select(l => new TranslationResult(l.Id, string.Empty, Refused: true))]);
+            throw new NotSupportedException();
+
+        public Task<RewriteResult> RewriteAsync(TranslationBatch batch, RewriteRequest request, CancellationToken ct) =>
+            Task.FromResult(new RewriteResult(batch.Lines[0].Id, opcoes, refused));
     }
 }
