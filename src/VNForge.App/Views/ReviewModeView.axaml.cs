@@ -23,7 +23,9 @@ public sealed partial class ReviewModeView : UserControl
     private ReviewModeViewModel? current;
     private WindowBase? watchedWindow;
     private CancellationTokenSource? entering;
-    private double squeezedHeight;
+    private double squeezedNextHeight;
+    private double squeezedPreviousHeight;
+    private bool scrolledToTranslation;
 
     public ReviewModeView()
     {
@@ -37,9 +39,11 @@ public sealed partial class ReviewModeView : UserControl
     }
 
     /// <summary>
-    /// Com a fala anterior, o original, a tradução e a seguinte, o roteiro passa da altura de uma janela de 1366×768 quando a tradução é longa. Em vez de cortar a
-    /// seguinte na borda, ela some até o roteiro caber de novo; <see cref="squeezedHeight"/> guarda o que ela ocupava para saber quando cabe de volta.
-    /// A conta usa a altura pedida pela pilha, porque a extensão do <c>ScrollViewer</c> nunca fica abaixo da área visível.
+    /// Com a fala anterior, o original, a tradução e a seguinte, o roteiro passa da altura de uma janela de 1366×768 quando a tradução é longa ou o texto está
+    /// grande. Em vez de cortar na borda, a seguinte some primeiro e, se ainda não couber, a anterior; as duas voltam (a anterior primeiro) quando o roteiro
+    /// cabe de novo, e <see cref="squeezedNextHeight"/> e <see cref="squeezedPreviousHeight"/> guardam o que ocupavam. Sem as duas e ainda alto demais, o roteiro
+    /// rola até a tradução, para a fala a aprovar aparecer inteira. A conta usa a altura pedida pela pilha, porque a extensão do <c>ScrollViewer</c> nunca fica
+    /// abaixo da área visível.
     /// </summary>
     private void OnScriptLayoutUpdated(object? sender, EventArgs e)
     {
@@ -51,12 +55,29 @@ public sealed partial class ReviewModeView : UserControl
             return;
         }
 
-        if (NextBlock.IsVisible && wanted > viewport + Tolerance)
+        if (wanted > viewport + Tolerance)
         {
-            squeezedHeight = NextBlock.Bounds.Height;
-            NextBlock.IsVisible = false;
+            if (NextBlock.IsVisible)
+            {
+                squeezedNextHeight = NextBlock.Bounds.Height;
+                NextBlock.IsVisible = false;
+            }
+            else if (PreviousBlock.IsVisible)
+            {
+                squeezedPreviousHeight = PreviousBlock.Bounds.Height;
+                PreviousBlock.IsVisible = false;
+            }
+            else if (!scrolledToTranslation)
+            {
+                scrolledToTranslation = true;
+                TranslationCard.BringIntoView();
+            }
         }
-        else if (!NextBlock.IsVisible && wanted + squeezedHeight <= viewport + Tolerance)
+        else if (!PreviousBlock.IsVisible && wanted + squeezedPreviousHeight <= viewport + Tolerance)
+        {
+            PreviousBlock.IsVisible = true;
+        }
+        else if (!NextBlock.IsVisible && PreviousBlock.IsVisible && wanted + squeezedNextHeight <= viewport + Tolerance)
         {
             NextBlock.IsVisible = true;
         }
@@ -107,8 +128,7 @@ public sealed partial class ReviewModeView : UserControl
         }
 
         held.Clear();
-        NextBlock.IsVisible = true;
-        squeezedHeight = 0;
+        ResetSqueeze();
         current = DataContext as ReviewModeViewModel;
         if (current is null)
         {
@@ -148,6 +168,15 @@ public sealed partial class ReviewModeView : UserControl
     /// <summary>A janela perdeu a ativação com uma tecla segurada: o KeyUp não vem, e a tecla ficaria presa como "já apertada".</summary>
     private void OnWindowDeactivated(object? sender, EventArgs e) => held.Clear();
 
+    private void ResetSqueeze()
+    {
+        NextBlock.IsVisible = true;
+        PreviousBlock.IsVisible = true;
+        squeezedNextHeight = 0;
+        squeezedPreviousHeight = 0;
+        scrolledToTranslation = false;
+    }
+
     private void FocusScreen() => Dispatcher.UIThread.Post(() => Root.Focus(), DispatcherPriority.Input);
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -159,7 +188,7 @@ public sealed partial class ReviewModeView : UserControl
         else if (e.PropertyName == nameof(ReviewModeViewModel.Position))
         {
             // A medida da fala seguinte é da linha antiga: recomeça do zero, e o layout esconde de novo se a nova não couber.
-            NextBlock.IsVisible = true;
+            ResetSqueeze();
             _ = PlayEnterAsync();
         }
     }
