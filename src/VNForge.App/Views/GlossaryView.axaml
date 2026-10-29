@@ -332,6 +332,35 @@
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
                   </ScrollViewer>
+                  <StackPanel IsVisible="{Binding HasCorrectedTerms}" AutomationProperties.Name="Termos que você corrigiu">
+                    <Border Classes="divider-bottom" Padding="16,12">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="title-md" Text="Termos que você corrigiu"/>
+                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding CorrectedSummary}"/>
+                      </StackPanel>
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding CorrectedTermRows}" AutomationProperties.Name="Termos que você corrigiu">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CorrectedTermRow">
+                          <Border Classes="divider-bottom" Padding="16,10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                              <StackPanel Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                  <TextBlock Classes="jp" FontSize="15" FontWeight="SemiBold" Text="{Binding Source}"/>
+                                  <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LinesLabel}"/>
+                                </StackPanel>
+                                <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Target}"/>
+                                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ChangeLabel}"/>
+                              </StackPanel>
+                              <Button Grid.Column="1" Classes="sm" VerticalAlignment="Top" Content="Adicionar"
+                                      Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).AddCorrectedTermCommand}"
+                                      CommandParameter="{Binding}" AutomationProperties.Name="Adicionar ao glossário"/>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
                 </StackPanel>
               </Border>
             </Grid>

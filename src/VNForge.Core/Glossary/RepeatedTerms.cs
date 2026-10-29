@@ -1,9 +1,19 @@
+using VNForge.Core.Review;
+using VNForge.Core.Text;
+
 namespace VNForge.Core.Glossary;
 
 /// <summary>Uma sequência de kanji e katakana que se repete no original.</summary>
 /// <param name="Source">A sequência, como aparece no texto do jogo.</param>
 /// <param name="Lines">Em quantas linhas do original ela aparece (linhas, não ocorrências dentro da linha).</param>
 public sealed record TermCandidate(string Source, int Lines);
+
+/// <summary>Um trecho japonês que a pessoa traduziu do mesmo jeito em várias falas que corrigiu, pronto para virar termo do glossário.</summary>
+/// <param name="Source">O trecho, como aparece no original.</param>
+/// <param name="Target">A tradução que a pessoa pôs, com a grafia da primeira fala em que a pôs.</param>
+/// <param name="From">O que a IA tinha escrito no lugar, na primeira dessas falas.</param>
+/// <param name="Lines">Em quantas falas corrigidas o trecho ganhou essa tradução.</param>
+public sealed record TermPair(string Source, string Target, string From, int Lines);
 
 /// <summary>
 /// Acha os termos que o glossário ainda não cobre: sequências de kanji e katakana (com a barra de prolongamento) de 2 a 6 caracteres que
@@ -60,6 +70,113 @@ public static class RepeatedTerms
     /// <summary>Conta, tira o que já está em <paramref name="known"/> (termos do glossário e nomes de personagens) e guarda os <paramref name="maxResults"/> primeiros.</summary>
     public static IReadOnlyList<TermCandidate> Find(IEnumerable<string> sources, IEnumerable<string> known, int minFrequency = MinFrequency, int maxResults = DefaultMaxResults) =>
         [.. Excluding(Count(sources, minFrequency), known).Take(maxResults)];
+
+    /// <summary>Tira dos pares o que o glossário já cobre, pela mesma regra de <see cref="Excluding(IEnumerable{TermCandidate}, IEnumerable{string})"/>.</summary>
+    public static IReadOnlyList<TermPair> Excluding(IEnumerable<TermPair> pairs, IEnumerable<string> known)
+    {
+        ArgumentNullException.ThrowIfNull(pairs);
+        ArgumentNullException.ThrowIfNull(known);
+
+        var terms = known.Select(k => k.Trim()).Where(k => k.Length > 0).ToArray();
+        return [.. pairs.Where(p => !terms.Any(t => t.Contains(p.Source, StringComparison.Ordinal)))];
+    }
+
+    /// <summary>
+    /// Os pares trecho japonês e tradução que a pessoa repetiu nas falas que corrigiu (a tradução gravada difere da <see cref="TextUnit.AiTranslation"/>), os de mais falas primeiro.
+    /// A troca de palavras vem de <see cref="CorrectionLearner.Swaps"/>; o par vale quando a troca está em ao menos <paramref name="threshold"/> falas, em dois terços das falas corrigidas
+    /// que têm o trecho e em dois terços das falas com essa troca (senão a troca é de estilo, não do termo). Dois trechos que disputam a mesma troca no mesmo número de falas ficam de fora.
+    /// </summary>
+    /// <param name="threshold">Quantas falas bastam; no mínimo 2.</param>
+    public static IReadOnlyList<TermPair> Corrected(IEnumerable<TextUnit> units, int threshold = CorrectionLearner.DefaultThreshold)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        ArgumentOutOfRangeException.ThrowIfLessThan(threshold, 2);
+
+        var tally = new PairTally();
+        foreach (var unit in units)
+        {
+            if (unit.AiTranslation is not null && unit.HasTranslation)
+            {
+                tally.Add(unit);
+            }
+        }
+
+        return tally.Offer(threshold);
+    }
+
+    private sealed class PairTally
+    {
+        private readonly Dictionary<string, int> runLines = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> swapLines = new(StringComparer.Ordinal);
+        private readonly Dictionary<(string Run, string Key), Pair> pairs = [];
+
+        public void Add(TextUnit unit)
+        {
+            var swaps = CorrectionLearner.Swaps(unit.AiTranslation, unit.Translation);
+            var runs = new HashSet<string>(StringComparer.Ordinal);
+            if (swaps.Count > 0)
+            {
+                CollectRuns(unit.Source, runs);
+            }
+
+            if (runs.Count == 0)
+            {
+                return;
+            }
+
+            var byKey = new Dictionary<string, WordSwap>(StringComparer.Ordinal);
+            foreach (var swap in swaps)
+            {
+                byKey.TryAdd(swap.To.ToLowerInvariant(), swap);
+            }
+
+            foreach (var run in runs)
+            {
+                runLines[run] = runLines.GetValueOrDefault(run) + 1;
+            }
+
+            foreach (var (key, swap) in byKey)
+            {
+                swapLines[key] = swapLines.GetValueOrDefault(key) + 1;
+                foreach (var run in runs)
+                {
+                    if (!pairs.TryGetValue((run, key), out var pair))
+                    {
+                        pairs[(run, key)] = pair = new Pair(swap);
+                    }
+
+                    pair.Lines++;
+                }
+            }
+        }
+
+        public IReadOnlyList<TermPair> Offer(int threshold)
+        {
+            var offered = new List<TermPair>();
+            foreach (var byKey in pairs.Where(p => IsConcentrated(p.Key, p.Value, threshold)).GroupBy(p => p.Key.Key))
+            {
+                var best = byKey.Max(p => p.Value.Lines);
+                var top = byKey.Where(p => p.Value.Lines == best).ToList();
+                if (top.Count == 1)
+                {
+                    var (run, _) = top[0].Key;
+                    offered.Add(new TermPair(run, top[0].Value.Swap.To, top[0].Value.Swap.From, best));
+                }
+            }
+
+            return [.. offered.OrderByDescending(p => p.Lines).ThenBy(p => p.Source, StringComparer.Ordinal)];
+        }
+
+        private bool IsConcentrated((string Run, string Key) key, Pair pair, int threshold) =>
+            pair.Lines >= threshold && pair.Lines * 3 >= runLines[key.Run] * 2 && pair.Lines * 3 >= swapLines[key.Key] * 2;
+    }
+
+    private sealed class Pair(WordSwap swap)
+    {
+        public WordSwap Swap { get; } = swap;
+
+        public int Lines { get; set; }
+    }
 
     private static void CollectRuns(string text, HashSet<string> into)
     {
