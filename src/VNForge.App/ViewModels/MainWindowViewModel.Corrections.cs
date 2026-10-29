@@ -10,9 +10,13 @@ public sealed partial class MainWindowViewModel
 {
     private const string CorrectionOfferKey = "correction-offer";
 
+    private const string CorrectionAddedKey = "correction-added";
+
     private static readonly TimeSpan CorrectionOfferLifetime = TimeSpan.FromSeconds(20);
 
     private readonly CorrectionOffers correctionOffers = new();
+
+    private bool scanningCorrections;
 
     /// <summary>
     /// Depois de uma gravação que mudou o texto da IA, procura a troca que a pessoa repete (Ei por Ô) e, passado o limite, oferece a regra.
@@ -31,7 +35,14 @@ public sealed partial class MainWindowViewModel
     /// <summary>Lê os textos fora da thread da tela, acha as trocas repetidas e, de volta nela, mostra o aviso da primeira que ainda cabe oferecer.</summary>
     public async Task OfferCorrectionsAsync(string root)
     {
+        // Uma varredura por vez, e nenhuma enquanto a oferta anterior está na tela: a segunda oferta trocaria a primeira (mesma chave) e a primeira nunca mais voltaria.
+        if (scanningCorrections || Toasts.Toasts.Any(t => t.Key == CorrectionOfferKey))
+        {
+            return;
+        }
+
         IReadOnlyList<RepeatedCorrection> found;
+        scanningCorrections = true;
         try
         {
             found = await Task.Run(() => CorrectionLearner.Find(ProjectFolder.Open(root).LoadAllText().SelectMany(script => script.Value.Select(unit => (script.Key, unit)))));
@@ -41,8 +52,12 @@ public sealed partial class MainWindowViewModel
             Debug.WriteLine(e);
             return;
         }
+        finally
+        {
+            scanningCorrections = false;
+        }
 
-        if (found.Count == 0 || !string.Equals(CurrentProject?.Root, root, StringComparison.OrdinalIgnoreCase))
+        if (found.Count == 0 || Toasts.Toasts.Any(t => t.Key == CorrectionOfferKey) || !string.Equals(CurrentProject?.Root, root, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -83,15 +98,15 @@ public sealed partial class MainWindowViewModel
         if (correction.Scope == CorrectionScope.Project)
         {
             Settings.AddStyleRule(correction);
-            Toasts.Show("Regra adicionada ao guia de estilo.", ToastKind.Success, key: CorrectionOfferKey);
+            Toasts.Show("Regra adicionada ao guia de estilo.", ToastKind.Success, key: CorrectionAddedKey);
         }
         else if (Glossary.AddToneRule(correction.Speaker!, correction))
         {
-            Toasts.Show($"Regra adicionada ao Como fala de {Glossary.NameOf(correction.Speaker!)}.", ToastKind.Success, key: CorrectionOfferKey);
+            Toasts.Show($"Regra adicionada ao Como fala de {Glossary.NameOf(correction.Speaker!)}.", ToastKind.Success, key: CorrectionAddedKey);
         }
         else
         {
-            Toasts.Show("Não foi possível escrever no Como fala. Abra o Glossário e confira se o arquivo está válido.", ToastKind.Warning, key: CorrectionOfferKey);
+            Toasts.Show("Não foi possível escrever no Como fala. Abra o Glossário e confira se o arquivo está válido.", ToastKind.Warning, key: CorrectionAddedKey);
         }
     }
 }

@@ -61,7 +61,7 @@ public sealed class CorrectionOfferTests : IDisposable
 
         var tone = main.Glossary.ToneOf("健太");
         Assert.Equal("direto; diz \"Ô\" no lugar de \"Ei\"", tone);
-        Assert.Contains(main.Toasts.Toasts, t => t.Key == "correction-offer" && t.Message.StartsWith("Regra adicionada ao Como fala de Kenta", StringComparison.Ordinal));
+        Assert.Contains(main.Toasts.Toasts, t => t.Key == "correction-added" && t.Message.StartsWith("Regra adicionada ao Como fala de Kenta", StringComparison.Ordinal));
         Assert.True(main.Glossary.Flush());
         Assert.Equal(tone, ProjectFolder.Open(root).LoadCharacters().Single(c => c.Source == "健太").Tone);
     }
@@ -95,6 +95,18 @@ public sealed class CorrectionOfferTests : IDisposable
         await main.OfferCorrectionsAsync(root);
 
         Assert.DoesNotContain(main.Toasts.Toasts, t => t.Key == "correction-offer");
+    }
+
+    [Fact]
+    public async Task Com_uma_oferta_na_tela_outra_varredura_nao_a_troca()
+    {
+        var main = await OpenAsync(KentaEdits());
+        await main.OfferCorrectionsAsync(root);
+        var offer = Assert.Single(main.Toasts.Toasts, t => t.Key == "correction-offer");
+
+        await main.OfferCorrectionsAsync(root);
+
+        Assert.Same(offer, Assert.Single(main.Toasts.Toasts, t => t.Key == "correction-offer"));
     }
 
     [Fact]

@@ -97,7 +97,20 @@ public static class CorrectionLearner
             return [];
         }
 
-        var swaps = Hunks(a, b);
+        // O começo e o fim iguais não trazem troca; tirá-los deixa a comparação quadrática só para o meio que mudou.
+        var head = 0;
+        while (head < a.Count && head < b.Count && Same(a[head], b[head]))
+        {
+            head++;
+        }
+
+        var tail = 0;
+        while (tail < a.Count - head && tail < b.Count - head && Same(a[a.Count - 1 - tail], b[b.Count - 1 - tail]))
+        {
+            tail++;
+        }
+
+        var swaps = Hunks(a.GetRange(head, a.Count - head - tail), b.GetRange(head, b.Count - head - tail));
         return swaps is null || swaps.Count > MaxSwapsPerLine ? [] : swaps;
     }
 
@@ -226,7 +239,8 @@ public static class CorrectionLearner
 
     private static bool Flush(List<WordSwap> swaps, List<string> removed, List<string> added)
     {
-        var big = removed.Count > MaxWords || added.Count > MaxWords;
+        // Uma troca grande é reescrita e anula a linha; um acréscimo ou corte puro, mesmo longo, só não conta como troca.
+        var big = removed.Count > 0 && added.Count > 0 && (removed.Count > MaxWords || added.Count > MaxWords);
         if (!big && removed.Count > 0 && added.Count > 0)
         {
             var swap = new WordSwap(string.Join(' ', removed), string.Join(' ', added));
