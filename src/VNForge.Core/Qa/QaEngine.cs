@@ -36,6 +36,7 @@ public sealed class QaEngine
         new CharacterNameRule(),
         new InconsistentTranslationRule(),
         .. TextQaRules.All,
+        new SpellingRule(),
         new UnencodableCharacterRule(),
         new FormattingConflictRule(),
         new SpeakerEncodingRule(),

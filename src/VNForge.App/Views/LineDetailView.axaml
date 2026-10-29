@@ -29,6 +29,18 @@
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
+    <Style Selector="Button.use-in-row">
+      <Setter Property="Grid.Column" Value="1"/>
+      <Setter Property="Margin" Value="8,0,0,0"/>
+    </Style>
+    <!-- Texto grande num inspetor estreito: "Usar sugestão" desce para a linha de baixo, com a largura toda, em vez de espremer "Aprovar e próxima". -->
+    <Style Selector=":is(UserControl).stacked Button.use-in-row">
+      <Setter Property="Grid.Column" Value="0"/>
+      <Setter Property="Grid.Row" Value="1"/>
+      <Setter Property="Margin" Value="0,8,0,0"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
   </UserControl.Styles>
 
   <UserControl.KeyBindings>
@@ -49,11 +61,11 @@
         <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,20">
 
           <!-- Cabeçalho: id em mono, selo de status, tipo da linha, histórico e menu. -->
-          <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+          <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Classes="mono secondary" Text="{Binding FullId}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
             <c:StatusBadge Grid.Column="1" Status="{Binding Status}" VerticalAlignment="Center" AutomationProperties.Name="Status da linha"/>
-            <TextBlock Grid.Column="2" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding KindLabel}" VerticalAlignment="Center"/>
-            <Button Grid.Column="4" Classes="subtle icon sm" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
+            <TextBlock Grid.Column="2" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding KindLabel}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Button Grid.Column="3" Classes="subtle icon sm" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.History}"/>
               <Button.Flyout>
                 <Flyout Placement="BottomEdgeAlignedRight">
@@ -61,7 +73,7 @@
                 </Flyout>
               </Button.Flyout>
             </Button>
-            <Button Grid.Column="5" Classes="subtle icon sm" AutomationProperties.Name="Mais ações" ToolTip.Tip="Mais ações">
+            <Button Grid.Column="4" Classes="subtle icon sm" AutomationProperties.Name="Mais ações" ToolTip.Tip="Mais ações">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.More}"/>
               <Button.Flyout>
                 <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -80,7 +92,7 @@
           <StackPanel x:Name="OriginalFragment" Spacing="6">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
-              <SelectableTextBlock Grid.Column="1" FontSize="12" LineHeight="16" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
+              <SelectableTextBlock Grid.Column="1" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Falante"/>
             </Grid>
             <Border Classes="original">
@@ -282,7 +294,7 @@
               <TextBlock Classes="overline" Text="Contexto"/>
               <!-- Falante da linha: o do jogo, Narração, um personagem do Glossário ou um nome digitado. Vale só nesta linha. -->
               <Grid x:Name="SpeakerChoiceRow" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBlock FontSize="13" LineHeight="18" TextWrapping="Wrap" Classes="secondary" Text="{Binding SpeakerSummary}" VerticalAlignment="Center"
+                <TextBlock FontSize="{DynamicResource Vnf.FontSize.BodySm}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" TextWrapping="Wrap" Classes="secondary" Text="{Binding SpeakerSummary}" VerticalAlignment="Center"
                            AutomationProperties.Name="Falante da linha"/>
                 <Button Grid.Column="1" Classes="subtle sm" AutomationProperties.Name="Trocar o falante da linha"
                         ToolTip.Tip="Troca o falante só nesta linha. O jogo mostra o nome escolhido; uma nova extração mantém a troca.">
@@ -308,16 +320,16 @@
               </Grid>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" IsVisible="{Binding HasSpeaker}">
                 <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Person}"/>
-                <SelectableTextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala no contexto">
+                <SelectableTextBlock Grid.Column="1" FontSize="{DynamicResource Vnf.FontSize.BodySm}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" TextWrapping="Wrap" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala no contexto">
                   <Run FontWeight="SemiBold" Text="{Binding SpeakerName}"/><Run Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding VoiceText}"/>
                 </SelectableTextBlock>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Book}"/>
-                <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" Classes="secondary" Text="{Binding GlossaryText}"/>
+                <TextBlock Grid.Column="1" FontSize="{DynamicResource Vnf.FontSize.BodySm}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" TextWrapping="Wrap" Classes="secondary" Text="{Binding GlossaryText}"/>
               </Grid>
               <TextBlock Classes="overline" Text="Notas" Margin="0,8,0,0"/>
-              <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Notas da linha"/>
+              <TextBox FontSize="{DynamicResource Vnf.FontSize.Body}" Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Notas da linha"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -353,7 +365,7 @@
 
     <Border x:Name="ActionsBar" Grid.Row="1" Classes="divider-top" Padding="0,12,0,0" Margin="0,8,0,0">
       <!-- Aprovar e próxima ocupa o que sobra da linha; "Usar sugestão" tem a largura do texto. Nada quebra com o inspetor em 400 px. -->
-      <Grid x:Name="ActionsFragment" ColumnDefinitions="*,Auto">
+      <Grid x:Name="ActionsFragment" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
         <Button x:Name="ApproveButton" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveAndNextCommand}"
                 ToolTip.Tip="Aprova a linha e vai para a próxima (Ctrl+Enter)">
           <StackPanel Orientation="Horizontal" Spacing="8">
@@ -361,7 +373,7 @@
             <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+Enter"/></Border>
           </StackPanel>
         </Button>
-        <Button Grid.Column="1" Classes="use-in-row" Margin="8,0,0,0" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
+        <Button Classes="use-in-row" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
             <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>

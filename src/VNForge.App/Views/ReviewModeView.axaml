@@ -104,10 +104,12 @@
       <ScrollViewer x:Name="Script" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Roteiro">
         <StackPanel x:Name="ScriptStack" Spacing="12" Margin="0,0,12,4">
 
-          <StackPanel Classes="neighbour" Spacing="4" IsVisible="{Binding HasPrevious}">
-            <TextBlock Classes="overline" Text="Fala anterior"/>
-            <c:ContextLines ItemsSource="{Binding PreviousLines}" AutomationProperties.Name="Fala anterior"/>
-          </StackPanel>
+          <Panel IsVisible="{Binding HasPrevious}">
+            <StackPanel x:Name="PreviousBlock" Classes="neighbour" Spacing="4">
+              <TextBlock Classes="overline" Text="Fala anterior"/>
+              <c:ContextLines ItemsSource="{Binding PreviousLines}" AutomationProperties.Name="Fala anterior"/>
+            </StackPanel>
+          </Panel>
 
           <!-- O original, com quem fala e como fala. -->
           <Border Classes="card current">
@@ -117,7 +119,7 @@
                 <SelectableTextBlock Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
                                      Text="{Binding SpeakerText}" c:SpeakerColorTint.Color="{Binding Detail.SpeakerColor}" c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
               </Grid>
-              <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" FontSize="18" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+              <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="{DynamicResource Vnf.LineHeight.ReviewSource}" FontSize="{DynamicResource Vnf.FontSize.ReviewSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
               <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
                       ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -136,10 +138,10 @@
           </Border>
 
           <!-- A tradução em destaque, com "Outra sugestão" e o preço. -->
-          <Border Classes="card translation current">
+          <Border x:Name="TranslationCard" Classes="card translation current">
             <StackPanel Spacing="12">
               <TextBlock Classes="overline" Text="Tradução"/>
-              <TextBlock FontSize="20" LineHeight="30" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
+              <TextBlock FontSize="{DynamicResource Vnf.FontSize.ReviewTranslation}" LineHeight="{DynamicResource Vnf.LineHeight.ReviewTranslation}" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
               <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.SuggestCommand}"
                       ToolTip.Tip="Pede à IA outra tradução para esta fala. A atual só muda se você usar a sugestão.">
                 <StackPanel Orientation="Horizontal" Spacing="6">

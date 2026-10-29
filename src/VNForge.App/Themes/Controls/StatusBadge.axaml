@@ -4,12 +4,12 @@
 
   <!-- docs/design/components/StatusBadge: 20px, pílula, 11/600; o ponto vazado marca só o status pendente. -->
   <Style Selector="c|StatusBadge">
-    <Setter Property="Height" Value="20"/>
+    <Setter Property="Height" Value="{DynamicResource Vnf.PillHeight}"/>
     <Setter Property="Padding" Value="8,0"/>
     <Setter Property="HorizontalAlignment" Value="Left"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
-    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.StatusPendingBg}"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
