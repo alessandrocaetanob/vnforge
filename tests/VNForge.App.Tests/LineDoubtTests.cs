@@ -91,13 +91,15 @@ public sealed class LineDoubtTests : IDisposable
         var vm = await Abrir();
         var chip = vm.Filters.Single(f => f.Filter == LineStatusFilter.Doubt);
         Assert.True(chip.IsShown);
-        Assert.True(vm.Filters.Where(f => f != chip).All(f => f.IsShown));
+        Assert.True(vm.Filters.Where(f => f != chip && f.Filter != LineStatusFilter.Odd).All(f => f.IsShown));
 
         ProjectFolder.Open(raiz).SaveText("yst00001", [Fala(0, "Oi.\\p", TranslationStatus.Machine, null)]);
         var semDuvida = await Abrir();
-        Assert.DoesNotContain(semDuvida.Filters, f => f.Filter == LineStatusFilter.Doubt);
-        Assert.All(semDuvida.Filters, f => Assert.True(f.IsShown));
-        Assert.Equal(5, semDuvida.Filters.Count);
+        var vazio = semDuvida.Filters.Single(f => f.Filter == LineStatusFilter.Doubt);
+
+        Assert.False(vazio.IsShown);
+        vazio.IsSelected = true;
+        Assert.True(vazio.IsShown);
     }
 
     [Fact]
@@ -203,7 +205,21 @@ public sealed class LineDoubtTests : IDisposable
         Assert.Null(Gravada(0).Doubt);
         Assert.Null(Gravada(2).Doubt);
         Assert.Equal(0, vm.DoubtLines);
-        Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.Doubt);
+        Assert.False(vm.Filters.Single(f => f.Filter == LineStatusFilter.Doubt).IsShown);
+    }
+
+    [Fact]
+    public async Task Abrir_as_duvidas_fecha_o_leitor_de_cena()
+    {
+        var vm = await Abrir();
+        vm.StartReading();
+        Assert.True(vm.IsReadingScene);
+
+        vm.StartDoubtReview();
+
+        Assert.False(vm.IsReadingScene);
+        Assert.True(vm.IsReviewing);
+        Assert.Equal(2, vm.Review!.Total);
     }
 
     [Fact]

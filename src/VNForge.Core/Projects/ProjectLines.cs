@@ -73,6 +73,9 @@ public enum LineStatusFilter
     /// <summary>Linhas "Não traduzir" (<see cref="TranslationStatus.Keep"/>).</summary>
     Keep,
 
+    /// <summary>Linhas que quem leu a cena marcou como "soa estranho" (<see cref="ReadingFlags.SoundsOdd"/>).</summary>
+    Odd,
+
     /// <summary>Linhas cuja tradução mudou desde o último teste no jogo; vale junto com <see cref="LineFilter.ChangedLines"/>, que diz quais são.</summary>
     ChangedSinceTest,
 
@@ -157,6 +160,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         LineStatusFilter.Warnings => line.HasIssues,
         LineStatusFilter.Keep => line.Unit.Status == TranslationStatus.Keep,
         LineStatusFilter.Doubt => line.Unit.Doubt is not null,
+        LineStatusFilter.Odd => line.Unit.IsOdd(),
         LineStatusFilter.ChangedSinceTest => ChangedLines?.Contains((line.ScriptKey, line.Unit.Id)) == true,
         _ => true,
     };

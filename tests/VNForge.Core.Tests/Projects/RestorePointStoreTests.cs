@@ -44,6 +44,26 @@ public sealed class RestorePointStoreTests : IDisposable
     private LineEditor Editor() => new(_project, _clock);
 
     [Fact]
+    public void Desfazer_um_lote_nao_apaga_a_marca_soa_estranho_posta_antes_nem_depois()
+    {
+        _project.SaveText("a", [Linha("a", 1, "Oi").WithOdd(true), Linha("a", 2, "Olá")]);
+        var alvos = new[] { ("a", "a:000001"), ("a", "a:000002") };
+
+        var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor(alvos, "Oi, tudo bem?"));
+        Editor().SetOdd("a", "a:000002", true);
+        Assert.True(Gravada("a", 1).IsOdd());
+
+        var desfeito = _store.Undo(feito.Point!.Id);
+
+        Assert.Equal(2, desfeito.Restored);
+        Assert.Equal(0, desfeito.EditedSince);
+        Assert.Equal("Olá", Gravada("a", 2).Translation);
+        Assert.Equal("Oi", Gravada("a", 1).Translation);
+        Assert.True(Gravada("a", 1).IsOdd(), "a marca de antes do lote continua");
+        Assert.True(Gravada("a", 2).IsOdd(), "a marca posta depois do lote continua");
+    }
+
+    [Fact]
     public void Usar_em_todos_e_desfeito_com_o_estado_de_antes_inclusive_a_origem()
     {
         _project.SaveText("a", [Linha("a", 1, "Oi"), Linha("a", 2, "Olá", TranslationStatus.Approved), Pendente("a", 3)]);

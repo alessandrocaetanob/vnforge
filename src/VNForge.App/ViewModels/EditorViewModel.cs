@@ -99,11 +99,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Pending, "Em japonês"),
             new FilterChipViewModel(LineStatusFilter.Machine, "Para revisar"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
-            new FilterChipViewModel(LineStatusFilter.Doubt, "Com dúvida", hideWhenEmpty: true),
+            new FilterChipViewModel(LineStatusFilter.Doubt, "Com dúvida") { HidesWhenEmpty = true },
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
+            new FilterChipViewModel(LineStatusFilter.Odd, "Soa estranho") { HidesWhenEmpty = true },
             new FilterChipViewModel(LineStatusFilter.ChangedSinceTest, "Mudou desde o teste"),
         ];
-        filters = [.. chips.Where(c => c.Filter is not (LineStatusFilter.ChangedSinceTest or LineStatusFilter.Doubt))];
+        filters = [.. chips.Where(c => c.Filter != LineStatusFilter.ChangedSinceTest)];
         SelectedSpeaker = Speakers[0];
     }
 
@@ -152,7 +153,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     public partial string? RunningScriptKey { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CheckFileCommand), nameof(TranslatePendingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CheckFileCommand), nameof(TranslatePendingCommand), nameof(StartReadingCommand))]
     public partial ScriptItemViewModel? SelectedScript { get; set; }
 
     public IReadOnlyList<FilterChipViewModel> Filters => filters;
@@ -384,10 +385,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     /// <summary>Deixa só as linhas pendentes na grade, como o chip "Em japonês".</summary>
-    public void ShowPendingLines() => SelectFilter(chips.First(c => c.Filter == LineStatusFilter.Pending));
+    public void ShowPendingLines()
+    {
+        EndReading();
+        SelectFilter(chips.First(c => c.Filter == LineStatusFilter.Pending));
+    }
 
     private bool SelectLine(string scriptKey, string unitId)
     {
+        EndReading();
         var script = Scripts.FirstOrDefault(s => string.Equals(s.Key, scriptKey, StringComparison.Ordinal));
         var entry = data?.LinesOf(scriptKey).FirstOrDefault(l => string.Equals(l.Unit.Id, unitId, StringComparison.Ordinal));
         if (script is null || entry is null)
@@ -492,7 +498,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenSearch()
     {
-        if (IsReviewing)
+        if (IsReviewing || IsReadingScene)
         {
             return;
         }
@@ -505,7 +511,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     [RelayCommand]
     private void OpenReplace()
     {
-        if (IsReviewing)
+        if (IsReviewing || IsReadingScene)
         {
             return;
         }
@@ -538,7 +544,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     }
 
     /// <summary>Com o modo revisão aberto o Esc é dele: o atalho da busca não pode marcá-lo como tratado antes de a tela de revisão vê-lo.</summary>
-    private bool CanCloseSearch() => !IsReviewing;
+    private bool CanCloseSearch() => !IsReviewing && !IsReadingScene;
 
     /// <summary>Leva a grade à linha de um resultado: troca de script e tira os filtros que a escondem. Avisa quando a linha não existe mais.</summary>
     [RelayCommand]
@@ -588,7 +594,6 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             other.IsSelected = other == chip;
         }
 
-        SyncDoubtChip();
         Refresh();
     }
 
@@ -995,6 +1000,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         // As linhas da fila do modo revisão são as de antes da releitura (um "Desfazer", uma busca com substituição): a fila já não vale.
         StopReview();
+        EndReading();
         applying = true;
         try
         {
@@ -1031,6 +1037,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     {
         entries = SelectedScript is { } script && data is not null ? [.. data.LinesOf(script.Key)] : [];
         scriptLines = new LineViewModel[entries.Length];
+        StartReadingCommand.NotifyCanExecuteChanged();
         for (var i = 0; i < scriptLines.Length; i++)
         {
             var character = context.Characters.Find(entries[i].Unit.EffectiveSpeaker);
@@ -1101,21 +1108,6 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
     }
 
-    /// <summary>O chip "Com dúvida" fica fora da coleção da barra enquanto não há dúvida nem ele é o filtro ativo: escondido, ele ainda contaria o espaçamento entre os chips.</summary>
-    private void SyncDoubtChip()
-    {
-        var chip = chips.First(c => c.Filter == LineStatusFilter.Doubt);
-        var present = filters.Contains(chip);
-        if (chip.IsShown && !present)
-        {
-            filters.Insert(chips.TakeWhile(c => c != chip).Count(filters.Contains), chip);
-        }
-        else if (!chip.IsShown && present)
-        {
-            filters.Remove(chip);
-        }
-    }
-
     private void UpdateCounts()
     {
         var speaker = SelectedSpeaker?.Value;
@@ -1127,7 +1119,6 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             chip.Count = chip.Filter == LineStatusFilter.Doubt ? DoubtLines : FilterFor(chip.Filter, speaker).Count(entries);
         }
 
-        SyncDoubtChip();
 
         PendingLines = new LineFilter(LineStatusFilter.Pending).Count(entries);
         OnPropertyChanged(nameof(PendingLines));
@@ -1160,7 +1151,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     private void Move(int delta)
     {
-        if (Lines.Count == 0)
+        if (Lines.Count == 0 || IsReadingScene)
         {
             return;
         }

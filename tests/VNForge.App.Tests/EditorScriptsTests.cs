@@ -131,7 +131,7 @@ public class EditorScriptsTests
 
         var rotulos = vm.Filters.Select(f => $"{f.Label} {f.CountLabel}").ToArray();
 
-        Assert.Equal(["Todas 4", "Em japonês 2", "Para revisar 1", "Com aviso 2", "Com dúvida 0", "Não traduzir 0"], rotulos);
+        Assert.Equal(["Todas 4", "Em japonês 2", "Para revisar 1", "Com aviso 2", "Com dúvida 0", "Não traduzir 0", "Soa estranho 0"], rotulos);
     }
 
     [Fact]

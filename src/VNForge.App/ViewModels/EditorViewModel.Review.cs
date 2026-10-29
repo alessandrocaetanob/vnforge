@@ -23,7 +23,7 @@ public sealed partial class EditorViewModel
 
     /// <summary>O modo revisão aberto; nulo no Editor normal. A tela do Editor mostra o modo revisão no lugar da grade enquanto houver um.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsReviewing))]
+    [NotifyPropertyChangedFor(nameof(IsReviewing), nameof(IsGridShown))]
     [NotifyCanExecuteChangedFor(nameof(CloseSearchCommand))]
     public partial ReviewModeViewModel? Review { get; private set; }
 
@@ -55,6 +55,8 @@ public sealed partial class EditorViewModel
         {
             return;
         }
+
+        EndReading();
 
         // A grade tem de conter todas as linhas da fila: o modo revisão seleciona uma a uma e o ListBox escondido não pode desfazer a seleção.
         SelectFilter(chips[0]);
