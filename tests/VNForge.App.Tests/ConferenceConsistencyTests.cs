@@ -247,11 +247,17 @@ public class ConferenceConsistencyTests
         gate.Reset();
 
         var running = vm.RefreshAsync();
-        Assert.True(vm.IsBusy);
-        Assert.False(vm.KeepDifferentCommand.CanExecute(card));
-        Assert.False(vm.UseVariantCommand.CanExecute(card.Variants[0]));
-        gate.Set();
-        await running;
+        try
+        {
+            Assert.True(vm.IsBusy);
+            Assert.False(vm.KeepDifferentCommand.CanExecute(card));
+            Assert.False(vm.UseVariantCommand.CanExecute(card.Variants[0]));
+        }
+        finally
+        {
+            gate.Set();
+            await running;
+        }
 
         Assert.False(vm.IsBusy);
     }

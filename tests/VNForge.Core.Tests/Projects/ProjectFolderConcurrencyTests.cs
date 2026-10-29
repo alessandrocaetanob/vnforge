@@ -217,8 +217,6 @@ public class ProjectFolderConcurrencyTests
     [Fact]
     public void Acesso_negado_em_destino_somente_leitura_nao_e_repetido()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "Só o Windows trata o arquivo somente leitura como acesso negado permanente.");
-
         using var temp = new TempFolder();
         var caminho = Path.Combine(temp.Path, "somente-leitura.json");
         File.WriteAllText(caminho, "{}");
@@ -239,6 +237,20 @@ public class ProjectFolderConcurrencyTests
         }
 
         Assert.Equal(1, tentativas);
+    }
+
+    [Fact]
+    public void Falha_de_IO_que_nunca_passa_para_depois_de_8_tentativas()
+    {
+        var tentativas = 0;
+
+        Assert.Throws<IOException>(() => ProjectFileIo.Retry<int>(null, () =>
+        {
+            tentativas++;
+            throw new IOException("preso");
+        }));
+
+        Assert.Equal(8, tentativas);
     }
 
     [Fact]
