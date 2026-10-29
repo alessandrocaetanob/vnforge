@@ -68,6 +68,20 @@ public sealed class CheckCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Arquivo_de_palavras_ignoradas_ilegivel_nao_derruba_a_conferencia_e_o_texto_avisa()
+    {
+        Save("Olá mundo.");
+        UseRules(new SpellingRule());
+        File.WriteAllText(_project.IgnoredWordsPath, "<<<<<<< HEAD");
+
+        var result = await Check();
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("ignored-words.json", result.Output);
+        Assert.Contains("ignorado", result.Output);
+    }
+
+    [Fact]
     public async Task Json_traz_os_grupos_com_variantes_linhas_e_diferenca()
     {
         Save("Olá mundo.", "Olá mundo.", "Olá mundo");

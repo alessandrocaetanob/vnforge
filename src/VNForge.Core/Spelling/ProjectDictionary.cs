@@ -4,7 +4,8 @@ namespace VNForge.Core.Spelling;
 
 /// <summary>
 /// As palavras que o corretor aceita além do dicionário pt-BR: as das traduções do Glossário e as dos nomes dos personagens (<c>glossary.json</c> e
-/// <c>characters.json</c>). Gerado do projeto a cada conferência; nada é gravado em disco. A comparação ignora maiúsculas.
+/// <c>characters.json</c>) e as que o revisor mandou ignorar (<c>ignored-words.json</c>, #511). Gerado do projeto a cada conferência; nada é gravado em disco.
+/// A comparação ignora maiúsculas.
 /// </summary>
 public sealed class ProjectDictionary
 {
@@ -18,8 +19,11 @@ public sealed class ProjectDictionary
     /// <summary>Quantas palavras o projeto acrescenta.</summary>
     public int Count => words.Count;
 
-    /// <summary>As traduções dos termos do glossário, dos personagens e dos tratamentos entre eles ("Ken-chan"), palavra por palavra.</summary>
-    public static ProjectDictionary Create(IEnumerable<GlossaryTerm> glossary, IEnumerable<CharacterEntry> characters, IEnumerable<AddressTerm>? addressTerms = null)
+    /// <summary>
+    /// As traduções dos termos do glossário, dos personagens e dos tratamentos entre eles ("Ken-chan"), palavra por palavra, mais as palavras que o revisor mandou
+    /// ignorar, cada uma inteira (ignorar "Zorgblat-chan" não libera "Zorgblat").
+    /// </summary>
+    public static ProjectDictionary Create(IEnumerable<GlossaryTerm> glossary, IEnumerable<CharacterEntry> characters, IEnumerable<AddressTerm>? addressTerms = null, IEnumerable<string>? ignoredWords = null)
     {
         ArgumentNullException.ThrowIfNull(glossary);
         ArgumentNullException.ThrowIfNull(characters);
@@ -40,7 +44,22 @@ public sealed class ProjectDictionary
             dictionary.AddPhrase(term.Target);
         }
 
+        foreach (var word in ignoredWords ?? [])
+        {
+            dictionary.AddExact(word);
+        }
+
         return dictionary;
+    }
+
+    /// <summary>Uma cópia deste dicionário que também ignora <paramref name="word"/>; este não muda.</summary>
+    public ProjectDictionary WithIgnoredWord(string word)
+    {
+        ArgumentNullException.ThrowIfNull(word);
+        var copy = new ProjectDictionary();
+        copy.words.UnionWith(words);
+        copy.AddExact(word);
+        return copy;
     }
 
     /// <summary>Verdadeiro quando o projeto conhece a <paramref name="word"/>.</summary>
@@ -71,6 +90,15 @@ public sealed class ProjectDictionary
                 AddWord(phrase[start..i]);
                 start = -1;
             }
+        }
+    }
+
+    private void AddExact(string word)
+    {
+        var trimmed = word.Trim().Trim('-', '\'', '’').Replace('’', '\'');
+        if (trimmed.Length >= 2)
+        {
+            words.Add(trimmed);
         }
     }
 

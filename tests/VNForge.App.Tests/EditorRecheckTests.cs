@@ -121,6 +121,31 @@ public sealed class EditorRecheckTests : IDisposable
     }
 
     [Fact]
+    public async Task Ignorar_a_palavra_no_painel_tira_o_aviso_de_ortografia_das_outras_falas_depois_da_reconferencia()
+    {
+        _ = VNForge.Core.Spelling.SpellChecker.Portuguese;
+        projeto.SaveText(Script,
+        [
+            Fala(0, "そう言いながら亀島は…", "Ele olhou para Kameshima.", TranslationStatus.Translated),
+            Fala(1, "おはよう", "Bom dia esquesi", TranslationStatus.Translated),
+            Fala(2, "こんにちは", "Boa tarde esquesi", TranslationStatus.Translated),
+        ]);
+        var vm = await Abrir();
+        Assert.True(Tem(vm.Lines[1], "ortografia"));
+        Assert.True(Tem(vm.Lines[2], "ortografia"));
+        vm.Detail!.FieldText = "Eu esquesi a chave.";
+        Assert.Single(vm.Detail.Misspellings);
+
+        vm.Detail.IgnoreWordCommand.Execute("esquesi");
+        await vm.Rechecking;
+
+        Assert.Empty(vm.Detail.Misspellings);
+        Assert.False(Tem(vm.Lines[1], "ortografia"));
+        Assert.False(Tem(vm.Lines[2], "ortografia"));
+        Assert.Equal([new VNForge.Core.Spelling.IgnoredWord("esquesi")], projeto.LoadIgnoredWords());
+    }
+
+    [Fact]
     public async Task Duas_linhas_com_o_mesmo_original_e_traducoes_diferentes_ganham_a_inconsistencia_depois_da_gravacao()
     {
         var vm = await Abrir();
