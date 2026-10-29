@@ -42,6 +42,9 @@ public sealed record QaContext(
     /// <summary>Palavras de <c>ignored-words.json</c> que a <see cref="SpellingRule"/> não marca; vazio quando o projeto não as tem ou o contexto não vem de um projeto.</summary>
     public IReadOnlyList<IgnoredWord> IgnoredWords { get; init; } = [];
 
+    /// <summary>Por que o <c>ignored-words.json</c> foi deixado de lado (arquivo ilegível); nulo quando foi lido ou não existe. Quem mostra a conferência pode avisar.</summary>
+    public string? IgnoredWordsProblem { get; init; }
+
     /// <summary>Título do jogo do <c>vnforge.json</c>, que a <see cref="GameTitleEncodingRule"/> confere; nulo quando o projeto não tem título ou o contexto não vem de um projeto.</summary>
     public GameTitleConfig? GameTitle { get; init; }
 
@@ -66,6 +69,7 @@ public sealed record QaContext(
         ArgumentNullException.ThrowIfNull(project);
         var config = project.LoadConfig();
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
-        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTerms(), IgnoredWords = project.LoadIgnoredWordsOrEmpty(out _) };
+        var ignoredWords = project.LoadIgnoredWordsOrEmpty(out var ignoredProblem);
+        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTerms(), IgnoredWords = ignoredWords, IgnoredWordsProblem = ignoredProblem };
     }
 }

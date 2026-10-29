@@ -63,6 +63,11 @@ internal static class CheckCommand
             return exitCode;
         }
 
+        if (context.IgnoredWordsProblem is { } problem)
+        {
+            cli.Ansi.MarkupLine($"[{CliPalette.Hex(CliPalette.Warning)}]AVISO[/] {CliViews.Escape(problem)}");
+        }
+
         WriteText(cli.Ansi, report, fixes, settings, inconsistent, rules.Contains(UntranslatedQaRule.RuleId));
         return exitCode;
     }
