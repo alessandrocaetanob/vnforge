@@ -58,8 +58,7 @@ public class CorrectionLearnerTests
     {
         var troca = CorrectionLearner.Swaps(ia, pessoa);
 
-        Assert.Contains(new WordSwap(de, para), troca);
-        Assert.DoesNotContain(troca, t => t.From.Length == 0 || t.To.Length == 0);
+        Assert.Equal([new WordSwap(de, para)], troca);
     }
 
     [Fact]
@@ -71,10 +70,15 @@ public class CorrectionLearnerTests
     }
 
     [Fact]
-    public void Swaps_aceita_troca_de_tres_palavras_de_cada_lado_e_ignora_a_que_so_muda_a_caixa()
+    public void Swaps_aceita_troca_de_tres_palavras_de_cada_lado()
     {
         Assert.Equal([new WordSwap("um dois três", "a b c")], CorrectionLearner.Swaps("Foi um dois três vez.", "Foi a b c vez."));
-        Assert.Empty(CorrectionLearner.Swaps("Foi Ei vez.", "Foi ei vez."));
+    }
+
+    [Fact]
+    public void Swaps_desempata_a_favor_de_remover_primeiro_quando_os_caminhos_empatam()
+    {
+        Assert.Equal([new WordSwap("C", "B x")], CorrectionLearner.Swaps("Foi A x C.", "Foi x B x."));
     }
 
     [Fact]

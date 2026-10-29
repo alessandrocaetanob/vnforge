@@ -216,7 +216,7 @@ public static class CorrectionLearner
                 x++;
                 y++;
             }
-            else if (RemovesNext(table, x, y, a.Count))
+            else if (RemovesNext(table, x, y, a.Count, b.Count))
             {
                 removed.Add(a[x++]);
             }
@@ -245,8 +245,8 @@ public static class CorrectionLearner
     }
 
     /// <summary>Se a palavra de <c>a</c> em <paramref name="x"/> sai antes de entrar a de <c>b</c> em <paramref name="y"/>; vale quando <c>b</c> já acabou.</summary>
-    private static bool RemovesNext(int[,] table, int x, int y, int aCount) =>
-        y >= table.GetLength(1) - 1 || (x < aCount && table[x + 1, y] >= table[x, y + 1]);
+    private static bool RemovesNext(int[,] table, int x, int y, int aCount, int bCount) =>
+        y >= bCount || (x < aCount && table[x + 1, y] >= table[x, y + 1]);
 
     private static bool Flush(List<WordSwap> swaps, List<string> removed, List<string> added)
     {
