@@ -593,4 +593,47 @@ public class DashboardViewModelDataTests
         Assert.Equal(1, started);
         Assert.Equal("Abrir projeto", vm.EmptyActionText);
     }
+
+    private static ProjectDashboard AllApproved() => new(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Approved, 4)))), Stages(), AiUsageTotals.Empty)
+    {
+        Qa = new QaTotals(0, 0),
+        Readiness = new ReadinessFacts(TestedInGame: false),
+    };
+
+    [Fact]
+    public async Task Na_cena_de_exemplo_sem_chave_o_Painel_nao_cobra_chave_nem_teste_no_jogo()
+    {
+        var noKey = new DashboardContext(ExchangeRate.Placeholder, BudgetLimits.None, HasApiKey: false);
+
+        var vm = await Load(AllApproved(), noKey, Summary with { IsSample = true });
+
+        Assert.DoesNotContain(vm.Todos, t => t.Title == "Falta a chave do Claude");
+        Assert.DoesNotContain(vm.Todos, t => t.Title == "Teste os acentos no jogo");
+        Assert.False(vm.HasNextStep);
+        Assert.Empty(vm.NextStepLabel);
+        Assert.Equal("Sem jogo na cena de exemplo", vm.LastTestText);
+    }
+
+    [Fact]
+    public async Task Um_projeto_real_sem_chave_continua_com_o_aviso_e_o_passo_de_testar_no_jogo()
+    {
+        var noKey = new DashboardContext(ExchangeRate.Placeholder, BudgetLimits.None, HasApiKey: false);
+
+        var vm = await Load(AllApproved(), noKey);
+
+        Assert.Contains(vm.Todos, t => t.Title == "Falta a chave do Claude");
+        Assert.True(vm.HasNextStep);
+        Assert.Equal(NavKey.Build, vm.NextStepTarget!.Target);
+    }
+
+    [Fact]
+    public async Task O_detalhe_do_Inicio_de_um_projeto_real_mostra_o_aviso_de_chave_com_a_cena_de_exemplo_aberta()
+    {
+        var noKey = new DashboardContext(ExchangeRate.Placeholder, BudgetLimits.None, HasApiKey: false);
+        var panel = await Load(AllApproved(), noKey, Summary with { IsSample = true });
+        var detail = await Load(AllApproved(), noKey);
+
+        Assert.DoesNotContain(panel.Todos, t => t.Title == "Falta a chave do Claude");
+        Assert.Contains(detail.Todos, t => t.Title == "Falta a chave do Claude");
+    }
 }

@@ -10,6 +10,7 @@ using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Demo;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -293,6 +294,23 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.NotEqual(first, scene.Text);
             Assert.Equal(vm.Editor.SelectedScript.Name, scene.Text);
             Salvar(window, "modo-revisao-personagem", theme);
+        });
+    }
+
+    [Fact]
+    public async Task Os_chips_de_reescrever_ficam_sob_a_caixa_do_jogo()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, ThemeVariant.Dark, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var bar = Assert.Single(view.GetVisualDescendants().OfType<RewriteBar>(), b => b.IsEffectivelyVisible);
+            var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
+            Assert.True(Frame(window, bar).Top >= Frame(window, stage).Bottom - 1, "os chips ficam sob o palco");
+            var labels = bar.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).Select(b => (b.Content as TextBlock)?.Text).ToList();
+            Assert.Equal(["Mais curta", "Mais natural", "Mais fiel", "Mais formal", "Como o personagem falaria"], labels);
         });
     }
 

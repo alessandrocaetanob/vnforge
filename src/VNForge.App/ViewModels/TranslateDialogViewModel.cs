@@ -14,7 +14,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.ViewModels;
 
 /// <summary>O que a janela precisa saber dos Ajustes: a cotação, o limite e o aviso de gasto, a qualidade padrão, se há chave e por que o <c>app.json</c> não leu (o limite fica desconhecido).</summary>
-public sealed record TranslateDialogSettings(ExchangeRate Rate, BudgetLimits Limits, TranslationQuality DefaultQuality, bool KeyConfigured, string? BudgetProblem = null);
+public sealed record TranslateDialogSettings(ExchangeRate Rate, BudgetLimits Limits, TranslationQuality DefaultQuality, bool KeyConfigured, string? BudgetProblem = null, bool IsSample = false);
 
 /// <summary>Uma resposta à pergunta "o que traduzir": esta cena, o capítulo ou o jogo inteiro, com as linhas que ainda faltam em cada um.</summary>
 public sealed partial class ScopeChoice(TranslationScope scope, string title) : ObservableObject
@@ -401,8 +401,9 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
         RefreshQualities(current.Quotes);
 
-        var request = current.Quotes.For(SelectedQuality.Quality).Brl;
-        var limit = settings.Limits.Limit;
+        // A cena de exemplo traduz com a IA de demonstração: grátis, então não há preço nem limite de gasto a respeitar.
+        var request = settings.IsSample ? 0m : current.Quotes.For(SelectedQuality.Quality).Brl;
+        var limit = settings.IsSample ? null : settings.Limits.Limit;
         Lines = current.Quotes.Lines;
         NothingToTranslate = Lines == 0;
         RequestBrl = request;
@@ -411,12 +412,12 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         LimitBrl = (double)(limit ?? 0m);
         RefreshAmounts(request, limit);
 
-        IsOverLimit = !TranslationQuotes.Fits(request, spent, limit);
+        IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(request, spent, limit);
         var fit = IsOverLimit ? FitFor(SelectedScope.Scope) : null;
         CanSwitchToFit = fit is not null && fit.Quality != SelectedQuality.Quality;
         SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(fit.Brl)})";
         OverLimitText = IsOverLimit ? DescribeOverLimit(request, limit, fit) : string.Empty;
-        AboveWarning = !IsOverLimit && settings.Limits.WarnAbove is { } warn && request > warn;
+        AboveWarning = !IsOverLimit && !settings.IsSample && settings.Limits.WarnAbove is { } warn && request > warn;
         RefreshBudgetProblem();
         RefreshNotices();
 
@@ -426,6 +427,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     private void RefreshAmounts(decimal request, decimal? limit)
     {
+        if (settings.IsSample)
+        {
+            RequestText = "Gratuito: IA de demonstração";
+            SpentText = "Sem gasto na cena de exemplo";
+            RateNote = string.Empty;
+            return;
+        }
+
         RequestText = $"Este pedido (aproximado): {Money.BrlEstimate(request)}";
         SpentText = limit is { } cap
             ? $"Já gasto no projeto: {Money.BrlEstimate(spent)} de {Money.Brl(cap)}"
@@ -438,14 +447,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         foreach (var quality in Qualities)
         {
             var quote = quotes.For(quality.Quality);
-            quality.Price = quote.Brl;
+            quality.Price = settings.IsSample ? 0m : quote.Brl;
             quality.Duration = quotes.Lines == 0 ? "nenhuma linha para traduzir" : ProjectLabels.Duration(quote.Time);
         }
     }
 
     private void RefreshBudgetProblem()
     {
-        HasBudgetProblem = settings.BudgetProblem is not null;
+        HasBudgetProblem = !settings.IsSample && settings.BudgetProblem is not null;
         BudgetProblemText = HasBudgetProblem
             ? "Não foi possível conferir o limite de gasto: o arquivo de Ajustes não pôde ser lido. Esta tradução não para num limite. Salve os Ajustes de novo para consertar, ou siga mesmo assim."
             : string.Empty;

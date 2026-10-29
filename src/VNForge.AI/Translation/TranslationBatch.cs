@@ -14,12 +14,6 @@ public sealed record CharacterInfo(string Source, string Target, string? Tone = 
 /// <param name="Target">O tratamento que a tradução usa (<c>Misaki-chan</c>).</param>
 public sealed record AddressInfo(string From, string To, string Source, string Target);
 
-/// <summary>Pedido de uma versão mais curta de uma tradução que não cabe na caixa do jogo.</summary>
-/// <param name="Current">A tradução de hoje, que passa do limite.</param>
-/// <param name="MaxLines">Máximo de linhas por caixa do perfil de formatação.</param>
-/// <param name="MaxWidth">Largura máxima de cada linha, em colunas.</param>
-public sealed record ShortenRequest(string Current, int MaxLines, int MaxWidth);
-
 /// <summary>Um lote de linhas a traduzir, com o contexto que o provedor usa para manter o estilo e os termos.</summary>
 public sealed record TranslationBatch
 {
@@ -49,9 +43,6 @@ public sealed record TranslationBatch
     /// <summary>Guia de estilo livre do projeto (<c>style.md</c>); vazio quando não há.</summary>
     public string StyleGuide { get; init; } = string.Empty;
 
-    /// <summary>Linhas (pelo id) para as quais se pede uma versão mais curta da tradução de hoje em vez de uma tradução nova; vazio num lote comum.</summary>
-    public IReadOnlyDictionary<string, ShortenRequest> Shorten { get; init; } = new Dictionary<string, ShortenRequest>();
-
     /// <summary>Escolhas de estilo do projeto (honoríficos, tratamento, narrador, onomatopeias, ordem dos nomes).</summary>
     public StyleConfig Style { get; init; } = StyleConfig.Default;
 
@@ -65,7 +56,6 @@ public sealed record TranslationBatch
         Addressing = Addressing,
         StyleGuide = StyleGuide,
         Style = Style,
-        Shorten = Shorten,
     };
 }
 
