@@ -116,7 +116,7 @@ public sealed class AddressTermsProjectTests : IDisposable
     private static void Distinguir(string arquivo) =>
         File.SetLastWriteTimeUtc(arquivo, DateTime.UtcNow.AddSeconds(Interlocked.Increment(ref writes)));
 
-    private ProjectFolder ProjetoDeLinhas(string raiz)
+    private static ProjectFolder ProjetoDeLinhas(string raiz)
     {
         var projeto = ProjectFolder.Create(raiz, new ProjectConfig(
             "VN",

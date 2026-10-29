@@ -69,8 +69,14 @@ public sealed partial class AddressTermsViewModel : ObservableObject
             return "Nenhum tratamento ainda";
         }
 
-        var head = $"{ProjectLabels.Number(pairs)} {(pairs == 1 ? "tratamento" : "tratamentos")}";
-        return pending == 0 ? head : $"{head} · {ProjectLabels.Number(pending)} {(pending == 1 ? "sugestão" : "sugestões")} da IA";
+        var pairsText = $"{ProjectLabels.Number(pairs)} {(pairs == 1 ? "tratamento" : "tratamentos")}";
+        if (pending == 0)
+        {
+            return pairsText;
+        }
+
+        var pendingText = $"{ProjectLabels.Number(pending)} {(pending == 1 ? "sugestão" : "sugestões")}";
+        return $"{pairsText} · {pendingText} da IA";
     }
 
     /// <summary>Quantas linhas ficaram de fora do arquivo (quem fala ou com quem fala em branco, ou par repetido).</summary>

@@ -9,7 +9,7 @@ public sealed partial class GlossaryViewModel
     /// <summary>Como cada personagem chama os outros (<c>address-terms.json</c>).</summary>
     public AddressTermsViewModel AddressTerms { get; }
 
-    private void SaveAddressTerms(ProjectFolder folder, IReadOnlyList<AddressTerm> addressTerms)
+    private void SaveAddressTerms(ProjectFolder folder, List<AddressTerm> addressTerms)
     {
         if (!addressDirty)
         {
