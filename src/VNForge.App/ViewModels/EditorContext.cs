@@ -12,8 +12,11 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
     /// <summary>Os tratamentos entre personagens (<c>address-terms.json</c>), que o corretor aceita como palavras do projeto ("Ken-chan").</summary>
     public IReadOnlyList<AddressTerm> AddressTerms { get; init; } = [];
 
-    /// <summary>As palavras do projeto que o corretor aceita: traduções do glossário, dos personagens e dos tratamentos.</summary>
-    public ProjectDictionary SpellWords() => ProjectDictionary.Create(Glossary, Characters.Entries, AddressTerms);
+    /// <summary>As palavras que o revisor mandou o corretor ignorar (<c>ignored-words.json</c>).</summary>
+    public IReadOnlyList<IgnoredWord> IgnoredWords { get; init; } = [];
+
+    /// <summary>As palavras do projeto que o corretor aceita: traduções do glossário, dos personagens e dos tratamentos, e as ignoradas.</summary>
+    public ProjectDictionary SpellWords() => ProjectDictionary.Create(Glossary, Characters.Entries, AddressTerms, IgnoredWords.Select(w => w.Word));
 
     public static EditorContext Empty { get; } = new(new CharacterBook([]), []);
 
@@ -30,7 +33,7 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
             return Empty;
         }
 
-        return new EditorContext(new CharacterBook(Try(folder.LoadCharacters)), Try(folder.LoadGlossary)) { AddressTerms = Try(folder.LoadAddressTerms) };
+        return new EditorContext(new CharacterBook(Try(folder.LoadCharacters)), Try(folder.LoadGlossary)) { AddressTerms = Try(folder.LoadAddressTerms), IgnoredWords = Try(folder.LoadIgnoredWords) };
     }
 
     /// <summary>O contexto de uma linha: o falante cadastrado e os termos do glossário que aparecem no original.</summary>

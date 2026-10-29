@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -49,6 +50,7 @@ public sealed partial class LineDetailView : UserControl
         TranslationEditor.TextArea.Caret.PositionChanged += (_, _) => RefreshSpelling();
         TranslationEditor.TextArea.GotFocus += (_, _) => RefreshSpelling();
         TranslationEditor.TextArea.LostFocus += (_, _) => RefreshSpelling();
+        TranslationEditor.AddHandler(ContextRequestedEvent, OnTranslationContextRequested, RoutingStrategies.Tunnel);
         InspectorTabs.SelectionChanged += (_, _) => UpdateSuggestionTab();
         ResourcesChanged += (_, _) => UpdateCompact();
         ActionsBar.PropertyChanged += (_, e) =>
@@ -285,6 +287,33 @@ public sealed partial class LineDetailView : UserControl
         spelling.Caret = area.IsKeyboardFocusWithin ? area.Caret.Offset : null;
         area.TextView.InvalidateLayer(KnownLayer.Selection);
     }
+
+    /// <summary>O menu da palavra sublinhada que está aberto, ou o último que abriu.</summary>
+    public MenuFlyout? SpellingFlyout { get; private set; }
+
+    /// <summary>
+    /// Botão direito (ou a tecla de menu) sobre uma palavra sublinhada abre o menu do corretor no lugar do padrão do editor; fora dela o menu padrão segue.
+    /// Com o teclado vale a palavra sob o cursor.
+    /// </summary>
+    private void OnTranslationContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        var textView = TranslationEditor.TextArea.TextView;
+        var fromPointer = e.TryGetPosition(textView, out var point);
+        var offset = fromPointer ? OffsetAt(point) : TranslationEditor.TextArea.Caret.Offset;
+        if (offset is not { } at || SpellingMenu.Create(current, at) is not { } menu)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        SpellingFlyout = menu;
+        menu.ShowAt(TranslationEditor, fromPointer);
+    }
+
+    private int? OffsetAt(Point point) =>
+        TranslationEditor.TextArea.TextView.GetPosition(point) is { } position && TranslationEditor.Document is { } document
+            ? document.GetOffset(position.Location)
+            : null;
 
     private void SetEditorText(string text)
     {

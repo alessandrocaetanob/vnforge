@@ -1,6 +1,7 @@
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
+using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Qa;
@@ -38,6 +39,9 @@ public sealed record QaContext(
     /// <summary>Os <see cref="AddressTerms"/> completos (com o original e a tradução do tratamento) indexados por falante; refeito a cada troca de <see cref="AddressTerms"/>.</summary>
     public AddressBook AddressBook { get; private set; } = new([]);
 
+    /// <summary>Palavras de <c>ignored-words.json</c> que a <see cref="SpellingRule"/> não marca; vazio quando o projeto não as tem ou o contexto não vem de um projeto.</summary>
+    public IReadOnlyList<IgnoredWord> IgnoredWords { get; init; } = [];
+
     /// <summary>Título do jogo do <c>vnforge.json</c>, que a <see cref="GameTitleEncodingRule"/> confere; nulo quando o projeto não tem título ou o contexto não vem de um projeto.</summary>
     public GameTitleConfig? GameTitle { get; init; }
 
@@ -62,6 +66,6 @@ public sealed record QaContext(
         ArgumentNullException.ThrowIfNull(project);
         var config = project.LoadConfig();
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
-        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTerms() };
+        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTerms(), IgnoredWords = project.LoadIgnoredWords() };
     }
 }

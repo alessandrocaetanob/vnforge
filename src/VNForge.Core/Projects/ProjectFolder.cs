@@ -1,6 +1,7 @@
 using System.Text;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
+using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -17,6 +18,8 @@ public sealed class ProjectFolder
     public const string CharactersFileName = "characters.json";
 
     public const string AddressTermsFileName = "address-terms.json";
+
+    public const string IgnoredWordsFileName = "ignored-words.json";
 
     public const string ScriptNamesFileName = "scripts.json";
 
@@ -185,6 +188,64 @@ public sealed class ProjectFolder
     /// <exception cref="GlossaryFileException">Par vazio ou repetido; nada é gravado.</exception>
     public void SaveAddressTerms(IReadOnlyList<AddressTerm> terms) =>
         WriteAtomically(AddressTermsPath, AddressTermSerializer.Serialize(terms, AddressTermsPath), overwrite: true);
+
+    /// <summary><c>ignored-words.json</c>, as palavras que o corretor deixa de marcar no projeto (#511). É opcional.</summary>
+    public string IgnoredWordsPath => Path.Combine(Root, IgnoredWordsFileName);
+
+    /// <summary>Lê o <c>ignored-words.json</c>; sem o arquivo (projeto antigo), devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<IgnoredWord> LoadIgnoredWords() =>
+        File.Exists(IgnoredWordsPath) ? IgnoredWordsSerializer.Parse(ReadGlossaryFile(IgnoredWordsPath), IgnoredWordsPath) : [];
+
+    /// <summary>
+    /// Lê o <c>ignored-words.json</c> para quem só consulta (build, painel, QA): um arquivo ilegível não derruba nada, devolve lista vazia e o motivo em
+    /// <paramref name="problem"/> (nulo quando está tudo certo).
+    /// </summary>
+    public IReadOnlyList<IgnoredWord> LoadIgnoredWordsOrEmpty(out string? problem)
+    {
+        try
+        {
+            problem = null;
+            return LoadIgnoredWords();
+        }
+        catch (GlossaryFileException e)
+        {
+            problem = $"O {IgnoredWordsFileName} está inválido e foi ignorado: {e.Reason}";
+            return [];
+        }
+    }
+
+    /// <summary>Grava o <c>ignored-words.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Palavra vazia ou repetida; nada é gravado.</exception>
+    public void SaveIgnoredWords(IReadOnlyList<IgnoredWord> words) =>
+        WriteAtomically(IgnoredWordsPath, IgnoredWordsSerializer.Serialize(words, IgnoredWordsPath), overwrite: true);
+
+    /// <summary>
+    /// Acrescenta <paramref name="word"/> ao <c>ignored-words.json</c>, sob a trava do projeto (<see cref="ProjectTextLock"/>). Devolve falso, sem gravar,
+    /// quando a palavra está em branco ou já está na lista (maiúsculas não contam).
+    /// </summary>
+    /// <exception cref="GlossaryFileException">O <c>ignored-words.json</c> atual é inválido; nada é gravado.</exception>
+    public bool AddIgnoredWord(string word)
+    {
+        ArgumentNullException.ThrowIfNull(word);
+        var trimmed = word.Trim();
+        if (trimmed.Length == 0)
+        {
+            return false;
+        }
+
+        lock (ProjectTextLock.For(this))
+        {
+            var current = LoadIgnoredWords();
+            if (current.Any(w => string.Equals(w.Word.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            SaveIgnoredWords([.. current, new IgnoredWord(trimmed)]);
+            return true;
+        }
+    }
 
     /// <summary><c>scripts.json</c>, os nomes legíveis dos scripts (o que a engine leu do jogo e o que o usuário escolheu). É opcional.</summary>
     public string ScriptNamesPath => Path.Combine(Root, ScriptNamesFileName);

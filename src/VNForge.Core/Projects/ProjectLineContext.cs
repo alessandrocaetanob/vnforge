@@ -20,6 +20,7 @@ internal sealed class ProjectLineContext
     private FileStamp glossary;
     private FileStamp characters;
     private FileStamp addressTerms;
+    private FileStamp ignoredWords;
 
     /// <param name="project">A pasta do projeto.</param>
     /// <param name="initial">O contexto lido de <paramref name="project"/> (os textos são ignorados).</param>
@@ -33,6 +34,7 @@ internal sealed class ProjectLineContext
         glossary = stamps.Glossary;
         characters = stamps.Characters;
         addressTerms = stamps.AddressTerms;
+        ignoredWords = stamps.IgnoredWords;
     }
 
     /// <summary>As datas de gravação dos arquivos de que o contexto depende.</summary>
@@ -41,7 +43,8 @@ internal sealed class ProjectLineContext
         FileStamp.Of(project.FormattingPath),
         FileStamp.Of(project.GlossaryPath),
         FileStamp.Of(project.CharactersPath),
-        FileStamp.Of(project.AddressTermsPath));
+        FileStamp.Of(project.AddressTermsPath),
+        FileStamp.Of(project.IgnoredWordsPath));
 
     /// <summary>O contexto de agora, com os textos vazios.</summary>
     public QaContext Current()
@@ -71,6 +74,11 @@ internal sealed class ProjectLineContext
             if (Changed(project.AddressTermsPath, ref addressTerms) && Try(project.LoadAddressTerms) is { } pairs)
             {
                 current = current with { AddressTerms = pairs };
+            }
+
+            if (Changed(project.IgnoredWordsPath, ref ignoredWords) && Try(project.LoadIgnoredWords) is { } ignored)
+            {
+                current = current with { IgnoredWords = ignored };
             }
 
             return current;
@@ -111,5 +119,5 @@ internal sealed class ProjectLineContext
         }
     }
 
-    internal readonly record struct Stamps(FileStamp Config, FileStamp Formatting, FileStamp Glossary, FileStamp Characters, FileStamp AddressTerms);
+    internal readonly record struct Stamps(FileStamp Config, FileStamp Formatting, FileStamp Glossary, FileStamp Characters, FileStamp AddressTerms, FileStamp IgnoredWords);
 }

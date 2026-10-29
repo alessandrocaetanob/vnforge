@@ -1,4 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using VNForge.Core;
+using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Spelling;
 
@@ -20,6 +23,7 @@ public sealed partial class LineDetailViewModel
         set
         {
             spellWords = value;
+            IgnoreWordCommand.NotifyCanExecuteChanged();
             UpdateMisspellings();
         }
     }
@@ -27,6 +31,51 @@ public sealed partial class LineDetailViewModel
     /// <summary>Os trechos de <see cref="FieldText"/> a sublinhar, no índice do texto do campo. Vazio enquanto o dicionário ainda é lido.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<QaSpan> Misspellings { get; private set; } = [];
+
+    /// <summary>Avisa o Editor que uma palavra entrou em <c>ignored-words.json</c>, para ele refazer o QA das outras linhas.</summary>
+    public Action? WordIgnored { get; init; }
+
+    /// <summary>O trecho sublinhado que cobre o <paramref name="offset"/> do texto do campo (a borda direita conta, onde o cursor para ao clicar), ou nulo.</summary>
+    public QaSpan? MisspellingAt(int offset)
+    {
+        foreach (var span in Misspellings)
+        {
+            if (offset >= span.Start && offset <= span.Start + span.Length)
+            {
+                return span;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// "Ignorar esta palavra no projeto": grava <paramref name="word"/> em <c>ignored-words.json</c>, tira o sublinhado desta linha na hora e avisa o Editor,
+    /// que refaz o resto. Se não deu para gravar, a palavra continua marcada e o motivo vai para <see cref="ErrorMessage"/>.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanIgnoreWord))]
+    private void IgnoreWord(string? word)
+    {
+        if (string.IsNullOrWhiteSpace(word) || ProjectRoot is not { } root)
+        {
+            return;
+        }
+
+        try
+        {
+            ProjectFolder.Open(root).AddIgnoredWord(word);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"Não foi possível ignorar a palavra \"{word}\": {e.Message}";
+            return;
+        }
+
+        SpellWords = (spellWords ?? ProjectDictionary.Empty).WithIgnoredWord(word);
+        WordIgnored?.Invoke();
+    }
+
+    private bool CanIgnoreWord() => ProjectRoot is not null && spellWords is not null;
 
     private void UpdateMisspellings()
     {

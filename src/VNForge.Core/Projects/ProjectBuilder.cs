@@ -146,7 +146,7 @@ public static class ProjectBuilder
             warnings.Add(addressProblem);
         }
 
-        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms });
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = project.LoadIgnoredWordsOrEmpty(out _) });
         if (qaReport.Blocks(allowWarnings))
         {
             throw new QaBlockedException(qaReport, allowWarnings);
