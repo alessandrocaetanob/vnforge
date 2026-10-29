@@ -50,6 +50,37 @@ public class CorrectionLearnerTests
         Assert.Empty(CorrectionLearner.Swaps("a b c d e", "w x y z k"));
     }
 
+    [Theory]
+    [InlineData("Ei, você viu o carro azul?", "Ei, você viu o novo carro vermelho?", "azul", "vermelho")]
+    [InlineData("Ei, você viu o novo carro azul?", "Ei, você viu o carro vermelho?", "azul", "vermelho")]
+    [InlineData("Ei, você viu o carro azul agora?", "Ô, você viu o carro azul?", "Ei", "Ô")]
+    public void Swaps_ignora_acrescimo_ou_corte_puro_no_meio_e_acha_a_troca_ao_lado(string ia, string pessoa, string de, string para)
+    {
+        var troca = CorrectionLearner.Swaps(ia, pessoa);
+
+        Assert.Equal([new WordSwap(de, para)], troca);
+    }
+
+    [Fact]
+    public void Swaps_descarta_a_linha_quando_um_lado_da_troca_passa_do_limite_de_palavras()
+    {
+        Assert.Empty(CorrectionLearner.Swaps("Ei, vem aqui.", "Um dois três quatro, vem aqui."));
+        Assert.Empty(CorrectionLearner.Swaps("Um dois três quatro, vem aqui.", "Ei, vem aqui."));
+        Assert.Empty(CorrectionLearner.Swaps("Ei, vem aqui, azul.", "Um dois três quatro, vem aqui, vermelho."));
+    }
+
+    [Fact]
+    public void Swaps_aceita_troca_de_tres_palavras_de_cada_lado()
+    {
+        Assert.Equal([new WordSwap("um dois três", "a b c")], CorrectionLearner.Swaps("Foi um dois três vez.", "Foi a b c vez."));
+    }
+
+    [Fact]
+    public void Swaps_desempata_a_favor_de_remover_primeiro_quando_os_caminhos_empatam()
+    {
+        Assert.Equal([new WordSwap("C", "B x")], CorrectionLearner.Swaps("Foi A x C.", "Foi x B x."));
+    }
+
     [Fact]
     public void Find_oferece_a_troca_por_personagem_no_limite()
     {

@@ -199,15 +199,7 @@ public static class CorrectionLearner
     /// <summary>As trocas do diff palavra a palavra; nulo quando algum trecho trocado é grande demais para ser troca.</summary>
     private static List<WordSwap>? Hunks(List<string> a, List<string> b)
     {
-        var table = new int[a.Count + 1, b.Count + 1];
-        for (var i = a.Count - 1; i >= 0; i--)
-        {
-            for (var j = b.Count - 1; j >= 0; j--)
-            {
-                table[i, j] = Same(a[i], b[j]) ? table[i + 1, j + 1] + 1 : Math.Max(table[i + 1, j], table[i, j + 1]);
-            }
-        }
-
+        var table = CommonLengths(a, b);
         var swaps = new List<WordSwap>();
         List<string> removed = [];
         List<string> added = [];
@@ -224,7 +216,7 @@ public static class CorrectionLearner
                 x++;
                 y++;
             }
-            else if (y >= b.Count || (x < a.Count && table[x + 1, y] >= table[x, y + 1]))
+            else if (RemovesNext(table, x, y, a.Count, b.Count))
             {
                 removed.Add(a[x++]);
             }
@@ -236,6 +228,25 @@ public static class CorrectionLearner
 
         return Flush(swaps, removed, added) ? swaps : null;
     }
+
+    /// <summary>A tabela do maior trecho comum: <c>[i, j]</c> é o tamanho da subsequência comum de <paramref name="a"/> a partir de <c>i</c> e de <paramref name="b"/> a partir de <c>j</c>.</summary>
+    private static int[,] CommonLengths(List<string> a, List<string> b)
+    {
+        var table = new int[a.Count + 1, b.Count + 1];
+        for (var i = a.Count - 1; i >= 0; i--)
+        {
+            for (var j = b.Count - 1; j >= 0; j--)
+            {
+                table[i, j] = Same(a[i], b[j]) ? table[i + 1, j + 1] + 1 : Math.Max(table[i + 1, j], table[i, j + 1]);
+            }
+        }
+
+        return table;
+    }
+
+    /// <summary>Se a palavra de <c>a</c> em <paramref name="x"/> sai antes de entrar a de <c>b</c> em <paramref name="y"/>; vale quando <c>b</c> já acabou.</summary>
+    private static bool RemovesNext(int[,] table, int x, int y, int aCount, int bCount) =>
+        y >= bCount || (x < aCount && table[x + 1, y] >= table[x, y + 1]);
 
     private static bool Flush(List<WordSwap> swaps, List<string> removed, List<string> added)
     {
