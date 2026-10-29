@@ -20,6 +20,7 @@ public static class ConferenceRuleTexts
         ["glossario-diferente"] = ("Termo diferente do glossário", "O glossário fixa a tradução deste termo. Se a fala pede outra escolha, use Está certo assim para registrar a exceção na linha."),
         ["personagem-diferente"] = ("Nome de personagem diferente", "O nome do personagem foi traduzido diferente do que está no Glossário. Use Está certo assim se a variação for de propósito."),
         ["traducao-inconsistente"] = ("Mesmo original, traduções diferentes", "O mesmo original foi traduzido de jeitos diferentes. O cartão mostra cada tradução, as linhas dela e o que difere da mais usada. Pode ser de propósito (personagens diferentes): use Manter diferentes de propósito."),
+        [SpellingRule.RuleId] = ("Possível erro de digitação", "A palavra não está no dicionário de português nem no Glossário. Confira a grafia e os acentos; nomes de personagem e termos entram no Glossário. Se a grafia for de propósito, use Está certo assim."),
         ["espaco-duplo"] = ("Espaço duplo", "Dois espaços seguidos viram uma coluna a mais na caixa e costumam ser sobra de edição."),
         ["espaco-antes-pontuacao"] = ("Espaço antes de pontuação", "Em português não há espaço antes de vírgula, ponto e vírgula, dois-pontos, interrogação ou exclamação. A fala fica errada até ser corrigida."),
         ["aspas-desbalanceadas"] = ("Aspas ou parênteses sem par", "Falta fechar ou abrir um par de aspas ou parênteses. Confira se a fala termina onde o original termina."),
