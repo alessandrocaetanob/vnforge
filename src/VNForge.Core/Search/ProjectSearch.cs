@@ -178,6 +178,7 @@ public static class ProjectSearch
                         Status = TranslationStatus.Translated,
                         Origin = new TranslationOrigin(LineEditor.ManualProvider, null, now),
                         Doubt = null,
+                        AiTranslation = units[index].AiTranslationAfterEdit(item.After),
                     };
                     applied++;
                     changed = true;

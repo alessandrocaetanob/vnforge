@@ -88,6 +88,7 @@ internal static class TextReextraction
         {
             Translation = saved.Translation,
             Origin = saved.Origin,
+            AiTranslation = saved.AiTranslation,
             Notes = saved.Notes,
             Flags = saved.Flags,
             ChosenSpeaker = saved.ChosenSpeaker,

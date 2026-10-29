@@ -125,7 +125,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Glossary.ReviewCharacterRequested += (_, name) => ReviewSpeaker(name);
         Settings.TestAccentsRequested += (_, _) => SelectedNav = buildItem;
         Conference.TextsChanged += (_, _) => editorStale = true;
-        Conference.LinesSaved += (_, saved) => Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => _ = UndoConferenceSaveAsync(saved));
+        Conference.LinesSaved += (_, saved) =>
+        {
+            Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => _ = UndoConferenceSaveAsync(saved));
+            OfferCorrections(saved);
+        };
         Conference.SettingsChanged += (_, _) => ReloadFormattingFromConference();
         AttachEditor(editor);
         Dashboard.HideEmptyScenes = Settings.HideEmptyScenes;
@@ -446,7 +450,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>O Editor criou ou moveu capítulos: o Painel mostra os totais novos sem reler o projeto.</summary>
     private void OnChaptersChanged(object? sender, ScriptGroupChange change) => Dashboard.ApplyGrouping(change);
 
-    private void OnLineSaved(object? sender, LineSavedEventArgs saved) => ShowLineSaved(saved);
+    private void OnLineSaved(object? sender, LineSavedEventArgs saved)
+    {
+        ShowLineSaved(saved);
+        OfferCorrections(saved);
+    }
 
     [RelayCommand]
     private void ToggleShortcutMap() => IsShortcutMapOpen = !IsShortcutMapOpen;
