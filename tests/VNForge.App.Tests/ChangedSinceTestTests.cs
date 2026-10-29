@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
-using VNForge.App.ViewModels;
 using VNForge.Core.Demo;
+using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -52,7 +52,7 @@ public sealed class ChangedSinceTestTests
         var vm = await OpenEditorAsync(now, test);
 
         Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-        Assert.Equal(5, vm.Filters.Count);
+        Assert.Equal(6, vm.Filters.Count);
     }
 
     [Fact]

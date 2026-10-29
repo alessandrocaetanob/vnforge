@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using VNForge.App.Controls;
 using VNForge.App.ViewModels;
 
 namespace VNForge.App.Views;
@@ -101,6 +102,11 @@ public sealed partial class EditorView : UserControl
     /// <summary>Ctrl+B: recolhe ou abre a coluna das cenas; abaixo de 1400 px, onde a lista é um flyout, abre ou fecha o flyout.</summary>
     private void ToggleScenes()
     {
+        if (current is { IsReadingScene: true })
+        {
+            return;
+        }
+
         if (!scenesInFlyout)
         {
             current?.ToggleScenesCommand.Execute(null);
@@ -210,8 +216,17 @@ public sealed partial class EditorView : UserControl
             KeepSelectedLineInView();
         }
 
+        if (e.PropertyName == nameof(EditorViewModel.EmptyActionText))
+        {
+            // SelectFilter notifica EmptyActionText a cada troca de filtro. A faixa de filtros rola quando a janela é estreita; o filtro que acabou de ligar (por exemplo "Soa estranho", ao sair do leitor) não pode ficar fora da vista.
+            Dispatcher.UIThread.Post(
+                () => this.GetVisualDescendants().OfType<FilterChip>().FirstOrDefault(c => c.IsEffectivelyVisible && c.IsChecked == true)?.BringIntoView(),
+                DispatcherPriority.Loaded);
+        }
+
         if ((e.PropertyName == nameof(EditorViewModel.IsSearchOpen) && current is { IsSearchOpen: false })
-            || (e.PropertyName == nameof(EditorViewModel.IsReviewing) && current is { IsReviewing: false }))
+            || (e.PropertyName == nameof(EditorViewModel.IsReviewing) && current is { IsReviewing: false })
+            || (e.PropertyName == nameof(EditorViewModel.IsReadingScene) && current is { IsReadingScene: false }))
         {
             Dispatcher.UIThread.Post(
                 () =>

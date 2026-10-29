@@ -78,7 +78,7 @@ public sealed partial class CharacterRow : UsageRow
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(Color))]
+    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(Color), nameof(IsBlank), nameof(OpenSheetLabel))]
     public partial string Source { get; set; }
 
     /// <summary>O id da cor que a pessoa escolheu (ou que o arquivo traz); nulo deixa o app escolher pelo nome. Só vai para o arquivo quando definido.</summary>
@@ -107,15 +107,15 @@ public sealed partial class CharacterRow : UsageRow
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeedsGender))]
+    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(IsBlank), nameof(OpenSheetLabel))]
     public partial string Target { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(HasSuggestion), nameof(TonePlaceholder))]
+    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(HasSuggestion), nameof(TonePlaceholder), nameof(IsBlank))]
     public partial CharacterGender Gender { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeedsGender))]
+    [NotifyPropertyChangedFor(nameof(NeedsGender), nameof(IsBlank))]
     public partial string Tone { get; set; }
 
     /// <summary>Personagem preenchido e sem gênero: o seletor fica em destaque, porque a IA precisa dele para concordar o texto.</summary>
@@ -155,6 +155,9 @@ public sealed partial class CharacterRow : UsageRow
     }
 
     public override string Key => Source;
+
+    /// <summary>O nome do botão que abre a ficha, com o personagem dito, para o leitor de tela distinguir as linhas.</summary>
+    public string OpenSheetLabel => $"Abrir a ficha de {(string.IsNullOrWhiteSpace(Target) ? Source.Trim() : Target.Trim())}".TrimEnd();
 
     public override bool IsBlank =>
         string.IsNullOrWhiteSpace(Source) && string.IsNullOrWhiteSpace(Target) && string.IsNullOrWhiteSpace(Tone) && Gender == CharacterGender.Unknown;

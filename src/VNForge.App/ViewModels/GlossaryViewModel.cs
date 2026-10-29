@@ -190,6 +190,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
         CancelSaveTimer();
         try
         {
+            Sheet = null;
             Terms.Clear();
             Characters.Clear();
             AddressTerms.Clear();
@@ -414,6 +415,11 @@ public sealed partial class GlossaryViewModel : ObservableObject
     {
         if (row is not null)
         {
+            if (Sheet?.Row == row)
+            {
+                Sheet = null;
+            }
+
             Characters.Remove(row);
         }
     }
@@ -591,7 +597,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     private void OnRowChanged(UsageRow row, string? property, Action markDirty)
     {
-        // A contagem não é dado do arquivo: mexer nela não suja a página.
+        // A contagem e o aviso de linha em branco não são dado do arquivo: mexer neles não suja a página.
         if (IsDerivedProperty(property))
         {
             if (property == nameof(CharacterRow.HasSuggestion) && row is CharacterRow)
@@ -627,7 +633,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     }
 
     private static bool IsDerivedProperty(string? property) =>
-        property is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem)
+        property is nameof(UsageRow.Uses) or nameof(UsageRow.UsesLabel) or nameof(UsageRow.IsUnused) or nameof(CharacterRow.NeedsGender) or nameof(RepeatedTermRow.HasSuggestion) or nameof(UsageRow.Problem) or nameof(UsageRow.HasProblem) or nameof(UsageRow.IsBlank)
             or nameof(CharacterRow.SuggestedGender) or nameof(CharacterRow.SuggestedGenderLabel) or nameof(CharacterRow.SuggestedTone) or nameof(CharacterRow.TonePlaceholder);
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(Search);
