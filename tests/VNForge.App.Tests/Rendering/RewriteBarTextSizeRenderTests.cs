@@ -53,6 +53,7 @@ public sealed class RewriteBarTextSizeRenderTests(HeadlessFixture fixture) : ICl
                     {
                         var block = Assert.Single(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == option.Text);
                         Assert.True(block.IsEffectivelyVisible);
+                        Assert.Equal(Math.Ceiling(20 * percent / 100d), block.LineHeight);
                         Assert.Equal(expected, block.FontSize);
                     }
 
