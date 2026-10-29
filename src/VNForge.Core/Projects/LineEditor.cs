@@ -117,7 +117,7 @@ public sealed class LineEditor
                     .ToList();
                 if (others.Count > 0)
                 {
-                    var result = SetTranslationForLocked(others, translation);
+                    var result = SetTranslationForScripts(others, translation);
                     if (result.Failure is not null)
                     {
                         Debug.WriteLine(result.Failure);
@@ -136,19 +136,20 @@ public sealed class LineEditor
     /// Linhas que já têm exatamente esse texto ficam como estão (vêm em <see cref="BatchTranslationResult.Unchanged"/>, para quem mostra a lista se atualizar numa nova tentativa).
     /// Se um script não grava, os anteriores já estão no disco: o resultado traz o que foi gravado e a falha, em vez de perder a lista.
     /// </summary>
-    /// <exception cref="KeyNotFoundException">Alguma linha não existe no script indicado; nesse caso nada é gravado.</exception>
     public BatchTranslationResult SetTranslationFor(IEnumerable<(string ScriptKey, string Id)> targets, string translation) =>
         SetTranslationFor(targets, translation, null, CancellationToken.None);
 
     /// <summary>
     /// <see cref="SetTranslationFor(IEnumerable{ValueTuple{string, string}}, string)"/> com andamento e cancelamento, para rodar fora da thread da tela.
+    /// A trava do projeto (<see cref="ProjectTextLock"/>) é tomada por script: ler, trocar e gravar um script é atômico, mas uma edição de outra linha
+    /// espera no máximo um script, não o lote inteiro. Uma linha que não existe no script interrompe o lote nesse script, sem gravá-lo: o resultado traz
+    /// o que os scripts anteriores gravaram e a <see cref="KeyNotFoundException"/> em <see cref="BatchTranslationResult.Failure"/>.
     /// </summary>
-    /// <param name="progress">Recebe o andamento a cada script lido e a cada script gravado; pode ser chamado de qualquer thread.</param>
+    /// <param name="progress">Recebe o andamento a cada script terminado (um passo por script, tenha mudado ou não); pode ser chamado de qualquer thread, fora da trava.</param>
     /// <param name="cancellation">
-    /// Pedido de cancelamento, olhado antes de ler e antes de gravar cada script. Cancelar não lança: o resultado volta com <see cref="BatchTranslationResult.Canceled"/>
+    /// Pedido de cancelamento, olhado antes de cada script. Cancelar não lança: o resultado volta com <see cref="BatchTranslationResult.Canceled"/>
     /// e traz o que já estava gravado, que continua no disco.
     /// </param>
-    /// <exception cref="KeyNotFoundException">Alguma linha não existe no script indicado; nesse caso nada é gravado.</exception>
     public BatchTranslationResult SetTranslationFor(
         IEnumerable<(string ScriptKey, string Id)> targets,
         string translation,
@@ -158,67 +159,88 @@ public sealed class LineEditor
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentException.ThrowIfNullOrWhiteSpace(translation);
         translation = PunctuationOption()?.Apply(translation) ?? translation;
-
-        lock (ProjectTextLock.For(project))
-        {
-            return SetTranslationForLocked([.. targets], translation, progress, cancellation);
-        }
+        return SetTranslationForScripts([.. targets], translation, progress, cancellation);
     }
 
-    private BatchTranslationResult SetTranslationForLocked(
+    private BatchTranslationResult SetTranslationForScripts(
         IReadOnlyList<(string ScriptKey, string Id)> targets,
         string translation,
         IProgress<BatchProgress>? progress = null,
         CancellationToken cancellation = default)
     {
         var origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow());
-        var plan = new TranslationPlan();
-        var total = targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).Count() * 2;
-        foreach (var (scriptKey, id) in targets)
-        {
-            if (!plan.Scripts.ContainsKey(scriptKey))
-            {
-                if (cancellation.IsCancellationRequested)
-                {
-                    return new BatchTranslationResult([], plan.Unchanged, targets.Count, null, Canceled: true);
-                }
-
-                plan.Scripts[scriptKey] = [.. project.LoadText(scriptKey)];
-                progress?.Report(new BatchProgress(plan.Scripts.Count, total));
-            }
-
-            PlanLine(plan, scriptKey, id, translation, origin);
-        }
-
+        var scripts = targets.GroupBy(t => t.ScriptKey, StringComparer.Ordinal).ToList();
         var saved = new List<LineChange>();
-        var done = plan.Scripts.Count;
-        foreach (var (scriptKey, changes) in plan.Pending)
+        var unchanged = new List<(string ScriptKey, TextUnit Unit)>();
+        var done = 0;
+        foreach (var script in scripts)
         {
             if (cancellation.IsCancellationRequested)
             {
-                return new BatchTranslationResult(saved, plan.Unchanged, targets.Count, null, Canceled: true);
+                return new BatchTranslationResult(saved, unchanged, targets.Count, null, Canceled: true);
             }
 
             try
             {
-                save(scriptKey, plan.Scripts[scriptKey]);
+                if (!SetTranslationInScript(script.Key, script.Select(t => t.Id), translation, origin, saved, unchanged, cancellation))
+                {
+                    return new BatchTranslationResult(saved, unchanged, targets.Count, null, Canceled: true);
+                }
             }
-            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or KeyNotFoundException)
             {
-                return new BatchTranslationResult(saved, plan.Unchanged, targets.Count, e);
+                return new BatchTranslationResult(saved, unchanged, targets.Count, e);
             }
 
-            saved.AddRange(changes);
-            progress?.Report(new BatchProgress(++done, total));
+            progress?.Report(new BatchProgress(++done, scripts.Count));
         }
 
-        progress?.Report(new BatchProgress(total, total));
-        return new BatchTranslationResult(saved, plan.Unchanged, targets.Count, null);
+        return new BatchTranslationResult(saved, unchanged, targets.Count, null);
     }
 
-    private static void PlanLine(TranslationPlan plan, string scriptKey, string id, string translation, TranslationOrigin origin)
+    /// <summary>Falso quando o cancelamento chegou enquanto esperava a trava: nada foi lido nem gravado neste script.</summary>
+    private bool SetTranslationInScript(
+        string scriptKey,
+        IEnumerable<string> ids,
+        string translation,
+        TranslationOrigin origin,
+        List<LineChange> saved,
+        List<(string ScriptKey, TextUnit Unit)> unchanged,
+        CancellationToken cancellation)
     {
-        var units = plan.Scripts[scriptKey];
+        lock (ProjectTextLock.For(project))
+        {
+            if (cancellation.IsCancellationRequested)
+            {
+                return false;
+            }
+
+            var units = project.LoadText(scriptKey).ToList();
+            var changes = new List<LineChange>();
+            foreach (var id in ids)
+            {
+                PlanLine(units, scriptKey, id, translation, origin, changes, unchanged);
+            }
+
+            if (changes.Count > 0)
+            {
+                save(scriptKey, units);
+                saved.AddRange(changes);
+            }
+
+            return true;
+        }
+    }
+
+    private static void PlanLine(
+        List<TextUnit> units,
+        string scriptKey,
+        string id,
+        string translation,
+        TranslationOrigin origin,
+        List<LineChange> changes,
+        List<(string ScriptKey, TextUnit Unit)> unchanged)
+    {
         var index = units.FindIndex(u => string.Equals(u.Id, id, StringComparison.Ordinal));
         if (index < 0)
         {
@@ -228,26 +250,12 @@ public sealed class LineEditor
         var previous = units[index];
         if (string.Equals(previous.Translation, translation, StringComparison.Ordinal))
         {
-            plan.Unchanged.Add((scriptKey, previous));
+            unchanged.Add((scriptKey, previous));
             return;
         }
 
         units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin, Doubt = null, AiTranslation = previous.AiTranslationAfterEdit(translation) };
-        if (!plan.Pending.TryGetValue(scriptKey, out var list))
-        {
-            plan.Pending[scriptKey] = list = [];
-        }
-
-        list.Add(new LineChange(scriptKey, previous, units[index]));
-    }
-
-    private sealed class TranslationPlan
-    {
-        public Dictionary<string, List<TextUnit>> Scripts { get; } = new(StringComparer.Ordinal);
-
-        public Dictionary<string, List<LineChange>> Pending { get; } = new(StringComparer.Ordinal);
-
-        public List<(string ScriptKey, TextUnit Unit)> Unchanged { get; } = [];
+        changes.Add(new LineChange(scriptKey, previous, units[index]));
     }
 
     /// <summary>

@@ -93,17 +93,28 @@ public sealed class EditorSceneTests : IDisposable
     {
         public int Count => count;
 
-        public IProgress<BatchProgress>? Progress { get; private set; }
+        public VNForge.App.Services.SameSourceBatch Batch { get; } = new();
 
         public CancellationToken Token { get; private set; }
 
         public VNForge.App.Services.SameSourcePreview Inspect(string translation) => preview ?? new(0, 0);
 
-        public Task<VNForge.App.Services.SameSourceOutcome> ApplyAsync(string translation, IProgress<BatchProgress>? progress, CancellationToken cancellation)
+        public async Task<VNForge.App.Services.SameSourceOutcome> ApplyAsync(string translation)
         {
-            Progress = progress;
-            Token = cancellation;
-            return gate?.Task ?? Task.FromResult(outcome ?? new(0, 0, 0, false));
+            if (!Batch.TryStart(out var token))
+            {
+                throw new InvalidOperationException("Já há um Usar em todos gravando.");
+            }
+
+            Token = token;
+            try
+            {
+                return await (gate?.Task ?? Task.FromResult(outcome ?? new(0, 0, 0, false)));
+            }
+            finally
+            {
+                Batch.Finish();
+            }
         }
     }
 
@@ -113,11 +124,13 @@ public sealed class EditorSceneTests : IDisposable
         return new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao()) { SameSource = falas };
     }
 
+    private static TaskCompletionSource<VNForge.App.Services.SameSourceOutcome> Porta() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     [Fact]
     public async Task Usar_em_todos_devolve_o_controle_enquanto_grava_e_mostra_o_andamento_ate_o_fim()
     {
-        var porta = new TaskCompletionSource<VNForge.App.Services.SameSourceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var falas = new FalasIguais(40, outcome: null, gate: porta);
+        var porta = Porta();
+        var falas = new FalasIguais(40, gate: porta);
         var vm = DetalheComFalas(falas);
 
         var execucao = vm.UseForAllCommand.ExecuteAsync(null);
@@ -126,8 +139,8 @@ public sealed class EditorSceneTests : IDisposable
         Assert.True(vm.IsApplyingToAll);
         Assert.False(vm.UseForAllCommand.CanExecute(null));
         Assert.True(vm.CancelApplyToAllCommand.CanExecute(null));
-        falas.Progress!.Report(new BatchProgress(1, 4));
-        Assert.Equal("Aplicando nas outras linhas... 25%", await EsperarAsync(() => vm.ApplyProgressText, "Aplicando nas outras linhas... 25%"));
+        falas.Batch.Report(new BatchProgress(1, 4));
+        Assert.Equal("Aplicando nas outras linhas... 25%", vm.ApplyProgressText);
         Assert.Equal(0.25, vm.ApplyProgress);
 
         porta.SetResult(new VNForge.App.Services.SameSourceOutcome(40, 40, 40, false));
@@ -135,14 +148,65 @@ public sealed class EditorSceneTests : IDisposable
 
         Assert.False(vm.IsApplyingToAll);
         Assert.False(vm.CancelApplyToAllCommand.CanExecute(null));
+        Assert.True(vm.UseForAllCommand.CanExecute(null));
         Assert.Equal("Aplicada a 40 linhas.", vm.SameSourceResult);
         Assert.Null(vm.ErrorMessage);
     }
 
     [Fact]
+    public async Task Durante_o_lote_iniciado_pelo_Confirmar_os_tres_comandos_ficam_desligados()
+    {
+        var porta = Porta();
+        var vm = DetalheComFalas(new FalasIguais(40, new(3, 0), gate: porta));
+        await vm.UseForAllCommand.ExecuteAsync(null);
+        Assert.True(vm.IsUseForAllConfirmOpen);
+
+        var execucao = vm.ConfirmUseForAllCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsApplyingToAll);
+        Assert.False(vm.UseForAllCommand.CanExecute(null));
+        Assert.False(vm.ConfirmUseForAllCommand.CanExecute(null));
+        Assert.False(vm.UseVariantCommand.CanExecute(null));
+        await vm.UseForAllCommand.ExecuteAsync(null);
+        Assert.False(vm.IsUseForAllConfirmOpen);
+
+        porta.SetResult(new VNForge.App.Services.SameSourceOutcome(40, 40, 40, false));
+        await execucao;
+        Assert.True(vm.UseForAllCommand.CanExecute(null));
+        Assert.True(vm.ConfirmUseForAllCommand.CanExecute(null));
+        Assert.True(vm.UseVariantCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Trocar_de_linha_no_meio_do_lote_mantem_o_andamento_e_o_Cancelar_e_barra_um_segundo_lote()
+    {
+        var porta = Porta();
+        var falas = new FalasIguais(40, gate: porta);
+        var primeira = DetalheComFalas(falas);
+        var execucao = primeira.UseForAllCommand.ExecuteAsync(null);
+        primeira.Dispose();
+
+        var segunda = DetalheComFalas(falas);
+        falas.Batch.Report(new BatchProgress(1, 2));
+
+        Assert.True(segunda.IsApplyingToAll);
+        Assert.Equal("Aplicando nas outras linhas... 50%", segunda.ApplyProgressText);
+        Assert.False(segunda.UseForAllCommand.CanExecute(null));
+        await segunda.UseForAllCommand.ExecuteAsync(null);
+        Assert.Null(segunda.SameSourceResult);
+        segunda.CancelApplyToAllCommand.Execute(null);
+        Assert.True(falas.Token.IsCancellationRequested);
+
+        porta.SetResult(new VNForge.App.Services.SameSourceOutcome(10, 40, 10, false, Canceled: true));
+        await execucao;
+        Assert.False(segunda.IsApplyingToAll);
+        Assert.True(segunda.UseForAllCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Cancelar_o_Usar_em_todos_passa_o_pedido_adiante_e_diz_quantas_linhas_ficaram()
     {
-        var porta = new TaskCompletionSource<VNForge.App.Services.SameSourceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var porta = Porta();
         var falas = new FalasIguais(40, gate: porta);
         var vm = DetalheComFalas(falas);
         var execucao = vm.UseForAllCommand.ExecuteAsync(null);
@@ -161,7 +225,7 @@ public sealed class EditorSceneTests : IDisposable
     [Fact]
     public async Task Se_a_gravacao_do_Usar_em_todos_falha_o_andamento_some_e_o_erro_aparece()
     {
-        var porta = new TaskCompletionSource<VNForge.App.Services.SameSourceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var porta = Porta();
         var vm = DetalheComFalas(new FalasIguais(40, gate: porta));
         var execucao = vm.UseForAllCommand.ExecuteAsync(null);
 
@@ -173,14 +237,21 @@ public sealed class EditorSceneTests : IDisposable
         Assert.Null(vm.SameSourceResult);
     }
 
-    private static async Task<string> EsperarAsync(Func<string> atual, string esperado)
+    [Fact]
+    public void Um_segundo_lote_so_comeca_depois_do_primeiro_terminar()
     {
-        for (var tentativa = 0; tentativa < 100 && atual() != esperado; tentativa++)
-        {
-            await Task.Delay(20, TestContext.Current.CancellationToken);
-        }
+        var lote = new VNForge.App.Services.SameSourceBatch();
 
-        return atual();
+        Assert.True(lote.TryStart(out var token));
+        Assert.False(lote.TryStart(out _));
+        lote.Cancel();
+        Assert.True(token.IsCancellationRequested);
+        lote.Finish();
+
+        Assert.False(lote.IsRunning);
+        lote.Report(new BatchProgress(1, 2));
+        Assert.Equal(0, lote.Progress);
+        Assert.True(lote.TryStart(out _));
     }
 
     [Fact]
@@ -197,6 +268,39 @@ public sealed class EditorSceneTests : IDisposable
         Assert.Equal("Tá bom.\\p", Gravada("yst00001", 2).Translation);
         Assert.Equal("Tá bom.\\p", Gravada("yst00002", 0).Translation);
         Assert.Equal("Aplicada a 2 linhas.", vm.Detail.SameSourceResult);
+    }
+
+    [Fact]
+    public async Task Reler_o_mesmo_projeto_no_meio_do_lote_deixa_a_grade_igual_ao_disco()
+    {
+        var entrou = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var liberar = new ManualResetEventSlim();
+        var projeto = ProjectFolder.Open(raiz);
+        var vm = await Abrir(_ => new LineEditor(projeto, relogio, (chave, unidades) =>
+        {
+            if (chave == "yst00002")
+            {
+                entrou.TrySetResult();
+                liberar.Wait(TimeSpan.FromSeconds(30));
+            }
+
+            projeto.SaveText(chave, unidades);
+        }));
+        vm.SelectedLine = vm.Lines[3];
+        vm.Detail!.FieldText = "Tá bom.";
+        await vm.Detail.UseForAllCommand.ExecuteAsync(null);
+        var lote = vm.Detail.ConfirmUseForAllCommand.ExecuteAsync(null);
+        await entrou.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        vm.Reload();
+        liberar.Set();
+        await lote;
+        await vm.Loading;
+
+        Assert.Equal("Tá bom.\\p", Gravada("yst00002", 0).Translation);
+        Assert.Equal("Tá bom.", vm.Lines[2].TranslationPlain);
+        Assert.Equal(TranslationStatus.Translated, vm.Lines[2].Status);
+        Assert.False(vm.Detail!.IsApplyingToAll);
     }
 
     [Fact]

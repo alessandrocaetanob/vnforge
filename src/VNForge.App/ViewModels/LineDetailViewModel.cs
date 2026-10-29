@@ -452,6 +452,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
 
         Flush();
         disposed = true;
+        StopObservingBatch();
         CancelSuggestion();
         CancelExplanation();
         CancelRewrite();

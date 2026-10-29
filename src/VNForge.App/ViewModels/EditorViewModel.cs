@@ -48,6 +48,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private LineEditor? lineEditor;
     private EditorContext context = EditorContext.Empty;
     private ProjectLines? data;
+    private readonly SameSourceBatch sameSourceBatch = new();
     private LineEntry[] entries = [];
     private LineViewModel[] scriptLines = [];
     private LineStatusFilter statusFilter = LineStatusFilter.All;
@@ -709,51 +710,120 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// "Usar em todos": grava a tradução nas outras linhas com o mesmo original e atualiza a grade, o QA e os contadores do que está aberto, mesmo quando um
     /// script não grava (as linhas dos scripts anteriores já estão no disco). Registra o "Desfazer" do lote.
     /// </summary>
-    private async Task<SameSourceOutcome> ApplyToSameSourceAsync(LineViewModel line, string translation, IProgress<BatchProgress>? progress, CancellationToken cancellation)
+    private async Task<SameSourceOutcome> ApplyToSameSourceAsync(LineViewModel line, string translation)
     {
         if (data is null || lineEditor is null)
         {
             return new SameSourceOutcome(0, 0, 0, Failed: false);
         }
 
-        var snapshot = data;
-        var others = data.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
-        var targets = others.Values.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
-        var editor = lineEditor;
-        var history = History;
-        var root = Project?.Root;
-        var scripts = targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList();
-        var result = await Task.Run(() => history is not null && root is not null
-            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, cancellation), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
-            : editor.SetTranslationFor(targets, translation, progress, cancellation));
-        ShowSameSourceResult(result, others, ReferenceEquals(data, snapshot), root);
-
-        return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null, result.Canceled);
-    }
-
-    /// <summary>Leva o lote gravado à grade, ao QA e aos contadores, e avisa o Desfazer. Com outro projeto aberto no meio do caminho, só avisa: a grade atual não é a do lote.</summary>
-    private void ShowSameSourceResult(BatchTranslationResult result, Dictionary<string, LineEntry> others, bool sameProject, string? root)
-    {
-        var current = result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit));
-        foreach (var unit in current.Where(_ => sameProject))
+        if (!sameSourceBatch.TryStart(out var cancellation))
         {
-            ShowSavedUnit(others[unit.Id], unit);
+            throw new InvalidOperationException("Já há um Usar em todos gravando. Espere ele terminar ou cancele.");
         }
 
-        foreach (var key in current.Where(_ => sameProject).Select(u => others[u.Id].ScriptKey).Distinct(StringComparer.Ordinal))
+        try
+        {
+            var snapshot = data;
+            var root = Project?.Root;
+            var others = snapshot.SameSourceAs(line.Entry).ToDictionary(o => o.Unit.Id, StringComparer.Ordinal);
+            var result = await WriteSameSourceAsync(others.Values, translation, root, new Progress<BatchProgress>(sameSourceBatch.Report), cancellation);
+            ShowSameSourceResult(result, others, snapshot, root);
+            return new SameSourceOutcome(result.Applied, result.Requested, result.Changes.Count, result.Failure is not null, result.Canceled);
+        }
+        finally
+        {
+            sameSourceBatch.Finish();
+        }
+    }
+
+    private Task<BatchTranslationResult> WriteSameSourceAsync(IEnumerable<LineEntry> others, string translation, string? root, IProgress<BatchProgress> progress, CancellationToken cancellation)
+    {
+        var editor = lineEditor!;
+        var history = History;
+        var targets = others.Select(o => (o.ScriptKey, o.Unit.Id)).ToList();
+        var scripts = targets.Select(t => t.ScriptKey).Distinct(StringComparer.Ordinal).ToList();
+        // O token vai para o Core, que para entre um script e outro e devolve o que gravou; um Task.Run cancelado antes de começar lançaria e perderia esse resultado.
+        return Task.Run(() => history is not null && root is not null
+            ? history.Run(root, "Usar em todos", _ => editor.SetTranslationFor(targets, translation, progress, cancellation), scripts, changed => changed.Changes.Select(c => (c.ScriptKey, c.Saved.Id)))
+            : editor.SetTranslationFor(targets, translation, progress, cancellation), CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Leva o lote gravado à grade, ao QA e aos contadores, e avisa o Desfazer. A grade só recebe a linha se ela ainda é a que o lote leu: com outro projeto aberto no meio
+    /// do caminho só o aviso sai, e com o mesmo projeto relido ou uma linha editada durante o lote a tela relê o projeto, porque o disco é a verdade.
+    /// </summary>
+    private void ShowSameSourceResult(BatchTranslationResult result, Dictionary<string, LineEntry> others, ProjectLines snapshot, string? root)
+    {
+        if (!IsOpenProject(root))
+        {
+            RaiseSameSourceSaved(result, others, root);
+            return;
+        }
+
+        var stale = !ReferenceEquals(data, snapshot);
+        if (!stale && result.Changes.Count + result.Unchanged.Count > 0)
+        {
+            stale = ShowBatchLines(result, others);
+        }
+
+        if (result.Changes.Count > 0)
+        {
+            RaiseSameSourceSaved(result, others, root);
+        }
+
+        if (stale)
+        {
+            Reload();
+        }
+    }
+
+    private bool IsOpenProject(string? root) =>
+        Project?.Root is { } open && root is not null && string.Equals(Path.TrimEndingDirectorySeparator(open), Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Mostra na grade as linhas do lote que continuam como o lote as leu. Devolve verdadeiro quando alguma foi editada no meio do lote e a tela precisa reler.</summary>
+    private bool ShowBatchLines(BatchTranslationResult result, Dictionary<string, LineEntry> others)
+    {
+        var stale = false;
+        var shown = new List<LineEntry>();
+        foreach (var unit in result.Changes.Select(c => c.Saved).Concat(result.Unchanged.Select(u => u.Unit)))
+        {
+            var read = others[unit.Id];
+            if (!IsStillLoaded(read))
+            {
+                stale = true;
+                continue;
+            }
+
+            ShowSavedUnit(read, unit);
+            shown.Add(read);
+        }
+
+        foreach (var key in shown.Select(l => l.ScriptKey).Distinct(StringComparer.Ordinal))
         {
             RefreshScriptProgress(key);
         }
 
         if (result.Changes.Count > 0)
         {
-            if (sameProject)
-            {
-                UpdateCounts();
-                LastSavedAt = clock.GetLocalNow();
-            }
+            UpdateCounts();
+            LastSavedAt = clock.GetLocalNow();
+        }
 
-            var batch = result.Changes.Select(c => new LineSavedEventArgs(root, c.ScriptKey, others[c.Saved.Id].Number, c.Previous, c.Saved)).ToList();
+        return stale;
+    }
+
+    private bool IsStillLoaded(LineEntry read)
+    {
+        var lines = data?.LinesOf(read.ScriptKey);
+        return lines is not null && read.Number - 1 < lines.Count && Equals(lines[read.Number - 1].Unit, read.Unit);
+    }
+
+    private void RaiseSameSourceSaved(BatchTranslationResult result, Dictionary<string, LineEntry> others, string? root)
+    {
+        var batch = result.Changes.Select(c => new LineSavedEventArgs(root, c.ScriptKey, others[c.Saved.Id].Number, c.Previous, c.Saved)).ToList();
+        if (batch.Count > 0)
+        {
             LineSaved?.Invoke(this, batch[0] with { Batch = batch });
         }
     }
@@ -867,8 +937,9 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         public SameSourcePreview Inspect(string translation) => editor.InspectSameSource(line, translation);
 
-        public Task<SameSourceOutcome> ApplyAsync(string translation, IProgress<BatchProgress>? progress, CancellationToken cancellation) =>
-            editor.ApplyToSameSourceAsync(line, translation, progress, cancellation);
+        public SameSourceBatch Batch => editor.sameSourceBatch;
+
+        public Task<SameSourceOutcome> ApplyAsync(string translation) => editor.ApplyToSameSourceAsync(line, translation);
     }
 
     /// <summary>

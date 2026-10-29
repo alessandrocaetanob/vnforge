@@ -34,10 +34,10 @@ public sealed partial class LineDetailViewModel
     /// "Usar em todas" de uma variante: grava a tradução dela nesta linha e nas outras do original, pelo "Usar em todos" (a pergunta antes de substituir
     /// traduções diferentes, o "Desfazer" do lote). Cancelar a pergunta não muda nenhuma linha, nem esta.
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanStartApply))]
     private async Task UseVariantAsync(ConferenceVariantViewModel? variant)
     {
-        if (variant is null || SameSource is null || !Flush())
+        if (variant is null || SameSource is null || IsApplyingToAll || !Flush())
         {
             return;
         }

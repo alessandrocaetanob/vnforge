@@ -15,7 +15,20 @@ public sealed partial class LineDetailViewModel
     public bool HasScene => Scene.Count > 0;
 
     /// <summary>As outras linhas do projeto com o mesmo original; nulo quando o Editor não montou o índice.</summary>
-    public ISameSourceLines? SameSource { get; init; }
+    public ISameSourceLines? SameSource
+    {
+        get => sameSource;
+        init
+        {
+            sameSource = value;
+            if (value is not null)
+            {
+                value.Batch.PropertyChanged += OnBatchChanged;
+            }
+        }
+    }
+
+    private readonly ISameSourceLines? sameSource;
 
     public int SameSourceCount => SameSource?.Count ?? 0;
 
@@ -27,20 +40,38 @@ public sealed partial class LineDetailViewModel
     [ObservableProperty]
     public partial string? SameSourceResult { get; private set; }
 
-    /// <summary>O "Usar em todos" está gravando fora da thread da tela; o botão fica desligado e o andamento aparece com o "Cancelar".</summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CancelApplyToAllCommand))]
-    public partial bool IsApplyingToAll { get; private set; }
+    /// <summary>Um "Usar em todos" está gravando fora da thread da tela (esta linha ou outra do Editor); os botões ficam desligados e o andamento aparece com o "Cancelar".</summary>
+    public bool IsApplyingToAll => SameSource?.Batch.IsRunning ?? false;
 
     /// <summary>O andamento do "Usar em todos", de 0 a 1.</summary>
-    [ObservableProperty]
-    public partial double ApplyProgress { get; private set; }
+    public double ApplyProgress => SameSource?.Batch.Progress ?? 0;
 
     /// <summary>O que o "Usar em todos" está fazendo, com a porcentagem.</summary>
-    [ObservableProperty]
-    public partial string ApplyProgressText { get; private set; } = string.Empty;
+    public string ApplyProgressText => SameSource?.Batch.Text ?? string.Empty;
 
-    private CancellationTokenSource? applyCancellation;
+    private void OnBatchChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(IsApplyingToAll));
+        OnPropertyChanged(nameof(ApplyProgress));
+        OnPropertyChanged(nameof(ApplyProgressText));
+        if (e.PropertyName == nameof(SameSourceBatch.IsRunning))
+        {
+            UseForAllCommand.NotifyCanExecuteChanged();
+            ConfirmUseForAllCommand.NotifyCanExecuteChanged();
+            UseVariantCommand.NotifyCanExecuteChanged();
+            CancelApplyToAllCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private void StopObservingBatch()
+    {
+        if (SameSource is { } source)
+        {
+            source.Batch.PropertyChanged -= OnBatchChanged;
+        }
+    }
+
+    private bool CanStartApply() => !IsApplyingToAll;
 
     /// <summary>O diálogo "Substituir todas?" está aberto: alguma das outras linhas já tem outra tradução.</summary>
     [ObservableProperty]
@@ -51,9 +82,14 @@ public sealed partial class LineDetailViewModel
     public partial string UseForAllConfirmText { get; private set; } = string.Empty;
 
     /// <summary>Grava a tradução do campo em todas as outras linhas com o mesmo original. A linha aberta é gravada antes; se outras linhas já têm outra tradução, pergunta primeiro.</summary>
-    [RelayCommand(CanExecute = nameof(HasSameSource))]
+    [RelayCommand(CanExecute = nameof(CanUseForAll))]
     private async Task UseForAllAsync()
     {
+        if (IsApplyingToAll)
+        {
+            return;
+        }
+
         SameSourceResult = null;
         if (string.IsNullOrWhiteSpace(Translation))
         {
@@ -77,17 +113,24 @@ public sealed partial class LineDetailViewModel
         IsUseForAllConfirmOpen = true;
     }
 
-    [RelayCommand]
+    private bool CanUseForAll() => HasSameSource && !IsApplyingToAll;
+
+    [RelayCommand(CanExecute = nameof(CanStartApply))]
     private async Task ConfirmUseForAllAsync()
     {
         IsUseForAllConfirmOpen = false;
+        if (IsApplyingToAll)
+        {
+            return;
+        }
+
         AdoptPendingVariant();
         await ApplyToAllAsync();
     }
 
     /// <summary>Para o "Usar em todos" entre um script e outro. O que já foi gravado fica gravado e pode ser desfeito pela lista de tarefas.</summary>
     [RelayCommand(CanExecute = nameof(IsApplyingToAll))]
-    private void CancelApplyToAll() => applyCancellation?.Cancel();
+    private void CancelApplyToAll() => SameSource?.Batch.Cancel();
 
     [RelayCommand]
     private void CancelUseForAll()
@@ -116,36 +159,10 @@ public sealed partial class LineDetailViewModel
         }
 
         var outcome = new SameSourceOutcome(0, 0, 0, Failed: false);
-        using var cancellation = new CancellationTokenSource();
-        applyCancellation = cancellation;
-        ApplyProgress = 0;
-        ApplyProgressText = "Aplicando nas outras linhas... 0%";
-        IsApplyingToAll = true;
-        try
+        if (await TrySaveAsync(async () => outcome = await SameSource!.ApplyAsync(Translation)))
         {
-            if (!await TrySaveAsync(async () => outcome = await SameSource!.ApplyAsync(Translation, new Progress<BatchProgress>(ShowApplyProgress), cancellation.Token)))
-            {
-                return;
-            }
+            ShowApplyOutcome(outcome);
         }
-        finally
-        {
-            applyCancellation = null;
-            IsApplyingToAll = false;
-        }
-
-        ShowApplyOutcome(outcome);
-    }
-
-    private void ShowApplyProgress(BatchProgress progress)
-    {
-        if (!IsApplyingToAll)
-        {
-            return;
-        }
-
-        ApplyProgress = progress.Fraction;
-        ApplyProgressText = $"Aplicando nas outras linhas... {(int)(progress.Fraction * 100)}%";
     }
 
     private void ShowApplyOutcome(SameSourceOutcome outcome)

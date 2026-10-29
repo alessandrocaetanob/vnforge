@@ -1,5 +1,4 @@
 using VNForge.App.ViewModels;
-using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 
 namespace VNForge.App.Services;
@@ -26,11 +25,15 @@ public interface ISameSourceLines
     /// <summary>O que gravar <paramref name="translation"/> nessas linhas sobrescreveria.</summary>
     SameSourcePreview Inspect(string translation);
 
+    /// <summary>O lote que está gravando, comum a todas as linhas do Editor: andamento e cancelamento.</summary>
+    SameSourceBatch Batch { get; }
+
     /// <summary>
-    /// Grava <paramref name="translation"/> nessas linhas fora da thread da tela e registra o "Desfazer" do lote. <paramref name="progress"/> recebe o andamento;
+    /// Grava <paramref name="translation"/> nessas linhas fora da thread da tela e registra o "Desfazer" do lote. O andamento e o cancelamento passam por <see cref="Batch"/>;
     /// cancelar para entre um script e outro, sem lançar, e o resultado diz que foi cancelado.
     /// </summary>
-    Task<SameSourceOutcome> ApplyAsync(string translation, IProgress<BatchProgress>? progress, CancellationToken cancellation);
+    /// <exception cref="InvalidOperationException">Já há um lote gravando.</exception>
+    Task<SameSourceOutcome> ApplyAsync(string translation);
 }
 
 /// <summary>O que o Editor oferece ao aviso de "mesmo original, traduções diferentes" do detalhe da linha (#457).</summary>
