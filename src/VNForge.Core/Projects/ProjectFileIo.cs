@@ -34,11 +34,15 @@ internal static class ProjectFileIo
 
     /// <summary>Move <paramref name="source"/> sobre <paramref name="destination"/>, esperando quem o estiver lendo.</summary>
     internal static void Move(string source, string destination, bool overwrite) =>
+        Move(source, destination, overwrite, Thread.Sleep);
+
+    /// <summary>Como <see cref="Move(string, string, bool)"/>, com a espera entre as tentativas na mão de quem chama (os testes soltam o arquivo nela, sem depender do relógio).</summary>
+    internal static void Move(string source, string destination, bool overwrite, Action<int> wait) =>
         Retry(destination, () =>
         {
             File.Move(source, destination, overwrite);
             return 0;
-        });
+        }, wait);
 
     /// <summary>
     /// Repete <paramref name="action"/> enquanto a falha for transitória. O orçamento é a soma das esperas pedidas (5, 10, 20, 40, 80, 100 e 100 ms: sete novas tentativas),
@@ -46,7 +50,10 @@ internal static class ProjectFileIo
     /// sem que o arquivo tivesse tido chance de ser solto. O orçamento é conferido antes de cada espera: 5, 10, 20, 40, 80 e 100 ms deixam a soma em 255 ms,
     /// ainda abaixo de 300, então há mais uma espera de 100 ms (355 ms) e, no total, 8 tentativas. O teto real de 2 s só vale quando as próprias tentativas são lentas.
     /// </summary>
-    internal static T Retry<T>(string? writeTarget, Func<T> action)
+    internal static T Retry<T>(string? writeTarget, Func<T> action) => Retry(writeTarget, action, Thread.Sleep);
+
+    /// <summary>Como <see cref="Retry{T}(string?, Func{T})"/>, mas <paramref name="wait"/> recebe os milissegundos de cada espera no lugar de <see cref="Thread.Sleep(int)"/>.</summary>
+    internal static T Retry<T>(string? writeTarget, Func<T> action, Action<int> wait)
     {
         var start = Stopwatch.GetTimestamp();
         var delay = FirstDelayMilliseconds;
@@ -59,7 +66,7 @@ internal static class ProjectFileIo
             }
             catch (Exception ex) when (IsTransient(ex, writeTarget) && waited < BudgetMilliseconds && Stopwatch.GetElapsedTime(start) < RealCeiling)
             {
-                Thread.Sleep(delay);
+                wait(delay);
                 waited += delay;
                 delay = Math.Min(delay * 2, MaxDelayMilliseconds);
             }

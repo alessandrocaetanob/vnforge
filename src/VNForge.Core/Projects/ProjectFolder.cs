@@ -367,13 +367,16 @@ public sealed class ProjectFolder
     /// </summary>
     /// <exception cref="ArgumentException">Chave inválida (ver <see cref="TextPath"/>).</exception>
     /// <exception cref="TextFileException">Id que não começa com <c>chave:</c> ou repetido; nada é gravado.</exception>
-    public void SaveText(string key, IReadOnlyList<TextUnit> units)
+    public void SaveText(string key, IReadOnlyList<TextUnit> units) => SaveText(key, units, Thread.Sleep);
+
+    /// <summary>Como <see cref="SaveText(string, IReadOnlyList{TextUnit})"/>, com a espera entre as novas tentativas da troca do arquivo na mão de quem chama (os testes).</summary>
+    internal void SaveText(string key, IReadOnlyList<TextUnit> units, Action<int> wait)
     {
         var path = TextPath(key);
         TextFileSerializer.ValidateIds(units, key, path);
         var json = TextFileSerializer.Serialize(units, path);
         Directory.CreateDirectory(TextDirectory);
-        WriteAtomically(path, json, overwrite: true);
+        WriteAtomically(path, json, overwrite: true, wait);
     }
 
     /// <summary>Lê as unidades do script de chave <paramref name="key"/>.</summary>
@@ -462,13 +465,13 @@ public sealed class ProjectFolder
     private void WriteConfig(string json, bool overwrite) =>
         WriteAtomically(ConfigPath, json, overwrite);
 
-    private static void WriteAtomically(string path, string content, bool overwrite)
+    private static void WriteAtomically(string path, string content, bool overwrite, Action<int>? wait = null)
     {
         var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
             File.WriteAllText(temporary, content, Utf8SemBom);
-            ProjectFileIo.Move(temporary, path, overwrite);
+            ProjectFileIo.Move(temporary, path, overwrite, wait ?? Thread.Sleep);
         }
         finally
         {
