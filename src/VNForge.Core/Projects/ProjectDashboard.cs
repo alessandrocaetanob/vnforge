@@ -32,7 +32,7 @@ public sealed record QaTotals(int Errors, int Warnings)
 {
     public int Total => Errors + Warnings;
 
-    /// <summary>Avisos de estilo (honoríficos e gênero): aparecem na Conferência, mas não entram em <see cref="Warnings"/> nem em <see cref="Total"/>, porque não pedem revisão antes do build.</summary>
+    /// <summary>Sugestões (honoríficos, gênero e ortografia): aparecem na Conferência, mas não entram em <see cref="Warnings"/> nem em <see cref="Total"/>, porque não pedem revisão antes do build.</summary>
     public int StyleAdvice { get; init; }
 }
 
