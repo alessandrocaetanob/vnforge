@@ -288,7 +288,9 @@ public sealed partial class AddressTermsViewModel : ObservableObject
         var added = 0;
         foreach (var s in suggestions)
         {
-            if (Rows.Any(r => SamePair(r, s.From, s.To)))
+            // Um personagem removido durante o pedido não volta como par.
+            if (!CharacterNames.Contains(s.From, CharacterBook.NameComparer) || !CharacterNames.Contains(s.To, CharacterBook.NameComparer)
+                || Rows.Any(r => SamePair(r, s.From, s.To)))
             {
                 continue;
             }

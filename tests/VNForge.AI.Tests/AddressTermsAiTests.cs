@@ -223,6 +223,16 @@ public class AddressTermsAiTests
     }
 
     [Fact]
+    public void O_falante_escolhido_na_linha_vale_no_lugar_do_extraido()
+    {
+        var unit = Unit("a", "x", "凛") with { ChosenSpeaker = "健太" };
+
+        var batch = new TranslationBatchBuilder([], Cast, addressTerms: Terms).Build([unit]);
+
+        Assert.Contains(batch.Addressing, a => a.From == "Kenta");
+    }
+
+    [Fact]
     public void ForLines_mantem_o_tratamento()
     {
         var batch = new TranslationBatchBuilder([], Cast, addressTerms: Terms).Build([Unit("a", "x", "健太"), Unit("b", "y", "健太")]);

@@ -52,7 +52,11 @@ public sealed class TranslationBatchBuilder(
             .ToList();
 
         // Os pares incompletos (a pessoa ainda preenche a tabela) não dizem nada à IA.
-        var addressing = matchedCharacters
+        var addressing = lines
+            .Where(l => !SpeakerNames.IsSignsOnly(l.EffectiveSpeaker))
+            .Select(l => _characters.Find(l.EffectiveSpeaker))
+            .OfType<CharacterEntry>()
+            .DistinctBy(c => c.Source, StringComparer.Ordinal)
             .SelectMany(c => _addressing.From(c.Source))
             .Where(t => !string.IsNullOrWhiteSpace(t.Source) && !string.IsNullOrWhiteSpace(t.Target))
             .Select(t => new AddressInfo(NameInTranslation(t.From), NameInTranslation(t.To), t.Source.Trim(), t.Target.Trim()))
