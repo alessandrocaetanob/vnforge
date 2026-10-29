@@ -27,11 +27,18 @@ internal sealed record ProjectScan(
     /// <summary>Todas as unidades na ordem do jogo, de onde a tabela de tratamentos tira as falas que a IA lê.</summary>
     public IReadOnlyList<TextUnit> Units { get; init; } = [];
 
+    /// <summary>Os pares trecho e troca concentrados nas falas corrigidas, ainda sem escolher o trecho de cada troca: isso só se faz depois de tirar o que o glossário e os personagens já cobrem.</summary>
+    public IReadOnlyList<TermPair> Corrected { get; init; } = [];
+
     public static ProjectScan From(IEnumerable<TextUnit> units)
     {
         var all = units.ToList();
         var sources = all.Select(u => u.Source).ToList();
-        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all)) { Units = all };
+        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all))
+        {
+            Units = all,
+            Corrected = RepeatedTerms.Concentrated(all),
+        };
     }
 
     public static ProjectScan From(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> scripts) =>
@@ -160,6 +167,20 @@ public sealed partial class GlossaryViewModel
 
     public bool CanSuggestVoices => CanEdit && usageLoaded && !IsSuggesting && Suggester is not null && voiceRequests.Count > 0;
 
+    /// <summary>Os pares do painel "Termos que você corrigiu": trechos com a mesma tradução da pessoa em várias falas, que ainda não estão no glossário.</summary>
+    public ObservableCollection<CorrectedTermRow> CorrectedTermRows { get; } = [];
+
+    public bool HasCorrectedTerms => CorrectedTermRows.Count > 0;
+
+    public string CorrectedSummary
+    {
+        get
+        {
+            var count = CorrectedTermRows.Count;
+            return $"{ProjectLabels.Number(count)} {Plural(count, "trecho ganhou", "trechos ganharam")} a mesma tradução em várias falas que você corrigiu.";
+        }
+    }
+
     public bool HasRepeatedTerms => RepeatedTermRows.Count > 0;
 
     public bool NoRepeatedTerms => RepeatedTermRows.Count == 0;
@@ -228,6 +249,7 @@ public sealed partial class GlossaryViewModel
         translated.Clear();
         voiceRequests = [];
         RepeatedTermRows.Clear();
+        CorrectedTermRows.Clear();
         IsSuggesting = false;
         SuggestionError = null;
         SuggestionNotice = null;
@@ -302,6 +324,19 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(TermsPriceText));
         OnPropertyChanged(nameof(TermsHint));
         NotifySuggestionState();
+        RefreshCorrectedTerms(known);
+    }
+
+    private void RefreshCorrectedTerms(IEnumerable<string> known)
+    {
+        var offered = RepeatedTerms.Offer(scan.Corrected, known).Take(RepeatedShown).ToList();
+        if (!CorrectedTermRows.Select(r => (r.Source, r.Target)).SequenceEqual(offered.Select(p => (p.Source, p.Target))))
+        {
+            Replace(CorrectedTermRows, offered.Select(p => new CorrectedTermRow(p)));
+        }
+
+        OnPropertyChanged(nameof(HasCorrectedTerms));
+        OnPropertyChanged(nameof(CorrectedSummary));
     }
 
     private RepeatedTermRow ToRow(TermCandidate candidate)
@@ -482,6 +517,19 @@ public sealed partial class GlossaryViewModel
 
         ClearSearch();
         Terms.Add(Watch(new GlossaryTermRow(row.Source, row.Target ?? string.Empty), MarkTermsDirty));
+    }
+
+    /// <summary>Põe o par do painel na tabela de termos, com a tradução que a pessoa já usou nas falas; ela revisa na própria linha.</summary>
+    [RelayCommand]
+    private void AddCorrectedTerm(CorrectedTermRow? row)
+    {
+        if (row is null || !CanEdit)
+        {
+            return;
+        }
+
+        ClearSearch();
+        Terms.Add(Watch(new GlossaryTermRow(row.Source, row.Target), MarkTermsDirty));
     }
 
     private CancellationToken BeginSuggesting()

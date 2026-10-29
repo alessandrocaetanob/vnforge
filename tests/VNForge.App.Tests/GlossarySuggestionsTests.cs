@@ -855,4 +855,81 @@ public class GlossarySuggestionsTests
 
         Assert.Equal("{ isto não é json", File.ReadAllText(folder.CharactersPath));
     }
+
+    // Três falas com 新入生 em que a IA escreveu "novato" e a pessoa gravou "calouro".
+    private static IEnumerable<TextUnit> CorrectedLines() =>
+        Enumerable.Range(60, 3).Select(n => new TextUnit($"yst00001:{n:D6}", TextUnitKind.Dialogue, null, $"新入生その{n}", $"O calouro número {n}.", TranslationStatus.Translated)
+        {
+            AiTranslation = $"O novato número {n}.",
+        });
+
+    [Fact]
+    public async Task Oferece_o_par_do_trecho_que_a_pessoa_traduziu_do_mesmo_jeito_em_varias_falas()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, extraUnits: CorrectedLines());
+
+        var row = Assert.Single(vm.CorrectedTermRows);
+
+        Assert.Equal(("新入生", "calouro", "novato", "3 falas"), (row.Source, row.Target, row.From, row.LinesLabel));
+        Assert.True(vm.HasCorrectedTerms);
+        Assert.Equal("1 trecho ganhou a mesma tradução em várias falas que você corrigiu.", vm.CorrectedSummary);
+    }
+
+    [Fact]
+    public async Task Sem_falas_corrigidas_nao_ha_par_para_oferecer()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp);
+
+        Assert.Empty(vm.CorrectedTermRows);
+        Assert.False(vm.HasCorrectedTerms);
+    }
+
+    [Fact]
+    public async Task Adicionar_o_par_poe_o_termo_na_tabela_e_tira_do_painel()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, extraUnits: CorrectedLines());
+
+        vm.AddCorrectedTermCommand.Execute(vm.CorrectedTermRows[0]);
+
+        Assert.Empty(vm.CorrectedTermRows);
+        Assert.Equal(("新入生", "calouro"), (vm.Terms[^1].Source, vm.Terms[^1].Target));
+        Assert.True(vm.IsDirty);
+        vm.Flush();
+        Assert.Contains(folder.LoadGlossary(), t => t.Source == "新入生" && t.Target == "calouro");
+    }
+
+    [Fact]
+    public async Task Personagem_com_o_mesmo_trecho_nao_esconde_o_par_que_sobra()
+    {
+        // 健太 é personagem e está em 4 falas com a troca, contra 3 de 新入生: o par é do trecho que sobra.
+        TextUnit Corrected(int n, string source, string ai, string edited) =>
+            new($"yst00001:{n:D6}", TextUnitKind.Dialogue, null, source, edited, TranslationStatus.Translated) { AiTranslation = ai };
+        List<TextUnit> extra =
+        [
+            Corrected(60, "健太と新入生", "O novato chegou.", "O calouro chegou."),
+            Corrected(61, "健太は新入生だ", "O novato é bom.", "O calouro é bom."),
+            Corrected(62, "新入生と健太", "Um novato aqui.", "Um calouro aqui."),
+            Corrected(63, "健太が来た", "O novato veio.", "O calouro veio."),
+        ];
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, extraUnits: extra);
+
+        var row = Assert.Single(vm.CorrectedTermRows);
+
+        Assert.Equal(("新入生", "calouro", "3 falas"), (row.Source, row.Target, row.LinesLabel));
+    }
+
+    [Fact]
+    public async Task Termo_que_ja_esta_no_glossario_nao_volta_como_par()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, extraUnits: CorrectedLines());
+
+        vm.Terms.Add(new GlossaryTermRow("新入生", "calouro"));
+
+        Assert.Empty(vm.CorrectedTermRows);
+    }
 }

@@ -193,3 +193,22 @@ public sealed partial class RepeatedTermRow : ObservableObject
 
     public bool HasSuggestion => !string.IsNullOrWhiteSpace(Target);
 }
+
+/// <summary>
+/// Uma linha do painel "Termos que você corrigiu": o trecho japonês, a tradução que a pessoa pôs nele em várias falas e o que a IA tinha escrito.
+/// Não vai para o arquivo: só vira termo do glossário quando a pessoa clica em Adicionar.
+/// </summary>
+public sealed class CorrectedTermRow(TermPair pair)
+{
+    public string Source { get; } = pair.Source;
+
+    public string Target { get; } = pair.Target;
+
+    public string From { get; } = pair.From;
+
+    public int Lines { get; } = pair.Lines;
+
+    public string LinesLabel => $"{ProjectLabels.Number(Lines)} {(Lines == 1 ? "fala" : "falas")}";
+
+    public string ChangeLabel => $"A IA escreveu \"{From}\"; você gravou \"{Target}\".";
+}
