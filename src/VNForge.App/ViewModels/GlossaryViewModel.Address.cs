@@ -13,9 +13,10 @@ public sealed partial class GlossaryViewModel
     /// Os tratamentos guardam o nome original do personagem: quem renomeou uma linha de Personagens leva os pares que a citam para o nome novo (#514).
     /// Roda ao salvar, não a cada tecla, e deixa de fora o nome que outra linha também usa: dois personagens com o mesmo nome fundiriam os pares sem a pessoa ter pedido.
     /// </summary>
-    private void FollowCharacterRenames()
+    private Dictionary<string, string> FollowCharacterRenames()
     {
-        var taken = Characters.Select(c => c.Source.Trim()).Where(n => n.Length > 0).GroupBy(n => n, CharacterBook.NameComparer).ToDictionary(g => g.Key, g => g.Count(), CharacterBook.NameComparer);
+        var names = Characters.Select(c => c.Source.Trim()).Where(n => n.Length > 0);
+        var taken = names.GroupBy(n => n, CharacterBook.NameComparer).ToDictionary(g => g.Key, g => g.Count(), CharacterBook.NameComparer);
         var renames = new Dictionary<string, string>(CharacterBook.NameComparer);
         foreach (var row in Characters)
         {
@@ -37,7 +38,25 @@ public sealed partial class GlossaryViewModel
         {
             addressDirty = true;
         }
+
+        return renames;
     }
+
+    // Os personagens já estão no disco com o nome novo e os tratamentos, se a gravação deles falhar, ainda citam o antigo.
+    private void RememberStaleAddressNames(Dictionary<string, string> renames)
+    {
+        foreach (var (oldName, newName) in renames)
+        {
+            staleAddressNames[oldName] = newName;
+        }
+    }
+
+    private string StaleAddressWarning(string advice) =>
+        staleAddressNames.Count == 0
+            ? string.Empty
+            : $" Os personagens já foram salvos com o nome novo, mas os tratamentos ainda citam o nome antigo ({DescribeStale()}). {advice}";
+
+    private string DescribeStale() => string.Join(", ", staleAddressNames.Select(r => $"{r.Key} agora é {r.Value}"));
 
     private void SaveAddressTerms(ProjectFolder folder, List<AddressTerm> addressTerms)
     {

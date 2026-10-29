@@ -78,7 +78,7 @@ public sealed partial class CharacterRow : UsageRow
         CommittedSource = source.Trim();
     }
 
-    /// <summary>O nome original que o resto do projeto conhece (o lido do arquivo ou o último salvo); os tratamentos que citam o personagem seguem dele para o nome atual ao salvar (#514).</summary>
+    /// <summary>O nome com que a linha nasceu: o lido do arquivo ou, depois de cada salvamento, o salvo. Os tratamentos que citam o personagem seguem dele para o nome atual ao salvar (#514).</summary>
     public string CommittedSource { get; set; }
 
     [ObservableProperty]

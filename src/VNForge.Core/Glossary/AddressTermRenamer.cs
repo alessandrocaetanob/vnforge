@@ -10,8 +10,15 @@ public static class AddressTermRenamer
     public static string NameAfter(string name, IReadOnlyDictionary<string, string> renames)
     {
         ArgumentNullException.ThrowIfNull(name);
+        return Renamer(renames)(name);
+    }
+
+    /// <summary>Como <see cref="NameAfter"/>, para quem troca muitos nomes: monta o índice dos renomes uma vez só.</summary>
+    public static Func<string, string> Renamer(IReadOnlyDictionary<string, string> renames)
+    {
         ArgumentNullException.ThrowIfNull(renames);
-        return Index(renames).GetValueOrDefault(name, name);
+        var index = Index(renames);
+        return name => index.GetValueOrDefault(name, name);
     }
 
     /// <summary>
@@ -23,32 +30,31 @@ public static class AddressTermRenamer
     {
         ArgumentNullException.ThrowIfNull(terms);
         ArgumentNullException.ThrowIfNull(renames);
-        if (renames.Count == 0)
-        {
-            return terms;
-        }
+        return renames.Count == 0 ? terms : [.. ApplyEach(terms, renames).OfType<AddressTerm>()];
+    }
 
+    /// <summary>
+    /// As mesmas regras de <see cref="Apply"/>, mas devolve uma posição para cada par recebido: o par renomeado, o mesmo objeto quando nenhum renome o citou,
+    /// ou nulo quando o par some. Serve a quem guarda o par em outra estrutura (as linhas da tabela do app) e precisa saber qual linha ficou.
+    /// </summary>
+    public static IReadOnlyList<AddressTerm?> ApplyEach(IReadOnlyList<AddressTerm> terms, IReadOnlyDictionary<string, string> renames)
+    {
+        ArgumentNullException.ThrowIfNull(terms);
+        ArgumentNullException.ThrowIfNull(renames);
         var index = Index(renames);
         var moved = terms.Select(t => (Term: t, Renamed: Rename(t, index))).ToList();
         var taken = moved.Where(m => !m.Renamed.Changed).Select(m => AddressBook.PairKey(m.Term.From, m.Term.To)).ToHashSet();
-        var result = new List<AddressTerm>(terms.Count);
+        var result = new List<AddressTerm?>(terms.Count);
         foreach (var (term, renamed) in moved)
         {
-            if (!renamed.Changed)
-            {
-                result.Add(term);
-            }
-            else if (Survives(renamed.Term, taken))
-            {
-                result.Add(renamed.Term);
-            }
+            result.Add(renamed.Changed ? Kept(renamed.Term, taken) : term);
         }
 
         return result;
     }
 
-    private static bool Survives(AddressTerm renamed, HashSet<(string, string)> taken) =>
-        !CharacterBook.NameComparer.Equals(renamed.From, renamed.To) && taken.Add(AddressBook.PairKey(renamed.From, renamed.To));
+    private static AddressTerm? Kept(AddressTerm renamed, HashSet<(string, string)> taken) =>
+        !CharacterBook.NameComparer.Equals(renamed.From, renamed.To) && taken.Add(AddressBook.PairKey(renamed.From, renamed.To)) ? renamed : null;
 
     private static (AddressTerm Term, bool Changed) Rename(AddressTerm term, Dictionary<string, string> index)
     {

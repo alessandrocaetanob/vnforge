@@ -145,6 +145,30 @@ public sealed class AddressTermRenamerTests : IDisposable
     }
 
     [Fact]
+    public void ApplyEach_devolve_uma_posicao_por_par_com_nulo_onde_o_par_some()
+    {
+        var existente = new AddressTerm("健太", "みさき", "みさきさん", "Misaki-san");
+        var outro = new AddressTerm("凛", "健太", "先輩", "senpai");
+        var antes = new[] { KentaChamaMisaki, existente, outro };
+
+        var depois = AddressTermRenamer.ApplyEach(antes, Renomear("美咲", "みさき"));
+
+        Assert.Equal(3, depois.Count);
+        Assert.Null(depois[0]);
+        Assert.Same(existente, depois[1]);
+        Assert.Same(outro, depois[2]);
+    }
+
+    [Fact]
+    public void Renamer_monta_o_indice_uma_vez_e_troca_so_os_nomes_citados()
+    {
+        var troca = AddressTermRenamer.Renamer(Renomear("美咲", "みさき"));
+
+        Assert.Equal("みさき", troca("美咲"));
+        Assert.Equal("凛", troca("凛"));
+    }
+
+    [Fact]
     public void Projeto_sintetico_a_ficha_acha_o_par_pelo_novo_nome_e_nao_pelo_antigo()
     {
         var folder = NovoProjeto();
