@@ -109,7 +109,7 @@ public static class RepeatedTerms
             }
         }
 
-        return tally.Concentrated(threshold);
+        return tally.PairsAbove(threshold);
     }
 
     /// <summary>
@@ -182,7 +182,7 @@ public static class RepeatedTerms
             }
         }
 
-        public IReadOnlyList<TermPair> Concentrated(int threshold) =>
+        public IReadOnlyList<TermPair> PairsAbove(int threshold) =>
         [
             .. pairs
                 .Where(p => IsConcentrated(p.Key, p.Value, threshold))
