@@ -186,6 +186,20 @@ public sealed class KeepStatusTests
     }
 
     [Fact]
+    public void SetKeepMany_encerra_a_duvida_das_linhas_que_ficam_como_no_original()
+    {
+        using var pasta = new TempFolder();
+        var duvida = new TranslationDoubt(DoubtKind.Pun, "Trocadilho.");
+        var projeto = NovoProjeto(pasta.Path, Linha(1, TranslationStatus.Machine, "x") with { Doubt = duvida }, Linha(2, TranslationStatus.Machine, "y") with { Doubt = duvida });
+
+        EditorDe(projeto).SetKeepMany("yst00001", ["yst00001:000001"], keep: true);
+
+        var linhas = projeto.LoadText("yst00001");
+        Assert.Null(linhas[0].Doubt);
+        Assert.Equal(duvida, linhas[1].Doubt);
+    }
+
+    [Fact]
     public void SetKeep_com_id_inexistente_falha_em_portugues()
     {
         using var pasta = new TempFolder();

@@ -211,6 +211,18 @@ public class ProjectLinesTests
     }
 
     [Fact]
+    public void Filtro_de_duvida_aceita_so_as_linhas_com_duvida()
+    {
+        var comDuvida = Entrada(Linha("s", 1, null, TranslationStatus.Machine) with { Doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?") });
+        var semDuvida = Entrada(Linha("s", 2, null, TranslationStatus.Machine));
+        var filtro = new LineFilter(LineStatusFilter.Doubt);
+
+        Assert.True(filtro.Matches(comDuvida));
+        Assert.False(filtro.Matches(semDuvida));
+        Assert.Equal(1, filtro.Count([comDuvida, semDuvida]));
+    }
+
+    [Fact]
     public void Filtro_de_personagem_compara_em_ordem_ordinal_e_narracao_aceita_so_sem_falante()
     {
         var misaki = Entrada(Linha("s", 1, "美咲", TranslationStatus.Approved));

@@ -180,7 +180,7 @@ public sealed class ReadSceneTests : IDisposable
         var vm = await Abrir();
         var chip = vm.Filters.Single(f => f.Filter == LineStatusFilter.Odd);
         Assert.False(chip.IsShown);
-        Assert.All(vm.Filters.Where(f => f != chip), f => Assert.True(f.IsShown));
+        Assert.All(vm.Filters.Where(f => f != chip && f.Filter != LineStatusFilter.Doubt), f => Assert.True(f.IsShown));
 
         vm.StartReading();
         vm.Reading!.ToggleOddCommand.Execute(null);

@@ -118,6 +118,52 @@ public class ReviewRoundTripTests
         Assert.True(segundo.AsSpan().SequenceEqual(File.ReadAllBytes(projeto.TextPath("yst00002"))));
     }
 
+    [Theory]
+    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,machine,so uma nota", true)]
+    [InlineData("Bom dia\\p,machine,", "Bom dia!\\p,machine,", false)]
+    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,reviewed,", false)]
+    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,approved,", false)]
+    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,keep,", false)]
+    public void Importacao_so_mantem_a_duvida_quando_o_status_e_a_traducao_nao_mudam(string de, string para, bool mantem)
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        Semear(projeto);
+        var unidades = projeto.LoadText("yst00001").ToList();
+        unidades[0] = unidades[0] with { Doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?") };
+        projeto.SaveText("yst00001", unidades);
+        var csv = Path.Combine(temp.Path, "revisao.csv");
+        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
+        File.WriteAllText(csv, File.ReadAllText(csv).Replace(de, para), new UTF8Encoding(true));
+
+        ReviewImporter.Import(projeto, csv);
+
+        Assert.Equal(mantem, projeto.LoadText("yst00001")[0].Doubt is not null);
+    }
+
+    [Fact]
+    public void Importacao_sem_mudanca_mantem_a_duvida_de_linha_com_traducao_nula_ou_vazia()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        Semear(projeto);
+        var duvida = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
+        var unidades = projeto.LoadText("yst00001").ToList();
+        unidades[1] = unidades[1] with { Doubt = duvida };
+        unidades[2] = unidades[2] with { Doubt = duvida };
+        projeto.SaveText("yst00001", unidades);
+        Assert.Null(unidades[1].Translation);
+        Assert.Equal(string.Empty, unidades[2].Translation);
+        var csv = Path.Combine(temp.Path, "revisao.csv");
+        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
+
+        ReviewImporter.Import(projeto, csv);
+
+        var depois = projeto.LoadText("yst00001");
+        Assert.Equal(duvida, depois[1].Doubt);
+        Assert.Equal(duvida, depois[2].Doubt);
+    }
+
     [Fact]
     public void Traducao_apagada_na_planilha_vira_nula()
     {

@@ -49,6 +49,13 @@ public sealed partial class EditorViewModel
             return;
         }
 
+        // Gravar a edição pendente pode ter encerrado a última dúvida: a fila se monta depois, e a das dúvidas vazia não abre.
+        var queue = ReviewQueueOf(source);
+        if (source.Kind == ReviewSourceKind.Doubts && queue.Count == 0)
+        {
+            return;
+        }
+
         EndReading();
 
         // A grade tem de conter todas as linhas da fila: o modo revisão seleciona uma a uma e o ListBox escondido não pode desfazer a seleção.
@@ -56,7 +63,6 @@ public sealed partial class EditorViewModel
         SelectedSpeaker = Speakers[0];
 
         Review?.Dispose();
-        var queue = ReviewQueueOf(source);
         RefreshReviewedToday();
         Review = new ReviewModeViewModel(this, queue, source);
     }
@@ -113,10 +119,21 @@ public sealed partial class EditorViewModel
             ReviewSourceKind.OpenScene => entries.Where(IsAwaitingReview),
             ReviewSourceKind.Speaker => Scripts.SelectMany(s => data!.LinesOf(s.Key))
                 .Where(l => IsAwaitingReview(l) && CharacterBook.NameComparer.Equals(l.Unit.EffectiveSpeaker ?? string.Empty, source.Speaker!)),
+            ReviewSourceKind.Doubts => entries.Where(l => l.Unit.Doubt is not null),
             _ => throw new ArgumentOutOfRangeException(nameof(source), source.Kind, "Fonte de revisão desconhecida."),
         };
 
         return [.. lines.Select(l => new ReviewItem(l.ScriptKey, l.Number, l.Unit.Id))];
+    }
+
+    /// <summary>Abre o modo revisão só nas linhas com dúvida da IA do script aberto, na ordem do script. Sem dúvida no script, não faz nada.</summary>
+    [RelayCommand]
+    public void StartDoubtReview()
+    {
+        if (DoubtLines > 0)
+        {
+            StartReviewOf(ReviewSource.Doubts);
+        }
     }
 
     /// <summary>Fecha o modo revisão e volta à grade com a linha de agora selecionada.</summary>

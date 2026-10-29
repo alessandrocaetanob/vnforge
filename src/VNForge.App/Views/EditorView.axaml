@@ -100,12 +100,12 @@
           <ItemsControl ItemsSource="{Binding Filters}" AutomationProperties.Name="Filtro de linhas" VerticalAlignment="Center">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,-6,0"/>
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:FilterChipViewModel">
-                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}" IsVisible="{Binding IsShown}"
+                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}" IsVisible="{Binding IsShown}" Margin="0,0,6,0"
                               Command="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).SelectFilterCommand}"
                               CommandParameter="{Binding}"/>
               </DataTemplate>
@@ -139,6 +139,13 @@
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
             <TextBlock Classes="btn-label" Text="Modo revisão" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" Command="{Binding StartDoubtReviewCommand}" IsVisible="{Binding HasDoubts}" AutomationProperties.Name="{Binding DoubtLines, StringFormat='Dúvidas ({0}), revisar as linhas com dúvida da IA'}"
+                ToolTip.Tip="Modo revisão só nas linhas em que a IA ficou em dúvida">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Info}"/>
+            <TextBlock Classes="btn-label" Text="{Binding DoubtLines, StringFormat='Dúvidas ({0})'}" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
         <Button Classes="accent sm" Margin="6,0,0,0" Command="{Binding TranslatePendingCommand}" AutomationProperties.Name="Traduzir com IA"
@@ -234,7 +241,7 @@
               <DataTemplate x:DataType="vm:LineViewModel">
                 <c:LineRow IsScript="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsScriptDensity}" Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerColor="{Binding SpeakerColor}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
                            Translation="{Binding TranslationPlain}" Issue="{Binding Issue}" IssueLabel="{Binding IssueLabel}" IssueTip="{Binding IssueTip}"
-                           SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}"
+                           SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}" HasDoubt="{Binding HasDoubt}" DoubtTip="{Binding DoubtTip}"
                            ToolTip.Tip="{Binding Id}" c:Motion.PulseOnApproval="{Binding Status}"/>
               </DataTemplate>
             </ListBox.ItemTemplate>

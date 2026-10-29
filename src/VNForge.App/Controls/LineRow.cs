@@ -43,6 +43,8 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<LineIssue> IssueProperty = AvaloniaProperty.Register<LineRow, LineIssue>(nameof(Issue));
     public static readonly StyledProperty<string?> IssueLabelProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueLabel));
     public static readonly StyledProperty<string?> IssueTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueTip));
+    public static readonly StyledProperty<bool> HasDoubtProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(HasDoubt));
+    public static readonly StyledProperty<string?> DoubtTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(DoubtTip));
 
     public static readonly DirectProperty<LineRow, string> NumberTextProperty =
         AvaloniaProperty.RegisterDirect<LineRow, string>(nameof(NumberText), o => o.NumberText);
@@ -147,6 +149,20 @@ public sealed class LineRow : TemplatedControl
         set => SetValue(IssueTipProperty, value);
     }
 
+    /// <summary>A IA registrou uma dúvida sobre a tradução: o selo "Dúvida" aparece ao lado do texto.</summary>
+    public bool HasDoubt
+    {
+        get => GetValue(HasDoubtProperty);
+        set => SetValue(HasDoubtProperty, value);
+    }
+
+    /// <summary>Dica do selo "Dúvida": o tipo e a frase da IA.</summary>
+    public string? DoubtTip
+    {
+        get => GetValue(DoubtTipProperty);
+        set => SetValue(DoubtTipProperty, value);
+    }
+
     /// <summary>O número da linha em mono, com zeros à esquerda (<c>0038</c>).</summary>
     public string NumberText
     {
@@ -199,7 +215,7 @@ public sealed class LineRow : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == SpeakerColorProperty || change.Property == TranslationProperty
-            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty)
+            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty || change.Property == HasDoubtProperty || change.Property == DoubtTipProperty)
         {
             Apply();
         }
@@ -218,15 +234,7 @@ public sealed class LineRow : TemplatedControl
         }
 
         SpeakerText = speaker;
-        if (speakerBlock is not null)
-        {
-            // A narração não tem menu; com personagem cadastrado a grade mostra a tradução e o menu copia o original (ou a tradução, à escolha).
-            var original = narration ? null : SpeakerOriginal ?? Speaker;
-            SpeakerMenu.SetOriginal(speakerBlock, original);
-            SpeakerMenu.SetTranslation(speakerBlock, original is not null && original != Speaker ? Speaker : null);
-            // O falante trocado fica sem a cor do personagem: o destaque accent da troca prevalece na grade (a placa e o Modo revisão seguem pintados).
-            SpeakerColorTint.SetColor(speakerBlock, narration || SpeakerChanged ? null : SpeakerColor);
-        }
+        ApplySpeakerMenu(narration);
 
         TranslationText = !untranslated ? Translation! : Status == TranslationStatus.Keep ? KeepLabel : NoTranslationLabel;
         PseudoClasses.Set(":narration", narration);
@@ -235,6 +243,29 @@ public sealed class LineRow : TemplatedControl
         PseudoClasses.Set(":script", IsScript);
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);
         PseudoClasses.Set(":error", Issue == LineIssue.Error);
-        AutomationProperties.SetName(this, SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}");
+        PseudoClasses.Set(":doubt", HasDoubt);
+        ApplyAutomation();
+    }
+
+    private void ApplySpeakerMenu(bool narration)
+    {
+        if (speakerBlock is null)
+        {
+            return;
+        }
+
+        // A narração não tem menu; com personagem cadastrado a grade mostra a tradução e o menu copia o original (ou a tradução, à escolha).
+        var original = narration ? null : SpeakerOriginal ?? Speaker;
+        SpeakerMenu.SetOriginal(speakerBlock, original);
+        SpeakerMenu.SetTranslation(speakerBlock, original is not null && original != Speaker ? Speaker : null);
+        // O falante trocado fica sem a cor do personagem: o destaque accent da troca prevalece na grade (a placa e o Modo revisão seguem pintados).
+        SpeakerColorTint.SetColor(speakerBlock, narration || SpeakerChanged ? null : SpeakerColor);
+    }
+
+    private void ApplyAutomation()
+    {
+        var name = SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}";
+        AutomationProperties.SetName(this, HasDoubt ? $"{name}, dúvida da IA" : name);
+        AutomationProperties.SetHelpText(this, HasDoubt ? DoubtTip : null);
     }
 }

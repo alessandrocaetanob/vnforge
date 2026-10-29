@@ -16,9 +16,13 @@ public sealed partial class ClaudeTranslationProvider(IClaudeMessageClient clien
     // Sem escape de não-ASCII: o japonês chega legível ao modelo e gasta menos tokens.
     private static readonly JsonSerializerOptions PromptJson = new(JsonSerializerDefaults.Web) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
+    // "doubt" fica fora de "required": o modelo só o devolve nas linhas em que ficou em dúvida. Os tipos são os nomes de DoubtKind no JSON.
     internal const string Schema = """
-        {"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"translation":{"type":"string"}},"required":["id","translation"],"additionalProperties":false}}},"required":["translations"],"additionalProperties":false}
+        {"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"translation":{"type":"string"},"doubt":{"type":"object","properties":{"kind":{"type":"string","enum":["pun","hidden-subject","uncertain-gender","cultural-reference","tone"]},"note":{"type":"string"}},"required":["kind","note"],"additionalProperties":false}},"required":["id","translation"],"additionalProperties":false}}},"required":["translations"],"additionalProperties":false}
         """;
+
+    private const string DoubtInstruction =
+        "Quando ficar em dúvida real sobre uma linha, devolva também \"doubt\" com \"kind\" (pun: trocadilho que não passa para o português; hidden-subject: sujeito omitido no japonês; uncertain-gender: gênero de quem fala ou é citado incerto; cultural-reference: referência cultural japonesa; tone: tom ambíguo) e \"note\", uma frase curta em português que diz o que deixou você em dúvida. Sem dúvida, não inclua \"doubt\"; não marque dúvida por precaução.";
 
     /// <summary>Tokens acumulados de todas as chamadas deste provedor, recusas incluídas, com os lidos do cache.</summary>
     public ClaudeUsage Usage
@@ -44,6 +48,7 @@ public sealed partial class ClaudeTranslationProvider(IClaudeMessageClient clien
         var sb = new StringBuilder();
         sb.AppendLine("Você traduz linhas de visual novels do japonês para o português do Brasil.");
         sb.AppendLine("Mantenha exatamente os marcadores de controle do original e devolva uma tradução por linha, com o mesmo id.");
+        sb.AppendLine(DoubtInstruction);
         sb.AppendLine("Responda apenas com o JSON pedido.");
         ClaudePromptParts.AppendStableContext(sb, batch);
         return sb.ToString();
@@ -66,6 +71,7 @@ public sealed partial class ClaudeTranslationProvider(IClaudeMessageClient clien
     private static IReadOnlyList<TranslationResult> Parse(string text, TranslationBatch batch)
     {
         var translations = ClaudePromptParts.ParseValues(text, "translations", "translation", batch);
-        return [.. batch.Lines.Select((u, i) => new TranslationResult(u.Id, translations[i]))];
+        var doubts = ClaudePromptParts.ParseDoubts(text, "translations");
+        return [.. batch.Lines.Select((u, i) => new TranslationResult(u.Id, translations[i], Doubt: doubts.GetValueOrDefault(u.Id)))];
     }
 }

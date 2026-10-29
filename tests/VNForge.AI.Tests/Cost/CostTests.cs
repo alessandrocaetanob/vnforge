@@ -155,6 +155,56 @@ public class CostTests
         Assert.Equal(0, cache.Count);
     }
 
+    [Fact]
+    public async Task Duvida_do_provedor_chega_ao_resultado_da_linha_nova_e_a_do_cache_nao_tem_duvida()
+    {
+        var doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
+        var provider = new CachingTranslationProvider(new DoubtingProvider(doubt), new TranslationCache(), ClaudeModels.Opus);
+        var batch = new TranslationBatch([Unit("a", "はい")]);
+
+        var first = await provider.TranslateAsync(batch, CancellationToken.None);
+        var second = await provider.TranslateAsync(batch, CancellationToken.None);
+
+        Assert.Equal(doubt, Assert.Single(first).Doubt);
+        Assert.Null(Assert.Single(second).Doubt);
+        Assert.False(first[0].FromCache);
+        Assert.True(second[0].FromCache);
+    }
+
+    [Fact]
+    public async Task Linhas_repetidas_no_lote_dividem_a_resposta_nova_com_a_duvida_e_nao_contam_como_cache()
+    {
+        var doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
+        var inner = new DoubtingProvider(doubt);
+        var provider = new CachingTranslationProvider(inner, new TranslationCache(), ClaudeModels.Opus);
+        var batch = new TranslationBatch([Unit("a", "はい"), Unit("b", "はい")]);
+
+        var results = await provider.TranslateAsync(batch, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Equal(doubt, r.Doubt));
+        Assert.All(results, r => Assert.False(r.FromCache));
+    }
+
+    [Fact]
+    public void A_duvida_da_linha_so_fica_quando_a_traducao_veio_do_cache_com_o_mesmo_texto()
+    {
+        var antiga = new TranslationDoubt(DoubtKind.Pun, "Antiga.");
+        var nova = new TranslationDoubt(DoubtKind.Tone, "Nova.");
+        var unit = new TextUnit("a", TextUnitKind.Dialogue, null, "はい", "Sim", TranslationStatus.Untranslated) { Doubt = antiga };
+
+        Assert.Equal(nova, new TranslationResult("a", "Sim", Doubt: nova).DoubtFor(unit));
+        Assert.Equal(antiga, new TranslationResult("a", "Sim", FromCache: true).DoubtFor(unit));
+        Assert.Null(new TranslationResult("a", "Sim").DoubtFor(unit));
+        Assert.Null(new TranslationResult("a", "Outra", FromCache: true).DoubtFor(unit));
+    }
+
+    private sealed class DoubtingProvider(TranslationDoubt doubt) : ITranslationProvider
+    {
+        public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<TranslationResult>>([.. batch.Lines.Select(l => new TranslationResult(l.Id, "Sim", Doubt: doubt))]);
+    }
+
     private sealed class RefusingProvider : ITranslationProvider
     {
         public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct) =>

@@ -78,6 +78,9 @@ public enum LineStatusFilter
 
     /// <summary>Linhas cuja tradução mudou desde o último teste no jogo; vale junto com <see cref="LineFilter.ChangedLines"/>, que diz quais são.</summary>
     ChangedSinceTest,
+
+    /// <summary>Linhas em que a IA registrou uma dúvida (<see cref="TextUnit.Doubt"/>).</summary>
+    Doubt,
 }
 
 /// <summary>Filtro da grade: um status, opcionalmente um personagem e opcionalmente um texto de busca. Os três valem juntos.</summary>
@@ -156,6 +159,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
         LineStatusFilter.Machine => line.Unit.Status == TranslationStatus.Machine,
         LineStatusFilter.Warnings => line.HasIssues,
         LineStatusFilter.Keep => line.Unit.Status == TranslationStatus.Keep,
+        LineStatusFilter.Doubt => line.Unit.Doubt is not null,
         LineStatusFilter.Odd => line.Unit.IsOdd(),
         LineStatusFilter.ChangedSinceTest => ChangedLines?.Contains((line.ScriptKey, line.Unit.Id)) == true,
         _ => true,

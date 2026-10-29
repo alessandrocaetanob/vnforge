@@ -155,6 +155,33 @@ internal static class ClaudePromptParts
     }
 
     /// <summary>
+    /// As dúvidas que o modelo devolveu em <c>doubt</c>, pelo id da linha. A dúvida é um extra: a que vier com tipo desconhecido, sem frase ou fora do formato
+    /// é descartada sem derrubar o lote, porque a tradução da linha continua valendo. Chama-se depois de <see cref="ParseValues"/>, que já recusou o JSON inválido.
+    /// </summary>
+    public static IReadOnlyDictionary<string, TranslationDoubt> ParseDoubts(string text, string arrayName)
+    {
+        var doubts = new Dictionary<string, TranslationDoubt>(StringComparer.Ordinal);
+        using var doc = JsonDocument.Parse(text);
+        foreach (var item in doc.RootElement.GetProperty(arrayName).EnumerateArray())
+        {
+            if (!item.TryGetProperty("doubt", out var element) || item.GetProperty("id").GetString() is not { } id)
+                continue;
+
+            try
+            {
+                if (element.Deserialize<TranslationDoubt>(TextUnitJson.Options) is { } doubt && !string.IsNullOrWhiteSpace(doubt.Note))
+                    doubts[id] = doubt with { Note = doubt.Note.Trim() };
+            }
+            catch (JsonException)
+            {
+                // Dúvida fora do formato: fica sem dúvida, a tradução da linha não depende dela.
+            }
+        }
+
+        return doubts;
+    }
+
+    /// <summary>
     /// Roda <paramref name="once"/> no lote. Uma recusa não derruba o lote: ele é refeito linha a linha e só a linha recusada
     /// volta como <paramref name="refused"/>.
     /// </summary>

@@ -177,6 +177,7 @@ public static class ProjectSearch
                         Translation = item.After,
                         Status = TranslationStatus.Translated,
                         Origin = new TranslationOrigin(LineEditor.ManualProvider, null, now),
+                        Doubt = null,
                     };
                     applied++;
                     changed = true;

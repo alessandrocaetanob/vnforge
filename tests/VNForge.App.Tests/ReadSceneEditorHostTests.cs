@@ -139,7 +139,7 @@ public sealed class ReadSceneEditorHostTests(HeadlessFixture fixture) : IClassFi
                 window.Show();
                 Settle(window);
                 var chips = window.GetVisualDescendants().OfType<FilterChip>().Where(c => c.IsEffectivelyVisible).ToList();
-                var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger")).ToList();
+                var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger") && b.IsEffectivelyVisible).ToList();
                 var strip = chips[0].GetVisualAncestors().OfType<ScrollViewer>().First();
                 Rect Box(Control c) => new(c.TranslatePoint(default, window)!.Value, c.Bounds.Size);
 

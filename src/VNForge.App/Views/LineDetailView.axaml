@@ -234,6 +234,16 @@
 
           </StackPanel>
           <StackPanel x:Name="ProblemsFragment" Spacing="16">
+            <!-- A dúvida que a IA registrou ao traduzir (b2): o tipo e a frase dela. Aprovar a linha encerra a dúvida e o cartão some. -->
+            <Border x:Name="DoubtCard" Classes="infobar" IsVisible="{Binding HasDoubt}" AutomationProperties.Name="Dúvida da IA">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding DoubtTitle}"/>
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding DoubtNote}"/>
+                </StackPanel>
+              </Grid>
+            </Border>
             <!-- Os avisos e erros do QA desta linha: os mesmos que dão o ícone na grade, com o nome da regra e a mensagem. -->
             <ItemsControl x:Name="QaIssuesList" ItemsSource="{Binding QaIssues}" IsVisible="{Binding HasQaIssues}" AutomationProperties.Name="Avisos do QA desta linha">
               <ItemsControl.ItemsPanel>

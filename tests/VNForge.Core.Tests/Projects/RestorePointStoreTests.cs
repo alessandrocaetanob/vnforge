@@ -385,6 +385,76 @@ public sealed class RestorePointStoreTests : IDisposable
     }
 
     [Fact]
+    public void Traducao_da_IA_desfeita_devolve_a_duvida_de_antes_inclusive_nenhuma()
+    {
+        var antiga = new TranslationDoubt(DoubtKind.Tone, "Ironia ou carinho?");
+        var nova = new TranslationDoubt(DoubtKind.Pun, "Trocadilho no original.");
+        _project.SaveText("a", [Pendente("a", 1), Linha("a", 2, "Aham.") with { Doubt = antiga }, Linha("a", 3, "Certo.") with { Doubt = antiga }]);
+
+        var feito = _store.Record(
+            "Traduzindo o jogo",
+            () =>
+            {
+                var ia = new TranslationOrigin("anthropic", "claude-opus-5-5", Agora);
+                var unidades = _project.LoadText("a").ToList();
+                unidades[0] = unidades[0] with { Translation = "Um", Status = TranslationStatus.Machine, Origin = ia, Doubt = nova };
+                unidades[1] = unidades[1] with { Translation = "Dois", Status = TranslationStatus.Machine, Origin = ia, Doubt = nova };
+                unidades[2] = unidades[2] with { Translation = "Três", Status = TranslationStatus.Machine, Origin = ia, Doubt = null };
+                _project.SaveText("a", unidades);
+                return 0;
+            },
+            include: RestorePointStore.IsAiWrite);
+
+        Assert.Equal(nova, Gravada("a", 1).Doubt);
+
+        var desfeito = _store.Undo(feito.Point!.Id);
+
+        Assert.Equal(new RestoreUndoResult(3, 0, 0), desfeito);
+        Assert.Null(Gravada("a", 1).Doubt);
+        Assert.Equal(antiga, Gravada("a", 2).Doubt);
+        Assert.Equal(antiga, Gravada("a", 3).Doubt);
+    }
+
+    [Fact]
+    public void Ponto_gravado_antes_do_campo_doubt_existir_desfaz_sem_dar_duvida_a_linha()
+    {
+        var nova = new TranslationDoubt(DoubtKind.Pun, "Trocadilho no original.");
+        _project.SaveText("a", [Pendente("a", 1)]);
+        var feito = _store.Record(
+            "Traduzindo o jogo",
+            () =>
+            {
+                var ia = new TranslationOrigin("anthropic", "claude-opus-5-5", Agora);
+                _project.SaveText("a", [.. _project.LoadText("a").Select(u => u with { Translation = "Um", Status = TranslationStatus.Machine, Origin = ia, Doubt = nova })]);
+                return 0;
+            },
+            include: RestorePointStore.IsAiWrite);
+        var antes = Path.Combine(_store.StoreDirectory, feito.Point!.Id, "a.antes.json");
+        Assert.DoesNotContain("doubt", File.ReadAllText(antes), StringComparison.Ordinal);
+
+        var desfeito = _store.Undo(feito.Point.Id);
+
+        Assert.Equal(new RestoreUndoResult(1, 0, 0), desfeito);
+        Assert.Null(Gravada("a", 1).Doubt);
+        Assert.Equal(TranslationStatus.Untranslated, Gravada("a", 1).Status);
+    }
+
+    [Fact]
+    public void Lote_que_nao_grava_duvida_devolve_a_que_a_linha_tinha()
+    {
+        var antiga = new TranslationDoubt(DoubtKind.Tone, "Ironia ou carinho?");
+        _project.SaveText("a", [Linha("a", 1, "Oi") with { Doubt = antiga }]);
+
+        var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor([("a", "a:000001")], "Oi, tudo bem?"));
+
+        Assert.Null(Gravada("a", 1).Doubt);
+
+        _store.Undo(feito.Point!.Id);
+
+        Assert.Equal(antiga, Gravada("a", 1).Doubt);
+    }
+
+    [Fact]
     public void Ajuste_de_formatacao_mudado_depois_do_lote_fica_como_esta_e_o_ponto_continua()
     {
         _project.SaveText("a", [Linha("a", 1, "Oi")]);

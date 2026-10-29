@@ -69,11 +69,12 @@ public sealed class RestorePointStore
         && !string.Equals(origin.Provider, LineEditor.ManualProvider, StringComparison.Ordinal)
         && (!string.Equals(before.Translation, after.Translation, StringComparison.Ordinal) || before.Origin != after.Origin);
 
-    /// <summary>Os campos que um lote grava: tradução, status, origem e o original a revisar. Notas, avisos e falante escolhido não contam.</summary>
+    /// <summary>Os campos que um lote grava: tradução, status, origem, dúvida da IA e o original a revisar. Notas, avisos e falante escolhido não contam.</summary>
     internal static bool SameBatchFields(TextUnit a, TextUnit b) =>
         string.Equals(a.Translation, b.Translation, StringComparison.Ordinal)
         && a.Status == b.Status
         && a.Origin == b.Origin
+        && a.Doubt == b.Doubt
         && string.Equals(a.PreviousSource, b.PreviousSource, StringComparison.Ordinal);
 
     /// <summary>Guarda o estado dos scripts antes da operação. Chame <see cref="RestorePointRecorder.Complete"/> depois dela, mesmo que ela falhe no meio.</summary>
@@ -288,12 +289,12 @@ public sealed class RestorePointStore
     }
 
     /// <summary>
-    /// Devolve só o que um lote escreve (tradução, status, origem e o original a revisar) e deixa o resto como está: notas, avisos, falante escolhido e o que uma
+    /// Devolve só o que um lote escreve (tradução, status, origem, dúvida da IA e o original a revisar) e deixa o resto como está: notas, avisos, falante escolhido e o que uma
     /// nova extração atualizou (locator, original). Um campo novo que um lote passe a gravar entra aqui.
     /// </summary>
     private static TextUnit Revert(TextUnit before, TextUnit written, TextUnit current)
     {
-        var back = current with { Translation = before.Translation, Status = before.Status, Origin = before.Origin };
+        var back = current with { Translation = before.Translation, Status = before.Status, Origin = before.Origin, Doubt = before.Doubt };
         return string.Equals(before.PreviousSource, written.PreviousSource, StringComparison.Ordinal)
             ? back
             : back with { PreviousSource = before.PreviousSource };

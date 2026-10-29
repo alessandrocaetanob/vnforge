@@ -84,6 +84,57 @@ public class ClaudeTranslationProviderTests
     }
 
     [Fact]
+    public async Task Schema_pede_a_duvida_como_campo_opcional_com_os_cinco_tipos()
+    {
+        var client = new StubClient(_ => Ok("""{"translations":[{"id":"a","translation":"Oi"}]}"""));
+        var provider = new ClaudeTranslationProvider(client);
+
+        await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ")]), CancellationToken.None);
+
+        using var schema = System.Text.Json.JsonDocument.Parse(Assert.Single(client.Requests).JsonSchema);
+        var item = schema.RootElement.GetProperty("properties").GetProperty("translations").GetProperty("items");
+        var doubt = item.GetProperty("properties").GetProperty("doubt");
+        Assert.Equal(["id", "translation"], item.GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(
+            ["pun", "hidden-subject", "uncertain-gender", "cultural-reference", "tone"],
+            doubt.GetProperty("properties").GetProperty("kind").GetProperty("enum").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(["kind", "note"], doubt.GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+        Assert.Contains("dúvida", client.Requests[0].System);
+    }
+
+    [Fact]
+    public async Task Duvida_da_resposta_vai_para_o_resultado_da_linha()
+    {
+        var client = new StubClient(_ => Ok("""
+            {"translations":[
+              {"id":"a","translation":"Oi","doubt":{"kind":"hidden-subject","note":"Não dá para saber quem fala."}},
+              {"id":"b","translation":"Tchau"}]}
+            """));
+        var provider = new ClaudeTranslationProvider(client);
+
+        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ"), Unit("b", "さよなら")]), CancellationToken.None);
+
+        Assert.Equal(new TranslationDoubt(DoubtKind.HiddenSubject, "Não dá para saber quem fala."), results[0].Doubt);
+        Assert.Null(results[1].Doubt);
+    }
+
+    [Theory]
+    [InlineData("""{"kind":"vibe","note":"x"}""")]
+    [InlineData("""{"kind":"tone","note":"  "}""")]
+    [InlineData("""{"kind":"tone"}""")]
+    [InlineData("null")]
+    [InlineData("\"tom\"")]
+    public async Task Duvida_malformada_e_ignorada_e_a_traducao_continua(string doubt)
+    {
+        var client = new StubClient(_ => Ok($$"""{"translations":[{"id":"a","translation":"Oi","doubt":{{doubt}}}]}"""));
+        var provider = new ClaudeTranslationProvider(client);
+
+        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ")]), CancellationToken.None);
+
+        Assert.Equal(new TranslationResult("a", "Oi"), Assert.Single(results));
+    }
+
+    [Fact]
     public async Task Recusa_de_uma_linha_marca_a_linha_sem_derrubar_o_lote()
     {
         // O lote inteiro é recusado; a linha "b" continua recusada sozinha, as outras passam.

@@ -17,7 +17,13 @@
             <SelectableTextBlock Name="PART_Speaker" Classes="body-sm" FontFamily="{DynamicResource Vnf.FontJp}" Text="{TemplateBinding SpeakerText}"
                                  TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
             <TextBlock Name="PART_Original" Classes="jp-row" Text="{TemplateBinding Original}" TextTrimming="CharacterEllipsis"/>
-            <TextBlock Name="PART_Translation" Classes="body-sm" Text="{TemplateBinding TranslationText}" TextTrimming="CharacterEllipsis"/>
+            <Grid Name="PART_TranslationCell" ColumnDefinitions="*,Auto">
+              <TextBlock Name="PART_Translation" Classes="body-sm" Text="{TemplateBinding TranslationText}" TextTrimming="CharacterEllipsis"/>
+              <Border Name="PART_Doubt" Grid.Column="1" IsVisible="False" MinHeight="{DynamicResource Vnf.PillHeight}" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                      Background="{DynamicResource Vnf.SignalWarningBg}" ToolTip.Tip="{TemplateBinding DoubtTip}">
+                <TextBlock Text="Dúvida" FontSize="{DynamicResource Vnf.FontSize.Pill}" LineHeight="{DynamicResource Vnf.LineHeight.Pill}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.SignalWarningFg}"/>
+              </Border>
+            </Grid>
           </Grid>
           <Panel Name="PART_Issue" Grid.Column="3">
             <PathIcon Name="PART_Warning" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Warning}"
@@ -47,8 +53,11 @@
     <Setter Property="MaxLines" Value="1"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
-  <Style Selector="c|LineRow /template/ TextBlock#PART_Translation">
+  <Style Selector="c|LineRow /template/ Grid#PART_TranslationCell">
     <Setter Property="Grid.Column" Value="2"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="c|LineRow /template/ TextBlock#PART_Translation">
     <Setter Property="MaxLines" Value="1"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
@@ -83,12 +92,18 @@
     <Setter Property="TextWrapping" Value="Wrap"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
-  <Style Selector="c|LineRow:script /template/ TextBlock#PART_Translation">
+  <Style Selector="c|LineRow:script /template/ Grid#PART_TranslationCell">
     <Setter Property="Grid.Row" Value="2"/>
     <Setter Property="Grid.Column" Value="0"/>
     <Setter Property="Grid.ColumnSpan" Value="3"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ TextBlock#PART_Translation">
     <Setter Property="MaxLines" Value="2"/>
     <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ Border#PART_Doubt">
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
   <!-- Narração e "sem tradução" em text-secondary, sem itálico. -->
@@ -102,6 +117,9 @@
   </Style>
   <Style Selector="c|LineRow:untranslated /template/ TextBlock#PART_Translation">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="c|LineRow:doubt /template/ Border#PART_Doubt">
+    <Setter Property="IsVisible" Value="True"/>
   </Style>
   <Style Selector="c|LineRow:warning /template/ PathIcon#PART_Warning">
     <Setter Property="IsVisible" Value="True"/>

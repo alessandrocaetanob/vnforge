@@ -33,6 +33,13 @@ public sealed record TextUnit(
     /// <summary>Quem produziu a tradução; nulo quando não há tradução ou ela é anterior ao registro de origem.</summary>
     public TranslationOrigin? Origin { get; init; }
 
+    /// <summary>
+    /// A dúvida que a IA registrou ao produzir a <see cref="Translation"/> (trocadilho, sujeito oculto, gênero incerto, referência cultural, tom); nula quando não há.
+    /// Aprovar a linha ou reescrever a tradução a encerra. Fica fora do JSON quando nula.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TranslationDoubt? Doubt { get; init; }
+
     /// <summary>Observações livres do tradutor ou do revisor. Vazio quando não há; <c>null</c> no JSON é recusado.</summary>
     public string Notes { get; init => field = value ?? string.Empty; } = string.Empty;
 

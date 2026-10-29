@@ -99,6 +99,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             new FilterChipViewModel(LineStatusFilter.Pending, "Em japonês"),
             new FilterChipViewModel(LineStatusFilter.Machine, "Para revisar"),
             new FilterChipViewModel(LineStatusFilter.Warnings, "Com aviso"),
+            new FilterChipViewModel(LineStatusFilter.Doubt, "Com dúvida") { HidesWhenEmpty = true },
             new FilterChipViewModel(LineStatusFilter.Keep, "Não traduzir"),
             new FilterChipViewModel(LineStatusFilter.Odd, "Soa estranho") { HidesWhenEmpty = true },
             new FilterChipViewModel(LineStatusFilter.ChangedSinceTest, "Mudou desde o teste"),
@@ -219,6 +220,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     /// <summary>Linhas do script aberto que ainda não têm tradução.</summary>
     public int PendingLines { get; private set; }
+
+    /// <summary>Quantas linhas do script aberto a IA marcou com dúvida; o botão que abre o modo revisão nelas só aparece quando há alguma.</summary>
+    public int DoubtLines { get; private set; }
+
+    public bool HasDoubts => DoubtLines > 0;
 
     public string ScriptsCount => ProjectLabels.Number(Scripts.Count);
 
@@ -1105,13 +1111,19 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     private void UpdateCounts()
     {
         var speaker = SelectedSpeaker?.Value;
+
+        // O chip e o botão "Dúvidas (N)" dizem o mesmo número: as dúvidas do script, sem o filtro de personagem (o modo revisão das dúvidas também o ignora).
+        DoubtLines = new LineFilter(LineStatusFilter.Doubt).Count(entries);
         foreach (var chip in chips)
         {
-            chip.Count = FilterFor(chip.Filter, speaker).Count(entries);
+            chip.Count = chip.Filter == LineStatusFilter.Doubt ? DoubtLines : FilterFor(chip.Filter, speaker).Count(entries);
         }
+
 
         PendingLines = new LineFilter(LineStatusFilter.Pending).Count(entries);
         OnPropertyChanged(nameof(PendingLines));
+        OnPropertyChanged(nameof(DoubtLines));
+        OnPropertyChanged(nameof(HasDoubts));
         TranslatePendingCommand.NotifyCanExecuteChanged();
     }
 

@@ -197,6 +197,16 @@
             <!-- "Reescrever com um toque" fica sob a caixa do jogo: cada versão vem medida contra ela, e o roteiro à esquerda não ganha altura. -->
             <c:RewriteBar Classes="rewrite-compact" DataContext="{Binding Detail}"/>
 
+            <Border x:Name="DoubtNotice" Classes="infobar" IsVisible="{Binding Detail.HasDoubt, FallbackValue=False}" AutomationProperties.Name="Dúvida da IA">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Detail.DoubtTitle}"/>
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.DoubtNote}"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
             <Border Classes="infobar warning" IsVisible="{Binding GenderMissing}" AutomationProperties.Name="Aviso: personagem sem gênero">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>

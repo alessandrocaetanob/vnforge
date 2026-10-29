@@ -21,6 +21,7 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null,
         nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
         nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel), nameof(IssueTip),
         nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerColor), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
+        nameof(HasDoubt), nameof(DoubtTip),
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -88,6 +89,12 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null,
 
     /// <summary>O falante exatamente como o texto o guarda, mesmo quando a grade mostra a tradução: o escolhido na linha (<see cref="TextUnit.ChosenSpeaker"/>), quando há, senão o extraído; nulo na narração. É o que o menu do nome copia.</summary>
     public string? SpeakerOriginal => IsNarration ? null : Entry.Unit.EffectiveSpeaker;
+
+    /// <summary>A IA registrou uma dúvida sobre a tradução da linha (<see cref="TextUnit.Doubt"/>): a grade mostra o selo "Dúvida".</summary>
+    public bool HasDoubt => Entry.Unit.Doubt is not null;
+
+    /// <summary>Dica do selo "Dúvida": o tipo e a frase da IA; nula quando a linha não tem dúvida.</summary>
+    public string? DoubtTip => Entry.Unit.Doubt is { } doubt ? $"{doubt.KindLabel}: {doubt.Note}" : null;
 
     public string Source => Entry.Unit.Source;
 

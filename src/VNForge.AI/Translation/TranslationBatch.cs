@@ -63,4 +63,17 @@ public sealed record TranslationBatch
 /// <param name="Id">Id da <see cref="TextUnit"/> traduzida.</param>
 /// <param name="Translation">Texto traduzido, com os mesmos marcadores de controle do original.</param>
 /// <param name="Refused">O modelo recusou esta linha mesmo após o fallback; <paramref name="Translation"/> fica vazia e a linha precisa de revisão.</param>
-public sealed record TranslationResult(string Id, string Translation, bool Refused = false);
+/// <param name="Doubt">A dúvida que o modelo registrou sobre a linha; nula quando ele não teve dúvida ou o provedor não a pede.</param>
+/// <param name="FromCache">A tradução saiu do cache por hash e não de uma resposta de agora; o cache não guarda a dúvida, então a linha pode manter a que já tinha.</param>
+public sealed record TranslationResult(string Id, string Translation, bool Refused = false, TranslationDoubt? Doubt = null, bool FromCache = false)
+{
+    /// <summary>
+    /// A dúvida que a linha fica com este resultado: a que o modelo registrou agora; a que ela já tinha só quando a tradução veio do cache e o texto é o mesmo
+    /// (o cache não traz dúvida, e a tradução não mudou); senão nenhuma, porque uma resposta nova sem dúvida encerra a antiga.
+    /// </summary>
+    public TranslationDoubt? DoubtFor(TextUnit unit)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        return Doubt ?? (FromCache && string.Equals(unit.Translation, Translation, StringComparison.Ordinal) ? unit.Doubt : null);
+    }
+}

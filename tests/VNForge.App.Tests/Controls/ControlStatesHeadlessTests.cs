@@ -23,6 +23,10 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 {
     public static TheoryData<string> Themes => ["Dark", "Light"];
 
+    private static readonly string[] Levels = ["Baixo", "Médio", "Alto"];
+
+    private static readonly string[] Headers = ["IA", "Formatação", "Acentuação"];
+
     private static ThemeVariant Variant(string name) => name == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
 
     private Task OnUi(string theme, Action<Ui> test) =>
@@ -54,10 +58,10 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
     private static Color Token(Control host, string key)
     {
         Assert.True(host.TryFindResource(key, host.ActualThemeVariant, out var found), $"Token {key} não existe");
-        return Assert.IsAssignableFrom<ISolidColorBrush>(found).Color;
+        return Assert.IsType<ISolidColorBrush>(found, exactMatch: false).Color;
     }
 
-    private static Color ColorOf(IBrush? brush) => Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+    private static Color ColorOf(IBrush? brush) => Assert.IsType<ISolidColorBrush>(brush, exactMatch: false).Color;
 
     private static T Part<T>(Visual root, string name) where T : Control =>
         root.GetVisualDescendants().OfType<T>().First(c => c.Name == name);
@@ -227,6 +231,28 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
         });
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task LineRow_com_duvida_mostra_o_selo_sem_mudar_a_altura_nem_cortar_a_traducao(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var plain = new LineRow { Number = 1, Status = TranslationStatus.Machine, Original = "原文", Translation = "Bom dia." };
+            var doubt = new LineRow { Number = 2, Status = TranslationStatus.Machine, Original = "原文", Translation = "Bom dia.", HasDoubt = true, DoubtTip = "Tom: Ironia?" };
+            ui.Show(new StackPanel { Children = { plain, doubt } });
+
+            Assert.False(Part<Border>(plain, "PART_Doubt").IsVisible);
+            Assert.True(Part<Border>(doubt, "PART_Doubt").IsVisible);
+            Assert.Contains(":doubt", doubt.Classes);
+            Assert.Equal(36, doubt.Bounds.Height);
+            Assert.True(Part<TextBlock>(doubt, "PART_Translation").Bounds.Width > 0);
+            Assert.Equal("Linha 0002, dúvida da IA", AutomationProperties.GetName(doubt));
+            Assert.Equal("Tom: Ironia?", AutomationProperties.GetHelpText(doubt));
+            Assert.Equal("Linha 0001", AutomationProperties.GetName(plain));
+            Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(plain)));
+        });
+    }
+
     [Fact]
     public async Task LineRow_na_lista_tem_altura_fixa_e_a_selecionada_mostra_a_barra()
     {
@@ -336,7 +362,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
         await OnUi(theme, ui =>
         {
             var seg = new ListBox { Classes = { "seg" } };
-            foreach (var text in new[] { "Baixo", "Médio", "Alto" })
+            foreach (var text in Levels)
             {
                 seg.Items.Add(new ListBoxItem { Content = text });
             }
@@ -365,7 +391,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
         await OnUi(theme, ui =>
         {
             var tabs = new TabControl { Classes = { "tabs" }, SelectedIndex = 0 };
-            foreach (var header in new[] { "IA", "Formatação", "Acentuação" })
+            foreach (var header in Headers)
             {
                 tabs.Items.Add(new TabItem { Header = header, Content = new TextBlock { Text = header } });
             }

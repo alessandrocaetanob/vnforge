@@ -101,6 +101,31 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public async Task Linha_com_duvida_mostra_o_aviso_com_o_tipo_e_a_frase_da_IA_e_a_sem_duvida_nao(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"), withDoubt: true);
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+            var notice = view.FindControl<Border>("DoubtNotice")!;
+            Assert.True(notice.IsEffectivelyVisible);
+            var texts = notice.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Equal(["Dúvida · Tom", "Ela fala sério ou em tom de brincadeira?"], texts);
+            var barFrame = Frame(window, view.FindControl<Border>("ActionBar")!);
+            Assert.True(Frame(window, notice).Bottom <= barFrame.Top, "o aviso fica acima da barra de ações");
+            Salvar(window, "modo-revisao-duvida", theme);
+
+            vm.Editor.Review!.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.False(notice.IsEffectivelyVisible);
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public async Task Tela_final_mostra_o_resumo_e_a_proxima_cena(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
@@ -250,7 +275,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.StartsWith("美咲", speaker.Text, StringComparison.Ordinal);
             // O texto da tela pode trazer a tradução e a voz; o menu copia o nome do jogo.
             Assert.Equal("美咲", SpeakerMenu.GetOriginal(speaker));
-            var flyout = Assert.IsAssignableFrom<MenuFlyout>(speaker.ContextFlyout);
+            var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout, exactMatch: false);
             Assert.Contains(flyout.Items.OfType<MenuItem>(), i => Equals(i.Header, SpeakerMenu.CopyOriginalHeader));
         });
     }
@@ -623,7 +648,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
     }
 
-    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false)
+    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false, bool withDoubt = false)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             DemoProject.Name,
@@ -654,7 +679,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             ]
             :
             [
-                Line("yst00001", 1, "美咲", @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p"),
+                Line("yst00001", 1, "美咲", @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p") with { Doubt = withDoubt ? new TranslationDoubt(DoubtKind.Tone, "Ela fala sério ou em tom de brincadeira?") : null },
                 Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
                 Line("yst00001", 3, "美咲", @"「うん」\p", @"Aham.\p"),
             ]);

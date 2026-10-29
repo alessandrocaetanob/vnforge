@@ -57,8 +57,8 @@ public class EditorViewModelTests
     {
         var vm = await Carregado();
 
-        Assert.Equal(["Todas", "Em japonês", "Para revisar", "Com aviso", "Não traduzir", "Soa estranho"], vm.Filters.Select(f => f.Label));
-        Assert.Equal([true, false, false, false, false, false], vm.Filters.Select(f => f.IsSelected));
+        Assert.Equal(["Todas", "Em japonês", "Para revisar", "Com aviso", "Com dúvida", "Não traduzir", "Soa estranho"], vm.Filters.Select(f => f.Label));
+        Assert.Equal([true, false, false, false, false, false, false], vm.Filters.Select(f => f.IsSelected));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class EditorViewModelTests
     {
         var vm = await Carregado();
 
-        Assert.Equal([5, 2, 1, 1, 0, 0], vm.Filters.Select(f => f.Count));
+        Assert.Equal([5, 2, 1, 1, 0, 0, 0], vm.Filters.Select(f => f.Count));
     }
 
     [Theory]
@@ -138,7 +138,7 @@ public class EditorViewModelTests
         vm.SelectedSpeaker = vm.Speakers.Single(s => s.Value == "Ana");
 
         Assert.Equal([1, 2, 5], vm.Lines.Select(l => l.Number));
-        Assert.Equal([3, 1, 1, 1, 0, 0], vm.Filters.Select(f => f.Count));
+        Assert.Equal([3, 1, 1, 1, 0, 0, 0], vm.Filters.Select(f => f.Count));
     }
 
     [Fact]
@@ -271,7 +271,7 @@ public class EditorViewModelTests
         Assert.Equal(vm.Speakers[0], vm.SelectedSpeaker);
         Assert.Empty(vm.Lines);
         Assert.True(Chip(vm, LineStatusFilter.Pending).IsSelected);
-        Assert.Equal([1, 0, 0, 0, 0, 0], vm.Filters.Select(f => f.Count));
+        Assert.Equal([1, 0, 0, 0, 0, 0, 0], vm.Filters.Select(f => f.Count));
         Assert.Null(vm.SelectedLine);
 
         Filtrar(vm, LineStatusFilter.All);
