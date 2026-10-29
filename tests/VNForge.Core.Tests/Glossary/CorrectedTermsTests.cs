@@ -150,4 +150,16 @@ public class CorrectedTermsTests
 
         Assert.Equal(2, par.Lines);
     }
+
+    [Fact]
+    public void Troca_em_falas_sem_trecho_japones_tambem_conta_como_de_estilo()
+    {
+        List<TextUnit> units =
+        [
+            .. TresCorrigidas().Select((u, i) => Linha(i, u.Source, $"Ei, {u.AiTranslation}", $"Ô, {u.AiTranslation}")),
+            .. Enumerable.Range(10, 5).Select(n => Linha(n, "ああ、そうだ", "Ei, é isso.", "Ô, é isso.")),
+        ];
+
+        Assert.Empty(RepeatedTerms.Corrected(units));
+    }
 }

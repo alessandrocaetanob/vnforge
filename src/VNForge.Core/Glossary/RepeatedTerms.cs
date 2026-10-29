@@ -112,33 +112,28 @@ public static class RepeatedTerms
 
         public void Add(TextUnit unit)
         {
-            var swaps = CorrectionLearner.Swaps(unit.AiTranslation, unit.Translation);
-            var runs = new HashSet<string>(StringComparer.Ordinal);
-            if (swaps.Count > 0)
-            {
-                CollectRuns(unit.Source, runs);
-            }
-
-            if (runs.Count == 0)
-            {
-                return;
-            }
-
             var byKey = new Dictionary<string, WordSwap>(StringComparer.Ordinal);
-            foreach (var swap in swaps)
+            foreach (var swap in CorrectionLearner.Swaps(unit.AiTranslation, unit.Translation))
             {
                 byKey.TryAdd(swap.To.ToLowerInvariant(), swap);
+            }
+
+            // A troca conta mesmo numa fala sem trecho japonês elegível: é o que mostra que ela é de estilo e não de um termo.
+            foreach (var key in byKey.Keys)
+            {
+                swapLines[key] = swapLines.GetValueOrDefault(key) + 1;
+            }
+
+            var runs = new HashSet<string>(StringComparer.Ordinal);
+            if (byKey.Count > 0)
+            {
+                CollectRuns(unit.Source, runs);
             }
 
             foreach (var run in runs)
             {
                 runLines[run] = runLines.GetValueOrDefault(run) + 1;
-            }
-
-            foreach (var (key, swap) in byKey)
-            {
-                swapLines[key] = swapLines.GetValueOrDefault(key) + 1;
-                foreach (var run in runs)
+                foreach (var (key, swap) in byKey)
                 {
                     if (!pairs.TryGetValue((run, key), out var pair))
                     {
