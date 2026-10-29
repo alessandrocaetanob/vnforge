@@ -15,6 +15,8 @@ public static class TextAppearance
 
     private const double BaseRowHeight = 36;
 
+    private const double BasePillHeight = 20;
+
     /// <summary>Nome do token, tamanho e altura de linha a 100%.</summary>
     public static IReadOnlyList<(string Name, double Size, double Line)> Scales { get; } =
     [
@@ -23,6 +25,7 @@ public static class TextAppearance
         ("Caption", 12, 16),
         ("Mono", 12, 18),
         ("MonoXs", 11, 14),
+        ("Pill", 11, 14),
         ("TitleMd", 17, 25),
         ("JpBody", 15, 24),
         ("JpRow", 13, 18),
@@ -47,6 +50,7 @@ public static class TextAppearance
         }
 
         resources["Vnf.RowHeight"] = Math.Round(BaseRowHeight * factor);
+        resources["Vnf.PillHeight"] = Math.Round(BasePillHeight * factor);
         return resources;
     }
 

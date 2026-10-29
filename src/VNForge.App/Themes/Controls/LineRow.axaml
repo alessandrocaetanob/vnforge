@@ -14,7 +14,7 @@
           <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}"/>
           <c:StatusBadge Name="PART_Status" Grid.Column="1" Status="{TemplateBinding Status}"/>
           <Grid Name="PART_Text" Grid.Column="2" ColumnDefinitions="132,*,1.2*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="2" VerticalAlignment="Center">
-            <SelectableTextBlock Name="PART_Speaker" Classes="body-sm" Text="{TemplateBinding SpeakerText}"
+            <SelectableTextBlock Name="PART_Speaker" Classes="body-sm" FontFamily="{DynamicResource Vnf.FontJp}" Text="{TemplateBinding SpeakerText}"
                                  TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
             <TextBlock Name="PART_Original" Classes="jp-row" Text="{TemplateBinding Original}" TextTrimming="CharacterEllipsis"/>
             <TextBlock Name="PART_Translation" Classes="body-sm" Text="{TemplateBinding TranslationText}" TextTrimming="CharacterEllipsis"/>

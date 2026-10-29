@@ -37,19 +37,35 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
         });
     }
 
+    public static TheoryData<int, int, int> InspectorCases
+    {
+        get
+        {
+            var data = new TheoryData<int, int, int>();
+            foreach (var percent in new[] { 100, 110, 125, 150 })
+            {
+                data.Add(1440, 1000, percent);
+                data.Add(1366, 768, percent);
+            }
+
+            return data;
+        }
+    }
+
     [Theory]
-    [MemberData(nameof(Windows))]
-    public async Task Inspetor_com_o_maior_tamanho_nao_corta_texto(int width, int height)
+    [MemberData(nameof(InspectorCases))]
+    public async Task Inspetor_em_cada_tamanho_nao_corta_texto(int width, int height, int percent)
     {
         await Abrir(width, height, (window, vm) =>
         {
             Assert.NotNull(vm.Editor.Detail);
             var inspector = Assert.Single(window.GetVisualDescendants().OfType<LineDetailView>(), v => v.IsEffectivelyVisible);
+            ScreenRenderer.Save(window, RenderOutput.PathFor($"editor-texto-{percent}-inspetor-{width}.png"));
+            // O inspetor rola (a coluna passa da altura a 1366x768 com a tradução longa): o corte aceito é o da rolagem. O que não rola, as linhas sem quebra, não pode estar cortado.
             Assert.Empty(ClippedTextHeadlessTests.FindClipped(inspector));
             var translation = inspector.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("jp-body"));
-            Assert.Equal(22.5, translation.FontSize);
-            ScreenRenderer.Save(window, RenderOutput.PathFor($"editor-texto-150-inspetor-{width}.png"));
-        });
+            Assert.Equal(Math.Round(15 * percent / 100d, 1), translation.FontSize);
+        }, percent);
     }
 
     [Theory]
@@ -65,10 +81,18 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
 
             var review = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
             Assert.Empty(ClippedTextHeadlessTests.FindClipped(review));
-            var translated = review.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == vm.Editor.Review!.Detail!.FieldText);
+            // O roteiro rola sozinho: a fala a aprovar tem que caber inteira no viewport dele, com a fala anterior e a seguinte escondidas se for preciso.
+            var script = review.FindControl<ScrollViewer>("Script")!;
+            var card = review.FindControl<Border>("TranslationCard")!;
+            var translated = card.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == vm.Editor.Review!.Detail!.FieldText);
             Assert.Equal(30d, translated.FontSize);
             Assert.True(translated.Bounds.Height >= translated.LineHeight, "a tradução ocupa ao menos uma linha inteira");
-            Assert.True(review.Bounds.Contains(new Rect(translated.TranslatePoint(default, review) ?? default, translated.Bounds.Size)), "a tradução fica dentro da tela");
+            var top = translated.TranslatePoint(default, script)!.Value.Y;
+            var bottom = top + translated.Bounds.Height;
+            Assert.True(top >= -0.5 && bottom <= script.Viewport.Height + 0.5,
+                $"a tradução ({top:0.#} a {bottom:0.#}) passa do viewport do roteiro ({script.Viewport.Height:0.#})");
+            var cardTop = card.TranslatePoint(default, script)!.Value.Y;
+            Assert.True(cardTop >= -0.5 && cardTop + card.Bounds.Height <= script.Viewport.Height + 0.5, "o cartão da tradução cabe inteiro no viewport");
             ScreenRenderer.Save(window, RenderOutput.PathFor($"editor-texto-150-revisao-{width}.png"));
         });
     }
@@ -90,7 +114,7 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
         }
     }
 
-    private async Task Abrir(int width, int height, Action<MainWindow, MainWindowViewModel> verificar)
+    private async Task Abrir(int width, int height, Action<MainWindow, MainWindowViewModel> verificar, int percent = 150)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
@@ -114,7 +138,7 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
                     await vm.Editor.Loading;
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
                     ScreenRenderer.Settle(window);
-                    while (vm.Settings.TextScalePercent < 150)
+                    while (vm.Settings.TextScalePercent < percent)
                     {
                         vm.Settings.IncreaseTextSizeCommand.Execute(null);
                     }

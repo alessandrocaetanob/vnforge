@@ -194,6 +194,7 @@
   <x:Double x:Key="Vnf.ControlMd">32</x:Double>
   <x:Double x:Key="Vnf.ControlLg">40</x:Double>
   <x:Double x:Key="Vnf.RowHeight">36</x:Double>
+  <x:Double x:Key="Vnf.PillHeight">20</x:Double>
 
   <!-- Tamanhos do texto a 100%; a janela os troca pelos de TextAppearance.Build conforme o tamanho escolhido nos Ajustes. Mudou aqui, mude lá (TextAppearanceTests confere). -->
   <x:Double x:Key="Vnf.FontSize.Body">14</x:Double>
@@ -204,6 +205,8 @@
   <x:Double x:Key="Vnf.LineHeight.Caption">16</x:Double>
   <x:Double x:Key="Vnf.FontSize.Mono">12</x:Double>
   <x:Double x:Key="Vnf.LineHeight.Mono">18</x:Double>
+  <x:Double x:Key="Vnf.FontSize.Pill">11</x:Double>
+  <x:Double x:Key="Vnf.LineHeight.Pill">14</x:Double>
   <x:Double x:Key="Vnf.FontSize.MonoXs">11</x:Double>
   <x:Double x:Key="Vnf.LineHeight.MonoXs">14</x:Double>
   <x:Double x:Key="Vnf.FontSize.TitleMd">17</x:Double>

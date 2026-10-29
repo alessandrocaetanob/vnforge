@@ -102,36 +102,11 @@ public sealed class AppSettingsFile(string directory)
             }
 
             // Cada campo vale sozinho: um tema ilegível não derruba a concorrência salva, e vice-versa.
-            var concurrency = root.TryGetProperty("concurrency", out var value)
-                && value.ValueKind == JsonValueKind.Number
-                && value.TryGetInt32(out var parsed)
-                && parsed is >= AppSettings.MinConcurrency and <= AppSettings.MaxConcurrency
-                    ? parsed
-                    : AppSettings.Default.Concurrency;
-            var theme = root.TryGetProperty("theme", out var themeValue)
-                && themeValue.ValueKind == JsonValueKind.String
-                && Enum.TryParse<ThemeChoice>(themeValue.GetString(), ignoreCase: true, out var chosen)
-                && Enum.IsDefined(chosen)
-                    ? chosen
-                    : ThemeChoice.System;
-            var quality = root.TryGetProperty("quality", out var qualityValue)
-                && qualityValue.ValueKind == JsonValueKind.String
-                && Enum.TryParse<TranslationQuality>(qualityValue.GetString(), ignoreCase: true, out var picked)
-                && Enum.IsDefined(picked)
-                    ? picked
-                    : TranslationQuality.Careful;
-            var textScale = root.TryGetProperty("textScale", out var scaleValue)
-                && scaleValue.ValueKind == JsonValueKind.Number
-                && scaleValue.TryGetInt32(out var percent)
-                && AppSettings.TextScaleSteps.Contains(percent)
-                    ? percent
-                    : AppSettings.DefaultTextScale;
-            var japaneseFont = root.TryGetProperty("japaneseFont", out var fontValue)
-                && fontValue.ValueKind == JsonValueKind.String
-                && Enum.TryParse<JapaneseFontChoice>(fontValue.GetString(), ignoreCase: true, out var font)
-                && Enum.IsDefined(font)
-                    ? font
-                    : JapaneseFontChoice.Default;
+            var concurrency = ReadInt(root, "concurrency", AppSettings.Default.Concurrency, v => v is >= AppSettings.MinConcurrency and <= AppSettings.MaxConcurrency);
+            var theme = ReadEnum(root, "theme", ThemeChoice.System);
+            var quality = ReadEnum(root, "quality", TranslationQuality.Careful);
+            var textScale = ReadInt(root, "textScale", AppSettings.DefaultTextScale, AppSettings.TextScaleSteps.Contains);
+            var japaneseFont = ReadEnum(root, "japaneseFont", JapaneseFontChoice.Default);
             var rate = AppBudgetFile.ReadMoney(root, "exchangeRate", AppSettings.MaxBrlPerUsd);
             return new AppSettings(concurrency, theme)
             {
@@ -150,6 +125,23 @@ public sealed class AppSettingsFile(string directory)
             return AppSettings.Default;
         }
     }
+
+    private static int ReadInt(JsonElement root, string name, int fallback, Func<int, bool> isValid) =>
+        root.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var parsed)
+        && isValid(parsed)
+            ? parsed
+            : fallback;
+
+    private static T ReadEnum<T>(JsonElement root, string name, T fallback)
+        where T : struct, Enum =>
+        root.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.String
+        && Enum.TryParse<T>(value.GetString(), ignoreCase: true, out var parsed)
+        && Enum.IsDefined(parsed)
+            ? parsed
+            : fallback;
 
     public void Save(AppSettings settings)
     {

@@ -142,6 +142,8 @@ public class TextAppearanceSettingsTests
         Assert.Equal(27d, at150[TextAppearance.LineHeightKey("BodySm")]);
         Assert.Equal(36d, at100["Vnf.RowHeight"]);
         Assert.Equal(54d, at150["Vnf.RowHeight"]);
+        Assert.Equal(20d, at100["Vnf.PillHeight"]);
+        Assert.Equal(30d, at150["Vnf.PillHeight"]);
         Assert.All(TextAppearance.Scales, s => Assert.True(
             (double)at150[TextAppearance.LineHeightKey(s.Name)]! >= (double)at150[TextAppearance.FontSizeKey(s.Name)]!, s.Name));
     }
@@ -159,7 +161,7 @@ public class TextAppearanceSettingsTests
 /// <summary>O Ctrl + e o Ctrl - mudam o texto do Editor; as outras páginas, o trilho e a barra de status seguem em 100%.</summary>
 public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
-    private Task OnUi(Func<Task> test) => fixture.Session.Dispatch<int>(
+    private Task<int> OnUi(Func<Task> test) => fixture.Session.Dispatch<int>(
         async () =>
         {
             await test();
@@ -181,6 +183,8 @@ public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixtur
 
         Assert.True(app.TryGetResource("Vnf.RowHeight", null, out var row));
         Assert.Equal(36d, row);
+        Assert.True(app.TryGetResource("Vnf.PillHeight", null, out var pill));
+        Assert.Equal(20d, pill);
         return Task.CompletedTask;
     });
 

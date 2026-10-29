@@ -599,7 +599,7 @@
             <TextBlock Classes="overline" Margin="0,16,0,0" Text="Tamanho do texto"/>
             <ListBox Classes="seg" ItemsSource="{Binding TextSizes}" SelectedItem="{Binding SelectedTextSize}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tamanho do texto"/>
-            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Vale para a grade, o inspetor e o Modo revisão. Ctrl + e Ctrl - mudam o tamanho de qualquer tela; Ctrl 0 volta a 100%."/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Vale para a grade, o inspetor e o Modo revisão. Ctrl+= e Ctrl+- (em qualquer tela) mudam o tamanho do texto do Editor; Ctrl+0 volta a 100%."/>
 
             <TextBlock Classes="overline" Margin="0,16,0,0" Text="Fonte do japonês"/>
             <ListBox Classes="seg" ItemsSource="{Binding JapaneseFonts}" SelectedItem="{Binding SelectedJapaneseFont}"
