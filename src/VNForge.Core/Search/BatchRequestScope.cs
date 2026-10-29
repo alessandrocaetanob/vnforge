@@ -12,7 +12,7 @@ public sealed record BatchCandidate(string ScriptKey, int Number, TextUnit Unit)
 
 /// <summary>
 /// O que um pedido em lote escrito em português diz sobre quais falas ele alcança: os personagens citados, as cenas citadas e a palavra a trocar.
-/// Serve para a IA só ler as falas que podem mudar, em vez do projeto todo: cada filtro que o pedido traz reduz o texto enviado e o gasto.
+/// Serve para a IA só ler as falas que podem mudar, em vez do projeto inteiro: cada filtro que o pedido traz reduz o texto enviado e o gasto.
 /// Os filtros se somam (o personagem E a cena E a palavra); sem nenhum, o pedido alcança todas as falas traduzidas.
 /// </summary>
 /// <param name="Speakers">O original do nome (<see cref="CharacterEntry.Source"/>) de cada personagem citado.</param>
@@ -125,11 +125,10 @@ public sealed partial record BatchRequestScope(IReadOnlyList<string> Speakers, I
         var terms = new List<string>();
         foreach (var pattern in new[] { SwapPattern(), RemovePattern() })
         {
-            foreach (Match match in pattern.Matches(request))
+            foreach (var groups in pattern.Matches(request).Select(match => match.Groups))
             {
-                var term = match.Groups["q"].Success ? match.Groups["q"].Value : match.Groups["x"].Value;
-                term = term.Trim();
-                if (term.Length > 0 && (match.Groups["q"].Success || IsPlausibleTerm(term)) && !terms.Contains(term, StringComparer.OrdinalIgnoreCase))
+                var term = (groups["q"].Success ? groups["q"].Value : groups["x"].Value).Trim();
+                if (term.Length > 0 && (groups["q"].Success || IsPlausibleTerm(term)) && !terms.Contains(term, StringComparer.OrdinalIgnoreCase))
                 {
                     terms.Add(term);
                 }
@@ -188,9 +187,9 @@ public sealed partial record BatchRequestScope(IReadOnlyList<string> Speakers, I
 
     private const string Quoted = """(?:"(?<q>[^"]+)"|“(?<q>[^”]+)”|'(?<q>[^']+)'|‘(?<q>[^’]+)’|«(?<q>[^»]+)»)""";
 
-    [GeneratedRegex("\\b(?:trocar|troque|substituir|substitua|mudar|mude|corrigir|corrija)\\s+(?:(?:o|a|os|as|todo|todos|todas)\\s+)?(?:" + Quoted + "|(?<x>[^\\s\"“”'‘’«»]+(?:\\s+[^\\s\"“”'‘’«»]+){0,3}?))\\s+(?:por|para|pelo|pela|pelos|pelas|com)\\s", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex("\\b(?:trocar|troque|substituir|substitua|mudar|mude|corrigir|corrija)\\s+(?:(?:o|a|os|as|todo|todos|todas)\\s+)?(?:" + Quoted + "|(?<x>[^\\s\"“”'‘’«»]+(?:\\s+[^\\s\"“”'‘’«»]+){0,3}?))\\s+(?:por|para|pelo|pela|pelos|pelas|com)\\s", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex SwapPattern();
 
-    [GeneratedRegex("\\b(?:tirar|retirar|remover|apagar|cortar)\\s+(?:(?:o|a|os|as)\\s+)?" + Quoted, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex("\\b(?:tirar|retirar|remover|apagar|cortar)\\s+(?:(?:o|a|os|as)\\s+)?" + Quoted, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex RemovePattern();
 }

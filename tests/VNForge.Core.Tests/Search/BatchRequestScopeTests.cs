@@ -15,8 +15,8 @@ public class BatchRequestScopeTests
     private static TextUnit Line(string id, string? speaker, string? translation, TranslationStatus status = TranslationStatus.Machine) =>
         new(id, TextUnitKind.Dialogue, speaker, "原文", translation, status);
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts() =>
-        new Dictionary<string, IReadOnlyList<TextUnit>>
+    private static Dictionary<string, IReadOnlyList<TextUnit>> Texts() =>
+        new()
         {
             ["cena01"] =
             [

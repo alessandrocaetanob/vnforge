@@ -22,7 +22,7 @@ public sealed class FakeBatchRequestProvider(Func<TextUnit, string?> rewrite) : 
 
     /// <summary>Troca a palavra inteira <paramref name="from"/> por <paramref name="to"/>, sem diferenciar maiúsculas.</summary>
     public static FakeBatchRequestProvider Replacing(string from, string to) =>
-        new(unit => Regex.Replace(unit.Translation ?? string.Empty, $@"\b{Regex.Escape(from)}\b", to, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+        new(unit => Regex.Replace(unit.Translation ?? string.Empty, $@"\b{Regex.Escape(from)}\b", to, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)));
 
     public Task<IReadOnlyList<BatchRewrite>> RewriteAsync(string request, TranslationBatch batch, CancellationToken ct)
     {
