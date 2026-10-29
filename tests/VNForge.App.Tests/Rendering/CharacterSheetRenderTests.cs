@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -78,11 +80,12 @@ public sealed class CharacterSheetRenderTests(HeadlessFixture fixture) : IClassF
 
                     Assert.DoesNotContain(window.GetVisualDescendants().OfType<CharacterSheetView>(), v => v.IsEffectivelyVisible);
                     var open = window.GetVisualDescendants().OfType<Button>()
-                        .Where(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Abrir a ficha do personagem").ToList();
-                    Assert.Equal(2, open.Count);
+                        .Where(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b)?.StartsWith("Abrir a ficha de ", StringComparison.Ordinal) == true).ToList();
+                    Assert.Equal(["Abrir a ficha de Misaki", "Abrir a ficha de Kenta"], open.Select(b => AutomationProperties.GetName(b)));
                     var misaki = open.Single(b => ((CharacterRow)b.DataContext!).Source == "美咲");
                     Assert.True(misaki.Command!.CanExecute(misaki.CommandParameter));
                     misaki.Command.Execute(misaki.CommandParameter);
+                    await vm.Glossary.SheetLoading;
                     ScreenRenderer.Settle(window);
 
                     var view = Assert.Single(window.GetVisualDescendants().OfType<CharacterSheetView>(), v => v.IsEffectivelyVisible);
@@ -97,6 +100,8 @@ public sealed class CharacterSheetRenderTests(HeadlessFixture fixture) : IClassF
                     Assert.Contains("O que isso quer dizer?", texts, StringComparison.Ordinal);
                     Assert.Contains("Ainda sem tradução", texts, StringComparison.Ordinal);
                     Assert.Contains("4 linhas da IA esperando revisão.", texts, StringComparison.Ordinal);
+                    Assert.Contains("Original", texts.Split('\n'));
+                    Assert.Contains("Tradução", texts.Split('\n'));
                     Assert.Equal(5, view.GetVisualDescendants().OfType<TextBlock>().Count(t => t.IsEffectivelyVisible && t.Classes.Contains("jp-row") && t.Text?.Length > 1 && t.Text != "美咲"));
                     Assert.DoesNotContain('—', texts);
                     Assert.DoesNotContain('–', texts);
@@ -159,6 +164,7 @@ public sealed class CharacterSheetRenderTests(HeadlessFixture fixture) : IClassF
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Glossary);
                     await vm.Glossary.Loading;
                     vm.Glossary.OpenSheetCommand.Execute(vm.Glossary.Characters.Single(c => c.Source == "健太"));
+                    await vm.Glossary.SheetLoading;
                     ScreenRenderer.Settle(window);
 
                     var view = Assert.Single(window.GetVisualDescendants().OfType<CharacterSheetView>(), v => v.IsEffectivelyVisible);
@@ -172,6 +178,67 @@ public sealed class CharacterSheetRenderTests(HeadlessFixture fixture) : IClassF
 
                     Assert.DoesNotContain(window.GetVisualDescendants().OfType<CharacterSheetView>(), v => v.IsEffectivelyVisible);
                     Assert.Null(vm.Glossary.Sheet);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Com_a_lista_rolada_a_ficha_abre_na_area_visivel_com_o_foco_e_Esc_devolve_o_foco_ao_icone()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                using var project = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(CreateProject(project)), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = ThemeVariant.Dark, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Glossary);
+                    await vm.Glossary.Loading;
+                    foreach (var n in Enumerable.Range(0, 30))
+                    {
+                        vm.Glossary.Characters.Add(new CharacterRow($"personagem{n}", $"Personagem {n}"));
+                    }
+
+                    ScreenRenderer.Settle(window);
+                    var view = Assert.Single(window.GetVisualDescendants().OfType<GlossaryView>(), v => v.IsEffectivelyVisible);
+                    var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First();
+                    scroll.ScrollToEnd();
+                    ScreenRenderer.Settle(window);
+                    Assert.True(scroll.Offset.Y > 100, "a página está rolada");
+
+                    var last = window.GetVisualDescendants().OfType<Button>()
+                        .Last(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Abrir a ficha de Personagem 29");
+                    last.Focus();
+                    last.Command!.Execute(last.CommandParameter);
+                    await vm.Glossary.SheetLoading;
+                    ScreenRenderer.Settle(window);
+                    ScreenRenderer.Settle(window);
+
+                    var sheet = Assert.Single(window.GetVisualDescendants().OfType<CharacterSheetView>(), v => v.IsEffectivelyVisible);
+                    var top = sheet.TranslatePoint(default, scroll)!.Value.Y;
+                    Assert.True(top >= -1 && top < scroll.Viewport.Height - 20, $"a ficha abre na área visível: topo em {top}, viewport {scroll.Viewport.Height}");
+                    var focused = TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as Visual;
+                    Assert.True(focused is not null && (ReferenceEquals(focused, sheet) || sheet.IsVisualAncestorOf(focused)), "o foco vai para a ficha");
+
+                    window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                    ScreenRenderer.Settle(window);
+                    ScreenRenderer.Settle(window);
+
+                    Assert.Null(vm.Glossary.Sheet);
+                    Assert.Same(last, TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement());
                 }
                 finally
                 {

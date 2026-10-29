@@ -152,10 +152,39 @@ public class SpeakerSamplesTests
     }
 
     [Fact]
-    public void Ficha_acha_o_personagem_pelo_nome_de_largura_diferente()
+    public void Ficha_acha_o_personagem_pelo_nome_de_largura_diferente_e_junta_as_falas_dos_dois_nomes()
     {
-        var sheets = SpeakerSamples.Sheets([Spoken(0, "a", "Ａ子")]);
+        var sheets = SpeakerSamples.Sheets([Spoken(0, "um", "Ａ子"), Spoken(1, "dois", "A子", "x", TranslationStatus.Machine)]);
 
+        var sheet = Assert.Single(sheets).Value;
         Assert.True(sheets.ContainsKey("A子"));
+        Assert.True(sheets.ContainsKey("Ａ子"));
+        Assert.Equal(["dois", "um"], sheet.Longest.Select(l => l.Source));
+        Assert.Equal((2, 1), (sheet.Total, sheet.AwaitingReview));
+    }
+
+    [Fact]
+    public void Ficha_conta_no_total_todas_as_linhas_do_falante_efetivo_mesmo_repetidas_ou_sem_texto()
+    {
+        var sheets = SpeakerSamples.Sheets([
+            Spoken(0, "はい", "美咲"), Spoken(1, "はい", "美咲"), Spoken(2, "  ", "美咲"),
+            Spoken(3, "いいえ", "健太", chosen: "美咲"), Spoken(4, "narração", "美咲", chosen: ""), Spoken(5, "x", "？？？")]);
+
+        Assert.Equal(["美咲"], sheets.Keys);
+        Assert.Equal(4, sheets["美咲"].Total);
+        Assert.Equal(["いいえ", "はい"], sheets["美咲"].Longest.Select(l => l.Source));
+    }
+
+    [Fact]
+    public void Ficha_com_muitas_falas_guarda_so_as_mais_longas_e_a_repetida_curta_nao_volta()
+    {
+        var units = Enumerable.Range(1, 40).Select(n => Spoken(n, new string('あ', n), "美咲")).ToList();
+        units.AddRange(Enumerable.Range(41, 5).Select(n => Spoken(n, "あ", "美咲")));
+        units.Add(Spoken(99, new string('あ', 3), "美咲", "Três."));
+
+        var sheet = SpeakerSamples.Sheets(units, longest: 3)["美咲"];
+
+        Assert.Equal([40, 39, 38], sheet.Longest.Select(l => l.Source.Length));
+        Assert.Equal(46, sheet.Total);
     }
 }

@@ -24,17 +24,11 @@ internal sealed record ProjectScan(
     /// <summary>As chaves dos scripts que têm unidades <c>name</c>: só esses são relidos quando um personagem muda de tradução.</summary>
     public IReadOnlyList<string> NameScripts { get; init; } = [];
 
-    /// <summary>A ficha de cada personagem (#469): as falas mais longas e quantas linhas da IA esperam revisão.</summary>
-    public IReadOnlyDictionary<string, SpeakerSheet> Sheets { get; init; } = new Dictionary<string, SpeakerSheet>();
-
     public static ProjectScan From(IEnumerable<TextUnit> units)
     {
         var all = units.ToList();
         var sources = all.Select(u => u.Source).ToList();
-        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all))
-        {
-            Sheets = SpeakerSamples.Sheets(all),
-        };
+        return new ProjectScan(GlossaryUsage.From(all), SpeakerSamples.From(all), RepeatedTerms.Count(sources), sources, GameCharacters.Names(all));
     }
 
     public static ProjectScan From(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> scripts) =>

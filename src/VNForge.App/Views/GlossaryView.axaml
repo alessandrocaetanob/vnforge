@@ -163,7 +163,7 @@
                           <TextBox Classes="cell jp" Classes.invalid="{Binding HasProblem}" ToolTip.Tip="{Binding Problem}" Text="{Binding Source}" AutomationProperties.Name="Nome no jogo"/>
                           <Button Grid.Column="1" Classes="icon subtle sm" VerticalAlignment="Center" IsEnabled="{Binding !IsBlank}"
                                   Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).OpenSheetCommand}" CommandParameter="{Binding}"
-                                  ToolTip.Tip="Abrir a ficha do personagem" AutomationProperties.Name="Abrir a ficha do personagem">
+                                  ToolTip.Tip="Abrir a ficha do personagem" AutomationProperties.Name="{Binding OpenSheetLabel}">
                             <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Person}"/>
                           </Button>
                         </Grid>

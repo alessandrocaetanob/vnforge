@@ -61,7 +61,7 @@ public static class SpeakerSamples
     /// <summary>
     /// A ficha de cada personagem (#469): as <paramref name="longest"/> falas mais longas no original, da maior para a menor (empate pela ordem do texto, sem repetir
     /// a mesma fala), e quantas linhas da IA ainda esperam revisão. Vale o falante que quem traduz escolheu (<see cref="TextUnit.EffectiveSpeaker"/>), o mesmo do
-    /// modo revisão. Fora ficam a narração, os falantes feitos só de sinais e as linhas sem texto. A chave ignora a largura dos caracteres, como o
+    /// modo revisão. Fora ficam a narração e os falantes feitos só de sinais; as linhas sem texto contam no total, mas não entram nas falas. A chave ignora a largura dos caracteres, como o
     /// <see cref="CharacterBook"/>.
     /// </summary>
     public static IReadOnlyDictionary<string, SpeakerSheet> Sheets(IEnumerable<TextUnit> units, int longest = DefaultSheetLines)
@@ -69,46 +69,73 @@ public static class SpeakerSamples
         ArgumentNullException.ThrowIfNull(units);
         ArgumentOutOfRangeException.ThrowIfLessThan(longest, 1);
 
-        var lines = new Dictionary<string, List<SpokenLine>>(CharacterBook.NameComparer);
-        var at = new Dictionary<string, Dictionary<string, int>>(CharacterBook.NameComparer);
-        var awaiting = new Dictionary<string, int>(CharacterBook.NameComparer);
+        var builders = new Dictionary<string, SheetBuilder>(CharacterBook.NameComparer);
         foreach (var unit in units)
         {
             var speaker = unit.EffectiveSpeaker?.Trim();
-            var line = unit.Source.Trim();
-            if (string.IsNullOrEmpty(speaker) || line.Length == 0 || SpeakerNames.IsSignsOnly(speaker))
+            if (string.IsNullOrEmpty(speaker) || SpeakerNames.IsSignsOnly(speaker))
             {
                 continue;
             }
 
-            if (!lines.TryGetValue(speaker, out var spoken))
+            if (!builders.TryGetValue(speaker, out var builder))
             {
-                lines[speaker] = spoken = [];
-                at[speaker] = new Dictionary<string, int>(StringComparer.Ordinal);
+                builders[speaker] = builder = new SheetBuilder(longest);
             }
 
+            builder.Total++;
             if (unit.Status == TranslationStatus.Machine)
             {
-                awaiting[speaker] = awaiting.GetValueOrDefault(speaker) + 1;
+                builder.AwaitingReview++;
             }
 
-            var translation = string.IsNullOrWhiteSpace(unit.Translation) ? null : unit.Translation.Trim();
-            if (!at[speaker].TryGetValue(line, out var index))
+            var line = unit.Source.Trim();
+            if (line.Length > 0)
             {
-                at[speaker][line] = spoken.Count;
-                spoken.Add(new SpokenLine(line, translation));
-            }
-            else if (spoken[index].Translation is null && translation is not null)
-            {
-                // A mesma fala repetida: a primeira ocorrência sem tradução fica com a de uma ocorrência traduzida.
-                spoken[index] = spoken[index] with { Translation = translation };
+                builder.Offer(line, string.IsNullOrWhiteSpace(unit.Translation) ? null : unit.Translation.Trim());
             }
         }
 
-        return lines.ToDictionary(
-            p => p.Key,
-            p => new SpeakerSheet([.. p.Value.OrderByDescending(l => l.Source.Length).Take(longest)], awaiting.GetValueOrDefault(p.Key)),
-            CharacterBook.NameComparer);
+        return builders.ToDictionary(p => p.Key, p => new SpeakerSheet([.. p.Value.Kept], p.Value.AwaitingReview, p.Value.Total), CharacterBook.NameComparer);
+    }
+
+    /// <summary>Guarda só as <c>max</c> falas mais longas de um falante, da maior para a menor: o texto do jogo inteiro não fica na memória.</summary>
+    private sealed class SheetBuilder(int max)
+    {
+        public List<SpokenLine> Kept { get; } = new(max);
+
+        public int Total { get; set; }
+
+        public int AwaitingReview { get; set; }
+
+        public void Offer(string line, string? translation)
+        {
+            var same = Kept.FindIndex(k => string.Equals(k.Source, line, StringComparison.Ordinal));
+            if (same >= 0)
+            {
+                // A mesma fala repetida: a primeira ocorrência sem tradução fica com a de uma ocorrência traduzida.
+                if (Kept[same].Translation is null && translation is not null)
+                {
+                    Kept[same] = Kept[same] with { Translation = translation };
+                }
+
+                return;
+            }
+
+            if (Kept.Count == max)
+            {
+                if (line.Length <= Kept[^1].Source.Length)
+                {
+                    return;
+                }
+
+                Kept.RemoveAt(Kept.Count - 1);
+            }
+
+            // Empate pela ordem do texto: entra depois das que têm o mesmo tamanho.
+            var at = Kept.FindLastIndex(k => k.Source.Length >= line.Length) + 1;
+            Kept.Insert(at, new SpokenLine(line, translation));
+        }
     }
 
     private static List<string> Spread(List<string> lines, int max)
@@ -131,5 +158,5 @@ public static class SpeakerSamples
 /// <summary>Uma fala do personagem no original e, quando já existe, na tradução (nula se estiver vazia).</summary>
 public sealed record SpokenLine(string Source, string? Translation);
 
-/// <summary>O que a ficha do personagem mostra do texto do projeto: as falas mais longas e quantas linhas da IA esperam revisão.</summary>
-public sealed record SpeakerSheet(IReadOnlyList<SpokenLine> Longest, int AwaitingReview);
+/// <summary>O que a ficha do personagem mostra do texto do projeto: as falas mais longas, quantas linhas da IA esperam revisão e quantas linhas ele fala no total (as repetidas e as sem texto contam).</summary>
+public sealed record SpeakerSheet(IReadOnlyList<SpokenLine> Longest, int AwaitingReview, int Total);
