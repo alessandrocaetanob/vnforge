@@ -79,7 +79,8 @@ public sealed class ToastService
 
     public ObservableCollection<ToastItem> Toasts { get; } = [];
 
-    public ToastItem Show(string message, ToastKind kind = ToastKind.Info, string? key = null, string? undoLabel = null, Action? undo = null)
+    /// <param name="lifetime">Quanto o aviso fica na tela; <see cref="Lifetime"/> quando nulo. Quem pede uma decisão (como "Adicionar ao estilo") pede mais tempo.</param>
+    public ToastItem Show(string message, ToastKind kind = ToastKind.Info, string? key = null, string? undoLabel = null, Action? undo = null, TimeSpan? lifetime = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         if (key is not null)
@@ -97,7 +98,7 @@ public sealed class ToastService
             Dismiss(Toasts[0]);
         }
 
-        toast.Timer = clock.CreateTimer(_ => DismissLater(toast), null, Lifetime, Timeout.InfiniteTimeSpan);
+        toast.Timer = clock.CreateTimer(_ => DismissLater(toast), null, lifetime ?? Lifetime, Timeout.InfiniteTimeSpan);
         return toast;
     }
 

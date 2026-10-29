@@ -56,7 +56,7 @@ public sealed class LineEditor
 
                 return string.IsNullOrEmpty(unit.Translation) && unit.Status == TranslationStatus.Untranslated && unit.Origin is null
                     ? unit
-                    : unit with { Translation = null, Status = TranslationStatus.Untranslated, Origin = null, Doubt = null };
+                    : unit with { Translation = null, Status = TranslationStatus.Untranslated, Origin = null, Doubt = null, AiTranslation = null };
             }
 
             return string.Equals(unit.Translation, translation, StringComparison.Ordinal)
@@ -67,6 +67,7 @@ public sealed class LineEditor
                     Status = TranslationStatus.Translated,
                     Origin = new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()),
                     Doubt = null,
+                    AiTranslation = unit.AiTranslationAfterEdit(translation),
                 };
         });
 
@@ -176,7 +177,7 @@ public sealed class LineEditor
                 continue;
             }
 
-            units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin, Doubt = null };
+            units[index] = previous with { Translation = translation, Status = TranslationStatus.Translated, Origin = origin, Doubt = null, AiTranslation = previous.AiTranslationAfterEdit(translation) };
             if (!pending.TryGetValue(scriptKey, out var list))
             {
                 pending[scriptKey] = list = [];
@@ -260,7 +261,7 @@ public sealed class LineEditor
         var isKeep = unit.Status == TranslationStatus.Keep;
         if (keep)
         {
-            return isKeep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null, Doubt = null };
+            return isKeep ? unit : unit with { Status = TranslationStatus.Keep, Translation = null, Origin = null, PreviousSource = null, Doubt = null, AiTranslation = null };
         }
 
         return isKeep ? unit with { Status = TranslationStatus.Untranslated } : unit;
@@ -355,7 +356,7 @@ public sealed class LineEditor
         });
 
     /// <summary>
-    /// Devolve a linha ao estado que ela tinha (tradução, status e origem), p. ex. para desfazer uma gravação. Só desfaz se o arquivo ainda guarda o que
+    /// Devolve a linha ao estado que ela tinha (tradução, status, origem, dúvida da IA e a tradução da IA guardada), p. ex. para desfazer uma gravação. Só desfaz se o arquivo ainda guarda o que
     /// <paramref name="saved"/> gravou; as notas, os avisos marcados e o original a revisar são os de agora, não os do instantâneo.
     /// </summary>
     /// <exception cref="KeyNotFoundException">O script não tem uma linha com o id de <paramref name="previous"/>.</exception>
@@ -371,7 +372,7 @@ public sealed class LineEditor
                 throw new VNForgeException("A linha mudou depois deste aviso; nada foi desfeito.");
             }
 
-            var restored = unit with { Translation = previous.Translation, Status = previous.Status, Origin = previous.Origin, Doubt = previous.Doubt };
+            var restored = unit with { Translation = previous.Translation, Status = previous.Status, Origin = previous.Origin, Doubt = previous.Doubt, AiTranslation = previous.AiTranslation };
             return restored == unit ? unit : restored;
         });
     }

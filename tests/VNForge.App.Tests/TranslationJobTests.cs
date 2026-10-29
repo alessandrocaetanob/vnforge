@@ -90,6 +90,21 @@ public sealed class TranslationJobTests
     }
 
     [Fact]
+    public async Task Traducao_nova_da_IA_apaga_o_texto_da_IA_guardado_da_edicao_antiga()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProjects.Create(temp.Path, "Teste", TranslationStatus.Untranslated, TranslationStatus.Untranslated));
+        var saved = folder.LoadText("yst00001");
+        folder.SaveText("yst00001", [saved[0] with { Translation = "editada", AiTranslation = "da IA antiga" }, saved[1]]);
+
+        await Job(folder, new UsageProvider()).RunAsync(Request(), new Reporter(), TestContext.Current.CancellationToken);
+
+        var again = folder.LoadText("yst00001")[0];
+        Assert.Equal("[PT] 原文0", again.Translation);
+        Assert.Null(again.AiTranslation);
+    }
+
+    [Fact]
     public async Task So_traduz_os_scripts_do_escopo()
     {
         using var temp = new TempFolder();

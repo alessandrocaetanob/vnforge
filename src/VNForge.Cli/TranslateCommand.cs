@@ -177,6 +177,7 @@ internal static class TranslateCommand
             Origin = origin,
             PreviousSource = null,
             Doubt = result.DoubtFor(unit),
+            AiTranslation = null,
         };
     }
 

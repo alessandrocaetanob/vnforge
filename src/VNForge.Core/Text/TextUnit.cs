@@ -40,6 +40,14 @@ public sealed record TextUnit(
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TranslationDoubt? Doubt { get; init; }
 
+    /// <summary>
+    /// A tradução que a IA escreveu, guardada quando a pessoa a edita: a <see cref="Translation"/> passa a ser a da pessoa e este campo fica com o texto da IA, para o Core
+    /// comparar os dois e achar o que a pessoa corrige sempre (#473). Nulo enquanto ninguém editou o texto da IA, quando a linha nunca foi da IA, quando a pessoa limpa a tradução
+    /// ou quando a edição devolve o texto da IA; uma nova tradução da IA o apaga, porque a nova já é o texto dela. Fica fora do JSON quando nulo.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AiTranslation { get; init; }
+
     /// <summary>Observações livres do tradutor ou do revisor. Vazio quando não há; <c>null</c> no JSON é recusado.</summary>
     public string Notes { get; init => field = value ?? string.Empty; } = string.Empty;
 
@@ -91,4 +99,24 @@ public sealed record TextUnit(
     /// </summary>
     [JsonIgnore]
     public bool NeedsRewrite => HasTranslation && !string.Equals(Translation, Source, StringComparison.Ordinal);
+
+    /// <summary>
+    /// O <see cref="AiTranslation"/> que a linha passa a ter quando a pessoa grava <paramref name="edited"/> no lugar da tradução de agora: o texto da IA que já estava guardado ou,
+    /// na primeira edição de uma linha cuja origem é a IA, a tradução de agora. Texto vazio ou igual ao da IA não deixa nada a comparar; texto igual ao de agora não muda nada.
+    /// </summary>
+    internal string? AiTranslationAfterEdit(string? edited)
+    {
+        if (string.IsNullOrWhiteSpace(edited))
+        {
+            return null;
+        }
+
+        if (string.Equals(edited, Translation, StringComparison.Ordinal))
+        {
+            return AiTranslation;
+        }
+
+        var ai = AiTranslation ?? (Origin is { } origin && !string.Equals(origin.Provider, Projects.LineEditor.ManualProvider, StringComparison.Ordinal) && !string.IsNullOrEmpty(Translation) ? Translation : null);
+        return string.Equals(ai, edited, StringComparison.Ordinal) ? null : ai;
+    }
 }

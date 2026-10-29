@@ -163,6 +163,22 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Reextrair_mantem_o_texto_da_IA_guardado_com_o_original_igual_ou_alterado()
+    {
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem?");
+        var project = NewProject();
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+        project.SaveText("a001", [Translated(FirstUnitId, "Olá", "Ô") with { AiTranslation = "Ei" }, Translated("a001:000001", "Tudo bem?", "Tudo certo?") with { AiTranslation = "Tudo bem?" }]);
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(["Ei", "Tudo bem?"], project.LoadText("a001").Select(u => u.AiTranslation));
+
+        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tudo bem mesmo?");
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(["Ei", "Tudo bem?"], project.LoadText("a001").Select(u => u.AiTranslation));
+    }
+
+    [Fact]
     public void Reextrair_de_novo_com_a_marca_pendente_mantem_o_original_antigo()
     {
         WriteGame(A001Fake, DialogueHello);

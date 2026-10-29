@@ -150,6 +150,7 @@ public sealed class TranslationJob(
             Origin = origin,
             PreviousSource = null,
             Doubt = result.DoubtFor(unit),
+            AiTranslation = null,
         };
     }
 
