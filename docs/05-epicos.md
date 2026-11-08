@@ -137,10 +137,43 @@ Pronto quando: **M4** atingido.
 - Memória de tradução entre projetos
 - Distribuição do patch para jogadores (instalador que aplica só a diferença)
 
+Entraram na v6 ([plano](plans/2026-11-08-v6.md)): imagens com texto (c10), memória de tradução (c12) e distribuição do patch (c15). Outros provedores de IA e outras engines continuam sem data; o kit de conformidade de engine (c17) prepara a próxima.
+
+## E13 · M4 ampliado: o jogo inteiro bem e barato
+
+Plano: [2026-11-08-v6.md](plans/2026-11-08-v6.md), ondas 0 a 5.
+
+- Destravar: falante que sai como Narração (#364), testes instáveis (#510) e débito do Sonar (#330)
+- Bíblia do jogo (resumo, personagens, relações e tom por cena), janela de contexto maior, segunda passada de editor, banco de provas com A/B às cegas, fila de revisão por risco e tradução noturna pela Message Batches API
+- Imagens com texto, VNDB no novo projeto, memória de tradução entre projetos, dicionário offline, pré e pós-dicionário com condição
+- `vnf release` com o patch e o instalador para jogadores; kit de conformidade de engine
+
+Pronto quando: **M4** atingido com a configuração escolhida pelo banco de provas.
+
+## E14 · Biblioteca de VNs
+
+O VNForge lê o drive ou a pasta das VNs do Alessandro e vira o lugar delas, ligado ao VNDB: catálogo, ficha em português (sinopse, gêneros e personagens traduzidos e revisados), jogar com tempo contado, lista do VNDB sincronizada, fila do que ainda não existe em português, troca entre original e traduzido, capturas e notas, catálogo exportável. Itens d1 a d10 do plano da v6, menos o d8 (Talvez).
+
+Pronto quando: a pasta de VNs do Alessandro aparece inteira na Biblioteca, com as fichas em português.
+
+## E15 · Redesenho da interface
+
+Três direções visuais sobre a Biblioteca e o Editor, design system v3 na direção escolhida, shell novo (Biblioteca, jogo, abas do jogo) e as telas refeitas em três ondas. Itens e1 a e4 do plano da v6. As telas novas do E13 e do E14 já nascem no design system v3.
+
+Pronto quando: todas as telas renderizadas nos testes de Rendering estão no design system v3, nos dois temas.
+
 ## Sugestão de ordem
 
 ```
 E0 ─► E1 ─► E2 ─► (M1) ─► E3 ─► E4 ─► E5 ─► (M2) ─► E6 ─► E7 ─► E8 ─► (M3)
                                                   └─► E9 e E10 em paralelo a partir daqui
                                                                          └─► E11 (M4) ─► E12
+```
+
+Depois da v5, a ordem é esta: o Core do E13 começa já; o E15 começa pelas três direções visuais, e o resto das telas do E13 e do E14 espera o design system v3; o E14 começa pelo cliente do VNDB, que o E13 também usa.
+
+```
+E13 (Core) ──────────────────────────────► M4
+E15: direções ─► DS v3 ─► shell ─► telas
+E14: cliente VNDB ─► Biblioteca (com o shell) ─► ficha, jogar, lista, fila
 ```

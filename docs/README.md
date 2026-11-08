@@ -14,6 +14,7 @@ Rascunho para o brainstorm antes de criar o repositório. Nada aqui é definitiv
 | [plans/2026-10-27-roteiro-teste-v4.md](plans/2026-10-27-roteiro-teste-v4.md) | Roteiro do teste de tradução da interface v4, tela por tela, com a release teste.11 |
 | [plans/2026-10-27-roteiro-teste-12.md](plans/2026-10-27-roteiro-teste-12.md) | Reteste da #417 com a teste.12: zero erros de codificação depois de um clique |
 | [plans/2026-10-29-roteiro-teste-v5.md](plans/2026-10-29-roteiro-teste-v5.md) | Roteiro do teste de tradução da interface v5, com a release teste.18 e os três pontos nunca vistos no app real |
+| [plans/2026-11-08-v6.md](plans/2026-11-08-v6.md) | v6: o jogo inteiro com bíblia, banco de provas e lote noturno (E13), a Biblioteca de VNs com o VNDB (E14) e o redesenho da interface (E15) |
 
 Design do app (telas, tokens e componentes): [design/](design/README.md).
 
