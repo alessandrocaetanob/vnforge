@@ -51,6 +51,9 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     /// </summary>
     public DashboardViewModel Detail { get; } = new(clock: clock);
 
+    /// <summary>O relógio do app: o Painel da janela principal usa o mesmo, para o "hoje" e a janela do ritmo não dependerem de quem montou a tela.</summary>
+    public TimeProvider Clock => clock;
+
     /// <summary>
     /// A fala onde a pessoa vai continuar, na caixa do jogo do cartão "Continuar de onde parou": a primeira que espera revisão na cena do próximo passo
     /// ou, sem nenhuma, a última já revisada. Nula quando a cena não tem fala traduzida; o cartão esconde a caixa.

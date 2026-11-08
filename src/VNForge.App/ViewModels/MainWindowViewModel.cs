@@ -78,6 +78,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
+        Dashboard = new(clock: start.Clock);
         Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes", Guid.NewGuid().ToString("N"))));
         Settings.KeyChanged += (_, _) => ShowKeyStatus(new ResolvedApiKey(null, Settings.KeyConfigured ? ApiKeySource.Vault : ApiKeySource.None), Settings.KeyStatus);
@@ -191,7 +192,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Os pontos de restauração das operações em lote; é ele que dá o "Desfazer" à lista de tarefas.</summary>
     public BatchHistory History { get; }
 
-    public DashboardViewModel Dashboard { get; } = new();
+    public DashboardViewModel Dashboard { get; }
 
     public EditorViewModel Editor
     {
