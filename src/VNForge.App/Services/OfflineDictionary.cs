@@ -28,13 +28,17 @@ public sealed class OfflineDictionary
     private readonly Action<Action> postToUi;
     private volatile JmdictLookup? lookup;
     private volatile string created = string.Empty;
+    private volatile CancellationTokenSource? installCancel;
+    private readonly TimeSpan? idleTimeout;
+    private int lookups;
 
-    public OfflineDictionary(JmdictStore store, Func<HttpClient>? createHttp = null, TimeProvider? clock = null, Action<Action>? postToUi = null)
+    public OfflineDictionary(JmdictStore store, Func<HttpClient>? createHttp = null, TimeProvider? clock = null, Action<Action>? postToUi = null, TimeSpan? idleTimeout = null)
     {
         this.store = store ?? throw new ArgumentNullException(nameof(store));
         this.createHttp = createHttp ?? (() => new HttpClient());
         this.clock = clock ?? TimeProvider.System;
         this.postToUi = postToUi ?? (action => action());
+        this.idleTimeout = idleTimeout;
         State = store.IsInstalled ? OfflineDictionaryState.Loading : OfflineDictionaryState.NotInstalled;
         Loaded = State == OfflineDictionaryState.Loading ? Task.Run(LoadIndex) : Task.CompletedTask;
     }
@@ -65,7 +69,14 @@ public sealed class OfflineDictionary
     public event EventHandler? Changed;
 
     /// <summary>A palavra que cobre o caractere; nulo enquanto o dicionário não está pronto ou quando ele não tem a palavra.</summary>
-    public JmdictMatch? FindWordAt(string text, int position) => lookup?.FindWordAt(text, position);
+    public JmdictMatch? FindWordAt(string text, int position)
+    {
+        Interlocked.Increment(ref lookups);
+        return lookup?.FindWordAt(text, position);
+    }
+
+    /// <summary>Quantas consultas o dicionário já respondeu; os testes conferem que o mouse parado sobre o mesmo caractere não refaz a busca.</summary>
+    public int LookupCount => Volatile.Read(ref lookups);
 
     public void DismissOffer()
     {
@@ -73,7 +84,14 @@ public sealed class OfflineDictionary
         Raise();
     }
 
-    /// <summary>Baixa o JMdict e monta o índice (também atualiza um dicionário velho). Erros viram <see cref="Problem"/> e o estado <see cref="OfflineDictionaryState.Failed"/>; o dicionário anterior segue valendo.</summary>
+    /// <summary>Interrompe o download em andamento; o dicionário que já estava instalado continua valendo e não é erro.</summary>
+    public void CancelInstall() => installCancel?.Cancel();
+
+    /// <summary>
+    /// Baixa o JMdict e monta o índice (também atualiza um dicionário velho). Nada escapa como exceção: erro e tempo esgotado viram <see cref="Problem"/> e a interface os mostra,
+    /// com o dicionário anterior ainda valendo (<see cref="OfflineDictionaryState.Ready"/>) ou, sem ele, <see cref="OfflineDictionaryState.Failed"/>; cancelar (por
+    /// <paramref name="cancellationToken"/> ou por <see cref="CancelInstall"/>) volta ao estado de antes sem <see cref="Problem"/>.
+    /// </summary>
     public async Task InstallAsync(CancellationToken cancellationToken = default)
     {
         if (State == OfflineDictionaryState.Installing)
@@ -81,10 +99,11 @@ public sealed class OfflineDictionary
             return;
         }
 
-        var before = State;
         Problem = null;
         Progress = -1;
         SetState(OfflineDictionaryState.Installing);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        installCancel = cancel;
         try
         {
             using var http = createHttp();
@@ -93,18 +112,21 @@ public sealed class OfflineDictionary
                 Progress = p.Stage == JmdictStage.Downloading ? p.Fraction : -1;
                 Raise();
             });
-            await new JmdictInstaller(http, store).InstallAsync(progress, cancellationToken).ConfigureAwait(false);
-            await Task.Run(LoadIndex, cancellationToken).ConfigureAwait(false);
+            await new JmdictInstaller(http, store, idleTimeout).InstallAsync(progress, cancel.Token).ConfigureAwait(false);
+            await Task.Run(LoadIndex, cancel.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            SetState(before == OfflineDictionaryState.Installing ? OfflineDictionaryState.NotInstalled : before);
-            throw;
+            SetState(lookup is null ? OfflineDictionaryState.NotInstalled : OfflineDictionaryState.Ready);
         }
-        catch (JmdictFileException e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
-            Problem = e.Message;
+            Problem = e is JmdictFileException ? e.Message : $"Não foi possível instalar o dicionário: {e.Message}";
             SetState(lookup is null ? OfflineDictionaryState.Failed : OfflineDictionaryState.Ready);
+        }
+        finally
+        {
+            installCancel = null;
         }
     }
 

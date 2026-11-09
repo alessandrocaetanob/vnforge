@@ -55,7 +55,7 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
         return memory;
     }
 
-    private async Task<T> InWindow<T>(string themeName, int width, int height, string line, bool installed, Func<Window, EditorViewModel, OfflineDictionary, Task<T>> inspect)
+    private async Task<T> InWindow<T>(string themeName, int width, int height, string line, bool installed, Func<Window, EditorViewModel, OfflineDictionary, Task<T>> inspect, Func<HttpClient>? http = null)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         using var temp = new TempFolder();
@@ -65,7 +65,7 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
             {
                 using var config = new TempFolder();
                 var folder = Path.Combine(config.Path, "dictionary");
-                var dictionary = installed ? await SyntheticDictionary.InstalledAsync(folder) : SyntheticDictionary.NotInstalled(folder);
+                var dictionary = installed ? await SyntheticDictionary.InstalledAsync(folder, http, ToUi) : SyntheticDictionary.NotInstalled(folder, http, postToUi: ToUi);
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var editor = new EditorViewModel(clock: new FixedClock(Now)) { Memory = Memory(config), Dictionary = dictionary };
                 var vm = new MainWindowViewModel(start) { Editor = editor };
@@ -90,6 +90,9 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
             TestContext.Current.CancellationToken);
     }
 
+    /// <summary>Como o app faz: o aviso de mudança do dicionário, que nasce numa thread do pool, chega à interface pela fila da thread dela.</summary>
+    private static void ToUi(Action action) => Avalonia.Threading.Dispatcher.UIThread.Post(action);
+
     private static LineDetailView Inspector(Window window) => window.GetVisualDescendants().OfType<LineDetailView>().First(v => v.IsEffectivelyVisible);
 
     private static void AssertCardFits(Window window, LineDetailView inspector)
@@ -102,6 +105,13 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
         Assert.True(origin.X >= 0 && origin.Y >= 0 && origin.X + host.Bounds.Width <= window.Bounds.Width && origin.Y + host.Bounds.Height <= window.Bounds.Height,
             $"O cartão ({origin.X:0},{origin.Y:0} {host.Bounds.Width:0}x{host.Bounds.Height:0}) sai da janela de {window.Bounds.Width:0}x{window.Bounds.Height:0}.");
         Assert.Empty(ClippedTextHeadlessTests.FindClipped(host));
+
+        // A largura é a do original no inspetor, entre 300 e 400 px, e o cartão fica dentro da coluna do inspetor: não cobre a lista de linhas.
+        var box = inspector.FindControl<Border>("OriginalBox")!;
+        Assert.InRange(host.Bounds.Width, WordCardWidth.Min - 0.5, WordCardWidth.Max + 0.5);
+        Assert.Equal(Math.Clamp(box.Bounds.Width, WordCardWidth.Min, WordCardWidth.Max), host.Bounds.Width, 1);
+        var inspectorLeft = (inspector.TranslatePoint(default, window) ?? default).X;
+        Assert.True(origin.X >= inspectorLeft - 1, $"O cartão começa em x={origin.X:0}, antes do inspetor (x={inspectorLeft:0}): cobriria a lista de linhas.");
     }
 
     [Theory]
@@ -158,12 +168,11 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
     }
 
     [Theory]
-    [InlineData("Dark")]
-    [InlineData("Light")]
-    public async Task Sem_o_dicionario_instalado_o_cartao_oferece_o_download(string theme)
+    [MemberData(nameof(Cases))]
+    public async Task Sem_o_dicionario_instalado_o_cartao_oferece_o_download(string theme, int width, int height)
     {
         var variant = theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
-        await InWindow(theme, ScreenRenderer.Width, ScreenRenderer.Height, "yst00001:000000", installed: false, (window, editor, _) =>
+        await InWindow(theme, width, height, "yst00001:000000", installed: false, (window, editor, _) =>
         {
             var inspector = Inspector(window);
             editor.Detail!.HoverSource(Frase.IndexOf("遅刻", StringComparison.Ordinal));
@@ -174,9 +183,57 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
             var buttons = inspector.FindControl<WordCardView>("WordCardHost")!.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).Select(b => b.Content).ToList();
             Assert.Contains("Baixar o dicionário", buttons);
             Assert.Contains("Agora não", buttons);
-            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-dicionario-baixar", variant)));
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"editor-dicionario-baixar-{width}", variant)));
             return Task.FromResult(true);
         });
+    }
+
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Light")]
+    public async Task Durante_o_download_o_cartao_mostra_o_andamento_e_o_botao_Cancelar(string theme)
+    {
+        var variant = theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await InWindow(theme, ScreenRenderer.Width, ScreenRenderer.Height, "yst00001:000000", installed: false, async (window, editor, dictionary) =>
+        {
+            var inspector = Inspector(window);
+            editor.Detail!.HoverSource(Frase.IndexOf("遅刻", StringComparison.Ordinal));
+            var baixando = editor.Detail.InstallDictionaryCommand.ExecuteAsync(null);
+            ScreenRenderer.Settle(window);
+
+            AssertCardFits(window, inspector);
+            Assert.True(editor.Detail.IsInstallingCard);
+            var buttons = inspector.FindControl<WordCardView>("WordCardHost")!.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).Select(b => b.Content).ToList();
+            Assert.Contains("Cancelar", buttons);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-dicionario-baixando", variant)));
+
+            editor.Detail.CancelDictionaryInstallCommand.Execute(null);
+            await baixando;
+            ScreenRenderer.Settle(window);
+            Assert.False(editor.Detail.ShowWordCard);
+            return true;
+        }, () => new HttpClient(new SyntheticDictionary.HangingServer()));
+    }
+
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Light")]
+    public async Task Falha_do_download_mostra_o_erro_no_cartao(string theme)
+    {
+        var variant = theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await InWindow(theme, ScreenRenderer.Width, ScreenRenderer.Height, "yst00001:000000", installed: false, async (window, editor, _) =>
+        {
+            var inspector = Inspector(window);
+            editor.Detail!.HoverSource(Frase.IndexOf("遅刻", StringComparison.Ordinal));
+            await editor.Detail.InstallDictionaryCommand.ExecuteAsync(null);
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Settle(window);
+
+            AssertCardFits(window, inspector);
+            Assert.True(editor.Detail.IsFailedCard);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-dicionario-erro", variant)));
+            return true;
+        }, () => new HttpClient(new SyntheticDictionary.TimeoutServer()));
     }
 
     [Fact]

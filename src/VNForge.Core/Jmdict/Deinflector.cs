@@ -11,7 +11,10 @@ internal enum WordClass
     Kuru = 8,
     AdjI = 16,
     Masu = 32,
-    All = 63,
+
+    /// <summary>A forma em て (ou a que ela vira com ちゃう): só encadeia, nenhuma entrada do JMdict tem esta classe.</summary>
+    Te = 64,
+    All = 127,
 }
 
 /// <summary>
@@ -32,6 +35,11 @@ internal static class Deinflector
     private const int MaxDepth = 5;
 
     private const int MaxCandidates = 64;
+
+    private const string ConditionalTara = "condicional (たら)";
+    private const string NegativeZu = "negativa (ず)";
+    private const string Progressive = "contínua";
+    private const string Completive = "completa (ちゃう)";
 
     // Linhas do godan: forma de dicionário, i (cortesia), a (negativa), e (potencial, imperativa), o (volitiva), e as formas em て e た.
     private static readonly (string U, string I, string A, string E, string O, string Te, string Ta)[] GodanRows =
@@ -114,6 +122,7 @@ internal static class Deinflector
     {
         var rules = new List<DeinflectionRule>();
         AddPolite(rules);
+        AddTeCompounds(rules);
         AddAdjective(rules);
         foreach (var row in GodanRows)
         {
@@ -137,12 +146,34 @@ internal static class Deinflector
         Add(rules, "ましょう", "ます", WordClass.All, WordClass.Masu, "volitiva");
     }
 
+    /// <summary>
+    /// ている, てる e ちゃう (a contração de てしまう) levam à forma em て, que as regras do て de cada classe desfazem em seguida: 食べている vira 食べて e depois 食べる.
+    /// </summary>
+    private static void AddTeCompounds(List<DeinflectionRule> rules)
+    {
+        foreach (var ending in new[] { "ている", "てる", "ていた", "てた" })
+        {
+            Add(rules, ending, "て", WordClass.All, WordClass.Te, Progressive);
+        }
+
+        foreach (var ending in new[] { "ちゃう", "ちゃった", "ちゃって" })
+        {
+            Add(rules, ending, "て", WordClass.All, WordClass.Te, Completive);
+        }
+
+        foreach (var ending in new[] { "じゃう", "じゃった", "じゃって" })
+        {
+            Add(rules, ending, "で", WordClass.All, WordClass.Te, Completive);
+        }
+    }
+
     private static void AddAdjective(List<DeinflectionRule> rules)
     {
         Add(rules, "かった", "い", WordClass.All, WordClass.AdjI, "passada");
         Add(rules, "くない", "い", WordClass.AdjI, WordClass.AdjI, "negativa");
         Add(rules, "くて", "い", WordClass.All, WordClass.AdjI, "em て");
         Add(rules, "ければ", "い", WordClass.All, WordClass.AdjI, "condicional");
+        Add(rules, "かったら", "い", WordClass.All, WordClass.AdjI, ConditionalTara);
         Add(rules, "く", "い", WordClass.All, WordClass.AdjI, "adverbial");
         Add(rules, "さ", "い", WordClass.All, WordClass.AdjI, "nominalizada");
     }
@@ -159,12 +190,15 @@ internal static class Deinflector
         Add(rules, row.A + "せる", row.U, WordClass.Ichidan, WordClass.Godan, "causativa");
         Add(rules, row.O + "う", row.U, WordClass.All, WordClass.Godan, "volitiva");
         Add(rules, row.E + "ば", row.U, WordClass.All, WordClass.Godan, "condicional");
+        Add(rules, row.Ta + "ら", row.U, WordClass.All, WordClass.Godan, ConditionalTara);
+        Add(rules, row.A + "ず", row.U, WordClass.All, WordClass.Godan, NegativeZu);
         Add(rules, row.E, row.U, WordClass.All, WordClass.Godan, "imperativa");
         if (row.U == "く")
         {
             // 行く é a exceção: o て e o た dele são って e った, como os de う, つ e る.
             Add(rules, "って", "く", WordClass.All, WordClass.Godan, "em て");
             Add(rules, "った", "く", WordClass.All, WordClass.Godan, "passada");
+            Add(rules, "ったら", "く", WordClass.All, WordClass.Godan, ConditionalTara);
         }
     }
 
@@ -179,6 +213,8 @@ internal static class Deinflector
         Add(rules, "させる", "る", WordClass.Ichidan, WordClass.Ichidan, "causativa");
         Add(rules, "よう", "る", WordClass.All, WordClass.Ichidan, "volitiva");
         Add(rules, "れば", "る", WordClass.All, WordClass.Ichidan, "condicional");
+        Add(rules, "たら", "る", WordClass.All, WordClass.Ichidan, ConditionalTara);
+        Add(rules, "ず", "る", WordClass.All, WordClass.Ichidan, NegativeZu);
         Add(rules, "ろ", "る", WordClass.All, WordClass.Ichidan, "imperativa");
     }
 
@@ -193,6 +229,8 @@ internal static class Deinflector
         Add(rules, "させる", "する", WordClass.Ichidan, WordClass.Suru, "causativa");
         Add(rules, "しよう", "する", WordClass.All, WordClass.Suru, "volitiva");
         Add(rules, "すれば", "する", WordClass.All, WordClass.Suru, "condicional");
+        Add(rules, "したら", "する", WordClass.All, WordClass.Suru, ConditionalTara);
+        Add(rules, "せず", "する", WordClass.All, WordClass.Suru, NegativeZu);
         Add(rules, "しろ", "する", WordClass.All, WordClass.Suru, "imperativa");
     }
 
@@ -211,6 +249,9 @@ internal static class Deinflector
         }
 
         Add(rules, "来れば", "来る", WordClass.All, WordClass.Kuru, "condicional");
+        Add(rules, "来たら", "来る", WordClass.All, WordClass.Kuru, ConditionalTara);
+        Add(rules, "きたら", "くる", WordClass.All, WordClass.Kuru, ConditionalTara);
+        Add(rules, "こず", "くる", WordClass.All, WordClass.Kuru, NegativeZu);
         Add(rules, "くれば", "くる", WordClass.All, WordClass.Kuru, "condicional");
         Add(rules, "来い", "来る", WordClass.All, WordClass.Kuru, "imperativa");
         Add(rules, "こい", "くる", WordClass.All, WordClass.Kuru, "imperativa");

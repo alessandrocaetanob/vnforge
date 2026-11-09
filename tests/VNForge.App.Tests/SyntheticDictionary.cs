@@ -40,7 +40,7 @@ internal static class SyntheticDictionary
         """;
 
     /// <summary>Grava o índice do dicionário inventado na pasta e devolve o dicionário do app já carregado.</summary>
-    public static async Task<OfflineDictionary> InstalledAsync(string folder, Func<HttpClient>? http = null)
+    public static async Task<OfflineDictionary> InstalledAsync(string folder, Func<HttpClient>? http = null, Action<Action>? postToUi = null)
     {
         var store = new JmdictStore(folder);
         Directory.CreateDirectory(folder);
@@ -50,12 +50,13 @@ internal static class SyntheticDictionary
             JmdictImporter.Import(input, output);
         }
 
-        var dictionary = new OfflineDictionary(store, http);
+        var dictionary = new OfflineDictionary(store, http, postToUi: postToUi);
         await dictionary.Loaded;
         return dictionary;
     }
 
-    public static OfflineDictionary NotInstalled(string folder, Func<HttpClient>? http = null) => new(new JmdictStore(folder), http);
+    public static OfflineDictionary NotInstalled(string folder, Func<HttpClient>? http = null, TimeSpan? idleTimeout = null, Action<Action>? postToUi = null) =>
+        new(new JmdictStore(folder), http, postToUi: postToUi, idleTimeout: idleTimeout);
 
     public static byte[] Gzip()
     {
@@ -66,6 +67,51 @@ internal static class SyntheticDictionary
         }
 
         return output.ToArray();
+    }
+
+    /// <summary>Um servidor que responde o cabeçalho e nunca entrega o corpo: o download só termina se for cancelado ou estourar o prazo.</summary>
+    public sealed class HangingServer : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new HangingStream()) });
+    }
+
+    /// <summary>Um servidor cuja conexão estoura o tempo, como o <see cref="HttpClient.Timeout"/> faz (TaskCanceledException sem cancelamento da pessoa).</summary>
+    public sealed class TimeoutServer : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new TaskCanceledException("O tempo limite da solicitação foi atingido.", new TimeoutException());
+    }
+
+    private sealed class HangingStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
     }
 
     /// <summary>Um servidor que responde com o arquivo inventado (ou com o erro pedido) e conta as chamadas.</summary>

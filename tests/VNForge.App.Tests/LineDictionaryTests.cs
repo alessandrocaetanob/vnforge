@@ -65,6 +65,7 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.False(vm.HasWordNote);
         Assert.Equal("JMdict · offline · EDRDG", vm.WordFootnote);
         Assert.Contains("CC BY-SA", vm.WordFootnoteTip);
+        Assert.Contains("https://www.edrdg.org/edrdg/licence.html", vm.WordFootnoteTip);
     }
 
     [Fact]
@@ -258,6 +259,114 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.False(velho.IsStale);
         Assert.True(vm.IsEntryCard);
         Assert.False(vm.WordNeedsUpdate);
+    }
+
+    [Fact]
+    public async Task Tempo_esgotado_da_conexao_mostra_o_erro_no_cartao_e_nao_derruba_o_comando()
+    {
+        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.TimeoutServer()));
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+
+        await vm.InstallDictionaryCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsFailedCard);
+        Assert.NotEmpty(vm.InstallProblem!);
+        Assert.Equal(OfflineDictionaryState.Failed, dicionario.State);
+        Assert.False(vm.IsInstallingCard);
+    }
+
+    [Fact]
+    public async Task Download_que_para_de_receber_dados_estoura_o_prazo_e_sai_do_estado_de_baixando()
+    {
+        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.HangingServer()), TimeSpan.FromMilliseconds(150));
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+
+        await vm.InstallDictionaryCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsFailedCard);
+        Assert.Contains("sem receber dados", vm.InstallProblem);
+        Assert.Equal(OfflineDictionaryState.Failed, dicionario.State);
+    }
+
+    [Fact]
+    public async Task Cancelar_interrompe_o_download_fecha_o_cartao_e_o_aviso_volta_na_proxima_passada()
+    {
+        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.HangingServer()));
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+
+        var baixando = vm.InstallDictionaryCommand.ExecuteAsync(null);
+        Assert.True(vm.IsInstallingCard);
+        vm.CancelDictionaryInstallCommand.Execute(null);
+        await baixando;
+
+        Assert.False(vm.ShowWordCard);
+        Assert.Equal(OfflineDictionaryState.NotInstalled, dicionario.State);
+        Assert.Null(dicionario.Problem);
+        vm.HoverSource(Em(Frase, "二人"));
+        Assert.True(vm.IsOfferCard);
+    }
+
+    [Fact]
+    public async Task Esc_durante_o_download_cancela_e_o_mouse_saindo_do_cartao_nao()
+    {
+        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.HangingServer()));
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+        var baixando = vm.InstallDictionaryCommand.ExecuteAsync(null);
+
+        vm.LeaveWordCard();
+        Assert.True(vm.IsInstallingCard);
+        Assert.True(vm.CloseWordCardCommand.CanExecute(null));
+        vm.CloseWordCardCommand.Execute(null);
+        await baixando;
+
+        Assert.False(vm.ShowWordCard);
+        Assert.Equal(OfflineDictionaryState.NotInstalled, dicionario.State);
+    }
+
+    [Fact]
+    public async Task Atualizar_que_falha_mostra_o_erro_e_mantem_o_dicionario_antigo()
+    {
+        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(new SyntheticDictionary.Server(HttpStatusCode.ServiceUnavailable)));
+        var antes = File.ReadAllBytes(dicionario.IndexPath);
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+
+        await vm.InstallDictionaryCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsFailedCard);
+        Assert.Contains("503", vm.InstallProblem);
+        Assert.Equal(OfflineDictionaryState.Ready, dicionario.State);
+        Assert.Equal(antes, File.ReadAllBytes(dicionario.IndexPath));
+        Assert.NotNull(dicionario.FindWordAt(Frase, Em(Frase, "遅刻")));
+
+        vm.CloseWordCardCommand.Execute(null);
+        vm.HoverSource(Em(Frase, "二人"));
+        Assert.True(vm.IsEntryCard);
+        Assert.Equal("二人", vm.WordText);
+    }
+
+    [Fact]
+    public async Task O_mouse_parado_sobre_o_mesmo_caractere_nao_refaz_a_busca()
+    {
+        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario);
+        using var vm = Abrir(dicionario);
+        var antes = dicionario.LookupCount;
+
+        vm.HoverSource(Em(Frase, "相"));
+        vm.HoverSource(Em(Frase, "相"));
+        vm.HoverSource(Em(Frase, "相"));
+        Assert.Equal(antes + 1, dicionario.LookupCount);
+
+        vm.HoverSource(Em(Frase, "遅刻"));
+        vm.CloseWordCardCommand.Execute(null);
+        var depois = dicionario.LookupCount;
+        vm.HoverSource(Em(Frase, "遅刻"));
+        Assert.True(vm.IsEntryCard);
+        Assert.Equal(depois, dicionario.LookupCount);
     }
 
     [Fact]

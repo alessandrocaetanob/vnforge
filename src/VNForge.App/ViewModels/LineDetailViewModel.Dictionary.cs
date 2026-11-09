@@ -34,6 +34,11 @@ public sealed partial class LineDetailViewModel
     private JmdictMatch? shownWord;
     private string wordSurface = string.Empty;
     private int hoverIndex = -1;
+    private int probedIndex = -1;
+    private JmdictMatch? probedMatch;
+
+    /// <summary>Onde está a licença do JMdict, para a atribuição que a licença exige.</summary>
+    public const string JmdictLicenseUrl = "https://www.edrdg.org/edrdg/licence.html";
 
     /// <summary>O dicionário offline do app; nulo quando o Editor não o montou (projeto de exemplo, testes). Sem ele o mouse sobre o original não faz nada.</summary>
     public OfflineDictionary? Dictionary
@@ -147,7 +152,7 @@ public sealed partial class LineDetailViewModel
     public string WordFootnote => FootnoteText;
 
     /// <summary>A licença e a versão, na dica do rodapé.</summary>
-    public string WordFootnoteTip => $"JMdict, de {Dictionary?.Version}. © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA. www.edrdg.org/edrdg/licence.html";
+    public string WordFootnoteTip => $"JMdict, de {Dictionary?.Version}. © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA. {JmdictLicenseUrl}";
 
     /// <summary>O dicionário passou do prazo de atualização da licença: o rodapé oferece baixar de novo.</summary>
     public bool WordNeedsUpdate => IsEntryCard && Dictionary is { IsStale: true };
@@ -214,7 +219,11 @@ public sealed partial class LineDetailViewModel
             return;
         }
 
-        if (d.FindWordAt(text, index) is not { } match)
+        // O mouse manda dezenas de movimentos por segundo sobre o mesmo caractere: o último resultado, achado ou não, vale até o caractere mudar.
+        var match = index == probedIndex ? probedMatch : d.FindWordAt(text, index);
+        probedIndex = index;
+        probedMatch = match;
+        if (match is null)
         {
             return;
         }
@@ -302,12 +311,27 @@ public sealed partial class LineDetailViewModel
     {
         if (WordCardMode is WordCardMode.Installing)
         {
+            // Com o download em andamento o Esc cancela, porque o cartão é a única porta para ele.
+            dictionary?.CancelInstall();
             return;
         }
 
         WordCardMode = WordCardMode.None;
         ClearWord();
     }
+
+    /// <summary>O mouse saiu do original e do cartão: fecha, menos durante o download, que só termina, falha ou é cancelado.</summary>
+    public void LeaveWordCard()
+    {
+        if (WordCardMode is not WordCardMode.Installing)
+        {
+            CloseWordCard();
+        }
+    }
+
+    /// <summary>"Cancelar" do cartão em andamento: interrompe o download; o dicionário que já havia continua valendo.</summary>
+    [RelayCommand]
+    private void CancelDictionaryInstall() => dictionary?.CancelInstall();
 
     /// <summary>"Mais N sentidos": abre todos os sentidos da entrada e as outras entradas da mesma grafia.</summary>
     [RelayCommand]
@@ -347,7 +371,15 @@ public sealed partial class LineDetailViewModel
 
         ClearWord();
         WordCardMode = WordCardMode.Installing;
-        await d.InstallAsync().ConfigureAwait(true);
+        try
+        {
+            await d.InstallAsync().ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // O serviço já trata o cancelamento; isto só garante que um cancelamento perdido nunca chegue à interface como exceção.
+            OnDictionaryChanged(d, EventArgs.Empty);
+        }
     }
 
     /// <summary>"Agora não": o aviso some e não volta até o app abrir outra vez.</summary>
@@ -375,20 +407,35 @@ public sealed partial class LineDetailViewModel
             return;
         }
 
-        switch (d.State)
+        if (d.State == OfflineDictionaryState.Installing)
         {
-            case OfflineDictionaryState.Ready:
-                WordCardMode = WordCardMode.None;
-                HoverSource(hoverIndex);
-                break;
-            case OfflineDictionaryState.Failed when WordCardMode is WordCardMode.Installing:
-                WordCardMode = WordCardMode.Failed;
-                break;
-            case OfflineDictionaryState.Installing:
-                WordCardMode = WordCardMode.Installing;
-                break;
-            default:
-                break;
+            WordCardMode = WordCardMode.Installing;
+        }
+        else if (WordCardMode is WordCardMode.Installing)
+        {
+            FinishInstall(d);
+        }
+    }
+
+    /// <summary>
+    /// O download acabou (ou falhou, ou foi cancelado): com erro o cartão o mostra, mesmo que o dicionário velho continue valendo; sem erro e com o dicionário pronto abre a entrada
+    /// da palavra sob o mouse; cancelado sem dicionário nenhum, o cartão fecha.
+    /// </summary>
+    private void FinishInstall(OfflineDictionary d)
+    {
+        probedIndex = -1;
+        if (d.Problem is not null)
+        {
+            WordCardMode = WordCardMode.Failed;
+        }
+        else if (d.State == OfflineDictionaryState.Ready)
+        {
+            WordCardMode = WordCardMode.None;
+            HoverSource(hoverIndex);
+        }
+        else
+        {
+            WordCardMode = WordCardMode.None;
         }
     }
 

@@ -103,6 +103,31 @@ public sealed class JmdictLookupTests
         Assert.Contains(razao, achada.Inflection);
     }
 
+    [Theory]
+    [InlineData("食べたら", "食べる", "condicional (たら)")]
+    [InlineData("行ったら", "行く", "condicional (たら)")]
+    [InlineData("美しかったら", "美しい", "condicional (たら)")]
+    [InlineData("したら", "する", "condicional (たら)")]
+    [InlineData("食べている", "食べる", "contínua")]
+    [InlineData("食べてる", "食べる", "contínua")]
+    [InlineData("食べていた", "食べる", "contínua")]
+    [InlineData("行っている", "行く", "contínua")]
+    [InlineData("揃ってる", "揃う", "contínua")]
+    [InlineData("食べちゃう", "食べる", "completa (ちゃう)")]
+    [InlineData("食べちゃった", "食べる", "completa (ちゃう)")]
+    [InlineData("食べず", "食べる", "negativa (ず)")]
+    [InlineData("行かず", "行く", "negativa (ず)")]
+    [InlineData("せず", "する", "negativa (ず)")]
+    public void Tira_tambem_o_tara_o_teiru_o_chau_e_o_zu(string conjugada, string palavra, string razao)
+    {
+        var achada = Lookup.FindWordAt(conjugada, 0);
+
+        Assert.NotNull(achada);
+        Assert.Equal(palavra, achada.Word);
+        Assert.Equal(conjugada.Length, achada.Length);
+        Assert.Contains(razao, achada.Inflection);
+    }
+
     [Fact]
     public void Conjugacao_encadeada_lista_as_formas_na_ordem_da_gramatica()
     {

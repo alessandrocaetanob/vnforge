@@ -36,10 +36,6 @@ public sealed partial class LineDetailView : UserControl
 
     private static readonly TimeSpan WordCloseDelay = TimeSpan.FromMilliseconds(250);
 
-    /// <summary>A largura do cartão do dicionário acompanha a do original (360 no quadro), entre estes limites.</summary>
-    private const double WordCardMinWidth = 300;
-    private const double WordCardMaxWidth = 400;
-
     private readonly DispatcherTimer ageTimer;
     private readonly DispatcherTimer wordCloseTimer;
     private readonly SpellingUnderlineRenderer spelling = new();
@@ -77,7 +73,7 @@ public sealed partial class LineDetailView : UserControl
         wordCloseTimer.Tick += (_, _) =>
         {
             wordCloseTimer.Stop();
-            current?.CloseWordCard();
+            current?.LeaveWordCard();
         };
         SourceText.PointerMoved += OnSourcePointerMoved;
         SourceText.PointerExited += (_, _) => wordCloseTimer.Start();
@@ -96,7 +92,6 @@ public sealed partial class LineDetailView : UserControl
         var hit = SourceText.TextLayout.HitTestPoint(e.GetPosition(SourceText));
         if (hit.IsInside)
         {
-            WordPopup.Width = Math.Clamp(OriginalBox.Bounds.Width, WordCardMinWidth, WordCardMaxWidth);
             current.HoverSource(hit.TextPosition);
         }
     }

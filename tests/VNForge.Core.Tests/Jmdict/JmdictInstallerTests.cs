@@ -114,6 +114,119 @@ public sealed class JmdictInstallerTests : IDisposable
         Assert.Throws<JmdictFileException>(() => store.Open());
     }
 
+    /// <summary>Um corpo de resposta que nunca entrega um byte: só termina quando a leitura é cancelada.</summary>
+    private sealed class HangingStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+    }
+
+    /// <summary>Um corpo que entrega alguns bytes e perde a conexão.</summary>
+    private sealed class DroppingStream : Stream
+    {
+        private bool first = true;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (first)
+            {
+                first = false;
+                buffer.Span[0] = 0x1F;
+                return ValueTask.FromResult(1);
+            }
+
+            throw new IOException("Foi forçado o cancelamento de uma conexão existente pelo host remoto.");
+        }
+    }
+
+    [Fact]
+    public async Task Download_que_para_de_receber_dados_estoura_o_prazo_com_mensagem_e_sem_arquivo()
+    {
+        var server = new FakeServer(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new HangingStream()) });
+        var store = Store;
+        var installer = new JmdictInstaller(new HttpClient(server), store, TimeSpan.FromMilliseconds(150));
+
+        var erro = await Assert.ThrowsAsync<JmdictFileException>(() => installer.InstallAsync(null, TestContext.Current.CancellationToken));
+
+        Assert.Contains("sem receber dados", erro.Message);
+        Assert.False(store.IsInstalled);
+        Assert.Empty(Directory.GetFiles(store.Directory));
+    }
+
+    [Fact]
+    public async Task Conexao_que_cai_no_meio_do_corpo_e_erro_de_rede_e_nao_de_gravacao_em_disco()
+    {
+        var server = new FakeServer(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new DroppingStream()) });
+        var store = Store;
+
+        var erro = await Assert.ThrowsAsync<JmdictFileException>(() => Installer(store, server).InstallAsync(null, TestContext.Current.CancellationToken));
+
+        Assert.Contains("conexão", erro.Message);
+        Assert.DoesNotContain("gravar", erro.Message);
+        Assert.Empty(Directory.GetFiles(store.Directory));
+    }
+
+    [Fact]
+    public async Task Cancelar_com_o_corpo_em_andamento_lanca_o_cancelamento_e_nao_o_erro_de_prazo()
+    {
+        using var cancel = new CancellationTokenSource();
+        var server = new FakeServer(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new HangingStream()) });
+        var store = Store;
+        var task = new JmdictInstaller(new HttpClient(server), store).InstallAsync(null, cancel.Token);
+
+        await cancel.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.False(store.IsInstalled);
+    }
+
     [Fact]
     public async Task O_dicionario_com_mais_de_30_dias_pede_atualizacao_como_a_licenca_exige()
     {

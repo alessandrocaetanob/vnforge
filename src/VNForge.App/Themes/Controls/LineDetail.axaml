@@ -102,6 +102,28 @@
     <Setter Property="HorizontalAlignment" Value="Left"/>
     <Setter Property="Cursor" Value="Hand"/>
   </Style>
+  <!-- A origem do dicionário no rodapé e no aviso: texto secundário que é link para a licença; sublinha ao passar o mouse. -->
+  <Style Selector="Button.word-source">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+  <Style Selector="Button.word-source /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Padding" Value="0"/>
+  </Style>
+  <Style Selector="Button.word-source TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
+  </Style>
+  <Style Selector="Button.word-source:pointerover TextBlock">
+    <Setter Property="TextDecorations" Value="Underline"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
   <Style Selector="Button.word-more /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Padding" Value="0"/>

@@ -110,7 +110,8 @@
                 <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
                 <Popup x:Name="WordPopup" PlacementTarget="{Binding #OriginalBox}" Placement="BottomEdgeAlignedLeft" IsLightDismissEnabled="False"
                        PlacementConstraintAdjustment="SlideX, FlipY" VerticalOffset="6" IsOpen="{Binding ShowWordCard, Mode=OneWay}">
-                  <v:WordCardView x:Name="WordCardHost"/>
+                  <!-- A largura do cartão acompanha a do original (360 no quadro), entre 300 e 400, por ligação: vale com o mouse e em qualquer outro caminho que abra o cartão. -->
+                  <v:WordCardView x:Name="WordCardHost" Width="{Binding #OriginalBox.Bounds.Width, Converter={x:Static v:WordCardWidth.Clamp}}"/>
                 </Popup>
               </Panel>
             </Border>
