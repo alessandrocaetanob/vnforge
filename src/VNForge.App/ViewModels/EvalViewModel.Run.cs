@@ -102,7 +102,7 @@ public sealed partial class EvalViewModel
         {
             (result, spent) = await Task.Run(() => (
                 EvalEstimator.Estimate(project, selected, sample, drawSeed, new TranslationRunOptions().BatchSize, JudgeModel),
-                AiUsageLog.Load(project).Dollars)).ConfigureAwait(true);
+                AiUsageLog.Load(project).Dollars), CancellationToken.None).ConfigureAwait(true);
         }
         catch (EvalException ex)
         {

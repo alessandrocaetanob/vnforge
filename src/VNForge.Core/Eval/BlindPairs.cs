@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace VNForge.Core.Eval;
 
 /// <summary>Monta os pares da rodada às cegas: a mesma linha traduzida por duas configurações, em ordem e posição sorteadas.</summary>
@@ -7,6 +9,7 @@ public static class BlindPairs
     /// Até <paramref name="count"/> pares. Reveza as combinações de duas configurações, para cada uma disputar pares parecidos, e só usa linhas em que as duas
     /// traduziram e os textos diferem (comparar dois textos iguais não diz nada). Devolve menos pares quando a rodada não tem tantos.
     /// </summary>
+    [SuppressMessage("Security Hotspot", "S2245:Using pseudorandom number generators (PRNGs) is security-sensitive", Justification = "O sorteio precisa se repetir com a mesma semente para a rodada ser reproduzida; ele não protege nada.")]
     public static IReadOnlyList<BlindPair> Generate(IReadOnlyList<EvalConfigReport> reports, int count, int seed)
     {
         ArgumentNullException.ThrowIfNull(reports);

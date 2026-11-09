@@ -181,7 +181,7 @@ public sealed partial class EvalViewModel : ObservableObject
         string? error = null;
         try
         {
-            (latest, saved, gold) = await Task.Run(() => (EvalStore.LoadLatest(project), EvalStore.LoadConfigs(project), GoldSet.From(project.LoadAllText()).Count)).ConfigureAwait(true);
+            (latest, saved, gold) = await Task.Run(() => (EvalStore.LoadLatest(project), EvalStore.LoadConfigs(project), GoldSet.From(project.LoadAllText()).Count), CancellationToken.None).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

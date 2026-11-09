@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Eval;
@@ -46,6 +47,7 @@ public static class GoldSet
     }
 
     /// <summary>Sorteia <paramref name="count"/> linhas (todas, se o conjunto for menor) e as devolve na ordem original.</summary>
+    [SuppressMessage("Security Hotspot", "S2245:Using pseudorandom number generators (PRNGs) is security-sensitive", Justification = "O sorteio precisa se repetir com a mesma semente para a rodada ser reproduzida; ele não protege nada.")]
     public static IReadOnlyList<GoldLine> Sample(IReadOnlyList<GoldLine> gold, int count, int seed)
     {
         ArgumentNullException.ThrowIfNull(gold);
@@ -73,6 +75,7 @@ public static class GoldSet
     /// encheriam a amostra de chamadas com o prompt de sistema inteiro e quase nenhum contexto.
     /// Sorteia trechos inteiros até chegar a <paramref name="count"/> linhas; o último é cortado para o total bater. Com <paramref name="count"/> maior que o conjunto, devolve tudo.
     /// </summary>
+    [SuppressMessage("Security Hotspot", "S2245:Using pseudorandom number generators (PRNGs) is security-sensitive", Justification = "O sorteio precisa se repetir com a mesma semente para a rodada ser reproduzida; ele não protege nada.")]
     public static IReadOnlyList<IReadOnlyList<GoldLine>> SampleBlocks(IReadOnlyList<GoldLine> gold, int count, int seed, int blockSize)
     {
         ArgumentNullException.ThrowIfNull(gold);
