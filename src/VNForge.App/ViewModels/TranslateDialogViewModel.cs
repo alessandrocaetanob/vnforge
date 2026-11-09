@@ -357,7 +357,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: folder.LoadAddressTerms());
+            addressTerms: folder.LoadAddressTerms(),
+            bible: folder.LoadBibleOrEmpty(out _));
         var batchSize = Math.Clamp(config.Ai.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize);
         var effort = ClaudeEffortText.ParseOrDefault(config.Ai.Effort);
         var scopes = shown.ToDictionary(

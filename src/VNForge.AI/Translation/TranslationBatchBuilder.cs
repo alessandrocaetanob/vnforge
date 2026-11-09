@@ -1,3 +1,4 @@
+using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -16,7 +17,8 @@ public sealed class TranslationBatchBuilder(
     int maxPreviousLines = TranslationBatchBuilder.DefaultContextLines,
     StyleConfig? style = null,
     int maxNextLines = TranslationBatchBuilder.DefaultContextLines,
-    IReadOnlyList<AddressTerm>? addressTerms = null)
+    IReadOnlyList<AddressTerm>? addressTerms = null,
+    GameBible? bible = null)
 {
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
     public const int DefaultContextLines = AiConfig.DefaultContextLines;
@@ -32,6 +34,7 @@ public sealed class TranslationBatchBuilder(
     private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
     private readonly StyleConfig _style = style ?? StyleConfig.Default;
     private readonly AddressBook _addressing = new(addressTerms ?? []);
+    private readonly GameBible _bible = bible ?? GameBible.Empty;
 
     /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
@@ -78,8 +81,19 @@ public sealed class TranslationBatchBuilder(
             .Take(MaxNextLines)
             .ToList();
 
+        // A chave do script é a parte do id antes dos dois-pontos ("yst00012:000478"). Cena sem nada escrito na bíblia não leva seção.
+        var scenes = lines
+            .Select(l => ScriptKeyOf(l.Id))
+            .Distinct(StringComparer.Ordinal)
+            .Select(_bible.Scene)
+            .OfType<BibleScene>()
+            .Where(s => s.Summary.Length > 0 || s.Tone.Count > 0 || s.Jokes.Count > 0 || s.Relations.Count > 0)
+            .ToList();
+
         return new TranslationBatch(lines)
         {
+            Scenes = scenes,
+            Synopsis = _bible.Synopsis,
             Glossary = matchedGlossary,
             Characters = matchedCharacters,
             Addressing = addressing,
@@ -90,6 +104,8 @@ public sealed class TranslationBatchBuilder(
             Style = _style,
         };
     }
+
+    private static string ScriptKeyOf(string unitId) => unitId.Contains(':', StringComparison.Ordinal) ? unitId[..unitId.IndexOf(':', StringComparison.Ordinal)] : unitId;
 
     private string NameInTranslation(string name) =>
         _characters.Find(name) is { Target: { } target } && !string.IsNullOrWhiteSpace(target) ? target.Trim() : name.Trim();
