@@ -25,7 +25,7 @@ Sistema visual do VNForge, o aplicativo Windows que traduz visual novels, em Ava
 ## Tipografia
 
 - Só as fontes que o app já embute sob SIL OFL: **Zen Kaku Gothic New** (Medium, Bold) nos títulos, **Noto Sans** (Regular, Medium, SemiBold) na interface, **Noto Sans JP** (Regular, Medium) no texto original e **JetBrains Mono** (Regular, Medium) em ids e na caixa do jogo. Nenhuma fonte nova entra com a v3; o Noto Sans Bold continua fora, então a interface usa no máximo o peso 600.
-- Títulos em `title-xl` (34/40), `title-lg` (24/32), `title-md` (17/24) e `title-sm` (15/20), na família `display`, sempre Bold. Um `title-xl` por tela. No app, `title-lg` usa entrelinha 35 e `title-md` 25 (o `tokens.json` diz 32 e 24): a Zen Kaku Gothic New pede 1,45 de altura por corpo e o TextBlock do Avalonia corta as descendentes abaixo disso.
+- Títulos em `title-xl` (34/40), `title-lg` (24/32), `title-md` (17/24) e `title-sm` (15/20), na família `display`, sempre Bold. Um `title-xl` por tela. No app a entrelinha é 50 em `title-xl`, 35 em `title-lg`, 25 em `title-md` e 22 em `title-sm` (o `tokens.json` diz 40, 32, 24 e 20): a Zen Kaku Gothic New pede 1,448 de altura por corpo e o TextBlock do Avalonia corta as descendentes abaixo disso.
 - Texto corrido em `body` (14/20); rótulo de botão em `body-strong`; linhas e listas em `body-sm`; metadados em `caption`. Cabeçalho de coluna em `column-header`; rótulo de campo em `overline` (caixa alta, 0,07 em).
 - Japonês sempre na família `jp`: `jp-body` (19/30) no inspetor, `jp-row` (13/18) na grade.
 
