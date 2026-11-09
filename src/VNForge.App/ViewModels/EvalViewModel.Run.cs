@@ -71,8 +71,6 @@ public sealed partial class EvalViewModel
 
     public string RunIntro => $"Cada configuração traduz as mesmas {EvalText.CountLines(Math.Min(DefaultSample, GoldLines))} aprovadas do projeto. O relatório mostra custo, tempo e qualidade, e você escolhe entre os pares às cegas.";
 
-    public string ConfigHint => "Para mudar as configurações, rode vnf eval --config modelo:effort:contexto:com-biblia no terminal; o app usa o último conjunto.";
-
     private bool CanOpenRun => HasProject && HasGold && !IsRunning;
 
     /// <summary>Abre o diálogo e estima o custo de cada configuração fora da thread da tela.</summary>
