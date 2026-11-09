@@ -631,10 +631,30 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var share = view.FindControl<StackPanel>("RiskShareBlock")!;
             var queue = view.FindControl<Border>("RiskQueueCard")!;
             Assert.True(share.IsEffectivelyVisible && queue.IsEffectivelyVisible);
+
+            // A coluna do palco, como no quadro: o palco de 270 px na largura toda, a barra com a legenda e a tabela da fila, nesta ordem e nada mais.
+            var body = Frame(window, view.FindControl<Grid>("Body")!);
+            Assert.InRange(stage.Height, 269, 271);
+            Assert.True(stage.Width > body.Width * 0.58, $"o palco ocupa a largura da coluna ({stage.Width} de {body.Width})");
             Assert.True(Frame(window, share).Top >= stage.Bottom - 1, "a barra e a legenda ficam sob o palco");
+            Assert.True(Frame(window, queue).Top >= Frame(window, share).Bottom - 1, "a tabela da fila vem depois da barra");
             Assert.DoesNotContain(queue.GetVisualDescendants(), d => ReferenceEquals(d, bar));
             Assert.DoesNotContain(queue.GetVisualDescendants().OfType<Legend>(), _ => true);
-            Assert.True(Frame(window, queue).Top >= Frame(window, share).Bottom - 1, "o cartão da fila vem depois da barra");
+            Assert.DoesNotContain(view.FindControl<ScrollViewer>("Script")!.GetVisualDescendants(), d => ReferenceEquals(d, queue));
+            var checks = view.FindControl<StackPanel>("LineChecks")!;
+            Assert.False(checks.IsEffectivelyVisible, "'Cabe', 'Reescrever com um toque' e o aviso de dúvida ficam de fora");
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<RewriteBar>(), b => b.IsEffectivelyVisible);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Classes.Contains("infobar"));
+
+            // Na coluna do roteiro, o cartão de risco vem antes do original e da tradução.
+            Assert.True(Frame(window, card).Bottom <= Frame(window, view.FindControl<Border>("TranslationCard")!).Top);
+
+            var below = view.FindControl<ScrollViewer>("BelowStage")!;
+            var viewport = Frame(window, below);
+            Assert.True(below.Extent.Height <= below.Viewport.Height + 1, $"a coluna do palco cabe sem rolar ({below.Extent.Height} > {below.Viewport.Height})");
+            var rows = queue.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("queue-row")).ToList();
+            Assert.Equal(5, rows.Count);
+            Assert.All(rows, r => Assert.True(Frame(window, r).Top >= viewport.Top - 1 && Frame(window, r).Bottom <= viewport.Bottom + 1, $"as 5 linhas da fila cabem sem rolar ({Frame(window, r)} em {viewport})"));
 
             var summary = view.FindControl<TextBlock>("RiskSummary")!.Text;
             Assert.Matches(@"^2 linhas de risco alto · faltam cerca de \d+ min no seu ritmo de \d+ linhas por hora$", summary);

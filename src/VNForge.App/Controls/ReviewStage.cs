@@ -18,12 +18,26 @@ public sealed class ReviewStage : ContentControl
 
     public static readonly StyledProperty<string?> SceneNameProperty = AvaloniaProperty.Register<ReviewStage, string?>(nameof(SceneName));
 
+    public static readonly StyledProperty<double> FixedHeightProperty = AvaloniaProperty.Register<ReviewStage, double>(nameof(FixedHeight), double.NaN);
+
+    /// <summary>
+    /// Uma altura fixa para o palco, que então ocupa a largura toda que recebe, sem a proporção 16:9: é o palco da fila por risco, de 270 px como no quadro, que
+    /// deixa o resto da coluna para a barra e a tabela. <see cref="double.NaN"/> mantém o 16:9 que cresce com o espaço.
+    /// </summary>
+    public double FixedHeight
+    {
+        get => GetValue(FixedHeightProperty);
+        set => SetValue(FixedHeightProperty, value);
+    }
+
     /// <summary>O nome da cena, no cartão de capítulo do canto superior esquerdo.</summary>
     public string? SceneName
     {
         get => GetValue(SceneNameProperty);
         set => SetValue(SceneNameProperty, value);
     }
+
+    static ReviewStage() => AffectsMeasure<ReviewStage>(FixedHeightProperty);
 
     /// <summary>O maior 16:9 que cabe em <paramref name="available"/>; sem limite em um dos eixos, vale o outro.</summary>
     public static Size Fit(Size available)
@@ -41,7 +55,9 @@ public sealed class ReviewStage : ContentControl
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        var size = Fit(availableSize);
+        var size = double.IsNaN(FixedHeight)
+            ? Fit(availableSize)
+            : new Size(double.IsInfinity(availableSize.Width) ? UnboundedWidth : availableSize.Width, FixedHeight);
         base.MeasureOverride(size);
         return size;
     }

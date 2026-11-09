@@ -26,12 +26,9 @@ public enum RiskFactorKind
 
     /// <summary>A passada de editor propôs um ajuste que ainda vale para a linha.</summary>
     EditorSuggestion,
-
-    /// <summary>Duas passadas de tradução discordam sobre o texto. Ainda não pontua: não há uma segunda passada real, e <see cref="TextUnit.AiTranslation"/> só existe depois que a pessoa edita a linha, o que não é divergência. Fica reservado, com o peso em <see cref="RiskWeights.PassDivergence"/>.</summary>
-    PassDivergence,
 }
 
-/// <summary>Os pontos de cada sinal e as faixas de <see cref="RiskLevel"/>. Somados, os sinais que pontuam chegam a 100; a pontuação para em <see cref="MaxScore"/>.</summary>
+/// <summary>Os pontos de cada sinal e as faixas de <see cref="RiskLevel"/>. Somados chegam a 100; a pontuação para em <see cref="MaxScore"/>.</summary>
 public static class RiskWeights
 {
     public const int AiDoubt = 30;
@@ -47,8 +44,7 @@ public static class RiskWeights
 
     public const int EditorSuggestion = 10;
 
-    /// <summary>Reservado para a divergência entre passadas (<see cref="RiskFactorKind.PassDivergence"/>); nenhum sinal o usa ainda.</summary>
-    public const int PassDivergence = 8;
+
 
     public const int MaxScore = 100;
 
@@ -79,8 +75,7 @@ public sealed record RiskFactor(RiskFactorKind Kind, int Points, string Label, b
 }
 
 /// <summary>
-/// A pontuação de risco de uma linha, de 0 a 100: a soma dos sinais que pedem a atenção da pessoa (dúvida da IA, QA, "soa estranho" e sugestão do editor; a
-/// divergência entre passadas ainda não conta, ver <see cref="RiskFactorKind.PassDivergence"/>). Só lê a linha; não grava nada.
+/// A pontuação de risco de uma linha, de 0 a 100: a soma dos sinais que pedem a atenção da pessoa (dúvida da IA, QA, "soa estranho" e sugestão do editor). Só lê a linha; não grava nada.
 /// </summary>
 /// <param name="Line">A linha pontuada, com os avisos do QA que a atingem.</param>
 public sealed record LineRisk(LineEntry Line, int Score, RiskLevel Level, IReadOnlyList<RiskFactor> Factors)

@@ -131,7 +131,6 @@ internal static class RiskStatusReport
         RiskFactorKind.QaIssue => "qa",
         RiskFactorKind.SoundsOdd => "sounds-odd",
         RiskFactorKind.EditorSuggestion => "editor-suggestion",
-        RiskFactorKind.PassDivergence => "pass-divergence",
         _ => kind.ToString(),
     };
 }

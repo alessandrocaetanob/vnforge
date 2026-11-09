@@ -70,6 +70,9 @@ public sealed partial class ReviewModeViewModel
     private readonly RiskReview? risk;
     private LineRisk? currentRisk;
 
+    /// <summary>A altura do palco: 270 px na fila por risco (como no quadro, para a barra e a tabela caberem sob ele); nas outras filas, <see cref="double.NaN"/> e o palco segue em 16:9.</summary>
+    public double StageFixedHeight => risk is null ? double.NaN : 270;
+
     /// <summary>O título no topo: "Fila por risco" na fila por risco, que atravessa as cenas, e o nome da cena nas outras.</summary>
     public string HeaderTitle => risk is not null ? "Fila por risco" : SceneName;
 

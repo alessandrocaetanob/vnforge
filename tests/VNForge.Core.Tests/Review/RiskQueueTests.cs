@@ -79,15 +79,14 @@ public sealed class RiskQueueTests
     }
 
     [Fact]
-    public void Linha_editada_a_mao_nao_ganha_ponto_de_passadas_divergem_porque_so_ha_uma_passada()
+    public void Linha_editada_a_mao_nao_ganha_ponto_so_por_guardar_o_texto_da_IA()
     {
         var editada = Linha("a", 1) with { AiTranslation = "o que a IA escreveu" };
 
         var risco = LineRisk.Of(Entrada(editada));
 
         Assert.Equal(0, risco.Score);
-        Assert.DoesNotContain(risco.Factors, f => f.Kind == RiskFactorKind.PassDivergence);
-        Assert.Equal(8, RiskWeights.PassDivergence);
+        Assert.Empty(risco.Factors);
     }
 
     [Fact]

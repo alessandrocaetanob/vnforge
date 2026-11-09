@@ -17,6 +17,7 @@ public sealed partial class EditorViewModel
     private IApprovalLog? approvalLog;
     private string? approvalLogRoot;
     private int riskVersion;
+    private CancellationTokenSource? riskCancel;
 
     /// <summary>Abre o registro de aprovações da pasta do projeto; os testes trocam por um na memória. O padrão grava em <c>.cache/sessions.json</c>.</summary>
     public Func<string, IApprovalLog>? ApprovalLogFactory { get; init; }
@@ -70,9 +71,16 @@ public sealed partial class EditorViewModel
         OpenReview(source, queue, null);
     }
 
-    private void OpenReview(ReviewSource source, IReadOnlyList<ReviewItem> queue, RiskReview? risk)
+    /// <summary>Uma fila por risco em montagem deixa de valer: outra revisão abriu, outro projeto carregou, ou a pessoa pediu a fila de novo.</summary>
+    private void CancelRiskWork()
     {
         riskVersion++;
+        riskCancel?.Cancel();
+    }
+
+    private void OpenReview(ReviewSource source, IReadOnlyList<ReviewItem> queue, RiskReview? risk)
+    {
+        CancelRiskWork();
         EndReading();
 
         // A grade tem de conter todas as linhas da fila: o modo revisão seleciona uma a uma e o ListBox escondido não pode desfazer a seleção.
@@ -103,7 +111,24 @@ public sealed partial class EditorViewModel
         var log = OpenApprovalLog();
         var now = clock.GetUtcNow();
         var zone = clock.LocalTimeZone;
-        var risk = await Task.Run(() => BuildRiskReview(snapshot, root, log, now, zone), CancellationToken.None);
+        riskCancel?.Cancel();
+        using var source = riskCancel = new CancellationTokenSource();
+        RiskReview risk;
+        try
+        {
+            risk = await Task.Run(() => BuildRiskReview(snapshot, root, log, now, zone), source.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            if (ReferenceEquals(riskCancel, source))
+            {
+                riskCancel = null;
+            }
+        }
 
         if (version != riskVersion || !ReferenceEquals(data, lines) || risk.Items.Count == 0 || SelectedScript is null || lineEditor is null || !FlushPendingEdits())
         {
@@ -114,7 +139,7 @@ public sealed partial class EditorViewModel
     }
 
     /// <summary>Quantas linhas de risco alto há agora, contadas fora da thread da tela; nulo sem projeto aberto. É o número que a paleta mostra.</summary>
-    public async Task<int?> CountHighRiskAsync()
+    public async Task<int?> CountHighRiskAsync(CancellationToken cancellationToken = default)
     {
         if (data is not { } lines)
         {
@@ -123,7 +148,7 @@ public sealed partial class EditorViewModel
 
         var snapshot = SnapshotLines(lines);
         var root = Project?.Root;
-        var queue = await Task.Run(() => RiskQueue.Build(snapshot, LoadEditorSuggestions(root)), CancellationToken.None);
+        var queue = await Task.Run(() => RiskQueue.Build(snapshot, LoadEditorSuggestions(root)), cancellationToken);
         return queue.Count(RiskLevel.High);
     }
 
