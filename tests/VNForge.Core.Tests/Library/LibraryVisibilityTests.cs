@@ -85,4 +85,47 @@ public class LibraryVisibilityTests
         Assert.Equal("Negrito e itálico\ncitação link", text);
         Assert.False(had);
     }
+
+    [Fact]
+    public void Tag_erotica_some_sem_ShowAdult_mesmo_em_jogo_nao_marcado_como_adulto()
+    {
+        var game = LibraryMatcher.Confirm(
+            new LibraryGame("g1", "pasta", null, LibraryEngine.Unknown, "pasta", null, DateTimeOffset.UnixEpoch),
+            Vn(
+                "v4",
+                "Jogo",
+                image: new VndbImage("https://example.test/capa.jpg", null, null, null, 0.1, 0),
+                tags: [new VndbTag("g1", "Drama", "cont", 2.9, 0, false), new VndbTag("g3", "Cena leve", "ero", 1.0, 0, false)]),
+            LibraryConfirmation.Manual);
+
+        var hidden = LibraryVisibility.Card(game, new LibraryPrivacy())!;
+        var shown = LibraryVisibility.Card(game, new LibraryPrivacy(ShowAdult: true))!;
+
+        Assert.False(hidden.Adult);
+        Assert.Equal(["Drama"], hidden.Tags.Select(t => t.Name));
+        Assert.Equal(1, hidden.HiddenTags);
+        Assert.Equal("https://example.test/capa.jpg", hidden.CoverUrl);
+        Assert.Equal(["Drama", "Cena leve"], shown.Tags.Select(t => t.Name));
+    }
+
+    [Theory]
+    [InlineData("Começo [spoiler]o vilão é o irmão.", "Começo [spoiler escondido]")]
+    [InlineData("Começo [spoiler]o vilão\ne a irmã.\n", "Começo [spoiler escondido]")]
+    [InlineData("A [spoiler]x[/spoiler] B [spoiler]y", "A [spoiler escondido] B [spoiler escondido]")]
+    [InlineData("A [SPOILER]x", "A [spoiler escondido]")]
+    public void Spoiler_sem_fechamento_vai_ate_o_fim_do_texto_e_nao_vaza(string text, string expected)
+    {
+        var plain = LibraryVisibility.PlainSynopsis(text, showSpoilers: false, out var had);
+
+        Assert.Equal(expected, plain);
+        Assert.True(had);
+    }
+
+    [Fact]
+    public void Spoiler_sem_fechamento_aparece_inteiro_quando_a_pessoa_pede()
+    {
+        var plain = LibraryVisibility.PlainSynopsis("Começo [spoiler]o vilão é o irmão.", showSpoilers: true, out _);
+
+        Assert.Equal("Começo o vilão é o irmão.", plain);
+    }
 }

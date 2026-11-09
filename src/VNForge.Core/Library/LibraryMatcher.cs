@@ -29,6 +29,13 @@ public sealed record LibraryMatchOptions
 
     /// <summary>Falhas seguidas do VNDB que param o lote (rede fora, limite de pedidos).</summary>
     public int MaxConsecutiveFailures { get; init; } = 3;
+
+    /// <summary>O primeiro colocado pode ser confirmado sozinho: passa do limiar e, havendo segundo, está à frente dele pela folga.</summary>
+    public bool IsDecisive(double top, double? second) =>
+        top >= AutoThreshold - Epsilon && (second is null || top - second.Value >= AutoMargin - Epsilon);
+
+    /// <summary>Tolerância do ponto flutuante: <c>1,0 - 0,9</c> dá 0,0999... e a folga de 10 pontos tem de contar.</summary>
+    private const double Epsilon = 1e-9;
 }
 
 /// <summary>Um jogo cuja busca falhou e por quê.</summary>
@@ -174,12 +181,14 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
     /// grava o arquivo no fim, ou no cancelamento, não perca o que já foi feito.
     /// </summary>
     /// <param name="onlyGame">Casa só este jogo, mesmo que já tenha sido buscado.</param>
+    /// <param name="onMatched">Chamada a cada jogo casado, logo depois de trocá-lo na <paramref name="library"/>: quem grava o arquivo o faz aqui, jogo a jogo, e não depende do fim do lote.</param>
     public async Task<LibraryMatchRun> MatchAllAsync(
         GameLibrary library,
         LibraryMatchOptions? options = null,
         bool again = false,
         string? onlyGame = null,
         IProgress<LibraryMatchProgress>? progress = null,
+        Action<LibraryGame>? onMatched = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(library);
@@ -207,6 +216,7 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
             {
                 var matched = await MatchAsync(queue[i], options, cancellationToken).ConfigureAwait(false);
                 library.Replace(matched);
+                onMatched?.Invoke(matched);
                 consecutive = 0;
                 (matched.IsConfirmed ? confirmed : matched.Candidates.Count > 0 ? pending : notFound).Add(matched);
                 progress?.Report(new LibraryMatchProgress(i + 1, queue.Count, matched));
@@ -260,8 +270,7 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
 
     private static bool IsDecisive(List<Scored> ranked, LibraryMatchOptions options) =>
         ranked.Count > 0
-        && ranked[0].Candidate.Score >= options.AutoThreshold
-        && (ranked.Count == 1 || ranked[0].Candidate.Score - ranked[1].Candidate.Score >= options.AutoMargin);
+        && options.IsDecisive(ranked[0].Candidate.Score, ranked.Count > 1 ? ranked[1].Candidate.Score : null);
 
     private static List<Scored> Rank(IEnumerable<VndbVisualNovel> novels, IReadOnlyList<SearchTerm> terms, LibraryMatchOptions options) =>
         [.. novels
