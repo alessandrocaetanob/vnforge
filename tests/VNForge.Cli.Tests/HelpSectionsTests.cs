@@ -5,6 +5,7 @@ namespace VNForge.Cli.Tests;
 /// <summary>A ajuda da raiz em seções, um exemplo por comando e o nome de valor igual em todas as opções (C4 · #252).</summary>
 public sealed class HelpSectionsTests : IDisposable
 {
+    private static readonly string[] Biblioteca = ["library"];
     private static readonly string[] Pipeline = ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore", "test"];
     private static readonly string[] Projeto = ["status", "preview", "export", "import", "glossary", "memory", "jmdict", "chars", "bible", "dict", "title", "scripts", "lines", "images", "config", "detect", "eval"];
     private static readonly string[] BaixoNivel = ["ypf", "ybn", "patch-exe"];
@@ -34,10 +35,11 @@ public sealed class HelpSectionsTests : IDisposable
     {
         var lines = await RootHelpLines();
 
+        Assert.Equal(Biblioteca, CommandsUnder(lines, "Biblioteca:"));
         Assert.Equal(Pipeline, CommandsUnder(lines, "Pipeline:"));
         Assert.Equal(Projeto, CommandsUnder(lines, "Projeto:"));
         Assert.Equal(BaixoNivel, CommandsUnder(lines, "Baixo nível:"));
-        var order = new[] { "Pipeline:", "Projeto:", "Baixo nível:", "Opções:" }.Select(t => Array.IndexOf(lines, t)).ToArray();
+        var order = new[] { "Biblioteca:", "Pipeline:", "Projeto:", "Baixo nível:", "Opções:" }.Select(t => Array.IndexOf(lines, t)).ToArray();
         Assert.Equal(order.OrderBy(i => i), order);
         Assert.All(order, i => Assert.True(i >= 0));
         Assert.DoesNotContain("Comandos:", lines);
