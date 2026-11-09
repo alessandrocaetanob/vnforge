@@ -12,6 +12,7 @@ public sealed record VndbTitle(string Language, string Title, string? Latin, boo
 /// <summary>
 /// Um jogo do VNDB. <paramref name="Description"/> vem com os códigos de formatação do VNDB (<c>[b]</c>, <c>[url=...]</c>, <c>[spoiler]</c>), sem converter.
 /// <paramref name="Length"/> vai de 1 (muito curto) a 5 (muito longo) e só vale quando <paramref name="LengthMinutes"/> é nulo.
+/// <paramref name="Rating"/> é a nota bayesiana do VNDB, de 10 a 100 (campo <c>rating</c> da API), ou nula quando ninguém votou; <see cref="VndbRating.Label"/> a escreve como "nota 7,9".
 /// </summary>
 public sealed record VndbVisualNovel(
     string Id,
@@ -29,7 +30,8 @@ public sealed record VndbVisualNovel(
     int? LengthMinutes,
     int LengthVotes,
     string? Description,
-    IReadOnlyList<VndbTag> Tags);
+    IReadOnlyList<VndbTag> Tags,
+    double? Rating = null);
 
 /// <summary>O gênero de um personagem: o que aparece sem spoiler e o real. Os valores são <c>m</c>, <c>f</c>, <c>o</c> (não binário), <c>a</c> (ambíguo) ou nulo.</summary>
 public sealed record VndbGender(string? Visible, string? Spoiler);

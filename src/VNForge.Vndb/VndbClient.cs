@@ -22,7 +22,7 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
 
     private const string VisualNovelFields =
         "title,alttitle,titles.lang,titles.title,titles.latin,titles.official,titles.main,aliases,olang,devstatus,released,languages,platforms,"
-        + "image.url,image.thumbnail,image.dims,image.sexual,image.violence,length,length_minutes,length_votes,description,"
+        + "image.url,image.thumbnail,image.dims,image.sexual,image.violence,length,length_minutes,length_votes,rating,description,"
         + "tags.id,tags.name,tags.category,tags.rating,tags.spoiler,tags.lie";
 
     private const string CharacterFields =
