@@ -49,6 +49,31 @@
     <Style Selector="TextBlock.uses.unused">
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
     </Style>
+  <!-- Meu glossário (#537): "No projeto" e "Difere do projeto". -->
+  <Style Selector="Border.personal-chip">
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.PillHeight}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+  </Style>
+  <Style Selector="Border.personal-chip.warn">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SignalWarningBg}"/>
+  </Style>
+  <Style Selector="Border.personal-chip PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.personal-chip TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.personal-chip.warn PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+  </Style>
+  <Style Selector="Border.personal-chip.warn TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+  </Style>
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -57,7 +82,7 @@
       <c:PageHeader Title="Glossário">
         <StackPanel Orientation="Horizontal" Spacing="12">
           <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SaveStatus}" AutomationProperties.Name="Estado do salvamento"/>
-          <Button Command="{Binding AddCommand}">
+          <Button Command="{Binding AddCommand}" IsVisible="{Binding !IsPersonalTab}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
               <TextBlock Text="{Binding AddLabel}"/>
@@ -375,11 +400,107 @@
             </TabItem.Header>
             <v:AddressTermsView DataContext="{Binding AddressTerms}"/>
           </TabItem>
+
+          <!-- Meu glossário (#537): termos que valem em toda VN, guardados fora dos projetos, e o que cada um é neste projeto. -->
+          <TabItem>
+            <TabItem.Header>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Meu glossário"/>
+                <TextBlock Classes="mono secondary" Text="{Binding Personal.Count}"/>
+              </StackPanel>
+            </TabItem.Header>
+            <Grid ColumnDefinitions="*,384" ColumnSpacing="16" Margin="0,12,0,0" DataContext="{Binding Personal}" x:DataType="vm:PersonalGlossaryViewModel">
+              <Border Classes="panel" ClipToBounds="True" VerticalAlignment="Top">
+                <StackPanel>
+                  <Border Classes="divider-bottom" Padding="16,8" MinHeight="56">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                      <TextBlock Classes="title-md" Text="Termos que valem em toda VN" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding Summary}" VerticalAlignment="Center"/>
+                    </Grid>
+                  </Border>
+                  <Border Classes="infobar error" Margin="16,12,16,0" IsVisible="{Binding HasError}">
+                    <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Error}"/>
+                  </Border>
+                  <Grid ColumnDefinitions="140,*,1.2*,90,150" ColumnSpacing="12" Margin="16,8,16,0">
+                    <TextBlock Classes="overline" Text="Em japonês"/>
+                    <TextBlock Grid.Column="1" Classes="overline" Text="Em português"/>
+                    <TextBlock Grid.Column="2" Classes="overline" Text="Observação para a IA"/>
+                    <TextBlock Grid.Column="3" Classes="overline" Text="Vem de" HorizontalAlignment="Right"/>
+                  </Grid>
+                  <TextBlock Classes="body-sm secondary" Margin="16,12" TextWrapping="Wrap" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"/>
+                  <ItemsControl ItemsSource="{Binding Rows}" Margin="0,4,0,8" AutomationProperties.Name="Termos do glossário pessoal">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:PersonalTermRow">
+                        <Grid ColumnDefinitions="140,*,1.2*,90,150" ColumnSpacing="12" Margin="16,0" MinHeight="44">
+                          <TextBlock Classes="jp-body" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Source}"/>
+                          <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Target}"/>
+                          <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Notes}" ToolTip.Tip="{Binding Notes}"/>
+                          <TextBlock Grid.Column="3" Classes="body-sm" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding ProjectsText}"/>
+                          <Panel Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Border Classes="personal-chip" IsVisible="{Binding IsInProject}">
+                              <StackPanel Orientation="Horizontal" Spacing="4">
+                                <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Check}"/>
+                                <TextBlock Text="No projeto"/>
+                              </StackPanel>
+                            </Border>
+                            <Border Classes="personal-chip warn" IsVisible="{Binding Differs}" ToolTip.Tip="O projeto traduz este termo de outro jeito. A escolha do projeto fica como está.">
+                              <StackPanel Orientation="Horizontal" Spacing="4">
+                                <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Warning}"/>
+                                <TextBlock Text="Difere do projeto"/>
+                              </StackPanel>
+                            </Border>
+                            <Button Classes="sm" Content="Usar no projeto" IsVisible="{Binding CanUse}" AutomationProperties.Name="{Binding Source, StringFormat='Usar {0} no projeto'}"
+                                    Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Personal.UseCommand}" CommandParameter="{Binding}"/>
+                          </Panel>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Border Classes="divider-top" Padding="16,10">
+                    <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding FooterText}"/>
+                  </Border>
+                </StackPanel>
+              </Border>
+              <Border Grid.Column="1" Classes="panel" ClipToBounds="True" VerticalAlignment="Top">
+                <StackPanel Margin="16" Spacing="12">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="title-md" Text="Neste projeto"/>
+                    <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding ProjectTermsText}"/>
+                  </Grid>
+                  <Border Classes="infobar" IsVisible="{Binding HasBanner}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                      <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+                      <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding BannerTitle}"/>
+                        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding BannerText}"/>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                  <StackPanel Spacing="0" IsVisible="{Binding HasCandidates}">
+                    <TextBlock Classes="overline" Text="Guardar no glossário pessoal" Margin="0,0,0,4"/>
+                    <ItemsControl ItemsSource="{Binding Candidates}" AutomationProperties.Name="Termos do projeto para guardar">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:KeepCandidateRow">
+                          <Border Classes="divider-top" Padding="0,8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                              <TextBlock Classes="jp-body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Label}" ToolTip.Tip="{Binding Label}"/>
+                              <Button Grid.Column="1" Classes="sm" Content="Guardar" AutomationProperties.Name="{Binding Label, StringFormat='Guardar {0} no glossário pessoal'}"
+                                      Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Personal.KeepCommand}" CommandParameter="{Binding}"/>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </Grid>
+          </TabItem>
         </TabControl>
 
         <!-- A busca fica na linha das abas, à direita, e vale para a tabela da aba aberta. -->
         <TextBox HorizontalAlignment="Right" VerticalAlignment="Top" Width="320" Height="30" MinHeight="30" Margin="0,5,0,0"
-                 IsVisible="{Binding !IsAddressTab}" Text="{Binding Search}" PlaceholderText="{Binding SearchHint}" AutomationProperties.Name="Buscar no glossário">
+                 IsVisible="{Binding ShowSearch}" Text="{Binding Search}" PlaceholderText="{Binding SearchHint}" AutomationProperties.Name="Buscar no glossário">
           <TextBox.InnerLeftContent>
             <PathIcon Width="14" Height="14" Margin="10,0,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
           </TextBox.InnerLeftContent>
