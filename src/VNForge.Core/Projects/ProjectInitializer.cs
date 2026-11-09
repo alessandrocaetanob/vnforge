@@ -78,6 +78,19 @@ public static class ProjectInitializer
         return new GameInspection(engine, detection, ListExecutables(game));
     }
 
+    /// <summary>
+    /// O título da janela do jogo (no YU-RIS, o do <c>yscfg.ybn</c>), lido direto da pasta do jogo antes de o projeto existir, para buscar o jogo no VNDB.
+    /// Nulo quando a engine não lê o título do pacote ou o jogo não traz o arquivo; um título só de espaços também é nulo.
+    /// </summary>
+    /// <exception cref="VNForgeException">O arquivo do título existe mas não segue o formato.</exception>
+    public static string? ReadGameTitle(GameInspection inspection, string gameDir)
+    {
+        ArgumentNullException.ThrowIfNull(inspection);
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
+        var title = (inspection.Engine as IGameTitleSource)?.ReadTitleFromGame(Path.GetFullPath(gameDir));
+        return string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+    }
+
     /// <summary>Cria o projeto em <paramref name="projectDir"/> para o jogo de <paramref name="gameDir"/>.</summary>
     /// <exception cref="ProjectConfigException">A pasta já tem um <c>vnforge.json</c>; nada é sobrescrito.</exception>
     /// <exception cref="ProjectInitException">Jogo inexistente, projeto dentro da pasta do jogo, engine não reconhecida ou executável não resolvido; nada é criado.</exception>

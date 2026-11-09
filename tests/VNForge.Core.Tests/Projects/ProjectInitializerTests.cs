@@ -42,6 +42,18 @@ public sealed class ProjectInitializerTests : IDisposable
     }
 
     [Fact]
+    public void ReadGameTitle_le_o_titulo_da_pasta_do_jogo_antes_de_o_projeto_existir()
+    {
+        var inspection = ProjectInitializer.Inspect(_game, [Matching()]);
+        Assert.Null(ProjectInitializer.ReadGameTitle(inspection, _game));
+
+        File.WriteAllText(Path.Combine(_game, FakeEngine.TitleFileName), "  雨音の箱庭 \n");
+
+        Assert.Equal("雨音の箱庭", ProjectInitializer.ReadGameTitle(inspection, _game));
+        Assert.False(Directory.Exists(ProjectDir()));
+    }
+
+    [Fact]
     public void Sem_versao_nem_chave_deixa_os_campos_nulos()
     {
         ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()]);

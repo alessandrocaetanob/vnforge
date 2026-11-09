@@ -12,6 +12,8 @@ using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
+using VNForge.Core.Vndb;
+using VNForge.Vndb;
 
 namespace VNForge.Cli;
 
@@ -102,8 +104,17 @@ public sealed class VnfCli
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
 
+    /// <summary>
+    /// Cria o catálogo do VNDB do <c>vnf vndb</c> e do <c>vnf init --vndb</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
+    /// Padrão (<c>null</c>): o cliente da API do VNDB, com o cache em <c>vndb-cache</c> na pasta das configurações do usuário.
+    /// </summary>
+    public Func<IVndbCatalog>? VndbCatalogFactory { get; set; }
+
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();
+
+    internal IVndbCatalog CreateVndbCatalog() =>
+        VndbCatalogFactory?.Invoke() ?? VndbClient.Create(Path.Combine(UserConfigDirectory, "vndb-cache"));
 
     /// <summary>Versão do <c>vnf</c> sem o hash do commit.</summary>
     public static string Version { get; } = ReadVersion();

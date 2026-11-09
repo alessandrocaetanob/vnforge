@@ -3,6 +3,7 @@ using System.Globalization;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Cli;
 
@@ -55,6 +56,12 @@ internal static class InitCommand
             HelpName = "modelo",
         };
 
+        var vndb = new Option<string?>("--vndb")
+        {
+            Description = "Liga o projeto ao jogo do VNDB com este id (por exemplo v17; vnf vndb search mostra os ids): sinopse e personagens vêm do VNDB.",
+            HelpName = "jogo",
+        };
+
         var command = new Command("init", "Cria o projeto de tradução, detecta a engine e grava versão e chave no vnforge.json.");
         command.Arguments.Add(folder);
         command.Options.Add(game);
@@ -64,7 +71,8 @@ internal static class InitCommand
         command.Options.Add(target);
         command.Options.Add(encoding);
         command.Options.Add(model);
-        command.SetAction(parseResult => Run(
+        command.Options.Add(vndb);
+        command.SetAction((parseResult, token) => RunAsync(
             cli,
             parseResult,
             parseResult.GetRequiredValue(folder),
@@ -75,17 +83,21 @@ internal static class InitCommand
                 parseResult.GetValue(source),
                 parseResult.GetValue(target),
                 parseResult.GetValue(encoding),
-                parseResult.GetValue(model) is { } chosen ? ProjectChoices.DefaultAi with { Model = chosen } : null)));
+                parseResult.GetValue(model) is { } chosen ? ProjectChoices.DefaultAi with { Model = chosen } : null),
+            parseResult.GetValue(vndb),
+            token));
         return command;
     }
 
-    private static int Run(VnfCli cli, ParseResult parseResult, string folderArgument, string gameArgument, ProjectInitOptions options)
+    private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, string folderArgument, string gameArgument, ProjectInitOptions options, string? vndbId, CancellationToken token)
     {
+        // O jogo do VNDB vem antes de criar qualquer coisa: um id errado ou o VNDB fora do ar não deixa projeto pela metade.
+        var link = string.IsNullOrWhiteSpace(vndbId) ? null : await VndbProjectLinker.BuildAsync(cli.CreateVndbCatalog(), vndbId.Trim(), token);
         var result = ProjectInitializer.Initialize(
             Path.GetFullPath(folderArgument, cli.CurrentDirectory),
             Path.GetFullPath(gameArgument, cli.CurrentDirectory),
             KnownEngines.All,
-            options);
+            options with { Vndb = link });
 
         var output = parseResult.InvocationConfiguration.Output;
         var details = result.Detection.Details;
@@ -101,6 +113,7 @@ internal static class InitCommand
                 scriptKey = result.Config.Engine.ScriptKey,
                 summary = result.Detection.Summary,
                 warnings,
+                vndb = link is null ? null : VndbCommand.Data(link),
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -119,6 +132,11 @@ internal static class InitCommand
         if (warnings is not null)
         {
             output.WriteLine($"Aviso: {warnings}");
+        }
+
+        if (link is not null)
+        {
+            output.WriteLine($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {link.Characters.Count} personagens. Eles entram em characters.json no vnf extract.");
         }
 
         output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
