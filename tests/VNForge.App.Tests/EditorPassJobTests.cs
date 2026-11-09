@@ -148,9 +148,41 @@ public sealed class EditorPassJobTests : IDisposable
         Assert.False(File.Exists(EditorSuggestionsFile.PathFor(folder)));
     }
 
+    [Fact]
+    public async Task Outra_grava_a_proposta_nova_no_lugar_da_antiga_e_nao_toca_na_traducao()
+    {
+        var folder = Folder("Oi  você", "Tudo bem");
+        var job = Job(folder, new FakeEditorPassProvider());
+        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
+        var before = File.ReadAllBytes(folder.TextPath("yst00001"));
+        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
+
+        var another = await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Oi você (outra)", another!.Proposed);
+        Assert.Equal(["Oi você (outra)"], EditorSuggestionsFile.Load(folder).Suggestions.Select(s => s.Proposed));
+        Assert.Equal(before, File.ReadAllBytes(folder.TextPath("yst00001")));
+    }
+
+    [Fact]
+    public async Task Outra_sem_proposta_nova_deixa_o_arquivo_como_estava()
+    {
+        var folder = Folder("Oi  você");
+        var fake = new FakeEditorPassProvider { Another = (_, _) => null };
+        var job = Job(folder, fake);
+        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
+        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
+
+        Assert.Null(await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken));
+        Assert.Equal([old], EditorSuggestionsFile.Load(folder).Suggestions);
+        Assert.Null(await job.AnotherAsync(old with { ScriptKey = "outra" }, TranslationQuality.Careful, TestContext.Current.CancellationToken));
+    }
+
     private sealed class ThrowingFor(string scriptKey, Exception error) : IEditorPassProvider
     {
         private readonly FakeEditorPassProvider inner = new();
+
+        public Task<EditorPassProposal?> AnotherAsync(TranslationBatch line, string rejected, CancellationToken ct) => inner.AnotherAsync(line, rejected, ct);
 
         public Task<IReadOnlyList<EditorPassProposal>> ReviewSceneAsync(TranslationBatch scene, CancellationToken ct) =>
             scene.Lines[0].Id.StartsWith(scriptKey + ":", StringComparison.Ordinal) ? throw error : inner.ReviewSceneAsync(scene, ct);

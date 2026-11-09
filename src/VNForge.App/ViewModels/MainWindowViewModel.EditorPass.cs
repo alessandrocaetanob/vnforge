@@ -33,12 +33,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>Roda a passada de editor nas cenas que acabaram de ser traduzidas e mostra o resultado. Só deixa sugestões: nenhuma tradução é gravada.</summary>
     private async Task RunEditorPassAsync(ProjectSummary project, ProjectFolder folder, TranslationRequest request, IReadOnlyList<string> sceneKeys)
     {
-        // Como na tradução, a cena de exemplo usa a IA falsa: sem chave, sem rede e sem gasto.
-        var job = new EditorPassJob(
-            folder,
-            project.IsSample ? static (_, _) => new FakeEditorPassProvider() : EditorPassProviderFactory,
-            new TranslationJobSettings(Settings.Rate, project.IsSample ? BudgetLimits.None : Settings.Budget, Settings.Concurrency),
-            project.IsSample ? static _ => SampleAi.NoUsage : null);
+        var job = NewEditorPassJob(project, folder);
         EditorPassJobResult? result = null;
         var canceled = false;
         string? failure = null;
@@ -64,6 +59,29 @@ public sealed partial class MainWindowViewModel
         Editor.RefreshEditorSuggestions();
         var (text, kind) = DescribeEditorPass(canceled, failure, result);
         Toasts.Show(text, kind, key: EditorPassToastKey);
+    }
+
+    // Como na tradução, a cena de exemplo usa a IA falsa: sem chave, sem rede e sem gasto.
+    private EditorPassJob NewEditorPassJob(ProjectSummary project, ProjectFolder folder) => new(
+        folder,
+        project.IsSample ? static (_, _) => new FakeEditorPassProvider() : EditorPassProviderFactory,
+        new TranslationJobSettings(Settings.Rate, project.IsSample ? BudgetLimits.None : Settings.Budget, Settings.Concurrency),
+        project.IsSample ? static _ => SampleAi.NoUsage : null);
+
+    /// <summary>"Outra" no cartão da sugestão: uma proposta nova para a linha, na qualidade padrão dos Ajustes. Sem projeto aberto ou sem chave, não há o que pedir.</summary>
+    private Task<EditorSuggestion?> AnotherEditorSuggestionAsync(EditorSuggestion rejected, CancellationToken ct)
+    {
+        if (CurrentProject is not { } project)
+        {
+            return Task.FromResult<EditorSuggestion?>(null);
+        }
+
+        if (!ApiKeyConfigured && !project.IsSample)
+        {
+            throw new InvalidOperationException("Falta a chave da IA. Informe-a em Ajustes, na aba IA e gasto.");
+        }
+
+        return NewEditorPassJob(project, ProjectFolder.Open(project.Root)).AnotherAsync(rejected, Settings.DefaultQuality, ct);
     }
 
     public static (string Text, ToastKind Kind) DescribeEditorPass(bool canceled, string? failure, EditorPassJobResult? result)

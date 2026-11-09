@@ -1,4 +1,6 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.AI.Claude;
 using VNForge.App.Services;
 using VNForge.Core.Projects;
 
@@ -13,14 +15,38 @@ public sealed partial class LineDetailViewModel
     private EditorSuggestion? editorSuggestion;
     private int editorPosition;
     private int editorTotal;
+    private CancellationTokenSource? anotherCancellation;
 
     /// <summary>Avisa o Editor que a sugestão foi aceita ou ignorada, para ele tirá-la do arquivo e da grade.</summary>
     public Action<EditorSuggestion>? EditorSuggestionResolved { get; set; }
+
+    /// <summary>Pede ao editor outra proposta para a linha ("Outra"); sem ele o botão fica desligado. Devolve nulo quando o modelo não vê outra forma melhor.</summary>
+    public Func<EditorSuggestion, CancellationToken, Task<EditorSuggestion?>>? EditorSuggestionAnother { get; set; }
+
+    /// <summary>Avisa o Editor que "Outra" trouxe uma proposta nova, para a grade e a lista de sugestões trocarem a antiga.</summary>
+    public Action<EditorSuggestion>? EditorSuggestionReplaced { get; set; }
+
+    /// <summary>"Outra" está esperando a resposta do modelo.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EditorSuggestionOtherText))]
+    [NotifyCanExecuteChangedFor(nameof(OtherEditorSuggestionCommand))]
+    public partial bool IsAskingAnotherEditorSuggestion { get; private set; }
+
+    /// <summary>O resultado de "Outra" que não virou proposta nova: o modelo não achou outra forma, ou o pedido falhou. Vazio quando não há o que dizer.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEditorSuggestionNote))]
+    public partial string EditorSuggestionNote { get; private set; } = string.Empty;
+
+    public bool HasEditorSuggestionNote => EditorSuggestionNote.Length > 0;
+
+    /// <summary>O texto do botão "Outra".</summary>
+    public string EditorSuggestionOtherText => IsAskingAnotherEditorSuggestion ? "Pedindo..." : "Outra";
 
     /// <summary>Mostra a sugestão da passada de editor, que é a <paramref name="position"/>ª das <paramref name="total"/> da cena; nula esconde o cartão.</summary>
     public void ShowEditorSuggestion(EditorSuggestion? suggestion, int position = 1, int total = 1)
     {
         editorSuggestion = suggestion;
+        EditorSuggestionNote = string.Empty;
         editorPosition = position;
         editorTotal = Math.Max(total, position);
         NotifyEditorSuggestionChanged();
@@ -76,6 +102,60 @@ public sealed partial class LineDetailViewModel
         }
     }
 
+    private bool CanAskAnotherEditorSuggestion() => HasEditorSuggestion && !IsAskingAnotherEditorSuggestion && EditorSuggestionAnother is not null;
+
+    /// <summary>"Outra": pede ao editor uma proposta diferente para a linha. A tradução não muda; se o pedido falha, a proposta de antes continua no cartão.</summary>
+    [RelayCommand(CanExecute = nameof(CanAskAnotherEditorSuggestion))]
+    private async Task OtherEditorSuggestionAsync()
+    {
+        if (editorSuggestion is not { } current || EditorSuggestionAnother is not { } ask || disposed)
+        {
+            return;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        anotherCancellation = cancellation;
+        EditorSuggestionNote = string.Empty;
+        IsAskingAnotherEditorSuggestion = true;
+        try
+        {
+            var another = await ask(current, cancellation.Token);
+            if (cancellation.IsCancellationRequested || !ReferenceEquals(editorSuggestion, current))
+            {
+                return;
+            }
+
+            if (another is null)
+            {
+                EditorSuggestionNote = "O editor não achou outra forma melhor. A sugestão de antes continua.";
+                return;
+            }
+
+            editorSuggestion = another;
+            NotifyEditorSuggestionChanged();
+            EditorSuggestionReplaced?.Invoke(another);
+        }
+        catch (Exception e)
+        {
+            // Um pedido cancelado por Dispose não mostra erro; o resto (rede, SDK, recusa) vira uma frase.
+            if (!cancellation.IsCancellationRequested)
+            {
+                EditorSuggestionNote = $"Não foi possível pedir outra sugestão: {ClaudeErrorMessages.Describe(e)} A tradução não mudou.";
+            }
+        }
+        finally
+        {
+            if (ReferenceEquals(anotherCancellation, cancellation))
+            {
+                anotherCancellation = null;
+            }
+
+            IsAskingAnotherEditorSuggestion = false;
+        }
+    }
+
+    private void CancelAnotherEditorSuggestion() => anotherCancellation?.Cancel();
+
     private void Resolve(EditorSuggestion suggestion)
     {
         editorSuggestion = null;
@@ -94,5 +174,6 @@ public sealed partial class LineDetailViewModel
         OnPropertyChanged(nameof(EditorSuggestionReason));
         AcceptEditorSuggestionCommand.NotifyCanExecuteChanged();
         IgnoreEditorSuggestionCommand.NotifyCanExecuteChanged();
+        OtherEditorSuggestionCommand.NotifyCanExecuteChanged();
     }
 }

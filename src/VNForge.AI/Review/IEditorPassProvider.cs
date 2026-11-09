@@ -14,6 +14,12 @@ public interface IEditorPassProvider
     /// ajuste volta como lista vazia.
     /// </summary>
     Task<IReadOnlyList<EditorPassProposal>> ReviewSceneAsync(TranslationBatch scene, CancellationToken ct);
+
+    /// <summary>
+    /// "Outra": uma proposta nova para a única linha de <paramref name="line"/> (o lote leva as falas em volta como contexto), diferente de <paramref name="rejected"/>, que a pessoa
+    /// não quis. Nulo quando o modelo não vê outra forma melhor.
+    /// </summary>
+    Task<EditorPassProposal?> AnotherAsync(TranslationBatch line, string rejected, CancellationToken ct);
 }
 
 /// <summary>O ajuste que o modelo propôs para uma linha, antes de a <see cref="EditorPassRunner"/> conferir.</summary>

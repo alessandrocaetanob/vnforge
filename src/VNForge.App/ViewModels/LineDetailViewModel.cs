@@ -456,6 +456,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         StopObservingBatch();
         DisposeDictionary();
         CancelSuggestion();
+        CancelAnotherEditorSuggestion();
         CancelExplanation();
         CancelRewrite();
         Fit?.Cancel();

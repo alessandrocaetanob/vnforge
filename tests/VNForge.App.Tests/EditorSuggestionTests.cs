@@ -258,4 +258,93 @@ public sealed class EditorSuggestionTests : IDisposable
         Assert.Equal("Vocês dois, cinco minutos atrasados.\\p", Gravada(0).Translation);
         Assert.False(vm.Lines[0].HasEditorSuggestion);
     }
+
+    private async Task<EditorViewModel> AbrirComOutra(Func<EditorSuggestion, CancellationToken, Task<EditorSuggestion?>> outra)
+    {
+        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao()) { EditorSuggestionAnother = outra };
+        vm.Project = EditorFixtures.Summary("Teste", raiz);
+        await vm.Loading;
+        return vm;
+    }
+
+    [Fact]
+    public async Task Outra_troca_a_proposta_do_cartao_e_da_grade_sem_mexer_na_traducao()
+    {
+        var vm = await AbrirComOutra((s, _) => Task.FromResult<EditorSuggestion?>(s with { Proposed = "Vocês dois, atrasados.\\p", Reason = "Mais direto." }));
+        vm.SelectedLine = vm.Lines[0];
+        var detail = vm.Detail!;
+        Assert.True(detail.OtherEditorSuggestionCommand.CanExecute(null));
+
+        await detail.OtherEditorSuggestionCommand.ExecuteAsync(null);
+
+        Assert.Equal("Vocês dois, atrasados.", detail.EditorSuggestionProposed);
+        Assert.Equal("Mais direto.", detail.EditorSuggestionReason);
+        Assert.Equal("Vocês dois, atrasados.\\p", vm.Lines[0].EditorSuggestion!.Proposed);
+        Assert.Equal("Os dois, cinco minutos atrasados.\\p", Gravada(0).Translation);
+        Assert.False(detail.IsAskingAnotherEditorSuggestion);
+        Assert.Equal(string.Empty, detail.EditorSuggestionNote);
+    }
+
+    [Fact]
+    public async Task Outra_sem_proposta_nova_avisa_e_mantem_a_de_antes()
+    {
+        var vm = await AbrirComOutra((_, _) => Task.FromResult<EditorSuggestion?>(null));
+        vm.SelectedLine = vm.Lines[0];
+        var detail = vm.Detail!;
+
+        await detail.OtherEditorSuggestionCommand.ExecuteAsync(null);
+
+        Assert.True(detail.HasEditorSuggestion);
+        Assert.Equal("Vocês dois, cinco minutos atrasados.", detail.EditorSuggestionProposed);
+        Assert.Equal("O editor não achou outra forma melhor. A sugestão de antes continua.", detail.EditorSuggestionNote);
+    }
+
+    [Fact]
+    public async Task Outra_que_falha_mostra_o_motivo_em_portugues_e_a_traducao_nao_muda()
+    {
+        var vm = await AbrirComOutra((_, _) => throw new InvalidOperationException("Falta a chave da IA."));
+        vm.SelectedLine = vm.Lines[2];
+        var detail = vm.Detail!;
+
+        await detail.OtherEditorSuggestionCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("Não foi possível pedir outra sugestão:", detail.EditorSuggestionNote);
+        Assert.EndsWith("A tradução não mudou.", detail.EditorSuggestionNote);
+        Assert.True(detail.HasEditorSuggestion);
+        Assert.Equal("Aham.\\p", Gravada(2).Translation);
+    }
+
+    [Fact]
+    public async Task Sem_quem_peca_o_botao_Outra_fica_desligado_e_fechar_o_painel_cancela_o_pedido()
+    {
+        var semProvedor = await Abrir();
+        semProvedor.SelectedLine = semProvedor.Lines[0];
+        Assert.False(semProvedor.Detail!.OtherEditorSuggestionCommand.CanExecute(null));
+
+        var cancelado = false;
+        var comEspera = await AbrirComOutra(async (_, ct) =>
+        {
+            try
+            {
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                cancelado = true;
+                throw;
+            }
+
+            return null;
+        });
+        comEspera.SelectedLine = comEspera.Lines[0];
+        var pedido = comEspera.Detail!.OtherEditorSuggestionCommand.ExecuteAsync(null);
+        Assert.True(comEspera.Detail.IsAskingAnotherEditorSuggestion);
+        Assert.Equal("Pedindo...", comEspera.Detail.EditorSuggestionOtherText);
+
+        comEspera.Detail.Dispose();
+        await pedido;
+
+        Assert.True(cancelado);
+        Assert.Equal(string.Empty, comEspera.Detail.EditorSuggestionNote);
+    }
 }

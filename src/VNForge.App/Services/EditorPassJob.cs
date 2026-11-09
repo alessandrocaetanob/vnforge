@@ -55,20 +55,7 @@ public sealed class EditorPassJob(
         }
 
         var profile = QualityProfiles.For(quality);
-        var projectConfig = project.LoadConfig();
-        var config = projectConfig.Ai;
-        var effort = ClaudeEffortText.ParseOrDefault(config.Effort);
-        var builder = new TranslationBatchBuilder(
-            project.LoadGlossary(),
-            new CharacterBook(project.LoadCharacters()),
-            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, TranslationContextSummary.StyleGuideFileName)),
-            style: projectConfig.Style,
-            maxPreviousLines: config.ContextBefore,
-            maxNextLines: config.ContextAfter,
-            addressTerms: project.LoadAddressTerms())
-        {
-            Bible = project.LoadBibleOrEmpty(out _),
-        };
+        var (builder, effort) = CreateBuilder();
         var provider = providerFactory(profile.Model, effort);
         var runner = new EditorPassRunner(provider, builder, clock);
         var tracker = new RunCostTracker(project, profile.Model, settings.Rate, () => usageOf(provider));
@@ -140,5 +127,55 @@ public sealed class EditorPassJob(
         }
 
         return new EditorPassJobResult(read, suggestions, failed, discarded, stopped, tracker.RunBrl, problem);
+    }
+
+    /// <summary>
+    /// "Outra" (#532): pede ao modelo uma proposta nova para a linha de <paramref name="rejected"/>, diferente dela, e a grava no lugar da anterior. Nula, sem mexer no arquivo,
+    /// quando o modelo não acha outra forma que valha. O gasto entra no registro do projeto como o de qualquer pedido.
+    /// </summary>
+    public async Task<EditorSuggestion?> AnotherAsync(EditorSuggestion rejected, TranslationQuality quality, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(rejected);
+        if (!project.LoadAllText().TryGetValue(rejected.ScriptKey, out var units))
+        {
+            return null;
+        }
+
+        var profile = QualityProfiles.For(quality);
+        var (builder, effort) = CreateBuilder();
+        var provider = providerFactory(profile.Model, effort);
+        var tracker = new RunCostTracker(project, profile.Model, settings.Rate, () => usageOf(provider));
+        try
+        {
+            var another = await new EditorPassRunner(provider, builder, clock).AnotherAsync(rejected.ScriptKey, units, rejected.UnitId, rejected.Proposed, ct).ConfigureAwait(false);
+            if (another is not null)
+            {
+                EditorSuggestionsFile.Save(project, EditorSuggestionsFile.Load(project).Replacing(another));
+            }
+
+            return another;
+        }
+        finally
+        {
+            tracker.Record();
+        }
+    }
+
+    private (TranslationBatchBuilder Builder, ClaudeEffort Effort) CreateBuilder()
+    {
+        var projectConfig = project.LoadConfig();
+        var config = projectConfig.Ai;
+        var builder = new TranslationBatchBuilder(
+            project.LoadGlossary(),
+            new CharacterBook(project.LoadCharacters()),
+            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, TranslationContextSummary.StyleGuideFileName)),
+            style: projectConfig.Style,
+            maxPreviousLines: config.ContextBefore,
+            maxNextLines: config.ContextAfter,
+            addressTerms: project.LoadAddressTerms())
+        {
+            Bible = project.LoadBibleOrEmpty(out _),
+        };
+        return (builder, ClaudeEffortText.ParseOrDefault(config.Effort));
     }
 }

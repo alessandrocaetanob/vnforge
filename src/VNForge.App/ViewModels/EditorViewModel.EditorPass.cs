@@ -15,6 +15,9 @@ public sealed partial class EditorViewModel
     /// <summary>Grava as sugestões do editor na pasta do projeto; os testes trocam por uma na memória. O padrão grava em <c>.cache/editor-suggestions.json</c>.</summary>
     public Action<string, EditorSuggestionsFile>? EditorSuggestionsWriter { get; init; }
 
+    /// <summary>Pede ao editor outra proposta para a linha de uma sugestão ("Outra"); a janela principal o liga ao provedor. Nulo deixa o botão desligado.</summary>
+    public Func<EditorSuggestion, CancellationToken, Task<EditorSuggestion?>>? EditorSuggestionAnother { get; set; }
+
     /// <summary>Quantas linhas do script aberto têm uma sugestão do editor que ainda vale.</summary>
     public int EditorSuggestionLines => scriptLines.Count(l => l.HasEditorSuggestion);
 
@@ -79,9 +82,18 @@ public sealed partial class EditorViewModel
     private void ShowEditorSuggestion(LineDetailViewModel detail, LineViewModel line)
     {
         detail.EditorSuggestionResolved = suggestion => ResolveEditorSuggestion(line, suggestion);
+        detail.EditorSuggestionAnother = EditorSuggestionAnother;
+        detail.EditorSuggestionReplaced = another => ReplaceEditorSuggestion(line, another);
         var live = scriptLines.Where(l => l.HasEditorSuggestion).ToList();
         var position = live.IndexOf(line);
         detail.ShowEditorSuggestion(position < 0 ? null : line.EditorSuggestion, position + 1, live.Count);
+    }
+
+    /// <summary>"Outra" trouxe uma proposta nova: a grade e a lista em memória passam a tê-la (o arquivo já foi gravado por quem a pediu).</summary>
+    private void ReplaceEditorSuggestion(LineViewModel line, EditorSuggestion another)
+    {
+        editorSuggestions = editorSuggestions.Replacing(another);
+        line.SetEditorSuggestion(another);
     }
 
     /// <summary>A pessoa aceitou ou ignorou a sugestão: ela sai do arquivo e da grade.</summary>

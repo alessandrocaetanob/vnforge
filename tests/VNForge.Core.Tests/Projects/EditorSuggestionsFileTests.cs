@@ -133,6 +133,25 @@ public sealed class EditorSuggestionsFileTests : IDisposable
         Assert.Same(file, file.Without("y", "y:9"));
     }
 
+    [Fact]
+    public void Replacing_troca_a_sugestao_da_mesma_linha_e_deixa_as_outras()
+    {
+        var file = EditorSuggestionsFile.Empty.ReplacingScript("y", [Suggest("y", "y:1", "A", "A1"), Suggest("y", "y:2", "B", "B1")]);
+
+        var replaced = file.Replacing(Suggest("y", "y:1", "A", "A2"));
+
+        Assert.Equal([("y:2", "B1"), ("y:1", "A2")], replaced.Suggestions.Select(s => (s.UnitId, s.Proposed)));
+    }
+
+    [Fact]
+    public void Linha_aprovada_nao_tem_sugestao_viva()
+    {
+        var file = EditorSuggestionsFile.Empty.ReplacingScript("y", [Suggest("y", "y:1", "A")]);
+
+        Assert.Null(file.For("y", Unit("y:1", "A") with { Status = TranslationStatus.Approved }));
+        Assert.NotNull(file.For("y", Unit("y:1", "A")));
+    }
+
     [Theory]
     [InlineData(EditorSuggestionKind.Fluency, "fluidez")]
     [InlineData(EditorSuggestionKind.Voice, "voz")]

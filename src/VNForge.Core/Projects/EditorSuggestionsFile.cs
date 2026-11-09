@@ -161,6 +161,13 @@ public sealed record EditorSuggestionsFile(int Version, IReadOnlyList<EditorSugg
         return this with { Suggestions = [.. Suggestions.Where(s => !string.Equals(s.ScriptKey, scriptKey, StringComparison.Ordinal)), .. replacement] };
     }
 
+    /// <summary>O arquivo com <paramref name="suggestion"/> no lugar da que havia para a mesma linha ("Outra").</summary>
+    public EditorSuggestionsFile Replacing(EditorSuggestion suggestion)
+    {
+        ArgumentNullException.ThrowIfNull(suggestion);
+        return this with { Suggestions = [.. Without(suggestion.ScriptKey, suggestion.UnitId).Suggestions, suggestion] };
+    }
+
     /// <summary>O arquivo sem as sugestões da linha (aceita ou ignorada); sem elas, devolve o próprio arquivo.</summary>
     public EditorSuggestionsFile Without(string scriptKey, string unitId)
     {

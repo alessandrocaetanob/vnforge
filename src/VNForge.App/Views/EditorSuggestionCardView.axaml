@@ -50,7 +50,14 @@
         <Button x:Name="IgnoreButton" Classes="sm" Command="{Binding IgnoreEditorSuggestionCommand}" ToolTip.Tip="Mantém a tradução como está e tira a sugestão">
           <TextBlock Text="Ignorar" TextWrapping="NoWrap" VerticalAlignment="Center"/>
         </Button>
+        <Button x:Name="OtherButton" Classes="sm" Command="{Binding OtherEditorSuggestionCommand}" ToolTip.Tip="Pede ao editor outra forma de dizer esta linha">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="{Binding EditorSuggestionOtherText}" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
       </StackPanel>
+      <TextBlock x:Name="Note" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding EditorSuggestionNote}" IsVisible="{Binding HasEditorSuggestionNote}"/>
     </StackPanel>
   </Border>
 </UserControl>

@@ -34,6 +34,22 @@ public sealed class ClaudeEditorPassProvider(IClaudeMessageClient client, Claude
         return _caller.RunOnceAsync(scene, new ClaudeBatchSpec<EditorPassProposal>(Schema, "editar", BuildSystem, b => ClaudePromptParts.BatchContext(b, "Glossário (termos obrigatórios):"), BuildUser, Parse, Refused: null), ct);
     }
 
+    /// <summary>Pede outra proposta para uma linha: o mesmo prompt, com a proposta recusada no pedido para o modelo não repeti-la.</summary>
+    public async Task<EditorPassProposal?> AnotherAsync(TranslationBatch line, string rejected, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        var spec = new ClaudeBatchSpec<EditorPassProposal>(
+            Schema,
+            "editar",
+            BuildSystem,
+            b => ClaudePromptParts.BatchContext(b, "Glossário (termos obrigatórios):"),
+            b => BuildUser(b) + $"{Environment.NewLine}A pessoa não quis esta proposta: {JsonSerializer.Serialize(rejected, PromptJson)}. Proponha outra forma, diferente dela, só para esta linha; se não houver uma melhor, devolva a lista vazia.",
+            Parse,
+            Refused: null);
+        var found = await _caller.RunOnceAsync(line, spec, ct).ConfigureAwait(false);
+        return found.FirstOrDefault();
+    }
+
     private static string BuildSystem(TranslationBatch batch)
     {
         var sb = new StringBuilder();

@@ -23,9 +23,17 @@ public class EditorPassTests
         }
     }
 
-    private sealed class ScriptedProvider(Func<TranslationBatch, IReadOnlyList<EditorPassProposal>> reply) : IEditorPassProvider
+    private sealed class ScriptedProvider(Func<TranslationBatch, IReadOnlyList<EditorPassProposal>> reply, Func<TranslationBatch, string, EditorPassProposal?>? another = null) : IEditorPassProvider
     {
         public List<TranslationBatch> Scenes { get; } = [];
+
+        public List<(TranslationBatch Line, string Rejected)> Anothers { get; } = [];
+
+        public Task<EditorPassProposal?> AnotherAsync(TranslationBatch line, string rejected, CancellationToken ct)
+        {
+            Anothers.Add((line, rejected));
+            return Task.FromResult(another?.Invoke(line, rejected));
+        }
 
         public Task<IReadOnlyList<EditorPassProposal>> ReviewSceneAsync(TranslationBatch scene, CancellationToken ct)
         {
@@ -301,6 +309,80 @@ public class EditorPassTests
 
         Assert.Equal("Os dois", lines[0].Translation);
         Assert.Equal(TranslationStatus.Machine, lines[0].Status);
+    }
+
+    // ---- "Outra" ----
+
+    [Fact]
+    public async Task Outra_no_provedor_Claude_manda_a_linha_com_a_proposta_recusada_e_devolve_a_primeira_nova()
+    {
+        var client = new StubClient(_ => Ok("""{"adjustments":[{"id":"y:2","kind":"voice","proposed":"Vocês dois, atrasados.","reason":"Mais direto."}]}"""));
+        var provider = new ClaudeEditorPassProvider(client);
+
+        var result = await provider.AnotherAsync(Scene(Unit("y:2", "遅い", "Os dois, atrasados.")), "Os dois atrasados", TestContext.Current.CancellationToken);
+
+        Assert.Equal(new EditorPassProposal("y:2", EditorSuggestionKind.Voice, "Vocês dois, atrasados.", "Mais direto."), result);
+        var request = Assert.Single(client.Requests);
+        Assert.Contains("A pessoa não quis esta proposta", request.User);
+        Assert.Contains("Os dois atrasados", request.User);
+    }
+
+    [Fact]
+    public async Task Outra_sem_proposta_nova_devolve_nulo()
+    {
+        var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("""{"adjustments":[]}""")));
+
+        Assert.Null(await provider.AnotherAsync(Scene(Unit("y:1", "a", "A")), "B", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Outra_no_corredor_leva_as_falas_em_volta_e_vira_sugestao_nova()
+    {
+        var provider = new ScriptedProvider(_ => [], (line, _) => new EditorPassProposal(line.Lines[0].Id, EditorSuggestionKind.Voice, "B2", "Outro jeito."));
+        var runner = new EditorPassRunner(provider, Builder());
+
+        var result = await runner.AnotherAsync("y", [Unit("y:1", "a", "A"), Unit("y:2", "b", "B"), Unit("y:3", "c", "C")], "y:2", "B1", TestContext.Current.CancellationToken);
+
+        Assert.Equal(("y", "y:2", EditorSuggestionKind.Voice, "B", "B2", "Outro jeito."), (result!.ScriptKey, result.UnitId, result.Kind, result.Base, result.Proposed, result.Reason));
+        var (line, rejected) = Assert.Single(provider.Anothers);
+        Assert.Equal("B1", rejected);
+        Assert.Equal(["y:2"], line.Lines.Select(l => l.Id));
+        Assert.Equal(["y:1"], line.PreviousLines.Select(l => l.Id));
+        Assert.Equal(["y:3"], line.NextLines.Select(l => l.Id));
+    }
+
+    [Theory]
+    [InlineData("B1", "y:2", "r")]
+    [InlineData("B", "y:2", "r")]
+    [InlineData("  ", "y:2", "r")]
+    [InlineData("B2", "y:2", " ")]
+    [InlineData("B2", "y:9", "r")]
+    public async Task Outra_que_nao_vale_devolve_nulo(string proposed, string id, string reason)
+    {
+        var provider = new ScriptedProvider(_ => [], (_, _) => new EditorPassProposal(id, EditorSuggestionKind.Voice, proposed, reason));
+
+        var result = await new EditorPassRunner(provider, Builder()).AnotherAsync("y", [Unit("y:2", "b", "B")], "y:2", "B1", TestContext.Current.CancellationToken);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task Outra_de_linha_aprovada_ou_inexistente_nem_chama_o_provedor_ou_e_descartada()
+    {
+        var provider = new ScriptedProvider(_ => [], (l, _) => new EditorPassProposal(l.Lines[0].Id, EditorSuggestionKind.Voice, "Novo", "r"));
+        var runner = new EditorPassRunner(provider, Builder());
+
+        Assert.Null(await runner.AnotherAsync("y", [Unit("y:2", "b", "B", TranslationStatus.Approved)], "y:2", "B1", TestContext.Current.CancellationToken));
+        Assert.Null(await runner.AnotherAsync("y", [Unit("y:2", "b", "B")], "y:7", "B1", TestContext.Current.CancellationToken));
+        Assert.Single(provider.Anothers);
+    }
+
+    [Fact]
+    public async Task Outra_no_provedor_falso_devolve_a_recusada_com_outra_no_fim()
+    {
+        var result = await new FakeEditorPassProvider().AnotherAsync(Scene(Unit("y:1", "a", "A")), "Texto", TestContext.Current.CancellationToken);
+
+        Assert.Equal("Texto (outra)", result!.Proposed);
     }
 
     // ---- EditorPassCost ----

@@ -45,6 +45,32 @@ public sealed class EditorPassRunner(IEditorPassProvider provider, TranslationBa
         return new EditorPassResult(suggestions, lines.Count, discarded);
     }
 
+    /// <summary>
+    /// "Outra": pede ao provedor uma proposta nova para a linha <paramref name="unitId"/> da cena, com as falas em volta como contexto. Nula quando a linha não existe, está aprovada,
+    /// o modelo não propõe nada ou o que ele propõe não vale (igual ao texto de hoje, igual à recusada, vazio ou com marcadores diferentes).
+    /// </summary>
+    public async Task<EditorSuggestion?> AnotherAsync(string scriptKey, IReadOnlyList<TextUnit> units, string unitId, string rejected, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(scriptKey);
+        ArgumentNullException.ThrowIfNull(units);
+        var lines = units.Where(u => u.HasTranslation).ToList();
+        var index = lines.FindIndex(u => string.Equals(u.Id, unitId, StringComparison.Ordinal));
+        if (index < 0)
+        {
+            return null;
+        }
+
+        var unit = lines[index];
+        var batch = _builder.Build([unit], previous: lines.Take(index).ToList(), next: lines.Skip(index + 1).ToList());
+        var proposal = await _provider.AnotherAsync(batch, rejected, ct).ConfigureAwait(false);
+        if (proposal is null || !string.Equals(proposal.Id, unit.Id, StringComparison.Ordinal) || !IsValid(unit, proposal) || string.Equals(proposal.Proposed.Trim(), rejected.Trim(), StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return new EditorSuggestion(scriptKey, unit.Id, proposal.Kind, unit.Translation!, proposal.Proposed.Trim(), proposal.Reason.Trim(), _clock.GetUtcNow());
+    }
+
     private static int Collect(string scriptKey, List<TextUnit> slice, IReadOnlyList<EditorPassProposal> proposals, DateTimeOffset now, List<EditorSuggestion> into)
     {
         var byId = slice.ToDictionary(u => u.Id, StringComparer.Ordinal);

@@ -35,6 +35,23 @@ public sealed class FakeEditorPassProvider : IEditorPassProvider
         return Task.FromResult(proposals);
     }
 
+    /// <summary>Por padrão devolve a proposta recusada com "(outra)" no fim; esta função troca a regra.</summary>
+    public Func<TextUnit, string, EditorPassProposal?>? Another { get; init; }
+
+    public Task<EditorPassProposal?> AnotherAsync(TranslationBatch line, string rejected, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        if (ct.IsCancellationRequested)
+        {
+            return Task.FromCanceled<EditorPassProposal?>(ct);
+        }
+
+        var unit = line.Lines[0];
+        return Task.FromResult(Another is { } rule
+            ? rule(unit, rejected)
+            : new EditorPassProposal(unit.Id, EditorSuggestionKind.Fluency, rejected + " (outra)", "Outra forma de dizer."));
+    }
+
     private static EditorPassProposal? DoubleSpace(TextUnit unit) =>
         unit.Translation is { } text && text.Contains("  ", StringComparison.Ordinal)
             ? new EditorPassProposal(unit.Id, EditorSuggestionKind.Fluency, text.Replace("  ", " ", StringComparison.Ordinal), "Tira o espaço duplo.")
