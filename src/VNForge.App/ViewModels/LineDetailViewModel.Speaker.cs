@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.Core.Glossary;
@@ -103,7 +104,7 @@ public sealed partial class LineDetailViewModel
 
         if (saved && Preview is { } preview)
         {
-            Preview = new TextboxPreviewViewModel(Saved, preview.Profile, Translation, preview.Marks, preview.Naming);
+            Preview = new TextboxPreviewViewModel(Saved, preview.Profile, Translation, preview.Marks, preview.Naming, preview.Dictionary);
         }
 
         NotifySpeakerChanged();

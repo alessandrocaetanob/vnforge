@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.App.Services;
 using VNForge.Core.Formatting;
@@ -19,7 +20,7 @@ public sealed partial class LineDetailViewModel
         Fit?.Cancel();
         Fit = profile is null
             ? null
-            : new FitWarningViewModel(unit, profile, Shortener, () => Translation, ApplySplit, OfferShortened);
+            : new FitWarningViewModel(unit, profile, Shortener, () => Translation, ApplySplit, OfferShortened, Dictionary);
         Fit?.Update();
     }
 

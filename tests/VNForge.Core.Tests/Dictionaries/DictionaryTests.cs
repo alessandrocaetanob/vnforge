@@ -393,4 +393,38 @@ public sealed class DictionaryTests : IDisposable
         Assert.Equal(0, impact.Blocked);
         Assert.Null(impact.FirstBlocked);
     }
+
+    [Fact]
+    public void Alcance_do_pos_conta_so_as_linhas_que_o_build_grava_dos_papeis_formatados()
+    {
+        var rule = Rule("você", "tu");
+        TextUnit[] units =
+        [
+            Unit("a:1", null, "原", "você vem?"),
+            new TextUnit("a:2", TextUnitKind.Choice, null, "原", "você?", TranslationStatus.Translated),
+            Unit("a:3", null, "você vem?", "você vem?"),
+        ];
+
+        var impact = DictionaryImpact.Of(rule, DictionarySide.Post, units, kinds: [TextUnitKind.Dialogue, TextUnitKind.Narration]);
+
+        Assert.Equal(1, impact.Applies);
+        Assert.Equal("a:1", impact.FirstApplied!.Unit.Id);
+    }
+
+    [Fact]
+    public void Divisao_em_paginas_enxerga_o_pos_dicionario_condicionado_ao_falante()
+    {
+        var profile = FormattingProfile.Default with
+        {
+            Wrap = new WrapRule(Enabled: true, MaxWidth: 8, MaxLines: 1, CharWidth: CharWidthMode.Uniform),
+            Dictionary = new DictionaryRules([], [Rule("x", "yyyyyy", Spk("Ren"))]),
+        };
+        var unit = Unit("a:1", "蓮", "原", "x aa");
+
+        var without = PageSplitter.Split(profile, unit, "x aa");
+        var with = PageSplitter.Split(profile, unit, "x aa", Context(speakerSource: "蓮", speakerTarget: "Ren"));
+
+        Assert.Equal(0, without.Added);
+        Assert.True(with.Added > 0);
+    }
 }

@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Claude;
@@ -247,7 +248,7 @@ public sealed partial class LineDetailViewModel
             return (string.Empty, false);
         }
 
-        var measured = new TextboxPreviewViewModel(Saved, preview.Profile, text, preview.Marks, preview.Naming);
+        var measured = new TextboxPreviewViewModel(Saved, preview.Profile, text, preview.Marks, preview.Naming, preview.Dictionary);
         if (measured.Layout is not { } layout || measured.Notice is not null)
         {
             return (string.Empty, false);

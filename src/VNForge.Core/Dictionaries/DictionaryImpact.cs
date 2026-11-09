@@ -27,8 +27,9 @@ public sealed record DictionarySample(TextUnit Unit, string Before, string After
 public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample? FirstApplied, DictionarySample? FirstBlocked)
 {
     /// <summary>Conta o alcance de <paramref name="rule"/> em <paramref name="units"/>. A regra desligada também é contada: o número diz o que ela faria.</summary>
+    /// <param name="kinds">Os papéis que o build formata (<see cref="FormattingProfile.Kinds"/>). No pós só contam as linhas que o build grava (<see cref="TextUnit.NeedsRewrite"/>) desses papéis; nulo conta todo papel.</param>
     /// <exception cref="FormattingException">O padrão é vazio, a regex é inválida ou passou do tempo limite.</exception>
-    public static DictionaryImpact Of(DictionaryRule rule, DictionarySide side, IEnumerable<TextUnit> units, DictionaryContext? context = null)
+    public static DictionaryImpact Of(DictionaryRule rule, DictionarySide side, IEnumerable<TextUnit> units, DictionaryContext? context = null, IReadOnlyCollection<TextUnitKind>? kinds = null)
     {
         ArgumentNullException.ThrowIfNull(rule);
         ArgumentNullException.ThrowIfNull(units);
@@ -41,6 +42,11 @@ public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample
         DictionarySample? firstBlocked = null;
         foreach (var unit in units)
         {
+            if (side == DictionarySide.Post && (!unit.NeedsRewrite || (kinds is not null && !kinds.Contains(unit.Kind))))
+            {
+                continue;
+            }
+
             var text = side == DictionarySide.Pre ? unit.Source : unit.Translation;
             if (string.IsNullOrEmpty(text))
             {

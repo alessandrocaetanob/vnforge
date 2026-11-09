@@ -43,8 +43,8 @@ public sealed class TranslationBatchBuilder(
     /// </summary>
     /// <remarks>
     /// O pré-dicionário normaliza o <see cref="TextUnit.Source"/> de todas as linhas do lote, das de contexto também, antes do resto: é esse texto que a IA lê,
-    /// que casa com o glossário e que entra na chave do cache (<see cref="Cost.TranslationCache.KeyFor"/>). Mudar uma regra do pré só pede nova tradução das linhas
-    /// que ela muda; as demais mantêm a chave.
+    /// que casa com o glossário e que entra na chave do cache (<see cref="Cost.TranslationCache.KeyFor"/>). Mudar uma regra do pré pede nova tradução das linhas
+    /// que ela muda; as demais mantêm a chave, salvo quando a troca faz o lote casar outro termo do glossário (os termos casados entram na chave do lote).
     /// </remarks>
     public TranslationBatch Build(IReadOnlyList<TextUnit> lines, IReadOnlyList<TextUnit>? previous = null, IReadOnlyList<TextUnit>? next = null)
     {

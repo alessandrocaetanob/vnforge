@@ -132,7 +132,8 @@ public static class ProjectBuilder
         var fingerprint = BuildState.FingerprintTexts(loaded, BuildState.EncoderKey(encoder), project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
-        var texts = ApplyFormatting(profile, loaded, gameKeys, warnings, DictionaryContext.For(project, profile));
+        var dictionary = DictionaryContext.For(project, profile);
+        var texts = ApplyFormatting(profile, loaded, gameKeys, warnings, dictionary);
         var report = EncodingReporter.Create(texts.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), encoder);
         if (report.HasBlocking)
         {
@@ -153,7 +154,7 @@ public static class ProjectBuilder
             warnings.Add(ignoredProblem);
         }
 
-        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = ignoredWords });
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = ignoredWords, Dictionary = dictionary });
         if (qaReport.Blocks(allowWarnings))
         {
             throw new QaBlockedException(qaReport, allowWarnings);

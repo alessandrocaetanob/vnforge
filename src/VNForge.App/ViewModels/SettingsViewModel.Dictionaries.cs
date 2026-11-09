@@ -108,7 +108,7 @@ public sealed partial class SettingsViewModel
     {
         try
         {
-            return new DictionaryData([.. opened.LoadAllText().Values.SelectMany(units => units)], DictionaryContext.For(opened));
+            return new DictionaryData([.. opened.LoadAllText().Values.SelectMany(units => units)], DictionaryContext.For(opened), opened.LoadFormatting().Kinds);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -189,7 +189,7 @@ public sealed partial class SettingsViewModel
     {
         try
         {
-            return DictionaryImpact.Of(rule, side, data.Units, data.Context);
+            return DictionaryImpact.Of(rule, side, data.Units, data.Context, data.Kinds);
         }
         catch (VNForgeException)
         {
@@ -428,5 +428,5 @@ public sealed partial class SettingsViewModel
             : string.Empty;
     }
 
-    private sealed record DictionaryData(IReadOnlyList<TextUnit> Units, DictionaryContext Context);
+    private sealed record DictionaryData(IReadOnlyList<TextUnit> Units, DictionaryContext Context, IReadOnlyList<TextUnitKind> Kinds);
 }

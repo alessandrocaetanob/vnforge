@@ -165,7 +165,8 @@ internal static class DictionaryCommand
     {
         var output = parseResult.InvocationConfiguration.Output;
         var project = Open(cli, parseResult);
-        var dictionary = project.LoadFormatting().Dictionary;
+        var profile = project.LoadFormatting();
+        var dictionary = profile.Dictionary;
         var texts = dictionary.IsEmpty ? [] : project.LoadAllText().Values.SelectMany(units => units).ToList();
         var context = dictionary.IsEmpty ? DictionaryContext.Empty : DictionaryContext.For(project);
         var rows = new List<(DictionarySide Side, int Number, DictionaryRule Rule, DictionaryImpact Impact)>();
@@ -174,7 +175,7 @@ internal static class DictionaryCommand
             var rules = ListOf(dictionary, side);
             for (var i = 0; i < rules.Count; i++)
             {
-                rows.Add((side, i + 1, rules[i], DictionaryImpact.Of(rules[i], side, texts, context)));
+                rows.Add((side, i + 1, rules[i], DictionaryImpact.Of(rules[i], side, texts, context, profile.Kinds)));
             }
         }
 
