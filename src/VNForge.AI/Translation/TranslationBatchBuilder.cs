@@ -41,6 +41,12 @@ public sealed class TranslationBatchBuilder(
     public GameBible Bible { get; init => field = value ?? GameBible.Empty; } = GameBible.Empty;
 
     /// <summary>
+    /// No lote noturno a fala anterior ainda não está traduzida: com isto ligado, o contexto anterior vem do original de qualquer fala com texto, e não só das que já têm tradução.
+    /// O resumo da cena da bíblia segue junto em <see cref="Bible"/>.
+    /// </summary>
+    public bool PreviousFromSource { get; init; }
+
+    /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
     /// só as que já têm tradução, no máximo as últimas <c>maxPreviousLines</c>. <paramref name="next"/> são as linhas que vêm depois do lote;
     /// entram as primeiras <c>maxNextLines</c> com texto, no original, porque ainda não foram traduzidas.
@@ -86,7 +92,7 @@ public sealed class TranslationBatchBuilder(
             .ToList();
 
         var context = (previous ?? [])
-            .Where(u => u.HasTranslation)
+            .Where(u => PreviousFromSource ? !string.IsNullOrWhiteSpace(u.Source) : u.HasTranslation)
             .TakeLast(MaxPreviousLines)
             .ToList();
 

@@ -434,4 +434,70 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         Assert.Contains("exemplo", vm.RateNote);
         Assert.Equal(string.Empty, (await OpenAsync(Project("outro"), Settings())).RateNote);
     }
+
+    [Fact]
+    public async Task A_janela_abre_em_Agora_e_o_lote_da_noite_so_vale_quando_a_pessoa_escolhe()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+
+        Assert.True(vm.ShowWhen);
+        Assert.False(vm.IsOvernight);
+        Assert.Equal(["Agora", "Durante a noite"], vm.Whens.Select(w => w.Title));
+        Assert.Equal("50% mais barato", vm.Whens[1].Tag);
+        Assert.Equal("Traduzir", vm.StartLabel);
+        Assert.Equal(string.Empty, vm.BatchNote);
+    }
+
+    [Fact]
+    public async Task Durante_a_noite_os_precos_sao_a_metade_e_mostram_o_que_o_pedido_custaria()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+        var now = vm.Qualities.ToDictionary(q => q.Quality, q => q.Price);
+        var request = vm.RequestBrl;
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.True(vm.IsOvernight);
+        Assert.All(vm.Qualities, q => Assert.Equal(now[q.Quality] / 2m, q.Price));
+        Assert.All(vm.Qualities, q => Assert.StartsWith("em vez de R$", q.Duration, StringComparison.Ordinal));
+        Assert.Equal(request / 2m, vm.RequestBrl);
+        Assert.Equal("Enviar o lote", vm.StartLabel);
+        Assert.Equal("O lote fica guardado por 29 dias na Anthropic. Resultado em até 24 h; o tempo real depende da fila.", vm.BatchNote);
+        Assert.StartsWith("No lote a fala anterior ainda não está traduzida: o contexto vem do original", vm.ContextText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task O_limite_de_gasto_vale_sobre_a_metade_do_preco_no_lote()
+    {
+        var folder = Project();
+        var normal = await OpenAsync(folder, Settings());
+        var careful = normal.Qualities.Single(q => q.Quality == TranslationQuality.Careful).Price;
+
+        // O limite cabe a metade do pedido caprichado, mas não o pedido inteiro.
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(careful * 0.6m, null)));
+        Assert.True(vm.IsOverLimit);
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.False(vm.IsOverLimit);
+        Assert.True(vm.CanStart);
+    }
+
+    [Fact]
+    public async Task Iniciar_na_noite_pede_o_lote_e_a_cena_de_exemplo_nao_tem_a_escolha()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+        TranslationRequest? asked = null;
+        vm.StartRequested += (_, request) => asked = request;
+        vm.SelectedWhen = vm.Whens[1];
+
+        vm.StartCommand.Execute(null);
+
+        Assert.True(asked!.Overnight);
+        Assert.False(vm.IsOpen);
+
+        var sample = await OpenAsync(Project("exemplo"), Settings() with { IsSample = true });
+        Assert.False(sample.ShowWhen);
+        Assert.False(sample.IsOvernight);
+    }
 }

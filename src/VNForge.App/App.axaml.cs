@@ -58,6 +58,8 @@ public sealed class App : Application
                 TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = effort }),
+                MessageBatchClientFactory = () => ClaudeProviderFactory.CreateBatchClient(
+                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA.")),
                 JudgeProviderFactory = model => ClaudeProviderFactory.CreateJudge(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low }),
