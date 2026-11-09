@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:jm="using:VNForge.Core.Jmdict"
              x:Class="VNForge.App.Views.WordCardView"
              x:DataType="vm:LineDetailViewModel">
 
@@ -78,7 +79,7 @@
         <Border Classes="word-footer">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Button Classes="word-source" VerticalAlignment="Center" Click="OnLicenseClick" ToolTip.Tip="{Binding WordFootnoteTip}" AutomationProperties.Name="Origem do dicionário">
-              <TextBlock Text="{Binding WordFootnote}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Text="{x:Static vm:LineDetailViewModel.WordFootnote}" TextTrimming="CharacterEllipsis"/>
             </Button>
             <Border Grid.Column="1" Classes="word-tag ok" IsVisible="{Binding InGlossary}" AutomationProperties.Name="Termo do glossário">
               <StackPanel Orientation="Horizontal" Spacing="6">
@@ -94,13 +95,13 @@
 
       <StackPanel Spacing="8" IsVisible="{Binding IsOfferCard}">
         <TextBlock Classes="title-sm" Text="Dicionário offline"/>
-        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding OfferText}"/>
+        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{x:Static vm:LineDetailViewModel.OfferText}"/>
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Classes="accent sm" Content="Baixar o dicionário" Command="{Binding InstallDictionaryCommand}" AutomationProperties.Name="Baixar o dicionário"/>
           <Button Classes="sm" Content="Agora não" Command="{Binding DismissDictionaryOfferCommand}" AutomationProperties.Name="Agora não"/>
         </StackPanel>
         <Border Classes="word-footer">
-          <Button Classes="word-source" Click="OnLicenseClick" ToolTip.Tip="https://www.edrdg.org/edrdg/licence.html" AutomationProperties.Name="Licença do JMdict">
+          <Button Classes="word-source" Click="OnLicenseClick" ToolTip.Tip="{x:Static jm:JmdictSource.LicenseUrl}" AutomationProperties.Name="Licença do JMdict">
             <TextBlock Text="JMdict · EDRDG · licença CC BY-SA"/>
           </Button>
         </Border>

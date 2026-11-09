@@ -22,16 +22,19 @@ public sealed class JmdictIndex
     private readonly int entryTable;
     private readonly int keyCount;
 
-    private JmdictIndex(byte[] data, string path, int entryCount, int keyCount, int maxKeyLength, int keyTable, int entryTable, string created)
+    /// <summary>O que o cabeçalho do arquivo diz: quantas entradas e chaves, a maior chave, onde começa cada tabela e a data de geração.</summary>
+    private sealed record Header(int EntryCount, int KeyCount, int MaxKeyLength, int KeyTable, int EntryTable, string Created);
+
+    private JmdictIndex(byte[] data, string path, Header header)
     {
         this.data = data;
         this.path = path;
-        EntryCount = entryCount;
-        this.keyCount = keyCount;
-        MaxKeyLength = maxKeyLength;
-        this.keyTable = keyTable;
-        this.entryTable = entryTable;
-        Created = created;
+        EntryCount = header.EntryCount;
+        keyCount = header.KeyCount;
+        MaxKeyLength = header.MaxKeyLength;
+        keyTable = header.KeyTable;
+        entryTable = header.EntryTable;
+        Created = header.Created;
     }
 
     public int EntryCount { get; }
@@ -75,7 +78,7 @@ public sealed class JmdictIndex
             throw new JmdictFileException($"O dicionário '{path}' está incompleto. Baixe o dicionário de novo.");
         }
 
-        var index = new JmdictIndex(data, path, entries, keys, maxKey, keyTable, entryTable, ReadCreated(data));
+        var index = new JmdictIndex(data, path, new Header(entries, keys, maxKey, keyTable, entryTable, ReadCreated(data)));
         index.CheckLastRecords();
         return index;
     }

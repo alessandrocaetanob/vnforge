@@ -36,6 +36,14 @@ internal static class Deinflector
 
     private const int MaxCandidates = 64;
 
+    private const string Past = "passada";
+    private const string Negative = "negativa";
+    private const string Volitional = "volitiva";
+    private const string Conditional = "condicional";
+    private const string Polite = "de cortesia";
+    private const string Causative = "causativa";
+    private const string Imperative = "imperativa";
+
     private const string ConditionalTara = "condicional (たら)";
     private const string NegativeZu = "negativa (ず)";
     private const string Progressive = "contínua";
@@ -140,10 +148,10 @@ internal static class Deinflector
 
     private static void AddPolite(List<DeinflectionRule> rules)
     {
-        Add(rules, "ませんでした", "ません", WordClass.All, WordClass.Masu, "passada");
-        Add(rules, "ません", "ます", WordClass.Masu, WordClass.Masu, "negativa");
-        Add(rules, "ました", "ます", WordClass.All, WordClass.Masu, "passada");
-        Add(rules, "ましょう", "ます", WordClass.All, WordClass.Masu, "volitiva");
+        Add(rules, "ませんでした", "ません", WordClass.All, WordClass.Masu, Past);
+        Add(rules, "ません", "ます", WordClass.Masu, WordClass.Masu, Negative);
+        Add(rules, "ました", "ます", WordClass.All, WordClass.Masu, Past);
+        Add(rules, "ましょう", "ます", WordClass.All, WordClass.Masu, Volitional);
     }
 
     /// <summary>
@@ -157,8 +165,8 @@ internal static class Deinflector
         }
 
         // ていた e てた passam pelo ている e pelo てる, para a forma dizer as duas coisas: contínua e passada.
-        Add(rules, "ていた", "ている", WordClass.All, WordClass.Te, "passada");
-        Add(rules, "てた", "てる", WordClass.All, WordClass.Te, "passada");
+        Add(rules, "ていた", "ている", WordClass.All, WordClass.Te, Past);
+        Add(rules, "てた", "てる", WordClass.All, WordClass.Te, Past);
 
         foreach (var ending in new[] { "ちゃう", "ちゃった", "ちゃって" })
         {
@@ -173,10 +181,10 @@ internal static class Deinflector
 
     private static void AddAdjective(List<DeinflectionRule> rules)
     {
-        Add(rules, "かった", "い", WordClass.All, WordClass.AdjI, "passada");
-        Add(rules, "くない", "い", WordClass.AdjI, WordClass.AdjI, "negativa");
+        Add(rules, "かった", "い", WordClass.All, WordClass.AdjI, Past);
+        Add(rules, "くない", "い", WordClass.AdjI, WordClass.AdjI, Negative);
         Add(rules, "くて", "い", WordClass.All, WordClass.AdjI, "em て");
-        Add(rules, "ければ", "い", WordClass.All, WordClass.AdjI, "condicional");
+        Add(rules, "ければ", "い", WordClass.All, WordClass.AdjI, Conditional);
         Add(rules, "かったら", "い", WordClass.All, WordClass.AdjI, ConditionalTara);
         Add(rules, "く", "い", WordClass.All, WordClass.AdjI, "adverbial");
         Add(rules, "さ", "い", WordClass.All, WordClass.AdjI, "nominalizada");
@@ -184,58 +192,58 @@ internal static class Deinflector
 
     private static void AddGodan(List<DeinflectionRule> rules, (string U, string I, string A, string E, string O, string Te, string Ta) row)
     {
-        Add(rules, row.I + "ます", row.U, WordClass.Masu, WordClass.Godan, "de cortesia");
-        Add(rules, row.A + "ない", row.U, WordClass.AdjI, WordClass.Godan, "negativa");
+        Add(rules, row.I + "ます", row.U, WordClass.Masu, WordClass.Godan, Polite);
+        Add(rules, row.A + "ない", row.U, WordClass.AdjI, WordClass.Godan, Negative);
         Add(rules, row.Te, row.U, WordClass.All, WordClass.Godan, "em て");
-        Add(rules, row.Ta, row.U, WordClass.All, WordClass.Godan, "passada");
+        Add(rules, row.Ta, row.U, WordClass.All, WordClass.Godan, Past);
         Add(rules, row.I + "たい", row.U, WordClass.AdjI, WordClass.Godan, "desiderativa");
         Add(rules, row.E + "る", row.U, WordClass.Ichidan, WordClass.Godan, "potencial");
         Add(rules, row.A + "れる", row.U, WordClass.Ichidan, WordClass.Godan, "passiva");
-        Add(rules, row.A + "せる", row.U, WordClass.Ichidan, WordClass.Godan, "causativa");
-        Add(rules, row.O + "う", row.U, WordClass.All, WordClass.Godan, "volitiva");
-        Add(rules, row.E + "ば", row.U, WordClass.All, WordClass.Godan, "condicional");
+        Add(rules, row.A + "せる", row.U, WordClass.Ichidan, WordClass.Godan, Causative);
+        Add(rules, row.O + "う", row.U, WordClass.All, WordClass.Godan, Volitional);
+        Add(rules, row.E + "ば", row.U, WordClass.All, WordClass.Godan, Conditional);
         Add(rules, row.Ta + "ら", row.U, WordClass.All, WordClass.Godan, ConditionalTara);
         Add(rules, row.A + "ず", row.U, WordClass.All, WordClass.Godan, NegativeZu);
-        Add(rules, row.E, row.U, WordClass.All, WordClass.Godan, "imperativa");
+        Add(rules, row.E, row.U, WordClass.All, WordClass.Godan, Imperative);
         if (row.U == "く")
         {
             // 行く é a exceção: o て e o た dele são って e った, como os de う, つ e る.
             Add(rules, "って", "く", WordClass.All, WordClass.Godan, "em て");
-            Add(rules, "った", "く", WordClass.All, WordClass.Godan, "passada");
+            Add(rules, "った", "く", WordClass.All, WordClass.Godan, Past);
             Add(rules, "ったら", "く", WordClass.All, WordClass.Godan, ConditionalTara);
         }
     }
 
     private static void AddIchidan(List<DeinflectionRule> rules)
     {
-        Add(rules, "ます", "る", WordClass.Masu, WordClass.Ichidan, "de cortesia");
-        Add(rules, "ない", "る", WordClass.AdjI, WordClass.Ichidan, "negativa");
-        Add(rules, "た", "る", WordClass.All, WordClass.Ichidan, "passada");
+        Add(rules, "ます", "る", WordClass.Masu, WordClass.Ichidan, Polite);
+        Add(rules, "ない", "る", WordClass.AdjI, WordClass.Ichidan, Negative);
+        Add(rules, "た", "る", WordClass.All, WordClass.Ichidan, Past);
         Add(rules, "て", "る", WordClass.All, WordClass.Ichidan, "em て");
         Add(rules, "たい", "る", WordClass.AdjI, WordClass.Ichidan, "desiderativa");
         Add(rules, "られる", "る", WordClass.Ichidan, WordClass.Ichidan, "potencial ou passiva");
-        Add(rules, "させる", "る", WordClass.Ichidan, WordClass.Ichidan, "causativa");
-        Add(rules, "よう", "る", WordClass.All, WordClass.Ichidan, "volitiva");
-        Add(rules, "れば", "る", WordClass.All, WordClass.Ichidan, "condicional");
+        Add(rules, "させる", "る", WordClass.Ichidan, WordClass.Ichidan, Causative);
+        Add(rules, "よう", "る", WordClass.All, WordClass.Ichidan, Volitional);
+        Add(rules, "れば", "る", WordClass.All, WordClass.Ichidan, Conditional);
         Add(rules, "たら", "る", WordClass.All, WordClass.Ichidan, ConditionalTara);
         Add(rules, "ず", "る", WordClass.All, WordClass.Ichidan, NegativeZu);
-        Add(rules, "ろ", "る", WordClass.All, WordClass.Ichidan, "imperativa");
+        Add(rules, "ろ", "る", WordClass.All, WordClass.Ichidan, Imperative);
     }
 
     private static void AddSuru(List<DeinflectionRule> rules)
     {
-        Add(rules, "します", "する", WordClass.Masu, WordClass.Suru, "de cortesia");
-        Add(rules, "しない", "する", WordClass.AdjI, WordClass.Suru, "negativa");
-        Add(rules, "した", "する", WordClass.All, WordClass.Suru, "passada");
+        Add(rules, "します", "する", WordClass.Masu, WordClass.Suru, Polite);
+        Add(rules, "しない", "する", WordClass.AdjI, WordClass.Suru, Negative);
+        Add(rules, "した", "する", WordClass.All, WordClass.Suru, Past);
         Add(rules, "して", "する", WordClass.All, WordClass.Suru, "em て");
         Add(rules, "したい", "する", WordClass.AdjI, WordClass.Suru, "desiderativa");
         Add(rules, "される", "する", WordClass.Ichidan, WordClass.Suru, "passiva");
-        Add(rules, "させる", "する", WordClass.Ichidan, WordClass.Suru, "causativa");
-        Add(rules, "しよう", "する", WordClass.All, WordClass.Suru, "volitiva");
-        Add(rules, "すれば", "する", WordClass.All, WordClass.Suru, "condicional");
+        Add(rules, "させる", "する", WordClass.Ichidan, WordClass.Suru, Causative);
+        Add(rules, "しよう", "する", WordClass.All, WordClass.Suru, Volitional);
+        Add(rules, "すれば", "する", WordClass.All, WordClass.Suru, Conditional);
         Add(rules, "したら", "する", WordClass.All, WordClass.Suru, ConditionalTara);
         Add(rules, "せず", "する", WordClass.All, WordClass.Suru, NegativeZu);
-        Add(rules, "しろ", "する", WordClass.All, WordClass.Suru, "imperativa");
+        Add(rules, "しろ", "する", WordClass.All, WordClass.Suru, Imperative);
     }
 
     private static void AddKuru(List<DeinflectionRule> rules)
@@ -243,22 +251,22 @@ internal static class Deinflector
         // 来る escreve igual em formas lidas de jeitos diferentes; o kana segue a leitura (き, こ, く).
         foreach (var (stem, to) in new[] { ("来", "来る"), ("き", "くる"), ("こ", "くる") })
         {
-            Add(rules, stem + "ます", to, WordClass.Masu, WordClass.Kuru, "de cortesia");
-            Add(rules, stem + "ない", to, WordClass.AdjI, WordClass.Kuru, "negativa");
-            Add(rules, stem + "た", to, WordClass.All, WordClass.Kuru, "passada");
+            Add(rules, stem + "ます", to, WordClass.Masu, WordClass.Kuru, Polite);
+            Add(rules, stem + "ない", to, WordClass.AdjI, WordClass.Kuru, Negative);
+            Add(rules, stem + "た", to, WordClass.All, WordClass.Kuru, Past);
             Add(rules, stem + "て", to, WordClass.All, WordClass.Kuru, "em て");
-            Add(rules, stem + "よう", to, WordClass.All, WordClass.Kuru, "volitiva");
+            Add(rules, stem + "よう", to, WordClass.All, WordClass.Kuru, Volitional);
             Add(rules, stem + "られる", to, WordClass.Ichidan, WordClass.Kuru, "potencial ou passiva");
-            Add(rules, stem + "させる", to, WordClass.Ichidan, WordClass.Kuru, "causativa");
+            Add(rules, stem + "させる", to, WordClass.Ichidan, WordClass.Kuru, Causative);
         }
 
-        Add(rules, "来れば", "来る", WordClass.All, WordClass.Kuru, "condicional");
+        Add(rules, "来れば", "来る", WordClass.All, WordClass.Kuru, Conditional);
         Add(rules, "来たら", "来る", WordClass.All, WordClass.Kuru, ConditionalTara);
         Add(rules, "きたら", "くる", WordClass.All, WordClass.Kuru, ConditionalTara);
         Add(rules, "こず", "くる", WordClass.All, WordClass.Kuru, NegativeZu);
         Add(rules, "来ず", "来る", WordClass.All, WordClass.Kuru, NegativeZu);
-        Add(rules, "くれば", "くる", WordClass.All, WordClass.Kuru, "condicional");
-        Add(rules, "来い", "来る", WordClass.All, WordClass.Kuru, "imperativa");
-        Add(rules, "こい", "くる", WordClass.All, WordClass.Kuru, "imperativa");
+        Add(rules, "くれば", "くる", WordClass.All, WordClass.Kuru, Conditional);
+        Add(rules, "来い", "来る", WordClass.All, WordClass.Kuru, Imperative);
+        Add(rules, "こい", "くる", WordClass.All, WordClass.Kuru, Imperative);
     }
 }

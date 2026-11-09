@@ -63,7 +63,7 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.Equal(2, vm.WordLength);
         Assert.False(vm.HasWordMore);
         Assert.False(vm.HasWordNote);
-        Assert.Equal("JMdict · offline · EDRDG", vm.WordFootnote);
+        Assert.Equal("JMdict · offline · EDRDG", LineDetailViewModel.WordFootnote);
         Assert.Contains("CC BY-SA", vm.WordFootnoteTip);
         Assert.Contains("https://www.edrdg.org/edrdg/licence.html", vm.WordFootnoteTip);
     }
@@ -193,8 +193,8 @@ public sealed class LineDictionaryTests : IDisposable
         vm.HoverSource(Em(Frase, "遅刻"));
 
         Assert.True(vm.IsOfferCard);
-        Assert.Contains("10 MB", vm.OfferText);
-        Assert.Contains("EDRDG", vm.OfferText);
+        Assert.Contains("10 MB", LineDetailViewModel.OfferText);
+        Assert.Contains("EDRDG", LineDetailViewModel.OfferText);
         Assert.False(File.Exists(Path.Combine(Dicionario, "jmdict.vnfdict")));
 
         vm.DismissDictionaryOfferCommand.Execute(null);

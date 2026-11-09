@@ -54,7 +54,7 @@ internal static class JmdictCommand
         var store = Store(cli);
         if (!json)
         {
-            output.WriteLine($"Baixando o JMdict (cerca de {JmdictInstaller.ApproximateSize}) de {JmdictInstaller.SourceUri.Host}.");
+            await output.WriteLineAsync($"Baixando o JMdict (cerca de {JmdictInstaller.ApproximateSize}) de {JmdictInstaller.SourceUri.Host}.");
         }
 
         using var http = cli.HttpClientFactory();
@@ -62,16 +62,16 @@ internal static class JmdictCommand
         var index = store.Open()!;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new { path = store.IndexPath, entries = index.EntryCount, created = index.Created }));
+            await output.WriteLineAsync(JsonEnvelope.Result(new { path = store.IndexPath, entries = index.EntryCount, created = index.Created }));
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Dicionário instalado: {index.EntryCount.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} entradas, JMdict de {index.Created}.");
-        output.WriteLine(JmdictAttribution);
+        await output.WriteLineAsync($"Dicionário instalado: {index.EntryCount.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} entradas, JMdict de {index.Created}.");
+        await output.WriteLineAsync(JmdictAttribution);
         return ErrorHandler.OkExitCode;
     }
 
-    private const string JmdictAttribution = "JMdict © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA: https://www.edrdg.org/edrdg/licence.html";
+    private const string JmdictAttribution = "JMdict © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA: " + JmdictSource.LicenseUrl;
 
     private static int Status(VnfCli cli, ParseResult parseResult)
     {

@@ -21,7 +21,7 @@ public readonly record struct JmdictProgress(JmdictStage Stage, double Fraction)
 public sealed class JmdictInstaller(HttpClient http, JmdictStore store, TimeSpan? idleTimeout = null)
 {
     /// <summary>O JMdict só com as glosas em inglês, no site do EDRDG (<c>JMdict_e.gz</c>, cerca de 10 MB).</summary>
-    public static readonly Uri SourceUri = new("https://www.edrdg.org/pub/Nihongo/JMdict_e.gz");
+    public static readonly Uri SourceUri = new(JmdictSource.DownloadUrl);
 
     /// <summary>O tamanho do download para o aviso à pessoa.</summary>
     public const string ApproximateSize = "10 MB";

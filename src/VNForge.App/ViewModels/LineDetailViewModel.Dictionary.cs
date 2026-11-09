@@ -28,7 +28,6 @@ public sealed partial class LineDetailViewModel
     /// <summary>Quantos sentidos o cartão mostra antes do "Mais N sentidos".</summary>
     public const int WordSensesShown = 4;
 
-    private const string FootnoteText = "JMdict · offline · EDRDG";
 
     private OfflineDictionary? dictionary;
     private JmdictMatch? shownWord;
@@ -38,7 +37,7 @@ public sealed partial class LineDetailViewModel
     private JmdictMatch? probedMatch;
 
     /// <summary>Onde está a licença do JMdict, para a atribuição que a licença exige.</summary>
-    public const string JmdictLicenseUrl = "https://www.edrdg.org/edrdg/licence.html";
+    public const string JmdictLicenseUrl = JmdictSource.LicenseUrl;
 
     /// <summary>O dicionário offline do app; nulo quando o Editor não o montou (projeto de exemplo, testes). Sem ele o mouse sobre o original não faz nada.</summary>
     public OfflineDictionary? Dictionary
@@ -149,7 +148,7 @@ public sealed partial class LineDetailViewModel
     public bool CanAddWordToGlossary => GlossaryTermStarter is not null && !InGlossary;
 
     /// <summary>O rodapé do cartão: o nome do dicionário e da entidade que o mantém (a licença exige a atribuição à vista).</summary>
-    public string WordFootnote => FootnoteText;
+    public const string WordFootnote = "JMdict · offline · EDRDG";
 
     /// <summary>A licença e a versão, na dica do rodapé.</summary>
     public string WordFootnoteTip => $"JMdict, de {Dictionary?.Version}. © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA. {JmdictLicenseUrl}";
@@ -166,7 +165,7 @@ public sealed partial class LineDetailViewModel
 
     public string? InstallProblem => Dictionary?.Problem;
 
-    public string OfferText => $"Consulta qualquer palavra do original, sem rede e sem custo. O VNForge baixa o JMdict (cerca de {JmdictInstaller.ApproximateSize}, do EDRDG) uma vez, na sua pasta de configuração.";
+    public static string OfferText => $"Consulta qualquer palavra do original, sem rede e sem custo. O VNForge baixa o JMdict (cerca de {JmdictInstaller.ApproximateSize}, do EDRDG) uma vez, na sua pasta de configuração.";
 
     /// <summary>
     /// Chamado pela tela quando o mouse está sobre o <paramref name="index"/>-ésimo caractere do original (ou -1 ao sair). Com o dicionário pronto abre a entrada da palavra
@@ -270,8 +269,13 @@ public sealed partial class LineDetailViewModel
 
     private static string TitleOf(JmdictEntry entry)
     {
-        var written = entry.Kanji.Count > 0 ? entry.Kanji[0] : entry.Readings.FirstOrDefault() ?? string.Empty;
-        return entry.Kanji.Count > 0 && entry.Readings.Count > 0 ? $"{written} · {entry.Readings[0]}" : written;
+        var reading = entry.Readings.Count > 0 ? entry.Readings[0] : string.Empty;
+        if (entry.Kanji.Count == 0)
+        {
+            return reading;
+        }
+
+        return reading.Length > 0 ? $"{entry.Kanji[0]} · {reading}" : entry.Kanji[0];
     }
 
     private static string? MoreText(int hiddenSenses, int others)
@@ -373,7 +377,7 @@ public sealed partial class LineDetailViewModel
         WordCardMode = WordCardMode.Installing;
         try
         {
-            await d.InstallAsync().ConfigureAwait(true);
+            await d.InstallAsync(CancellationToken.None).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {

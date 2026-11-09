@@ -40,7 +40,7 @@ public sealed class OfflineDictionary
         this.postToUi = postToUi ?? (action => action());
         this.idleTimeout = idleTimeout;
         State = store.IsInstalled ? OfflineDictionaryState.Loading : OfflineDictionaryState.NotInstalled;
-        Loaded = State == OfflineDictionaryState.Loading ? Task.Run(LoadIndex) : Task.CompletedTask;
+        Loaded = State == OfflineDictionaryState.Loading ? Task.Run(LoadIndex, CancellationToken.None) : Task.CompletedTask;
     }
 
     /// <summary>A leitura do índice instalado; os testes aguardam por ela. Completa na hora quando não há dicionário.</summary>

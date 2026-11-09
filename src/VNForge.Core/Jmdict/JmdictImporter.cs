@@ -100,9 +100,10 @@ public static partial class JmdictImporter
     private static Dictionary<string, string> DescriptionToCode(string internalSubset)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (Match match in EntityDeclaration().Matches(internalSubset))
+        var declarations = EntityDeclaration().Matches(internalSubset).Select(m => (Description: WebUtility.HtmlDecode(m.Groups[2].Value), Code: m.Groups[1].Value));
+        foreach (var (description, code) in declarations)
         {
-            map.TryAdd(WebUtility.HtmlDecode(match.Groups[2].Value), match.Groups[1].Value);
+            map.TryAdd(description, code);
         }
 
         return map;
