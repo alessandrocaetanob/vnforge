@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Injection;
@@ -135,7 +136,8 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         {
             var config = project.LoadConfig();
             var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy);
-            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTermsOrEmpty(out _), IgnoredWords = project.LoadIgnoredWordsOrEmpty(out _) };
+            var formatting = project.LoadFormatting();
+            var context = new QaContext(texts, project.LoadGlossary(), project.LoadCharacters(), formatting, encoder) { Dictionary = DictionaryContext.For(project, formatting), Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTermsOrEmpty(out _), IgnoredWords = project.LoadIgnoredWordsOrEmpty(out _) };
             var report = QaEngine.Default.Run(context);
             var issues = report.BlockingIssues;
             var totals = new QaTotals(issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning)) { StyleAdvice = report.StyleAdviceCount };

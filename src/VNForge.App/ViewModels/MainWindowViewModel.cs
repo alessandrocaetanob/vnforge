@@ -126,6 +126,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
         Editor.TranslateRequested += OnEditorTranslateRequested;
         HookTranslateDialog();
+        HookNightBatch();
         Conference.PropertyChanged += OnConferenceChanged;
         Images.BuildRequested += (_, _) =>
         {
@@ -803,6 +804,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.Project = summary;
         Bible.Open(summary);
         History.LoadPersisted(summary.Root);
+        ResumeNightBatches(summary.Root);
         editorStale = false;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;

@@ -16,6 +16,11 @@ public readonly record struct ModelPrice(decimal Input, decimal Output, decimal 
 /// </summary>
 public static class ModelPricing
 {
+    /// <summary>
+    /// A Message Batches API cobra metade da entrada e da saída, e o desconto soma com o do cache de prompt (platform.claude.com, batch-processing, conferido em 09/11/2026).
+    /// </summary>
+    public const decimal BatchDiscount = 0.5m;
+
     /// <summary>Acima deste tamanho de prompt por pedido, o Haiku 5.5 cobra a faixa longa.</summary>
     public const long LongPromptTokens = 100_000;
 

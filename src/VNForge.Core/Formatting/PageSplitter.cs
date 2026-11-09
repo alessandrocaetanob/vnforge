@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Formatting;
@@ -30,8 +31,9 @@ public static class PageSplitter
     /// <param name="profile">Perfil de formatação do projeto.</param>
     /// <param name="unit">A linha; só o papel (<see cref="TextUnit.Kind"/>) é usado, para saber se o build a formata.</param>
     /// <param name="translation">A tradução com marcadores, gravada ou em edição.</param>
+    /// <param name="dictionary">Falante e cena para as regras do pós-dicionário com condição; sem ele só valem as regras sem condição e as de trecho do original.</param>
     /// <exception cref="VNForgeException">Texto que o pipeline recusa (marcador inválido).</exception>
-    public static PageSplit Split(FormattingProfile profile, TextUnit unit, string translation)
+    public static PageSplit Split(FormattingProfile profile, TextUnit unit, string translation, DictionaryContext? dictionary = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(unit);
@@ -39,7 +41,7 @@ public static class PageSplitter
 
         try
         {
-            return SplitCore(profile, profile.Kinds.Contains(unit.Kind), translation);
+            return SplitCore(profile, profile.Kinds.Contains(unit.Kind), translation, (dictionary ?? DictionaryContext.Empty).Line(unit));
         }
         catch (Exception ex) when (ex is ArgumentException or FormattingException)
         {
@@ -47,9 +49,9 @@ public static class PageSplitter
         }
     }
 
-    private static PageSplit SplitCore(FormattingProfile profile, bool formatted, string translation)
+    private static PageSplit SplitCore(FormattingProfile profile, bool formatted, string translation, DictionaryLine line)
     {
-        var original = Measure(profile, formatted, Built(profile, formatted, translation)).Lines.Count;
+        var original = Measure(profile, formatted, Built(profile, formatted, translation, line)).Lines.Count;
         if (profile.Wrap.MaxLines is not { } maxLines)
         {
             return new PageSplit(translation, original, 0);
@@ -59,7 +61,7 @@ public static class PageSplitter
         var added = 0;
         while (true)
         {
-            var step = NextPage(profile, formatted, current, maxLines);
+            var step = NextPage(profile, formatted, current, maxLines, line);
             if (step.Text is not null)
             {
                 current = step.Text;
@@ -79,21 +81,21 @@ public static class PageSplitter
     /// <param name="Boxes">Quantas caixas o texto atual tem.</param>
     private readonly record struct Step(string? Text, bool Overflows, int Boxes);
 
-    private static Step NextPage(FormattingProfile profile, bool formatted, string current, int maxLines)
+    private static Step NextPage(FormattingProfile profile, bool formatted, string current, int maxLines, DictionaryLine line)
     {
-        var built = Built(profile, formatted, current);
+        var built = Built(profile, formatted, current, line);
         var (laidOut, lines) = Measure(profile, formatted, built);
         var over = lines.FindIndex(count => count > maxLines);
-        var next = over < 0 ? null : InsertPage(profile, formatted, current, built, laidOut, (over, maxLines));
+        var next = over < 0 ? null : InsertPage(profile, formatted, current, built, laidOut, (over, maxLines), line);
         return new Step(next, over >= 0, lines.Count);
     }
 
     /// <summary>O que o build mediria: a tradução depois das etapas do perfil que antecedem a quebra, quando o papel da linha é formatado.</summary>
-    private static string Built(FormattingProfile profile, bool formatted, string text) => formatted ? Prepare(profile, text) : text;
+    private static string Built(FormattingProfile profile, bool formatted, string text, DictionaryLine line) => formatted ? Prepare(profile, text, line) : text;
 
     /// <summary>As etapas do perfil até antes da quebra de linha, que é a última do pipeline.</summary>
-    private static string Prepare(FormattingProfile profile, string text) =>
-        FormattingPipeline.Create(profile with { Wrap = profile.Wrap with { Enabled = false } }).Format(text).Text;
+    private static string Prepare(FormattingProfile profile, string text, DictionaryLine line) =>
+        FormattingPipeline.Create(profile with { Wrap = profile.Wrap with { Enabled = false } }).Format(text, line).Text;
 
     private static (string LaidOut, List<int> Lines) Measure(FormattingProfile profile, bool formatted, string text)
     {
@@ -108,11 +110,11 @@ public static class PageSplitter
     /// automáticas) termina a última linha que cabe na caixa. O ponto é achado em <paramref name="built"/> e levado de volta a <paramref name="raw"/>;
     /// sem um ponto confiável nos dois textos, devolve nulo e a divisão é recusada.
     /// </summary>
-    private static string? InsertPage(FormattingProfile profile, bool formatted, string raw, string built, string laidOut, (int Box, int MaxLines) target)
+    private static string? InsertPage(FormattingProfile profile, bool formatted, string raw, string built, string laidOut, (int Box, int MaxLines) target, DictionaryLine line)
     {
         var end = FindLineEnd(laidOut, target.Box, target.MaxLines);
         var inBuilt = end < 0 ? -1 : MapPosition(built, laidOut, end);
-        var at = inBuilt < 0 || !formatted ? inBuilt : RawPosition(profile, raw, built[..inBuilt]);
+        var at = inBuilt < 0 || !formatted ? inBuilt : RawPosition(profile, raw, built[..inBuilt], line);
         if (at < 0)
         {
             return null;
@@ -129,14 +131,14 @@ public static class PageSplitter
     /// das mesmas etapas do perfil, é igual a ele (sem os espaços do fim). Nulo quando nenhum limite bate, por exemplo numa regra que muda o texto
     /// de um jeito que não se desfaz.
     /// </summary>
-    private static int RawPosition(FormattingProfile profile, string raw, string builtPrefix)
+    private static int RawPosition(FormattingProfile profile, string raw, string builtPrefix, DictionaryLine line)
     {
         var wanted = builtPrefix.TrimEnd(' ');
         for (var i = 0; i <= raw.Length; i++)
         {
             try
             {
-                if (string.Equals(Prepare(profile, raw[..i]).TrimEnd(' '), wanted, StringComparison.Ordinal))
+                if (string.Equals(Prepare(profile, raw[..i], line).TrimEnd(' '), wanted, StringComparison.Ordinal))
                 {
                     return i;
                 }

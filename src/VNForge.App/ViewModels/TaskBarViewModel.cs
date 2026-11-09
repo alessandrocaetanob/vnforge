@@ -27,6 +27,25 @@ public sealed partial class TaskBarViewModel : ObservableObject
 
     public BackgroundTaskService Service { get; }
 
+    /// <summary>
+    /// Pergunta à pessoa antes de desfazer um lote noturno ("Desfazer o lote da Sala de aula?"); <see langword="false"/> mantém o lote. Sem ele, o "Desfazer" do lote
+    /// roda direto. As demais tarefas em lote não perguntam.
+    /// </summary>
+    public Func<BackgroundTaskItem, Task<bool>>? ConfirmUndo { get; set; }
+
+    private async Task UndoAsync(BackgroundTaskItem item)
+    {
+        if (item.IsBatch && ConfirmUndo is { } confirm && !await confirm(item))
+        {
+            return;
+        }
+
+        if (history is not null)
+        {
+            await history.UndoAsync(item);
+        }
+    }
+
     /// <summary>As linhas da lista: a tarefa em andamento no topo, as terminadas abaixo, da mais recente para a mais antiga. As etapas de um teste no jogo formam uma linha só.</summary>
     public ObservableCollection<TaskEntry> Entries { get; } = [];
 
@@ -123,7 +142,7 @@ public sealed partial class TaskBarViewModel : ObservableObject
         {
             if (!entryByKey.TryGetValue(key, out var entry))
             {
-                entryByKey[key] = entry = new TaskEntry(key as BackgroundTaskGroup, clock, history is null ? null : history.UndoAsync);
+                entryByKey[key] = entry = new TaskEntry(key as BackgroundTaskGroup, clock, history is null ? null : UndoAsync);
             }
 
             entry.Update(items);

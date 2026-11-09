@@ -186,7 +186,25 @@ public sealed class RestorePointStore
         return result;
     }
 
-    private void UndoScript(string folder, string key, UndoCounts counts)
+    /// <summary>O que <see cref="Undo"/> faria agora, sem gravar nada: quantas linhas voltam e quantas ficam por terem sido editadas depois.</summary>
+    /// <exception cref="VNForgeException">O ponto não existe.</exception>
+    public RestoreUndoResult Preview(string id)
+    {
+        var folder = FolderOf(id);
+        var point = ReadManifest(folder) ?? throw new VNForgeException("Este ponto de restauração não existe mais. Ele pode já ter sido desfeito ou ter passado do prazo.");
+        var counts = new UndoCounts();
+        lock (ProjectTextLock.For(project))
+        {
+            foreach (var key in point.Scripts)
+            {
+                UndoScript(folder, key, counts, write: false);
+            }
+        }
+
+        return new RestoreUndoResult(counts.Restored, counts.EditedSince, counts.Missing);
+    }
+
+    private void UndoScript(string folder, string key, UndoCounts counts, bool write = true)
     {
         var before = ReadUnits(folder, key, "antes").ToDictionary(u => u.Id, StringComparer.Ordinal);
         var units = File.Exists(project.TextPath(key)) ? project.LoadText(key).ToList() : [];
@@ -215,7 +233,7 @@ public sealed class RestorePointStore
             }
         }
 
-        if (changed)
+        if (changed && write)
         {
             project.SaveText(key, units);
         }

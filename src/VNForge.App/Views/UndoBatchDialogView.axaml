@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.UndoBatchDialogView"
+             x:DataType="vm:UndoBatchDialogViewModel">
+
+  <!-- Desfazer o lote noturno: a decisão e o efeito. O Escape e o X mantêm o lote. -->
+  <c:ScreenDialog Title="{Binding Title}" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+    <StackPanel Spacing="16" AutomationProperties.Name="Desfazer o lote">
+      <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Message}"/>
+      <Border Classes="panel" Padding="16">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="caption secondary" Text="Voltam ao estado anterior" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Classes="body" FontWeight="SemiBold" Text="{Binding RestoreText}"/>
+          </Grid>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="caption secondary" Text="Mantidas porque você editou" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Classes="body" FontWeight="SemiBold" Text="{Binding KeptText}"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+
+    <c:ScreenDialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Manter" Command="{Binding KeepCommand}"/>
+        <Button Classes="danger" Content="{Binding ConfirmLabel}" Command="{Binding ConfirmCommand}"/>
+      </StackPanel>
+    </c:ScreenDialog.Footer>
+  </c:ScreenDialog>
+</UserControl>

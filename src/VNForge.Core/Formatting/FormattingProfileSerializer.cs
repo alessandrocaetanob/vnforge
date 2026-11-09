@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Formatting;
@@ -8,6 +9,10 @@ namespace VNForge.Core.Formatting;
 public static class FormattingProfileSerializer
 {
     private const string MaxLinesKey = "maxLines";
+    private const string PatternKey = "pattern";
+    private const string WithKey = "with";
+    private const string RegexKey = "regex";
+    private const string EnabledKey = "enabled";
 
     private static readonly JsonDocumentOptions ReadOptions = new()
     {
@@ -65,7 +70,7 @@ public static class FormattingProfileSerializer
             writer.WriteEndArray();
 
             writer.WriteStartObject("wrap");
-            writer.WriteBoolean("enabled", profile.Wrap.Enabled);
+            writer.WriteBoolean(EnabledKey, profile.Wrap.Enabled);
             writer.WriteNumber("maxWidth", profile.Wrap.MaxWidth);
             if (profile.Wrap.MaxLines is { } maxLines)
             {
@@ -96,6 +101,14 @@ public static class FormattingProfileSerializer
                 writer.WriteStartObject("replacements");
                 WriteReplacements(writer, "before", profile.Replacements.Before);
                 WriteReplacements(writer, "after", profile.Replacements.After);
+                writer.WriteEndObject();
+            }
+
+            if (!profile.Dictionary.IsEmpty)
+            {
+                writer.WriteStartObject("dictionary");
+                WriteDictionary(writer, "pre", profile.Dictionary.Pre);
+                WriteDictionary(writer, "post", profile.Dictionary.Post);
                 writer.WriteEndObject();
             }
 
@@ -134,17 +147,73 @@ public static class FormattingProfileSerializer
         foreach (var replacement in replacements)
         {
             writer.WriteStartObject();
-            writer.WriteString("pattern", replacement.Pattern);
-            writer.WriteString("with", replacement.With);
+            writer.WriteString(PatternKey, replacement.Pattern);
+            writer.WriteString(WithKey, replacement.With);
             if (replacement.Regex)
             {
-                writer.WriteBoolean("regex", true);
+                writer.WriteBoolean(RegexKey, true);
             }
 
             writer.WriteEndObject();
         }
 
         writer.WriteEndArray();
+    }
+
+    private static void WriteDictionary(Utf8JsonWriter writer, string name, IReadOnlyList<DictionaryRule> rules)
+    {
+        writer.WriteStartArray(name);
+        foreach (var rule in rules)
+        {
+            writer.WriteStartObject();
+            writer.WriteString(PatternKey, rule.Pattern);
+            writer.WriteString(WithKey, rule.With);
+            if (rule.Regex)
+            {
+                writer.WriteBoolean(RegexKey, true);
+            }
+
+            if (!rule.Enabled)
+            {
+                writer.WriteBoolean(EnabledKey, false);
+            }
+
+            if (rule.Conditions.Count > 0)
+            {
+                writer.WriteStartArray("when");
+                foreach (var condition in rule.Conditions)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("kind", ConditionKindName(condition.Kind));
+                    writer.WriteString("value", condition.Value);
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndArray();
+            }
+
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+    }
+
+    private static string ConditionKindName(DictionaryConditionKind kind) => kind switch
+    {
+        DictionaryConditionKind.Speaker => "speaker",
+        DictionaryConditionKind.Scene => "scene",
+        _ => "sourceContains",
+    };
+
+    private static void ValidateDictionary(string name, IReadOnlyList<DictionaryRule> rules)
+    {
+        for (var i = 0; i < rules.Count; i++)
+        {
+            if (DictionaryStage.Validate(rules[i]) is { } error)
+            {
+                throw new FormattingProfileException($"$.dictionary.{name}[{i}]", error);
+            }
+        }
     }
 
     private static void ValidateReplacements(string name, IReadOnlyList<Replacement> replacements)
@@ -180,6 +249,8 @@ public static class FormattingProfileSerializer
     {
         ValidateReplacements("before", profile.Replacements.Before);
         ValidateReplacements("after", profile.Replacements.After);
+        ValidateDictionary("pre", profile.Dictionary.Pre);
+        ValidateDictionary("post", profile.Dictionary.Post);
 
         if (profile.Kinds.Count == 0)
         {
@@ -230,6 +301,8 @@ public static class FormattingProfileSerializer
 
         var replacements = ReadReplacements(reader, defaults.Replacements);
 
+        var dictionary = ReadDictionary(reader, defaults.Dictionary);
+
         var typography = ReadTypography(reader, defaults.Typography);
 
         var width = ReadWidth(reader, defaults.Width);
@@ -237,7 +310,7 @@ public static class FormattingProfileSerializer
         var byteLimits = reader.OptionalObject("byteLimits") is { } limitsReader ? limitsReader.ByteLimits() : defaults.ByteLimits;
 
         reader.EnsureNoUnknownProperties();
-        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width, ByteLimits = byteLimits };
+        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Dictionary = dictionary, Typography = typography, Width = width, ByteLimits = byteLimits };
     }
 
     private static WrapRule ReadWrap(ObjectReader reader, WrapRule current)
@@ -246,7 +319,7 @@ public static class FormattingProfileSerializer
         if (reader.OptionalObject("wrap") is { } wrapReader)
         {
             wrap = new WrapRule(
-                wrapReader.OptionalBool("enabled") ?? wrap.Enabled,
+                wrapReader.OptionalBool(EnabledKey) ?? wrap.Enabled,
                 wrapReader.OptionalInt("maxWidth") ?? wrap.MaxWidth,
                 wrapReader.HasProperty(MaxLinesKey) ? wrapReader.OptionalInt(MaxLinesKey, allowNull: true) :wrap.MaxLines,
                 wrapReader.OptionalCharWidth("charWidth") ?? wrap.CharWidth);
@@ -308,6 +381,20 @@ public static class FormattingProfileSerializer
         }
 
         return replacements;
+    }
+
+    private static DictionaryRules ReadDictionary(ObjectReader reader, DictionaryRules current)
+    {
+        var dictionary = current;
+        if (reader.OptionalObject("dictionary") is { } dictionaryReader)
+        {
+            dictionary = new DictionaryRules(
+                dictionaryReader.OptionalDictionaryRules("pre") ?? [],
+                dictionaryReader.OptionalDictionaryRules("post") ?? []);
+            dictionaryReader.EnsureNoUnknownProperties();
+        }
+
+        return dictionary;
     }
 
     private static TypographyRule ReadTypography(ObjectReader reader, TypographyRule current)
@@ -533,19 +620,85 @@ public static class FormattingProfileSerializer
             {
                 var itemReader = new ObjectReader(item, $"{PathOf(name)}[{replacements.Count}]");
                 var replacement = new Replacement(
-                    itemReader.RequiredString("pattern"),
-                    itemReader.RequiredString("with"),
-                    itemReader.OptionalBool("regex") ?? false);
+                    itemReader.RequiredString(PatternKey),
+                    itemReader.RequiredString(WithKey),
+                    itemReader.OptionalBool(RegexKey) ?? false);
                 itemReader.EnsureNoUnknownProperties();
                 if (ReplacementStage.Validate(replacement) is { } error)
                 {
-                    throw new FormattingProfileException(itemReader.PathOf("pattern"), error);
+                    throw new FormattingProfileException(itemReader.PathOf(PatternKey), error);
                 }
 
                 replacements.Add(replacement);
             }
 
             return replacements;
+        }
+
+        public List<DictionaryRule>? OptionalDictionaryRules(string name)
+        {
+            if (!TryGet(name, out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                throw new FormattingProfileException(PathOf(name), "deve ser uma lista de regras.");
+            }
+
+            var rules = new List<DictionaryRule>();
+            foreach (var item in value.EnumerateArray())
+            {
+                var itemReader = new ObjectReader(item, $"{PathOf(name)}[{rules.Count}]");
+                var rule = new DictionaryRule(
+                    itemReader.RequiredString(PatternKey),
+                    itemReader.RequiredString(WithKey),
+                    itemReader.OptionalBool(RegexKey) ?? false)
+                {
+                    Enabled = itemReader.OptionalBool(EnabledKey) ?? true,
+                    Conditions = itemReader.OptionalConditions("when") ?? [],
+                };
+                itemReader.EnsureNoUnknownProperties();
+                if (DictionaryStage.Validate(rule) is { } error)
+                {
+                    throw new FormattingProfileException(itemReader.PathOf(rule.Conditions.Any(c => string.IsNullOrWhiteSpace(c.Value)) ? "when" : PatternKey), error);
+                }
+
+                rules.Add(rule);
+            }
+
+            return rules;
+        }
+
+        private List<DictionaryCondition>? OptionalConditions(string name)
+        {
+            if (!TryGet(name, out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                throw new FormattingProfileException(PathOf(name), "deve ser uma lista de condições.");
+            }
+
+            var conditions = new List<DictionaryCondition>();
+            foreach (var item in value.EnumerateArray())
+            {
+                var itemReader = new ObjectReader(item, $"{PathOf(name)}[{conditions.Count}]");
+                var kind = itemReader.RequiredString("kind") switch
+                {
+                    "speaker" => DictionaryConditionKind.Speaker,
+                    "scene" => DictionaryConditionKind.Scene,
+                    "sourceContains" => DictionaryConditionKind.SourceContains,
+                    _ => throw new FormattingProfileException(itemReader.PathOf("kind"), "use \"speaker\", \"scene\" ou \"sourceContains\"."),
+                };
+                conditions.Add(new DictionaryCondition(kind, itemReader.RequiredString("value")));
+                itemReader.EnsureNoUnknownProperties();
+            }
+
+            return conditions;
         }
 
         public ObjectReader? OptionalObject(string name) =>
