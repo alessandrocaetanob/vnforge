@@ -36,7 +36,7 @@ public sealed class VnfCli
     private readonly CliTerminal? _terminal;
     private bool _animationAllowed;
 
-    private VnfCli(string currentDirectory, string userLogDirectory, string userConfigDirectory, TextReader input, IApiKeyStore apiKeyStore, CliTerminal? terminal)
+    private VnfCli(string currentDirectory, string userLogDirectory, string userConfigDirectory, TextReader input, IApiKeyStore apiKeyStore, IVndbTokenStore vndbTokenStore, CliTerminal? terminal)
     {
         _terminal = terminal;
         _currentDirectory = currentDirectory;
@@ -44,6 +44,7 @@ public sealed class VnfCli
         UserConfigDirectory = userConfigDirectory;
         Input = input;
         ApiKeyStore = apiKeyStore;
+        VndbTokenStore = vndbTokenStore;
 
         Ansi = CliConsole.Create(TextWriter.Null, new GlobalSettings(null, false, false, false, false), CliTerminal.Plain());
         Options = new GlobalOptions();
@@ -97,6 +98,12 @@ public sealed class VnfCli
     /// <summary>Cofre da chave de API do usuário.</summary>
     public IApiKeyStore ApiKeyStore { get; }
 
+    /// <summary>Cofre do token do VNDB do usuário (a variável <c>VNDB_TOKEN</c> tem prioridade sobre ele).</summary>
+    public IVndbTokenStore VndbTokenStore { get; }
+
+    /// <summary>Lê variáveis de ambiente (<c>VNDB_TOKEN</c>); os testes trocam por um leitor que não olha o ambiente da máquina.</summary>
+    public Func<string, string?> EnvironmentReader { get; set; } = Environment.GetEnvironmentVariable;
+
     /// <summary>
     /// Cria o provedor de tradução do <c>vnf translate</c> para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
@@ -142,6 +149,12 @@ public sealed class VnfCli
     /// </summary>
     public Func<IVndbCatalog>? VndbCatalogFactory { get; set; }
 
+    /// <summary>
+    /// Cria a lista do usuário do VNDB (<c>vnf library sync</c>, <c>vnf vndb token check</c>); os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
+    /// Padrão (<c>null</c>): o cliente da API do VNDB.
+    /// </summary>
+    public Func<IVndbUserList>? VndbUserListFactory { get; set; }
+
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();
 
@@ -157,6 +170,12 @@ public sealed class VnfCli
     internal IVndbCatalog CreateVndbCatalog() =>
         VndbCatalogFactory?.Invoke() ?? VndbClient.Create(Path.Combine(UserConfigDirectory, "vndb-cache"));
 
+    internal IVndbUserList CreateVndbUserList() =>
+        VndbUserListFactory?.Invoke() ?? VndbClient.Create(Path.Combine(UserConfigDirectory, "vndb-cache"));
+
+    /// <summary>O token do VNDB (variável de ambiente ou cofre) e de onde veio; nunca vai para log nem para <c>--json</c>.</summary>
+    internal ResolvedVndbToken ResolveVndbToken() => VndbTokenResolver.Resolve(VndbTokenStore, EnvironmentReader);
+
     /// <summary>Versão do <c>vnf</c> sem o hash do commit.</summary>
     public static string Version { get; } = ReadVersion();
 
@@ -165,6 +184,7 @@ public sealed class VnfCli
     /// <param name="userConfigDirectory">Configurações do usuário; padrão: <c>%APPDATA%/VNForge</c>.</param>
     /// <param name="input">Entrada padrão; padrão: <see cref="Console.In"/>.</param>
     /// <param name="apiKeyStore">Cofre da chave; padrão: DPAPI em <paramref name="userConfigDirectory"/>.</param>
+    /// <param name="vndbTokenStore">Cofre do token do VNDB; padrão: DPAPI em <paramref name="userConfigDirectory"/>.</param>
     /// <param name="terminal">Terminal da saída; padrão: o do processo quando a saída é o <see cref="Console.Out"/>, texto simples em qualquer outro writer.</param>
     public static VnfCli Create(
         string? currentDirectory = null,
@@ -172,7 +192,8 @@ public sealed class VnfCli
         string? userConfigDirectory = null,
         TextReader? input = null,
         IApiKeyStore? apiKeyStore = null,
-        CliTerminal? terminal = null)
+        CliTerminal? terminal = null,
+        IVndbTokenStore? vndbTokenStore = null)
     {
         var configDirectory = userConfigDirectory ?? AiUserSettingsFile.DefaultDirectory();
         var cli = new VnfCli(
@@ -181,6 +202,7 @@ public sealed class VnfCli
             configDirectory,
             input ?? Console.In,
             apiKeyStore ?? new DpapiApiKeyStore(configDirectory),
+            vndbTokenStore ?? new DpapiVndbTokenStore(configDirectory),
             terminal);
         VnfCommands.Register(cli);
         return cli;

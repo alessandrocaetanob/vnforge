@@ -8,7 +8,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf vndb search|link|show</c>: o jogo do VNDB do projeto. <c>search</c> faz na linha de comando o que o passo "Ficha do VNDB" do assistente faz na tela,
+/// <c>vnf vndb search|link|show|token</c>: o jogo do VNDB do projeto e a conta (<c>token</c>, em <see cref="VndbTokenCommand"/>). <c>search</c> faz na linha de comando o que o passo "Ficha do VNDB" do assistente faz na tela,
 /// <c>link</c> liga um projeto que já existe (o <c>vnf init --vndb</c> liga na criação) e <c>show</c> mostra o que está ligado.
 /// </summary>
 internal static class VndbCommand
@@ -21,6 +21,7 @@ internal static class VndbCommand
         command.Subcommands.Add(CreateSearch(cli));
         command.Subcommands.Add(CreateLink(cli));
         command.Subcommands.Add(CreateShow(cli));
+        command.Subcommands.Add(VndbTokenCommand.Create(cli));
         return command;
     }
 

@@ -140,6 +140,10 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
         return new VndbResults<VndbRelease>([.. results.Select(VndbWire.ToCore)], truncated);
     }
 
+    /// <summary>
+    /// <c>GET /authinfo</c> (api.vndb.org/kana, seção "GET /authinfo"): valida o token e devolve o <c>id</c>, o <c>username</c> e as <c>permissions</c>
+    /// (<c>listread</c> e <c>listwrite</c>). Token inválido é 401 (seção "HTTP Response Codes").
+    /// </summary>
     public async Task<VndbAuthInfo> GetAuthInfoAsync(string token, CancellationToken ct = default)
     {
         var text = await SendAsync(HttpMethod.Get, "authinfo", null, RequireToken(token), ct).ConfigureAwait(false);
@@ -147,6 +151,10 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
         return new VndbAuthInfo(info.Id, info.Username, [.. info.Permissions ?? []]);
     }
 
+    /// <summary>
+    /// <c>POST /ulist</c> (seção "List Management > POST /ulist"): <c>user</c> é obrigatório e os campos <c>id, added, voted, lastmod, vote, started, finished, notes,
+    /// labels.id, labels.label</c> são os da seção "Fields". Rótulos privados só vêm com o token (permissão <c>listread</c>).
+    /// </summary>
     public async Task<VndbResults<VndbListEntry>> GetListAsync(string userId, string? token = null, CancellationToken ct = default)
     {
         VndbRules.RequireId(userId, 'u');
@@ -171,6 +179,10 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
         return new VndbResults<VndbListEntry>(entries, truncated);
     }
 
+    /// <summary>
+    /// <c>PATCH /ulist/&lt;id&gt;</c> (seção "PATCH /ulist/"): exige <c>listwrite</c>; aceita <c>vote</c> (10 a 100), <c>notes</c>, <c>started</c>, <c>finished</c>,
+    /// <c>labels_set</c> e <c>labels_unset</c> (o <c>labels</c> sobrescreve todos e por isso não é usado aqui). Responde 204.
+    /// </summary>
     public async Task UpdateEntryAsync(string token, string visualNovelId, VndbListUpdate update, CancellationToken ct = default)
     {
         VndbRules.RequireId(visualNovelId, 'v');

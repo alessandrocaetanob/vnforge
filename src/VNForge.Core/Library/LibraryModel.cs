@@ -91,12 +91,18 @@ public sealed record LibraryGame(
     /// <summary>Pasta do projeto de tradução ligado ao jogo, se houver.</summary>
     public string? ProjectPath { get; init; }
 
+    /// <summary>O que o app guarda da lista do VNDB deste jogo (rótulos, voto, datas, notas); use <see cref="CurrentList"/> para ler.</summary>
+    public LibraryListState? List { get; init; }
     /// <summary>O jogo só abre direito com a localidade do Windows em japonês: "Jogar" passa pelo Locale Emulator.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool RequiresJapaneseLocale { get; init; }
 
     [JsonIgnore]
     public bool IsConfirmed => VndbId is not null;
+
+    /// <summary>O estado da lista, se ele é do jogo do VNDB confirmado agora; um estado de outro jogo (a confirmação mudou) não vale.</summary>
+    [JsonIgnore]
+    public LibraryListState? CurrentList => List is { } state && state.VisualNovelId == VndbId ? state : null;
 }
 
 /// <summary>
