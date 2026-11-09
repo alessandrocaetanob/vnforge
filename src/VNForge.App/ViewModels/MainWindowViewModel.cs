@@ -124,6 +124,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
         Editor.TranslateRequested += OnEditorTranslateRequested;
         HookTranslateDialog();
+        HookNightBatch();
         Conference.PropertyChanged += OnConferenceChanged;
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Glossary.Saved += (_, _) => RecheckEditor();
@@ -785,6 +786,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.Project = summary;
         Bible.Open(summary);
         History.LoadPersisted(summary.Root);
+        ResumeNightBatches(summary.Root);
         editorStale = false;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;

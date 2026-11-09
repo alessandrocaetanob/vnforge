@@ -124,6 +124,26 @@ public sealed class NightBatchStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_previa_do_desfazer_conta_o_que_voltaria_sem_gravar_nada()
+    {
+        _project.SaveText("yst00001", [Linha(0), Linha(1)]);
+        var clock = new FakeTimeProvider(Agora);
+        var recorder = RestoreScope.TryBegin(_project, "Tradução noturna", null, RestorePointStore.IsAiWrite, clock);
+        var origin = new TranslationOrigin("anthropic", "m", Agora);
+        _project.SaveText("yst00001", [Linha(0) with { Translation = "zero", Status = TranslationStatus.Machine, Origin = origin }, Linha(1) with { Translation = "um", Status = TranslationStatus.Machine, Origin = origin }]);
+        var point = RestoreScope.TryComplete(recorder)!;
+        new LineEditor(_project, clock).SetTranslation("yst00001", "yst00001:000001", "à mão");
+        var store = new RestorePointStore(_project, clock);
+
+        var preview = store.Preview(point.Id);
+
+        Assert.Equal(1, preview.Restored);
+        Assert.Equal(1, preview.EditedSince);
+        Assert.Equal("zero", _project.LoadText("yst00001")[0].Translation);
+        Assert.NotNull(store.Find(point.Id));
+    }
+
+    [Fact]
     public void Sem_gravador_ou_sem_mudanca_o_escopo_nao_devolve_ponto()
     {
         _project.SaveText("yst00001", [Linha(0)]);

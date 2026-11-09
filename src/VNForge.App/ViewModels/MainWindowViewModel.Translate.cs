@@ -73,6 +73,12 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        if (request.Overnight)
+        {
+            await StartOvernightAsync(request, project);
+            return;
+        }
+
         // Duas execuções somariam o gasto cada uma por conta própria e poderiam passar do limite juntas.
         if (translating)
         {
