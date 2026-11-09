@@ -1,5 +1,6 @@
-using VNForge.Installer;
 using VNForge.Patching;
+
+namespace VNForge.Installer;
 
 internal static class Program
 {

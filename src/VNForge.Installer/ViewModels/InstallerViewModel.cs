@@ -235,7 +235,7 @@ public sealed partial class InstallerViewModel : ObservableObject
         (string Folder, PatchCheck Check)? found;
         try
         {
-            found = await Task.Run(() => GameFolderLocator.Find(_engine, GameFolderLocator.Candidates(_start.CurrentDirectory, _start.ExecutableDirectory)));
+            found = await Task.Run(() => GameFolderLocator.Find(_engine, GameFolderLocator.Candidates(_start.CurrentDirectory, _start.ExecutableDirectory)), CancellationToken.None);
         }
         finally
         {
@@ -286,7 +286,7 @@ public sealed partial class InstallerViewModel : ObservableObject
         var token = _cancel!.Token;
         try
         {
-            var result = await Task.Run(() => _engine.Install(folder, new UiProgress(this), token));
+            var result = await Task.Run(() => _engine.Install(folder, new UiProgress(this), token), token);
             FinishAllSteps(result.Written.Count);
             ShowDone(folder, result);
         }
@@ -322,7 +322,7 @@ public sealed partial class InstallerViewModel : ObservableObject
         var token = _cancel!.Token;
         try
         {
-            var result = await Task.Run(() => _engine.Uninstall(folder, new UiProgress(this), token));
+            var result = await Task.Run(() => _engine.Uninstall(folder, new UiProgress(this), token), token);
             FinishAllSteps(result.Restored.Count + result.Removed.Count);
             ShowReverted(result);
         }
@@ -400,7 +400,7 @@ public sealed partial class InstallerViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var check = await Task.Run(() => _engine.Check(folder));
+            var check = await Task.Run(() => _engine.Check(folder), CancellationToken.None);
             await ShowCheckAsync(folder, check, source);
         }
         catch (Exception ex) when (ex is PatchException or IOException or UnauthorizedAccessException)
@@ -456,7 +456,7 @@ public sealed partial class InstallerViewModel : ObservableObject
     {
         try
         {
-            return await Task.Run(() => _engine!.PlanUninstall(folder));
+            return await Task.Run(() => _engine!.PlanUninstall(folder), CancellationToken.None);
         }
         catch (Exception ex) when (ex is PatchException or IOException or UnauthorizedAccessException)
         {
