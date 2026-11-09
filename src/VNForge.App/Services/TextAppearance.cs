@@ -40,6 +40,7 @@ public static class TextAppearance
         ("BodyLoose", 14, 22),
         ("ReviewSource", 19, 27),
         ("ReviewTranslation", 17, 30),
+        ("ReviewSuggestion", 15, 24),
     ];
 
     public static string FontSizeKey(string name) => $"Vnf.FontSize.{name}";

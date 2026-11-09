@@ -103,6 +103,11 @@
       </ControlTemplate>
     </Setter>
   </Style>
+  <!-- O FluentTheme pinta o ContentPresenter do item selecionado de ponta a ponta (a faixa teal atrás do cartão): o cartão da cena já leva hover e atual, então o apresentador fica liso. -->
+  <Style Selector="ListBox.scripts > ListBoxItem /template/ ContentPresenter#PART_ContentPresenter, ListBox.scripts > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.scripts > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.scripts > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.scripts > ListBoxItem:pressed /template/ ContentPresenter#PART_ContentPresenter, ListBox.scripts > ListBoxItem:selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
   <Style Selector="ListBox.scripts Border.scene">
     <Setter Property="Margin" Value="6,1"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>

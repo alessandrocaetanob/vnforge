@@ -55,7 +55,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Amaoto no Hakoniwa", TranslationStatus.Translated);
         var folder = ProjectFolder.Open(root);
-        folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
+        folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: scenario == Scenario.Review ? 40 : 30, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
         // As cores do quadro: Misaki em rosa e Kenta em verde.
         folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada, provoca o Kenta") { Color = "rose" }, new CharacterEntry("健太", "Kenta", CharacterGender.Male) { Color = "green" }]);
         TextUnit Line(int n, string speaker, string source, string? translation, TranslationStatus status) => new($"yst00001:{n:D6}", TextUnitKind.Dialogue, speaker, source, translation, status);
@@ -68,6 +68,8 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
                 [
                     Line(0, "美咲", "「相沢、佐倉。二人そろって五分遅刻だ」", null, TranslationStatus.Untranslated),
                     Line(1, "美咲", "「平気平気！ほら、行こう！」", null, TranslationStatus.Untranslated),
+                    // Um capítulo de verdade: com centenas de linhas o pedido deixa de ser centavos e a barra do custo mostra o trecho azul do pedido depois do gasto roxo.
+                    .. Enumerable.Range(2, 1500).Select(n => Line(n, n % 3 == 0 ? "健太" : "美咲", "「今日はいい天気ですね、先生。傘は持ってきましたか？」", null, TranslationStatus.Untranslated)),
                 ]);
                 break;
             case Scenario.Review:
@@ -195,6 +197,12 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
             AssertInside(window, card, "O cartão da passada", scrollable: true);
             AssertButtons(card);
             Assert.Equal("fluidez · 1 de 3", vm.Editor.Detail!.EditorSuggestionChip);
+            // O inspetor inteiro (350 px) larga a tecla do botão mas mantém a faísca do "Usar sugestão", e a coluna tem os 350 px do quadro (a barra de rolagem fica na folga de 12 px ao lado).
+            if (!inspector.Classes.Contains("tabbed"))
+            {
+                Assert.DoesNotContain("tight", inspector.Classes);
+                Assert.Equal(inspector.Bounds.Width, inspector.FindControl<Control>("WideStack")!.Bounds.Width);
+            }
             Save(window, "editor-passada", theme, width);
         });
     }

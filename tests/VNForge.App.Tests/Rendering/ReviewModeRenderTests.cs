@@ -220,12 +220,10 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
             var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
             var probe = PixelProbe.Capture(window, stage);
-            var top = Token(stage, "Vnf.StageTop");
-            var bottom = Token(stage, "Vnf.StageBottom");
 
-            // Faixa do alto, à direita do cartão de capítulo e longe da caixa: só o degradê (a vinheta começa depois dos 55% do raio).
+            // Faixa do alto, à direita do cartão de capítulo e longe da caixa: só o degradê do quadro (azul-acinzentado #2A3655 em cima, #293452 aos 20%), igual nos dois temas e sem vinheta.
             var area = new Rect(probe.Width * 0.45, probe.Height * 0.08, probe.Width * 0.3, probe.Height * 0.12);
-            var expected = PixelProbe.Blend(bottom, 0.14, top);
+            var expected = Color.FromRgb(0x29, 0x35, 0x53);
             Assert.True(probe.CountInArea(area, expected, 14) > area.Width * area.Height * 0.9, "o alto do palco é o degradê escuro do tema");
             Assert.True(((0.2126 * expected.R) + (0.7152 * expected.G) + (0.0722 * expected.B)) / 255 < 0.3, "o palco é escuro mesmo no tema claro");
         });

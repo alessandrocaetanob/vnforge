@@ -50,7 +50,7 @@
       <TextBlock x:Name="EditorBody" Classes="editor-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.Body}" LineHeight="{DynamicResource Vnf.LineHeight.Body}"
                  c:SuggestionText.ShowRemoved="True" c:SuggestionText.Current="{Binding EditorSuggestionCurrent}" c:SuggestionText.Proposed="{Binding EditorSuggestionProposed}"
                  ToolTip.Tip="{Binding EditorSuggestionReason}" AutomationProperties.Name="Texto proposto pelo editor"/>
-      <TextBlock x:Name="ReviewBody" Classes="review-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.BodyLoose}" LineHeight="{DynamicResource Vnf.LineHeight.BodyLoose}"
+      <TextBlock x:Name="ReviewBody" Classes="review-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.ReviewSuggestion}" LineHeight="{DynamicResource Vnf.LineHeight.ReviewSuggestion}"
                  c:SuggestionText.Current="{Binding EditorSuggestionCurrent}" c:SuggestionText.Proposed="{Binding EditorSuggestionProposed}"
                  AutomationProperties.Name="Texto proposto pelo editor"/>
       <!-- No Modo revisão o motivo fica sob a proposta, com a frase "Nada muda até você aceitar". No inspetor o quadro não desenha o motivo: ele vai na dica do texto. -->

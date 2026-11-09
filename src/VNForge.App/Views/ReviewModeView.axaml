@@ -67,9 +67,6 @@
     <Style Selector="PathIcon.fit.over">
       <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
     </Style>
-    <Style Selector="Border.card.current">
-      <Setter Property="Padding" Value="20"/>
-    </Style>
     <Style Selector="StackPanel.neighbour">
       <Setter Property="Opacity" Value="0.75"/>
     </Style>
@@ -141,7 +138,7 @@
   </UserControl.Styles>
 
   <!-- As teclas (Enter, E, M, setas e Esc) são tratadas em ReviewModeView.axaml.cs: o KeyBinding age antes de qualquer filtro e não deixa ignorar a tecla segurada. -->
-  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="12" Focusable="True" AutomationProperties.Name="Modo revisão">
+  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="9,0,7,0" Focusable="True" AutomationProperties.Name="Modo revisão">
 
     <!-- Topo numa linha: voltar ao Editor, o nome da cena com "Linha 1 de 6" e um bloco por linha, e as linhas revisadas hoje. -->
     <Grid x:Name="TopBar" ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
@@ -230,7 +227,7 @@
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                 <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
-                <SelectableTextBlock x:Name="SpeakerLine" Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
+                <SelectableTextBlock x:Name="SpeakerLine" Grid.Column="1" Classes="caption secondary" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
                                      c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
               </Grid>
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="{DynamicResource Vnf.LineHeight.ReviewSource}" FontSize="{DynamicResource Vnf.FontSize.ReviewSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>

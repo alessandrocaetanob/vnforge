@@ -44,8 +44,8 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
         // O cabeçalho do inspetor do quadro: retrato, nome, papel no jogo (do VNDB) e jeito de falar da Misaki.
         folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, Tone: "Professora, rígida", Color: "rose", VndbId: "c100")]);
         folder.SaveVndbLink(new VndbLink("v100", "Amaoto no Hakoniwa", null, null, [new VndbLinkedCharacter("c100", "Misaki", "美咲", [], CharacterGender.Female, null, "side")]));
-        // O quadro mostra "Cabe · 2 de 3 linhas": o perfil do jogo quebra em 40 colunas e 3 linhas.
-        folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
+        // O quadro mostra "Cabe · 2 de 3 linhas": o perfil do jogo quebra em 30 colunas e 3 linhas.
+        folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 30, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
         // O quadro mostra seis termos do pessoal: três já no projeto (um difere), dois para usar; e três do projeto para guardar.
         folder.SaveGlossary(
         [

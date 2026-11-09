@@ -30,7 +30,7 @@
     <Style Selector=":is(UserControl).tabbed c|Portrait, :is(UserControl).tabbed TextBlock.header-role">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
+    <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).tight PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
     <!-- Com a sugestão da passada de editor aberta, o "Usar sugestão" do rodapé (quadro do #532) aceita o texto dela, como o "Aceitar" do cartão; o botão da sugestão da IA dá lugar a ele.
@@ -72,8 +72,8 @@
        tem a altura da barra (LineDetailView.axaml.cs): o último bloco, como o "Usar em todos", para acima dela e do degradê quando se rola até o fim. -->
   <Grid RowDefinitions="*,Auto">
     <Panel>
-      <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard. A margem direita deixa a barra de rolagem fora do texto. -->
-      <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled">
+      <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard, com os 350 px do quadro: a rolagem avança 12 px sobre o respiro do cartão e a barra fica nessa folga, fora do texto. -->
+      <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled" Margin="0,0,-12,0">
         <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,20">
 
           <!-- Cabeçalho (quadro do #537): retrato de 64 px, o nome do falante na cor dele, o papel e o jeito de falar, e embaixo o id em mono com o tipo da linha; histórico e menu à direita.
@@ -220,7 +220,7 @@
             <c:ContextLines x:Name="SceneLines" ItemsSource="{Binding Scene}" IsVisible="{Binding !IsSceneCollapsed}" AutomationProperties.Name="Na cena"/>
           </StackPanel>
 
-          <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
+          <!-- Tradução: borda de destaque em volta do campo, medidas e estado dos marcadores. -->
           <StackPanel x:Name="TranslationFragment" Spacing="6">
             <Grid ColumnDefinitions="*,Auto">
               <c:OverlineText Classes="overline" Text="Tradução"/>
@@ -229,7 +229,6 @@
             <Border Classes="field">
               <Panel>
                 <ae:TextEditor x:Name="TranslationEditor" Classes="translation" MinHeight="{Binding TranslationMinHeight}" Margin="10,8" AutomationProperties.Name="Tradução"/>
-                <Border Classes="fieldline"/>
               </Panel>
             </Border>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{x:Static vm:LineDetailViewModel.FieldRawNotice}" IsVisible="{Binding FieldIsRaw}"/>
@@ -237,7 +236,7 @@
             <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
               <!-- Sem rolagem: a caixa encolhe em proporção quando as colunas do perfil não cabem na largura do inspetor (#392). -->
               <Panel IsVisible="{Binding Preview.HasLayout}">
-                <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Stretch" Flat="True" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
+                <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Stretch" Flat="True" FontFamily="{DynamicResource Vnf.FontMono}" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
               </Panel>
               <StackPanel IsVisible="{Binding !IsCompactInspector}">
                 <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">

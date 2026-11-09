@@ -20,6 +20,7 @@ public sealed partial class LineDetailView : UserControl
 
     /// <summary>Abaixo desta largura os botões do inspetor largam a tecla e o ícone para o texto caber.</summary>
     private const double CompactWidth = 360;
+    private const double TightWidth = 340;
 
     /// <summary>Com o texto grande, abaixo de 80% do limite compacto os dois botões da barra de ações não cabem lado a lado nem sem a tecla.</summary>
     private const double StackedFactor = 0.8;
@@ -114,13 +115,15 @@ public sealed partial class LineDetailView : UserControl
     }
 
     /// <summary>
-    /// Com menos de 360 px (as abas e a janela mínima) a barra de ações larga a tecla e o ícone dos botões para os dois textos caberem. O texto maior pede
+    /// Com menos de 360 px (as abas e a janela mínima) a barra de ações larga a tecla dos botões; com menos de 340 px (as abas têm 326) larga também o ícone, para os dois
+    /// textos caberem. O inspetor inteiro tem 350 px: sem a tecla, mas com a faísca do "Usar sugestão", como no quadro do #532. O texto maior pede
     /// mais largura para os mesmos botões, então o limite cresce com o tamanho do texto (<c>Vnf.FontSize.Body</c> sobre os 14 de 100%).
     /// </summary>
     private void UpdateCompact()
     {
         var scale = TextScale();
         Classes.Set("compact", Bounds.Width is > 0 && Bounds.Width < CompactWidth * scale);
+        Classes.Set("tight", Bounds.Width is > 0 && Bounds.Width < TightWidth * scale);
         Classes.Set("stacked", Bounds.Width is > 0 && Bounds.Width < CompactWidth * scale * StackedFactor);
     }
 

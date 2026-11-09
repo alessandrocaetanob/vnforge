@@ -98,13 +98,13 @@
 
         <StackPanel Spacing="8">
           <c:OverlineText Classes="overline" Text="Quanto custa"/>
-          <Border Classes="panel" Padding="16">
+          <Border Classes="panel" Padding="16" Background="{DynamicResource Vnf.BgInset}" BorderThickness="0">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Classes="title-md" Text="{Binding RequestText}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SpentText}" VerticalAlignment="Center"/>
               </Grid>
-              <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}" AskBrush="{DynamicResource Vnf.SegTranslated}" TrackBrush="{DynamicResource Vnf.BgInset}" ShowLimit="False"
+              <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}" AskBrush="{DynamicResource Vnf.SegTranslated}" TrackBrush="Transparent" ShowLimit="False"
                            AutomationProperties.Name="Gasto do projeto, este pedido e o limite"/>
               <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding BatchNote}"
                          IsVisible="{Binding BatchNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
@@ -154,14 +154,14 @@
         </Border>
 
         <!-- A passada de editor (#532): marcada, com o preço à parte do pedido. Nada é gravado sozinho. -->
-        <Border x:Name="EditorPassCard" Classes="panel" Padding="16" IsVisible="{Binding !NothingToTranslate}">
+        <Border x:Name="EditorPassCard" Classes="panel" Padding="16" Background="{DynamicResource Vnf.BgInset}" BorderThickness="0" IsVisible="{Binding !NothingToTranslate}">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <CheckBox x:Name="EditorPassCheck" CornerRadius="5" IsChecked="{Binding EditorPass}" IsEnabled="{Binding CanChooseEditorPass}" AutomationProperties.Name="Depois, uma passada de editor em cada cena">
               <StackPanel Spacing="2">
                 <TextBlock Classes="body" FontWeight="SemiBold" TextWrapping="Wrap" Text="Depois, uma passada de editor em cada cena"/>
-                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap"
                            Text="Outro pedido lê a cena traduzida inteira e deixa ajustes de fluidez, voz e consistência como sugestão na linha. Nada é gravado sozinho."/>
-                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" IsVisible="{Binding IsOvernight}"
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsOvernight}"
                            Text="Não vale na tradução durante a noite: o lote só volta horas depois."/>
               </StackPanel>
             </CheckBox>
