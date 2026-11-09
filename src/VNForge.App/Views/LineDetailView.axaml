@@ -180,7 +180,7 @@
             </Grid>
             <Border Classes="field">
               <Panel>
-                <ae:TextEditor x:Name="TranslationEditor" Classes="translation" Classes.tight="{Binding HasMemory}" Margin="10,8" AutomationProperties.Name="Tradução"/>
+                <ae:TextEditor x:Name="TranslationEditor" Classes="translation" MinHeight="{Binding TranslationMinHeight}" Margin="10,8" AutomationProperties.Name="Tradução"/>
                 <Border Classes="fieldline"/>
               </Panel>
             </Border>

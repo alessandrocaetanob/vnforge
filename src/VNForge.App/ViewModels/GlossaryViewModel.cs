@@ -153,7 +153,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     public string AddLabel => SelectedTab switch
     {
-        GlossaryTab.Terms => "Adicionar termo",
+        GlossaryTab.Terms or GlossaryTab.Personal => "Adicionar termo",
         GlossaryTab.Address => "Adicionar tratamento",
         _ => "Adicionar personagem",
     };

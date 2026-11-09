@@ -26,8 +26,11 @@ public sealed partial class LineDetailViewModel
     public ObservableCollection<MemorySuggestionViewModel> MemorySuggestions { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed))]
+    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight))]
     public partial bool HasMemory { get; private set; }
+
+    /// <summary>Altura mínima do campo da tradução: 72 px normalmente e 28 px (44 com a margem) com o cartão da memória aberto, para a caixa do jogo e o "Cabe" ficarem na tela (quadro do #537).</summary>
+    public double TranslationMinHeight => HasMemory ? 28 : 72;
 
     /// <summary>"3 em 2 projetos": quantas sugestões o cartão mostra e de quantos projetos elas vêm.</summary>
     [ObservableProperty]

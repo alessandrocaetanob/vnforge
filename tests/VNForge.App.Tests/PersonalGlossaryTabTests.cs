@@ -133,6 +133,7 @@ public sealed class PersonalGlossaryTabTests : IDisposable
 
         vm.AddCommand.Execute(null);
 
+        Assert.Equal("Adicionar termo", vm.AddLabel);
         Assert.True(vm.Personal.IsEditorOpen);
         Assert.Equal("Adicionar termo", vm.Personal.EditorTitle);
         Assert.True(vm.Personal.CanEditSource);
