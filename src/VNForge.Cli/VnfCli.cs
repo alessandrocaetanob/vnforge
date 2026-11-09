@@ -104,6 +104,9 @@ public sealed class VnfCli
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
 
+    /// <summary>Cria o cliente HTTP do download do dicionário (<c>vnf jmdict install</c>); os testes trocam por um que responde com um arquivo inventado.</summary>
+    public Func<HttpClient> HttpClientFactory { get; set; } = () => new HttpClient();
+
     /// <summary>
     /// Cria o juiz de IA do <c>vnf eval</c> para o modelo e o esforço escolhidos; os testes trocam por um juiz falso.
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
