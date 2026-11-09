@@ -26,6 +26,9 @@ public static partial class GameNames
 {
     private const int RegexTimeoutMilliseconds = 500;
 
+    /// <summary>O nome do produto que o executável do KiriKiri 2 leva (<c>TVP(KIRIKIRI) 2 core</c>, <c>TVP(KIRIKIRI) Z core</c>), e que não diz qual é o jogo.</summary>
+    private const string KiriKiriProductName = "TVP(KIRIKIRI)";
+
     private static readonly HashSet<string> GenericExecutables = new(StringComparer.OrdinalIgnoreCase)
     {
         "game", "start", "launcher", "run", "main", "play", "app", "application", "nw", "winmain", "program", "exe", "kirikiri", "krkr", "renpy", "nscr", "nscripter", "reallive",
@@ -33,7 +36,7 @@ public static partial class GameNames
 
     private static readonly HashSet<string> GenericTitles = new(StringComparer.OrdinalIgnoreCase)
     {
-        "game", "kirikiri", "krkr", "renpy", "ren'py", "nscripter", "onscripter", "reallive", "siglus", "unity", "rpg maker", "rpgmaker", "application", "windows application", "untitled",
+        "game", "tvp", "kirikiri", "krkr", "renpy", "ren'py", "nscripter", "onscripter", "reallive", "siglus", "unity", "rpg maker", "rpgmaker", "application", "windows application", "untitled",
     };
 
     /// <summary>Os termos de busca, do mais confiável para o menos, sem repetir o mesmo texto da mesma origem. Termo curto demais ou genérico não entra.</summary>
@@ -50,7 +53,7 @@ public static partial class GameNames
     public static string? CleanWindowTitle(string? title)
     {
         var text = Collapse(title ?? string.Empty);
-        return text.Length == 0 || GenericTitles.Contains(text) ? null : text;
+        return text.Length == 0 || GenericTitles.Contains(text) || text.StartsWith(KiriKiriProductName, StringComparison.OrdinalIgnoreCase) ? null : text;
     }
 
     /// <summary>

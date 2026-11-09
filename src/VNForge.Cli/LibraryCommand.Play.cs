@@ -79,6 +79,7 @@ internal static partial class LibraryCommand
         }
 
         var file = new PlayLogFile(cli.UserConfigDirectory);
+        WriteWarnings(parseResult, file.Load());
         var session = await new GamePlayer(cli.GameLauncher, file, cli.Clock, cli.PlayTracking).PlayAsync(game.Id, launch, token).ConfigureAwait(false);
         var stats = file.Load().StatsOf(game.Id);
 
@@ -118,17 +119,22 @@ internal static partial class LibraryCommand
 
     private static int SetOption(VnfCli cli, ParseResult parseResult, string reference)
     {
-        var file = FileOf(cli);
-        var library = file.Load();
-        var game = library.Find(reference);
         var wanted = ParseYesNo(parseResult.GetValue(JapaneseLocaleOption), "--japanese-locale");
-        var changed = wanted is { } value && value != game.RequiresJapaneseLocale;
-        if (changed)
-        {
-            game = game with { RequiresJapaneseLocale = wanted!.Value };
-            library.Replace(game);
-            file.Save(library);
-        }
+        var file = FileOf(cli);
+        var (library, game, changed) = wanted is { } value
+            ? file.Update(current =>
+            {
+                var found = current.Find(reference);
+                var differs = value != found.RequiresJapaneseLocale;
+                if (differs)
+                {
+                    found = found with { RequiresJapaneseLocale = value };
+                    current.Replace(found);
+                }
+
+                return (current, found, differs);
+            })
+            : Show(file.Load(), reference);
 
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
@@ -141,6 +147,8 @@ internal static partial class LibraryCommand
         }
 
         return ErrorHandler.OkExitCode;
+
+        static (GameLibrary, LibraryGame, bool) Show(GameLibrary current, string reference) => (current, current.Find(reference), false);
     }
 
     private static int Emulator(VnfCli cli, ParseResult parseResult, string? path)
@@ -152,33 +160,25 @@ internal static partial class LibraryCommand
         }
 
         var file = FileOf(cli);
-        var library = file.Load();
-        var changed = false;
-        if (clear && library.LocaleEmulatorPath is not null)
-        {
-            library.LocaleEmulatorPath = null;
-            changed = true;
-        }
-        else if (path is not null)
-        {
-            var resolved = GameLaunchPlanner.ResolveLocaleEmulator(Path.GetFullPath(path, cli.CurrentDirectory));
-            changed = !string.Equals(library.LocaleEmulatorPath, resolved, StringComparison.Ordinal);
-            library.LocaleEmulatorPath = resolved;
-        }
-
-        if (changed)
-        {
-            file.Save(library);
-        }
+        var resolved = path is null ? null : GameLaunchPlanner.ResolveLocaleEmulator(Path.GetFullPath(path, cli.CurrentDirectory));
+        var (current, changed) = resolved is null && !clear
+            ? (file.Load().LocaleEmulatorPath, false)
+            : file.Update(library =>
+            {
+                var next = clear ? null : resolved;
+                var differs = !string.Equals(library.LocaleEmulatorPath, next, StringComparison.Ordinal);
+                library.LocaleEmulatorPath = next;
+                return (next, differs);
+            });
 
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { localeEmulator = library.LocaleEmulatorPath, changed }));
+            output.WriteLine(JsonEnvelope.Result(new { localeEmulator = current, changed }));
         }
         else
         {
-            output.WriteLine(library.LocaleEmulatorPath is { } current
+            output.WriteLine(current is not null
                 ? $"Locale Emulator: {current}.{(changed ? " Gravado." : string.Empty)}"
                 : $"Locale Emulator: não configurado.{(changed ? " Caminho esquecido." : " Informe com vnf library emulator <pasta ou LEProc.exe>.")}");
         }
@@ -186,6 +186,13 @@ internal static partial class LibraryCommand
         return ErrorHandler.OkExitCode;
     }
 
+    private static void WriteWarnings(ParseResult parseResult, PlayLog played)
+    {
+        foreach (var warning in played.Warnings)
+        {
+            parseResult.InvocationConfiguration.Error.WriteLine($"Aviso: {warning}");
+        }
+    }
     private static object PlayData(PlayStats stats) => new
     {
         totalSeconds = (long)stats.Total.TotalSeconds,

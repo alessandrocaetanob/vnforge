@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Microsoft.Win32.SafeHandles;
 
-namespace VNForge.Core.Library;
+namespace VNForge.Platform.Windows;
 
 /// <summary>
 /// Um job object do Windows: agrupa um processo e todos os que ele abrir depois (filhos, netos), mesmo quando o pai sai antes. É assim que o VNForge sabe que o jogo

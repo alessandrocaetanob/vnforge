@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- LibraryImport (o job object do ProcessGameLauncher) exige. Fica aqui para o Core seguir sem código inseguro. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VNForge.Core\VNForge.Core.csproj" />
+  </ItemGroup>
+
+</Project>

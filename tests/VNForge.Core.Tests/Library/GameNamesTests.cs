@@ -48,6 +48,11 @@ public class GameNamesTests
     [Theory]
     [InlineData("  Steins;Gate  ", "Steins;Gate")]
     [InlineData("KiriKiri", null)]
+    [InlineData("TVP", null)]
+    [InlineData("KIRIKIRI", null)]
+    [InlineData("TVP(KIRIKIRI)", null)]
+    [InlineData("TVP(KIRIKIRI) 2 core", null)]
+    [InlineData("tvp(kirikiri) z core", null)]
     [InlineData("   ", null)]
     public void Titulo_da_janela_generico_ou_vazio_e_descartado(string? title, string? expected)
     {

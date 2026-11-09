@@ -17,6 +17,7 @@ using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Vndb;
+using VNForge.Platform.Windows;
 using VNForge.Vndb;
 
 namespace VNForge.Cli;

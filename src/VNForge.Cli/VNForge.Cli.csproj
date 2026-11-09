@@ -15,6 +15,7 @@
     <ProjectReference Include="..\VNForge.Core\VNForge.Core.csproj" />
     <ProjectReference Include="..\VNForge.AI\VNForge.AI.csproj" />
     <ProjectReference Include="..\VNForge.Engines.YuRis\VNForge.Engines.YuRis.csproj" />
+    <ProjectReference Include="..\VNForge.Platform.Windows\VNForge.Platform.Windows.csproj" />
     <ProjectReference Include="..\VNForge.Vndb\VNForge.Vndb.csproj" />
   </ItemGroup>
 

@@ -13,7 +13,7 @@ public sealed class LibraryPlayCommandTests : IDisposable
     public LibraryPlayCommandTests()
     {
         _cli.Cli.Clock = _clock;
-        _cli.Cli.PlayTracking = new PlayTrackingOptions(TimeSpan.Zero, TimeSpan.FromMinutes(5));
+        _cli.Cli.PlayTracking = new PlayTrackingOptions(TimeSpan.Zero, TimeSpan.FromMinutes(5), TimeSpan.FromDays(100), TimeSpan.FromDays(100));
     }
 
     public void Dispose() => _cli.Dispose();
@@ -236,6 +236,37 @@ public sealed class LibraryPlayCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Option_e_emulator_gravam_pela_trava_do_arquivo_da_biblioteca()
+    {
+        AddGame();
+        var lockFile = File.Path + ".lock";
+        System.IO.File.Delete(lockFile);
+
+        await Run("library", "option", "CLANNAD", "--japanese-locale", "sim");
+        Assert.True(System.IO.File.Exists(lockFile));
+        System.IO.File.Delete(lockFile);
+        await Run("library", "emulator", AddEmulator());
+
+        Assert.True(System.IO.File.Exists(lockFile));
+    }
+
+    [Fact]
+    public async Task List_avisa_da_sessao_invalida_do_arquivo_de_tempo_e_segue()
+    {
+        AddGame();
+        await System.IO.File.WriteAllTextAsync(
+            new PlayLogFile(_cli.UserConfigDirectory).Path,
+            """{"version":1,"games":{"g1":[{"id":"a","startedAt":"2026-11-09T20:00:00+00:00","endedAt":"2026-11-09T19:00:00+00:00","duration":"00:30:00"}]}}""",
+            Ct);
+
+        var result = await Run("library", "list");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Aviso:", result.Error);
+        Assert.Contains("CLANNAD", result.Output);
+    }
+
+    [Fact]
     public async Task Emulator_recusa_caminho_que_nao_leva_a_um_LEProc()
     {
         var result = await Run("library", "emulator", Path.Combine(_cli.Root, "nada"));
@@ -248,10 +279,19 @@ public sealed class LibraryPlayCommandTests : IDisposable
     private sealed class ManualClock(DateTimeOffset now) : TimeProvider
     {
         private DateTimeOffset _now = now;
+        private long _ticks;
 
-        public void Advance(TimeSpan by) => _now += by;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public void Advance(TimeSpan by)
+        {
+            _now += by;
+            _ticks += by.Ticks;
+        }
 
         public override DateTimeOffset GetUtcNow() => _now;
+
+        public override long GetTimestamp() => _ticks;
     }
 
     private sealed class FakeLauncher(ManualClock clock, (TimeSpan Advance, GameProcessState State)[] script) : IGameLauncher

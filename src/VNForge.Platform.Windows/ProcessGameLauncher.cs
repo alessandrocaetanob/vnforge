@@ -2,7 +2,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 
-namespace VNForge.Core.Library;
+using VNForge.Core.Library;
+
+namespace VNForge.Platform.Windows;
 
 /// <summary>
 /// O <see cref="IGameLauncher"/> de verdade: inicia o programa e o coloca num job object do Windows, para que os filhos dele (o jogo aberto por um lançador, o jogo

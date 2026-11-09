@@ -4,10 +4,25 @@ using System.Text.Json.Serialization;
 namespace VNForge.Core.Library;
 
 /// <summary>
-/// Uma vez que a pessoa jogou. <paramref name="Duration"/> é o tempo contado (sem o tempo em que o processo ficou suspenso por mais que o limite), então pode ser menor
-/// que <c><paramref name="EndedAt"/> - <paramref name="StartedAt"/></c>. <paramref name="Interrupted"/> marca a sessão em que o VNForge parou de contar com o jogo ainda aberto.
+/// Uma vez que a pessoa jogou. <paramref name="Duration"/> é o tempo contado (sem o tempo suspenso por mais que o limite nem o tempo em que o PC dormiu), então é
+/// no máximo <c><paramref name="EndedAt"/> - <paramref name="StartedAt"/></c>; nunca é negativa e <paramref name="EndedAt"/> nunca é anterior a <paramref name="StartedAt"/>.
+/// <paramref name="Open"/> marca a sessão em andamento: <paramref name="EndedAt"/> e <paramref name="Duration"/> valem até o último instante visto. Uma sessão que ficou aberta
+/// sem ninguém atualizá-la (o app ou o terminal fechou no meio) vira <paramref name="Interrupted"/>, com o que foi contado até ali.
 /// </summary>
-public sealed record PlaySession(DateTimeOffset StartedAt, DateTimeOffset EndedAt, TimeSpan Duration, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Interrupted = false);
+public sealed record PlaySession(
+    string Id,
+    DateTimeOffset StartedAt,
+    DateTimeOffset EndedAt,
+    TimeSpan Duration,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Interrupted = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Open = false)
+{
+    /// <summary>Uma sessão de <paramref name="Id"/> novo.</summary>
+    public static string NewId() => Guid.NewGuid().ToString("N");
+
+    [JsonIgnore]
+    public bool IsValid => !string.IsNullOrWhiteSpace(Id) && Duration >= TimeSpan.Zero && EndedAt >= StartedAt;
+}
 
 /// <summary>O resumo do tempo de jogo de um jogo da biblioteca. <paramref name="LastPlayedAt"/> é o fim da última sessão; <see langword="null"/> se nunca jogou.</summary>
 public sealed record PlayStats(TimeSpan Total, DateTimeOffset? LastPlayedAt, int Sessions)
@@ -23,14 +38,19 @@ public sealed class PlayLog
 {
     private readonly Dictionary<string, List<PlaySession>> _sessions;
 
-    public PlayLog(IEnumerable<KeyValuePair<string, IReadOnlyList<PlaySession>>>? sessions = null)
+    public PlayLog(IEnumerable<KeyValuePair<string, IReadOnlyList<PlaySession>>>? sessions = null, IReadOnlyList<string>? warnings = null)
     {
         _sessions = new Dictionary<string, List<PlaySession>>(StringComparer.Ordinal);
         foreach (var (id, list) in sessions ?? [])
         {
             _sessions[id] = [.. list];
         }
+
+        Warnings = warnings ?? [];
     }
+
+    /// <summary>O que a leitura do arquivo descartou (sessão com duração negativa ou que termina antes de começar), em português; vazio quando nada foi descartado.</summary>
+    public IReadOnlyList<string> Warnings { get; }
 
     public IReadOnlyDictionary<string, IReadOnlyList<PlaySession>> All =>
         _sessions.ToDictionary(p => p.Key, p => (IReadOnlyList<PlaySession>)p.Value, StringComparer.Ordinal);
@@ -38,16 +58,53 @@ public sealed class PlayLog
     public IReadOnlyList<PlaySession> SessionsOf(string gameId) =>
         _sessions.TryGetValue(gameId, out var list) ? list : [];
 
-    public void Add(string gameId, PlaySession session)
+    /// <summary>Soma a sessão, ou troca a de mesmo <see cref="PlaySession.Id"/> (é assim que a sessão aberta anda e fecha).</summary>
+    /// <exception cref="ArgumentException">A sessão tem duração negativa, termina antes de começar ou não tem id.</exception>
+    public void Upsert(string gameId, PlaySession session)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameId);
         ArgumentNullException.ThrowIfNull(session);
+        if (!session.IsValid)
+        {
+            throw new ArgumentException("A sessão precisa de id, duração que não seja negativa e fim que não seja anterior ao começo.", nameof(session));
+        }
+
         if (!_sessions.TryGetValue(gameId, out var list))
         {
             _sessions[gameId] = list = [];
         }
 
-        list.Add(session);
+        var index = list.FindIndex(s => s.Id == session.Id);
+        if (index < 0)
+        {
+            list.Add(session);
+        }
+        else
+        {
+            list[index] = session;
+        }
+    }
+
+    /// <summary>
+    /// Fecha como interrompida a sessão que ficou aberta e não foi atualizada nos últimos <paramref name="staleAfter"/>: o app ou o terminal fechou no meio.
+    /// Guarda o que foi contado até o último instante visto. Devolve quantas fechou.
+    /// </summary>
+    public int CloseStale(DateTimeOffset now, TimeSpan staleAfter)
+    {
+        var closed = 0;
+        foreach (var list in _sessions.Values)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (list[i].Open && now - list[i].EndedAt > staleAfter)
+                {
+                    list[i] = list[i] with { Open = false, Interrupted = true };
+                    closed++;
+                }
+            }
+        }
+
+        return closed;
     }
 
     public PlayStats StatsOf(string gameId)

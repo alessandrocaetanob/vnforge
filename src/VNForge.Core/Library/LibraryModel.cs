@@ -101,6 +101,6 @@ public sealed record LibraryGame(
 
 /// <summary>
 /// O que a Biblioteca esconde por padrão. Vale para a tela e para a CLI: ficam nos dados para que as duas respeitem a mesma escolha.
-/// Spoiler: tags com spoiler e trechos <c>[spoiler]</c> da sinopse. Adulto: a capa e as tags eróticas de jogo marcado como adulto.
+/// Spoiler: tags com spoiler e trechos <c>[spoiler]</c> da sinopse. Adulto: a capa de jogo marcado como adulto e toda tag erótica (categoria <c>ero</c>), de qualquer jogo.
 /// </summary>
 public sealed record LibraryPrivacy(bool ShowSpoilers = false, bool ShowAdult = false);

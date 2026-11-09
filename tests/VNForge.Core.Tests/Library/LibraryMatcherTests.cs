@@ -306,6 +306,18 @@ public class LibraryMatcherTests
         Assert.Equal("v4", matched.VndbId);
     }
 
+    [Theory]
+    [InlineData(1.0, 0.9, true)]
+    [InlineData(0.95, 0.85, true)]
+    [InlineData(0.95, 0.851, false)]
+    [InlineData(0.9, null, true)]
+    [InlineData(0.899, null, false)]
+    [InlineData(1.0, 0.95, false)]
+    public void A_folga_de_dez_pontos_conta_mesmo_com_o_erro_do_ponto_flutuante(double top, double? second, bool expected)
+    {
+        Assert.Equal(expected, new LibraryMatchOptions().IsDecisive(top, second));
+    }
+
     private sealed class Sync<T>(Action<T> action) : IProgress<T>
     {
         public void Report(T value) => action(value);

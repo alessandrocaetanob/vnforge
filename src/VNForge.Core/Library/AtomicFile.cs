@@ -1,3 +1,5 @@
+using VNForge.Core.Projects;
+
 namespace VNForge.Core.Library;
 
 internal static class AtomicFile
@@ -10,7 +12,7 @@ internal static class AtomicFile
         try
         {
             File.WriteAllText(temporary, text);
-            File.Move(temporary, path, overwrite: true);
+            ProjectFileIo.Move(temporary, path, overwrite: true);
         }
         finally
         {
