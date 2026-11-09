@@ -183,7 +183,16 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        await Dashboard.ReloadAsync();
+        // Ninguém aguarda esta tarefa fora dos testes: uma falha na releitura aparece como aviso em vez de sumir com ela.
+        try
+        {
+            await Dashboard.ReloadAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+            Toasts.Show("Não foi possível atualizar o andamento do jogo. Ele volta a ser lido ao abrir o Painel.", ToastKind.Warning, key: "progress-refresh");
+        }
     }
 
     private void RaiseProgressChanged()

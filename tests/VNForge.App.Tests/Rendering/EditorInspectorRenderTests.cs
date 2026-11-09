@@ -53,7 +53,7 @@ public sealed class EditorInspectorRenderTests(HeadlessFixture fixture, DemoFold
                     ScreenRenderer.Settle(window);
 
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-inspetor", theme)));
-                    ConferirInspetor(window, editor);
+                    ConferirInspetor(window, editor, theme);
                 }
                 finally
                 {
@@ -65,7 +65,7 @@ public sealed class EditorInspectorRenderTests(HeadlessFixture fixture, DemoFold
             TestContext.Current.CancellationToken);
     }
 
-    private static void ConferirInspetor(Window window, EditorViewModel editor)
+    private static void ConferirInspetor(Window window, EditorViewModel editor, ThemeVariant theme)
     {
         var detail = editor.Detail!;
         Assert.DoesNotContain("\\n", detail.FieldText, StringComparison.Ordinal);
@@ -81,17 +81,18 @@ public sealed class EditorInspectorRenderTests(HeadlessFixture fixture, DemoFold
         Assert.Equal(2, cena.ItemCount);
         Assert.Equal(detail.ExplainParts.Count, cartao.ItemCount);
 
-        // Com a explicação e a cena abertas o inspetor passa da altura da janela de 1000 px, que agora tem o cabeçalho do jogo: ele rola, e a caixa tem de caber ao fim da rolagem.
-        caixa.BringIntoView();
-
+        // Com a explicação e a cena abertas o inspetor é mais alto que a janela e rola; a caixa só é medida sem rolar depois de fechar a explicação, e esse estado vai para editor-inspetor-fechado.
+        detail.ToggleExplainCommand.Execute(null);
         ScreenRenderer.Settle(window);
+        Assert.False(cartao.IsEffectivelyVisible);
+        ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-inspetor-fechado", theme)));
         var campoY = campo.TranslatePoint(default, window)!.Value.Y;
         var caixaY = caixa.TranslatePoint(default, window)!.Value.Y;
         Assert.True(caixaY > campoY + campo.Bounds.Height - 1, "a caixa do jogo fica logo abaixo do campo da tradução");
         Assert.True(caixaY - (campoY + campo.Bounds.Height) < 40, "e não a mais de uma linha de distância dele");
 
-        var dentro = new Rect(view.TranslatePoint(default, window)!.Value, view.Bounds.Size);
-        Assert.True(dentro.Contains(new Rect(caixa.TranslatePoint(default, window)!.Value, caixa.Bounds.Size)), "a caixa cabe dentro do inspetor");
+        var medida = VisibleArea.Of(caixa, window);
+        Assert.True(medida.IsFullyVisible, $"a caixa do jogo aparece inteira sem rolar, com a explicação fechada: {medida}");
 
         var probe = PixelProbe.Capture(window, caixa);
         var fundo = probe.At(1, 1);

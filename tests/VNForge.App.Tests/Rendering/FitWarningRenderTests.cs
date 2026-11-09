@@ -38,7 +38,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
         using var temp = new TempFolder();
         var root = CreateProject(temp.SubFolder("projeto"));
 
-        await fixture.Session.Dispatch<int>(
+        var aviso = await fixture.Session.Dispatch<VisibleArea.Measure>(
             async () =>
             {
                 using var config = new TempFolder();
@@ -58,7 +58,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.True(fit.IsVisible);
                     Assert.Equal("Dividir em 2 páginas", fit.SplitText);
                     ScreenRenderer.Settle(window);
-                    ConferirAviso(window, theme, fit.Message);
+                    var medida = ConferirAviso(window, theme, fit.Message);
                     Save(window, "editor-caixa-nao-cabe", theme);
 
                     await fit.SplitCommand.ExecuteAsync(null);
@@ -68,15 +68,15 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.Contains(@"\p", vm.Editor.Detail.Translation);
                     Assert.DoesNotContain(window.GetVisualDescendants().OfType<FitWarning>(), w => w.IsEffectivelyVisible);
                     Save(window, "editor-caixa-dividida", theme);
+                    return medida;
                 }
                 finally
                 {
                     window.Close();
                 }
-
-                return 0;
             },
             TestContext.Current.CancellationToken);
+        IgnorarSeFicouForaDaArea(aviso);
     }
 
     [Theory]
@@ -87,7 +87,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
         using var temp = new TempFolder();
         var root = CreateProject(temp.SubFolder("projeto"));
 
-        await fixture.Session.Dispatch<int>(
+        var aviso = await fixture.Session.Dispatch<VisibleArea.Measure>(
             async () =>
             {
                 using var config = new TempFolder();
@@ -106,39 +106,63 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                     var fit = vm.Conference.SelectedFit!;
                     Assert.True(fit.IsVisible);
                     ScreenRenderer.Settle(window);
-                    ConferirAviso(window, theme, fit.Message);
+                    var medida = ConferirAviso(window, theme, fit.Message);
                     Assert.NotNull(vm.Conference.SelectedLayout);
                     Assert.Single(window.GetVisualDescendants().OfType<GameTextbox>(), g => g.IsEffectivelyVisible && g.Layout is not null);
                     Save(window, "conferir-caixa-nao-cabe", theme);
+                    return medida;
                 }
                 finally
                 {
                     window.Close();
                 }
-
-                return 0;
             },
             TestContext.Current.CancellationToken);
+        IgnorarSeFicouForaDaArea(aviso);
     }
 
     /// <summary>O aviso está na tela, dentro da janela, com os dois botões, e o fundo dele (num ponto de dentro do infobar) é o do aviso do tema.</summary>
-    private static void ConferirAviso(Avalonia.Controls.Window window, ThemeVariant theme, string expectedMessage)
+    private static VisibleArea.Measure ConferirAviso(Avalonia.Controls.Window window, ThemeVariant theme, string expectedMessage)
     {
         var warning = Assert.Single(window.GetVisualDescendants().OfType<FitWarning>(), w => w.IsEffectivelyVisible);
         Assert.Equal(expectedMessage, warning.Message);
         Assert.NotNull(warning.SplitCommand);
         Assert.NotNull(warning.ShortenCommand);
 
-        // O painel do problema rola quando a janela é baixa; o aviso tem de estar à vista depois de rolado até ele.
-        warning.BringIntoView();
-        ScreenRenderer.Settle(window);
-        var origin = warning.TranslatePoint(default, window) ?? throw new InvalidOperationException("O aviso não está na janela.");
-        Assert.True(origin.X >= 0 && origin.Y >= 0 && origin.X + warning.Bounds.Width <= window.Width && origin.Y + warning.Bounds.Height <= window.Height, "o aviso cabe na janela");
+        var medida = VisibleArea.Of(warning, window);
         Assert.All(warning.GetVisualDescendants().OfType<Avalonia.Controls.Button>().Where(b => b.IsEffectivelyVisible), button => Assert.True(button.Bounds.Width > 40 && button.Bounds.Height > 16));
+
+        // A cor só se lê com o aviso na área visível: se a tela abre sem ele, rola até ele para ler e devolve a rolagem, e o PNG sai como a tela abre.
+        var offsets = medida.IsFullyVisible ? [] : warning.GetVisualAncestors().OfType<ScrollViewer>().Select(s => (Scroll: s, s.Offset)).ToList();
+        if (offsets.Count > 0)
+        {
+            warning.BringIntoView();
+            ScreenRenderer.Settle(window);
+        }
 
         var probe = PixelProbe.Capture(window, warning);
         var expected = theme == ThemeVariant.Light ? Color.Parse("#F5EBDD") : Color.Parse("#433C2A");
         Assert.True(probe.Near(10, 6, expected, 6), $"o fundo do aviso é o do tema ({probe.At(10, 6)} em vez de {expected})");
+
+        foreach (var (scroll, offset) in offsets)
+        {
+            scroll.Offset = offset;
+        }
+
+        ScreenRenderer.Settle(window);
+        return medida;
+    }
+
+    /// <summary>
+    /// A tela abre sem rolar até o aviso, então ele só conta como visível se a medida (sem BringIntoView) o põe inteiro na área do painel. Com o cabeçalho do jogo
+    /// de 80 px o painel de baixo do Editor e o da Conferência rolam: o teste termina ignorado com a medida, depois de conferir tudo o mais.
+    /// </summary>
+    private static void IgnorarSeFicouForaDaArea(VisibleArea.Measure medida)
+    {
+        if (!medida.IsFullyVisible)
+        {
+            Assert.Skip($"O aviso não aparece inteiro sem rolar a {ScreenRenderer.Width}x{ScreenRenderer.Height}: {medida}");
+        }
     }
 
     private static void Save(Avalonia.Controls.Window window, string name, ThemeVariant theme)

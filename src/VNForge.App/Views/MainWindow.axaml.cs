@@ -49,7 +49,20 @@ public sealed partial class MainWindow : Window
     /// e as janelas baixas usam o compacto, de uma linha, para ficar com a altura.
     /// </summary>
     private void UpdateCompactHeader() =>
-        GameHeader.IsCompact = ClientSize.Height < GameHeaderView.CompactBelow || DataContext is ViewModels.MainWindowViewModel { CurrentPage: not (ViewModels.DashboardViewModel or ViewModels.GameTabPlaceholderViewModel) };
+        GameHeader.IsCompact = HeaderCompactOverride ?? (ClientSize.Height < GameHeaderView.CompactBelow || DataContext is ViewModels.MainWindowViewModel { CurrentPage: not (ViewModels.DashboardViewModel or ViewModels.GameTabPlaceholderViewModel) });
+
+    private bool? headerCompactOverride;
+
+    /// <summary>Só para os testes de imagem: força o cabeçalho completo (false) ou o compacto (true) em qualquer tela, para comparar os dois lado a lado. Nulo segue a regra acima.</summary>
+    public bool? HeaderCompactOverride
+    {
+        get => headerCompactOverride;
+        set
+        {
+            headerCompactOverride = value;
+            UpdateCompactHeader();
+        }
+    }
 
     /// <summary>Quanto o resumo da sessão fica na tela antes de a janela fechar sozinha; fechar de novo antes disso fecha na hora.</summary>
     public static readonly TimeSpan CloseSummaryTime = TimeSpan.FromMilliseconds(2500);

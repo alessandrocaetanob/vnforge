@@ -203,7 +203,19 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.Contains(texts, t => t.StartsWith("Manhã de chuva · linha", StringComparison.Ordinal));
         Assert.DoesNotContain(texts, t => t.Contains("yst000", StringComparison.Ordinal));
         Assert.DoesNotContain(texts, t => t.Contains("(virar a página)", StringComparison.Ordinal));
-        var chips = list.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
+        List<MarkerChip> Chips() => list.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
+
+        // A lista é virtualizada e a consistência ocupa o alto dela: as linhas com marcador podem estar abaixo do que já foi montado. Rola até o fim só para montá-las e volta ao topo.
+        var chips = Chips();
+        if (chips.Count == 0 && list.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll && TopLevel.GetTopLevel(view) is Window window)
+        {
+            scroll.ScrollToEnd();
+            ScreenRenderer.Settle(window);
+            chips = Chips();
+            scroll.ScrollToHome();
+            ScreenRenderer.Settle(window);
+        }
+
         Assert.True(chips.Count >= 1, "os marcadores da lista são selos");
         Assert.All(chips, chip => Assert.True(chip.Bounds.Height >= 18));
     }

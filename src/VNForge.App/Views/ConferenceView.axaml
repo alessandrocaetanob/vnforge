@@ -40,12 +40,10 @@
   <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*" Focusable="True">
 
     <!-- Cabeçalho: última conferência e título à esquerda; à direita, na base do título, um só botão de destaque: "Corrigir N com um clique" quando há correção, senão "Conferir de novo". -->
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="24,8,24,8">
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="24,16,24,12">
       <StackPanel Spacing="2" VerticalAlignment="Bottom" MinWidth="0">
-        <StackPanel Orientation="Horizontal" Spacing="12">
-          <TextBlock Classes="title-md" Text="Conferir a tradução" VerticalAlignment="Center"/>
-          <TextBlock Classes="caption secondary" Text="{Binding CheckedSummary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-        </StackPanel>
+        <TextBlock Classes="caption secondary" Text="{Binding CheckedSummary}" TextTrimming="CharacterEllipsis"/>
+        <TextBlock Classes="title-lg" Text="Conferir a tradução"/>
         <TextBlock Classes="body-sm secondary" Text="O que impede de testar no jogo."/>
       </StackPanel>
       <Button Grid.Column="1" Classes="sm" Classes.accent="{Binding HasFixable}" IsVisible="{Binding HasFixable}" VerticalAlignment="Bottom" Command="{Binding FixAllCommand}"
@@ -147,7 +145,7 @@
           </ItemsControl>
           <!-- Um cartão por original com mais de uma tradução, no lugar de um aviso por linha: as variantes, as linhas de cada uma (links para o Editor) e o que difere da mais usada. -->
           <!-- Virtualizada: um projeto pode ter milhares de originais repetidos. Sem seleção visível; os botões do cartão são o que se clica. -->
-          <ListBox Grid.Row="1" Classes="cards" MaxHeight="220" Margin="12,8,12,4" ItemsSource="{Binding ConsistencyCards}" IsVisible="{Binding HasConsistencyCards}"
+          <ListBox Grid.Row="1" Classes="cards" MaxHeight="300" Margin="12,8,12,4" ItemsSource="{Binding ConsistencyCards}" IsVisible="{Binding HasConsistencyCards}"
                    SelectionMode="Toggle" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Originais com traduções diferentes">
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>

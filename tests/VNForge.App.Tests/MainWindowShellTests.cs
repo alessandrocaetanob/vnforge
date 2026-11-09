@@ -380,6 +380,37 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
+    public async Task Falha_ao_reler_o_Painel_depois_de_gravar_vira_aviso_e_nao_tarefa_perdida()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine, TranslationStatus.Approved);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)))
+        {
+            Editor = new EditorViewModel(clock: new FixedClock(Now), postToUi: a => a()),
+            ProgressRefreshDelay = TimeSpan.Zero,
+        };
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        vm.SelectedNav = Item(vm, NavKey.Editor);
+        await vm.DashboardRefresh;
+
+        vm.Dashboard.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DashboardViewModel.IsLoading))
+            {
+                throw new InvalidOperationException("falha ao reler");
+            }
+        };
+        vm.Editor.SelectedLine = vm.Editor.Lines[0];
+        vm.Editor.Detail!.ApproveCommand.Execute(null);
+        await vm.DashboardRefresh;
+
+        Assert.True(vm.DashboardRefresh.IsCompletedSuccessfully);
+        var toast = Assert.Single(vm.Toasts.Toasts, t => t.IsWarning);
+        Assert.Contains("andamento", toast.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_paleta_lista_a_Biblioteca_e_as_paginas_do_jogo_como_telas()
     {
         using var temp = new TempFolder();
