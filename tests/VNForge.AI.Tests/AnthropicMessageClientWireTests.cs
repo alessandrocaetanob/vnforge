@@ -30,7 +30,7 @@ public sealed class AnthropicMessageClientWireTests
         }
     }
 
-    private static async Task<(JsonElement Body, HttpRequestMessage Request)> CaptureAsync(string model, string batchContext = "")
+    private static async Task<(JsonElement Body, HttpRequestMessage Request)> CaptureAsync(string model, string batchContext = "", ClaudeImage? image = null)
     {
         var handler = new CapturingHandler();
         var sdk = new AnthropicClient
@@ -39,7 +39,7 @@ public sealed class AnthropicMessageClientWireTests
             MaxRetries = 0,
             HttpClient = new HttpClient(handler),
         };
-        var request = new ClaudeRequest(model, ClaudeEffort.Low, 1024, "sistema", "usuario", """{"type":"object"}""", batchContext);
+        var request = new ClaudeRequest(model, ClaudeEffort.Low, 1024, "sistema", "usuario", """{"type":"object"}""", batchContext, image);
 
         await new AnthropicMessageClient(sdk).CompleteAsync(request, CancellationToken.None);
 
@@ -63,6 +63,40 @@ public sealed class AnthropicMessageClientWireTests
         Assert.Equal("ephemeral", system[0].GetProperty("cache_control").GetProperty("type").GetString());
         Assert.Equal("glossário do lote", system[1].GetProperty("text").GetString());
         Assert.False(system[1].TryGetProperty("cache_control", out _), system[1].ToString());
+    }
+
+    [Fact]
+    public async Task Imagem_vai_como_bloco_base64_antes_do_texto_do_usuario()
+    {
+        byte[] pixels = [0x89, 0x50, 0x4E, 0x47, 1, 2, 3];
+
+        var (body, _) = await CaptureAsync(ClaudeModels.Haiku, image: new ClaudeImage("image/png", pixels));
+
+        var content = body.GetProperty("messages")[0].GetProperty("content").EnumerateArray().ToList();
+        Assert.Equal(2, content.Count);
+        Assert.Equal("image", content[0].GetProperty("type").GetString());
+        var source = content[0].GetProperty("source");
+        Assert.Equal("base64", source.GetProperty("type").GetString());
+        Assert.Equal("image/png", source.GetProperty("media_type").GetString());
+        Assert.Equal(pixels, Convert.FromBase64String(source.GetProperty("data").GetString()!));
+        Assert.Equal("text", content[1].GetProperty("type").GetString());
+        Assert.Equal("usuario", content[1].GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task Sem_imagem_o_usuario_segue_como_texto_simples()
+    {
+        var (body, _) = await CaptureAsync(ClaudeModels.Haiku);
+
+        Assert.Equal("usuario", body.GetProperty("messages")[0].GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task Formato_json_continua_no_output_config_com_imagem()
+    {
+        var (body, _) = await CaptureAsync(ClaudeModels.Haiku, image: new ClaudeImage("image/webp", [1]));
+
+        Assert.Equal("json_schema", body.GetProperty("output_config").GetProperty("format").GetProperty("type").GetString());
     }
 
     [Fact]

@@ -1,6 +1,11 @@
 namespace VNForge.AI.Claude;
 
+/// <summary>Uma imagem que acompanha a mensagem do usuário, enviada como bloco base64.</summary>
+/// <param name="MediaType">Um de <c>image/png</c>, <c>image/jpeg</c>, <c>image/gif</c> ou <c>image/webp</c>, os que a API aceita.</param>
+public sealed record ClaudeImage(string MediaType, byte[] Data);
+
 /// <summary>Pedido já montado, independente do SDK: é o que os testes inspecionam.</summary>
+/// <param name="Image">Imagem que vai antes do texto de <paramref name="User"/>; nula nos pedidos só de texto.</param>
 public sealed record ClaudeRequest(
     string Model,
     ClaudeEffort Effort,
@@ -8,7 +13,8 @@ public sealed record ClaudeRequest(
     string System,
     string User,
     string JsonSchema,
-    string BatchContext = "")
+    string BatchContext = "",
+    ClaudeImage? Image = null)
 {
     /// <summary>O sistema inteiro: <see cref="System"/> (igual a cada lote do projeto) e <see cref="BatchContext"/> (glossário e personagens do lote).</summary>
     public string FullSystem => System + BatchContext;
