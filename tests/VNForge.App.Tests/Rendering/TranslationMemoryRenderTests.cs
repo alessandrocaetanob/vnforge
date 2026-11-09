@@ -1,10 +1,16 @@
 using Avalonia.Controls;
 using Avalonia.Automation;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using VNForge.AI.Claude;
+using VNForge.AI.Explain;
+using VNForge.AI.Translation;
+using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.App.Controls;
+using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Memory;
 using VNForge.Core.Projects;
@@ -36,8 +42,10 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
             new("yst00001:000002", TextUnitKind.Dialogue, "健太", "「はい」", "Sim.", TranslationStatus.Translated),
         ]);
         // O cabeçalho do inspetor do quadro: retrato, nome, papel no jogo (do VNDB) e jeito de falar da Misaki.
-        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, Tone: "Professora, rígida", VndbId: "c100")]);
+        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, Tone: "Professora, rígida", Color: "rose", VndbId: "c100")]);
         folder.SaveVndbLink(new VndbLink("v100", "Amaoto no Hakoniwa", null, null, [new VndbLinkedCharacter("c100", "Misaki", "美咲", [], CharacterGender.Female, null, "side")]));
+        // O quadro mostra "Cabe · 2 de 3 linhas": o perfil do jogo quebra em 40 colunas e 3 linhas.
+        folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
         // O quadro mostra seis termos do pessoal: três já no projeto (um difere), dois para usar; e três do projeto para guardar.
         folder.SaveGlossary(
         [
@@ -70,7 +78,9 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
             {
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
-                var editor = new EditorViewModel(clock: new FixedClock(Now)) { Memory = Fill(config) };
+                // Com provedor de IA o "Entender o japonês" e o "Usar sugestão" ficam ativos, como no quadro.
+                var suggester = new LineSuggester(() => new FakeTranslationProvider(u => (u.Translation ?? u.Source).Replace("Os dois", "Vocês dois")));
+                var editor = new EditorViewModel(clock: new FixedClock(Now), suggester: suggester) { Memory = Fill(config), Explanations = new ExplicacaoDeExemplo() };
                 var vm = new MainWindowViewModel(start) { Editor = editor };
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
@@ -82,6 +92,7 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
                     await editor.GoToLineAsync("yst00001", "yst00001:000001");
                     await editor.Detail!.MemoryLoading;
+                    await editor.Detail.SuggestCommand.ExecuteAsync(null);
                     ScreenRenderer.Settle(window);
 
                     var card = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "MemoryFragment" && b.IsEffectivelyVisible);
@@ -100,6 +111,18 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                     Assert.Contains("Secundária · Professora, rígida", headerTexts);
                     Assert.Contains("yst00001:000001 · Diálogo", headerTexts);
                     Assert.Equal(64, Assert.Single(header.GetVisualDescendants().OfType<Portrait>()).Bounds.Width);
+                    // Histórico e Mais: ícones de 12 px, apagados, como no quadro.
+                    var headerIcons = header.GetVisualDescendants().OfType<PathIcon>().Where(i => i.IsEffectivelyVisible).ToList();
+                    Assert.Equal(2, headerIcons.Count);
+                    Assert.All(headerIcons, i => Assert.Equal(12, i.Width));
+                    Assert.Equal("2 falas antes", editor.Detail.SceneCountText);
+                    // A caixa do jogo é o bloco liso do quadro: 68 px de bloco mais os 10 px da etiqueta do nome que sobem sobre a borda, com 2 linhas de texto, na largura toda do inspetor, e sem divisor sobre o "Aprovar e próxima".
+                    var box = window.GetVisualDescendants().OfType<GameTextbox>().Single(g => g.IsEffectivelyVisible);
+                    Assert.Equal(78, box.Bounds.Height);
+                    Assert.Equal(((Control)box.Parent!).Bounds.Width, box.Bounds.Width);
+                    Assert.Equal(2, box.Rows.Count);
+                    Assert.Equal(default, window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ActionsBar").BorderThickness);
+                    Assert.All(window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Name == "ApproveButton" || b.Classes.Contains("use-in-row")), b => Assert.True(b.IsEnabled));
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-memoria", theme)));
                 }
                 finally
@@ -153,6 +176,13 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                     var page = window.GetVisualDescendants().OfType<GlossaryView>().Single();
                     Assert.DoesNotContain(page.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && (t.Text == "Glossário" || (t.Text?.StartsWith("Nomes e termos fixos", StringComparison.Ordinal) ?? false)));
                     Assert.Equal(3, buttons.Count(b => b.Content as string == "Guardar"));
+                    // O banner do quadro: título em peso regular, corpo em cor secundária, entrelinha de 18 e 78 px de altura.
+                    var banner = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("infobar") && b.IsEffectivelyVisible);
+                    var bannerTexts = banner.GetVisualDescendants().OfType<TextBlock>().ToList();
+                    Assert.Equal(PersonalGlossaryViewModel.BannerText, bannerTexts[^1].Text);
+                    Assert.All(bannerTexts, t => Assert.Equal(FontWeight.Normal, t.FontWeight));
+                    Assert.Contains("secondary", bannerTexts[^1].Classes);
+                    Assert.Equal(78, banner.Bounds.Height);
                     Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "No projeto");
                     Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Difere do projeto");
                     // Os dois cartões vão até o pé da página, e a nota do rodapé fica na base do cartão da tabela.
@@ -170,5 +200,15 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    private sealed class ExplicacaoDeExemplo : ILineExplanations
+    {
+        public bool IsAvailable => true;
+
+        public string PriceText => "menos de R$ 0,01";
+
+        public Task<LineExplanation> ExplainAsync(string projectRoot, string source, CancellationToken ct) =>
+            Task.FromResult(new LineExplanation([new ExplainedPart("相沢", "Aizawa (sobrenome)")], ClaudeModels.Haiku, FromCache: false));
     }
 }

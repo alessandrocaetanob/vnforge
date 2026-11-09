@@ -79,7 +79,7 @@
               <TextBlock Classes="mono secondary" Text="{Binding HeaderIdLine}" TextWrapping="Wrap" AutomationProperties.Name="Linha"/>
             </StackPanel>
             <Button Grid.Column="2" Classes="subtle icon sm" VerticalAlignment="Center" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.History}"/>
+              <PathIcon Width="12" Height="12" Foreground="{DynamicResource Vnf.TextSecondary}" Opacity="0.7" Data="{StaticResource Icon.History}"/>
               <Button.Flyout>
                 <Flyout Placement="BottomEdgeAlignedRight">
                   <TextBlock Classes="body-sm" MaxWidth="280" TextWrapping="Wrap" Text="{Binding HistoryText}"/>
@@ -87,7 +87,7 @@
               </Button.Flyout>
             </Button>
             <Button Grid.Column="3" Classes="subtle icon sm" VerticalAlignment="Center" AutomationProperties.Name="Mais ações" ToolTip.Tip="Mais ações">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.More}"/>
+              <PathIcon Width="12" Height="12" Foreground="{DynamicResource Vnf.TextSecondary}" Opacity="0.7" Data="{StaticResource Icon.More}"/>
               <Button.Flyout>
                 <MenuFlyout Placement="BottomEdgeAlignedRight">
                   <MenuItem Header="Copiar o original para a tradução" InputGesture="Ctrl+Shift+Enter" Command="{Binding CopyOriginalCommand}"/>
@@ -227,7 +227,7 @@
             <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
               <!-- Sem rolagem: a caixa encolhe em proporção quando as colunas do perfil não cabem na largura do inspetor (#392). -->
               <Panel IsVisible="{Binding Preview.HasLayout}">
-                <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Left" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
+                <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Stretch" Flat="True" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
               </Panel>
               <StackPanel IsVisible="{Binding !IsCompactInspector}">
                 <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
@@ -473,7 +473,7 @@
       </Border>
     </Panel>
 
-    <Border x:Name="ActionsBar" Grid.Row="1" Classes="divider-top" Padding="0,12,0,0" Margin="0,8,0,0">
+    <Border x:Name="ActionsBar" Grid.Row="1" Padding="0,12,0,0" Margin="0,8,0,0">
       <!-- Aprovar e próxima ocupa o que sobra da linha; "Usar sugestão" tem a largura do texto. Nada quebra com o inspetor em 400 px. -->
       <Grid x:Name="ActionsFragment" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
         <Button x:Name="ApproveButton" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveAndNextCommand}"

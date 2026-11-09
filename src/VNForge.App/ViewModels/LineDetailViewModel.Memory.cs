@@ -64,8 +64,8 @@ public sealed partial class LineDetailViewModel
     [NotifyPropertyChangedFor(nameof(IsSceneCollapsed))]
     public partial bool IsSceneOpen { get; set; }
 
-    /// <summary>"2 falas" ao lado do "Na cena" recolhido.</summary>
-    public string SceneCountText => Scene.Count == 1 ? "1 fala" : $"{Scene.Count} falas";
+    /// <summary>"2 falas antes" ao lado do "Na cena" recolhido: a cena é o que vem antes da linha aberta.</summary>
+    public string SceneCountText => Scene.Count == 1 ? "1 fala antes" : $"{Scene.Count} falas antes";
 
     [RelayCommand]
     private void ToggleScene() => IsSceneOpen = !IsSceneOpen;

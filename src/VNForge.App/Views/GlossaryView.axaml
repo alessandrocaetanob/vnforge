@@ -485,8 +485,8 @@
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                       <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
                       <StackPanel Grid.Column="1" Spacing="2">
-                        <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding BannerTitle}"/>
-                        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{x:Static vm:PersonalGlossaryViewModel.BannerText}"/>
+                        <TextBlock Classes="body-sm" LineHeight="18" TextWrapping="Wrap" Text="{Binding BannerTitle}"/>
+                        <TextBlock Classes="body-sm secondary" LineHeight="18" TextWrapping="Wrap" Text="{x:Static vm:PersonalGlossaryViewModel.BannerText}"/>
                       </StackPanel>
                     </Grid>
                   </Border>

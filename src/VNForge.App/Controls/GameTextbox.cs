@@ -77,13 +77,21 @@ public sealed class GameTextbox : Control
     public static readonly StyledProperty<bool> FitToWidthProperty =
         AvaloniaProperty.Register<GameTextbox, bool>(nameof(FitToWidth));
 
+    /// <summary>
+    /// O visual do inspetor do Editor (quadro do #537): um bloco liso que ocupa a largura toda, sem moldura nem guias pontilhadas e só com as linhas que têm texto;
+    /// quantas linhas o perfil permite quem diz é o "Cabe · 2 de 3 linhas" logo abaixo.
+    /// </summary>
+    public static readonly StyledProperty<bool> FlatProperty =
+        AvaloniaProperty.Register<GameTextbox, bool>(nameof(Flat));
+
     static GameTextbox()
     {
-        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, FitToWidthProperty);
-        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty, FitToWidthProperty);
+        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, FitToWidthProperty, FlatProperty);
+        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty, FitToWidthProperty, FlatProperty);
     }
 
     private double fitScale = 1;
+    private double frameWidth;
 
     public GameTextbox() => ActualThemeVariantChanged += (_, _) => InvalidateVisual();
 
@@ -118,6 +126,12 @@ public sealed class GameTextbox : Control
         set => SetValue(FitToWidthProperty, value);
     }
 
+    public bool Flat
+    {
+        get => GetValue(FlatProperty);
+        set => SetValue(FlatProperty, value);
+    }
+
     /// <summary>A escala do desenho na última medida: 1 quando a caixa cabe na largura recebida (ou <see cref="FitToWidth"/> está desligado) e menos que 1 quando foi encolhida.</summary>
     public double FitScale => fitScale;
 
@@ -128,13 +142,13 @@ public sealed class GameTextbox : Control
             : availableWidth / contentWidth;
 
     /// <summary>A grade de linhas que o controle desenha para o <see cref="Layout"/> atual; vazia sem ele.</summary>
-    public IReadOnlyList<GameTextboxRow> Rows => Layout is { } layout ? Describe(layout) : [];
+    public IReadOnlyList<GameTextboxRow> Rows => Layout is { } layout ? Describe(layout, !Flat) : [];
 
     /// <summary>
     /// Monta a grade: cada página tem as linhas do perfil (ou as que a tradução usa, se forem mais). A linha com texto dentro do limite é <c>Text</c>,
     /// a que o perfil permite e ficou sem texto é <c>Vacant</c> e a que passa do limite é <c>Overflow</c>. Entre páginas entra um <c>PageBreak</c>.
     /// </summary>
-    public static IReadOnlyList<GameTextboxRow> Describe(TextboxLayout layout)
+    public static IReadOnlyList<GameTextboxRow> Describe(TextboxLayout layout, bool includeVacant = true)
     {
         ArgumentNullException.ThrowIfNull(layout);
 
@@ -151,6 +165,11 @@ public sealed class GameTextbox : Control
             {
                 if (n >= lines.Count)
                 {
+                    if (!includeVacant)
+                    {
+                        continue;
+                    }
+
                     rows.Add(new GameTextboxRow(GameTextboxRowKind.Vacant, page, null));
                 }
                 else if (lines[n].Overflow || (layout.MaxLines is { } max && n >= max))
@@ -178,12 +197,12 @@ public sealed class GameTextbox : Control
             return [];
         }
 
-        var m = Metrics.For(Size);
+        var m = Metrics.For(Size, Flat);
         var (columnWidth, textHeight) = Cell(m);
         var rowHeight = Math.Max(m.RowHeight, textHeight);
         var y = (layout.Speaker is null ? 0 : m.PlateOverhang) + m.PadTop;
         var bounds = new List<GameTextboxRowBounds>();
-        foreach (var row in Describe(layout))
+        foreach (var row in Describe(layout, !Flat))
         {
             var gap = row.FirstOverflow ? OverflowGap : 0;
             var height = row.Kind == GameTextboxRowKind.PageBreak ? PageTail + PageSeparatorHeight : rowHeight;
@@ -202,13 +221,16 @@ public sealed class GameTextbox : Control
             return default;
         }
 
-        var m = Metrics.For(Size);
+        var m = Metrics.For(Size, Flat);
         var (columnWidth, textHeight) = Cell(m);
         var rowHeight = Math.Max(m.RowHeight, textHeight);
-        var height = HeightOf(layout, m, rowHeight);
+        var height = HeightOf(layout, m, rowHeight, !Flat);
         var width = ContentWidth(layout, m, columnWidth);
         fitScale = FitToWidth ? ScaleToFit(width, availableSize.Width) : 1;
-        return new Size(width * fitScale, height * fitScale);
+        // O bloco liso estica até a largura recebida; o desenho (em coordenadas sem escala) cobre essa largura dividida pela escala.
+        var stretched = Flat && !double.IsInfinity(availableSize.Width) && availableSize.Width > 0;
+        frameWidth = stretched ? Math.Max(width, availableSize.Width / fitScale) : width;
+        return new Size(stretched ? Math.Max(width * fitScale, availableSize.Width) : width * fitScale, height * fitScale);
     }
 
     public override void Render(DrawingContext context)
@@ -226,7 +248,7 @@ public sealed class GameTextbox : Control
     private void RenderBox(DrawingContext context, TextboxLayout layout)
     {
 
-        var m = Metrics.For(Size);
+        var m = Metrics.For(Size, Flat);
         var (columnWidth, textHeight) = Cell(m);
         var rowHeight = Math.Max(m.RowHeight, textHeight);
         var ink = Brush("Vnf.TextboxInk", Brushes.White);
@@ -235,20 +257,28 @@ public sealed class GameTextbox : Control
             columnWidth,
             textHeight,
             rowHeight,
-            (layout.Columns * columnWidth) + (m.PadX * 2),
+            Flat ? frameWidth : (layout.Columns * columnWidth) + (m.PadX * 2),
             new Typeface(FontFamily),
             ink,
             Brush("Vnf.TextboxOverflow", Brushes.Salmon),
             new DashStyle([1, 2], 0),
-            new DashStyle([4, 3], 0));
+            new DashStyle([4, 3], 0),
+            Flat);
 
         var top = layout.Speaker is null ? 0 : m.PlateOverhang;
-        var frame = new Rect(0, top, paint.Width, HeightOf(layout, m, rowHeight) - top);
-        context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), new Pen(Tint(ink, 0.16), 1), new RoundedRect(frame.Deflate(0.5), 12));
-        context.DrawRectangle(null, new Pen(Tint(ink, 0.07), 1), new RoundedRect(frame.Deflate(5.5), 8));
+        var frame = new Rect(0, top, paint.Width, HeightOf(layout, m, rowHeight, !Flat) - top);
+        if (Flat)
+        {
+            context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), null, new RoundedRect(frame, 8));
+        }
+        else
+        {
+            context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), new Pen(Tint(ink, 0.16), 1), new RoundedRect(frame.Deflate(0.5), 12));
+            context.DrawRectangle(null, new Pen(Tint(ink, 0.07), 1), new RoundedRect(frame.Deflate(5.5), 8));
+        }
 
         var y = top + m.PadTop;
-        foreach (var row in Describe(layout))
+        foreach (var row in Describe(layout, !Flat))
         {
             y = DrawRow(context, layout, row, y, paint);
         }
@@ -284,15 +314,19 @@ public sealed class GameTextbox : Control
             DrawLine(context, layout.Boxes[row.Page].Lines[n], p.Typeface, isOverflow ? p.Overflow : p.Ink, p.ColumnWidth, new Point(m.PadX, y + ((p.RowHeight - p.TextHeight) / 2)), m);
         }
 
-        var rule = y + p.RowHeight - 0.5;
-        context.DrawLine(new Pen(Tint(isOverflow ? p.Overflow : p.Ink, isOverflow ? 0.35 : 0.13), 1, p.Dotted), new Point(m.PadX, rule), new Point(m.PadX + (layout.Columns * p.ColumnWidth), rule));
+        if (!p.Flat || isOverflow)
+        {
+            var rule = y + p.RowHeight - 0.5;
+            context.DrawLine(new Pen(Tint(isOverflow ? p.Overflow : p.Ink, isOverflow ? 0.35 : 0.13), 1, p.Dotted), new Point(m.PadX, rule), new Point(m.PadX + (layout.Columns * p.ColumnWidth), rule));
+        }
+
         return y + p.RowHeight;
     }
 
-    private static double HeightOf(TextboxLayout layout, Metrics m, double rowHeight)
+    private static double HeightOf(TextboxLayout layout, Metrics m, double rowHeight, bool includeVacant)
     {
         var height = (layout.Speaker is null ? 0 : m.PlateOverhang) + m.PadTop + m.PadBottom;
-        foreach (var row in Describe(layout))
+        foreach (var row in Describe(layout, includeVacant))
         {
             height += row.Kind == GameTextboxRowKind.PageBreak ? PageTail + PageSeparatorHeight : rowHeight;
             height += row.FirstOverflow ? OverflowGap : 0;
@@ -358,7 +392,11 @@ public sealed class GameTextbox : Control
     {
         var text = Format(speaker, typeface, ink, m.PlateFont);
         var plate = new Rect(m.PlateLeft, 0, text.Width + (m.PlatePadX * 2), m.PlateHeight);
-        context.DrawRectangle(new SolidColorBrush(Colors.Black, 0.35), null, new RoundedRect(plate.Translate(new Vector(0, 2)), 6));
+        if (!Flat)
+        {
+            context.DrawRectangle(new SolidColorBrush(Colors.Black, 0.35), null, new RoundedRect(plate.Translate(new Vector(0, 2)), 6));
+        }
+
         context.DrawRectangle(Brush("Vnf.TextboxPlate", Brushes.SteelBlue), null, new RoundedRect(plate, 6));
         context.DrawText(text, new Point(plate.X + m.PlatePadX, (m.PlateHeight - text.Height) / 2));
     }
@@ -410,9 +448,10 @@ public sealed class GameTextbox : Control
         IBrush Ink,
         IBrush Overflow,
         DashStyle Dotted,
-        DashStyle Dashed);
+        DashStyle Dashed,
+        bool Flat);
 
-    /// <summary>As medidas do desenho da caixa em cada tamanho (v3.css, <c>.gbox</c>, <c>.gbox.sm</c> e <c>.gbox.lg</c>).</summary>
+    /// <summary>As medidas do desenho da caixa em cada tamanho (v3.css, <c>.gbox</c>, <c>.gbox.sm</c> e <c>.gbox.lg</c>); o bloco liso (<see cref="Flat"/>) tem as do quadro do #537, qualquer que seja o tamanho.</summary>
     private readonly record struct Metrics(
         double PadTop,
         double PadX,
@@ -427,7 +466,7 @@ public sealed class GameTextbox : Control
         double NextInset,
         double NextTop)
     {
-        public static Metrics For(GameTextboxSize size) => size switch
+        public static Metrics For(GameTextboxSize size, bool flat = false) => flat ? new(13, 14, 11, 22, 14, 18, 10, 12, 10, 11, 12, -6) : size switch
         {
             GameTextboxSize.Small => new(20, 16, 24, 22, 12, 24, 12, 14, 12, 12, 12, 5),
             GameTextboxSize.Large => new(30, 32, 34, 32, 17, 28, 14, 28, 14, 13, 20, 11),
