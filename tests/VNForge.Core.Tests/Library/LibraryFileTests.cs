@@ -203,4 +203,57 @@ public sealed class LibraryFileTests : IDisposable
         Assert.Empty(merge.Missing);
         Assert.Equal(2, library.Games.Count);
     }
+
+    [Fact]
+    public void Update_rele_o_arquivo_e_nao_perde_o_que_outro_gravou_no_meio()
+    {
+        var file = new LibraryFile(_dir.Path);
+        file.Save(Sample());
+        var stale = file.Load();
+
+        new LibraryFile(_dir.Path).Update(l => l.Privacy = new LibraryPrivacy(ShowAdult: true));
+        file.Update(l => l.Replace(l.Games[1] with { Title = "Mudou" }));
+
+        var result = file.Load();
+        Assert.Equal("Mudou", result.Games[1].Title);
+        Assert.True(result.Privacy.ShowAdult);
+        Assert.False(stale.Privacy.ShowAdult);
+    }
+
+    [Fact]
+    public void Update_em_paralelo_serializa_as_gravacoes()
+    {
+        var file = new LibraryFile(_dir.Path);
+
+        Parallel.For(0, 12, new ParallelOptions { CancellationToken = TestContext.Current.CancellationToken, MaxDegreeOfParallelism = 6 }, i =>
+            new LibraryFile(_dir.Path).Update(l => l.Merge([Game(Path.Combine(_dir.Path, "jogos", $"J{i}"), $"J{i}")], Path.Combine(_dir.Path, "jogos"))));
+
+        Assert.Equal(12, file.Load().Games.Count);
+        Assert.Equal([file.Path], Directory.GetFiles(_dir.Path).Where(f => !f.EndsWith(".lock", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Update_com_arquivo_ilegivel_recusa_e_nao_o_sobrescreve()
+    {
+        var file = new LibraryFile(_dir.Path);
+        File.WriteAllText(file.Path, "{ isto não é json");
+
+        Assert.Throws<LibraryException>(() => file.Update(l => l.Privacy = new LibraryPrivacy(ShowAdult: true)));
+
+        Assert.Equal("{ isto não é json", File.ReadAllText(file.Path));
+    }
+
+    [Fact]
+    public async Task Save_espera_um_leitor_soltar_o_arquivo_em_vez_de_falhar()
+    {
+        var file = new LibraryFile(_dir.Path);
+        file.Save(Sample());
+        var reader = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+        var release = Task.Delay(80, TestContext.Current.CancellationToken).ContinueWith(_ => reader.Dispose(), TestContext.Current.CancellationToken, TaskContinuationOptions.None, TaskScheduler.Default);
+
+        file.Save(new GameLibrary([Game(Path.Combine(_dir.Path, "novo"), "Novo")]));
+        await release;
+
+        Assert.Equal("Novo", file.Load().Games.Single().Title);
+    }
 }

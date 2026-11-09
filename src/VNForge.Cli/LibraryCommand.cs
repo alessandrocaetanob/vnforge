@@ -282,7 +282,6 @@ internal static class LibraryCommand
 
         var root = Path.GetFullPath(folderArgument, cli.CurrentDirectory);
         var file = FileOf(cli);
-        var library = file.Load();
         var scanner = new LibraryScanner(new EngineRecognizer(KnownEngines.All), new GameWindowTitleReader());
         var result = scanner.Scan(
             root,
@@ -290,10 +289,12 @@ internal static class LibraryCommand
             json ? null : new ScanLines(error),
             token);
 
-        var merge = library.Merge(result.Games, root);
-        var recent = new RecentProjectsFile(cli.UserConfigDirectory).Load().Select(r => r.Path);
-        var linked = LibraryProjectLinker.LinkAll(library, recent);
-        file.Save(library);
+        var recent = new RecentProjectsFile(cli.UserConfigDirectory).Load().Select(r => r.Path).ToList();
+        var (library, merge, linked) = file.Update(current =>
+        {
+            var merged = current.Merge(result.Games, root);
+            return (current, merged, LibraryProjectLinker.LinkAll(current, recent));
+        });
 
         IReadOnlyList<LibraryGame> missing = result.Cancelled ? [] : merge.Missing;
         var known = result.Games.Count - merge.Added.Count - merge.Updated.Count;
@@ -393,7 +394,7 @@ internal static class LibraryCommand
         var library = file.Load();
         if (reset is not null)
         {
-            return Reset(cli, parseResult, file, library, reset);
+            return Reset(cli, parseResult, file, reset);
         }
 
         if (confirm is { Length: > 0 })
@@ -404,21 +405,24 @@ internal static class LibraryCommand
         return await BatchAsync(cli, parseResult, file, library, auto, again, only, token).ConfigureAwait(false);
     }
 
-    private static int Reset(VnfCli cli, ParseResult parseResult, LibraryFile file, GameLibrary library, string reference)
+    private static int Reset(VnfCli cli, ParseResult parseResult, LibraryFile file, string reference)
     {
-        var game = library.Find(reference);
-        if (!game.IsConfirmed)
+        var (game, undone, privacy) = file.Update(current =>
         {
-            throw new UsageException($"'{game.Title}' não tem jogo do VNDB confirmado.");
-        }
+            var found = current.Find(reference);
+            if (!found.IsConfirmed)
+            {
+                throw new UsageException($"'{found.Title}' não tem jogo do VNDB confirmado.");
+            }
 
-        var undone = LibraryMatcher.Unconfirm(game);
-        library.Replace(undone);
-        file.Save(library);
+            var unconfirmed = LibraryMatcher.Unconfirm(found);
+            current.Replace(unconfirmed);
+            return (found, unconfirmed, current.Privacy);
+        });
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { reset = GameData(undone, library.Privacy) }));
+            output.WriteLine(JsonEnvelope.Result(new { reset = GameData(undone, privacy) }));
         }
         else
         {
@@ -442,8 +446,11 @@ internal static class LibraryCommand
             throw new UsageException(e.Message);
         }
 
-        library.Replace(confirmed);
-        file.Save(library);
+        library = file.Update(current =>
+        {
+            current.Replace(confirmed);
+            return current;
+        });
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
@@ -474,14 +481,7 @@ internal static class LibraryCommand
         else
         {
             var matcher = new LibraryMatcher(cli.CreateVndbCatalog());
-            try
-            {
-                run = await matcher.MatchAllAsync(library, options, again, only, json ? null : new MatchLines(error), token).ConfigureAwait(false);
-            }
-            finally
-            {
-                file.Save(library);
-            }
+            run = await matcher.MatchAllAsync(library, options, again, only, json ? null : new MatchLines(error), game => KeepMatch(file, game), token).ConfigureAwait(false);
         }
 
         var exitCode = run.Failures.Count > 0 || run.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
@@ -509,6 +509,16 @@ internal static class LibraryCommand
         token.ThrowIfCancellationRequested();
         return exitCode;
     }
+
+    /// <summary>Grava o resultado de um jogo sobre a biblioteca como está agora no disco, sem refazer o que outro processo mudou nem desfazer uma confirmação feita no meio.</summary>
+    private static void KeepMatch(LibraryFile file, LibraryGame game) =>
+        file.Update(current =>
+        {
+            if (current.Games.FirstOrDefault(g => g.Id == game.Id) is { IsConfirmed: false })
+            {
+                current.Replace(game);
+            }
+        });
 
     private static void WriteMatch(TextWriter output, GameLibrary library, LibraryMatchRun run, int waiting, bool auto)
     {
@@ -850,13 +860,13 @@ internal static class LibraryCommand
             throw new UsageException(remove ? "--remove não leva --project." : "Informe o projeto com --project <pasta>, ou use --remove para desligar.");
         }
 
-        var file = FileOf(cli);
-        var library = file.Load();
-        var game = library.Find(reference);
-        var changed = remove
-            ? LibraryProjectLinker.Unlink(library, game)
-            : LibraryProjectLinker.Link(library, game, Path.GetFullPath(project!, cli.CurrentDirectory));
-        file.Save(library);
+        var (library, changed) = FileOf(cli).Update(current =>
+        {
+            var game = current.Find(reference);
+            return (current, remove
+                ? LibraryProjectLinker.Unlink(current, game)
+                : LibraryProjectLinker.Link(current, game, Path.GetFullPath(project!, cli.CurrentDirectory)));
+        });
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
@@ -872,16 +882,17 @@ internal static class LibraryCommand
 
     private static int Privacy(VnfCli cli, ParseResult parseResult)
     {
-        var file = FileOf(cli);
-        var library = file.Load();
-        var spoilers = ParseYesNo(parseResult.GetValue(SpoilersOption), "--spoilers") ?? library.Privacy.ShowSpoilers;
-        var adult = ParseYesNo(parseResult.GetValue(AdultOption), "--adult") ?? library.Privacy.ShowAdult;
-        var changed = spoilers != library.Privacy.ShowSpoilers || adult != library.Privacy.ShowAdult;
-        if (changed)
+        var newSpoilers = ParseYesNo(parseResult.GetValue(SpoilersOption), "--spoilers");
+        var newAdult = ParseYesNo(parseResult.GetValue(AdultOption), "--adult");
+        var (library, changed) = FileOf(cli).Update(current =>
         {
-            library.Privacy = new LibraryPrivacy(spoilers, adult);
-            file.Save(library);
-        }
+            var next = new LibraryPrivacy(newSpoilers ?? current.Privacy.ShowSpoilers, newAdult ?? current.Privacy.ShowAdult);
+            var differs = next != current.Privacy;
+            current.Privacy = next;
+            return (current, differs);
+        });
+        var spoilers = library.Privacy.ShowSpoilers;
+        var adult = library.Privacy.ShowAdult;
 
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))

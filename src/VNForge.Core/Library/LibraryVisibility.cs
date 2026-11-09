@@ -23,12 +23,18 @@ public sealed record LibraryGameCard(
     bool Adult);
 
 /// <summary>
-/// Aplica a privacidade da biblioteca. Spoiler escondido: tags com spoiler e os trechos <c>[spoiler]</c> da sinopse. Adulto escondido: a capa de jogo marcado como
-/// adulto e as tags eróticas dele. A sinopse sai em texto simples (os códigos de formatação do VNDB são tirados).
+/// Aplica a privacidade da biblioteca. Spoiler escondido: tags com spoiler e os trechos <c>[spoiler]</c> da sinopse; um <c>[spoiler]</c> sem <c>[/spoiler]</c> vale até o fim
+/// do texto. Adulto escondido: a capa de jogo marcado como adulto e toda tag erótica (categoria <c>ero</c> do VNDB), de qualquer jogo, marcado como adulto ou não. A sinopse sai em texto simples (os códigos de formatação do VNDB são tirados).
 /// </summary>
 public static partial class LibraryVisibility
 {
     public const string SpoilerPlaceholder = "[spoiler escondido]";
+
+    /// <summary>A categoria do VNDB para tags de conteúdo sexual.</summary>
+    private const string EroticCategory = "ero";
+
+    /// <summary>Marca (caractere de uso privado) o lugar do spoiler escondido até o fim da limpeza, para que o aviso não seja tomado por código do VNDB.</summary>
+    private const string Sentinel = "";
 
     private const int RegexTimeoutMilliseconds = 500;
 
@@ -70,31 +76,28 @@ public static partial class LibraryVisibility
         return game.Info is { } info ? VisibleTags(info, privacy) : [];
     }
 
-    private static List<LibraryTag> VisibleTags(LibraryVndbInfo info, LibraryPrivacy privacy)
-    {
-        var hideAdult = info.Adult && !privacy.ShowAdult;
-        return [.. info.Tags
+    private static List<LibraryTag> VisibleTags(LibraryVndbInfo info, LibraryPrivacy privacy) =>
+        [.. info.Tags
             .Where(t => privacy.ShowSpoilers || t.Spoiler == 0)
-            .Where(t => !hideAdult || t.Category != "ero")];
-    }
+            .Where(t => privacy.ShowAdult || t.Category != EroticCategory)];
 
     /// <summary>A sinopse do VNDB em texto simples. Sem <paramref name="showSpoilers"/>, cada trecho <c>[spoiler]...[/spoiler]</c> vira <see cref="SpoilerPlaceholder"/>.</summary>
     public static string PlainSynopsis(string description, bool showSpoilers, out bool hadSpoilers)
     {
         ArgumentNullException.ThrowIfNull(description);
         hadSpoilers = SpoilerBlock().IsMatch(description);
-        var text = SpoilerBlock().Replace(description, showSpoilers ? "$1" : SpoilerPlaceholder);
+        var text = SpoilerBlock().Replace(description, showSpoilers ? "$1" : Sentinel);
         text = Link().Replace(text, "$1");
         text = Tag().Replace(text, string.Empty);
-        return text.Trim();
+        return text.Replace(Sentinel, SpoilerPlaceholder, StringComparison.Ordinal).Trim();
     }
 
-    [GeneratedRegex(@"\[spoiler\](.*?)\[/spoiler\]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Singleline, RegexTimeoutMilliseconds)]
+    [GeneratedRegex(@"\[spoiler\](.*?)(?:\[/spoiler\]|\z)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Singleline, RegexTimeoutMilliseconds)]
     private static partial Regex SpoilerBlock();
 
     [GeneratedRegex(@"\[url=[^\]]*\](.*?)\[/url\]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Singleline, RegexTimeoutMilliseconds)]
     private static partial Regex Link();
 
-    [GeneratedRegex(@"\[/?(?:b|i|u|s|quote|raw|code|url|from)(?:\s[^\]]*)?\]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
+    [GeneratedRegex(@"\[/?(?:b|i|u|s|quote|raw|code|url|from|spoiler)(?:\s[^\]]*)?\]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
     private static partial Regex Tag();
 }

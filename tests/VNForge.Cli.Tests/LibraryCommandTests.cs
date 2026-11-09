@@ -618,6 +618,59 @@ public sealed class LibraryCommandTests : IDisposable
         Assert.Equal("{ nao e json", await File.ReadAllTextAsync(file.Path, Ct));
     }
 
+    [Fact]
+    public async Task Match_nao_perde_o_que_outro_processo_gravou_enquanto_buscava()
+    {
+        var inner = UseFakeCatalog();
+        var file = new LibraryFile(_cli.UserConfigDirectory);
+        var intruder = new LibraryGame(
+            GameLibrary.IdFor(Path.Combine(_cli.Root, "outro")),
+            Path.Combine(_cli.Root, "outro"),
+            null,
+            LibraryEngine.Unknown,
+            "Jogo de outro processo",
+            null,
+            DateTimeOffset.UnixEpoch);
+        var calls = 0;
+        _cli.Cli.VndbCatalogFactory = () => new BusyCatalog(inner, () =>
+        {
+            if (++calls == 1)
+            {
+                file.Update(l =>
+                {
+                    l.Privacy = new LibraryPrivacy(ShowAdult: true);
+                    l.Merge([intruder], _cli.Root);
+                });
+            }
+        });
+        await Run("library", "scan", Collection);
+
+        var result = await Run("library", "match", "--auto");
+
+        Assert.Equal(0, result.ExitCode);
+        var library = file.Load();
+        Assert.True(library.Privacy.ShowAdult);
+        Assert.Contains(library.Games, g => g.Title == "Jogo de outro processo");
+        Assert.Equal(["CLANNAD", "Eroge", "Steins;Gate"], library.Games.Where(g => g.IsConfirmed).Select(g => g.Title).Order(StringComparer.Ordinal));
+    }
+
+    private sealed class BusyCatalog(IVndbCatalog inner, Action onSearch) : IVndbCatalog
+    {
+        public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default)
+        {
+            onSearch();
+            return inner.SearchVisualNovelsAsync(title, limit, ct);
+        }
+
+        public Task<VndbVisualNovel?> GetVisualNovelAsync(string id, CancellationToken ct = default) => inner.GetVisualNovelAsync(id, ct);
+
+        public Task<VndbResults<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default) => inner.GetCharactersAsync(visualNovelId, ct);
+
+        public Task<VndbResults<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default) => inner.SearchCharactersByTitleAsync(title, ct);
+
+        public Task<VndbResults<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default) => inner.GetReleasesAsync(visualNovelId, ct);
+    }
+
     private sealed class OfflineCatalog : IVndbCatalog
     {
         public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default) =>
