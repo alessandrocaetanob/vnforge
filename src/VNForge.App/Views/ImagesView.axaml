@@ -172,29 +172,29 @@
             <Border Grid.Column="1" Classes="panel" Padding="16" VerticalAlignment="Top" IsEnabled="{Binding IsEditable}">
               <StackPanel Spacing="12">
                 <StackPanel Spacing="6" IsVisible="{Binding SelectedItem.HasText}">
-                  <TextBlock Classes="overline" Text="Lido pela IA · Haiku com visão"/>
+                  <c:OverlineText Classes="overline" Text="Lido pela IA · Haiku com visão"/>
                   <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="10,8">
                     <SelectableTextBlock Classes="jp-body" TextWrapping="Wrap" Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
                   </Border>
                 </StackPanel>
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="overline" Text="Texto na imagem"/>
+                  <c:OverlineText Classes="overline" Text="Texto na imagem"/>
                   <TextBox Text="{Binding Text}" AcceptsReturn="True" AutomationProperties.Name="Texto da tradução na imagem"/>
                 </StackPanel>
                 <Grid ColumnDefinitions="*,86" ColumnSpacing="10">
                   <StackPanel Spacing="6">
-                    <TextBlock Classes="overline" Text="Fonte"/>
+                    <c:OverlineText Classes="overline" Text="Fonte"/>
                     <ComboBox ItemsSource="{Binding FontChoices}" SelectedItem="{Binding Font}" HorizontalAlignment="Stretch" AutomationProperties.Name="Fonte do texto"/>
                   </StackPanel>
                   <StackPanel Grid.Column="1" Spacing="6">
-                    <TextBlock Classes="overline" Text="Tamanho"/>
+                    <c:OverlineText Classes="overline" Text="Tamanho"/>
                     <TextBox Text="{Binding FontSize}" AutomationProperties.Name="Tamanho da fonte em pixels"/>
                   </StackPanel>
                 </Grid>
                 <CheckBox IsChecked="{Binding IsBold}" Content="Negrito"/>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                   <StackPanel Spacing="6">
-                    <TextBlock Classes="overline" Text="Cor do texto"/>
+                    <c:OverlineText Classes="overline" Text="Cor do texto"/>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                       <Ellipse Width="24" Height="24" Fill="{Binding TextColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
                       <TextBox Grid.Column="1" Text="{Binding TextColor}" AutomationProperties.Name="Cor do texto"/>
@@ -206,7 +206,7 @@
                   </StackPanel>
                 </Grid>
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="overline" Text="Apagar a área"/>
+                  <c:OverlineText Classes="overline" Text="Apagar a área"/>
                   <ListBox Classes="seg" ItemsSource="{Binding EraseChoices}" SelectedItem="{Binding SelectedEraseChoice}" AutomationProperties.Name="Como apagar a área"/>
                   <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding UsesSolidErase}">
                     <Ellipse Width="24" Height="24" Fill="{Binding EraseColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
@@ -214,7 +214,7 @@
                   </Grid>
                 </StackPanel>
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="overline" Text="Área, em pixels da imagem"/>
+                  <c:OverlineText Classes="overline" Text="Área, em pixels da imagem"/>
                   <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
                     <TextBox Text="{Binding RegionX}" AutomationProperties.Name="Posição horizontal da área" ToolTip.Tip="Esquerda"/>
                     <TextBox Grid.Column="1" Text="{Binding RegionY}" AutomationProperties.Name="Posição vertical da área" ToolTip.Tip="Topo"/>

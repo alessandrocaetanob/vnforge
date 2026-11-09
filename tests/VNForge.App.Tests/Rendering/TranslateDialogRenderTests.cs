@@ -180,7 +180,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
 
                 var surface = Surface(window);
                 var texts = surface.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains("QUANDO", texts);
+                Assert.Contains("Quando", texts);
                 Assert.Contains("Durante a noite", texts);
                 Assert.Contains("50% mais barato", texts);
                 Assert.Contains("Enviar o lote", texts);

@@ -208,7 +208,7 @@ Estes controles continuam com o desenho padrão do Fluent, só com as cores que 
 - **Barra de seleção da linha:** o `box-shadow inset` de 3 px vira uma `Border` de 3 px à esquerda.
 - **Borda tracejada** (tag de spoiler, ExplainCard): `Border` não tracejada; usa `Rectangle` com `StrokeDashArray`.
 - **Sombra:** o `BoxShadow` aceita deslocamento, desfoque e cor, sem espalhamento. As sombras do design system foram escritas nesse formato; o desfoque e a suavidade vão diferir um pouco.
-- **Espaçamento entre letras do overline:** 0,07 em de 11 px vira `LetterSpacing` de 0,77 px (`Vnf.LetterSpacing.Overline`, aplicado pela classe `overline`). O `TextBlock` não tem `text-transform`, então o rótulo é escrito em caixa alta no XAML.
+- **Espaçamento entre letras do overline:** 0,07 em de 11 px vira `LetterSpacing` de 0,77 px (`Vnf.LetterSpacing.Overline`, aplicado pela classe `overline`). O `TextBlock` não tem `text-transform` (o `.v3-lbl` do quadro é `uppercase` nos 97 rótulos), então todo rótulo é um `c:OverlineText`, que desenha o `Text` em caixa alta sem mudá-lo; um `TextBlock` com a classe `overline` sairia em caixa baixa e `OverlineTests` falha.
 - **Botão comum:** é o contornado do quadro (`v3-btn`): fundo do cartão, contorno de 1 px em `stroke-control`, rótulo semibold. O FluentTheme pinta hover, pressionado e desligado no `ContentPresenter`; `Buttons.axaml` refaz esses estados.
 - **Reticências:** `text-overflow` vira `TextTrimming="CharacterEllipsis"`.
 - **`color-mix`:** o véu atrás do diálogo no HTML mistura `bg-base` com transparência; no app é o token `dialog-scrim`.

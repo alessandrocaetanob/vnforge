@@ -17,7 +17,7 @@
       <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="O QUE TRADUZIR"/>
+          <c:OverlineText Classes="overline" Text="O que traduzir"/>
           <ItemsControl ItemsSource="{Binding Scopes}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -39,7 +39,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="COM QUE QUALIDADE"/>
+          <c:OverlineText Classes="overline" Text="Com que qualidade"/>
           <ItemsControl ItemsSource="{Binding Qualities}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -57,7 +57,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8" IsVisible="{Binding ShowWhen}">
-          <TextBlock Classes="overline" Text="QUANDO"/>
+          <c:OverlineText Classes="overline" Text="Quando"/>
           <ItemsControl ItemsSource="{Binding Whens}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -89,7 +89,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="QUANTO CUSTA"/>
+          <c:OverlineText Classes="overline" Text="Quanto custa"/>
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">

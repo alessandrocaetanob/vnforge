@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:sv="using:VNForge.App.Services"
              x:Class="VNForge.App.Views.TaskBar"
@@ -80,7 +81,7 @@
           <!-- Largura fixa (cabe no MaxWidth de 456 do Flyout com o respiro dele): o Flyout mede o conteúdo sem limite à direita, e sem ela o status e o custo saíam da borda com rolagem horizontal. -->
           <Grid Width="416" RowDefinitions="Auto,Auto" RowSpacing="8">
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="overline secondary" Text="Tarefas" VerticalAlignment="Center"/>
+              <c:OverlineText Classes="overline secondary" Text="Tarefas" VerticalAlignment="Center"/>
               <Button Grid.Column="1" Classes="subtle sm" Content="Limpar concluídas" Command="{Binding ClearFinishedCommand}"
                       IsEnabled="{Binding HasFinished}"/>
             </Grid>

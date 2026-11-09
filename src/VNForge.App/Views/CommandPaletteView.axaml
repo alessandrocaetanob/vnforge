@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
              xmlns:vm="using:VNForge.App.ViewModels"
              x:Class="VNForge.App.Views.CommandPaletteView"
              x:DataType="vm:CommandPaletteViewModel"
@@ -43,7 +44,7 @@
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:PaletteEntry">
               <StackPanel Spacing="2">
-                <TextBlock Classes="overline secondary" Text="{Binding GroupLabel}" IsVisible="{Binding ShowGroup}" Margin="0,4,0,2"/>
+                <c:OverlineText Classes="overline secondary" Text="{Binding GroupLabel}" IsVisible="{Binding ShowGroup}" Margin="0,4,0,2"/>
                 <TextBlock Classes="body" Text="{Binding Title}" TextTrimming="CharacterEllipsis" MaxLines="1"/>
                 <TextBlock Classes="caption secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" MaxLines="1"/>
               </StackPanel>

@@ -60,7 +60,7 @@
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <PathIcon Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,8">
-                  <TextBlock Classes="overline" Text="Jogo reconhecido"/>
+                  <c:OverlineText Classes="overline" Text="Jogo reconhecido"/>
                   <TextBlock Classes="title-md" Text="{Binding EngineHeadline}"/>
                 </StackPanel>
                 <Border Grid.Column="2" VerticalAlignment="Center" Padding="8,2" CornerRadius="{DynamicResource Vnf.RadiusSm}"
@@ -194,11 +194,11 @@
                 </Grid>
               </Border>
               <Grid ColumnDefinitions="40,1.4*,1.2*,1.2*,100,1.1*" ColumnSpacing="12" Margin="16,8">
-                <TextBlock Grid.Column="1" Classes="overline" Text="Nome original"/>
-                <TextBlock Grid.Column="2" Classes="overline" Text="Romaji"/>
-                <TextBlock Grid.Column="3" Classes="overline" Text="Apelidos"/>
-                <TextBlock Grid.Column="4" Classes="overline" Text="Gênero"/>
-                <TextBlock Grid.Column="5" Classes="overline" Text="Papel"/>
+                <c:OverlineText Grid.Column="1" Classes="overline" Text="Nome original"/>
+                <c:OverlineText Grid.Column="2" Classes="overline" Text="Romaji"/>
+                <c:OverlineText Grid.Column="3" Classes="overline" Text="Apelidos"/>
+                <c:OverlineText Grid.Column="4" Classes="overline" Text="Gênero"/>
+                <c:OverlineText Grid.Column="5" Classes="overline" Text="Papel"/>
               </Grid>
               <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding Preview.Characters}">
@@ -246,11 +246,11 @@
       <!-- 3. Idiomas e nome -->
       <StackPanel Spacing="20" IsVisible="{Binding IsNamesStep}">
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Nome do projeto"/>
+          <c:OverlineText Classes="overline" Text="Nome do projeto"/>
           <TextBox Text="{Binding ProjectName}" AutomationProperties.Name="Nome do projeto"/>
         </StackPanel>
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Pasta do projeto"/>
+          <c:OverlineText Classes="overline" Text="Pasta do projeto"/>
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <TextBlock Classes="mono secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding ProjectDirectoryLabel}"/>
             <Button Grid.Column="1" Command="{Binding BrowseProjectCommand}">
@@ -263,7 +263,7 @@
           <TextBlock Classes="caption secondary" Text="Fora da pasta do jogo. Texto, cache e backups ficam aqui."/>
         </StackPanel>
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Idioma do jogo"/>
+          <c:OverlineText Classes="overline" Text="Idioma do jogo"/>
           <ItemsControl ItemsSource="{Binding SourceLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -273,7 +273,7 @@
           </ItemsControl>
         </StackPanel>
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Idioma da tradução"/>
+          <c:OverlineText Classes="overline" Text="Idioma da tradução"/>
           <ItemsControl ItemsSource="{Binding TargetLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -288,14 +288,14 @@
       <StackPanel Spacing="8" IsVisible="{Binding IsAccentsStep}">
         <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
                    Text="O jogo foi feito para o japonês e não desenha as letras acentuadas do português por conta própria. Cada cartão mostra a frase de teste na caixa de texto do jogo do jeito que vai sair. Dá para trocar depois nos Ajustes."/>
-        <TextBlock Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
+        <c:OverlineText Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
         <c:AccentCards Options="{Binding EncodingStrategies.Options}" GroupName="WizardAccents" AutomationProperties.Name="Como ficam os acentos"/>
       </StackPanel>
 
       <!-- 4. IA -->
       <StackPanel Spacing="16" IsVisible="{Binding IsAiStep}">
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Qualidade da tradução"/>
+          <c:OverlineText Classes="overline" Text="Qualidade da tradução"/>
           <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left" Text="{Binding EstimateNote}"/>
           <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-8,0" AutomationProperties.Name="Qualidade da tradução">
             <ItemsControl.ItemsPanel>
@@ -315,7 +315,7 @@
 
         <!-- Orçamento: a cotação é informada pela pessoa (o app não consulta a internet) e o limite para a IA de gastar. -->
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Orçamento"/>
+          <c:OverlineText Classes="overline" Text="Orçamento"/>
           <Border Classes="panel" Padding="16,14">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
               <StackPanel Spacing="4">
@@ -358,7 +358,7 @@
 
         <c:TechnicalDetails>
           <StackPanel Spacing="8" Margin="0,8,0,0">
-            <TextBlock Classes="overline" Text="Modelo exato"/>
+            <c:OverlineText Classes="overline" Text="Modelo exato"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap"
                        Text="Cada qualidade usa um modelo do Claude. Aqui dá para escolher o modelo à mão; os preços são por milhão de tokens, em dólar (entrada / saída)."/>
             <ItemsControl ItemsSource="{Binding Models.Options}" ItemTemplate="{StaticResource ChoiceCard}"/>

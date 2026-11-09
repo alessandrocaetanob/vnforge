@@ -102,7 +102,7 @@ public sealed class SettingsDictionariesRenderTests(HeadlessFixture fixture, Dem
                     var layer = OverlayLayer.GetOverlayLayer(window)!;
                     var dialogTexts = layer.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!).ToList();
                     Assert.Contains("Nova regra do pós-dicionário", dialogTexts);
-                    Assert.Contains("SÓ QUANDO TODAS AS CONDIÇÕES BATEREM", dialogTexts);
+                    Assert.Contains("Só quando todas as condições baterem", dialogTexts);
                     Assert.Contains("Adicionar condição", dialogTexts);
                     Assert.Contains(dialogTexts, t => t.StartsWith("Aplica em", StringComparison.Ordinal));
                     Assert.Equal(["é", "está em"], editor.Conditions.Select(c => c.OperatorLabel));

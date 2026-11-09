@@ -173,12 +173,12 @@
                   </Grid>
                 </Border>
                 <Grid ColumnDefinitions="*,*,150,112,1.2*,72,36" ColumnSpacing="12" Margin="16,8,16,0">
-                  <TextBlock Classes="overline" Text="Nome no jogo"/>
-                  <TextBlock Grid.Column="1" Classes="overline" Text="Nome na tradução"/>
-                  <TextBlock Grid.Column="2" Classes="overline" Text="Gênero"/>
-                  <TextBlock Grid.Column="3" Classes="overline" Text="Cor"/>
-                  <TextBlock Grid.Column="4" Classes="overline" Text="Como fala"/>
-                  <TextBlock Grid.Column="5" Classes="overline" Text="Falas" HorizontalAlignment="Right"/>
+                  <c:OverlineText Classes="overline" Text="Nome no jogo"/>
+                  <c:OverlineText Grid.Column="1" Classes="overline" Text="Nome na tradução"/>
+                  <c:OverlineText Grid.Column="2" Classes="overline" Text="Gênero"/>
+                  <c:OverlineText Grid.Column="3" Classes="overline" Text="Cor"/>
+                  <c:OverlineText Grid.Column="4" Classes="overline" Text="Como fala"/>
+                  <c:OverlineText Grid.Column="5" Classes="overline" Text="Falas" HorizontalAlignment="Right"/>
                 </Grid>
                 <ItemsControl ItemsSource="{Binding VisibleCharacters}" Margin="0,4,0,8" AutomationProperties.Name="Personagens">
                   <ItemsControl.ItemTemplate>
@@ -282,10 +282,10 @@
                     </Grid>
                   </Border>
                   <Grid ColumnDefinitions="*,*,1.4*,60,36" ColumnSpacing="12" Margin="16,8,16,0">
-                    <TextBlock Classes="overline" Text="Em japonês"/>
-                    <TextBlock Grid.Column="1" Classes="overline" Text="Em português"/>
-                    <TextBlock Grid.Column="2" Classes="overline" Text="Observação para a IA"/>
-                    <TextBlock Grid.Column="3" Classes="overline" Text="Linhas" HorizontalAlignment="Right"/>
+                    <c:OverlineText Classes="overline" Text="Em japonês"/>
+                    <c:OverlineText Grid.Column="1" Classes="overline" Text="Em português"/>
+                    <c:OverlineText Grid.Column="2" Classes="overline" Text="Observação para a IA"/>
+                    <c:OverlineText Grid.Column="3" Classes="overline" Text="Linhas" HorizontalAlignment="Right"/>
                   </Grid>
                   <ItemsControl ItemsSource="{Binding VisibleTerms}" Margin="0,4,0,8" AutomationProperties.Name="Termos do glossário">
                     <ItemsControl.ItemTemplate>
@@ -422,10 +422,10 @@
                     <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Error}"/>
                   </Border>
                   <Grid ColumnDefinitions="140,*,1.2*,90,150,64" ColumnSpacing="12" Margin="16,8,16,0">
-                    <TextBlock Classes="overline" Text="Em japonês"/>
-                    <TextBlock Grid.Column="1" Classes="overline" Text="Em português"/>
-                    <TextBlock Grid.Column="2" Classes="overline" Text="Observação para a IA"/>
-                    <TextBlock Grid.Column="3" Classes="overline" Text="Vem de" HorizontalAlignment="Right"/>
+                    <c:OverlineText Classes="overline" Text="Em japonês"/>
+                    <c:OverlineText Grid.Column="1" Classes="overline" Text="Em português"/>
+                    <c:OverlineText Grid.Column="2" Classes="overline" Text="Observação para a IA"/>
+                    <c:OverlineText Grid.Column="3" Classes="overline" Text="Vem de" HorizontalAlignment="Right"/>
                   </Grid>
                   <TextBlock Classes="body-sm secondary" Margin="16,12" TextWrapping="Wrap" Text="{x:Static vm:PersonalGlossaryViewModel.EmptyText}" IsVisible="{Binding IsEmpty}"/>
                   <ItemsControl ItemsSource="{Binding Rows}" Margin="0,4,0,8" AutomationProperties.Name="Termos do glossário pessoal">
@@ -487,7 +487,7 @@
                     </Grid>
                   </Border>
                   <StackPanel Spacing="0" IsVisible="{Binding HasCandidates}">
-                    <TextBlock Classes="overline" Text="GUARDAR NO GLOSSÁRIO PESSOAL" Margin="0,0,0,4"/>
+                    <c:OverlineText Classes="overline" Text="Guardar no glossário pessoal" Margin="0,0,0,4"/>
                     <ItemsControl ItemsSource="{Binding Candidates}" AutomationProperties.Name="Termos do projeto para guardar">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:KeepCandidateRow">
@@ -507,15 +507,15 @@
               <c:ScreenDialog Title="{Binding EditorTitle}" IsOpen="{Binding IsEditorOpen, Mode=TwoWay}">
                 <StackPanel Spacing="12" MinWidth="420">
                   <StackPanel Spacing="4">
-                    <TextBlock Classes="overline" Text="Em japonês"/>
+                    <c:OverlineText Classes="overline" Text="Em japonês"/>
                     <TextBox Classes="jp" Text="{Binding EditSource}" IsEnabled="{Binding CanEditSource}" AutomationProperties.Name="Termo em japonês"/>
                   </StackPanel>
                   <StackPanel Spacing="4">
-                    <TextBlock Classes="overline" Text="Em português"/>
+                    <c:OverlineText Classes="overline" Text="Em português"/>
                     <TextBox Text="{Binding EditTarget}" AutomationProperties.Name="Tradução do termo"/>
                   </StackPanel>
                   <StackPanel Spacing="4">
-                    <TextBlock Classes="overline" Text="Observação para a IA"/>
+                    <c:OverlineText Classes="overline" Text="Observação para a IA"/>
                     <TextBox Text="{Binding EditNotes}" AcceptsReturn="False" AutomationProperties.Name="Observação do termo"/>
                   </StackPanel>
                   <Border Classes="infobar error" IsVisible="{Binding HasEditError}">

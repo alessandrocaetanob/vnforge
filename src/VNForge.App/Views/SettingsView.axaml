@@ -130,7 +130,7 @@
 
             <!-- Orçamento: a cotação é informada pela pessoa (o app não consulta a internet); o limite para a IA e o app pergunta acima do aviso. -->
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="Orçamento"/>
+              <c:OverlineText Classes="overline" Text="Orçamento"/>
               <Border Classes="panel" Padding="16,14">
                 <StackPanel Spacing="14">
                   <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
@@ -186,7 +186,7 @@
 
             <!-- Qualidade padrão: o preço e o tempo valem para as linhas que faltam no projeto aberto; o modelo exato fica em "Detalhes técnicos". -->
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="{Binding QualityHeading}"/>
+              <c:OverlineText Classes="overline" Text="{Binding QualityHeading}"/>
               <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-8,0" AutomationProperties.Name="Qualidade padrão">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -206,14 +206,14 @@
             <c:TechnicalDetails>
               <StackPanel Spacing="20" Margin="0,8,0,0">
                 <StackPanel Spacing="4">
-                  <TextBlock Classes="overline" Text="Chave"/>
+                  <c:OverlineText Classes="overline" Text="Chave"/>
                   <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding KeyTechnicalNote}"/>
                   <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ConnectionDetail}"
                              IsVisible="{Binding ConnectionDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                 </StackPanel>
 
               <StackPanel Spacing="8">
-                <TextBlock Classes="overline" Text="Provedor"/>
+                <c:OverlineText Classes="overline" Text="Provedor"/>
                 <ItemsControl ItemsSource="{Binding Providers}" AutomationProperties.Name="Provedores de IA">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -243,7 +243,7 @@
               </StackPanel>
 
               <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-                <TextBlock Classes="overline" Text="Modelo"/>
+                <c:OverlineText Classes="overline" Text="Modelo"/>
                 <ItemsControl ItemsSource="{Binding Models}" AutomationProperties.Name="Modelo">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ModelOption">
@@ -262,17 +262,17 @@
 
               <WrapPanel ItemSpacing="24" LineSpacing="16">
                 <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-                  <TextBlock Classes="overline" Text="Esforço"/>
+                  <c:OverlineText Classes="overline" Text="Esforço"/>
                   <ListBox Classes="seg" ItemsSource="{Binding Efforts}" SelectedItem="{Binding SelectedEffort}"
                            AutomationProperties.Name="Esforço" DisplayMemberBinding="{Binding Label}"/>
                 </StackPanel>
                 <StackPanel Spacing="8" IsEnabled="{Binding HasProject}">
-                  <TextBlock Classes="overline" Text="Linhas por lote"/>
+                  <c:OverlineText Classes="overline" Text="Linhas por lote"/>
                   <NumericUpDown Width="112" Value="{Binding BatchSize}" Minimum="{Binding MinBatchSize}" Maximum="{Binding MaxBatchSize}"
                                  FormatString="0" AutomationProperties.Name="Linhas por lote"/>
                 </StackPanel>
                 <StackPanel Spacing="8">
-                  <TextBlock Classes="overline" Text="Chamadas em paralelo"/>
+                  <c:OverlineText Classes="overline" Text="Chamadas em paralelo"/>
                   <NumericUpDown Width="112" Value="{Binding Concurrency}" Minimum="{Binding MinConcurrency}" Maximum="{Binding MaxConcurrency}"
                                  FormatString="0" AutomationProperties.Name="Chamadas em paralelo"/>
                 </StackPanel>
@@ -302,7 +302,7 @@
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
               <StackPanel Spacing="8">
-                <TextBlock Classes="overline" Text="Honoríficos (-san, -kun, -chan, senpai)"/>
+                <c:OverlineText Classes="overline" Text="Honoríficos (-san, -kun, -chan, senpai)"/>
                 <ItemsControl ItemsSource="{Binding Style.Honorifics}" AutomationProperties.Name="Honoríficos">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:StyleOption">
@@ -320,7 +320,7 @@
               </StackPanel>
 
               <StackPanel Grid.Column="1" Spacing="8">
-                <TextBlock Classes="overline" Text="Como os personagens se tratam"/>
+                <c:OverlineText Classes="overline" Text="Como os personagens se tratam"/>
                 <ItemsControl ItemsSource="{Binding Style.Addresses}" AutomationProperties.Name="Tratamento">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:StyleOption">
@@ -345,7 +345,7 @@
                                   IsChecked="{Binding Style.KeyboardPunctuation}"/>
                   </StackPanel>
                 </Border>
-                <TextBlock Classes="overline" Text="Fala com falante na caixa de texto" IsVisible="{Binding ShowCp1252Warning}"/>
+                <c:OverlineText Classes="overline" Text="Fala com falante na caixa de texto" IsVisible="{Binding ShowCp1252Warning}"/>
                 <Border Classes="panel" Padding="16,12" IsVisible="{Binding ShowCp1252Warning}">
                   <StackPanel Spacing="8">
                     <ListBox Classes="seg" HorizontalAlignment="Left" ItemsSource="{Binding Style.SpeakerDelimiters}"
@@ -359,7 +359,7 @@
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
               <StackPanel Spacing="8">
-                <TextBlock Classes="overline" Text="Narrador"/>
+                <c:OverlineText Classes="overline" Text="Narrador"/>
                 <Border Classes="panel" Padding="16,12">
                   <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="10">
                     <TextBlock Classes="body-sm secondary" VerticalAlignment="Center" Text="Quem narra"/>
@@ -377,7 +377,7 @@
               </StackPanel>
 
               <StackPanel Grid.Column="1" Spacing="8">
-                <TextBlock Classes="overline" Text="Guia de estilo"/>
+                <c:OverlineText Classes="overline" Text="Guia de estilo"/>
                 <TextBox Text="{Binding StyleGuide}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="132" MaxHeight="280"
                          PlaceholderText="Tom, gírias, piadas, pratos e lugares que ficam em japonês…" AutomationProperties.Name="Guia de estilo"/>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap"
@@ -386,7 +386,7 @@
             </Grid>
 
             <StackPanel Spacing="8" IsVisible="{Binding CanReadGameTitle}" MaxWidth="760" HorizontalAlignment="Left">
-              <TextBlock Classes="overline" Text="Título do jogo"/>
+              <c:OverlineText Classes="overline" Text="Título do jogo"/>
               <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
                          Text="O título da barra da janela do jogo ainda não foi lido neste projeto. Ele vem dos arquivos que já estão na pasta do projeto; o texto não muda."/>
               <Button Classes="sm" HorizontalAlignment="Left" Content="Ler o título do jogo" Command="{Binding ReadGameTitleCommand}"/>
@@ -399,7 +399,7 @@
             </StackPanel>
 
             <StackPanel Spacing="8" IsVisible="{Binding HasGameTitle}" MaxWidth="760" HorizontalAlignment="Left">
-              <TextBlock Classes="overline" Text="Título do jogo"/>
+              <c:OverlineText Classes="overline" Text="Título do jogo"/>
               <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                 <TextBlock Classes="body-sm secondary" VerticalAlignment="Center" Text="Original"/>
                 <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding GameTitleOriginal}" AutomationProperties.Name="Título original do jogo"/>
@@ -426,13 +426,13 @@
                 <Border Classes="divider-top" Padding="16">
                   <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                     <StackPanel Spacing="8">
-                      <TextBlock Classes="overline" Text="Original"/>
+                      <c:OverlineText Classes="overline" Text="Original"/>
                       <Border Name="StyleExampleSource" Padding="12,10" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}">
                         <TextBlock TextWrapping="Wrap" Text="{x:Static vm:StyleSettingsViewModel.ExampleSource}" AutomationProperties.Name="Fala do exemplo, no original"/>
                       </Border>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="8">
-                      <TextBlock Classes="overline" Text="Como a IA vai traduzir"/>
+                      <c:OverlineText Classes="overline" Text="Como a IA vai traduzir"/>
                       <Border Name="StyleExampleTarget" Padding="12,10" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}"
                               BorderBrush="{DynamicResource Vnf.Accent}" BorderThickness="1">
                         <TextBlock TextWrapping="Wrap" Text="{Binding Style.ExampleTranslation}" AutomationProperties.Name="Fala do exemplo, traduzida com as escolhas"/>
@@ -520,18 +520,18 @@
                   <StackPanel Spacing="12">
                     <WrapPanel ItemSpacing="16" IsEnabled="{Binding WrapEnabled}">
                       <StackPanel Spacing="8">
-                        <TextBlock Classes="overline" Text="Colunas"/>
+                        <c:OverlineText Classes="overline" Text="Colunas"/>
                         <NumericUpDown Width="112" Value="{Binding WrapMaxWidth}" Minimum="1" Maximum="200" FormatString="0" AutomationProperties.Name="Colunas"/>
                       </StackPanel>
                       <StackPanel Spacing="8">
-                        <TextBlock Classes="overline" Text="Linhas por caixa"/>
+                        <c:OverlineText Classes="overline" Text="Linhas por caixa"/>
                         <NumericUpDown Width="112" Value="{Binding WrapMaxLines}" Minimum="1" Maximum="20" FormatString="0" AutomationProperties.Name="Linhas por caixa"/>
                       </StackPanel>
                     </WrapPanel>
-                    <TextBlock Classes="overline" Text="Antes"/>
+                    <c:OverlineText Classes="overline" Text="Antes"/>
                     <TextBox Classes="mono" Text="{Binding PreviewBefore}" AcceptsReturn="False" TextWrapping="Wrap"
                              Background="{DynamicResource Vnf.BgInset}" BorderThickness="0" Padding="12,10" AutomationProperties.Name="Texto de exemplo"/>
-                    <TextBlock Classes="overline" Text="Depois, no build"/>
+                    <c:OverlineText Classes="overline" Text="Depois, no build"/>
                     <Border Padding="12,10" CornerRadius="4" Background="{DynamicResource Vnf.BgInset}"
                             BorderBrush="{DynamicResource Vnf.Accent}" BorderThickness="1">
                       <TextBlock Classes="mono" Text="{Binding PreviewAfter}" TextWrapping="Wrap" AutomationProperties.Name="Texto depois das regras"/>
@@ -556,7 +556,7 @@
           <StackPanel Margin="0,16,0,0" Spacing="8" IsEnabled="{Binding HasProject}">
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
                        Text="O jogo foi feito para o japonês e não desenha as letras acentuadas do português por conta própria. Cada cartão mostra a frase de teste na caixa de texto do jogo do jeito que vai sair."/>
-            <TextBlock Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
+            <c:OverlineText Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
             <c:AccentCards Options="{Binding EncodingStrategies.Options}" GroupName="SettingsAccents" AutomationProperties.Name="Como ficam os acentos"/>
             <Border Classes="infobar" IsVisible="{Binding ShowLegacyEncodingNote}">
               <TextBlock Classes="body-sm" TextWrapping="Wrap"
@@ -762,18 +762,18 @@
               <StackPanel Spacing="14" Width="592" AutomationProperties.Name="Regra do dicionário">
                 <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="12">
                   <StackPanel Spacing="6">
-                    <TextBlock Classes="overline" Text="TROCAR"/>
+                    <c:OverlineText Classes="overline" Text="Trocar"/>
                     <TextBox Text="{Binding Editor.Pattern}" AutomationProperties.Name="Texto a trocar"/>
                   </StackPanel>
                   <PathIcon Grid.Column="1" Width="16" Height="16" VerticalAlignment="Bottom" Margin="0,0,0,10" Data="{StaticResource Icon.ArrowRight}"/>
                   <StackPanel Grid.Column="2" Spacing="6">
-                    <TextBlock Classes="overline" Text="POR"/>
+                    <c:OverlineText Classes="overline" Text="Por"/>
                     <TextBox Text="{Binding Editor.With}" AutomationProperties.Name="Texto novo"/>
                   </StackPanel>
                 </Grid>
                 <CheckBox Content="Expressão regular" IsChecked="{Binding Editor.IsRegex}"/>
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="overline" Text="SÓ QUANDO TODAS AS CONDIÇÕES BATEREM"/>
+                  <c:OverlineText Classes="overline" Text="Só quando todas as condições baterem"/>
                   <ItemsControl ItemsSource="{Binding Editor.Conditions}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
@@ -819,17 +819,17 @@
         <!-- Aparência: vale para o app todo e fica nas preferências do usuário, não no projeto. -->
         <TabItem Header="Aparência">
           <StackPanel Margin="0,16,0,0" Spacing="8">
-            <TextBlock Classes="overline" Text="Tema"/>
+            <c:OverlineText Classes="overline" Text="Tema"/>
             <ListBox Classes="seg" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tema"/>
             <TextBlock Classes="caption secondary" Text="Sistema segue o tema do Windows."/>
 
-            <TextBlock Classes="overline" Margin="0,16,0,0" Text="Tamanho do texto"/>
+            <c:OverlineText Classes="overline" Margin="0,16,0,0" Text="Tamanho do texto"/>
             <ListBox Classes="seg" ItemsSource="{Binding TextSizes}" SelectedItem="{Binding SelectedTextSize}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Tamanho do texto"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Vale para a grade, o inspetor e o Modo revisão. Ctrl+= e Ctrl+- (em qualquer tela) mudam o tamanho do texto do Editor; Ctrl+0 volta a 100%."/>
 
-            <TextBlock Classes="overline" Margin="0,16,0,0" Text="Fonte do japonês"/>
+            <c:OverlineText Classes="overline" Margin="0,16,0,0" Text="Fonte do japonês"/>
             <ListBox Classes="seg" ItemsSource="{Binding JapaneseFonts}" SelectedItem="{Binding SelectedJapaneseFont}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Fonte do japonês"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Para o texto original. As fontes do Windows só valem se estiverem instaladas; senão o app usa a Noto Sans JP."/>

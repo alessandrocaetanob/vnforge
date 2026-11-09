@@ -115,12 +115,12 @@
             </StackPanel>
 
             <Grid ColumnDefinitions="36,3*,2*,1.2*,1.6*,1.2*,2*,150" ColumnSpacing="8" Margin="8,0">
-              <TextBlock Grid.Column="1" Classes="overline" Text="Configuração"/>
-              <TextBlock Grid.Column="2" Classes="overline" Text="Jogo todo, estimado" TextWrapping="Wrap"/>
-              <TextBlock Grid.Column="3" Classes="overline" Text="Tempo"/>
-              <TextBlock Grid.Column="4" Classes="overline" Text="chrF contra a aprovada" TextWrapping="Wrap"/>
-              <TextBlock Grid.Column="5" Classes="overline" Text="Juiz de IA" TextWrapping="Wrap"/>
-              <TextBlock Grid.Column="6" Classes="overline" Text="Sua escolha às cegas" TextWrapping="Wrap"/>
+              <c:OverlineText Grid.Column="1" Classes="overline" Text="Configuração"/>
+              <c:OverlineText Grid.Column="2" Classes="overline" Text="Jogo todo, estimado" TextWrapping="Wrap"/>
+              <c:OverlineText Grid.Column="3" Classes="overline" Text="Tempo"/>
+              <c:OverlineText Grid.Column="4" Classes="overline" Text="chrF contra a aprovada" TextWrapping="Wrap"/>
+              <c:OverlineText Grid.Column="5" Classes="overline" Text="Juiz de IA" TextWrapping="Wrap"/>
+              <c:OverlineText Grid.Column="6" Classes="overline" Text="Sua escolha às cegas" TextWrapping="Wrap"/>
             </Grid>
             <Border Classes="divider-bottom"/>
 
@@ -170,14 +170,14 @@
         <StackPanel x:Name="Side" Grid.Column="1" Spacing="16" VerticalAlignment="Top">
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="CUSTO E QUALIDADE"/>
+              <c:OverlineText Classes="overline" Text="Custo e qualidade"/>
               <c:EvalChart ItemsSource="{Binding Points}" Height="220" AutomationProperties.Name="Gráfico de custo do jogo todo contra chrF, um ponto por configuração"/>
             </StackPanel>
           </Border>
 
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="LEITURA DA RODADA"/>
+              <c:OverlineText Classes="overline" Text="Leitura da rodada"/>
               <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Reading}"/>
             </StackPanel>
           </Border>
@@ -213,7 +213,7 @@
         <Border Classes="panel" Padding="20">
           <StackPanel Spacing="8">
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="overline" Text="{Binding OriginalMeta}"/>
+              <c:OverlineText Classes="overline" Text="{Binding OriginalMeta}"/>
               <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding OriginalSpeaker}"/>
             </Grid>
             <TextBlock Classes="jp-body" FontSize="22" TextWrapping="Wrap" Text="{Binding OriginalText}"/>
