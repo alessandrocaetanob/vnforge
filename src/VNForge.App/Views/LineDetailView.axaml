@@ -29,9 +29,16 @@
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <!-- Com a sugestão da passada de editor aberta, "Usar sugestão" sai da linha de botões: dois cartões da IA pedindo a mesma tradução confundem (quadro do #532). Por classe, e não por IsVisible, para a regra das abas acima seguir valendo. -->
+    <!-- Com a sugestão da passada de editor aberta, o "Usar sugestão" do rodapé (quadro do #532) aceita o texto dela, como o "Aceitar" do cartão; o botão da sugestão da IA dá lugar a ele.
+         Por classe, e não por IsVisible, para a regra das abas acima seguir valendo. -->
     <Style Selector="Button.use-in-row.editor-suggestion">
       <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Button.use-in-row.editor-use">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Button.use-in-row.editor-use.editor-suggestion">
+      <Setter Property="IsVisible" Value="True"/>
     </Style>
     <Style Selector="Button.use-in-row">
       <Setter Property="Grid.Column" Value="1"/>
@@ -97,7 +104,7 @@
           <StackPanel x:Name="OriginalFragment" Spacing="6">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
               <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
-              <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding HasMemory}"
+              <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding IsCompactInspector}"
                       ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução." AutomationProperties.Name="Entender o japonês">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -123,7 +130,7 @@
 
           <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
           <StackPanel x:Name="ExplainFragment" Spacing="6">
-            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding !HasMemory}"
+            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding !IsCompactInspector}"
                     ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -476,6 +483,13 @@
           </StackPanel>
         </Button>
         <Button Classes="use-in-row" Classes.editor-suggestion="{Binding HasEditorSuggestion}" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button x:Name="UseEditorSuggestionButton" Classes="use-in-row editor-use" Classes.editor-suggestion="{Binding HasEditorSuggestion}" Command="{Binding AcceptEditorSuggestionCommand}"
+                ToolTip.Tip="Troca a tradução pelo texto proposto pela passada de editor">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
             <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>

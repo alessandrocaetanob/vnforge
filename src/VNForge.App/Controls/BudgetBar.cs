@@ -6,8 +6,8 @@ using Avalonia.Media;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// Barra do gasto com IA (v3.css, <c>.budget</c>): o que já foi gasto em <c>seg-ai</c>, o pedido que a pessoa está para fazer em <c>accent</c> e uma
-/// marca no limite. Quando gasto mais pedido passam do limite o controle ganha <c>:over</c> e o pedido vira aviso. Valores em reais.
+/// Barra do gasto com IA (v3.css, <c>.budget</c>): o que já foi gasto em <c>seg-ai</c>, o pedido que a pessoa está para fazer em <c>accent</c> (ou em
+/// <c>seg-translated</c>, quando o pedido é de tradução, como na janela "Traduzir com IA") e uma marca no limite. Quando gasto mais pedido passam do limite o controle ganha <c>:over</c> e o pedido vira aviso. Valores em reais.
 /// </summary>
 public sealed class BudgetBar : TemplatedControl
 {
@@ -17,10 +17,11 @@ public sealed class BudgetBar : TemplatedControl
     public static readonly StyledProperty<double> SpentProperty = AvaloniaProperty.Register<BudgetBar, double>(nameof(Spent));
     public static readonly StyledProperty<double> AskProperty = AvaloniaProperty.Register<BudgetBar, double>(nameof(Ask));
     public static readonly StyledProperty<double> LimitProperty = AvaloniaProperty.Register<BudgetBar, double>(nameof(Limit));
+    public static readonly StyledProperty<bool> AskIsTranslationProperty = AvaloniaProperty.Register<BudgetBar, bool>(nameof(AskIsTranslation));
 
     static BudgetBar()
     {
-        AffectsRender<BudgetBar>(SpentProperty, AskProperty, LimitProperty);
+        AffectsRender<BudgetBar>(SpentProperty, AskProperty, LimitProperty, AskIsTranslationProperty);
         SpentProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
         AskProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
         LimitProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
@@ -46,6 +47,13 @@ public sealed class BudgetBar : TemplatedControl
         set => SetValue(LimitProperty, value);
     }
 
+    /// <summary>O pedido é de tradução (com a passada de editor, se marcada): o trecho dele fica em <c>seg-translated</c>, a cor das linhas traduzidas, e não no destaque.</summary>
+    public bool AskIsTranslation
+    {
+        get => GetValue(AskIsTranslationProperty);
+        set => SetValue(AskIsTranslationProperty, value);
+    }
+
     /// <summary>Se o gasto somado ao pedido passa do limite.</summary>
     public bool IsOver => Limit > 0 && Spent + Ask > Limit;
 
@@ -69,7 +77,7 @@ public sealed class BudgetBar : TemplatedControl
             var spent = width * Math.Clamp(Spent / scale, 0, 1);
             var ask = width * Math.Clamp(Ask / scale, 0, 1);
             context.DrawRectangle(Brush("Vnf.SegAi"), null, new Rect(0, MarkOverhang, spent, BarHeight));
-            context.DrawRectangle(Brush(IsOver ? "Vnf.SignalWarningFg" : "Vnf.Accent"), null, new Rect(spent, MarkOverhang, ask, BarHeight));
+            context.DrawRectangle(Brush(IsOver ? "Vnf.SignalWarningFg" : AskIsTranslation ? "Vnf.SegTranslated" : "Vnf.Accent"), null, new Rect(spent, MarkOverhang, ask, BarHeight));
         }
 
         if (Limit > 0)

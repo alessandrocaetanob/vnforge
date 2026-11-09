@@ -6,13 +6,14 @@ using VNForge.App.ViewModels;
 
 namespace VNForge.App.Controls;
 
-/// <summary>Tamanho da caixa do jogo: <c>Small</c> no cartão de acentos, <c>Medium</c> no editor, <c>Large</c> na prévia grande e <c>Stage</c> no palco do modo revisão.</summary>
+/// <summary>Tamanho da caixa do jogo: <c>Small</c> no cartão de acentos, <c>Medium</c> no editor, <c>Large</c> na prévia grande, <c>Stage</c> no palco da leitura e <c>Review</c> no palco do modo revisão.</summary>
 public enum GameTextboxSize
 {
     Medium,
     Small,
     Large,
     Stage,
+    Review,
 }
 
 /// <summary>O que uma linha da grade da caixa mostra.</summary>
@@ -51,7 +52,7 @@ public sealed class GameTextbox : Control
 {
     private const double MarkerScale = 0.6;
     private const double MarkerOpacity = 0.55;
-    private const double OverflowGap = 8;
+    private const double DefaultOverflowGap = 8;
     private const double PageTail = 16;
     private const double PageSeparatorHeight = 30;
     private const double NextWidth = 12;
@@ -185,7 +186,7 @@ public sealed class GameTextbox : Control
         var bounds = new List<GameTextboxRowBounds>();
         foreach (var row in Describe(layout))
         {
-            var gap = row.FirstOverflow ? OverflowGap : 0;
+            var gap = row.FirstOverflow ? m.OverflowGap : 0;
             var height = row.Kind == GameTextboxRowKind.PageBreak ? PageTail + PageSeparatorHeight : rowHeight;
             bounds.Add(new GameTextboxRowBounds(row, new Rect(m.PadX, y + gap, layout.Columns * columnWidth, height), gap));
             y += gap + height;
@@ -273,9 +274,9 @@ public sealed class GameTextbox : Control
 
         if (row.FirstOverflow)
         {
-            var line = y + (OverflowGap / 2);
+            var line = y + (m.OverflowGap / 2);
             context.DrawLine(new Pen(p.Overflow, 1, p.Dashed), new Point(m.PadX - 6, line), new Point(p.Width - m.PadX + 6, line));
-            y += OverflowGap;
+            y += m.OverflowGap;
         }
 
         var isOverflow = row.Kind == GameTextboxRowKind.Overflow;
@@ -295,7 +296,7 @@ public sealed class GameTextbox : Control
         foreach (var row in Describe(layout))
         {
             height += row.Kind == GameTextboxRowKind.PageBreak ? PageTail + PageSeparatorHeight : rowHeight;
-            height += row.FirstOverflow ? OverflowGap : 0;
+            height += row.FirstOverflow ? m.OverflowGap : 0;
         }
 
         return height;
@@ -315,7 +316,7 @@ public sealed class GameTextbox : Control
     {
         var typeface = new Typeface(FontFamily);
         var latin = Format("0", typeface, Brushes.Black, m.FontSize);
-        return (latin.Width, Math.Max(latin.Height, Format("あ", typeface, Brushes.Black, m.FontSize).Height));
+        return (m.Pitch > 0 ? m.Pitch : latin.Width, Math.Max(latin.Height, Format("あ", typeface, Brushes.Black, m.FontSize).Height));
     }
 
     /// <summary>Cada trecho vai para a coluna dele na régua do perfil, não para onde a fonte o poria: glifo largo ocupa as colunas da tabela (encolhido se a fonte o fizer maior) e marcador não avança a coluna.</summary>
@@ -425,13 +426,17 @@ public sealed class GameTextbox : Control
         double PlatePadX,
         double PlateFont,
         double NextInset,
-        double NextTop)
+        double NextTop,
+        double Pitch = 0,
+        double OverflowGap = DefaultOverflowGap)
     {
+        /// <remarks><c>Review</c> segue o quadro do modo revisão: JetBrains Mono, linhas de 36 px e 40 colunas em 626 px (o quadro usa um corpo menor, 17,6 px, sobre a mesma régua; a caixa desenha cada coluna pelo avanço do glifo e ainda não separa as duas medidas).</remarks>
         public static Metrics For(GameTextboxSize size) => size switch
         {
             GameTextboxSize.Small => new(20, 16, 24, 22, 12, 24, 12, 14, 12, 12, 12, 5),
             GameTextboxSize.Large => new(30, 32, 34, 32, 17, 28, 14, 28, 14, 13, 20, 11),
             GameTextboxSize.Stage => new(34, 40, 38, 40, 24, 34, 17, 36, 18, 17, 28, 14),
+            GameTextboxSize.Review => new(27, 26, 19, 36, 24, 28, 14, 25, 15, 14, 22, -5, 0, 5),
             _ => new(24, 26, 28, 26, 14, 24, 12, 22, 12, 12, 20, 5),
         };
     }

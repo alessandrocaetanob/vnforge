@@ -46,7 +46,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.True(view.Bounds.Width > 1200 && view.Bounds.Height > 600, "a tela ocupa o Editor");
 
             var box = Assert.Single(view.GetVisualDescendants().OfType<GameTextbox>());
-            Assert.Equal(GameTextboxSize.Stage, box.Size);
+            Assert.Equal(GameTextboxSize.Review, box.Size);
             var frame = Frame(window, box);
             Assert.True(frame.Left > window.Width / 2 - 40, "a caixa do jogo fica na coluna da direita");
             Assert.True(frame.Right <= window.Width && frame.Bottom <= window.Height, "a caixa cabe na janela");
@@ -272,7 +272,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         {
             var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
             var speaker = Assert.Single(view.GetVisualDescendants().OfType<SelectableTextBlock>(), b => AutomationProperties.GetName(b) == "Quem fala");
-            Assert.StartsWith("美咲", speaker.Text, StringComparison.Ordinal);
+            Assert.StartsWith("美咲", speaker.Inlines!.Text, StringComparison.Ordinal);
             // O texto da tela pode trazer a tradução e a voz; o menu copia o nome do jogo.
             Assert.Equal("美咲", SpeakerMenu.GetOriginal(speaker));
             var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout, exactMatch: false);

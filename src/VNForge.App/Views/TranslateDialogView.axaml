@@ -13,6 +13,10 @@
         <Style Selector="RadioButton.option:disabled">
           <Setter Property="Opacity" Value="0.5"/>
         </Style>
+        <!-- Os cartões de opção do quadro têm o título em peso normal; o QualityCard do tema o põe em negrito. -->
+        <Style Selector="c|QualityCard /template/ TextBlock.body-strong">
+          <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
       </ScrollViewer.Styles>
       <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
 
@@ -29,7 +33,7 @@
                 <RadioButton Classes="option" GroupName="TranslateScope" VerticalAlignment="Stretch" VerticalContentAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                              IsEnabled="{Binding IsAvailable}" AutomationProperties.Name="{Binding Title}">
                   <StackPanel Spacing="2">
-                    <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}"/>
+                    <TextBlock Classes="body" Text="{Binding Title}"/>
                     <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
                   </StackPanel>
                 </RadioButton>
@@ -70,7 +74,7 @@
                              IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
                   <StackPanel Spacing="2">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                      <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
+                      <TextBlock Classes="body" Text="{Binding Title}" VerticalAlignment="Center"/>
                       <Border Grid.Column="1" Height="20" Padding="6,0,8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                               Background="{DynamicResource Vnf.StatusAiBg}" TextElement.Foreground="{DynamicResource Vnf.StatusAiFg}"
                               IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -96,7 +100,7 @@
                 <TextBlock Classes="title-md" Text="{Binding RequestText}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SpentText}" VerticalAlignment="Center"/>
               </Grid>
-              <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}"
+              <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}" AskIsTranslation="True"
                            AutomationProperties.Name="Gasto do projeto, este pedido e o limite"/>
               <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding BatchNote}"
                          IsVisible="{Binding BatchNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
