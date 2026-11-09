@@ -10,10 +10,11 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|privacy|status|sync</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
-/// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde.
+/// <c>vnf library scan|match|list|link|privacy|status|sync|play|option|emulator</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde,
+/// <c>play</c> abre o jogo e conta o tempo (<c>playtime.json</c>, ao lado). Os subcomandos de <c>play</c> ficam em <c>LibraryCommand.Play.cs</c>.
 /// </summary>
-internal static class LibraryCommand
+internal static partial class LibraryCommand
 {
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -109,6 +110,9 @@ internal static class LibraryCommand
         command.Subcommands.Add(CreatePrivacy(cli));
         command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
         command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
+        command.Subcommands.Add(CreatePlay(cli));
+        command.Subcommands.Add(CreateOption(cli));
+        command.Subcommands.Add(CreateEmulator(cli));
         return command;
     }
 
@@ -148,6 +152,7 @@ internal static class LibraryCommand
         command.Options.Add(StateOption);
         command.Options.Add(ShowSpoilersOption);
         command.Options.Add(ShowAdultOption);
+        command.Options.Add(RecentOption);
         command.SetAction(parseResult => List(cli, parseResult, parseResult.GetValue(game)));
         return command;
     }
@@ -494,6 +499,9 @@ internal static class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
         var library = FileOf(cli).Load();
+        var playFile = new PlayLogFile(cli.UserConfigDirectory, cli.Clock);
+        var played = playFile.Load();
+        WriteWarnings(parseResult, playFile, played);
         var privacy = library.Privacy with
         {
             ShowSpoilers = library.Privacy.ShowSpoilers || parseResult.GetValue(ShowSpoilersOption),
@@ -505,20 +513,21 @@ internal static class LibraryCommand
             var game = library.Find(reference);
             if (json)
             {
-                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy) }));
+                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, played.StatsOf(game.Id)) }));
             }
             else
             {
-                WriteSheet(output, game, privacy);
+                WriteSheet(output, game, privacy, played.StatsOf(game.Id));
             }
 
             return ErrorHandler.OkExitCode;
         }
 
-        var games = Filter(library.Sorted(), parseResult.GetValue(EngineOption), parseResult.GetValue(StateOption));
+        var ordered = parseResult.GetValue(RecentOption) ? played.ByLastPlayed(library.Games) : library.Sorted();
+        var games = Filter(ordered, parseResult.GetValue(EngineOption), parseResult.GetValue(StateOption));
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new { privacy, total = library.Games.Count, shown = games.Count, games = games.Select(g => GameData(g, privacy)) }));
+            output.WriteLine(JsonEnvelope.Result(new { privacy, total = library.Games.Count, shown = games.Count, games = games.Select(g => GameData(g, privacy, played.StatsOf(g.Id))) }));
             return ErrorHandler.OkExitCode;
         }
 
@@ -528,15 +537,18 @@ internal static class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        var table = CliViews.NewTable(CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"));
+        var table = CliViews.NewTable(CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"), CliViews.Column("Tempo"), CliViews.Column("Último jogo"));
         foreach (var game in games)
         {
+            var stats = played.StatsOf(game.Id);
             table.AddRow(
                 new Markup(game.Id),
                 new Markup(CliViews.Escape(game.Title)),
                 new Markup(CliViews.Escape(game.Engine.Name)),
                 new Markup(CliViews.Escape(MatchText(game))),
-                new Markup(game.ProjectPath is null ? "[dim]·[/]" : "sim"));
+                new Markup(game.ProjectPath is null ? "[dim]·[/]" : "sim"),
+                new Markup(stats.Sessions == 0 ? "[dim]·[/]" : CliViews.Escape(PlayTime.Format(stats.Total))),
+                new Markup(stats.LastPlayedAt is null ? "[dim]·[/]" : CliViews.Escape(LastPlayedText(stats))));
         }
 
         cli.Ansi.Write(table);
@@ -580,7 +592,7 @@ internal static class LibraryCommand
         return game.SearchedAt is null ? "·" : "não achado";
     }
 
-    private static void WriteSheet(TextWriter output, LibraryGame game, LibraryPrivacy privacy)
+    private static void WriteSheet(TextWriter output, LibraryGame game, LibraryPrivacy privacy, PlayStats stats)
     {
         output.WriteLine(game.Title);
         output.WriteLine($"  Id: {game.Id}");
@@ -598,6 +610,10 @@ internal static class LibraryCommand
 
         output.WriteLine($"  Projeto de tradução: {game.ProjectPath ?? "nenhum"}");
         LibraryListCommands.WriteLines(output, game);
+        output.WriteLine($"  Localidade japonesa: {(game.RequiresJapaneseLocale ? "sim (abre pelo Locale Emulator)" : "não")}");
+        output.WriteLine(stats.Sessions == 0
+            ? "  Tempo de jogo: nunca jogado"
+            : $"  Tempo de jogo: {PlayTime.Format(stats.Total)} em {CliFormat.Count(stats.Sessions, "sessão", "sessões")}; último em {LastPlayedText(stats)}");
         var card = LibraryVisibility.Card(game, privacy);
         if (card is null)
         {
@@ -730,7 +746,7 @@ internal static class LibraryCommand
         };
     }
 
-    private static object GameData(LibraryGame game, LibraryPrivacy privacy) => new
+    private static object GameData(LibraryGame game, LibraryPrivacy privacy, PlayStats? stats = null) => new
     {
         id = game.Id,
         title = game.Title,
@@ -745,6 +761,8 @@ internal static class LibraryCommand
         candidates = game.Candidates.Select(c => new { vndbId = c.VndbId, title = c.Title, original = c.OriginalTitle, released = c.Released, score = c.Score, evidence = c.Evidence }),
         project = game.ProjectPath,
         list = LibraryListCommands.Data(game),
+        requiresJapaneseLocale = game.RequiresJapaneseLocale,
+        play = stats is null ? null : PlayData(stats),
         card = LibraryVisibility.Card(game, privacy),
     };
 

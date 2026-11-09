@@ -57,6 +57,7 @@ public class ArchitectureTests
     [InlineData("VNForge.AI.OpenAI", true)]
     [InlineData("VNForge.Vndb", true)]
     [InlineData("VNForge.Vndb.Extras", true)]
+    [InlineData("VNForge.Platform.Windows", true)]
     [InlineData("VNForge.VndbCore", false)]
     [InlineData("VNForge.Core", false)]
     [InlineData("VNForge.AIExtras", false)]
@@ -73,7 +74,8 @@ public class ArchitectureTests
             || nome == "VNForge.AI"
             || nome.StartsWith("VNForge.AI.", StringComparison.Ordinal)
             || nome == "VNForge.Vndb"
-            || nome.StartsWith("VNForge.Vndb.", StringComparison.Ordinal));
+            || nome.StartsWith("VNForge.Vndb.", StringComparison.Ordinal)
+            || nome == "VNForge.Platform.Windows");
 
     private static string ProcurarCsprojDoCore()
     {

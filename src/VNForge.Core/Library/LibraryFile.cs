@@ -1,7 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using VNForge.Core.Projects;
 
 namespace VNForge.Core.Library;
 
@@ -84,49 +83,20 @@ public sealed class LibraryFile(string directory)
     /// <summary>Quanto <see cref="Update{T}(Func{GameLibrary, T})"/> espera outro processo soltar a trava.</summary>
     public static TimeSpan LockTimeout { get; } = TimeSpan.FromSeconds(15);
 
-    private FileStream Acquire()
-    {
-        var lockPath = Path + ".lock";
-        var started = System.Diagnostics.Stopwatch.GetTimestamp();
-        while (true)
-        {
-            try
-            {
-                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                if (System.Diagnostics.Stopwatch.GetElapsedTime(started) > LockTimeout)
-                {
-                    throw new LibraryException($"A biblioteca ('{Path}') está em uso por outro processo. Tente de novo em instantes.", e);
-                }
-
-                Thread.Sleep(20);
-            }
-        }
-    }
+    private FileStream Acquire() =>
+        FileLock.Acquire(Path + ".lock", LockTimeout, $"A biblioteca ('{Path}') está em uso por outro processo. Tente de novo em instantes.");
 
     /// <summary>Grava a biblioteca sem deixar o arquivo pela metade: escreve num temporário ao lado e troca.</summary>
     public void Save(GameLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        var temporary = $"{Path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            File.WriteAllText(temporary, Serialize(library));
-            ProjectFileIo.Move(temporary, Path, overwrite: true, _wait);
-        }
-        finally
-        {
-            File.Delete(temporary);
-        }
+        AtomicFile.WriteAllText(Path, Serialize(library), _wait);
     }
 
     public static string Serialize(GameLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
-        return JsonSerializer.Serialize(new Envelope(CurrentVersion, library.Privacy, [.. library.Games]), Json);
+        return JsonSerializer.Serialize(new Envelope(CurrentVersion, library.Privacy, [.. library.Games], library.LocaleEmulatorPath), Json);
     }
 
     /// <exception cref="LibraryException">JSON malformado, versão desconhecida, jogo sem id ou pasta, ou o mesmo id duas vezes.</exception>
@@ -168,7 +138,7 @@ public sealed class LibraryFile(string directory)
             }
         }
 
-        return new GameLibrary(games.Select(Normalize), envelope.Privacy ?? new LibraryPrivacy());
+        return new GameLibrary(games.Select(Normalize), envelope.Privacy ?? new LibraryPrivacy(), envelope.LocaleEmulatorPath);
     }
 
     private static LibraryGame Normalize(LibraryGame game) => game with
@@ -176,5 +146,5 @@ public sealed class LibraryFile(string directory)
         Candidates = game.Candidates ?? [],
     };
 
-    private sealed record Envelope(int Version, LibraryPrivacy? Privacy, List<LibraryGame>? Games);
+    private sealed record Envelope(int Version, LibraryPrivacy? Privacy, List<LibraryGame>? Games, string? LocaleEmulatorPath = null);
 }
