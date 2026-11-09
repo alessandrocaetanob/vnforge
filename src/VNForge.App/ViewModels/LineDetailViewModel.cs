@@ -324,13 +324,13 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial TextboxPreviewViewModel? Preview { get; private set; }
 
+    /// <summary>Falante e cena para as regras do pós-dicionário com condição na prévia e no aviso de caixa cheia; nulo deixa só as regras sem condição.</summary>
+    public DictionaryContext? Dictionary { get; init; }
+
     /// <summary>
     /// Liga a prévia da caixa de texto com a tradução que está no campo; sem perfil (nulo), tira a prévia. O mesmo perfil, as mesmas marcas da fala (#453) e os mesmos nomes da placa (#464)
     /// não refazem nada.
     /// </summary>
-    /// <summary>Falante e cena para as regras do pós-dicionário com condição na prévia e no aviso de caixa cheia; nulo deixa só as regras sem condição.</summary>
-    public DictionaryContext? Dictionary { get; init; }
-
     public void AttachPreview(FormattingProfile? profile, SpeakerBoxMarks marks = default, SpeakerNaming? naming = null)
     {
         if (Preview is not null && ReferenceEquals(Preview.Profile, profile) && Preview.Marks == marks && ReferenceEquals(Preview.Naming, naming ?? SpeakerNaming.None))

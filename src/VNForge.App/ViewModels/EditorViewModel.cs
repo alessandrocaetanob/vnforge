@@ -1055,13 +1055,13 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// </summary>
     public void RefreshPreview() => Detail?.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
 
-    /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
     /// <summary>Falante e cena das linhas do projeto para o pós-dicionário com condição; nulo quando nenhuma regra do pós tem condição.</summary>
     private DictionaryContext? CurrentDictionary() =>
         CurrentProfile() is { } profile && profile.Dictionary.Post.Any(rule => rule.Enabled && rule.Conditions.Count > 0)
             ? new DictionaryContext(scriptNames, new CharacterBook(context.Characters.Entries))
             : null;
 
+    /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
     private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;
 
     /// <summary>A abertura e o fechamento que o jogo desenha em volta da fala com falante, para a prévia medir a caixa como ela aparece no jogo (#453).</summary>
