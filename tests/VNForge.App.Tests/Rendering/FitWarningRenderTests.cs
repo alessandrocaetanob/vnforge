@@ -76,7 +76,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 }
             },
             TestContext.Current.CancellationToken);
-        IgnorarSeFicouForaDaArea(aviso);
+        ConferirCorte(aviso, 31);
     }
 
     [Theory]
@@ -118,7 +118,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 }
             },
             TestContext.Current.CancellationToken);
-        IgnorarSeFicouForaDaArea(aviso);
+        ConferirCorte(aviso, 70);
     }
 
     /// <summary>O aviso está na tela, dentro da janela, com os dois botões, e o fundo dele (num ponto de dentro do infobar) é o do aviso do tema.</summary>
@@ -154,17 +154,16 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     /// <summary>
-    /// A tela abre sem rolar até o aviso, então ele só conta como visível se a medida (sem BringIntoView) o põe inteiro na área do painel. Com o cabeçalho do jogo
-    /// de 80 px o painel de baixo do Editor e o da Conferência rolam: o teste termina ignorado com a medida, depois de conferir tudo o mais.
+    /// A tela abre sem rolar até o aviso, então a medida (sem BringIntoView) diz o quanto dele fica abaixo da área do painel. O cabeçalho do jogo de 80 px
+    /// do shell novo (#544) empurra o painel de baixo, e o teste vale o corte que a main já tinha: no Conferir, o aviso começa dentro da área e perde até 70 px
+    /// (medidos 66 em 1440x1000, com o topo em y=824 e a área até y=854); no Editor perde até 31 px (medidos 28, topo em y=826 e área até y=894). Antes de o
+    /// layout ser enxugado o corte era de 150 px no Conferir (o aviso inteiro abaixo da área) e de 62 px no Editor, e um Skip sem limite escondeu isso.
     /// </summary>
-    private static void IgnorarSeFicouForaDaArea(VisibleArea.Measure medida)
+    private static void ConferirCorte(VisibleArea.Measure medida, double corteMaximo)
     {
-        if (!medida.IsFullyVisible)
-        {
-            Assert.Skip($"O aviso não aparece inteiro sem rolar a {ScreenRenderer.Width}x{ScreenRenderer.Height}: {medida}");
-        }
+        Assert.True(medida.Visible.Bottom > medida.Box.Top, $"o aviso ficou todo abaixo da área visível a {ScreenRenderer.Width}x{ScreenRenderer.Height}: {medida}");
+        Assert.True(medida.CutBelow <= corteMaximo, $"o aviso perde {medida.CutBelow:0} px, mais que os {corteMaximo:0} px que a tela já perdia: {medida}");
     }
-
     private static void Save(Avalonia.Controls.Window window, string name, ThemeVariant theme)
     {
         ScreenRenderer.Settle(window);

@@ -65,7 +65,8 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,12,24,12" RowSpacing="8">
+  <!-- Sem RowSpacing: as linhas do aviso de erro e da busca ficam vazias na maior parte do tempo e o espaço entre linhas vazias comeria a altura do inspetor; cada uma leva o seu espaço de cima. -->
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,6,24,8">
 
     <!-- Cabeçalho: "Capítulo 1 · cena 13 de 45" e o nome da cena. As ações moram na barra logo abaixo (#394). -->
     <c:PageHeader Classes="inline" Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">
@@ -81,7 +82,7 @@
 
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
          Buscar, Conferir arquivo e Modo revisão têm o mesmo estilo e tamanho; abaixo de 1400 px largam o texto e ficam como ícones com dica. -->
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
+    <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
       <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Top">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
@@ -158,7 +159,7 @@
       </StackPanel>
     </Grid>
 
-    <Border Grid.Row="2" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+    <Border Grid.Row="2" Margin="0,8,0,0" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
       <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
         <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
         <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
@@ -166,13 +167,13 @@
     </Border>
 
     <!-- Busca e substituição no projeto: abre aqui, sobre a grade, para quem traduz procurar a partir da linha em que está. -->
-    <Border Grid.Row="3" Classes="panel" ClipToBounds="True" IsVisible="{Binding IsSearchOpen}" AutomationProperties.Name="Busca e substituição">
+    <Border Grid.Row="3" Margin="0,8,0,0" Classes="panel" ClipToBounds="True" IsVisible="{Binding IsSearchOpen}" AutomationProperties.Name="Busca e substituição">
       <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
     </Border>
 
     <!-- Scripts 1* (180 a 190), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 190 · 632 · 474 (v4: a lista de cenas cede 58 px à grade); o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
+    <Grid Grid.Row="4" x:Name="Columns" Margin="0,8,0,0" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="190"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
