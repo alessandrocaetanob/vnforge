@@ -29,6 +29,10 @@
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
+    <!-- Com a sugestão da passada de editor aberta, "Usar sugestão" sai da linha de botões: dois cartões da IA pedindo a mesma tradução confundem (quadro do #532). Por classe, e não por IsVisible, para a regra das abas acima seguir valendo. -->
+    <Style Selector="Button.use-in-row.editor-suggestion">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
     <Style Selector="Button.use-in-row">
       <Setter Property="Grid.Column" Value="1"/>
       <Setter Property="Margin" Value="8,0,0,0"/>
@@ -471,7 +475,7 @@
             <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+Enter"/></Border>
           </StackPanel>
         </Button>
-        <Button Classes="use-in-row" IsVisible="{Binding !HasEditorSuggestion}" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
+        <Button Classes="use-in-row" Classes.editor-suggestion="{Binding HasEditorSuggestion}" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
             <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>
