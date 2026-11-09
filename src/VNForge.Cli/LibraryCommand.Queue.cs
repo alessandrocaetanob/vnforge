@@ -207,16 +207,7 @@ internal static partial class LibraryCommand
             new PersonalGlossary(cli.UserConfigDirectory),
             token).ConfigureAwait(false);
 
-        // O projeto já existe em disco: a ligação grava sobre a biblioteca como está agora, sem refazer o que outro processo mudou.
-        var linked = file.Update(current =>
-        {
-            if (current.Games.All(g => g.Id != game.Id))
-            {
-                return result.Game;
-            }
-
-            return LibraryProjectLinker.Link(current, current.Find(game.Id), result.Project.Folder.Root);
-        });
+        var linked = LinkCreatedProject(file, game, result.Project.Folder.Root);
 
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
@@ -262,6 +253,32 @@ internal static partial class LibraryCommand
 
         output.WriteLine($"Próximo passo: vnf extract --project {result.Project.Folder.Root}");
         return ErrorHandler.OkExitCode;
+    }
+
+    /// <summary>
+    /// O projeto já existe em disco: a ligação grava sobre a biblioteca como está agora, sem refazer o que outro processo mudou.
+    /// Se não der para gravar, o projeto fica órfão e a mensagem diz onde ele está e como ligá-lo depois, porque rodar <c>translate</c> de novo recusaria a pasta.
+    /// </summary>
+    private static LibraryGame LinkCreatedProject(LibraryFile file, LibraryGame game, string projectRoot)
+    {
+        try
+        {
+            return file.Update(current =>
+            {
+                if (current.Games.All(g => g.Id != game.Id))
+                {
+                    throw new LibraryException("o jogo saiu da biblioteca nesse meio tempo");
+                }
+
+                return LibraryProjectLinker.Link(current, current.Find(game.Id), projectRoot);
+            });
+        }
+        catch (Exception e) when (e is LibraryException or IOException or UnauthorizedAccessException)
+        {
+            throw new LibraryException(
+                $"O projeto foi criado em {projectRoot}{Path.DirectorySeparatorChar}, mas o jogo da biblioteca não ficou ligado a ele: {e.Message.TrimEnd('.')}. Quando der, ligue com: vnf library link {game.Id} --project \"{projectRoot}\"",
+                e);
+        }
     }
 
     /// <summary>Grava a conferência de um jogo sobre a biblioteca como está agora no disco, se o jogo ainda é o mesmo do VNDB, sem refazer o que outro processo mudou.</summary>

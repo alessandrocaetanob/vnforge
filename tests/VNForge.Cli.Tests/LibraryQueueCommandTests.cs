@@ -215,4 +215,44 @@ public sealed class LibraryQueueCommandTests : IDisposable
         Assert.Contains("já tem o projeto", started.Error, StringComparison.Ordinal);
         Assert.False(Directory.Exists(Path.Combine(_cli.WorkingDirectory, "um")));
     }
+
+    [Fact]
+    public async Task Traduzir_com_o_jogo_fora_da_biblioteca_nao_diz_que_ligou_e_aponta_onde_o_projeto_ficou()
+    {
+        var gameDir = NewGameDir();
+        var fake = Prepare(Game("g1", "Um", "v1", YuRis, folder: gameDir));
+        _cli.Cli.VndbCatalogFactory = () => new RemovesGameOnLookup(fake, () => File.Save(new GameLibrary([])));
+
+        var result = await Run("library", "translate", "Um", "meu-projeto");
+
+        var projectPath = Path.Combine(_cli.WorkingDirectory, "meu-projeto");
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.True(System.IO.File.Exists(Path.Combine(projectPath, ProjectFolder.ConfigFileName)));
+        Assert.DoesNotContain("ficou ligado ao projeto", result.Output, StringComparison.Ordinal);
+        Assert.Contains(projectPath, result.Error, StringComparison.Ordinal);
+        Assert.Contains("o jogo saiu da biblioteca", result.Error, StringComparison.Ordinal);
+        Assert.Contains($"vnf library link g1 --project \"{projectPath}\"", result.Error, StringComparison.Ordinal);
+        Assert.Empty(File.Load().Games);
+    }
+
+    private sealed class RemovesGameOnLookup(IVndbCatalog inner, Action onLookup) : IVndbCatalog
+    {
+        public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default) =>
+            inner.SearchVisualNovelsAsync(title, limit, ct);
+
+        public Task<VndbVisualNovel?> GetVisualNovelAsync(string id, CancellationToken ct = default)
+        {
+            onLookup();
+            return inner.GetVisualNovelAsync(id, ct);
+        }
+
+        public Task<VndbResults<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default) =>
+            inner.GetCharactersAsync(visualNovelId, ct);
+
+        public Task<VndbResults<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default) =>
+            inner.SearchCharactersByTitleAsync(title, ct);
+
+        public Task<VndbResults<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default) =>
+            inner.GetReleasesAsync(visualNovelId, ct);
+    }
 }
