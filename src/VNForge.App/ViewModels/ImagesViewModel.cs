@@ -781,19 +781,20 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         Scanning = RunScanAsync(plan);
     }
 
-    /// <summary>Fecha o diálogo da leitura ou, com a leitura em andamento, a cancela (o que já foi lido fica no inventário).</summary>
+    /// <summary>Fecha o diálogo da leitura sem chamar a IA.</summary>
     [RelayCommand]
     private void CancelScan()
     {
-        if (scanCts is { } running)
-        {
-            running.Cancel();
-            return;
-        }
-
         ScanTitle = string.Empty;
-        scanPlan = null;
+        if (!IsScanning)
+        {
+            scanPlan = null;
+        }
     }
+
+    /// <summary>Cancela a leitura em andamento; o que já foi lido fica no inventário.</summary>
+    [RelayCommand]
+    private void StopScan() => scanCts?.Cancel();
 
     private async Task RunScanAsync(ImageScanPlan plan)
     {
@@ -833,7 +834,11 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
             ErrorMessage = ScanProblem(result);
         }
-        catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or InvalidOperationException or ClaudeResponseException)
+        catch (OperationCanceledException)
+        {
+            ErrorMessage = "Leitura cancelada. O que já foi lido ficou no inventário.";
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             ErrorMessage = $"A leitura das imagens parou: {ex.Message}";
         }

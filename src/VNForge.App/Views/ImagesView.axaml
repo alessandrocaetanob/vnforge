@@ -146,7 +146,7 @@
             <StackPanel Spacing="8" HorizontalAlignment="Center" IsVisible="{Binding IsScanBusy}">
               <ProgressBar IsIndeterminate="True" Width="320"/>
               <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding ScanProgressText}" AutomationProperties.Name="Andamento da leitura"/>
-              <Button HorizontalAlignment="Center" Content="Cancelar a leitura" Command="{Binding CancelScanCommand}" IsVisible="{Binding IsScanning}"/>
+              <Button HorizontalAlignment="Center" Content="Cancelar a leitura" Command="{Binding StopScanCommand}" IsVisible="{Binding IsScanning}"/>
             </StackPanel>
           </StackPanel>
 
