@@ -11,11 +11,12 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|privacy|tag</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
-/// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde e filtra por tag.
+/// <c>vnf library scan|match|list|link|privacy|play|option|emulator|tag</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde e filtra por tag,
+/// <c>play</c> abre o jogo e conta o tempo (<c>playtime.json</c>, ao lado). Os subcomandos de <c>play</c> ficam em <c>LibraryCommand.Play.cs</c>.
 /// <c>tag</c> cuida das tags do usuário (<c>library-tags.json</c>, ao lado).
 /// </summary>
-internal static class LibraryCommand
+internal static partial class LibraryCommand
 {
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -148,6 +149,9 @@ internal static class LibraryCommand
         command.Subcommands.Add(CreateLink(cli));
         command.Subcommands.Add(CreatePrivacy(cli));
         command.Subcommands.Add(CreateTag(cli));
+        command.Subcommands.Add(CreatePlay(cli));
+        command.Subcommands.Add(CreateOption(cli));
+        command.Subcommands.Add(CreateEmulator(cli));
         return command;
     }
 
@@ -242,6 +246,7 @@ internal static class LibraryCommand
         command.Options.Add(SavedFilterOption);
         command.Options.Add(ShowSpoilersOption);
         command.Options.Add(ShowAdultOption);
+        command.Options.Add(RecentOption);
         command.SetAction(parseResult => List(cli, parseResult, parseResult.GetValue(game)));
         return command;
     }
@@ -590,6 +595,9 @@ internal static class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
         var library = FileOf(cli).Load();
+        var playFile = new PlayLogFile(cli.UserConfigDirectory, cli.Clock);
+        var played = playFile.Load();
+        WriteWarnings(parseResult, playFile, played);
         var privacy = library.Privacy with
         {
             ShowSpoilers = library.Privacy.ShowSpoilers || parseResult.GetValue(ShowSpoilersOption),
@@ -608,18 +616,19 @@ internal static class LibraryCommand
             var game = library.Find(reference);
             if (json)
             {
-                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, tags.TagsOf(game.Id)) }));
+                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id)) }));
             }
             else
             {
-                WriteSheet(output, game, privacy, tags.TagsOf(game.Id));
+                WriteSheet(output, game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id));
             }
 
             return ErrorHandler.OkExitCode;
         }
 
         var filter = TagFilterOf(parseResult, tags);
-        var games = filter.Apply(Filter(library.Sorted(), parseResult.GetValue(EngineOption), parseResult.GetValue(StateOption)), tags, privacy);
+        var ordered = parseResult.GetValue(RecentOption) ? played.ByLastPlayed(library.Games) : library.Sorted();
+        var games = filter.Apply(Filter(ordered, parseResult.GetValue(EngineOption), parseResult.GetValue(StateOption)), tags, privacy);
         var saveFilter = parseResult.GetValue(SaveFilterOption);
         if (saveFilter)
         {
@@ -636,7 +645,7 @@ internal static class LibraryCommand
                 shown = games.Count,
                 filter = FilterData(shownFilter),
                 filterSaved = saveFilter,
-                games = games.Select(g => GameData(g, privacy, tags.TagsOf(g.Id))),
+                games = games.Select(g => GameData(g, privacy, played.StatsOf(g.Id), tags.TagsOf(g.Id))),
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -648,7 +657,7 @@ internal static class LibraryCommand
         }
 
         var showTags = tags.Tags.Count > 0;
-        List<TableColumn> columns = [CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto")];
+        List<TableColumn> columns = [CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"), CliViews.Column("Tempo"), CliViews.Column("Último jogo")];
         if (showTags)
         {
             columns.Add(CliViews.Column("Minhas tags"));
@@ -657,6 +666,7 @@ internal static class LibraryCommand
         var table = CliViews.NewTable([.. columns]);
         foreach (var game in games)
         {
+            var stats = played.StatsOf(game.Id);
             List<IRenderable> cells =
             [
                 new Markup(game.Id),
@@ -664,6 +674,8 @@ internal static class LibraryCommand
                 new Markup(CliViews.Escape(game.Engine.Name)),
                 new Markup(CliViews.Escape(MatchText(game))),
                 new Markup(game.ProjectPath is null ? "[dim]·[/]" : "sim"),
+                new Markup(stats.Sessions == 0 ? "[dim]·[/]" : CliViews.Escape(PlayTime.Format(stats.Total))),
+                new Markup(stats.LastPlayedAt is null ? "[dim]·[/]" : CliViews.Escape(LastPlayedText(stats))),
             ];
             if (showTags)
             {
@@ -772,7 +784,7 @@ internal static class LibraryCommand
         return game.SearchedAt is null ? "·" : "não achado";
     }
 
-    private static void WriteSheet(TextWriter output, LibraryGame game, LibraryPrivacy privacy, IReadOnlyList<string> userTags)
+    private static void WriteSheet(TextWriter output, LibraryGame game, LibraryPrivacy privacy, PlayStats stats, IReadOnlyList<string> userTags)
     {
         output.WriteLine(game.Title);
         output.WriteLine($"  Id: {game.Id}");
@@ -790,6 +802,10 @@ internal static class LibraryCommand
 
         output.WriteLine($"  Projeto de tradução: {game.ProjectPath ?? "nenhum"}");
         output.WriteLine($"  Minhas tags: {(userTags.Count == 0 ? "nenhuma" : string.Join(", ", userTags))}");
+        output.WriteLine($"  Localidade japonesa: {(game.RequiresJapaneseLocale ? "sim (abre pelo Locale Emulator)" : "não")}");
+        output.WriteLine(stats.Sessions == 0
+            ? "  Tempo de jogo: nunca jogado"
+            : $"  Tempo de jogo: {PlayTime.Format(stats.Total)} em {CliFormat.Count(stats.Sessions, "sessão", "sessões")}; último em {LastPlayedText(stats)}");
         var card = LibraryVisibility.Card(game, privacy);
         if (card is null)
         {
@@ -870,7 +886,7 @@ internal static class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { game = GameData(changed, library.Privacy, TagsFileOf(cli).Load().TagsOf(changed.Id)) }));
+            output.WriteLine(JsonEnvelope.Result(new { game = GameData(changed, library.Privacy, userTags: TagsFileOf(cli).Load().TagsOf(changed.Id)) }));
         }
         else
         {
@@ -1107,7 +1123,7 @@ internal static class LibraryCommand
         };
     }
 
-    private static object GameData(LibraryGame game, LibraryPrivacy privacy, IReadOnlyList<string>? userTags = null) => new
+    private static object GameData(LibraryGame game, LibraryPrivacy privacy, PlayStats? stats = null, IReadOnlyList<string>? userTags = null) => new
     {
         id = game.Id,
         title = game.Title,
@@ -1122,6 +1138,8 @@ internal static class LibraryCommand
         candidates = game.Candidates.Select(c => new { vndbId = c.VndbId, title = c.Title, original = c.OriginalTitle, released = c.Released, score = c.Score, evidence = c.Evidence }),
         project = game.ProjectPath,
         userTags,
+        requiresJapaneseLocale = game.RequiresJapaneseLocale,
+        play = stats is null ? null : PlayData(stats),
         card = LibraryVisibility.Card(game, privacy),
     };
 

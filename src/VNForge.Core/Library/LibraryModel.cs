@@ -91,6 +91,10 @@ public sealed record LibraryGame(
     /// <summary>Pasta do projeto de tradução ligado ao jogo, se houver.</summary>
     public string? ProjectPath { get; init; }
 
+    /// <summary>O jogo só abre direito com a localidade do Windows em japonês: "Jogar" passa pelo Locale Emulator.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RequiresJapaneseLocale { get; init; }
+
     [JsonIgnore]
     public bool IsConfirmed => VndbId is not null;
 }
