@@ -44,7 +44,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.GameWindowHeight(ScreenRenderer.Height), RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();
@@ -117,7 +117,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
-                var window = new MainWindow { Width = 1366, Height = 768, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = 1366, Height = ScreenRenderer.GameWindowHeight(768), RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();
@@ -215,7 +215,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, path);
         using var png = new Bitmap(path);
         Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
-        Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
+        Assert.Equal(ScreenRenderer.GameWindowHeight(ScreenRenderer.Height), png.PixelSize.Height);
     }
 
     /// <summary>As linhas do artboard "Conferir", escritas para ele: nenhum arquivo ou texto de jogo.</summary>

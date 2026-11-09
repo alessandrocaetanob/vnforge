@@ -210,6 +210,7 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
             try
             {
                 window.Show();
+                vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
                 ScreenRenderer.Settle(window);
                 var item = window.GetVisualDescendants().OfType<ListBoxItem>().Single(i => i.DataContext is NavItemViewModel { Key: NavKey.Conference });
                 ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
@@ -224,7 +225,7 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Selo_do_trilho_mostra_so_o_numero_de_erros_e_nenhum_ponto(string themeName)
+    public async Task Selo_da_secao_Conferir_mostra_so_o_numero_de_erros_e_nenhum_ponto(string themeName)
     {
         await WithRail(Variant(themeName), WithError, WithWarning, "base-trilho-erro", (window, item) =>
         {
@@ -232,13 +233,13 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.True(badge.IsEffectivelyVisible);
             Assert.Equal("1", badge.GetVisualDescendants().OfType<TextBlock>().Single().Text);
             Assert.False(item.GetVisualDescendants().OfType<Ellipse>().Single(e => e.Name == "NoticeDot").IsEffectivelyVisible);
-            Assert.True(badge.Bounds.Right + badge.TranslatePoint(default, item)!.Value.X <= item.Bounds.Width + 20, "o selo saiu do trilho");
+            Assert.True(badge.TranslatePoint(new Point(badge.Bounds.Width, 0), item)!.Value.X <= item.Bounds.Width, "o selo saiu da secao");
         });
     }
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Com_so_aviso_o_trilho_mostra_um_ponto_neutro_e_nenhum_numero(string themeName)
+    public async Task Com_so_aviso_a_secao_Conferir_mostra_um_ponto_neutro_e_nenhum_numero(string themeName)
     {
         await WithRail(Variant(themeName), null, WithWarning, "base-trilho-aviso", (window, item) =>
         {
@@ -255,7 +256,7 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Sem_problema_o_trilho_nao_mostra_selo_nem_ponto(string themeName)
+    public async Task Sem_problema_a_secao_Conferir_nao_mostra_selo_nem_ponto(string themeName)
     {
         await WithRail(Variant(themeName), null, null, "base-trilho-limpo", (_, item) =>
         {

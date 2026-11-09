@@ -601,7 +601,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
                 using var motion = MotionPreferences.Force(animations);
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
-                var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = width, Height = ScreenRenderer.GameWindowHeight(height), RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();

@@ -102,7 +102,7 @@
               <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"
                          Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
             </Border>
-            <Ellipse IsVisible="{Binding ShowNotice}" Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"
+            <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"
                      ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
           </StackPanel>
         </DataTemplate>

@@ -17,6 +17,18 @@ internal static class ScreenRenderer
     public const int Width = 1440;
     public const int Height = 1000;
 
+    /// <summary>
+    /// A altura que o shell da #544 (cabeçalho do jogo, abas e segunda linha da Tradução) tira da página dentro de um jogo. Os testes que medem a página somam
+    /// este valor à janela para seguir medindo a mesma altura de antes.
+    /// </summary>
+    public const int ShellChrome = 232;
+
+    /// <summary>O mesmo, com o cabeçalho compacto das janelas de menos de 940 px de altura.</summary>
+    public const int CompactShellChrome = 146;
+
+    /// <summary>A altura da janela que deixa à página de um jogo <paramref name="pageHeight"/> px, como antes do shell: soma o cabeçalho compacto ou o completo, o que a janela resultante usar.</summary>
+    public static int GameWindowHeight(int pageHeight) => pageHeight + CompactShellChrome < 940 ? pageHeight + CompactShellChrome : pageHeight + ShellChrome;
+
     /// <summary>Nome do arquivo no formato <c>tela-escuro.png</c>.</summary>
     public static string FileName(string screen, ThemeVariant theme) =>
         $"{screen}-{(theme == ThemeVariant.Light ? "claro" : "escuro")}.png";

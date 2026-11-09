@@ -39,7 +39,7 @@ public class DashboardViewHeadlessTests(HeadlessFixture fixture) : IClassFixture
                     Assert.NotEmpty(window.GetVisualDescendants().OfType<TodoItem>());
                     Assert.Single(window.GetVisualDescendants().OfType<BudgetBar>());
                     Assert.Single(window.GetVisualDescendants().OfType<GameStateBanner>());
-                    Assert.Equal("Minha VN", window.GetVisualDescendants().OfType<PageHeader>().Single().Title);
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<DashboardView>().Single().GetVisualDescendants(), v => v is PageHeader);
                 }
                 finally
                 {

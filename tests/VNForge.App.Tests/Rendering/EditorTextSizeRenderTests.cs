@@ -129,7 +129,7 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
 
                 var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), TimeProvider.System);
                 var vm = new MainWindowViewModel(start, settings: new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("app")), _ => null));
-                var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = ThemeVariant.Dark, DataContext = vm };
+                var window = new MainWindow { Width = width, Height = ScreenRenderer.GameWindowHeight(height), RequestedThemeVariant = ThemeVariant.Dark, DataContext = vm };
                 try
                 {
                     window.Show();

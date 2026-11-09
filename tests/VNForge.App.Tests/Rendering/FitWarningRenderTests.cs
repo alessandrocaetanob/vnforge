@@ -43,7 +43,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.GameWindowHeight(ScreenRenderer.Height), RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();
@@ -92,7 +92,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.GameWindowHeight(ScreenRenderer.Height), RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();

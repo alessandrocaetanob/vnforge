@@ -4,7 +4,7 @@ Navegação principal à esquerda, desde o shell novo (#544): ícone de 22px com
 
 Dois itens: Biblioteca no alto e Ajustes fixo no rodapé. A Biblioteca continua marcada com um jogo aberto, porque o jogo é um item dela; clicar nela dentro do jogo volta à lista. Ajustes tira a marca da Biblioteca. O item Personagens do quadro entra com a página dele (#558).
 
-O que antes eram itens do trilho (Painel, Editor, Conferir com o contador de erros, Testar, Glossário) vive na segunda linha da aba Tradução do jogo, e o Editor ganhou ao lado a Revisão. O cabeçalho do jogo (volta à Biblioteca, capa, nome, engine, andamento e o próximo passo) e as abas Ficha, Tradução e Jogar ficam acima da página, na área de conteúdo. Em janelas de menos de 820 px de altura o cabeçalho cabe numa linha só, sem a capa.
+O que antes eram itens do trilho (Painel, Editor, Conferir com o contador de erros, Testar, Glossário) vive na segunda linha da aba Tradução do jogo, e o Editor ganhou ao lado a Revisão. O cabeçalho do jogo (volta à Biblioteca, capa, nome, engine, andamento e o próximo passo) e as abas Ficha, Tradução e Jogar ficam acima da página, na área de conteúdo. Em janelas de menos de 940 px de altura o cabeçalho cabe numa linha só, sem a capa.
 
 ## Avalonia
 

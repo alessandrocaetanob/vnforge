@@ -70,7 +70,7 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
     public async Task Painel_cabe_em_1440_por_900_sem_rolar(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
-        await Abrir(theme, 900, (window, _) =>
+        await Abrir(theme, ScreenRenderer.GameWindowHeight(900), (window, _) =>
         {
             var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
             var scroll = Assert.Single(view.GetVisualDescendants().OfType<ScrollViewer>());

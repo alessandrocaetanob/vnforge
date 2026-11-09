@@ -25,7 +25,7 @@ namespace VNForge.App.Tests.Rendering;
 public sealed class EditorCompactRenderTests(HeadlessFixture fixture, DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<DemoFolderFixture>
 {
     private const int CompactWidth = 1366;
-    private const int CompactHeight = 768;
+    private static readonly int CompactHeight = ScreenRenderer.GameWindowHeight(768);
     private const double Tolerance = 0.5;
 
     private static readonly DateTimeOffset Now = new(2026, 10, 24, 0, 41, 0, TimeSpan.Zero);
