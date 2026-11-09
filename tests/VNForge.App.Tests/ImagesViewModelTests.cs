@@ -319,7 +319,7 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     /// <summary>Compositor falso: o PNG da prévia é só um rótulo, e o texto mede 10 px por letra.</summary>
-    private sealed class FakeComposer : IImageComposer
+    internal sealed class FakeComposer : IImageComposer
     {
         public int Renders { get; private set; }
 
@@ -340,7 +340,7 @@ public sealed class ImagesViewModelTests : IDisposable
         public (double Width, double Height) Measure(ImageEdit edit) => (edit.Text.Length * 10, edit.FontSize);
     }
 
-    private sealed class ArchiveEngine : IEngine
+    internal sealed class ArchiveEngine : IEngine
     {
         public string Id => "yuris";
 
@@ -353,7 +353,7 @@ public sealed class ImagesViewModelTests : IDisposable
         public IReadOnlyList<IGamePatch> Patches => [];
     }
 
-    private sealed class FakeArchive : IArchiveFormat
+    internal sealed class FakeArchive : IArchiveFormat
     {
         public string Id => "fake";
 

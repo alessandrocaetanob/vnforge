@@ -66,11 +66,17 @@ public sealed partial class ImageItemViewModel(ImageTextEntry entry) : Observabl
     public string Caption => $"{Name} · {Entry.Width}×{Entry.Height} · {Entry.Archive}";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(State), nameof(StateText))]
+    [NotifyPropertyChangedFor(nameof(State), nameof(StateText), nameof(IsMarkedState), nameof(IsDraftState), nameof(IsPendingState))]
     public partial ImageEdit? Edit { get; set; }
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+
+    public bool IsMarkedState => State == ImageState.Marked;
+
+    public bool IsDraftState => State == ImageState.Draft;
+
+    public bool IsPendingState => State == ImageState.Pending;
 
     public ImageState State => Edit is null ? ImageState.Pending : Edit.Marked ? ImageState.Marked : ImageState.Draft;
 
@@ -117,7 +123,6 @@ public sealed partial class ImagesViewModel : ObservableObject
             new ImageFilterChipViewModel(ImageFilter.Untranslated, "Sem tradução"),
             new ImageFilterChipViewModel(ImageFilter.WithoutText, "Sem texto"),
         ];
-        FontChoices = this.composer.FontFamilies;
     }
 
     /// <summary>O painel pediu o build: quem hospeda leva a pessoa à página Testar e roda o build, que grava as imagens marcadas no pacote.</summary>
@@ -129,7 +134,7 @@ public sealed partial class ImagesViewModel : ObservableObject
 
     public IReadOnlyList<ImageFilterChipViewModel> Chips { get; }
 
-    public IReadOnlyList<string> FontChoices { get; }
+    public IReadOnlyList<string> FontChoices => composer.FontFamilies;
 
     public ObservableCollection<RewriteFile> ConfirmationFiles { get; } = [];
 

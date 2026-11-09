@@ -20,6 +20,7 @@ public enum NavKey
     Conference,
     Settings,
     Glossary,
+    Images,
     Build,
 }
 
@@ -64,6 +65,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferir", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false) { IsVisible = false };
+    private readonly NavItemViewModel imagesItem = new(NavKey.Images, "Imagens", "Icon.Image", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
     private readonly Action<string> openFolder;
@@ -108,8 +110,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
-        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, settingsItem];
-        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem];
+        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, imagesItem, settingsItem];
+        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, imagesItem];
         BottomNav = [settingsItem];
         selectedNav = startItem;
         CurrentPage = start;
@@ -120,6 +122,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.TranslateRequested += OnEditorTranslateRequested;
         HookTranslateDialog();
         Conference.PropertyChanged += OnConferenceChanged;
+        Images.BuildRequested += (_, _) =>
+        {
+            if (GoTo(buildItem) && Build.BuildCommand.CanExecute(null))
+            {
+                Build.BuildCommand.Execute(null);
+            }
+        };
         Settings.ProjectSaved += (_, _) => ReloadProjectSettings();
         Glossary.Saved += (_, _) => RecheckEditor();
         Glossary.LinesChanged += (_, _) => Editor.Reload();
@@ -217,6 +226,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    /// <summary>O editor de imagens com texto (#535).</summary>
+    public ImagesViewModel Images { get; } = new();
 
     public BuildViewModel Build { get; }
 
@@ -368,6 +380,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Conference => Conference,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
+                    NavKey.Images => Images,
                     NavKey.Build => Build,
                     _ => Start,
                 };
@@ -766,6 +779,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         Build.Project = summary;
+        Images.Project = summary;
         Conference.Project = summary;
         History.LoadPersisted(summary.Root);
         editorStale = false;
@@ -775,6 +789,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         glossaryItem.IsEnabled = true;
         buildItem.IsEnabled = true;
         glossaryItem.IsVisible = true;
+        imagesItem.IsEnabled = !summary.IsSample;
+        imagesItem.IsVisible = !summary.IsSample;
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));
         ProjectLoading = Task.WhenAll(Editor.Loading, Glossary.Loading, Settings.EstimateLoading);

@@ -39,11 +39,14 @@ public sealed class AvaloniaImageComposer : IImageComposer
 
     private static readonly Vector Dpi = new(96, 96);
 
-    public IReadOnlyList<string> FontFamilies { get; } =
+    // Preguiçoso: o FontManager só existe com o Avalonia de pé, e a janela principal cria o editor antes disso nos testes.
+    private readonly Lazy<IReadOnlyList<string>> families = new(() =>
     [
         .. Embedded,
         .. FontManager.Current.SystemFonts.Select(f => f.Name).Where(n => !Embedded.Contains(n, StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase),
-    ];
+    ]);
+
+    public IReadOnlyList<string> FontFamilies => families.Value;
 
     public RasterPicture Decode(byte[] encoded)
     {
