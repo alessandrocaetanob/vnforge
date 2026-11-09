@@ -19,6 +19,11 @@ public sealed record PaletteEntry(PaletteGroup Group, string Title, string Subti
     /// <summary>Resultado que só aparece quando há texto na busca: não disputa com os comandos fixos o corte da lista vazia.</summary>
     public bool OnlyWhenSearching { get; init; }
 
+    /// <summary>O atalho do comando, mostrado à direita ("Ctrl+R"); nulo quando não há.</summary>
+    public string? Shortcut { get; init; }
+
+    public bool HasShortcut => !string.IsNullOrEmpty(Shortcut);
+
     public bool ShowGroup { get; init; }
 
     public string GroupLabel => Group switch
@@ -41,6 +46,7 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     private const int ScriptLimit = 6;
     private const int LineLimit = 8;
 
+    private readonly object refreshGate = new();
     private readonly Func<IReadOnlyList<PaletteEntry>> namedEntries;
     private readonly Func<string, int, IReadOnlyList<PaletteEntry>> lineSearch;
     private readonly Func<string, PaletteEntry?>? requestEntry;
@@ -83,6 +89,15 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
         Query = string.Empty;
         IsOpen = true;
         Refresh();
+    }
+
+    /// <summary>Refaz a lista com o texto de agora, quando uma fonte dela mudou com a paleta aberta (a contagem de linhas de risco alto chegou).</summary>
+    public void Reload()
+    {
+        if (IsOpen)
+        {
+            Refresh();
+        }
     }
 
     [RelayCommand]
@@ -136,6 +151,16 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     }
 
     private void Refresh()
+    {
+        // Quem refaz a lista pode estar noutra thread (a contagem de risco termina no pool quando não há contexto de sincronização). Em fila, o último a gravar
+        // leu o texto de agora, e uma leitura velha não apaga o resultado de uma busca feita depois dela.
+        lock (refreshGate)
+        {
+            Rebuild();
+        }
+    }
+
+    private void Rebuild()
     {
         var query = Query.Trim();
         var named = namedEntries();
