@@ -244,16 +244,28 @@ public sealed class LibraryFileTests : IDisposable
     }
 
     [Fact]
-    public async Task Save_espera_um_leitor_soltar_o_arquivo_em_vez_de_falhar()
+    public void Save_espera_um_leitor_soltar_o_arquivo_em_vez_de_falhar()
     {
-        var file = new LibraryFile(_dir.Path);
+        // O leitor só solta quando o Save pede a espera: nenhum relógio nem thread do pool entra na conta.
+        FileStream? reader = null;
+        var waits = 0;
+        var file = new LibraryFile(_dir.Path, _ =>
+        {
+            waits++;
+            reader?.Dispose();
+        });
         file.Save(Sample());
-        var reader = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
-        var release = Task.Delay(80, TestContext.Current.CancellationToken).ContinueWith(_ => reader.Dispose(), TestContext.Current.CancellationToken, TaskContinuationOptions.None, TaskScheduler.Default);
+        reader = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
 
         file.Save(new GameLibrary([Game(Path.Combine(_dir.Path, "novo"), "Novo")]));
-        await release;
 
         Assert.Equal("Novo", file.Load().Games.Single().Title);
+        if (OperatingSystem.IsWindows())
+        {
+            // No Windows a troca por cima de um arquivo aberto falha, então o Save tem de ter esperado.
+            Assert.Equal(1, waits);
+        }
+
+        reader.Dispose();
     }
 }
