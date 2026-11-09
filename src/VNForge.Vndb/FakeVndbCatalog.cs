@@ -4,8 +4,11 @@ namespace VNForge.Vndb;
 
 /// <summary>
 /// O catálogo do VNDB em memória, para os testes e para o app sem rede. Responde só com o que foi posto nele, sem chamar a rede nem esperar fila.
-/// A busca por título compara sem diferenciar maiúsculas e olha título, título alternativo, apelidos e os títulos por idioma. A lista faz de conta que há uma conta só,
-/// a do token <see cref="ValidToken"/>.
+/// Fica em <c>src/VNForge.Vndb</c>, e não num projeto de testes, pelo mesmo motivo do <c>FakeTranslationProvider</c>: o app e a CLI o usam sem rede e os testes de
+/// todos os projetos que dependem do VNDB (Biblioteca, tela, CLI) o compartilham.
+/// A busca por título compara sem diferenciar maiúsculas e olha título, título alternativo, apelidos e os títulos por idioma. Valida a entrada como o cliente
+/// real (<see cref="VndbRules"/>) e imita o servidor na lista: votar põe o rótulo 7 (&quot;Voted&quot;) e a data do voto, apagar o voto tira os dois, e a lista sai
+/// ordenada pelo número do id. Faz de conta que há uma conta só, a do token <see cref="ValidToken"/>.
 /// </summary>
 public sealed class FakeVndbCatalog : IVndbCatalog, IVndbUserList
 {
@@ -18,18 +21,21 @@ public sealed class FakeVndbCatalog : IVndbCatalog, IVndbUserList
     private readonly List<string> _calls = [];
     private readonly Lock _gate = new();
     private readonly string _userId;
+    private readonly TimeProvider _time;
 
     public FakeVndbCatalog(
         IEnumerable<VndbVisualNovel>? visualNovels = null,
         IEnumerable<VndbCharacter>? characters = null,
         IEnumerable<VndbRelease>? releases = null,
         IEnumerable<VndbListEntry>? list = null,
-        string userId = "u1")
+        string userId = "u1",
+        TimeProvider? time = null)
     {
         _visualNovels = [.. visualNovels ?? []];
         _characters = [.. characters ?? []];
         _releases = [.. releases ?? []];
         _userId = userId;
+        _time = time ?? TimeProvider.System;
         foreach (var entry in list ?? [])
         {
             _list[entry.VisualNovelId] = entry;
@@ -50,32 +56,37 @@ public sealed class FakeVndbCatalog : IVndbCatalog, IVndbUserList
 
     public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default)
     {
+        var text = VndbRules.RequireTitle(title);
         Record(nameof(SearchVisualNovelsAsync), title);
-        return Task.FromResult<IReadOnlyList<VndbVisualNovel>>([.. Matching(title).Take(Math.Max(limit, 0))]);
+        return Task.FromResult<IReadOnlyList<VndbVisualNovel>>([.. Matching(text).Take(Math.Clamp(limit, 1, 100))]);
     }
 
     public Task<VndbVisualNovel?> GetVisualNovelAsync(string id, CancellationToken ct = default)
     {
+        VndbRules.RequireId(id, 'v');
         Record(nameof(GetVisualNovelAsync), id);
         return Task.FromResult(_visualNovels.FirstOrDefault(v => v.Id == id));
     }
 
-    public Task<IReadOnlyList<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default)
+    public Task<VndbResults<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default)
     {
+        VndbRules.RequireId(visualNovelId, 'v');
         Record(nameof(GetCharactersAsync), visualNovelId);
-        return Task.FromResult<IReadOnlyList<VndbCharacter>>([.. CharactersOf([visualNovelId])]);
+        return Task.FromResult(new VndbResults<VndbCharacter>([.. CharactersOf([visualNovelId])], false));
     }
 
-    public Task<IReadOnlyList<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default)
+    public Task<VndbResults<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default)
     {
+        var text = VndbRules.RequireTitle(title);
         Record(nameof(SearchCharactersByTitleAsync), title);
-        return Task.FromResult<IReadOnlyList<VndbCharacter>>([.. CharactersOf(Matching(title).Select(v => v.Id).ToHashSet(StringComparer.Ordinal))]);
+        return Task.FromResult(new VndbResults<VndbCharacter>([.. CharactersOf(Matching(text).Select(v => v.Id).ToHashSet(StringComparer.Ordinal))], false));
     }
 
-    public Task<IReadOnlyList<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default)
+    public Task<VndbResults<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default)
     {
+        VndbRules.RequireId(visualNovelId, 'v');
         Record(nameof(GetReleasesAsync), visualNovelId);
-        return Task.FromResult<IReadOnlyList<VndbRelease>>([.. _releases.Where(r => r.VisualNovels.Any(v => v.VisualNovelId == visualNovelId))]);
+        return Task.FromResult(new VndbResults<VndbRelease>([.. _releases.Where(r => r.VisualNovels.Any(v => v.VisualNovelId == visualNovelId))], false));
     }
 
     public Task<VndbAuthInfo> GetAuthInfoAsync(string token, CancellationToken ct = default)
@@ -85,8 +96,9 @@ public sealed class FakeVndbCatalog : IVndbCatalog, IVndbUserList
         return Task.FromResult(new VndbAuthInfo(_userId, "fake", ["listread", "listwrite"]));
     }
 
-    public Task<IReadOnlyList<VndbListEntry>> GetListAsync(string userId, string? token = null, CancellationToken ct = default)
+    public Task<VndbResults<VndbListEntry>> GetListAsync(string userId, string? token = null, CancellationToken ct = default)
     {
+        VndbRules.RequireId(userId, 'u');
         Record(nameof(GetListAsync), userId);
         if (token is not null)
         {
@@ -95,28 +107,46 @@ public sealed class FakeVndbCatalog : IVndbCatalog, IVndbUserList
 
         lock (_gate)
         {
-            return Task.FromResult<IReadOnlyList<VndbListEntry>>(userId == _userId ? [.. _list.Values.OrderBy(e => e.VisualNovelId, StringComparer.Ordinal)] : []);
+            IReadOnlyList<VndbListEntry> entries = userId == _userId ? [.. _list.Values.OrderBy(e => VndbRules.NumberOf(e.VisualNovelId))] : [];
+            return Task.FromResult(new VndbResults<VndbListEntry>(entries, false));
         }
     }
 
     public Task UpdateEntryAsync(string token, string visualNovelId, VndbListUpdate update, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(update);
+        VndbRules.RequireId(visualNovelId, 'v');
+        VndbRules.RequireValid(update);
         Record(nameof(UpdateEntryAsync), visualNovelId);
         RequireValid(token);
         lock (_gate)
         {
-            var now = DateTimeOffset.UnixEpoch;
+            var now = _time.GetUtcNow();
             _list.TryGetValue(visualNovelId, out var current);
             current ??= new VndbListEntry(visualNovelId, _visualNovels.FirstOrDefault(v => v.Id == visualNovelId)?.Title, now, now, null, null, null, null, null, []);
 
+            var vote = Apply(current.Vote, update.Vote);
+            DateTimeOffset? voted = update.Vote.Kind switch
+            {
+                VndbChangeKind.Set => now,
+                VndbChangeKind.Clear => null,
+                _ => current.Voted,
+            };
+
+            // O "Voted" é do servidor: segue o voto e não entra pelos rótulos.
             var labels = current.Labels
-                .Where(l => !update.LabelsUnset.Contains(l.Id))
+                .Where(l => l.Id != VndbRules.VotedLabelId && !update.LabelsUnset.Contains(l.Id))
                 .Concat(update.LabelsSet.Where(id => current.Labels.All(l => l.Id != id)).Select(id => new VndbListLabel(id, "#" + id)))
                 .ToList();
+            if (vote is not null)
+            {
+                labels.Add(new VndbListLabel(VndbRules.VotedLabelId, "Voted"));
+            }
+
             _list[visualNovelId] = current with
             {
-                Vote = Apply(current.Vote, update.Vote),
+                LastModified = now,
+                Vote = vote,
+                Voted = voted,
                 Notes = Apply(current.Notes, update.Notes),
                 Started = Apply(current.Started, update.Started),
                 Finished = Apply(current.Finished, update.Finished),
@@ -153,7 +183,7 @@ public sealed class FakeVndbCatalog : IVndbCatalog, IVndbUserList
     }
 
     private IEnumerable<VndbVisualNovel> Matching(string title) =>
-        _visualNovels.Where(v => Names(v).Any(name => name.Contains(title.Trim(), StringComparison.OrdinalIgnoreCase)));
+        _visualNovels.Where(v => Names(v).Any(name => name.Contains(title, StringComparison.OrdinalIgnoreCase)));
 
     private static IEnumerable<string> Names(VndbVisualNovel v)
     {

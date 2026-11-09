@@ -32,7 +32,10 @@ public sealed class VndbCache
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
     }
 
-    /// <summary>A resposta guardada, se existe e ainda vale. Arquivo ilegível conta como ausente.</summary>
+    /// <summary>
+    /// A resposta guardada, se existe e ainda vale. Entrada vencida, com data no futuro (relógio que andou para trás) ou ilegível conta como ausente e é apagada,
+    /// para a pasta não acumular consulta que ninguém mais lê.
+    /// </summary>
     public bool TryGet(string key, out string response)
     {
         response = string.Empty;
@@ -45,15 +48,22 @@ public sealed class VndbCache
             }
 
             var entry = JsonSerializer.Deserialize<Entry>(File.ReadAllText(file, Encoding.UTF8));
-            if (entry?.Response is null || _time.GetUtcNow() - entry.FetchedAt >= MaxAge)
+            var age = entry is null ? TimeSpan.MaxValue : _time.GetUtcNow() - entry.FetchedAt;
+            if (entry?.Response is null || age < TimeSpan.Zero || age >= MaxAge)
             {
+                TryDelete(file);
                 return false;
             }
 
             response = entry.Response;
             return true;
         }
-        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
+        catch (JsonException)
+        {
+            TryDelete(file);
+            return false;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             return false;
         }

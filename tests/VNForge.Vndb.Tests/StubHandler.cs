@@ -37,6 +37,33 @@ internal sealed class StubHandler(Func<SentRequest, int, HttpResponseMessage> re
     public static HttpResponseMessage Text(HttpStatusCode status, string text) =>
         new(status) { Content = new StringContent(text, Encoding.UTF8, "text/plain") };
 
+    /// <summary>Um corpo que cai no meio da leitura, como uma conexão cortada.</summary>
+    public sealed class BrokenContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => throw new IOException("conexão cortada");
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = -1;
+            return false;
+        }
+    }
+
+    /// <summary>Um corpo que nunca termina: só a espera cancelada o solta.</summary>
+    public sealed class HangingContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => Task.Delay(Timeout.Infinite);
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
+            Task.Delay(Timeout.Infinite, cancellationToken);
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = -1;
+            return false;
+        }
+    }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);

@@ -10,10 +10,21 @@ public class VndbClientTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static VndbClient Client(StubHandler handler, FakeTimeProvider? time = null, VndbCache? cache = null, int maxRequests = VndbRequestQueue.DefaultMaxRequests)
+    /// <summary>
+    /// <paramref name="time"/> é o relógio da fila. O relógio do prazo do cliente (<paramref name="clientTime"/>) é o do sistema, de propósito: os testes que andam
+    /// <paramref name="time"/> aos saltos não podem estourar o prazo de um pedido que esteja no ar.
+    /// </summary>
+    private static VndbClient Client(
+        StubHandler handler,
+        FakeTimeProvider? time = null,
+        VndbCache? cache = null,
+        int maxRequests = VndbRequestQueue.DefaultMaxRequests,
+        VndbRequestQueue? queue = null,
+        TimeProvider? clientTime = null,
+        TimeSpan? timeout = null)
     {
         time ??= new FakeTimeProvider();
-        return new VndbClient(new HttpClient(handler), new VndbRequestQueue(time, maxRequests), cache);
+        return new VndbClient(new HttpClient(handler), queue ?? new VndbRequestQueue(time, maxRequests), cache, time: clientTime, timeout: timeout);
     }
 
     private static JsonNode Body(SentRequest request) => JsonNode.Parse(request.Body)!;
@@ -108,7 +119,9 @@ public class VndbClientTests
     {
         var handler = new StubHandler(VndbSamples.Characters);
 
-        var found = await Client(handler).SearchCharactersByTitleAsync("Moon Flower", ct: Ct);
+        var result = await Client(handler).SearchCharactersByTitleAsync("Moon Flower", ct: Ct);
+        var found = result.Items;
+        Assert.False(result.Truncated);
 
         var sent = Assert.Single(handler.Requests);
         Assert.Equal("https://api.vndb.org/kana/character", sent.Uri.ToString());
@@ -140,10 +153,23 @@ public class VndbClientTests
 
         var found = await Client(handler).GetCharactersAsync("v900001", ct: Ct);
 
-        Assert.Equal(["c900001", "c900002"], found.Select(c => c.Id));
+        Assert.False(found.Truncated);
+        Assert.Equal(["c900001", "c900002"], found.Items.Select(c => c.Id));
         Assert.Equal(2, handler.Requests.Count);
         Assert.Equal("""["vn","=",["id","=","v900001"]]""", Body(handler.Requests[0])["filters"]!.ToJsonString());
         Assert.Equal([1, 2], handler.Requests.Select(r => (int)Body(r)["page"]!));
+    }
+
+    [Fact]
+    public async Task Busca_de_personagens_que_passa_do_teto_de_paginas_avisa_que_cortou()
+    {
+        var handler = new StubHandler(VndbSamples.CharactersFirstPage);
+
+        var result = await Client(handler).SearchCharactersByTitleAsync("Moon Flower", ct: Ct);
+
+        Assert.True(result.Truncated);
+        Assert.Equal(5, handler.Requests.Count);
+        Assert.Equal(5, result.Items.Count);
     }
 
     [Fact]
@@ -151,7 +177,7 @@ public class VndbClientTests
     {
         var handler = new StubHandler(VndbSamples.Releases);
 
-        var found = await Client(handler).GetReleasesAsync("v900001", ct: Ct);
+        var found = (await Client(handler).GetReleasesAsync("v900001", ct: Ct)).Items;
 
         Assert.Equal("https://api.vndb.org/kana/release", handler.Requests[0].Uri.ToString());
         var release = Assert.Single(found);
@@ -254,7 +280,8 @@ public class VndbClientTests
 
         time.Advance(VndbRequestQueue.DefaultWindow);
         await fourth.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        Assert.Equal(4, handler.Requests.Count);    }
+        Assert.Equal(4, handler.Requests.Count);
+    }
 
     [Fact]
     public async Task Resposta_429_para_a_fila_pelo_Retry_After_e_o_pedido_e_refeito()
@@ -284,18 +311,162 @@ public class VndbClientTests
     }
 
     [Fact]
-    public async Task Duas_respostas_429_seguidas_viram_erro_em_portugues()
+    public async Task Sem_Retry_After_a_espera_cresce_60_120_180_segundos_e_na_quarta_vez_o_pedido_passa()
+    {
+        var time = new FakeTimeProvider();
+        var sentAt = new List<DateTimeOffset>();
+        var handler = new StubHandler((_, n) =>
+        {
+            lock (sentAt)
+            {
+                sentAt.Add(time.GetUtcNow());
+            }
+
+            return n <= 3 ? StubHandler.Text(HttpStatusCode.TooManyRequests, "Throttled") : StubHandler.Json(VndbSamples.NoResults);
+        });
+        var pending = Client(handler, time).SearchVisualNovelsAsync("x", ct: Ct);
+
+        await AdvanceUntilDone(pending, time, TimeSpan.FromSeconds(10));
+        await pending;
+
+        Assert.Equal(4, handler.Requests.Count);
+        Assert.True(sentAt[1] - sentAt[0] >= TimeSpan.FromSeconds(60));
+        Assert.True(sentAt[2] - sentAt[1] >= TimeSpan.FromSeconds(120));
+        Assert.True(sentAt[3] - sentAt[2] >= TimeSpan.FromSeconds(180));
+    }
+
+    [Fact]
+    public async Task Quatro_respostas_429_seguidas_viram_erro_em_portugues()
     {
         var time = new FakeTimeProvider();
         var handler = new StubHandler((_, _) => StubHandler.Text(HttpStatusCode.TooManyRequests, "Throttled"));
         var pending = Client(handler, time).SearchVisualNovelsAsync("x", ct: Ct);
 
-        // Sem Retry-After a fila para por 1 minuto antes do segundo pedido.
-        await AdvanceUntilDone(pending, time, TimeSpan.FromMinutes(1));
+        await AdvanceUntilDone(pending, time, TimeSpan.FromSeconds(10));
         var error = await Assert.ThrowsAsync<VndbException>(() => pending);
 
         Assert.Equal(429, error.StatusCode);
         Assert.Contains("limitou", error.Message);
+        Assert.Equal(4, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task O_Retry_After_vence_a_espera_padrao_e_nunca_passa_da_janela_da_fila()
+    {
+        var time = new FakeTimeProvider();
+        var sentAt = new List<DateTimeOffset>();
+        var handler = new StubHandler((_, n) =>
+        {
+            lock (sentAt)
+            {
+                sentAt.Add(time.GetUtcNow());
+            }
+
+            if (n > 1)
+            {
+                return StubHandler.Json(VndbSamples.NoResults);
+            }
+
+            var throttled = StubHandler.Text(HttpStatusCode.TooManyRequests, "Throttled");
+            throttled.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromHours(1));
+            return throttled;
+        });
+        var pending = Client(handler, time).SearchVisualNovelsAsync("x", ct: Ct);
+
+        // Uma hora pedida, mas a fila só segura até a janela de 5 minutos: passar disso só adiaria o erro.
+        await AdvanceUntilDone(pending, time, VndbRequestQueue.DefaultWindow);
+        await pending;
+
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.True(sentAt[1] - sentAt[0] >= VndbRequestQueue.DefaultWindow);
+        Assert.True(sentAt[1] - sentAt[0] < TimeSpan.FromHours(1));
+    }
+
+    [Fact]
+    public async Task Um_503_com_a_pagina_do_nginx_e_limite_de_uso_e_o_pedido_e_refeito()
+    {
+        var time = new FakeTimeProvider();
+        var handler = new StubHandler((_, n) => n == 1
+            ? StubHandler.Text(HttpStatusCode.ServiceUnavailable, "<html><head><title>503 Service Temporarily Unavailable</title></head></html>")
+            : StubHandler.Json(VndbSamples.NoResults));
+        var pending = Client(handler, time).SearchVisualNovelsAsync("x", ct: Ct);
+
+        await AdvanceUntilDone(pending, time, TimeSpan.FromSeconds(10));
+        await pending;
+
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Um_503_sem_sinal_de_limite_e_servidor_fora_do_ar_e_nao_e_refeito()
+    {
+        var handler = new StubHandler((_, _) => StubHandler.Text(HttpStatusCode.ServiceUnavailable, "down for maintenance"));
+
+        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).SearchVisualNovelsAsync("x", ct: Ct));
+
+        Assert.Equal(503, error.StatusCode);
+        Assert.Contains("fora do ar", error.Message);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Queda_no_meio_do_corpo_vira_VndbException_em_portugues()
+    {
+        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StubHandler.BrokenContent() });
+
+        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).SearchVisualNovelsAsync("x", ct: Ct));
+
+        Assert.Contains("caiu no meio da resposta", error.Message);
+        Assert.NotNull(error.InnerException);
+    }
+
+    [Fact]
+    public async Task Corpo_que_trava_para_pelo_prazo_do_cliente()
+    {
+        var clientTime = new FakeTimeProvider();
+        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StubHandler.HangingContent() });
+        var pending = Client(handler, clientTime: clientTime, timeout: TimeSpan.FromSeconds(30)).SearchVisualNovelsAsync("x", ct: Ct);
+
+        await AdvanceUntilDone(pending, clientTime, TimeSpan.FromSeconds(30));
+        var error = await Assert.ThrowsAsync<VndbException>(() => pending);
+
+        Assert.Contains("demorou demais", error.Message);
+    }
+
+    [Fact]
+    public async Task Dois_clientes_com_a_mesma_fila_juntos_nao_passam_do_limite()
+    {
+        var time = new FakeTimeProvider();
+        var queue = new VndbRequestQueue(time, maxRequests: 3);
+        var handlerA = new StubHandler(VndbSamples.NoResults);
+        var handlerB = new StubHandler(VndbSamples.NoResults);
+        var a = Client(handlerA, queue: queue);
+        var b = Client(handlerB, queue: queue);
+
+        await a.SearchVisualNovelsAsync("a1", ct: Ct);
+        await b.SearchVisualNovelsAsync("b1", ct: Ct);
+        await a.SearchVisualNovelsAsync("a2", ct: Ct);
+        var fourth = b.SearchVisualNovelsAsync("b2", ct: Ct);
+
+        Assert.False(fourth.IsCompleted);
+        Assert.Equal(3, handlerA.Requests.Count + handlerB.Requests.Count);
+
+        time.Advance(VndbRequestQueue.DefaultWindow);
+        await fourth.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.Equal(4, handlerA.Requests.Count + handlerB.Requests.Count);
+    }
+
+    [Fact]
+    public void Create_divide_a_fila_do_processo_entre_os_clientes()
+    {
+        var first = VndbClient.Create();
+        var second = VndbClient.Create();
+        var own = new VndbRequestQueue(new FakeTimeProvider());
+
+        Assert.Same(VndbClient.SharedRequestQueue, first.Queue);
+        Assert.Same(first.Queue, second.Queue);
+        Assert.Same(own, VndbClient.Create(queue: own).Queue);
+        Assert.NotSame(first.Queue, VndbClient.Create(time: new FakeTimeProvider()).Queue);
     }
 
     [Theory]
@@ -303,6 +474,7 @@ public class VndbClientTests
     [InlineData(HttpStatusCode.Unauthorized, "", "não aceitou o token")]
     [InlineData(HttpStatusCode.InternalServerError, "", "fora do ar")]
     [InlineData(HttpStatusCode.BadGateway, "", "fora do ar")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "", "fora do ar")]
     [InlineData(HttpStatusCode.NotFound, "", "HTTP 404")]
     public async Task Erro_de_http_vira_VndbException_com_mensagem_em_portugues(HttpStatusCode status, string body, string expected)
     {
@@ -353,7 +525,7 @@ public class VndbClientTests
     {
         var handler = new StubHandler((_, n) => StubHandler.Json(n == 1 ? VndbSamples.ListFirstPage : VndbSamples.ListSecondPage));
 
-        var list = await Client(handler).GetListAsync("u900", "tok-1", ct: Ct);
+        var list = (await Client(handler).GetListAsync("u900", "tok-1", ct: Ct)).Items;
 
         Assert.Equal(2, handler.Requests.Count);
         Assert.All(handler.Requests, r =>
@@ -453,11 +625,15 @@ public class VndbClientTests
     [Theory]
     [InlineData(0)]
     [InlineData(7)]
-    public async Task Rotulos_virtuais_nao_podem_ser_gravados(int label)
+    [InlineData(-1)]
+    [InlineData(1601)]
+    public async Task Rotulos_fora_de_1_a_1600_ou_o_7_nao_podem_ser_gravados_nem_tirados(int label)
     {
         var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+        var client = Client(handler);
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Client(handler).UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { LabelsSet = [label] }, ct: Ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { LabelsSet = [label] }, ct: Ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { LabelsUnset = [label] }, ct: Ct));
 
         Assert.Empty(handler.Requests);
     }
