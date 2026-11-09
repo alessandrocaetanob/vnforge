@@ -82,7 +82,7 @@
 
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
          Buscar, Conferir arquivo e Modo revisão têm o mesmo estilo e tamanho; abaixo de 1400 px largam o texto e ficam como ícones com dica. -->
-    <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
+    <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
       <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->

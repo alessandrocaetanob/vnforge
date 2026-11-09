@@ -76,7 +76,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 }
             },
             TestContext.Current.CancellationToken);
-        ConferirCorte(aviso, 31);
+        ConferirCorte(aviso, 35);
     }
 
     [Theory]
@@ -118,7 +118,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 }
             },
             TestContext.Current.CancellationToken);
-        ConferirCorte(aviso, 70);
+        ConferirCorte(aviso, 84);
     }
 
     /// <summary>O aviso está na tela, dentro da janela, com os dois botões, e o fundo dele (num ponto de dentro do infobar) é o do aviso do tema.</summary>
@@ -155,8 +155,8 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     /// <summary>
     /// A tela abre sem rolar até o aviso, então a medida (sem BringIntoView) diz o quanto dele fica abaixo da área do painel. O cabeçalho do jogo de 80 px
-    /// do shell novo (#544) empurra o painel de baixo, e o teste vale o corte que a main já tinha: no Conferir, o aviso começa dentro da área e perde até 70 px
-    /// (medidos 66 em 1440x1000, com o topo em y=824 e a área até y=854); no Editor perde até 31 px (medidos 31, topo em y=829 e área até y=894, com os 8 px entre a barra e a grade). Antes de o
+    /// do shell novo (#544) empurra o painel de baixo, e o teste vale o corte que a main já tinha: no Conferir, o aviso começa dentro da área e perde até 84 px
+    /// (medidos 82 em 1440x1000 depois do tema comum de #602, que alongou o texto de rótulo; eram 66, com o topo em y=824 e a área até y=854); no Editor perde até 35 px (medidos 34, eram 31; topo em y=829 e área até y=894, com os 8 px entre a barra e a grade). Antes de o
     /// layout ser enxugado o corte era de 150 px no Conferir (o aviso inteiro abaixo da área) e de 62 px no Editor, e um Skip sem limite escondeu isso.
     /// </summary>
     private static void ConferirCorte(VisibleArea.Measure medida, double corteMaximo)
