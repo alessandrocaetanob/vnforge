@@ -47,7 +47,7 @@ public static class ProjectLabels
 
     public static string Engine(string id, int? version) => id switch
     {
-        "yuris" => version is { } v ? $"YU-RIS · YPF v{v}" : "YU-RIS",
+        "yuris" => version is { } v ? $"Yu-RIS · YPF v{v}" : "Yu-RIS",
         _ => id,
     };
 
