@@ -1,5 +1,6 @@
 using System.Globalization;
 using VNForge.Core.Engines;
+using VNForge.Core.Memory;
 
 namespace VNForge.Core.Projects;
 
@@ -39,7 +40,11 @@ public static class ProjectChoices
 }
 
 /// <summary>O projeto criado e o que a detecção encontrou no jogo.</summary>
-public sealed record ProjectInitResult(ProjectFolder Folder, ProjectConfig Config, IEngine Engine, EngineDetection Detection);
+public sealed record ProjectInitResult(ProjectFolder Folder, ProjectConfig Config, IEngine Engine, EngineDetection Detection)
+{
+    /// <summary>Quantos termos do glossário pessoal entraram no <c>glossary.json</c> do projeto novo (#537).</summary>
+    public int SeededTerms { get; init; }
+}
 
 /// <summary>
 /// Cria um projeto de tradução a partir de uma pasta de jogo: roda a detecção das engines, grava engine, versão e chave no
@@ -82,7 +87,8 @@ public static class ProjectInitializer
         string projectDir,
         string gameDir,
         IReadOnlyList<IEngine> engines,
-        ProjectInitOptions? options = null)
+        ProjectInitOptions? options = null,
+        PersonalGlossary? personalGlossary = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectDir);
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
@@ -119,7 +125,21 @@ public static class ProjectInitializer
             new EncodingConfig(string.IsNullOrWhiteSpace(options.EncodingStrategy) ? ProjectChoices.DefaultEncoding : options.EncodingStrategy.Trim()),
             options.Ai ?? ProjectChoices.DefaultAi);
 
-        return new ProjectInitResult(ProjectFolder.Create(project, config), config, engine, detection);
+        var folder = ProjectFolder.Create(project, config);
+        return new ProjectInitResult(folder, config, engine, detection) { SeededTerms = SeedPersonalTerms(folder, personalGlossary) };
+    }
+
+    /// <summary>O glossário pessoal é um conforto: se o arquivo dele está ilegível o projeto nasce sem os termos, em vez de não nascer.</summary>
+    private static int SeedPersonalTerms(ProjectFolder folder, PersonalGlossary? personalGlossary)
+    {
+        try
+        {
+            return personalGlossary?.SeedProject(folder) ?? 0;
+        }
+        catch (VNForgeException)
+        {
+            return 0;
+        }
     }
 
     private static (IEngine Engine, EngineDetection Detection) Detect(IReadOnlyList<IEngine> engines, string game)

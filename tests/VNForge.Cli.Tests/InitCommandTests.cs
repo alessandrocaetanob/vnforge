@@ -40,6 +40,19 @@ public sealed class InitCommandTests : IDisposable
     private string ProjectPath(string name = MinhaVnPtbr) => Path.Combine(_cli.WorkingDirectory, name);
 
     [Fact]
+    public async Task Projeto_novo_ja_nasce_com_os_termos_do_glossario_pessoal()
+    {
+        var game = NewGameDir();
+        new VNForge.Core.Memory.PersonalGlossary(_cli.UserConfigDirectory).Upsert(new VNForge.Core.Memory.PersonalTerm("お兄ちゃん", "mano"));
+
+        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Glossário pessoal: 1 termos entraram", result.Output);
+        Assert.Equal("お兄ちゃん", Assert.Single(ProjectFolder.Open(ProjectPath()).LoadGlossary()).Source);
+    }
+
+    [Fact]
     public async Task Cria_o_projeto_com_engine_versao_e_chave_da_deteccao()
     {
         var game = NewGameDir();

@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using VNForge.Core.Logging;
+using VNForge.Core.Memory;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 
@@ -85,7 +86,8 @@ internal static class InitCommand
             Path.GetFullPath(folderArgument, cli.CurrentDirectory),
             Path.GetFullPath(gameArgument, cli.CurrentDirectory),
             KnownEngines.All,
-            options);
+            options,
+            new PersonalGlossary(cli.UserConfigDirectory));
 
         var output = parseResult.InvocationConfiguration.Output;
         var details = result.Detection.Details;
@@ -100,6 +102,7 @@ internal static class InitCommand
                 version = result.Config.Engine.Version,
                 scriptKey = result.Config.Engine.ScriptKey,
                 summary = result.Detection.Summary,
+                personalTerms = result.SeededTerms,
                 warnings,
             }));
             return ErrorHandler.OkExitCode;
@@ -119,6 +122,11 @@ internal static class InitCommand
         if (warnings is not null)
         {
             output.WriteLine($"Aviso: {warnings}");
+        }
+
+        if (result.SeededTerms > 0)
+        {
+            output.WriteLine($"Glossário pessoal: {result.SeededTerms} termos entraram no glossário do projeto.");
         }
 
         output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
