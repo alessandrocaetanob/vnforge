@@ -139,7 +139,7 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
     /// </summary>
     internal LibraryTagFilter Without(string name, bool vndbStillMatches, List<string> notices)
     {
-        var converted = false;
+        var converted = new List<LibraryTagTerm>();
         LibraryTagTerm? Keep(LibraryTagTerm term)
         {
             if (term.Scope != LibraryTagScope.Any || !vndbStillMatches)
@@ -147,8 +147,9 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
                 return null;
             }
 
-            converted = true;
-            return term with { Scope = LibraryTagScope.Vndb };
+            var vndbTerm = term with { Scope = LibraryTagScope.Vndb };
+            converted.Add(vndbTerm);
+            return vndbTerm;
         }
 
         var include = Rewrite(Include, name, Keep);
@@ -165,7 +166,7 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
             notices.Add($"O filtro salvo perdeu {(lost == 1 ? "um termo" : $"{lost} termos")} que apontava para a tag '{name}'.");
         }
 
-        if (converted)
+        if (converted.Count > 0)
         {
             notices.Add($"No filtro salvo, '{name}' agora vale só para a tag do VNDB com esse nome.");
         }
