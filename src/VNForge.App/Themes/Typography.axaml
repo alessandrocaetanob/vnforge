@@ -56,10 +56,11 @@
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
     <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
   </Style>
-  <!-- O v3 pede caixa alta e 0,07 em de espaçamento; o texto das telas ainda está em caixa normal e isso entra com a migração (e4). -->
+  <!-- O v3 pede caixa alta e 0,07 em de espaçamento (0,77px a 11px). O TextBlock não tem text-transform: quem usa a classe escreve o rótulo em caixa alta. -->
   <Style Selector="TextBlock.overline">
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Overline}"/>
     <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Overline}"/>
+    <Setter Property="LetterSpacing" Value="{DynamicResource Vnf.LetterSpacing.Overline}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>

@@ -487,7 +487,7 @@
                     </Grid>
                   </Border>
                   <StackPanel Spacing="0" IsVisible="{Binding HasCandidates}">
-                    <TextBlock Classes="overline" Text="Guardar no glossário pessoal" Margin="0,0,0,4"/>
+                    <TextBlock Classes="overline" Text="GUARDAR NO GLOSSÁRIO PESSOAL" Margin="0,0,0,4"/>
                     <ItemsControl ItemsSource="{Binding Candidates}" AutomationProperties.Name="Termos do projeto para guardar">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:KeepCandidateRow">

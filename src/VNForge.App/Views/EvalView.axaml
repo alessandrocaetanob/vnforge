@@ -170,14 +170,14 @@
         <StackPanel x:Name="Side" Grid.Column="1" Spacing="16" VerticalAlignment="Top">
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="Custo e qualidade"/>
+              <TextBlock Classes="overline" Text="CUSTO E QUALIDADE"/>
               <c:EvalChart ItemsSource="{Binding Points}" Height="220" AutomationProperties.Name="Gráfico de custo do jogo todo contra chrF, um ponto por configuração"/>
             </StackPanel>
           </Border>
 
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="Leitura da rodada"/>
+              <TextBlock Classes="overline" Text="LEITURA DA RODADA"/>
               <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Reading}"/>
             </StackPanel>
           </Border>
@@ -257,7 +257,7 @@
     </StackPanel>
 
     <!-- Rodar o banco de provas: o custo aparece antes de rodar, com o que já foi gasto no projeto, como na janela Traduzir com IA. -->
-    <c:ScreenDialog Title="Rodar o banco de provas" IsOpen="{Binding IsRunOpen, Mode=TwoWay}">
+    <c:ScreenDialog Title="Rodar o banco de provas" DialogWidth="660" IsOpen="{Binding IsRunOpen, Mode=TwoWay}">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="16" AutomationProperties.Name="Rodar o banco de provas">
           <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding RunIntro}"/>

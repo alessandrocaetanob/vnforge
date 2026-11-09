@@ -293,7 +293,7 @@
     </Grid>
 
     <!-- Gerar a bíblia do jogo: o preço aparece antes de rodar, e os campos que você editou ficam preservados. -->
-    <c:ScreenDialog Title="Gerar a bíblia do jogo" IsOpen="{Binding IsGenerateOpen, Mode=TwoWay}">
+    <c:ScreenDialog Title="Gerar a bíblia do jogo" DialogWidth="640" IsOpen="{Binding IsGenerateOpen, Mode=TwoWay}">
       <StackPanel Spacing="12" Width="600">
         <TextBlock Classes="body" TextWrapping="Wrap" Text="A IA lê o roteiro um capítulo por vez e escreve, por cena, o resumo, quem aparece, as relações, o tom e as piadas que voltam. Para o jogo, escreve a sinopse e a linha do tempo."/>
         <Border Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="14">

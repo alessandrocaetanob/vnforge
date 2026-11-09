@@ -188,6 +188,7 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                         var path = RenderOutput.PathFor(ScreenRenderer.FileName("provas-rodar", Variant(themeName)));
                         ScreenRenderer.Save(window, path);
                         Assert.True(new FileInfo(path).Length > 10_000);
+                        DialogProbe.AssertCentered(window, 660);
 
                         var overlay = OverlayLayer.GetOverlayLayer(window)!.Children.OfType<Control>().Single(c => c.GetVisualDescendants().OfType<BudgetBar>().Any());
                         var texts = Texts(overlay).ToList();

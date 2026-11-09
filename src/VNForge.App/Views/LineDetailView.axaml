@@ -96,7 +96,7 @@
           <!-- Original em fundo rebaixado, com os marcadores como chips. -->
           <StackPanel x:Name="OriginalFragment" Spacing="6">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-              <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
+              <TextBlock Classes="overline" Text="ORIGINAL" VerticalAlignment="Center"/>
               <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding HasMemory}"
                       ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução." AutomationProperties.Name="Entender o japonês">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -146,7 +146,7 @@
               <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                   <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Database}"/>
-                  <TextBlock Classes="overline" Text="Memória de tradução"/>
+                  <TextBlock Classes="overline" Text="MEMÓRIA DE TRADUÇÃO"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding MemorySummary}" IsVisible="{Binding HasMemory}"/>
               </Grid>
@@ -205,7 +205,7 @@
           <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
           <StackPanel x:Name="TranslationFragment" Spacing="6">
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="overline" Text="Tradução"/>
+              <TextBlock Classes="overline" Text="TRADUÇÃO"/>
               <TextBlock Grid.Column="1" Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding IsCompactInspector}"/>
             </Grid>
             <Border Classes="field">

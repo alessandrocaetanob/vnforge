@@ -6,7 +6,7 @@
              x:DataType="vm:TranslateDialogViewModel">
 
   <!-- Traduzir com IA (U12): o diálogo vive na camada de sobreposição, sobre o Editor; Escape e o X fecham. Três perguntas: o que, com que qualidade e por quanto. -->
-  <c:ScreenDialog Title="Traduzir com IA" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+  <c:ScreenDialog Title="Traduzir com IA" DialogWidth="780" ShowClose="True" IsOpen="{Binding IsOpen, Mode=TwoWay}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <ScrollViewer.Styles>
         <!-- Escopo sem linha pendente: o cartão fica apagado, como o QualityCard desligado. O diálogo sobe para a camada de sobreposição, então o estilo mora dentro dele. -->
@@ -17,7 +17,7 @@
       <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="O que traduzir"/>
+          <TextBlock Classes="overline" Text="O QUE TRADUZIR"/>
           <ItemsControl ItemsSource="{Binding Scopes}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -39,7 +39,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Com que qualidade"/>
+          <TextBlock Classes="overline" Text="COM QUE QUALIDADE"/>
           <ItemsControl ItemsSource="{Binding Qualities}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -57,7 +57,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8" IsVisible="{Binding ShowWhen}">
-          <TextBlock Classes="overline" Text="Quando"/>
+          <TextBlock Classes="overline" Text="QUANDO"/>
           <ItemsControl ItemsSource="{Binding Whens}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -89,7 +89,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Quanto custa"/>
+          <TextBlock Classes="overline" Text="QUANTO CUSTA"/>
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">

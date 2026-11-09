@@ -199,6 +199,7 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             var confirm = dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "ConfirmGenerateButton");
             Assert.True(confirm.IsEffectivelyEnabled && confirm.Classes.Contains("accent"));
 
+            DialogProbe.AssertCentered(window, 640);
             Snapshot(window, "biblia-v6-gerar", theme);
 
             confirm.Command!.Execute(null);

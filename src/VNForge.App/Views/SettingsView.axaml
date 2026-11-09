@@ -758,22 +758,22 @@
             </Border>
 
             <!-- Nova regra: o diálogo vive na camada de sobreposição; Escape e o X fecham. -->
-            <c:ScreenDialog Title="{Binding Editor.Title}" IsOpen="{Binding IsEditorOpen, Mode=TwoWay}">
+            <c:ScreenDialog Title="{Binding Editor.Title}" DialogWidth="640" IsOpen="{Binding IsEditorOpen, Mode=TwoWay}">
               <StackPanel Spacing="14" Width="592" AutomationProperties.Name="Regra do dicionário">
                 <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="12">
                   <StackPanel Spacing="6">
-                    <TextBlock Classes="overline" Text="Trocar"/>
+                    <TextBlock Classes="overline" Text="TROCAR"/>
                     <TextBox Text="{Binding Editor.Pattern}" AutomationProperties.Name="Texto a trocar"/>
                   </StackPanel>
                   <PathIcon Grid.Column="1" Width="16" Height="16" VerticalAlignment="Bottom" Margin="0,0,0,10" Data="{StaticResource Icon.ArrowRight}"/>
                   <StackPanel Grid.Column="2" Spacing="6">
-                    <TextBlock Classes="overline" Text="Por"/>
+                    <TextBlock Classes="overline" Text="POR"/>
                     <TextBox Text="{Binding Editor.With}" AutomationProperties.Name="Texto novo"/>
                   </StackPanel>
                 </Grid>
                 <CheckBox Content="Expressão regular" IsChecked="{Binding Editor.IsRegex}"/>
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="overline" Text="Só quando todas as condições baterem"/>
+                  <TextBlock Classes="overline" Text="SÓ QUANDO TODAS AS CONDIÇÕES BATEREM"/>
                   <ItemsControl ItemsSource="{Binding Editor.Conditions}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>

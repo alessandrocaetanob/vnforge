@@ -118,6 +118,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 var corner = PixelProbe.Capture(window, window).At(8, 8);
                 Assert.NotEqual(inside, corner);
 
+                DialogProbe.AssertCentered(window, 780, showsClose: true);
                 Save(window, "traduzir-com-ia", theme);
             },
             theme);
@@ -152,6 +153,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 Assert.False(start.IsEffectivelyEnabled);
                 Assert.Contains(surface.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Translate.SwitchToFitCommand && b.IsEffectivelyVisible);
 
+                DialogProbe.AssertCentered(window, 780, showsClose: true);
                 Save(window, "traduzir-com-ia-acima-do-limite", theme);
 
                 vm.Translate.SwitchToFitCommand.Execute(null);
@@ -178,7 +180,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
 
                 var surface = Surface(window);
                 var texts = surface.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains("Quando", texts);
+                Assert.Contains("QUANDO", texts);
                 Assert.Contains("Durante a noite", texts);
                 Assert.Contains("50% mais barato", texts);
                 Assert.Contains("Enviar o lote", texts);
@@ -190,6 +192,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 var start = surface.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Translate.StartCommand);
                 Assert.True(start.IsEffectivelyEnabled);
 
+                DialogProbe.AssertCentered(window, 780, showsClose: true);
                 Save(window, "traduzir-com-ia-durante-a-noite", theme);
             },
             theme);

@@ -243,7 +243,7 @@
       </StackPanel>
     </ScrollViewer>
 
-    <c:ScreenDialog Title="{Binding ConfirmationTitle}" IsOpen="{Binding IsConfirming, Mode=OneWay}" CloseCommand="{Binding CancelRewriteCommand}">
+    <c:ScreenDialog Title="{Binding ConfirmationTitle}" DialogWidth="600" IsOpen="{Binding IsConfirming, Mode=OneWay}" CloseCommand="{Binding CancelRewriteCommand}">
       <StackPanel Spacing="12" MinWidth="520">
         <TextBlock Classes="body" TextWrapping="Wrap"
                    Text="O build grava só as imagens que você alterou, nos pacotes de build/. O resto de cada pacote não muda: a reescrita é a mínima, e o teste de ida e volta confere o que ficou igual. O jogo só muda quando você injeta, e a injeção faz a cópia de segurança antes."/>

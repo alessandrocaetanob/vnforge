@@ -6,7 +6,7 @@
              x:DataType="vm:UndoBatchDialogViewModel">
 
   <!-- Desfazer o lote noturno: a decisão e o efeito. O Escape e o X mantêm o lote. -->
-  <c:ScreenDialog Title="{Binding Title}" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+  <c:ScreenDialog Title="{Binding Title}" DialogWidth="460" IsOpen="{Binding IsOpen, Mode=TwoWay}">
     <StackPanel Spacing="16" AutomationProperties.Name="Desfazer o lote">
       <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Message}"/>
       <Border Classes="panel" Padding="16">
