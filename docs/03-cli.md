@@ -83,7 +83,7 @@ Num terminal interativo com ANSI, as operações longas desenham uma barra que s
 
 ## Comandos da biblioteca
 
-Seção "Biblioteca" da ajuda: `library`. A biblioteca (d2, #548) guarda as VNs do usuário em `library.json`, na pasta de configuração (`%APPDATA%/VNForge`, a mesma do `recent.json`), fora de qualquer projeto. Os comandos não precisam de `--project`, salvo o `link`. Em todos, `--json` devolve o envelope comum e os jogos saem no formato descrito abaixo.
+Seção "Biblioteca" da ajuda: `library` e `vndb`. A biblioteca (d2, #548) guarda as VNs do usuário em `library.json`, na pasta de configuração (`%APPDATA%/VNForge`, a mesma do `recent.json`), fora de qualquer projeto. Os comandos não precisam de `--project`, salvo o `link`. Em todos, `--json` devolve o envelope comum e os jogos saem no formato descrito abaixo.
 
 | Comando | O que faz |
 |---|---|
@@ -94,8 +94,22 @@ Seção "Biblioteca" da ajuda: `library`. A biblioteca (d2, #548) guarda as VNs 
 | `vnf library list [jogo] [--engine id] [--state estado] [--show-spoilers] [--show-adult]` | Sem `<jogo>`, lista a biblioteca (id, título, engine, casamento, projeto), filtrada por engine ou por estado (`confirmed`, `pending`, `unmatched`). Com `<jogo>`, mostra a ficha: capa, sinopse, duração, tags e candidatos. Spoiler e conteúdo adulto saem escondidos, como a privacidade da biblioteca manda; as duas opções liberam só a chamada |
 | `vnf library link <jogo> --project <pasta>` e `vnf library link <jogo> --remove` | Liga o projeto de tradução ao jogo, ou desliga. Ligar exige um `vnforge.json` na pasta; o projeto nunca é alterado |
 | `vnf library privacy [--spoilers sim\|nao] [--adult sim\|nao]` | Mostra ou muda o que a biblioteca esconde por padrão. Os dois começam em `nao`. A escolha fica em `library.json` e vale para a tela e para a CLI |
+| `vnf library status <jogo> [--label rótulo]... [--unlabel rótulo]... [--vote nota] [--started data] [--finished data] [--notes texto] [--push]` | Mostra ou muda a lista do VNDB de um jogo confirmado (d4, #550): rótulos (`jogando`, `terminado`, `parado`, `abandonado`, `desejado`, `lista-negra`, ou o id de um rótulo seu), voto de 1 a 10 com uma casa (`8.5` ou `8,5`; vira 85), datas `AAAA-MM-DD` e notas. Valor vazio (`""`) apaga voto, data ou notas. Rótulos entram e saem um a um. Grava só em `library.json`; `--push` envia este jogo ao VNDB em seguida (exige token com `listwrite`)
+| `vnf library sync [--pull\|--push] [--dry-run]` | Sincroniza a lista do VNDB com os jogos confirmados da biblioteca. Sem opção, nos dois sentidos; `--pull` só traz (nunca pergunta nem envia); `--push` só envia o que mudou aqui; `--dry-run` mostra o que seria feito sem gravar nada. Antes de enviar pergunta `[s/N]` (`--yes` pula; com `--json` exige `--yes`). Regra de conflito: o campo mudado dos dois lados desde a última sincronização fica com o lado mais recente e sai como aviso; `--pull` dá a vitória ao VNDB e `--push` ao que está aqui. Jogo sem lista local nunca é criado no VNDB. Entradas da lista do VNDB sem jogo confirmado na biblioteca são só contadas. Um 401 ou três falhas seguidas param o lote e saem com `1`
 
 O `--json` de um jogo traz `id`, `title`, `folder`, `exe`, `engine` (`id`, `name`, `source`: `engine`, `signature` ou `unknown`; `translatable`), `windowTitle`, `vndbId`, `confirmation` (`none`, `auto` ou `manual`), `score`, `searched`, `candidates` (`vndbId`, `title`, `original`, `released`, `score`, `evidence`), `project` e `card`. O `card` só existe com o jogo confirmado e já passou pela privacidade: sem `coverUrl` (e com `coverHidden`) quando a capa é adulta, sem as tags de spoiler e sem as eróticas de jogo adulto (`hiddenTags` conta quantas), e com a sinopse sem os trechos `[spoiler]`. O casamento usa o VNDB pelo catálogo da seção "Cliente do VNDB" de `02-arquitetura.md`; os dados do VNDB seguem a licença citada em `VndbCredit`.
+
+### Token do VNDB
+
+O token pessoal da conta (vndb.org/u/tokens, com `listread` e, para enviar, `listwrite`) fica no cofre do Windows (DPAPI, `vndb-token.dat` na pasta de configuração) ou na variável de ambiente `VNDB_TOKEN`, que tem prioridade. Nunca em arquivo do projeto ou da biblioteca, e nunca em log, mensagem ou `--json`.
+
+| Comando | O que faz |
+|---|---|
+| `vnf vndb token set` | Lê o token da entrada padrão (uma linha), confere no VNDB (`GET /authinfo`) e só então o guarda no cofre. Token recusado ou com espaços não é guardado |
+| `vnf vndb token clear` | Apaga o token do cofre. Avisa se `VNDB_TOKEN` continua definida |
+| `vnf vndb token check` | Confere no VNDB o token em uso (ambiente antes do cofre) e mostra a origem, a conta e as permissões. Sem token sai com `1` |
+
+O `--json` de `token set` e `token check` traz `source` (`environment` ou `vault`) e `account` (`userId`, `username`, `permissions`, `canRead`, `canWrite`). O `--json` de `sync` traz `dryRun`, `direction`, `account`, `games`, `pulled`, `pushed`, `unchanged`, `failed`, `remoteOnly`, `cancelled`, `abortReason` e `items` (só os jogos que mudaram: `game`, `title`, `vndbId`, `action`, `pulled`, `pushed`, `conflicts` com `field`, `local`, `remote` e `winner`, `error`). O jogo de `library list` e de `status` traz `list` (`labels`, `vote` de 10 a 100, `started`, `finished`, `notes`, `pending`, `modifiedAt`, `syncedAt`), nulo se o jogo ainda não tem lista.
 
 ## Comandos do pipeline
 

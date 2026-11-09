@@ -5,7 +5,7 @@ namespace VNForge.Cli.Tests;
 /// <summary>A ajuda da raiz em seções, um exemplo por comando e o nome de valor igual em todas as opções (C4 · #252).</summary>
 public sealed class HelpSectionsTests : IDisposable
 {
-    private static readonly string[] Biblioteca = ["library"];
+    private static readonly string[] Biblioteca = ["library", "vndb"];
     private static readonly string[] Pipeline = ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore", "test"];
     private static readonly string[] Projeto = ["status", "preview", "export", "import", "glossary", "memory", "jmdict", "chars", "bible", "dict", "title", "scripts", "lines", "images", "config", "detect", "eval"];
     private static readonly string[] BaixoNivel = ["ypf", "ybn", "patch-exe"];

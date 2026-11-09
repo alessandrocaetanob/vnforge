@@ -1,8 +1,22 @@
 namespace VNForge.Vndb;
 
+/// <summary>De onde veio o token do VNDB.</summary>
+public enum VndbTokenSource
+{
+    None,
+    Environment,
+    Vault,
+}
+
+/// <summary>O token resolvido e sua origem. Nunca vai para log, <c>--json</c> nem arquivo.</summary>
+public sealed record ResolvedVndbToken(string? Token, VndbTokenSource Source)
+{
+    public override string ToString() => $"ResolvedVndbToken {{ Source = {Source} }}";
+}
+
 /// <summary>
 /// De onde vem o token da conta do VNDB. Nunca de arquivo do projeto (regra 4 do CLAUDE.md): a variável de ambiente <c>VNDB_TOKEN</c> tem prioridade e,
-/// quando o cofre do usuário (DPAPI) existir para o token (d4), ele entra depois dela, como na chave da IA.
+/// depois dela, entra o cofre do usuário (DPAPI), como na chave da IA.
 /// </summary>
 public static class VndbTokenResolver
 {
@@ -13,5 +27,20 @@ public static class VndbTokenResolver
     {
         var value = (readEnvironment ?? Environment.GetEnvironmentVariable)(EnvironmentVariable);
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    /// <summary>O token da variável de ambiente ou, na falta dela, o do cofre, com a origem.</summary>
+    public static ResolvedVndbToken Resolve(IVndbTokenStore store, Func<string, string?>? readEnvironment = null)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        if (Resolve(readEnvironment) is { } fromEnvironment)
+        {
+            return new ResolvedVndbToken(fromEnvironment, VndbTokenSource.Environment);
+        }
+
+        var fromVault = store.Load();
+        return string.IsNullOrWhiteSpace(fromVault)
+            ? new ResolvedVndbToken(null, VndbTokenSource.None)
+            : new ResolvedVndbToken(fromVault.Trim(), VndbTokenSource.Vault);
     }
 }

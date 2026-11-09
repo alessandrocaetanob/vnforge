@@ -10,7 +10,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|privacy</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// <c>vnf library scan|match|list|link|privacy|status|sync</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
 /// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde.
 /// </summary>
 internal static class LibraryCommand
@@ -107,6 +107,8 @@ internal static class LibraryCommand
         command.Subcommands.Add(CreateList(cli));
         command.Subcommands.Add(CreateLink(cli));
         command.Subcommands.Add(CreatePrivacy(cli));
+        command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
+        command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
         return command;
     }
 
@@ -585,6 +587,7 @@ internal static class LibraryCommand
         }
 
         output.WriteLine($"  Projeto de tradução: {game.ProjectPath ?? "nenhum"}");
+        LibraryListCommands.WriteLines(output, game);
         var card = LibraryVisibility.Card(game, privacy);
         if (card is null)
         {
@@ -730,6 +733,7 @@ internal static class LibraryCommand
         searched = game.SearchedAt is not null,
         candidates = game.Candidates.Select(c => new { vndbId = c.VndbId, title = c.Title, original = c.OriginalTitle, released = c.Released, score = c.Score, evidence = c.Evidence }),
         project = game.ProjectPath,
+        list = LibraryListCommands.Data(game),
         card = LibraryVisibility.Card(game, privacy),
     };
 

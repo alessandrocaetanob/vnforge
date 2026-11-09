@@ -16,12 +16,20 @@ internal sealed class CliHarness : IDisposable
         UserConfigDirectory = Path.Combine(Root, "user-config");
         _input = new SwitchableReader(stdin);
         Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory, UserConfigDirectory, _input,
-            realVault ? null : new InMemoryApiKeyStore(), terminal ?? CliTerminal.Plain(width: 100));
+            realVault ? null : new InMemoryApiKeyStore(), terminal ?? CliTerminal.Plain(width: 100), realVault ? null : VndbTokens);
+        // O ambiente da máquina de quem roda os testes não pode decidir o token do VNDB.
+        Cli.EnvironmentReader = name => Environment.TryGetValue(name, out var value) ? value : null;
         // Os testes de comando não dependem das regras reais de QA (testadas em Core.Tests).
         Cli.Qa = new VNForge.Core.Qa.QaEngine([]);
     }
 
     private readonly SwitchableReader _input;
+
+    /// <summary>O cofre do token do VNDB, em memória.</summary>
+    public InMemoryVndbTokenStore VndbTokens { get; } = new();
+
+    /// <summary>As variáveis de ambiente que a CLI enxerga (vazio por padrão).</summary>
+    public Dictionary<string, string> Environment { get; } = [];
 
     public string Root { get; }
 
@@ -107,6 +115,22 @@ internal sealed class InMemoryApiKeyStore : IApiKeyStore
     {
         var had = _key is not null;
         _key = null;
+        return had;
+    }
+}
+
+internal sealed class InMemoryVndbTokenStore : VNForge.Vndb.IVndbTokenStore
+{
+    private string? _token;
+
+    public string? Load() => _token;
+
+    public void Save(string token) => _token = token;
+
+    public bool Delete()
+    {
+        var had = _token is not null;
+        _token = null;
         return had;
     }
 }

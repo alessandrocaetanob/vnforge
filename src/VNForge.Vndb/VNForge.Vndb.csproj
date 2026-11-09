@@ -5,6 +5,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VNForge.Core\VNForge.Core.csproj" />
   </ItemGroup>
 
