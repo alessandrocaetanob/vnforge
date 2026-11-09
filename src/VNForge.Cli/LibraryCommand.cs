@@ -1091,6 +1091,7 @@ internal static class LibraryCommand
         var ids = library.Games.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
         return tags.GamesWith(name).Count(ids.Contains);
     }
+
     private static bool? ParseYesNo(string? text, string option)
     {
         if (text is null)
