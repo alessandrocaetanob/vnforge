@@ -398,6 +398,93 @@ public sealed class ImagesViewModelTests : IDisposable
         Assert.Contains("a cor", vm.ErasedText);
     }
 
+
+    [Fact]
+    public async Task MarkingAThenOpeningBDuringTheRenderDoesNotGiveBTheEditOfA()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+        vm.Text = "Portão";
+        await vm.Previewing;
+        composer.HoldMarked = new ManualResetEventSlim();
+
+        var marking = vm.MarkCommand.ExecuteAsync(null);
+        await Select(vm, Logo);
+        composer.HoldMarked.Set();
+        await marking;
+
+        Assert.Equal(Logo, vm.SelectedItem!.Path);
+        Assert.Equal(string.Empty, vm.Text);
+        Assert.False(vm.IsMarked);
+        Assert.False(vm.IsDirty);
+        Assert.False(vm.CanUndo);
+        Assert.Equal(ImageState.Marked, vm.Items.Single(i => i.Path == Gate).State);
+        Assert.Equal(ImageState.Pending, vm.SelectedItem.State);
+        Assert.Equal(1, vm.MarkedCount);
+        vm.UndoCommand.Execute(null);
+        Assert.Equal(string.Empty, vm.Text);
+    }
+
+    [Fact]
+    public async Task ADecodeErrorOfAnImageThatIsNoLongerSelectedShowsNoMessage()
+    {
+        var vm = Open();
+        composer.HoldDecode = new ManualResetEventSlim();
+        vm.SelectedItem = vm.Items.Single(i => i.Path == Gate);
+        var first = vm.Selecting;
+
+        await Select(vm, Logo);
+        composer.HoldDecode.Set();
+        await first;
+
+        Assert.Equal(Logo, vm.SelectedItem!.Path);
+        Assert.True(vm.IsEditable);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task AFailedMoveRollsTheEditsBackAndKeepsTheError()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+        vm.Text = "Portão";
+        Directory.CreateDirectory(folder.EditedImagePath(Pack, Gate));
+
+        await vm.MarkCommand.ExecuteAsync(null);
+
+        Assert.Contains("Não foi possível gravar a edição de portao.png", vm.ErrorMessage);
+        Assert.Empty(folder.LoadImageEdits());
+        Assert.False(File.Exists(folder.EditedImagePath(Pack, Gate) + ".tmp"));
+        Assert.Equal(0, vm.MarkedCount);
+        Assert.False(vm.IsMarked);
+    }
+
+    [Fact]
+    public async Task APreviewThatFailsForAnUnexpectedReasonShowsTheMessage()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+
+        vm.Text = "BOOM";
+        await vm.Previewing;
+
+        Assert.Contains("a fonte não desenha este texto", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task AThumbnailThatFailsLeavesTheReasonOnTheItem()
+    {
+        var vm = Open();
+        composer.ThumbnailFails = true;
+        var item = vm.Items.Single(i => i.Path == Gate);
+
+        _ = item.ThumbnailPng;
+        await item.ThumbnailLoading;
+
+        Assert.Null(item.ThumbnailPng);
+        Assert.Contains("formato sem miniatura", item.Caption);
+    }
+
     /// <summary>Compositor falso: o PNG da prévia é só um rótulo, e o texto mede 10 px por letra.</summary>
     internal sealed class FakeComposer : IImageComposer
     {
@@ -407,9 +494,22 @@ public sealed class ImagesViewModelTests : IDisposable
 
         public string? Refuse { get; set; }
 
+        /// <summary>Segura a montagem da imagem pronta de uma edição marcada (a do botão "Marcar") até alguém liberar.</summary>
+        public ManualResetEventSlim? HoldMarked { get; set; }
+
+        /// <summary>Segura a decodificação da imagem de 640 px de largura e depois falha, como um arquivo corrompido.</summary>
+        public ManualResetEventSlim? HoldDecode { get; set; }
+
+        public bool ThumbnailFails { get; set; }
+
         public byte[] Thumbnail(byte[] encoded, int width)
         {
             Thumbnails++;
+            if (ThumbnailFails)
+            {
+                throw new NotSupportedException("formato sem miniatura");
+            }
+
             return Encoding.UTF8.GetBytes("miniatura:" + encoded.Length);
         }
 
@@ -423,11 +523,27 @@ public sealed class ImagesViewModelTests : IDisposable
             }
 
             var info = ImageProbe.Read(encoded) ?? throw new InvalidDataException("não é imagem");
+            if (HoldDecode is not null && info.Width == 640)
+            {
+                HoldDecode.Wait(TimeSpan.FromSeconds(10));
+                throw new InvalidDataException("arquivo corrompido");
+            }
+
             return new RasterPicture(info.Width, info.Height, new byte[info.Width * info.Height * 4]);
         }
 
         public byte[] Render(RasterPicture source, ImageEdit edit)
         {
+            if (edit.Marked)
+            {
+                HoldMarked?.Wait(TimeSpan.FromSeconds(10));
+            }
+
+            if (edit.Text == "BOOM")
+            {
+                throw new NotSupportedException("a fonte não desenha este texto");
+            }
+
             Renders++;
             return Encoding.UTF8.GetBytes($"{edit.Text}|{edit.Region}|{edit.Erase}|{edit.Font}");
         }

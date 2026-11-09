@@ -53,6 +53,7 @@ public sealed partial class ImageItemViewModel(ImageTextEntry entry, Func<ImageI
 {
     private byte[]? thumbnail;
     private bool thumbnailRequested;
+    private string? thumbnailError;
 
     public ImageTextEntry Entry { get; } = entry;
 
@@ -66,7 +67,20 @@ public sealed partial class ImageItemViewModel(ImageTextEntry entry, Func<ImageI
 
     public string JapaneseText => Entry.Text;
 
-    public string Caption => $"{Name} · {Entry.Width}×{Entry.Height} · {Entry.Archive}";
+    public string Caption => $"{Name} · {Entry.Width}×{Entry.Height} · {Entry.Archive}" + (ThumbnailError is null ? string.Empty : $"\nSem miniatura: {ThumbnailError}");
+
+    /// <summary>Por que a miniatura não saiu; aparece na dica da imagem na faixa.</summary>
+    public string? ThumbnailError
+    {
+        get => thumbnailError;
+        set
+        {
+            if (SetProperty(ref thumbnailError, value))
+            {
+                OnPropertyChanged(nameof(Caption));
+            }
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(State), nameof(StateText), nameof(IsMarkedState), nameof(IsDraftState), nameof(IsPendingState))]
@@ -497,9 +511,13 @@ public sealed partial class ImagesViewModel : ObservableObject
         {
             bytes = await Task.Run(() => ReadOriginal(item), CancellationToken.None);
         }
-        catch (Exception ex) when (ex is VNForgeException or IOException or InvalidDataException or UnauthorizedAccessException or InvalidFileException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            ErrorMessage = $"Não foi possível ler {item.Name} no pacote: {ex.Message}";
+            if (ReferenceEquals(SelectedItem, item))
+            {
+                ErrorMessage = $"Não foi possível ler {item.Name} no pacote: {ex.Message}";
+            }
+
             return;
         }
 
@@ -520,9 +538,13 @@ public sealed partial class ImagesViewModel : ObservableObject
         {
             decoded = await Task.Run(() => composer.Decode(bytes), CancellationToken.None);
         }
-        catch (InvalidDataException ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            ErrorMessage = $"{ex.Message} ({item.Name})";
+            if (ReferenceEquals(SelectedItem, item))
+            {
+                ErrorMessage = $"{ex.Message} ({item.Name})";
+            }
+
             return;
         }
 
@@ -675,9 +697,13 @@ public sealed partial class ImagesViewModel : ObservableObject
         {
             // Outra mudança chegou antes do fim: a prévia dela é a que vale.
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            ErrorMessage = $"Não foi possível montar a prévia: {ex.Message}";
+            // Nenhuma falha da prévia some em silêncio, mas só a da imagem aberta vale para a tela.
+            if (!token.IsCancellationRequested && ReferenceEquals(SelectedItem, item))
+            {
+                ErrorMessage = $"Não foi possível montar a prévia: {ex.Message}";
+            }
         }
     }
 
@@ -706,18 +732,28 @@ public sealed partial class ImagesViewModel : ObservableObject
             {
                 File.Move(temp, file, overwrite: true);
             }
-            catch
+            catch (Exception moveError)
             {
-                folder.SaveImageEdits(previous);
+                try
+                {
+                    folder.SaveImageEdits(previous);
+                }
+                catch (Exception rollbackError)
+                {
+                    // A falha do desfazer não pode esconder a que a causou.
+                    throw new AggregateException(moveError, rollbackError);
+                }
+
                 throw;
             }
 
             temp = null;
             edits = next;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or Core.Glossary.GlossaryFileException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            ErrorMessage = $"Não foi possível gravar a edição: {ex.Message}";
+            var reason = ex is AggregateException all ? string.Join(" ", all.InnerExceptions.Select(e => e.Message)) : ex.Message;
+            ErrorMessage = $"Não foi possível gravar a edição de {item.Name}: {reason}";
             return;
         }
         finally
@@ -728,11 +764,16 @@ public sealed partial class ImagesViewModel : ObservableObject
             }
         }
 
-        ErrorMessage = null;
         item.Edit = edit;
-        saved = edit;
-        IsMarked = marked;
-        IsDirty = false;
+        if (ReferenceEquals(SelectedItem, item))
+        {
+            // Durante o render a pessoa pode ter aberto outra imagem: o estado do editor só muda para a que gravou.
+            ErrorMessage = null;
+            saved = edit;
+            IsMarked = marked;
+            IsDirty = false;
+        }
+
         RefreshCounts();
         Refilter();
     }
@@ -744,9 +785,9 @@ public sealed partial class ImagesViewModel : ObservableObject
         {
             item.ThumbnailPng = await Task.Run(() => composer.Thumbnail(ReadOriginal(item), 240), CancellationToken.None);
         }
-        catch (Exception ex) when (ex is VNForgeException or IOException or InvalidDataException or UnauthorizedAccessException or InvalidFileException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            // Sem miniatura a faixa mostra o quadro vazio; o erro aparece se a pessoa abrir a imagem.
+            item.ThumbnailError = ex.Message;
         }
         finally
         {
