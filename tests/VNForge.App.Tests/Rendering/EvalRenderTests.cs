@@ -186,7 +186,7 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                         Assert.Contains("Pular par", texts);
                         Assert.DoesNotContain("Voltar ao relatório", texts);
                         Assert.Contains("Misaki → Aizawa e Sakura", texts);
-                        Assert.Contains("ORIGINAL · CENA 1, LINHA 0008", texts);
+                        Assert.Contains("Original · Cena 1, linha 0008", texts);
                         Assert.DoesNotContain(window.GetVisualDescendants().OfType<EvalChart>(), c => c.IsEffectivelyVisible);
                         Assert.DoesNotContain(texts, t => t is not null && t.Contains("Opus", StringComparison.Ordinal));
                     });
