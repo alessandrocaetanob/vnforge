@@ -70,6 +70,9 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
     [GeneratedRegex("^[0-9A-Za-z][0-9A-Za-z._-]*$")]
     private static partial Regex VersionPattern();
 
+    [GeneratedRegex("-{2,}", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex MultipleHyphens();
+
     /// <summary>Onde o <c>vnf</c> procura o executável do instalador quando <see cref="ReleaseOptions.InstallerStub"/> não diz.</summary>
     public static string DefaultInstallerStub =>
         Path.Combine(AppContext.BaseDirectory, InstallerFileName + (OperatingSystem.IsWindows() ? ".exe" : string.Empty));
@@ -264,7 +267,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
     {
         var invalid = Path.GetInvalidFileNameChars();
         var clean = new string(name.Select(c => char.IsWhiteSpace(c) || invalid.Contains(c) ? '-' : c).ToArray());
-        clean = Regex.Replace(clean, "-{2,}", "-").Trim('-');
+        clean = MultipleHyphens().Replace(clean, "-").Trim('-');
         return clean.Length == 0 ? "traducao" : clean;
     }
 }
