@@ -70,7 +70,7 @@ public sealed class MainWindowShellTests
         var vm = Create(temp, temp.SubFolder("vn"));
 
         Assert.Equal(["Ficha", "Tradução", "Jogar"], vm.GameTabs.Select(t => t.Label));
-        Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário"], vm.Sections.Select(s => s.Label));
+        Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Bíblia", "Imagens"], vm.Sections.Select(s => s.Label));
     }
 
     [Fact]
@@ -163,6 +163,8 @@ public sealed class MainWindowShellTests
             (NavKey.Conference, () => vm.Conference),
             (NavKey.Build, () => vm.Build),
             (NavKey.Glossary, () => vm.Glossary),
+            (NavKey.Bible, () => vm.Bible),
+            (NavKey.Images, () => vm.Images),
         })
         {
             vm.SelectedSection = vm.Sections.Single(s => s.Key == key);

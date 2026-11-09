@@ -54,7 +54,9 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
 
             var sections = Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Classes.Contains("sections"));
             Assert.True(sections.IsEffectivelyVisible);
-            Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário"], sections.GetVisualDescendants().OfType<ListBoxItem>().Select(i => ((NavItemViewModel)i.DataContext!).Label));
+            Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Bíblia", "Imagens"], sections.GetVisualDescendants().OfType<ListBoxItem>().Select(i => ((NavItemViewModel)i.DataContext!).Label));
+            var shown = sections.GetVisualDescendants().OfType<ListBoxItem>().Where(i => i.IsEffectivelyVisible).Select(i => ((NavItemViewModel)i.DataContext!).Label).ToList();
+            Assert.Equal(vm.CurrentProject!.IsSample ? ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Bíblia"] : ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Bíblia", "Imagens"], shown);
             Assert.Equal("Painel", ((NavItemViewModel)sections.SelectedItem!).Label);
 
             var texts = header.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
@@ -78,7 +80,8 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             var dashboard = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
             Assert.Empty(dashboard.GetVisualDescendants().OfType<PageHeader>());
             var scroll = Assert.Single(dashboard.GetVisualDescendants().OfType<ScrollViewer>());
-            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 0.5, $"o Painel rola em 1440x1000: {scroll.Extent.Height} de {scroll.Viewport.Height}");
+            // A faixa Visão geral | Provas do banco de provas (#529) tomou 38 px da página; o Painel rola só esse tanto em 1440x1000.
+            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 48, $"o Painel rola mais que a faixa de abas em 1440x1000: {scroll.Extent.Height} de {scroll.Viewport.Height}");
             Assert.True(header.Bounds.Height < 260, $"o cabeçalho e a segunda linha ocupam {header.Bounds.Height:0} px");
 
             ScreenRenderer.Settle(window);
@@ -150,6 +153,64 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.Equal(expectedHeader, (int)Math.Round(border.Bounds.Height));
             Assert.Equal(expectedWithSections, (int)Math.Round(page.TranslatePoint(default, header)!.Value.Y));
         });
+    }
+
+    /// <summary>
+    /// A decisão do #544 (opção C): o cabeçalho completo na entrada do jogo (Ficha, Painel, Jogar) e o compacto, de 80 px, em cada tela de trabalho. A troca
+    /// acontece ao entrar e ao sair, uma tela de trabalho depois da outra e voltando a cada uma das telas de entrada.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_cabecalho_completo_da_entrada_vira_compacto_nas_telas_de_trabalho_e_volta_ao_sair(string themeName)
+    {
+        NavKey[] work = [NavKey.Editor, NavKey.Conference, NavKey.Build, NavKey.Glossary, NavKey.Bible];
+        NavKey[] entry = [NavKey.Sheet, NavKey.Dashboard, NavKey.Play];
+        await Abrir(ThemeOf(themeName), ScreenRenderer.Width, ScreenRenderer.Height, NavKey.Sheet, (window, vm) =>
+        {
+            var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
+            var border = header.GetVisualDescendants().OfType<Border>().First(b => b.BorderThickness == new Thickness(0, 0, 0, 1));
+            Assert.False(header.IsCompact, "o jogo abre com o cabeçalho completo");
+            var fullHeight = (int)Math.Round(border.Bounds.Height);
+            Assert.True(fullHeight > 80, $"o completo tem {fullHeight} px");
+
+            foreach (var screen in work)
+            {
+                foreach (var from in entry)
+                {
+                    Go(vm, window, from);
+                    Assert.False(header.IsCompact, $"{from} tem o cabeçalho completo");
+                    Assert.Equal(fullHeight, (int)Math.Round(border.Bounds.Height));
+
+                    Go(vm, window, screen);
+                    Assert.True(header.IsCompact, $"{screen} tem o cabeçalho compacto");
+                    Assert.Equal(80, (int)Math.Round(border.Bounds.Height));
+                    Assert.Single(header.GetVisualDescendants().OfType<Grid>(), g => g.Name == "Compact" && g.IsEffectivelyVisible);
+                    Assert.Single(header.GetVisualDescendants().OfType<Grid>(), g => g.Name == "Regular" && !g.IsEffectivelyVisible);
+                }
+            }
+
+            // Entre duas telas de trabalho o compacto continua; sair pelas abas do jogo também devolve o completo.
+            Go(vm, window, NavKey.Editor);
+            Go(vm, window, NavKey.Glossary);
+            Assert.True(header.IsCompact);
+            vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Sheet);
+            ScreenRenderer.Settle(window);
+            Assert.False(header.IsCompact);
+        });
+    }
+
+    private static void Go(MainWindowViewModel vm, MainWindow window, NavKey key)
+    {
+        // A Conferência não deixa a página enquanto lê a pasta; a troca espera a leitura acabar.
+        for (var i = 0; i < 500 && vm.Conference.IsBusy; i++)
+        {
+            ScreenRenderer.Settle(window);
+            Thread.Sleep(20);
+        }
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == key);
+        ScreenRenderer.Settle(window);
+        Assert.Equal(key, vm.SelectedNav!.Key);
     }
 
     [Fact]
