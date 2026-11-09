@@ -84,60 +84,12 @@ internal static partial class LibraryCommand
 
     private static int Notes(VnfCli cli, ParseResult parseResult, string reference)
     {
-        var set = parseResult.GetValue(NotesSetOption);
-        var add = parseResult.GetValue(NotesAddOption);
-        var clear = parseResult.GetValue(NotesClearOption);
-        if ((set is null ? 0 : 1) + (add is null ? 0 : 1) + (clear ? 1 : 0) > 1)
-        {
-            throw new UsageException("Use só uma das opções --set, --add e --clear.");
-        }
-
+        var edit = ReadNoteEdit(parseResult);
         var game = FileOf(cli).Load().Find(reference);
         var file = new GameNotesFile(cli.UserConfigDirectory);
-        var editing = set is not null || add is not null || clear;
-        var text = set ?? add;
-        if (text == "-")
-        {
-            text = cli.Input.ReadToEnd();
-        }
-
-        GameNote? note;
-        var changed = false;
-        if (!editing)
-        {
-            note = file.Load().Of(game.Id);
-        }
-        else
-        {
-            var now = cli.Clock.GetLocalNow();
-            (note, changed) = file.Update<(GameNote?, bool)>(notes =>
-            {
-                var before = notes.Of(game.Id);
-                GameNote? after;
-                if (clear)
-                {
-                    notes.Clear(game.Id);
-                    after = null;
-                }
-                else if (set is not null)
-                {
-                    after = notes.Set(game.Id, text, now);
-                }
-                else
-                {
-                    after = notes.Append(game.Id, text, now);
-                }
-
-                if (before is not null && after is not null && before.Text == after.Text)
-                {
-                    // Gravar o mesmo texto não é uma mudança: a data da nota fica como estava.
-                    notes.Set(game.Id, before.Text, before.UpdatedAt);
-                    return (before, false);
-                }
-
-                return (after, before?.Text != after?.Text);
-            });
-        }
+        var (note, changed) = edit.IsEditing
+            ? ApplyNoteEdit(file, game.Id, edit.WithStandardInput(cli.Input), cli.Clock.GetLocalNow())
+            : (file.Load().Of(game.Id), false);
 
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
@@ -149,30 +101,87 @@ internal static partial class LibraryCommand
                 changed,
                 file = file.Path,
             }));
-            return ErrorHandler.OkExitCode;
-        }
-
-        if (editing)
-        {
-            output.WriteLine(changed
-                ? $"{game.Title}: {(note is null ? "nota apagada." : "nota gravada.")}"
-                : $"{game.Title}: a nota já estava assim.");
-        }
-
-        if (note is null)
-        {
-            if (!editing)
-            {
-                output.WriteLine($"{game.Title}: sem notas. Escreva uma com vnf library notes {game.Id} --set texto.");
-            }
         }
         else
+        {
+            WriteNote(output, game, note, edit.IsEditing, changed);
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static NoteEdit ReadNoteEdit(ParseResult parseResult)
+    {
+        var edit = new NoteEdit(parseResult.GetValue(NotesSetOption), parseResult.GetValue(NotesAddOption), parseResult.GetValue(NotesClearOption));
+        return edit.Options > 1 ? throw new UsageException("Use só uma das opções --set, --add e --clear.") : edit;
+    }
+
+    /// <summary>Muda a nota sob a trava do arquivo e diz como ela ficou e se mudou de verdade.</summary>
+    private static (GameNote? Note, bool Changed) ApplyNoteEdit(GameNotesFile file, string gameId, NoteEdit edit, DateTimeOffset now) =>
+        file.Update<(GameNote?, bool)>(notes =>
+        {
+            var before = notes.Of(gameId);
+            var after = edit.ApplyTo(notes, gameId, now);
+            if (before is not null && after is not null && before.Text == after.Text)
+            {
+                // Gravar o mesmo texto não é uma mudança: a data da nota fica como estava.
+                notes.Set(gameId, before.Text, before.UpdatedAt);
+                return (before, false);
+            }
+
+            return (after, before?.Text != after?.Text);
+        });
+
+    private static void WriteNote(TextWriter output, LibraryGame game, GameNote? note, bool editing, bool changed)
+    {
+        if (editing)
+        {
+            output.WriteLine($"{game.Title}: {EditOutcome(note, changed)}");
+        }
+
+        if (note is not null)
         {
             output.WriteLine($"{game.Title}, nota de {note.UpdatedAt.ToString("g", PortugueseBrazil)}:");
             output.WriteLine(note.Text);
         }
+        else if (!editing)
+        {
+            output.WriteLine($"{game.Title}: sem notas. Escreva uma com vnf library notes {game.Id} --set texto.");
+        }
+    }
 
-        return ErrorHandler.OkExitCode;
+    private static string EditOutcome(GameNote? note, bool changed)
+    {
+        if (!changed)
+        {
+            return "a nota já estava assim.";
+        }
+
+        return note is null ? "nota apagada." : "nota gravada.";
+    }
+
+    /// <summary>O que a pessoa pediu para a nota: <c>--set</c>, <c>--add</c> ou <c>--clear</c> (no máximo um).</summary>
+    private readonly record struct NoteEdit(string? Set, string? Add, bool Clear)
+    {
+        public int Options => (Set is null ? 0 : 1) + (Add is null ? 0 : 1) + (Clear ? 1 : 0);
+
+        public bool IsEditing => Options > 0;
+
+        /// <summary>Com <c>-</c> no lugar do texto, lê a entrada padrão inteira, para uma nota de várias linhas.</summary>
+        public NoteEdit WithStandardInput(TextReader input) => this with { Set = Resolve(Set, input), Add = Resolve(Add, input) };
+
+        public GameNote? ApplyTo(GameNotes notes, string gameId, DateTimeOffset now)
+        {
+            if (Clear)
+            {
+                notes.Clear(gameId);
+                return null;
+            }
+
+            return Set is not null ? notes.Set(gameId, Set, now) : notes.Append(gameId, Add!, now);
+        }
+
+        private static string? Resolve(string? text, TextReader input) => text == "-" ? input.ReadToEnd() : text;
     }
 
     private static int CaptureTake(VnfCli cli, ParseResult parseResult, string reference)

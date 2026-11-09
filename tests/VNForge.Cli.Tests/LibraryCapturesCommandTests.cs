@@ -259,6 +259,20 @@ public sealed class LibraryCapturesCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Capture_remove_em_json_diz_o_que_saiu_e_nao_traz_aviso()
+    {
+        var game = AddGame();
+        _capturer.Image = Solid(1, 1, 1);
+        await Run("library", "capture", "take", "CLANNAD");
+
+        var data = Data(await Run("--json", "library", "capture", "remove", "CLANNAD", "20261109-203015.png"));
+
+        Assert.Equal("20261109-203015.png", data.GetProperty("removed").GetString());
+        Assert.False(data.TryGetProperty("warning", out _));
+        Assert.Equal(game.Id, data.GetProperty("game").GetProperty("id").GetString());
+    }
+
+    [Fact]
     public async Task Capture_remove_com_imagem_que_nao_apaga_avisa_e_mantem_o_indice_sem_a_captura()
     {
         var game = AddGame();

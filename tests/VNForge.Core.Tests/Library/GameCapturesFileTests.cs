@@ -117,6 +117,24 @@ public sealed class GameCapturesFileTests : IDisposable
     }
 
     [Fact]
+    public void Sem_nome_livre_a_captura_falha_em_vez_de_procurar_para_sempre()
+    {
+        var file = NewFile();
+        var folder = Path.Combine(_dir.Path, "g1");
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(folder, "20261109-203015.png"), []);
+        for (var attempt = 2; attempt <= GameCapturesFile.MaxNameAttempts; attempt++)
+        {
+            File.WriteAllBytes(Path.Combine(folder, $"20261109-203015-{attempt}.png"), []);
+        }
+
+        var error = Assert.Throws<LibraryException>(() => file.Save("g1", Solid(1, 1, 1)));
+
+        Assert.Contains("nome livre", error.Message);
+        Assert.Empty(file.Load().Of("g1"));
+    }
+
+    [Fact]
     public void Remove_com_o_indice_que_nao_grava_deixa_a_imagem_e_a_captura()
     {
         var file = NewFile();
@@ -207,6 +225,28 @@ public sealed class GameCapturesFileTests : IDisposable
         var error = Assert.Throws<LibraryException>(() => GameCapturesFile.Parse(json, "captures.json"));
 
         Assert.Contains("captures.json", error.Message);
+    }
+
+    [Fact]
+    public void Indice_vazio_ou_fora_do_formato_e_recusado()
+    {
+        Assert.Contains("vazio", Assert.Throws<LibraryException>(() => GameCapturesFile.Parse("null", "capturas.json")).Message);
+        Assert.Contains("formato esperado", Assert.Throws<LibraryException>(() => GameCapturesFile.Parse("{ quebrado", "capturas.json")).Message);
+    }
+
+    [Fact]
+    public void Imagem_que_nao_pode_ser_gravada_e_um_erro_claro_e_nao_entra_no_indice()
+    {
+        var file = NewFile();
+        // Um diretório com o nome da imagem faz a gravação falhar.
+        var target = Path.Combine(_dir.Path, "g1", "20261109-203015.png");
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, "x"), "x");
+
+        var error = Assert.Throws<LibraryException>(() => file.Save("g1", Solid(1, 1, 1)));
+
+        Assert.Contains("não pôde ser gravada", error.Message);
+        Assert.Empty(file.Load().Of("g1"));
     }
 
     [Fact]

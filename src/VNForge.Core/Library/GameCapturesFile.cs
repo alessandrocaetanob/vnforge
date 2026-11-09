@@ -17,6 +17,9 @@ public sealed class GameCapturesFile
     public const string FileName = "captures.json";
     public const int CurrentVersion = 1;
 
+    /// <summary>Quantas capturas no mesmo segundo cabem (<c>-2</c>, <c>-3</c>...) antes de desistir; passa de qualquer uso real e garante que a busca por um nome livre termina.</summary>
+    internal const int MaxNameAttempts = 1000;
+
     private static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = true,
@@ -158,7 +161,7 @@ public sealed class GameCapturesFile
     private string FreeName(string gameId, DateTimeOffset at, GameCaptures captures)
     {
         var stamp = at.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-        for (var attempt = 1; ; attempt++)
+        for (var attempt = 1; attempt <= MaxNameAttempts; attempt++)
         {
             var name = attempt == 1 ? $"{stamp}.png" : $"{stamp}-{attempt}.png";
             if (!captures.Contains(gameId, name) && !File.Exists(System.IO.Path.Combine(Directory, gameId, name)))
@@ -166,6 +169,8 @@ public sealed class GameCapturesFile
                 return name;
             }
         }
+
+        throw new LibraryException($"Não achei um nome livre para a captura de {stamp} em '{System.IO.Path.Combine(Directory, gameId)}': já há {MaxNameAttempts} com essa data e hora.");
     }
 
     private static void DeleteQuietly(string? path)
@@ -181,6 +186,7 @@ public sealed class GameCapturesFile
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
+            // Limpeza de uma gravação que já falhou: quem chama vai relançar o erro verdadeiro, e um arquivo que sobrou é só espaço, sem efeito no índice.
         }
     }
 

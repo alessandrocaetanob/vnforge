@@ -126,6 +126,29 @@ public sealed class GameNotesTests : IDisposable
     }
 
     [Fact]
+    public void Update_sem_resultado_grava_a_mudanca()
+    {
+        var file = new GameNotesFile(_dir.Path);
+
+        file.Update(n =>
+        {
+            n.Set("g1", "feita", Now);
+        });
+
+        Assert.Equal("feita", file.Load().Of("g1")!.Text);
+    }
+
+    [Fact]
+    public void Arquivo_com_nota_longa_demais_e_recusado()
+    {
+        var json = $"{{\"version\":1,\"games\":{{\"g1\":{{\"text\":\"{new string('a', GameNotes.MaxLength + 1)}\",\"updatedAt\":\"2026-11-09T20:00:00-03:00\"}}}}}}";
+
+        var error = Assert.Throws<LibraryException>(() => GameNotesFile.Parse(json, "notas.json"));
+
+        Assert.Contains("passa de", error.Message);
+    }
+
+    [Fact]
     public void Arquivo_ilegivel_e_recusado_e_nao_e_sobrescrito()
     {
         var file = new GameNotesFile(_dir.Path);
@@ -141,6 +164,9 @@ public sealed class GameNotesTests : IDisposable
     [InlineData("{\"version\":2,\"games\":{}}", "versão 2")]
     [InlineData("{\"version\":1,\"games\":{\"g1\":{\"text\":\"\",\"updatedAt\":\"2026-11-09T20:00:00-03:00\"}}}", "sem texto")]
     [InlineData("{\"version\":1,\"games\":{\"g1\":null}}", "sem texto")]
+    [InlineData("null", "vazio")]
+    [InlineData("{\"version\":1,\"games\":{\" \":{\"text\":\"x\",\"updatedAt\":\"2026-11-09T20:00:00-03:00\"}}}", "sem id")]
+    [InlineData("{ quebrado", "formato esperado")]
     public void Arquivo_fora_do_formato_diz_o_que_esta_errado(string json, string part)
     {
         var error = Assert.Throws<LibraryException>(() => GameNotesFile.Parse(json, "notas.json"));
