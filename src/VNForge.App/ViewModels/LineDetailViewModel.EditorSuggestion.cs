@@ -166,6 +166,9 @@ public sealed partial class LineDetailViewModel
     private void NotifyEditorSuggestionChanged()
     {
         OnPropertyChanged(nameof(HasEditorSuggestion));
+        OnPropertyChanged(nameof(IsCompactInspector));
+        OnPropertyChanged(nameof(IsSceneCollapsed));
+        OnPropertyChanged(nameof(TranslationMinHeight));
         OnPropertyChanged(nameof(EditorSuggestionReviewTitle));
         OnPropertyChanged(nameof(EditorSuggestionChip));
         OnPropertyChanged(nameof(EditorSuggestionReviewChip));
