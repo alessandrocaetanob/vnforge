@@ -9,6 +9,8 @@ using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -31,42 +33,75 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
         { "Light", 1366, 768 },
     };
 
-    private static string CreateProject(TempFolder temp, bool pending)
+    private const string LongText = "O nosso professor responsável já estava de pé, esperando por nós dois de braços cruzados na frente do portão da escola, debaixo da chuva.";
+    private const string ShortText = "O nosso professor responsável já estava de pé, esperando por nós de braços cruzados na frente do portão, debaixo da chuva.";
+
+    private enum Scenario
+    {
+        /// <summary>O Editor com sugestões em três linhas, como o quadro "Editor com sugestão na linha".</summary>
+        Editor,
+
+        /// <summary>A cena do quadro "Modo revisão com sugestão": a segunda de três falas, de Kenta, passa uma linha da caixa de três.</summary>
+        Review,
+
+        /// <summary>Linhas sem tradução, com glossário e voz dos personagens, para a janela "Traduzir com IA".</summary>
+        Pending,
+    }
+
+    private static string CreateProject(TempFolder temp, Scenario scenario)
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Amaoto no Hakoniwa", TranslationStatus.Translated);
         var folder = ProjectFolder.Open(root);
-        TextUnit Line(int n, string source, string? translation, TranslationStatus status) => new($"yst00001:{n:D6}", TextUnitKind.Dialogue, "美咲", source, translation, status);
-        folder.SaveText("yst00001", pending
-            ?
-            [
-                Line(0, "「相沢、佐倉。二人そろって五分遅刻だ」", null, TranslationStatus.Untranslated),
-                Line(1, "「平気平気！ほら、行こう！」", null, TranslationStatus.Untranslated),
-            ]
-            :
-            [
-                Line(0, "「相沢、佐倉。二人そろって五分遅刻だ」", "Aizawa, Sakura. Os dois, cinco minutos atrasados.", TranslationStatus.Machine),
-                Line(1, "「平気平気！ほら、行こう！」", "Tranquilo! Vamos, anda!", TranslationStatus.Machine),
-                Line(2, "「傘、忘れたの？」", "Esqueceu o guarda-chuva?", TranslationStatus.Machine),
-                Line(3, "「うん、まあね」", "Uhum, mais ou menos.", TranslationStatus.Machine),
-            ]);
-        if (!pending)
+        folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
+        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada, provoca o Kenta"), new CharacterEntry("健太", "Kenta", CharacterGender.Male, "calmo")]);
+        TextUnit Line(int n, string speaker, string source, string? translation, TranslationStatus status) => new($"yst00001:{n:D6}", TextUnitKind.Dialogue, speaker, source, translation, status);
+        switch (scenario)
         {
-            EditorSuggestionsFile.Save(folder, EditorSuggestionsFile.Empty.ReplacingScript("yst00001",
-            [
-                new("yst00001", "yst00001:000000", EditorSuggestionKind.Fluency, "Aizawa, Sakura. Os dois, cinco minutos atrasados.", "Aizawa, Sakura. Vocês dois, cinco minutos atrasados.", "Soa mais natural em português.", Now),
-                new("yst00001", "yst00001:000002", EditorSuggestionKind.Voice, "Esqueceu o guarda-chuva?", "Esqueceu o guarda-chuva de novo?", "A fala dela é mais provocadora no original.", Now),
-                new("yst00001", "yst00001:000003", EditorSuggestionKind.Consistency, "Uhum, mais ou menos.", "Uhum, mais ou menos isso.", "A cena usa \"mais ou menos isso\" nas outras falas.", Now),
-            ]));
+            case Scenario.Pending:
+                folder.SaveGlossary([new("魔法", "magia"), new("学校", "escola"), new("傘", "guarda-chuva"), new("先生", "professor")]);
+                folder.SaveText("yst00001",
+                [
+                    Line(0, "美咲", "「相沢、佐倉。二人そろって五分遅刻だ」", null, TranslationStatus.Untranslated),
+                    Line(1, "美咲", "「平気平気！ほら、行こう！」", null, TranslationStatus.Untranslated),
+                ]);
+                break;
+            case Scenario.Review:
+                folder.SaveText("yst00001",
+                [
+                    Line(0, "美咲", @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p", TranslationStatus.Approved),
+                    Line(1, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p", TranslationStatus.Machine),
+                    Line(2, "美咲", @"「うん」\p", @"Aham.\p", TranslationStatus.Machine),
+                ]);
+                EditorSuggestionsFile.Save(folder, EditorSuggestionsFile.Empty.ReplacingScript("yst00001",
+                [
+                    new("yst00001", "yst00001:000001", EditorSuggestionKind.Voice, LongText + @"\p", ShortText + @"\p", "Tira \"dois de\" para caber na caixa e mantém a ordem do original.", Now),
+                ]));
+                break;
+            default:
+                folder.SaveText("yst00001",
+                [
+                    Line(0, "美咲", "「相沢、佐倉。二人そろって五分遅刻だ」", "Aizawa, Sakura. Os dois, cinco minutos atrasados.", TranslationStatus.Machine),
+                    Line(1, "美咲", "「平気平気！ほら、行こう！」", "Tranquilo! Vamos, anda!", TranslationStatus.Machine),
+                    Line(2, "美咲", "「傘、忘れたの？」", "Esqueceu o guarda-chuva?", TranslationStatus.Machine),
+                    Line(3, "美咲", "「うん、まあね」", "Uhum, mais ou menos.", TranslationStatus.Machine),
+                ]);
+                EditorSuggestionsFile.Save(folder, EditorSuggestionsFile.Empty.ReplacingScript("yst00001",
+                [
+                    new("yst00001", "yst00001:000000", EditorSuggestionKind.Fluency, "Aizawa, Sakura. Os dois, cinco minutos atrasados.", "Aizawa, Sakura. Vocês dois, cinco minutos atrasados.", "Soa mais natural em português.", Now),
+                    new("yst00001", "yst00001:000002", EditorSuggestionKind.Voice, "Esqueceu o guarda-chuva?", "Esqueceu o guarda-chuva de novo?", "A fala dela é mais provocadora no original.", Now),
+                    new("yst00001", "yst00001:000003", EditorSuggestionKind.Consistency, "Uhum, mais ou menos.", "Uhum, mais ou menos isso.", "A cena usa \"mais ou menos isso\" nas outras falas.", Now),
+                ]));
+                break;
         }
 
         return root;
     }
 
-    private async Task<int> InWindow(string themeName, int width, int height, bool pending, Func<Window, MainWindowViewModel, Task> inspect)
+    private async Task<int> InWindow(string themeName, int width, int height, Scenario scenario, Func<Window, MainWindowViewModel, Task> inspect)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         using var temp = new TempFolder();
-        var root = CreateProject(temp, pending);
+        var root = CreateProject(temp, scenario);
         return await fixture.Session.Dispatch<int>(
             async () =>
             {
@@ -127,7 +162,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
     public async Task O_inspetor_mostra_o_cartao_da_passada_e_a_grade_o_icone(string themeName, int width, int height)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
-        await InWindow(themeName, width, height, pending: false, async (window, vm) =>
+        await InWindow(themeName, width, height, Scenario.Editor, async (window, vm) =>
         {
             await vm.Editor.GoToLineAsync("yst00001", "yst00001:000000");
             ScreenRenderer.Settle(window);
@@ -153,7 +188,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
     public async Task O_modo_revisao_mostra_o_cartao_abaixo_da_traducao_e_antes_da_fala_seguinte(string themeName, int width, int height)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
-        await InWindow(themeName, width, height, pending: false, async (window, vm) =>
+        await InWindow(themeName, width, height, Scenario.Review, async (window, vm) =>
         {
             vm.Editor.SelectedScript ??= vm.Editor.Scripts.First();
             vm.Editor.StartReview();
@@ -162,13 +197,47 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
             var review = window.GetVisualDescendants().OfType<ReviewModeView>().Single(v => v.IsEffectivelyVisible);
             var card = review.GetVisualDescendants().OfType<EditorSuggestionCardView>().Single(c => c.IsEffectivelyVisible);
             AssertInside(window, card, "O cartão da passada");
-            AssertButtons(card);
-            Assert.Equal("Passada de editor · fluidez", vm.Editor.Review!.Detail!.EditorSuggestionReviewTitle);
+            Assert.Equal("Passada de editor · voz", vm.Editor.Review!.Detail!.EditorSuggestionReviewTitle);
+
+            // Como no quadro: só "Aceitar" e "Ignorar", sem "Outra".
+            Assert.True(card.FindControl<Button>("AcceptButton")!.IsEffectivelyVisible);
+            Assert.True(card.FindControl<Button>("IgnoreButton")!.IsEffectivelyVisible);
+            Assert.False(card.FindControl<Button>("OtherButton")!.IsEffectivelyVisible);
+            Assert.True(card.FindControl<TextBlock>("Reason")!.IsEffectivelyVisible);
+            Assert.EndsWith("Nada muda até você aceitar.", card.FindControl<TextBlock>("Reason")!.Text);
 
             var next = review.FindControl<Control>("NextBlock")!;
             var cardTop = (card.TranslatePoint(default, window) ?? default).Y;
             var nextTop = (next.TranslatePoint(default, window) ?? default).Y;
             Assert.True(cardTop < nextTop, "O cartão tem de ficar antes de 'Fala seguinte'.");
+            if (height >= 1000)
+            {
+                Assert.True(review.FindControl<Control>("PreviousBlock")!.IsEffectivelyVisible, "A fala anterior da cena aparece.");
+            }
+
+
+            // O palco tem 360 px e a caixa do jogo fica centrada nele; sob o palco vai só o aviso de que a linha ainda não cabe.
+            var stage = review.FindControl<ReviewStage>("Stage")!;
+            Assert.Equal(360, stage.Bounds.Height, 1);
+            var box = review.FindControl<GameTextbox>("StageBox")!;
+            var stageMid = (stage.TranslatePoint(default, window) ?? default).Y + (stage.Bounds.Height / 2);
+            var boxMid = (box.TranslatePoint(default, window) ?? default).Y + (box.Bounds.Height / 2);
+            Assert.InRange(boxMid - stageMid, -8, 8);
+
+            // O selo "virar a página" fica na mesma fileira de "Entender o japonês", sob o original.
+            var chip = Assert.Single(review.GetVisualDescendants().OfType<MarkerChip>(), c => c.IsEffectivelyVisible);
+            var explain = Assert.Single(review.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.Editor.Review.Detail!.ToggleExplainCommand);
+            var chipMid = (chip.TranslatePoint(default, window) ?? default).Y + (chip.Bounds.Height / 2);
+            var explainMid = (explain.TranslatePoint(default, window) ?? default).Y + (explain.Bounds.Height / 2);
+            Assert.InRange(chipMid - explainMid, -4, 4);
+            Assert.True((chip.TranslatePoint(default, window) ?? default).X < (explain.TranslatePoint(default, window) ?? default).X, "o selo vem antes do botão");
+
+            var notice = review.FindControl<Border>("SuggestionFitNotice")!;
+            Assert.True(notice.IsEffectivelyVisible);
+            Assert.Contains("Ainda não cabe na caixa do jogo", notice.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+            Assert.Contains(notice.GetVisualDescendants().OfType<TextBlock>(), t => t.Text is { } text && text.StartsWith("Passa 1 linha: a caixa tem 3 linhas. A sugestão economiza ", StringComparison.Ordinal));
+            Assert.False(review.FindControl<Control>("LineChecks")!.IsEffectivelyVisible);
+            Assert.DoesNotContain(review.GetVisualDescendants().OfType<RewriteBar>(), b => b.IsEffectivelyVisible);
             Save(window, "revisao-passada", theme, width);
         });
     }
@@ -178,7 +247,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
     public async Task A_janela_Traduzir_com_IA_traz_a_caixa_da_passada_marcada_com_o_preco(string themeName, int width, int height)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
-        await InWindow(themeName, width, height, pending: true, async (window, vm) =>
+        await InWindow(themeName, width, height, Scenario.Pending, async (window, vm) =>
         {
             vm.Editor.SelectedScript ??= vm.Editor.Scripts.First();
             vm.Editor.TranslatePendingCommand.Execute(null);

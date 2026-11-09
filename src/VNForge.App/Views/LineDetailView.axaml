@@ -140,6 +140,9 @@
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding ExplainNotice}" IsVisible="{Binding HasExplainNotice}"/>
           </StackPanel>
 
+          <!-- A sugestão da passada de editor (#532), no alto do inspetor, logo abaixo do original e acima de "Na cena" e da tradução, como no quadro: nada grava até "Aceitar". -->
+          <v:EditorSuggestionCardView x:Name="EditorSuggestionFragment"/>
+
           <!-- Memória de tradução (#537): o que já foi aprovado em outros projetos para esta fala ou uma parecida. "Usar" põe o texto no campo; nada grava sozinho. -->
           <Border x:Name="MemoryFragment" Classes="memory" IsVisible="{Binding ShowMemoryCard}" AutomationProperties.Name="Memória de tradução">
             <StackPanel Spacing="2">
@@ -263,9 +266,6 @@
           <c:FitWarning x:Name="FitFragment" IsVisible="{Binding Fit.IsVisible, FallbackValue=False}" Message="{Binding Fit.Message}" SplitText="{Binding Fit.SplitText}" ShortenText="{Binding Fit.ShortenText}"
                         SplitCommand="{Binding Fit.SplitCommand}" ShortenCommand="{Binding Fit.ShortenCommand}" ShowShorten="{Binding Fit.HasShortener}"
                         ErrorText="{Binding Fit.Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
-
-          <!-- A sugestão da passada de editor (#532), logo abaixo do campo da tradução: nada grava até "Aceitar". -->
-          <v:EditorSuggestionCardView x:Name="EditorSuggestionFragment"/>
 
           <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
           <StackPanel x:Name="SameSourceFragment" Spacing="6" IsVisible="{Binding HasSameSource}">

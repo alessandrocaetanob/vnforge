@@ -237,16 +237,29 @@ public sealed partial class ReviewModeView : UserControl
         }
     }
 
+    /// <summary>
+    /// O original com os marcadores em selos. Os do fim do texto (a virada de página, quase sempre) vão para a fileira de baixo, ao lado de "Entender o japonês", como no
+    /// quadro; os do meio ficam no texto, no lugar em que quebram a fala.
+    /// </summary>
     private void FillSource()
     {
         SourceText.Inlines?.Clear();
+        SourceMarkers.Children.Clear();
         if (current?.Detail is not { } detail)
         {
             return;
         }
 
-        foreach (var segment in detail.SourceSegments)
+        var segments = detail.SourceSegments.ToList();
+        var tail = segments.Count;
+        while (tail > 0 && segments[tail - 1].IsMarker)
         {
+            tail--;
+        }
+
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var segment = segments[i];
             if (!segment.IsMarker)
             {
                 SourceText.Inlines?.Add(new Run(segment.Text));
@@ -254,7 +267,16 @@ public sealed partial class ReviewModeView : UserControl
             }
 
             var kind = segment.Text.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control;
-            SourceText.Inlines?.Add(new InlineUIContainer(MarkerChipGenerator.CreateChip(segment.Text, kind)) { BaselineAlignment = BaselineAlignment.Center });
+            var chip = MarkerChipGenerator.CreateChip(segment.Text, kind);
+            if (i >= tail)
+            {
+                chip.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+                SourceMarkers.Children.Add(chip);
+            }
+            else
+            {
+                SourceText.Inlines?.Add(new InlineUIContainer(chip) { BaselineAlignment = BaselineAlignment.Center });
+            }
         }
     }
 }

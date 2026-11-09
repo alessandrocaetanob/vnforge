@@ -30,12 +30,17 @@
               <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextboxInk}" Opacity="0.85" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                          Text="{TemplateBinding SceneName}"/>
             </Border>
-            <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="20,48,20,20">
+            <Viewbox Name="PART_Content" Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="20,48,20,20">
               <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
             </Viewbox>
           </Grid>
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- Palco de altura fixa (a fila por risco e a sugestão do editor): a caixa fica centrada no palco, como no quadro, e não encostada na base. -->
+  <Style Selector="c|ReviewStage:fixed /template/ Viewbox#PART_Content">
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="20"/>
   </Style>
 </Styles>

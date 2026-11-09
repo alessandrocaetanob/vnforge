@@ -125,7 +125,10 @@
     <!-- Topo numa linha: voltar ao Editor, o nome da cena com "Linha 1 de 6" e um bloco por linha, e as linhas revisadas hoje. -->
     <Grid x:Name="TopBar" ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
       <Button Classes="sm" Command="{Binding CloseCommand}" VerticalAlignment="Center" HorizontalAlignment="Left" ToolTip.Tip="Volta à lista de linhas (Esc)">
-        <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap"/>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
+          <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+        </StackPanel>
       </Button>
       <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Center">
         <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding HeaderTitle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding HeaderTitle}" AutomationProperties.Name="Cena"/>
@@ -210,15 +213,19 @@
                                      Text="{Binding SpeakerText}" c:SpeakerColorTint.Color="{Binding Detail.SpeakerColor}" c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
               </Grid>
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="{DynamicResource Vnf.LineHeight.ReviewSource}" FontSize="{DynamicResource Vnf.FontSize.ReviewSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
-              <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
-                      ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
-                  <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
-                  <TextBlock Classes="caption secondary" Text="{Binding Detail.ExplainPriceText, StringFormat='· {0}'}" VerticalAlignment="Center"
-                             IsVisible="{Binding Detail.ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                </StackPanel>
-              </Button>
+              <!-- Fileira sob o original: os marcadores do fim do texto (virar a página) e "Entender o japonês", lado a lado como no quadro. -->
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <StackPanel x:Name="SourceMarkers" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"/>
+                <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
+                        ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+                    <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
+                    <TextBlock Classes="caption secondary" Text="{Binding Detail.ExplainPriceText, StringFormat='· {0}'}" VerticalAlignment="Center"
+                               IsVisible="{Binding Detail.ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                  </StackPanel>
+                </Button>
+              </StackPanel>
               <TextBlock Classes="caption secondary" Text="Pedindo a explicação..." IsVisible="{Binding Detail.IsExplaining}"/>
               <c:ExplainCard ItemsSource="{Binding Detail.ExplainParts}" Footnote="Só para você ler, não entra na tradução."
                              IsVisible="{Binding Detail.ShowExplainCard}" AutomationProperties.Name="Explicação do original"/>
@@ -265,7 +272,13 @@
 
       <!-- O palco: a caixa do jogo em tamanho grande, como no jogo de verdade, é a resposta mais direta a "esta fala está boa?". Sob ele, se cabe ou o que fazer. -->
       <c:StageColumn Grid.Column="1" Spacing="12" HorizontalAlignment="Left" VerticalAlignment="Top">
-        <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" FixedHeight="{Binding StageFixedHeight}" AutomationProperties.Name="Palco">
+        <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" AutomationProperties.Name="Palco">
+          <c:ReviewStage.FixedHeight>
+            <MultiBinding Converter="{x:Static c:ReviewStage.HeightConverter}">
+              <Binding Path="StageFixedHeight"/>
+              <Binding Path="Detail.HasEditorSuggestion" FallbackValue="False"/>
+            </MultiBinding>
+          </c:ReviewStage.FixedHeight>
           <c:GameTextbox x:Name="StageBox" Size="Stage" Layout="{Binding Detail.Preview.Layout}" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}"
                          AutomationProperties.Name="Caixa do jogo"/>
         </c:ReviewStage>
@@ -306,7 +319,24 @@
             </Border>
 
             <!-- Na fila por risco a coluna do palco tem só o palco, a barra e a tabela da fila, como no quadro: o que cabe, "Reescrever com um toque" e os avisos de dúvida e de marcadores ficam de fora; o erro do QA vai como chip no cartão de risco. -->
-            <StackPanel x:Name="LineChecks" Spacing="12" IsVisible="{Binding !IsRisk}">
+            <!-- Com uma sugestão do editor para uma linha que passa da caixa, o quadro põe só este aviso sob o palco: a sugestão é o que resolve. -->
+            <Border x:Name="SuggestionFitNotice" Classes="infobar warning" IsVisible="{Binding Detail.HasEditorSuggestionFitNote, FallbackValue=False}" AutomationProperties.Name="Aviso: ainda não cabe na caixa do jogo">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="20" Height="20" VerticalAlignment="Top" Data="{StaticResource Icon.Warning}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="Ainda não cabe na caixa do jogo"/>
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.EditorSuggestionFitNote}"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <StackPanel x:Name="LineChecks" Spacing="12">
+              <StackPanel.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="!IsRisk"/>
+                  <Binding Path="!Detail.HasEditorSuggestionFitNote" FallbackValue="True"/>
+                </MultiBinding>
+              </StackPanel.IsVisible>
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A caixa do jogo aparece quando o projeto tem o perfil de formatação."
                        IsVisible="{Binding !Detail.Preview.HasLayout, FallbackValue=True}"/>
             <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Detail.FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">

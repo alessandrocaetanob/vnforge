@@ -73,6 +73,32 @@ public sealed partial class LineDetailViewModel
     /// <summary>O motivo, em uma frase.</summary>
     public string EditorSuggestionReason => editorSuggestion?.Reason ?? string.Empty;
 
+    /// <summary>O motivo no Modo revisão, com a promessa que o quadro faz logo depois dele: nada muda até a pessoa aceitar.</summary>
+    public string EditorSuggestionReviewReason => editorSuggestion is null
+        ? string.Empty
+        : EditorSuggestionReason.Length == 0 ? "Nada muda até você aceitar." : $"{EditorSuggestionReason} Nada muda até você aceitar.";
+
+    /// <summary>
+    /// O aviso do Modo revisão quando a tradução de hoje passa da caixa do jogo e há uma sugestão para ela: quantas linhas passam, quantas a caixa tem e quantos
+    /// caracteres a sugestão economiza ("Passa 1 linha: a caixa tem 3 linhas. A sugestão economiza 12 caracteres."). Vazio quando cabe ou não há sugestão.
+    /// </summary>
+    public string EditorSuggestionFitNote
+    {
+        get
+        {
+            if (!HasEditorSuggestion || !DoesNotFit || Preview?.Layout?.MaxLines is not { } capacity)
+            {
+                return string.Empty;
+            }
+
+            var saved = LineText.Length(editorSuggestion!.Base) - LineText.Length(editorSuggestion.Proposed);
+            var head = $"Passa {LinesOf(OverflowLines)}: a caixa tem {LinesOf(capacity)}.";
+            return saved > 0 ? $"{head} A sugestão economiza {(saved == 1 ? "1 caractere" : $"{ProjectLabels.Number(saved)} caracteres")}." : head;
+        }
+    }
+
+    public bool HasEditorSuggestionFitNote => EditorSuggestionFitNote.Length > 0;
+
     /// <summary>
     /// Troca a tradução pela proposta e grava na hora: aceitar é uma decisão da pessoa, sem espera. Se a gravação falhar, a sugestão continua e o erro aparece como em qualquer edição.
     /// Com texto digitado e ainda não gravado o botão fica desligado: aceitar jogaria esse texto fora sem a pessoa ter decidido isso.
@@ -175,6 +201,13 @@ public sealed partial class LineDetailViewModel
         EditorSuggestionResolved?.Invoke(suggestion);
     }
 
+    private void NotifyEditorSuggestionFitNoteChanged()
+    {
+        OnPropertyChanged(nameof(EditorSuggestionReviewReason));
+        OnPropertyChanged(nameof(EditorSuggestionFitNote));
+        OnPropertyChanged(nameof(HasEditorSuggestionFitNote));
+    }
+
     private void NotifyEditorSuggestionChanged()
     {
         OnPropertyChanged(nameof(HasEditorSuggestion));
@@ -187,6 +220,7 @@ public sealed partial class LineDetailViewModel
         OnPropertyChanged(nameof(EditorSuggestionCurrent));
         OnPropertyChanged(nameof(EditorSuggestionProposed));
         OnPropertyChanged(nameof(EditorSuggestionReason));
+        NotifyEditorSuggestionFitNoteChanged();
         AcceptEditorSuggestionCommand.NotifyCanExecuteChanged();
         IgnoreEditorSuggestionCommand.NotifyCanExecuteChanged();
         OtherEditorSuggestionCommand.NotifyCanExecuteChanged();
