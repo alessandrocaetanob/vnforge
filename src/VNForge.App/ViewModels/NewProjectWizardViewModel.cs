@@ -125,9 +125,16 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
     /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
     /// <param name="vndb">O catálogo do VNDB do passo "Ficha do VNDB"; sem ele o passo avisa que a busca não está disponível e deixa seguir.</param>
-    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null, IVndbCatalog? vndb = null)
+    /// <param name="translatedSynopsis">
+    /// O ponto de ligação da sinopse em português (#554): devolve a sinopse que a IA já traduziu para o jogo confirmado, ou nulo. A ficha mostra o texto traduzido com o selo
+    /// "Traduzida pela IA, você revisa depois"; sem tradução fica o texto do VNDB, no idioma dele. O assistente não chama a IA: quem traduz é a #554.
+    /// </param>
+    /// <param name="gameCharacterNames">Lê os nomes de personagem do jogo (<c>ES.CHAR.NAME</c>) para a ficha mostrar quais casam com o VNDB; por padrão <see cref="ProjectInitializer.ReadGameCharacterNames"/>.</param>
+    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null, IVndbCatalog? vndb = null, Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?>? gameCharacterNames = null, Func<VndbLink, string?>? translatedSynopsis = null)
     {
         this.vndb = vndb;
+        this.gameCharacterNames = gameCharacterNames ?? ProjectInitializer.ReadGameCharacterNames;
+        this.translatedSynopsis = translatedSynopsis ?? (_ => null);
         this.tasks = tasks;
         this.picker = picker;
         this.engines = engines;
@@ -168,6 +175,9 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     /// <summary>"Feito com o motor YU-RIS": o título do cartão do primeiro passo; vazio até haver uma pasta reconhecida.</summary>
     [ObservableProperty]
     public partial string EngineHeadline { get; private set; } = string.Empty;
+
+    /// <summary>O nome do motor que a detecção achou ("YU-RIS"), sem versão; vazio até haver uma pasta reconhecida. Vai no subtítulo do primeiro passo e na linha de cada resultado do VNDB.</summary>
+    public string EngineName { get; private set; } = string.Empty;
 
     /// <summary>Quantos scripts a detecção contou; nulo quando a engine não diz. Base da estimativa de custo do passo de IA.</summary>
     public int? ScriptCount { get; private set; }
@@ -302,6 +312,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             FoundFacts.Clear();
             EngineTitle = string.Empty;
             EngineHeadline = string.Empty;
+            EngineName = string.Empty;
             DetectionWarning = null;
             ShowGameSize(null, null);
             Executables.Clear();
@@ -540,13 +551,13 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private static readonly string[] StepTitles = ["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"];
+        ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite"];
 
     private void RefreshSteps()
     {
         string?[] results =
         [
-            HasDetection ? EngineHeadline : null,
+            HasDetection ? EngineName : null,
             confirmedLink is { } linked ? linked.Title : "Sem VNDB",
             $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Title}",
             EncodingStrategies.Selected.Title,
@@ -627,7 +638,8 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         var version = ReadNumber(details, ProjectInitializer.VersionDetail);
         var scripts = ReadNumber(details, "scripts");
         EngineTitle = ProjectLabels.Engine(found.Engine.Id, version);
-        EngineHeadline = $"Feito com o motor {ProjectLabels.Engine(found.Engine.Id, null)}";
+        EngineName = ProjectLabels.Engine(found.Engine.Id, null);
+        EngineHeadline = $"Feito com o motor {EngineName}";
         DetectionLines.Add($"Engine: {EngineTitle}");
         FoundFacts.Add(new DetectionFact("Texto para traduzir", scripts is { } n ? ProjectLabels.ScriptFiles(n) : "Roteiro do jogo encontrado"));
         FoundFacts.Add(new DetectionFact("Cópia de segurança", "Feita antes de qualquer mudança no jogo"));

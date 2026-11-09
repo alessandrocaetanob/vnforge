@@ -26,6 +26,8 @@ public static class CommandExamples
         ["library tag delete"] = ["vnf library tag delete rejogar"],
         ["library queue"] = ["vnf library queue", "vnf library queue --all", "vnf library queue --offline"],
         ["library translate"] = ["vnf library translate CLANNAD", @"vnf library translate CLANNAD D:\Projetos\clannad"],
+        ["library state"] = ["vnf library state", "vnf library state CLANNAD"],
+        ["library switch"] = ["vnf library switch CLANNAD --traduzido", "vnf library switch CLANNAD --original --yes"],
         ["library link"] = ["vnf library link CLANNAD --project minha-vn", "vnf library link CLANNAD --remove"],
         ["library privacy"] = ["vnf library privacy", "vnf library privacy --spoilers sim --adult nao"],
         ["library status"] = ["vnf library status CLANNAD", "vnf library status CLANNAD --label terminado --vote 8.5", "vnf library status CLANNAD --label terminado --finished 2026-03-04 --push"],
