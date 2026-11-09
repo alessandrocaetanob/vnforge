@@ -8,6 +8,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
+using VNForge.Core.Images;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -104,6 +105,12 @@ public sealed class VnfCli
 
     /// <summary>Cria o cliente HTTP do download do dicionário (<c>vnf jmdict install</c>); os testes trocam por um que responde com um arquivo inventado.</summary>
     public Func<HttpClient> HttpClientFactory { get; set; } = () => new HttpClient();
+
+    /// <summary>
+    /// Cria o leitor de imagens do <c>vnf images scan</c> para o modelo escolhido; os testes trocam por um leitor falso.
+    /// Padrão (<c>null</c>): Claude com visão, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, IImageTextReader>? ImageTextReaderFactory { get; set; }
 
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();

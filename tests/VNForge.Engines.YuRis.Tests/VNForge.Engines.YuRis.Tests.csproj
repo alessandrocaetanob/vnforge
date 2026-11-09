@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VNForge.Engines.YuRis\VNForge.Engines.YuRis.csproj" />
+    <ProjectReference Include="..\VNForge.Engines.ConformanceKit\VNForge.Engines.ConformanceKit.csproj" />
   </ItemGroup>
 
 </Project>
