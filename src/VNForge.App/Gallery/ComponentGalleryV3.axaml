@@ -7,12 +7,12 @@
   <StackPanel Spacing="28">
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="Ícones Fluent · Regular 20"/>
+      <c:OverlineText Classes="overline" Text="Ícones Fluent · Regular 20"/>
       <WrapPanel x:Name="IconGrid" ItemSpacing="12" LineSpacing="12"/>
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="MarkerChip · virar a página, quebra de linha, nome do jogador, variável, faltando"/>
+      <c:OverlineText Classes="overline" Text="MarkerChip · virar a página, quebra de linha, nome do jogador, variável, faltando"/>
       <WrapPanel ItemSpacing="4" LineSpacing="8">
         <c:MarkerChip Marker="\p"/>
         <c:MarkerChip Marker="\n"/>
@@ -32,7 +32,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="GameTextbox · cabe (2 de 3 linhas), passa (4 para 3), duas páginas"/>
+      <c:OverlineText Classes="overline" Text="GameTextbox · cabe (2 de 3 linhas), passa (4 para 3), duas páginas"/>
       <StackPanel Spacing="28" Margin="0,12,0,0">
         <c:GameTextbox x:Name="BoxFits" HorizontalAlignment="Left"/>
         <c:GameTextbox x:Name="BoxOver" HorizontalAlignment="Left"/>
@@ -43,7 +43,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="ProgressRing · 38%, abaixo de 1%, 100%, vazio, pequeno"/>
+      <c:OverlineText Classes="overline" Text="ProgressRing · 38%, abaixo de 1%, 100%, vazio, pequeno"/>
       <StackPanel Orientation="Horizontal" Spacing="24">
         <c:ProgressRing Done="18592" Review="10936" Total="48211"/>
         <c:ProgressRing Done="51" Review="268" Total="6854"/>
@@ -54,14 +54,14 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="Seg3Bar · pronto, esperando revisão, em japonês"/>
+      <c:OverlineText Classes="overline" Text="Seg3Bar · pronto, esperando revisão, em japonês"/>
       <c:Seg3Bar Done="18592" Review="10936" Total="48211"/>
       <c:Seg3Bar Done="100" Review="0" Total="100"/>
       <c:Seg3Bar Done="0" Review="0" Total="100"/>
     </StackPanel>
 
     <StackPanel Spacing="4">
-      <TextBlock Classes="overline" Text="ChapterRow · comum, aqui, menus e nomes"/>
+      <c:OverlineText Classes="overline" Text="ChapterRow · comum, aqui, menus e nomes"/>
       <c:ChapterRow Number="1" Title="Manhã de chuva" Done="2840" Review="1210" Total="4100" Note="Você está aqui · 1 erro em Manhã de chuva" IsHere="True"/>
       <c:ChapterRow Number="2" Title="O clube de leitura" Done="3100" Review="420" Total="6020" Note="A IA parou no limite de gasto"/>
       <c:ChapterRow Number="3" Title="Tudo traduzido, nada revisado" Done="0" Review="200" Total="200"/>
@@ -69,7 +69,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="CostLabel · só em reais, com o dólar"/>
+      <c:OverlineText Classes="overline" Text="CostLabel · só em reais, com o dólar"/>
       <StackPanel Orientation="Horizontal" Spacing="24">
         <c:CostLabel Brl="142.56"/>
         <c:CostLabel Brl="142.56" Usd="26.40"/>
@@ -77,13 +77,13 @@
     </StackPanel>
 
     <StackPanel Spacing="12">
-      <TextBlock Classes="overline" Text="BudgetBar · dentro do limite, acima do limite"/>
+      <c:OverlineText Classes="overline" Text="BudgetBar · dentro do limite, acima do limite"/>
       <c:BudgetBar Spent="142.56" Ask="58.10" Limit="300"/>
       <c:BudgetBar Spent="142.56" Ask="180" Limit="300"/>
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="QualityCard · Rápida, Equilibrada (marcada), Caprichada"/>
+      <c:OverlineText Classes="overline" Text="QualityCard · Rápida, Equilibrada (marcada), Caprichada"/>
       <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
         <c:QualityCard x:Name="QualityFast" Title="Rápida" Price="2.92" Duration="cerca de 40 min" Description="Boa para um rascunho."/>
         <c:QualityCard x:Name="QualityBalanced" Grid.Column="1" Title="Equilibrada" Price="58.10" Duration="cerca de 78 min" Description="O meio-termo." IsChecked="True"/>
@@ -92,19 +92,19 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="ContextLines e ExplainCard"/>
+      <c:OverlineText Classes="overline" Text="ContextLines e ExplainCard"/>
       <c:ContextLines x:Name="ContextList"/>
       <c:ExplainCard x:Name="ExplainList" Model="Claude Haiku" Footnote="Só para você ler, não entra na tradução."/>
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="ScriptGroup · aberto, fechado"/>
+      <c:OverlineText Classes="overline" Text="ScriptGroup · aberto, fechado"/>
       <c:ScriptGroup Title="Capítulo 1" CountText="14" IsExpanded="True"><TextBlock Classes="caption secondary" Margin="24,4" Text="yst00001 · Manhã de chuva"/></c:ScriptGroup>
       <c:ScriptGroup Title="Capítulo 2" CountText="22" IsExpanded="False"><TextBlock Text="escondido"/></c:ScriptGroup>
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="GameStateBanner · traduzido, original, travado"/>
+      <c:OverlineText Classes="overline" Text="GameStateBanner · traduzido, original, travado"/>
       <c:GameStateBanner State="Translated" Title="O jogo está com a tradução de 22/10" Message="A tradução continua no projeto, mesmo se você voltar ao original.">
         <Button Content="Voltar ao jogo original"/>
       </c:GameStateBanner>
@@ -115,7 +115,7 @@
     </StackPanel>
 
     <StackPanel Spacing="0">
-      <TextBlock Classes="overline" Text="TodoItem · erro, aviso, pronto" Margin="0,0,0,8"/>
+      <c:OverlineText Classes="overline" Text="TodoItem · erro, aviso, pronto" Margin="0,0,0,8"/>
       <Border Classes="panel">
         <StackPanel>
           <c:TodoItem Severity="Error" Title="2 erros travam o teste" Message="Marcador faltando em Manhã de chuva · linha 43" ActionText="Corrigir"/>
@@ -126,7 +126,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="TechnicalDetails · fechado, aberto"/>
+      <c:OverlineText Classes="overline" Text="TechnicalDetails · fechado, aberto"/>
       <c:TechnicalDetails><TextBlock Text="escondido"/></c:TechnicalDetails>
       <c:TechnicalDetails IsExpanded="True">
         <StackPanel Spacing="4">
@@ -137,7 +137,7 @@
     </StackPanel>
 
     <StackPanel Spacing="8">
-      <TextBlock Classes="overline" Text="ScreenDialog · na camada de sobreposição, sobre a janela inteira (Escape fecha)"/>
+      <c:OverlineText Classes="overline" Text="ScreenDialog · na camada de sobreposição, sobre a janela inteira (Escape fecha)"/>
       <Button HorizontalAlignment="Left" Content="Abrir o diálogo" Click="OnOpenDialog"/>
       <Grid>
         <c:ScreenDialog x:Name="SampleDialog" Title="Traduzir com IA">

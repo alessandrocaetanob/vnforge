@@ -1,0 +1,38 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VNForge.Installer.InstallerApplication"
+             RequestedThemeVariant="Default">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://vnf-instalador/Themes/Tokens.axaml"/>
+        <ResourceInclude Source="avares://vnf-instalador/Themes/TextScale.axaml"/>
+        <ResourceInclude Source="avares://vnf-instalador/Assets/Icons.axaml"/>
+        <ResourceInclude Source="avares://vnf-instalador/Assets/Brand.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <!-- O Tokens.axaml aponta as famílias para o pacote de fontes do app, que o instalador não leva (são 20 MB de japonês e de código). Aqui as quatro chaves
+           apontam para as fontes que ele embute: Noto Sans para o texto e Zen Kaku Gothic New para os títulos, que também cobre o japonês do nome de um jogo. -->
+      <FontFamily x:Key="Vnf.FontUi">avares://vnf-instalador/Assets/Fonts#Noto Sans</FontFamily>
+      <FontFamily x:Key="Vnf.FontJp">avares://vnf-instalador/Assets/Fonts#Zen Kaku Gothic New</FontFamily>
+      <FontFamily x:Key="Vnf.FontMono">avares://vnf-instalador/Assets/Fonts#Noto Sans</FontFamily>
+      <FontFamily x:Key="Vnf.FontDisplay">avares://vnf-instalador/Assets/Fonts#Zen Kaku Gothic New, avares://vnf-instalador/Assets/Fonts#Noto Sans</FontFamily>
+      <!-- O Fluent usa 4 e 8; o design system v3 pede 8 e 16 (radius-sm e radius-lg). -->
+      <StaticResource x:Key="ControlCornerRadius" ResourceKey="Vnf.RadiusSm"/>
+      <StaticResource x:Key="OverlayCornerRadius" ResourceKey="Vnf.RadiusLg"/>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <!-- Os mesmos accents do app (App.axaml): o verde-água do design system v3, fixo, não a cor do Windows. -->
+    <FluentTheme DensityStyle="Normal">
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#4FD1B5" RegionColor="#161A19" ErrorText="#F59AB2"/>
+        <ColorPaletteResources x:Key="Light" Accent="#0B7A66" RegionColor="#F8F9F7" ErrorText="#B8244F"/>
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://vnf-instalador/Themes/Typography.axaml"/>
+    <StyleInclude Source="avares://vnf-instalador/Themes/Controls/Buttons.axaml"/>
+    <StyleInclude Source="avares://vnf-instalador/Styles/Installer.axaml"/>
+  </Application.Styles>
+</Application>

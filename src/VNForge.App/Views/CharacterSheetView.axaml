@@ -28,25 +28,25 @@
 
       <Grid ColumnDefinitions="140,120,*,Auto" ColumnSpacing="16">
         <StackPanel Spacing="2">
-          <TextBlock Classes="overline" Text="Gênero"/>
+          <c:OverlineText Classes="overline" Text="Gênero"/>
           <TextBlock Classes="body-sm" Text="{Binding GenderLabel}"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Spacing="2">
-          <TextBlock Classes="overline" Text="Cor"/>
+          <c:OverlineText Classes="overline" Text="Cor"/>
           <TextBlock Classes="body-sm" Text="{Binding Color.Label}"/>
         </StackPanel>
         <StackPanel Grid.Column="2" Spacing="2">
-          <TextBlock Classes="overline" Text="Como fala"/>
+          <c:OverlineText Classes="overline" Text="Como fala"/>
           <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ToneText}"/>
         </StackPanel>
         <StackPanel Grid.Column="3" Spacing="2">
-          <TextBlock Classes="overline" Text="Falas"/>
+          <c:OverlineText Classes="overline" Text="Falas"/>
           <TextBlock Classes="body-sm" Text="{Binding UsesText}"/>
         </StackPanel>
       </Grid>
 
       <StackPanel Spacing="6">
-        <TextBlock Classes="overline" Text="As falas mais longas"/>
+        <c:OverlineText Classes="overline" Text="As falas mais longas"/>
         <Grid ColumnDefinitions="*,*" ColumnSpacing="16" IsVisible="{Binding HasLines}">
           <TextBlock Classes="caption secondary" Text="Original"/>
           <TextBlock Grid.Column="1" Classes="caption secondary" Text="Tradução"/>

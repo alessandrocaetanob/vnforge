@@ -322,6 +322,26 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
         });
     }
 
+    // ---------------------------------------------------------------- ToggleSwitch (#580)
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Interruptor_tem_a_bolinha_e_a_pista_do_quadro(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var off = new ToggleSwitch { OnContent = null, OffContent = null, IsChecked = false };
+            var on = new ToggleSwitch { OnContent = null, OffContent = null, IsChecked = true };
+            ui.Show(new StackPanel { Children = { off, on } });
+
+            // Ligado: pista accent e bolinha on-accent (escura no tema escuro). Desligado: pista vazia, contorno stroke-control e bolinha text-secondary.
+            Assert.Equal(Token(on, "Vnf.OnAccent"), ColorOf(Part<Avalonia.Controls.Shapes.Ellipse>(on, "SwitchKnobOn").Fill));
+            Assert.Equal(Token(off, "Vnf.TextSecondary"), ColorOf(Part<Avalonia.Controls.Shapes.Ellipse>(off, "SwitchKnobOff").Fill));
+            Assert.Equal(Token(on, "Vnf.Accent"), ColorOf(Part<Border>(on, "SwitchKnobBounds").Background));
+            Assert.Equal(Token(off, "Vnf.StrokeControl"), ColorOf(Part<Border>(off, "OuterBorder").BorderBrush));
+        });
+    }
+
     // ---------------------------------------------------------------- ToggleRule
 
     [Theory]
@@ -432,15 +452,18 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.True(Part<TextBlock>(off, "PART_Count").IsVisible);
             Assert.False(Part<TextBlock>(bare, "PART_Count").IsVisible);
 
-            Assert.Equal(Token(on, "Vnf.AccentSoft"), ColorOf(Part<Border>(on, "PART_Root").Background));
+            Assert.Equal(Token(on, "Vnf.Accent"), ColorOf(Part<Border>(on, "PART_Root").Background));
             Assert.Equal(Token(on, "Vnf.Accent"), ColorOf(Part<Border>(on, "PART_Root").BorderBrush));
-            Assert.Equal(Token(on, "Vnf.AccentText"), ColorOf(Part<TextBlock>(on, "PART_Label").Foreground));
-            Assert.Equal(FontWeight.SemiBold, Part<TextBlock>(on, "PART_Label").FontWeight);
+            Assert.Equal(Token(on, "Vnf.OnAccent"), ColorOf(Part<TextBlock>(on, "PART_Label").Foreground));
+            Assert.Equal(Token(on, "Vnf.OnAccent"), ColorOf(Part<TextBlock>(on, "PART_Count").Foreground));
+            Assert.Equal(FontWeight.SemiBold, Part<TextBlock>(on, "PART_Count").FontWeight);
+            Assert.Equal(FontWeight.Normal, Part<TextBlock>(on, "PART_Label").FontWeight);
 
             Assert.Equal(Token(off, "Vnf.StrokeSubtle"), ColorOf(Part<Border>(off, "PART_Root").BorderBrush));
             Assert.Equal(Token(off, "Vnf.TextSecondary"), ColorOf(Part<TextBlock>(off, "PART_Label").Foreground));
             Assert.Equal(Token(off, "Vnf.TextTertiary"), ColorOf(Part<TextBlock>(disabled, "PART_Label").Foreground));
-            Assert.Equal(28, off.Bounds.Height);
+            Assert.Equal(32, off.Bounds.Height);
+            Assert.Equal(new Avalonia.CornerRadius(999), Part<Border>(off, "PART_Root").CornerRadius);
 
             off.IsChecked = true;
             Assert.Contains(":checked", off.Classes);

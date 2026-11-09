@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Globalization;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -11,10 +12,10 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|privacy|status|sync|play|option|emulator|tag</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// <c>vnf library scan|match|list|link|queue|translate|privacy|status|sync|play|option|emulator|tag|export</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
 /// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde e filtra por tag,
 /// <c>play</c> abre o jogo e conta o tempo (<c>playtime.json</c>, ao lado). Os subcomandos de <c>play</c> ficam em <c>LibraryCommand.Play.cs</c>.
-/// <c>tag</c> cuida das tags do usuário (<c>library-tags.json</c>, ao lado).
+/// <c>tag</c> cuida das tags do usuário (<c>library-tags.json</c>, ao lado). <c>queue</c> e <c>translate</c> (a fila de tradução e o projeto do jogo escolhido) ficam em <c>LibraryCommand.Queue.cs</c>.
 /// </summary>
 internal static partial class LibraryCommand
 {
@@ -147,11 +148,15 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateMatch(cli));
         command.Subcommands.Add(CreateList(cli));
         command.Subcommands.Add(CreateLink(cli));
+        command.Subcommands.Add(CreateQueue(cli));
+        command.Subcommands.Add(CreateTranslate(cli));
         command.Subcommands.Add(CreatePrivacy(cli));
         command.Subcommands.Add(CreateTag(cli));
+        command.Subcommands.Add(CreateSheet(cli));
         command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
         command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
         command.Subcommands.Add(CreatePlay(cli));
+        command.Subcommands.Add(CreateExport(cli));
         command.Subcommands.Add(CreateState(cli));
         command.Subcommands.Add(CreateSwitch(cli));
         command.Subcommands.Add(CreateOption(cli));
@@ -834,7 +839,7 @@ internal static partial class LibraryCommand
             output.WriteLine($"  Lançamento: {card.Released}");
         }
 
-        output.WriteLine($"  Duração: {LengthText(card.LengthMinutes, card.Length)}");
+        output.WriteLine($"  Duração: {LibraryLength.Text(card.LengthMinutes, card.Length)}");
         output.WriteLine($"  Capa: {(card.CoverHidden ? "escondida (conteúdo adulto; use --show-adult)" : card.CoverUrl ?? "sem capa")}");
         output.WriteLine("  Tags: " + (card.Tags.Count == 0 ? "nenhuma" : string.Join(", ", card.Tags.Take(15).Select(t => t.Name))) + (card.HiddenTags > 0 ? $" ({CliFormat.Count(card.HiddenTags, "tag escondida", "tags escondidas")}: spoiler ou conteúdo adulto)" : string.Empty));
         if (card.Synopsis is { Length: > 0 })
@@ -852,24 +857,6 @@ internal static partial class LibraryCommand
         }
 
         output.WriteLine("  " + VndbCredit.ShortText);
-    }
-
-    private static string LengthText(int? minutes, int? category)
-    {
-        if (minutes is { } m)
-        {
-            return m >= 60 ? $"cerca de {(m / 60.0).ToString("0", PortugueseBrazil)} h" : $"{m} min";
-        }
-
-        return category switch
-        {
-            1 => "muito curta (menos de 2 h)",
-            2 => "curta (2 a 10 h)",
-            3 => "média (10 a 30 h)",
-            4 => "longa (30 a 50 h)",
-            5 => "muito longa (mais de 50 h)",
-            _ => "sem votos",
-        };
     }
 
     private static int Link(VnfCli cli, ParseResult parseResult, string reference)

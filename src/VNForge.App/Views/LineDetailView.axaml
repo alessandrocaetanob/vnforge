@@ -96,7 +96,7 @@
           <!-- Original em fundo rebaixado, com os marcadores como chips. -->
           <StackPanel x:Name="OriginalFragment" Spacing="6">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-              <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
+              <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
               <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding HasMemory}"
                       ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução." AutomationProperties.Name="Entender o japonês">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -147,7 +147,7 @@
               <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                   <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Database}"/>
-                  <TextBlock Classes="overline" Text="Memória de tradução"/>
+                  <c:OverlineText Classes="overline" Text="Memória de tradução"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding MemorySummary}" IsVisible="{Binding HasMemory}"/>
               </Grid>
@@ -179,7 +179,7 @@
           <Border x:Name="SceneSummaryCard" Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="12" IsVisible="{Binding HasSceneSummary}">
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="overline" Text="Resumo da cena"/>
+                <c:OverlineText Classes="overline" Text="Resumo da cena"/>
                 <Border Grid.Column="1" Height="20" Padding="8,0" CornerRadius="10" Background="{DynamicResource Vnf.StatusAiBg}">
                   <TextBlock FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="Bíblia"/>
                 </Border>
@@ -190,7 +190,7 @@
 
           <!-- Na cena: a fala anterior e a seguinte. Com o cartão da memória aberto fica recolhido, e o cabeçalho abre. -->
           <StackPanel x:Name="SceneFragment" Spacing="6" IsVisible="{Binding HasScene}">
-            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !UsesSceneToggle}"/>
+            <c:OverlineText Classes="overline" Text="Na cena" IsVisible="{Binding !UsesSceneToggle}"/>
             <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding UsesSceneToggle}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding IsSceneCollapsed}"/>
@@ -205,7 +205,7 @@
           <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
           <StackPanel x:Name="TranslationFragment" Spacing="6">
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="overline" Text="Tradução"/>
+              <c:OverlineText Classes="overline" Text="Tradução"/>
               <TextBlock Grid.Column="1" Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding IsCompactInspector}"/>
             </Grid>
             <Border Classes="field">
@@ -393,7 +393,7 @@
           <!-- Contexto: o personagem com a voz e os termos do glossário que aparecem na linha. -->
           <Border x:Name="ContextFragment" Classes="divider-top" Padding="0,12,0,0">
             <StackPanel Spacing="8">
-              <TextBlock Classes="overline" Text="Contexto"/>
+              <c:OverlineText Classes="overline" Text="Contexto"/>
               <!-- Falante da linha: o do jogo, Narração, um personagem do Glossário ou um nome digitado. Vale só nesta linha. -->
               <Grid x:Name="SpeakerChoiceRow" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <TextBlock FontSize="{DynamicResource Vnf.FontSize.BodySm}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" TextWrapping="Wrap" Classes="secondary" Text="{Binding SpeakerSummary}" VerticalAlignment="Center"
@@ -430,7 +430,7 @@
                 <PathIcon Width="16" Height="16" Margin="0,1,0,0" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Book}"/>
                 <TextBlock Grid.Column="1" FontSize="{DynamicResource Vnf.FontSize.BodySm}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" TextWrapping="Wrap" Classes="secondary" Text="{Binding GlossaryText}"/>
               </Grid>
-              <TextBlock Classes="overline" Text="Notas" Margin="0,8,0,0"/>
+              <c:OverlineText Classes="overline" Text="Notas" Margin="0,8,0,0"/>
               <TextBox FontSize="{DynamicResource Vnf.FontSize.Body}" Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Notas da linha"/>
             </StackPanel>
           </Border>

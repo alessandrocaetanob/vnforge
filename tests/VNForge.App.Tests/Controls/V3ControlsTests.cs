@@ -249,7 +249,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
     {
         await OnUi(() =>
         {
-            var dialogo = new ScreenDialog { Title = "Traduzir com IA", IsOpen = true };
+            var dialogo = new ScreenDialog { Title = "Traduzir com IA", IsOpen = true, ShowClose = true };
             var fechou = 0;
             dialogo.Closed += (_, _) => fechou++;
             var janela = new Window { Width = 800, Height = 600, Content = new Grid { Children = { dialogo } } };
@@ -263,6 +263,54 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
 
                 Assert.False(dialogo.IsOpen);
                 Assert.Equal(1, fechou);
+            }
+            finally
+            {
+                janela.Close();
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(1440, 1000, 460, false)]
+    [InlineData(1440, 1000, 780, true)]
+    [InlineData(1366, 768, 640, false)]
+    [InlineData(500, 400, 460, false)]
+    public async Task Dialogo_fica_centrado_na_janela_com_a_largura_pedida_e_o_X_so_quando_ligado(int largura, int altura, double larguraDoCartao, bool comFechar)
+    {
+        await OnUi(() =>
+        {
+            var dialogo = new ScreenDialog { Title = "Traduzir com IA", DialogWidth = larguraDoCartao, ShowClose = comFechar, Content = new TextBlock { Text = "corpo" }, IsOpen = true };
+            var janela = new Window { Width = largura, Height = altura, Content = new Grid { Children = { dialogo } } };
+            try
+            {
+                janela.Show();
+                ScreenRenderer.Settle(janela);
+
+                // Numa janela mais estreita que o cartão mais as margens de 24 px, o cartão encolhe e continua centrado.
+                DialogProbe.AssertCentered(janela, Math.Min(larguraDoCartao, largura - 48), comFechar);
+            }
+            finally
+            {
+                janela.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task Dialogo_sem_largura_pedida_tem_760_e_sem_X()
+    {
+        await OnUi(() =>
+        {
+            var dialogo = new ScreenDialog { Title = "Traduzir com IA", Content = new TextBlock { Text = "corpo" }, IsOpen = true };
+            var janela = new Window { Width = 1440, Height = 1000, Content = new Grid { Children = { dialogo } } };
+            try
+            {
+                janela.Show();
+                ScreenRenderer.Settle(janela);
+
+                Assert.False(dialogo.ShowClose);
+                DialogProbe.AssertCentered(janela, 760);
             }
             finally
             {
