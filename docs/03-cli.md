@@ -131,6 +131,26 @@ O filtro de `library list` junta as tags suas e as do VNDB:
 
 O `--json` de `library list` traz também `filter` (`include`, `any`, `exclude`) e `filterSaved`; o de `library tag list`, `tags` (`name`, `color`, `games`) e `filter`.
 
+### Ficha do jogo (`library sheet`)
+
+A ficha (d9, #554) é a sinopse, as tags e os personagens (imagem, papel, descrição e traços) de um jogo do VNDB, traduzidos do inglês pela IA e revisados como as falas: traduzido pela IA, revisado, aprovado. Fica em `sheets/`, ao lado do `library.json`, e é do jogo do VNDB, então o jogo precisa ter o VNDB confirmado (`vnf library match`). Os nomes de tag e de traço se traduzem uma vez e valem para todos os jogos e personagens. O texto de um mesmo personagem em dois jogos também é um registro só.
+
+| Comando | O que faz |
+|---|---|
+| `vnf library sheet fetch <jogo>` | Traz do VNDB a sinopse, as tags, a duração e os personagens. Buscar de novo atualiza os originais e mantém as traduções: um original que o VNDB mudou descarta a tradução da IA que ninguém tocou e marca a que você escreveu, revisou ou aprovou como desatualizada (volta a `traduzido à mão`) |
+| `vnf library sheet translate <jogo> [--model m] [--effort e] [--force] [--dry-run]` | Traduz pela IA o que falta: sinopse, descrição dos personagens e nomes de tag e de traço que ainda não foram traduzidos (por este nem por outro jogo). Lotes de até 80 nomes ou 8 textos; cada lote é gravado ao voltar. `--dry-run` só estima tokens e custo, sem chamar a API. Pergunta `[s/N]` quando o custo passa do valor de aviso do app (`--yes` pula; com `--json` ele é obrigatório). Um item que a IA não devolveu, devolveu vazio ou em que perdeu um `[spoiler]` fica pendente, sai um aviso e o código é `1`; rodar de novo pega só o que falta. `--force` refaz o que a IA já traduziu e o que ficou desatualizado; nunca refaz o que você escreveu, revisou ou aprovou. A chave vem de `ANTHROPIC_API_KEY` ou do cofre (`vnf config ai --set-key`) |
+| `vnf library sheet show <jogo> [--show-spoilers] [--show-adult] [--ids]` | Mostra a ficha em português: sinopse, duração, tags e personagens com papel, gênero, retrato, descrição e traços, cada texto com a etapa em que está. Sem tradução, mostra o original em inglês e diz que ainda não foi traduzido. `--ids` mostra o id de cada texto |
+| `vnf library sheet review <jogo> [texto...]` | Marca como revisados os textos citados; sem eles, todos os que têm tradução e ainda não foram revisados |
+| `vnf library sheet approve <jogo> [texto...]` | Marca como aprovados os textos citados; sem eles, todos os revisados. Aprovar o que não foi revisado é recusado |
+| `vnf library sheet edit <jogo> <texto> <tradução>` | Escreve ou corrige à mão a tradução de um texto. Ele volta a `traduzido à mão`, que pede nova revisão. A tradução precisa manter os mesmos trechos `[spoiler]...[/spoiler]` do original |
+| `vnf library sheet apply <jogo> [--project pasta] [--include-machine]` | Leva a ficha ao projeto de tradução do jogo (o ligado por `vnf library link`, ou o de `--project`): a descrição em português dos personagens vai para o `characters.json` do Glossário, casando pelos nomes do jogo, e a sinopse para a bíblia, se ela está sem uma. Só vai texto já revisado; `--include-machine` aceita também o da IA. Nunca leva spoiler |
+
+`<texto>` é `synopsis`, `character:c12` (ou só `c12`), `tag:g7` ou `trait:i34`; `show --ids` mostra os de cada ficha. Revisar ou aprovar o nome de uma tag vale para todos os jogos que a têm.
+
+**Spoiler e conteúdo adulto.** A ficha segue a privacidade da biblioteca (`vnf library privacy`), e `--show-spoilers` e `--show-adult` liberam só a chamada. O spoiler se esconde pelo nível que o VNDB marca (0 nenhum, 1 pequeno, 2 grande): sem liberar, aparece só o nível 0, para o personagem naquele jogo, para cada traço e para cada tag. Os trechos `[spoiler]` da sinopse e das descrições viram `[spoiler escondido]`; traço marcado como mentira só aparece com os spoilers liberados. O gênero do personagem tem dois valores, o que aparece sem spoiler e o real, que só sai com `--show-spoilers`. Sem `--show-adult` somem as tags eróticas, o retrato com marca sexual ou de violência e os traços do grupo `Sexual Content`. O `--json` de `show` já traz a ficha filtrada: nada do que está escondido sai nele.
+
+O `--json` de `fetch` traz `characters`, `tags`, `newTerms` e `charactersTruncated`; o de `translate`, `dryRun`, `pending` (`synopsis`, `characters`, `tags`, `traits`), `estimate`, `translated`, `calls`, `failed`, `usage` e `dollars`; o de `show`, `sheet` (`synopsis`, `length`, `tags`, `hiddenTags`, `characters`, `hiddenCharacters`, `counts`); o de `review` e `approve`, `changed` e `unchanged`; o de `apply`, `matched`, `added`, `filled`, `synopsisApplied` e `notReady`.
+
 ### Token do VNDB
 
 O token pessoal da conta (vndb.org/u/tokens, com `listread` e, para enviar, `listwrite`) fica no cofre do Windows (DPAPI, `vndb-token.dat` na pasta de configuração) ou na variável de ambiente `VNDB_TOKEN`, que tem prioridade. O arquivo do cofre é do DPAPI e não abre fora do Windows: lá ele é ignorado, com um aviso, e vale `VNDB_TOKEN`. Nunca em arquivo do projeto ou da biblioteca, e nunca em log, mensagem ou `--json`.
