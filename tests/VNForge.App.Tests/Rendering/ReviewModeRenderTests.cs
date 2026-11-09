@@ -89,7 +89,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.NotNull(warning.SplitCommand);
             Assert.NotNull(warning.ShortenCommand);
             var warningProbe = PixelProbe.Capture(window, warning);
-            var expected = theme == ThemeVariant.Light ? Color.Parse("#FFF1D6") : Color.Parse("#3A2C10");
+            var expected = theme == ThemeVariant.Light ? Color.Parse("#F5EBDD") : Color.Parse("#433C2A");
             Assert.True(warningProbe.Near(10, 6, expected, 6), $"o fundo do aviso é o do tema ({warningProbe.At(10, 6)} em vez de {expected})");
 
             Assert.True(vm.Editor.Review!.GenderMissing);

@@ -7,13 +7,13 @@ namespace VNForge.App.Services;
 /// <summary>
 /// Tamanho do texto e fonte do japonês. As escalas de <c>Themes/Typography.axaml</c> e as telas leem os tamanhos pelos tokens <c>Vnf.FontSize.*</c>,
 /// <c>Vnf.LineHeight.*</c> e <c>Vnf.RowHeight</c>; <see cref="Build"/> devolve esses tokens já multiplicados, e a janela os põe em seus recursos.
-/// Os valores de <c>Themes/Tokens.axaml</c> são os de 100%.
+/// Os valores de <c>Themes/TextScale.axaml</c> (escrito à mão) e a linha da grade de <c>Themes/Tokens.axaml</c> são os de 100%.
 /// </summary>
 public static class TextAppearance
 {
     private const string EmbeddedJapanese = "avares://VNForge.App/Assets/Fonts#Noto Sans JP";
 
-    private const double BaseRowHeight = 36;
+    private const double BaseRowHeight = 48;
 
     private const double BasePillHeight = 20;
 

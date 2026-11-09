@@ -140,8 +140,8 @@ public class TextAppearanceSettingsTests
         Assert.Equal(13d, at100[TextAppearance.FontSizeKey("BodySm")]);
         Assert.Equal(19.5, at150[TextAppearance.FontSizeKey("BodySm")]);
         Assert.Equal(27d, at150[TextAppearance.LineHeightKey("BodySm")]);
-        Assert.Equal(36d, at100["Vnf.RowHeight"]);
-        Assert.Equal(54d, at150["Vnf.RowHeight"]);
+        Assert.Equal(48d, at100["Vnf.RowHeight"]);
+        Assert.Equal(72d, at150["Vnf.RowHeight"]);
         Assert.Equal(20d, at100["Vnf.PillHeight"]);
         Assert.Equal(30d, at150["Vnf.PillHeight"]);
         Assert.All(TextAppearance.Scales, s => Assert.True(
@@ -182,7 +182,7 @@ public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixtur
         }
 
         Assert.True(app.TryGetResource("Vnf.RowHeight", null, out var row));
-        Assert.Equal(36d, row);
+        Assert.Equal(48d, row);
         Assert.True(app.TryGetResource("Vnf.PillHeight", null, out var pill));
         Assert.Equal(20d, pill);
         return Task.CompletedTask;
