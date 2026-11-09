@@ -1,6 +1,8 @@
 using System.Globalization;
 using VNForge.Core.Engines;
+using VNForge.Core.Glossary;
 using VNForge.Core.Memory;
+using VNForge.Core.Text;
 using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Projects;
@@ -97,6 +99,58 @@ public static class ProjectInitializer
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
         var title = (inspection.Engine as IGameTitleSource)?.ReadTitleFromGame(Path.GetFullPath(gameDir));
         return string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+    }
+
+    /// <summary>
+    /// Os nomes de personagem que o próprio jogo traz (no YU-RIS, uma por chamada de <c>ES.CHAR.NAME</c>), lidos antes de o projeto existir para o assistente mostrar
+    /// quais personagens do VNDB casam. Descompacta os scripts numa pasta temporária (a pasta do jogo só é lida), lê todos na ordem da extração e apaga a pasta ao fim.
+    /// Os nomes saem na ordem em que <see cref="ProjectExtractor.Extract"/> os acharia, sem repetição. Nulo quando a engine não extrai texto.
+    /// </summary>
+    /// <exception cref="VNForgeException">Pacote ou script ilegível; a mensagem, em português, diz qual.</exception>
+    public static IReadOnlyList<string>? ReadGameCharacterNames(GameInspection inspection, string gameDir, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(inspection);
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
+        if (inspection.Engine is not IGameUnpacker unpacker)
+        {
+            return null;
+        }
+
+        var temp = Path.Combine(Path.GetTempPath(), "vnforge-nomes-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            unpacker.Unpack(Path.GetFullPath(gameDir), temp, cancellationToken);
+            var game = unpacker.Open(temp);
+            var units = new List<TextUnit>();
+            foreach (var script in game.Scripts.OrderBy(s => new ScriptFile(s.Name, Array.Empty<byte>()).Key, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    units.AddRange(script.Format.Extract(new ScriptFile(script.Name, File.ReadAllBytes(script.Path)), game.Context).Units);
+                }
+                catch (Exception ex) when (ex is InvalidDataException or VNForgeException)
+                {
+                    throw new VNForgeException($"Não foi possível ler os nomes do script '{script.Name}': {ex.Message}", ex);
+                }
+            }
+
+            return [.. GameCharacters.Names(units).Select(n => n.Source)];
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(temp))
+                {
+                    Directory.Delete(temp, recursive: true);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A pasta temporária que sobra é inofensiva.
+            }
+        }
     }
 
     /// <summary>Cria o projeto em <paramref name="projectDir"/> para o jogo de <paramref name="gameDir"/>.</summary>

@@ -1,4 +1,5 @@
 using VNForge.App.ViewModels;
+using VNForge.Core;
 using VNForge.Core.Engines;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -33,12 +34,12 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     private static FakeVndbCatalog Catalog(params VndbVisualNovel[] games) =>
         new(games, [Character("c1", "Kenta Aizawa", "相沢 健太", "m"), Character("c2", "Aoi Sakura", "佐倉 葵", "f"), Character("c3", "Sem gênero", "誰某", "x")]);
 
-    private static NewProjectWizardViewModel Create(IVndbCatalog? catalog, string? title = Title) =>
-        new(new FakeFolderPicker(null), [new TitledEngine(title)], vndb: catalog);
+    private static NewProjectWizardViewModel Create(IVndbCatalog? catalog, string? title = Title, Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?>? gameNames = null) =>
+        new(new FakeFolderPicker(null), [new TitledEngine(title)], vndb: catalog, gameCharacterNames: gameNames ?? ((_, _, _) => null));
 
-    private async Task<NewProjectWizardViewModel> AtVndbStepAsync(IVndbCatalog? catalog, string? title = Title)
+    private async Task<NewProjectWizardViewModel> AtVndbStepAsync(IVndbCatalog? catalog, string? title = Title, Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?>? gameNames = null)
     {
-        var vm = Create(catalog, title);
+        var vm = Create(catalog, title, gameNames);
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
         await vm.NextCommand.ExecuteAsync(null);
@@ -60,7 +61,7 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Equal(["Amaoto no Hakoniwa", "Amaoto no Hakoniwa: Fan Disc"], vm.Candidates.Select(c => c.Title));
         Assert.Equal(["Combina com a pasta e o exe", "Combina com a pasta e o exe"], vm.Candidates.Select(c => c.EvidenceLabel));
         Assert.True(vm.Candidates[0].IsSelected);
-        Assert.Equal("2019 · Média · 18 h", vm.Candidates[0].Details);
+        Assert.Equal("2019 · Média · 18 h · YU-RIS", vm.Candidates[0].Details);
     }
 
     [Fact]
@@ -101,8 +102,47 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Equal("Numa cidade onde chove.", preview.Synopsis);
         Assert.Equal(["相沢 健太", "佐倉 葵", "誰某"], preview.Characters.Select(c => c.Original));
         Assert.Equal(["Masculino", "Feminino", "Sem gênero"], preview.Characters.Select(c => c.Gender));
-        Assert.Equal("Protagonista", preview.Characters[0].Role);
         Assert.Contains("2 dos 3 personagens", preview.GenderNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Com_os_nomes_do_jogo_a_ficha_mostra_onde_cada_personagem_aparece_e_fecha_com_os_que_o_VNDB_nao_tem()
+    {
+        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)), gameNames: (_, _, _) => ["相沢 健太", "名無し 08", "佐倉 葵"]);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        var preview = vm.Preview!;
+        Assert.Equal("3 do VNDB, 2 casados com os nomes do jogo (ES.CHAR.NAME)", preview.CountText);
+        Assert.Equal(["相沢 健太", "佐倉 葵", "名無し 08"], preview.Characters.Select(c => c.Original));
+        Assert.Equal(["ES.CHAR.NAME 1", "ES.CHAR.NAME 3", "sem par no VNDB"], preview.Characters.Select(c => c.InGame));
+        Assert.Equal([true, true, false], preview.Characters.Select(c => c.Paired));
+        Assert.Equal(["Masculino", "Feminino", "Sem gênero"], preview.Characters.Select(c => c.Gender));
+        Assert.Equal("O aviso “3 personagens sem gênero” cai para 1, o da personagem que o VNDB não tem.", preview.GenderNote);
+    }
+
+    [Fact]
+    public async Task O_aviso_de_genero_conta_tambem_os_que_o_VNDB_traz_sem_genero()
+    {
+        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)), gameNames: (_, _, _) => ["相沢 健太", "誰某", "名無し 08", "名無し 09"]);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal("O aviso “4 personagens sem gênero” cai para 3: os que o VNDB não tem e os que ele traz sem gênero.", vm.Preview!.GenderNote);
+    }
+
+    [Fact]
+    public async Task Sem_como_ler_os_nomes_do_jogo_a_ficha_lista_os_do_VNDB_e_deixa_o_casamento_para_a_extracao()
+    {
+        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)), gameNames: (_, _, _) => throw new VNForgeException("script ilegível"));
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        var preview = vm.Preview!;
+        Assert.Equal(VndbStage.Preview, vm.Stage);
+        Assert.StartsWith("3 do VNDB. Os que casam com os nomes do jogo", preview.CountText, StringComparison.Ordinal);
+        Assert.Equal(["相沢 健太", "佐倉 葵", "誰某"], preview.Characters.Select(c => c.Original));
+        Assert.All(preview.Characters, c => Assert.Equal(string.Empty, c.InGame));
     }
 
     [Fact]
