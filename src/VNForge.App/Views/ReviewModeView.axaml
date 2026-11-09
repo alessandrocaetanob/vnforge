@@ -61,6 +61,55 @@
     <Style Selector="StackPanel.neighbour">
       <Setter Property="Opacity" Value="0.75"/>
     </Style>
+    <!-- A fila por risco (c6): o nível vira uma pílula com texto, nunca só a cor; o chip de cada sinal usa o tom do sinal. -->
+    <Style Selector="Border.pill">
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="Height" Value="20"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Background" Value="{DynamicResource Vnf.StatusPendingBg}"/>
+    </Style>
+    <Style Selector="Border.pill TextBlock">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
+    </Style>
+    <Style Selector="Border.pill PathIcon">
+      <Setter Property="Width" Value="12"/>
+      <Setter Property="Height" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
+    </Style>
+    <Style Selector="Border.pill.high, Border.pill.error">
+      <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/>
+    </Style>
+    <Style Selector="Border.pill.high TextBlock, Border.pill.error TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    </Style>
+    <Style Selector="Border.pill.error PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    </Style>
+    <Style Selector="Border.pill.medium, Border.pill.warning">
+      <Setter Property="Background" Value="{DynamicResource Vnf.SignalWarningBg}"/>
+    </Style>
+    <Style Selector="Border.pill.medium TextBlock, Border.pill.warning TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+    </Style>
+    <Style Selector="Border.pill.warning PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+    </Style>
+    <Style Selector="Border.pill.ai">
+      <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
+    </Style>
+    <Style Selector="Border.pill.ai TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
+    </Style>
+    <Style Selector="Border.pill.ai PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
+    </Style>
+    <Style Selector="Border.queue-row.current">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+    </Style>
     <Style Selector="Border.actionbar">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
@@ -79,10 +128,10 @@
         <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap"/>
       </Button>
       <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Center">
-        <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding SceneName}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SceneName}" AutomationProperties.Name="Cena"/>
+        <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding HeaderTitle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding HeaderTitle}" AutomationProperties.Name="Cena"/>
         <TextBlock x:Name="SourceCaption" Classes="body-sm secondary" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding SourceText}" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasSourceText}" AutomationProperties.Name="Fonte da revisão"/>
-        <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding IsActive}"/>
-        <ItemsControl ItemsSource="{Binding Blocks}" HorizontalAlignment="Center" AutomationProperties.Name="Linhas da revisão">
+        <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding ShowPosition}"/>
+        <ItemsControl ItemsSource="{Binding VisibleBlocks}" HorizontalAlignment="Center" AutomationProperties.Name="Linhas da revisão">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <StackPanel Orientation="Horizontal" Spacing="4"/>
@@ -96,7 +145,15 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </StackPanel>
-      <TextBlock Grid.Column="2" Classes="body-sm secondary" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding TodayText}" IsVisible="{Binding HasToday}"/>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
+        <!-- A ordem da fila (c6): da primeira linha da cena, ou "o que mais precisa de você", de todo o projeto, do maior risco ao menor. -->
+        <ListBox x:Name="OrderChoice" Classes="seg" SelectedIndex="{Binding OrderIndex, Mode=TwoWay}" IsVisible="{Binding HasOrderChoice}" VerticalAlignment="Center"
+                 AutomationProperties.Name="Ordem da fila" ToolTip.Tip="Muda a ordem das linhas a revisar">
+          <ListBoxItem Content="Do começo" AutomationProperties.Name="Do começo"/>
+          <ListBoxItem Content="O que mais precisa de você" AutomationProperties.Name="O que mais precisa de você"/>
+        </ListBox>
+        <TextBlock Classes="body-sm secondary" VerticalAlignment="Center" Text="{Binding TodayText}" IsVisible="{Binding HasToday}"/>
+      </StackPanel>
     </Grid>
 
     <!-- Uma fala por vez: à esquerda o roteiro (anterior, atual, seguinte), que rola sozinho; à direita o palco, a tela do jogo, com até 64% da largura. As duas colunas alinham pelo topo e o bloco fica centrado na altura que sobra entre o topo e a barra. -->
@@ -111,6 +168,38 @@
               <c:ContextLines ItemsSource="{Binding PreviousLines}" AutomationProperties.Name="Fala anterior"/>
             </StackPanel>
           </Panel>
+
+          <!-- Por que esta linha está aqui (fila por risco): a pontuação, o nível e cada sinal que somou nela. -->
+          <Border x:Name="RiskCard" Classes="card" Padding="14" IsVisible="{Binding ShowRisk}" AutomationProperties.Name="Risco da linha">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                <TextBlock x:Name="RiskScore" Classes="title-sm" VerticalAlignment="Center" Text="{Binding RiskScoreText}"/>
+                <Border Grid.Column="1" Classes="pill" Classes.high="{Binding IsHighRisk}" Classes.medium="{Binding IsMediumRisk}">
+                  <TextBlock Text="{Binding RiskLevelText}"/>
+                </Border>
+                <TextBlock Grid.Column="2" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           Text="{Binding RiskPositionText}"/>
+              </Grid>
+              <ItemsControl x:Name="RiskChips" ItemsSource="{Binding RiskChips}" IsVisible="{Binding HasRiskChips}" AutomationProperties.Name="Sinais de risco">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RiskChip">
+                    <Border Classes="pill" Classes.ai="{Binding IsAi}" Classes.warning="{Binding IsWarning}" Classes.error="{Binding IsError}" Margin="0,0,6,6">
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <PathIcon Data="{StaticResource Icon.Sparkle}" VerticalAlignment="Center" IsVisible="{Binding HasSparkle}"/>
+                        <PathIcon Data="{StaticResource Icon.Warning}" VerticalAlignment="Center" IsVisible="{Binding HasWarningIcon}"/>
+                        <TextBlock Text="{Binding Text}"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
 
           <!-- O original, com quem fala e como fala. -->
           <Border Classes="card current">
@@ -176,13 +265,48 @@
 
       <!-- O palco: a caixa do jogo em tamanho grande, como no jogo de verdade, é a resposta mais direta a "esta fala está boa?". Sob ele, se cabe ou o que fazer. -->
       <c:StageColumn Grid.Column="1" Spacing="12" HorizontalAlignment="Left" VerticalAlignment="Top">
-        <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" AutomationProperties.Name="Palco">
+        <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" FixedHeight="{Binding StageFixedHeight}" AutomationProperties.Name="Palco">
           <c:GameTextbox x:Name="StageBox" Size="Stage" Layout="{Binding Detail.Preview.Layout}" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}"
                          AutomationProperties.Name="Caixa do jogo"/>
         </c:ReviewStage>
 
         <ScrollViewer x:Name="BelowStage" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="12">
+            <!-- A distribuição da fila por risco, logo sob o palco e fora do cartão da fila, como no quadro: a barra e a legenda com o percentual de cada nível. -->
+            <StackPanel x:Name="RiskShareBlock" Spacing="8" IsVisible="{Binding ShowRisk}">
+              <c:RiskBar x:Name="RiskShareBar" Value="{Binding RiskShare}" AutomationProperties.Name="Distribuição da fila por risco"/>
+              <c:Legend ItemsSource="{Binding RiskLegend}"/>
+            </StackPanel>
+
+            <!-- A fila por risco: quantas linhas de risco alto faltam e em quantas horas, no ritmo da pessoa, e as próximas cinco linhas. Na coluna do palco, depois da barra, como no quadro. -->
+            <Border x:Name="RiskQueueCard" Classes="card" Padding="12" IsVisible="{Binding ShowRisk}" AutomationProperties.Name="Fila por risco">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="title-sm" Text="Fila por risco"/>
+                <TextBlock x:Name="RiskSummary" Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding RiskSummaryText}" AutomationProperties.Name="Horas até zerar o risco alto"/>
+                <ItemsControl x:Name="UpNextList" ItemsSource="{Binding UpNext}" AutomationProperties.Name="Próximas linhas da fila">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RiskRow">
+                      <Border Classes="queue-row" Classes.current="{Binding IsCurrent}" Padding="6,3" CornerRadius="{DynamicResource Vnf.RadiusSm}">
+                        <Grid ColumnDefinitions="30,62,40,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="2">
+                          <TextBlock Grid.RowSpan="2" Classes="body-strong" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding Score}"/>
+                          <Border Grid.Column="1" Classes="pill" Classes.high="{Binding IsHigh}" Classes.medium="{Binding IsMedium}" HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding LevelText}"/>
+                          </Border>
+                          <TextBlock Grid.Column="2" Classes="mono-xs secondary" VerticalAlignment="Center" Text="{Binding LineLabel}"/>
+                          <TextBlock Grid.Column="3" Classes="body-sm" FontWeight="SemiBold" VerticalAlignment="Center" MaxWidth="90" TextTrimming="CharacterEllipsis" Text="{Binding Speaker}"/>
+                          <TextBlock Grid.Column="4" Classes="caption secondary" VerticalAlignment="Center" HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" Text="{Binding Signals}"
+                                     ToolTip.Tip="{Binding Signals}"/>
+                          <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Classes="body-sm" TextTrimming="CharacterEllipsis" Text="{Binding Text}"/>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- Na fila por risco a coluna do palco tem só o palco, a barra e a tabela da fila, como no quadro: o que cabe, "Reescrever com um toque" e os avisos de dúvida e de marcadores ficam de fora; o erro do QA vai como chip no cartão de risco. -->
+            <StackPanel x:Name="LineChecks" Spacing="12" IsVisible="{Binding !IsRisk}">
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A caixa do jogo aparece quando o projeto tem o perfil de formatação."
                        IsVisible="{Binding !Detail.Preview.HasLayout, FallbackValue=True}"/>
             <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Detail.FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
@@ -210,8 +334,15 @@
                 </StackPanel>
               </Grid>
             </Border>
+            </StackPanel>
 
-            <Border Classes="infobar warning" IsVisible="{Binding GenderMissing}" AutomationProperties.Name="Aviso: personagem sem gênero">
+            <Border Classes="infobar warning" AutomationProperties.Name="Aviso: personagem sem gênero">
+              <Border.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="GenderMissing"/>
+                  <Binding Path="!IsRisk"/>
+                </MultiBinding>
+              </Border.IsVisible>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
                 <StackPanel Grid.Column="1" Spacing="8">
@@ -226,12 +357,14 @@
               </Grid>
             </Border>
 
+            <StackPanel IsVisible="{Binding !IsRisk}">
             <Border Classes="infobar warning" IsVisible="{Binding Detail.HasMissingMarkers, FallbackValue=False}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
                 <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.MissingMarkersText}"/>
               </Grid>
             </Border>
+            </StackPanel>
 
             <Border Classes="infobar error" IsVisible="{Binding Detail.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -239,6 +372,7 @@
                 <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Detail.ErrorMessage}"/>
               </Grid>
             </Border>
+
           </StackPanel>
         </ScrollViewer>
       </c:StageColumn>
