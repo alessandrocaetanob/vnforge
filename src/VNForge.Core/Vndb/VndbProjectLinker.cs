@@ -265,12 +265,9 @@ public static class VndbProjectLinker
         }
 
         var sb = new StringBuilder();
-        foreach (var c in text.Normalize(NormalizationForm.FormKC))
+        foreach (var c in text.Normalize(NormalizationForm.FormKC).Where(char.IsLetterOrDigit))
         {
-            if (char.IsLetterOrDigit(c))
-            {
-                sb.Append(char.ToLower(c, CultureInfo.InvariantCulture));
-            }
+            sb.Append(char.ToLower(c, CultureInfo.InvariantCulture));
         }
 
         return sb.ToString();

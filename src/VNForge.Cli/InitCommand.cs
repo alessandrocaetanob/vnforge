@@ -104,7 +104,7 @@ internal static class InitCommand
         var warnings = Warnings(details.GetValueOrDefault(ProjectInitializer.WarningsDetail), result.Config.Encoding.Strategy);
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 folder = result.Folder.Root,
                 config = result.Folder.ConfigPath,
@@ -118,29 +118,29 @@ internal static class InitCommand
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Engine detectada: {result.Engine.DisplayName}{Versions(details)}");
+        await output.WriteLineAsync($"Engine detectada: {result.Engine.DisplayName}{Versions(details)}");
         if (details.TryGetValue("scriptsArchive", out var archive))
         {
-            output.WriteLine($"Arquivo de scripts: {archive}{ScriptCount(details)}");
+            await output.WriteLineAsync($"Arquivo de scripts: {archive}{ScriptCount(details)}");
         }
 
         if (details.TryGetValue(ProjectInitializer.ScriptKeyDetail, out var key))
         {
-            output.WriteLine($"Chave XOR dos scripts: {key}{KeyOrigin(details)}");
+            await output.WriteLineAsync($"Chave XOR dos scripts: {key}{KeyOrigin(details)}");
         }
 
         if (warnings is not null)
         {
-            output.WriteLine($"Aviso: {warnings}");
+            await output.WriteLineAsync($"Aviso: {warnings}");
         }
 
         if (link is not null)
         {
-            output.WriteLine($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {link.Characters.Count} personagens. Eles entram em characters.json no vnf extract.");
-            output.WriteLine(VndbCredit.ShortText);
+            await output.WriteLineAsync($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {link.Characters.Count} personagens. Eles entram em characters.json no vnf extract.");
+            await output.WriteLineAsync(VndbCredit.ShortText);
         }
 
-        output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
+        await output.WriteLineAsync($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
         return ErrorHandler.OkExitCode;
     }
 

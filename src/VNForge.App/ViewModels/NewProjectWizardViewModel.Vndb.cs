@@ -240,7 +240,7 @@ public sealed partial class NewProjectWizardViewModel
             {
                 var found = inspection;
                 var folder = GameFolder;
-                title = await Task.Run(() => ProjectInitializer.ReadGameTitle(found, folder));
+                title = await Task.Run(() => ProjectInitializer.ReadGameTitle(found, folder), CancellationToken.None);
             }
         }
         catch (Exception e) when (IsExpected(e))

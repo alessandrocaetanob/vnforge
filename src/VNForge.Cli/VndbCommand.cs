@@ -104,7 +104,7 @@ internal static class VndbCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 query = title.Trim(),
                 results = candidates.Select(c => new
@@ -121,18 +121,18 @@ internal static class VndbCommand
 
         if (candidates.Count == 0)
         {
-            output.WriteLine($"O VNDB não achou jogo com o título “{title.Trim()}”. Tente outro título.");
+            await output.WriteLineAsync($"O VNDB não achou jogo com o título “{title.Trim()}”. Tente outro título.");
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"{candidates.Count} {(candidates.Count == 1 ? "jogo achado" : "jogos achados")} no VNDB para “{title.Trim()}”:");
+        await output.WriteLineAsync($"{candidates.Count} {(candidates.Count == 1 ? "jogo achado" : "jogos achados")} no VNDB para “{title.Trim()}”:");
         foreach (var candidate in candidates)
         {
-            output.WriteLine(Describe(candidate));
+            await output.WriteLineAsync(Describe(candidate));
         }
 
-        output.WriteLine("Para ligar o projeto a um deles: vnf vndb link <id> --project <pasta>");
-        output.WriteLine(VndbCredit.ShortText);
+        await output.WriteLineAsync("Para ligar o projeto a um deles: vnf vndb link <id> --project <pasta>");
+        await output.WriteLineAsync(VndbCredit.ShortText);
         return ErrorHandler.OkExitCode;
     }
 
@@ -145,20 +145,20 @@ internal static class VndbCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(Data(link, applied)));
+            await output.WriteLineAsync(JsonEnvelope.Result(Data(link, applied)));
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Projeto ligado a {link.Title} ({link.VisualNovelId}): {link.Characters.Count} personagens no VNDB.");
-        output.WriteLine(applied.Matched > 0
+        await output.WriteLineAsync($"Projeto ligado a {link.Title} ({link.VisualNovelId}): {link.Characters.Count} personagens no VNDB.");
+        await output.WriteLineAsync(applied.Matched > 0
             ? $"{applied.Matched} casaram com os nomes do jogo: {applied.Added} entraram em characters.json e {applied.Filled} ganharam campos que faltavam."
             : "Nenhum personagem casou com os nomes do jogo ainda. Os nomes vêm do vnf extract, que leva os personagens do VNDB para o characters.json.");
         if (link.CharactersTruncated)
         {
-            output.WriteLine("Aviso: o jogo tem mais personagens no VNDB do que o limite de leitura; os últimos ficaram de fora.");
+            await output.WriteLineAsync("Aviso: o jogo tem mais personagens no VNDB do que o limite de leitura; os últimos ficaram de fora.");
         }
 
-        output.WriteLine(VndbCredit.ShortText);
+        await output.WriteLineAsync(VndbCredit.ShortText);
 
         return ErrorHandler.OkExitCode;
     }

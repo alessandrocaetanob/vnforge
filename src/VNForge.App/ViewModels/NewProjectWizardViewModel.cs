@@ -280,7 +280,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            inspection = await Task.Run(() => ProjectInitializer.Inspect(path, engines));
+            inspection = await Task.Run(() => ProjectInitializer.Inspect(path, engines), CancellationToken.None);
         }
         catch (Exception e) when (IsExpected(e))
         {
@@ -451,7 +451,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
             if (tasks is null)
             {
-                await Task.Run(() => Run(CancellationToken.None));
+                await Task.Run(() => Run(CancellationToken.None), CancellationToken.None);
             }
             else
             {
@@ -576,7 +576,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         try
         {
             var options = BuildOptions();
-            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options));
+            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options), CancellationToken.None);
             Created = new ProjectResultInfo(result.Config.Name, result.Folder.Root);
             Step = WizardStep.Done;
             SaveBudget();
