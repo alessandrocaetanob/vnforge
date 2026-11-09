@@ -25,7 +25,15 @@ public static class ClaudeProviderFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
         ArgumentNullException.ThrowIfNull(options);
-        return new VNForge.AI.Eval.ClaudeJudgeProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
+        return new VNForge.AI.Eval.ClaudeJudgeProvider(CreateClient(apiKey), options);
+    }
+
+    /// <summary>Monta o leitor de imagens do <c>vnf images scan</c>; mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Images.ClaudeImageTextReader CreateImageReader(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Images.ClaudeImageTextReader(CreateClient(apiKey), options);
     }
 
     /// <summary>Monta o provedor Claude da revisão (<c>vnf review</c>); mesmas regras de <see cref="Create"/>.</summary>
