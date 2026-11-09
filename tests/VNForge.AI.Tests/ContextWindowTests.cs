@@ -2,6 +2,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Translation;
 using VNForge.Core.Glossary;
+using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Tests;
@@ -124,15 +125,55 @@ public sealed partial class ContextWindowTests
     }
 
     [Fact]
-    public void A_janela_nao_muda_a_chave_do_cache_de_traducao()
+    public void Com_o_padrao_a_chave_do_cache_e_a_de_antes_da_janela_e_com_outra_janela_ela_muda()
     {
         var script = Script();
         var selection = SelectPending(script);
-        var line = script[20];
+        var pending = selection.Pending;
 
-        string Key(int window) =>
-            TranslationCache.KeyFor(line, TranslationCache.ContextFor("claude-opus-5-5", selection.BuildBatch(Builder(window, window), selection.Pending)));
+        string Context(int before, int after) => TranslationCache.ContextFor("claude-opus-5-5", selection.BuildBatch(Builder(before, after), pending));
+        string Key(int before, int after) => TranslationCache.KeyFor(script[20], Context(before, after));
 
-        Assert.Equal(Key(2), Key(15));
+        var antes = "claude-opus-5-5" + "\u001e" + string.Empty + "\u001e" + StyleConfig.Default.CacheKey();
+        Assert.Equal(antes, Context(2, 2));
+        Assert.NotEqual(Key(2, 2), Key(15, 2));
+        Assert.NotEqual(Key(2, 2), Key(2, 15));
+        Assert.NotEqual(Key(15, 2), Key(2, 15));
+        Assert.Equal(Key(15, 2), Key(15, 2));
+    }
+
+    [Fact]
+    public void Na_borda_do_script_a_janela_grande_traz_so_o_que_existe()
+    {
+        var script = Script();
+        var selection = LineSelection.Build(
+            new Dictionary<string, IReadOnlyList<TextUnit>> { ["s"] = script }, null, null, _ => true);
+        var builder = Builder(30, 30);
+
+        var first = selection.BuildBatch(builder, [script[0]]);
+        var last = selection.BuildBatch(builder, [script[^1]]);
+
+        Assert.Empty(first.PreviousLines);
+        Assert.Equal(30, first.NextLines.Count);
+        Assert.Equal("s:001", first.NextLines[0].Id);
+        Assert.Equal(20, last.PreviousLines.Count);
+        Assert.Empty(last.NextLines);
+        Assert.Equal("s:019", last.PreviousLines[^1].Id);
+    }
+
+    [Fact]
+    public void Falas_sem_traducao_intercaladas_nao_esvaziam_a_janela_anterior()
+    {
+        var script = Enumerable.Range(0, 62).Select(i => new TextUnit(
+            $"s:{i:D3}", TextUnitKind.Dialogue, "ハル", $"原文{i:D3}", i < 60 && i % 2 == 0 ? $"Tradução {i:D3}" : null,
+            i < 60 && i % 2 == 0 ? TranslationStatus.Translated : TranslationStatus.Untranslated)).ToArray();
+        var selection = LineSelection.Build(
+            new Dictionary<string, IReadOnlyList<TextUnit>> { ["s"] = script }, null, null, u => u.Id is "s:060" or "s:061");
+
+        var batch = selection.BuildBatch(Builder(30, 0), selection.Pending);
+
+        Assert.Equal(30, batch.PreviousLines.Count);
+        Assert.Equal("s:000", batch.PreviousLines[0].Id);
+        Assert.Equal("s:058", batch.PreviousLines[^1].Id);
     }
 }

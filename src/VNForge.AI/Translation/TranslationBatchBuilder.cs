@@ -85,6 +85,7 @@ public sealed class TranslationBatchBuilder(
             Addressing = addressing,
             PreviousLines = context,
             NextLines = following,
+            Window = new ContextWindow(MaxPreviousLines, MaxNextLines),
             StyleGuide = _styleGuide,
             Style = _style,
         };

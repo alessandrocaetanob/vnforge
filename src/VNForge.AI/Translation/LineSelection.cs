@@ -21,7 +21,9 @@ public readonly record struct LineSaveResult(string LastKey, int Skipped);
 public sealed class LineSelection
 {
     // Quantas falas o lote olha para trás e para a frente antes de o construtor filtrar; a janela configurada
-    // (o dobro dela) a amplia, para falas sem tradução ou sem texto não a esvaziarem.
+    // (o dobro dela) a amplia. Isso cobre falas sem tradução ou sem texto espalhadas pelo trecho. Não cobre o lote
+    // anterior ainda em voo: com lotes em paralelo (MaxConcurrency), as falas dele não estão traduzidas quando este
+    // lote é montado, e o contexto anterior sai menor ou vazio.
     public const int PreviousLinesWindow = 30;
 
     public const int NextLinesWindow = 10;
