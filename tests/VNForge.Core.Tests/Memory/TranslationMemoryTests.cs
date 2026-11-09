@@ -168,8 +168,8 @@ public sealed class TranslationMemoryTests : IDisposable
         var projeto = NovoProjeto("p", "P", Linha(1, Frase, "Atrasados."));
         var memoria = Memoria();
         memoria.SyncProject(projeto, Dia1);
-        var antes = File.GetLastWriteTimeUtc(memoria.Path);
-        Thread.Sleep(20);
+        var antes = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(memoria.Path, antes);
 
         var resultado = memoria.SyncProject(projeto, Dia2);
 

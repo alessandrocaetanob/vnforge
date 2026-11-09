@@ -73,7 +73,7 @@ public sealed partial class PersonalGlossaryViewModel(
 
     public string FooterText => $"{Count.ToString(CultureInfo.InvariantCulture)} {(Count == 1 ? "termo" : "termos")}. Quando você cria um projeto, os termos do glossário pessoal entram no dele. Depois disso, cada projeto muda sozinho.";
 
-    public string EmptyText => "Nenhum termo ainda. Guarde os termos deste projeto na coluna ao lado e eles valem em toda VN.";
+    public const string EmptyText = "Nenhum termo ainda. Guarde os termos deste projeto na coluna ao lado e eles valem em toda VN.";
 
     public string ProjectTermsText => Summarize(ProjectTermCount);
 
@@ -81,7 +81,7 @@ public sealed partial class PersonalGlossaryViewModel(
         ? $"{Rows.Count(r => r.IsInProject).ToString(CultureInfo.InvariantCulture)} de 1 termo entrou"
         : $"{Rows.Count(r => r.IsInProject).ToString(CultureInfo.InvariantCulture)} de {Count.ToString(CultureInfo.InvariantCulture)} termos entraram";
 
-    public string BannerText => "Entram quando o projeto é criado ou pelo botão Usar no projeto.";
+    public const string BannerText = "Entram quando o projeto é criado ou pelo botão Usar no projeto.";
 
     public bool HasBanner => Count > 0;
 

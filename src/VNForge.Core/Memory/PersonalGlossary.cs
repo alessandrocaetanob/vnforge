@@ -81,9 +81,9 @@ public sealed class PersonalGlossary(string directory)
     public PersonalTerm Upsert(PersonalTerm term)
     {
         ArgumentNullException.ThrowIfNull(term);
+        ArgumentException.ThrowIfNullOrWhiteSpace(term.Source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(term.Target);
         var source = term.Source.Trim();
-        ArgumentException.ThrowIfNullOrWhiteSpace(source, nameof(term));
-        ArgumentException.ThrowIfNullOrWhiteSpace(term.Target, nameof(term));
         var clean = term with { Source = source, Target = term.Target.Trim(), Notes = string.IsNullOrWhiteSpace(term.Notes) ? null : term.Notes.Trim() };
 
         lock (gate)
@@ -138,9 +138,12 @@ public sealed class PersonalGlossary(string directory)
         ArgumentNullException.ThrowIfNull(term);
         ArgumentNullException.ThrowIfNull(projectTerms);
         var there = projectTerms.FirstOrDefault(t => t.Source.Trim() == term.Source);
-        return there is null ? PersonalTermState.NotInProject
-            : there.Target.Trim() == term.Target ? PersonalTermState.InProject
-            : PersonalTermState.Differs;
+        if (there is null)
+        {
+            return PersonalTermState.NotInProject;
+        }
+
+        return there.Target.Trim() == term.Target ? PersonalTermState.InProject : PersonalTermState.Differs;
     }
 
     /// <summary>Os termos do projeto que o glossário pessoal ainda não tem, ou tem com outra tradução: a lista "Guardar no glossário pessoal".</summary>

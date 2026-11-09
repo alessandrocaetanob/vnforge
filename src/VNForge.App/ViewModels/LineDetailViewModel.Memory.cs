@@ -78,7 +78,7 @@ public sealed partial class LineDetailViewModel
 
     private async Task LoadMemoryAsync(IMemorySuggestions memory, string source)
     {
-        var found = await Task.Run(() => memory.Find(source)).ConfigureAwait(false);
+        var found = await Task.Run(() => memory.Find(source), CancellationToken.None).ConfigureAwait(false);
         postToUi(() =>
         {
             if (disposed)

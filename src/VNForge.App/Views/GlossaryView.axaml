@@ -427,7 +427,7 @@
                     <TextBlock Grid.Column="2" Classes="overline" Text="Observação para a IA"/>
                     <TextBlock Grid.Column="3" Classes="overline" Text="Vem de" HorizontalAlignment="Right"/>
                   </Grid>
-                  <TextBlock Classes="body-sm secondary" Margin="16,12" TextWrapping="Wrap" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"/>
+                  <TextBlock Classes="body-sm secondary" Margin="16,12" TextWrapping="Wrap" Text="{x:Static vm:PersonalGlossaryViewModel.EmptyText}" IsVisible="{Binding IsEmpty}"/>
                   <ItemsControl ItemsSource="{Binding Rows}" Margin="0,4,0,8" AutomationProperties.Name="Termos do glossário pessoal">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:PersonalTermRow">
@@ -482,7 +482,7 @@
                       <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
                       <StackPanel Grid.Column="1" Spacing="2">
                         <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding BannerTitle}"/>
-                        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding BannerText}"/>
+                        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{x:Static vm:PersonalGlossaryViewModel.BannerText}"/>
                       </StackPanel>
                     </Grid>
                   </Border>

@@ -62,6 +62,8 @@ internal static class MemoryCommand
 
     private static string Pairs(int n) => $"{n.ToString(CultureInfo.InvariantCulture)} {(n == 1 ? "par" : "pares")}";
 
+    private static string ApprovedPairs(int n) => $"{n.ToString(CultureInfo.InvariantCulture)} {(n == 1 ? "par aprovado" : "pares aprovados")}";
+
     private static int Sync(VnfCli cli, ParseResult parseResult)
     {
         var output = parseResult.InvocationConfiguration.Output;
@@ -73,9 +75,10 @@ internal static class MemoryCommand
             return ErrorHandler.OkExitCode;
         }
 
+        var total = $"Este projeto tem {ApprovedPairs(result.ProjectTotal)}.";
         output.WriteLine(result.Changed
-            ? $"Memória atualizada: {result.Added} novos, {result.Updated} trocados, {result.Removed} removidos. Este projeto tem {Pairs(result.ProjectTotal)} {(result.ProjectTotal == 1 ? "aprovado" : "aprovados")}."
-            : $"A memória já estava em dia. Este projeto tem {Pairs(result.ProjectTotal)} {(result.ProjectTotal == 1 ? "aprovado" : "aprovados")}.");
+            ? $"Memória atualizada: {result.Added} novos, {result.Updated} trocados, {result.Removed} removidos. {total}"
+            : $"A memória já estava em dia. {total}");
         return ErrorHandler.OkExitCode;
     }
 
@@ -155,7 +158,7 @@ internal static class MemoryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"{Pairs(stats.Entries)} {(stats.Entries == 1 ? "aprovado" : "aprovados")} em {stats.Projects.ToString(CultureInfo.InvariantCulture)} {(stats.Projects == 1 ? "projeto" : "projetos")}.");
+        output.WriteLine($"{ApprovedPairs(stats.Entries)} em {stats.Projects.ToString(CultureInfo.InvariantCulture)} {(stats.Projects == 1 ? "projeto" : "projetos")}.");
         var table = CliViews.NewTable(CliViews.Column("Projeto"), CliViews.Column("Pares", right: true), CliViews.Column("Pasta"));
         foreach (var project in projects)
         {

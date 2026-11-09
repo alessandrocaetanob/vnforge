@@ -15,14 +15,6 @@ internal sealed class UserEntriesFile<T>(string path, Func<string, List<T>, List
 {
     private const int CurrentVersion = 1;
 
-    private static readonly JsonSerializerOptions Options = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        AllowTrailingCommas = true,
-    };
-
     public string Path { get; } = path;
 
     public bool Exists => File.Exists(Path);
@@ -45,7 +37,7 @@ internal sealed class UserEntriesFile<T>(string path, Func<string, List<T>, List
         try
         {
             var json = new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(Projects.ProjectFileIo.ReadAllBytes(Path));
-            var envelope = JsonSerializer.Deserialize<Envelope>(json, Options) ?? throw new JsonException("o arquivo está vazio.");
+            var envelope = JsonSerializer.Deserialize<Envelope>(json, UserFileJson.Options) ?? throw new JsonException("o arquivo está vazio.");
             if (envelope.Version != CurrentVersion)
             {
                 throw new MemoryFileException(Path, $"a versão {envelope.Version} não é conhecida por esta versão do VNForge.");
@@ -82,7 +74,7 @@ internal sealed class UserEntriesFile<T>(string path, Func<string, List<T>, List
         var sb = new StringBuilder("{\n  \"version\": ").Append(CurrentVersion).Append(",\n  \"entries\": [");
         for (var i = 0; i < entries.Count; i++)
         {
-            sb.Append(i == 0 ? "\n    " : ",\n    ").Append(JsonSerializer.Serialize(entries[i], Options));
+            sb.Append(i == 0 ? "\n    " : ",\n    ").Append(JsonSerializer.Serialize(entries[i], UserFileJson.Options));
         }
 
         sb.Append(entries.Count == 0 ? "]\n}\n" : "\n  ]\n}\n");
@@ -112,4 +104,16 @@ internal sealed class UserEntriesFile<T>(string path, Func<string, List<T>, List
     }
 
     private sealed record Envelope(int Version, List<T>? Entries);
+}
+
+/// <summary>As opções de JSON dos arquivos do usuário, fora do tipo genérico para existir uma só cópia.</summary>
+internal static class UserFileJson
+{
+    public static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        AllowTrailingCommas = true,
+    };
 }

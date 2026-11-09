@@ -56,31 +56,7 @@ internal static partial class SourceSimilarity
 
         for (var i = 1; i <= a.Length; i++)
         {
-            var from = Math.Max(1, i - limit);
-            var to = Math.Min(b.Length, i + limit);
-            current[0] = i <= limit ? i : over;
-            if (from > 1)
-            {
-                current[from - 1] = over;
-            }
-
-            var best = current[0];
-            for (var j = from; j <= to; j++)
-            {
-                var substitution = previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1);
-                var deletion = previous[j] + 1;
-                var insertion = current[j - 1] + 1;
-                var value = Math.Min(over, Math.Min(substitution, Math.Min(deletion, insertion)));
-                current[j] = value;
-                best = Math.Min(best, value);
-            }
-
-            if (to < b.Length)
-            {
-                current[to + 1] = over;
-            }
-
-            if (best > limit)
+            if (FillRow(a, b, i, limit, previous, current) > limit)
             {
                 return over;
             }
@@ -89,5 +65,36 @@ internal static partial class SourceSimilarity
         }
 
         return Math.Min(previous[b.Length], over);
+    }
+
+    /// <summary>Preenche a linha <paramref name="i"/> da tabela, só dentro da faixa, e devolve o menor valor dela: se passa do limite, a distância toda passa.</summary>
+    private static int FillRow(string a, string b, int i, int limit, int[] previous, int[] current)
+    {
+        var over = limit + 1;
+        var from = Math.Max(1, i - limit);
+        var to = Math.Min(b.Length, i + limit);
+        current[0] = i <= limit ? i : over;
+        if (from > 1)
+        {
+            current[from - 1] = over;
+        }
+
+        var best = current[0];
+        for (var j = from; j <= to; j++)
+        {
+            var substitution = previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1);
+            var deletion = previous[j] + 1;
+            var insertion = current[j - 1] + 1;
+            var value = Math.Min(over, Math.Min(substitution, Math.Min(deletion, insertion)));
+            current[j] = value;
+            best = Math.Min(best, value);
+        }
+
+        if (to < b.Length)
+        {
+            current[to + 1] = over;
+        }
+
+        return best;
     }
 }

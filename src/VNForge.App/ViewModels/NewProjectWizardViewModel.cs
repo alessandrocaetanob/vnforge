@@ -535,6 +535,18 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         EncodingStrategies.Selected.Id,
         ProjectChoices.DefaultAi with { Model = Models.Selected.Id });
 
+    private static string SeededNotice(int seeded)
+    {
+        if (seeded == 0)
+        {
+            return string.Empty;
+        }
+
+        return seeded == 1
+            ? "1 termo do glossário pessoal entrou no glossário do projeto."
+            : $"{seeded} termos do glossário pessoal entraram no glossário do projeto.";
+    }
+
     private async Task CreateAsync()
     {
         IsBusy = true;
@@ -543,9 +555,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             var options = BuildOptions();
             var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options, PersonalGlossary));
             Created = new ProjectResultInfo(result.Config.Name, result.Folder.Root);
-            PersonalNotice = result.PersonalGlossaryProblem ?? (result.SeededTerms > 0
-                ? $"{result.SeededTerms} {(result.SeededTerms == 1 ? "termo do glossário pessoal entrou" : "termos do glossário pessoal entraram")} no glossário do projeto."
-                : string.Empty);
+            PersonalNotice = result.PersonalGlossaryProblem ?? SeededNotice(result.SeededTerms);
             Step = WizardStep.Done;
             SaveBudget();
         }
