@@ -27,7 +27,7 @@ public static class PatchBuilder
             throw new PatchException("Dois arquivos do patch têm o mesmo caminho.");
         }
 
-        using var payload = new MemoryStream();
+        using var payload = DeltaCodec.CreateTemp();
         var entries = new List<PatchFileEntry>();
         for (var i = 0; i < ordered.Count; i++)
         {

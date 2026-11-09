@@ -72,7 +72,10 @@ public class InstallerAppTests
 
         Assert.Equal(InstallerApp.Ok, code);
         Assert.Contains("VCDiff", output.ToString());
-        Assert.Contains("Apache 2.0", output.ToString());
+        Assert.Contains("Apache License", output.ToString());
+        Assert.Contains("Newtonsoft.Json", output.ToString());
+        Assert.Contains("Microsoft.IO.RecyclableMemoryStream", output.ToString());
+        Assert.Contains("SharpCompress", output.ToString());
     }
 
     [Fact]

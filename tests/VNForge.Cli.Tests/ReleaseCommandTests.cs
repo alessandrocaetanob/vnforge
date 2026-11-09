@@ -91,6 +91,7 @@ public sealed class ReleaseCommandTests : IDisposable
         Assert.Contains("CREDITOS.txt", names);
         Assert.Contains("LEIA-ME.txt", names);
         Assert.Contains("MUDANCAS.txt", names);
+        Assert.Contains("LICENCAS.txt", names);
         Assert.Contains(names, n => n!.EndsWith(".vnfpatch", StringComparison.Ordinal));
         Assert.Contains(names, n => n!.EndsWith("-PT-BR-1.0.0.exe", StringComparison.Ordinal));
         Assert.Contains("Tradução: Equipe Chuva Mansa", await File.ReadAllTextAsync(Path.Combine(Out("1.0.0"), "CREDITOS.txt"), Token));

@@ -11,6 +11,7 @@ O VNForge usa os componentes abaixo além dos pacotes NuGet de uso geral listado
 | `WeCantSpell.Hunspell-license.txt` | `license.txt` do pacote WeCantSpell.Hunspell 7.0.1 (herda a licença do Hunspell) | Pacote NuGet, sem alteração |
 | `LGPL-3.0.txt` e `GPL-3.0.txt` | Texto da LGPL versão 3 (que remete à GPL versão 3) citada pelo README do VERO | [gnu.org/licenses](https://www.gnu.org/licenses/lgpl-3.0.txt) |
 | `MPL-2.0.txt` e `MPL-1.1.html` | Texto da Mozilla Public License 2.0 e da 1.1 | [mozilla.org/MPL](https://www.mozilla.org/en-US/MPL/) |
+| `INSTALADOR-LICENCAS.txt` | Apache-2.0 do VCDiff e licenças MIT das dependências, o texto que o instalador do jogador leva embutido | Repositórios e pacotes NuGet de cada biblioteca, sem alteração |
 | `VCDiff-Apache-2.0.txt` | Licença Apache 2.0 do VCDiff, a biblioteca de delta do `vnf release` | `LICENSE` do repositório SnowflakePowered/vcdiff, sem alteração |
 
 O README do VERO cita a "Mozilla Public License" sem versão; por isso os dois textos vão no pacote. Os arquivos ficam em `licenses/` na raiz do repositório e entram em `VNForge.Core.csproj` como conteúdo copiado para a saída; a etapa `publicar` do CircleCI copia a pasta para cada pacote e confere que ela chegou.
@@ -50,7 +51,7 @@ Fontes conferidas: [WeCantSpell.Hunspell no NuGet](https://www.nuget.org/package
 
 ### O que a licença exige aqui
 
-- **VCDiff (Apache-2.0).** Permite uso comercial e distribuição, inclusive dentro de um instalador fechado, desde que a distribuição leve uma cópia da licença e os avisos de autoria. O texto está em `licenses/VCDiff-Apache-2.0.txt` (copiado do `LICENSE` do repositório, sem alteração) e vai na pasta `licenses/` do `vnf`. O instalador que o jogador recebe é outro pacote: o `LEIA-ME.txt` gerado pelo `vnf release` cita o VCDiff, a licença e o endereço do texto, e `vnf-instalador --licencas` mostra o aviso. O VNForge não altera o código da biblioteca.
+- **VCDiff (Apache-2.0).** Permite uso comercial e distribuição, inclusive dentro de um instalador fechado, desde que a distribuição leve uma cópia da licença e os avisos de autoria. O texto está em `licenses/VCDiff-Apache-2.0.txt` (copiado do `LICENSE` do repositório, sem alteração) e vai na pasta `licenses/` do `vnf`. O instalador que o jogador recebe é outro pacote, então leva os textos dentro: `licenses/INSTALADOR-LICENCAS.txt` (Apache-2.0 completo do VCDiff, e as licenças MIT do SharpCompress, do Newtonsoft.Json e do Microsoft.IO.RecyclableMemoryStream; o VCDiff não tem arquivo NOTICE) fica embutido no `VNForge.Patching`, aparece em `vnf-instalador --licencas` e o `vnf release` o grava como `LICENCAS.txt` na pasta do release; o `LEIA-ME.txt` aponta para ele. O VNForge não altera o código da biblioteca.
 - **Formato.** O delta é o VCDIFF da [RFC 3284](https://www.rfc-editor.org/rfc/rfc3284), com Adler-32 por janela (`ChecksumFormat.SDCH`), e depois comprimido em Brotli (da biblioteca padrão do .NET). Trocar de biblioteca muda só `DeltaCodec.cs` e a versão do formato em `PatchPackage`.
 
 ### Como a escolha foi feita

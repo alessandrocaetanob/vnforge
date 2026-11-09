@@ -61,6 +61,8 @@ public static class PatchInstaller
 
     private const string TempSuffix = ".vnf-tmp";
 
+    private const string PreviousFolderName = ".anterior";
+
     public static PatchCheck Check(string gameDirectory, PatchPackage package)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
@@ -104,8 +106,11 @@ public static class PatchInstaller
         }
 
         var entries = package.Manifest.Files.ToDictionary(f => f.Path, StringComparer.Ordinal);
-        var records = (ReadManifest(gameDirectory)?.Files ?? []).ToDictionary(f => f.Path, StringComparer.Ordinal);
+        var previousManifest = ReadManifest(gameDirectory);
+        var records = (previousManifest?.Files ?? []).ToDictionary(f => f.Path, StringComparer.Ordinal);
         var todo = check.Files.Where(f => f.State != PatchFileState.Patched).ToList();
+        var undo = new List<UndoStep>();
+        var previousRoot = Path.Combine(backupRoot, PreviousFolderName);
 
         Directory.CreateDirectory(backupRoot);
         for (var i = 0; i < todo.Count; i++)
@@ -114,9 +119,19 @@ public static class PatchInstaller
             var status = todo[i];
             var entry = entries[status.Path];
             progress?.Report(new PatchProgress(PatchPhase.Backup, status.Path, i, todo.Count));
+            var target = GamePaths.Resolve(gameDirectory, status.Path);
             if (!entry.Created && status.State == PatchFileState.Original)
             {
-                BackUp(GamePaths.Resolve(gameDirectory, status.Path), GamePaths.Resolve(backupRoot, status.Path), entry.OriginalSha256!);
+                BackUp(target, GamePaths.Resolve(backupRoot, status.Path), entry.OriginalSha256!);
+                undo.Add(new UndoStep(status.Path, GamePaths.Resolve(backupRoot, status.Path), entry.OriginalSha256));
+            }
+            else if (status.State == PatchFileState.Upgrade)
+            {
+                undo.Add(Preserve(target, previousRoot, status.Path, status.Found!));
+            }
+            else
+            {
+                undo.Add(new UndoStep(status.Path, null, null));
             }
 
             records[status.Path] = new InstallRecord(
@@ -147,7 +162,7 @@ public static class PatchInstaller
                 written.Add(status.Path);
             }
 
-            installManifest = RestoreSuperseded(gameDirectory, backupRoot, installManifest, entries);
+            installManifest = RestoreSuperseded(gameDirectory, backupRoot, previousRoot, installManifest, entries, undo);
             WriteManifest(gameDirectory, installManifest);
 
             for (var i = 0; i < written.Count; i++)
@@ -160,22 +175,26 @@ public static class PatchInstaller
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-            RollBack(gameDirectory, backupRoot, written, records);
-            throw;
-        }
         catch (Exception ex)
         {
-            RollBack(gameDirectory, backupRoot, written, records);
-            if (ex is PatchException)
+            var failures = RollBack(gameDirectory, undo, previousManifest ?? new InstallManifest(package.Manifest.GameName, package.Manifest.Version, Installed: false, []));
+            if (failures.Count > 0)
+            {
+                throw new PatchException(
+                    $"Não foi possível aplicar o patch: {ex.Message} Não consegui devolver: {string.Join("; ", failures)}. As cópias do estado anterior ficaram em '{BackupFolderName}/{PreviousFolderName}'; rode o instalador e escolha desinstalar.",
+                    ex);
+            }
+
+            DeleteFolderQuietly(previousRoot);
+            if (ex is OperationCanceledException)
             {
                 throw;
             }
 
-            throw new PatchException($"Não foi possível aplicar o patch: {ex.Message} Os arquivos do jogo foram devolvidos ao que eram.", ex);
+            throw new PatchException($"{(ex is PatchException ? ex.Message : "Não foi possível aplicar o patch: " + ex.Message)} Os arquivos do jogo voltaram ao estado de antes desta instalação.", ex);
         }
 
+        DeleteFolderQuietly(previousRoot);
         progress?.Report(new PatchProgress(PatchPhase.Verify, null, written.Count, written.Count));
         return new PatchInstallResult(written, backupRoot);
     }
@@ -399,7 +418,7 @@ public static class PatchInstaller
     }
 
     /// <summary>Arquivos que um patch anterior nosso mexeu e o novo não: voltam ao original, senão ficariam com a tradução velha.</summary>
-    private static InstallManifest RestoreSuperseded(string gameDirectory, string backupRoot, InstallManifest manifest, Dictionary<string, PatchFileEntry> entries)
+    private static InstallManifest RestoreSuperseded(string gameDirectory, string backupRoot, string previousRoot, InstallManifest manifest, Dictionary<string, PatchFileEntry> entries, List<UndoStep> undo)
     {
         var keep = new List<InstallRecord>();
         foreach (var record in manifest.Files)
@@ -416,41 +435,88 @@ public static class PatchInstaller
             {
                 keep.Add(record);
             }
-            else if (!record.Existed)
-            {
-                File.Delete(target);
-            }
             else
             {
-                CopyReplacing(GamePaths.Resolve(backupRoot, record.Path), target, record.OriginalSha256!);
+                undo.Add(Preserve(target, previousRoot, record.Path, current!));
+                if (record.Existed)
+                {
+                    CopyReplacing(GamePaths.Resolve(backupRoot, record.Path), target, record.OriginalSha256!);
+                }
+                else
+                {
+                    File.Delete(target);
+                }
             }
         }
 
         return manifest with { Files = keep };
     }
 
-    private static void RollBack(string gameDirectory, string backupRoot, List<string> written, Dictionary<string, InstallRecord> records)
+    /// <summary>Copia o arquivo como está agora (o de uma instalação anterior) para <see cref="PreviousFolderName"/>, para a falha da atualização poder voltar a ele e não ao original.</summary>
+    private static UndoStep Preserve(string target, string previousRoot, string relative, string sha)
     {
-        foreach (var path in written)
+        var copy = GamePaths.Resolve(previousRoot, relative);
+        CopyReplacing(target, copy, sha);
+        return new UndoStep(relative, copy, sha);
+    }
+
+    /// <summary>Devolve cada arquivo ao estado de antes da instalação, do último para o primeiro, e o manifesto ao que era. Devolve o que não voltou.</summary>
+    private static List<string> RollBack(string gameDirectory, List<UndoStep> undo, InstallManifest manifestBefore)
+    {
+        var failures = new List<string>();
+        for (var i = undo.Count - 1; i >= 0; i--)
         {
+            var step = undo[i];
             try
             {
-                var target = GamePaths.Resolve(gameDirectory, path);
-                if (records.TryGetValue(path, out var record) && record.Existed)
+                var target = GamePaths.Resolve(gameDirectory, step.Path);
+                var current = GamePaths.ShaOrNull(target);
+                if (step.RestoreFrom is null)
                 {
-                    CopyReplacing(GamePaths.Resolve(backupRoot, path), target, record.OriginalSha256!);
+                    if (current is not null)
+                    {
+                        File.Delete(target);
+                    }
                 }
-                else if (File.Exists(target))
+                else if (current != step.Sha)
                 {
-                    File.Delete(target);
+                    CopyReplacing(step.RestoreFrom, target, step.Sha!);
                 }
             }
             catch (Exception ex) when (ex is PatchException or IOException or UnauthorizedAccessException)
             {
-                // Melhor esforço: o manifesto já está gravado e a desinstalação termina o serviço.
+                failures.Add($"{step.Path} ({ex.Message})");
             }
         }
+
+        try
+        {
+            WriteManifest(gameDirectory, manifestBefore);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            failures.Add($"{BackupFolderName}/{ManifestFileName} ({ex.Message})");
+        }
+
+        return failures;
     }
+
+    private static void DeleteFolderQuietly(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // É só a cópia temporária do estado anterior; sobra um lixo, não um erro.
+        }
+    }
+
+    private sealed record UndoStep(string Path, string? RestoreFrom, string? Sha);
 
     internal static InstallManifest? ReadManifest(string gameDirectory)
     {

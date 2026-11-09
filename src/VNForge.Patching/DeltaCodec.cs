@@ -12,10 +12,14 @@ namespace VNForge.Patching;
 /// </summary>
 internal static class DeltaCodec
 {
+    /// <summary>Arquivo temporário que some ao fechar: os deltas de um .ypf de 200 MB não cabem em <see cref="MemoryStream"/> sem estourar a memória do tradutor.</summary>
+    public static FileStream CreateTemp() =>
+        new(Path.Combine(Path.GetTempPath(), "vnf-" + Guid.NewGuid().ToString("N") + ".tmp"), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.DeleteOnClose);
+
     /// <summary>Escreve em <paramref name="output"/> o delta comprimido que transforma <paramref name="original"/> em <paramref name="result"/>.</summary>
     public static void Encode(Stream original, Stream result, Stream output)
     {
-        using var raw = new MemoryStream();
+        using var raw = CreateTemp();
         var encoder = new VcEncoder(original, result, raw);
         var status = encoder.Encode(interleaved: false, checksumFormat: ChecksumFormat.SDCH);
         if (status != VCDiffResult.SUCCESS)
@@ -31,7 +35,7 @@ internal static class DeltaCodec
     /// <summary>Aplica o delta comprimido sobre <paramref name="original"/> e escreve o resultado em <paramref name="output"/>.</summary>
     public static void Decode(Stream original, Stream compressedDelta, Stream output)
     {
-        using var raw = new MemoryStream();
+        using var raw = CreateTemp();
         using (var brotli = new BrotliStream(compressedDelta, CompressionMode.Decompress, leaveOpen: true))
         {
             brotli.CopyTo(raw);

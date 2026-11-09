@@ -10,4 +10,9 @@
     <PackageReference Include="SharpCompress" />
   </ItemGroup>
 
+  <!-- Os textos de licença das bibliotecas que o instalador leva dentro (Apache-2.0 e MIT): o instalador os mostra em licencas (opcao do instalador) e o vnf release os grava em LICENCAS.txt. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\licenses\INSTALADOR-LICENCAS.txt" LogicalName="VNForge.Patching.Licenses.txt" />
+  </ItemGroup>
+
 </Project>

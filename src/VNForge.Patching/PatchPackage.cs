@@ -59,7 +59,7 @@ public sealed class PatchPackage : IDisposable
             stream.ReadExactly(json);
             var manifest = JsonSerializer.Deserialize<PatchManifest>(json, PatchManifest.Json)
                 ?? throw new PatchException("O patch está corrompido (manifesto vazio).");
-            Validate(manifest);
+            Validate(manifest, stream.Length - (16 + length));
             return new PatchPackage(stream, manifest, 16 + length);
         }
         catch (Exception ex) when (ex is JsonException or EndOfStreamException)
@@ -114,13 +114,14 @@ public sealed class PatchPackage : IDisposable
         return new MemoryStream(bytes);
     }
 
-    private static void Validate(PatchManifest manifest)
+    private static void Validate(PatchManifest manifest, long payloadLength)
     {
         if (manifest.Files is null || string.IsNullOrWhiteSpace(manifest.Version) || manifest.Files.Count == 0)
         {
             throw new PatchException("O patch está corrompido (sem arquivos).");
         }
 
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in manifest.Files)
         {
             if (file is null || string.IsNullOrWhiteSpace(file.Path) || string.IsNullOrWhiteSpace(file.ResultSha256) || file.Length < 0 || file.Offset < 0)
@@ -128,7 +129,28 @@ public sealed class PatchPackage : IDisposable
                 throw new PatchException("O patch está corrompido (entrada inválida).");
             }
 
+            if (file.Offset > payloadLength || file.Length > payloadLength - file.Offset)
+            {
+                throw new PatchException($"O patch está corrompido (o delta de {file.Path} passa do fim do arquivo).");
+            }
+
             GamePaths.Resolve(Path.GetTempPath(), file.Path);
+            if (file.Path.Contains('\\', StringComparison.Ordinal)
+                || file.Path.Split('/').Any(part => part.Length == 0 || part is "." or ".."))
+            {
+                throw new PatchException($"O patch tem um caminho inválido: {file.Path}.");
+            }
+
+            if (file.Path.StartsWith(PatchInstaller.BackupFolderName + "/", StringComparison.OrdinalIgnoreCase)
+                || file.Path.EndsWith(".vnf-tmp", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new PatchException($"O patch mexe num caminho reservado do instalador: {file.Path}.");
+            }
+
+            if (!seen.Add(file.Path))
+            {
+                throw new PatchException($"O patch tem o arquivo {file.Path} duas vezes (ou com nomes que só diferem na caixa).");
+            }
         }
     }
 

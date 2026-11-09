@@ -4,7 +4,7 @@ using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
-using VNForge.Core.Release;
+using VNForge.Core.Publishing;
 
 namespace VNForge.Cli;
 
