@@ -168,6 +168,31 @@ public sealed class ImageTextScannerTests : IDisposable
     }
 
     [Fact]
+    public async Task Resposta_cobrada_mas_inutil_entra_na_conta_dos_tokens()
+    {
+        var format = StandardFormat();
+        var reader = new FakeImageTextReader(TextFor) { InputTokens = 1500, OutputTokens = 200, BadReplyWhen = i => i.Name.EndsWith("rua.png", StringComparison.Ordinal) };
+
+        var result = await ScanAsync(format, reader, PlanFor(format), concurrency: 1, ct: TestContext.Current.CancellationToken);
+
+        Assert.Single(result.Failed);
+        Assert.Equal(2, result.Read);
+        Assert.Equal(3 * 1500, result.InputTokens);
+        Assert.Equal(3 * 200, result.OutputTokens);
+    }
+
+    [Fact]
+    public async Task Falha_sem_resposta_nao_soma_tokens()
+    {
+        var format = StandardFormat();
+        var reader = new FakeImageTextReader(TextFor) { InputTokens = 1500, OutputTokens = 200, FailWhen = i => i.Name.EndsWith("rua.png", StringComparison.Ordinal) };
+
+        var result = await ScanAsync(format, reader, PlanFor(format), concurrency: 1, ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2 * 1500, result.InputTokens);
+    }
+
+    [Fact]
     public async Task Cancelar_devolve_o_parcial_marcado()
     {
         var files = Enumerable.Range(0, 6).Select(i => ($"img{i}.png", SyntheticImages.Png(100 + i, 100, shade: (byte)i))).ToArray();

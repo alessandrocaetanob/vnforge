@@ -217,6 +217,10 @@ public sealed class ImageTextScanner(IImageTextReader reader, IReadOnlyList<IArc
         {
             state.Cancelled = true;
         }
+        catch (ImageReadFailedException ex)
+        {
+            state.Fail(candidate, ex.Message, ex.InputTokens, ex.OutputTokens);
+        }
         catch (Exception ex)
         {
             state.Fail(candidate, ex.Message);
@@ -273,8 +277,10 @@ public sealed class ImageTextScanner(IImageTextReader reader, IReadOnlyList<IArc
             Report(candidate);
         }
 
-        public void Fail(ImageCandidate candidate, string message)
+        public void Fail(ImageCandidate candidate, string message, long inputTokens = 0, long outputTokens = 0)
         {
+            Interlocked.Add(ref _inputTokens, inputTokens);
+            Interlocked.Add(ref _outputTokens, outputTokens);
             Failed.Enqueue(new ImageScanFailure(candidate.Archive, candidate.Path, message));
             if (Interlocked.Increment(ref _consecutiveFailures) >= MaxConsecutiveFailures)
             {

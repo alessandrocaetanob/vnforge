@@ -13,8 +13,19 @@ public sealed record ImageToRead(string Name, string MediaType, byte[] Data);
 public sealed record ImageTextReading(string Text, bool Refused = false, long InputTokens = 0, long OutputTokens = 0);
 
 /// <summary>
+/// A chamada ao modelo foi feita e cobrada, mas a resposta não serve (cortada, fora do formato). Leva os tokens da chamada para que o gasto entre na conta
+/// mesmo sem leitura. Erro de rede ou de chave, em que nada foi cobrado, é qualquer outra exceção.
+/// </summary>
+public sealed class ImageReadFailedException(string message, long inputTokens, long outputTokens, Exception? inner = null) : Exception(message, inner)
+{
+    public long InputTokens { get; } = inputTokens;
+
+    public long OutputTokens { get; } = outputTokens;
+}
+
+/// <summary>
 /// Fronteira entre o inventário de imagens e a IA: diz se uma imagem tem texto em japonês e qual é. O provedor Claude (visão) e o
-/// <see cref="FakeImageTextReader"/> dos testes a implementam. Falha de rede ou de formato é exceção; recusa do modelo é <see cref="ImageTextReading.Refused"/>.
+/// <see cref="FakeImageTextReader"/> dos testes a implementam. Falha de rede é exceção; resposta cortada ou fora do formato é <see cref="ImageReadFailedException"/> (com o uso da chamada); recusa do modelo é <see cref="ImageTextReading.Refused"/>.
 /// </summary>
 public interface IImageTextReader
 {

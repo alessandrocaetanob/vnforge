@@ -77,9 +77,20 @@ public sealed class ClaudeImageTextReaderTests
     {
         var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"hasText":true,"te"""));
 
-        var error = await Assert.ThrowsAsync<ClaudeResponseException>(() => new ClaudeImageTextReader(client).ReadAsync(Image, Token));
+        var error = await Assert.ThrowsAsync<ImageReadFailedException>(() => new ClaudeImageTextReader(client).ReadAsync(Image, Token));
 
-        Assert.Contains("max_tokens", error.Detail);
+        Assert.Contains("max_tokens", Assert.IsType<ClaudeResponseException>(error.InnerException).Detail);
+    }
+
+    [Fact]
+    public async Task Resposta_cortada_leva_o_uso_da_chamada_na_excecao()
+    {
+        var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"hasText":true,"te""", new ClaudeUsage(900, 2000, 100, 0)));
+
+        var error = await Assert.ThrowsAsync<ImageReadFailedException>(() => new ClaudeImageTextReader(client).ReadAsync(Image, Token));
+
+        Assert.Equal(1000, error.InputTokens);
+        Assert.Equal(2000, error.OutputTokens);
     }
 
     [Theory]
@@ -88,9 +99,11 @@ public sealed class ClaudeImageTextReaderTests
     [InlineData("""{"hasText":"sim","text":"x"}""")]
     public async Task Resposta_fora_do_formato_e_erro_em_portugues(string json)
     {
-        var error = await Assert.ThrowsAsync<ClaudeResponseException>(() => new ClaudeImageTextReader(new StubClient(_ => Ok(json))).ReadAsync(Image, Token));
+        var error = await Assert.ThrowsAsync<ImageReadFailedException>(() => new ClaudeImageTextReader(new StubClient(_ => Ok(json, new ClaudeUsage(500, 30, 0, 0)))).ReadAsync(Image, Token));
 
         Assert.Contains("fora do formato", error.Message);
+        Assert.Equal(500, error.InputTokens);
+        Assert.Equal(30, error.OutputTokens);
     }
 
     [Fact]

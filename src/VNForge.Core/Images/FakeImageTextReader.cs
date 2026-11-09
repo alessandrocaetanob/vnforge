@@ -17,7 +17,7 @@ public sealed class FakeImageTextReader(Func<ImageToRead, string>? text = null) 
     /// <summary>Recusa as imagens para as quais devolve verdadeiro.</summary>
     public Func<ImageToRead, bool>? RefuseWhen { get; set; }
 
-    /// <summary>Lança <see cref="InvalidOperationException"/> para as imagens em que devolve verdadeiro.</summary>
+    /// <summary>Lança <see cref="InvalidOperationException"/> (nada cobrado) para as imagens em que devolve verdadeiro.</summary>
     public Func<ImageToRead, bool>? FailWhen { get; set; }
 
     /// <summary>Chamado no começo de cada leitura com o número dela (1, 2, ...).</summary>
@@ -25,6 +25,9 @@ public sealed class FakeImageTextReader(Func<ImageToRead, string>? text = null) 
 
     /// <summary>Espera antes de responder; serve para os testes de paralelismo.</summary>
     public TimeSpan Delay { get; set; }
+
+    /// <summary>Lança <see cref="ImageReadFailedException"/> com <see cref="InputTokens"/> e <see cref="OutputTokens"/> (resposta cobrada, mas inútil) para as imagens em que devolve verdadeiro.</summary>
+    public Func<ImageToRead, bool>? BadReplyWhen { get; set; }
 
     /// <summary>Tokens que cada leitura informa.</summary>
     public long InputTokens { get; set; }
@@ -57,6 +60,11 @@ public sealed class FakeImageTextReader(Func<ImageToRead, string>? text = null) 
             if (FailWhen?.Invoke(image) == true)
             {
                 throw new InvalidOperationException("falha simulada na leitura de " + image.Name);
+            }
+
+            if (BadReplyWhen?.Invoke(image) == true)
+            {
+                throw new ImageReadFailedException("resposta fora do formato para " + image.Name, InputTokens, OutputTokens);
             }
 
             return RefuseWhen?.Invoke(image) == true

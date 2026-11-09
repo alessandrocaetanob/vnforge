@@ -7,7 +7,7 @@ namespace VNForge.AI.Images;
 /// <summary>
 /// O <see cref="IImageTextReader"/> sobre o Claude com visão (Haiku por padrão): manda a imagem como bloco base64 e pede por
 /// <c>output_config.format</c> um JSON <c>{ hasText, text }</c> com a transcrição do texto em japonês. Recusa (<c>stop_reason: "refusal"</c>) vira
-/// <see cref="ImageTextReading.Refused"/>; resposta cortada ou fora do formato é <see cref="ClaudeResponseException"/>.
+/// <see cref="ImageTextReading.Refused"/>; resposta cortada ou fora do formato é <see cref="ImageReadFailedException"/> (que traz o uso da chamada e a <see cref="ClaudeResponseException"/> por dentro).
 /// </summary>
 public sealed class ClaudeImageTextReader(IClaudeMessageClient client, ClaudeOptions? options = null) : IImageTextReader
 {
@@ -43,12 +43,20 @@ public sealed class ClaudeImageTextReader(IClaudeMessageClient client, ClaudeOpt
 
         var input = reply.Usage is { } usage ? usage.InputTokens + usage.CacheReadInputTokens + usage.CacheCreationInputTokens : 0;
         var output = reply.Usage?.OutputTokens ?? 0;
-        return reply.StopReason switch
+        try
         {
-            "refusal" => new ImageTextReading(string.Empty, Refused: true, input, output),
-            "max_tokens" => throw new ClaudeResponseException("A IA não terminou de ler a imagem. Tente de novo.", detail: "stop_reason: max_tokens"),
-            _ => new ImageTextReading(Parse(reply.Text), InputTokens: input, OutputTokens: output),
-        };
+            return reply.StopReason switch
+            {
+                "refusal" => new ImageTextReading(string.Empty, Refused: true, input, output),
+                "max_tokens" => throw new ClaudeResponseException("A IA não terminou de ler a imagem. Tente de novo.", detail: "stop_reason: max_tokens"),
+                _ => new ImageTextReading(Parse(reply.Text), InputTokens: input, OutputTokens: output),
+            };
+        }
+        catch (ClaudeResponseException e)
+        {
+            // A API cobrou a chamada mesmo com a resposta inútil; o uso segue na exceção para entrar na conta do gasto.
+            throw new ImageReadFailedException(e.Message, input, output, e);
+        }
     }
 
     private static string Parse(string json)
