@@ -43,10 +43,11 @@
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="24,8,24,8">
       <StackPanel VerticalAlignment="Bottom" MinWidth="0">
         <TextBlock Classes="caption secondary" Text="{Binding CheckedSummary}" TextTrimming="CharacterEllipsis"/>
-        <StackPanel Orientation="Horizontal" Spacing="12">
+        <!-- Grade e não pilha horizontal: o subtítulo corta com reticências em vez de passar por cima dos botões quando a janela é estreita. -->
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
           <TextBlock Classes="title-lg" Text="Conferir a tradução"/>
-          <TextBlock Classes="body-sm secondary" Text="O que impede de testar no jogo." VerticalAlignment="Bottom" Margin="0,0,0,4"/>
-        </StackPanel>
+          <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="O que impede de testar no jogo." TextTrimming="CharacterEllipsis" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+        </Grid>
       </StackPanel>
       <Button Grid.Column="1" Classes="sm" Classes.accent="{Binding HasFixable}" IsVisible="{Binding HasFixable}" VerticalAlignment="Bottom" Command="{Binding FixAllCommand}"
               AutomationProperties.Name="Corrigir de uma vez os problemas que têm correção de um clique">

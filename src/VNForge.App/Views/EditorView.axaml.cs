@@ -63,6 +63,8 @@ public sealed partial class EditorView : UserControl
         InspectorColumn.Width = tabs ? new GridLength(EditorBreakpoints.InspectorTabsWidth) : new GridLength(EditorBreakpoints.InspectorStars, GridUnitType.Star);
     }
 
+    private const double ColumnsTop = 8;
+
     /// <summary>
     /// A lista de cenas na grade: a coluna inteira, a faixa do estado recolhido (#393) ou, abaixo de 1400 px, nenhuma (o flyout do cabeçalho a substitui).
     /// Roda também quando a pessoa recolhe ou abre, sem refazer o inspetor.
@@ -96,7 +98,8 @@ public sealed partial class EditorView : UserControl
             _ => new GridLength(1, GridUnitType.Star),
         };
         // Sem a coluna das cenas sobra o espaço entre colunas ao lado dela.
-        Columns.Margin = new Thickness(flyout ? -Columns.ColumnSpacing : 0, 0, 0, 0);
+        // O topo de 8 px é o espaço entre a barra de ferramentas e a grade (o EditorView.axaml não usa RowSpacing); só o lado esquerdo muda.
+        Columns.Margin = new Thickness(flyout ? -Columns.ColumnSpacing : 0, ColumnsTop, 0, 0);
     }
 
     /// <summary>Ctrl+B: recolhe ou abre a coluna das cenas; abaixo de 1400 px, onde a lista é um flyout, abre ou fecha o flyout.</summary>
