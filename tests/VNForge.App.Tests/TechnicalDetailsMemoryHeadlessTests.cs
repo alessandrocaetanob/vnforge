@@ -86,30 +86,43 @@ public class TechnicalDetailsMemoryHeadlessTests(HeadlessFixture fixture) : ICla
         await fixture.Session.Dispatch(
             () =>
             {
+                var windows = new List<Window>();
+
                 TechnicalDetails Show(string? key, TechnicalDetailsMemory? with)
                 {
                     var details = new TechnicalDetails { Key = key, Content = new TextBlock { Text = "motor" } };
                     var window = new Window { Content = details };
+                    windows.Add(window);
                     TechnicalDetails.SetMemory(window, with);
                     window.Show();
                     Settle(window);
                     return details;
                 }
 
-                Assert.True(Show("a", memory).IsExpanded);
-                Assert.False(Show("b", memory).IsExpanded);
-                Assert.False(Show(null, memory).IsExpanded);
-                Assert.False(Show("a", null).IsExpanded);
+                try
+                {
+                    Assert.True(Show("a", memory).IsExpanded);
+                    Assert.False(Show("b", memory).IsExpanded);
+                    Assert.False(Show(null, memory).IsExpanded);
+                    Assert.False(Show("a", null).IsExpanded);
 
-                var toggled = Show("b", memory);
-                toggled.IsExpanded = true;
-                Assert.True(memory.Get("b"));
-                Assert.True(Show("b", memory).IsExpanded);
+                    var toggled = Show("b", memory);
+                    toggled.IsExpanded = true;
+                    Assert.True(memory.Get("b"));
+                    Assert.True(Show("b", memory).IsExpanded);
 
-                var loose = Show(null, memory);
-                loose.IsExpanded = true;
-                Assert.Null(memory.Get(""));
-                return 0;
+                    var loose = Show(null, memory);
+                    loose.IsExpanded = true;
+                    Assert.Null(memory.Get(""));
+                    return 0;
+                }
+                finally
+                {
+                    foreach (var window in windows)
+                    {
+                        window.Close();
+                    }
+                }
             },
             TestContext.Current.CancellationToken);
     }

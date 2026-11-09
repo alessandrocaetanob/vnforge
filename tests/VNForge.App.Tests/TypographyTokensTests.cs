@@ -18,10 +18,10 @@ public partial class TypographyTokensTests
         string.Concat(kebab.Split('-').Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
 
     /// <summary>
-    /// Alturas de linha em que o app se afasta do tokens.json: a Zen Kaku Gothic New pede 1,45 de altura por corpo (34,75 em 24 px e 24,6 em 17 px)
+    /// Alturas de linha em que o app se afasta do tokens.json: a Zen Kaku Gothic New pede 1,45 de altura por corpo (49,2, 34,75, 24,6 e 21,7 em 34, 24, 17 e 15 px)
     /// e abaixo disso o TextBlock corta as descendentes. Se o design passar a caber, a exceção sai daqui e das duas cópias.
     /// </summary>
-    private static readonly Dictionary<string, double> LineHeightExceptions = new() { ["TitleLg"] = 35, ["TitleMd"] = 25 };
+    private static readonly Dictionary<string, double> LineHeightExceptions = new() { ["TitleXl"] = 50, ["TitleLg"] = 35, ["TitleMd"] = 25, ["TitleSm"] = 22 };
 
     private static double Px(JsonElement style, string property) =>
         double.Parse(style.GetProperty(property).GetString()!.Replace("px", string.Empty), CultureInfo.InvariantCulture);
@@ -35,6 +35,17 @@ public partial class TypographyTokensTests
             .Where(s => s.GetProperty("name").GetString() is not ("body-strong" or "textbox"))
             .Select(s => (Pascal(s.GetProperty("name").GetString()!), Px(s, "fontSize"), Px(s, "lineHeight")))
             .ToList();
+    }
+
+    [Fact]
+    public void Cada_excecao_de_entrelinha_existe_no_tokens_json_e_difere_dele()
+    {
+        var styles = TokenStyles().ToDictionary(s => s.Name);
+        foreach (var (name, line) in LineHeightExceptions)
+        {
+            Assert.True(styles.TryGetValue(name, out var token), $"{name} não está no tokens.json");
+            Assert.NotEqual(token.Line, line);
+        }
     }
 
     [Fact]

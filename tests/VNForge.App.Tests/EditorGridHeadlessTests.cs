@@ -95,30 +95,36 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             {
                 var abrir = Stopwatch.StartNew();
                 var window = Abrir(vm);
-                abrir.Stop();
-                var grade = Grade(window);
+                try
+                {
+                    abrir.Stop();
+                    var grade = Grade(window);
 
-                Assert.True(abrir.Elapsed < Limit, $"Abrir a tela com {LineCount} linhas levou {abrir.Elapsed.TotalMilliseconds:N0} ms.");
-                Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
-                Assert.Equal(LineCount, grade.ItemCount);
-                Assert.Equal(1, Realizadas(grade)[0]);
+                    Assert.True(abrir.Elapsed < Limit, $"Abrir a tela com {LineCount} linhas levou {abrir.Elapsed.TotalMilliseconds:N0} ms.");
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    Assert.Equal(LineCount, grade.ItemCount);
+                    Assert.Equal(1, Realizadas(grade)[0]);
 
-                var fim = Stopwatch.StartNew();
-                grade.ScrollIntoView(LineCount - 1);
-                Assentar(window);
-                fim.Stop();
-                Assert.True(fim.Elapsed < Limit, $"Rolar até o fim levou {fim.Elapsed.TotalMilliseconds:N0} ms.");
-                Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
-                Assert.Contains(LineCount, Realizadas(grade));
+                    var fim = Stopwatch.StartNew();
+                    grade.ScrollIntoView(LineCount - 1);
+                    Assentar(window);
+                    fim.Stop();
+                    Assert.True(fim.Elapsed < Limit, $"Rolar até o fim levou {fim.Elapsed.TotalMilliseconds:N0} ms.");
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    Assert.Contains(LineCount, Realizadas(grade));
 
-                var meio = Stopwatch.StartNew();
-                grade.ScrollIntoView(LineCount / 2);
-                Assentar(window);
-                meio.Stop();
-                Assert.True(meio.Elapsed < Limit, $"Rolar até o meio levou {meio.Elapsed.TotalMilliseconds:N0} ms.");
-                Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
-                Assert.Contains(LineCount / 2 + 1, Realizadas(grade));
-
+                    var meio = Stopwatch.StartNew();
+                    grade.ScrollIntoView(LineCount / 2);
+                    Assentar(window);
+                    meio.Stop();
+                    Assert.True(meio.Elapsed < Limit, $"Rolar até o meio levou {meio.Elapsed.TotalMilliseconds:N0} ms.");
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    Assert.Contains(LineCount / 2 + 1, Realizadas(grade));
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -132,18 +138,25 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             () =>
             {
                 var window = Abrir(vm);
-                var grade = Grade(window);
+                try
+                {
+                    var grade = Grade(window);
 
-                var relogio = Stopwatch.StartNew();
-                vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Filter == LineStatusFilter.Pending));
-                Assentar(window);
-                vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Filter == LineStatusFilter.All));
-                Assentar(window);
-                relogio.Stop();
+                    var relogio = Stopwatch.StartNew();
+                    vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Filter == LineStatusFilter.Pending));
+                    Assentar(window);
+                    vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Filter == LineStatusFilter.All));
+                    Assentar(window);
+                    relogio.Stop();
 
-                Assert.True(relogio.Elapsed < Limit, $"Dois filtros levaram {relogio.Elapsed.TotalMilliseconds:N0} ms.");
-                Assert.Equal(LineCount, grade.ItemCount);
-                Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    Assert.True(relogio.Elapsed < Limit, $"Dois filtros levaram {relogio.Elapsed.TotalMilliseconds:N0} ms.");
+                    Assert.Equal(LineCount, grade.ItemCount);
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -157,19 +170,26 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             () =>
             {
                 var window = Abrir(vm);
-                var grade = Grade(window);
-                Assert.Equal(1, vm.SelectedLine?.Number);
-                Assert.Same(vm.SelectedLine, grade.SelectedItem);
+                try
+                {
+                    var grade = Grade(window);
+                    Assert.Equal(1, vm.SelectedLine?.Number);
+                    Assert.Same(vm.SelectedLine, grade.SelectedItem);
 
-                vm.SelectNextCommand.Execute(null);
-                Assentar(window);
-                Assert.Equal(2, vm.SelectedLine?.Number);
-                Assert.Same(vm.SelectedLine, grade.SelectedItem);
+                    vm.SelectNextCommand.Execute(null);
+                    Assentar(window);
+                    Assert.Equal(2, vm.SelectedLine?.Number);
+                    Assert.Same(vm.SelectedLine, grade.SelectedItem);
 
-                vm.SelectedLine = vm.Lines[^1];
-                Assentar(window);
-                Assert.Contains(LineCount, Realizadas(grade));
-                Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    vm.SelectedLine = vm.Lines[^1];
+                    Assentar(window);
+                    Assert.Contains(LineCount, Realizadas(grade));
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -183,19 +203,26 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             () =>
             {
                 var window = Abrir(vm);
-                Assert.True(Grade(window).ContainerFromIndex(0)!.Focus());
-                Assentar(window);
-
-                var passos = new List<int?>();
-                foreach (var (key, physical) in new[] { (Key.Down, PhysicalKey.ArrowDown), (Key.Down, PhysicalKey.ArrowDown), (Key.Up, PhysicalKey.ArrowUp) })
+                try
                 {
-                    window.KeyPress(key, RawInputModifiers.Alt, physical, null);
-                    window.KeyRelease(key, RawInputModifiers.Alt, physical, null);
+                    Assert.True(Grade(window).ContainerFromIndex(0)!.Focus());
                     Assentar(window);
-                    passos.Add(vm.SelectedLine?.Number);
-                }
 
-                Assert.Equal([2, 3, 2], passos);
+                    var passos = new List<int?>();
+                    foreach (var (key, physical) in new[] { (Key.Down, PhysicalKey.ArrowDown), (Key.Down, PhysicalKey.ArrowDown), (Key.Up, PhysicalKey.ArrowUp) })
+                    {
+                        window.KeyPress(key, RawInputModifiers.Alt, physical, null);
+                        window.KeyRelease(key, RawInputModifiers.Alt, physical, null);
+                        Assentar(window);
+                        passos.Add(vm.SelectedLine?.Number);
+                    }
+
+                    Assert.Equal([2, 3, 2], passos);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -209,24 +236,31 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             () =>
             {
                 var window = Abrir(vm);
-                var grade = Grade(window);
+                try
+                {
+                    var grade = Grade(window);
 
-                var selos = grade.GetRealizedContainers()
-                    .SelectMany(c => c.GetVisualDescendants().OfType<StatusBadge>())
-                    .GroupBy(b => b.Status)
-                    .ToDictionary(g => g.Key, g => g.First());
+                    var selos = grade.GetRealizedContainers()
+                        .SelectMany(c => c.GetVisualDescendants().OfType<StatusBadge>())
+                        .GroupBy(b => b.Status)
+                        .ToDictionary(g => g.Key, g => g.First());
 
-                var ia = selos[TranslationStatus.Machine];
-                Assert.Equal("IA", ia.Label);
-                Assert.Equal("IA", Automation(ia));
-                Assert.Equal(Cor(ia, "Vnf.StatusAiBg"), (ia.Background as ISolidColorBrush)?.Color);
-                Assert.Equal(Cor(ia, "Vnf.StatusAiFg"), (ia.Foreground as ISolidColorBrush)?.Color);
-                Assert.Equal(20, ia.Height);
+                    var ia = selos[TranslationStatus.Machine];
+                    Assert.Equal("IA", ia.Label);
+                    Assert.Equal("IA", Automation(ia));
+                    Assert.Equal(Cor(ia, "Vnf.StatusAiBg"), (ia.Background as ISolidColorBrush)?.Color);
+                    Assert.Equal(Cor(ia, "Vnf.StatusAiFg"), (ia.Foreground as ISolidColorBrush)?.Color);
+                    Assert.Equal(20, ia.Height);
 
-                var pendente = selos[TranslationStatus.Untranslated];
-                Assert.Equal("Em japonês", pendente.Label);
-                Assert.Equal(Cor(pendente, "Vnf.StatusPendingBg"), (pendente.Background as ISolidColorBrush)?.Color);
-                Assert.Equal(Cor(selos[TranslationStatus.Approved], "Vnf.StatusApprovedFg"), (selos[TranslationStatus.Approved].Foreground as ISolidColorBrush)?.Color);
+                    var pendente = selos[TranslationStatus.Untranslated];
+                    Assert.Equal("Em japonês", pendente.Label);
+                    Assert.Equal(Cor(pendente, "Vnf.StatusPendingBg"), (pendente.Background as ISolidColorBrush)?.Color);
+                    Assert.Equal(Cor(selos[TranslationStatus.Approved], "Vnf.StatusApprovedFg"), (selos[TranslationStatus.Approved].Foreground as ISolidColorBrush)?.Color);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -244,14 +278,21 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             {
                 var window = new Window { Width = 1200, Height = 800, Content = new SearchReplaceView { DataContext = vm } };
                 window.Show();
-                Assentar(window);
+                try
+                {
+                    Assentar(window);
 
-                var lista = window.GetVisualDescendants().OfType<ListBox>().Single();
-                Assert.Equal(2, lista.GetRealizedContainers().Count());
-                var textos = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains("tradução 0", textos);
-                Assert.Contains("nova 0", textos);
-                Assert.Contains("yst00001 · linha 1", textos);
+                    var lista = window.GetVisualDescendants().OfType<ListBox>().Single();
+                    Assert.Equal(2, lista.GetRealizedContainers().Count());
+                    var textos = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+                    Assert.Contains("tradução 0", textos);
+                    Assert.Contains("nova 0", textos);
+                    Assert.Contains("yst00001 · linha 1", textos);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }

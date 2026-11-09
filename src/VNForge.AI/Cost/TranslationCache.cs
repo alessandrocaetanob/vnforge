@@ -9,8 +9,9 @@ namespace VNForge.AI.Cost;
 /// <summary>
 /// Cache de traduções pelo hash da linha (tipo, falante e original) mais um contexto (modelo, guia e escolhas de estilo, glossário,
 /// personagens). Mudar o original ou o contexto muda a chave, então a linha é traduzida de novo; repetir a mesma tradução
-/// não chama a API. As falas vizinhas (contexto anterior e seguinte) não entram na chave: uma tradução em cache vale
-/// enquanto a linha e o contexto fixo do projeto não mudarem.
+/// não chama a API. As falas vizinhas em si não entram na chave, mas o tamanho da janela de contexto
+/// (<c>ai.contextBefore</c> e <c>ai.contextAfter</c>) entra quando difere do padrão 2/2, para uma janela maior não devolver o texto feito com a menor.
+/// Com o padrão a chave é a de antes da janela existir, e nenhum cache existente se perde.
 /// </summary>
 public sealed class TranslationCache
 {
@@ -41,6 +42,8 @@ public sealed class TranslationCache
             sb.Append('\u001e').Append(c.Source).Append('>').Append(c.Target).Append('|').Append(c.Tone);
         foreach (var a in batch.Addressing)
             sb.Append('\u001e').Append(a.From).Append('>').Append(a.To).Append('|').Append(a.Source).Append('=').Append(a.Target);
+        if (batch.Window != ContextWindow.Default)
+            sb.Append('\u001e').Append("janela:").Append(batch.Window.Before).Append('/').Append(batch.Window.After);
         return sb.ToString();
     }
 

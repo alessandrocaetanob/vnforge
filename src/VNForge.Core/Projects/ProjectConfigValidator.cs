@@ -47,7 +47,18 @@ internal static partial class ProjectConfigValidator
             throw new ProjectConfigException("$.ai.batchSize", $"deve estar entre 1 e {MaxBatchSize}.");
         }
 
+        ContextLines(config.Ai.ContextBefore, "$.ai.contextBefore");
+        ContextLines(config.Ai.ContextAfter, "$.ai.contextAfter");
+
         ValidateStyle(config.Style);
+    }
+
+    private static void ContextLines(int value, string field)
+    {
+        if (value is < 0 or > AiConfig.MaxContextLines)
+        {
+            throw new ProjectConfigException(field, $"deve estar entre 0 e {AiConfig.MaxContextLines}.");
+        }
     }
 
     private static void ValidateStyle(StyleConfig style)

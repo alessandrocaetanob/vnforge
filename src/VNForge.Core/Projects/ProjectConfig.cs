@@ -32,5 +32,17 @@ public sealed record EncodingConfig(string Strategy);
 
 public sealed record AiConfig(string Provider, string Model, string Effort, int BatchSize)
 {
+    /// <summary>Quantas falas antes e depois do lote entram no pedido quando o projeto não define a janela.</summary>
+    public const int DefaultContextLines = 2;
+
+    /// <summary>O maior número de falas de contexto, de cada lado, que o <c>vnforge.json</c> aceita.</summary>
+    public const int MaxContextLines = 30;
+
     public static AiConfig Default { get; } = new("anthropic", "claude-opus-5-5", "medium", 30);
+
+    /// <summary>Falas anteriores ao lote enviadas como contexto (<c>ai.contextBefore</c>); só as já traduzidas contam.</summary>
+    public int ContextBefore { get; init; } = DefaultContextLines;
+
+    /// <summary>Falas seguintes ao lote enviadas como contexto (<c>ai.contextAfter</c>), no original.</summary>
+    public int ContextAfter { get; init; } = DefaultContextLines;
 }

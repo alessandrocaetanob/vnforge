@@ -7,7 +7,7 @@ namespace VNForge.AI.Translation;
 /// <summary>
 /// Monta o <see cref="TranslationBatch"/> de um trecho do jogo: só entram no prompt os termos do glossário que aparecem nas linhas
 /// do lote e os personagens que falam nele, para não gastar tokens (nem diluir a atenção do modelo) com o resto. Cada lote leva
-/// também duas falas antes e duas depois como contexto, o guia de estilo e as escolhas de estilo do projeto.
+/// também as falas antes e depois como contexto (duas de cada lado por padrão; o <c>vnforge.json</c> muda), o guia de estilo e as escolhas de estilo do projeto.
 /// </summary>
 public sealed class TranslationBatchBuilder(
     IReadOnlyList<GlossaryTerm> glossary,
@@ -19,7 +19,13 @@ public sealed class TranslationBatchBuilder(
     IReadOnlyList<AddressTerm>? addressTerms = null)
 {
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
-    public const int DefaultContextLines = 2;
+    public const int DefaultContextLines = AiConfig.DefaultContextLines;
+
+    /// <summary>Quantas falas anteriores já traduzidas entram como contexto, no máximo.</summary>
+    public int MaxPreviousLines { get; } = Math.Max(0, maxPreviousLines);
+
+    /// <summary>Quantas falas seguintes entram como contexto, no máximo.</summary>
+    public int MaxNextLines { get; } = Math.Max(0, maxNextLines);
 
     private readonly IReadOnlyList<GlossaryTerm> _glossary = glossary ?? throw new ArgumentNullException(nameof(glossary));
     private readonly CharacterBook _characters = characters ?? throw new ArgumentNullException(nameof(characters));
@@ -64,12 +70,12 @@ public sealed class TranslationBatchBuilder(
 
         var context = (previous ?? [])
             .Where(u => u.HasTranslation)
-            .TakeLast(Math.Max(0, maxPreviousLines))
+            .TakeLast(MaxPreviousLines)
             .ToList();
 
         var following = (next ?? [])
             .Where(u => !string.IsNullOrWhiteSpace(u.Source))
-            .Take(Math.Max(0, maxNextLines))
+            .Take(MaxNextLines)
             .ToList();
 
         return new TranslationBatch(lines)
@@ -79,6 +85,7 @@ public sealed class TranslationBatchBuilder(
             Addressing = addressing,
             PreviousLines = context,
             NextLines = following,
+            Window = new ContextWindow(MaxPreviousLines, MaxNextLines),
             StyleGuide = _styleGuide,
             Style = _style,
         };
