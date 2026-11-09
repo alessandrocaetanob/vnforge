@@ -99,7 +99,7 @@
           <Button Classes="sm" Content="Agora não" Command="{Binding DismissDictionaryOfferCommand}" AutomationProperties.Name="Agora não"/>
         </StackPanel>
         <Border Classes="word-footer">
-          <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="JMdict · EDRDG · licença CC BY-SA 4.0"/>
+          <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="JMdict · EDRDG · licença CC BY-SA"/>
         </Border>
       </StackPanel>
 

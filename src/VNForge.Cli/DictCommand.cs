@@ -71,7 +71,7 @@ internal static class DictCommand
         return ErrorHandler.OkExitCode;
     }
 
-    private const string JmdictAttribution = "JMdict © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA 4.0: https://www.edrdg.org/edrdg/licence.html";
+    private const string JmdictAttribution = "JMdict © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA: https://www.edrdg.org/edrdg/licence.html";
 
     private static int Status(VnfCli cli, ParseResult parseResult)
     {

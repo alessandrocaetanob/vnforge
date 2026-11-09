@@ -64,7 +64,7 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.False(vm.HasWordMore);
         Assert.False(vm.HasWordNote);
         Assert.Equal("JMdict · offline · EDRDG", vm.WordFootnote);
-        Assert.Contains("CC BY-SA 4.0", vm.WordFootnoteTip);
+        Assert.Contains("CC BY-SA", vm.WordFootnoteTip);
     }
 
     [Fact]

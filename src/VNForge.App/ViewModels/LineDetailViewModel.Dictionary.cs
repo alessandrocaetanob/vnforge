@@ -147,15 +147,13 @@ public sealed partial class LineDetailViewModel
     public string WordFootnote => FootnoteText;
 
     /// <summary>A licença e a versão, na dica do rodapé.</summary>
-    public string WordFootnoteTip => $"JMdict, de {Dictionary?.Version}. © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA 4.0. www.edrdg.org/edrdg/licence.html";
+    public string WordFootnoteTip => $"JMdict, de {Dictionary?.Version}. © Electronic Dictionary Research and Development Group (EDRDG), licença CC BY-SA. www.edrdg.org/edrdg/licence.html";
 
     /// <summary>O dicionário passou do prazo de atualização da licença: o rodapé oferece baixar de novo.</summary>
     public bool WordNeedsUpdate => IsEntryCard && Dictionary is { IsStale: true };
 
     /// <summary>"Baixando o dicionário · 42%" ou, sem o tamanho, "Montando o dicionário...".</summary>
-    public string InstallStatusText => Dictionary is not { } d
-        ? string.Empty
-        : d.Progress is >= 0 and < 1 ? $"Baixando o dicionário · {(int)(d.Progress * 100)}%" : "Montando o dicionário...";
+    public string InstallStatusText => Dictionary is { Progress: >= 0 and < 1 } d ? $"Baixando o dicionário · {(int)(d.Progress * 100)}%" : "Montando o dicionário...";
 
     public double InstallProgress => Dictionary is { Progress: >= 0 } d ? d.Progress * 100 : 0;
 
