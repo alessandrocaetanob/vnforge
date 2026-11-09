@@ -31,14 +31,14 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:WordSenseRow">
-                  <Grid ColumnDefinitions="16,*" ColumnSpacing="6">
-                    <TextBlock Classes="mono secondary" Text="{Binding Number}" VerticalAlignment="Top"/>
+                  <Grid ColumnDefinitions="14,*" ColumnSpacing="8">
+                    <TextBlock Classes="caption secondary" LineHeight="18" Text="{Binding Number}" VerticalAlignment="Top"/>
                     <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Display}"/>
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Button Classes="word-more" Margin="0,3,0,0" Command="{Binding ExpandWordCommand}" IsVisible="{Binding HasWordMore}" AutomationProperties.Name="Ver o resto da entrada">
+            <Button Classes="word-more" Margin="0,3,0,1" Command="{Binding ExpandWordCommand}" IsVisible="{Binding HasWordMore}" AutomationProperties.Name="Ver o resto da entrada">
               <TextBlock Text="{Binding WordMore}"/>
             </Button>
             <ItemsControl ItemsSource="{Binding WordOthers}" IsVisible="{Binding HasWordOthers}" AutomationProperties.Name="Outras entradas">
@@ -59,8 +59,8 @@
                       </ItemsControl.ItemsPanel>
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:WordSenseRow">
-                          <Grid ColumnDefinitions="16,*" ColumnSpacing="6">
-                            <TextBlock Classes="mono secondary" Text="{Binding Number}" VerticalAlignment="Top"/>
+                          <Grid ColumnDefinitions="14,*" ColumnSpacing="8">
+                            <TextBlock Classes="caption secondary" LineHeight="18" Text="{Binding Number}" VerticalAlignment="Top"/>
                             <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Display}"/>
                           </Grid>
                         </DataTemplate>
@@ -76,14 +76,14 @@
           <TextBlock Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="Este dicionário tem mais de 30 dias."/>
           <Button Grid.Column="1" Classes="sm" Content="Atualizar" Command="{Binding InstallDictionaryCommand}" AutomationProperties.Name="Atualizar o dicionário"/>
         </Grid>
-        <Border Classes="word-footer" Margin="0,3,0,0">
+        <Border Classes="word-footer">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Button Classes="word-source" VerticalAlignment="Center" Click="OnLicenseClick" ToolTip.Tip="{Binding WordFootnoteTip}" AutomationProperties.Name="Origem do dicionário">
               <TextBlock Text="{x:Static vm:LineDetailViewModel.WordFootnote}" TextTrimming="CharacterEllipsis"/>
             </Button>
             <Border Grid.Column="1" Classes="word-tag ok" IsVisible="{Binding InGlossary}" AutomationProperties.Name="Termo do glossário">
               <StackPanel Orientation="Horizontal" Spacing="6">
-                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Check}"/>
+                <PathIcon Width="12" Height="12" Margin="1" Data="{StaticResource Icon.Check}"/>
                 <TextBlock Text="{Binding GlossaryChipText}"/>
               </StackPanel>
             </Border>
