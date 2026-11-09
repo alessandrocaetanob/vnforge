@@ -9,9 +9,13 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://VNForge.App/Themes/Tokens.axaml"/>
+        <ResourceInclude Source="avares://VNForge.App/Themes/TextScale.axaml"/>
         <ResourceInclude Source="avares://VNForge.App/Assets/Icons.axaml"/>
         <ResourceInclude Source="avares://VNForge.App/Assets/Brand.axaml"/>
       </ResourceDictionary.MergedDictionaries>
+      <!-- O Fluent usa 4 e 8; o design system v3 pede 8 e 16 (radius-sm e radius-lg). -->
+      <StaticResource x:Key="ControlCornerRadius" ResourceKey="Vnf.RadiusSm"/>
+      <StaticResource x:Key="OverlayCornerRadius" ResourceKey="Vnf.RadiusLg"/>
     </ResourceDictionary>
   </Application.Resources>
 
@@ -46,11 +50,11 @@
   </Application.DataTemplates>
 
   <Application.Styles>
-    <!-- Accent fixo: o azul ai (藍) é identidade do app e os contrastes foram calculados para ele; não segue a cor do Windows. -->
+    <!-- Accent fixo: o verde-água do design system v3 é identidade do app e os contrastes foram calculados para ele; não segue a cor do Windows. Os valores são os tokens accent, bg-layer e signal-error-fg. -->
     <FluentTheme DensityStyle="Normal">
       <FluentTheme.Palettes>
-        <ColorPaletteResources x:Key="Dark" Accent="#8DB0EA" RegionColor="#15181E" ErrorText="#F59AB2"/>
-        <ColorPaletteResources x:Key="Light" Accent="#2B4C7E" RegionColor="#F4F5F8" ErrorText="#9C1F45"/>
+        <ColorPaletteResources x:Key="Dark" Accent="#4FD1B5" RegionColor="#161A19" ErrorText="#F59AB2"/>
+        <ColorPaletteResources x:Key="Light" Accent="#0B7A66" RegionColor="#F8F9F7" ErrorText="#B8244F"/>
       </FluentTheme.Palettes>
     </FluentTheme>
     <StyleInclude Source="avares://VNForge.App/Themes/Typography.axaml"/>

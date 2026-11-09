@@ -136,6 +136,15 @@ public sealed class ImageListerTests : IDisposable
     }
 
     [Fact]
+    public void Teto_de_bytes_padrao_deixa_margem_abaixo_dos_10_MB_em_base64()
+    {
+        var max = new ImageScanOptions().MaxBytes;
+
+        Assert.Equal(7_400_000, max);
+        Assert.True(max / 3 * 4 < 10_000_000);
+    }
+
+    [Fact]
     public void Pacote_ilegivel_vira_aviso_e_os_outros_seguem()
     {
         FakeArchiveFormat.Touch(_game, "estragado.pak", "bom.pak");

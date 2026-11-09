@@ -67,11 +67,11 @@ public sealed class CliViewsTests
 
         var text = harness.Render(DistributionBar.Create(Counts, 47));
 
-        Assert.Contains("38;2;95;191;127m", text); // aprovada
-        Assert.Contains("38;2;62;154;174m", text); // revisada
-        Assert.Contains("38;2;110;143;203m", text); // traduzida
-        Assert.Contains("38;2;154;127;214m", text); // IA
-        Assert.Contains("38;2;58;66;80m", text); // pendente
+        Assert.Contains("38;2;92;203;138m", text); // aprovada
+        Assert.Contains("38;2;73;185;207m", text); // revisada
+        Assert.Contains("38;2;127;162;236m", text); // traduzida
+        Assert.Contains("38;2;165;139;242m", text); // IA
+        Assert.Contains("38;2;124;132;146m", text); // pendente
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public sealed class CliViewsTests
 
         harness.Console.Write(CliViews.NewPanel("Resultado", new Markup("ok")));
 
-        Assert.Contains("38;2;141;176;234m", harness.Output);
+        Assert.Contains("38;2;79;209;181m", harness.Output);
     }
 
     [Fact]

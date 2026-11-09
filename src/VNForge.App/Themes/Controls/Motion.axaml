@@ -49,10 +49,10 @@
     <Style.Animations>
       <Animation Duration="0:0:0.7" Easing="CubicEaseOut">
         <KeyFrame Cue="0%">
-          <Setter Property="Background" Value="#555FBF7F"/>
+          <Setter Property="Background" Value="#555CCB8A"/>
         </KeyFrame>
         <KeyFrame Cue="100%">
-          <Setter Property="Background" Value="#005FBF7F"/>
+          <Setter Property="Background" Value="#005CCB8A"/>
         </KeyFrame>
       </Animation>
     </Style.Animations>

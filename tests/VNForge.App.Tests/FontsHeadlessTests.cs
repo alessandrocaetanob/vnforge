@@ -28,8 +28,10 @@ public class FontsHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headles
     }
 
     [Theory]
-    [InlineData("title-lg", 26, 38)]
+    [InlineData("title-xl", 34, 50)]
+    [InlineData("title-lg", 24, 35)]
     [InlineData("title-md", 17, 25)]
+    [InlineData("title-sm", 15, 22)]
     public async Task Titulo_usa_a_fonte_de_exibicao(string cssClass, double size, double lineHeight)
     {
         await fixture.Session.Dispatch(
@@ -61,8 +63,10 @@ public class FontsHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headles
     }
 
     [Theory]
+    [InlineData("title-xl")]
     [InlineData("title-lg")]
     [InlineData("title-md")]
+    [InlineData("title-sm")]
     public async Task Titulo_tem_altura_de_linha_que_comporta_a_fonte_e_nao_corta_a_descendente(string cssClass)
     {
         await fixture.Session.Dispatch(

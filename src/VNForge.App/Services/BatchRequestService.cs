@@ -174,7 +174,9 @@ public sealed class BatchRequestService(
             project.LoadGlossary(),
             new CharacterBook(project.LoadCharacters()),
             TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, TranslationContextSummary.StyleGuideFileName)),
-            style: config.Style);
+            style: config.Style,
+            maxPreviousLines: config.Ai.ContextBefore,
+            maxNextLines: config.Ai.ContextAfter);
         return (builder, Math.Clamp(config.Ai.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize));
     }
 }

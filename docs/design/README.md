@@ -6,16 +6,20 @@ Cópia local do design do aplicativo, para a implementação em Avalonia ter a f
 |---|---|
 | Canvas das telas "VNForge v2 · App Windows" | https://claude.ai/artifact/97EhvQiUBs3pcHUqUFBkEc |
 | Canvas das telas "VNForge v3 · App Windows" (versão 30, doze artboards; plano [2026-10-25-interface-v3.md](../plans/2026-10-25-interface-v3.md)). As capturas do app renderizado estão em `telas/v3/` (ver [Telas da v3](#telas-da-v3)) | https://claude.ai/artifact/X4z2JK2pfKH9zZSeBGkfUW |
-| Design system "VNForge v2" | https://claude.ai/artifact/TvsKGRUc1BFYezZdfydrh6 |
+| Design system "VNForge v3" (direção A · Estante, issue #543; plano [2026-11-08-v6.md](../plans/2026-11-08-v6.md)). É o vigente: `tokens.json`, `README-design-system.md`, `contraste.md` e `mudancas-v2-v3.md` desta pasta vêm dele | https://claude.ai/artifact/S69q6iTWKPea3Uvokt2nqw |
+| Galeria "hoje x v3": a galeria de controles de hoje ao lado da v3, a 800 px reais, nos dois temas, com a tabela de contraste e as mudanças de tokens | https://claude.ai/artifact/YZRky4Z1HFFJmuhQsegno6 |
+| Design system "VNForge v2" (anterior, substituído pelo v3; os tokens e os textos da v2 estão no histórico do repositório) | https://claude.ai/artifact/TvsKGRUc1BFYezZdfydrh6 |
 
 ## Conteúdo
 
 | Arquivo | O que é |
 |---|---|
-| `README-design-system.md` | README do design system: conteúdo e termos da v3, regras das telas, cores, tipografia, espaço, estados, ícones, marca, componentes da v3 |
+| `README-design-system.md` | README do design system v3: conteúdo, cores, tipografia, espaço e forma, capa e personagem, estados e movimento, ícones. Depois vem o que a interface v3 de outubro já tem no app: termos, regras das telas, marca e componentes |
+| `contraste.md` | Razão de contraste WCAG dos 172 pares texto/fundo nos dois temas e os valores ajustados |
+| `mudancas-v2-v3.md` | O que entra, o que muda de valor e o que fica igual nos tokens da v2 para a v3 |
 | `avalonia.md` | Como o design vira recursos e controles Avalonia |
 | `tokens.json` | Fonte dos tokens. `tools/Generate-Tokens.ps1` gera `src/VNForge.App/Themes/Tokens.axaml` a partir dele |
-| `components/*/README.md` | Um README por componente |
+| `components/*/README.md` | Um README por componente que o app tem hoje. Os 16 componentes do design system v3 estão no artefato e entram aqui com a migração das telas (e4) |
 | `telas/*.dc.html` | As telas desenhadas no canvas (Início, Painel, Editor escuro em `Main`, Editor claro, Conferir, Build, Ajustes) e, desenhadas na #248 na mesma linguagem e ainda fora do canvas do claude.ai, `Glossario` e `NovoProjeto`. Dependem do `support.js` e do CSS do design system, que não vêm junto; servem de leitura |
 | `telas/v3/*.png` | Capturas do app da interface v3, renderizadas sem janela (ver [Telas da v3](#telas-da-v3)) |
 

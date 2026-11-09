@@ -112,7 +112,7 @@ public sealed partial class LineDetailView : UserControl
     /// <summary>Na ordem do artboard, numa coluna só.</summary>
     private Control[] WideOrder =>
     [
-        HeaderFragment, OriginalFragment, ExplainFragment, SceneFragment, TranslationFragment, FitFragment,
+        HeaderFragment, OriginalFragment, ExplainFragment, MemoryFragment, SceneFragment, TranslationFragment, FitFragment,
         SameSourceFragment, SuggestFragment, ProblemsFragment, ContextFragment,
     ];
 
@@ -136,7 +136,7 @@ public sealed partial class LineDetailView : UserControl
         if (useTabs)
         {
             TabbedHeaderHost.Child = HeaderFragment;
-            TranslationTab.Children.AddRange([OriginalFragment, TranslationFragment, FitFragment, SameSourceFragment, ProblemsFragment]);
+            TranslationTab.Children.AddRange([OriginalFragment, MemoryFragment, TranslationFragment, FitFragment, SameSourceFragment, ProblemsFragment]);
             SuggestionTab.Children.Add(SuggestFragment);
             ContextTab.Children.AddRange([ExplainFragment, SceneFragment, ContextFragment]);
         }

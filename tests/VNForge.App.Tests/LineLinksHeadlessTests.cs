@@ -2,11 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.App.Tests.Rendering;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 
@@ -32,6 +32,34 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         window.MouseUp(point, MouseButton.Left);
     }
 
+    // A sessão headless é uma só para o processo todo: uma janela deixada aberta por um teste continua viva (e escutando a preferência de
+    // movimento e o foco) para os seguintes, então cada teste fecha a sua. O quadro é assentado com o tique do compositor, como nos outros
+    // testes de clique, para o hit test do ponteiro enxergar o layout final e não o quadro anterior.
+    private static Window ShowBuild(BuildViewModel vm)
+    {
+        var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm, TechnicalExpanded = true } };
+        window.Show();
+        ScreenRenderer.Settle(window);
+        return window;
+    }
+
+    private static TextBlock LogLine(Window window)
+    {
+        var line = window.GetVisualDescendants().OfType<TextBlock>().First(t => LineLinks.GetSource(t) == Message);
+        line.BringIntoView();
+        ScreenRenderer.Settle(window);
+        return line;
+    }
+
+    // Se o ponteiro não cair no texto da linha, o clique foi para outro controle e o erro diz qual.
+    private static void ClickOn(Window window, TextBlock line, string id)
+    {
+        var point = CenterOf(line, window, id);
+        var hit = window.InputHitTest(point);
+        Assert.True(hit is Visual visual && (ReferenceEquals(visual, line) || line.IsVisualAncestorOf(visual)), $"O ponto {point} caiu em {hit?.GetType().Name ?? "nada"}, e não no texto da linha.");
+        Click(window, point);
+    }
+
     [Fact]
     public async Task Clicar_no_id_do_log_do_build_pede_a_linha()
     {
@@ -43,18 +71,17 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         await fixture.Session.Dispatch(
             () =>
             {
-                var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm, TechnicalExpanded = true } };
-                window.Show();
-                window.UpdateLayout();
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
+                var window = ShowBuild(vm);
+                try
+                {
+                    ClickOn(window, LogLine(window), "yst00112:033792");
 
-                var line = window.GetVisualDescendants().OfType<TextBlock>().First(t => LineLinks.GetSource(t) == Message);
-                line.BringIntoView();
-                window.UpdateLayout();
-                Click(window, CenterOf(line, window, "yst00112:033792"));
-
-                Assert.Equal(new LineRequest("yst00112", "yst00112:033792"), requested);
+                    Assert.Equal(new LineRequest("yst00112", "yst00112:033792"), requested);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -70,18 +97,17 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         await fixture.Session.Dispatch(
             () =>
             {
-                var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm, TechnicalExpanded = true } };
-                window.Show();
-                window.UpdateLayout();
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
+                var window = ShowBuild(vm);
+                try
+                {
+                    ClickOn(window, LogLine(window), "Build falhou");
 
-                var line = window.GetVisualDescendants().OfType<TextBlock>().First(t => LineLinks.GetSource(t) == Message);
-                line.BringIntoView();
-                window.UpdateLayout();
-                Click(window, CenterOf(line, window, "Build falhou"));
-
-                Assert.Equal(0, requests);
+                    Assert.Equal(0, requests);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -100,17 +126,21 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 LineLinks.SetSource(block, text);
                 var window = new Window { Width = 600, Height = 200, Content = block };
                 window.Show();
-                window.UpdateLayout();
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
+                ScreenRenderer.Settle(window);
+                try
+                {
+                    var link = Assert.IsType<Avalonia.Controls.Documents.Run>(block.Inlines![0]);
+                    Assert.NotNull(link.Foreground);
+                    var first = block.TextLayout.HitTestTextPosition(0);
+                    var click = block.TranslatePoint(new Point(first.Left + 4, first.Top + (first.Height / 2)), window)!.Value;
+                    Click(window, click);
 
-                var link = Assert.IsType<Avalonia.Controls.Documents.Run>(block.Inlines![0]);
-                Assert.NotNull(link.Foreground);
-                var first = block.TextLayout.HitTestTextPosition(0);
-                var click = block.TranslatePoint(new Point(first.Left + 4, first.Top + (first.Height / 2)), window)!.Value;
-                Click(window, click);
-
-                Assert.Equal(new LineRequest("yst00112", "yst00112:033792"), requested);
+                    Assert.Equal(new LineRequest("yst00112", "yst00112:033792"), requested);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }

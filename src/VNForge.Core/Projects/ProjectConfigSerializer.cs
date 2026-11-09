@@ -96,6 +96,16 @@ public static class ProjectConfigSerializer
             writer.WriteString("model", config.Ai.Model);
             writer.WriteString("effort", config.Ai.Effort);
             writer.WriteNumber("batchSize", config.Ai.BatchSize);
+            if (config.Ai.ContextBefore != AiConfig.DefaultContextLines)
+            {
+                writer.WriteNumber("contextBefore", config.Ai.ContextBefore);
+            }
+
+            if (config.Ai.ContextAfter != AiConfig.DefaultContextLines)
+            {
+                writer.WriteNumber("contextAfter", config.Ai.ContextAfter);
+            }
+
             writer.WriteEndObject();
 
             if (config.Style != StyleConfig.Default)
@@ -149,7 +159,11 @@ public static class ProjectConfigSerializer
                 aiReader.OptionalString("provider") ?? ai.Provider,
                 aiReader.OptionalString("model") ?? ai.Model,
                 aiReader.OptionalString("effort") ?? ai.Effort,
-                aiReader.OptionalInt("batchSize") ?? ai.BatchSize);
+                aiReader.OptionalInt("batchSize") ?? ai.BatchSize)
+            {
+                ContextBefore = aiReader.OptionalInt("contextBefore") ?? ai.ContextBefore,
+                ContextAfter = aiReader.OptionalInt("contextAfter") ?? ai.ContextAfter,
+            };
             aiReader.EnsureNoUnknownProperties();
         }
 

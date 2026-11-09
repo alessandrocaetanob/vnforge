@@ -14,9 +14,9 @@ public sealed record ImageScanOptions
 
     /// <summary>
     /// A API direta recusa imagem acima de 10 MB em base64 (5 MB no Bedrock e no Google Cloud; platform.claude.com/docs/en/build-with-claude/vision, "Request limits").
-    /// A base64 incha o arquivo em 4/3, então o arquivo vai até 7,5 MB.
+    /// A base64 incha o arquivo em 4/3, então o arquivo vai até 7,5 MB; fica em 7,4 MB para não cair na fronteira exata.
     /// </summary>
-    public long MaxBytes { get; init; } = 7_500_000;
+    public long MaxBytes { get; init; } = 7_400_000;
 }
 
 /// <summary>Uma imagem que passou no filtro e pode ir ao modelo.</summary>

@@ -12,8 +12,8 @@
        as descendentes (j, p, g). A altura de linha cobre a altura natural da fonte; FontsHeadlessTests confere. -->
   <Style Selector="TextBlock.title-lg">
     <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
-    <Setter Property="FontSize" Value="26"/>
-    <Setter Property="LineHeight" Value="38"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.TitleLg}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.TitleLg}"/>
     <Setter Property="FontWeight" Value="Bold"/>
   </Style>
   <Style Selector="TextBlock.title-md">
@@ -21,6 +21,23 @@
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.TitleMd}"/>
     <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.TitleMd}"/>
     <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.title-xl">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.TitleXl}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.TitleXl}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.title-sm">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.TitleSm}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.TitleSm}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.column-header">
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.ColumnHeader}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.ColumnHeader}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
   <Style Selector="TextBlock.body">
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Body}"/>
@@ -39,9 +56,10 @@
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
     <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
   </Style>
+  <!-- O v3 pede caixa alta e 0,07 em de espaçamento; o texto das telas ainda está em caixa normal e isso entra com a migração (e4). -->
   <Style Selector="TextBlock.overline">
-    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
-    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Overline}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Overline}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>

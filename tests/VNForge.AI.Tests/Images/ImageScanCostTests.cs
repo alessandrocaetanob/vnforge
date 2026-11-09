@@ -9,7 +9,8 @@ public sealed class ImageScanCostTests
     private static ImageCandidate Candidate(int width, int height) =>
         new("ui.ypf", $"{width}x{height}.png", new ImageInfo(ImageFormat.Png, width, height), 1000, $"hash{width}x{height}");
 
-    // Valores da tabela "Resolution and token cost" da documentação de visão, nível de alta resolução.
+    // Valores da tabela "Resolution and token cost" da documentação de visão, nível de alta resolução,
+    // exceto 64x32 e 2560x1440, que foram calculados pela fórmula de blocos de 28 por 28.
     [Theory]
     [InlineData(200, 200, 64)]
     [InlineData(64, 32, 6)]

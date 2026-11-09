@@ -6,7 +6,7 @@ namespace VNForge.Cli.Tests;
 public sealed class RichOutputTests : IDisposable
 {
     private const string Escape = "\u001b[";
-    private const string ApprovedTrueColor = "38;2;95;191;127";
+    private const string ApprovedTrueColor = "38;2;92;203;138";
     private const string Saida = "saida";
 
     private readonly CliHarness _cli = new();
@@ -77,14 +77,14 @@ public sealed class RichOutputTests : IDisposable
     [Fact]
     public void Paleta_e_a_do_app()
     {
-        Assert.Equal("#5FBF7F", CliPalette.Hex(CliPalette.Approved));
-        Assert.Equal("#3E9AAE", CliPalette.Hex(CliPalette.Reviewed));
-        Assert.Equal("#6E8FCB", CliPalette.Hex(CliPalette.Translated));
-        Assert.Equal("#9A7FD6", CliPalette.Hex(CliPalette.Ai));
-        Assert.Equal("#3A4250", CliPalette.Hex(CliPalette.Pending));
-        Assert.Equal("#F2C46D", CliPalette.Hex(CliPalette.Warning));
+        Assert.Equal("#5CCB8A", CliPalette.Hex(CliPalette.Approved));
+        Assert.Equal("#49B9CF", CliPalette.Hex(CliPalette.Reviewed));
+        Assert.Equal("#7FA2EC", CliPalette.Hex(CliPalette.Translated));
+        Assert.Equal("#A58BF2", CliPalette.Hex(CliPalette.Ai));
+        Assert.Equal("#7C8492", CliPalette.Hex(CliPalette.Pending));
+        Assert.Equal("#E9B04F", CliPalette.Hex(CliPalette.Warning));
         Assert.Equal("#F59AB2", CliPalette.Hex(CliPalette.Error));
-        Assert.Equal("#8DB0EA", CliPalette.Hex(CliPalette.Accent));
+        Assert.Equal("#4FD1B5", CliPalette.Hex(CliPalette.Accent));
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class RichOutputTests : IDisposable
     {
         _cli.AddCommand(Saida, _ =>
         {
-            _cli.Cli.Ansi.MarkupLine("[#5FBF7F]feito[/]");
+            _cli.Cli.Ansi.MarkupLine("[#5CCB8A]feito[/]");
             return 0;
         });
 
@@ -134,7 +134,7 @@ public sealed class RichOutputTests : IDisposable
         rich.AddCommand(Saida, _ =>
         {
             duringRun = rich.Cli.RichOutput;
-            rich.Cli.Ansi.MarkupLine("[#5FBF7F]feito[/]");
+            rich.Cli.Ansi.MarkupLine("[#5CCB8A]feito[/]");
             return 0;
         });
 
@@ -155,7 +155,7 @@ public sealed class RichOutputTests : IDisposable
         rich.AddCommand(Saida, _ =>
         {
             duringRun = rich.Cli.RichOutput;
-            rich.Cli.Ansi.MarkupLine("[#5FBF7F]feito[/]");
+            rich.Cli.Ansi.MarkupLine("[#5CCB8A]feito[/]");
             return 0;
         });
 

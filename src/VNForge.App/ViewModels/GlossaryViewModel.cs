@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Glossary;
+using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -16,6 +17,7 @@ public enum GlossaryTab
     Characters,
     Terms,
     Address,
+    Personal,
 }
 
 /// <summary>
@@ -44,6 +46,11 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     public GlossaryViewModel()
     {
+        Personal = new PersonalGlossaryViewModel(
+            () => PersonalStore,
+            () => Terms.Where(t => !t.IsBlank).Select(t => t.ToTerm()).ToList(),
+            term => Terms.Add(Watch(new GlossaryTermRow(term.Source, term.Target, term.Notes), MarkTermsDirty)),
+            () => Project?.Root);
         Terms.CollectionChanged += (_, _) =>
         {
             RefreshVisible();
@@ -66,6 +73,24 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     /// <summary>Roda a gravação agendada na thread da interface; o padrão é o contexto de quem criou a página.</summary>
     public Action<Action> PostToUi { get; set; } = CaptureContext();
+
+    /// <summary>O glossário pessoal do usuário (#537), que a aba "Meu glossário" mostra; nulo desliga a aba (testes e galeria).</summary>
+    public PersonalGlossary? PersonalStore
+    {
+        get;
+        set
+        {
+            field = value;
+            Personal.Refresh();
+        }
+    }
+
+    public PersonalGlossaryViewModel Personal { get; }
+
+    public bool IsPersonalTab => SelectedTab == GlossaryTab.Personal;
+
+    /// <summary>A busca vale para as tabelas Personagens e Termos; Tratamentos e Meu glossário não a usam.</summary>
+    public bool ShowSearch => SelectedTab is GlossaryTab.Characters or GlossaryTab.Terms;
 
     public ObservableCollection<GlossaryTermRow> Terms { get; } = [];
 
@@ -110,7 +135,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
     public partial string Search { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedTabIndex), nameof(IsTermsTab), nameof(IsCharactersTab), nameof(IsAddressTab), nameof(AddLabel), nameof(SearchHint))]
+    [NotifyPropertyChangedFor(nameof(SelectedTabIndex), nameof(IsTermsTab), nameof(IsCharactersTab), nameof(IsAddressTab), nameof(IsPersonalTab), nameof(ShowSearch), nameof(AddLabel), nameof(SearchHint))]
     public partial GlossaryTab SelectedTab { get; set; }
 
     /// <summary>Índice da aba para o <c>TabControl</c>.</summary>
@@ -128,7 +153,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     public string AddLabel => SelectedTab switch
     {
-        GlossaryTab.Terms => "Adicionar termo",
+        GlossaryTab.Terms or GlossaryTab.Personal => "Adicionar termo",
         GlossaryTab.Address => "Adicionar tratamento",
         _ => "Adicionar personagem",
     };
@@ -184,6 +209,14 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
     partial void OnSearchChanged(string value) => RefreshVisible();
 
+    partial void OnSelectedTabChanged(GlossaryTab value)
+    {
+        if (value == GlossaryTab.Personal)
+        {
+            Personal.Refresh();
+        }
+    }
+
     /// <summary>Descarta o que não foi salvo e lê os dois arquivos de novo.</summary>
     public void Reload()
     {
@@ -197,6 +230,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
             AddressTerms.Clear();
             ErrorMessage = null;
             NoticeMessage = null;
+            Personal.Refresh();
             staleAddressNames.Clear();
             loadFailed = false;
             usage = GlossaryUsage.Empty;
@@ -354,6 +388,9 @@ public sealed partial class GlossaryViewModel : ObservableObject
                 break;
             case GlossaryTab.Address:
                 AddressTerms.Add();
+                break;
+            case GlossaryTab.Personal:
+                Personal.BeginAdd();
                 break;
             default:
                 AddCharacter();

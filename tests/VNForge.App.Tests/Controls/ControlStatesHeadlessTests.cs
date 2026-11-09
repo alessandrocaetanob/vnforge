@@ -227,7 +227,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.True(Part<PathIcon>(error, "PART_Error").IsVisible);
             Assert.Equal(Token(error, "Vnf.SignalErrorFg"), ColorOf(Part<PathIcon>(error, "PART_Error").Foreground));
             Assert.Equal("1 erro do QA", AutomationProperties.GetName(Part<PathIcon>(error, "PART_Error")));
-            Assert.All(new[] { plain, warning }, r => Assert.Equal(36, r.Bounds.Height));
+            Assert.All(new[] { plain, warning }, r => Assert.Equal(48, r.Bounds.Height));
         });
     }
 
@@ -244,7 +244,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.False(Part<Border>(plain, "PART_Doubt").IsVisible);
             Assert.True(Part<Border>(doubt, "PART_Doubt").IsVisible);
             Assert.Contains(":doubt", doubt.Classes);
-            Assert.Equal(36, doubt.Bounds.Height);
+            Assert.Equal(48, doubt.Bounds.Height);
             Assert.True(Part<TextBlock>(doubt, "PART_Translation").Bounds.Width > 0);
             Assert.Equal("Linha 0002, dúvida da IA", AutomationProperties.GetName(doubt));
             Assert.Equal("Tom: Ironia?", AutomationProperties.GetHelpText(doubt));
@@ -264,7 +264,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             list.SelectedIndex = 1;
             ui.Show(list);
             var items = list.GetVisualDescendants().OfType<ListBoxItem>().ToList();
-            Assert.All(items, i => Assert.Equal(36, i.Bounds.Height));
+            Assert.All(items, i => Assert.Equal(48, i.Bounds.Height));
             Assert.False(Part<Border>(items[0], "SelectionBar").IsVisible);
             Assert.True(Part<Border>(items[1], "SelectionBar").IsVisible);
         });
@@ -576,7 +576,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.True(Part<TextBlock>(withActions, "PART_Breadcrumb").IsVisible);
             Assert.False(Part<TextBlock>(bare, "PART_Breadcrumb").IsVisible);
             Assert.Equal("Minha VN", Part<TextBlock>(withActions, "PART_Title").Text);
-            Assert.Equal(26, Part<TextBlock>(withActions, "PART_Title").FontSize);
+            Assert.Equal(24, Part<TextBlock>(withActions, "PART_Title").FontSize);
 
             var button = withActions.GetVisualDescendants().OfType<Button>().Single();
             var title = Part<TextBlock>(withActions, "PART_Title");

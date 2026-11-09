@@ -50,11 +50,14 @@ internal static class TranslateCommand
         var selection = LineSelection.Build(project.LoadAllText(), ScriptFilter(filter), limit, u => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source));
         var pending = selection.Pending;
 
+        var config = project.LoadConfig();
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
             new CharacterBook(project.LoadCharacters()),
             TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)),
-            style: project.LoadConfig().Style,
+            style: config.Style,
+            maxPreviousLines: config.Ai.ContextBefore,
+            maxNextLines: config.Ai.ContextAfter,
             addressTerms: project.LoadAddressTerms());
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);

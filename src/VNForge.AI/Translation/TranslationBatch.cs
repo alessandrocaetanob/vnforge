@@ -14,6 +14,13 @@ public sealed record CharacterInfo(string Source, string Target, string? Tone = 
 /// <param name="Target">O tratamento que a tradução usa (<c>Misaki-chan</c>).</param>
 public sealed record AddressInfo(string From, string To, string Source, string Target);
 
+/// <summary>Quantas falas antes e depois do lote o projeto pede como contexto; o que o lote de fato leva pode ser menos (início e fim do script, falas sem tradução).</summary>
+public readonly record struct ContextWindow(int Before, int After)
+{
+    /// <summary>A janela de quem nunca a configurou: duas falas de cada lado.</summary>
+    public static ContextWindow Default { get; } = new(AiConfig.DefaultContextLines, AiConfig.DefaultContextLines);
+}
+
 /// <summary>Um lote de linhas a traduzir, com o contexto que o provedor usa para manter o estilo e os termos.</summary>
 public sealed record TranslationBatch
 {
@@ -30,6 +37,9 @@ public sealed record TranslationBatch
 
     /// <summary>Falas seguintes às do lote, só como contexto (o original, ainda sem tradução); não entram na resposta.</summary>
     public IReadOnlyList<TextUnit> NextLines { get; init; } = [];
+
+    /// <summary>A janela de contexto configurada no projeto; entra na chave do cache de tradução quando difere do padrão.</summary>
+    public ContextWindow Window { get; init; } = ContextWindow.Default;
 
     /// <summary>Termos do glossário filtrados para este lote.</summary>
     public IReadOnlyList<GlossaryEntry> Glossary { get; init; } = [];
@@ -51,6 +61,7 @@ public sealed record TranslationBatch
     {
         PreviousLines = PreviousLines,
         NextLines = NextLines,
+        Window = Window,
         Glossary = Glossary,
         Characters = Characters,
         Addressing = Addressing,

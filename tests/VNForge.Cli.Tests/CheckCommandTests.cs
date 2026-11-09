@@ -408,7 +408,7 @@ public sealed class CheckCommandTests : IDisposable
         var result = await rich.RunAsync(["check", "--project", project.Root], TestContext.Current.CancellationToken);
 
         Assert.Contains("38;2;245;154;178m", result.Output); // erro
-        Assert.Contains("38;2;242;196;109m", result.Output); // aviso
+        Assert.Contains("38;2;233;176;79m", result.Output); // aviso
     }
 
     private const int EllipsisLines = 1234;
