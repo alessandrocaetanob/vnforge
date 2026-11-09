@@ -21,6 +21,7 @@ public enum NavKey
     Settings,
     Glossary,
     Build,
+    Release,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -65,6 +66,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferir", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
+    private readonly NavItemViewModel releaseItem = new(NavKey.Release, "Lançar", "Icon.Open", isEnabled: false);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
     private readonly Action<string> openFolder;
     private readonly FormattingProfileCache profiles = new();
@@ -98,6 +100,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.History = History;
         Tasks = new TaskBarViewModel(TaskService, history: History);
         Build = new BuildViewModel(TaskService);
+        Release = new ReleaseViewModel(TaskService, openFolder: this.openFolder);
         Build.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(BuildViewModel.GameStatusText))
@@ -108,8 +111,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
-        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, settingsItem];
-        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem];
+        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, settingsItem];
+        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem];
         BottomNav = [settingsItem];
         selectedNav = startItem;
         CurrentPage = start;
@@ -140,6 +143,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.CharacterRegistrationRequested += (_, name) => OpenCharacterInGlossary(name);
         Build.LineRequested += (_, request) => OpenLineInEditor(request);
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
+        Release.TestRequested += (_, _) => SelectedNav = buildItem;
+        Release.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
+        Release.GameFolderRequested += (_, _) => SelectedNav = settingsItem;
+        Release.NoticeRaised += (_, text) => Toasts.Show(text, ToastKind.Success, key: "release");
         Build.SinceTest.OpenRequested += (_, key) =>
         {
             SelectedNav = editorItem;
@@ -219,6 +226,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public GlossaryViewModel Glossary { get; } = new();
 
     public BuildViewModel Build { get; }
+
+    /// <summary>A tela Lançar: gera o patch, o instalador e os textos para quem vai jogar (<c>vnf release</c>).</summary>
+    public ReleaseViewModel Release { get; }
 
     public ConferenceViewModel Conference { get; } = new();
 
@@ -369,6 +379,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
                     NavKey.Build => Build,
+                    NavKey.Release => Release,
                     _ => Start,
                 };
                 if (value.Key == NavKey.Dashboard)
@@ -384,6 +395,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 {
                     Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Name);
                     _ = Build.ReloadAsync();
+                }
+                else if (value.Key == NavKey.Release)
+                {
+                    _ = Release.ReloadAsync();
                 }
 
                 OnPropertyChanged(nameof(BoxLimitsText));
@@ -403,8 +418,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        // As páginas que leem os textos do disco (Conferência, Painel, Início e Testar) precisam da edição pendente já gravada.
-        return target is not (NavKey.Conference or NavKey.Dashboard or NavKey.Start or NavKey.Build) || Editor.Detail?.Flush() != false;
+        // As páginas que leem os textos do disco (Conferência, Painel, Início, Testar e Lançar) precisam da edição pendente já gravada.
+        return target is not (NavKey.Conference or NavKey.Dashboard or NavKey.Start or NavKey.Build or NavKey.Release) || Editor.Detail?.Flush() != false;
     }
 
     private void AttachEditor(EditorViewModel value)
@@ -706,6 +721,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a tela Testar com o aviso.</summary>
     public bool TryClose()
     {
+        Release.CancelIfRunning();
         if (!Build.TryCloseSafely())
         {
             SelectedNav = buildItem;
@@ -766,6 +782,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         Build.Project = summary;
+        Release.Project = summary;
         Conference.Project = summary;
         History.LoadPersisted(summary.Root);
         editorStale = false;
@@ -774,6 +791,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         conferenceItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
         buildItem.IsEnabled = true;
+        releaseItem.IsEnabled = true;
         glossaryItem.IsVisible = true;
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));

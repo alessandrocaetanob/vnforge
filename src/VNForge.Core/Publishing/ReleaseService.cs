@@ -161,10 +161,8 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         IProgress<ReleaseStep>? steps,
         CancellationToken cancellationToken)
     {
-        var gameName = config.Game.Title?.Translation is { Length: > 0 } translated ? translated
-            : config.Game.Title?.Original is { Length: > 0 } original ? original
-            : config.Name;
-        var baseName = options.InstallerName ?? $"{SafeName(gameName)}-{config.Languages.Target.ToUpperInvariant()}-{version}";
+        var gameName = GameNameOf(config);
+        var baseName = options.InstallerName ?? DefaultInstallerName(config, version);
         var credits = string.IsNullOrWhiteSpace(options.Credits) ? null : options.Credits.Trim();
         var date = _clock.GetLocalNow();
         var documents = new ReleaseDocuments(gameName, version, previous?.Version, date, credits, changes);
@@ -250,6 +248,18 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, record.Version + ".json"), JsonSerializer.Serialize(record, RecordJson) + "\n", new UTF8Encoding(false));
     }
+
+    /// <summary>O nome do instalador sem a extensão quando <see cref="ReleaseOptions.InstallerName"/> não diz: <c>&lt;jogo&gt;-&lt;idioma&gt;-&lt;versão&gt;</c>.</summary>
+    public static string DefaultInstallerName(ProjectConfig config, string version)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        return $"{SafeName(GameNameOf(config))}-{config.Languages.Target.ToUpperInvariant()}-{version}";
+    }
+
+    private static string GameNameOf(ProjectConfig config) =>
+        config.Game.Title?.Translation is { Length: > 0 } translated ? translated
+        : config.Game.Title?.Original is { Length: > 0 } original ? original
+        : config.Name;
 
     private static void WriteText(string path, string text) =>
         File.WriteAllText(path, text.ReplaceLineEndings("\r\n"), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
