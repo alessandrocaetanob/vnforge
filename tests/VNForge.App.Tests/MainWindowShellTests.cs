@@ -70,7 +70,7 @@ public sealed class MainWindowShellTests
         var vm = Create(temp, temp.SubFolder("vn"));
 
         Assert.Equal(["Ficha", "Tradução", "Jogar"], vm.GameTabs.Select(t => t.Label));
-        Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Lançar", "Glossário", "Bíblia", "Imagens"], vm.Sections.Select(s => s.Label));
+        Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Mais"], vm.Sections.Select(s => s.Label));
     }
 
     [Fact]
@@ -163,9 +163,6 @@ public sealed class MainWindowShellTests
             (NavKey.Conference, () => vm.Conference),
             (NavKey.Build, () => vm.Build),
             (NavKey.Glossary, () => vm.Glossary),
-            (NavKey.Release, () => vm.Release),
-            (NavKey.Bible, () => vm.Bible),
-            (NavKey.Images, () => vm.Images),
         })
         {
             vm.SelectedSection = vm.Sections.Single(s => s.Key == key);
@@ -175,6 +172,36 @@ public sealed class MainWindowShellTests
             Assert.True(vm.InGame);
             Assert.Equal(GameTab.Translation, vm.SelectedGameTab?.Tab);
         }
+    }
+
+    [Fact]
+    public async Task O_Mais_abre_Lancar_Biblia_e_Imagens_e_fica_marcado_enquanto_uma_delas_e_a_pagina()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedAsync(temp);
+        Assert.Equal(["Lançar", "Bíblia", "Imagens"], vm.MoreSections.Select(s => s.Label));
+        Assert.Same(vm.Sections[^1], vm.MoreSection);
+        Assert.Equal("Mais", vm.MoreSection.Label);
+        Assert.True(vm.MoreSection.HasMenu);
+
+        foreach (var (key, page) in new (NavKey, Func<object>)[] { (NavKey.Release, () => vm.Release), (NavKey.Bible, () => vm.Bible), (NavKey.Images, () => vm.Images) })
+        {
+            vm.SelectedSection = vm.Sections.Single(s => s.Key == NavKey.Dashboard);
+            Assert.NotSame(vm.MoreSection, vm.SelectedSection);
+
+            vm.OpenSectionCommand.Execute(vm.MoreSections.Single(s => s.Key == key));
+            await vm.ConferenceLoading;
+
+            Assert.Same(page(), vm.CurrentPage);
+            Assert.True(vm.InGame);
+            Assert.Equal(GameTab.Translation, vm.SelectedGameTab?.Tab);
+            Assert.Same(vm.MoreSection, vm.SelectedSection);
+        }
+
+        // Escolher o "Mais" na linha não é página: a marca continua na seção que está aberta.
+        vm.SelectedSection = vm.MoreSection;
+        Assert.Same(vm.Images, vm.CurrentPage);
+        Assert.Same(vm.MoreSection, vm.SelectedSection);
     }
 
     [Fact]

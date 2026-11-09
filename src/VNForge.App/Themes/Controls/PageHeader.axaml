@@ -33,4 +33,14 @@
       </ControlTemplate>
     </Setter>
   </Style>
+
+  <!-- Só as ações, à direita: dentro do jogo o cabeçalho do jogo já diz o nome e a aba, então nenhuma página repete migalha nem título (#544). -->
+  <Style Selector="c|PageHeader.actions">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_Actions" HorizontalAlignment="Right" VerticalAlignment="Center"
+                          Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
 </Styles>

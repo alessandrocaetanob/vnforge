@@ -39,16 +39,9 @@
 
   <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*" Focusable="True">
 
-    <!-- Cabeçalho: última conferência e título à esquerda; à direita, na base do título, um só botão de destaque: "Corrigir N com um clique" quando há correção, senão "Conferir de novo". -->
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="24,8,24,8">
-      <StackPanel VerticalAlignment="Bottom" MinWidth="0">
-        <TextBlock Classes="caption secondary" Text="{Binding CheckedSummary}" TextTrimming="CharacterEllipsis"/>
-        <!-- Grade e não pilha horizontal: o subtítulo corta com reticências em vez de passar por cima dos botões quando a janela é estreita. -->
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-          <TextBlock Classes="title-lg" Text="Conferir a tradução"/>
-          <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="O que impede de testar no jogo." TextTrimming="CharacterEllipsis" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
-        </Grid>
-      </StackPanel>
+    <!-- Cabeçalho sem título (o cabeçalho do jogo já diz a aba): a última conferência à esquerda e, à direita, um só botão de destaque: "Corrigir N com um clique" quando há correção, senão "Conferir de novo". -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="32,8,32,8">
+      <TextBlock Classes="caption secondary" Text="{Binding CheckedSummary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" MinWidth="0"/>
       <Button Grid.Column="1" Classes="sm" Classes.accent="{Binding HasFixable}" IsVisible="{Binding HasFixable}" VerticalAlignment="Bottom" Command="{Binding FixAllCommand}"
               AutomationProperties.Name="Corrigir de uma vez os problemas que têm correção de um clique">
         <TextBlock Text="{Binding FixAllLabel}"/>
@@ -59,7 +52,7 @@
     </Grid>
 
     <!-- Faixa do topo: os erros travam o teste no jogo, os avisos não travam nada; depois a falha da última ação e o resultado dela. -->
-    <StackPanel Grid.Row="1" Spacing="8" Margin="24,0,24,8">
+    <StackPanel Grid.Row="1" Spacing="8" Margin="32,0,32,8">
       <!-- Neutra: fundo de cartão, ícone de erro e só o número em vermelho; a barra à esquerda guarda o sinal sem gritar. -->
       <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasBlockingErrors}" AutomationProperties.Name="{Binding BlockingMessage}">
         <Grid ColumnDefinitions="3,*">
@@ -99,7 +92,7 @@
     </StackPanel>
 
     <!-- Filtros em linguagem comum; os números são do projeto inteiro. -->
-    <ItemsControl Grid.Row="2" ItemsSource="{Binding Filters}" Margin="24,0,24,8" AutomationProperties.Name="Filtros">
+    <ItemsControl Grid.Row="2" ItemsSource="{Binding Filters}" Margin="32,0,32,8" AutomationProperties.Name="Filtros">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
           <WrapPanel ItemSpacing="6" LineSpacing="6"/>
@@ -114,7 +107,7 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-    <Grid Grid.Row="3" ColumnDefinitions="*,420" ColumnSpacing="12" Margin="24,0,24,12">
+    <Grid Grid.Row="3" ColumnDefinitions="*,420" ColumnSpacing="12" Margin="32,0,32,12">
 
       <!-- Problemas: o que é, a cena e a linha; "não traduzida" resumida por cena. -->
       <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">

@@ -33,6 +33,9 @@ public enum NavKey
 
     /// <summary>"Revisão" da segunda linha da Tradução: não é página, é o modo revisão dentro da página do Editor.</summary>
     Review,
+
+    /// <summary>"Mais" da segunda linha da Tradução: não é página, abre o menu com Lançar, Bíblia e Imagens.</summary>
+    More,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -63,6 +66,9 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 
     public bool HasBadge => Badge is > 0;
 
+    /// <summary>O item abre um menu em vez de uma página ("Mais", na segunda linha da Tradução).</summary>
+    public bool HasMenu => Key == NavKey.More;
+
     /// <summary>O ponto neutro: há aviso aberto e nenhum erro.</summary>
     public bool ShowNotice => HasNotice && !HasBadge;
 
@@ -84,6 +90,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel sheetItem = new(NavKey.Sheet, "Ficha", "Icon.Book", isEnabled: false);
     private readonly NavItemViewModel playItem = new(NavKey.Play, "Jogar", "Icon.Play", isEnabled: false);
     private readonly NavItemViewModel reviewItem = new(NavKey.Review, "Revisão", "Icon.Check", isEnabled: false);
+    private readonly NavItemViewModel moreItem = new(NavKey.More, "Mais", "Icon.ChevronDown", isEnabled: false);
     private NavItemViewModel lastTranslationItem;
     private NavItemViewModel? lastGameItem;
     private CancellationTokenSource? progressRefresh;
@@ -135,7 +142,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Nav = [startItem, sheetItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem, playItem, settingsItem];
         TopNav = [startItem];
         BottomNav = [settingsItem];
-        Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem];
+        Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, moreItem];
+        MoreSections = [releaseItem, bibleItem, imagesItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
         Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
@@ -878,6 +886,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         sheetItem.IsEnabled = true;
         playItem.IsEnabled = true;
         reviewItem.IsEnabled = true;
+        moreItem.IsEnabled = true;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;
         conferenceItem.IsEnabled = true;

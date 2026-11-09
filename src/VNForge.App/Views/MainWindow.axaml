@@ -96,13 +96,6 @@
             <TextBlock Classes="body-strong" Text="VNForge" Margin="10,0,0,0" VerticalAlignment="Center"/>
             <TextBlock Classes="body-sm secondary" Text="{Binding Breadcrumb}" Margin="16,0,0,0" MaxWidth="320"
                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            <Button Classes="subtle sm" Margin="8,0,0,0" VerticalAlignment="Center" Command="{Binding ReturnToGameCommand}" IsVisible="{Binding CanReturnToGame}"
-                    WindowDecorationProperties.ElementRole="User" AutomationProperties.Name="Voltar ao jogo">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.ArrowLeft}"/>
-                <TextBlock Text="Voltar ao jogo"/>
-              </StackPanel>
-            </Button>
           </StackPanel>
 
           <Button Grid.Column="1" Classes="palette-trigger" Width="420" Command="{Binding OpenPaletteCommand}"

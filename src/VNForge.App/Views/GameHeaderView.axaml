@@ -14,6 +14,7 @@
           <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"
                      Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
         </Border>
+        <PathIcon IsVisible="{Binding HasMenu}" Width="10" Height="10" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}"/>
         <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"
                  ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
       </StackPanel>
@@ -30,12 +31,17 @@
       <Setter Property="Margin" Value="32,16,32,0"/>
     </Style>
     <!-- Cabeçalho compacto: a segunda linha da Tradução sobe para a linha das abas, à direita. -->
-    <Style Selector="v|GameHeaderView.compact ListBox#Sections">
+    <Style Selector="v|GameHeaderView.compact:not(.sections-below) ListBox#Sections">
       <Setter Property="Grid.Row" Value="0"/>
       <Setter Property="HorizontalAlignment" Value="Right"/>
       <Setter Property="VerticalAlignment" Value="Bottom"/>
       <Setter Property="Margin" Value="0,0,32,4"/>
     </Style>
+    <!-- Compacto sem largura para as abas e as seções lado a lado: a segunda linha desce para a própria linha, sob as abas. -->
+    <Style Selector="v|GameHeaderView.compact.sections-below ListBox#Sections">
+      <Setter Property="Margin" Value="32,8,32,0"/>
+    </Style>
+
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,Auto">
@@ -76,17 +82,28 @@
                 </Border>
               </StackPanel>
             </StackPanel>
-            <Button Grid.Column="2" Classes="accent" VerticalAlignment="Center" Command="{Binding Dashboard.OpenNextStepCommand}"
-                    IsVisible="{Binding Dashboard.HasNextStep}">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
-                <TextBlock Text="{Binding Dashboard.NextStepLabel}"/>
-              </StackPanel>
-            </Button>
+            <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar", desabilitado até a #549. -->
+            <Panel Grid.Column="2" VerticalAlignment="Center">
+              <Panel IsVisible="{Binding !ShowPlayButton}">
+                <Button Classes="accent" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
+                    <TextBlock Text="{Binding Dashboard.NextStepLabel}"/>
+                  </StackPanel>
+                </Button>
+              </Panel>
+              <Button Name="PlayButton" Classes="accent" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
+                      ToolTip.Tip="Abrir o jogo por aqui chega com a página Jogar." ToolTip.ShowOnDisabled="True">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+                  <TextBlock Text="Jogar"/>
+                </StackPanel>
+              </Button>
+            </Panel>
           </Grid>
         </Grid>
 
-        <Grid Name="Compact" Margin="0,0,0,4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" IsVisible="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
+        <Grid Name="Compact" Margin="0,0,0,4" ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
           <Button Classes="subtle sm icon" Command="{Binding OpenLibraryCommand}" VerticalAlignment="Center"
                   AutomationProperties.Name="Voltar para a Biblioteca" ToolTip.Tip="Voltar para a Biblioteca">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
@@ -100,14 +117,10 @@
               <TextBlock Text="{Binding GameProgressLabel}"/>
             </Border>
           </StackPanel>
-          <Button Grid.Column="2" Classes="accent sm" VerticalAlignment="Center" Command="{Binding Dashboard.OpenNextStepCommand}"
-                  IsVisible="{Binding Dashboard.HasNextStep}">
-            <TextBlock Text="{Binding Dashboard.NextStepLabel}"/>
-          </Button>
         </Grid>
 
         <Grid ColumnDefinitions="Auto,*">
-          <ListBox Classes="gametabs" ItemsSource="{Binding GameTabs}" SelectedItem="{Binding SelectedGameTab}" AutomationProperties.Name="Abas do jogo">
+          <ListBox Name="GameTabs" Classes="gametabs" ItemsSource="{Binding GameTabs}" SelectedItem="{Binding SelectedGameTab}" AutomationProperties.Name="Abas do jogo">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:GameTabItem">
                 <TextBlock Text="{Binding Label}"/>

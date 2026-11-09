@@ -77,9 +77,9 @@
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1180" Margin="24,16,24,32" Spacing="16" HorizontalAlignment="Stretch">
+    <StackPanel Margin="32,16,32,32" Spacing="16" HorizontalAlignment="Stretch">
 
-      <c:PageHeader Title="Glossário">
+      <c:PageHeader Classes="actions">
         <StackPanel Orientation="Horizontal" Spacing="12">
           <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SaveStatus}" AutomationProperties.Name="Estado do salvamento"/>
           <Button Command="{Binding AddCommand}">

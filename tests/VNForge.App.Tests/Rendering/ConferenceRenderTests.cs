@@ -145,13 +145,13 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
             TestContext.Current.CancellationToken);
     }
 
-    /// <summary>O título e o subtítulo do cabeçalho dividem a linha com "Corrigir N com um clique" e "Conferir de novo": na largura mínima do app o subtítulo corta em vez de passar por cima dos botões.</summary>
+    /// <summary>O resumo da última conferência divide a linha com "Corrigir N com um clique" e "Conferir de novo": na largura mínima do app o resumo corta em vez de passar por cima dos botões.</summary>
     [Theory]
     [InlineData("Dark", 960, 700)]
     [InlineData("Light", 960, 700)]
     [InlineData("Dark", 1366, 768)]
     [InlineData("Light", 1366, 768)]
-    public async Task O_cabecalho_do_Conferir_nao_passa_por_cima_dos_botoes_nem_na_largura_minima(string themeName, int width, int height)
+    public async Task O_cabecalho_do_Conferir_nao_repete_o_titulo_e_nao_passa_por_cima_dos_botoes_na_largura_minima(string themeName, int width, int height)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         using var temp = new TempFolder();
@@ -176,13 +176,12 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
 
                     var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
                     Rect Box(Control control) => new(control.TranslatePoint(default, window)!.Value, control.Bounds.Size);
-                    var title = Box(view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.IsEffectivelyVisible && t.Text == "Conferir a tradução"));
-                    var subtitle = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.IsEffectivelyVisible && t.Text == "O que impede de testar no jogo.");
+                    var summary = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.IsEffectivelyVisible && t.Text == vm.Conference.CheckedSummary);
+                    Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Conferir a tradução");
                     var fixAll = Box(view.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Conference.FixAllCommand && b.IsEffectivelyVisible));
                     var refresh = Box(view.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Conference.RefreshCommand && b.IsEffectivelyVisible));
 
-                    Assert.True(title.Right <= fixAll.Left, $"o título passa por cima do botão de correção: {title} e {fixAll}");
-                    Assert.True(Box(subtitle).Right <= fixAll.Left, $"o subtítulo passa por cima do botão de correção: {Box(subtitle)} e {fixAll}");
+                    Assert.True(Box(summary).Right <= fixAll.Left, $"o resumo da conferência passa por cima do botão de correção: {Box(summary)} e {fixAll}");
                     Assert.True(fixAll.Right <= refresh.Left, $"os botões se sobrepõem: {fixAll} e {refresh}");
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"conferir-cabecalho-{width}", theme)));
                 }

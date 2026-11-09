@@ -54,9 +54,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
 
             var sections = Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Classes.Contains("sections"));
             Assert.True(sections.IsEffectivelyVisible);
-            Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Lançar", "Glossário", "Bíblia", "Imagens"], sections.GetVisualDescendants().OfType<ListBoxItem>().Select(i => ((NavItemViewModel)i.DataContext!).Label));
-            var shown = sections.GetVisualDescendants().OfType<ListBoxItem>().Where(i => i.IsEffectivelyVisible).Select(i => ((NavItemViewModel)i.DataContext!).Label).ToList();
-            Assert.Equal(vm.CurrentProject!.IsSample ? ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Lançar", "Glossário", "Bíblia"] : ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Lançar", "Glossário", "Bíblia", "Imagens"], shown);
+            Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Mais"], sections.GetVisualDescendants().OfType<ListBoxItem>().Where(i => i.IsEffectivelyVisible).Select(i => ((NavItemViewModel)i.DataContext!).Label));
             Assert.Equal("Painel", ((NavItemViewModel)sections.SelectedItem!).Label);
 
             var texts = header.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
@@ -101,6 +99,12 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.Equal(GameTab.Sheet, Assert.IsType<GameTabItem>(tabs.SelectedItem).Tab);
             Assert.False(Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Classes.Contains("sections")).IsEffectivelyVisible);
 
+            // O botão principal do quadro na Ficha é "Jogar", desabilitado até a #549, e o próximo passo do Painel não aparece.
+            var play = Assert.Single(header.GetVisualDescendants().OfType<Button>(), b => b.Name == "PlayButton" && b.IsEffectivelyVisible);
+            Assert.False(play.IsEnabled);
+            Assert.Contains(play.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Jogar");
+            Assert.DoesNotContain(header.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Dashboard.OpenNextStepCommand && b.IsEffectivelyVisible);
+
             var page = Assert.Single(window.GetVisualDescendants().OfType<GameTabPlaceholderView>(), v => v.IsEffectivelyVisible);
             var empty = Assert.Single(page.GetVisualDescendants().OfType<EmptyState>());
             Assert.Equal(vm.Sheet.Message, empty.Message);
@@ -122,10 +126,11 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
     public async Task Em_1366_por_768_o_cabecalho_cabe_numa_linha_e_o_Editor_ganha_a_altura(string themeName)
     {
         var theme = ThemeOf(themeName);
-        await Abrir(theme, 1366, 768, NavKey.Editor, (window, _) =>
+        await Abrir(theme, 1366, 768, NavKey.Editor, (window, vm) =>
         {
             var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
             Assert.True(header.IsCompact);
+            Assert.DoesNotContain(header.GetVisualDescendants().OfType<Button>(), b => (b.Command == vm.Dashboard.OpenNextStepCommand || b.Name == "PlayButton") && b.IsEffectivelyVisible);
             Assert.Single(header.GetVisualDescendants().OfType<Grid>(), g => g.Name == "Compact" && g.IsEffectivelyVisible);
             Assert.Single(header.GetVisualDescendants().OfType<Grid>(), g => g.Name == "Regular" && !g.IsEffectivelyVisible);
             Assert.True(header.Bounds.Height < 170, $"o cabeçalho compacto ocupa {header.Bounds.Height:0} px");
@@ -219,7 +224,92 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             {
                 Go(vm, window, key);
                 Assert.Equal(compact, header.IsCompact);
+                Assert.False(header.MoreMenu?.IsOpen ?? false, $"o menu do Mais abriu sozinho em {name}");
                 ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-pagina-" + name, theme)));
+            }
+        });
+    }
+
+    /// <summary>
+    /// No compacto a segunda linha sobe para a linha das abas só se couber ao lado da última aba; o limite vem da largura medida, sem número fixo. Senão desce
+    /// para a própria linha e o cabeçalho cresce para cerca de 120 px. Em nenhuma largura de 960 a 1440 ela cobre uma aba, o título ou a pílula.
+    /// </summary>
+    [Theory]
+    [InlineData("Dark", 960)]
+    [InlineData("Light", 960)]
+    [InlineData("Dark", 1125)]
+    [InlineData("Light", 1125)]
+    [InlineData("Dark", 1366)]
+    [InlineData("Light", 1366)]
+    [InlineData("Dark", 1440)]
+    public async Task A_segunda_linha_do_compacto_nunca_cobre_as_abas_e_desce_quando_nao_cabe(string themeName, int width)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, width, 800, NavKey.Editor, (window, _) =>
+        {
+            var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
+            Assert.True(header.IsCompact);
+            var tabs = Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Name == "GameTabs");
+            var sections = Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Name == "Sections");
+            var line = header.GetVisualDescendants().OfType<Border>().First(b => b.BorderThickness == new Thickness(0, 0, 0, 1));
+            Rect Box(Control control) => new(control.TranslatePoint(default, header)!.Value, control.Bounds.Size);
+
+            var natural = sections.ItemsPanelRoot!.Children.Where(c => c.IsVisible).Sum(c => c.DesiredSize.Width) + (sections.ItemsPanelRoot.Children.Count(c => c.IsVisible) - 1) * 4 + sections.Padding.Left + sections.Padding.Right;
+            var fits = Box(tabs).Right + GameHeaderView.SectionsGap + natural + 32 <= header.Bounds.Width;
+            Assert.Equal(!fits, header.Classes.Contains("sections-below"));
+
+            var box = Box(sections);
+            var covered = header.GetVisualDescendants().Where(v => v is TextBlock or Button && v.IsEffectivelyVisible && !sections.IsVisualAncestorOf(v) && !ReferenceEquals(v, sections))
+                .OfType<Control>().Where(c => Box(c).Intersects(box)).Select(c => $"{c.GetType().Name} {Box(c)}").ToList();
+            Assert.True(covered.Count == 0, $"a segunda linha ({box}) cobre {string.Join("; ", covered)} a {width} px");
+            Assert.False(Box(tabs).Intersects(box), $"a segunda linha {box} cobre as abas {Box(tabs)} a {width} px");
+
+            if (fits)
+            {
+                Assert.True(box.Left >= Box(tabs).Right + GameHeaderView.SectionsGap - 0.5);
+                Assert.Equal(80, (int)Math.Round(line.Bounds.Height));
+            }
+            else
+            {
+                Assert.True(box.Top >= line.Bounds.Bottom - 0.5, $"a segunda linha começa em y={box.Top}, abaixo do filete em y={line.Bounds.Bottom}");
+                Assert.InRange(header.Bounds.Height, 110, 130);
+            }
+
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"shell-compacto-{width}", theme)));
+        });
+    }
+
+    /// <summary>O "Mais" é o sétimo item da segunda linha e abre o menu com Lançar, Bíblia e Imagens; escolher uma leva à página e deixa o "Mais" marcado.</summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_Mais_abre_o_menu_com_as_tres_paginas_e_fica_marcado_na_pagina_escolhida(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, ScreenRenderer.Width, ScreenRenderer.Height, NavKey.Dashboard, (window, vm) =>
+        {
+            var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
+            var sections = Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Name == "Sections");
+            var items = sections.GetVisualDescendants().OfType<ListBoxItem>().Where(i => i.IsEffectivelyVisible).ToList();
+            Assert.Equal(7, items.Count);
+            Assert.Equal("Mais", ((NavItemViewModel)items[^1].DataContext!).Label);
+            Assert.False(items[^1].IsSelected);
+
+            header.ShowMoreMenu();
+            ScreenRenderer.Settle(window);
+            var menu = Assert.IsType<Avalonia.Controls.MenuFlyout>(header.MoreMenu);
+            Assert.True(menu.IsOpen);
+            Assert.Equal(vm.MoreSections.Count(s => s.IsVisible), menu.Items.Count);
+            Assert.Equal(new[] { "Lançar", "Bíblia", "Imagens" }.Take(menu.Items.Count), menu.Items.OfType<MenuItem>().Select(i => (string)i.Header!));
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-menu-mais", theme)));
+
+            foreach (var (label, page) in new (string, Func<object>)[] { ("Lançar", () => vm.Release), ("Bíblia", () => vm.Bible) })
+            {
+                var entry = menu.Items.OfType<MenuItem>().Single(i => (string?)i.Header == label);
+                entry.Command!.Execute(entry.CommandParameter);
+                ScreenRenderer.Settle(window);
+                Assert.Same(page(), vm.CurrentPage);
+                Assert.True(items[^1].IsSelected, $"o Mais fica marcado em {label}");
             }
         });
     }

@@ -55,8 +55,14 @@ public sealed partial class MainWindowViewModel
 
     public IReadOnlyList<GameTabItem> GameTabs => Tabs;
 
-    /// <summary>A segunda linha da aba Tradução: Painel, Editor, Revisão, Conferir, Testar, Lançar, Glossário, Bíblia e Imagens (as duas últimas só aparecem com projeto aberto, e Imagens não aparece no projeto de exemplo).</summary>
+    /// <summary>A segunda linha da aba Tradução, como no quadro: Painel, Editor, Revisão, Conferir, Testar, Glossário e "Mais", que abre o menu de <see cref="MoreSections"/>.</summary>
     public IReadOnlyList<NavItemViewModel> Sections { get; }
+
+    /// <summary>O menu do "Mais": Lançar, Bíblia e Imagens (Imagens não aparece no projeto de exemplo).</summary>
+    public IReadOnlyList<NavItemViewModel> MoreSections { get; }
+
+    /// <summary>O item "Mais" da segunda linha; a tela abre o menu em vez de trocar de página quando ele é escolhido.</summary>
+    public NavItemViewModel MoreSection => moreItem;
 
     public GameTabPlaceholderViewModel Sheet { get; }
 
@@ -70,6 +76,9 @@ public sealed partial class MainWindowViewModel
     /// ficarem com a altura que sempre tiveram.
     /// </summary>
     public bool ShowGameHeader => InGame && !(selectedNav is { } item && ReferenceEquals(item, editorItem) && Editor.IsReviewing);
+
+    /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar" (que só existe com a #549); na Tradução é o próximo passo do Painel.</summary>
+    public bool ShowPlayButton => InGame && SelectedGameTab?.Tab != GameTab.Translation;
 
     /// <summary>A segunda linha só existe na aba Tradução.</summary>
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
@@ -123,7 +132,7 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>
     /// A seção marcada da segunda linha. O Editor e a Revisão são a mesma página: a Revisão é a marcada enquanto o modo revisão está aberto
-    /// e escolher o Editor o fecha.
+    /// e escolher o Editor o fecha. Lançar, Bíblia e Imagens marcam o "Mais".
     /// </summary>
     public NavItemViewModel? SelectedSection
     {
@@ -134,11 +143,17 @@ public sealed partial class MainWindowViewModel
                 return null;
             }
 
+            if (item.Key is NavKey.Release or NavKey.Bible or NavKey.Images)
+            {
+                return moreItem;
+            }
+
             return ReferenceEquals(item, editorItem) && Editor.IsReviewing ? reviewItem : item;
         }
         set
         {
-            if (value is not null)
+            // "Mais" não é página: a tela abre o menu, e a marca volta para a seção que está aberta.
+            if (value is not null && !ReferenceEquals(value, moreItem))
             {
                 OpenSection(value);
             }
@@ -206,6 +221,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(GameProgressNone));
     }
 
+    [RelayCommand]
     private void OpenSection(NavItemViewModel section)
     {
         if (ReferenceEquals(section, reviewItem))
@@ -242,6 +258,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(InGame));
         OnPropertyChanged(nameof(ShowGameHeader));
         OnPropertyChanged(nameof(ShowSections));
+        OnPropertyChanged(nameof(ShowPlayButton));
         OnPropertyChanged(nameof(Breadcrumb));
         OnPropertyChanged(nameof(SelectedGameTab));
         OnPropertyChanged(nameof(SelectedSection));

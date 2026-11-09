@@ -36,7 +36,7 @@
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1280" Margin="32,10,32,4" Spacing="12" HorizontalAlignment="Stretch">
+    <StackPanel Margin="32,10,32,4" Spacing="12" HorizontalAlignment="Stretch">
 
       <StackPanel IsVisible="{Binding HasProject}">
 

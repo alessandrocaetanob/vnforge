@@ -42,9 +42,9 @@
 
   <Grid>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-      <StackPanel MaxWidth="1440" Margin="24,16,24,24" Spacing="14">
+      <StackPanel MaxWidth="1440" Margin="32,16,32,24" Spacing="14">
 
-        <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Imagens com texto">
+        <c:PageHeader Classes="actions">
           <Button Classes="accent" Command="{Binding RewriteCommand}" IsEnabled="{Binding CanRewrite}" AutomationProperties.Name="Gerar o build com as imagens">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Box}"/>

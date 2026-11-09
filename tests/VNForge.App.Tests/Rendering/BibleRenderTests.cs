@@ -107,9 +107,11 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             var view = Assert.Single(window.GetVisualDescendants().OfType<BibleView>(), v => v.IsEffectivelyVisible);
             Assert.True(view.Bounds.Width > 1000 && view.Bounds.Right <= ScreenRenderer.Width, "a página cabe na janela");
             var texts = VisibleText(view);
+            // O cabeçalho do jogo e a seção "Mais" dizem que a página é a Bíblia: ela não repete o título.
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Bíblia");
             foreach (var expected in new[]
             {
-                "Bíblia", "CENAS", "Cena 1", "Atraso no portão", "Volta para casa", "RESUMO", "QUEM APARECE", "TOM", "PIADAS QUE VOLTAM", "RELAÇÕES",
+                "CENAS", "Cena 1", "Atraso no portão", "Volta para casa", "RESUMO", "QUEM APARECE", "TOM", "PIADAS QUE VOLTAM", "RELAÇÕES",
                 "SINOPSE DO JOGO", "LINHA DO TEMPO", "Prólogo", "Custo da bíblia", "Gerada em", "Cenas lidas", "Reler um capítulo", "Exportar", "Voltar à última geração",
             })
             {
