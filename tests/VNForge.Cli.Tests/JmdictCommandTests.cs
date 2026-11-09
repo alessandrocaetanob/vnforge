@@ -5,8 +5,8 @@ using System.Text.Json;
 
 namespace VNForge.Cli.Tests;
 
-/// <summary><c>vnf dict</c> (#538): baixa o JMdict para a pasta do usuário e consulta sem rede. O dicionário aqui é inventado no teste.</summary>
-public sealed class DictCommandTests : IDisposable
+/// <summary><c>vnf jmdict</c> (#538): baixa o JMdict para a pasta do usuário e consulta sem rede. O dicionário aqui é inventado no teste.</summary>
+public sealed class JmdictCommandTests : IDisposable
 {
     private const string Xml = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -53,10 +53,10 @@ public sealed class DictCommandTests : IDisposable
     [Fact]
     public async Task Consultar_antes_de_instalar_pede_para_instalar()
     {
-        var result = await Run("dict", "lookup", "遅刻");
+        var result = await Run("jmdict", "lookup", "遅刻");
 
         Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("vnf dict install", result.Output + result.Error);
+        Assert.Contains("vnf jmdict install", result.Output + result.Error);
     }
 
     [Fact]
@@ -65,10 +65,10 @@ public sealed class DictCommandTests : IDisposable
         var server = new Server();
         _cli.Cli.HttpClientFactory = () => new HttpClient(server);
 
-        var install = await Run("dict", "install");
+        var install = await Run("jmdict", "install");
         var visitas = server.Requests;
-        var lookup = await Run("dict", "lookup", "行った遅刻");
-        var status = await Run("dict", "status");
+        var lookup = await Run("jmdict", "lookup", "行った遅刻");
+        var status = await Run("jmdict", "status");
 
         Assert.Equal(0, install.ExitCode);
         Assert.Contains("2 entradas", install.Output);
@@ -86,9 +86,9 @@ public sealed class DictCommandTests : IDisposable
     public async Task Json_da_consulta_traz_a_palavra_a_conjugacao_e_os_sentidos()
     {
         _cli.Cli.HttpClientFactory = () => new HttpClient(new Server());
-        await Run("dict", "install");
+        await Run("jmdict", "install");
 
-        var result = await Run("dict", "lookup", "行こう", "--json");
+        var result = await Run("jmdict", "lookup", "行こう", "--json");
 
         using var json = JsonDocument.Parse(result.Output);
         var word = json.RootElement.GetProperty("data").GetProperty("words")[0];
@@ -102,8 +102,8 @@ public sealed class DictCommandTests : IDisposable
     {
         _cli.Cli.HttpClientFactory = () => new HttpClient(new Server(HttpStatusCode.ServiceUnavailable));
 
-        var install = await Run("dict", "install");
-        var status = await Run("dict", "status");
+        var install = await Run("jmdict", "install");
+        var status = await Run("jmdict", "status");
 
         Assert.NotEqual(0, install.ExitCode);
         Assert.Contains("503", install.Output + install.Error);

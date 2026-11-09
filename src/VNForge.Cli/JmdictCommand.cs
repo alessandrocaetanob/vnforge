@@ -8,14 +8,14 @@ using VNForge.Core.Output;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf dict install|status|lookup</c>: o dicionário offline do inspetor (#538), o JMdict do EDRDG. O arquivo mora na pasta do usuário e só é baixado quando você pede;
+/// <c>vnf jmdict install|status|lookup</c>: o dicionário offline do inspetor (#538), o JMdict do EDRDG. O arquivo mora na pasta do usuário e só é baixado quando você pede;
 /// rodar <c>install</c> de novo atualiza (a licença do EDRDG pede atualização regular). A consulta não usa a rede.
 /// </summary>
-internal static class DictCommand
+internal static class JmdictCommand
 {
     public static Command Create(VnfCli cli)
     {
-        var command = new Command("dict", "Dicionário japonês offline (JMdict, do EDRDG): baixar, ver a situação e consultar.");
+        var command = new Command("jmdict", "Dicionário japonês offline (JMdict, do EDRDG): baixar, ver a situação e consultar.");
         command.Subcommands.Add(CreateInstall(cli));
         command.Subcommands.Add(CreateStatus(cli));
         command.Subcommands.Add(CreateLookup(cli));
@@ -95,19 +95,19 @@ internal static class DictCommand
 
         if (index is null)
         {
-            output.WriteLine("O dicionário não está instalado. Rode 'vnf dict install'.");
+            output.WriteLine("O dicionário não está instalado. Rode 'vnf jmdict install'.");
             return ErrorHandler.OkExitCode;
         }
 
         output.WriteLine($"Dicionário instalado em {store.IndexPath}: {index.EntryCount.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} entradas, JMdict de {index.Created}.");
-        output.WriteLine(store.IsStale(now) ? "Passou de 30 dias: rode 'vnf dict install' para atualizar." : "Em dia.");
+        output.WriteLine(store.IsStale(now) ? "Passou de 30 dias: rode 'vnf jmdict install' para atualizar." : "Em dia.");
         return ErrorHandler.OkExitCode;
     }
 
     private static int Lookup(VnfCli cli, ParseResult parseResult, string text)
     {
         var output = parseResult.InvocationConfiguration.Output;
-        var index = Store(cli).Open() ?? throw new UsageException("O dicionário não está instalado. Rode 'vnf dict install' primeiro.");
+        var index = Store(cli).Open() ?? throw new UsageException("O dicionário não está instalado. Rode 'vnf jmdict install' primeiro.");
         var words = new JmdictLookup(index).Scan(text);
         if (parseResult.GetValue(cli.Options.Json))
         {

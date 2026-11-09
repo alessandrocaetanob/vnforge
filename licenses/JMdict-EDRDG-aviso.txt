@@ -1,7 +1,7 @@
 JMdict (dicionário offline do VNForge)
 
 O VNForge consulta o dicionário JMdict, sem alteração do conteúdo, para mostrar o significado de uma palavra japonesa do original. O arquivo não vai neste pacote:
-o app e o comando "vnf dict install" o baixam de https://www.edrdg.org/pub/Nihongo/JMdict_e.gz para a pasta do usuário e montam um índice local derivado dele.
+o app e o comando "vnf jmdict install" o baixam de https://www.edrdg.org/pub/Nihongo/JMdict_e.gz para a pasta do usuário e montam um índice local derivado dele.
 
 Origem e direitos
   JMdict, de James William BREEN e do Electronic Dictionary Research and Development Group (EDRDG).
@@ -15,7 +15,7 @@ Licença
   Texto da licença: o "Licence Deed" e o "Licence Code" estão ligados na declaração acima.
 
 O que a licença pede, e onde o VNForge cumpre
-  Atribuição: o rodapé do cartão do dicionário no Editor diz "JMdict · offline · EDRDG", com a licença na dica; o aviso de download e a saída de "vnf dict install" repetem a atribuição; este arquivo e THIRD-PARTY-NOTICES.md vão em licenses/.
+  Atribuição: o rodapé do cartão do dicionário no Editor diz "JMdict · offline · EDRDG", com a licença na dica; o aviso de download e a saída de "vnf jmdict install" repetem a atribuição; este arquivo e THIRD-PARTY-NOTICES.md vão em licenses/.
   Mesma licença nos derivados: o índice jmdict.vnfdict é derivado do JMdict e fica sob a mesma licença. O código do VNForge não é alcançado.
-  Atualização regular: o cartão oferece "Atualizar" quando o dicionário passa de 30 dias, e "vnf dict install" baixa de novo.
+  Atualização regular: o cartão oferece "Atualizar" quando o dicionário passa de 30 dias, e "vnf jmdict install" baixa de novo.
   Garantia: o EDRDG fornece os arquivos sem garantia de exatidão nem de adequação.
