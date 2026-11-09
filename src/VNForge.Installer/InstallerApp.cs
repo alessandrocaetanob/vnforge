@@ -13,6 +13,11 @@ public static class InstallerApp
     public const int WrongVersion = 3;
     public const int Cancelled = 4;
 
+    /// <summary>O aviso que a licença Apache-2.0 do VCDiff pede a quem distribui o instalador (ver THIRD-PARTY-NOTICES.md).</summary>
+    public const string ThirdPartyNotice =
+        "Este instalador usa a biblioteca VCDiff (https://github.com/SnowflakePowered/vcdiff), derivada de open-vcdiff (Google) e do xdelta3, sob a licença Apache 2.0.\n"
+        + "O texto da licença está em https://www.apache.org/licenses/LICENSE-2.0 e na pasta licenses/ do pacote do VNForge.";
+
     /// <param name="package">O patch embutido no executável; nulo num instalador vazio.</param>
     /// <param name="currentDirectory">Onde o jogador abriu o instalador; é a primeira pasta tentada.</param>
     /// <param name="executableDirectory">Pasta do instalador; é a segunda tentativa, depois a pasta acima dela.</param>
@@ -24,6 +29,12 @@ public static class InstallerApp
             output.WriteLine("  --pasta         pasta onde o jogo está instalado (sem isso, o instalador procura e pergunta)");
             output.WriteLine("  --desinstalar   volta ao jogo original");
             output.WriteLine("  --silencioso    não faz perguntas");
+            return Ok;
+        }
+
+        if (args.Contains("--licencas"))
+        {
+            output.WriteLine(ThirdPartyNotice);
             return Ok;
         }
 
