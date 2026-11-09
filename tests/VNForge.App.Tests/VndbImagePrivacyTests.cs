@@ -153,9 +153,9 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
 
     // ----- VndbImageSource -----
 
-    private static (VndbImageSource Source, LibraryPrivacyReader Reader, FakeDownloader Downloader, FakeTimeProvider Time) NewSource(string config, string cache, Func<Uri, byte[]?>? respond = null, int capacity = 160)
+    private static (VndbImageSource Source, LibraryPrivacyReader Reader, FakeDownloader Downloader, FakeTimeProvider Time) NewSource(string config, string cache, Func<Uri, byte[]?>? respond = null, int capacity = 160, bool watch = false)
     {
-        var reader = new LibraryPrivacyReader(config, watch: false);
+        var reader = new LibraryPrivacyReader(config, watch);
         var downloader = new FakeDownloader(respond ?? (_ => Png()));
         var time = new FakeTimeProvider();
         return (new VndbImageSource(new VndbImageCache(cache, downloader, reader.Current, time), reader, capacity), reader, downloader, time);
@@ -223,6 +223,158 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
                     window.Close();
                     VndbImages.Source = null;
                     source.Dispose();
+                }
+
+                return 0;
+            },
+            Ct);
+    }
+
+    [Fact]
+    public async Task Sem_a_pasta_de_configuracao_na_partida_ligar_e_desligar_o_adulto_esconde_a_imagem_sem_ninguem_chamar_Refresh()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                var config = Path.Combine(temp.Path, "cfg");
+                var (source, _, _, _) = NewSource(config, Path.Combine(temp.Path, "imagens"), watch: true);
+                VndbImages.Source = source;
+                var portrait = new Portrait { Size = PortraitSize.Md, Image = AdultFace, Seed = "Proibida" };
+                var window = new Window { Width = 200, Height = 200, Content = portrait };
+                try
+                {
+                    Assert.True(Directory.Exists(config), "o leitor cria a pasta antes de observar");
+                    window.Show();
+                    ScreenRenderer.Settle(window);
+                    Assert.False(portrait.HasImage);
+
+                    SetAdult(config, showAdult: true);
+                    await WaitUntil(() => portrait.HasImage, window);
+
+                    SetAdult(config, showAdult: false);
+                    await WaitUntil(() => !portrait.HasImage, window);
+                }
+                finally
+                {
+                    window.Close();
+                    VndbImages.Source = null;
+                    source.Dispose();
+                }
+
+                return 0;
+            },
+            Ct);
+    }
+
+    [Fact]
+    public async Task O_leitor_cria_a_pasta_que_faltava_e_o_observador_avisa_quando_o_arquivo_nasce()
+    {
+        using var temp = new TempFolder();
+        var config = Path.Combine(temp.Path, "cfg", "VNForge");
+        using var reader = new LibraryPrivacyReader(config);
+        var changed = new TaskCompletionSource();
+        reader.Changed += (_, _) => changed.TrySetResult();
+
+        Assert.True(Directory.Exists(config));
+        SetAdult(config, showAdult: true);
+
+        await changed.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.True(reader.Current().ShowAdult);
+    }
+
+    [Fact]
+    public async Task O_acerto_na_memoria_tambem_confere_a_privacidade_e_esconde_a_imagem()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                SetAdult(temp.Path, showAdult: true);
+                var (source, reader, downloader, _) = NewSource(temp.Path, Path.Combine(temp.Path, "imagens"));
+                VndbImages.Source = source;
+                var window = new Window { Width = 200, Height = 200 };
+                try
+                {
+                    reader.Refresh();
+                    window.Show();
+                    (await source.LoadAsync(AdultFace, Ct))!.Dispose();
+
+                    // O ajuste é desligado por fora e ninguém chamou Refresh: o leitor ainda guarda o valor antigo e a imagem está na memória.
+                    SetAdult(temp.Path, showAdult: false);
+                    Assert.True(reader.Current().ShowAdult);
+                    var portrait = new Portrait { Size = PortraitSize.Md, Image = AdultFace, Seed = "Proibida" };
+                    window.Content = portrait;
+                    await WaitUntil(() => !portrait.HasImage, window);
+                    Assert.Equal(1, downloader.Calls);
+                }
+                finally
+                {
+                    window.Close();
+                    VndbImages.Source = null;
+                    source.Dispose();
+                }
+
+                return 0;
+            },
+            Ct);
+    }
+
+    [Fact]
+    public async Task O_ajuste_desligado_durante_o_download_nao_deixa_a_posse_sair()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                SetAdult(temp.Path, showAdult: true);
+                var (source, _, downloader, _) = NewSource(temp.Path, Path.Combine(temp.Path, "imagens"), _ =>
+                {
+                    SetAdult(temp.Path, showAdult: false);
+                    return Png();
+                });
+                using (source)
+                {
+                    Assert.Null(await source.LoadAsync(AdultFace, Ct));
+                    Assert.Equal(1, downloader.Calls);
+                    Assert.Null(source.TryGet(AdultFace));
+                }
+
+                return 0;
+            },
+            Ct);
+    }
+
+    [Fact]
+    public async Task Trava_passageira_no_arquivo_nao_apaga_o_arquivo_bom_do_cache()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                var cacheDirectory = Path.Combine(temp.Path, "imagens");
+                var image = new VndbImageRef("https://t.vndb.org/ch/12/3412.jpg");
+                var (first, _, _, _) = NewSource(temp.Path, cacheDirectory);
+                using (first)
+                {
+                    (await first.LoadAsync(image, Ct))!.Dispose();
+                }
+
+                var file = Directory.EnumerateFiles(cacheDirectory).Single();
+                var (source, _, downloader, _) = NewSource(temp.Path, cacheDirectory);
+                using (source)
+                {
+                    // Outro processo (antivírus, CLI) segura o arquivo: abrir falha, o conteúdo não está corrompido.
+                    using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                        Assert.Null(await source.LoadAsync(image, Ct));
+                    }
+
+                    Assert.True(File.Exists(file));
+
+                    using var lease = await source.LoadAsync(image, Ct);
+                    Assert.NotNull(lease);
+                    Assert.Equal(0, downloader.Calls);
                 }
 
                 return 0;
@@ -339,6 +491,10 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
         public int Requests => _pending.Count;
 
         public void RaisePrivacyChanged() => PrivacyChanged?.Invoke(this, EventArgs.Empty);
+
+        public void RevalidatePrivacy()
+        {
+        }
 
         public BitmapLease? TryGet(VndbImageRef image) => null;
 

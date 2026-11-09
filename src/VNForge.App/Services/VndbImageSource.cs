@@ -70,6 +70,12 @@ public interface IVndbImageSource
     BitmapLease? TryGet(VndbImageRef image);
 
     /// <summary>
+    /// Confere em segundo plano se a privacidade mudou por fora; se mudou, <see cref="PrivacyChanged"/> dispara. Quem mostra uma imagem que veio da memória chama-o, porque
+    /// o acerto na memória não passa por <see cref="LoadAsync"/>. Várias chamadas seguidas viram uma.
+    /// </summary>
+    void RevalidatePrivacy();
+
+    /// <summary>
     /// A posse do bitmap da imagem (do cache em disco ou baixada); nula quando a privacidade a esconde ou ela não pôde ser obtida. Relê a privacidade antes de decidir, fora da thread do chamador.
     /// </summary>
     Task<BitmapLease?> LoadAsync(VndbImageRef image, CancellationToken cancellationToken);
@@ -88,6 +94,7 @@ public sealed class VndbImageSource : IVndbImageSource, IDisposable
     private readonly Queue<string> _order = new();
     private readonly Lock _gate = new();
     private bool _disposed;
+    private int _revalidating;
 
     /// <param name="cache">O cache em disco.</param>
     /// <param name="privacy">O leitor da privacidade que o <paramref name="cache"/> consulta; a fonte o atualiza a cada <see cref="LoadAsync"/> e repassa o <see cref="PrivacyChanged"/> dele.</param>
@@ -126,6 +133,30 @@ public sealed class VndbImageSource : IVndbImageSource, IDisposable
         return Task.Run(() => LoadCoreAsync(image, cancellationToken), cancellationToken);
     }
 
+    public void RevalidatePrivacy()
+    {
+        if (_privacy is null || Interlocked.Exchange(ref _revalidating, 1) == 1)
+        {
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                _privacy.Refresh();
+            }
+            catch (ObjectDisposedException)
+            {
+                // A fonte foi liberada enquanto a conferência esperava na fila.
+            }
+            finally
+            {
+                Volatile.Write(ref _revalidating, 0);
+            }
+        });
+    }
+
     public void Dispose()
     {
         if (_privacy is not null)
@@ -155,6 +186,25 @@ public sealed class VndbImageSource : IVndbImageSource, IDisposable
     {
         // A decisão de mostrar usa a privacidade de agora: se o ajuste mudou por fora (a CLI), esta leitura já a vê.
         _privacy?.Refresh();
+        var lease = await ObtainAsync(image, cancellationToken).ConfigureAwait(false);
+        if (lease is null)
+        {
+            return null;
+        }
+
+        // Download e decodificação levam tempo: o ajuste pode ter sido desligado nesse intervalo, e a posse não sai daqui com uma imagem que a privacidade já esconde.
+        _privacy?.Refresh();
+        if (_cache.IsVisible(image))
+        {
+            return lease;
+        }
+
+        lease.Dispose();
+        return null;
+    }
+
+    private async Task<BitmapLease?> ObtainAsync(VndbImageRef image, CancellationToken cancellationToken)
+    {
         if (TryGet(image) is { } known)
         {
             return known;
@@ -165,27 +215,51 @@ public sealed class VndbImageSource : IVndbImageSource, IDisposable
             return null;
         }
 
-        var bitmap = Decode(path);
+        var (bitmap, corrupt) = Decode(path);
         if (bitmap is null)
         {
-            // Os bytes tinham cara de imagem e não decodificam: o arquivo sai do disco e a próxima tentativa espera a janela do cache.
-            _cache.Reject(image);
+            if (corrupt)
+            {
+                // Os bytes tinham cara de imagem e não decodificam: o arquivo sai do disco e a próxima tentativa espera a janela do cache.
+                _cache.Reject(image);
+            }
+
             return null;
         }
 
         return Remember(image.Url, bitmap);
     }
 
-    private static Bitmap? Decode(string path)
+    /// <summary>
+    /// Decodifica o arquivo. <c>Corrupt</c> só é verdadeiro quando o conteúdo é que não decodifica; falha ao abrir ou ler o arquivo (uma trava passageira do antivírus ou de outro
+    /// processo) devolve <c>(null, false)</c> e o arquivo bom fica no cache para a próxima vez.
+    /// </summary>
+    private static (Bitmap? Bitmap, bool Corrupt) Decode(string path)
     {
+        FileStream stream;
         try
         {
-            using var stream = File.OpenRead(path);
-            return new Bitmap(stream);
+            stream = File.OpenRead(path);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or NotSupportedException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return null;
+            return (null, false);
+        }
+
+        using (stream)
+        {
+            try
+            {
+                return (new Bitmap(stream), false);
+            }
+            catch (IOException)
+            {
+                return (null, false);
+            }
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException or NotSupportedException)
+            {
+                return (null, true);
+            }
         }
     }
 
@@ -234,7 +308,10 @@ public sealed class LibraryPrivacyReader : IDisposable
     private readonly LibraryFile _file;
     private readonly Lock _read = new();
     private readonly Lock _gate = new();
-    private readonly FileSystemWatcher? _watcher;
+    private readonly string _directory;
+    private readonly Lock _watching = new();
+    private FileSystemWatcher? _watcher;
+    private bool _disposed;
     private LibraryPrivacy _current = new();
     private (long Ticks, long Length)? _stamp;
 
@@ -243,17 +320,10 @@ public sealed class LibraryPrivacyReader : IDisposable
     public LibraryPrivacyReader(string configDirectory, bool watch = true)
     {
         _file = new LibraryFile(configDirectory);
-        if (watch && Directory.Exists(configDirectory))
+        _directory = configDirectory;
+        if (watch)
         {
-            _watcher = new FileSystemWatcher(configDirectory, LibraryFile.FileName)
-            {
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
-                EnableRaisingEvents = true,
-            };
-            _watcher.Changed += OnFileEvent;
-            _watcher.Created += OnFileEvent;
-            _watcher.Deleted += OnFileEvent;
-            _watcher.Renamed += OnFileEvent;
+            StartWatching();
         }
     }
 
@@ -307,7 +377,66 @@ public sealed class LibraryPrivacyReader : IDisposable
         return after;
     }
 
-    public void Dispose() => _watcher?.Dispose();
+    public void Dispose()
+    {
+        lock (_watching)
+        {
+            _disposed = true;
+            _watcher?.Dispose();
+            _watcher = null;
+        }
+    }
+
+    /// <summary>
+    /// Cria o observador do <c>library.json</c>. A pasta é criada antes: sem ela (o app abriu antes de a Biblioteca existir) o observador nunca nasceria e uma mudança feita
+    /// pela CLI não chegaria. Se o observador falhar (buffer cheio, pasta trocada), é recriado e o arquivo é relido.
+    /// </summary>
+    private void StartWatching()
+    {
+        lock (_watching)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _watcher?.Dispose();
+            _watcher = null;
+            try
+            {
+                Directory.CreateDirectory(_directory);
+                var watcher = new FileSystemWatcher(_directory, LibraryFile.FileName)
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+                };
+                watcher.Changed += OnFileEvent;
+                watcher.Created += OnFileEvent;
+                watcher.Deleted += OnFileEvent;
+                watcher.Renamed += OnFileEvent;
+                watcher.Error += OnWatcherError;
+                watcher.EnableRaisingEvents = true;
+                _watcher = watcher;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or PlatformNotSupportedException)
+            {
+                // Sem observador, a conferência a cada imagem mostrada (RevalidatePrivacy) ainda pega a mudança.
+            }
+        }
+    }
+
+    private void OnWatcherError(object sender, ErrorEventArgs e) =>
+        _ = Task.Run(() =>
+        {
+            StartWatching();
+            try
+            {
+                Refresh();
+            }
+            catch (ObjectDisposedException)
+            {
+                // O leitor foi liberado enquanto o evento esperava na fila.
+            }
+        });
 
     private (long, long)? Stamp()
     {

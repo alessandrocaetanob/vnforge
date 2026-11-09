@@ -101,6 +101,9 @@ public abstract class VndbImageControl : Control
             if (source.TryGet(image) is { } ready)
             {
                 SetLease(ready);
+
+                // O acerto na memória não passa pela leitura da privacidade: confere em segundo plano, e se o ajuste mudou o controle se relê.
+                source.RevalidatePrivacy();
             }
             else
             {
