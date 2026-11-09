@@ -104,6 +104,7 @@
   </Style>
   <!-- A origem do dicionário no rodapé e no aviso: texto secundário que é link para a licença; sublinha ao passar o mouse. -->
   <Style Selector="Button.word-source">
+    <Setter Property="FontWeight" Value="Normal"/>
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderThickness" Value="0"/>
     <Setter Property="Padding" Value="0"/>
@@ -170,6 +171,7 @@
   <Style Selector="TextBlock.meta">
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
     <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
+    <Setter Property="FontWeight" Value="Normal"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>
   <Style Selector="TextBlock.meta.marker-state">

@@ -104,7 +104,7 @@
         <Border Classes="panel">
           <Grid RowDefinitions="Auto,Auto,*">
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="14,12,14,8">
-              <c:OverlineText Classes="overline secondary" Text="CENAS"/>
+              <c:OverlineText Classes="overline secondary" Text="Cenas"/>
               <TextBlock Name="ScenesCount" Classes="caption mono secondary" VerticalAlignment="Center" Text="{Binding ScenesCountText}"/>
             </StackPanel>
             <TextBox Name="SceneSearchBox" Grid.Row="1" Margin="12,0,12,8" MinHeight="28" Height="28" FontSize="13" Padding="8,0" VerticalContentAlignment="Center"
@@ -154,7 +154,7 @@
             <Border Classes="fieldcard">
               <StackPanel Spacing="8">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                  <c:OverlineText Classes="overline secondary" Text="RESUMO" VerticalAlignment="Center"/>
+                  <c:OverlineText Classes="overline secondary" Text="Resumo" VerticalAlignment="Center"/>
                   <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfSummary, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfSummary}"/></Border>
                   <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Summary}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever o resumo com a IA">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
@@ -168,7 +168,7 @@
             <Border Classes="fieldcard">
               <StackPanel Spacing="8">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                  <c:OverlineText Classes="overline secondary" Text="QUEM APARECE" VerticalAlignment="Center"/>
+                  <c:OverlineText Classes="overline secondary" Text="Quem aparece" VerticalAlignment="Center"/>
                   <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfCharacters, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfCharacters}"/></Border>
                   <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Characters}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever quem aparece com a IA">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
@@ -182,7 +182,7 @@
               <Border Classes="fieldcard">
                 <StackPanel Spacing="8">
                   <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                    <c:OverlineText Classes="overline secondary" Text="TOM" VerticalAlignment="Center"/>
+                    <c:OverlineText Classes="overline secondary" Text="Tom" VerticalAlignment="Center"/>
                     <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfTone}"/></Border>
                     <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Tone}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever o tom com a IA">
                       <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
@@ -194,7 +194,7 @@
               <Border Grid.Column="1" Classes="fieldcard">
                 <StackPanel Spacing="8">
                   <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                    <c:OverlineText Classes="overline secondary" Text="PIADAS QUE VOLTAM" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <c:OverlineText Classes="overline secondary" Text="Piadas que voltam" TextWrapping="Wrap" VerticalAlignment="Center"/>
                     <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfJokes, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfJokes}"/></Border>
                     <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Jokes}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever as piadas com a IA">
                       <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
@@ -208,7 +208,7 @@
             <Border Classes="fieldcard">
               <StackPanel Spacing="8">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                  <c:OverlineText Classes="overline secondary" Text="RELAÇÕES" VerticalAlignment="Center"/>
+                  <c:OverlineText Classes="overline secondary" Text="Relações" VerticalAlignment="Center"/>
                   <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfRelations, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfRelations}"/></Border>
                   <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Relations}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever as relações com a IA">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
@@ -226,14 +226,14 @@
             <StackPanel Spacing="14" Margin="16">
               <StackPanel Spacing="6">
                 <Grid ColumnDefinitions="*,Auto">
-                  <c:OverlineText Classes="overline secondary" Text="SINOPSE DO JOGO" VerticalAlignment="Center"/>
+                  <c:OverlineText Classes="overline secondary" Text="Sinopse do jogo" VerticalAlignment="Center"/>
                   <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfSynopsis, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfSynopsis}"/></Border>
                 </Grid>
                 <TextBox Name="SynopsisBox" Classes="bible" MinHeight="90" Text="{Binding SynopsisText}" PlaceholderText="Ainda sem sinopse" AutomationProperties.Name="Sinopse do jogo"/>
               </StackPanel>
 
               <StackPanel Spacing="8">
-                <c:OverlineText Classes="overline secondary" Text="LINHA DO TEMPO"/>
+                <c:OverlineText Classes="overline secondary" Text="Linha do tempo"/>
                 <ItemsControl ItemsSource="{Binding Timeline}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:BibleTimelineRow">
@@ -294,12 +294,12 @@
 
     <!-- Gerar a bíblia do jogo: o preço aparece antes de rodar, e os campos que você editou ficam preservados. -->
     <c:ScreenDialog Title="Gerar a bíblia do jogo" DialogWidth="640" IsOpen="{Binding IsGenerateOpen, Mode=TwoWay}">
-      <StackPanel Spacing="12" Width="600">
+      <StackPanel Spacing="12">
         <TextBlock Classes="body" TextWrapping="Wrap" Text="A IA lê o roteiro um capítulo por vez e escreve, por cena, o resumo, quem aparece, as relações, o tom e as piadas que voltam. Para o jogo, escreve a sinopse e a linha do tempo."/>
         <Border Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="14">
           <StackPanel Spacing="8">
             <Grid ColumnDefinitions="*,Auto">
-              <c:OverlineText Classes="overline secondary" Text="O QUE A IA VAI LER"/>
+              <c:OverlineText Classes="overline secondary" Text="O que a IA vai ler"/>
               <TextBlock Grid.Column="1" Classes="caption mono secondary" Text="{Binding ReadText}"/>
             </Grid>
             <Grid ColumnDefinitions="*,Auto">

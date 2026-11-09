@@ -54,12 +54,15 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
   </Style>
 
+  <!-- O peso semibold é do rótulo do botão contornado; o subtle é regular, porque carrega linhas inteiras (Eval, capítulos do Painel) e o texto dentro herda o peso. -->
   <Style Selector="Button.subtle">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="FontWeight" Value="Normal"/>
   </Style>
-  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.subtle:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
   <Style Selector="Button.subtle:disabled /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="BorderBrush" Value="Transparent"/>
@@ -67,6 +70,7 @@
 
   <!-- Link de rodapé de cartão e de tabela (artboard Painel, "a"): texto em accent-text, sem caixa; vira text-primary ao passar o mouse. -->
   <Style Selector="Button.link">
+    <Setter Property="FontWeight" Value="Normal"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderThickness" Value="0"/>
@@ -88,9 +92,10 @@
     <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
   </Style>
-  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
   </Style>
 
   <Style Selector="Button.sm">
