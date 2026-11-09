@@ -44,8 +44,6 @@ public static class RiskWeights
 
     public const int EditorSuggestion = 10;
 
-
-
     public const int MaxScore = 100;
 
     /// <summary>A partir daqui a linha é de risco médio.</summary>

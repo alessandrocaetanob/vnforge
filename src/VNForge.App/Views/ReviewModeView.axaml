@@ -336,7 +336,13 @@
             </Border>
             </StackPanel>
 
-            <Border Classes="infobar warning" IsVisible="{Binding GenderMissing}" AutomationProperties.Name="Aviso: personagem sem gênero">
+            <Border Classes="infobar warning" AutomationProperties.Name="Aviso: personagem sem gênero">
+              <Border.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="GenderMissing"/>
+                  <Binding Path="!IsRisk"/>
+                </MultiBinding>
+              </Border.IsVisible>
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
                 <StackPanel Grid.Column="1" Spacing="8">

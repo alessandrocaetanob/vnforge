@@ -666,8 +666,16 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.True(probe.Near(4, 4, Token(bar, "Vnf.SignalErrorFg"), 6), "o começo da barra é o trecho de risco alto");
             Assert.True(probe.Near((int)bar.Bounds.Width - 12, 4, Token(bar, "Vnf.StatusPendingFg"), 6), "o fim da barra é o trecho de risco baixo");
             Salvar(window, "modo-revisao-risco", theme);
+
+            // A segunda da fila é do Kenta, que não tem gênero: o aviso é do modo normal e não aparece na coluna do palco, que no quadro é só palco, barra e fila.
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.True(review.GenderMissing);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Este personagem não tem gênero definido");
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == review.DefineGenderCommand);
         }, risk: true);
     }
+
     private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false, bool risk = false)
     {
         await fixture.Session.Dispatch<int>(
