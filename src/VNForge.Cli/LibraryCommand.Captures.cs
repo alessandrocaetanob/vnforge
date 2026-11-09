@@ -248,11 +248,16 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, removed = removed.File }));
+            output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, removed = removed.Capture.File, warning = removed.Warning }));
+        }
+        else if (removed.Warning is null)
+        {
+            output.WriteLine($"{game.Title}: captura {removed.Capture.File} apagada.");
         }
         else
         {
-            output.WriteLine($"{game.Title}: captura {removed.File} apagada.");
+            output.WriteLine($"{game.Title}: captura {removed.Capture.File} tirada da lista.");
+            output.WriteLine($"Aviso: {removed.Warning}");
         }
 
         return ErrorHandler.OkExitCode;

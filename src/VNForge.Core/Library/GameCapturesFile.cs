@@ -105,29 +105,30 @@ public sealed class GameCapturesFile
         }
     }
 
-    /// <summary>Tira a captura do índice e apaga a imagem. Devolve a captura que saiu, ou nulo quando o jogo não tinha esse arquivo.</summary>
-    /// <exception cref="LibraryException">O índice está ilegível ou em uso, ou a imagem não pôde ser apagada.</exception>
-    public GameCapture? Remove(string gameId, string file)
+    /// <summary>
+    /// Tira a captura do índice e, só depois de o índice gravado, apaga a imagem: se a gravação falhar a captura continua com a imagem. Se a imagem não puder
+    /// ser apagada, o índice não é desfeito e o aviso vai em <see cref="GameCaptureRemoval.Warning"/>. Devolve nulo quando o jogo não tinha esse arquivo.
+    /// </summary>
+    /// <exception cref="LibraryException">O índice está ilegível, em uso ou não pôde ser gravado.</exception>
+    public GameCaptureRemoval? Remove(string gameId, string file)
     {
         ValidateGameId(gameId);
-        return _store.Update(captures =>
+        var removed = _store.Update(captures => captures.Remove(gameId, file));
+        if (removed is null)
         {
-            var removed = captures.Remove(gameId, file);
-            if (removed is not null)
-            {
-                var target = PathOf(gameId, removed);
-                try
-                {
-                    File.Delete(target);
-                }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-                {
-                    throw new LibraryException($"A imagem '{target}' não pôde ser apagada: {e.Message}", e);
-                }
-            }
+            return null;
+        }
 
-            return removed;
-        });
+        var target = PathOf(gameId, removed);
+        try
+        {
+            File.Delete(target);
+            return new GameCaptureRemoval(removed, null);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return new GameCaptureRemoval(removed, $"A captura saiu da lista, mas a imagem '{target}' não pôde ser apagada: {e.Message} Apague o arquivo à mão.");
+        }
     }
 
     /// <summary>O id do jogo vira nome de pasta, então só letras, dígitos, <c>-</c> e <c>_</c> (os ids da biblioteca são <c>g</c> e oito dígitos hexadecimais).</summary>
@@ -239,3 +240,6 @@ public sealed class GameCapturesFile
 
     private sealed record Envelope(int Version, SortedDictionary<string, List<GameCapture>?>? Games);
 }
+
+/// <summary>A captura que saiu do índice e, se a imagem não pôde ser apagada, o aviso com o caminho dela.</summary>
+public sealed record GameCaptureRemoval(GameCapture Capture, string? Warning);

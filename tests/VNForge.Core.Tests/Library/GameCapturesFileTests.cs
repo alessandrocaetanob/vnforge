@@ -108,11 +108,49 @@ public sealed class GameCapturesFileTests : IDisposable
 
         var removed = file.Remove("g1", dropped.File);
 
-        Assert.Equal(dropped, removed);
+        Assert.Equal(dropped, removed!.Capture);
+        Assert.Null(removed.Warning);
         Assert.False(File.Exists(file.PathOf("g1", dropped)));
         Assert.True(File.Exists(file.PathOf("g1", kept)));
         Assert.Equal([kept], file.Load().Of("g1"));
         Assert.Null(file.Remove("g1", dropped.File));
+    }
+
+    [Fact]
+    public void Remove_com_o_indice_que_nao_grava_deixa_a_imagem_e_a_captura()
+    {
+        var file = NewFile();
+        var capture = file.Save("g1", Solid(1, 1, 1));
+        var image = file.PathOf("g1", capture);
+        // Um diretório no lugar do arquivo de índice faz a gravação falhar depois de a captura já ter saído do modelo.
+        File.Delete(file.Path);
+        Directory.CreateDirectory(file.Path);
+        File.WriteAllText(Path.Combine(file.Path, "x"), "x");
+
+        Assert.ThrowsAny<Exception>(() => file.Remove("g1", capture.File));
+
+        Assert.True(File.Exists(image));
+    }
+
+    [Fact]
+    public void Remove_que_nao_apaga_a_imagem_avisa_e_nao_desfaz_o_indice()
+    {
+        var file = NewFile();
+        var kept = file.Save("g1", Solid(1, 1, 1));
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var stuck = file.Save("g1", Solid(2, 2, 2));
+        var image = file.PathOf("g1", stuck);
+        // Um diretório com o nome da imagem faz o File.Delete falhar em qualquer sistema.
+        File.Delete(image);
+        Directory.CreateDirectory(image);
+        File.WriteAllText(Path.Combine(image, "x"), "x");
+
+        var removed = file.Remove("g1", stuck.File);
+
+        Assert.Equal(stuck, removed!.Capture);
+        Assert.Contains(image, removed.Warning);
+        Assert.Contains("não pôde ser apagada", removed.Warning);
+        Assert.Equal([kept], file.Load().Of("g1"));
     }
 
     [Fact]
