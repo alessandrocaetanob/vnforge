@@ -39,6 +39,11 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.Equal(["Biblioteca", "Ajustes"], rail.SelectMany(l => l.GetVisualDescendants().OfType<TextBlock>()).Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text));
             var library = Assert.Single(rail[0].GetVisualDescendants().OfType<ListBoxItem>());
             Assert.True(library.IsSelected);
+            var label = library.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Biblioteca");
+            Assert.Equal(11, label.FontSize);
+            Assert.Equal(Avalonia.Media.FontWeight.SemiBold, label.FontWeight);
+            var railTop = library.TranslatePoint(default, rail[0])!.Value.Y + rail[0].TranslatePoint(default, window)!.Value.Y;
+            Assert.Equal(16, railTop - 40, 1);
 
             Assert.Equal("Biblioteca › " + vm.ProjectTitle, vm.Breadcrumb);
             Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.Breadcrumb && t.IsEffectivelyVisible);
@@ -59,6 +64,12 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.Contains(vm.Dashboard.NextStepLabel, texts);
             Assert.DoesNotContain("YPF", string.Join('\n', texts), StringComparison.Ordinal);
 
+            var cover = Assert.Single(header.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Width == 56 && b.Height == 75);
+            Assert.Equal(new CornerRadius(16), cover.CornerRadius);
+            Assert.NotEmpty(cover.BoxShadow);
+
+            var pill = Assert.Single(header.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Classes.Contains("game-pill"));
+            Assert.False(pill.Classes.Contains("done"));
             var fill = Assert.Single(header.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Parent is Border { Height: 5 } && b.HorizontalAlignment == Avalonia.Layout.HorizontalAlignment.Left);
             Assert.InRange(vm.GameProgressPercent, 1, 99);
             var expected = GameHeaderView.CoverWidth * vm.GameProgressPercent / 100;
@@ -66,6 +77,8 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
 
             var dashboard = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
             Assert.Empty(dashboard.GetVisualDescendants().OfType<PageHeader>());
+            var scroll = Assert.Single(dashboard.GetVisualDescendants().OfType<ScrollViewer>());
+            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 0.5, $"o Painel rola em 1440x1000: {scroll.Extent.Height} de {scroll.Viewport.Height}");
             Assert.True(header.Bounds.Height < 260, $"o cabeçalho e a segunda linha ocupam {header.Bounds.Height:0} px");
 
             ScreenRenderer.Settle(window);
@@ -121,13 +134,14 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
         });
     }
 
-    /// <summary>O que o shell tira da página: a altura do cabeçalho do jogo com a segunda linha, completo e compacto. Mudar estes números muda o espaço de todas as telas do jogo.</summary>
+    /// <summary>O que o shell tira da página: a altura do cabeçalho do jogo e a de onde a página começa (com a segunda linha), completo e compacto. O completo vale no Painel em janela alta; o compacto, nas telas de trabalho e em janela baixa. Mudar estes números muda o espaço de todas as telas do jogo.</summary>
     [Theory]
-    [InlineData(1000, false, 181, 231)]
-    [InlineData(768, true, 82, 82)]
-    public async Task O_cabecalho_do_jogo_ocupa_a_altura_combinada(int height, bool compact, int expectedHeader, int expectedWithSections)
+    [InlineData(1000, false, 179, 229, NavKey.Dashboard)]
+    [InlineData(1000, true, 80, 80, NavKey.Editor)]
+    [InlineData(768, true, 80, 80, NavKey.Dashboard)]
+    public async Task O_cabecalho_do_jogo_ocupa_a_altura_combinada(int height, bool compact, int expectedHeader, int expectedWithSections, NavKey page)
     {
-        await Abrir(ThemeVariant.Dark, height == 768 ? 1366 : ScreenRenderer.Width, height, NavKey.Dashboard, (window, _) =>
+        await Abrir(ThemeVariant.Dark, height == 768 ? 1366 : ScreenRenderer.Width, height, page, (window, _) =>
         {
             var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
             var border = header.GetVisualDescendants().OfType<Border>().First(b => b.BorderThickness == new Thickness(0, 0, 0, 1));

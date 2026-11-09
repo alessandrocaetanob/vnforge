@@ -81,6 +81,10 @@ public sealed class EditorInspectorRenderTests(HeadlessFixture fixture, DemoFold
         Assert.Equal(2, cena.ItemCount);
         Assert.Equal(detail.ExplainParts.Count, cartao.ItemCount);
 
+        // Com a explicação e a cena abertas o inspetor passa da altura da janela de 1000 px, que agora tem o cabeçalho do jogo: ele rola, e a caixa tem de caber ao fim da rolagem.
+        caixa.BringIntoView();
+
+        ScreenRenderer.Settle(window);
         var campoY = campo.TranslatePoint(default, window)!.Value.Y;
         var caixaY = caixa.TranslatePoint(default, window)!.Value.Y;
         Assert.True(caixaY > campoY + campo.Bounds.Height - 1, "a caixa do jogo fica logo abaixo do campo da tradução");

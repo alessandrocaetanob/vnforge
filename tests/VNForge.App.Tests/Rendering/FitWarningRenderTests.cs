@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -128,6 +129,9 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.NotNull(warning.SplitCommand);
         Assert.NotNull(warning.ShortenCommand);
 
+        // O painel do problema rola quando a janela é baixa; o aviso tem de estar à vista depois de rolado até ele.
+        warning.BringIntoView();
+        ScreenRenderer.Settle(window);
         var origin = warning.TranslatePoint(default, window) ?? throw new InvalidOperationException("O aviso não está na janela.");
         Assert.True(origin.X >= 0 && origin.Y >= 0 && origin.X + warning.Bounds.Width <= window.Width && origin.Y + warning.Bounds.Height <= window.Height, "o aviso cabe na janela");
         Assert.All(warning.GetVisualDescendants().OfType<Avalonia.Controls.Button>().Where(b => b.IsEffectivelyVisible), button => Assert.True(button.Bounds.Width > 40 && button.Bounds.Height > 16));

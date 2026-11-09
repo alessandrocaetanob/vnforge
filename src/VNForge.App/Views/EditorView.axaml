@@ -65,10 +65,10 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,12,24,12" RowSpacing="8">
 
     <!-- Cabeçalho: "Capítulo 1 · cena 13 de 45" e o nome da cena. As ações moram na barra logo abaixo (#394). -->
-    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">
+    <c:PageHeader Classes="inline" Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">
       <!-- Ler como jogador (#475): fica no cabeçalho, junto do nome da cena que ele abre, e não na barra, que já enche a 960 px. -->
       <Button Classes="sm" Command="{Binding StartReadingCommand}" AutomationProperties.Name="Ler como jogador"
               ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">

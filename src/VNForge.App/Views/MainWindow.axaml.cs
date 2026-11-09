@@ -27,7 +27,11 @@ public sealed partial class MainWindow : Window
         TopRail.Tapped += OnTopRailTapped;
         Motion.Follow(this);
         AddHandler(KeyDownEvent, OnShortcutKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        DataContextChanged += (_, _) => FollowTextAppearance();
+        DataContextChanged += (_, _) =>
+        {
+            FollowTextAppearance();
+            UpdateCompactHeader();
+        };
         Closing += OnClosing;
     }
 
@@ -40,7 +44,12 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void UpdateCompactHeader() => GameHeader.IsCompact = ClientSize.Height < GameHeaderView.CompactBelow;
+    /// <summary>
+    /// O cabeçalho completo (com a capa) só cabe onde a página sobra: o Painel, a Ficha e Jogar, em janela alta. As telas de trabalho (Editor, Conferir, Testar, Glossário)
+    /// e as janelas baixas usam o compacto, de uma linha, para ficar com a altura.
+    /// </summary>
+    private void UpdateCompactHeader() =>
+        GameHeader.IsCompact = ClientSize.Height < GameHeaderView.CompactBelow || DataContext is ViewModels.MainWindowViewModel { CurrentPage: not (ViewModels.DashboardViewModel or ViewModels.GameTabPlaceholderViewModel) };
 
     /// <summary>Quanto o resumo da sessão fica na tela antes de a janela fechar sozinha; fechar de novo antes disso fecha na hora.</summary>
     public static readonly TimeSpan CloseSummaryTime = TimeSpan.FromMilliseconds(2500);
@@ -151,6 +160,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(ViewModels.MainWindowViewModel.CurrentPage))
         {
+            UpdateCompactHeader();
             ApplyTextAppearance();
         }
     }
