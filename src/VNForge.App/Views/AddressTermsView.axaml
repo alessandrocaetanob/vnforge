@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
              xmlns:vm="using:VNForge.App.ViewModels"
              x:Class="VNForge.App.Views.AddressTermsView"
              x:DataType="vm:AddressTermsViewModel">
@@ -62,10 +63,10 @@
         </Border>
 
         <Grid ColumnDefinitions="*,*,*,*,76" ColumnSpacing="12" Margin="16,8,16,0">
-          <TextBlock Classes="overline" Text="Quem fala"/>
-          <TextBlock Grid.Column="1" Classes="overline" Text="Com quem"/>
-          <TextBlock Grid.Column="2" Classes="overline" Text="Como chama, em japonês"/>
-          <TextBlock Grid.Column="3" Classes="overline" Text="Como chama, na tradução"/>
+          <c:OverlineText Classes="overline" Text="Quem fala"/>
+          <c:OverlineText Grid.Column="1" Classes="overline" Text="Com quem"/>
+          <c:OverlineText Grid.Column="2" Classes="overline" Text="Como chama, em japonês"/>
+          <c:OverlineText Grid.Column="3" Classes="overline" Text="Como chama, na tradução"/>
         </Grid>
         <ItemsControl ItemsSource="{Binding Rows}" Margin="0,4,0,8" AutomationProperties.Name="Tratamentos entre personagens">
           <ItemsControl.ItemTemplate>

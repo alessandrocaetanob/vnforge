@@ -142,14 +142,14 @@ public sealed partial class EvalViewModel
         FitB = Fit(wrap, TextB);
     }
 
-    /// <summary><c>ORIGINAL · CENA 13, LINHA 0495</c>: o nome da cena, ou "Cena N" (a posição dela no projeto) quando ela não tem nome; nunca a chave do script.</summary>
+    /// <summary><c>Original · Cena 13, linha 0495</c> (o OverlineText desenha em caixa alta): o nome da cena, ou "Cena N" (a posição dela no projeto) quando ela não tem nome; nunca a chave do script.</summary>
     private string MetaFor(EvalSample sample)
     {
         var name = folder?.LoadScriptNames().DisplayName(sample.ScriptKey) ?? SceneLabel(sample.ScriptKey);
         var number = sample.LineId.Contains(':', StringComparison.Ordinal) && int.TryParse(sample.LineId[(sample.LineId.LastIndexOf(':') + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var n)
-            ? $", LINHA {n.ToString("0000", CultureInfo.InvariantCulture)}"
+            ? $", linha {n.ToString("0000", CultureInfo.InvariantCulture)}"
             : string.Empty;
-        return $"ORIGINAL · {name.ToUpperInvariant()}{number}";
+        return $"Original · {name}{number}";
     }
 
     private string SceneLabel(string key)

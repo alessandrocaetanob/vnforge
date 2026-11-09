@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
              xmlns:vm="using:VNForge.App.ViewModels"
              x:Class="VNForge.App.Controls.RewriteBar"
              x:DataType="vm:LineDetailViewModel">
@@ -20,7 +21,7 @@
 
   <!-- "Reescrever com um toque": cinco chips pedem duas versões da tradução numa direção; cada versão vem medida contra a caixa do jogo. O DataContext é o painel da linha. -->
   <StackPanel Spacing="8" IsVisible="{Binding HasRewriter}">
-    <TextBlock Classes="overline title" Text="Reescrever com um toque"/>
+    <c:OverlineText Classes="overline title" Text="Reescrever com um toque"/>
     <ItemsControl ItemsSource="{Binding RewriteChips}" AutomationProperties.Name="Reescrever com um toque">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>

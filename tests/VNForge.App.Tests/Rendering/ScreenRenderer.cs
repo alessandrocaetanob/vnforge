@@ -51,9 +51,10 @@ internal static class ScreenRenderer
         }
     }
 
-    /// <summary>Salva o quadro atual de uma janela já aberta.</summary>
+    /// <summary>Salva o quadro atual de uma janela já aberta; falha se algum rótulo overline aparecer em caixa baixa.</summary>
     public static void Save(Window window, string path)
     {
+        OverlineProbe.AssertUpperCase(window);
         using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("O Avalonia.Headless não devolveu o quadro; confira o UseSkia na sessão.");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         frame.Save(path, PngBitmapEncoderOptions.Default);

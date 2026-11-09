@@ -128,8 +128,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             var texts = VisibleText(view);
             foreach (var expected in new[]
             {
-                "Cenas", "Cena 1", "Atraso no portão", "Volta para casa", "RESUMO", "QUEM APARECE", "TOM", "PIADAS QUE VOLTAM", "RELAÇÕES",
-                "SINOPSE DO JOGO", "LINHA DO TEMPO", "Prólogo", "CUSTO DA BÍBLIA", "Gerada em", "Cenas lidas", "Reler um capítulo", "Exportar", "Voltar à última geração",
+                "Cenas", "Cena 1", "Atraso no portão", "Volta para casa", "Resumo", "Quem aparece", "Tom", "Piadas que voltam", "Relações",
+                "Sinopse do jogo", "Linha do tempo", "Prólogo", "Custo da bíblia", "Gerada em", "Cenas lidas", "Reler um capítulo", "Exportar", "Voltar à última geração",
             })
             {
                 Assert.Contains(expected, texts, StringComparison.Ordinal);
@@ -265,7 +265,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             var dialog = layer.Children.OfType<Control>().Single(c => c.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "ConfirmGenerateButton"));
             var texts = VisibleText(dialog);
             Assert.Contains("Gerar a bíblia do jogo", texts, StringComparison.Ordinal);
-            Assert.Contains("O QUE A IA VAI LER", texts, StringComparison.Ordinal);
+            Assert.Contains("O que a IA vai ler", texts, StringComparison.Ordinal);
+            DialogProbe.AssertCentered(window, 640);
             Assert.Contains("Custo (aproximado): R$ ", texts, StringComparison.Ordinal);
             Assert.Contains("Já gasto no projeto: R$ ", texts, StringComparison.Ordinal);
             Assert.Contains("Campos que você editou (1 cena)", texts, StringComparison.Ordinal);

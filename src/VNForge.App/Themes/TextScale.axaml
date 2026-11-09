@@ -15,6 +15,7 @@
   <x:Double x:Key="Vnf.LineHeight.ColumnHeader">16</x:Double>
   <x:Double x:Key="Vnf.FontSize.Overline">11</x:Double>
   <x:Double x:Key="Vnf.LineHeight.Overline">16</x:Double>
+  <x:Double x:Key="Vnf.LetterSpacing.Overline">0.77</x:Double>
   <x:Double x:Key="Vnf.FontSize.Body">14</x:Double>
   <x:Double x:Key="Vnf.LineHeight.Body">20</x:Double>
   <x:Double x:Key="Vnf.FontSize.BodySm">13</x:Double>

@@ -265,7 +265,8 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
             novel.LengthMinutes,
             novel.LengthVotes,
             tags,
-            adult);
+            adult,
+            novel.Rating);
     }
 
     private static bool IsDecisive(List<Scored> ranked, LibraryMatchOptions options) =>

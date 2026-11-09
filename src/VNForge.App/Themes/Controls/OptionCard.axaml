@@ -1,9 +1,10 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- docs/design/components/OptionCard: RadioButton em cartão; marcado, a borda vira accent de 2px. -->
+  <!-- docs/design/components/OptionCard (".opt" do quadro): RadioButton em cartão de 16px de raio, contorno em stroke-control; marcado, só a borda vira accent de 2px, sem fundo.
+       O círculo de rádio (".opt .r") é um Border.radio-mark que a tela põe na linha do título; ele lê o estado do cartão pelo seletor de descendente. -->
   <Style Selector="RadioButton.option">
-    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="Padding" Value="16,14"/>
     <Setter Property="Margin" Value="0,0,8,8"/>
     <Setter Property="HorizontalAlignment" Value="Stretch"/>
     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -11,9 +12,9 @@
       <ControlTemplate>
         <Border Name="Card"
                 Background="{DynamicResource Vnf.BgCard}"
-                BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
+                BorderBrush="{DynamicResource Vnf.StrokeControl}"
                 BorderThickness="1"
-                CornerRadius="{DynamicResource Vnf.RadiusMd}"
+                CornerRadius="{DynamicResource Vnf.RadiusLg}"
                 Padding="{TemplateBinding Padding}">
           <ContentPresenter Content="{TemplateBinding Content}"
                             ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -28,8 +29,19 @@
   <Style Selector="RadioButton.option:checked /template/ Border#Card">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
     <Setter Property="BorderThickness" Value="2"/>
-    <Setter Property="Padding" Value="13,9"/>
-    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+    <Setter Property="Padding" Value="15,13"/>
+  </Style>
+  <Style Selector="Border.radio-mark">
+    <Setter Property="Width" Value="16"/>
+    <Setter Property="Height" Value="16"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="BorderThickness" Value="1.5"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="RadioButton.option:checked Border.radio-mark">
+    <Setter Property="BorderThickness" Value="5"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
   </Style>
   <Style Selector="RadioButton.option:focus-visible /template/ Border#Card">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>

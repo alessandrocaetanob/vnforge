@@ -1,23 +1,40 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- Variantes de docs/design/components/Button: subtle, danger, sm, lg, icon; mais Border.kbd. "accent" é do Fluent. -->
+  <!-- Variantes de docs/design/components/Button: subtle, danger, sm, lg, icon; mais Border.kbd. "accent" é do Fluent.
+       O botão comum é o contornado do quadro (v3-btn): fundo do cartão, contorno de 1px em stroke-control, rótulo em semibold. O FluentTheme pinta os estados
+       no ContentPresenter com os pincéis dele (cinza cheio), então hover, pressionado e desligado voltam a ser dados aqui; as variantes vêm depois e vencem. -->
   <Style Selector="Button">
     <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlMd}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
-    <Setter Property="Padding" Value="12,0"/>
+    <Setter Property="Padding" Value="16,0"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Transitions">
       <Transitions>
         <BrushTransition Property="Background" Duration="0:0:0.167"/>
       </Transitions>
     </Setter>
   </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+  </Style>
 
   <!-- O FluentTheme pinta fundo, texto e borda no ContentPresenter do modelo, em todos os estados; só o que chega nele vale.
        Ativo: on-accent sobre accent (dark 8,6:1, claro 8,6:1). Desligado: fundo neutro e texto apagado, para não parecer o botão ligado. -->
   <Style Selector="Button.accent">
+    <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
@@ -38,16 +55,23 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
   </Style>
 
+  <!-- O peso semibold é do rótulo do botão contornado; o subtle é regular, porque carrega linhas inteiras (Eval, capítulos do Painel) e o texto dentro herda o peso. -->
   <Style Selector="Button.subtle">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="FontWeight" Value="Normal"/>
   </Style>
-  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.subtle:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="Button.subtle:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
 
   <!-- Link de rodapé de cartão e de tabela (artboard Painel, "a"): texto em accent-text, sem caixa; vira text-primary ao passar o mouse. -->
   <Style Selector="Button.link">
+    <Setter Property="FontWeight" Value="Normal"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderThickness" Value="0"/>
@@ -69,30 +93,47 @@
     <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
   </Style>
-  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
   </Style>
 
   <Style Selector="Button.sm">
     <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
-    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="Padding" Value="12,0"/>
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.BodySm}"/>
+  </Style>
+  <!-- O link de rodapé de ação (TodoItem: "link sm") guarda os 8px de antes: o sm do quadro (12px) não vale para ele, que não tem caixa. -->
+  <Style Selector="Button.link.sm">
+    <Setter Property="Padding" Value="8,0"/>
   </Style>
   <Style Selector="Button.lg">
     <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlLg}"/>
-    <Setter Property="Padding" Value="20,0"/>
+    <Setter Property="Padding" Value="16,0"/>
   </Style>
   <Style Selector="Button.icon">
     <Setter Property="Width" Value="{DynamicResource Vnf.ControlMd}"/>
     <Setter Property="Padding" Value="0"/>
     <Setter Property="HorizontalContentAlignment" Value="Center"/>
   </Style>
+  <Style Selector="Button.icon.subtle">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="Button.icon.sm">
+    <Setter Property="Width" Value="{DynamicResource Vnf.ControlSm}"/>
+  </Style>
 
   <!-- Anel de foco do teclado: 2px sólido em focus-ring. -->
   <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter, ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
     <Setter Property="BorderThickness" Value="2"/>
+  </Style>
+
+  <!-- O chevron do ComboBox: 8px no quadro (o glifo do FluentTheme vem em 12). -->
+  <Style Selector="ComboBox /template/ PathIcon#DropDownGlyph">
+    <Setter Property="Width" Value="8"/>
+    <Setter Property="Height" Value="8"/>
   </Style>
 
   <Style Selector="Border.kbd">

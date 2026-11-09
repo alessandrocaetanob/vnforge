@@ -121,6 +121,26 @@
       <SolidColorBrush x:Key="Vnf.Speaker8" Color="#DA8881"/>
       <Color x:Key="Vnf.DialogScrimColor">#99000000</Color>
       <SolidColorBrush x:Key="Vnf.DialogScrim" Color="#99000000"/>
+      <!-- Interruptor do quadro (".tog"): contorno em stroke-control e fundo vazio desligado, accent ligado; a bolinha é text-secondary desligada e on-accent ligada.
+           São as chaves do FluentTheme, então valem para todo ToggleSwitch. -->
+      <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="Transparent"/>
+      <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver" Color="Transparent"/>
+      <SolidColorBrush x:Key="ToggleSwitchFillOffPressed" Color="Transparent"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="ToggleSwitchFillOn" ResourceKey="Vnf.Accent"/>
+      <StaticResource x:Key="ToggleSwitchFillOnPointerOver" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchFillOnPressed" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOn" ResourceKey="Vnf.Accent"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOnPointerOver" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOnPressed" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="Vnf.TextSecondary"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="Vnf.TextSecondary"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="Vnf.TextSecondary"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOn" ResourceKey="Vnf.OnAccent"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOnPointerOver" ResourceKey="Vnf.OnAccent"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOnPressed" ResourceKey="Vnf.OnAccent"/>
       <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #80000000</BoxShadows>
       <BoxShadows x:Key="Vnf.ShadowCover">0 8 20 0 #73000000</BoxShadows>
     </ResourceDictionary>
@@ -243,6 +263,26 @@
       <SolidColorBrush x:Key="Vnf.Speaker8" Color="#8E3229"/>
       <Color x:Key="Vnf.DialogScrimColor">#66101A18</Color>
       <SolidColorBrush x:Key="Vnf.DialogScrim" Color="#66101A18"/>
+      <!-- Interruptor do quadro (".tog"): contorno em stroke-control e fundo vazio desligado, accent ligado; a bolinha é text-secondary desligada e on-accent ligada.
+           São as chaves do FluentTheme, então valem para todo ToggleSwitch. -->
+      <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="Transparent"/>
+      <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver" Color="Transparent"/>
+      <SolidColorBrush x:Key="ToggleSwitchFillOffPressed" Color="Transparent"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="ToggleSwitchFillOn" ResourceKey="Vnf.Accent"/>
+      <StaticResource x:Key="ToggleSwitchFillOnPointerOver" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchFillOnPressed" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOn" ResourceKey="Vnf.Accent"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOnPointerOver" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchStrokeOnPressed" ResourceKey="Vnf.AccentHover"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="Vnf.TextSecondary"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="Vnf.TextSecondary"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="Vnf.TextSecondary"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOn" ResourceKey="Vnf.OnAccent"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOnPointerOver" ResourceKey="Vnf.OnAccent"/>
+      <StaticResource x:Key="ToggleSwitchKnobFillOnPressed" ResourceKey="Vnf.OnAccent"/>
       <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #29141C1A</BoxShadows>
       <BoxShadows x:Key="Vnf.ShadowCover">0 8 20 0 #38141C1A</BoxShadows>
     </ResourceDictionary>

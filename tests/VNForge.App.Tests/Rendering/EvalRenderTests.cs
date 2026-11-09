@@ -186,7 +186,7 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                         Assert.Contains("Pular par", texts);
                         Assert.DoesNotContain("Voltar ao relatório", texts);
                         Assert.Contains("Misaki → Aizawa e Sakura", texts);
-                        Assert.Contains("ORIGINAL · CENA 1, LINHA 0008", texts);
+                        Assert.Contains("Original · Cena 1, linha 0008", texts);
                         Assert.DoesNotContain(window.GetVisualDescendants().OfType<EvalChart>(), c => c.IsEffectivelyVisible);
                         Assert.DoesNotContain(texts, t => t is not null && t.Contains("Opus", StringComparison.Ordinal));
                     });
@@ -252,6 +252,7 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                         var path = RenderOutput.PathFor(ScreenRenderer.FileName("provas-rodar", Variant(themeName)));
                         ScreenRenderer.Save(window, path);
                         Assert.True(new FileInfo(path).Length > 10_000);
+                        DialogProbe.AssertCentered(window, 660);
 
                         var overlay = OverlayLayer.GetOverlayLayer(window)!.Children.OfType<Control>().Single(c => c.GetVisualDescendants().OfType<BudgetBar>().Any());
                         var texts = Texts(overlay).ToList();

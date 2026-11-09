@@ -204,7 +204,7 @@
 
         <Border x:Name="Side" Grid.Column="1" Classes="panel" Padding="16">
           <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-            <TextBlock Classes="overline" Text="Custo e qualidade"/>
+            <c:OverlineText Classes="overline" Text="Custo e qualidade"/>
             <c:EvalChart Grid.Row="1" Margin="0,12,0,0" ItemsSource="{Binding Points}" Height="208"
                          AutomationProperties.Name="Gráfico de custo do jogo todo contra chrF, um ponto por configuração"/>
 
@@ -213,7 +213,7 @@
               <StackPanel Spacing="8">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Lightbulb}"/>
-                  <TextBlock Classes="overline" VerticalAlignment="Center" Text="Leitura da rodada"/>
+                  <c:OverlineText Classes="overline" VerticalAlignment="Center" Text="Leitura da rodada"/>
                 </StackPanel>
                 <TextBlock Classes="caption" LineHeight="20" TextWrapping="Wrap" Text="{Binding Reading}"/>
               </StackPanel>
@@ -263,7 +263,7 @@
         <Border Classes="panel" Padding="16">
           <StackPanel Spacing="12">
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="overline" Text="{Binding OriginalMeta}"/>
+              <c:OverlineText Classes="overline" Text="{Binding OriginalMeta}"/>
               <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding OriginalSpeaker}"/>
             </Grid>
             <TextBlock Classes="jp-body" FontSize="22" LineHeight="35" TextWrapping="Wrap" Text="{Binding OriginalText}"/>
@@ -312,7 +312,7 @@
     </StackPanel>
 
     <!-- Rodar o banco de provas: o custo aparece antes de rodar, com o que já foi gasto no projeto, como na janela Traduzir com IA. -->
-    <c:ScreenDialog Title="Rodar o banco de provas" IsOpen="{Binding IsRunOpen, Mode=TwoWay}">
+    <c:ScreenDialog Title="Rodar o banco de provas" DialogWidth="660" IsOpen="{Binding IsRunOpen, Mode=TwoWay}">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
       <ScrollViewer.Styles>
       <!-- Caixa de seleção quadrada (18 px, canto de 5 px) das configurações a rodar e do juiz: contorno em stroke-control, cheia de accent quando marcada.
