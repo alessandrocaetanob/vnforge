@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 using VNForge.Core.Library;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -10,8 +11,9 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|privacy</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
-/// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde.
+/// <c>vnf library scan|match|list|link|privacy|tag</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde e filtra por tag.
+/// <c>tag</c> cuida das tags do usuário (<c>library-tags.json</c>, ao lado).
 /// </summary>
 internal static class LibraryCommand
 {
@@ -99,6 +101,44 @@ internal static class LibraryCommand
         HelpName = "sim|nao",
     };
 
+    private static readonly Option<string[]> TagOption = new("--tag")
+    {
+        Description = "Só os jogos com esta tag, sua ou do VNDB (repita para mais de uma). minha:nome e vndb:nome-ou-id limitam a quem a tag é.",
+        HelpName = "tag",
+    };
+
+    private static readonly Option<string[]> NotOption = new("--not")
+    {
+        Description = "Tira os jogos com esta tag, sua ou do VNDB (repita para mais de uma).",
+        HelpName = "tag",
+    };
+
+    private static readonly Option<bool> AnyOption = new("--any")
+    {
+        Description = "Com mais de uma --tag, aceita o jogo que tem qualquer uma (OU). Sem isso, ele precisa ter todas (E).",
+    };
+
+    private static readonly Option<bool> SaveFilterOption = new("--save")
+    {
+        Description = "Guarda esta combinação de --tag, --any e --not como o filtro salvo. Sem tags, apaga o filtro salvo.",
+    };
+
+    private static readonly Option<bool> SavedFilterOption = new("--saved")
+    {
+        Description = "Usa o filtro por tag salvo com --save.",
+    };
+
+    private static readonly Option<string?> ColorOption = new("--color")
+    {
+        Description = "Cor da tag em #rrggbb (por exemplo #ff8800). Sem ela, a cor que a tag já tem fica.",
+        HelpName = "cor",
+    };
+
+    private static readonly Option<bool> MergeOption = new("--merge")
+    {
+        Description = "Se a tag de destino já existe, junta os jogos das duas nela em vez de recusar.",
+    };
+
     public static Command Create(VnfCli cli)
     {
         var command = new Command("library", "As suas VNs num lugar só: reconhece os jogos de uma pasta e casa cada um com o VNDB.");
@@ -107,6 +147,57 @@ internal static class LibraryCommand
         command.Subcommands.Add(CreateList(cli));
         command.Subcommands.Add(CreateLink(cli));
         command.Subcommands.Add(CreatePrivacy(cli));
+        command.Subcommands.Add(CreateTag(cli));
+        return command;
+    }
+
+    private static Command CreateTag(VnfCli cli)
+    {
+        static Argument<string> NewGame() => new("jogo") { Description = "Jogo da biblioteca (id, nome da pasta ou pedaço do título)." };
+        static Argument<string[]> NewNames() => new("tag") { Description = "Uma ou mais tags. Caixa e espaços repetidos não contam: Pra  Traduzir é pra traduzir.", Arity = ArgumentArity.OneOrMore };
+        var command = new Command("tag", "Tags suas nos jogos. Ficam só neste computador e não vão para o VNDB.");
+
+        var addGame = NewGame();
+        var addNames = NewNames();
+        var add = new Command("add", "Põe tags num jogo, criando as que ainda não existem.");
+        add.Arguments.Add(addGame);
+        add.Arguments.Add(addNames);
+        add.Options.Add(ColorOption);
+        add.SetAction(parseResult => TagAdd(cli, parseResult, parseResult.GetRequiredValue(addGame), parseResult.GetRequiredValue(addNames)));
+        command.Subcommands.Add(add);
+
+        var removeGame = NewGame();
+        var removeNames = NewNames();
+        var remove = new Command("remove", "Tira tags de um jogo. As tags continuam na lista.");
+        remove.Arguments.Add(removeGame);
+        remove.Arguments.Add(removeNames);
+        remove.SetAction(parseResult => TagRemove(cli, parseResult, parseResult.GetRequiredValue(removeGame), parseResult.GetRequiredValue(removeNames)));
+        command.Subcommands.Add(remove);
+
+        var listGame = new Argument<string?>("jogo")
+        {
+            Description = "Mostra só as tags deste jogo. Sem ele, lista todas as tags com a cor e quantos jogos usam.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        var list = new Command("list", "Lista as suas tags, ou as de um jogo, e mostra o filtro salvo.");
+        list.Arguments.Add(listGame);
+        list.SetAction(parseResult => TagList(cli, parseResult, parseResult.GetValue(listGame)));
+        command.Subcommands.Add(list);
+
+        var from = new Argument<string>("de") { Description = "A tag que muda de nome." };
+        var to = new Argument<string>("para") { Description = "O novo nome." };
+        var rename = new Command("rename", "Renomeia uma tag em todos os jogos que a usam.");
+        rename.Arguments.Add(from);
+        rename.Arguments.Add(to);
+        rename.Options.Add(MergeOption);
+        rename.SetAction(parseResult => TagRename(cli, parseResult, parseResult.GetRequiredValue(from), parseResult.GetRequiredValue(to)));
+        command.Subcommands.Add(rename);
+
+        var target = new Argument<string>("tag") { Description = "A tag a apagar." };
+        var delete = new Command("delete", "Apaga uma tag e a tira de todos os jogos que a usam.");
+        delete.Arguments.Add(target);
+        delete.SetAction(parseResult => TagDelete(cli, parseResult, parseResult.GetRequiredValue(target)));
+        command.Subcommands.Add(delete);
         return command;
     }
 
@@ -144,6 +235,11 @@ internal static class LibraryCommand
         command.Arguments.Add(game);
         command.Options.Add(EngineOption);
         command.Options.Add(StateOption);
+        command.Options.Add(TagOption);
+        command.Options.Add(AnyOption);
+        command.Options.Add(NotOption);
+        command.Options.Add(SaveFilterOption);
+        command.Options.Add(SavedFilterOption);
         command.Options.Add(ShowSpoilersOption);
         command.Options.Add(ShowAdultOption);
         command.SetAction(parseResult => List(cli, parseResult, parseResult.GetValue(game)));
@@ -170,6 +266,8 @@ internal static class LibraryCommand
     }
 
     private static LibraryFile FileOf(VnfCli cli) => new(cli.UserConfigDirectory);
+
+    private static UserTagsFile TagsFileOf(VnfCli cli) => new(cli.UserConfigDirectory);
 
     private static int Scan(VnfCli cli, ParseResult parseResult, string folderArgument, CancellationToken token)
     {
@@ -488,25 +586,48 @@ internal static class LibraryCommand
             ShowAdult = library.Privacy.ShowAdult || parseResult.GetValue(ShowAdultOption),
         };
 
+        var tagsFile = TagsFileOf(cli);
+        var tags = tagsFile.Load();
         if (reference is not null)
         {
+            if (HasTagFilterOptions(parseResult))
+            {
+                throw new UsageException("--tag, --any, --not, --save e --saved valem para a lista; com um jogo, mostre as tags dele com vnf library tag list <jogo>.");
+            }
+
             var game = library.Find(reference);
             if (json)
             {
-                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy) }));
+                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, tags.TagsOf(game.Id)) }));
             }
             else
             {
-                WriteSheet(output, game, privacy);
+                WriteSheet(output, game, privacy, tags.TagsOf(game.Id));
             }
 
             return ErrorHandler.OkExitCode;
         }
 
-        var games = Filter(library.Sorted(), parseResult.GetValue(EngineOption), parseResult.GetValue(StateOption));
+        var filter = TagFilterOf(parseResult, tags);
+        var games = filter.Apply(Filter(library.Sorted(), parseResult.GetValue(EngineOption), parseResult.GetValue(StateOption)), tags, privacy);
+        var saveFilter = parseResult.GetValue(SaveFilterOption);
+        if (saveFilter)
+        {
+            tags.SavedFilter = filter;
+            tagsFile.Save(tags);
+        }
+
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new { privacy, total = library.Games.Count, shown = games.Count, games = games.Select(g => GameData(g, privacy)) }));
+            output.WriteLine(JsonEnvelope.Result(new
+            {
+                privacy,
+                total = library.Games.Count,
+                shown = games.Count,
+                filter = FilterData(filter),
+                filterSaved = saveFilter,
+                games = games.Select(g => GameData(g, privacy, tags.TagsOf(g.Id))),
+            }));
             return ErrorHandler.OkExitCode;
         }
 
@@ -516,22 +637,95 @@ internal static class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        var table = CliViews.NewTable(CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"));
+        var showTags = tags.Tags.Count > 0;
+        List<TableColumn> columns = [CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto")];
+        if (showTags)
+        {
+            columns.Add(CliViews.Column("Minhas tags"));
+        }
+
+        var table = CliViews.NewTable([.. columns]);
         foreach (var game in games)
         {
-            table.AddRow(
+            List<IRenderable> cells =
+            [
                 new Markup(game.Id),
                 new Markup(CliViews.Escape(game.Title)),
                 new Markup(CliViews.Escape(game.Engine.Name)),
                 new Markup(CliViews.Escape(MatchText(game))),
-                new Markup(game.ProjectPath is null ? "[dim]·[/]" : "sim"));
+                new Markup(game.ProjectPath is null ? "[dim]·[/]" : "sim"),
+            ];
+            if (showTags)
+            {
+                var own = tags.TagsOf(game.Id);
+                cells.Add(new Markup(own.Count == 0 ? "[dim]·[/]" : CliViews.Escape(string.Join(", ", own))));
+            }
+
+            table.AddRow([.. cells]);
         }
 
         cli.Ansi.Write(table);
+        if (!filter.IsEmpty)
+        {
+            output.WriteLine($"Filtro por tag: {DescribeFilter(filter)}.{(saveFilter ? " Salvo." : string.Empty)}");
+        }
+        else if (saveFilter)
+        {
+            output.WriteLine("Filtro por tag salvo apagado.");
+        }
+
         output.WriteLine(games.Count == library.Games.Count
             ? $"{CliFormat.Count(games.Count, "jogo", "jogos")} na biblioteca."
             : $"{CliFormat.Count(games.Count, "jogo", "jogos")} de {CliFormat.Number(library.Games.Count)} na biblioteca.");
         return ErrorHandler.OkExitCode;
+    }
+
+    private static bool HasTagFilterOptions(ParseResult parseResult) =>
+        (parseResult.GetValue(TagOption) ?? []).Length > 0
+        || (parseResult.GetValue(NotOption) ?? []).Length > 0
+        || parseResult.GetValue(AnyOption)
+        || parseResult.GetValue(SaveFilterOption)
+        || parseResult.GetValue(SavedFilterOption);
+
+    private static LibraryTagFilter TagFilterOf(ParseResult parseResult, UserTags tags)
+    {
+        var include = parseResult.GetValue(TagOption) ?? [];
+        var exclude = parseResult.GetValue(NotOption) ?? [];
+        var any = parseResult.GetValue(AnyOption);
+        if (parseResult.GetValue(SavedFilterOption))
+        {
+            if (include.Length > 0 || exclude.Length > 0 || any || parseResult.GetValue(SaveFilterOption))
+            {
+                throw new UsageException("--saved usa o filtro que já está salvo; não combina com --tag, --any, --not nem --save.");
+            }
+
+            return tags.SavedFilter;
+        }
+
+        if (any && include.Length == 0)
+        {
+            throw new UsageException("--any combina as tags de --tag; informe pelo menos uma --tag.");
+        }
+
+        return LibraryTagFilter.Create(include, any, exclude);
+    }
+
+    private static object FilterData(LibraryTagFilter filter) => new { include = filter.Include, any = filter.Any, exclude = filter.Exclude };
+
+    private static string DescribeFilter(LibraryTagFilter filter)
+    {
+        var parts = new List<string>();
+        if (filter.Include.Count > 0)
+        {
+            parts.Add($"com {(filter.Any ? "qualquer uma de" : "todas de")} {string.Join(", ", filter.Include)}");
+        }
+
+        if (filter.Exclude.Count > 0)
+        {
+            parts.Add($"sem {string.Join(", ", filter.Exclude)}");
+        }
+
+        return string.Join("; ", parts);
     }
 
     private static IReadOnlyList<LibraryGame> Filter(IReadOnlyList<LibraryGame> games, string? engine, string? state)
@@ -568,7 +762,7 @@ internal static class LibraryCommand
         return game.SearchedAt is null ? "·" : "não achado";
     }
 
-    private static void WriteSheet(TextWriter output, LibraryGame game, LibraryPrivacy privacy)
+    private static void WriteSheet(TextWriter output, LibraryGame game, LibraryPrivacy privacy, IReadOnlyList<string> userTags)
     {
         output.WriteLine(game.Title);
         output.WriteLine($"  Id: {game.Id}");
@@ -585,6 +779,7 @@ internal static class LibraryCommand
         }
 
         output.WriteLine($"  Projeto de tradução: {game.ProjectPath ?? "nenhum"}");
+        output.WriteLine($"  Minhas tags: {(userTags.Count == 0 ? "nenhuma" : string.Join(", ", userTags))}");
         var card = LibraryVisibility.Card(game, privacy);
         if (card is null)
         {
@@ -665,7 +860,7 @@ internal static class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { game = GameData(changed, library.Privacy) }));
+            output.WriteLine(JsonEnvelope.Result(new { game = GameData(changed, library.Privacy, TagsFileOf(cli).Load().TagsOf(changed.Id)) }));
         }
         else
         {
@@ -701,6 +896,177 @@ internal static class LibraryCommand
         return ErrorHandler.OkExitCode;
     }
 
+    private static int TagAdd(VnfCli cli, ParseResult parseResult, string reference, string[] names)
+    {
+        var game = FileOf(cli).Load().Find(reference);
+        var file = TagsFileOf(cli);
+        var tags = file.Load();
+        var color = parseResult.GetValue(ColorOption);
+        var added = new List<string>();
+        var already = new List<string>();
+        foreach (var name in names.Select(UserTagName.Normalize).Distinct(StringComparer.Ordinal))
+        {
+            (tags.Has(game.Id, name) ? already : added).Add(name);
+            tags.Add(game.Id, name, color);
+        }
+
+        file.Save(tags);
+        var output = parseResult.InvocationConfiguration.Output;
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, added, already, tags = tags.TagsOf(game.Id) }));
+        }
+        else
+        {
+            output.WriteLine($"{game.Title}: " + string.Join(" ", TagChangeParts(("adicionadas", added), ("já tinha", already))));
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static int TagRemove(VnfCli cli, ParseResult parseResult, string reference, string[] names)
+    {
+        var game = FileOf(cli).Load().Find(reference);
+        var file = TagsFileOf(cli);
+        var tags = file.Load();
+        var removed = new List<string>();
+        var missing = new List<string>();
+        foreach (var name in names.Select(UserTagName.Normalize).Distinct(StringComparer.Ordinal))
+        {
+            (tags.Remove(game.Id, name) ? removed : missing).Add(name);
+        }
+
+        file.Save(tags);
+        var output = parseResult.InvocationConfiguration.Output;
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, removed, notPresent = missing, tags = tags.TagsOf(game.Id) }));
+        }
+        else
+        {
+            output.WriteLine($"{game.Title}: " + string.Join(" ", TagChangeParts(("retiradas", removed), ("o jogo não tinha", missing))));
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static IEnumerable<string> TagChangeParts(params (string Label, List<string> Names)[] groups) =>
+        groups.Where(g => g.Names.Count > 0).Select(g => $"{g.Label}: {string.Join(", ", g.Names)}.");
+
+    private static int TagList(VnfCli cli, ParseResult parseResult, string? reference)
+    {
+        var library = FileOf(cli).Load();
+        var tags = TagsFileOf(cli).Load();
+        var output = parseResult.InvocationConfiguration.Output;
+        var json = parseResult.GetValue(cli.Options.Json);
+        if (reference is not null)
+        {
+            var game = library.Find(reference);
+            var own = tags.TagsOf(game.Id);
+            if (json)
+            {
+                output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, tags = own.Select(n => tags.Get(n)) }));
+            }
+            else
+            {
+                output.WriteLine($"{game.Title}: {(own.Count == 0 ? "sem tags suas" : string.Join(", ", own))}.");
+            }
+
+            return ErrorHandler.OkExitCode;
+        }
+
+        var ids = library.Games.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
+        var rows = tags.Tags.Select(t => (Tag: t, Games: tags.GamesWith(t.Name).Count(ids.Contains))).ToList();
+        if (json)
+        {
+            output.WriteLine(JsonEnvelope.Result(new { tags = rows.Select(r => new { name = r.Tag.Name, color = r.Tag.Color, games = r.Games }), filter = FilterData(tags.SavedFilter) }));
+            return ErrorHandler.OkExitCode;
+        }
+
+        if (rows.Count == 0)
+        {
+            output.WriteLine("Você ainda não criou tags. Ponha uma num jogo com vnf library tag add <jogo> <tag>.");
+            return ErrorHandler.OkExitCode;
+        }
+
+        var table = CliViews.NewTable(CliViews.Column("Tag"), CliViews.Column("Cor"), CliViews.Column("Jogos", right: true));
+        foreach (var (tag, games) in rows)
+        {
+            table.AddRow(new Markup(CliViews.Escape(tag.Name)), new Markup(tag.Color ?? "[dim]·[/]"), new Markup(CliFormat.Number(games)));
+        }
+
+        cli.Ansi.Write(table);
+        output.WriteLine(tags.SavedFilter.IsEmpty ? "Nenhum filtro por tag salvo." : $"Filtro salvo: {DescribeFilter(tags.SavedFilter)}.");
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static int TagRename(VnfCli cli, ParseResult parseResult, string from, string to)
+    {
+        var library = FileOf(cli).Load();
+        var file = TagsFileOf(cli);
+        var tags = file.Load();
+        var source = tags.Get(from).Name;
+        var target = UserTagName.Normalize(to);
+        var merged = target != source && tags.TryGet(target, out _);
+        var games = GamesInLibrary(tags, library, source);
+        var changed = target != source;
+        tags.Rename(source, target, parseResult.GetValue(MergeOption));
+        if (changed)
+        {
+            file.Save(tags);
+        }
+
+        var output = parseResult.InvocationConfiguration.Output;
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { from = source, to = target, merged, games, changed }));
+        }
+        else if (!changed)
+        {
+            output.WriteLine($"A tag já se chama '{target}'.");
+        }
+        else
+        {
+            output.WriteLine($"{(merged ? "Tag mesclada" : "Tag renomeada")}: '{source}' virou '{target}' em {CliFormat.Count(games, "jogo", "jogos")}.");
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static int TagDelete(VnfCli cli, ParseResult parseResult, string name)
+    {
+        var library = FileOf(cli).Load();
+        var file = TagsFileOf(cli);
+        var tags = file.Load();
+        var key = tags.Get(name).Name;
+        var games = GamesInLibrary(tags, library, key);
+        var output = parseResult.InvocationConfiguration.Output;
+        if (games > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Apagar a tag '{key}'? Ela sai de {CliFormat.Count(games, "jogo", "jogos")}."))
+        {
+            output.WriteLine("Operação cancelada. Nada foi apagado.");
+            return ErrorHandler.CancelledExitCode;
+        }
+
+        tags.Delete(key);
+        file.Save(tags);
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { deleted = key, games }));
+        }
+        else
+        {
+            output.WriteLine($"Tag '{key}' apagada, de {CliFormat.Count(games, "jogo", "jogos")}.");
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static int GamesInLibrary(UserTags tags, GameLibrary library, string name)
+    {
+        var ids = library.Games.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
+        return tags.GamesWith(name).Count(ids.Contains);
+    }
+
     private static bool? ParseYesNo(string? text, string option)
     {
         if (text is null)
@@ -716,7 +1082,7 @@ internal static class LibraryCommand
         };
     }
 
-    private static object GameData(LibraryGame game, LibraryPrivacy privacy) => new
+    private static object GameData(LibraryGame game, LibraryPrivacy privacy, IReadOnlyList<string>? userTags = null) => new
     {
         id = game.Id,
         title = game.Title,
@@ -730,6 +1096,7 @@ internal static class LibraryCommand
         searched = game.SearchedAt is not null,
         candidates = game.Candidates.Select(c => new { vndbId = c.VndbId, title = c.Title, original = c.OriginalTitle, released = c.Released, score = c.Score, evidence = c.Evidence }),
         project = game.ProjectPath,
+        userTags,
         card = LibraryVisibility.Card(game, privacy),
     };
 

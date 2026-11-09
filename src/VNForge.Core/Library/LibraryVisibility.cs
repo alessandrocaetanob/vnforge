@@ -43,10 +43,7 @@ public static partial class LibraryVisibility
         }
 
         var hideAdult = info.Adult && !privacy.ShowAdult;
-        var visible = info.Tags
-            .Where(t => privacy.ShowSpoilers || t.Spoiler == 0)
-            .Where(t => !hideAdult || t.Category != "ero")
-            .ToList();
+        var visible = VisibleTags(info, privacy);
         var hadSpoilers = false;
         var synopsis = info.Synopsis is null ? null : PlainSynopsis(info.Synopsis, privacy.ShowSpoilers, out hadSpoilers);
         return new LibraryGameCard(
@@ -63,6 +60,22 @@ public static partial class LibraryVisibility
             visible,
             info.Tags.Count - visible.Count,
             info.Adult);
+    }
+
+    /// <summary>As tags do VNDB que a privacidade deixa ver; vazio se o jogo ainda não tem jogo do VNDB confirmado. É o que a ficha mostra e o que o filtro por tag enxerga.</summary>
+    public static IReadOnlyList<LibraryTag> VisibleTags(LibraryGame game, LibraryPrivacy privacy)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(privacy);
+        return game.Info is { } info ? VisibleTags(info, privacy) : [];
+    }
+
+    private static List<LibraryTag> VisibleTags(LibraryVndbInfo info, LibraryPrivacy privacy)
+    {
+        var hideAdult = info.Adult && !privacy.ShowAdult;
+        return [.. info.Tags
+            .Where(t => privacy.ShowSpoilers || t.Spoiler == 0)
+            .Where(t => !hideAdult || t.Category != "ero")];
     }
 
     /// <summary>A sinopse do VNDB em texto simples. Sem <paramref name="showSpoilers"/>, cada trecho <c>[spoiler]...[/spoiler]</c> vira <see cref="SpoilerPlaceholder"/>.</summary>

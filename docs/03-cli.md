@@ -91,11 +91,35 @@ Seção "Biblioteca" da ajuda: `library`. A biblioteca (d2, #548) guarda as VNs 
 | `vnf library match [--auto] [--again] [--only <jogo>]` | Casa com o VNDB os jogos ainda sem confirmação e nunca buscados. Busca pelo título da janela, pela pasta (sem colchetes, versão e ruído de coleção) e pelo nome do executável (até 3 buscas por jogo; para na primeira que decide) e pontua cada candidato de 0 a 100% comparando os termos com o título, o título original, os alternativos e os apelidos do VNDB. Sem `--auto`, só grava os candidatos. Com `--auto`, confirma o candidato com 90% ou mais e pelo menos 10 pontos à frente do segundo; abaixo disso nunca confirma sozinho. `--again` busca de novo os que já foram buscados e `--only` casa um jogo só. Se o VNDB falhar 3 vezes seguidas, o lote para e sai com código 1; os jogos que falharam não são marcados como buscados |
 | `vnf library match --confirm <jogo> <vndb-id>` | Confirma o jogo do VNDB (`v4`) para um jogo da biblioteca e guarda capa, sinopse, duração e tags. `<jogo>` é o id da biblioteca, o nome da pasta ou um pedaço único do título |
 | `vnf library match --reset <jogo>` | Desfaz a confirmação; os candidatos ficam |
-| `vnf library list [jogo] [--engine id] [--state estado] [--show-spoilers] [--show-adult]` | Sem `<jogo>`, lista a biblioteca (id, título, engine, casamento, projeto), filtrada por engine ou por estado (`confirmed`, `pending`, `unmatched`). Com `<jogo>`, mostra a ficha: capa, sinopse, duração, tags e candidatos. Spoiler e conteúdo adulto saem escondidos, como a privacidade da biblioteca manda; as duas opções liberam só a chamada |
+| `vnf library list [jogo] [--engine id] [--state estado] [--tag tag]... [--any] [--not tag]... [--save] [--saved] [--show-spoilers] [--show-adult]` | Sem `<jogo>`, lista a biblioteca (id, título, engine, casamento, projeto, e as suas tags quando existe alguma), filtrada por engine, por estado (`confirmed`, `pending`, `unmatched`) e por tag (veja "Tags suas" abaixo). Com `<jogo>`, mostra a ficha: capa, sinopse, duração, as suas tags, as tags do VNDB e candidatos. Spoiler e conteúdo adulto saem escondidos, como a privacidade da biblioteca manda; as duas opções liberam só a chamada |
 | `vnf library link <jogo> --project <pasta>` e `vnf library link <jogo> --remove` | Liga o projeto de tradução ao jogo, ou desliga. Ligar exige um `vnforge.json` na pasta; o projeto nunca é alterado |
 | `vnf library privacy [--spoilers sim\|nao] [--adult sim\|nao]` | Mostra ou muda o que a biblioteca esconde por padrão. Os dois começam em `nao`. A escolha fica em `library.json` e vale para a tela e para a CLI |
 
-O `--json` de um jogo traz `id`, `title`, `folder`, `exe`, `engine` (`id`, `name`, `source`: `engine`, `signature` ou `unknown`; `translatable`), `windowTitle`, `vndbId`, `confirmation` (`none`, `auto` ou `manual`), `score`, `searched`, `candidates` (`vndbId`, `title`, `original`, `released`, `score`, `evidence`), `project` e `card`. O `card` só existe com o jogo confirmado e já passou pela privacidade: sem `coverUrl` (e com `coverHidden`) quando a capa é adulta, sem as tags de spoiler e sem as eróticas de jogo adulto (`hiddenTags` conta quantas), e com a sinopse sem os trechos `[spoiler]`. O casamento usa o VNDB pelo catálogo da seção "Cliente do VNDB" de `02-arquitetura.md`; os dados do VNDB seguem a licença citada em `VndbCredit`.
+### Tags suas
+
+Você põe tags próprias nos jogos (d12, #559), como `favorito`, `rejogar` ou `pra traduzir`, além das tags do VNDB. As tags ficam em `library-tags.json`, ao lado do `library.json`, só neste computador: não sobem para o VNDB e valem só para jogos. O nome é normalizado (espaços das pontas saem, espaços repetidos viram um e tudo vai para minúsculas, então `Pra  Traduzir` e `pra traduzir` são a mesma tag), tem até 40 caracteres e não leva dois-pontos. A cor é opcional (`#rrggbb`). Um arquivo ilegível é recusado, como o da biblioteca, e nunca é sobrescrito. Como o arquivo é separado, varrer ou casar a biblioteca não toca nas tags, e as tags de um jogo que saiu da lista voltam se ele for achado de novo.
+
+| Comando | O que faz |
+|---|---|
+| `vnf library tag add <jogo> <tag>... [--color #rrggbb]` | Põe as tags no jogo e cria as que ainda não existem. `--color` define a cor das tags citadas; sem ele, a cor que elas já têm fica |
+| `vnf library tag remove <jogo> <tag>...` | Tira as tags do jogo. As tags continuam na lista, mesmo sem nenhum jogo |
+| `vnf library tag list [jogo]` | Sem `<jogo>`, lista as tags com a cor e quantos jogos da biblioteca usam, e mostra o filtro salvo. Com `<jogo>`, mostra só as tags dele |
+| `vnf library tag rename <de> <para> [--merge]` | Renomeia a tag em todos os jogos que a usam e no filtro salvo. Se `<para>` já existe, recusa; com `--merge`, junta os jogos das duas nela (a cor do destino fica; se ele não tem, herda a da origem) |
+| `vnf library tag delete <tag>` | Apaga a tag, de todos os jogos e do filtro salvo. Pergunta antes quando algum jogo a usa; `--yes` pula a pergunta e, com `--json`, ela é obrigatória. Recusar sai com código 3 |
+
+O filtro de `library list` junta as tags suas e as do VNDB:
+
+- `--tag a --tag b` mantém os jogos que têm todas as tags (E). Com `--any`, os que têm qualquer uma (OU).
+- `--not c` tira os jogos que têm `c`. Pode ser usado sozinho.
+- Um termo sem prefixo vale para tag sua e para tag do VNDB com esse nome (ou id, como `g1`). `minha:nome` limita à sua e `vndb:nome-ou-id` à do VNDB.
+- Caixa e espaços repetidos não contam, como nos nomes.
+- Só entram as tags do VNDB que a privacidade da biblioteca mostra. Sem `--show-spoilers`, uma tag de spoiler não acha nem exclui jogo nenhum; sem `--show-adult`, o mesmo vale para as tags eróticas de jogo adulto. Assim o filtro não revela o que a ficha esconde. As suas tags não dependem da privacidade.
+- `--save` guarda a combinação como o filtro salvo (sem nenhuma tag, apaga o filtro salvo) e `--saved` aplica o filtro salvo. `--saved` não combina com `--tag`, `--any`, `--not` nem `--save`. Renomear ou apagar uma tag acerta o filtro salvo. Ao renomear, um termo sem prefixo que também poderia ser tag do VNDB passa a apontar para o novo nome.
+- Com `<jogo>` (a ficha), as opções de filtro são recusadas.
+
+O `--json` de `library list` traz também `filter` (`include`, `any`, `exclude`) e `filterSaved`; o de `library tag list`, `tags` (`name`, `color`, `games`) e `filter`.
+
+O `--json` de um jogo traz `id`, `title`, `folder`, `exe`, `engine` (`id`, `name`, `source`: `engine`, `signature` ou `unknown`; `translatable`), `windowTitle`, `vndbId`, `confirmation` (`none`, `auto` ou `manual`), `score`, `searched`, `candidates` (`vndbId`, `title`, `original`, `released`, `score`, `evidence`), `project`, `userTags` (só em `list` e `link`: os nomes das suas tags) e `card`. O `card` só existe com o jogo confirmado e já passou pela privacidade: sem `coverUrl` (e com `coverHidden`) quando a capa é adulta, sem as tags de spoiler e sem as eróticas de jogo adulto (`hiddenTags` conta quantas), e com a sinopse sem os trechos `[spoiler]`. O casamento usa o VNDB pelo catálogo da seção "Cliente do VNDB" de `02-arquitetura.md`; os dados do VNDB seguem a licença citada em `VndbCredit`.
 
 ## Comandos do pipeline
 

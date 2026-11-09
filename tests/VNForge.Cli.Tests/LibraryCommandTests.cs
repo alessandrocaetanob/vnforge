@@ -355,6 +355,255 @@ public sealed class LibraryCommandTests : IDisposable
         Assert.Contains("não é um projeto", notProject.Error);
     }
 
+    private async Task Prepare()
+    {
+        UseFakeCatalog();
+        await Run("library", "scan", Collection);
+        await Run("library", "match", "--auto");
+    }
+
+    private UserTags SavedTags() => new UserTagsFile(_cli.UserConfigDirectory).Load();
+
+    private static string[] Titles(RunResult result) =>
+        [.. Data(result).GetProperty("games").EnumerateArray().Select(g => g.GetProperty("title").GetString()!).Order(StringComparer.Ordinal)];
+
+    [Fact]
+    public async Task Tag_add_normaliza_o_nome_cria_a_tag_e_grava_fora_do_library_json()
+    {
+        await Prepare();
+        var libraryBefore = await File.ReadAllTextAsync(new LibraryFile(_cli.UserConfigDirectory).Path, Ct);
+
+        var result = await Run("library", "tag", "add", "CLANNAD", "  Pra   TRADUZIR ", "Favorito", "favorito", "--color", "FF8800");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("adicionadas: pra traduzir, favorito.", result.Output);
+        var tags = SavedTags();
+        Assert.Equal(["favorito", "pra traduzir"], tags.TagsOf(Saved("CLANNAD").Id));
+        Assert.Equal("#ff8800", tags.Get("favorito").Color);
+        Assert.Equal("#ff8800", tags.Get("pra traduzir").Color);
+        Assert.Equal(libraryBefore, await File.ReadAllTextAsync(new LibraryFile(_cli.UserConfigDirectory).Path, Ct));
+
+        var again = Data(await Run("library", "tag", "add", "CLANNAD", "favorito", "rejogar", "--json"));
+        Assert.Equal(["rejogar"], again.GetProperty("added").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(["favorito"], again.GetProperty("already").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public async Task Tag_add_recusa_nome_cor_e_jogo_invalidos_sem_gravar()
+    {
+        await Prepare();
+
+        var color = await Run("library", "tag", "add", "CLANNAD", "a", "--color", "azul");
+        var name = await Run("library", "tag", "add", "CLANNAD", "vndb:drama");
+        var game = await Run("library", "tag", "add", "Inexistente", "a");
+
+        Assert.All(new[] { color, name, game }, r => Assert.Equal(1, r.ExitCode));
+        Assert.Contains("cor", color.Error);
+        Assert.Contains("dois-pontos", name.Error);
+        Assert.Contains("Nenhum jogo", game.Error);
+        Assert.False(File.Exists(new UserTagsFile(_cli.UserConfigDirectory).Path));
+    }
+
+    [Fact]
+    public async Task Tag_remove_tira_do_jogo_e_a_tag_continua_na_lista()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "a", "b");
+
+        var result = await Run("library", "tag", "remove", "CLANNAD", "A", "b");
+        var unknown = await Run("library", "tag", "remove", "CLANNAD", "x");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("retiradas: a, b.", result.Output);
+        Assert.Empty(SavedTags().TagsOf(Saved("CLANNAD").Id));
+        Assert.Equal(["a", "b"], SavedTags().Tags.Select(t => t.Name));
+        Assert.Equal(1, unknown.ExitCode);
+        Assert.Contains("não existe", unknown.Error);
+    }
+
+    [Fact]
+    public async Task Tag_list_mostra_as_tags_com_a_contagem_de_jogos_e_as_de_um_jogo()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "favorito", "--color", "#00ff00");
+        await Run("library", "tag", "add", "Eroge", "favorito", "rejogar");
+
+        var all = Data(await Run("library", "tag", "list", "--json"));
+        var text = await Run("library", "tag", "list");
+        var one = await Run("library", "tag", "list", "Eroge");
+        var empty = new CliHarness();
+
+        var favorite = all.GetProperty("tags").EnumerateArray().Single(t => t.GetProperty("name").GetString() == "favorito");
+        Assert.Equal(2, favorite.GetProperty("games").GetInt32());
+        Assert.Equal("#00ff00", favorite.GetProperty("color").GetString());
+        Assert.Contains("favorito", text.Output);
+        Assert.Contains("Nenhum filtro por tag salvo.", text.Output);
+        Assert.Contains("Eroge: favorito, rejogar.", one.Output);
+        Assert.Contains("Você ainda não criou tags", (await empty.RunAsync(["library", "tag", "list"], Ct)).Output);
+        empty.Dispose();
+    }
+
+    [Fact]
+    public async Task Tag_rename_atualiza_todos_os_jogos_e_recusa_destino_existente_sem_merge()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "rejogar", "favorito");
+        await Run("library", "tag", "add", "Eroge", "rejogar");
+
+        var renamed = await Run("library", "tag", "rename", "rejogar", "Rejogar em Breve");
+        var refused = await Run("library", "tag", "rename", "rejogar em breve", "favorito");
+        var merged = await Run("library", "tag", "rename", "rejogar em breve", "favorito", "--merge");
+
+        Assert.Contains("'rejogar' virou 'rejogar em breve' em 2 jogos", renamed.Output);
+        Assert.Equal(1, refused.ExitCode);
+        Assert.Contains("--merge", refused.Error);
+        Assert.Contains("Tag mesclada", merged.Output);
+        var tags = SavedTags();
+        Assert.Equal(["favorito"], tags.Tags.Select(t => t.Name));
+        Assert.Equal(["favorito"], tags.TagsOf(Saved("CLANNAD").Id));
+        Assert.Equal(["favorito"], tags.TagsOf(Saved("Eroge").Id));
+    }
+
+    [Fact]
+    public async Task Tag_delete_tira_a_tag_de_todos_os_jogos_e_pede_confirmacao()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "velha", "nova");
+        await Run("library", "tag", "add", "Eroge", "velha");
+
+        var unconfirmed = await Run("library", "tag", "delete", "velha", "--json");
+        var deleted = await Run("library", "tag", "delete", "velha", "--yes");
+        var missing = await Run("library", "tag", "delete", "velha", "--yes");
+
+        Assert.Equal(1, unconfirmed.ExitCode);
+        Assert.Contains("--yes", unconfirmed.Output + unconfirmed.Error);
+        Assert.Equal(0, deleted.ExitCode);
+        Assert.Contains("Tag 'velha' apagada, de 2 jogos", deleted.Output);
+        Assert.Equal(1, missing.ExitCode);
+        var tags = SavedTags();
+        Assert.Equal(["nova"], tags.Tags.Select(t => t.Name));
+        Assert.Equal(["nova"], tags.TagsOf(Saved("CLANNAD").Id));
+        Assert.Empty(tags.TagsOf(Saved("Eroge").Id));
+    }
+
+    [Fact]
+    public async Task List_filtra_por_tag_juntando_as_suas_e_as_do_vndb()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "favorito", "rejogar");
+        await Run("library", "tag", "add", "Eroge", "favorito");
+        await Run("library", "tag", "add", "Steins;Gate", "rejogar");
+
+        var all = await Run("library", "list", "--tag", "favorito", "--tag", "vndb:drama", "--json");
+        var any = await Run("library", "list", "--tag", "rejogar", "--tag", "vndb:g1", "--any", "--json");
+        var excluded = await Run("library", "list", "--tag", "favorito", "--not", "rejogar", "--json");
+        var onlyNot = await Run("library", "list", "--not", "favorito", "--json");
+
+        Assert.Equal(["CLANNAD"], Titles(all));
+        Assert.Equal(["CLANNAD", "Steins;Gate"], Titles(any));
+        Assert.Equal(["Eroge"], Titles(excluded));
+        Assert.Equal(["Sakura no Uta", "Steins;Gate"], Titles(onlyNot));
+        Assert.Equal(["favorito", "vndb:drama"], Data(all).GetProperty("filter").GetProperty("include").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(4, Data(all).GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task List_filtro_por_tag_do_vndb_respeita_spoiler_e_conteudo_adulto()
+    {
+        await Prepare();
+
+        var spoilerHidden = await Run("library", "list", "--tag", "vndb:o final", "--json");
+        var spoilerShown = await Run("library", "list", "--tag", "vndb:o final", "--show-spoilers", "--json");
+        var adultHidden = await Run("library", "list", "--tag", "cena explícita", "--json");
+        var adultShown = await Run("library", "list", "--tag", "cena explícita", "--show-adult", "--json");
+
+        Assert.Empty(Titles(spoilerHidden));
+        Assert.Equal(["CLANNAD"], Titles(spoilerShown));
+        Assert.Empty(Titles(adultHidden));
+        Assert.Equal(["Eroge"], Titles(adultShown));
+    }
+
+    [Fact]
+    public async Task List_salva_o_filtro_e_usa_o_salvo_depois()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "favorito");
+        await Run("library", "tag", "add", "Eroge", "favorito");
+
+        var saved = await Run("library", "list", "--tag", "favorito", "--not", "vndb:cena explícita", "--save");
+        var used = await Run("library", "list", "--saved", "--json");
+        var shown = await Run("library", "tag", "list");
+        var clash = await Run("library", "list", "--saved", "--tag", "x");
+        var cleared = await Run("library", "list", "--save");
+        var after = await Run("library", "list", "--saved", "--json");
+
+        Assert.Equal(0, saved.ExitCode);
+        Assert.Contains("Filtro por tag: com todas de favorito; sem vndb:cena explícita. Salvo.", saved.Output);
+        Assert.Equal(["CLANNAD", "Eroge"], Titles(used));
+        Assert.Contains("Filtro salvo: com todas de favorito; sem vndb:cena explícita.", shown.Output);
+        Assert.Equal(1, clash.ExitCode);
+        Assert.Contains("--saved", clash.Error);
+        Assert.Contains("Filtro por tag salvo apagado.", cleared.Output);
+        Assert.Equal(4, Titles(after).Length);
+    }
+
+    [Fact]
+    public async Task List_recusa_any_sem_tag_e_filtro_com_jogo_na_ficha()
+    {
+        await Prepare();
+
+        var any = await Run("library", "list", "--any");
+        var sheet = await Run("library", "list", "CLANNAD", "--tag", "x");
+
+        Assert.Equal(1, any.ExitCode);
+        Assert.Contains("--any", any.Error);
+        Assert.Equal(1, sheet.ExitCode);
+        Assert.Contains("tag list", sheet.Error);
+    }
+
+    [Fact]
+    public async Task Renomear_e_apagar_acompanham_o_filtro_salvo()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "a", "b");
+        await Run("library", "list", "--tag", "minha:a", "--not", "b", "--save");
+
+        await Run("library", "tag", "rename", "a", "z");
+        Assert.Equal(["minha:z"], SavedTags().SavedFilter.Include);
+
+        await Run("library", "tag", "delete", "b", "--yes");
+        Assert.Empty(SavedTags().SavedFilter.Exclude);
+    }
+
+    [Fact]
+    public async Task Ficha_e_json_do_jogo_trazem_as_tags_proprias()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "favorito");
+
+        var sheet = await Run("library", "list", "CLANNAD");
+        var json = Data(await Run("library", "list", "CLANNAD", "--json"));
+
+        Assert.Contains("Minhas tags: favorito", sheet.Output);
+        Assert.Equal(["favorito"], json.GetProperty("game").GetProperty("userTags").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public async Task Tags_ilegiveis_recusam_e_nao_sao_sobrescritas()
+    {
+        await Prepare();
+        var file = new UserTagsFile(_cli.UserConfigDirectory);
+        await File.WriteAllTextAsync(file.Path, "{ nao e json", Ct);
+
+        var add = await Run("library", "tag", "add", "CLANNAD", "a");
+        var list = await Run("library", "list");
+
+        Assert.Equal(1, add.ExitCode);
+        Assert.Equal(1, list.ExitCode);
+        Assert.Contains("library-tags.json", add.Error);
+        Assert.Equal("{ nao e json", await File.ReadAllTextAsync(file.Path, Ct));
+    }
+
     [Fact]
     public async Task Biblioteca_ilegivel_recusa_e_nao_e_sobrescrita()
     {
