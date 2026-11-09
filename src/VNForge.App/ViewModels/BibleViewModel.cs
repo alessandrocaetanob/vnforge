@@ -393,7 +393,7 @@ public sealed partial class BibleViewModel : ObservableObject
     }
 
     private static bool NamesWord(string text, string name) =>
-        !string.IsNullOrWhiteSpace(name) && Regex.IsMatch(text, $@"(?<!\p{{L}}){Regex.Escape(name)}(?!\p{{L}})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        !string.IsNullOrWhiteSpace(name) && Regex.IsMatch(text, $@"(?<!\p{{L}}){Regex.Escape(name)}(?!\p{{L}})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
     /// <summary>Um tom por chip; o que cita pelo nome um personagem da cena vira apoio.</summary>
     private void RefreshTone(IEnumerable<string> tones)

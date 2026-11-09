@@ -36,7 +36,7 @@ public partial class BibleView : UserControl
         box.CaretIndex = box.Text?.Length ?? 0;
     }
 
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    private static void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.Source is Visual source && ReadingOf(source) is { } reading && !e.Handled)
         {
@@ -44,7 +44,7 @@ public partial class BibleView : UserControl
         }
     }
 
-    private void OnKeyDown(object? sender, KeyEventArgs e)
+    private static void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Source is Border { Classes: var classes } reading && classes.Contains("show") && e.Key is Key.Enter or Key.F2)
         {
@@ -58,7 +58,7 @@ public partial class BibleView : UserControl
         }
     }
 
-    private void OnLostFocus(object? sender, RoutedEventArgs e)
+    private static void OnLostFocus(object? sender, RoutedEventArgs e)
     {
         if (e.Source is TextBox { Classes: var classes } box && classes.Contains("inline-box") && box.GetVisualParent() is Panel field)
         {
