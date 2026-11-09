@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.Core.Images;
 using VNForge.Core.Projects;
@@ -193,6 +194,36 @@ public sealed class ImagesScanCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("ui.ypf/bg/rua.jpg", result.Output);
         Assert.Equal(2, _project.LoadImageInventory().Count);
+    }
+
+    [Fact]
+    public async Task Resposta_cobrada_mas_inutil_entra_no_gasto_do_projeto()
+    {
+        _reader.InputTokens = 1000;
+        _reader.OutputTokens = 100;
+        _reader.BadReplyWhen = image => image.Name.EndsWith("rua.jpg", StringComparison.Ordinal);
+
+        var result = await Scan("--yes");
+
+        Assert.Equal(1, result.ExitCode);
+        var usage = AiUsageLog.Load(_project);
+        Assert.Equal(3000, usage.InputTokens);
+        Assert.Equal(300, usage.OutputTokens);
+    }
+
+    [Fact]
+    public async Task Falha_ao_gravar_o_inventario_nao_apaga_o_gasto_ja_feito()
+    {
+        _reader.InputTokens = 1000;
+        _reader.OutputTokens = 100;
+        Directory.CreateDirectory(_project.ImageInventoryPath);
+
+        var result = await Scan("--yes");
+
+        Assert.NotEqual(0, result.ExitCode);
+        var usage = AiUsageLog.Load(_project);
+        Assert.Equal(3000, usage.InputTokens);
+        Assert.True(usage.Dollars > 0m);
     }
 
     [Fact]

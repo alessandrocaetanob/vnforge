@@ -137,15 +137,16 @@ internal static class ImagesCommand
                 .ScanAsync(gameDirectory, plan, new ImageScanRun { Concurrency = concurrency }, new LineProgress(error, json), token).ConfigureAwait(false);
         }
 
-        if (!result.Entries.SequenceEqual(existing))
-        {
-            project.SaveImageInventory(result.Entries);
-        }
-
+        // O gasto entra na conta antes da gravação: a API já cobrou, e uma falha ao gravar o images.json não pode apagar essa conta.
         var usage = result.InputTokens + result.OutputTokens > 0 ? new ClaudeUsage(result.InputTokens, result.OutputTokens, 0, 0) : null;
         if (usage is not null)
         {
             RunCostTracker.Record(project, model, usage);
+        }
+
+        if (!result.Entries.SequenceEqual(existing))
+        {
+            project.SaveImageInventory(result.Entries);
         }
 
         var exitCode = result.Failed.Count > 0 || result.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
