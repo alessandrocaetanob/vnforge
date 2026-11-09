@@ -52,7 +52,7 @@
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap"
-                     Text="Abra um projeto no Início para editar o modelo, o esforço, o guia de estilo, a formatação e a acentuação. A chave e as chamadas em paralelo valem para o seu usuário."/>
+                     Text="Abra um projeto na Biblioteca para editar o modelo, o esforço, o guia de estilo, a formatação e a acentuação. A chave e as chamadas em paralelo valem para o seu usuário."/>
         </Grid>
       </Border>
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

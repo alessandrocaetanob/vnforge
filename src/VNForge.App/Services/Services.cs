@@ -51,6 +51,14 @@ public static class ProjectLabels
         _ => id,
     };
 
+    /// <summary>O nome curto da engine para a etiqueta do cabeçalho do jogo: "Yu-RIS", sem o formato do pacote.</summary>
+    public static string EngineName(string id) => id switch
+    {
+        "yuris" => "Yu-RIS",
+        "kirikiri" => "KiriKiri",
+        _ => id,
+    };
+
     /// <summary><c>claude-opus-5-5</c> vira <c>Claude Opus 5.5</c>; id fora do padrão volta como veio.</summary>
     public static string Model(string id)
     {

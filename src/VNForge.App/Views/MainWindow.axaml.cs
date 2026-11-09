@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VNForge.App.Controls;
 
 namespace VNForge.App.Views;
@@ -16,13 +17,30 @@ public sealed partial class MainWindow : Window
             {
                 UpdateMicaFallback();
             }
+            else if (e.Property == ClientSizeProperty)
+            {
+                UpdateCompactHeader();
+            }
         };
         UpdateMicaFallback();
+        UpdateCompactHeader();
+        TopRail.Tapped += OnTopRailTapped;
         Motion.Follow(this);
         AddHandler(KeyDownEvent, OnShortcutKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         DataContextChanged += (_, _) => FollowTextAppearance();
         Closing += OnClosing;
     }
+
+    /// <summary>Dentro de um jogo a Biblioteca já está marcada no trilho, então clicar nela não muda a seleção: este toque é que leva de volta à Biblioteca.</summary>
+    private void OnTopRailTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is ViewModels.MainWindowViewModel { InGame: true } vm && e.Source is Control source && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is not null)
+        {
+            vm.OpenLibraryCommand.Execute(null);
+        }
+    }
+
+    private void UpdateCompactHeader() => GameHeader.IsCompact = ClientSize.Height < GameHeaderView.CompactBelow;
 
     /// <summary>Quanto o resumo da sessão fica na tela antes de a janela fechar sozinha; fechar de novo antes disso fecha na hora.</summary>
     public static readonly TimeSpan CloseSummaryTime = TimeSpan.FromMilliseconds(2500);

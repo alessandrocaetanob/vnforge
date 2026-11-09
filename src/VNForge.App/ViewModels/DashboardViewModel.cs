@@ -284,7 +284,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     public bool ShowEmptyState => Project is null || (loaded && !IsLoading && ErrorMessage is null && TotalLines == 0);
 
     public string EmptyMessage => Project is null
-        ? "Nenhum projeto aberto. Abra um no Início para ver o painel."
+        ? "Nenhum projeto aberto. Abra um na Biblioteca para ver o painel."
         : "Este projeto ainda não tem texto lido. Leia o texto do jogo para ver o progresso aqui.";
 
     /// <summary>A ação do estado vazio: só existe quando falta o projeto.</summary>

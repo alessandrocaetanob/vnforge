@@ -19,7 +19,7 @@
     <DataTemplate x:Key="NavItemTemplate" x:DataType="vm:NavItemViewModel">
       <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Panel HorizontalAlignment="Center">
-          <PathIcon Width="20" Height="20" Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+          <PathIcon Width="22" Height="22" Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
           <Border IsVisible="{Binding HasBadge}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-14,0"
                   MinWidth="16" Height="16" Padding="4,0" CornerRadius="8"
                   Background="{DynamicResource Vnf.SignalErrorBg}">
@@ -64,7 +64,7 @@
   <Panel>
     <Border Name="MicaFallback" Background="{DynamicResource Vnf.BgBase}"/>
 
-    <Grid ColumnDefinitions="72,*">
+    <Grid ColumnDefinitions="80,*">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
@@ -94,7 +94,7 @@
               </Canvas>
             </Viewbox>
             <TextBlock Classes="body-strong" Text="VNForge" Margin="10,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Classes="body-sm secondary" Text="{Binding ProjectTitle}" Margin="16,0,0,0" MaxWidth="220"
+            <TextBlock Classes="body-sm secondary" Text="{Binding Breadcrumb}" Margin="16,0,0,0" MaxWidth="320"
                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
           </StackPanel>
 
@@ -114,7 +114,7 @@
         </Grid>
       </Border>
 
-      <!-- Trilho: Início, Painel, Editor, Conferir (com o contador do QA) e Testar no alto; Ajustes no pé. O Glossário só aparece com projeto aberto. -->
+      <!-- Trilho: a Biblioteca no alto (marcada também dentro de um jogo) e Ajustes no pé. O jogo aberto, as abas e a tradução ficam na área de conteúdo. -->
       <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="*,Auto">
         <Grid.Styles>
           <Style Selector="ListBoxItem" x:DataType="vm:NavItemViewModel">
@@ -122,21 +122,27 @@
             <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
           </Style>
         </Grid.Styles>
-        <ListBox Classes="navrail" ItemsSource="{Binding TopNav}" SelectedItem="{Binding SelectedTopNav}"
+        <ListBox Name="TopRail" Classes="navrail" ItemsSource="{Binding TopNav}" SelectedItem="{Binding SelectedTopNav}"
                  ItemTemplate="{StaticResource NavItemTemplate}" AutomationProperties.Name="Seções"/>
         <ListBox Grid.Row="1" Classes="navrail" ItemsSource="{Binding BottomNav}" SelectedItem="{Binding SelectedBottomNav}"
                  ItemTemplate="{StaticResource NavItemTemplate}" AutomationProperties.Name="Ajustes"/>
       </Grid>
 
-      <!-- A área de conteúdo é sempre opaca: o Mica aparece só na barra de título, no trilho e na barra de status. -->
-      <Border Name="PageArea" Grid.Row="1" Grid.Column="1" TextElement.FontSize="{DynamicResource Vnf.FontSize.Body}" Background="{DynamicResource Vnf.BgLayer}"
-              BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0">
-        <!-- A troca de página entra com fade e 8 px de deslocamento em 150 ms; sem animações no Windows, imediata. -->
-        <TransitioningContentControl Content="{Binding CurrentPage}">
-          <TransitioningContentControl.PageTransition>
-            <c:FadeSlideTransition/>
-          </TransitioningContentControl.PageTransition>
-        </TransitioningContentControl>
+      <!-- A área de conteúdo é sempre opaca: o Mica aparece só na barra de título, no trilho e na barra de status. Dentro de um jogo, o cabeçalho e as abas ficam
+           acima da página e fora do tamanho de texto do Editor. -->
+      <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource Vnf.BgLayer}"
+              BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <v:GameHeaderView Name="GameHeader" IsVisible="{Binding InGame}"/>
+          <Border Name="PageArea" Grid.Row="1" TextElement.FontSize="{DynamicResource Vnf.FontSize.Body}">
+            <!-- A troca de página entra com fade e 8 px de deslocamento em 150 ms; sem animações no Windows, imediata. -->
+            <TransitioningContentControl Content="{Binding CurrentPage}">
+              <TransitioningContentControl.PageTransition>
+                <c:FadeSlideTransition/>
+              </TransitioningContentControl.PageTransition>
+            </TransitioningContentControl>
+          </Border>
+        </Grid>
       </Border>
 
       <!-- Barra de status: a tarefa em andamento e "Tarefas (n)" à esquerda; gravação, acentuação e limites da caixa à direita. -->
