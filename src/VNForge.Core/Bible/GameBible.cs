@@ -13,7 +13,7 @@ public enum BibleField
     Relations,
 }
 
-/// <summary>Como dois personagens se relacionam na cena ("Kenta e Ren": "Amigos de infância, se provocam o tempo todo").</summary>
+/// <summary>Como dois personagens se relacionam na cena ("Kenta e Ren": "Amigos de infância, se provocam sempre").</summary>
 public sealed record BibleRelation(string Between, string Note);
 
 /// <summary>

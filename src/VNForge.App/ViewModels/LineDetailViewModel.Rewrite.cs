@@ -190,7 +190,7 @@ public sealed partial class LineDetailViewModel
             Glossary = [.. (Context?.Glossary ?? []).Select(g => new GlossaryEntry(g.Source, g.Target, g.Notes))],
             Style = style,
             StyleGuide = guide,
-            Scenes = BibleSceneOfLine is { } bibleScene ? [bibleScene] : [],
+            Scenes = BibleSceneOfLine is { } sceneOfLine ? [sceneOfLine] : [],
             PreviousLines = [.. scene.Where(l => !l.Following).Select(l => l.Unit)],
             NextLines = [.. scene.Where(l => l.Following).Select(l => l.Unit)],
         };

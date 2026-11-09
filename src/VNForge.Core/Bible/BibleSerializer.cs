@@ -150,13 +150,25 @@ public static class BibleSerializer
             detail = detail[..cut];
         }
 
-        var kind = detail.Contains("could not be mapped", StringComparison.Ordinal) ? "campo desconhecido."
-            : detail.Contains("missing required", StringComparison.Ordinal) ? "campo obrigatório ausente."
-            : detail.Contains("null value", StringComparison.Ordinal) ? "o campo não aceita null."
-            : "JSON malformado ou valor de tipo errado.";
+        var kind = KindOf(detail);
         var where = ex.Path is { Length: > 0 } path ? $"{path}: " : string.Empty;
         var position = ex.LineNumber is { } line && ex.BytePositionInLine is { } column ? $"linha {line + 1}, coluna {column + 1}: " : string.Empty;
         return where + position + kind;
+    }
+
+    private static string KindOf(string detail)
+    {
+        if (detail.Contains("could not be mapped", StringComparison.Ordinal))
+        {
+            return "campo desconhecido.";
+        }
+
+        if (detail.Contains("missing required", StringComparison.Ordinal))
+        {
+            return "campo obrigatório ausente.";
+        }
+
+        return detail.Contains("null value", StringComparison.Ordinal) ? "o campo não aceita null." : "JSON malformado ou valor de tipo errado.";
     }
 
     private sealed class FileDto

@@ -89,8 +89,9 @@ public sealed class BibleProjectFileTests : IDisposable
     public void UpdateBible_aplica_a_mudanca_e_nao_regrava_quando_nada_mudou()
     {
         _project.SaveBible(Bible());
-        var written = File.GetLastWriteTimeUtc(_project.BiblePath);
-        Thread.Sleep(20);
+        // Data fixa no passado: se o arquivo fosse regravado, a data de gravação deixaria de ser esta.
+        var written = new DateTime(2020, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(_project.BiblePath, written);
 
         _project.UpdateBible(b => b);
         Assert.Equal(written, File.GetLastWriteTimeUtc(_project.BiblePath));

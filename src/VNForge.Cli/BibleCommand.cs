@@ -248,12 +248,14 @@ internal static class BibleCommand
         else
         {
             output.WriteLine(stop == BudgetStop.LimitReached
-                ? $"O gasto do projeto já chegou ao limite{(limit is { } cap ? $" de {Brl(cap)}" : string.Empty)}; nenhuma cena foi enviada à IA. Aumente o limite nos Ajustes do app para continuar."
+                ? $"O gasto do projeto já chegou ao limite{LimitSuffix(limit)}; nenhuma cena foi enviada à IA. Aumente o limite nos Ajustes do app para continuar."
                 : "O pedido não foi confirmado: nenhuma cena foi enviada à IA.");
         }
 
         return ErrorHandler.ErrorExitCode;
     }
+
+    private static string LimitSuffix(decimal? limit) => limit is { } cap ? $" de {Brl(cap)}" : string.Empty;
 
     private static int WriteDoesNotFit(TextWriter output, bool json, decimal estimateBrl, decimal? limit)
     {
@@ -263,7 +265,7 @@ internal static class BibleCommand
         }
         else
         {
-            output.WriteLine($"Gerar a bíblia custa cerca de {Brl(estimateBrl)} e, com o que o projeto já gastou, passaria do limite{(limit is { } cap ? $" de {Brl(cap)}" : string.Empty)}; nenhuma cena foi enviada à IA. Aumente o limite nos Ajustes do app ou gere só um capítulo com --chapter.");
+            output.WriteLine($"Gerar a bíblia custa cerca de {Brl(estimateBrl)} e, com o que o projeto já gastou, passaria do limite{LimitSuffix(limit)}; nenhuma cena foi enviada à IA. Aumente o limite nos Ajustes do app ou gere só um capítulo com --chapter.");
         }
 
         return ErrorHandler.ErrorExitCode;
@@ -379,23 +381,11 @@ internal static class BibleCommand
     {
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
-        var project = Open(cli, parseResult);
-        var bible = project.LoadBible();
+        var bible = Open(cli, parseResult).LoadBible();
 
         if (key is not null)
         {
-            var scene = bible.Scene(key.Trim().ToLowerInvariant())
-                ?? throw new UsageException($"A cena '{key}' não está na bíblia.", $"Rode 'vnf bible generate' ou 'vnf bible edit {key.Trim().ToLowerInvariant()}'.");
-            if (json)
-            {
-                output.WriteLine(JsonEnvelope.Result(new { scene = SceneJson(scene) }));
-            }
-            else
-            {
-                WriteScene(output, scene);
-            }
-
-            return ErrorHandler.OkExitCode;
+            return ShowScene(output, json, bible, key);
         }
 
         if (json)
@@ -411,6 +401,27 @@ internal static class BibleCommand
             return ErrorHandler.OkExitCode;
         }
 
+        return ShowGame(cli, parseResult.InvocationConfiguration.Output, bible);
+    }
+
+    private static int ShowScene(TextWriter output, bool json, GameBible bible, string key)
+    {
+        var scene = bible.Scene(key.Trim().ToLowerInvariant())
+            ?? throw new UsageException($"A cena '{key}' não está na bíblia.", $"Rode 'vnf bible generate' ou 'vnf bible edit {key.Trim().ToLowerInvariant()}'.");
+        if (json)
+        {
+            output.WriteLine(JsonEnvelope.Result(new { scene = SceneJson(scene) }));
+        }
+        else
+        {
+            WriteScene(output, scene);
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static int ShowGame(VnfCli cli, TextWriter output, GameBible bible)
+    {
         if (bible.IsEmpty)
         {
             output.WriteLine("A bíblia ainda está vazia. Rode 'vnf bible generate' para a IA escrevê-la.");
@@ -475,16 +486,36 @@ internal static class BibleCommand
 
         if (request.Game)
         {
-            if (request.Synopsis is null)
-            {
-                throw new UsageException("Com --game, diga o que mudar: --synopsis.");
-            }
-
-            project.UpdateBible(b => b.EditSynopsis(request.Synopsis));
-            Report(output, json, "game", null, ["synopsis"], "Sinopse do jogo atualizada.");
-            return ErrorHandler.OkExitCode;
+            return EditGame(project, output, json, request);
         }
 
+        var key = ValidateSceneEdit(project, request);
+        var fields = ChangedFields(request);
+        var relations = request.Relations.Select(ParseRelation).ToList();
+        project.UpdateBible(bible =>
+        {
+            var scene = ApplyEdit(bible.Scene(key) ?? new BibleScene(key), request);
+            return request.Relations.Length > 0 ? bible.WithScene(scene.EditRelations(relations)) : bible.WithScene(scene);
+        });
+        WriteUpdate(output, json, "scene", key, fields, $"Cena {key} atualizada: {string.Join(", ", fields.Select(FieldLabel))}.");
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static int EditGame(ProjectFolder project, TextWriter output, bool json, EditRequest request)
+    {
+        if (request.Synopsis is null)
+        {
+            throw new UsageException("Com --game, diga o que mudar: --synopsis.");
+        }
+
+        project.UpdateBible(b => b.EditSynopsis(request.Synopsis));
+        WriteUpdate(output, json, "game", null, ["synopsis"], "Sinopse do jogo atualizada.");
+        return ErrorHandler.OkExitCode;
+    }
+
+    /// <summary>Confere o pedido de edição de uma cena e devolve a chave dela; as relações malformadas e a cena que não existe também falham aqui, antes de gravar.</summary>
+    private static string ValidateSceneEdit(ProjectFolder project, EditRequest request)
+    {
         var key = request.Scene?.Trim().ToLowerInvariant();
         if (string.IsNullOrEmpty(key))
         {
@@ -496,50 +527,47 @@ internal static class BibleCommand
             throw new UsageException("--synopsis é da sinopse do jogo: use com --game, sem cena.");
         }
 
-        var fields = ChangedFields(request);
-        if (fields.Count == 0)
+        if (ChangedFields(request).Count == 0)
         {
             throw new UsageException("Diga o que mudar: --name, --summary, --characters, --tone, --jokes ou --relation.");
         }
 
-        var relations = request.Relations.Select(ParseRelation).ToList();
+        foreach (var relation in request.Relations)
+        {
+            ParseRelation(relation);
+        }
+
         if (project.LoadBible().Scene(key) is null && !SceneExists(project, key))
         {
             throw new UsageException($"A cena '{key}' não existe no projeto.", "Veja as chaves em 'vnf scripts list'.");
         }
 
-        project.UpdateBible(bible =>
+        return key;
+    }
+
+    private static BibleScene ApplyEdit(BibleScene scene, EditRequest request)
+    {
+        if (request.Name is not null)
         {
-            var scene = bible.Scene(key) ?? new BibleScene(key);
-            if (request.Name is not null)
-            {
-                scene = scene.EditName(request.Name);
-            }
+            scene = scene.EditName(request.Name);
+        }
 
-            if (request.Summary is not null)
-            {
-                scene = scene.EditSummary(request.Summary);
-            }
+        if (request.Summary is not null)
+        {
+            scene = scene.EditSummary(request.Summary);
+        }
 
-            if (request.Characters is not null)
-            {
-                scene = scene.EditCharacters(SplitList(request.Characters));
-            }
+        if (request.Characters is not null)
+        {
+            scene = scene.EditCharacters(SplitList(request.Characters));
+        }
 
-            if (request.Tone is not null)
-            {
-                scene = scene.EditTone(SplitList(request.Tone));
-            }
+        if (request.Tone is not null)
+        {
+            scene = scene.EditTone(SplitList(request.Tone));
+        }
 
-            if (request.Jokes is not null)
-            {
-                scene = scene.EditJokes(SplitList(request.Jokes));
-            }
-
-            return request.Relations.Length > 0 ? bible.WithScene(scene.EditRelations(relations)) : bible.WithScene(scene);
-        });
-        Report(output, json, "scene", key, fields, $"Cena {key} atualizada: {string.Join(", ", fields.Select(FieldLabel))}.");
-        return ErrorHandler.OkExitCode;
+        return request.Jokes is not null ? scene.EditJokes(SplitList(request.Jokes)) : scene;
     }
 
     private static List<string> ChangedFields(EditRequest request)
@@ -589,7 +617,7 @@ internal static class BibleCommand
         _ => field,
     };
 
-    private static void Report(TextWriter output, bool json, string target, string? scene, IReadOnlyList<string> fields, string text)
+    private static void WriteUpdate(TextWriter output, bool json, string target, string? scene, IReadOnlyList<string> fields, string text)
     {
         if (json)
         {

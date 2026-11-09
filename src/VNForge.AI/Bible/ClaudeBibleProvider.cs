@@ -57,7 +57,14 @@ public sealed class ClaudeBibleProvider(IClaudeMessageClient client, ClaudeOptio
     {
         ArgumentNullException.ThrowIfNull(chapter);
         ArgumentNullException.ThrowIfNull(sceneKeys);
-        var asked = sceneKeys.Select(k => chapter.Scenes.FirstOrDefault(s => s.Key == k) ?? throw new ArgumentException($"A cena '{k}' não está no capítulo '{chapter.Name}'.", nameof(sceneKeys))).ToList();
+        List<BibleSceneInput> asked = [];
+        foreach (var key in sceneKeys)
+        {
+            var scene = chapter.Scenes.FirstOrDefault(s => s.Key == key)
+                ?? throw new ArgumentException($"A cena '{key}' não está no capítulo '{chapter.Name}'.", nameof(sceneKeys));
+            asked.Add(scene);
+        }
+
         var user = "Descreva estas cenas:\n" + JsonSerializer.Serialize(asked.Select(s => new { key = s.Key, label = s.Label }), PromptJson);
         var text = await CallAsync(ChapterSystem(chapter), user, ScenesSchema, ct).ConfigureAwait(false);
         return ParseScenes(text, sceneKeys);

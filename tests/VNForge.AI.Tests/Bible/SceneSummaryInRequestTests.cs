@@ -46,7 +46,7 @@ public sealed partial class SceneSummaryInRequestTests
         Synopsis = "Uma cidade onde sempre chove.",
     };
 
-    private static TranslationBatchBuilder Builder(GameBible? bible) => new([], new CharacterBook([]), bible: bible);
+    private static TranslationBatchBuilder Builder(GameBible? bible) => new([], new CharacterBook([])) { Bible = bible! };
 
     private static async Task<ClaudeRequest> Translate(TranslationBatch batch)
     {
@@ -146,7 +146,7 @@ public sealed partial class SceneSummaryInRequestTests
     }
 
     private static TranslationBatch BatchWithWindow(GameBible? bible, int before, int after) =>
-        new TranslationBatchBuilder([], new CharacterBook([]), maxPreviousLines: before, maxNextLines: after, bible: bible).Build([Unit("yst1:000001", "a")]);
+        new TranslationBatchBuilder([], new CharacterBook([]), maxPreviousLines: before, maxNextLines: after) { Bible = bible! }.Build([Unit("yst1:000001", "a")]);
 
     [Fact]
     public void A_chave_do_cache_leva_a_janela_estreita_e_as_cenas_ao_mesmo_tempo()
@@ -173,7 +173,7 @@ public sealed partial class SceneSummaryInRequestTests
     [Fact]
     public void ForLines_mantem_a_janela_estreita_junto_das_cenas()
     {
-        var batch = new TranslationBatchBuilder([], new CharacterBook([]), maxPreviousLines: 1, maxNextLines: 3, bible: Bible())
+        var batch = new TranslationBatchBuilder([], new CharacterBook([]), maxPreviousLines: 1, maxNextLines: 3) { Bible = Bible() }
             .Build([Unit("yst1:000001", "a"), Unit("yst1:000002", "b")]);
 
         var single = batch.ForLines([batch.Lines[0]]);

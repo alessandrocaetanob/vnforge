@@ -17,8 +17,7 @@ public sealed class TranslationBatchBuilder(
     int maxPreviousLines = TranslationBatchBuilder.DefaultContextLines,
     StyleConfig? style = null,
     int maxNextLines = TranslationBatchBuilder.DefaultContextLines,
-    IReadOnlyList<AddressTerm>? addressTerms = null,
-    GameBible? bible = null)
+    IReadOnlyList<AddressTerm>? addressTerms = null)
 {
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
     public const int DefaultContextLines = AiConfig.DefaultContextLines;
@@ -34,7 +33,8 @@ public sealed class TranslationBatchBuilder(
     private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
     private readonly StyleConfig _style = style ?? StyleConfig.Default;
     private readonly AddressBook _addressing = new(addressTerms ?? []);
-    private readonly GameBible _bible = bible ?? GameBible.Empty;
+    /// <summary>A bíblia do jogo (#530): o resumo da cena de cada linha e a sinopse entram no pedido. Sem ela (ou nula) o lote é o de antes.</summary>
+    public GameBible Bible { get; init => field = value ?? GameBible.Empty; } = GameBible.Empty;
 
     /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
@@ -85,7 +85,7 @@ public sealed class TranslationBatchBuilder(
         var scenes = lines
             .Select(l => ScriptKeyOf(l.Id))
             .Distinct(StringComparer.Ordinal)
-            .Select(_bible.Scene)
+            .Select(Bible.Scene)
             .OfType<BibleScene>()
             .Where(s => s.Summary.Length > 0 || s.Tone.Count > 0 || s.Jokes.Count > 0 || s.Relations.Count > 0)
             .ToList();
@@ -93,7 +93,7 @@ public sealed class TranslationBatchBuilder(
         return new TranslationBatch(lines)
         {
             Scenes = scenes,
-            Synopsis = _bible.Synopsis,
+            Synopsis = Bible.Synopsis,
             Glossary = matchedGlossary,
             Characters = matchedCharacters,
             Addressing = addressing,

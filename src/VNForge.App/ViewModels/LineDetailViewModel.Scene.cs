@@ -26,13 +26,22 @@ public sealed partial class LineDetailViewModel
             if (!bibleSceneRead)
             {
                 bibleSceneRead = true;
-                bibleScene = ProjectRoot is { } root && Directory.Exists(root)
-                    ? ProjectFolder.Open(root).LoadBibleOrEmpty(out _).Scene(ScriptKey) is { Summary.Length: > 0 } scene ? scene : null
-                    : null;
+                bibleScene = ReadBibleScene();
             }
 
             return bibleScene;
         }
+    }
+
+    private BibleScene? ReadBibleScene()
+    {
+        if (ProjectRoot is not { } root || !Directory.Exists(root))
+        {
+            return null;
+        }
+
+        var scene = ProjectFolder.Open(root).LoadBibleOrEmpty(out _).Scene(ScriptKey);
+        return scene is { Summary.Length: > 0 } ? scene : null;
     }
 
     /// <summary>O resumo da cena que entra em cada pedido de tradução das linhas dela; vazio quando a bíblia não tem.</summary>

@@ -84,12 +84,7 @@ public sealed class BibleRunner
         // Um bible.json ilegível para aqui, antes de gastar e antes de KeepPreviousBible copiá-lo por cima do backup bom.
         project.LoadBible();
         project.KeepPreviousBible();
-        var total = chapters.Sum(c => c.Scenes.Count);
-        List<BibleChapterFailure> failures = [];
-        var written = 0;
-        var read = 0;
-        BudgetStop? stop = null;
-        var canceled = false;
+        var state = new RunState(chapters.Count, chapters.Sum(c => c.Scenes.Count), progress);
 
         try
         {
@@ -98,52 +93,68 @@ public sealed class BibleRunner
                 ct.ThrowIfCancellationRequested();
                 if (_options.Budget is { LimitReached: true })
                 {
-                    stop = BudgetStop.LimitReached;
+                    state.Stop = BudgetStop.LimitReached;
                     break;
                 }
 
-                var failed = false;
-                foreach (var keys in chapter.Scenes.Select(s => s.Key).Chunk(_options.ScenesPerCall))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var (scenes, error, attempts) = await DescribeWithRetryAsync(chapter, keys, ct).ConfigureAwait(false);
-                    if (scenes is null)
-                    {
-                        failures.Add(new BibleChapterFailure(chapter.Name, error!, attempts));
-                        failed = true;
-                        break;
-                    }
-
-                    project.UpdateBible(bible => scenes.Aggregate(bible, (current, scene) => current.WithGeneratedScene(scene)));
-                    written += scenes.Count;
-                    progress?.Report(new BibleProgress(read, chapters.Count, written, total, chapter.Name));
-                }
-
-                if (!failed)
-                {
-                    read++;
-                    progress?.Report(new BibleProgress(read, chapters.Count, written, total, chapter.Name));
-                }
+                await ReadChapterAsync(project, chapter, state, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            canceled = true;
+            state.Canceled = true;
         }
 
         var overview = false;
-        if (includeOverview && !canceled && stop is null && failures.Count == 0 && chapters.Count > 0)
+        if (includeOverview && !state.Canceled && state.Stop is null && state.Failures.Count == 0 && chapters.Count > 0)
         {
-            overview = await WriteOverviewAsync(project, chapters, failures, ct).ConfigureAwait(false);
+            overview = await WriteOverviewAsync(project, chapters, state.Failures, ct).ConfigureAwait(false);
         }
 
-        if (written > 0 || overview)
+        if (state.Written > 0 || overview)
         {
-            var generation = new BibleGeneration(_options.Clock.GetUtcNow(), _options.Model, written, read, _options.RunDollars?.Invoke() ?? 0m);
+            var generation = new BibleGeneration(_options.Clock.GetUtcNow(), _options.Model, state.Written, state.Read, _options.RunDollars?.Invoke() ?? 0m);
             project.UpdateBible(bible => bible with { Generation = generation });
         }
 
-        return new BibleRunResult(written, read, failures, canceled || ct.IsCancellationRequested, stop, overview);
+        return new BibleRunResult(state.Written, state.Read, state.Failures, state.Canceled || ct.IsCancellationRequested, state.Stop, overview);
+    }
+
+    /// <summary>Lê um capítulo em chamadas de algumas cenas e grava cada uma; a primeira chamada que falha depois das tentativas encerra o capítulo.</summary>
+    private async Task ReadChapterAsync(ProjectFolder project, BibleChapterInput chapter, RunState state, CancellationToken ct)
+    {
+        foreach (var keys in chapter.Scenes.Select(s => s.Key).Chunk(_options.ScenesPerCall))
+        {
+            ct.ThrowIfCancellationRequested();
+            var (scenes, error, attempts) = await DescribeWithRetryAsync(chapter, keys, ct).ConfigureAwait(false);
+            if (scenes is null)
+            {
+                state.Failures.Add(new BibleChapterFailure(chapter.Name, error!, attempts));
+                return;
+            }
+
+            project.UpdateBible(bible => scenes.Aggregate(bible, (current, scene) => current.WithGeneratedScene(scene)));
+            state.Written += scenes.Count;
+            state.Report(chapter.Name);
+        }
+
+        state.Read++;
+        state.Report(chapter.Name);
+    }
+
+    private sealed class RunState(int chaptersTotal, int scenesTotal, IProgress<BibleProgress>? progress)
+    {
+        public List<BibleChapterFailure> Failures { get; } = [];
+
+        public int Written { get; set; }
+
+        public int Read { get; set; }
+
+        public BudgetStop? Stop { get; set; }
+
+        public bool Canceled { get; set; }
+
+        public void Report(string chapter) => progress?.Report(new BibleProgress(Read, chaptersTotal, Written, scenesTotal, chapter));
     }
 
     /// <summary>

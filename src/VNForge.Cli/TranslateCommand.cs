@@ -58,8 +58,10 @@ internal static class TranslateCommand
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: project.LoadAddressTerms(),
-            bible: ReadBible(project, error));
+            addressTerms: project.LoadAddressTerms())
+        {
+            Bible = ReadBible(project, error),
+        };
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
 

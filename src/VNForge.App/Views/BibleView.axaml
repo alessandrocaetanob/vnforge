@@ -268,7 +268,7 @@
                     <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Reler um capítulo"/>
                     <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm mono" Text="{Binding RereadText}"/>
                   </Grid>
-                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding CacheNote}"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Com o contexto de 1M e o cache de prompt, cada leitura seguinte do mesmo capítulo custa 5% da entrada."/>
                 </StackPanel>
               </Border>
 

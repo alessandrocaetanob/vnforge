@@ -20,14 +20,23 @@ public enum BibleFilter
     NoSummary,
 }
 
+internal static class BibleText
+{
+    public static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
+    public static string Plural(int count, string one, string many) => count == 1 ? one : many;
+}
+
 /// <summary>Uma cena na lista da Bíblia: o número, o nome (o da bíblia, senão o do jogo) e se ainda não tem resumo.</summary>
 public sealed record BibleSceneRow(string Key, int Number, string Name, bool HasSummary, bool IsEdited)
 {
-    public string Title => string.Create(CultureInfo.GetCultureInfo("pt-BR"), $"Cena {Number}");
+    public string Title => string.Create(BibleText.PtBr, $"Cena {Number}");
 
     public string Subtitle => HasSummary || Name.Length > 0 ? Name : "Sem resumo ainda";
 
-    public string Mark => IsEdited ? "Sua" : HasSummary ? string.Empty : "vazio";
+    public string Mark => IsEdited ? "Sua" : EmptyMark;
+
+    private string EmptyMark => HasSummary ? string.Empty : "vazio";
 
     public bool ShowCheck => HasSummary && !IsEdited;
 }
@@ -133,8 +142,8 @@ public sealed partial class BibleViewModel : ObservableObject
 
     /// <summary>O número de cenas da lista; com filtro, "3 de 312".</summary>
     public string ScenesCountText => Rows.Count == allRows.Count
-        ? allRows.Count.ToString(CultureInfo.GetCultureInfo("pt-BR"))
-        : string.Create(CultureInfo.GetCultureInfo("pt-BR"), $"{Rows.Count} de {allRows.Count}");
+        ? allRows.Count.ToString(BibleText.PtBr)
+        : string.Create(BibleText.PtBr, $"{Rows.Count} de {allRows.Count}");
 
     /// <summary>A página pede ao Editor que abra o script da cena selecionada.</summary>
     public event EventHandler<string>? EditorRequested;
@@ -191,17 +200,15 @@ public sealed partial class BibleViewModel : ObservableObject
     [ObservableProperty]
     public partial string OwnerOfSynopsis { get; private set; } = "IA";
 
-    public string GeneratedAtText => bible.Generation is { } g ? g.At.ToLocalTime().ToString("dd/MM, HH:mm", CultureInfo.GetCultureInfo("pt-BR")) : "ainda não";
+    public string GeneratedAtText => bible.Generation is { } g ? g.At.ToLocalTime().ToString("dd/MM, HH:mm", BibleText.PtBr) : "ainda não";
 
     public string ScenesReadText => bible.Generation is { } g
-        ? $"{g.ScenesRead.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} em {g.Chapters} {(g.Chapters == 1 ? "capítulo" : "capítulos")}"
+        ? $"{g.ScenesRead.ToString("N0", BibleText.PtBr)} em {g.Chapters} {BibleText.Plural(g.Chapters, "capítulo", "capítulos")}"
         : "nenhuma";
 
     public string CostText => bible.Generation is { } g ? VNForge.App.Controls.Money.Brl(Rate().ToBrl(g.Dollars)) : "sem custo ainda";
 
     public string RereadText { get; private set; } = "calculado ao abrir a geração";
-
-    public string CacheNote => "Com o contexto de 1M e o cache de prompt, cada leitura seguinte do mesmo capítulo custa 5% da entrada.";
 
     public bool CanUndo => project is not null && ProjectFolder.Open(project.Root).HasPreviousBible;
 
@@ -390,9 +397,18 @@ public sealed partial class BibleViewModel : ObservableObject
         Timeline.Clear();
         for (var i = 0; i < entries.Count; i++)
         {
-            var state = current < 0 || i > current ? BibleTimelineState.Upcoming : i == current ? BibleTimelineState.Current : BibleTimelineState.Passed;
-            Timeline.Add(new BibleTimelineRow(entries[i].Title, entries[i].Note, state));
+            Timeline.Add(new BibleTimelineRow(entries[i].Title, entries[i].Note, StateOf(i, current)));
         }
+    }
+
+    private static BibleTimelineState StateOf(int index, int current)
+    {
+        if (current < 0 || index > current)
+        {
+            return BibleTimelineState.Upcoming;
+        }
+
+        return index == current ? BibleTimelineState.Current : BibleTimelineState.Passed;
     }
 
     private static Dictionary<string, SceneLocation> LocateScenes(IReadOnlyList<BibleChapterInput> chapters)
@@ -539,7 +555,7 @@ public sealed partial class BibleViewModel : ObservableObject
                 // O planejamento lê a bíblia sem reclamar de arquivo ilegível; gerar por cima dele pagaria a leitura e perderia o backup bom.
                 folder.LoadBible();
                 return (BibleChapterPlanner.Plan(folder), AiUsageLog.Load(folder).Dollars);
-            }).ConfigureAwait(true);
+            }, CancellationToken.None).ConfigureAwait(true);
             planned = chapters;
             locations = LocateScenes(chapters);
             OnPropertyChanged(nameof(SceneHeader));
@@ -547,7 +563,7 @@ public sealed partial class BibleViewModel : ObservableObject
             var estimate = BibleCost.Estimate(chapters, model, effort: effort);
             var rate = Rate();
             plannedBrl = estimate.Brl(rate);
-            ReadText = $"{estimate.Lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} linhas · {estimate.Chapters} {(estimate.Chapters == 1 ? "capítulo" : "capítulos")}";
+            ReadText = $"{estimate.Lines.ToString("N0", BibleText.PtBr)} linhas · {estimate.Chapters} {(estimate.Chapters == 1 ? "capítulo" : "capítulos")}";
             EstimateText = $"Custo (aproximado): {VNForge.App.Controls.Money.Brl(estimate.Brl(rate))}";
             CostButtonText = VNForge.App.Controls.Money.Brl(estimate.Brl(rate));
             RereadText = $"cerca de {VNForge.App.Controls.Money.Brl(estimate.RereadBrl(rate))}";
@@ -658,8 +674,13 @@ public sealed partial class BibleViewModel : ObservableObject
 
     private static string Summarize(BibleRunResult result)
     {
-        var text = $"{result.ScenesWritten} {(result.ScenesWritten == 1 ? "cena escrita" : "cenas escritas")} em {result.ChaptersRead} {(result.ChaptersRead == 1 ? "capítulo" : "capítulos")}.";
-        return result.Canceled ? text + " Cancelado: o que já foi escrito ficou na bíblia." : result.BudgetStop is not null ? text + " Parou no limite de gasto." : text;
+        var text = $"{result.ScenesWritten} {BibleText.Plural(result.ScenesWritten, "cena escrita", "cenas escritas")} em {result.ChaptersRead} {BibleText.Plural(result.ChaptersRead, "capítulo", "capítulos")}.";
+        if (result.Canceled)
+        {
+            return text + " Cancelado: o que já foi escrito ficou na bíblia.";
+        }
+
+        return result.BudgetStop is not null ? text + " Parou no limite de gasto." : text;
     }
 
     /// <summary>"Reescrever com a IA" num campo da cena selecionada.</summary>
@@ -681,7 +702,7 @@ public sealed partial class BibleViewModel : ObservableObject
             {
                 folder.LoadBible();
                 return BibleChapterPlanner.Plan(folder).FirstOrDefault(c => c.Scenes.Any(s => s.Key == row.Key));
-            }).ConfigureAwait(true);
+            }, CancellationToken.None).ConfigureAwait(true);
             if (chapter is null)
             {
                 ErrorMessage = "Esta cena não tem texto para a IA ler.";

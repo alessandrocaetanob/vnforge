@@ -29,7 +29,17 @@ public sealed record ClaudeUsage(long InputTokens, long OutputTokens, long Cache
         a.OutputTokens + b.OutputTokens,
         a.CacheReadInputTokens + b.CacheReadInputTokens,
         a.CacheCreationInputTokens + b.CacheCreationInputTokens,
-        a.InLongPrompts is null ? b.InLongPrompts : b.InLongPrompts is null ? a.InLongPrompts : a.InLongPrompts + b.InLongPrompts);
+        Merge(a.InLongPrompts, b.InLongPrompts));
+
+    private static ClaudeUsage? Merge(ClaudeUsage? a, ClaudeUsage? b)
+    {
+        if (a is null || b is null)
+        {
+            return a ?? b;
+        }
+
+        return a + b;
+    }
 
     /// <summary>O uso de um único pedido, marcado como de prompt longo quando entrada, leitura e escrita de cache somam mais que o limite da faixa.</summary>
     public static ClaudeUsage ForRequest(long input, long output, long cacheRead, long cacheCreation)
