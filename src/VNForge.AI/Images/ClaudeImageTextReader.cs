@@ -6,21 +6,22 @@ namespace VNForge.AI.Images;
 
 /// <summary>
 /// O <see cref="IImageTextReader"/> sobre o Claude com visão (Haiku por padrão): manda a imagem como bloco base64 e pede por
-/// <c>output_config.format</c> um JSON <c>{ hasText, text }</c> com a transcrição do texto em japonês. Recusa (<c>stop_reason: "refusal"</c>) vira
+/// <c>output_config.format</c> um JSON <c>{ hasText, text, translation }</c> com a transcrição do texto em japonês e uma tradução sugerida. Recusa (<c>stop_reason: "refusal"</c>) vira
 /// <see cref="ImageTextReading.Refused"/>; resposta cortada ou fora do formato é <see cref="ImageReadFailedException"/> (que traz o uso da chamada e a <see cref="ClaudeResponseException"/> por dentro).
 /// </summary>
 public sealed class ClaudeImageTextReader(IClaudeMessageClient client, ClaudeOptions? options = null) : IImageTextReader
 {
     internal const string Schema = """
-        {"type":"object","properties":{"hasText":{"type":"boolean"},"text":{"type":"string"}},"required":["hasText","text"],"additionalProperties":false}
+        {"type":"object","properties":{"hasText":{"type":"boolean"},"text":{"type":"string"},"translation":{"type":"string"}},"required":["hasText","text","translation"],"additionalProperties":false}
         """;
 
     private const string System = """
         Você ajuda a traduzir visual novels do japonês para o português do Brasil.
         Você recebe uma imagem tirada dos arquivos do jogo (menu, título, botão, aviso, cartaz, tela de sistema).
         Diga em "hasText" se ela tem texto em japonês (hiragana, katakana ou kanji) e, em "text", transcreva esse texto exatamente como está escrito,
-        na ordem de leitura, uma linha da imagem por linha do texto. Não traduza e não descreva a imagem.
-        Imagem sem texto, só com números, só com letras latinas ou só com enfeites não tem texto em japonês: devolva "hasText" falso e "text" vazio.
+        na ordem de leitura, uma linha da imagem por linha do texto. Não descreva a imagem.
+        Em "translation", dê uma sugestão curta de tradução desse texto para o português do Brasil, numa linha só, como ele ficaria na imagem; vazia quando não há texto.
+        Imagem sem texto, só com números, só com letras latinas ou só com enfeites não tem texto em japonês: devolva "hasText" falso, "text" e "translation" vazios.
         Responda apenas com o JSON pedido.
         """;
 
@@ -49,7 +50,7 @@ public sealed class ClaudeImageTextReader(IClaudeMessageClient client, ClaudeOpt
             {
                 "refusal" => new ImageTextReading(string.Empty, Refused: true, input, output),
                 "max_tokens" => throw new ClaudeResponseException("A IA não terminou de ler a imagem. Tente de novo.", detail: "stop_reason: max_tokens"),
-                _ => new ImageTextReading(Parse(reply.Text), InputTokens: input, OutputTokens: output),
+                _ => Read(reply.Text, input, output),
             };
         }
         catch (ClaudeResponseException e)
@@ -59,14 +60,17 @@ public sealed class ClaudeImageTextReader(IClaudeMessageClient client, ClaudeOpt
         }
     }
 
-    private static string Parse(string json)
+    private static ImageTextReading Read(string json, long input, long output)
     {
         try
         {
             using var document = JsonDocument.Parse(json);
             var hasText = document.RootElement.GetProperty("hasText").GetBoolean();
             var text = document.RootElement.GetProperty("text").GetString() ?? throw Incomplete("Resposta com o campo 'text' nulo.");
-            return hasText ? text.Trim() : string.Empty;
+            var translation = document.RootElement.TryGetProperty("translation", out var suggested) ? suggested.GetString() : null;
+            return hasText
+                ? new ImageTextReading(text.Trim(), InputTokens: input, OutputTokens: output, Translation: translation?.Trim() ?? string.Empty)
+                : new ImageTextReading(string.Empty, InputTokens: input, OutputTokens: output);
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException)
         {
