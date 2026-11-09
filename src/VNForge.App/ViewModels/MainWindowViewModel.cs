@@ -120,6 +120,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
+        Editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
         Editor.TranslateRequested += OnEditorTranslateRequested;
         HookTranslateDialog();
@@ -212,12 +213,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
             DetachEditor(editor);
             editor.PropertyChanged -= OnEditorChanged;
             editor.CheckRequested -= OnEditorCheckRequested;
+            editor.GlossaryTermRequested -= OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested -= OnEditorDefineGenderRequested;
             editor.TranslateRequested -= OnEditorTranslateRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
             editor.CheckRequested += OnEditorCheckRequested;
+            editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested += OnEditorDefineGenderRequested;
             editor.TranslateRequested += OnEditorTranslateRequested;
         }
@@ -811,6 +814,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
+
+    /// <summary>"Adicionar ao glossário" no cartão do dicionário: Glossário > Termos com a palavra como está no original, pronta para a tradução.</summary>
+    private void OnEditorGlossaryTermRequested(object? sender, string term)
+    {
+        Glossary.RegisterTerm(term);
+        SelectedNav = glossaryItem;
+    }
 
     /// <summary>"Cadastrar personagem" no erro do falante: Glossário > Personagens com o nome como está no texto, pronto para a tradução.</summary>
     private void OpenCharacterInGlossary(string name)

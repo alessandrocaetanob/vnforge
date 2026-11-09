@@ -48,6 +48,7 @@
     <KeyBinding Gesture="Ctrl+Space" Command="{Binding SuggestCommand}"/>
     <KeyBinding Gesture="Ctrl+Shift+Enter" Command="{Binding CopyOriginalCommand}"/>
     <KeyBinding Gesture="Ctrl+Shift+N" Command="{Binding KeepCommand}"/>
+    <KeyBinding Gesture="Escape" Command="{Binding CloseWordCardCommand}"/>
     <KeyBinding Gesture="Alt+Up" Command="{Binding PreviousCommand}"/>
     <KeyBinding Gesture="Alt+Down" Command="{Binding NextCommand}"/>
   </UserControl.KeyBindings>
@@ -102,8 +103,17 @@
               <SelectableTextBlock Grid.Column="2" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Falante"/>
             </Grid>
-            <Border Classes="original">
-              <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+            <Border x:Name="OriginalBox" Classes="original">
+              <Panel>
+                <!-- Dicionário offline (#538): o realce da palavra sob o mouse fica atrás do texto, e a entrada abre num Popup embaixo do original, sem mexer no layout do inspetor. -->
+                <c:WordHighlight x:Name="SourceHighlight" Target="{Binding #SourceText}" Start="{Binding WordStart}" Length="{Binding WordLength}"/>
+                <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+                <Popup x:Name="WordPopup" PlacementTarget="{Binding #OriginalBox}" Placement="BottomEdgeAlignedLeft" IsLightDismissEnabled="False"
+                       PlacementConstraintAdjustment="SlideX, FlipY" VerticalOffset="6" IsOpen="{Binding ShowWordCard, Mode=OneWay}">
+                  <!-- A largura do cartão acompanha a do original (360 no quadro), entre 300 e 400, por ligação: vale com o mouse e em qualquer outro caminho que abra o cartão. -->
+                  <v:WordCardView x:Name="WordCardHost" Width="{Binding #OriginalBox.Bounds.Width, Converter={x:Static v:WordCardWidth.Clamp}}"/>
+                </Popup>
+              </Panel>
             </Border>
           </StackPanel>
 
