@@ -71,6 +71,11 @@
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+      <!-- Espaço transparente em volta para a sombra do quadro (0 8 24) caber na janela do popup: o cartão fica onde o quadro o põe e TaskBar.FlyoutMargin compensa o deslocamento. -->
+      <Setter Property="Margin" Value="32"/>
+    </Style>
+    <Style Selector="FlyoutPresenter.tasks /template/ Border#LayoutRoot">
+      <Setter Property="BoxShadow" Value="{DynamicResource Vnf.ShadowFlyout}"/>
     </Style>
   </UserControl.Styles>
 
@@ -113,7 +118,7 @@
         </StackPanel>
       </Panel>
       <Button.Flyout>
-        <Flyout Placement="TopEdgeAlignedLeft" FlyoutPresenterClasses="tasks" VerticalOffset="-8">
+        <Flyout Placement="TopEdgeAlignedLeft" FlyoutPresenterClasses="tasks" VerticalOffset="24">
           <StackPanel>
             <StackPanel.ContextFlyout>
               <!-- O quadro não desenha "Limpar concluídas": a ação continua à mão no menu de contexto da lista. -->
