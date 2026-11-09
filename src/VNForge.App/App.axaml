@@ -44,6 +44,9 @@
     <DataTemplate DataType="vm:GlossaryViewModel">
       <views:GlossaryView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:BibleViewModel">
+      <views:BibleView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:ImagesViewModel">
       <views:ImagesView/>
     </DataTemplate>

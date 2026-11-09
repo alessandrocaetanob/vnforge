@@ -35,7 +35,7 @@ public class MainWindowRailTests
         using var temp = new TempFolder();
         var vm = Create(temp, temp.SubFolder("vn"));
 
-        Assert.Equal(["Início", "Painel", "Editor", "Conferir", "Testar", "Glossário", "Imagens"], vm.TopNav.Select(n => n.Label));
+        Assert.Equal(["Início", "Painel", "Editor", "Conferir", "Testar", "Glossário", "Bíblia", "Imagens"], vm.TopNav.Select(n => n.Label));
         Assert.Equal(["Ajustes"], vm.BottomNav.Select(n => n.Label));
         Assert.DoesNotContain(vm.Nav, n => n.Label == "Busca");
     }

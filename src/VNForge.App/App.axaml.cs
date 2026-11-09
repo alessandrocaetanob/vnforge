@@ -6,6 +6,7 @@ using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Jmdict;
 using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 using VNForge.Engines.YuRis;
@@ -49,11 +50,15 @@ public sealed class App : Application
                 Editor = new EditorViewModel(suggester: suggester, layoutMemory: new EditorLayoutMemory(configDirectory))
                 {
                     Memory = new TranslationMemory(configDirectory),
+                    Dictionary = new OfflineDictionary(new JmdictStore(Path.Combine(configDirectory, "dictionary")), postToUi: a => Avalonia.Threading.Dispatcher.UIThread.Post(a)),
                     Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate),
                     SuggestionPrice = unit => LineSuggester.PriceText(unit, LineSuggester.ReadModel(configDirectory), settings.Rate),
                 },
                 Glossary = { AutosaveClock = TimeProvider.System, PersonalStore = new PersonalGlossary(configDirectory), Suggester = UserGlossarySuggester.ForUser(configDirectory) },
                 TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
+                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    new ClaudeOptions { Model = model, Effort = effort }),
+                BibleProviderFactory = (model, effort) => ClaudeProviderFactory.CreateBible(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = effort }),
                 BatchRequestProviderFactory = (model, effort) => new ClaudeBatchRequestProvider(

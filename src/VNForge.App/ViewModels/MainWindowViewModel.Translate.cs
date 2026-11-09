@@ -16,6 +16,13 @@ public sealed partial class MainWindowViewModel
     public Func<string, ClaudeEffort, ITranslationProvider> TranslationProviderFactory { get; init; } =
         static (_, _) => throw new InvalidOperationException("Nenhum provedor de IA configurado.");
 
+    /// <summary>Monta o provedor da bíblia do jogo; o app passa o Claude com a chave do usuário. Sem ele, a página Bíblia pede a chave.</summary>
+    public Func<string, ClaudeEffort, VNForge.AI.Bible.IBibleProvider>? BibleProviderFactory
+    {
+        get => Bible.ProviderFactory;
+        init => Bible.ProviderFactory = value;
+    }
+
     /// <summary>Termina quando a janela abriu e leu o projeto.</summary>
     public Task TranslateOpening { get; private set; } = Task.CompletedTask;
 
