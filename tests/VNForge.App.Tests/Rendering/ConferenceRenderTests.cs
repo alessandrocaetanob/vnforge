@@ -145,7 +145,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
             TestContext.Current.CancellationToken);
     }
 
-    /// <summary>O resumo da última conferência divide a linha com "Corrigir N com um clique" e "Conferir de novo": na largura mínima do app o resumo corta em vez de passar por cima dos botões.</summary>
+    /// <summary>O cabeçalho do Conferir não tem título nem o resumo da última conferência (o quadro não os tem): só os botões, e na largura mínima do app um não passa por cima do outro.</summary>
     [Theory]
     [InlineData("Dark", 960, 700)]
     [InlineData("Light", 960, 700)]
@@ -176,12 +176,12 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
 
                     var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
                     Rect Box(Control control) => new(control.TranslatePoint(default, window)!.Value, control.Bounds.Size);
-                    var summary = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.IsEffectivelyVisible && t.Text == vm.Conference.CheckedSummary);
+                    
                     Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Conferir a tradução");
                     var fixAll = Box(view.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Conference.FixAllCommand && b.IsEffectivelyVisible));
                     var refresh = Box(view.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Conference.RefreshCommand && b.IsEffectivelyVisible));
 
-                    Assert.True(Box(summary).Right <= fixAll.Left, $"o resumo da conferência passa por cima do botão de correção: {Box(summary)} e {fixAll}");
+                    Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == vm.Conference.CheckedSummary);
                     Assert.True(fixAll.Right <= refresh.Left, $"os botões se sobrepõem: {fixAll} e {refresh}");
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"conferir-cabecalho-{width}", theme)));
                 }

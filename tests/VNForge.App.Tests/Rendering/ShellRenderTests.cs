@@ -225,6 +225,15 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
                 Go(vm, window, key);
                 Assert.Equal(compact, header.IsCompact);
                 Assert.False(header.MoreMenu?.IsOpen ?? false, $"o menu do Mais abriu sozinho em {name}");
+                if (key is not (NavKey.Sheet or NavKey.Play))
+                {
+                    // Uma margem esquerda só: o conteúdo de cada página começa onde o cabeçalho do jogo começa (x=113 a 1440 px, os 112 do quadro mais a borda de 1 px).
+                    var pageArea = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "PageArea");
+                    var pageLeft = pageArea.TranslatePoint(default, window)!.Value.X;
+                    var left = ContentLeft(window, pageArea, vm.CurrentPage);
+                    Assert.True(left >= pageLeft + 31.5 && left <= pageLeft + 32.5, $"{name}: o conteúdo começa em x={left}, o cabeçalho em x={pageLeft + 32}");
+                }
+
                 ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-pagina-" + name, theme)));
             }
         });
@@ -312,6 +321,22 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
                 Assert.True(items[^1].IsSelected, $"o Mais fica marcado em {label}");
             }
         });
+    }
+
+    /// <summary>
+    /// O x do que a página desenha mais à esquerda: o menor entre os cartões (bordas de 200 px ou mais que não ocupam a largura toda) e os textos soltos. O que
+    /// é a própria página inteira, como a rolagem, não conta. Imagens sem inventário só tem uma frase centrada, e aí vale a pilha da página.
+    /// </summary>
+    private static double ContentLeft(MainWindow window, Border pageArea, object page)
+    {
+        var area = new Rect(pageArea.TranslatePoint(default, window)!.Value, pageArea.Bounds.Size);
+        var view = pageArea.GetVisualDescendants().OfType<UserControl>().First(u => ReferenceEquals(u.DataContext, page) && u.IsEffectivelyVisible);
+        var lefts = view.GetVisualDescendants().OfType<Control>()
+            .Where(c => c.IsEffectivelyVisible && c.Bounds.Width >= 100 && c.Bounds.Height >= 12 && c.Bounds.Width < area.Width - 40 && (c is TextBlock { Text.Length: > 0 } || c is Border { Background: not null } || (page is ImagesViewModel { IsEmpty: true } && c is StackPanel)))
+            .Select(c => c.TranslatePoint(default, window)!.Value.X)
+            .Where(x => x >= area.Left + 8)
+            .ToList();
+        return lefts.Count == 0 ? double.NaN : lefts.Min();
     }
 
     private static void Go(MainWindowViewModel vm, MainWindow window, NavKey key)

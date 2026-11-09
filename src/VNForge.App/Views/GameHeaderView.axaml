@@ -74,6 +74,9 @@
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
               <TextBlock Classes="title-lg" Text="{Binding ProjectTitle}" TextTrimming="CharacterEllipsis"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
+                <!-- O título em japonês, do vndb.json do projeto; sem o vínculo com o VNDB a linha começa na engine. -->
+                <TextBlock Name="OriginalTitle" Classes="jp-row secondary" Text="{Binding GameOriginalTitle}" IsVisible="{Binding HasGameOriginalTitle}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
                 <Border Classes="game-tag">
                   <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding GameEngineLabel}"/>
                 </Border>
@@ -85,14 +88,14 @@
             <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar", desabilitado até a #549. -->
             <Panel Grid.Column="2" VerticalAlignment="Center">
               <Panel IsVisible="{Binding !ShowPlayButton}">
-                <Button Classes="accent" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
+                <Button Classes="accent" Padding="20,0" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
                     <TextBlock Text="{Binding Dashboard.NextStepLabel}"/>
                   </StackPanel>
                 </Button>
               </Panel>
-              <Button Name="PlayButton" Classes="accent" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
+              <Button Name="PlayButton" Classes="accent" Padding="20,0" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
                       ToolTip.Tip="Abrir o jogo por aqui chega com a página Jogar." ToolTip.ShowOnDisabled="True">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>

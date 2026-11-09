@@ -73,9 +73,10 @@
 
       <!-- Barra de título própria: selo, nome do app, migalha do projeto e a busca que abre a paleta. Os botões de janela são os do sistema. -->
       <Border Grid.Row="0" Grid.ColumnSpan="2" Height="{StaticResource Vnf.TitlebarHeight}" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar">
-        <Grid ColumnDefinitions="*,Auto,*" Margin="14,0,0,0">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Viewbox Width="22" Height="22" VerticalAlignment="Center" AutomationProperties.Name="VNForge">
+        <Grid ColumnDefinitions="*,Auto,*">
+          <!-- A busca fica no centro da janela (a margem de 14 px é da própria coluna, não da grade) e o caminho corta com reticências antes de chegar nela. -->
+          <Grid ColumnDefinitions="Auto,Auto,*" Margin="14,0,16,0" VerticalAlignment="Center">
+            <Viewbox Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" AutomationProperties.Name="VNForge">
               <Canvas Width="48" Height="48">
                 <Canvas.RenderTransform>
                   <RotateTransform Angle="-4"/>
@@ -93,17 +94,17 @@
                 </Path>
               </Canvas>
             </Viewbox>
-            <TextBlock Classes="body-strong" Text="VNForge" Margin="10,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Classes="body-sm secondary" Text="{Binding Breadcrumb}" Margin="16,0,0,0" MaxWidth="320"
+            <TextBlock Grid.Column="1" Classes="body-strong" Text="VNForge" Margin="10,0,0,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Classes="body-sm secondary" Text="{Binding Breadcrumb}" Margin="16,0,0,0" MaxWidth="320" HorizontalAlignment="Left"
                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-          </StackPanel>
+          </Grid>
 
           <Button Grid.Column="1" Classes="palette-trigger" Width="420" Command="{Binding OpenPaletteCommand}"
                   WindowDecorationProperties.ElementRole="User"
-                  AutomationProperties.Name="Buscar linhas, scripts e comandos">
+                  AutomationProperties.Name="Buscar jogos, personagens e comandos">
             <Grid ColumnDefinitions="Auto,*,Auto">
               <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Search}" Foreground="{DynamicResource Vnf.TextSecondary}"/>
-              <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="Buscar linhas, scripts e comandos" Margin="8,0,0,0"
+              <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="Buscar jogos, personagens e comandos" Margin="8,0,0,0"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
               <Border Grid.Column="2" Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+K"/></Border>
             </Grid>
@@ -153,8 +154,13 @@
                      IsVisible="{Binding StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <!-- Como no quadro: na Biblioteca e nas páginas de entrada do jogo, a contagem de jogos e o estado do VNDB; nas telas de trabalho, os dados do texto. -->
+            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding !ShowWorkStatus}">
+              <TextBlock Name="LibraryStatus" Classes="caption secondary" Text="{Binding LibraryCountText}"/>
+              <TextBlock Name="VndbStatus" Classes="caption secondary" Text="{Binding VndbStatusText}"/>
+            </StackPanel>
             <TextBlock Classes="caption secondary" Text="{Binding AppVersionText}"/>
-            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding !IsStartPage}">
+            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding ShowWorkStatus}">
             <TextBlock Classes="caption secondary" Text="{Binding SavedAtText}"
                        IsVisible="{Binding SavedAtText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <TextBlock Classes="caption secondary" Text="{Binding GameStatusText}"
@@ -166,8 +172,9 @@
             </StackPanel>
             <TextBlock Classes="caption secondary" Text="{Binding ApiKeyStatus}" IsVisible="{Binding IsStartPage}"/>
             <StackPanel Name="KeyStatus" Orientation="Horizontal" Background="Transparent" ToolTip.Tip="{Binding ApiKeyStatus}" AutomationProperties.Name="{Binding ApiKeyStatus}">
+              <!-- O visto só aparece na Biblioteca; a chave que falta é um aviso e aparece em toda tela. -->
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}"
-                        Data="{StaticResource Icon.Check}" IsVisible="{Binding ApiKeyConfigured}"/>
+                        Data="{StaticResource Icon.Check}" IsVisible="{Binding ShowKeyOk}"/>
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}"
                         Data="{StaticResource Icon.Warning}" IsVisible="{Binding !ApiKeyConfigured}"/>
             </StackPanel>

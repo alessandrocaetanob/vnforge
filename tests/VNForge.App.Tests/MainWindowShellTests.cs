@@ -25,6 +25,46 @@ public sealed class MainWindowShellTests
     private static NavItemViewModel Item(MainWindowViewModel vm, NavKey key) => vm.Nav.Single(n => n.Key == key);
 
     [Fact]
+    public async Task A_barra_de_status_diz_quantos_jogos_a_Biblioteca_tem_e_o_que_o_app_sabe_do_VNDB()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedAsync(temp);
+
+        Assert.Equal("1 jogo na Biblioteca", vm.LibraryCountText);
+        Assert.Equal("VNDB: sem consulta ainda", vm.VndbStatusText);
+        Assert.Equal(MainWindowViewModel.VndbConnection.Unknown, vm.Vndb);
+        Assert.False(vm.ShowWorkStatus);
+
+        vm.SelectedNav = Item(vm, NavKey.Editor);
+        Assert.True(vm.ShowWorkStatus);
+        vm.SelectedNav = Item(vm, NavKey.Dashboard);
+        Assert.False(vm.ShowWorkStatus);
+    }
+
+    [Fact]
+    public async Task O_titulo_em_japones_do_cabecalho_vem_do_vinculo_com_o_VNDB_do_projeto()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", [TranslationStatus.Machine]);
+        ProjectFolder.Open(root).SaveVndbLink(new VNForge.Core.Vndb.VndbLink("v31201", "Amaoto no Hakoniwa", "雨音の箱庭", null, []));
+        var vm = Create(temp, root);
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+
+        Assert.Equal("雨音の箱庭", vm.GameOriginalTitle);
+        Assert.True(vm.HasGameOriginalTitle);
+    }
+
+    [Fact]
+    public async Task Sem_o_vinculo_com_o_VNDB_o_cabecalho_nao_tem_titulo_em_japones()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedAsync(temp);
+
+        Assert.Equal(string.Empty, vm.GameOriginalTitle);
+        Assert.False(vm.HasGameOriginalTitle);
+    }
+
+    [Fact]
     public void Sem_projeto_nao_ha_jogo_aberto_e_a_migalha_e_so_a_Biblioteca()
     {
         using var temp = new TempFolder();

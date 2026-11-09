@@ -106,6 +106,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
+        start.Recents.CollectionChanged += (_, _) => OnPropertyChanged(nameof(LibraryCountText));
         Dashboard = new(clock: start.Clock);
         Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes", Guid.NewGuid().ToString("N"))));
@@ -319,7 +320,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void OpenPalette() => Palette.Open();
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsStartPage))]
+    [NotifyPropertyChangedFor(nameof(IsStartPage), nameof(ShowWorkStatus), nameof(ShowKeyOk))]
     public partial object CurrentPage { get; private set; }
 
     /// <summary>A página é o Início: a barra de status mostra só a versão e o estado da chave.</summary>
@@ -341,6 +342,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public partial string ApiKeyStatus { get; private set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowKeyOk))]
     public partial bool ApiKeyConfigured { get; private set; }
 
     public string ProjectTitle => CurrentProject?.Name ?? "Nenhum projeto aberto";
@@ -776,6 +778,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         var wizard = create();
+        wizard.PropertyChanged += OnWizardVndbChanged;
         if (gameFolder is not null)
         {
             WizardPreparing = wizard.SetGameFolderAsync(gameFolder);
@@ -861,6 +864,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);
+        GameOriginalTitle = ReadOriginalTitle(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
         if (Glossary.Project?.Root == summary.Root)
