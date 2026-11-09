@@ -60,6 +60,49 @@ public static class GoldSet
         return [.. indexes.Take(count).Order().Select(i => gold[i])];
     }
 
+    /// <summary>
+    /// Sorteia trechos em vez de linhas soltas: cada trecho tem até <paramref name="blockSize"/> linhas aprovadas seguidas do mesmo script, e cada trecho vira um lote com o
+    /// contexto que o <c>vnf translate</c> daria a ele (as linhas do lote entre si e as falas de antes e de depois). Os trechos saem na ordem original, com as linhas em ordem.
+    /// Sorteia trechos inteiros até chegar a <paramref name="count"/> linhas; o último é cortado para o total bater. Com <paramref name="count"/> maior que o conjunto, devolve tudo.
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<GoldLine>> SampleBlocks(IReadOnlyList<GoldLine> gold, int count, int seed, int blockSize)
+    {
+        ArgumentNullException.ThrowIfNull(gold);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        ArgumentOutOfRangeException.ThrowIfLessThan(blockSize, 1);
+        var blocks = new List<List<GoldLine>>();
+        foreach (var line in gold)
+        {
+            if (blocks.Count == 0 || blocks[^1].Count >= blockSize || blocks[^1][0].ScriptKey != line.ScriptKey)
+            {
+                blocks.Add([]);
+            }
+
+            blocks[^1].Add(line);
+        }
+
+        if (count >= gold.Count)
+        {
+            return blocks;
+        }
+
+        var random = new Random(seed);
+        var order = Enumerable.Range(0, blocks.Count).ToArray();
+        var chosen = new List<(int Index, List<GoldLine> Lines)>();
+        var taken = 0;
+        for (var i = 0; i < order.Length && taken < count; i++)
+        {
+            var j = random.Next(i, order.Length);
+            (order[i], order[j]) = (order[j], order[i]);
+            var block = blocks[order[i]];
+            var take = Math.Min(block.Count, count - taken);
+            chosen.Add((order[i], take == block.Count ? block : block.GetRange(0, take)));
+            taken += take;
+        }
+
+        return [.. chosen.OrderBy(c => c.Index).Select(c => (IReadOnlyList<GoldLine>)c.Lines)];
+    }
+
     private static string Neighbor(IReadOnlyList<TextUnit> units, int index)
     {
         if (index < 0 || index >= units.Count)

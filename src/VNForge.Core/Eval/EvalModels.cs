@@ -64,6 +64,7 @@ public sealed record EvalLineResult(string LineId, string Translation, double Ch
 /// <param name="Dollars">O custo das traduções, em dólar, com o preço da tabela; o do juiz fica em <paramref name="JudgeDollars"/>.</param>
 /// <param name="Seconds">O tempo que a tradução das linhas levou, com o juiz de fora.</param>
 /// <param name="Error">O primeiro erro de lote que a configuração teve; as linhas desse lote entram como recusadas.</param>
+/// <param name="CorpusChrf">O chrF do conjunto, com as contagens de n-gramas somadas em todas as linhas (<see cref="Chrf.Corpus"/>); nulo em rodada antiga, que usa a média por linha.</param>
 public sealed record EvalConfigReport(
     EvalConfig Config,
     IReadOnlyList<EvalLineResult> Lines,
@@ -74,10 +75,11 @@ public sealed record EvalConfigReport(
     decimal Dollars,
     decimal JudgeDollars,
     double Seconds,
-    string? Error = null)
+    string? Error = null,
+    double? CorpusChrf = null)
 {
-    /// <summary>O chrF médio das linhas, de 0 a 100; linha recusada conta como 0.</summary>
-    public double MeanChrf => Lines.Count == 0 ? 0 : Lines.Average(l => l.Chrf);
+    /// <summary>O chrF da configuração, de 0 a 100: o do conjunto como o sacreBLEU o calcula; linha recusada entra sem texto. Sem o valor do conjunto, a média por linha.</summary>
+    public double MeanChrf => CorpusChrf ?? (Lines.Count == 0 ? 0 : Lines.Average(l => l.Chrf));
 
     /// <summary>A nota média do juiz, de 0 a 10; nula quando nenhuma linha foi avaliada.</summary>
     public double? MeanJudge

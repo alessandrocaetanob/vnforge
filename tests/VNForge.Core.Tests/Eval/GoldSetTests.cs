@@ -75,4 +75,36 @@ public sealed class GoldSetTests
 
         Assert.Equal(5, GoldSet.Sample(gold, 200, 1).Count);
     }
+
+    private static List<GoldLine> Lines(string script, int from, int count) =>
+        [.. Enumerable.Range(from, count).Select(i => new GoldLine($"{script}:{i:000}", script, null, "x", "y"))];
+
+    [Fact]
+    public void Sorteia_trechos_de_linhas_seguidas_do_mesmo_script()
+    {
+        var gold = Lines("a", 1, 25).Concat(Lines("b", 1, 12)).ToList();
+
+        var blocks = GoldSet.SampleBlocks(gold, 1000, 1, 10);
+
+        Assert.Equal([10, 10, 5, 10, 2], blocks.Select(b => b.Count));
+        Assert.All(blocks, b => Assert.Single(b.Select(l => l.ScriptKey).Distinct()));
+        Assert.Equal(gold.Select(g => g.Id), blocks.SelectMany(b => b).Select(g => g.Id));
+    }
+
+    [Fact]
+    public void O_sorteio_de_trechos_fecha_o_total_corta_o_ultimo_e_repete_com_a_mesma_semente()
+    {
+        var gold = Lines("a", 1, 200);
+
+        var blocks = GoldSet.SampleBlocks(gold, 45, 7, 10);
+        var again = GoldSet.SampleBlocks(gold, 45, 7, 10);
+
+        Assert.Equal(45, blocks.Sum(b => b.Count));
+        Assert.Equal(blocks.SelectMany(b => b).Select(g => g.Id), again.SelectMany(b => b).Select(g => g.Id));
+        Assert.NotEqual(blocks.SelectMany(b => b).Select(g => g.Id), GoldSet.SampleBlocks(gold, 45, 8, 10).SelectMany(b => b).Select(g => g.Id));
+        Assert.All(blocks, b => Assert.Equal(b.Select(l => l.Id).Order(StringComparer.Ordinal), b.Select(l => l.Id)));
+        var starts = blocks.Select(b => b[0].Id).ToList();
+        Assert.Equal(starts.Order(StringComparer.Ordinal), starts);
+        Assert.All(blocks, b => Assert.True(b.Count <= 10));
+    }
 }

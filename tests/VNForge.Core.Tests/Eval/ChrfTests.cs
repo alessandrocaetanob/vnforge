@@ -50,6 +50,28 @@ public sealed class ChrfTests
     }
 
     [Fact]
+    public void O_chrf_do_conjunto_soma_as_contagens_e_da_mais_peso_as_linhas_longas()
+    {
+        const string longRef = "Os dois chegaram cinco minutos atrasados hoje cedo";
+        (string?, string?)[] pairs = [("Oi", "Oi"), (longRef, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")];
+
+        var corpus = Chrf.Corpus(pairs);
+        var lineMean = pairs.Average(p => Chrf.Score(p.Item1, p.Item2));
+
+        Assert.Equal(50.0, lineMean, 6);
+        Assert.InRange(corpus, 0, 20);
+    }
+
+    [Fact]
+    public void O_chrf_do_conjunto_de_um_par_e_o_do_par_e_hipotese_vazia_pesa_na_revocacao()
+    {
+        Assert.Equal(Chrf.Score("abc", "abd"), Chrf.Corpus([("abc", "abd")]), 6);
+        Assert.Equal(100.0, Chrf.Corpus([("Oi", "Oi"), ("Tchau", "Tchau")]), 6);
+        Assert.True(Chrf.Corpus([("Oi", "Oi"), ("Tchau", null)]) < 100.0);
+        Assert.Equal(100.0, Chrf.Corpus([]), 6);
+    }
+
+    [Fact]
     public void Calcula_o_valor_conhecido_de_um_caso_pequeno()
     {
         // ref "abc", hyp "abd": n=1 casa 2 de 3; n=2 casa 1 de 2; n=3 casa 0 de 1.
