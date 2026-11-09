@@ -26,6 +26,10 @@
       <Setter Property="IsVisible" Value="False"/>
     </Style>
     <!-- Inspetor estreito (janela mínima e abas): a tecla e o ícone saem dos botões para o texto não quebrar nem ser cortado. -->
+    <!-- Nas abas (janela pequena) o cabeçalho perde o retrato e o papel: a caixa do jogo tem de continuar inteira na aba Tradução, e o papel e a voz já estão na aba Contexto. -->
+    <Style Selector=":is(UserControl).tabbed c|Portrait, :is(UserControl).tabbed TextBlock.header-role">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
@@ -71,8 +75,8 @@
             <c:Portrait Size="Lg" Image="{Binding SpeakerImage}" Seed="{Binding SpeakerName}" IsNarrator="{Binding !HasSpeaker}" VerticalAlignment="Center"/>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
               <TextBlock Classes="title-md" Text="{Binding HeaderName}" TextTrimming="CharacterEllipsis" c:SpeakerColorTint.Color="{Binding SpeakerColor}" AutomationProperties.Name="Quem fala"/>
-              <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="18" Classes="secondary" Text="{Binding HeaderRoleLine}" IsVisible="{Binding HasHeaderRoleLine}" TextTrimming="CharacterEllipsis"/>
-              <TextBlock Classes="mono secondary" Text="{Binding HeaderIdLine}" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Linha"/>
+              <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="18" Classes="secondary header-role" Text="{Binding HeaderRoleLine}" IsVisible="{Binding HasHeaderRoleLine}" TextWrapping="Wrap"/>
+              <TextBlock Classes="mono secondary" Text="{Binding HeaderIdLine}" TextWrapping="Wrap" AutomationProperties.Name="Linha"/>
             </StackPanel>
             <Button Grid.Column="2" Classes="subtle icon sm" VerticalAlignment="Center" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.History}"/>
