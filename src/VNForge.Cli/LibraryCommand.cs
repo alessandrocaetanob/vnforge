@@ -12,10 +12,10 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|queue|translate|privacy|status|sync|play|option|emulator|tag|export</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// <c>vnf library scan|match|list|link|queue|translate|privacy|status|sync|play|option|emulator|tag|notes|capture|export</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
 /// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde e filtra por tag,
 /// <c>play</c> abre o jogo e conta o tempo (<c>playtime.json</c>, ao lado). Os subcomandos de <c>play</c> ficam em <c>LibraryCommand.Play.cs</c>.
-/// <c>tag</c> cuida das tags do usuário (<c>library-tags.json</c>, ao lado). <c>queue</c> e <c>translate</c> (a fila de tradução e o projeto do jogo escolhido) ficam em <c>LibraryCommand.Queue.cs</c>.
+/// <c>tag</c> cuida das tags do usuário (<c>library-tags.json</c>, ao lado). <c>queue</c> e <c>translate</c> (a fila de tradução e o projeto do jogo escolhido) ficam em <c>LibraryCommand.Queue.cs</c>. <c>notes</c> e <c>capture</c> ficam em <c>LibraryCommand.Captures.cs</c>.
 /// </summary>
 internal static partial class LibraryCommand
 {
@@ -161,6 +161,8 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateSwitch(cli));
         command.Subcommands.Add(CreateOption(cli));
         command.Subcommands.Add(CreateEmulator(cli));
+        command.Subcommands.Add(CreateNotes(cli));
+        command.Subcommands.Add(CreateCapture(cli));
         return command;
     }
 
