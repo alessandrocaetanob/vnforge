@@ -327,7 +327,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
 
             foreach (var c in folder.LoadCharacters())
             {
-                Characters.Add(Watch(new CharacterRow(c.Source, c.Target, c.Gender, c.Tone, c.Color), MarkCharactersDirty));
+                Characters.Add(Watch(new CharacterRow(c.Source, c.Target, c.Gender, c.Tone, c.Color, c.Romaji, c.Aliases, c.Description), MarkCharactersDirty));
             }
 
             AddressTerms.Load(folder.LoadAddressTerms());

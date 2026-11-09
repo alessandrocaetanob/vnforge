@@ -64,6 +64,23 @@ public class GlossaryViewModelTests
     }
 
     [Fact]
+    public void Salvar_o_glossario_mantem_romaji_apelidos_e_descricao_que_vieram_do_vndb()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, Romaji: "Misaki Todo", Aliases: ["Todo-sensei"], Description: "A professora.")]);
+        var vm = new GlossaryViewModel { Project = ProjectSummaryReader.Read(root) };
+
+        vm.Characters[0].Tone = "formal";
+        vm.SaveCommand.Execute(null);
+
+        var saved = Assert.Single(folder.LoadCharacters());
+        Assert.Equal(("formal", "Misaki Todo", "A professora."), (saved.Tone, saved.Romaji, saved.Description));
+        Assert.Equal(["Todo-sensei"], saved.Aliases);
+    }
+
+    [Fact]
     public void Editar_e_salvar_altera_characters_json()
     {
         using var temp = new TempFolder();
