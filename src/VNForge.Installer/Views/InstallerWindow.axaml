@@ -20,17 +20,17 @@
             <Border.RenderTransform>
               <RotateTransform Angle="-4"/>
             </Border.RenderTransform>
-            <TextBlock Text="訳" Foreground="White" FontFamily="{DynamicResource Vnf.FontJp}" FontWeight="Bold" FontSize="9" LineHeight="14"
+            <TextBlock Name="SealGlyph" Text="訳" Foreground="White" FontFamily="{DynamicResource Vnf.FontJp}" FontWeight="Bold" FontSize="9" LineHeight="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <TextBlock Classes="caption secondary" Text="{Binding WindowTitle}" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal">
           <Button Name="MinimizeButton" Classes="caption-button" AutomationProperties.Name="Minimizar">
-            <Path Data="M0,6 H12" Stroke="{DynamicResource Vnf.TextSecondary}" StrokeThickness="1.2" Width="12" Height="12"/>
+            <Path Data="M0,4 H8" Stroke="{DynamicResource Vnf.TextSecondary}" StrokeThickness="1.2" Width="8" Height="8"/>
           </Button>
           <Button Name="CloseButton" Classes="caption-button close" AutomationProperties.Name="Fechar a janela">
-            <Path Data="M1,1 L11,11 M11,1 L1,11" Stroke="{DynamicResource Vnf.TextSecondary}" StrokeThickness="1.2" Width="12" Height="12"/>
+            <Path Data="M0,0 L8,8 M8,0 L0,8" Stroke="{DynamicResource Vnf.TextSecondary}" StrokeThickness="1.2" Width="8" Height="8"/>
           </Button>
         </StackPanel>
       </Grid>
@@ -38,7 +38,7 @@
 
     <Grid Grid.Row="1" ColumnDefinitions="200,*">
       <!-- A capa: o patch não leva a arte do jogo, então a capa é desenhada com o nome dele. -->
-      <Border Grid.Column="0" Background="{DynamicResource Vnf.BgBase}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,1,0" Padding="20">
+      <Border Grid.Column="0" Background="{DynamicResource Vnf.BgBase}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,1,0" Padding="20,20,19,20">
         <StackPanel Spacing="12">
           <Border Width="150" Height="200" HorizontalAlignment="Left" CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}">
             <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" ClipToBounds="True">
@@ -62,7 +62,7 @@
             </Border>
           </Border>
           <TextBlock Classes="title-sm" Text="{Binding GameName}" TextWrapping="Wrap"/>
-          <TextBlock Classes="caption secondary" Text="{Binding SideInfo}" TextWrapping="Wrap"/>
+          <TextBlock Classes="caption secondary" Text="{Binding SideInfo}" TextWrapping="Wrap" Margin="0,0,-4,0"/>
         </StackPanel>
       </Border>
 
@@ -118,7 +118,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:InstallStepViewModel">
-                <Grid ColumnDefinitions="Auto,*,Auto" Height="20">
+                <Grid ColumnDefinitions="Auto,*,Auto" Height="23">
                   <Panel Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0">
                     <PathIcon Width="18" Height="18" Data="{StaticResource Icon.Check}" Foreground="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding IsDone}"/>
                     <PathIcon Width="18" Height="18" Data="{StaticResource Icon.ArrowSync}" Foreground="{DynamicResource Vnf.AccentText}" IsVisible="{Binding IsRunning}"/>
@@ -141,8 +141,8 @@
           <Border Classes="ck" Classes.bad="{Binding CardIsError}" IsVisible="{Binding HasCard}">
             <Grid ColumnDefinitions="Auto,*">
               <Panel Width="20" Height="20" VerticalAlignment="Top" Margin="0,0,12,0">
-                <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Check}" Foreground="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding CardIsOk}"/>
-                <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding CardIsError}"/>
+                <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Check}" Foreground="{DynamicResource Vnf.TextSecondary}" IsVisible="{Binding CardIsOk}"/>
+                <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.TextSecondary}" IsVisible="{Binding CardIsError}"/>
                 <PathIcon Width="20" Height="20" Data="{StaticResource Icon.ArrowSync}" Foreground="{DynamicResource Vnf.AccentText}" IsVisible="{Binding CardIsWorking}"/>
               </Panel>
               <StackPanel Grid.Column="1">

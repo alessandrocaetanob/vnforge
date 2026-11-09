@@ -11,6 +11,21 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
   </Style>
 
+  <!-- O .v3-btn do quadro: fundo bg-card e borda stroke-control; o Fluent pinta o botão comum de cinza. Accent e subtle têm os seus. -->
+  <Style Selector="Button:not(.accent):not(.subtle):not(.caption-button)">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+  </Style>
+  <Style Selector="Button:not(.accent):not(.subtle):not(.caption-button) /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+  </Style>
+  <Style Selector="Button:not(.accent):not(.subtle):not(.caption-button):pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+
+  <Style Selector="Button:not(.accent):not(.subtle):not(.caption-button):disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+
   <!-- O .v3-btn.subtle do quadro tem texto text-secondary e passa a text-primary com o mouse em cima. -->
   <Style Selector="Button.subtle">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>

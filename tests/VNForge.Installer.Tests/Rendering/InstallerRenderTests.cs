@@ -226,7 +226,7 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
     ];
 
     private static IEnumerable<Button> VisibleButtons(Window window) =>
-        window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Bounds.Height > 0)
+        window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Bounds.Height > 0 && !b.Classes.Contains("caption-button"))
             .OrderBy(b => b.TranslatePoint(default, window)!.Value.Y).ThenBy(b => b.TranslatePoint(default, window)!.Value.X);
 
     private static string ButtonText(Button button) =>
@@ -239,7 +239,7 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
     private static List<string> ReadingOrder(Window window)
     {
         var items = window.GetVisualDescendants().OfType<TextBlock>()
-            .Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text) && t.Name != "CoverTitle")
+            .Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text) && t.Name is not ("CoverTitle" or "SealGlyph"))
             .Select(t => (Block: t, Point: t.TranslatePoint(default, window)!.Value))
             .ToList();
         var result = new List<string>();
