@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
@@ -99,6 +100,7 @@ public sealed partial class BibleViewModel : ObservableObject
     private IReadOnlyList<CharacterEntry> projectCharacters = [];
     private Dictionary<string, SceneLocation> locations = new(StringComparer.Ordinal);
     private IReadOnlyList<string> sceneSpeakers = [];
+    private string? sceneSpeakersKey;
     private CancellationTokenSource? run;
 
     /// <summary>Monta o provedor da IA para (modelo, esforço); nulo quando falta a chave. A cena de exemplo usa o provedor de demonstração.</summary>
@@ -332,6 +334,7 @@ public sealed partial class BibleViewModel : ObservableObject
             allRows.Add(RowOf(keys[i], i + 1, names));
         }
 
+        sceneSpeakersKey = null;
         var selectedKey = SelectedRow?.Key;
         ApplyFilter();
         SelectedRow = Rows.FirstOrDefault(r => r.Key == selectedKey) ?? Rows.FirstOrDefault();
@@ -389,13 +392,16 @@ public sealed partial class BibleViewModel : ObservableObject
         return first ? string.Create(BibleText.PtBr, $"fala {spoken} {BibleText.Plural(spoken, "vez", "vezes")}") : string.Create(BibleText.PtBr, $"fala {spoken}");
     }
 
+    private static bool NamesWord(string text, string name) =>
+        !string.IsNullOrWhiteSpace(name) && Regex.IsMatch(text, $@"(?<!\p{{L}}){Regex.Escape(name)}(?!\p{{L}})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     /// <summary>Um tom por chip; o que cita pelo nome um personagem da cena vira apoio.</summary>
     private void RefreshTone(IEnumerable<string> tones)
     {
         ToneChips.Clear();
         foreach (var tone in tones)
         {
-            ToneChips.Add(new BibleToneChip(tone, SceneCharacters.Any(c => tone.Contains(c.Name, StringComparison.CurrentCultureIgnoreCase))));
+            ToneChips.Add(new BibleToneChip(tone, SceneCharacters.Any(c => NamesWord(tone, c.Name))));
         }
 
         OnPropertyChanged(nameof(HasTone));
@@ -519,7 +525,12 @@ public sealed partial class BibleViewModel : ObservableObject
         var scene = SelectedRow is { } row ? bible.Scene(row.Key) : null;
         NameText = scene?.Name ?? string.Empty;
         SummaryText = scene?.Summary ?? string.Empty;
-        sceneSpeakers = LoadSceneSpeakers(SelectedRow?.Key);
+        if (sceneSpeakersKey is null || sceneSpeakersKey != SelectedRow?.Key)
+        {
+            sceneSpeakers = LoadSceneSpeakers(SelectedRow?.Key);
+            sceneSpeakersKey = SelectedRow?.Key;
+        }
+
         CharactersText = string.Join("; ", scene?.Characters ?? []);
         ToneText = string.Join("; ", scene?.Tone ?? []);
         JokesText = string.Join("; ", scene?.Jokes ?? []);

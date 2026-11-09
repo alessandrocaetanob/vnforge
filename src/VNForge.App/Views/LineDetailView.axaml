@@ -293,7 +293,7 @@
           </StackPanel>
 
           <StackPanel x:Name="SuggestFragment" Spacing="16">
-            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding SuggestCommand}" IsVisible="{Binding !ShowSuggestionCard}"
+            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding SuggestCommand}" IsVisible="{Binding ShowSuggestButton}"
                     ToolTip.Tip="Pede à IA uma sugestão para esta linha (Ctrl+Espaço)">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -331,7 +331,7 @@
                 <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding SuggestionError}"/>
               </Grid>
             </Border>
-            <c:RewriteBar/>
+            <c:RewriteBar IsVisible="{Binding OffersSuggestions}"/>
 
           </StackPanel>
           <StackPanel x:Name="ProblemsFragment" Spacing="16">

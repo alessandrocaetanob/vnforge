@@ -21,7 +21,7 @@ public partial class BibleView : UserControl
     public BibleView()
     {
         InitializeComponent();
-        AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: false);
+        AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnKeyDown);
         AddHandler(LostFocusEvent, OnLostFocus);
         this.Get<Button>("GameRow").Click += (_, _) => FocusSynopsis();
