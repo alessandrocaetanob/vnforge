@@ -1,18 +1,34 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- Variantes de docs/design/components/Button: subtle, danger, sm, lg, icon; mais Border.kbd. "accent" é do Fluent. -->
+  <!-- Variantes de docs/design/components/Button: subtle, danger, sm, lg, icon; mais Border.kbd. "accent" é do Fluent.
+       O botão comum é o contornado do quadro (v3-btn): fundo do cartão, contorno de 1px em stroke-control, rótulo em semibold. O FluentTheme pinta os estados
+       no ContentPresenter com os pincéis dele (cinza cheio), então hover, pressionado e desligado voltam a ser dados aqui; as variantes vêm depois e vencem. -->
   <Style Selector="Button">
     <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlMd}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
     <Setter Property="Padding" Value="12,0"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Transitions">
       <Transitions>
         <BrushTransition Property="Background" Duration="0:0:0.167"/>
       </Transitions>
     </Setter>
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
   </Style>
 
   <!-- O FluentTheme pinta fundo, texto e borda no ContentPresenter do modelo, em todos os estados; só o que chega nele vale.
@@ -44,6 +60,9 @@
   </Style>
   <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="Button.subtle:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
 
   <!-- Link de rodapé de cartão e de tabela (artboard Painel, "a"): texto em accent-text, sem caixa; vira text-primary ao passar o mouse. -->
