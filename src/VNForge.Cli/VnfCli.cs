@@ -135,7 +135,7 @@ public sealed class VnfCli
     public Func<string, IImageTextReader>? ImageTextReaderFactory { get; set; }
 
     /// <summary>
-    /// Cria o catálogo do VNDB do <c>vnf vndb</c> e do <c>vnf init --vndb</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
+    /// Cria o catálogo do VNDB do <c>vnf vndb</c>, do <c>vnf init --vndb</c> e do <c>vnf library match</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
     /// Padrão (<c>null</c>): o cliente da API do VNDB, com o cache em <c>vndb-cache</c> na pasta das configurações do usuário.
     /// </summary>
     public Func<IVndbCatalog>? VndbCatalogFactory { get; set; }
