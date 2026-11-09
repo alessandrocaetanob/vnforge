@@ -35,8 +35,8 @@
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <PathIcon Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.Sparkle}" Foreground="{DynamicResource Vnf.StatusAiFg}"/>
-          <TextBlock Classes="overline editor-only" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionTitle}"/>
-          <TextBlock Classes="overline review-only" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionReviewTitle}"/>
+          <c:OverlineText Classes="overline editor-only" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionTitle}"/>
+          <c:OverlineText Classes="overline review-only" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionReviewTitle}"/>
         </StackPanel>
         <Border Grid.Column="1" MinHeight="{DynamicResource Vnf.PillHeight}" Padding="8,0" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusAiBg}">
           <Panel>
