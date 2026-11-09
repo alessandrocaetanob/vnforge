@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Globalization;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -151,6 +152,7 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateTranslate(cli));
         command.Subcommands.Add(CreatePrivacy(cli));
         command.Subcommands.Add(CreateTag(cli));
+        command.Subcommands.Add(CreateSheet(cli));
         command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
         command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
         command.Subcommands.Add(CreatePlay(cli));
@@ -856,23 +858,7 @@ internal static partial class LibraryCommand
         output.WriteLine("  " + VndbCredit.ShortText);
     }
 
-    private static string LengthText(int? minutes, int? category)
-    {
-        if (minutes is { } m)
-        {
-            return m >= 60 ? $"cerca de {(m / 60.0).ToString("0", PortugueseBrazil)} h" : $"{m} min";
-        }
-
-        return category switch
-        {
-            1 => "muito curta (menos de 2 h)",
-            2 => "curta (2 a 10 h)",
-            3 => "média (10 a 30 h)",
-            4 => "longa (30 a 50 h)",
-            5 => "muito longa (mais de 50 h)",
-            _ => "sem votos",
-        };
-    }
+    private static string LengthText(int? minutes, int? category) => SheetLabels.Length(minutes, category);
 
     private static int Link(VnfCli cli, ParseResult parseResult, string reference)
     {

@@ -91,13 +91,22 @@ public static class VndbProjectLinker
     public static VndbApplyResult ApplyCharacters(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
-        if (project.LoadVndbLink() is not { } link)
-        {
-            return VndbApplyResult.None;
-        }
+        return project.LoadVndbLink() is { } link ? ApplyCharacters(project, link.Characters) : VndbApplyResult.None;
+    }
 
+    /// <summary>
+    /// O mesmo que <see cref="ApplyCharacters(ProjectFolder)"/> com os personagens dados, que não precisam vir do <c>vndb.json</c> (a ficha do jogo, por exemplo, traz a descrição em português).
+    /// Um campo preenchido fica; <paramref name="replaceDescription"/>, quando dado, diz se a descrição que já está em <c>characters.json</c> (primeiro argumento) deve dar lugar
+    /// à do personagem (segundo), o que só vale quando o personagem traz descrição.
+    /// </summary>
+    /// <exception cref="GlossaryFileException"><c>characters.json</c> inválido.</exception>
+    public static VndbApplyResult ApplyCharacters(
+        ProjectFolder project, IReadOnlyList<VndbLinkedCharacter> linkedCharacters, Func<string, VndbLinkedCharacter, bool>? replaceDescription = null)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(linkedCharacters);
         var names = GameCharacters.Names(project.LoadAllText().Values.SelectMany(units => units));
-        var matches = Match(names.Select(n => n.Source), link.Characters);
+        var matches = Match(names.Select(n => n.Source), linkedCharacters);
         if (matches.Count == 0)
         {
             return VndbApplyResult.None;
@@ -115,7 +124,9 @@ public static class VndbProjectLinker
                 Gender = current.Gender == CharacterGender.Unknown ? vndb.Gender : current.Gender,
                 Romaji = current.Romaji ?? vndb.Name,
                 Aliases = current.Aliases is { Count: > 0 } || vndb.Aliases.Count == 0 ? current.Aliases : vndb.Aliases,
-                Description = current.Description ?? vndb.Description,
+                Description = current.Description is null || (vndb.Description is not null && replaceDescription?.Invoke(current.Description, vndb) == true)
+                    ? vndb.Description ?? current.Description
+                    : current.Description,
                 VndbId = current.VndbId ?? vndb.Id,
                 Image = current.Image ?? vndb.Image,
             };
