@@ -49,8 +49,11 @@ public enum ImageState
 }
 
 /// <summary>Uma imagem do inventário na faixa de miniaturas.</summary>
-public sealed partial class ImageItemViewModel(ImageTextEntry entry) : ObservableObject
+public sealed partial class ImageItemViewModel(ImageTextEntry entry, Func<ImageItemViewModel, Task>? loadThumbnail = null) : ObservableObject
 {
+    private byte[]? thumbnail;
+    private bool thumbnailRequested;
+
     public ImageTextEntry Entry { get; } = entry;
 
     public string Archive => Entry.Archive;
@@ -71,6 +74,25 @@ public sealed partial class ImageItemViewModel(ImageTextEntry entry) : Observabl
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+
+    /// <summary>A miniatura em PNG. Quem lê pela primeira vez (a faixa, ao mostrar o item) dispara a leitura em segundo plano; até lá é nula.</summary>
+    public byte[]? ThumbnailPng
+    {
+        get
+        {
+            if (!thumbnailRequested)
+            {
+                thumbnailRequested = true;
+                ThumbnailLoading = loadThumbnail?.Invoke(this) ?? Task.CompletedTask;
+            }
+
+            return thumbnail;
+        }
+        set => SetProperty(ref thumbnail, value);
+    }
+
+    /// <summary>A leitura da miniatura, para os testes esperarem.</summary>
+    public Task ThumbnailLoading { get; private set; } = Task.CompletedTask;
 
     public bool IsMarkedState => State == ImageState.Marked;
 
@@ -110,9 +132,13 @@ public sealed partial class ImagesViewModel : ObservableObject
     private byte[] sourceHash = [];
     private ImageEdit? saved;
     private bool settingFields;
+    private readonly TimeSpan previewDelay;
+    private readonly SemaphoreSlim thumbnailGate = new(3);
+    private CancellationTokenSource? previewCts;
 
-    public ImagesViewModel(IReadOnlyList<IEngine>? engines = null, IImageComposer? composer = null)
+    public ImagesViewModel(IReadOnlyList<IEngine>? engines = null, IImageComposer? composer = null, TimeSpan? previewDelay = null)
     {
+        this.previewDelay = previewDelay ?? TimeSpan.FromMilliseconds(150);
         this.engines = engines ?? [new YuRisEngine()];
         this.composer = composer ?? new AvaloniaImageComposer();
         Chips =
@@ -144,6 +170,18 @@ public sealed partial class ImagesViewModel : ObservableObject
 
     /// <summary>A leitura da imagem escolhida; os testes esperam por ela.</summary>
     public Task Selecting { get; private set; } = Task.CompletedTask;
+
+    /// <summary>A prévia em andamento (espera o debounce, monta a imagem fora da thread de UI); os testes esperam por ela.</summary>
+    public Task Previewing { get; private set; } = Task.CompletedTask;
+
+    public IReadOnlyList<string> EraseChoices { get; } = ["Fundo ao redor", "Cor lisa"];
+
+    /// <summary>O modo de apagar como o controle segmentado mostra.</summary>
+    public string SelectedEraseChoice
+    {
+        get => UsesSolidErase ? EraseChoices[1] : EraseChoices[0];
+        set => UsesSolidErase = value == EraseChoices[1];
+    }
 
     [ObservableProperty]
     public partial ProjectSummary? Project { get; set; }
@@ -289,7 +327,11 @@ public sealed partial class ImagesViewModel : ObservableObject
 
     partial void OnOutlineColorChanged(string value) => FieldsChanged();
 
-    partial void OnUsesSolidEraseChanged(bool value) => FieldsChanged();
+    partial void OnUsesSolidEraseChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SelectedEraseChoice));
+        FieldsChanged();
+    }
 
     partial void OnEraseColorChanged(string value) => FieldsChanged();
 
@@ -330,11 +372,11 @@ public sealed partial class ImagesViewModel : ObservableObject
 
     /// <summary>Grava a imagem pronta e a edição, e põe a imagem no build.</summary>
     [RelayCommand]
-    private void Mark() => Persist(marked: true);
+    private Task MarkAsync() => PersistAsync(marked: true);
 
     /// <summary>Tira a imagem do build sem perder a edição.</summary>
     [RelayCommand]
-    private void Unmark() => Persist(marked: false);
+    private Task UnmarkAsync() => PersistAsync(marked: false);
 
     /// <summary>Volta os campos ao que está gravado (ou ao padrão, se a imagem nunca foi editada).</summary>
     [RelayCommand]
@@ -350,7 +392,7 @@ public sealed partial class ImagesViewModel : ObservableObject
 
     /// <summary>Abre o diálogo que diz o que o build vai regravar nos pacotes do jogo.</summary>
     [RelayCommand]
-    private void Rewrite()
+    private async Task RewriteAsync()
     {
         if (folder is null || MarkedCount == 0)
         {
@@ -362,15 +404,16 @@ public sealed partial class ImagesViewModel : ObservableObject
         var marked = Items.Where(i => i.State == ImageState.Marked).ToList();
         foreach (var item in marked)
         {
-            var bytes = File.Exists(folder.EditedImagePath(item.Archive, item.Path)) ? new FileInfo(folder.EditedImagePath(item.Archive, item.Path)).Length : 0;
-            ConfirmationFiles.Add(new RewriteFile(item.Name, $"{item.Archive} · {Kilobytes(bytes)}"));
+            var file = folder.EditedImagePath(item.Archive, item.Path);
+            ConfirmationFiles.Add(new RewriteFile(item.Name, $"{item.Archive} · {Kilobytes(File.Exists(file) ? new FileInfo(file).Length : 0)}"));
         }
 
         var touched = marked.Select(i => i.Archive).Distinct(StringComparer.Ordinal).ToList();
-        ConfirmationFacts.Add(new ResultFact("Arquivos de pacote tocados", $"{ProjectLabels.Number(touched.Count)} de {ProjectLabels.Number(CountArchives())}"));
-        ConfirmationFacts.Add(new ResultFact("Entradas que ficam byte a byte iguais", ProjectLabels.Number(Math.Max(0, touched.Sum(CountEntries) - marked.Count))));
-        ConfirmationFacts.Add(new ResultFact("Cópia de segurança antes de gravar", "sim"));
-        ConfirmationTitle = marked.Count == 1 ? "Regravar 1 imagem no pacote?" : $"Regravar {ProjectLabels.Number(marked.Count)} imagens nos pacotes?";
+        // Abrir os pacotes e listar a pasta do jogo leva tempo num jogo grande; fora da thread de UI.
+        var (archives, entries) = await Task.Run(() => (CountArchives(), touched.Sum(CountEntries)), CancellationToken.None);
+        ConfirmationFacts.Add(new ResultFact("Pacotes tocados", $"{ProjectLabels.Number(touched.Count)} de {ProjectLabels.Number(archives)}"));
+        ConfirmationFacts.Add(new ResultFact("Entradas que ficam byte a byte iguais", ProjectLabels.Number(Math.Max(0, entries - marked.Count))));
+        ConfirmationTitle = marked.Count == 1 ? "Gerar o build com 1 imagem alterada?" : $"Gerar o build com {ProjectLabels.Number(marked.Count)} imagens alteradas?";
     }
 
     [RelayCommand]
@@ -399,14 +442,14 @@ public sealed partial class ImagesViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            var loaded = await Task.Run(() => ReadProject(summary.Root));
+            var loaded = await Task.Run(() => ReadProject(summary.Root), CancellationToken.None);
             folder = loaded.Folder;
             gameDirectory = loaded.GameDirectory;
             originalOf = loaded.OriginalOf;
             edits = [.. loaded.Edits];
             foreach (var entry in loaded.Inventory)
             {
-                Items.Add(new ImageItemViewModel(entry) { Edit = edits.FirstOrDefault(e => e.Archive == entry.Archive && e.Path == entry.Path) });
+                Items.Add(new ImageItemViewModel(entry, LoadThumbnailAsync) { Edit = edits.FirstOrDefault(e => e.Archive == entry.Archive && e.Path == entry.Path) });
             }
         }
         catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
@@ -433,6 +476,7 @@ public sealed partial class ImagesViewModel : ObservableObject
 
     private async Task SelectAsync(ImageItemViewModel? item)
     {
+        previewCts?.Cancel();
         source = null;
         saved = null;
         IsEditable = false;
@@ -451,7 +495,7 @@ public sealed partial class ImagesViewModel : ObservableObject
         byte[] bytes;
         try
         {
-            bytes = await Task.Run(() => ReadOriginal(item));
+            bytes = await Task.Run(() => ReadOriginal(item), CancellationToken.None);
         }
         catch (Exception ex) when (ex is VNForgeException or IOException or InvalidDataException or UnauthorizedAccessException or InvalidFileException)
         {
@@ -471,9 +515,10 @@ public sealed partial class ImagesViewModel : ObservableObject
             return;
         }
 
+        RasterPicture decoded;
         try
         {
-            source = composer.Decode(bytes);
+            decoded = await Task.Run(() => composer.Decode(bytes), CancellationToken.None);
         }
         catch (InvalidDataException ex)
         {
@@ -481,6 +526,12 @@ public sealed partial class ImagesViewModel : ObservableObject
             return;
         }
 
+        if (!ReferenceEquals(SelectedItem, item))
+        {
+            return;
+        }
+
+        source = decoded;
         sourceHash = SHA256.HashData(bytes);
         if (!string.Equals(Convert.ToHexStringLower(sourceHash), item.Entry.Hash, StringComparison.OrdinalIgnoreCase))
         {
@@ -494,6 +545,7 @@ public sealed partial class ImagesViewModel : ObservableObject
         IsEditable = true;
         LoadFields(saved ?? Defaults(item, source));
         IsDirty = false;
+        await Previewing;
     }
 
     private byte[] ReadOriginal(ImageItemViewModel item)
@@ -583,50 +635,97 @@ public sealed partial class ImagesViewModel : ObservableObject
         }
 
         var edit = Current(IsMarked);
+        IsDirty = saved is null || !SameFields(saved, edit);
+        ErasedText = $"{edit.Region.Width}×{edit.Region.Height} px, preenchida com {(edit.Erase == ImageEraseModes.Solid ? $"a cor {edit.EraseColor}" : "o fundo ao redor")}";
+        NewTextSummary = edit.Text.Length == 0 ? "nenhum" : $"\"{edit.Text}\" · {edit.Font}{(edit.Bold ? " Bold" : string.Empty)} {Pixels(edit.FontSize)} · cor {edit.Color.TrimStart('#')}";
+        previewCts?.Cancel();
+        previewCts = new CancellationTokenSource();
+        Previewing = RenderPreviewAsync(edit, source, SelectedItem, previewCts.Token);
+    }
+
+    // A prévia espera o debounce e monta a imagem numa thread de fundo: digitar não trava a janela, e só o último valor vira prévia.
+    private async Task RenderPreviewAsync(ImageEdit edit, RasterPicture picture, ImageItemViewModel item, CancellationToken token)
+    {
         try
         {
-            PreviewPng = composer.Render(source, edit);
-            var (width, height) = composer.Measure(edit);
+            if (previewDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(previewDelay, token);
+            }
+
+            var (png, width, height) = await Task.Run(
+                () =>
+                {
+                    var rendered = composer.Render(picture, edit);
+                    var size = composer.Measure(edit);
+                    return (rendered, size.Width, size.Height);
+                },
+                token);
+            token.ThrowIfCancellationRequested();
+            PreviewPng = png;
             FitsRegion = edit.Text.Length == 0 || (width <= edit.Region.Width && height <= edit.Region.Height);
             FitText = edit.Text.Length == 0
                 ? "Sem texto: a área só é apagada."
                 : FitsRegion
                     ? $"Cabe na área · {Pixels(width)} de {Pixels(edit.Region.Width)} de largura"
                     : $"Não cabe na área · {Pixels(width)} de {Pixels(edit.Region.Width)} de largura, {Pixels(height)} de {Pixels(edit.Region.Height)} de altura";
+            PackageText = $"{item.Archive} · entrada {item.Path} · {Kilobytes(OriginalPng?.Length ?? 0)} para {Kilobytes(png.Length)}";
+        }
+        catch (OperationCanceledException)
+        {
+            // Outra mudança chegou antes do fim: a prévia dela é a que vale.
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException)
         {
             ErrorMessage = $"Não foi possível montar a prévia: {ex.Message}";
-            return;
         }
-
-        IsDirty = saved is null || !SameFields(saved, edit);
-        ErasedText = $"{edit.Region.Width}×{edit.Region.Height} px, preenchida com {(edit.Erase == ImageEraseModes.Solid ? $"a cor {edit.EraseColor}" : "o fundo ao redor")}";
-        NewTextSummary = edit.Text.Length == 0 ? "nenhum" : $"\"{edit.Text}\" · {edit.Font}{(edit.Bold ? " Bold" : string.Empty)} {Pixels(edit.FontSize)} · cor {edit.Color.TrimStart('#')}";
-        PackageText = $"{SelectedItem.Archive} · entrada {SelectedItem.Path} · {Kilobytes(OriginalPng?.Length ?? 0)} para {Kilobytes(PreviewPng.Length)}";
     }
 
-    private void Persist(bool marked)
+    // A imagem pronta e o image-edits.json andam juntos: o PNG vai primeiro para um .tmp, depois o JSON, e só então o .tmp toma o lugar do PNG.
+    // Uma falha em qualquer passo desfaz o anterior, para o JSON nunca apontar para uma imagem que não é a dele.
+    private async Task PersistAsync(bool marked)
     {
-        if (folder is null || SelectedItem is not { } item || source is null || !IsEditable)
+        if (folder is null || SelectedItem is not { } item || source is not { } picture || !IsEditable)
         {
             return;
         }
 
         var edit = Current(marked);
+        string? temp = null;
         try
         {
+            var png = await Task.Run(() => composer.Render(picture, edit), CancellationToken.None);
             var file = folder.EditedImagePath(item.Archive, item.Path);
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            File.WriteAllBytes(file, composer.Render(source, edit));
+            temp = file + ".tmp";
+            await File.WriteAllBytesAsync(temp, png, CancellationToken.None);
+            var previous = edits;
             var next = edits.Where(e => !(e.Archive == edit.Archive && e.Path == edit.Path)).Append(edit).ToList();
             folder.SaveImageEdits(next);
+            try
+            {
+                File.Move(temp, file, overwrite: true);
+            }
+            catch
+            {
+                folder.SaveImageEdits(previous);
+                throw;
+            }
+
+            temp = null;
             edits = next;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or Core.Glossary.GlossaryFileException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or Core.Glossary.GlossaryFileException)
         {
             ErrorMessage = $"Não foi possível gravar a edição: {ex.Message}";
             return;
+        }
+        finally
+        {
+            if (temp is not null && File.Exists(temp))
+            {
+                File.Delete(temp);
+            }
         }
 
         ErrorMessage = null;
@@ -636,6 +735,23 @@ public sealed partial class ImagesViewModel : ObservableObject
         IsDirty = false;
         RefreshCounts();
         Refilter();
+    }
+
+    private async Task LoadThumbnailAsync(ImageItemViewModel item)
+    {
+        await thumbnailGate.WaitAsync(CancellationToken.None);
+        try
+        {
+            item.ThumbnailPng = await Task.Run(() => composer.Thumbnail(ReadOriginal(item), 240), CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is VNForgeException or IOException or InvalidDataException or UnauthorizedAccessException or InvalidFileException)
+        {
+            // Sem miniatura a faixa mostra o quadro vazio; o erro aparece se a pessoa abrir a imagem.
+        }
+        finally
+        {
+            thumbnailGate.Release();
+        }
     }
 
     private void RefreshCounts()

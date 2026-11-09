@@ -43,7 +43,7 @@ public class ImagesViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
         var folder = ProjectFolder.Create(temp.SubFolder("projeto"), new ProjectConfig(
             "Teste", new GameConfig(game, "jogo.exe"), new EngineConfig("yuris"), new LanguagesConfig("ja", "pt-BR"), new EncodingConfig("fold"), AiConfig.Default));
         folder.SaveImageInventory([new ImageTextEntry(Pack, Gate, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(png)), 320, 180, "桜ヶ丘高校")]);
-        var vm = new ImagesViewModel([new ImagesViewModelTests.ArchiveEngine()], composer);
+        var vm = new ImagesViewModel([new ImagesViewModelTests.ArchiveEngine()], composer, TimeSpan.Zero);
         vm.Project = ProjectSummaryReader.Read(folder.Root);
         await vm.Loading;
 
@@ -54,6 +54,7 @@ public class ImagesViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
                 vm.SelectedItem = vm.Items.Single();
                 await vm.Selecting;
                 vm.Text = "Portão";
+                await vm.Previewing;
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
@@ -61,8 +62,8 @@ public class ImagesViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
                 Assert.Equal(2, images.Count);
                 Assert.All(images, i => Assert.Equal((320, 180), (((Bitmap)i.Source!).PixelSize.Width, ((Bitmap)i.Source!).PixelSize.Height)));
 
-                Botao(window, "Marcar para o build").Command!.Execute(null);
-                Botao(window, "Regravar no pacote").Command!.Execute(null);
+                await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Marcar para o build").Command!).ExecuteAsync(null);
+                await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Gerar o build com as imagens").Command!).ExecuteAsync(null);
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 

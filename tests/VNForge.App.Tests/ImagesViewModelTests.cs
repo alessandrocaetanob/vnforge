@@ -63,7 +63,7 @@ public sealed class ImagesViewModelTests : IDisposable
 
     private ImagesViewModel Open()
     {
-        var vm = new ImagesViewModel([new ArchiveEngine()], composer);
+        var vm = new ImagesViewModel([new ArchiveEngine()], composer, TimeSpan.Zero);
         vm.Project = Summary();
         vm.Loading.GetAwaiter().GetResult();
         return vm;
@@ -145,10 +145,12 @@ public sealed class ImagesViewModelTests : IDisposable
         vm.SetRegion(100, 100, 200, 40);
 
         vm.Text = "Colégio";
+        await vm.Previewing;
         Assert.Equal("Cabe na área · 70 px de 200 px de largura", vm.FitText);
         Assert.True(vm.FitsRegion);
 
         vm.Text = "Colégio Sakuragaoka do bairro";
+        await vm.Previewing;
         Assert.StartsWith("Não cabe na área · 290 px de 200 px de largura", vm.FitText);
         Assert.False(vm.FitsRegion);
     }
@@ -172,7 +174,9 @@ public sealed class ImagesViewModelTests : IDisposable
         var before = composer.Renders;
 
         vm.Text = "Portão";
+        await vm.Previewing;
         vm.IsBold = false;
+        await vm.Previewing;
 
         Assert.Equal(before + 2, composer.Renders);
         Assert.True(vm.IsDirty);
@@ -187,7 +191,7 @@ public sealed class ImagesViewModelTests : IDisposable
         vm.UsesSolidErase = true;
         vm.EraseColor = "#102030";
 
-        vm.MarkCommand.Execute(null);
+        await vm.MarkCommand.ExecuteAsync(null);
 
         var edit = Assert.Single(folder.LoadImageEdits());
         Assert.True(edit.Marked);
@@ -207,9 +211,9 @@ public sealed class ImagesViewModelTests : IDisposable
         var vm = Open();
         await Select(vm, Gate);
         vm.Text = "Portão";
-        vm.MarkCommand.Execute(null);
+        await vm.MarkCommand.ExecuteAsync(null);
 
-        vm.UnmarkCommand.Execute(null);
+        await vm.UnmarkCommand.ExecuteAsync(null);
 
         Assert.False(Assert.Single(folder.LoadImageEdits()).Marked);
         Assert.Equal(0, vm.MarkedCount);
@@ -222,7 +226,7 @@ public sealed class ImagesViewModelTests : IDisposable
         var vm = Open();
         await Select(vm, Gate);
         vm.Text = "Portão";
-        vm.MarkCommand.Execute(null);
+        await vm.MarkCommand.ExecuteAsync(null);
         vm.Text = "Outra coisa";
         Assert.True(vm.CanUndo);
 
@@ -240,7 +244,7 @@ public sealed class ImagesViewModelTests : IDisposable
         first.Text = "Portão";
         first.FontSize = 33;
         first.HasOutline = true;
-        first.MarkCommand.Execute(null);
+        await first.MarkCommand.ExecuteAsync(null);
 
         var second = Open();
         await Select(second, Gate);
@@ -258,7 +262,7 @@ public sealed class ImagesViewModelTests : IDisposable
         var vm = Open();
         await Select(vm, Gate);
         vm.Text = "Portão";
-        vm.MarkCommand.Execute(null);
+        await vm.MarkCommand.ExecuteAsync(null);
 
         vm.SetFilterCommand.Execute(ImageFilter.Edited);
         Assert.Equal([Gate], vm.Visible.Select(i => i.Path));
@@ -276,22 +280,22 @@ public sealed class ImagesViewModelTests : IDisposable
         var vm = Open();
         await Select(vm, Gate);
         vm.Text = "Portão";
-        vm.MarkCommand.Execute(null);
+        await vm.MarkCommand.ExecuteAsync(null);
 
-        vm.RewriteCommand.Execute(null);
+        await vm.RewriteCommand.ExecuteAsync(null);
 
         Assert.True(vm.IsConfirming);
-        Assert.Equal("Regravar 1 imagem no pacote?", vm.ConfirmationTitle);
+        Assert.Equal("Gerar o build com 1 imagem alterada?", vm.ConfirmationTitle);
         Assert.Equal("portao.png", Assert.Single(vm.ConfirmationFiles).Path);
-        Assert.Equal(["1 de 1", "3", "sim"], vm.ConfirmationFacts.Select(f => f.Value));
+        Assert.Equal(["1 de 1", "3"], vm.ConfirmationFacts.Select(f => f.Value));
     }
 
     [Fact]
-    public void WithNothingMarkedThereIsNothingToRewrite()
+    public async Task WithNothingMarkedThereIsNothingToRewrite()
     {
         var vm = Open();
 
-        vm.RewriteCommand.Execute(null);
+        await vm.RewriteCommand.ExecuteAsync(null);
 
         Assert.False(vm.IsConfirming);
         Assert.False(vm.CanRewrite);
@@ -303,19 +307,95 @@ public sealed class ImagesViewModelTests : IDisposable
         var vm = Open();
         await Select(vm, Gate);
         vm.Text = "Portão";
-        vm.MarkCommand.Execute(null);
+        await vm.MarkCommand.ExecuteAsync(null);
         var requests = 0;
         vm.BuildRequested += (_, _) => requests++;
 
-        vm.RewriteCommand.Execute(null);
+        await vm.RewriteCommand.ExecuteAsync(null);
         vm.CancelRewriteCommand.Execute(null);
         Assert.Equal(0, requests);
         Assert.False(vm.IsConfirming);
 
-        vm.RewriteCommand.Execute(null);
+        await vm.RewriteCommand.ExecuteAsync(null);
         vm.ConfirmRewriteCommand.Execute(null);
         Assert.Equal(1, requests);
         Assert.False(vm.IsConfirming);
+    }
+
+
+    [Fact]
+    public async Task ManyQuickChangesRenderOnlyTheLastOne()
+    {
+        var vm = new ImagesViewModel([new ArchiveEngine()], composer, TimeSpan.FromMilliseconds(200));
+        vm.Project = Summary();
+        await vm.Loading;
+        await Select(vm, Gate);
+        var before = composer.Renders;
+
+        vm.Text = "A";
+        vm.Text = "AB";
+        vm.Text = "ABC";
+        await vm.Previewing;
+
+        Assert.Equal(before + 1, composer.Renders);
+        Assert.Equal("Cabe na área · 30 px de " + vm.RegionWidth + " px de largura", vm.FitText.Split(',')[0]);
+    }
+
+    [Fact]
+    public async Task AFailedJsonWriteLeavesNoNewImageAndNoTemporaryFile()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+        vm.Text = "Portão";
+        Directory.CreateDirectory(folder.ImageEditsPath);
+
+        await vm.MarkCommand.ExecuteAsync(null);
+
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.False(File.Exists(folder.EditedImagePath(Pack, Gate)));
+        Assert.False(File.Exists(folder.EditedImagePath(Pack, Gate) + ".tmp"));
+        Assert.Equal(0, vm.MarkedCount);
+        Assert.False(vm.IsMarked);
+    }
+
+    [Fact]
+    public async Task AnImageBeyondTheSizeLimitIsRefusedWithAMessage()
+    {
+        var vm = Open();
+        composer.Refuse = "A imagem tem 20000×20000 px, acima do que o editor abre.";
+
+        await Select(vm, Gate);
+
+        Assert.False(vm.IsEditable);
+        Assert.Contains("acima do que o editor abre", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task TheThumbnailIsReadOnceInTheBackgroundWhenTheStripAsksForIt()
+    {
+        var vm = Open();
+        var item = vm.Items.Single(i => i.Path == Gate);
+
+        Assert.Null(item.ThumbnailPng);
+        await item.ThumbnailLoading;
+
+        Assert.Equal(Encoding.UTF8.GetBytes("miniatura:" + gate.Length), item.ThumbnailPng);
+        Assert.Equal(1, composer.Thumbnails);
+        _ = item.ThumbnailPng;
+        Assert.Equal(1, composer.Thumbnails);
+    }
+
+    [Fact]
+    public async Task ChoosingSolidEraseThroughTheSegmentedControlSwitchesTheMode()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+
+        vm.SelectedEraseChoice = "Cor lisa";
+        await vm.Previewing;
+
+        Assert.True(vm.UsesSolidErase);
+        Assert.Contains("a cor", vm.ErasedText);
     }
 
     /// <summary>Compositor falso: o PNG da prévia é só um rótulo, e o texto mede 10 px por letra.</summary>
@@ -323,10 +403,25 @@ public sealed class ImagesViewModelTests : IDisposable
     {
         public int Renders { get; private set; }
 
+        public int Thumbnails { get; private set; }
+
+        public string? Refuse { get; set; }
+
+        public byte[] Thumbnail(byte[] encoded, int width)
+        {
+            Thumbnails++;
+            return Encoding.UTF8.GetBytes("miniatura:" + encoded.Length);
+        }
+
         public IReadOnlyList<string> FontFamilies { get; } = ["Zen Kaku Gothic New", "Noto Sans"];
 
         public RasterPicture Decode(byte[] encoded)
         {
+            if (Refuse is not null)
+            {
+                throw new InvalidDataException(Refuse);
+            }
+
             var info = ImageProbe.Read(encoded) ?? throw new InvalidDataException("não é imagem");
             return new RasterPicture(info.Width, info.Height, new byte[info.Width * info.Height * 4]);
         }

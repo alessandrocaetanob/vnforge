@@ -99,6 +99,80 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
             TestContext.Current.CancellationToken);
     }
 
+    private static byte[] HeaderOnly(int width, int height)
+    {
+        var bytes = new List<byte> { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13 };
+        bytes.AddRange("IHDR"u8.ToArray());
+        var header = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(0), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 8;
+        bytes.AddRange(header);
+        bytes.AddRange(new byte[4]);
+        return [.. bytes];
+    }
+
+    [Theory]
+    [InlineData(8193, 100)]
+    [InlineData(100, 20000)]
+    [InlineData(8000, 8000)]
+    public async Task AnImageThatDeclaresATooBigSizeIsRefusedBeforeDecoding(int width, int height)
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var error = Assert.Throws<InvalidDataException>(() => composer.Decode(HeaderOnly(width, height)));
+                Assert.Contains("acima do que o editor abre", error.Message);
+                Assert.Throws<InvalidDataException>(() => composer.Thumbnail(HeaderOnly(width, height), 120));
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ThumbnailKeepsTheProportionAtTheAskedWidth()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var png = composer.Render(Background(), Edit(string.Empty));
+
+                var thumbnail = composer.Decode(composer.Thumbnail(png, 50));
+
+                Assert.Equal((50, 25), (thumbnail.Width, thumbnail.Height));
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task SemiTransparentPixelsOutsideTheAreaComeBackWithTheSameAlphaAndColour()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var bgra = new byte[Width * Height * 4];
+                for (var i = 0; i < bgra.Length; i += 4)
+                {
+                    // Pré-multiplicado, como o Decode devolve: cor 200 com alfa 128 vira 100.
+                    (bgra[i], bgra[i + 1], bgra[i + 2], bgra[i + 3]) = (100, 60, 30, 128);
+                }
+
+                var rendered = composer.Decode(composer.Render(new RasterPicture(Width, Height, bgra), Edit(string.Empty)));
+
+                foreach (var (x, y) in new[] { (5, 5), (190, 90), (10, 95) })
+                {
+                    var at = ((y * Width) + x) * 4;
+                    Assert.InRange(rendered.Bgra[at + 3], 127, 129);
+                    Assert.InRange(rendered.Bgra[at], 99, 101);
+                    Assert.InRange(rendered.Bgra[at + 1], 59, 61);
+                    Assert.InRange(rendered.Bgra[at + 2], 29, 31);
+                }
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     [Fact]
     public async Task TheEmbeddedFontsComeFirstInTheChoices()
     {

@@ -5,15 +5,50 @@
              x:Class="VNForge.App.Views.ImagesView"
              x:DataType="vm:ImagesViewModel">
 
+  <UserControl.Styles>
+    <!-- A faixa de miniaturas (decisão 1 do quadro): 120×68, estado num ponto no canto, a imagem em edição com contorno accent de 3px. -->
+    <Style Selector="ListBox.thumbs">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="3,4,11,4"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.thumbs > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.thumbs > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem Border.thumb">
+      <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem:pointerover Border.thumb">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem:selected Border.thumb">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+    </Style>
+  </UserControl.Styles>
+
   <Grid>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
       <StackPanel MaxWidth="1440" Margin="24,16,24,24" Spacing="14">
 
         <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Imagens com texto">
-          <Button Classes="accent" Command="{Binding RewriteCommand}" IsEnabled="{Binding CanRewrite}" AutomationProperties.Name="Regravar no pacote">
+          <Button Classes="accent" Command="{Binding RewriteCommand}" IsEnabled="{Binding CanRewrite}" AutomationProperties.Name="Gerar o build com as imagens">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Box}"/>
-              <TextBlock Text="Regravar no pacote"/>
+              <TextBlock Text="Gerar o build com as imagens"/>
             </StackPanel>
           </Button>
         </c:PageHeader>
@@ -28,7 +63,7 @@
         <c:EmptyState IsVisible="{Binding IsEmpty}"
                       Message="O inventário das imagens com texto está vazio. Rode vnf images scan na pasta do projeto e abra esta página de novo."/>
 
-        <StackPanel Spacing="14" IsVisible="{Binding !IsEmpty}">
+        <StackPanel Spacing="12" IsVisible="{Binding !IsEmpty}">
           <ItemsControl ItemsSource="{Binding Chips}" AutomationProperties.Name="Filtros das imagens">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -43,30 +78,41 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
 
-          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-            <ListBox ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" AutomationProperties.Name="Imagens do inventário">
-              <ListBox.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel Orientation="Horizontal" Spacing="8"/>
-                </ItemsPanelTemplate>
-              </ListBox.ItemsPanel>
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="vm:ImageItemViewModel">
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Width="190" ToolTip.Tip="{Binding Caption}">
-                    <Panel Width="10" Height="10" VerticalAlignment="Top" Margin="0,5,0,0">
+          <ListBox Classes="thumbs" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="92" AutomationProperties.Name="Imagens do inventário">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel Orientation="Horizontal"/>
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ImageItemViewModel">
+                <Panel Width="120" Height="68" ToolTip.Tip="{Binding Caption}">
+                  <Border Classes="thumb" BorderThickness="3" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
+                    <Image Source="{Binding ThumbnailPng, Converter={x:Static c:PngBytesConverter.Instance}}" Stretch="UniformToFill"/>
+                  </Border>
+                  <Border Width="14" Height="14" CornerRadius="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                          Background="{DynamicResource Vnf.BgLayer}" Padding="2">
+                    <Panel>
                       <Ellipse Fill="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding IsMarkedState}"/>
                       <Ellipse Fill="{DynamicResource Vnf.Accent}" IsVisible="{Binding IsDraftState}"/>
                       <Ellipse Fill="{DynamicResource Vnf.StatusPendingFg}" IsVisible="{Binding IsPendingState}"/>
                     </Panel>
-                    <StackPanel Grid.Column="1" Spacing="2">
-                      <TextBlock Classes="body-sm" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock Classes="caption secondary" Text="{Binding StateText}" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
-                  </Grid>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </ScrollViewer>
+                  </Border>
+                </Panel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasImage}">
+            <Button Classes="subtle" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Desfazer">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
+                <TextBlock Text="Desfazer"/>
+              </StackPanel>
+            </Button>
+            <TextBlock Grid.Column="1" Classes="caption secondary mono-xs" HorizontalAlignment="Right" VerticalAlignment="Center"
+                       Text="{Binding SelectedItem.Caption}"/>
+          </Grid>
 
           <Grid ColumnDefinitions="*,340" ColumnSpacing="14" IsVisible="{Binding HasImage}">
             <StackPanel Spacing="14">
@@ -89,7 +135,7 @@
                     </Viewbox>
                   </StackPanel>
                 </Border>
-                <Border Classes="panel" Padding="12">
+                <Border Grid.Column="1" Classes="panel" Padding="12">
                   <StackPanel Spacing="10">
                     <Grid ColumnDefinitions="*,Auto">
                       <TextBlock Classes="title-sm" Text="Traduzida"/>
@@ -107,7 +153,9 @@
                 <StackPanel Spacing="10">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Classes="title-sm" Text="O que muda no build"/>
-                    <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding MarkedText}"/>
+                    <Border Grid.Column="1" Background="{DynamicResource Vnf.AccentSoft}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="8,2">
+                      <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.AccentText}" Text="{Binding MarkedText}"/>
+                    </Border>
                   </Grid>
                   <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                     <TextBlock Classes="caption secondary" Text="Área apagada"/>
@@ -115,7 +163,7 @@
                     <TextBlock Grid.Row="1" Classes="caption secondary" Text="Texto novo"/>
                     <TextBlock Grid.Row="1" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding NewTextSummary}"/>
                     <TextBlock Grid.Row="2" Classes="caption secondary" Text="No pacote"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding PackageText}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="mono-xs" TextWrapping="Wrap" Text="{Binding PackageText}"/>
                   </Grid>
                 </StackPanel>
               </Border>
@@ -125,8 +173,8 @@
               <StackPanel Spacing="12">
                 <StackPanel Spacing="6" IsVisible="{Binding SelectedItem.HasText}">
                   <TextBlock Classes="overline" Text="Lido pela IA · Haiku com visão"/>
-                  <Border Classes="panel" Padding="10">
-                    <SelectableTextBlock Classes="jp" TextWrapping="Wrap" Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
+                  <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="10,8">
+                    <SelectableTextBlock Classes="jp-body" TextWrapping="Wrap" Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
                   </Border>
                 </StackPanel>
                 <StackPanel Spacing="6">
@@ -147,7 +195,10 @@
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                   <StackPanel Spacing="6">
                     <TextBlock Classes="overline" Text="Cor do texto"/>
-                    <TextBox Text="{Binding TextColor}" AutomationProperties.Name="Cor do texto"/>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                      <Ellipse Width="24" Height="24" Fill="{Binding TextColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
+                      <TextBox Grid.Column="1" Text="{Binding TextColor}" AutomationProperties.Name="Cor do texto"/>
+                    </Grid>
                   </StackPanel>
                   <StackPanel Grid.Column="1" Spacing="6">
                     <CheckBox IsChecked="{Binding HasOutline}" Content="Contorno"/>
@@ -156,8 +207,11 @@
                 </Grid>
                 <StackPanel Spacing="6">
                   <TextBlock Classes="overline" Text="Apagar a área"/>
-                  <CheckBox IsChecked="{Binding UsesSolidErase}" Content="Cor lisa (senão, o fundo ao redor)"/>
-                  <TextBox Text="{Binding EraseColor}" IsEnabled="{Binding UsesSolidErase}" AutomationProperties.Name="Cor lisa da área apagada"/>
+                  <ListBox Classes="seg" ItemsSource="{Binding EraseChoices}" SelectedItem="{Binding SelectedEraseChoice}" AutomationProperties.Name="Como apagar a área"/>
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding UsesSolidErase}">
+                    <Ellipse Width="24" Height="24" Fill="{Binding EraseColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
+                    <TextBox Grid.Column="1" Text="{Binding EraseColor}" AutomationProperties.Name="Cor lisa da área apagada"/>
+                  </Grid>
                 </StackPanel>
                 <StackPanel Spacing="6">
                   <TextBlock Classes="overline" Text="Área, em pixels da imagem"/>
@@ -170,7 +224,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding FitsRegion}"/>
-                  <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarnFg}" Data="{StaticResource Icon.Warning}" IsVisible="{Binding !FitsRegion}"/>
+                  <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}" Data="{StaticResource Icon.Warning}" IsVisible="{Binding !FitsRegion}"/>
                   <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding FitText}" AutomationProperties.Name="Se o texto cabe na área"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -180,15 +234,8 @@
                       <TextBlock Text="Marcar para o build"/>
                     </StackPanel>
                   </Button>
-                  <Button Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Desfazer">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
-                      <TextBlock Text="Desfazer"/>
-                    </StackPanel>
-                  </Button>
+                  <Button Command="{Binding UnmarkCommand}" IsVisible="{Binding IsMarked}" Content="Tirar do build" AutomationProperties.Name="Tirar do build"/>
                 </StackPanel>
-                <Button Command="{Binding UnmarkCommand}" IsVisible="{Binding IsMarked}" Content="Tirar do build" HorizontalAlignment="Left"
-                        AutomationProperties.Name="Tirar do build"/>
               </StackPanel>
             </Border>
           </Grid>
@@ -199,8 +246,8 @@
     <c:ScreenDialog Title="{Binding ConfirmationTitle}" IsOpen="{Binding IsConfirming, Mode=OneWay}" CloseCommand="{Binding CancelRewriteCommand}">
       <StackPanel Spacing="12" MinWidth="520">
         <TextBlock Classes="body" TextWrapping="Wrap"
-                   Text="Só as imagens que você alterou entram no build. O resto do pacote não muda: a reescrita é a mínima, e o teste de ida e volta confere o que ficou igual."/>
-        <ItemsControl ItemsSource="{Binding ConfirmationFiles}" AutomationProperties.Name="Imagens que serão regravadas">
+                   Text="O build grava só as imagens que você alterou, nos pacotes de build/. O resto de cada pacote não muda: a reescrita é a mínima, e o teste de ida e volta confere o que ficou igual. O jogo só muda quando você injeta, e a injeção faz a cópia de segurança antes."/>
+        <ItemsControl ItemsSource="{Binding ConfirmationFiles}" AutomationProperties.Name="Imagens que entram no build">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:RewriteFile">
               <Grid ColumnDefinitions="*,Auto" Margin="0,2">
@@ -210,7 +257,7 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <ItemsControl ItemsSource="{Binding ConfirmationFacts}" AutomationProperties.Name="Resumo da regravação">
+        <ItemsControl ItemsSource="{Binding ConfirmationFacts}" AutomationProperties.Name="Resumo do build">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ResultFact">
               <Grid ColumnDefinitions="*,Auto" Margin="0,2">
@@ -224,7 +271,7 @@
       <c:ScreenDialog.Footer>
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
           <Button Content="Cancelar" Command="{Binding CancelRewriteCommand}"/>
-          <Button Classes="accent" Content="Regravar e gerar o build" Command="{Binding ConfirmRewriteCommand}" AutomationProperties.Name="Regravar e gerar o build"/>
+          <Button Classes="accent lg" Content="Gerar o build" Command="{Binding ConfirmRewriteCommand}" AutomationProperties.Name="Gerar o build"/>
         </StackPanel>
       </c:ScreenDialog.Footer>
     </c:ScreenDialog>

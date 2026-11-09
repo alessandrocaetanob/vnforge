@@ -23,6 +23,10 @@ public interface IImageComposer
     /// <exception cref="InvalidDataException">Os bytes não são uma imagem que o app sabe decodificar.</exception>
     RasterPicture Decode(byte[] encoded);
 
+    /// <summary>Uma miniatura em PNG, com <paramref name="width"/> pixels de largura.</summary>
+    /// <exception cref="InvalidDataException">Os bytes não são uma imagem que o app abre, ou ela passa dos limites de tamanho.</exception>
+    byte[] Thumbnail(byte[] encoded, int width);
+
     /// <summary>A imagem pronta, em PNG: a área da edição apagada e o texto escrito, centralizado nela.</summary>
     byte[] Render(RasterPicture source, ImageEdit edit);
 
@@ -33,6 +37,12 @@ public interface IImageComposer
 /// <summary>O <see cref="IImageComposer"/> do app, sobre o Avalonia (Skia).</summary>
 public sealed class AvaloniaImageComposer : IImageComposer
 {
+    /// <summary>Maior lado, em pixels, que o editor abre.</summary>
+    public const int MaxSide = 8192;
+
+    /// <summary>Maior área, em pixels, que o editor abre: 40 milhões são 160 MB de pixels BGRA, o que cabe com folga na memória.</summary>
+    public const long MaxPixels = 40_000_000;
+
     private const string EmbeddedFonts = "avares://VNForge.App/Assets/Fonts#";
 
     private static readonly string[] Embedded = ["Zen Kaku Gothic New", "Noto Sans", "Noto Sans JP", "JetBrains Mono"];
@@ -48,8 +58,38 @@ public sealed class AvaloniaImageComposer : IImageComposer
 
     public IReadOnlyList<string> FontFamilies => families.Value;
 
+    /// <summary>Lê só o cabeçalho e recusa a imagem que declara um tamanho acima dos limites, antes de alguém alocar memória para os pixels.</summary>
+    /// <exception cref="InvalidDataException">Cabeçalho ilegível, ou largura, altura ou área acima de <see cref="MaxSide"/> e <see cref="MaxPixels"/>.</exception>
+    public static void CheckSize(byte[] encoded)
+    {
+        var info = ImageProbe.Read(encoded) ?? throw new InvalidDataException("O app não consegue abrir esta imagem: o cabeçalho não é de um formato conhecido.");
+        if (info.Width > MaxSide || info.Height > MaxSide || (long)info.Width * info.Height > MaxPixels)
+        {
+            throw new InvalidDataException(
+                $"A imagem tem {info.Width}×{info.Height} px, acima do que o editor abre ({MaxSide} px de lado e {MaxPixels / 1_000_000} milhões de pixels).");
+        }
+    }
+
+    public byte[] Thumbnail(byte[] encoded, int width)
+    {
+        CheckSize(encoded);
+        try
+        {
+            using var input = new MemoryStream(encoded);
+            using var bitmap = Bitmap.DecodeToWidth(input, width);
+            using var output = new MemoryStream();
+            bitmap.Save(output, PngBitmapEncoderOptions.Default);
+            return output.ToArray();
+        }
+        catch (Exception ex) when (ex is not InvalidDataException and not OutOfMemoryException)
+        {
+            throw new InvalidDataException("O app não consegue abrir esta imagem.", ex);
+        }
+    }
+
     public RasterPicture Decode(byte[] encoded)
     {
+        CheckSize(encoded);
         try
         {
             using var stream = new MemoryStream(encoded);
