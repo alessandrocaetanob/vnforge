@@ -9,6 +9,7 @@
 | CLI | `System.CommandLine` 2.x | Parser oficial da Microsoft, estável desde o .NET 10 |
 | App | **Avalonia 12** (`net10.0`, tema `FluentTheme`) + CommunityToolkit.Mvvm | Decisão D3 (#96, 2026-10-24). Roda em Windows, Linux e macOS, compila no mesmo job do Core e da CLI, e o Fluent segue o tema claro ou escuro do Windows. A grade usa `ListBox` virtualizado; ver alternativas no fim e `docs/design/avalonia.md` |
 | IA — Claude | SDK oficial `Anthropic` para C# | Único provedor da primeira versão (é a chave que temos). Cliente oficial, com retries e tipos prontos |
+| VNDB | `HttpClient` do .NET, API Kana (`api.vndb.org/kana`) | Catálogo da Biblioteca (d1, #527). Sem SDK: a API é JSON sobre HTTPS e o projeto `VNForge.Vndb` a embrulha atrás de uma interface do Core |
 | IA — outras (depois) | Cliente "compatível com OpenAI" via HttpClient | Fica para um épico posterior. Um único cliente cobre OpenAI, Gemini, OpenRouter, DeepSeek, Ollama e LM Studio |
 | Corretor ortográfico (#482) | `WeCantSpell.Hunspell` 7.0.1 (MPL 1.1, GPL 2.0 ou LGPL 2.1, à escolha; usamos a MPL) + dicionário pt-BR do VERO (LGPLv3 e MPL), embutido no `VNForge.Core` | Biblioteca 100% gerenciada (sem binário nativo por sistema), com alvos `net10.0` e `net8.0`, mantida (versão de 30/11/2025). O dicionário é o do LibreOffice. Escolha, licenças, alternativas descartadas e fontes: `THIRD-PARTY-NOTICES.md` |
 | Compressão | `System.IO.Compression.ZLibStream` | Os arquivos YPF usam zlib |
@@ -30,13 +31,15 @@ vnforge/
 │  ├─ VNForge.Core/               # modelo do projeto, pipeline, formatação, codificação, QA
 │  ├─ VNForge.Engines.YuRis/      # YPF, YSTB, YSCM, YSTL, patch do executável
 │  ├─ VNForge.AI/                 # provedores de IA, prompts, orquestração em lote
+│  ├─ VNForge.Vndb/               # cliente do VNDB: fila, cache em disco, catálogo falso
 │  ├─ VNForge.Cli/                # executável "vnf"
 │  └─ VNForge.App/                # Avalonia 12 (compila e testa em qualquer sistema; Mica e barra de título só no Windows)
 ├─ tests/
 │  ├─ VNForge.Core.Tests/
 │  ├─ VNForge.App.Tests/         # ViewModels, rótulos e a conferência de Tokens.axaml contra o tokens.json
 │  ├─ VNForge.Engines.YuRis.Tests/
-│  └─ VNForge.AI.Tests/           # com provedor falso, sem chamar API real
+│  ├─ VNForge.AI.Tests/           # com provedor falso, sem chamar API real
+│  └─ VNForge.Vndb.Tests/         # transporte HTTP falso, sem chamar o VNDB
 ├─ docs/
 └─ samples/                       # perfis de formatação e glossários de exemplo (sem texto de jogo)
 ```
@@ -60,7 +63,7 @@ O `SONAR_TOKEN` fica no contexto `sonarcloud` do CircleCI, usado só pelo job `l
 
 **Armadilha: análise automática.** A "Automatic Analysis" do SonarCloud não passa pelo build, então não enxerga o `Nullable` do `Directory.Build.props` e acusa a S8970 em todo operador `!`. Ela também ignora `sonar-project.properties`, e desativar uma regra exige perfil de qualidade personalizado, que é pago. Por isso a análise automática fica desligada no projeto (as duas não rodam juntas); ligá-la de novo traz a S8970 de volta e conflita com a análise do CI.
 
-`Core` não conhece nenhuma engine nem nenhum provedor de IA. As engines e a IA implementam interfaces do `Core`.
+`Core` não conhece nenhuma engine, nenhum provedor de IA nem o cliente do VNDB. As engines, a IA e o VNDB implementam interfaces do `Core`.
 
 ## Componentes do Core
 
@@ -165,7 +168,7 @@ Decisões dos contratos (E1.2, no namespace `VNForge.Core.Engines`):
 - **Grafo de cenas (#483, `VNForge.Core.Scenes`)**: `IEngine.ReadSceneEdges(UnpackedGame)` devolve `SceneEdge` (script de origem, script de destino, `Jump`, `Call` ou `Choice`, rótulo e, na escolha, o id da unidade de texto). O padrão é nenhuma aresta, então engine sem suporte não muda. `SceneGraph.Read(engine, game)` normaliza (sem repetidas, sem salto para o próprio script, ordem estável) e oferece `From`, `To`, `ReachableFrom` e `Restrict`. No YU-RIS, `YuRisSceneReader` lê `GO`, `GOSUB` e `GOSUB ES.SEL.GO` e resolve os rótulos pelo `ysl.ybn` (`YslbReader`, guardado em `YuRisContext.Labels`); só gera aresta com destino literal e resolvido. O que a leitura entrega e o que não, no jogo de referência, está em `06-yuris-notas-tecnicas.md`.
 - **Título do jogo (#427, `VNForge.Core.Engines.IGameTitleSource`)**: a engine implementa a interface além de `IGameUnpacker` para ler e regravar o título da janela. `ReadTitle(pastaDescompactada)` devolve o arquivo (`GameTitleFile`: caminho, bytes, título) ou nulo; `WithTitle(arquivo, título, encoder)` devolve os bytes novos, mudando só o campo do título. O `ProjectExtractor` chama `ReadTitle` e grava o original em `game.title.original` (a tradução fica); o `ProjectBuilder` aplica `GameTitleText.Resolve` (a mesma função da regra de QA `titulo-nao-codificavel`) e entrega o arquivo novo ao `IGameRepacker` como um `RebuiltScript`, de modo que o `YpfArchive.WriteTo` troca só essa entrada. No YU-RIS é o `yscfg.ybn` (ver `06-yuris-notas-tecnicas.md`).
 - **Escolha da estratégia e relatório de codificação (E5.1, `VNForge.Core.Text`)**: `TextEncoderRegistry` cria o `ITextEncoder` pelo id do `encoding.strategy` (`TextEncoderRegistry.Default`, uma linha por estratégia; hoje `sjis`, `fold` e `cp1252`; `remap` é aceito pelo `vnforge.json` mas ainda não tem encoder). Id conhecido sem encoder pronto (`remap`) dá `VNForgeException` em português, nunca Shift-JIS em silêncio; `Default` ganha uma linha por encoder novo, e `ProjectBuilder.Build` aceita outro registro nos testes. `IReplacingTextEncoder` (opcional) acrescenta `GetReplacement(caractere)` para a estratégia que troca caracteres: o `FoldTextEncoder` a implementa sobre o `CharacterFolder`, sem repetir a tabela de troca, e devolve o substituto (`«` vira `"`, `ª` vira `a`, `ã` vira `a`), ou `null` quando o caractere segue como está. O `cp1252` e o `sjis` não trocam nada: recusam o que não representam. `EncodingReporter.Create(texts, encoder)` percorre as unidades com `NeedsRewrite`, chama `FindUnencodable` e `GetReplacement` e devolve um `EncodingReport` com um `EncodingIssue` por ocorrência (`UnitId`, `ScriptKey`, `Position` em `char` UTF-16 a partir de 0, `Character`, `CodePoint` como `U+00AB`, `Replacement`). `Replacement` nulo é bloqueante: `ProjectBuilder.Build` lança `EncodingReportException` (que carrega o relatório) antes de reconstruir qualquer script, com todas as ocorrências de uma vez (até 20 na mensagem). Trocas com substituto não bloqueiam e vão em `BuildResult.Encoding`. `ProjectBuilder.ReportEncoding` gera só o relatório, sem abrir `.cache/`. O relatório olha a tradução inteira, marcadores incluídos; eles são ASCII e passam em qualquer estratégia.
-- O teste `ArchitectureTests`, em `tests/VNForge.Core.Tests`, falha se o Core referenciar `VNForge.Engines.*` ou `VNForge.AI`.
+- O teste `ArchitectureTests`, em `tests/VNForge.Core.Tests`, falha se o Core referenciar `VNForge.Engines.*`, `VNForge.AI` ou `VNForge.Vndb`.
 
 ### 2. Unidade de texto (`TextUnit`)
 
@@ -470,6 +473,19 @@ O `address-terms.json` (#470) é um arquivo à parte, com o mesmo envelope e as 
 ### Injeção e backup (`VNForge.Core.Injection`)
 
 `GameInjector` injeta o `build/` na pasta do jogo (`game.path`, relativo à pasta do projeto quando não é absoluto) e devolve os originais. `Plan` compara os hashes e diz o que seria gravado, sem escrever. `Inject` copia os originais que serão trocados para `backup/AAAA-MM-DD_HHmm/`, confere o SHA-256 das cópias, grava `vnforge-backup.json` (`BackupManifest`: caminho, se o arquivo existia, hash original e hash injetado) e só então escreve no jogo, conferindo o hash de cada arquivo. A gravação passa por `IInjectionFileSystem` (cópia atômica por temporário e `File.Move`), que os testes trocam para simular uma falha no meio. Falha na gravação desfaz o que foi trocado; se o desfazer também falha, o manifesto já gravado permite `vnf restore`. `PlanRestore` junta os backups da mesma pasta de jogo: para cada arquivo vale a entrada mais nova dele, então uma segunda injeção parcial não deixa pacotes traduzidos de fora. `Restore` recusa, sem gravar nada, quando um arquivo do jogo não é nem o injetado nem o original (o jogo foi atualizado depois da injeção). Ao concluir, grava `restoredAt` no manifesto de cada backup consumido: ele sai do plano de restauração e do histórico da injeção, e restaurar de novo diz que não há backup. Um manifesto antigo ilegível é pulado com aviso quando nenhuma cópia dentro dele fica sem outra fonte; o mais novo precisa ser legível. O `.cache/state.json` guarda a pasta do jogo que a extração leu, e `vnf run` só abre o jogo da pasta que o projeto registrou (extração ou injeção).
+
+### Cliente do VNDB (`VNForge.Core.Vndb`, `VNForge.Vndb`)
+
+O d1 (#527) é a base da Biblioteca de VNs. O Core define a fronteira e os tipos; o projeto `VNForge.Vndb` a implementa pela API Kana (`api.vndb.org/kana`) e o Core nunca o referencia. Nenhum executável o referencia ainda: o app e a CLI o ligam no d2.
+
+- **`IVndbCatalog`** lê o catálogo: `SearchVisualNovelsAsync` (por título, do que mais casa para o que menos), `GetVisualNovelAsync`, `GetCharactersAsync` (de um jogo, seguindo as páginas), `SearchCharactersByTitleAsync` (os personagens dos jogos que casam com o título, num pedido só) e `GetReleasesAsync`. **`IVndbUserList`** cuida da conta: `GetAuthInfoAsync`, `GetListAsync` e `UpdateEntryAsync`. O `VndbClient` implementa as duas; o `FakeVndbCatalog` implementa as duas em memória, com os dados que o teste puser, e registra as chamadas (`Calls`).
+- **Tipos**: `VndbVisualNovel` (títulos por idioma, apelidos, capa com os votos de conteúdo sexual e violento, duração em minutos, sinopse, tags com `Spoiler` e `Lie`), `VndbCharacter` (nome original, imagem, gênero visível e real, traços com grupo, e `Appearances` com jogo, papel, spoiler e edição, porque o VNDB varia papel e spoiler por edição), `VndbRelease` (idiomas com marca de tradução automática, engine, patch, classificação etária) e `VndbListEntry`. A sinopse e a descrição do personagem chegam com os códigos de formatação do VNDB (`[b]`, `[url=...]`, `[spoiler]`), sem conversão.
+- **Fila (`VndbRequestQueue`)**: no máximo 200 pedidos a cada 5 minutos, numa janela deslizante. `Reserve` devolve zero e gasta o lugar, ou quanto falta esperar; `WaitTurnAsync` espera esse tempo e cancelar não gasta lugar. O relógio é um `TimeProvider`, então o teste do limite roda com `FakeTimeProvider`. O outro limite da API, 1 segundo de execução por minuto no servidor, não se mede no cliente: o servidor responde 429, o cliente para a fila pelo `Retry-After` (1 minuto sem ele) e refaz o pedido uma vez; o segundo 429 vira `VndbException`.
+- **Cache (`VndbCache`)**: um arquivo JSON por consulta de catálogo, com o hash do caminho e do corpo do pedido como nome, válido por 7 dias. Só `/vn`, `/character` e `/release` passam por ele; a lista e o token nunca. A pasta vem de quem cria o cliente (`VndbClient.Create(pasta)`); sem pasta não há cache em disco. A resposta ilegível não é gravada.
+- **Token**: `VndbTokenResolver` lê `VNDB_TOKEN`; o cofre DPAPI entra com o d4. O token só existe como parâmetro dos métodos de lista, vai no cabeçalho `Authorization: Token ...` e não é guardado, gravado nem escrito em mensagem de erro. `UpdateEntryAsync` só acrescenta e tira rótulos (`LabelsSet`, `LabelsUnset`), nunca troca todos, e não grava os rótulos 0 e 7, que são virtuais.
+- **Lista na API**: a documentação lê a lista por `POST /ulist` (com `user` no corpo) e grava por `PATCH /ulist/<id>`; não há `GET /ulist`. `PATCH` sempre acrescenta o jogo à lista se ele não está nela.
+- **Crédito da licença**: `VndbCredit` (`ShortText`, `Text`, `LicenseUrl`) traz o texto da Open Database License e da Database Contents License (vndb.org/d17, seção 4). Toda tela, relatório ou exportação que mostre dado do VNDB usa essas constantes.
+- **Erros**: `VndbException` (um `VNForgeException`) com mensagem em português para rede fora, 400, 401, 429 e 5xx.
 
 ## Alternativas consideradas para a interface gráfica
 

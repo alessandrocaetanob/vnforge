@@ -7,8 +7,8 @@ Leia `docs/README.md` e o documento do épico em que vai trabalhar (`docs/05-epi
 ## Projeto
 
 - C# 14 / **.NET 10**. CLI com `System.CommandLine` 2.x; app em Avalonia 12 (`net10.0`, tema `FluentTheme`) com CommunityToolkit.Mvvm; o app compila e testa em qualquer sistema.
-- Solução: `src/VNForge.Core`, `src/VNForge.Engines.YuRis`, `src/VNForge.AI`, `src/VNForge.Cli`, `src/VNForge.App`, testes em `tests/`.
-- `VNForge.Core` não depende de nenhuma engine nem de provedor de IA.
+- Solução: `src/VNForge.Core`, `src/VNForge.Engines.YuRis`, `src/VNForge.AI`, `src/VNForge.Vndb`, `src/VNForge.Cli`, `src/VNForge.App`, testes em `tests/`.
+- `VNForge.Core` não depende de nenhuma engine, de provedor de IA nem do cliente do VNDB.
 - CLI e app usam o mesmo Core. Toda funcionalidade nova entra no Core primeiro.
 
 ## Regras inegociáveis
@@ -16,7 +16,7 @@ Leia `docs/README.md` e o documento do épico em que vai trabalhar (`docs/05-epi
 1. **Nunca versionar arquivos de jogo** (`.ypf`, `.ybn`, `.exe`, texto extraído de jogo comercial). Testes geram arquivos sintéticos em código.
 2. **Nunca alterar a pasta do jogo sem backup.** Toda escrita no jogo passa pelo fluxo de injeção com backup e restauração.
 3. **Reescrita mínima de binários**: entradas de arquivo e argumentos de script que não mudaram são copiados byte a byte. Ida e volta sem alterações tem que gerar arquivo idêntico; isso é teste obrigatório.
-4. **Chaves de API nunca em arquivo do projeto**: só variável de ambiente (`ANTHROPIC_API_KEY`) ou cofre do usuário (DPAPI).
+4. **Chaves de API nunca em arquivo do projeto**: só variável de ambiente (`ANTHROPIC_API_KEY`, `VNDB_TOKEN`) ou cofre do usuário (DPAPI).
 
 ## IA
 
