@@ -9,29 +9,43 @@ public sealed class ImageScanCostTests
     private static ImageCandidate Candidate(int width, int height) =>
         new("ui.ypf", $"{width}x{height}.png", new ImageInfo(ImageFormat.Png, width, height), 1000, $"hash{width}x{height}");
 
+    // Valores da tabela "Resolution and token cost" da documentação de visão, nível de alta resolução.
     [Theory]
-    [InlineData(750, 100, 100)]
-    [InlineData(300, 200, 80)]
-    [InlineData(1000, 1000, 1334)]
-    public void Tokens_da_imagem_seguem_largura_vezes_altura_sobre_750(int width, int height, int expected)
+    [InlineData(200, 200, 64)]
+    [InlineData(64, 32, 6)]
+    [InlineData(1000, 1000, 1296)]
+    [InlineData(1092, 1092, 1521)]
+    [InlineData(1920, 1080, 2691)]
+    [InlineData(2000, 1500, 3888)]
+    [InlineData(2560, 1440, 4784)]
+    [InlineData(3840, 2160, 4784)]
+    public void Tokens_da_imagem_sao_um_por_bloco_de_28_por_28(int width, int height, int expected)
     {
         Assert.Equal(expected, ImageScanCost.ImageTokens(width, height));
     }
 
     [Theory]
-    [InlineData(1500, 1500)]
-    [InlineData(1920, 1080)]
+    [InlineData(4000, 4000)]
     [InlineData(8000, 8000)]
-    public void Imagem_grande_nunca_passa_do_teto_de_1600_tokens(int width, int height)
+    public void Imagem_grande_nunca_passa_do_teto_de_4784_tokens(int width, int height)
     {
-        Assert.Equal(1600, ImageScanCost.ImageTokens(width, height));
+        Assert.InRange(ImageScanCost.ImageTokens(width, height), 4700, 4784);
     }
 
     [Fact]
-    public void Imagem_com_o_lado_acima_de_1568_e_reduzida_antes_de_contar()
+    public void Imagem_comprida_e_reduzida_pelo_lado_maior_antes_de_contar()
     {
-        // 3136 x 100 vira 1568 x 50: 78400 / 750 = 104,5.
-        Assert.Equal(105, ImageScanCost.ImageTokens(3136, 100));
+        // 8000 x 100 vira 2576 x 32: 92 x 2 blocos.
+        Assert.Equal(92 * 2, ImageScanCost.ImageTokens(8000, 100));
+        Assert.Equal(ImageScanCost.ImageTokens(8000, 100), ImageScanCost.ImageTokens(100, 8000));
+    }
+
+    [Fact]
+    public void A_saida_estimada_cobre_o_thinking_alem_do_json()
+    {
+        var estimate = ImageScanCost.Estimate([Candidate(640, 480)], ClaudeModels.Haiku);
+
+        Assert.True(estimate.Usage.Output >= 400, estimate.Usage.ToString());
     }
 
     [Fact]

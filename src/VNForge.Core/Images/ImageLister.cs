@@ -12,8 +12,11 @@ public sealed record ImageScanOptions
     /// <summary>A API do modelo recusa lado acima de 8000 pixels.</summary>
     public int MaxSide { get; init; } = 8000;
 
-    /// <summary>A API do modelo recusa imagem acima de 5 MiB.</summary>
-    public long MaxBytes { get; init; } = 5L * 1024 * 1024;
+    /// <summary>
+    /// A API direta recusa imagem acima de 10 MB em base64 (5 MB no Bedrock e no Google Cloud; platform.claude.com/docs/en/build-with-claude/vision, "Request limits").
+    /// A base64 incha o arquivo em 4/3, então o arquivo vai até 7,5 MB.
+    /// </summary>
+    public long MaxBytes { get; init; } = 7_500_000;
 }
 
 /// <summary>Uma imagem que passou no filtro e pode ir ao modelo.</summary>
