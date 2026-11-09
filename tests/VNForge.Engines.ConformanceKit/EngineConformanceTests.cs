@@ -12,7 +12,7 @@ namespace VNForge.Engines.ConformanceKit;
 /// </summary>
 /// <remarks>
 /// O kit nunca lê arquivo de jogo real (regra 1): tudo vem de <see cref="WriteSyntheticGame"/>, <see cref="CreateScripts"/> e
-/// <see cref="WriteSyntheticTitle"/>. Uma engine nova herda e implementa os cinco membros abstratos; o resto roda sozinho.
+/// <see cref="WriteSyntheticTitle"/>. Uma engine nova herda e implementa os seis membros abstratos; o resto roda sozinho.
 /// </remarks>
 public abstract class EngineConformanceTests : IDisposable
 {
@@ -63,6 +63,18 @@ public abstract class EngineConformanceTests : IDisposable
     /// marcador, todos com <see cref="ExpectedUnit.Translation"/>; o kit falha se faltar algum, para a engine não passar sem ser testada.
     /// </summary>
     protected abstract IReadOnlyList<ConformanceScript> CreateScripts();
+
+    /// <summary>
+    /// Divide os bytes de um script nas faixas do formato da engine (<see cref="ScriptRegion"/>), para o kit conferir que a reescrita só mexe no que
+    /// a tradução alcança: o resto do script, inclusive argumentos que a tradução não toca, sai byte a byte igual (regra 3 do <c>CLAUDE.md</c>).
+    /// As faixas cobrem o script inteiro, em ordem, e têm os mesmos nomes no original e no reconstruído. Declare mutável só o que a engine de fato muda:
+    /// as faixas que apontam para o texto de uma unidade (<see cref="ScriptRegion.Unit"/>), um campo de tamanho compartilhado
+    /// (<see cref="ScriptRegion.Shared"/>) e uma área que cresce (<see cref="ScriptRegion.Appends"/>).
+    /// </summary>
+    /// <param name="script">O script original ou o reconstruído, que têm o mesmo número de unidades e o mesmo layout de instruções.</param>
+    /// <param name="units">As unidades extraídas do script <em>original</em>, na ordem de <see cref="ConformanceScript.Units"/>; o
+    /// <see cref="TextUnit.Locator"/> de cada uma diz onde ela está.</param>
+    protected abstract IReadOnlyList<ScriptRegion> DescribeScript(ScriptFile script, IReadOnlyList<TextUnit> units);
 
     /// <summary>
     /// Só para engine que também é <see cref="IGameTitleSource"/>: grava em <paramref name="unpackedDirectory"/> (já criada, vazia) o arquivo do
@@ -116,11 +128,8 @@ public abstract class EngineConformanceTests : IDisposable
 
     private static List<TextUnit> Extract(Subject subject, EngineContext context) => [.. subject.Format.Extract(subject.File, context).Units];
 
-    private static List<TextUnit> WithTranslations(List<TextUnit> extracted, ConformanceScript script, Func<ExpectedUnit, bool> pick) =>
-        [.. extracted.Select((unit, i) => pick(script.Units[i]) ? unit with { Translation = script.Units[i].Translation, Status = TranslationStatus.Translated } : unit)];
-
     private static void AssertSameBytes(string label, ReadOnlyMemory<byte> expected, byte[] actual) =>
-        Assert.True(expected.Span.SequenceEqual(actual), $"{label}: o script reconstruído difere do original ({expected.Length} bytes contra {actual.Length}).");
+        Assert.True(expected.Span.SequenceEqual(actual), $"{label}: o arquivo reconstruído difere do original ({expected.Length} bytes contra {actual.Length}).");
 
     [Fact]
     public void Engine_declara_id_e_nome_validos()
@@ -136,6 +145,7 @@ public abstract class EngineConformanceTests : IDisposable
     {
         Assert.NotEmpty(Engine.Scripts);
         Assert.NotNull(Engine.Archives);
+        Assert.Distinct(Engine.Archives.Select(f => f.Id));
         Assert.NotNull(Engine.Patches);
         Assert.Distinct(Engine.Scripts.Select(f => f.Id));
         foreach (var format in Engine.Scripts)
@@ -197,6 +207,62 @@ public abstract class EngineConformanceTests : IDisposable
         .Order(StringComparer.Ordinal)
         .Select(p => File.Exists(p) ? $"{p}|{File.GetLastWriteTimeUtc(p).Ticks}|{Convert.ToHexString(File.ReadAllBytes(p))}" : p)];
 
+    private List<(string Path, byte[] Bytes, IArchiveFormat Format)> SyntheticArchives()
+    {
+        var folder = NewFolder();
+        WriteSyntheticGame(folder);
+        var found = new List<(string, byte[], IArchiveFormat)>();
+        foreach (var path in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        {
+            var bytes = File.ReadAllBytes(path);
+            var extension = Path.GetExtension(path).ToLowerInvariant();
+            foreach (var format in Engine.Archives.Where(f => f.FileExtensions.Contains(extension)))
+            {
+                using var stream = new MemoryStream(bytes);
+                if (format.CanOpen(stream))
+                {
+                    found.Add((Path.GetRelativePath(folder, path), bytes, format));
+                }
+            }
+        }
+
+        return found;
+    }
+
+    [Fact]
+    public void Pacote_sem_trocas_e_regravado_byte_a_byte_igual()
+    {
+        var archives = SyntheticArchives();
+        if (archives.Count == 0)
+        {
+            Assert.True(Engine.Archives.Count == 0, $"A engine '{Engine.Id}' declara formatos de pacote, mas WriteSyntheticGame não gravou nenhum arquivo que eles abram.");
+            Assert.Skip($"A engine '{Engine.Id}' não declara formato de pacote.");
+        }
+
+        foreach (var (path, bytes, format) in archives)
+        {
+            using var archive = format.Open(new MemoryStream(bytes));
+            Assert.NotEmpty(archive.Entries);
+
+            var untouched = new MemoryStream();
+            archive.WriteTo(untouched, new Dictionary<string, byte[]>());
+            AssertSameBytes($"{path}: WriteTo sem trocas", bytes, untouched.ToArray());
+
+            var sameContent = new Dictionary<string, byte[]>();
+            foreach (var entry in archive.Entries)
+            {
+                using var content = archive.OpenEntry(entry);
+                using var copy = new MemoryStream();
+                content.CopyTo(copy);
+                sameContent[entry.Path] = copy.ToArray();
+            }
+
+            var repacked = new MemoryStream();
+            archive.WriteTo(repacked, sameContent);
+            AssertSameBytes($"{path}: WriteTo com o conteúdo de cada entrada, sem mudar nada", bytes, repacked.ToArray());
+        }
+    }
+
     [Fact]
     public void Os_scripts_sinteticos_cobrem_falante_escolha_e_marcador()
     {
@@ -206,6 +272,14 @@ public abstract class EngineConformanceTests : IDisposable
         Assert.Contains(units, u => u.Speaker is not null && u.Translation is not null);
         Assert.Contains(units, u => u.Kind == TextUnitKind.Choice && u.Translation is not null);
         Assert.Contains(units, u => u.Markers.Count > 0 && u.Translation is not null);
+        Assert.Contains(units, u => u.Speaker is not null && u.Translation is not null && u.SpeakerTranslation is not null);
+        Assert.All(units.Where(u => u.SpeakerTranslation is not null), u =>
+        {
+            Assert.NotNull(u.Speaker);
+            Assert.NotNull(u.Translation);
+            Assert.NotEqual(u.Speaker, u.SpeakerTranslation);
+            Assert.Empty(_encoder.Value.FindUnencodable(u.SpeakerTranslation!));
+        });
         Assert.All(units.Where(u => u.Translation is not null), u =>
         {
             Assert.NotEqual(u.Source, u.Translation);
@@ -316,6 +390,18 @@ public abstract class EngineConformanceTests : IDisposable
     }
 
     [Fact]
+    public void Falante_traduzido_e_gravado_e_relido()
+    {
+        AssertTranslationsSurvive(u => u.SpeakerTranslation is not null && u.Translation is not null, SpeakerChange.Translate);
+    }
+
+    [Fact]
+    public void Falante_escolhido_e_gravado_e_relido()
+    {
+        AssertTranslationsSurvive(u => u.SpeakerTranslation is not null && u.Translation is not null, SpeakerChange.Choose);
+    }
+
+    [Fact]
     public void Escolhas_sobrevivem_a_traducao()
     {
         AssertTranslationsSurvive(u => u.Kind == TextUnitKind.Choice && u.Translation is not null);
@@ -327,7 +413,21 @@ public abstract class EngineConformanceTests : IDisposable
         AssertTranslationsSurvive(u => u.Markers.Count > 0 && u.Translation is not null);
     }
 
-    private void AssertTranslationsSurvive(Func<ExpectedUnit, bool> pick)
+    private enum SpeakerChange
+    {
+        Keep,
+        Translate,
+        Choose,
+    }
+
+    private static TextUnit Translated(TextUnit unit, ExpectedUnit expected, SpeakerChange speaker) => speaker switch
+    {
+        SpeakerChange.Translate => unit with { Speaker = expected.SpeakerTranslation, Translation = expected.Translation, Status = TranslationStatus.Translated },
+        SpeakerChange.Choose => unit with { ChosenSpeaker = expected.SpeakerTranslation, Translation = expected.Translation, Status = TranslationStatus.Translated },
+        _ => unit with { Translation = expected.Translation, Status = TranslationStatus.Translated },
+    };
+
+    private void AssertTranslationsSurvive(Func<ExpectedUnit, bool> pick, SpeakerChange speaker = SpeakerChange.Keep)
     {
         var encoder = _encoder.Value;
         var checkedAny = false;
@@ -335,7 +435,8 @@ public abstract class EngineConformanceTests : IDisposable
         {
             checkedAny = true;
             var original = Extract(subject, _context.Value);
-            var translated = WithTranslations(original, subject.Script, pick);
+            var rewritten = subject.Script.Units.Select((u, i) => (u, i)).Where(p => pick(p.u)).Select(p => p.i).ToHashSet();
+            var translated = original.Select((unit, i) => rewritten.Contains(i) ? Translated(unit, subject.Script.Units[i], speaker) : unit).ToList();
             var contentBefore = subject.File.Content.ToArray();
             var unitsBefore = translated.ToList();
 
@@ -345,27 +446,72 @@ public abstract class EngineConformanceTests : IDisposable
             Assert.Equal(unitsBefore, translated);
             AssertSameBytes(subject.Describe("Rebuild repetido"), rebuilt, subject.Format.Rebuild(subject.File, translated, encoder, _context.Value));
             Assert.False(subject.File.Content.Span.SequenceEqual(rebuilt), subject.Describe("a tradução não mudou nenhum byte"));
+            AssertOnlyRewrittenChanged(subject, subject.File.Content, rebuilt, original, rewritten);
 
             var again = Extract(new Subject(subject.Script, subject.Format, new ScriptFile(subject.File.Name, rebuilt)), _context.Value);
             Assert.Equal(original.Select(u => u.Id), again.Select(u => u.Id));
             for (var i = 0; i < original.Count; i++)
             {
                 var expected = subject.Script.Units[i];
-                var wanted = pick(expected) ? expected.Translation! : original[i].Source;
-                Assert.Equal(subject.Describe($"{original[i].Id}|{original[i].Kind}|{original[i].Speaker}|{wanted}"), subject.Describe($"{again[i].Id}|{again[i].Kind}|{again[i].Speaker}|{again[i].Source}"));
+                var picked = rewritten.Contains(i);
+                var wanted = picked ? expected.Translation! : original[i].Source;
+                var wantedSpeaker = picked && speaker != SpeakerChange.Keep ? expected.SpeakerTranslation : original[i].Speaker;
+                Assert.Equal(subject.Describe($"{original[i].Id}|{original[i].Kind}|{wantedSpeaker}|{wanted}"), subject.Describe($"{again[i].Id}|{again[i].Kind}|{again[i].Speaker}|{again[i].Source}"));
                 Assert.All(expected.Markers, marker => Assert.Contains(marker, again[i].Source, StringComparison.Ordinal));
             }
 
-            var back = again.Select((u, i) => pick(subject.Script.Units[i]) ? u with { Translation = original[i].Source, Status = TranslationStatus.Translated } : u).ToList();
+            var back = again.Select((u, i) => rewritten.Contains(i) ? u with { Translation = original[i].Source, Speaker = original[i].Speaker, Status = TranslationStatus.Translated } : u).ToList();
             // Os bytes não voltam iguais: a reescrita mínima da engine pode acrescentar o texto novo e deixar o antigo órfão (o YSTB cresce a
             // cada reescrita). O que precisa voltar é o conteúdo que o tradutor vê.
             var backScript = new ScriptFile(subject.File.Name, subject.Format.Rebuild(new ScriptFile(subject.File.Name, rebuilt), back, encoder, _context.Value));
+            AssertOnlyRewrittenChanged(subject, rebuilt, backScript.Content, original, rewritten);
             Assert.Equal(
                 original.Select(u => subject.Describe($"{u.Id}|{u.Kind}|{u.Speaker}|{u.Source}")),
                 Extract(new Subject(subject.Script, subject.Format, backScript), _context.Value).Select(u => subject.Describe($"{u.Id}|{u.Kind}|{u.Speaker}|{u.Source}")));
         }
 
         Assert.True(checkedAny, "Nenhum script sintético tem a unidade que este teste confere.");
+    }
+
+    /// <summary>
+    /// A regra 3 do <c>CLAUDE.md</c> vista de dentro do script: pelas faixas de <see cref="DescribeScript"/>, só as das unidades reescritas, os campos
+    /// compartilhados e as áreas que crescem podem diferir. O resto, inclusive o argumento de uma unidade que a tradução não tocou, sai igual.
+    /// </summary>
+    private void AssertOnlyRewrittenChanged(Subject subject, ReadOnlyMemory<byte> before, ReadOnlyMemory<byte> after, IReadOnlyList<TextUnit> units, ISet<int> rewritten)
+    {
+        var old = DescribeScript(new ScriptFile(subject.File.Name, before), units);
+        var current = DescribeScript(new ScriptFile(subject.File.Name, after), units);
+
+        AssertTiles(subject, "original", before, old);
+        AssertTiles(subject, "reconstruído", after, current);
+        Assert.Equal(old.Select(r => r.Name), current.Select(r => r.Name));
+        Assert.All(rewritten, i => Assert.True(old.Any(r => r.Unit == i), subject.Describe($"nenhuma faixa de DescribeScript é da unidade {i}, que foi reescrita.")));
+        Assert.All(old.Where(r => r.Unit is not null), r => Assert.InRange(r.Unit!.Value, 0, units.Count - 1));
+
+        for (var i = 0; i < old.Count; i++)
+        {
+            var region = old[i];
+            var changed = current[i];
+            var mayChange = region.Unit is { } owner ? rewritten.Contains(owner) : (region.Shared || region.Appends) && rewritten.Count > 0;
+            if (!mayChange)
+            {
+                Assert.True(region.Bytes.Span.SequenceEqual(changed.Bytes.Span), subject.Describe($"a faixa '{region.Name}' não é de nenhuma unidade reescrita e mudou ({region.Bytes.Length} bytes contra {changed.Bytes.Length})."));
+            }
+            else if (region.Appends)
+            {
+                Assert.True(changed.Bytes.Span.StartsWith(region.Bytes.Span), subject.Describe($"a faixa '{region.Name}' só pode crescer no fim, e o começo dela mudou."));
+            }
+            else
+            {
+                Assert.True(region.Bytes.Length == changed.Bytes.Length, subject.Describe($"a faixa '{region.Name}' mudou de tamanho ({region.Bytes.Length} bytes contra {changed.Bytes.Length})."));
+            }
+        }
+    }
+
+    private static void AssertTiles(Subject subject, string which, ReadOnlyMemory<byte> content, IReadOnlyList<ScriptRegion> regions)
+    {
+        var joined = regions.SelectMany(r => r.Bytes.ToArray()).ToArray();
+        Assert.True(content.Span.SequenceEqual(joined), subject.Describe($"as faixas de DescribeScript não cobrem o script {which} do começo ao fim ({joined.Length} bytes contra {content.Length})."));
     }
 
     [Fact]
