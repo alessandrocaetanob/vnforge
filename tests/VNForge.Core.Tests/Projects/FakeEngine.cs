@@ -24,7 +24,7 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
 
     public EngineDetection Detect(string gameDir) => EngineDetection.NotDetected;
 
-    public IReadOnlyList<IArchiveFormat> Archives => [];
+    public IReadOnlyList<IArchiveFormat> Archives { get; set; } = [];
 
     public IReadOnlyList<IScriptFormat> Scripts => [_format];
 

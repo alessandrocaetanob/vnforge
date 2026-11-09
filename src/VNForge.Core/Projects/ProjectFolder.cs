@@ -27,6 +27,8 @@ public sealed class ProjectFolder
 
     public const string ImageInventoryFileName = "images.json";
 
+    public const string ImageEditsFileName = "image-edits.json";
+
     public const string IgnoredWordsFileName = "ignored-words.json";
 
     public const string ScriptNamesFileName = "scripts.json";
@@ -224,6 +226,35 @@ public sealed class ProjectFolder
     /// <exception cref="GlossaryFileException">Entrada inválida ou o mesmo lugar duas vezes; nada é gravado.</exception>
     public void SaveImageInventory(IReadOnlyList<ImageTextEntry> entries) =>
         WriteAtomically(ImageInventoryPath, ImageInventorySerializer.Serialize(entries, ImageInventoryPath), overwrite: true);
+
+    /// <summary><c>image-edits.json</c>, as edições de imagem do editor (#535). É opcional.</summary>
+    public string ImageEditsPath => Path.Combine(Root, ImageEditsFileName);
+
+    /// <summary><c>images/</c>, onde ficam as imagens já editadas que o build grava nos pacotes (#535).</summary>
+    public string EditedImagesDirectory => Path.Combine(Root, "images");
+
+    /// <summary>
+    /// Onde fica a imagem pronta da edição de <paramref name="path"/> no <paramref name="archive"/>: <c>images/img.ypf/bg/portao.png</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException">O caminho sai de <c>images/</c> (<c>..</c> ou caminho absoluto).</exception>
+    public string EditedImagePath(string archive, string path)
+    {
+        var full = Path.GetFullPath(Path.Combine(EditedImagesDirectory, archive.Replace('/', Path.DirectorySeparatorChar), path.Replace('/', Path.DirectorySeparatorChar)));
+        var root = Path.GetFullPath(EditedImagesDirectory) + Path.DirectorySeparatorChar;
+        return full.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+            ? full
+            : throw new ArgumentException($"O caminho '{archive}/{path}' sai da pasta de imagens editadas.", nameof(path));
+    }
+
+    /// <summary>Lê o <c>image-edits.json</c>; sem o arquivo, devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<ImageEdit> LoadImageEdits() =>
+        File.Exists(ImageEditsPath) ? ImageEditSerializer.Parse(ReadGlossaryFile(ImageEditsPath), ImageEditsPath) : [];
+
+    /// <summary>Grava o <c>image-edits.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Edição inválida ou a mesma imagem duas vezes; nada é gravado.</exception>
+    public void SaveImageEdits(IReadOnlyList<ImageEdit> edits) =>
+        WriteAtomically(ImageEditsPath, ImageEditSerializer.Serialize(edits, ImageEditsPath), overwrite: true);
 
     /// <summary><c>ignored-words.json</c>, as palavras que o corretor deixa de marcar no projeto (#511). É opcional.</summary>
     public string IgnoredWordsPath => Path.Combine(Root, IgnoredWordsFileName);

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using VNForge.AI.Bible;
 using VNForge.AI.Claude;
+using VNForge.AI.Eval;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
@@ -108,6 +109,12 @@ public sealed class VnfCli
 
     /// <summary>Cria o cliente HTTP do download do dicionário (<c>vnf jmdict install</c>); os testes trocam por um que responde com um arquivo inventado.</summary>
     public Func<HttpClient> HttpClientFactory { get; set; } = () => new HttpClient();
+
+    /// <summary>
+    /// Cria o juiz de IA do <c>vnf eval</c> para o modelo e o esforço escolhidos; os testes trocam por um juiz falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, IJudgeProvider>? JudgeProviderFactory { get; set; }
 
     /// <summary>
     /// Cria o provedor da bíblia do jogo (<c>vnf bible generate</c>) para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
