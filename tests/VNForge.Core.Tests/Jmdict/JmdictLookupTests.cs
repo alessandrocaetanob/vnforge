@@ -118,6 +118,11 @@ public sealed class JmdictLookupTests
     [InlineData("食べず", "食べる", "negativa (ず)")]
     [InlineData("行かず", "行く", "negativa (ず)")]
     [InlineData("せず", "する", "negativa (ず)")]
+    [InlineData("来ず", "来る", "negativa (ず)")]
+    [InlineData("食べていた", "食べる", "passada")]
+    [InlineData("食べてた", "食べる", "passada")]
+    [InlineData("食べてた", "食べる", "contínua")]
+    [InlineData("行っていた", "行く", "contínua")]
     public void Tira_tambem_o_tara_o_teiru_o_chau_e_o_zu(string conjugada, string palavra, string razao)
     {
         var achada = Lookup.FindWordAt(conjugada, 0);

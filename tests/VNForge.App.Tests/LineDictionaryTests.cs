@@ -309,6 +309,41 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.True(vm.IsOfferCard);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelar_em_qualquer_etapa_deixa_o_estado_de_acordo_com_o_arquivo_no_disco(bool atualizacao)
+    {
+        var servidor = new SyntheticDictionary.Server();
+        var dicionario = atualizacao
+            ? await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(servidor))
+            : SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(servidor));
+        var indice = Path.Combine(Dicionario, "jmdict.vnfdict");
+        var cancelou = false;
+        dicionario.Changed += (_, _) =>
+        {
+            // Cancela no primeiro aviso de montagem do índice (sem o tamanho do download), o ponto em que a importação já pode estar rodando.
+            if (!cancelou && dicionario.State == OfflineDictionaryState.Installing && dicionario.Progress < 0)
+            {
+                cancelou = true;
+                dicionario.CancelInstall();
+            }
+        };
+
+        await dicionario.InstallAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(dicionario.Problem);
+        Assert.True(File.Exists(indice) == (dicionario.State == OfflineDictionaryState.Ready), $"Estado {dicionario.State} e arquivo {(File.Exists(indice) ? "presente" : "ausente")} não combinam.");
+        if (dicionario.State == OfflineDictionaryState.Ready)
+        {
+            Assert.NotNull(dicionario.FindWordAt(Frase, Em(Frase, "遅刻")));
+        }
+        else
+        {
+            Assert.Equal(OfflineDictionaryState.NotInstalled, dicionario.State);
+        }
+    }
+
     [Fact]
     public async Task Esc_durante_o_download_cancela_e_o_mouse_saindo_do_cartao_nao()
     {

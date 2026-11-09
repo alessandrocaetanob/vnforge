@@ -43,6 +43,9 @@ public sealed class JmdictInstaller(HttpClient http, JmdictStore store, TimeSpan
             await DownloadAsync(download, progress, cancellationToken).ConfigureAwait(false);
             progress?.Report(new JmdictProgress(JmdictStage.Building, 0));
             await Task.Run(() => JmdictImporter.ImportGzipFile(download, building), cancellationToken).ConfigureAwait(false);
+
+            // O cancelamento que chega com o índice já montado vale até aqui: depois da troca o dicionário novo está instalado e quem chama não pode mais desistir dele.
+            cancellationToken.ThrowIfCancellationRequested();
             File.Move(building, store.IndexPath, overwrite: true);
             progress?.Report(new JmdictProgress(JmdictStage.Building, 1));
         }

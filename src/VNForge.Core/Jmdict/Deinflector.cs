@@ -151,10 +151,14 @@ internal static class Deinflector
     /// </summary>
     private static void AddTeCompounds(List<DeinflectionRule> rules)
     {
-        foreach (var ending in new[] { "ている", "てる", "ていた", "てた" })
+        foreach (var ending in new[] { "ている", "てる" })
         {
             Add(rules, ending, "て", WordClass.All, WordClass.Te, Progressive);
         }
+
+        // ていた e てた passam pelo ている e pelo てる, para a forma dizer as duas coisas: contínua e passada.
+        Add(rules, "ていた", "ている", WordClass.All, WordClass.Te, "passada");
+        Add(rules, "てた", "てる", WordClass.All, WordClass.Te, "passada");
 
         foreach (var ending in new[] { "ちゃう", "ちゃった", "ちゃって" })
         {
@@ -252,6 +256,7 @@ internal static class Deinflector
         Add(rules, "来たら", "来る", WordClass.All, WordClass.Kuru, ConditionalTara);
         Add(rules, "きたら", "くる", WordClass.All, WordClass.Kuru, ConditionalTara);
         Add(rules, "こず", "くる", WordClass.All, WordClass.Kuru, NegativeZu);
+        Add(rules, "来ず", "来る", WordClass.All, WordClass.Kuru, NegativeZu);
         Add(rules, "くれば", "くる", WordClass.All, WordClass.Kuru, "condicional");
         Add(rules, "来い", "来る", WordClass.All, WordClass.Kuru, "imperativa");
         Add(rules, "こい", "くる", WordClass.All, WordClass.Kuru, "imperativa");

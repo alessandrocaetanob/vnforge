@@ -228,6 +228,27 @@ public sealed class JmdictInstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancelar_na_etapa_de_montagem_nao_troca_o_indice_nem_deixa_arquivo()
+    {
+        var store = Store;
+        await Installer(store, new FakeServer(_ => Ok(SyntheticJmdict.GzipBytes()))).InstallAsync(null, TestContext.Current.CancellationToken);
+        var antes = File.ReadAllBytes(store.IndexPath);
+        using var cancel = new CancellationTokenSource();
+        var progress = new SyncProgress<JmdictProgress>(p =>
+        {
+            if (p.Stage == JmdictStage.Building && p.Fraction == 0)
+            {
+                cancel.Cancel();
+            }
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Installer(store, new FakeServer(_ => Ok(SyntheticJmdict.GzipBytes()))).InstallAsync(progress, cancel.Token));
+
+        Assert.Equal(antes, File.ReadAllBytes(store.IndexPath));
+        Assert.Equal([store.IndexPath], Directory.GetFiles(store.Directory));
+    }
+
+    [Fact]
     public async Task O_dicionario_com_mais_de_30_dias_pede_atualizacao_como_a_licenca_exige()
     {
         var store = Store;

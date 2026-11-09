@@ -113,7 +113,8 @@ public sealed class OfflineDictionary
                 Raise();
             });
             await new JmdictInstaller(http, store, idleTimeout).InstallAsync(progress, cancel.Token).ConfigureAwait(false);
-            await Task.Run(LoadIndex, cancel.Token).ConfigureAwait(false);
+            // Sem o token: com o índice já trocado no disco, a leitura precisa acontecer para o estado e o arquivo ficarem de acordo.
+            await Task.Run(LoadIndex, CancellationToken.None).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
