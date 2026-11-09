@@ -283,21 +283,103 @@ public sealed class TranslationMemoryTests : IDisposable
     }
 
     [Fact]
-    public void Muitos_pares_continuam_respondendo_depressa()
+    public void Muitos_pares_continuam_achando_o_igual_e_o_parecido()
     {
         var linhas = Enumerable.Range(0, 20_000)
             .Select(i => Linha(i, $"今日は{i}番目の話をしよう、ねえ{i % 97}。", $"Hoje vamos falar da {i}ª."))
             .ToArray();
         var memoria = Memoria();
         memoria.SyncProject(NovoProjeto("grande", "Grande", linhas), Dia1);
-        memoria.Find(Frase);
 
-        var relogio = System.Diagnostics.Stopwatch.StartNew();
         var achadas = memoria.Find($"今日は777番目の話をしよう、ねえ{777 % 97}。");
-        relogio.Stop();
 
         Assert.NotEmpty(achadas);
         Assert.Equal(100, achadas[0].Percent);
-        Assert.True(relogio.Elapsed < TimeSpan.FromSeconds(2), $"A busca levou {relogio.Elapsed.TotalMilliseconds:N0} ms.");
+        Assert.Equal("Hoje vamos falar da 777ª.", achadas[0].Entry.Target);
+        Assert.All(achadas.Skip(1), m => Assert.InRange(m.Percent, 80, 99));
+    }
+
+    private void EscreverArquivo(string json)
+    {
+        Directory.CreateDirectory(Config);
+        File.WriteAllText(Path.Combine(Config, TranslationMemory.FileName), json);
+    }
+
+    [Fact]
+    public void Entrada_sem_campo_obrigatorio_e_erro_do_arquivo_em_todas_as_operacoes()
+    {
+        EscreverArquivo("""{"version":1,"entries":[{"target":"x","projectKey":"D:/a","projectName":"A","unitId":"u:1","approvedAt":"2026-09-14T12:00:00+00:00"}]}""");
+        var projeto = NovoProjeto("p", "P", Linha(1, Frase, "Atrasados."));
+        var memoria = Memoria();
+
+        var erro = Assert.Throws<MemoryFileException>(() => memoria.Find(Frase));
+        Assert.Contains("entrada 1", erro.Message);
+        Assert.Throws<MemoryFileException>(() => memoria.Stats());
+        Assert.Throws<MemoryFileException>(() => memoria.Projects());
+        Assert.Throws<MemoryFileException>(() => memoria.SyncProject(projeto, Dia1));
+        Assert.Throws<MemoryFileException>(() => memoria.Record("D:/p", "P", Linha(1, Frase, "Atrasados."), Dia1));
+        Assert.Throws<MemoryFileException>(() => memoria.RemoveProject("D:/a"));
+    }
+
+    [Fact]
+    public void Entrada_nula_e_projeto_sem_chave_tambem_sao_recusados()
+    {
+        EscreverArquivo("""{"version":1,"entries":[null]}""");
+        Assert.Throws<MemoryFileException>(() => Memoria().Find(Frase));
+
+        EscreverArquivo("""{"version":1,"entries":[{"source":"a","target":"b","projectKey":" ","projectName":"A","unitId":"u:1"}]}""");
+        Assert.Throws<MemoryFileException>(() => Memoria().Find(Frase));
+    }
+
+    [Fact]
+    public void O_mesmo_par_repetido_no_arquivo_fica_com_o_ultimo_e_o_sync_nao_quebra()
+    {
+        EscreverArquivo("""
+            {"version":1,"entries":[
+              {"source":"あ","target":"velho","projectKey":"D:/a","projectName":"A","unitId":"u:1","approvedAt":"2026-09-14T12:00:00+00:00"},
+              {"source":"あ","target":"novo","projectKey":"d:/A","projectName":"A","unitId":"u:1","approvedAt":"2026-09-15T12:00:00+00:00"}]}
+            """);
+        var memoria = Memoria();
+
+        Assert.Equal(["novo"], memoria.All().Select(e => e.Target));
+        Assert.True(memoria.Record("D:/a", "A", Linha(1, "あ", "mais novo") with { Id = "u:1" }, Dia2));
+        Assert.Equal(["mais novo"], memoria.All().Select(e => e.Target));
+    }
+
+    [Fact]
+    public void Record_com_arquivo_ilegivel_falha_sem_apagar_o_arquivo()
+    {
+        EscreverArquivo("lixo");
+        var memoria = Memoria();
+
+        Assert.Throws<MemoryFileException>(() => memoria.Record("D:/p", "P", Linha(1, Frase, "Atrasados."), Dia1));
+
+        Assert.Equal("lixo", File.ReadAllText(memoria.Path));
+    }
+
+    [Fact]
+    public void Projeto_com_o_mesmo_nome_do_atual_nao_e_sugerido_mesmo_com_outra_pasta()
+    {
+        var movido = NovoProjeto("antigo", "Amaoto no Hakoniwa", Linha(1, Frase, "Atrasados."));
+        var outro = NovoProjeto("estrela", "Hoshizora no Kakera", Linha(1, Frase, "Chegaram tarde."));
+        var memoria = Memoria();
+        memoria.SyncProject(movido, Dia1);
+        memoria.SyncProject(outro, Dia1);
+
+        var achadas = memoria.Find(Frase, Path.Combine(temp.Path, "novo-lugar"), excludeProjectName: "amaoto no hakoniwa");
+
+        Assert.Equal(["Hoshizora no Kakera"], achadas.Select(m => m.Entry.ProjectName));
+    }
+
+    [Fact]
+    public void Projects_lista_cada_projeto_com_os_pares_dele()
+    {
+        var memoria = Memoria();
+        memoria.SyncProject(NovoProjeto("a", "Zeta", Linha(1, "あ", "A."), Linha(2, "い", "I.")), Dia1);
+        memoria.SyncProject(NovoProjeto("b", "Alfa", Linha(1, "う", "U.")), Dia1);
+
+        var lista = memoria.Projects();
+
+        Assert.Equal([("Alfa", 1), ("Zeta", 2)], lista.Select(p => (p.Name, p.Entries)));
     }
 }

@@ -20,7 +20,7 @@ public sealed class TranslationMemory(string directory)
     /// <summary>Quantas correspondências o inspetor mostra por linha.</summary>
     public const int DefaultLimit = 5;
 
-    private readonly UserEntriesFile<MemoryEntry> file = new(System.IO.Path.Combine(directory, FileName));
+    private readonly UserEntriesFile<MemoryEntry> file = new(System.IO.Path.Combine(directory, FileName), ValidateEntries);
     private readonly object gate = new();
     private Snapshot? cached;
 
@@ -60,14 +60,32 @@ public sealed class TranslationMemory(string directory)
         }
     }
 
+    /// <summary>Os projetos que têm pares na memória, com quantos pares cada um tem, pelo nome.</summary>
+    /// <exception cref="MemoryFileException">O arquivo existe e não pôde ser lido.</exception>
+    public IReadOnlyList<MemoryProject> Projects()
+    {
+        lock (gate)
+        {
+            return Current().Entries
+                .GroupBy(i => i.Entry.ProjectKey, KeyComparer)
+                .Select(g => new MemoryProject(g.Key, g.Last().Entry.ProjectName, g.Count()))
+                .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+        }
+    }
+
     /// <summary>
     /// As traduções aprovadas em outros projetos para <paramref name="source"/>: primeiro as de original igual (100%), depois as de original parecido, da mais à menos
     /// semelhante e, no empate, da mais recente. As de <paramref name="excludeProjectKey"/> ficam de fora (a linha de outro projeto é que é novidade). O mesmo texto aprovado
     /// duas vezes no mesmo projeto entra uma vez só.
     /// </summary>
     /// <param name="minimum">Semelhança mínima de uma correspondência aproximada, de 0 a 1.</param>
+    /// <param name="excludeProjectName">
+    /// Nome do projeto aberto. A chave do projeto é a pasta dele, então um projeto movido ou copiado viraria "outro projeto" com o mesmo nome; o <c>vnforge.json</c> não tem um id estável
+    /// para usar no lugar, e por isso os pares de um projeto com o mesmo nome (sem diferenciar maiúsculas) também ficam de fora.
+    /// </param>
     /// <exception cref="MemoryFileException">O arquivo existe e não pôde ser lido.</exception>
-    public IReadOnlyList<MemoryMatch> Find(string source, string? excludeProjectKey = null, double minimum = SourceSimilarity.DefaultMinimum, int limit = DefaultLimit)
+    public IReadOnlyList<MemoryMatch> Find(string source, string? excludeProjectKey = null, double minimum = SourceSimilarity.DefaultMinimum, int limit = DefaultLimit, string? excludeProjectName = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         var normalized = SourceSimilarity.Normalize(source);
@@ -85,7 +103,8 @@ public sealed class TranslationMemory(string directory)
         var found = new List<MemoryMatch>();
         foreach (var item in entries)
         {
-            if (excludeProjectKey is not null && KeyComparer.Equals(item.Entry.ProjectKey, excludeProjectKey))
+            if ((excludeProjectKey is not null && KeyComparer.Equals(item.Entry.ProjectKey, excludeProjectKey))
+                || (!string.IsNullOrWhiteSpace(excludeProjectName) && KeyComparer.Equals(item.Entry.ProjectName.Trim(), excludeProjectName.Trim())))
             {
                 continue;
             }
@@ -237,6 +256,27 @@ public sealed class TranslationMemory(string directory)
     }
 
     private static StringComparer KeyComparer => StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>Entrada sem campo obrigatório é erro do arquivo, não do chamador; o mesmo par (projeto e linha) repetido fica com o último.</summary>
+    private static List<MemoryEntry> ValidateEntries(string path, List<MemoryEntry> entries)
+    {
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var e = entries[i];
+            if (e.Source is null || e.Target is null || string.IsNullOrWhiteSpace(e.ProjectKey) || e.ProjectName is null || e.UnitId is null)
+            {
+                throw new MemoryFileException(path, $"a entrada {i + 1} não tem original, tradução, projeto ou id da linha.");
+            }
+        }
+
+        var last = new Dictionary<(string Project, string Unit), int>();
+        for (var i = 0; i < entries.Count; i++)
+        {
+            last[(entries[i].ProjectKey.ToUpperInvariant(), entries[i].UnitId)] = i;
+        }
+
+        return last.Count == entries.Count ? entries : entries.Where((e, i) => last[(e.ProjectKey.ToUpperInvariant(), e.UnitId)] == i).ToList();
+    }
 
     private static MemoryEntry? ToEntry(string projectKey, string projectName, TextUnit unit, DateTimeOffset now) =>
         unit.Status == TranslationStatus.Approved

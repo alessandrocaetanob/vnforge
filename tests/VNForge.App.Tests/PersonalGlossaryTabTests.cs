@@ -123,4 +123,103 @@ public sealed class PersonalGlossaryTabTests : IDisposable
         vm.SelectedTab = GlossaryTab.Terms;
         Assert.True(vm.ShowSearch);
     }
+
+    [Fact]
+    public async Task Adicionar_termo_abre_o_dialogo_e_grava_o_termo_escrito_a_mao()
+    {
+        var pessoal = Pessoal();
+        var (vm, _) = await AbrirAsync(pessoal);
+        vm.SelectedTab = GlossaryTab.Personal;
+
+        vm.AddCommand.Execute(null);
+
+        Assert.True(vm.Personal.IsEditorOpen);
+        Assert.Equal("Adicionar termo", vm.Personal.EditorTitle);
+        Assert.True(vm.Personal.CanEditSource);
+        vm.Personal.EditSource = " ふふっ ";
+        vm.Personal.EditTarget = "hehe";
+        vm.Personal.EditNotes = "risada baixa";
+        vm.Personal.SaveEditCommand.Execute(null);
+
+        Assert.False(vm.Personal.IsEditorOpen);
+        var termo = Assert.Single(pessoal.Load());
+        Assert.Equal(("ふふっ", "hehe", "risada baixa"), (termo.Source, termo.Target, termo.Notes));
+        Assert.Equal("à mão", vm.Personal.Rows.Single().ProjectsText);
+    }
+
+    [Fact]
+    public async Task O_dialogo_recusa_campo_vazio_e_original_que_ja_existe()
+    {
+        var (vm, _) = await AbrirAsync(Alimentar());
+        vm.Personal.BeginAdd();
+
+        vm.Personal.SaveEditCommand.Execute(null);
+        Assert.Equal("Escreva o original e a tradução.", vm.Personal.EditError);
+
+        vm.Personal.EditSource = "先輩";
+        vm.Personal.EditTarget = "outro";
+        vm.Personal.SaveEditCommand.Execute(null);
+
+        Assert.Contains("já está no glossário pessoal", vm.Personal.EditError);
+        Assert.True(vm.Personal.IsEditorOpen);
+        Assert.Equal("senpai", Pessoal().Load().Single(t => t.Source == "先輩").Target);
+    }
+
+    [Fact]
+    public async Task Editar_muda_a_traducao_e_a_observacao_e_mantem_a_origem_e_o_original()
+    {
+        var pessoal = Alimentar();
+        var (vm, _) = await AbrirAsync(pessoal);
+
+        vm.Personal.EditCommand.Execute(vm.Personal.Rows.Single(r => r.Source == "先輩"));
+
+        Assert.Equal("Editar termo", vm.Personal.EditorTitle);
+        Assert.False(vm.Personal.CanEditSource);
+        Assert.Equal("manter em romaji", vm.Personal.EditNotes);
+        vm.Personal.EditTarget = "sênior";
+        vm.Personal.EditNotes = "";
+        vm.Personal.SaveEditCommand.Execute(null);
+
+        var termo = pessoal.Load().Single(t => t.Source == "先輩");
+        Assert.Equal("sênior", termo.Target);
+        Assert.Null(termo.Notes);
+        Assert.Equal(2, termo.ProjectCount);
+        Assert.Equal(PersonalTermState.Differs, vm.Personal.Rows.Single(r => r.Source == "先輩").State);
+    }
+
+    [Fact]
+    public async Task Remover_tira_o_termo_so_do_pessoal()
+    {
+        var pessoal = Alimentar();
+        var (vm, folder) = await AbrirAsync(pessoal);
+
+        vm.Personal.RemoveCommand.Execute(vm.Personal.Rows.Single(r => r.Source == "先輩"));
+
+        Assert.DoesNotContain(pessoal.Load(), t => t.Source == "先輩");
+        Assert.DoesNotContain(vm.Personal.Rows, r => r.Source == "先輩");
+        Assert.Contains(folder.LoadGlossary(), t => t.Source == "先輩");
+    }
+
+    [Fact]
+    public async Task Arquivo_com_termo_sem_original_vira_mensagem_na_abertura_do_glossario()
+    {
+        var pessoal = Pessoal();
+        Directory.CreateDirectory(Path.GetDirectoryName(pessoal.Path)!);
+        File.WriteAllText(pessoal.Path, """{"version":1,"entries":[{"target":"mano"}]}""");
+
+        var (vm, _) = await AbrirAsync(pessoal);
+
+        Assert.True(vm.Personal.HasError);
+        Assert.Empty(vm.Personal.Rows);
+    }
+
+    [Fact]
+    public async Task Com_um_termo_o_banner_usa_o_singular()
+    {
+        var pessoal = Pessoal();
+        pessoal.Upsert(new PersonalTerm("先輩", "senpai"));
+        var (vm, _) = await AbrirAsync(pessoal);
+
+        Assert.Equal("1 de 1 termo entrou", vm.Personal.BannerTitle);
+    }
 }

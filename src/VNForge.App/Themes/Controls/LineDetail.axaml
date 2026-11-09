@@ -69,6 +69,10 @@
     <Setter Property="IsHitTestVisible" Value="False"/>
   </Style>
 
+  <!-- Com o cartão da memória aberto o campo ocupa 44 px com a margem (quadro do #537), para a caixa do jogo e o "Cabe" ficarem na tela. -->
+  <Style Selector="ae|TextEditor.translation.tight">
+    <Setter Property="MinHeight" Value="28"/>
+  </Style>
   <Style Selector="ae|TextEditor.translation">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>

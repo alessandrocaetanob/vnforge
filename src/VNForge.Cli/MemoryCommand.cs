@@ -20,6 +20,7 @@ internal static class MemoryCommand
         command.Subcommands.Add(CreateSync(cli));
         command.Subcommands.Add(CreateFind(cli));
         command.Subcommands.Add(CreateStats(cli));
+        command.Subcommands.Add(CreateRemove(cli));
         return command;
     }
 
@@ -50,6 +51,17 @@ internal static class MemoryCommand
         return command;
     }
 
+    private static Command CreateRemove(VnfCli cli)
+    {
+        var project = new Argument<string>("projeto") { Description = "Nome do projeto, como 'vnf memory stats' mostra, ou a pasta dele." };
+        var command = new Command("remove", "Tira da memória todos os pares de um projeto (apagado, ou que você não quer mais como fonte).");
+        command.Arguments.Add(project);
+        command.SetAction(parseResult => Remove(cli, parseResult, parseResult.GetRequiredValue(project)));
+        return command;
+    }
+
+    private static string Pairs(int n) => $"{n.ToString(CultureInfo.InvariantCulture)} {(n == 1 ? "par" : "pares")}";
+
     private static int Sync(VnfCli cli, ParseResult parseResult)
     {
         var output = parseResult.InvocationConfiguration.Output;
@@ -62,8 +74,8 @@ internal static class MemoryCommand
         }
 
         output.WriteLine(result.Changed
-            ? $"Memória atualizada: {result.Added} novos, {result.Updated} trocados, {result.Removed} removidos. Este projeto tem {result.ProjectTotal} pares aprovados."
-            : $"A memória já estava em dia. Este projeto tem {result.ProjectTotal} pares aprovados.");
+            ? $"Memória atualizada: {result.Added} novos, {result.Updated} trocados, {result.Removed} removidos. Este projeto tem {Pairs(result.ProjectTotal)} {(result.ProjectTotal == 1 ? "aprovado" : "aprovados")}."
+            : $"A memória já estava em dia. Este projeto tem {Pairs(result.ProjectTotal)} {(result.ProjectTotal == 1 ? "aprovado" : "aprovados")}.");
         return ErrorHandler.OkExitCode;
     }
 
@@ -82,7 +94,7 @@ internal static class MemoryCommand
         var output = parseResult.InvocationConfiguration.Output;
         var project = OpenProject(cli, parseResult);
         var matches = new TranslationMemory(cli.UserConfigDirectory)
-            .Find(source, TranslationMemory.ProjectKeyOf(project), minimumPercent / 100.0, limit);
+            .Find(source, TranslationMemory.ProjectKeyOf(project), minimumPercent / 100.0, limit, project.LoadConfig().Name);
         if (parseResult.GetValue(cli.Options.Json))
         {
             output.WriteLine(JsonEnvelope.Result(new
@@ -123,16 +135,69 @@ internal static class MemoryCommand
     private static int Stats(VnfCli cli, ParseResult parseResult)
     {
         var output = parseResult.InvocationConfiguration.Output;
-        var stats = new TranslationMemory(cli.UserConfigDirectory).Stats();
+        var memory = new TranslationMemory(cli.UserConfigDirectory);
+        var stats = memory.Stats();
+        var projects = memory.Projects();
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { entries = stats.Entries, projects = stats.Projects }));
+            output.WriteLine(JsonEnvelope.Result(new
+            {
+                entries = stats.Entries,
+                projects = stats.Projects,
+                list = projects.Select(p => new { name = p.Name, folder = p.Key, entries = p.Entries }),
+            }));
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine(stats.Entries == 0
-            ? "A memória está vazia. Rode 'vnf memory sync' em um projeto com linhas aprovadas."
-            : $"{stats.Entries} pares aprovados em {stats.Projects} projetos.");
+        if (stats.Entries == 0)
+        {
+            output.WriteLine("A memória está vazia. Rode 'vnf memory sync' em um projeto com linhas aprovadas.");
+            return ErrorHandler.OkExitCode;
+        }
+
+        output.WriteLine($"{Pairs(stats.Entries)} {(stats.Entries == 1 ? "aprovado" : "aprovados")} em {stats.Projects.ToString(CultureInfo.InvariantCulture)} {(stats.Projects == 1 ? "projeto" : "projetos")}.");
+        var table = CliViews.NewTable(CliViews.Column("Projeto"), CliViews.Column("Pares", right: true), CliViews.Column("Pasta"));
+        foreach (var project in projects)
+        {
+            table.AddRow(
+                new Markup(CliViews.Escape(project.Name)),
+                new Markup(project.Entries.ToString(CultureInfo.InvariantCulture)),
+                new Markup($"[dim]{CliViews.Escape(project.Key)}[/]"));
+        }
+
+        cli.Ansi.Write(table);
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static int Remove(VnfCli cli, ParseResult parseResult, string argument)
+    {
+        var output = parseResult.InvocationConfiguration.Output;
+        var memory = new TranslationMemory(cli.UserConfigDirectory);
+        var wanted = argument.Trim();
+        var byFolder = TranslationMemory.KeyOf(Path.GetFullPath(wanted, cli.CurrentDirectory));
+        var found = memory.Projects()
+            .Where(p => string.Equals(p.Key, byFolder, StringComparison.OrdinalIgnoreCase) || string.Equals(p.Name, wanted, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (found.Count == 0)
+        {
+            throw new UsageException($"A memória não tem pares do projeto '{wanted}'. 'vnf memory stats' lista os projetos.");
+        }
+
+        if (found.Count > 1)
+        {
+            throw new UsageException($"Mais de um projeto se chama '{wanted}': {string.Join("; ", found.Select(p => p.Key))}. Passe a pasta do projeto.");
+        }
+
+        var removed = memory.RemoveProject(found[0].Key);
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { project = found[0].Name, folder = found[0].Key, removed }));
+        }
+        else
+        {
+            output.WriteLine($"Removidos {Pairs(removed)} do projeto {found[0].Name}.");
+        }
+
         return ErrorHandler.OkExitCode;
     }
 

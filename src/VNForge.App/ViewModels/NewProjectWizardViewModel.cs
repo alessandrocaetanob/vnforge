@@ -110,11 +110,18 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private readonly TimeProvider clock;
     private GameInspection? inspection;
 
-    /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
-    /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
     /// <summary>O glossário pessoal (#537): os termos marcados entram no <c>glossary.json</c> do projeto novo. Nulo cria o projeto sem eles.</summary>
     public PersonalGlossary? PersonalGlossary { get; init; }
 
+    /// <summary>Quantos termos do glossário pessoal entraram no projeto criado, ou por que não entraram; vazio quando não há glossário pessoal.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPersonalNotice))]
+    public partial string PersonalNotice { get; private set; } = string.Empty;
+
+    public bool HasPersonalNotice => PersonalNotice.Length > 0;
+
+    /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
+    /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
     public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null)
     {
         this.tasks = tasks;
@@ -536,6 +543,9 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             var options = BuildOptions();
             var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options, PersonalGlossary));
             Created = new ProjectResultInfo(result.Config.Name, result.Folder.Root);
+            PersonalNotice = result.PersonalGlossaryProblem ?? (result.SeededTerms > 0
+                ? $"{result.SeededTerms} {(result.SeededTerms == 1 ? "termo do glossário pessoal entrou" : "termos do glossário pessoal entraram")} no glossário do projeto."
+                : string.Empty);
             Step = WizardStep.Done;
             SaveBudget();
         }

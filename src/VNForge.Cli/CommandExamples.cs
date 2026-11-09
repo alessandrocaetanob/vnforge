@@ -36,6 +36,7 @@ public static class CommandExamples
         ["memory sync"] = ["vnf memory sync"],
         ["memory find"] = ["vnf memory find 先輩、おはよう --min 85"],
         ["memory stats"] = ["vnf memory stats"],
+        ["memory remove"] = ["vnf memory remove Hoshizora"],
         ["chars set"] = ["vnf chars set 美咲 Misaki --gender female"],
         ["chars list"] = ["vnf chars list"],
         ["title show"] = ["vnf title show"],

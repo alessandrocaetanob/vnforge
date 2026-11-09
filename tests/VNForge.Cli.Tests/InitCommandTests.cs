@@ -48,7 +48,7 @@ public sealed class InitCommandTests : IDisposable
         var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Glossário pessoal: 1 termos entraram", result.Output);
+        Assert.Contains("Glossário pessoal: 1 termo entrou", result.Output);
         Assert.Equal("お兄ちゃん", Assert.Single(ProjectFolder.Open(ProjectPath()).LoadGlossary()).Source);
     }
 

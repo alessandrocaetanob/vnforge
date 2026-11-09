@@ -82,7 +82,7 @@
       <c:PageHeader Title="Glossário">
         <StackPanel Orientation="Horizontal" Spacing="12">
           <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SaveStatus}" AutomationProperties.Name="Estado do salvamento"/>
-          <Button Command="{Binding AddCommand}" IsVisible="{Binding !IsPersonalTab}">
+          <Button Command="{Binding AddCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
               <TextBlock Text="{Binding AddLabel}"/>
@@ -421,7 +421,7 @@
                   <Border Classes="infobar error" Margin="16,12,16,0" IsVisible="{Binding HasError}">
                     <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Error}"/>
                   </Border>
-                  <Grid ColumnDefinitions="140,*,1.2*,90,150" ColumnSpacing="12" Margin="16,8,16,0">
+                  <Grid ColumnDefinitions="140,*,1.2*,90,150,64" ColumnSpacing="12" Margin="16,8,16,0">
                     <TextBlock Classes="overline" Text="Em japonês"/>
                     <TextBlock Grid.Column="1" Classes="overline" Text="Em português"/>
                     <TextBlock Grid.Column="2" Classes="overline" Text="Observação para a IA"/>
@@ -431,7 +431,7 @@
                   <ItemsControl ItemsSource="{Binding Rows}" Margin="0,4,0,8" AutomationProperties.Name="Termos do glossário pessoal">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:PersonalTermRow">
-                        <Grid ColumnDefinitions="140,*,1.2*,90,150" ColumnSpacing="12" Margin="16,0" MinHeight="44">
+                        <Grid ColumnDefinitions="140,*,1.2*,90,150,64" ColumnSpacing="12" Margin="16,0" MinHeight="44">
                           <TextBlock Classes="jp-body" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Source}"/>
                           <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Target}"/>
                           <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Notes}" ToolTip.Tip="{Binding Notes}"/>
@@ -452,6 +452,16 @@
                             <Button Classes="sm" Content="Usar no projeto" IsVisible="{Binding CanUse}" AutomationProperties.Name="{Binding Source, StringFormat='Usar {0} no projeto'}"
                                     Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Personal.UseCommand}" CommandParameter="{Binding}"/>
                           </Panel>
+                          <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                            <Button Classes="icon subtle sm" ToolTip.Tip="Editar o termo" AutomationProperties.Name="{Binding Source, StringFormat='Editar {0}'}"
+                                    Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Personal.EditCommand}" CommandParameter="{Binding}">
+                              <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Edit}"/>
+                            </Button>
+                            <Button Classes="icon subtle sm" ToolTip.Tip="Tirar do glossário pessoal. O glossário dos projetos não muda." AutomationProperties.Name="{Binding Source, StringFormat='Tirar {0} do glossário pessoal'}"
+                                    Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Personal.RemoveCommand}" CommandParameter="{Binding}">
+                              <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
+                            </Button>
+                          </StackPanel>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -494,6 +504,31 @@
                   </StackPanel>
                 </StackPanel>
               </Border>
+              <c:ScreenDialog Title="{Binding EditorTitle}" IsOpen="{Binding IsEditorOpen, Mode=TwoWay}">
+                <StackPanel Spacing="12" MinWidth="420">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="overline" Text="Em japonês"/>
+                    <TextBox Classes="jp" Text="{Binding EditSource}" IsEnabled="{Binding CanEditSource}" AutomationProperties.Name="Termo em japonês"/>
+                  </StackPanel>
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="overline" Text="Em português"/>
+                    <TextBox Text="{Binding EditTarget}" AutomationProperties.Name="Tradução do termo"/>
+                  </StackPanel>
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="overline" Text="Observação para a IA"/>
+                    <TextBox Text="{Binding EditNotes}" AcceptsReturn="False" AutomationProperties.Name="Observação do termo"/>
+                  </StackPanel>
+                  <Border Classes="infobar error" IsVisible="{Binding HasEditError}">
+                    <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding EditError}"/>
+                  </Border>
+                </StackPanel>
+                <c:ScreenDialog.Footer>
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button Content="Cancelar" Command="{Binding CancelEditCommand}"/>
+                    <Button Classes="accent" Content="Salvar" Command="{Binding SaveEditCommand}"/>
+                  </StackPanel>
+                </c:ScreenDialog.Footer>
+              </c:ScreenDialog>
             </Grid>
           </TabItem>
         </TabControl>

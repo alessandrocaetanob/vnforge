@@ -44,6 +44,9 @@ public sealed record ProjectInitResult(ProjectFolder Folder, ProjectConfig Confi
 {
     /// <summary>Quantos termos do glossário pessoal entraram no <c>glossary.json</c> do projeto novo (#537).</summary>
     public int SeededTerms { get; init; }
+
+    /// <summary>Por que o glossário pessoal não pôde ser lido e o projeto nasceu sem os termos dele; nulo quando leu (ou quando não havia glossário pessoal).</summary>
+    public string? PersonalGlossaryProblem { get; init; }
 }
 
 /// <summary>
@@ -126,19 +129,20 @@ public static class ProjectInitializer
             options.Ai ?? ProjectChoices.DefaultAi);
 
         var folder = ProjectFolder.Create(project, config);
-        return new ProjectInitResult(folder, config, engine, detection) { SeededTerms = SeedPersonalTerms(folder, personalGlossary) };
+        var (seeded, problem) = SeedPersonalTerms(folder, personalGlossary);
+        return new ProjectInitResult(folder, config, engine, detection) { SeededTerms = seeded, PersonalGlossaryProblem = problem };
     }
 
-    /// <summary>O glossário pessoal é um conforto: se o arquivo dele está ilegível o projeto nasce sem os termos, em vez de não nascer.</summary>
-    private static int SeedPersonalTerms(ProjectFolder folder, PersonalGlossary? personalGlossary)
+    /// <summary>O glossário pessoal é um conforto: se o arquivo dele está ilegível o projeto nasce sem os termos, em vez de não nascer, e o motivo volta para quem criou avisar.</summary>
+    private static (int Seeded, string? Problem) SeedPersonalTerms(ProjectFolder folder, PersonalGlossary? personalGlossary)
     {
         try
         {
-            return personalGlossary?.SeedProject(folder) ?? 0;
+            return (personalGlossary?.SeedProject(folder) ?? 0, null);
         }
-        catch (VNForgeException)
+        catch (VNForgeException e)
         {
-            return 0;
+            return (0, $"O projeto foi criado sem os termos do glossário pessoal. {e.Message}");
         }
     }
 

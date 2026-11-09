@@ -390,6 +390,7 @@ public sealed partial class GlossaryViewModel : ObservableObject
                 AddressTerms.Add();
                 break;
             case GlossaryTab.Personal:
+                Personal.BeginAdd();
                 break;
             default:
                 AddCharacter();

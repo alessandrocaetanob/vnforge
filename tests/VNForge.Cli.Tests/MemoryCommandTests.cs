@@ -173,4 +173,68 @@ public sealed class MemoryCommandTests : IDisposable
         Assert.Equal(1, (await Run("a", "glossary", "personal", "use", "先輩")).ExitCode);
         Assert.Equal(1, (await Run("a", "glossary", "personal", "remove", "先輩")).ExitCode);
     }
+
+    [Fact]
+    public async Task Remove_tira_os_pares_do_projeto_pelo_nome_ou_pela_pasta()
+    {
+        NovoProjeto("a", "Hoshizora no Kakera", Linha(1, "あ", "A."));
+        NovoProjeto("b", "Natsu no Shirabe", Linha(1, "い", "I."));
+        await Run("a", "memory", "sync");
+        await Run("b", "memory", "sync");
+
+        var porNome = await Run("b", "memory", "remove", "hoshizora no kakera", JsonOption);
+        var porPasta = await Run("a", "memory", "remove", PathOf("b"), JsonOption);
+        var depois = await Run("a", "memory", "remove", "Natsu no Shirabe");
+
+        Assert.Equal(0, porNome.ExitCode);
+        using (var doc = JsonDocument.Parse(porNome.Output))
+        {
+            Assert.Equal(1, doc.RootElement.GetProperty("data").GetProperty("removed").GetInt32());
+        }
+
+        Assert.Equal(0, porPasta.ExitCode);
+        Assert.Equal(1, depois.ExitCode);
+        Assert.Equal(0, new TranslationMemory(_cli.UserConfigDirectory).Stats().Entries);
+    }
+
+    [Fact]
+    public async Task Remove_com_dois_projetos_de_mesmo_nome_pede_a_pasta()
+    {
+        NovoProjeto("a", "Igual", Linha(1, "あ", "A."));
+        NovoProjeto("b", "Igual", Linha(1, "い", "I."));
+        await Run("a", "memory", "sync");
+        await Run("b", "memory", "sync");
+
+        var result = await Run("a", "memory", "remove", "Igual");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Equal(2, new TranslationMemory(_cli.UserConfigDirectory).Stats().Entries);
+    }
+
+    [Fact]
+    public async Task Stats_lista_os_projetos_e_usa_o_singular()
+    {
+        NovoProjeto("a", "Hoshizora no Kakera", Linha(1, "あ", "A."));
+        await Run("a", "memory", "sync");
+
+        var result = await Run("a", "memory", "stats");
+        var sync = await Run("a", "memory", "sync");
+
+        Assert.Contains("1 par aprovado em 1 projeto.", result.Output);
+        Assert.Contains("Hoshizora no Kakera", result.Output);
+        Assert.Contains("1 par aprovado", sync.Output);
+        Assert.DoesNotContain("1 pares", sync.Output);
+    }
+
+    [Fact]
+    public async Task Find_nao_sugere_par_de_projeto_com_o_mesmo_nome_em_outra_pasta()
+    {
+        NovoProjeto("antigo", "Amaoto no Hakoniwa", Linha(1, Frase, "Atrasados."));
+        NovoProjeto("novo", "Amaoto no Hakoniwa");
+        await Run("antigo", "memory", "sync");
+
+        var result = await Run("novo", "memory", "find", Frase);
+
+        Assert.Contains("Nenhum par parecido", result.Output);
+    }
 }

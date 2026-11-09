@@ -7,9 +7,10 @@ namespace VNForge.Core.Memory;
 
 /// <summary>
 /// Arquivo JSON do usuário, na pasta de configuração, com o envelope <c>{ "version": 1, "entries": [...] }</c> e uma entrada por linha.
+/// <paramref name="validate"/> confere os campos obrigatórios de cada entrada (o JSON aceita campo ausente como nulo) e lança <see cref="MemoryFileException"/>; o que ele devolve é a lista lida.
 /// Diferente de <c>recent.json</c>, um arquivo ilegível não vira lista vazia: a gravação seguinte o apagaria, e a memória vale meses de trabalho.
 /// </summary>
-internal sealed class UserEntriesFile<T>(string path)
+internal sealed class UserEntriesFile<T>(string path, Func<string, List<T>, List<T>>? validate = null)
     where T : class
 {
     private const int CurrentVersion = 1;
@@ -50,7 +51,16 @@ internal sealed class UserEntriesFile<T>(string path)
                 throw new MemoryFileException(Path, $"a versão {envelope.Version} não é conhecida por esta versão do VNForge.");
             }
 
-            return envelope.Entries?.Where(e => e is not null).ToList() ?? throw new JsonException("falta a lista 'entries'.");
+            var entries = envelope.Entries ?? throw new JsonException("falta a lista 'entries'.");
+            for (var i = 0; i < entries.Count; i++)
+            {
+                if (entries[i] is null)
+                {
+                    throw new MemoryFileException(Path, $"a entrada {i + 1} está vazia.");
+                }
+            }
+
+            return validate?.Invoke(Path, entries) ?? entries;
         }
         catch (MemoryFileException)
         {

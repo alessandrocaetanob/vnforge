@@ -40,10 +40,30 @@ public sealed class PersonalGlossary(string directory)
 {
     public const string FileName = "personal-glossary.json";
 
-    private readonly UserEntriesFile<PersonalTerm> file = new(System.IO.Path.Combine(directory, FileName));
+    private readonly UserEntriesFile<PersonalTerm> file = new(System.IO.Path.Combine(directory, FileName), ValidateTerms);
     private readonly object gate = new();
 
     public string Path => file.Path;
+
+    private static List<PersonalTerm> ValidateTerms(string path, List<PersonalTerm> terms)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < terms.Count; i++)
+        {
+            var t = terms[i];
+            if (string.IsNullOrWhiteSpace(t.Source) || string.IsNullOrWhiteSpace(t.Target))
+            {
+                throw new MemoryFileException(path, $"o termo {i + 1} não tem o original ou a tradução.");
+            }
+
+            if (!seen.Add(t.Source.Trim()))
+            {
+                throw new MemoryFileException(path, $"o termo '{t.Source.Trim()}' aparece mais de uma vez.");
+            }
+        }
+
+        return terms;
+    }
 
     /// <summary>Os termos, na ordem em que foram guardados.</summary>
     /// <exception cref="MemoryFileException">O arquivo existe e não pôde ser lido.</exception>

@@ -18,6 +18,8 @@ public sealed class PersonalTermRow(PersonalTerm term, PersonalTermState state)
 
     public string Notes => term.Notes ?? string.Empty;
 
+    public PersonalTerm Term => term;
+
     /// <summary>"4 projetos"; um termo escrito à mão, que não veio de projeto nenhum, diz "à mão".</summary>
     public string ProjectsText => term.ProjectCount switch
     {
@@ -75,7 +77,9 @@ public sealed partial class PersonalGlossaryViewModel(
 
     public string ProjectTermsText => Summarize(ProjectTermCount);
 
-    public string BannerTitle => $"{Rows.Count(r => r.IsInProject).ToString(CultureInfo.InvariantCulture)} de {Count.ToString(CultureInfo.InvariantCulture)} termos entraram";
+    public string BannerTitle => Count == 1
+        ? $"{Rows.Count(r => r.IsInProject).ToString(CultureInfo.InvariantCulture)} de 1 termo entrou"
+        : $"{Rows.Count(r => r.IsInProject).ToString(CultureInfo.InvariantCulture)} de {Count.ToString(CultureInfo.InvariantCulture)} termos entraram";
 
     public string BannerText => "Entram quando o projeto é criado ou pelo botão Usar no projeto.";
 
@@ -89,6 +93,127 @@ public sealed partial class PersonalGlossaryViewModel(
     public bool HasError => !string.IsNullOrEmpty(Error);
 
     private int ProjectTermCount { get; set; }
+
+    private PersonalTerm? editing;
+
+    /// <summary>O diálogo de adicionar ou editar um termo está aberto.</summary>
+    [ObservableProperty]
+    public partial bool IsEditorOpen { get; set; }
+
+    [ObservableProperty]
+    public partial string EditorTitle { get; private set; } = "Adicionar termo";
+
+    [ObservableProperty]
+    public partial string EditSource { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string EditTarget { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string EditNotes { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEditError))]
+    public partial string? EditError { get; private set; }
+
+    public bool HasEditError => !string.IsNullOrEmpty(EditError);
+
+    /// <summary>O original é a chave do termo: ao editar um termo que já existe só a tradução e a observação mudam.</summary>
+    public bool CanEditSource => editing is null;
+
+    /// <summary>"Adicionar termo": abre o diálogo com os campos em branco. Sem glossário pessoal montado (testes e galeria) não abre.</summary>
+    public void BeginAdd()
+    {
+        if (store() is null)
+        {
+            return;
+        }
+
+        OpenEditor(null);
+    }
+
+    [RelayCommand]
+    private void Edit(PersonalTermRow? row)
+    {
+        if (row is not null)
+        {
+            OpenEditor(row.Term);
+        }
+    }
+
+    private void OpenEditor(PersonalTerm? term)
+    {
+        editing = term;
+        EditorTitle = term is null ? "Adicionar termo" : "Editar termo";
+        EditSource = term?.Source ?? string.Empty;
+        EditTarget = term?.Target ?? string.Empty;
+        EditNotes = term?.Notes ?? string.Empty;
+        EditError = null;
+        OnPropertyChanged(nameof(CanEditSource));
+        IsEditorOpen = true;
+    }
+
+    [RelayCommand]
+    private void CancelEdit() => IsEditorOpen = false;
+
+    /// <summary>Grava o termo do diálogo. Termo novo cujo original já está no glossário pessoal não troca o que existe: a pessoa edita o que existe.</summary>
+    [RelayCommand]
+    private void SaveEdit()
+    {
+        if (store() is not { } personal)
+        {
+            return;
+        }
+
+        var source = EditSource.Trim();
+        var target = EditTarget.Trim();
+        if (source.Length == 0 || target.Length == 0)
+        {
+            EditError = "Escreva o original e a tradução.";
+            return;
+        }
+
+        try
+        {
+            if (editing is null && personal.Load().Any(t => t.Source == source))
+            {
+                EditError = $"'{source}' já está no glossário pessoal. Edite o termo que existe.";
+                return;
+            }
+
+            personal.Upsert(new PersonalTerm(source, target, EditNotes, editing?.Projects, editing?.Seed ?? true));
+        }
+        catch (VNForgeException e)
+        {
+            EditError = e.Message;
+            return;
+        }
+
+        IsEditorOpen = false;
+        Refresh();
+    }
+
+    /// <summary>Tira o termo do glossário pessoal. O glossário dos projetos não muda, nem o dos que já o usam.</summary>
+    [RelayCommand]
+    private void Remove(PersonalTermRow? row)
+    {
+        if (row is null || store() is not { } personal)
+        {
+            return;
+        }
+
+        try
+        {
+            personal.Remove(row.Source);
+        }
+        catch (VNForgeException e)
+        {
+            Error = e.Message;
+            return;
+        }
+
+        Refresh();
+    }
 
     private static string Summarize(int n) => n == 1 ? "1 termo" : $"{n.ToString(CultureInfo.InvariantCulture)} termos";
 
@@ -114,7 +239,7 @@ public sealed partial class PersonalGlossaryViewModel(
                     Candidates.Add(new KeepCandidateRow(candidate));
                 }
             }
-            catch (MemoryFileException e)
+            catch (VNForgeException e)
             {
                 Error = $"O glossário pessoal não pôde ser lido: {e.Message}";
             }

@@ -177,4 +177,48 @@ public sealed class LineMemoryTests : IDisposable
         {
         }
     }
+
+    [Fact]
+    public async Task Projeto_de_origem_com_o_mesmo_nome_do_atual_nao_aparece_no_cartao()
+    {
+        var memoria = new TranslationMemory(Config);
+        memoria.Record(TranslationMemory.KeyOf(Path.Combine(pasta.Path, "antigo")), "Amaoto no Hakoniwa", Aprovada("a:000001", "Do projeto movido."), relogio.GetUtcNow());
+        using var vm = Abrir(DoProjeto(memoria));
+
+        vm.ShowMemory();
+        await vm.MemoryLoading;
+
+        Assert.False(vm.HasMemory);
+    }
+
+    [Fact]
+    public void ProjectMemory_com_arquivo_ilegivel_nao_derruba_a_edicao()
+    {
+        Directory.CreateDirectory(Config);
+        File.WriteAllText(Path.Combine(Config, TranslationMemory.FileName), """{"version":1,"entries":[{"target":"x"}]}""");
+        var projeto = DoProjeto(new TranslationMemory(Config));
+
+        Assert.Empty(projeto.Find(Frase));
+        projeto.Record(Aprovada("a:000001", "x"));
+        projeto.Sync([Aprovada("a:000001", "x")]);
+    }
+
+    [Fact]
+    public async Task A_data_da_aprovacao_usa_o_fuso_do_relogio_injetado()
+    {
+        var memoria = new TranslationMemory(Config);
+        memoria.Record(TranslationMemory.KeyOf(Path.Combine(pasta.Path, "estrela")), "Hoshizora no Kakera", Aprovada("a:000001", "Atrasados."), new DateTimeOffset(2026, 9, 15, 1, 30, 0, TimeSpan.Zero));
+        var relogioBrasilia = new FakeTimeProvider(new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero));
+        relogioBrasilia.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("teste", TimeSpan.FromHours(-3), "teste", "teste"));
+        var unidade = new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "美咲", Frase, "Outra.", TranslationStatus.Machine);
+        using var vm = new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogioBrasilia), new Navegador(), relogioBrasilia, acao => acao())
+        {
+            Memory = DoProjeto(memoria),
+        };
+
+        vm.ShowMemory();
+        await vm.MemoryLoading;
+
+        Assert.Equal("Hoshizora no Kakera · aprovada em 14/09", vm.MemorySuggestions.Single().Origin);
+    }
 }

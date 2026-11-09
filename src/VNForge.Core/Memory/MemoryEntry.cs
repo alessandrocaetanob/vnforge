@@ -23,3 +23,9 @@ public sealed record MemorySyncResult(int Added, int Updated, int Removed, int P
 
 /// <summary>Tamanho da memória: quantos pares e de quantos projetos.</summary>
 public sealed record MemoryStats(int Entries, int Projects);
+
+/// <summary>Um projeto que tem pares na memória.</summary>
+/// <param name="Key">Chave do projeto (a pasta dele).</param>
+/// <param name="Name">Nome do projeto quando os pares foram gravados.</param>
+/// <param name="Entries">Quantos pares ele tem.</param>
+public sealed record MemoryProject(string Key, string Name, int Entries);

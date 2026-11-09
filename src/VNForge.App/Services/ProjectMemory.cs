@@ -21,7 +21,7 @@ public sealed class ProjectMemory(TranslationMemory memory, string projectRoot, 
     {
         try
         {
-            return memory.Find(source, key);
+            return memory.Find(source, key, excludeProjectName: projectName);
         }
         catch (MemoryFileException)
         {

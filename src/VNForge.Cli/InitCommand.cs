@@ -103,6 +103,7 @@ internal static class InitCommand
                 scriptKey = result.Config.Engine.ScriptKey,
                 summary = result.Detection.Summary,
                 personalTerms = result.SeededTerms,
+                personalGlossaryProblem = result.PersonalGlossaryProblem,
                 warnings,
             }));
             return ErrorHandler.OkExitCode;
@@ -126,7 +127,12 @@ internal static class InitCommand
 
         if (result.SeededTerms > 0)
         {
-            output.WriteLine($"Glossário pessoal: {result.SeededTerms} termos entraram no glossário do projeto.");
+            output.WriteLine($"Glossário pessoal: {result.SeededTerms} {(result.SeededTerms == 1 ? "termo entrou" : "termos entraram")} no glossário do projeto.");
+        }
+
+        if (result.PersonalGlossaryProblem is not null)
+        {
+            output.WriteLine($"Aviso: {result.PersonalGlossaryProblem}");
         }
 
         output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");

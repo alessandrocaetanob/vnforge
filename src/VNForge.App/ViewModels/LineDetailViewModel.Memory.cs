@@ -95,7 +95,7 @@ public sealed partial class LineDetailViewModel
 
     private static string OriginText(MemoryEntry entry, DateTimeOffset now)
     {
-        var when = entry.ApprovedAt.ToLocalTime();
+        var when = entry.ApprovedAt.ToOffset(now.Offset);
         var date = when.Year == now.Year ? when.ToString("dd/MM", CultureInfo.InvariantCulture) : when.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         return $"{entry.ProjectName} · aprovada em {date}";
     }

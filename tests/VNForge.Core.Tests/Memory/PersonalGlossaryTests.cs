@@ -216,4 +216,53 @@ public sealed class PersonalGlossaryTests : IDisposable
 
         public IReadOnlyList<IGamePatch> Patches => [];
     }
+
+    private void EscreverArquivo(string json)
+    {
+        Directory.CreateDirectory(Config);
+        File.WriteAllText(Path.Combine(Config, PersonalGlossary.FileName), json);
+    }
+
+    [Fact]
+    public void Termo_sem_original_ou_sem_traducao_e_erro_do_arquivo_e_nao_excecao_solta()
+    {
+        EscreverArquivo("""{"version":1,"entries":[{"target":"mano"}]}""");
+        var pessoal = Pessoal();
+
+        var erro = Assert.Throws<MemoryFileException>(() => pessoal.Load());
+        Assert.Contains("termo 1", erro.Message);
+        Assert.Throws<MemoryFileException>(() => pessoal.WorthKeeping([new GlossaryTerm("先輩", "senpai")]));
+        Assert.Throws<MemoryFileException>(() => pessoal.SeedProject(NovoProjeto("p")));
+
+        EscreverArquivo("""{"version":1,"entries":[{"source":"先輩"}]}""");
+        Assert.Throws<MemoryFileException>(() => Pessoal().Load());
+    }
+
+    [Fact]
+    public void Original_repetido_no_arquivo_e_erro_e_o_arquivo_fica_como_esta()
+    {
+        var json = """{"version":1,"entries":[{"source":"先輩","target":"a"},{"source":"先輩 ","target":"b"}]}""";
+        EscreverArquivo(json);
+        var pessoal = Pessoal();
+
+        var erro = Assert.Throws<MemoryFileException>(() => pessoal.Upsert(new PersonalTerm("傘", "guarda-chuva")));
+
+        Assert.Contains("先輩", erro.Message);
+        Assert.Equal(json, File.ReadAllText(pessoal.Path));
+    }
+
+    [Fact]
+    public void Inicializador_avisa_quando_o_glossario_pessoal_esta_ilegivel()
+    {
+        var jogo = Path.Combine(temp.Path, "jogo");
+        Directory.CreateDirectory(jogo);
+        File.WriteAllText(Path.Combine(jogo, "Jogo.exe"), "MZ");
+        EscreverArquivo("""{"version":1,"entries":[{"target":"mano"}]}""");
+        var engine = new DetectedEngine(EngineDetection.Matched("parece fake", new Dictionary<string, string>()));
+
+        var resultado = ProjectInitializer.Initialize(Path.Combine(temp.Path, "projeto"), jogo, [engine], personalGlossary: Pessoal());
+
+        Assert.Equal(0, resultado.SeededTerms);
+        Assert.Contains("sem os termos do glossário pessoal", resultado.PersonalGlossaryProblem);
+    }
 }

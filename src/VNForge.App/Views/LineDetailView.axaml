@@ -90,9 +90,16 @@
 
           <!-- Original em fundo rebaixado, com os marcadores como chips. -->
           <StackPanel x:Name="OriginalFragment" Spacing="6">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
               <TextBlock Classes="overline" Text="Original" VerticalAlignment="Center"/>
-              <SelectableTextBlock Grid.Column="1" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
+              <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding HasMemory}"
+                      ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução." AutomationProperties.Name="Entender o japonês">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+                  <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
+              <SelectableTextBlock Grid.Column="2" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Falante"/>
             </Grid>
             <Border Classes="original">
@@ -102,7 +109,7 @@
 
           <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
           <StackPanel x:Name="ExplainFragment" Spacing="6">
-            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}"
+            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding !HasMemory}"
                     ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -124,7 +131,7 @@
             <StackPanel Spacing="2">
               <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Book}"/>
+                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Database}"/>
                   <TextBlock Classes="overline" Text="Memória de tradução"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding MemorySummary}"/>
@@ -167,10 +174,13 @@
 
           <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
           <StackPanel x:Name="TranslationFragment" Spacing="6">
-            <TextBlock Classes="overline" Text="Tradução"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="overline" Text="Tradução"/>
+              <TextBlock Grid.Column="1" Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding HasMemory}"/>
+            </Grid>
             <Border Classes="field">
               <Panel>
-                <ae:TextEditor x:Name="TranslationEditor" Classes="translation" Margin="10,8" AutomationProperties.Name="Tradução"/>
+                <ae:TextEditor x:Name="TranslationEditor" Classes="translation" Classes.tight="{Binding HasMemory}" Margin="10,8" AutomationProperties.Name="Tradução"/>
                 <Border Classes="fieldline"/>
               </Panel>
             </Border>
@@ -181,14 +191,16 @@
               <Panel IsVisible="{Binding Preview.HasLayout}">
                 <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Left" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
               </Panel>
-              <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
-                <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
-                <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
-                <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}" AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
-              </StackPanel>
-              <StackPanel x:Name="WrapOffRow" Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsNeutral}">
-                <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
-                <TextBlock Classes="meta secondary" Text="{Binding FitText}" AutomationProperties.Name="A quebra de linha está desligada no perfil"/>
+              <StackPanel IsVisible="{Binding !HasMemory}">
+                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
+                  <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
+                  <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
+                  <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}" AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
+                </StackPanel>
+                <StackPanel x:Name="WrapOffRow" Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsNeutral}">
+                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
+                  <TextBlock Classes="meta secondary" Text="{Binding FitText}" AutomationProperties.Name="A quebra de linha está desligada no perfil"/>
+                </StackPanel>
               </StackPanel>
               <StackPanel Spacing="4" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
                 <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
@@ -197,7 +209,18 @@
               </StackPanel>
             </StackPanel>
             <WrapPanel ItemSpacing="12" LineSpacing="2" AutomationProperties.Name="Medidas da tradução">
-              <TextBlock Classes="meta" Text="{Binding CharsText}"/>
+              <StackPanel IsVisible="{Binding HasMemory}">
+                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
+                  <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
+                  <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
+                  <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsNeutral}">
+                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
+                  <TextBlock Classes="meta secondary" Text="{Binding FitText}"/>
+                </StackPanel>
+              </StackPanel>
+              <TextBlock Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding !HasMemory}"/>
               <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding MarkerStateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding MarkersMatch}" Data="{StaticResource Icon.Check}" IsVisible="{Binding MarkersMatch}"/>
                 <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding !MarkersMatch}"/>
@@ -213,8 +236,8 @@
 
           <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
           <StackPanel x:Name="SameSourceFragment" Spacing="6" IsVisible="{Binding HasSameSource}">
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}"/>
-            <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}"
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}" IsVisible="{Binding !HasMemory}"/>
+            <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}" IsVisible="{Binding !HasMemory}"
                     ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
               <TextBlock Text="Usar em todos"/>
             </Button>
