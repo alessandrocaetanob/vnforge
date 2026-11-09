@@ -89,6 +89,19 @@ public sealed class WindowCapturerTests
     }
 
     [Fact]
+    public void Imagem_preta_de_janela_coberta_por_outra_nao_cai_para_a_copia_da_tela()
+    {
+        RequireWindows();
+        // Preta, o PrintWindow não distingue de "o jogo não deixou copiar": cai para a cópia da tela, que traria a janela vermelha de cima.
+        using var game = new TestWindow(0, 0, 0);
+        using var covering = new TestWindow(Red, Green, Blue);
+
+        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: game.Handle)));
+
+        Assert.Contains("Traga o jogo para a frente", error.Message);
+    }
+
+    [Fact]
     public void Sem_dizer_qual_janela_nao_captura_nada()
     {
         RequireWindows();

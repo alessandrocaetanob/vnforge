@@ -143,6 +143,17 @@ internal static unsafe partial class NativeWindows
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetClientRect(nint window, out Rect rect);
 
+    [LibraryImport("user32.dll")]
+    public static partial nint GetForegroundWindow();
+
+    /// <summary>GA_ROOT (2): a janela de nível mais alto de uma janela filha.</summary>
+    [LibraryImport("user32.dll")]
+    public static partial nint GetAncestor(nint window, uint flags);
+
+    /// <summary>A janela visível mais à frente naquele ponto da tela, ou zero se o ponto está fora de qualquer janela.</summary>
+    [LibraryImport("user32.dll")]
+    public static partial nint WindowFromPoint(Point point);
+
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ClientToScreen(nint window, ref Point point);

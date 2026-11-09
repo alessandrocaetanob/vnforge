@@ -6,11 +6,12 @@ namespace VNForge.Platform.Windows;
 /// <summary>
 /// O <see cref="IWindowCapturer"/> de verdade: acha a janela e copia a área do jogo (sem a barra de título). Primeiro pede a imagem à própria janela
 /// (<c>PrintWindow</c> com <c>PW_RENDERFULLCONTENT</c>), que não depende de ela estar à frente de outras. Se vier toda preta, como acontece com alguns jogos de DirectX,
-/// copia da tela o mesmo retângulo, o que só dá certo com a janela visível e sem nada por cima. Jogo em tela cheia exclusiva pode sair preto nos dois caminhos.
+/// copia da tela o mesmo retângulo, mas só quando a janela é a de primeiro plano e nada a cobre; do contrário a captura falha e pede o jogo à frente, porque a cópia traria o conteúdo de outro programa. Jogo em tela cheia exclusiva pode sair preto nos dois caminhos.
 /// </summary>
 public sealed class WindowCapturer : IWindowCapturer
 {
     private const uint OwnerWindow = 4;
+    private const uint RootAncestor = 2;
 
     public WindowImage Capture(WindowTarget target)
     {
@@ -161,8 +162,14 @@ public sealed class WindowCapturer : IWindowCapturer
             var fromWindow = NativeWindows.PrintWindow(window, memory, NativeWindows.PrintClientRenderFull);
             new ReadOnlySpan<byte>(bits, pixels.Length).CopyTo(pixels);
 
-            if ((!fromWindow || IsBlank(pixels)) && NativeWindows.IsWindowVisible(window))
+            if (!fromWindow || IsBlank(pixels))
             {
+                // A cópia da tela traz o que estiver por cima da janela, que pode ser conteúdo de outro programa.
+                if (!IsInFront(window, width, height))
+                {
+                    throw new LibraryException("Não consegui a imagem da janela por ela mesma e outra janela está na frente do jogo. Traga o jogo para a frente e tente de novo.");
+                }
+
                 var origin = new NativeWindows.Point();
                 if (NativeWindows.ClientToScreen(window, ref origin) && NativeWindows.BitBlt(memory, 0, 0, width, height, screen, origin.X, origin.Y, NativeWindows.ScreenCopy))
                 {
@@ -195,6 +202,39 @@ public sealed class WindowCapturer : IWindowCapturer
 
             NativeWindows.ReleaseDC(0, screen);
         }
+    }
+
+    /// <summary>
+    /// Vale para copiar da tela: a janela é a de primeiro plano e o centro e os quatro cantos da área do jogo, a um pixel da borda, caem nela e não em outra janela.
+    /// Ponto fora de qualquer janela ou da tela também reprova.
+    /// </summary>
+    [SupportedOSPlatform("windows")]
+    private static bool IsInFront(nint window, int width, int height)
+    {
+        var root = NativeWindows.GetAncestor(window, RootAncestor);
+        var foreground = NativeWindows.GetForegroundWindow();
+        if (root == 0 || foreground == 0 || NativeWindows.GetAncestor(foreground, RootAncestor) != root)
+        {
+            return false;
+        }
+
+        (int X, int Y)[] probes = [(1, 1), (width - 2, 1), (1, height - 2), (width - 2, height - 2), (width / 2, height / 2)];
+        foreach (var (x, y) in probes)
+        {
+            var point = new NativeWindows.Point { X = x, Y = y };
+            if (!NativeWindows.ClientToScreen(window, ref point))
+            {
+                return false;
+            }
+
+            var top = NativeWindows.WindowFromPoint(point);
+            if (top == 0 || NativeWindows.GetAncestor(top, RootAncestor) != root)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool IsBlank(byte[] bgra)
