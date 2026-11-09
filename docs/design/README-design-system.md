@@ -1,14 +1,68 @@
-Sistema visual do VNForge, o aplicativo Windows de tradução de visual novels, implementado em Avalonia 12 sobre .NET 10. A base é a v2 (tokens, tipografia, componentes); a interface v3 (plano [2026-10-25-interface-v3.md](../plans/2026-10-25-interface-v3.md)) acrescenta termos, regras de tela e os componentes da seção **Componentes da v3**. Os valores daqui viram recursos XAML (ver `avalonia.md`); as prévias em HTML são a referência visual de cada controle e as capturas em `telas/v3/` mostram o app renderizado.
+Sistema visual do VNForge, o aplicativo Windows que traduz visual novels, em Avalonia 12 sobre .NET 10. A v3 é a direção **A · Estante** do quadro da #542: a capa é a protagonista, a interface recua, o ar entre as coisas é generoso e o verde-água marca o que é interativo. A base é a v2 (mesmos nomes de token, mesmo gerador; o design da v2 segue registrado em [README.md](README.md)): `tokens.json` gera `Tokens.axaml` por `tools/Generate-Tokens.ps1`, sem mudança no script.
 
 ## Conteúdo
 
-- Interface em português do Brasil, caixa de frase em tudo: "Traduzir com IA", "Testar no jogo", "Voltar ao jogo original".
-- Botões começam com verbo no infinitivo ("Aprovar e próxima", "Restaurar originais"). Itens de navegação são substantivos de uma palavra ("Editor", "Conferir", "Testar").
-- Termos fixos do produto: **linha** (unidade de texto), **script** (arquivo `yst*.ybn`), **marcador** (`\p`, `\n`, `\c`, `{VAR:…}`), **perfil de formatação**, **build**, **injetar**, **restaurar**. Não alternar com sinônimos. Na v3, build, injetar, restaurar e o marcador cru saem das telas de uso (ver **Termos da v3**) e seguem no log, na CLI e na documentação técnica, onde são as palavras certas.
-- Números e moeda no formato pt-BR: `48.211 linhas`, `R$ 142,56`, `62%`. As telas de uso mostram dinheiro só em reais; o dólar e a cotação aparecem nos Ajustes e no Novo projeto, onde a pessoa informa a cotação. Valor abaixo de um centavo é "menos de R$ 0,01", nunca R$ 0,00. Datas relativas até 7 dias ("há 2 min", "ontem"), depois `17/10/2026`.
-- Nomes de personagem aparecem como original → tradução na primeira menção de uma tela (`美咲 → Misaki`) e só a tradução no resto.
-- Mensagens dizem o fato e a consequência: "2 erros bloqueiam o build." Sem exclamação, sem emoji, sem "Ops".
-- Atalhos escritos como no Windows: `Ctrl+Enter`, `Alt+↓`, `Ctrl+Espaço`.
+- Interface em português do Brasil, caixa de frase em tudo: "Traduzir com IA", "Apontar pasta", "Abrir jogo".
+- Botão começa com verbo no infinitivo ("Aprovar e próxima", "Varrer de novo"). Item do trilho é substantivo de uma palavra ("Biblioteca", "Fila", "Ajustes").
+- Termos fixos: **jogo** (uma VN na Biblioteca), **ficha** (capa, sinopse, duração, tags e personagens do VNDB), **linha**, **script**, **marcador**, **cena**. Não alternar com "título", "item" ou "entrada".
+- Uma tela responde a uma pergunta e tem um botão principal. A Biblioteca responde "o que eu tenho e o que falta traduzir?"; o Editor, "essa linha está boa?".
+- Números e moeda no formato pt-BR: `48.211 linhas`, `R$ 142,56`, `38%`. Duração do jogo como o VNDB: "Curta", "Média", "Longa" seguida das horas, em "Média · 18 h".
+- Spoiler e conteúdo adulto ficam escondidos por padrão e dizem o que esconderam: "2 de spoiler escondidas", "Conteúdo adulto escondido". Nunca mostrar a arte adulta como miniatura.
+- Mensagens dizem o fato e a consequência: "Corrija 2 erros antes de testar." Sem exclamação, sem emoji.
+
+## Cores
+
+- O app segue o tema do Windows. **Escuro** é a referência; **Claro** tem os mesmos papéis. As cores vêm de `tokens.json`, nunca de valor solto.
+- Camadas, de baixo para cima: `bg-base` (janela e trilho), `bg-layer` (área de conteúdo), `bg-card` (painéis, gaveta, diálogos). Hover em `bg-card-hover`; campos, trilhos de barra e tags em `bg-inset`.
+- Painéis se separam por `stroke-subtle`. Só o que flutua usa sombra (`shadow-flyout`), e só a capa usa `shadow-cover`.
+- `accent` (verde-água) é a cor de interação: botão accent, aba ativa, chip de filtro ativo, anel da capa selecionada, progresso. Texto em destaque usa `accent-text`; fundo de seleção, `accent-soft`; texto sobre o acento, `on-accent`.
+- `brand-shu` é só do selo 訳. `accent` e o verde de "Pronta" (`status-approved-*`) são parentes: por isso todo selo de estado leva uma palavra e a barra de progresso leva legenda.
+- Estados da linha usam os pares `status-*-bg` e `status-*-fg`: Pronta (`approved`), Revisada (`reviewed`), Sua (`translated`), IA (`ai`), Em japonês (`pending`). Aviso e erro do QA usam `signal-warning-*` e `signal-error-*`.
+- Barras e anel usam `seg-*`. A caixa do jogo usa `textbox-*` e o palco da revisão usa `stage-*`, iguais nos dois temas porque representam o jogo.
+- Selo e dica sobre a capa usam `cover-chip-*`; o jogo adulto usa `cover-veil-bg`, opaco. Nome de personagem usa `speaker-1` a `speaker-8`: cada personagem guarda um índice e a cor sai do tema.
+- Contraste: todo texto passa 4,5:1 sobre os fundos citados na nota do token; borda de controle, anel de foco, acento e barras passam 3:1. A tabela está em "Contraste".
+
+## Tipografia
+
+- Só as fontes que o app já embute sob SIL OFL: **Zen Kaku Gothic New** (Medium, Bold) nos títulos, **Noto Sans** (Regular, Medium, SemiBold) na interface, **Noto Sans JP** (Regular, Medium) no texto original e **JetBrains Mono** (Regular, Medium) em ids e na caixa do jogo. Nenhuma fonte nova entra com a v3; o Noto Sans Bold continua fora, então a interface usa no máximo o peso 600.
+- Títulos em `title-xl` (34/40), `title-lg` (24/32), `title-md` (17/24) e `title-sm` (15/20), na família `display`, sempre Bold. Um `title-xl` por tela.
+- Texto corrido em `body` (14/20); rótulo de botão em `body-strong`; linhas e listas em `body-sm`; metadados em `caption`. Cabeçalho de coluna em `column-header`; rótulo de campo em `overline` (caixa alta, 0,07 em).
+- Japonês sempre na família `jp`: `jp-body` (19/30) no inspetor, `jp-row` (13/18) na grade.
+
+## Espaço, tamanho e forma
+
+- Grade de 4 px: `space-1` a `space-10`. Gap da grade de capas em `space-5` e `space-6`; padding de painel em `space-4`; de gaveta e diálogo em `space-6`; margem da página em `space-8`.
+- Controles em `control-md` (32); barras de comando em `control-sm` (28); ação principal de diálogo e de tela vazia em `control-lg` (40). Linha da grade em `row-height` (48), fixa por causa da virtualização.
+- Estrutura da janela: `titlebar-height` 40, `navrail-width` 80, `statusbar-height` 28. Gaveta da Biblioteca em `drawer-width` (396); inspetor em `inspector-width` (384); lista de cenas em `scripts-width` (220).
+- Raios: `radius-sm` (8) em controles; `radius-md` (12) em blocos internos; `radius-lg` (16) em painéis, capas e retratos grandes; `radius-xl` (20) na gaveta; `radius-pill` em chip, tag e selo. Os painéis de hoje usam `radius-md` (era 8): passam para `radius-lg` na migração.
+
+## Capa e personagem
+
+- A **capa** é um elemento de primeira classe: proporção fixa 3:4, `radius-lg`, `shadow-cover`, imagem cortada por centro (`UniformToFill`). Tamanhos: `cover-card-min` (200 de largura mínima na grade), `cover-drawer-width` (150 na gaveta), `cover-thumb-width` (44 em cabeçalho e lista).
+- Estados da capa: **selecionada** (anel de 3 px em `accent`, afastado 3 px), **sem suporte** (selo "Engine · sem suporte" em `cover-chip-warn`), **para confirmar** (ícone de aviso no canto), **sem casamento** (ícone de link e capa substituída pelo nome), **adulto** (véu opaco `cover-veil-bg`, ícone de olho riscado, "18+"), **em tradução** (faixa de 5 px de progresso na base). Spoiler não cobre a capa: cobre tags, sinopse e personagens, e a tag tracejada diz quantas há.
+- O **retrato de personagem** tem três tamanhos (`portrait-sm` 28 em círculo, `portrait-md` 56 e `portrait-lg` 64 em quadrado de `radius-lg`). Sem imagem, vira silhueta sobre degradê do matiz do personagem; o narrador usa o ícone Book sobre `bg-inset`. Selecionado, ganha anel de 2 px em `accent`.
+
+## Estados e movimento
+
+- Foco de teclado: anel sólido de 2 px em `focus-ring`, afastado 1 px. Hover e pressed trocam o fundo em `duration-fast` (167 ms, ease-out). Painel, gaveta, diálogo e troca de aba entram em `duration-normal` (250 ms). Com "Efeitos de animação" desligado no Windows, sem transição.
+- Desabilitado: texto `text-tertiary`, borda `stroke-subtle`, sem hover.
+- Seleção em lista e grade: fundo `accent-soft` com barra de 3 px em `accent` à esquerda.
+
+## Iconografia
+
+- Fluent UI System Icons (Microsoft, MIT), estilo Regular, 20 px no trilho (22 no item do trilho), 16 px no resto. Entram na v3: Library, ArrowLeft, Eye, EyeOff, Link e Filter, pelo `tools/Update-Icons.ps1`. Sparkle = IA, Warning = aviso, Check = ok, EyeOff = escondido, Link = sem casamento, Error Circle = erro, Arrow Sync = tarefa em andamento, Arrow Undo = restaurar.
+
+## Como usar nos previews
+
+Os previews do artefato do design system carregam `tokens.css` e `bundle.css`, que têm só classes `v3-*` e as variáveis `--nome-do-token`. Troque o tema com `data-theme="dark"` ou `"light"` no elemento. A galeria **GaleriaV3** reúne todos os controles na mesma ordem da galeria de hoje, e a imagem de hoje fica em Assets, grupo Hoje. Esses arquivos ficam no artefato e não vêm para esta pasta.
+
+## Contraste e mudanças em relação à v2
+
+A razão de contraste dos 172 pares está em [contraste.md](contraste.md). A lista do que entrou, mudou de valor e ficou igual nos tokens está em [mudancas-v2-v3.md](mudancas-v2-v3.md). O que o Avalonia desenha diferente do HTML do design system está em [avalonia.md](avalonia.md#o-que-o-avalonia-desenha-diferente-do-html).
+
+## Interface v3 de outubro de 2026, em uso no app
+
+As seções abaixo vêm do plano [2026-10-25-interface-v3.md](../plans/2026-10-25-interface-v3.md) e descrevem o que o app já tem nas telas e nos controles. Os tamanhos, os raios e as cores citados nelas valem até a migração das telas para o design system v3 (e4 do plano da v6); onde divergirem das seções acima, vale `tokens.json`.
 
 ### Termos da v3
 
@@ -56,49 +110,6 @@ Toda tela nova é medida por estas regras (plano, seção "Regras das telas"):
 - Os números de exemplo são os mesmos em todas as telas (48.211 linhas em 312 scripts, 62% traduzido, R$ 142,56 gastos).
 - Toda tela é conferida renderizada, a 1440×1000 nos dois temas, antes de ir para o canvas.
 
-## Cores
-
-- O app segue o tema do Windows. **Escuro** é o tema de referência das telas; **Claro** tem os mesmos papéis.
-- Camadas, de baixo para cima: `bg-base` (janela e reserva do Mica) → `bg-layer` (área de conteúdo) → `bg-card` (painéis, flyouts). Hover em `bg-card-hover`; campos em `bg-inset`.
-- Painéis se separam por `stroke-subtle`, não por sombra. `shadow-flyout` só em menus, flyouts e diálogos.
-- `accent` (azul ai, 藍) é a cor de interação: botão accent, seleção, foco, progresso, item ativo. Texto em destaque usa `accent-text`; fundos de seleção usam `accent-soft`.
-- `brand-shu` (vermelhão shu, 朱) é só do selo 訳. Nunca em botões, status ou sinais.
-- Status de linha usam os pares `status-*-bg` / `status-*-fg` e sempre levam o texto do status. IA é violeta para não competir com o âmbar dos avisos.
-- Sinais do QA: aviso em `signal-warning-*` (âmbar), erro em `signal-error-*` (carmim, distinto do shu). Sucesso reaproveita `status-approved-*`.
-- A prévia da caixa de texto usa `textbox-*` e o palco do modo revisão usa `stage-*` (`stage-top`, `stage-bottom`, `stage-vignette`, `stage-card`, `stage-stroke`), todos iguais nos dois temas, porque representam o jogo.
-- Todo texto em `text-primary` e `text-secondary` passa 4,5:1 sobre as superfícies citadas no uso de cada token, nos dois temas. `text-tertiary` só em desabilitado e placeholder.
-
-## Tipografia
-
-- Interface em `body` (Noto Sans 14/20), igual ao tamanho padrão do Fluent. Listas densas e grade em `body-sm` (13/18).
-- Texto japonês sempre na família `jp` (Noto Sans JP): `jp-body` no inspetor, `jp-row` na grade. Não deixar o kanji cair no fallback da família `ui`.
-- Títulos de página em `title-lg` e de painel em `title-md`, na família `display` (Zen Kaku Gothic New), um título de página por tela.
-- Rótulos de campo e cabeçalhos de coluna em `overline` (12/600, caixa normal, sem espaçamento entre letras).
-- Ids, caminhos e log em `mono` (JetBrains Mono); chips de marcador e teclas em `mono-xs`.
-
-## Espaço, tamanho e forma
-
-- Grade de 4px: `space-1` a `space-8`. Padding de painel `space-4`; gap entre painéis `space-3`; margem da área de conteúdo `space-6`.
-- Densidade: controles padrão em `control-md` (32); barras de comando sobre a grade em `control-sm` (28); ação principal de tela vazia em `control-lg` (40).
-- Linha da grade com altura fixa `row-height` (36) para virtualização estável.
-- Estrutura da janela: `titlebar-height` 40, `navrail-width` 72, `statusbar-height` 28. No Editor, `scripts-width` 190 (teto da lista de cenas) e `inspector-width` 400, ambos redimensionáveis com `GridSplitter`.
-- Painéis lado a lado na mesma linha têm a mesma altura: no Avalonia, `Grid` com colunas `*` ou fixas e o painel ocupando a célula inteira (nunca `StackPanel` horizontal, que deixa cada painel com a altura do próprio conteúdo). Cabeçalho de painel com 48px e rodapé com 40px ancorado embaixo, para o espaço livre ficar no corpo.
-- Painéis-resumo com o mesmo papel (os indicadores do Painel, as tabelas por script e por personagem) dividem a largura em partes iguais.
-- Tabelas-resumo usam linha de `row-height` e barra de 8px (`StatusDistribution`) numa coluna de 120 a 180px, com o percentual em coluna própria. A barra de 4px fica só em itens de navegação (`ScriptItem`) e na barra de status.
-- Raios: `radius-sm` (4) em controles e chips, `radius-md` (8) em painéis e flyouts, `radius-pill` em badges e contadores.
-
-## Estados e movimento
-
-- Foco de teclado: anel sólido de 2px em `focus-ring`, afastado 1px do controle, em todo elemento focável.
-- Hover e pressed trocam fundo em 167 ms (ease-out). Painéis e flyouts entram em 250 ms. Com "Efeitos de animação" desligado no Windows, sem transição.
-- Desabilitado: texto `text-tertiary`, borda `stroke-subtle`, sem hover.
-- Seleção em listas: fundo `accent-soft` e barra vertical de 3px em `accent` à esquerda.
-
-## Iconografia
-
-- Fluent UI System Icons (Microsoft, MIT), estilo **Regular**, 20px no trilho de navegação e 16px no resto. Os arquivos estão no grupo Icons; no Avalonia viram `StreamGeometry` em `PathIcon`.
-- Ícone acompanha texto, exceto em botões `icon`, que exigem tooltip e nome acessível.
-- Ícones de significado fixo: Sparkle = IA; Warning = aviso; Error Circle = erro; Checkmark Circle = ok; Arrow Sync = tarefa em andamento; Arrow Undo = restaurar.
 
 ## Marca
 
@@ -136,7 +147,3 @@ Os controles da v3 ficam em `src/VNForge.App/Controls` (código) e `src/VNForge.
 ## Telas copiadas
 
 As capturas de `telas/v3/` saem do app renderizado sem janela (Avalonia.Headless com Skia), com o projeto de demonstração, nos dois temas, a 1440×1000 (o Editor e o modo revisão compactos, a 1366×768). Cada arquivo termina em `-escuro` ou `-claro`. O índice, tela a tela, está em [README.md](README.md#telas-da-v3).
-
-## Uso em canvas de design
-
-Nas telas desenhadas em canvas, carregue `tokens.css` e depois `components/bundle.css`. As classes `vnf-*` do `bundle.css` reproduzem cada componente; o layout das telas fica em estilos inline com as variáveis dos tokens. O tema Claro é aplicado com `data-theme="light"` no elemento raiz.
