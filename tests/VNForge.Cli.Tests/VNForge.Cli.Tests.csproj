@@ -7,6 +7,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\docs\design\tokens.json" Link="design\tokens.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Geradores sintéticos dos testes do YU-RIS: jogos de mentira montados em código, sem arquivo de jogo no repositório. -->
     <Compile Include="..\VNForge.Engines.YuRis.Tests\Ypf\Synthetic\*.cs" Exclude="..\VNForge.Engines.YuRis.Tests\Ypf\Synthetic\*Tests.cs" LinkBase="Synthetic\Ypf" />
     <Compile Include="..\VNForge.Engines.YuRis.Tests\Yscm\Synthetic\*.cs" LinkBase="Synthetic\Yscm" />
