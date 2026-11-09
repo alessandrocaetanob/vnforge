@@ -1,3 +1,4 @@
+using VNForge.Core.Bible;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -56,6 +57,15 @@ public sealed record TranslationBatch
     /// <summary>Escolhas de estilo do projeto (honoríficos, tratamento, narrador, onomatopeias, ordem dos nomes).</summary>
     public StyleConfig Style { get; init; } = StyleConfig.Default;
 
+    /// <summary>
+    /// As cenas das linhas do lote na bíblia do jogo (<c>bible.json</c>), na ordem em que aparecem: o resumo, o tom, as piadas que voltam e as relações entram em cada pedido.
+    /// Vazio quando o projeto não tem bíblia ou ela não escreveu nada da cena.
+    /// </summary>
+    public IReadOnlyList<BibleScene> Scenes { get; init; } = [];
+
+    /// <summary>A sinopse do jogo (bíblia); vazia quando não há. Não muda de um lote para outro, então vai no bloco do prompt que fica no cache.</summary>
+    public string Synopsis { get; init; } = string.Empty;
+
     /// <summary>Um lote de <paramref name="lines"/> com o mesmo contexto deste.</summary>
     public TranslationBatch ForLines(IReadOnlyList<TextUnit> lines) => new(lines)
     {
@@ -67,6 +77,8 @@ public sealed record TranslationBatch
         Addressing = Addressing,
         StyleGuide = StyleGuide,
         Style = Style,
+        Scenes = Scenes,
+        Synopsis = Synopsis,
     };
 }
 
