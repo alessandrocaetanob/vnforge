@@ -63,7 +63,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="BorderThickness" Value="0,1,0,0"/>
     <Setter Property="Padding" Value="0,8,0,0"/>
-    <Setter Property="Margin" Value="0,2,0,0"/>
+    <Setter Property="Margin" Value="0,3,0,0"/>
   </Style>
   <Style Selector="Border.word-tag">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
