@@ -138,6 +138,7 @@ public sealed record BlindAnswer(int Index, BlindChoice Choice);
 /// <param name="RemainingLines">Quantas linhas ainda esperam tradução; o custo e o tempo do jogo todo valem para elas.</param>
 /// <param name="JudgeModel">O modelo do juiz de IA; nulo quando o juiz não rodou.</param>
 /// <param name="ChosenConfigId">A letra da configuração escolhida para o M4; nula enquanto ninguém escolheu.</param>
+/// <param name="PartialNote">Preenchida quando o limite de gasto parou a rodada: diz o que ficou de fora. Só as configurações que terminaram estão nos relatórios.</param>
 public sealed record EvalRound(
     int Version,
     string Id,
@@ -150,9 +151,14 @@ public sealed record EvalRound(
     IReadOnlyList<EvalConfigReport> Reports,
     IReadOnlyList<BlindPair> Pairs,
     IReadOnlyList<BlindAnswer> Answers,
-    string? ChosenConfigId = null)
+    string? ChosenConfigId = null,
+    string? PartialNote = null)
 {
     public const int CurrentVersion = 1;
+
+    /// <summary>A rodada parou no limite de gasto e tem menos configurações do que foram pedidas.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsPartial => PartialNote is not null;
 
     /// <summary>Os pares que a pessoa respondeu (pular não conta).</summary>
     public int PairsDone => Answers.Count(a => a.Choice != BlindChoice.Skipped);

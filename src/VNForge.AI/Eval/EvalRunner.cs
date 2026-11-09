@@ -78,10 +78,25 @@ public static class EvalRunner
         var reference = set.Sample.ToDictionary(g => g.Id, g => g.Reference, StringComparer.Ordinal);
         var spend = new Spend(request.Rate.ToBrl(AiUsageLog.Load(request.Project).Dollars));
         var reports = new List<EvalConfigReport>();
+        string? partialNote = null;
         for (var i = 0; i < request.Configs.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
-            reports.Add(await RunConfigAsync(request, set, reference, request.Configs[i], i, spend, ct).ConfigureAwait(false));
+            var report = request.Limits.Limit is { } cap && spend.Total >= cap
+                ? null
+                : await RunConfigAsync(request, set, reference, request.Configs[i], i, spend, ct).ConfigureAwait(false);
+            if (report is null)
+            {
+                if (reports.Count == 0)
+                {
+                    throw new EvalException(StoppedText(request, request.Configs[i], keptAny: false));
+                }
+
+                partialNote = StoppedText(request, request.Configs[i], keptAny: true, kept: reports.Count, asked: request.Configs.Count);
+                break;
+            }
+
+            reports.Add(report);
         }
 
         var at = request.Clock.GetUtcNow();
@@ -96,7 +111,9 @@ public static class EvalRunner
             set.ToSamples(),
             reports,
             BlindPairs.Generate(reports, request.PairCount, request.Seed),
-            []);
+            [],
+            null,
+            partialNote);
         EvalStore.SaveRound(request.Project, round);
         EvalStore.SaveConfigs(request.Project, request.Configs);
         return round;
@@ -140,7 +157,8 @@ public static class EvalRunner
         }
     }
 
-    private static async Task<EvalConfigReport> RunConfigAsync(
+    /// <returns>O relatório da configuração, ou nulo quando o limite de gasto a parou antes de terminar (o que ela gastou fica no gasto do projeto).</returns>
+    private static async Task<EvalConfigReport?> RunConfigAsync(
         EvalRunRequest request, EvalSampleSet set, Dictionary<string, string> reference, EvalConfig config, int index, Spend spend, CancellationToken ct)
     {
         void Report(EvalPhase phase) => request.Progress?.Report(new EvalProgress(index + 1, request.Configs.Count, config.Id, phase));
@@ -208,9 +226,9 @@ public static class EvalRunner
         ct.ThrowIfCancellationRequested();
         var configDollars = RunCostTracker.DollarsFor(config.Model, provider.Usage()) ?? 0m;
         spend.Add(request.Rate.ToBrl(configDollars));
-        if (stop is not null || (request.Limits.Limit is { } cap && spend.Total >= cap))
+        if (stop is not null)
         {
-            throw new EvalException(StoppedText(request, config));
+            return null;
         }
 
         var error = callbackError?.Message ?? failures.FirstOrDefault()?.Error.Message;
@@ -219,10 +237,15 @@ public static class EvalRunner
         if (request.Judge is { } judge)
         {
             Report(EvalPhase.Judging);
-            var (scores, dollars, judgeError) = await JudgeAsync(request, judge, set, translations, ct).ConfigureAwait(false);
+            var (scores, dollars, judgeError, limitReached) = await JudgeAsync(request, judge, set, translations, spend, ct).ConfigureAwait(false);
+            spend.Add(request.Rate.ToBrl(dollars));
+            if (limitReached)
+            {
+                return null;
+            }
+
             judged = scores;
             judgeDollars = dollars;
-            spend.Add(request.Rate.ToBrl(dollars));
             error ??= judgeError;
         }
 
@@ -251,11 +274,16 @@ public static class EvalRunner
             Chrf.Corpus(lines.Select(l => ((string?)reference[l.LineId], (string?)l.Translation))));
     }
 
-    private static string StoppedText(EvalRunRequest request, EvalConfig config) =>
-        $"A rodada parou na configuração {config.Id} porque o gasto do projeto chegou ao limite de {EvalText.Brl(request.Limits.Limit ?? 0m)}. O que já foi gasto ficou no gasto do projeto, mas a rodada não foi gravada; aumente o limite nos Ajustes do app ou rode menos configurações.";
+    private static string StoppedText(EvalRunRequest request, EvalConfig config, bool keptAny, int kept = 0, int asked = 0)
+    {
+        var limit = EvalText.Brl(request.Limits.Limit ?? 0m);
+        return keptAny
+            ? $"A rodada parou na configuração {config.Id} porque o gasto do projeto chegou ao limite de {limit}. Ficaram só as {kept} de {asked} configurações que terminaram; o que a {config.Id} gastou ficou no gasto do projeto. Aumente o limite nos Ajustes do app para rodar as outras."
+            : $"A rodada parou na configuração {config.Id} porque o gasto do projeto chegou ao limite de {limit}. O que já foi gasto ficou no gasto do projeto, mas nenhuma configuração terminou e a rodada não foi gravada; aumente o limite nos Ajustes do app ou rode menos configurações.";
+    }
 
-    private static async Task<(Dictionary<string, double> Scores, decimal Dollars, string? Error)> JudgeAsync(
-        EvalRunRequest request, IJudgeProvider judge, EvalSampleSet set, Dictionary<string, TranslationResult> translations, CancellationToken ct)
+    private static async Task<(Dictionary<string, double> Scores, decimal Dollars, string? Error, bool LimitReached)> JudgeAsync(
+        EvalRunRequest request, IJudgeProvider judge, EvalSampleSet set, Dictionary<string, TranslationResult> translations, Spend spend, CancellationToken ct)
     {
         var scores = new Dictionary<string, double>(StringComparer.Ordinal);
         var toJudge = set.Lines
@@ -264,11 +292,25 @@ public static class EvalRunner
             .ToList();
         var before = judge.Usage;
         string? error = null;
+        var limitReached = false;
         try
         {
             foreach (var chunk in toJudge.Chunk(request.RunOptions.BatchSize))
             {
-                var results = await judge.JudgeAsync(set.BuildJudgeBatch(chunk), ct).ConfigureAwait(false);
+                var batch = set.BuildJudgeBatch(chunk);
+                if (request.Limits.Limit is { } cap)
+                {
+                    // Mesma regra do guarda das traduções: não começa lote do juiz que passaria do limite.
+                    var judgeBrl = request.Rate.ToBrl(RunCostTracker.DollarsFor(request.JudgeModel!, Delta(before, judge.Usage)) ?? 0m);
+                    var next = request.Rate.ToBrl(CostEstimator.EstimateBatch(batch, request.JudgeModel!, ClaudeEffort.Low).Dollars);
+                    if (spend.Total + judgeBrl + next > cap)
+                    {
+                        limitReached = true;
+                        break;
+                    }
+                }
+
+                var results = await judge.JudgeAsync(batch, ct).ConfigureAwait(false);
                 foreach (var result in results.Where(r => !r.Refused))
                 {
                     scores[result.Id] = result.Score;
@@ -285,7 +327,7 @@ public static class EvalRunner
             RunCostTracker.Record(request.Project, request.JudgeModel!, Delta(before, judge.Usage));
         }
 
-        return (scores, RunCostTracker.DollarsFor(request.JudgeModel!, Delta(before, judge.Usage)) ?? 0m, error);
+        return (scores, RunCostTracker.DollarsFor(request.JudgeModel!, Delta(before, judge.Usage)) ?? 0m, error, limitReached);
     }
 
     private static ClaudeUsage? Delta(ClaudeUsage? before, ClaudeUsage? after) => (before, after) switch

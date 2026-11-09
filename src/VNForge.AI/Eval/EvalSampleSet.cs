@@ -61,7 +61,7 @@ internal sealed class EvalSampleSet
     public int RemainingLines { get; }
 
     /// <exception cref="EvalException">O projeto não tem linha aprovada.</exception>
-    /// <param name="blockSize">Linhas por lote; é o tamanho de lote da rodada.</param>
+    /// <param name="blockSize">Tamanho de lote da rodada; o trecho sorteado tem no máximo isto e <see cref="GoldSet.MaxBlockLines"/> linhas.</param>
     public static EvalSampleSet Load(ProjectFolder project, int sampleSize, int seed, int blockSize)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -74,7 +74,7 @@ internal sealed class EvalSampleSet
         var gold = GoldSet.From(texts);
         return gold.Count == 0
             ? throw new EvalException("O projeto ainda não tem linhas aprovadas: o banco de provas compara as traduções com as que você aprovou. Aprove algumas linhas no Editor e rode de novo.")
-            : new EvalSampleSet(project, texts, GoldSet.SampleBlocks(gold, sampleSize, seed, blockSize), gold.Count);
+            : new EvalSampleSet(project, texts, GoldSet.SampleBlocks(gold, sampleSize, seed, Math.Min(blockSize, GoldSet.MaxBlockLines)), gold.Count);
     }
 
     public TranslationBatch BuildBatch(EvalConfig config, IReadOnlyList<TextUnit> lines)

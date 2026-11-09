@@ -49,7 +49,7 @@ public static class EvalEstimator
 
     private static decimal JudgeDollars(EvalSampleSet set, string judgeModel, int batchSize)
     {
-        var batches = set.Blocks.Sum(b => (int)Math.Ceiling(b.Count / (double)batchSize));
+        var batches = (int)Math.Ceiling(set.Sample.Count / (double)batchSize);
         var input = set.Sample.Sum(g => CostEstimator.Tokens(g.Source) + CostEstimator.Tokens(g.Reference) + JudgeLineOverhead) + (long)batches * JudgeSystemTokens;
         var output = (long)set.Sample.Count * JudgeOutputPerLine;
         return ModelPricing.For(judgeModel).Cost(new TokenUsage(input, output));

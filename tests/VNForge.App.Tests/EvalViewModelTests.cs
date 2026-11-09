@@ -157,6 +157,26 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Cada_rodada_sorteia_com_semente_nova_e_grava_a_semente_para_reproduzir()
+    {
+        var project = Project(approved: 200);
+        var vm = Vm();
+        await vm.LoadAsync(project);
+
+        var seeds = new List<int>();
+        for (var i = 0; i < 2; i++)
+        {
+            await vm.RunOpenCommand.ExecuteAsync(null);
+            await vm.StartRunCommand.ExecuteAsync(null);
+            await vm.Running;
+            seeds.Add(EvalStore.LoadLatest(project)!.Seed);
+        }
+
+        Assert.NotEqual(seeds[0], seeds[1]);
+        Assert.All(seeds, seed => Assert.True(seed > 0));
+    }
+
+    [Fact]
     public async Task Rodar_mostra_o_relatorio_sem_gravar_traducao_no_projeto()
     {
         var project = Project();

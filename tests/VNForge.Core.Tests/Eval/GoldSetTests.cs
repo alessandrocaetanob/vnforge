@@ -92,6 +92,45 @@ public sealed class GoldSetTests
     }
 
     [Fact]
+    public void O_sorteio_pesa_o_trecho_pelo_tamanho_e_as_linhas_isoladas_ocupam_pouco_da_amostra()
+    {
+        // 50 linhas isoladas (posições pares) e 50 trechos de 10 linhas seguidas, em dois scripts.
+        var gold = new List<GoldLine>();
+        for (var i = 0; i < 50; i++)
+        {
+            gold.Add(new GoldLine($"a:{i * 2:0000}", "a", null, "x", "y", Position: i * 2));
+        }
+
+        for (var b = 0; b < 50; b++)
+        {
+            gold.AddRange(Enumerable.Range(0, 10).Select(k => new GoldLine($"b:{b * 12 + k:0000}", "b", null, "x", "y", Position: b * 12 + k)));
+        }
+
+        var singleShare = Enumerable.Range(1, 60)
+            .Select(seed => GoldSet.SampleBlocks(gold, 100, seed, GoldSet.MaxBlockLines).SelectMany(b => b))
+            .Average(lines => lines.Count(l => l.ScriptKey == "a") / (double)lines.Count());
+
+        // Com o peso, cada sorteio cai numa linha isolada em 50 de 550 vezes (uns 1% das linhas da amostra). Sem o peso, metade dos trechos são isolados e eles seriam uns 9%.
+        Assert.InRange(singleShare, 0.0, 0.04);
+    }
+
+    [Fact]
+    public void O_sorteio_de_trechos_de_um_script_longo_espalha_a_amostra_em_trechos_de_ate_dez_linhas()
+    {
+        var gold = Lines("a", 1, 1000);
+        for (var i = 0; i < gold.Count; i++)
+        {
+            gold[i] = gold[i] with { Position = i };
+        }
+
+        var blocks = GoldSet.SampleBlocks(gold, 200, 5, GoldSet.MaxBlockLines);
+
+        Assert.Equal(200, blocks.Sum(b => b.Count));
+        Assert.All(blocks, b => Assert.True(b.Count <= GoldSet.MaxBlockLines));
+        Assert.True(blocks.Count >= 20);
+    }
+
+    [Fact]
     public void Uma_linha_nao_aprovada_no_meio_abre_outro_trecho()
     {
         var texts = new Dictionary<string, IReadOnlyList<TextUnit>>

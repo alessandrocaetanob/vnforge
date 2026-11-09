@@ -286,6 +286,8 @@ internal static class EvalCommand
                 recommended = recommended?.Config.Id,
                 chosen = round.ChosenConfigId,
                 reading = EvalReading.Sentence(round),
+                partial = round.IsPartial,
+                partialNote = round.PartialNote,
                 configs = round.Reports.Select(r =>
                 {
                     var blind = round.BlindScore(r.Config.Id);
@@ -314,6 +316,11 @@ internal static class EvalCommand
         }
 
         output.WriteLine($"Rodada {round.Id}: {EvalText.CountLines(round.Sample.Count)} sorteadas de {EvalText.Number(round.GoldLines)} aprovadas, a mesma amostra em todas as configurações.");
+        if (round.PartialNote is { } partialNote)
+        {
+            output.WriteLine($"Rodada parcial: {partialNote}");
+        }
+
         foreach (var report in round.Reports)
         {
             var (normal, batch) = EvalText.GameCost(report, round.RemainingLines, rate);

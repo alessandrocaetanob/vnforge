@@ -54,8 +54,8 @@ public sealed class EvalRunnerTests : IDisposable
 
         await EvalRunner.RunAsync(Request(c => new EvalProvider(c.Id == "A" ? one : two, () => null), Sonnet, Haiku), TestContext.Current.CancellationToken);
 
-        var first = Assert.Single(one.ReceivedBatches);
-        var second = Assert.Single(two.ReceivedBatches);
+        var first = one.ReceivedBatches.OrderBy(b => b.Lines[0].Id, StringComparer.Ordinal).First();
+        var second = two.ReceivedBatches.OrderBy(b => b.Lines[0].Id, StringComparer.Ordinal).First();
         Assert.All(first.Lines, line => Assert.Null(line.Translation));
         Assert.Equal(2, first.PreviousLines.Count);
         Assert.Equal(5, second.PreviousLines.Count);
@@ -168,8 +168,8 @@ public sealed class EvalRunnerTests : IDisposable
 
         await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.Equal("Resumo da cena", Assert.Single(withBible.ReceivedBatches).StyleGuide);
-        Assert.Equal(string.Empty, Assert.Single(without.ReceivedBatches).StyleGuide);
+        Assert.All(withBible.ReceivedBatches, b => Assert.Equal("Resumo da cena", b.StyleGuide));
+        Assert.All(without.ReceivedBatches, b => Assert.Equal(string.Empty, b.StyleGuide));
     }
 
     [Fact]
@@ -191,8 +191,8 @@ public sealed class EvalRunnerTests : IDisposable
         var round = await EvalRunner.RunAsync(Request(Same(failing), Sonnet), TestContext.Current.CancellationToken);
 
         var report = round.Reports[0];
-        Assert.Equal(20, report.RefusedLines);
-        Assert.Equal(0.0, report.MeanChrf);
+        Assert.Equal(10, report.RefusedLines);
+        Assert.All(report.Lines.Where(l => l.Refused), l => Assert.Equal(0.0, l.Chrf));
         Assert.Contains("Falha simulada", report.Error);
         Assert.Empty(round.Pairs);
     }
@@ -241,16 +241,16 @@ public sealed class EvalRunnerTests : IDisposable
         await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
 
         var batches = provider.ReceivedBatches.OrderBy(b => b.Lines[0].Id, StringComparer.Ordinal).ToList();
-        Assert.Equal([30, 30, 30, 10], batches.Select(b => b.Lines.Count));
+        Assert.Equal(Enumerable.Repeat(10, 10), batches.Select(b => b.Lines.Count));
         Assert.All(batches, b => Assert.Equal(
             Enumerable.Range(Index(b.Lines[0]), b.Lines.Count).Select(EvalProject.Id),
             b.Lines.Select(l => l.Id)));
         var second = batches[1];
-        Assert.Contains(EvalProject.Id(49), second.Lines.Select(l => l.Id));
-        Assert.Contains(EvalProject.Id(50), second.Lines.Select(l => l.Id));
-        Assert.Contains(EvalProject.Id(51), second.Lines.Select(l => l.Id));
-        Assert.Equal(["Tradução 33", "Tradução 34"], second.PreviousLines.Select(l => l.Translation));
-        Assert.Equal(["原文65", "原文66"], second.NextLines.Take(2).Select(l => l.Source));
+        Assert.Contains(EvalProject.Id(19), second.Lines.Select(l => l.Id));
+        Assert.Contains(EvalProject.Id(20), second.Lines.Select(l => l.Id));
+        Assert.Contains(EvalProject.Id(21), second.Lines.Select(l => l.Id));
+        Assert.Equal(["Tradução 13", "Tradução 14"], second.PreviousLines.Select(l => l.Translation));
+        Assert.Equal(["原文25", "原文26"], second.NextLines.Take(2).Select(l => l.Source));
     }
 
     [Fact]
@@ -308,7 +308,60 @@ public sealed class EvalRunnerTests : IDisposable
 
         await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.Equal(4, provider.Calls);
+        Assert.Equal(10, provider.Calls);
+    }
+
+    [Fact]
+    public async Task Configuracao_que_nao_termina_no_limite_nao_derruba_as_que_terminaram_e_a_rodada_fica_parcial()
+    {
+        using var project = new EvalProject(goldCount: 100);
+        var first = new MeteredProvider();
+        var second = new MeteredProvider();
+        var request = new EvalRunRequest(project.Folder, [Sonnet, Sonnet with { Id = "B", ContextLines = 5 }], 100, 3, c => c.Id == "A" ? new EvalProvider(first, first.Usage) : new EvalProvider(second, second.Usage))
+        {
+            RunOptions = Quick with { MaxConcurrency = 1 },
+            Rate = new ExchangeRate(5m),
+            Limits = new BudgetLimits(105m, null),
+        };
+
+        var round = await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["A"], round.Reports.Select(r => r.Config.Id));
+        Assert.True(round.IsPartial);
+        Assert.Contains("1 de 2", round.PartialNote);
+        Assert.Equal(round.Id, EvalStore.LoadLatest(project.Folder)!.Id);
+        Assert.Equal(1, second.Calls);
+        Assert.Equal((10 + 1) * 2m, AiUsageLog.Load(project.Folder).Dollars);
+    }
+
+    [Fact]
+    public async Task A_rodada_que_termina_inteira_nao_e_parcial()
+    {
+        var round = await EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet), TestContext.Current.CancellationToken);
+
+        Assert.False(round.IsPartial);
+        Assert.Null(EvalStore.LoadLatest(_project.Folder)!.PartialNote);
+    }
+
+    [Fact]
+    public async Task O_juiz_tambem_para_antes_do_lote_que_passaria_do_limite()
+    {
+        using var project = new EvalProject(goldCount: 100);
+        var judge = new FakeJudgeProvider { UsagePerCall = new ClaudeUsage(500_000, 0, 0, 0) };
+        var request = new EvalRunRequest(project.Folder, [Sonnet], 100, 3, Same(EvalProject.Perfect()))
+        {
+            RunOptions = Quick,
+            Judge = judge,
+            JudgeModel = ClaudeModels.Haiku,
+            Rate = new ExchangeRate(5m),
+            Limits = new BudgetLimits(0.30m, null),
+        };
+
+        var error = await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(request, TestContext.Current.CancellationToken));
+
+        Assert.Contains("limite", error.Message);
+        Assert.Equal(2, judge.ReceivedBatches.Count);
+        Assert.Equal(0.10m, AiUsageLog.Load(project.Folder).Dollars);
     }
 
     [Fact]

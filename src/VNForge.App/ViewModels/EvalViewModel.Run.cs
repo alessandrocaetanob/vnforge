@@ -11,7 +11,7 @@ namespace VNForge.App.ViewModels;
 
 public sealed partial class EvalViewModel
 {
-    private const int Seed = 1;
+    private int seed = 1;
 
     private CancellationTokenSource? runCancellation;
     private EvalEstimate? estimate;
@@ -81,6 +81,7 @@ public sealed partial class EvalViewModel
     {
         RunItems.Clear();
         estimate = null;
+        seed = Random.Shared.Next(1, int.MaxValue);
         RunError = string.Empty;
         IsRunOpen = true;
         IsEstimating = true;
@@ -93,13 +94,14 @@ public sealed partial class EvalViewModel
         var project = folder!;
         var selected = configs.Count > 0 ? configs : [.. EvalConfigParser.Defaults];
         var sample = Math.Min(DefaultSample, GoldLines);
+        var drawSeed = seed;
         EvalEstimate? result = null;
         decimal spent = 0m;
         string? error = null;
         try
         {
             (result, spent) = await Task.Run(() => (
-                EvalEstimator.Estimate(project, selected, sample, Seed, new TranslationRunOptions().BatchSize, JudgeModel),
+                EvalEstimator.Estimate(project, selected, sample, drawSeed, new TranslationRunOptions().BatchSize, JudgeModel),
                 AiUsageLog.Load(project).Dollars)).ConfigureAwait(true);
         }
         catch (EvalException ex)
@@ -202,7 +204,7 @@ public sealed partial class EvalViewModel
     private async Task RunCoreAsync(ProjectFolder project, IReadOnlyList<EvalConfig> chosen, bool judge, CancellationToken token)
     {
         var context = Context();
-        var request = new EvalRunRequest(project, chosen, Math.Min(DefaultSample, GoldLines), Seed, Provider)
+        var request = new EvalRunRequest(project, chosen, Math.Min(DefaultSample, GoldLines), seed, Provider)
         {
             Limits = context.Limits,
             Rate = context.Rate,
@@ -213,10 +215,10 @@ public sealed partial class EvalViewModel
         try
         {
             round = await Task.Run(() => EvalRunner.RunAsync(request, token), token).ConfigureAwait(true);
-            configs = chosen;
+            configs = [.. round.Reports.Select(r => r.Config)];
             IsBlind = false;
             Apply();
-            Message = $"A rodada terminou com {chosen.Count} {(chosen.Count == 1 ? "configuração" : "configurações")}.";
+            Message = round?.PartialNote ?? $"A rodada terminou com {chosen.Count} {(chosen.Count == 1 ? "configuração" : "configurações")}.";
         }
         catch (OperationCanceledException)
         {
