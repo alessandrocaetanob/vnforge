@@ -472,6 +472,23 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task DisposingCancelsAPendingPreviewWithoutErrors()
+    {
+        var vm = new ImagesViewModel([new ArchiveEngine()], composer, TimeSpan.FromMilliseconds(300));
+        vm.Project = Summary();
+        await vm.Loading;
+        await Select(vm, Gate);
+        var before = composer.Renders;
+        vm.Text = "Portão";
+
+        vm.Dispose();
+        await vm.Previewing;
+
+        Assert.Equal(before, composer.Renders);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
     public async Task AThumbnailThatFailsLeavesTheReasonOnTheItem()
     {
         var vm = Open();

@@ -132,7 +132,7 @@ public sealed record RewriteFile(string Path, string Detail);
 /// tradução com a fonte que quiser e vê original e traduzida lado a lado. "Marcar para o build" grava a imagem pronta em <c>images/</c> e a edição
 /// em <c>image-edits.json</c>; o build (<see cref="ImageBuild"/>) troca só essas imagens no pacote do jogo.
 /// </summary>
-public sealed partial class ImagesViewModel : ObservableObject
+public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 {
     private static readonly string[] Editable = ["image/png"];
 
@@ -445,6 +445,7 @@ public sealed partial class ImagesViewModel : ObservableObject
         Items.Clear();
         Visible.Clear();
         SelectedItem = null;
+        ReplacePreviewToken(createNew: false);
         folder = null;
         ErrorMessage = null;
         if (summary is null || summary.IsSample)
@@ -490,7 +491,7 @@ public sealed partial class ImagesViewModel : ObservableObject
 
     private async Task SelectAsync(ImageItemViewModel? item)
     {
-        previewCts?.Cancel();
+        ReplacePreviewToken(createNew: false);
         source = null;
         saved = null;
         IsEditable = false;
@@ -660,9 +661,25 @@ public sealed partial class ImagesViewModel : ObservableObject
         IsDirty = saved is null || !SameFields(saved, edit);
         ErasedText = $"{edit.Region.Width}×{edit.Region.Height} px, preenchida com {(edit.Erase == ImageEraseModes.Solid ? $"a cor {edit.EraseColor}" : "o fundo ao redor")}";
         NewTextSummary = edit.Text.Length == 0 ? "nenhum" : $"\"{edit.Text}\" · {edit.Font}{(edit.Bold ? " Bold" : string.Empty)} {Pixels(edit.FontSize)} · cor {edit.Color.TrimStart('#')}";
-        previewCts?.Cancel();
-        previewCts = new CancellationTokenSource();
-        Previewing = RenderPreviewAsync(edit, source, SelectedItem, previewCts.Token);
+        Previewing = RenderPreviewAsync(edit, source, SelectedItem, ReplacePreviewToken(createNew: true));
+    }
+
+    // Cancela a prévia em andamento e descarta a fonte do token dela. A tarefa antiga só lê o token (IsCancellationRequested,
+    // ThrowIfCancellationRequested e os Task.Delay e Task.Run que já o receberam), o que continua valendo depois do Dispose, porque o Cancel vem antes.
+    private CancellationToken ReplacePreviewToken(bool createNew)
+    {
+        var old = previewCts;
+        previewCts = createNew ? new CancellationTokenSource() : null;
+        old?.Cancel();
+        old?.Dispose();
+        return previewCts?.Token ?? CancellationToken.None;
+    }
+
+    /// <summary>Cancela a prévia em andamento e libera o token dela e o semáforo das miniaturas.</summary>
+    public void Dispose()
+    {
+        ReplacePreviewToken(createNew: false);
+        thumbnailGate.Dispose();
     }
 
     // A prévia espera o debounce e monta a imagem numa thread de fundo: digitar não trava a janela, e só o último valor vira prévia.
