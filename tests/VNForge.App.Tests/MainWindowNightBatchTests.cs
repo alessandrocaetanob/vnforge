@@ -155,6 +155,7 @@ public sealed class MainWindowNightBatchTests : IDisposable
         Assert.Equal(1, client.Cancels);
         Assert.Equal(BackgroundTaskState.Cancelled, task.State);
         Assert.Equal(NightBatchPhase.Canceling, Assert.Single(new NightBatchStore(ProjectFolder.Open(root)).Open()).Phase);
+        await WaitForAsync(() => vm.TaskService.Tasks.Count == 2);
         Assert.Equal(2, vm.TaskService.Tasks.Count);
     }
 
