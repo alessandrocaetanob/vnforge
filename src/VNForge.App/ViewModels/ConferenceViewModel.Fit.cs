@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.App.Services;
 using VNForge.Core;
@@ -64,11 +65,13 @@ public sealed partial class ConferenceViewModel
 
         FormattingProfile profile;
         SpeakerNaming naming;
+        DictionaryContext dictionary;
         try
         {
             var folder = ProjectFolder.Open(root);
             profile = folder.LoadFormatting();
             naming = SpeakerNaming.Read(folder);
+            dictionary = DictionaryContext.For(folder, profile);
         }
         catch (VNForgeException)
         {
@@ -81,14 +84,15 @@ public sealed partial class ConferenceViewModel
             Shortener,
             () => unit.Translation ?? string.Empty,
             text => ReplaceTranslationAsync(row, text, "Fala dividida em páginas."),
-            text => ReplaceTranslationAsync(row, text, "Fala encurtada pela IA."));
+            text => ReplaceTranslationAsync(row, text, "Fala encurtada pela IA."),
+            dictionary);
         fit.Update();
         if (!fit.IsVisible)
         {
             return (null, null);
         }
 
-        return (fit, new TextboxPreviewViewModel(unit, profile, unit.Translation ?? string.Empty, naming: naming).Layout);
+        return (fit, new TextboxPreviewViewModel(unit, profile, unit.Translation ?? string.Empty, naming: naming, dictionary: dictionary).Layout);
     }
 
     /// <summary>Grava a tradução nova da linha do problema, avisa o Editor e reconfere o projeto.</summary>

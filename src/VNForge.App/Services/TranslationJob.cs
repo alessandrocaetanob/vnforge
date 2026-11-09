@@ -1,6 +1,7 @@
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Translation;
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -75,6 +76,7 @@ public sealed class TranslationJob(
             maxNextLines: config.ContextAfter,
             addressTerms: project.LoadAddressTerms())
         {
+            Pre = PreDictionary.For(project),
             Bible = project.LoadBibleOrEmpty(out _),
         };
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
