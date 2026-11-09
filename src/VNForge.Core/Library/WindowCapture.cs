@@ -1,5 +1,8 @@
 namespace VNForge.Core.Library;
 
+/// <summary>De qual janela veio a imagem: o título dela e o caminho do programa dono (nulo quando o sistema não deixa ler).</summary>
+public sealed record WindowSource(string Title, string? Program);
+
 /// <summary>Os pixels de uma janela, em <c>B, G, R, A</c> por pixel, linha a linha de cima para baixo. O alfa não vale: a captura sai opaca.</summary>
 public sealed class WindowImage
 {
@@ -7,7 +10,7 @@ public sealed class WindowImage
     public const int MaxSide = 16_384;
 
     /// <exception cref="ArgumentOutOfRangeException">Largura ou altura fora de 1 a <see cref="MaxSide"/>, ou <paramref name="bgra"/> com tamanho diferente de largura × altura × 4.</exception>
-    public WindowImage(int width, int height, byte[] bgra)
+    public WindowImage(int width, int height, byte[] bgra, WindowSource? source = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
@@ -22,6 +25,7 @@ public sealed class WindowImage
         Width = width;
         Height = height;
         Bgra = bgra;
+        Source = source;
     }
 
     public int Width { get; }
@@ -29,6 +33,9 @@ public sealed class WindowImage
     public int Height { get; }
 
     public byte[] Bgra { get; }
+
+    /// <summary>A janela de onde a imagem saiu, para a pessoa conferir que não foi a de outro programa; nulo quando quem criou a imagem não disse.</summary>
+    public WindowSource? Source { get; }
 
     public (byte Red, byte Green, byte Blue) PixelAt(int x, int y)
     {

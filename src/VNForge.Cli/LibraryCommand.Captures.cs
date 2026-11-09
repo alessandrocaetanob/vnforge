@@ -188,14 +188,30 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, capture = CaptureData(capture, path) }));
+            output.WriteLine(JsonEnvelope.Result(new
+            {
+                game = new { id = game.Id, title = game.Title },
+                window = image.Source is null ? null : new { title = image.Source.Title, program = image.Source.Program },
+                capture = CaptureData(capture, path),
+            }));
         }
         else
         {
             output.WriteLine($"{game.Title}: captura de {capture.Width}x{capture.Height} gravada em {path}.");
+            if (image.Source is not null)
+            {
+                output.WriteLine($"Janela capturada: {DescribeWindow(image.Source)}.");
+            }
         }
 
         return ErrorHandler.OkExitCode;
+    }
+
+    private static string DescribeWindow(WindowSource source)
+    {
+        var title = string.IsNullOrWhiteSpace(source.Title) ? "sem título" : $"'{source.Title}'";
+        // O caminho vem do Windows; em outro sistema Path.GetFileName não trataria a barra invertida como separador.
+        return source.Program is null ? $"{title}, programa desconhecido" : $"{title}, do programa {source.Program[(source.Program.LastIndexOfAny(['\\', '/']) + 1)..]}";
     }
 
     private static int CaptureList(VnfCli cli, ParseResult parseResult, string reference)

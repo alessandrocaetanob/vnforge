@@ -165,7 +165,7 @@ public sealed class LibraryCapturesCommandTests : IDisposable
     public async Task Capture_take_com_title_acha_a_janela_pelo_titulo_e_guarda_a_nota()
     {
         AddGame();
-        _capturer.Image = Solid(1, 2, 3);
+        _capturer.Image = Solid(1, 2, 3, new WindowSource("Clannad HD - Navegador", @"C:\Program Files\Browser\browser.exe"));
 
         var data = Data(await Run("--json", "library", "capture", "take", "CLANNAD", "--title", "Clannad HD", "--note", "pôr do sol"));
 
@@ -175,6 +175,35 @@ public sealed class LibraryCapturesCommandTests : IDisposable
         Assert.Equal("pôr do sol", capture.GetProperty("note").GetString());
         Assert.Equal(6, capture.GetProperty("width").GetInt32());
         Assert.True(capture.GetProperty("exists").GetBoolean());
+        var window = data.GetProperty("window");
+        Assert.Equal("Clannad HD - Navegador", window.GetProperty("title").GetString());
+        Assert.Equal(@"C:\Program Files\Browser\browser.exe", window.GetProperty("program").GetString());
+    }
+
+    [Fact]
+    public async Task Capture_take_diz_de_qual_janela_veio_a_imagem()
+    {
+        AddGame();
+        _capturer.Image = Solid(1, 2, 3, new WindowSource("Clannad HD - Navegador", @"C:\Program Files\Browser\browser.exe"));
+
+        var result = await Run("library", "capture", "take", "CLANNAD", "--title", "Clannad HD");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Janela capturada: 'Clannad HD - Navegador', do programa browser.exe.", result.Output);
+    }
+
+    [Fact]
+    public async Task Capture_take_com_janela_de_programa_desconhecido_diz_que_nao_sabe()
+    {
+        AddGame();
+        _capturer.Image = Solid(1, 2, 3, new WindowSource("Clannad", null));
+
+        var text = await Run("library", "capture", "take", "CLANNAD");
+        var window = Data(await Run("--json", "library", "capture", "take", "CLANNAD")).GetProperty("window");
+
+        Assert.Contains("Janela capturada: 'Clannad', programa desconhecido.", text.Output);
+        Assert.Equal("Clannad", window.GetProperty("title").GetString());
+        Assert.False(window.TryGetProperty("program", out _));
     }
 
     [Fact]
@@ -230,6 +259,27 @@ public sealed class LibraryCapturesCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Capture_remove_com_imagem_que_nao_apaga_avisa_e_mantem_o_indice_sem_a_captura()
+    {
+        var game = AddGame();
+        _capturer.Image = Solid(1, 1, 1);
+        await Run("library", "capture", "take", "CLANNAD");
+        var path = Path.Combine(CapturesRoot, game.Id, "20261109-203015.png");
+        // Um diretório com o nome da imagem faz o File.Delete falhar em qualquer sistema.
+        File.Delete(path);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(Path.Combine(path, "x"), "x");
+
+        var result = await Run("library", "capture", "remove", "CLANNAD", "20261109-203015.png");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("tirada da lista", result.Output);
+        Assert.Contains("Aviso:", result.Output);
+        Assert.Contains(path, result.Output);
+        Assert.Empty(new GameCapturesFile(CapturesRoot).Load().Of(game.Id));
+    }
+
+    [Fact]
     public async Task As_capturas_de_cada_jogo_ficam_separadas()
     {
         var first = AddGame();
@@ -245,7 +295,7 @@ public sealed class LibraryCapturesCommandTests : IDisposable
         Assert.NotEqual(first.Id, second.Id);
     }
 
-    private static WindowImage Solid(byte red, byte green, byte blue)
+    private static WindowImage Solid(byte red, byte green, byte blue, WindowSource? source = null)
     {
         var bgra = new byte[6 * 2 * 4];
         for (var i = 0; i < bgra.Length; i += 4)
@@ -253,7 +303,7 @@ public sealed class LibraryCapturesCommandTests : IDisposable
             (bgra[i], bgra[i + 1], bgra[i + 2]) = (blue, green, red);
         }
 
-        return new WindowImage(6, 2, bgra);
+        return new WindowImage(6, 2, bgra, source);
     }
 
     /// <summary>Relógio à mão cuja hora local é Brasília (-3), para o teste não depender do fuso de quem roda.</summary>

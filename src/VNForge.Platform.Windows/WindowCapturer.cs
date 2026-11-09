@@ -181,7 +181,7 @@ public sealed class WindowCapturer : IWindowCapturer
                 }
             }
 
-            return new WindowImage(width, height, pixels);
+            return new WindowImage(width, height, pixels, new WindowSource(NativeWindows.TitleOf(window), NativeWindows.ProgramOf(window)));
         }
         finally
         {

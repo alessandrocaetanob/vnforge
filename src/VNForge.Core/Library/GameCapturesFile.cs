@@ -9,7 +9,8 @@ namespace VNForge.Core.Library;
 /// As capturas de tela dos jogos: as imagens PNG em <c>&lt;pasta&gt;/&lt;id do jogo&gt;/aaaammdd-hhmmss.png</c> e o índice em <c>&lt;pasta&gt;/captures.json</c>.
 /// A pasta é a de dados do usuário (<see cref="DefaultDirectory"/>), nunca o repositório, o projeto de tradução ou a pasta do jogo (regras 1 e 2 do CLAUDE.md).
 /// Cada imagem é gravada por <see cref="AtomicFile"/> e só entra no índice depois de gravada, sob a trava <c>captures.json.lock</c>; se o índice não puder ser gravado,
-/// a imagem recém-criada é apagada, para não sobrar arquivo que o índice não conhece. Um índice ilegível é recusado, não esvaziado.
+/// a imagem recém-criada é apagada, para não sobrar arquivo que o índice não conhece. Um índice ilegível é recusado, não esvaziado. As capturas são presas ao id do
+/// jogo (que vem da pasta) e ficam quando ele sai da biblioteca, como as notas e as tags: voltam se ele for achado de novo.
 /// </summary>
 public sealed class GameCapturesFile
 {
