@@ -242,6 +242,35 @@ public sealed class LibraryListCommandTests : IDisposable
         Assert.True(Saved().CurrentList!.OnVndb);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Json_do_sync_expoe_removedOnSite_e_hasLocalEdits_do_jogo_apagado_no_site(bool edited)
+    {
+        Prepare();
+        SeedDeletedOnSite(edited);
+
+        var result = await Run("library", "sync", "--push", "--json", "--yes");
+
+        Assert.Equal(0, result.ExitCode);
+        var item = Data(result).GetProperty("items").EnumerateArray().Single();
+        Assert.True(item.GetProperty("removedOnSite").GetBoolean());
+        Assert.Equal(edited, item.GetProperty("hasLocalEdits").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Json_do_status_push_expoe_removedOnSite_e_hasLocalEdits_no_envio()
+    {
+        Prepare();
+
+        var result = await Run("library", "status", "CLANNAD", "--vote", "9", "--push", "--json", "--yes");
+
+        Assert.Equal(0, result.ExitCode);
+        var sent = Data(result).GetProperty("sent");
+        Assert.False(sent.GetProperty("removedOnSite").GetBoolean());
+        Assert.True(sent.GetProperty("hasLocalEdits").GetBoolean());
+    }
+
     [Fact]
     public async Task Sync_com_recreate_recria_a_entrada_apagada_e_sem_ele_nao()
     {

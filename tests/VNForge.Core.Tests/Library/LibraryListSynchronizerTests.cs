@@ -373,6 +373,7 @@ public sealed class LibraryListSynchronizerTests
 
     [Theory]
     [InlineData(LibrarySyncDirection.Both)]
+    [InlineData(LibrarySyncDirection.Pull)]
     [InlineData(LibrarySyncDirection.Push)]
     public async Task Recriar_sem_edicao_local_nao_recria_e_so_o_sentido_que_traz_consome_a_exclusao(LibrarySyncDirection direction)
     {
@@ -386,7 +387,8 @@ public sealed class LibraryListSynchronizerTests
         Assert.DoesNotContain(fake.Calls, c => c.StartsWith("UpdateEntryAsync", StringComparison.Ordinal));
         Assert.Empty((await fake.GetListAsync("u1", FakeVndbCatalog.ValidToken, Ct)).Items);
         var state = library.Games[0].CurrentList!;
-        if (direction == LibrarySyncDirection.Both)
+        Assert.False(report.Items[0].HasLocalEdits);
+        if (direction != LibrarySyncDirection.Push)
         {
             Assert.Equal(LibrarySyncAction.Pulled, report.Items[0].Action);
             Assert.Null(state.Fields.Vote);

@@ -266,7 +266,7 @@ internal static class LibraryListCommands
                     list = Data(game),
                     edited,
                     warning,
-                    sent = sent is null ? null : new { action = ActionName(sent.Action), pushed = sent.Pushed, conflicts = ConflictData(sent), error = sendNote },
+                    sent = sent is null ? null : new { action = ActionName(sent.Action), removedOnSite = sent.RemovedOnSite, hasLocalEdits = sent.HasLocalEdits, pushed = sent.Pushed, conflicts = ConflictData(sent), error = sendNote },
                 },
                 exitCode));
             return exitCode;
@@ -452,6 +452,7 @@ internal static class LibraryListCommands
                         vndbId = i.Game.VndbId,
                         action = ActionName(i.Action),
                         removedOnSite = i.RemovedOnSite,
+                        hasLocalEdits = i.HasLocalEdits,
                         pulled = i.Pulled,
                         pushed = i.Pushed,
                         conflicts = ConflictData(i),
