@@ -152,6 +152,8 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
         command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
         command.Subcommands.Add(CreatePlay(cli));
+        command.Subcommands.Add(CreateState(cli));
+        command.Subcommands.Add(CreateSwitch(cli));
         command.Subcommands.Add(CreateOption(cli));
         command.Subcommands.Add(CreateEmulator(cli));
         return command;

@@ -11,6 +11,7 @@ using VNForge.App.Views;
 using VNForge.Core.Dictionaries;
 using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.Tests.Rendering;
 
@@ -36,6 +37,30 @@ public sealed class SettingsDictionariesRenderTests(HeadlessFixture fixture, Dem
             new DictionaryRule("Sakura-san", "Sakura"),
         ]);
 
+    /// <summary>
+    /// As linhas que o quadro mostra na prévia da regra: a 0301 do Ren no Capítulo 1 (a regra troca) e a 0214 da Aoi (o falante diferente impede a troca).
+    /// A 0302 fica fora do Capítulo 1: é a que o diálogo conta como "não muda".
+    /// </summary>
+    private static void SeedCapitulo1(ProjectFolder folder)
+    {
+        folder.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("cap1", null, "Capítulo 1")]));
+        folder.SaveText(
+            "cap1",
+            [
+                Line("cap1:000301", "Ren", "先生、あいつは大丈夫でしょうか", "Professor, será que você vai dar conta?"),
+                Line("cap1:000214", "Aoi", "君は早いね", "Você chegou cedo hoje, mas você some depois."),
+            ]);
+        folder.SaveText(
+            "cap2",
+            [
+                Line("cap2:000302", "Ren", "先生、あいつは大丈夫でしょうか", "Professor, você sabe onde ele foi?"),
+                Line("cap2:000303", "Ren", "先生が呼んでいる", "O professor disse que você deve ir."),
+            ]);
+    }
+
+    private static TextUnit Line(string id, string speaker, string source, string translation) =>
+        new(id, TextUnitKind.Dialogue, speaker, source, translation, TranslationStatus.Translated);
+
     [Theory]
     [MemberData(nameof(Themes))]
     public async Task Renderiza_a_aba_Dicionarios_e_o_dialogo_da_regra_em_1440_por_1000(string themeName)
@@ -47,6 +72,7 @@ public sealed class SettingsDictionariesRenderTests(HeadlessFixture fixture, Dem
             {
                 var folder = ProjectFolder.Open(demo.Root);
                 folder.SaveFormatting(folder.LoadFormatting() with { Dictionary = Rules() });
+                SeedCapitulo1(folder);
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(demo.Root), new FixedClock(Now));
                 var vault = new MemoryApiKeyStore();
@@ -94,6 +120,9 @@ public sealed class SettingsDictionariesRenderTests(HeadlessFixture fixture, Dem
                     editor.AddConditionCommand.Execute(null);
                     editor.Conditions[1].KindIndex = 1;
                     editor.Conditions[1].Value = "Capítulo 1";
+                    editor.AddConditionCommand.Execute(null);
+                    editor.Conditions[2].KindIndex = 2;
+                    editor.Conditions[2].Value = "先生";
                     await vm.Settings.EditorImpactLoading;
                     ScreenRenderer.Settle(window);
 
@@ -104,7 +133,7 @@ public sealed class SettingsDictionariesRenderTests(HeadlessFixture fixture, Dem
                     Assert.Contains("Só quando todas as condições baterem", dialogTexts);
                     Assert.Contains("Adicionar condição", dialogTexts);
                     Assert.Contains(dialogTexts, t => t.StartsWith("Aplica em", StringComparison.Ordinal));
-                    Assert.Equal(["é", "está em"], editor.Conditions.Select(c => c.OperatorLabel));
+                    Assert.Equal(["é", "está em", "contém"], editor.Conditions.Select(c => c.OperatorLabel));
                 }
                 finally
                 {
