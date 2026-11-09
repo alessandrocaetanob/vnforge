@@ -157,7 +157,7 @@ Cada controle fica em `src/VNForge.App/Controls` e a aparência em `Themes/Contr
 | `ToggleRule` | `TemplatedControl` | `Title`, `Description` (um antes/depois real) e `IsChecked` em duas vias, num `ToggleSwitch` sem `OnContent` e `OffContent`. A última linha de um `Border.panel` perde a divisória |
 | Controle segmentado | `ListBox.seg` | Seleção única, 30px, borda `stroke-control`; o segmento marcado fica em `accent` com `on-accent` em 600 |
 | Abas | `TabControl.tabs` | Itens de 40px; a aba marcada fica em `text-primary` 600 com sublinhado de 3px em `accent` |
-| Chip de filtro | `FilterChip : ToggleButton` | `Label`, `Count?` (milhar em pt-BR, em mono) e `IsChecked`. 28px, raio 4; marcado: `accent-soft`, borda `accent`, texto `accent-text` em 600 |
+| Chip de filtro | `FilterChip : ToggleButton` | `Label`, `Count?` (milhar em pt-BR) e `IsChecked`. Pílula de 32px com 16px de padding; a contagem na mesma fonte, em 600; marcado: fundo e borda `accent`, rótulo e contagem em `on-accent` |
 | `AiSuggestion` | `TemplatedControl` | `Model`, `Details`, `Current`, `Suggestion`, `IsBusy`, `UseCommand`, `CancelCommand`. O corpo é um `SelectableTextBlock` cujos `Inlines` saem de `WordDiff.Compute` (maior subsequência comum por palavra, sem os marcadores de pausa `\p`, `\c` e `\u`): `Run.ins` em `status-approved-*`, `Run.del` riscado em `text-secondary`. Sem tradução atual, o texto vai sem marcação. Gerando, aparece uma barra indeterminada e o botão vira "Cancelar" |
 | Legenda | `Legend : ItemsControl` com `WrapPanel` | `ItemsSource` de `LegendEntry(Text, Tone)` ou `Value` com um `StatusDistribution` (Aprovadas, Revisadas, Traduzidas, IA e Pendentes, com os percentuais). `Tone` também cobre `Error`, `Warning` e `Accent`, para as legendas do Painel |
 | Cartão de número | `StatCard : ContentControl` | `Title` (overline), `Value` (28/32 bold na fonte de exibição), `Description`, `Content` (a barra e a legenda) e `Footer` (o link de ação, num rodapé de 40px de borda a borda) |
@@ -215,3 +215,9 @@ Estes controles continuam com o desenho padrão do Fluent, só com as cores que 
 - **Imagens:** as capas e os retratos aqui são placeholders em SVG, com o texto vertical em japonês só no placeholder. As reais vêm do VNDB com proporções variadas, carregam pela rede e entram com fade; o quadro estático não mostra o carregamento nem a falha.
 - **Animação:** nada se move aqui. O hover (167 ms), a gaveta, o diálogo e a troca de aba (250 ms) são transições do Avalonia e só existem rodando.
 - **Densidade com dados reais:** centenas de jogos pedem rolagem virtualizada da grade de capas, que o HTML não mostra.
+
+## Texto e ícones (#580)
+
+- O Skia do Avalonia suaviza o texto por subpixel (franjas coloridas), e o quadro é desenhado em tons de cinza. `App` põe `TextRenderingMode.Antialias` em toda janela aberta. O que resta: o Skia do Avalonia não aplica o pré-blend de gama e contraste do Chrome, então texto claro sobre fundo escuro sai cerca de 27% mais denso que no quadro (no tema claro a diferença é de 4%).
+- Os ícones vêm de uma grade de 20, e o `PathIcon` estica a geometria até a caixa pelos limites do traçado. Cada geometria de `Icons.axaml` termina com `M0 0L0 0M20 20L20 20`, dois pontos soltos que fixam os limites em 0 a 20: o ícone sai na mesma escala do SVG do quadro (um glifo de 16 numa caixa de 16 ocupa 12,8). Ícone novo leva o mesmo sufixo (`tools/Update-Icons.ps1` já acrescenta).
+- O interruptor, o scrim do diálogo e o chevron do ComboBox seguem o quadro: as chaves `ToggleSwitch*` do Fluent em `Tokens.axaml`, `Vnf.DialogScrim` em `ScreenDialog` e o glifo de 8px em `Buttons.axaml`.
