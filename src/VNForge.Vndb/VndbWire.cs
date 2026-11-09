@@ -118,7 +118,7 @@ internal static class VndbWire
 
         public bool Lie { get; init; }
 
-        public bool Sexual { get; init; }
+        public bool? Sexual { get; init; }
     }
 
     public sealed class ReleaseRef

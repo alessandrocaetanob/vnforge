@@ -3,8 +3,11 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Factsheet;
 
-/// <summary>Quantos textos mudaram de etapa e quantos ficaram como estavam (sem tradução, ainda não revisados ou já na etapa).</summary>
-public sealed record SheetMarkResult(int Changed, int Unchanged);
+/// <summary>
+/// Quantos textos mudaram de etapa, quantos ficaram como estavam (sem tradução, ainda não revisados ou já na etapa) e quantos o lote deixou de fora por estarem desatualizados
+/// (<see cref="SheetText.Outdated"/>); estes não entram em <paramref name="Unchanged"/>.
+/// </summary>
+public sealed record SheetMarkResult(int Changed, int Unchanged, int SkippedOutdated = 0);
 
 /// <summary>
 /// Revisar, aprovar e corrigir à mão os textos da ficha de um jogo, como se faz com as falas. Todo método grava sob a trava de <see cref="SheetStore"/>, relendo o que muda.
@@ -61,14 +64,14 @@ public static class SheetEditor
     /// </summary>
     /// <exception cref="LibraryException">Um dos textos pedidos não é da ficha ou não tem tradução.</exception>
     public static SheetMarkResult Review(SheetStore store, string visualNovelId, IReadOnlyList<SheetField>? fields = null) =>
-        Mark(store, visualNovelId, fields, text => text.Reviewed(), text => text.HasTarget && !text.Outdated && text.Status < TranslationStatus.Reviewed);
+        Mark(store, visualNovelId, fields, text => text.Reviewed(), text => text.HasTarget && !text.Outdated && text.Status < TranslationStatus.Reviewed, text => text.HasTarget && text.Outdated);
 
     /// <summary>Marca como aprovados os textos pedidos, ou todos os revisados quando <paramref name="fields"/> é nulo.</summary>
     /// <exception cref="LibraryException">Um dos textos pedidos não é da ficha ou ainda não foi revisado.</exception>
     public static SheetMarkResult Approve(SheetStore store, string visualNovelId, IReadOnlyList<SheetField>? fields = null) =>
         Mark(store, visualNovelId, fields, text => text.Approved(), text => text.Status == TranslationStatus.Reviewed);
 
-    private static SheetMarkResult Mark(SheetStore store, string visualNovelId, IReadOnlyList<SheetField>? fields, Func<SheetText, SheetText> change, Func<SheetText, bool> eligible)
+    private static SheetMarkResult Mark(SheetStore store, string visualNovelId, IReadOnlyList<SheetField>? fields, Func<SheetText, SheetText> change, Func<SheetText, bool> eligible, Func<SheetText, bool>? held = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         return store.Update(s =>
@@ -86,7 +89,8 @@ public static class SheetEditor
                 });
             }
 
-            return new SheetMarkResult(changed, all.Count - changed);
+            var skipped = fields is null && held is not null ? all.Count(t => held(t.Text)) : 0;
+            return new SheetMarkResult(changed, all.Count - changed - skipped, skipped);
         });
     }
 

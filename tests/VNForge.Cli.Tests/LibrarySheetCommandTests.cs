@@ -28,7 +28,7 @@ public sealed class LibrarySheetCommandTests : IDisposable
 
     private static VndbCharacter Tomoya() =>
         new("c1", "Tomoya Okazaki", "岡崎 朋也", [], "The hero. [spoiler]He is a ghost.[/spoiler]", null, new VndbGender("m", "m"),
-            [new VndbCharacterAppearance("v4", "main", 0, null)], [new VndbTrait("i1", "Long Hair", "i10", "Hair", 0, false), new VndbTrait("i2", "Amnesia", "i20", "Personality", 1, false)]);
+            [new VndbCharacterAppearance("v4", "main", 0, null)], [new VndbTrait("i1", "Long Hair", "i10", "Hair", 0, false, false), new VndbTrait("i2", "Amnesia", "i20", "Personality", 1, false, false)]);
 
     private static VndbCharacter Sister() =>
         new("c2", "Ghost Sister", null, [], "Who is she?", new VndbImage("https://t.vndb.org/ch/2.jpg", null, 10, 10, 1.6, 0), new VndbGender("f", "f"),
@@ -68,6 +68,25 @@ public sealed class LibrarySheetCommandTests : IDisposable
         Assert.Contains("4 nomes de tag e traço novos", result.Output, StringComparison.Ordinal);
         Assert.Contains("vndb.org", result.Output, StringComparison.Ordinal);
         Assert.Equal(["c1", "c2"], Store.LoadGame("v4")!.CharacterIds);
+    }
+
+    [Fact]
+    public async Task Revisar_em_lote_diz_quantos_desatualizados_ficaram_de_fora()
+    {
+        Prepare();
+        await Run("library", "sheet", "fetch", "CLANNAD");
+        await Run("library", "sheet", "translate", "CLANNAD", "--yes");
+        await Run("library", "sheet", "edit", "CLANNAD", "c1", "O herói. [spoiler]Ele é um fantasma.[/spoiler]");
+        _cli.Cli.VndbCatalogFactory = () => new FakeVndbCatalog([Game()], [Tomoya() with { Description = "The hero, rewritten." }, Sister()]);
+        await Run("library", "sheet", "fetch", "CLANNAD");
+
+        var review = await Run("library", "sheet", "review", "CLANNAD");
+        var json = await Run("library", "sheet", "review", "CLANNAD", "--json");
+
+        Assert.Contains("6 textos revisados; 0 ainda não tinham tradução ou já estavam revisados.", review.Output, StringComparison.Ordinal);
+        Assert.Contains("1 texto desatualizado ficou de fora", review.Output, StringComparison.Ordinal);
+        Assert.Equal(1, Data(json).GetProperty("skippedOutdated").GetInt32());
+        Assert.True(Store.LoadCharacter("c1")!.Description!.Outdated);
     }
 
     [Fact]

@@ -52,6 +52,7 @@ public static partial class SheetMarkup
         string.IsNullOrEmpty(text) ? (0, 0) : (SpoilerOpen().Count(text), SpoilerClose().Count(text));
 
     public static bool HasSpoilers(string? text) => SpoilerMarkers(text).Open > 0;
+
     /// <summary>
     /// Os dois textos têm os marcadores de spoiler na mesma sequência (abre, fecha, abre...). Contar não basta: <c>[/spoiler]B[spoiler]</c> tem as mesmas contagens de
     /// <c>[spoiler]B[/spoiler]</c>, mas o <see cref="StripSpoilers"/> esconderia o que vem depois e deixaria o spoiler à mostra.

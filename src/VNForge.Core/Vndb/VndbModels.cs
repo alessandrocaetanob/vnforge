@@ -36,8 +36,8 @@ public sealed record VndbVisualNovel(
 /// <summary>O gênero de um personagem: o que aparece sem spoiler e o real. Os valores são <c>m</c>, <c>f</c>, <c>o</c> (não binário), <c>a</c> (ambíguo) ou nulo.</summary>
 public sealed record VndbGender(string? Visible, string? Spoiler);
 
-/// <summary>Um traço do personagem. <paramref name="GroupName"/> (Cabelo, Corpo, Papel) acompanha o nome, porque o traço sozinho não se explica. <paramref name="Sexual"/> é o campo <c>sexual</c> que o VNDB marca no traço.</summary>
-public sealed record VndbTrait(string Id, string Name, string GroupId, string GroupName, int Spoiler, bool Lie, bool Sexual = false);
+/// <summary>Um traço do personagem. <paramref name="GroupName"/> (Cabelo, Corpo, Papel) acompanha o nome, porque o traço sozinho não se explica. <paramref name="Sexual"/> é o campo <c>sexual</c> que o VNDB marca no traço; nulo é "não sei" (ficha gravada antes de o campo existir) e a Biblioteca trata como sexual até a próxima busca.</summary>
+public sealed record VndbTrait(string Id, string Name, string GroupId, string GroupName, int Spoiler, bool Lie, bool? Sexual = null);
 
 /// <summary>
 /// Onde o personagem aparece. O mesmo jogo pode vir mais de uma vez, com <paramref name="ReleaseId"/> diferente, porque papel e spoiler variam por edição.

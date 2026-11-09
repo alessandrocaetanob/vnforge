@@ -50,7 +50,7 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateSheetFetch(cli));
         command.Subcommands.Add(CreateSheetTranslate(cli));
         command.Subcommands.Add(CreateSheetShow(cli));
-        command.Subcommands.Add(CreateSheetMark(cli, "review", "Marca como revisados os textos da ficha (sem textos, os traduzidos que não estão desatualizados).", (store, id, fields) => SheetEditor.Review(store, id, fields), "revisados", "ainda não tinham tradução, estão desatualizados (revise pelo nome) ou já estavam revisados"));
+        command.Subcommands.Add(CreateSheetMark(cli, "review", "Marca como revisados os textos da ficha (sem textos, os traduzidos que não estão desatualizados).", (store, id, fields) => SheetEditor.Review(store, id, fields), "revisados", "ainda não tinham tradução ou já estavam revisados"));
         command.Subcommands.Add(CreateSheetMark(cli, "approve", "Marca como aprovados os textos revisados da ficha (sem textos, todos os revisados).", (store, id, fields) => SheetEditor.Approve(store, id, fields), "aprovados", "ainda não foram revisados ou já estavam aprovados"));
         command.Subcommands.Add(CreateSheetEdit(cli));
         command.Subcommands.Add(CreateSheetApply(cli));
@@ -346,11 +346,15 @@ internal static partial class LibraryCommand
             var output = parseResult.InvocationConfiguration.Output;
             if (parseResult.GetValue(cli.Options.Json))
             {
-                output.WriteLine(JsonEnvelope.Result(new { game = new { id = found.Id, title = found.Title }, changed = result.Changed, unchanged = result.Unchanged }));
+                output.WriteLine(JsonEnvelope.Result(new { game = new { id = found.Id, title = found.Title }, changed = result.Changed, unchanged = result.Unchanged, skippedOutdated = result.SkippedOutdated }));
             }
             else
             {
                 output.WriteLine($"{found.Title}: {CliFormat.Count(result.Changed, "texto", "textos")} {past}; {result.Unchanged} {unchangedWhy}.");
+                if (result.SkippedOutdated > 0)
+                {
+                    output.WriteLine($"{CliFormat.Count(result.SkippedOutdated, "texto desatualizado ficou", "textos desatualizados ficaram")} de fora, porque o VNDB mudou o original depois do seu texto. Confira e revise citando o texto (vnf library sheet show {found.Id} --ids mostra os ids).");
+                }
             }
 
             return ErrorHandler.OkExitCode;

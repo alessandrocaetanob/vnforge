@@ -17,11 +17,11 @@ internal static class SheetSamples
 
     public static VndbTag Lewd { get; } = new("g12", "Sexual Content", "ero", 2.4, 0, false);
 
-    public static VndbTrait Hair { get; } = new("i1", "Long Hair", "i10", "Hair", 0, false);
+    public static VndbTrait Hair { get; } = new("i1", "Long Hair", "i10", "Hair", 0, false, Sexual: false);
 
-    public static VndbTrait Secret { get; } = new("i2", "Amnesia", "i20", "Personality", 1, false);
+    public static VndbTrait Secret { get; } = new("i2", "Amnesia", "i20", "Personality", 1, false, Sexual: false);
 
-    public static VndbTrait Fake { get; } = new("i3", "Tsundere", "i20", "Personality", 0, true);
+    public static VndbTrait Fake { get; } = new("i3", "Tsundere", "i20", "Personality", 0, true, Sexual: false);
 
     public static VndbTrait Adult { get; } = new("i104", "Virgin Sex", "i43", "Engages in (Sexual)", 0, false, Sexual: true);
 

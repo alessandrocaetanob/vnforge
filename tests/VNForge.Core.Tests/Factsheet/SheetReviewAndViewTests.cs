@@ -56,8 +56,8 @@ public sealed class SheetReviewAndViewTests : IDisposable
 
         var kept = Store.LoadGame(Game1)!.Synopsis!;
         Assert.Equal((TranslationStatus.Translated, true), (kept.Status, kept.Outdated));
-        Assert.Equal(new SheetMarkResult(10, 1), all);
-        Assert.Equal(new SheetMarkResult(0, 11), SheetEditor.Review(Store, Game1));
+        Assert.Equal(new SheetMarkResult(10, 0, 1), all);
+        Assert.Equal(new SheetMarkResult(0, 10, 1), SheetEditor.Review(Store, Game1));
 
         SheetEditor.Review(Store, Game1, [SheetField.Synopsis]);
 
@@ -186,6 +186,40 @@ public sealed class SheetReviewAndViewTests : IDisposable
         Assert.True(SheetViewer.IsTraitHidden(Adult, hiding));
         Assert.False(SheetViewer.IsTraitHidden(namedLikeAdultButNot, hiding));
         Assert.False(SheetViewer.IsTraitHidden(sexualInOtherGroup, new LibraryPrivacy(ShowAdult: true)));
+    }
+
+    [Fact]
+    public async Task Ficha_gravada_antes_do_campo_sexual_esconde_o_traco_ate_a_proxima_busca()
+    {
+        await Translated();
+        var kenta = Store.LoadCharacter("c1")!;
+        Store.SaveCharacter(kenta with { Traits = [.. kenta.Traits.Select(t => t with { Sexual = null })] });
+
+        var hidden = Card();
+        var shown = Card(new LibraryPrivacy(ShowAdult: true, ShowSpoilers: true));
+
+        Assert.Empty(hidden.Characters[0].Traits);
+        Assert.Equal(4, shown.Characters[0].Traits.Count);
+
+        await SheetFetcher.FetchAsync(Catalog(), Store, Game1, cancellationToken: Ct);
+
+        Assert.Equal(["i1"], Card().Characters[0].Traits.Select(t => t.Id));
+    }
+
+    [Fact]
+    public async Task Aprovar_tudo_nao_pega_texto_desatualizado_porque_o_revisado_que_o_VNDB_mudou_volta_a_traduzido()
+    {
+        await Translated();
+        SheetEditor.Review(Store, Game1);
+        await SheetFetcher.FetchAsync(Catalog(Game(description: "A new synopsis. [spoiler]He dies.[/spoiler]")), Store, Game1, cancellationToken: Ct);
+        var synopsis = Store.LoadGame(Game1)!.Synopsis!;
+        Assert.Equal((TranslationStatus.Translated, true), (synopsis.Status, synopsis.Outdated));
+
+        var result = SheetEditor.Approve(Store, Game1);
+
+        Assert.Equal(10, result.Changed);
+        Assert.Equal(TranslationStatus.Translated, Store.LoadGame(Game1)!.Synopsis!.Status);
+        Assert.Throws<LibraryException>(() => SheetEditor.Approve(Store, Game1, [SheetField.Synopsis]));
     }
 
     [Fact]

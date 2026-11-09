@@ -159,9 +159,10 @@ public class VndbClientTests
         Assert.Equal(
             [new VndbCharacterAppearance("v900001", "main", 0, null), new VndbCharacterAppearance("v900002", "side", 1, "r900010")],
             character.Appearances);
-        Assert.Equal(new VndbTrait("i2164", "Priest", "i40", "Role", 2, false), character.Traits[1]);
+        Assert.Equal(new VndbTrait("i2164", "Priest", "i40", "Role", 2, false, Sexual: false), character.Traits[1]);
         Assert.Equal(new VndbTrait("i104", "Virgin Sex", "i43", "Engages in (Sexual)", 0, false, Sexual: true), character.Traits[2]);
         Assert.False(character.Traits[0].Sexual);
+        Assert.Null(character.Traits[3].Sexual);
     }
 
     [Fact]
