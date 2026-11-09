@@ -66,6 +66,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         Blocks = [.. queue.Select((_, i) => new ReviewBlock(i + 1))];
         editor.PropertyChanged += OnEditorChanged;
+        editor.LineSaved += OnLineSaved;
         if (queue.Count == 0)
         {
             IsFinished = true;
@@ -85,7 +86,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
     /// <summary>A fila acabou: a tela mostra o resumo e a próxima cena.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsActive), nameof(FinishedTitle), nameof(FinishedText), nameof(NextSceneName), nameof(HasNextScene), nameof(ShowRisk))]
+    [NotifyPropertyChangedFor(nameof(IsActive), nameof(FinishedTitle), nameof(FinishedText), nameof(NextSceneName), nameof(HasNextScene), nameof(ShowRisk), nameof(ShowPosition))]
     public partial bool IsFinished { get; private set; }
 
     public bool IsActive => !IsFinished;
@@ -276,6 +277,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         disposed = true;
         editor.PropertyChanged -= OnEditorChanged;
+        editor.LineSaved -= OnLineSaved;
     }
 
     private static string Plural(int count, string one, string many) => count == 1 ? $"1 {one}" : $"{ProjectLabels.Number(count)} {many}";
@@ -349,6 +351,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(Detail));
         OnPropertyChanged(nameof(SceneName));
+        OnPropertyChanged(nameof(HeaderTitle));
         NotifyLineChanged();
         NotifyRisk();
         return true;
@@ -380,6 +383,9 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
             editor.StopReview();
         }
     }
+
+    /// <summary>Uma gravação (outra sugestão, "reescrever", um aviso do QA que sumiu) muda os sinais da linha em exibição: o cartão de risco é refeito, sem reordenar a fila.</summary>
+    private void OnLineSaved(object? sender, LineSavedEventArgs e) => NotifyRisk();
 
     private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
     {

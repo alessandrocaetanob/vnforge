@@ -27,11 +27,11 @@ public enum RiskFactorKind
     /// <summary>A passada de editor propôs um ajuste que ainda vale para a linha.</summary>
     EditorSuggestion,
 
-    /// <summary>A tradução da linha não é a que a IA escreveu: duas passadas discordam sobre o texto.</summary>
+    /// <summary>Duas passadas de tradução discordam sobre o texto. Ainda não pontua: não há uma segunda passada real, e <see cref="TextUnit.AiTranslation"/> só existe depois que a pessoa edita a linha, o que não é divergência. Fica reservado, com o peso em <see cref="RiskWeights.PassDivergence"/>.</summary>
     PassDivergence,
 }
 
-/// <summary>Os pontos de cada sinal e as faixas de <see cref="RiskLevel"/>. Somados chegam a 108; a pontuação para em <see cref="MaxScore"/>.</summary>
+/// <summary>Os pontos de cada sinal e as faixas de <see cref="RiskLevel"/>. Somados, os sinais que pontuam chegam a 100; a pontuação para em <see cref="MaxScore"/>.</summary>
 public static class RiskWeights
 {
     public const int AiDoubt = 30;
@@ -47,6 +47,7 @@ public static class RiskWeights
 
     public const int EditorSuggestion = 10;
 
+    /// <summary>Reservado para a divergência entre passadas (<see cref="RiskFactorKind.PassDivergence"/>); nenhum sinal o usa ainda.</summary>
     public const int PassDivergence = 8;
 
     public const int MaxScore = 100;
@@ -55,7 +56,7 @@ public static class RiskWeights
     public const int MediumFrom = 30;
 
     /// <summary>A partir daqui a linha é de risco alto.</summary>
-    public const int HighFrom = 60;
+    public const int HighFrom = 70;
 
     public static RiskLevel LevelOf(int score) => score switch
     {
@@ -67,7 +68,8 @@ public static class RiskWeights
 
 /// <summary>Um sinal que pesou na pontuação: o que é, quantos pontos deu e o texto do chip.</summary>
 /// <param name="Label">O nome do sinal em português, sem os pontos ("Dúvida da IA", "Aviso do QA: passa 1 linha").</param>
-public sealed record RiskFactor(RiskFactorKind Kind, int Points, string Label)
+/// <param name="IsError">O sinal é um erro do QA, que bloqueia o build: a tela o pinta com a cor de erro, e não a de aviso.</param>
+public sealed record RiskFactor(RiskFactorKind Kind, int Points, string Label, bool IsError = false)
 {
     /// <summary>O texto do chip, com os pontos: "Dúvida da IA +30".</summary>
     public string Text => $"{Label} +{Points}";
@@ -77,8 +79,8 @@ public sealed record RiskFactor(RiskFactorKind Kind, int Points, string Label)
 }
 
 /// <summary>
-/// A pontuação de risco de uma linha, de 0 a 100: a soma dos sinais que pedem a atenção da pessoa (dúvida da IA, QA, "soa estranho", sugestão do editor e
-/// divergência entre passadas). Só lê a linha; não grava nada.
+/// A pontuação de risco de uma linha, de 0 a 100: a soma dos sinais que pedem a atenção da pessoa (dúvida da IA, QA, "soa estranho" e sugestão do editor; a
+/// divergência entre passadas ainda não conta, ver <see cref="RiskFactorKind.PassDivergence"/>). Só lê a linha; não grava nada.
 /// </summary>
 /// <param name="Line">A linha pontuada, com os avisos do QA que a atingem.</param>
 public sealed record LineRisk(LineEntry Line, int Score, RiskLevel Level, IReadOnlyList<RiskFactor> Factors)
@@ -109,11 +111,6 @@ public sealed record LineRisk(LineEntry Line, int Score, RiskLevel Level, IReadO
             factors.Add(new RiskFactor(RiskFactorKind.EditorSuggestion, RiskWeights.EditorSuggestion, "Sugestão do editor"));
         }
 
-        if (unit.AiTranslation is { } ai && !string.Equals(ai, unit.Translation, StringComparison.Ordinal))
-        {
-            factors.Add(new RiskFactor(RiskFactorKind.PassDivergence, RiskWeights.PassDivergence, "Passadas divergem"));
-        }
-
         var score = Math.Min(RiskWeights.MaxScore, factors.Sum(f => f.Points));
         return new LineRisk(line, score, RiskWeights.LevelOf(score), factors);
     }
@@ -129,7 +126,7 @@ public sealed record LineRisk(LineEntry Line, int Score, RiskLevel Level, IReadO
         var worst = issues.FirstOrDefault(i => i.Severity == QaSeverity.Error);
         if (worst is not null)
         {
-            return new RiskFactor(RiskFactorKind.QaIssue, RiskWeights.QaError, $"Erro do QA: {worst.Message}");
+            return new RiskFactor(RiskFactorKind.QaIssue, RiskWeights.QaError, $"Erro do QA: {worst.Message}", IsError: true);
         }
 
         worst = issues.FirstOrDefault(i => !QaReport.IsStyleAdvice(i));

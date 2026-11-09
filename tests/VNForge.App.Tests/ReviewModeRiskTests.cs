@@ -21,7 +21,7 @@ public sealed class ReviewModeRiskTests : IDisposable
         projeto.SaveText("yst00001",
         [
             Fala(1, 0, "美咲", "Bom dia.\\p", TranslationStatus.Machine),
-            Fala(1, 1, "健太", "Oi.\\p", TranslationStatus.Machine, duvida: true, estranho: true),
+            Fala(1, 1, "健太", "Oi.", TranslationStatus.Machine, duvida: true, estranho: true),
             Fala(1, 2, "美咲", "Aham.\\p", TranslationStatus.Approved),
             Fala(1, 3, "健太", "Ei.\\p", TranslationStatus.Machine),
         ]);
@@ -31,7 +31,7 @@ public sealed class ReviewModeRiskTests : IDisposable
             Fala(2, 1, "美咲", null, TranslationStatus.Untranslated),
         ]);
         projeto.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada"), new CharacterEntry("健太", "Kenta", CharacterGender.Male)]);
-        GravarSugestao("yst00001:000001", "Oi.\\p");
+        GravarSugestao("yst00001:000001", "Oi.");
     }
 
     public void Dispose() => pasta.Dispose();
@@ -77,7 +77,7 @@ public sealed class ReviewModeRiskTests : IDisposable
     {
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         var revisao = vm.Review!;
         Assert.True(revisao.IsRisk);
@@ -95,7 +95,7 @@ public sealed class ReviewModeRiskTests : IDisposable
     {
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         var revisao = vm.Review!;
         Assert.StartsWith("Risco ", revisao.RiskScoreText, StringComparison.Ordinal);
@@ -116,7 +116,7 @@ public sealed class ReviewModeRiskTests : IDisposable
         File.Delete(Path.Combine(ProjectFolder.Open(raiz).CacheDirectory, "editor-suggestions.json"));
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         var chips = vm.Review!.RiskChips.Select(c => c.Text).ToList();
         Assert.Contains("Dúvida da IA +30", chips);
@@ -129,7 +129,7 @@ public sealed class ReviewModeRiskTests : IDisposable
         GravarSugestao("yst00001:000001", "uma tradução que a linha já não tem");
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         Assert.DoesNotContain("Sugestão do editor +10", vm.Review!.RiskChips.Select(c => c.Text));
     }
@@ -140,7 +140,7 @@ public sealed class ReviewModeRiskTests : IDisposable
         GravarRitmo120PorHora();
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         var revisao = vm.Review!;
         Assert.Equal("1 linha de risco alto · faltam cerca de 1 min no seu ritmo de 120 linhas por hora", revisao.RiskSummaryText);
@@ -149,13 +149,13 @@ public sealed class ReviewModeRiskTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_ritmo_a_frase_diz_que_ainda_nao_ha()
+    public async Task Sem_ritmo_a_frase_das_horas_some_e_fica_so_a_contagem()
     {
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
-        Assert.Equal("1 linha de risco alto · sem ritmo ainda, aprove algumas linhas para calcular as horas", vm.Review!.RiskSummaryText);
+        Assert.Equal("1 linha de risco alto", vm.Review!.RiskSummaryText);
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class ReviewModeRiskTests : IDisposable
     {
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         var revisao = vm.Review!;
         Assert.Equal(100, revisao.RiskShare.High + revisao.RiskShare.Medium + revisao.RiskShare.Low);
@@ -176,7 +176,7 @@ public sealed class ReviewModeRiskTests : IDisposable
     {
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         var linhas = vm.Review!.UpNext;
         Assert.Equal(4, linhas.Count);
@@ -199,7 +199,7 @@ public sealed class ReviewModeRiskTests : IDisposable
     public async Task Esta_boa_atravessa_as_cenas_grava_cada_linha_e_a_tela_final_nao_oferece_a_proxima_cena()
     {
         var vm = await Abrir();
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
         var revisao = vm.Review!;
 
         for (var i = 0; i < 4; i++)
@@ -227,6 +227,7 @@ public sealed class ReviewModeRiskTests : IDisposable
         Assert.Equal("yst00001:000000", vm.Review.Detail!.Id);
 
         vm.Review.OrderIndex = 1;
+        await vm.StartRiskReviewCommand.ExecutionTask!;
 
         Assert.True(vm.Review.IsRisk);
         Assert.Equal(1, vm.Review.OrderIndex);
@@ -261,7 +262,7 @@ public sealed class ReviewModeRiskTests : IDisposable
         projeto.SaveText("yst00002", [Fala(2, 0, "美咲", "Sim.\\p", TranslationStatus.Approved)]);
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         Assert.False(vm.IsReviewing);
     }
@@ -271,11 +272,78 @@ public sealed class ReviewModeRiskTests : IDisposable
     {
         var vm = await Abrir();
 
-        vm.StartRiskReview();
+        await vm.StartRiskReviewAsync();
 
         Assert.Equal(4, vm.Review!.Blocks.Count);
         Assert.Empty(vm.Review.VisibleBlocks);
         vm.StartReview();
         Assert.Equal(vm.Review!.Blocks.Count, vm.Review.VisibleBlocks.Count);
+    }
+
+    [Fact]
+    public async Task O_titulo_no_topo_e_Fila_por_risco_e_so_nas_outras_filas_e_o_nome_da_cena_com_a_posicao()
+    {
+        var vm = await Abrir();
+
+        await vm.StartRiskReviewAsync();
+        var risco = vm.Review!;
+        Assert.Equal("Fila por risco", risco.HeaderTitle);
+        Assert.False(risco.ShowPosition);
+
+        vm.StartReview();
+        var cena = vm.Review!;
+        Assert.Equal(cena.SceneName, cena.HeaderTitle);
+        Assert.True(cena.ShowPosition);
+    }
+
+    [Fact]
+    public async Task Os_chips_levam_os_icones_e_as_cores_do_quadro_e_o_erro_do_QA_usa_a_cor_de_erro()
+    {
+        var vm = await Abrir();
+
+        await vm.StartRiskReviewAsync();
+
+        var chips = vm.Review!.RiskChips;
+        var duvida = Assert.Single(chips, c => c.Text == "Dúvida da IA +30");
+        Assert.True(duvida.IsAi && duvida.HasSparkle && !duvida.HasWarningIcon);
+        var qa = Assert.Single(chips, c => c.Text.StartsWith("Erro do QA", StringComparison.Ordinal));
+        Assert.True(qa.IsError && qa.HasWarningIcon && !qa.IsWarning && !qa.IsAi);
+        var estranho = Assert.Single(chips, c => c.Text == "Soa estranho +20");
+        Assert.True(estranho.IsWarning && !estranho.HasSparkle && !estranho.HasWarningIcon);
+        var sugestao = Assert.Single(chips, c => c.Text == "Sugestão do editor +10");
+        Assert.True(sugestao.IsAi && !sugestao.HasSparkle);
+    }
+
+    [Fact]
+    public async Task A_lista_a_seguir_mostra_ate_5_linhas()
+    {
+        ProjectFolder.Open(raiz).SaveText("yst00003", [Fala(3, 0, "美咲", "Um.\\p", TranslationStatus.Machine), Fala(3, 1, "美咲", "Dois.\\p", TranslationStatus.Machine), Fala(3, 2, "美咲", "Três.\\p", TranslationStatus.Machine)]);
+        var vm = await Abrir();
+
+        await vm.StartRiskReviewAsync();
+
+        Assert.Equal(7, vm.Review!.Total);
+        Assert.Equal(5, vm.Review.UpNext.Count);
+    }
+
+    [Fact]
+    public async Task Depois_de_gravar_a_linha_o_cartao_recalcula_os_sinais_sem_mudar_o_lugar_na_fila()
+    {
+        var vm = await Abrir();
+        await vm.StartRiskReviewAsync();
+        var revisao = vm.Review!;
+        var antes = revisao.RiskScoreText;
+        Assert.Contains("Dúvida da IA +30", revisao.RiskChips.Select(c => c.Text));
+
+        revisao.Detail!.Translation = "Oi, tudo bem?\\p";
+        Assert.True(revisao.Detail.Flush());
+
+        Assert.Equal(0, revisao.Position);
+        Assert.NotEqual(antes, revisao.RiskScoreText);
+        var chips = revisao.RiskChips.Select(c => c.Text).ToList();
+        Assert.DoesNotContain("Dúvida da IA +30", chips);
+        Assert.DoesNotContain(chips, c => c.StartsWith("Erro do QA", StringComparison.Ordinal));
+        Assert.DoesNotContain("Sugestão do editor +10", chips);
+        Assert.Equal(revisao.RiskScoreText, $"Risco {revisao.UpNext[0].Score}");
     }
 }

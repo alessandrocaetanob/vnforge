@@ -37,7 +37,6 @@ public sealed class RiskQueueTests
         var duvida = LineRisk.Of(Entrada(ComDuvida(Linha("a", 1))));
         var estranho = LineRisk.Of(Entrada(Linha("a", 2).WithOdd(true)));
         var sugestao = LineRisk.Of(Entrada(Linha("a", 3)), hasEditorSuggestion: true);
-        var divergente = LineRisk.Of(Entrada(Linha("a", 4) with { AiTranslation = "outra versão" }));
 
         Assert.Equal(30, duvida.Score);
         Assert.Equal([RiskFactorKind.AiDoubt], duvida.Factors.Select(f => f.Kind));
@@ -45,8 +44,6 @@ public sealed class RiskQueueTests
         Assert.Equal([RiskFactorKind.SoundsOdd], estranho.Factors.Select(f => f.Kind));
         Assert.Equal(10, sugestao.Score);
         Assert.Equal([RiskFactorKind.EditorSuggestion], sugestao.Factors.Select(f => f.Kind));
-        Assert.Equal(8, divergente.Score);
-        Assert.Equal([RiskFactorKind.PassDivergence], divergente.Factors.Select(f => f.Kind));
     }
 
     [Fact]
@@ -67,24 +64,56 @@ public sealed class RiskQueueTests
     }
 
     [Fact]
-    public void Todos_os_sinais_juntos_somam_92_na_ordem_do_cartao_e_o_texto_do_chip_traz_os_pontos()
+    public void Todos_os_sinais_juntos_somam_84_na_ordem_do_cartao_e_o_texto_do_chip_traz_os_pontos()
     {
-        var unit = ComDuvida(Linha("a", 1).WithOdd(true)) with { AiTranslation = "outra versão" };
+        var unit = ComDuvida(Linha("a", 1).WithOdd(true));
 
         var risco = LineRisk.Of(Entrada(unit, Problema(unit, QaSeverity.Warning)), hasEditorSuggestion: true);
 
-        Assert.Equal(92, risco.Score);
+        Assert.Equal(84, risco.Score);
         Assert.Equal(RiskLevel.High, risco.Level);
         Assert.Equal(
-            [RiskFactorKind.AiDoubt, RiskFactorKind.QaIssue, RiskFactorKind.SoundsOdd, RiskFactorKind.EditorSuggestion, RiskFactorKind.PassDivergence],
+            [RiskFactorKind.AiDoubt, RiskFactorKind.QaIssue, RiskFactorKind.SoundsOdd, RiskFactorKind.EditorSuggestion],
             risco.Factors.Select(f => f.Kind));
-        Assert.Equal(["Dúvida da IA +30", "Aviso do QA: passa 1 linha +24", "Soa estranho +20", "Sugestão do editor +10", "Passadas divergem +8"], risco.Factors.Select(f => f.Text));
+        Assert.Equal(["Dúvida da IA +30", "Aviso do QA: passa 1 linha +24", "Soa estranho +20", "Sugestão do editor +10"], risco.Factors.Select(f => f.Text));
+    }
+
+    [Fact]
+    public void Linha_editada_a_mao_nao_ganha_ponto_de_passadas_divergem_porque_so_ha_uma_passada()
+    {
+        var editada = Linha("a", 1) with { AiTranslation = "o que a IA escreveu" };
+
+        var risco = LineRisk.Of(Entrada(editada));
+
+        Assert.Equal(0, risco.Score);
+        Assert.DoesNotContain(risco.Factors, f => f.Kind == RiskFactorKind.PassDivergence);
+        Assert.Equal(8, RiskWeights.PassDivergence);
+    }
+
+    [Fact]
+    public void So_o_erro_do_QA_e_marcado_como_erro_para_a_tela_pintar_com_a_cor_certa()
+    {
+        var unit = Linha("a", 1);
+
+        Assert.True(Assert.Single(LineRisk.Of(Entrada(unit, Problema(unit, QaSeverity.Error))).Factors).IsError);
+        Assert.False(Assert.Single(LineRisk.Of(Entrada(unit, Problema(unit, QaSeverity.Warning))).Factors).IsError);
+        Assert.False(Assert.Single(LineRisk.Of(Entrada(unit.WithOdd(true))).Factors).IsError);
+    }
+
+    [Fact]
+    public void A_fila_monta_de_uma_copia_das_linhas_igual_a_do_projeto()
+    {
+        var linhas = ProjectLines.Create(Textos(("a", [ComDuvida(Linha("a", 1)), Linha("a", 2)]), ("b", [Linha("b", 1).WithOdd(true)])));
+
+        var copia = RiskQueue.Build(linhas.Scripts.SelectMany(s => linhas.LinesOf(s.Key)).ToArray());
+
+        Assert.Equal(RiskQueue.Build(linhas).Lines.Select(l => (l.Line.Unit.Id, l.Score)), copia.Lines.Select(l => (l.Line.Unit.Id, l.Score)));
     }
 
     [Fact]
     public void A_pontuacao_para_em_100()
     {
-        var unit = ComDuvida(Linha("a", 1).WithOdd(true)) with { AiTranslation = "outra versão" };
+        var unit = ComDuvida(Linha("a", 1).WithOdd(true));
 
         var risco = LineRisk.Of(Entrada(unit, Problema(unit, QaSeverity.Error)), hasEditorSuggestion: true);
 
@@ -95,10 +124,10 @@ public sealed class RiskQueueTests
     [InlineData(0, RiskLevel.Low)]
     [InlineData(29, RiskLevel.Low)]
     [InlineData(30, RiskLevel.Medium)]
-    [InlineData(59, RiskLevel.Medium)]
-    [InlineData(60, RiskLevel.High)]
+    [InlineData(69, RiskLevel.Medium)]
+    [InlineData(70, RiskLevel.High)]
     [InlineData(100, RiskLevel.High)]
-    public void Os_niveis_mudam_em_30_e_em_60(int pontos, RiskLevel esperado) =>
+    public void Os_niveis_mudam_em_30_e_em_70(int pontos, RiskLevel esperado) =>
         Assert.Equal(esperado, RiskWeights.LevelOf(pontos));
 
     [Fact]
@@ -196,7 +225,7 @@ public sealed class RiskQueueTests
     {
         Assert.Equal("312 linhas de risco alto · faltam cerca de 3 h 43 min no seu ritmo de 84 linhas por hora", RiskQueue.DescribeHigh(312, new ReviewPace(0, 84, null)));
         Assert.Equal("1 linha de risco alto · faltam cerca de 1 h no seu ritmo de 1 linha por hora", RiskQueue.DescribeHigh(1, new ReviewPace(0, 1, null)));
-        Assert.Equal("1.254 linhas de risco alto · sem ritmo ainda, aprove algumas linhas para calcular as horas", RiskQueue.DescribeHigh(1254, ReviewPace.None));
+        Assert.Equal("1.254 linhas de risco alto", RiskQueue.DescribeHigh(1254, ReviewPace.None));
         Assert.Equal("Nenhuma linha de risco alto", RiskQueue.DescribeHigh(0, new ReviewPace(0, 84, null)));
     }
 

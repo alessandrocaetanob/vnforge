@@ -37,6 +37,7 @@
 
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+K" Command="{Binding OpenPaletteCommand}"/>
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRiskReviewCommand}"/>
   </Window.KeyBindings>
 
   <Window.Styles>

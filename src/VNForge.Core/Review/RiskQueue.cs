@@ -62,21 +62,27 @@ public sealed class RiskQueue
     public static RiskQueue Build(ProjectLines lines, PendingEditorSuggestions? suggestions = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
+        return Build(lines.Scripts.SelectMany(script => lines.LinesOf(script.Key)), suggestions);
+    }
+
+    /// <summary>
+    /// Monta a fila de <paramref name="lines"/>, na ordem da história (scripts em ordem ordinal e, dentro deles, a ordem do arquivo). Aceita uma cópia das linhas
+    /// tirada na thread da tela, para a conta rodar longe dela sem ler dados que a tela muda.
+    /// </summary>
+    public static RiskQueue Build(IEnumerable<LineEntry> lines, PendingEditorSuggestions? suggestions = null)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
         var scored = new List<LineRisk>();
-        foreach (var script in lines.Scripts)
+        foreach (var line in lines)
         {
-            foreach (var line in lines.LinesOf(script.Key))
+            if (line.Unit.Status is TranslationStatus.Machine or TranslationStatus.Translated)
             {
-                if (line.Unit.Status is TranslationStatus.Machine or TranslationStatus.Translated)
-                {
-                    scored.Add(LineRisk.Of(line, suggestions?.Covers(line.ScriptKey, line.Unit) == true));
-                }
+                scored.Add(LineRisk.Of(line, suggestions?.Covers(line.ScriptKey, line.Unit) == true));
             }
         }
 
         return new RiskQueue([.. scored.OrderByDescending(l => l.Score)]);
     }
-
     public int Count(RiskLevel level) => level switch
     {
         RiskLevel.High => high,
@@ -101,7 +107,7 @@ public sealed class RiskQueue
 
     /// <summary>
     /// A frase das horas que faltam para o risco alto, a mesma na tela e no <c>vnf status --risk</c>: "312 linhas de risco alto · faltam cerca de 3 h 43 min no seu ritmo de 84 linhas por hora".
-    /// Sem ritmo diz que ainda não há; sem linhas de risco alto não há horas a dizer.
+    /// Sem ritmo não há horas a dizer (como no quadro, a frase das horas some e fica só a contagem); sem linhas de risco alto não há nada a contar.
     /// </summary>
     /// <param name="high">As linhas de risco alto que faltam revisar.</param>
     public static string DescribeHigh(int high, ReviewPace pace)
@@ -115,7 +121,7 @@ public sealed class RiskQueue
         var count = $"{high.ToString("N0", PortugueseBrazil)} {(high == 1 ? "linha" : "linhas")} de risco alto";
         if (TimeToReview(high, pace) is not { } time || pace.PerHour is not { } perHour)
         {
-            return $"{count} · sem ritmo ainda, aprove algumas linhas para calcular as horas";
+            return count;
         }
 
         return $"{count} · faltam cerca de {FormatTime(time)} no seu ritmo de {perHour.ToString("N0", PortugueseBrazil)} {(perHour == 1 ? "linha" : "linhas")} por hora";

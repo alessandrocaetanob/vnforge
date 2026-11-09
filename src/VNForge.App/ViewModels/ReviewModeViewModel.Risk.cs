@@ -13,12 +13,13 @@ public sealed class RiskReview
 {
     private readonly int[] highFrom;
 
-    public RiskReview(RiskQueue queue, ReviewPace pace)
+    public RiskReview(RiskQueue queue, ReviewPace pace, PendingEditorSuggestions? suggestions = null)
     {
         ArgumentNullException.ThrowIfNull(queue);
         ArgumentNullException.ThrowIfNull(pace);
         Queue = queue;
         Pace = pace;
+        Suggestions = suggestions ?? PendingEditorSuggestions.Empty;
         Items = [.. queue.Lines.Select(l => new ReviewItem(l.Line.ScriptKey, l.Line.Number, l.Line.Unit.Id))];
         highFrom = new int[queue.Lines.Count + 1];
         for (var i = queue.Lines.Count - 1; i >= 0; i--)
@@ -31,23 +32,49 @@ public sealed class RiskReview
 
     public ReviewPace Pace { get; }
 
+    /// <summary>As sugestões da passada de editor com que a fila foi pontuada, para pontuar de novo a linha de agora depois de uma gravação.</summary>
+    public PendingEditorSuggestions Suggestions { get; }
+
     public IReadOnlyList<ReviewItem> Items { get; }
 
     /// <summary>Quantas linhas de risco alto há da posição <paramref name="index"/> em diante.</summary>
     public int HighFrom(int index) => highFrom[Math.Clamp(index, 0, highFrom.Length - 1)];
 }
 
-/// <summary>Um sinal do cartão de risco: o texto do chip ("Dúvida da IA +30") e a cor dele.</summary>
-public sealed record RiskChip(string Text, bool IsAi, bool IsWarning);
+/// <summary>
+/// Um sinal do cartão de risco, como no quadro: o texto do chip ("Dúvida da IA +30"), o tom (IA, aviso ou erro; nenhum é o neutro) e o ícone (a dúvida da IA leva o Sparkle,
+/// o QA leva o Warning).
+/// </summary>
+public sealed record RiskChip(string Text, bool IsAi, bool IsWarning, bool IsError, bool HasSparkle, bool HasWarningIcon)
+{
+    public static RiskChip Of(RiskFactor factor)
+    {
+        ArgumentNullException.ThrowIfNull(factor);
+        return new RiskChip(
+            factor.Text,
+            IsAi: factor.Kind is RiskFactorKind.AiDoubt or RiskFactorKind.EditorSuggestion,
+            IsWarning: factor.Kind == RiskFactorKind.SoundsOdd || (factor.Kind == RiskFactorKind.QaIssue && !factor.IsError),
+            IsError: factor.IsError,
+            HasSparkle: factor.Kind == RiskFactorKind.AiDoubt,
+            HasWarningIcon: factor.Kind == RiskFactorKind.QaIssue);
+    }
+}
 
 /// <summary>Uma linha da lista "A seguir" da fila por risco.</summary>
 public sealed record RiskRow(string Score, string LevelText, bool IsHigh, bool IsMedium, string LineLabel, string Speaker, string Text, string Signals, bool IsCurrent);
 
 public sealed partial class ReviewModeViewModel
 {
-    private const int UpNextCount = 4;
+    private const int UpNextCount = 5;
 
     private readonly RiskReview? risk;
+    private LineRisk? currentRisk;
+
+    /// <summary>O título no topo: "Fila por risco" na fila por risco, que atravessa as cenas, e o nome da cena nas outras.</summary>
+    public string HeaderTitle => risk is not null ? "Fila por risco" : SceneName;
+
+    /// <summary>"Linha 1 de 4" no topo; a fila por risco diz a posição no cartão da linha ("1ª da fila").</summary>
+    public bool ShowPosition => IsActive && risk is null;
 
     /// <summary>A fila é a do risco: a tela mostra o cartão de risco da linha e a lista do que vem a seguir.</summary>
     public bool IsRisk => risk is not null;
@@ -74,19 +101,20 @@ public sealed partial class ReviewModeViewModel
 
             if (value == 1)
             {
-                editor.StartRiskReview();
+                editor.StartRiskReviewCommand.Execute(null);
             }
             else
             {
                 editor.StartReview();
             }
 
-            // Sem linhas esperando revisão a fila nova não abre: o segmento volta para a ordem que continua valendo.
+            // A fila por risco abre depois, quando a conta termina fora da thread da tela, e sem linhas esperando revisão nem abre: o segmento volta já para a ordem que continua valendo.
             OnPropertyChanged(nameof(OrderIndex));
         }
     }
 
-    private LineRisk? CurrentRisk => risk is not null && !IsFinished && Position < risk.Queue.Lines.Count ? risk.Queue.Lines[Position] : null;
+    /// <summary>A pontuação da linha em exibição, refeita com a linha de agora: uma gravação (outra sugestão, "reescrever", um aviso do QA que sumiu) muda os sinais sem mudar o lugar na fila.</summary>
+    private LineRisk? CurrentRisk => IsFinished ? null : currentRisk;
 
     /// <summary>"Risco 92".</summary>
     public string RiskScoreText => CurrentRisk is { } current ? $"Risco {current.Score}" : string.Empty;
@@ -103,7 +131,7 @@ public sealed partial class ReviewModeViewModel
     /// <summary>Os sinais que somaram na linha em exibição, um chip cada; vazio quando a linha não tem nenhum.</summary>
     public IReadOnlyList<RiskChip> RiskChips =>
         CurrentRisk is { } current
-            ? [.. current.Factors.Select(f => new RiskChip(f.Text, f.Kind is RiskFactorKind.AiDoubt or RiskFactorKind.EditorSuggestion, f.Kind is RiskFactorKind.QaIssue or RiskFactorKind.SoundsOdd))]
+            ? [.. current.Factors.Select(RiskChip.Of)]
             : [];
 
     public bool HasRiskChips => RiskChips.Count > 0;
@@ -131,7 +159,7 @@ public sealed partial class ReviewModeViewModel
                 return [];
             }
 
-            return [.. r.Queue.Lines.Skip(Position).Take(UpNextCount).Select((line, i) => RowOf(line, i == 0))];
+            return [.. r.Queue.Lines.Skip(Position).Take(UpNextCount).Select((line, i) => RowOf(i == 0 && currentRisk is { } now ? now : line, i == 0))];
         }
     }
 
@@ -151,6 +179,18 @@ public sealed partial class ReviewModeViewModel
             current);
     }
 
+    private void RefreshCurrentRisk(RiskReview review)
+    {
+        if (IsFinished || Position >= review.Items.Count)
+        {
+            currentRisk = null;
+            return;
+        }
+
+        var stored = review.Queue.Lines[Position];
+        currentRisk = editor.EntryOf(review.Items[Position]) is { } entry ? LineRisk.Of(entry, review.Suggestions.Covers(entry.ScriptKey, entry.Unit)) : stored;
+    }
+
     private static string LevelLabel(RiskLevel level) => level switch
     {
         RiskLevel.High => "Alto",
@@ -165,6 +205,8 @@ public sealed partial class ReviewModeViewModel
             return;
         }
 
+        RefreshCurrentRisk(risk);
+
         OnPropertyChanged(nameof(RiskScoreText));
         OnPropertyChanged(nameof(RiskLevelText));
         OnPropertyChanged(nameof(IsHighRisk));
@@ -174,5 +216,6 @@ public sealed partial class ReviewModeViewModel
         OnPropertyChanged(nameof(HasRiskChips));
         OnPropertyChanged(nameof(RiskSummaryText));
         OnPropertyChanged(nameof(UpNext));
+        OnPropertyChanged(nameof(HeaderTitle));
     }
 }

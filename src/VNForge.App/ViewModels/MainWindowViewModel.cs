@@ -120,6 +120,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         selectedNav = startItem;
         CurrentPage = start;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
+        Palette.PropertyChanged += OnPaletteChanged;
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
         Editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
@@ -278,6 +279,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenPalette() => Palette.Open();
+
+    /// <summary>Ctrl+R: abre a fila "o que mais precisa de você" do projeto aberto, venha de onde vier.</summary>
+    [RelayCommand]
+    private void OpenRiskReview()
+    {
+        if (CurrentProject is not null)
+        {
+            ReviewRisk();
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartPage))]
@@ -848,7 +859,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Leva ao Editor e abre o modo revisão nas falas do personagem em todas as cenas.</summary>
+    private int? riskHighLines;
+
     private void ReviewSpeaker(string name) => LineNavigation = OpenReviewAsync(ReviewSource.OfSpeaker(name));
+
+    /// <summary>
+    /// A paleta pede a lista a cada tecla e contar as linhas de risco alto pontua o projeto todo: a contagem roda uma vez por abertura, fora da thread da tela, e a
+    /// paleta é refeita quando ela chega. Fechar a paleta descarta o número, que valeria só até a próxima gravação.
+    /// </summary>
+    private void RequestRiskCount() => RiskCounting ??= CountRiskAsync();
+
+    /// <summary>A contagem de linhas de risco alto da paleta em andamento, ou a última que terminou.</summary>
+    public Task? RiskCounting { get; private set; }
+
+    private async Task CountRiskAsync()
+    {
+        riskHighLines = await Editor.CountHighRiskAsync();
+        Palette.Reload();
+    }
+
+    private void OnPaletteChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CommandPaletteViewModel.IsOpen) && !Palette.IsOpen)
+        {
+            RiskCounting = null;
+            riskHighLines = null;
+        }
+    }
 
     /// <summary>Leva ao Editor e abre o modo revisão na fila "o que mais precisa de você", de todo o projeto.</summary>
     private void ReviewRisk() => LineNavigation = OpenReviewAsync(ReviewSource.Risk);
@@ -872,7 +909,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (ReferenceEquals(SelectedNav, editorItem))
         {
-            Editor.StartReviewOf(source);
+            if (source.Kind == ReviewSourceKind.Risk)
+            {
+                await Editor.StartRiskReviewAsync();
+            }
+            else
+            {
+                Editor.StartReviewOf(source);
+            }
         }
     }
 
@@ -1022,7 +1066,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
             }));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Revisar por risco", "O que mais precisa de você, no projeto todo", ReviewRisk) { OnlyWhenSearching = true });
+            RequestRiskCount();
+            var riskSubtitle = riskHighLines switch
+            {
+                null => "O que mais precisa de você, no projeto todo",
+                0 => "O que mais precisa de você, nenhuma linha de risco alto",
+                1 => "O que mais precisa de você, 1 linha de risco alto",
+                { } n => $"O que mais precisa de você, {ProjectLabels.Number(n)} linhas de risco alto",
+            };
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Revisar por risco", riskSubtitle, ReviewRisk) { OnlyWhenSearching = true, Shortcut = "Ctrl+R" });
             foreach (var speaker in Editor.ReviewableSpeakers)
             {
                 var source = speaker.Source;

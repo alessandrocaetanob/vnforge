@@ -16,6 +16,7 @@ public sealed partial class EditorViewModel
     private List<(string Source, int Count)>? speakerCounts;
     private IApprovalLog? approvalLog;
     private string? approvalLogRoot;
+    private int riskVersion;
 
     /// <summary>Abre o registro de aprovações da pasta do projeto; os testes trocam por um na memória. O padrão grava em <c>.cache/sessions.json</c>.</summary>
     public Func<string, IApprovalLog>? ApprovalLogFactory { get; init; }
@@ -42,23 +43,36 @@ public sealed partial class EditorViewModel
     [RelayCommand]
     public void StartReview() => StartReviewOf(ReviewSource.OpenScene);
 
-    /// <summary>Abre o modo revisão na fonte pedida: a cena aberta ou as falas de um personagem em todas as cenas. Sem script ou sem como gravar, não faz nada.</summary>
+    /// <summary>
+    /// Abre o modo revisão na fonte pedida: a cena aberta, as falas de um personagem em todas as cenas ou as dúvidas da cena. Sem script ou sem como gravar, não faz nada.
+    /// A fila por risco não passa por aqui: lê arquivos e pontua o projeto todo, e por isso abre por <see cref="StartRiskReviewAsync"/>, longe da thread da tela.
+    /// </summary>
     public void StartReviewOf(ReviewSource source)
     {
         ArgumentNullException.ThrowIfNull(source);
+        if (source.Kind == ReviewSourceKind.Risk)
+        {
+            throw new ArgumentException("A fila por risco abre por StartRiskReviewAsync.", nameof(source));
+        }
+
         if (SelectedScript is null || lineEditor is null || data is null || !FlushPendingEdits())
         {
             return;
         }
 
-        // Gravar a edição pendente pode ter encerrado a última dúvida: a fila se monta depois, e a das dúvidas ou a do risco vazia não abre.
-        var risk = source.Kind == ReviewSourceKind.Risk ? BuildRiskReview() : null;
-        var queue = risk is null ? ReviewQueueOf(source) : risk.Items;
-        if (source.Kind is ReviewSourceKind.Doubts or ReviewSourceKind.Risk && queue.Count == 0)
+        // Gravar a edição pendente pode ter encerrado a última dúvida: a fila se monta depois, e a das dúvidas vazia não abre.
+        var queue = ReviewQueueOf(source);
+        if (source.Kind == ReviewSourceKind.Doubts && queue.Count == 0)
         {
             return;
         }
 
+        OpenReview(source, queue, null);
+    }
+
+    private void OpenReview(ReviewSource source, IReadOnlyList<ReviewItem> queue, RiskReview? risk)
+    {
+        riskVersion++;
         EndReading();
 
         // A grade tem de conter todas as linhas da fila: o modo revisão seleciona uma a uma e o ListBox escondido não pode desfazer a seleção.
@@ -70,27 +84,67 @@ public sealed partial class EditorViewModel
         Review = new ReviewModeViewModel(this, queue, source, risk);
     }
 
-    /// <summary>Abre o modo revisão na fila "o que mais precisa de você": todo o projeto, do maior risco ao menor. Sem linhas esperando revisão, não faz nada.</summary>
+    /// <summary>
+    /// Abre o modo revisão na fila "o que mais precisa de você": todo o projeto, do maior risco ao menor. A fila é montada fora da thread da tela (lê
+    /// <c>.cache/editor-suggestions.json</c> e <c>.cache/sessions.json</c> e pontua cada linha); a tela só tira uma cópia das linhas e, no fim, abre a revisão.
+    /// Sem linhas esperando revisão, ou se a pessoa abriu outra revisão no meio do caminho, não abre nada.
+    /// </summary>
     [RelayCommand]
-    public void StartRiskReview() => StartReviewOf(ReviewSource.Risk);
-
-    /// <summary>A fila por risco do projeto como está agora: as linhas gravadas, os avisos do QA, a passada de editor do disco e o ritmo do registro de aprovações.</summary>
-    private RiskReview? BuildRiskReview()
+    public async Task StartRiskReviewAsync()
     {
-        if (data is null)
+        if (SelectedScript is null || lineEditor is null || data is not { } lines || !FlushPendingEdits())
+        {
+            return;
+        }
+
+        var version = ++riskVersion;
+        var snapshot = SnapshotLines(lines);
+        var root = Project?.Root;
+        var log = OpenApprovalLog();
+        var now = clock.GetUtcNow();
+        var zone = clock.LocalTimeZone;
+        var risk = await Task.Run(() => BuildRiskReview(snapshot, root, log, now, zone), CancellationToken.None);
+
+        if (version != riskVersion || !ReferenceEquals(data, lines) || risk.Items.Count == 0 || SelectedScript is null || lineEditor is null || !FlushPendingEdits())
+        {
+            return;
+        }
+
+        OpenReview(ReviewSource.Risk, risk.Items, risk);
+    }
+
+    /// <summary>Quantas linhas de risco alto há agora, contadas fora da thread da tela; nulo sem projeto aberto. É o número que a paleta mostra.</summary>
+    public async Task<int?> CountHighRiskAsync()
+    {
+        if (data is not { } lines)
         {
             return null;
         }
 
-        var queue = RiskQueue.Build(data, LoadEditorSuggestions());
-        var pace = OpenApprovalLog()?.PaceOf(queue.Lines.Count, clock.GetUtcNow(), clock.LocalTimeZone) ?? ReviewPace.None;
-        return new RiskReview(queue, pace);
+        var snapshot = SnapshotLines(lines);
+        var root = Project?.Root;
+        var queue = await Task.Run(() => RiskQueue.Build(snapshot, LoadEditorSuggestions(root)), CancellationToken.None);
+        return queue.Count(RiskLevel.High);
+    }
+
+    /// <summary>
+    /// Uma cópia das referências das linhas, na ordem da história: as <see cref="LineEntry"/> não mudam depois de criadas, mas a grade as troca por outras a cada gravação,
+    /// então quem lê de outra thread lê a cópia, nunca <see cref="ProjectLines"/>.
+    /// </summary>
+    private static LineEntry[] SnapshotLines(ProjectLines lines) => [.. lines.Scripts.SelectMany(script => lines.LinesOf(script.Key))];
+
+    private static RiskReview BuildRiskReview(IReadOnlyList<LineEntry> lines, string? root, IApprovalLog? log, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        var suggestions = LoadEditorSuggestions(root);
+        var queue = RiskQueue.Build(lines, suggestions);
+        var pace = log?.PaceOf(queue.Lines.Count, now, zone) ?? ReviewPace.None;
+        return new RiskReview(queue, pace, suggestions);
     }
 
     /// <summary>As sugestões da passada de editor (#532) em <c>.cache/editor-suggestions.json</c>; sem pasta de projeto, sem arquivo ou com ele ilegível, nenhuma.</summary>
-    private PendingEditorSuggestions LoadEditorSuggestions()
+    private static PendingEditorSuggestions LoadEditorSuggestions(string? root)
     {
-        if (Project?.Root is not { } root)
+        if (root is null)
         {
             return PendingEditorSuggestions.Empty;
         }
@@ -104,7 +158,6 @@ public sealed partial class EditorViewModel
             return PendingEditorSuggestions.Empty;
         }
     }
-
     /// <summary>Os personagens que têm linhas da IA para revisar, na ordem em que aparecem na história.</summary>
     public IReadOnlyList<ReviewableSpeaker> ReviewableSpeakers
     {

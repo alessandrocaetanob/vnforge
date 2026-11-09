@@ -38,7 +38,7 @@ public sealed class StatusRiskTests : IDisposable
     public void Dispose() => _cli.Dispose();
 
     private static TextUnit Unit(int n, TranslationStatus status) =>
-        new($"{Yst00001}:{n:D6}", TextUnitKind.Dialogue, "美咲", "原文", status == TranslationStatus.Untranslated ? null : "tradução", status);
+        new($"{Yst00001}:{n:D6}", TextUnitKind.Dialogue, "美咲", n == 2 ? @"原文\p" : "原文", status == TranslationStatus.Untranslated ? null : "tradução", status);
 
     /// <summary>60 aprovações a cada 30 s terminando agora: 120 linhas por hora, sem mexer nas linhas do projeto.</summary>
     private void Aprovar60()
@@ -66,7 +66,7 @@ public sealed class StatusRiskTests : IDisposable
         var top = data.GetProperty("top").EnumerateArray().ToList();
         Assert.Equal(["yst00001:000002", "yst00001:000001"], top.Select(t => t.GetProperty("id").GetString()));
         Assert.Equal("high", top[0].GetProperty("level").GetString());
-        Assert.True(top[0].GetProperty("score").GetInt32() >= 60);
+        Assert.True(top[0].GetProperty("score").GetInt32() >= 70);
         Assert.Equal(
             ["ai-doubt", "sounds-odd", "editor-suggestion"],
             top[0].GetProperty("factors").EnumerateArray().Select(f => f.GetProperty("kind").GetString()).Where(k => k is not "qa"));
@@ -120,11 +120,13 @@ public sealed class StatusRiskTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_ritmo_o_texto_diz_o_que_falta_para_calcular_as_horas()
+    public async Task Sem_ritmo_a_frase_das_horas_some_e_fica_so_a_contagem()
     {
         var result = await _cli.RunAsync(["status", "--risk", "--project", _projectPath], TestContext.Current.CancellationToken);
 
-        Assert.Contains("1 linha de risco alto · sem ritmo ainda", result.Output);
+        Assert.Contains("1 linha de risco alto", result.Output);
+        Assert.DoesNotContain("faltam", result.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("ritmo", result.Output, StringComparison.Ordinal);
     }
 
     [Fact]

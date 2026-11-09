@@ -132,8 +132,11 @@ public sealed class ReviewModeNavigationTests
         main.Palette.Open();
         Assert.DoesNotContain(main.Palette.Results, r => r.Title == "Revisar por risco");
         main.Palette.Query = "Revisar por risco";
+        await main.RiskCounting!;
         var entry = Assert.Single(main.Palette.Results, r => r.Title == "Revisar por risco");
         Assert.Equal(PaletteGroup.Command, entry.Group);
+        Assert.Equal("Ctrl+R", entry.Shortcut);
+        Assert.Equal("O que mais precisa de você, nenhuma linha de risco alto", entry.Subtitle);
         main.Palette.SelectedIndex = main.Palette.Results.ToList().IndexOf(entry);
         main.Palette.ExecuteSelected();
         await main.LineNavigation;
@@ -142,6 +145,21 @@ public sealed class ReviewModeNavigationTests
         Assert.True(main.Editor.IsReviewing);
         Assert.True(main.Editor.Review!.IsRisk);
         Assert.Equal(4, main.Editor.Review.Total);
+    }
+
+    [Fact]
+    public async Task Ctrl_R_abre_a_fila_por_risco_do_projeto_de_qualquer_tela()
+    {
+        using var temp = new TempFolder();
+        var (main, _) = await OpenAsync(temp);
+        main.Editor.StopReview();
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Dashboard);
+
+        main.OpenRiskReviewCommand.Execute(null);
+        await main.LineNavigation;
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.True(main.Editor.Review!.IsRisk);
     }
 
     [Fact]
