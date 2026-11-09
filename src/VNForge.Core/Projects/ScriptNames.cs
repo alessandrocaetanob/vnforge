@@ -21,16 +21,21 @@ public sealed record DetectedScript(string? Name, string? Folder = null);
 /// <summary>
 /// Os nomes legíveis dos scripts do projeto (<c>scripts.json</c>). O nome para mostrar é o do usuário, quando há, ou o que a engine leu do jogo;
 /// sem nenhum dos dois quem mostra o script usa a chave. Imutável: cada alteração devolve uma cópia.
+/// Entre o nome do usuário e o da engine vale o que a bíblia do jogo deu à cena (<see cref="WithSuggested"/>); esse nome não vai para o <c>scripts.json</c>.
 /// </summary>
 public sealed class ScriptNames
 {
     private readonly Dictionary<string, ScriptNameEntry> _byKey;
+    private readonly IReadOnlyDictionary<string, string> _suggested;
 
-    private ScriptNames(IEnumerable<ScriptNameEntry> entries)
+    private ScriptNames(IEnumerable<ScriptNameEntry> entries, IReadOnlyDictionary<string, string>? suggested = null)
     {
         Entries = entries.OrderBy(e => e.Key, StringComparer.Ordinal).ToList();
         _byKey = Entries.ToDictionary(e => e.Key, StringComparer.Ordinal);
+        _suggested = suggested ?? EmptySuggested;
     }
+
+    private static readonly IReadOnlyDictionary<string, string> EmptySuggested = new Dictionary<string, string>(StringComparer.Ordinal);
 
     public static ScriptNames Empty { get; } = new([]);
 
@@ -65,9 +70,22 @@ public sealed class ScriptNames
         return new ScriptNames(list);
     }
 
-    /// <summary>O nome para mostrar: o do usuário, senão o da engine; nulo quando o script não tem nenhum.</summary>
-    public string? DisplayName(string key) =>
-        _byKey.TryGetValue(key, out var entry) ? entry.Name ?? entry.Detected : null;
+    /// <summary>O nome para mostrar: o do usuário, senão o da bíblia, senão o da engine; nulo quando o script não tem nenhum.</summary>
+    public string? DisplayName(string key)
+    {
+        _byKey.TryGetValue(key, out var entry);
+        return entry?.Name ?? (_suggested.TryGetValue(key, out var suggested) ? suggested : null) ?? entry?.Detected;
+    }
+
+    /// <summary>
+    /// Uma cópia em que a cena de cada chave de <paramref name="names"/> passa a ter esse nome quando o usuário não deu um (o da bíblia vale mais que o da engine).
+    /// O nome só vive na memória: <see cref="Entries"/> e o <c>scripts.json</c> não mudam. Nomes vazios são ignorados.
+    /// </summary>
+    public ScriptNames WithSuggested(IReadOnlyDictionary<string, string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        return new ScriptNames(Entries, names.Where(p => !string.IsNullOrWhiteSpace(p.Value)).ToDictionary(p => p.Key, p => p.Value.Trim(), StringComparer.Ordinal));
+    }
 
     /// <summary>O nome que o usuário deu ao script, ou nulo.</summary>
     public string? CustomName(string key) =>
@@ -126,14 +144,14 @@ public sealed class ScriptNames
             }
         }
 
-        return new ScriptNames(result.Values);
+        return new ScriptNames(result.Values, _suggested);
     }
 
     private ScriptNames Change(string key, Func<ScriptNameEntry, ScriptNameEntry> change)
     {
         var changed = change(_byKey.TryGetValue(key, out var found) ? found : new ScriptNameEntry(key, null, null));
         var others = Entries.Where(e => !string.Equals(e.Key, key, StringComparison.Ordinal));
-        return new ScriptNames(changed.IsEmpty ? others : others.Append(changed));
+        return new ScriptNames(changed.IsEmpty ? others : others.Append(changed), _suggested);
     }
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
