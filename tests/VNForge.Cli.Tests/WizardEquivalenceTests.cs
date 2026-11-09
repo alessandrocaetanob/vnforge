@@ -50,7 +50,7 @@ public sealed class WizardEquivalenceTests : IDisposable
         wizard.SetProjectDirectory(AppProject);
         wizard.ProjectName = "Minha VN";
         choose?.Invoke(wizard);
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 5; i++)
         {
             await wizard.NextCommand.ExecuteAsync(null);
         }

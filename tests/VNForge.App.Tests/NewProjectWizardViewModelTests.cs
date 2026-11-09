@@ -26,7 +26,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         var vm = Create();
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(ProjectPath());
-        await vm.NextCommand.ExecuteAsync(null);
+        await AdvanceAsync(vm, 2);
         return vm;
     }
 
@@ -158,15 +158,18 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Os_quatro_passos_andam_e_voltam_na_ordem_do_doc_04()
+    public async Task Os_cinco_passos_andam_e_voltam_na_ordem_do_doc_04()
     {
         var vm = Create();
         await vm.SetGameFolderAsync(game);
         Assert.Equal(WizardStep.Game, vm.Step);
         Assert.False(vm.BackCommand.CanExecute(null));
-        Assert.Equal("Passo 1 de 4 · Pasta do jogo", vm.StepLabel);
+        Assert.Equal("Passo 1 de 5 · Pasta do jogo", vm.StepLabel);
 
         vm.SetProjectDirectory(ProjectPath());
+        await vm.NextCommand.ExecuteAsync(null);
+        Assert.Equal(WizardStep.Vndb, vm.Step);
+        Assert.True(vm.IsVndbStep);
         await vm.NextCommand.ExecuteAsync(null);
         Assert.Equal(WizardStep.Names, vm.Step);
         Assert.True(vm.IsNamesStep);
@@ -186,7 +189,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     {
         var vm = Create();
         await vm.SetGameFolderAsync(game);
-        await vm.NextCommand.ExecuteAsync(null);
+        await AdvanceAsync(vm, 2);
         Assert.False(vm.NextCommand.CanExecute(null));
 
         vm.ProjectName = "Algo";
@@ -267,7 +270,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(Path.Combine(game, "projeto"));
 
-        await AdvanceAsync(vm, 4);
+        await AdvanceAsync(vm, 5);
 
         Assert.Equal(WizardStep.Names, vm.Step);
         Assert.Contains("não pode ficar dentro da pasta do jogo", vm.ErrorMessage);
@@ -283,7 +286,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(ProjectPath());
 
-        await AdvanceAsync(vm, 4);
+        await AdvanceAsync(vm, 5);
 
         Assert.Equal(WizardStep.Names, vm.Step);
         Assert.Contains("não foi sobrescrito", vm.ErrorMessage);
@@ -350,7 +353,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         var vm = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()], tasks);
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(ProjectPath());
-        await AdvanceAsync(vm, 4);
+        await AdvanceAsync(vm, 5);
 
         await vm.ExtractCommand.ExecuteAsync(null);
 
