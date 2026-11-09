@@ -31,6 +31,8 @@ public static class CommandExamples
         ["library sheet approve"] = ["vnf library sheet approve CLANNAD", "vnf library sheet approve CLANNAD c12"],
         ["library sheet edit"] = ["vnf library sheet edit CLANNAD tag:g10 Comédia"],
         ["library sheet apply"] = ["vnf library sheet apply CLANNAD --project minha-vn", "vnf library sheet apply CLANNAD --include-machine"],
+        ["library state"] = ["vnf library state", "vnf library state CLANNAD"],
+        ["library switch"] = ["vnf library switch CLANNAD --traduzido", "vnf library switch CLANNAD --original --yes"],
         ["library link"] = ["vnf library link CLANNAD --project minha-vn", "vnf library link CLANNAD --remove"],
         ["library privacy"] = ["vnf library privacy", "vnf library privacy --spoilers sim --adult nao"],
         ["library status"] = ["vnf library status CLANNAD", "vnf library status CLANNAD --label terminado --vote 8.5", "vnf library status CLANNAD --label terminado --finished 2026-03-04 --push"],
