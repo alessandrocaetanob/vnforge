@@ -70,7 +70,10 @@ internal static class ReviewCommand
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: project.LoadAddressTerms());
+            addressTerms: project.LoadAddressTerms())
+        {
+            Bible = TranslateCommand.ReadBible(project, error),
+        };
 
         if (parseResult.GetValue(Common.DryRun))
         {

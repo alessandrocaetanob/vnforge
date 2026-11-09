@@ -58,7 +58,10 @@ internal static class TranslateCommand
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: project.LoadAddressTerms());
+            addressTerms: project.LoadAddressTerms())
+        {
+            Bible = ReadBible(project, error),
+        };
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
 
@@ -297,6 +300,18 @@ internal static class TranslateCommand
                 output.WriteLine("O pedido não foi confirmado: nenhuma linha foi enviada à IA.");
                 break;
         }
+    }
+
+    /// <summary>A bíblia do jogo para o pedido; uma bíblia ilegível não trava a tradução, só avisa que o resumo das cenas não vai junto.</summary>
+    internal static VNForge.Core.Bible.GameBible ReadBible(ProjectFolder project, TextWriter error)
+    {
+        var bible = project.LoadBibleOrEmpty(out var problem);
+        if (problem is not null)
+        {
+            error.WriteLine($"Aviso: {problem} O resumo das cenas não vai junto dos pedidos.");
+        }
+
+        return bible;
     }
 
     private static ClaudeTranslationProvider CreateClaudeProvider(VnfCli cli, AiRunSettings settings)
