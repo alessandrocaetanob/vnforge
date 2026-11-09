@@ -326,7 +326,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         string? error = null;
         try
         {
-            (loaded, loadedContext, loadedNames) = await Task.Run<(ProjectLines, EditorContext, NamesRead)>(() => (loader(root), contextLoader(root), ReadNames(root)));
+            // Sem token de propósito: a leitura do projeto não depende da fila por risco (riskCancel); uma leitura velha é descartada por loadVersion.
+            (loaded, loadedContext, loadedNames) = await Task.Run<(ProjectLines, EditorContext, NamesRead)>(() => (loader(root), contextLoader(root), ReadNames(root)), CancellationToken.None);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -909,7 +910,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         try
         {
-            await Task.Run(() => ConsistencyFlags.Keep(ProjectFolder.Open(root), group));
+            // Sem token de propósito: a marca é uma gravação em disco que não pode parar no meio quando o risco é recalculado (riskCancel é só da fila por risco).
+            await Task.Run(() => ConsistencyFlags.Keep(ProjectFolder.Open(root), group), CancellationToken.None);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
