@@ -1,0 +1,238 @@
+using VNForge.AI.Claude;
+using VNForge.AI.Cost;
+using VNForge.AI.Eval;
+using VNForge.AI.Translation;
+using VNForge.Core.Eval;
+using VNForge.Core.Projects;
+
+namespace VNForge.AI.Tests.Eval;
+
+public sealed class EvalRunnerTests : IDisposable
+{
+    private readonly EvalProject _project = new();
+
+    public void Dispose() => _project.Dispose();
+
+    private static readonly EvalConfig Sonnet = new("A", ClaudeModels.Sonnet, "medium", 2, false);
+    private static readonly EvalConfig Haiku = new("B", ClaudeModels.Haiku, "low", 5, false);
+
+    private static TranslationRunOptions Quick { get; } = new()
+    {
+        MaxRetries = 0,
+        InitialBackoff = TimeSpan.Zero,
+        Delay = static (_, _) => Task.CompletedTask,
+    };
+
+    private EvalRunRequest Request(Func<EvalConfig, EvalProvider> providers, params EvalConfig[] configs) =>
+        new(_project.Folder, configs, 100, 3, providers) { RunOptions = Quick };
+
+    private static Func<EvalConfig, EvalProvider> Same(ITranslationProvider provider, ClaudeUsage? usage = null) =>
+        _ => new EvalProvider(provider, () => usage);
+
+    [Fact]
+    public async Task Cada_configuracao_traduz_as_mesmas_linhas_aprovadas_e_o_chrf_compara_com_a_aprovada()
+    {
+        var providers = new Dictionary<string, FakeTranslationProvider> { ["A"] = EvalProject.Perfect(), ["B"] = new(unit => $"[PT] {unit.Source}") };
+
+        var round = await EvalRunner.RunAsync(Request(c => new EvalProvider(providers[c.Id], () => null), Sonnet, Haiku), TestContext.Current.CancellationToken);
+
+        Assert.Equal(20, round.GoldLines);
+        Assert.Equal(20, round.RemainingLines);
+        Assert.Equal(20, round.Sample.Count);
+        Assert.Equal(EvalProject.GoldIndexes.Select(EvalProject.Id), round.Reports[0].Lines.Select(l => l.LineId));
+        Assert.Equal(round.Reports[0].Lines.Select(l => l.LineId), round.Reports[1].Lines.Select(l => l.LineId));
+        Assert.Equal(100.0, round.Reports[0].MeanChrf, 6);
+        Assert.InRange(round.Reports[1].MeanChrf, 0, 60);
+        Assert.Equal(["A", "B"], round.Reports.Select(r => r.Config.Id));
+    }
+
+    [Fact]
+    public async Task O_provedor_recebe_o_original_sem_a_traducao_aprovada_e_o_contexto_da_configuracao()
+    {
+        var one = EvalProject.Perfect();
+        var two = EvalProject.Perfect();
+
+        await EvalRunner.RunAsync(Request(c => new EvalProvider(c.Id == "A" ? one : two, () => null), Sonnet, Haiku), TestContext.Current.CancellationToken);
+
+        var first = Assert.Single(one.ReceivedBatches);
+        var second = Assert.Single(two.ReceivedBatches);
+        Assert.All(first.Lines, line => Assert.Null(line.Translation));
+        Assert.Equal(2, first.PreviousLines.Count);
+        Assert.Equal(5, second.PreviousLines.Count);
+        Assert.Equal(2, first.NextLines.Count);
+        Assert.Equal("Contexto 4", first.PreviousLines[^1].Translation);
+    }
+
+    [Fact]
+    public async Task Nao_grava_nada_nos_textos_do_projeto()
+    {
+        var before = _project.TextJson;
+
+        await EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet), TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, _project.TextJson);
+    }
+
+    [Fact]
+    public async Task Grava_a_rodada_e_as_configuracoes_em_cache_eval()
+    {
+        var round = await EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet, Haiku), TestContext.Current.CancellationToken);
+
+        var loaded = EvalStore.LoadLatest(_project.Folder)!;
+        Assert.Equal(round.Id, loaded.Id);
+        Assert.Equal([Sonnet, Haiku], EvalStore.LoadConfigs(_project.Folder));
+    }
+
+    [Fact]
+    public async Task Gera_os_pares_as_cegas_entre_traducoes_diferentes()
+    {
+        var providers = new Dictionary<string, FakeTranslationProvider> { ["A"] = EvalProject.Perfect(), ["B"] = new(unit => $"[PT] {unit.Source}") };
+
+        var round = await EvalRunner.RunAsync(Request(c => new EvalProvider(providers[c.Id], () => null), Sonnet, Haiku), TestContext.Current.CancellationToken);
+
+        Assert.Equal(EvalRunRequest.DefaultPairCount, round.Pairs.Count);
+        Assert.All(round.Pairs, p => Assert.Equal(["A", "B"], new[] { p.First, p.Second }.Order()));
+    }
+
+    [Fact]
+    public async Task O_juiz_recebe_original_e_texto_sem_saber_a_configuracao_e_a_nota_entra_no_relatorio()
+    {
+        var judge = new FakeJudgeProvider(unit => unit.Translation!.StartsWith("Tradução", StringComparison.Ordinal) ? 9 : 4);
+        var providers = new Dictionary<string, FakeTranslationProvider> { ["A"] = EvalProject.Perfect(), ["B"] = new(unit => $"[PT] {unit.Source}") };
+        var request = Request(c => new EvalProvider(providers[c.Id], () => null), Sonnet, Haiku) with { Judge = judge, JudgeModel = ClaudeModels.Haiku };
+
+        var round = await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(9.0, round.Reports[0].MeanJudge);
+        Assert.Equal(4.0, round.Reports[1].MeanJudge);
+        Assert.Equal(ClaudeModels.Haiku, round.JudgeModel);
+        Assert.Equal(2, judge.ReceivedBatches.Count);
+        Assert.All(judge.ReceivedBatches.SelectMany(b => b.Lines), line =>
+        {
+            Assert.StartsWith("原文", line.Source, StringComparison.Ordinal);
+            Assert.False(string.IsNullOrEmpty(line.Translation));
+        });
+        Assert.All(judge.ReceivedBatches, b => Assert.Empty(b.PreviousLines));
+    }
+
+    [Fact]
+    public async Task Sem_juiz_a_rodada_fica_sem_nota()
+    {
+        var round = await EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet), TestContext.Current.CancellationToken);
+
+        Assert.Null(round.JudgeModel);
+        Assert.Null(round.Reports[0].MeanJudge);
+    }
+
+    [Fact]
+    public async Task O_custo_vem_dos_tokens_do_provedor_e_o_gasto_entra_no_registro_do_projeto()
+    {
+        var usage = new ClaudeUsage(1_000_000, 0, 0, 0);
+        var judge = new FakeJudgeProvider { UsagePerCall = new ClaudeUsage(500_000, 0, 0, 0) };
+        var request = Request(Same(EvalProject.Perfect(), usage), Sonnet) with { Judge = judge, JudgeModel = ClaudeModels.Haiku };
+
+        var round = await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        var report = round.Reports[0];
+        Assert.Equal(2.00m, report.Dollars);
+        Assert.Equal(0.05m, report.JudgeDollars);
+        Assert.Equal(1_000_000, report.InputTokens);
+        Assert.Equal(40m, report.ProjectedDollars(400));
+        Assert.Equal(2.05m, AiUsageLog.Load(_project.Folder).Dollars);
+    }
+
+    [Fact]
+    public async Task Configuracao_com_biblia_e_recusada_antes_de_gastar_quando_nao_ha_biblia()
+    {
+        var calls = 0;
+        var request = Request(c =>
+        {
+            calls++;
+            return new EvalProvider(EvalProject.Perfect(), () => null);
+        }, Sonnet with { WithBible = true });
+
+        var error = await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(request, TestContext.Current.CancellationToken));
+
+        Assert.Contains("A pede a bíblia do jogo", error.Message);
+        Assert.Equal(0, calls);
+        Assert.Null(EvalStore.LoadLatest(_project.Folder));
+    }
+
+    [Fact]
+    public async Task Com_biblia_disponivel_so_as_configuracoes_que_a_pedem_a_recebem()
+    {
+        var withBible = EvalProject.Perfect();
+        var without = EvalProject.Perfect();
+        var request = Request(c => new EvalProvider(c.Id == "A" ? withBible : without, () => null), Sonnet with { WithBible = true }, Haiku)
+            with { ApplyBible = batch => new TranslationBatch(batch.Lines) { StyleGuide = "Resumo da cena" } };
+
+        await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Resumo da cena", Assert.Single(withBible.ReceivedBatches).StyleGuide);
+        Assert.Equal(string.Empty, Assert.Single(without.ReceivedBatches).StyleGuide);
+    }
+
+    [Fact]
+    public async Task Projeto_sem_linhas_aprovadas_diz_o_que_fazer()
+    {
+        using var empty = new EvalProject(withGold: false);
+
+        var error = await Assert.ThrowsAsync<EvalException>(() =>
+            EvalRunner.RunAsync(new EvalRunRequest(empty.Folder, [Sonnet], 10, 1, Same(EvalProject.Perfect())), TestContext.Current.CancellationToken));
+
+        Assert.Contains("ainda não tem linhas aprovadas", error.Message);
+    }
+
+    [Fact]
+    public async Task Lote_que_falha_deixa_as_linhas_recusadas_com_chrf_zero_e_o_erro_no_relatorio()
+    {
+        var failing = new FakeTranslationProvider { FailOnCall = 1 };
+
+        var round = await EvalRunner.RunAsync(Request(Same(failing), Sonnet), TestContext.Current.CancellationToken);
+
+        var report = round.Reports[0];
+        Assert.Equal(20, report.RefusedLines);
+        Assert.Equal(0.0, report.MeanChrf);
+        Assert.Contains("Falha simulada", report.Error);
+        Assert.Empty(round.Pairs);
+    }
+
+    [Fact]
+    public async Task Cancelar_nao_grava_rodada()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet), cts.Token));
+
+        Assert.Null(EvalStore.LoadLatest(_project.Folder));
+    }
+
+    [Fact]
+    public async Task Informa_o_progresso_de_cada_configuracao_e_fase()
+    {
+        var seen = new List<EvalProgress>();
+        var request = Request(Same(EvalProject.Perfect()), Sonnet, Haiku) with { Judge = new FakeJudgeProvider(), JudgeModel = ClaudeModels.Haiku, Progress = new SyncProgress<EvalProgress>(seen.Add) };
+
+        await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [new EvalProgress(1, 2, "A", EvalPhase.Translating), new EvalProgress(1, 2, "A", EvalPhase.Judging), new EvalProgress(2, 2, "B", EvalPhase.Translating), new EvalProgress(2, 2, "B", EvalPhase.Judging)],
+            seen);
+    }
+
+    [Fact]
+    public async Task Configuracao_invalida_e_recusada()
+    {
+        var bad = Sonnet with { Model = "gpt-5" };
+
+        await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), bad), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet, Sonnet), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect())), TestContext.Current.CancellationToken));
+    }
+
+    private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
+    }
+}
