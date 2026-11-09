@@ -8,7 +8,7 @@ namespace VNForge.AI.Translation;
 /// O que vai junto em cada pedido de tradução, só contado: termos do glossário, personagens (com voz e gênero) e se há guia de estilo.
 /// A janela "Traduzir com IA" mostra isso numa frase e avisa quando faltam gêneros.
 /// </summary>
-public sealed record TranslationContextSummary(int GlossaryTerms, int Characters, int CharactersWithVoice, int CharactersWithoutGender, bool HasStyleGuide)
+public sealed record TranslationContextSummary(int GlossaryTerms, int Characters, int CharactersWithVoice, int CharactersWithoutGender, bool HasStyleGuide, bool HasBibleScenes = false)
 {
     public const string StyleGuideFileName = "style.md";
 
@@ -23,7 +23,8 @@ public sealed record TranslationContextSummary(int GlossaryTerms, int Characters
             characters.Count,
             characters.Count(c => !string.IsNullOrWhiteSpace(c.Tone)),
             characters.Count(c => c.Gender == CharacterGender.Unknown),
-            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)) is { Length: > 0 });
+            TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)) is { Length: > 0 },
+            project.LoadBibleOrEmpty(out _).Scenes.Any(s => s.Summary.Length > 0));
     }
 
     private static IReadOnlyList<T> Try<T>(Func<IReadOnlyList<T>> read)
