@@ -35,7 +35,9 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
             var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
 
             Assert.Equal(["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", "Testar no jogo"], view.GetVisualDescendants().OfType<PipelineStepItem>().Select(s => s.Title));
-            Assert.Single(view.GetVisualDescendants().OfType<ProgressRing>());
+            // Quadro da #544: "38%" grande e uma linha, sem anel nem legenda.
+            Assert.DoesNotContain(view.GetVisualDescendants(), v => v is ProgressRing);
+            Assert.Equal(vm.Dashboard.MapPercentText, view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MapPercent").Text);
             var rows = view.GetVisualDescendants().OfType<ChapterRow>().ToList();
             Assert.Equal([.. DemoProject.ChapterTitles, ScriptGrouping.ExtraName], rows.Select(r => r.Title));
             Assert.Equal([1, 2, 3, 4, 5, 6, 7, null], rows.Select(r => r.Number));
@@ -46,11 +48,12 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
             Assert.Equal(SeverityLevel.Error, todos[0].Severity);
             Assert.Equal("2 erros travam o teste no jogo", todos[0].Title);
             Assert.All(todos, t => Assert.False(string.IsNullOrEmpty(t.ActionText)));
+            Assert.All(todos, t => Assert.True(string.IsNullOrEmpty(t.Message)));
 
             Assert.Equal("R$ 142,56 de R$ 300,00", vm.Dashboard.SpentText);
             var budget = Assert.Single(view.GetVisualDescendants().OfType<BudgetBar>());
             Assert.Equal(300, budget.Limit);
-            Assert.Equal(GameState.Translated, Assert.Single(view.GetVisualDescendants().OfType<GameStateBanner>()).State);
+            Assert.DoesNotContain(view.GetVisualDescendants(), v => v is GameStateBanner);
             Assert.StartsWith("No seu ritmo", vm.Dashboard.PaceText, StringComparison.Ordinal);
 
             var texts = string.Join('\n', view.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
@@ -88,7 +91,7 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
 
     [Theory]
     [MemberData(nameof(ThemesAndWidths))]
-    public async Task Passos_do_stepper_e_notas_dos_capitulos_aparecem_inteiros_sem_reticencias(string themeName, int width)
+    public async Task Passos_do_stepper_aparecem_inteiros_sem_reticencias(string themeName, int width)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         await Abrir(theme, width == 1366 ? 768 : ScreenRenderer.Height, (window, vm) =>
@@ -100,15 +103,6 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
             Assert.Equal(["48.211 linhas lidas", "62% traduzido", "18.802 revisadas", "2 erros travam", "Testado em 22/10"], vm.Dashboard.Steps.Select(s => s.Subtitle));
             Assert.All(steps, t => Assert.False(IsTrimmed(t), $"Stepper @{width}: \"{t.Text}\" aparado ({t.Bounds.Width:0.#}x{t.Bounds.Height:0.#})"));
 
-            var notes = view.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Name == "PART_Note" && !string.IsNullOrEmpty(t.Text)).ToList();
-            Assert.NotEmpty(notes);
-            Assert.All(notes, t =>
-            {
-                Assert.Equal(TextWrapping.Wrap, t.TextWrapping);
-                Assert.Equal(2, t.MaxLines);
-                Assert.False(IsTrimmed(t), $"Nota @{width}: \"{t.Text}\" aparada ({t.Bounds.Width:0.#}x{t.Bounds.Height:0.#})");
-            });
-
             var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First();
             Assert.True(scroll.Extent.Width <= scroll.Viewport.Width + 0.5, "o Painel passa da largura da janela");
             ScreenRenderer.Settle(window);
@@ -117,54 +111,25 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
     }
 
     [Fact]
-    public async Task A_coluna_de_linhas_dos_capitulos_usa_a_fonte_da_interface_com_algarismos_tabulares_alinhada_a_direita()
+    public async Task A_coluna_do_andamento_dos_capitulos_usa_a_fonte_da_interface_com_algarismos_tabulares_alinhada_a_direita()
     {
         await Abrir(ThemeVariant.Dark, ScreenRenderer.Height, (window, _) =>
         {
             var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
             var rows = view.GetVisualDescendants().OfType<ChapterRow>().ToList();
             var title = rows[0].GetVisualDescendants().OfType<TextBlock>().First(t => t.Name == "PART_Title");
-            var lines = rows.Select(r => r.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == r.LinesText)).ToList();
+            var percents = rows.Select(r => r.GetVisualDescendants().OfType<TextBlock>().Single(t => Grid.GetColumn(t) == 3 && t.Text == r.PercentText)).ToList();
 
-            Assert.All(lines, t =>
+            Assert.All(percents, t =>
             {
                 Assert.Equal(title.FontFamily, t.FontFamily);
                 Assert.Equal(TextAlignment.Right, t.TextAlignment);
                 Assert.NotNull(t.FontFeatures);
                 Assert.NotEmpty(t.FontFeatures);
             });
-            var right = lines.Select(t => Math.Round(t.TranslatePoint(new Point(t.Bounds.Width, 0), view)!.Value.X, 1)).Distinct().ToList();
+            var right = percents.Select(t => Math.Round(t.TranslatePoint(new Point(t.Bounds.Width, 0), view)!.Value.X, 1)).Distinct().ToList();
             Assert.Single(right);
         });
-    }
-
-    [Fact]
-    public async Task Nota_comprida_do_capitulo_quebra_em_duas_linhas_dentro_da_linha_de_44_px()
-    {
-        await fixture.Session.Dispatch<int>(
-            () =>
-            {
-                var row = new ChapterRow { Title = "Manhã de chuva", Number = 1, Done = 10, Review = 5, Total = 20, Note = "Você está aqui · 1 erro em Manhã de chuva" };
-                var window = new Window { Width = 760, Height = 120, Content = row };
-                try
-                {
-                    window.Show();
-                    ScreenRenderer.Settle(window);
-
-                    var note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
-                    Assert.True(note.Bounds.Height > note.LineHeight * 1.5, $"a nota não quebrou: {note.Bounds.Height}");
-                    Assert.True(note.Bounds.Height <= (note.LineHeight * 2) + 0.5);
-                    Assert.False(IsTrimmed(note));
-                    Assert.True(note.Bounds.Height <= row.Bounds.Height);
-                }
-                finally
-                {
-                    window.Close();
-                }
-
-                return Task.FromResult(0);
-            },
-            TestContext.Current.CancellationToken);
     }
 
     /// <summary>

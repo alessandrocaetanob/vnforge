@@ -138,15 +138,16 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.DoesNotContain(":active", items[2].Classes);
 
             Assert.True(Part<PathIcon>(items[0], "PART_Check").IsVisible);
-            Assert.False(Part<TextBlock>(items[0], "PART_Number").IsVisible);
-            Assert.True(Part<TextBlock>(items[2], "PART_Number").IsVisible);
+            // Quadro da #544: concluída é um círculo de contorno accent com o visto; as outras são um quadradinho de marcação vazio, sem número.
+            Assert.All(items, i => Assert.False(Part<TextBlock>(i, "PART_Number").IsVisible));
             Assert.False(Part<PathIcon>(items[2], "PART_Check").IsVisible);
 
-            Assert.Equal(Token(items[0], "Vnf.SegApproved"), ColorOf(Part<Border>(items[0], "PART_Circle").Background));
-            Assert.Equal(Token(items[1], "Vnf.Accent"), ColorOf(Part<Border>(items[1], "PART_Circle").BorderBrush));
+            Assert.Equal(new CornerRadius(10), Part<Border>(items[0], "PART_Circle").CornerRadius);
+            Assert.Equal(Token(items[0], "Vnf.Accent"), ColorOf(Part<Border>(items[0], "PART_Circle").BorderBrush));
+            Assert.Equal(new CornerRadius(5), Part<Border>(items[2], "PART_Circle").CornerRadius);
+            Assert.Equal(Token(items[2], "Vnf.StrokeControl"), ColorOf(Part<Border>(items[2], "PART_Circle").BorderBrush));
             Assert.True(Part<Border>(items[1], "PART_Underline").IsVisible);
             Assert.False(Part<Border>(items[0], "PART_Underline").IsVisible);
-            Assert.Equal(Token(items[1], "Vnf.AccentText"), ColorOf(Part<TextBlock>(items[1], "PART_Number").Foreground));
         });
     }
 
