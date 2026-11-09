@@ -3,10 +3,10 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Factsheet;
 
-/// <summary>Como a ficha é traduzida: <see cref="Force"/> refaz o que a IA já traduziu e o que ficou desatualizado; os limites cortam os lotes.</summary>
+/// <summary>Como a ficha é traduzida: <see cref="Force"/> refaz o que a IA já traduziu; os limites cortam os lotes.</summary>
 public sealed record SheetTranslationOptions
 {
-    /// <summary>Traduz de novo o que está em <see cref="TranslationStatus.Machine"/> e o que o VNDB mudou depois da tradução. O que a pessoa escreveu, revisou ou aprovou nunca é refeito sem estar desatualizado.</summary>
+    /// <summary>Traduz de novo só o que está em <see cref="TranslationStatus.Machine"/>. O que a pessoa escreveu, revisou ou aprovou nunca é refeito, nem quando o VNDB mudou o original (<see cref="SheetText.Outdated"/> só existe em texto da pessoa).</summary>
     public bool Force { get; init; }
 
     /// <summary>Quantos nomes de tag ou de traço vão num pedido.</summary>
@@ -141,7 +141,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
     }
 
     private static bool Needs(SheetText text, bool force) =>
-        text.Status == TranslationStatus.Untranslated || (force && (text.Status == TranslationStatus.Machine || text.Outdated));
+        text.Status == TranslationStatus.Untranslated || (force && text.Status == TranslationStatus.Machine);
 
     private static IEnumerable<List<SheetTranslationItem>> Batches(IReadOnlyList<SheetTranslationItem> items, SheetTranslationOptions options)
     {
@@ -192,7 +192,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
             var problem = !byKey.TryGetValue(item.Key, out var text) ? "A IA não devolveu este item."
                 : repeated.Contains(item.Key) ? "A IA devolveu este item mais de uma vez."
                 : string.IsNullOrWhiteSpace(text) ? "A IA devolveu o item vazio."
-                : item.IsProse && SheetMarkup.SpoilerMarkers(text) != SheetMarkup.SpoilerMarkers(item.Source) ? "A IA perdeu ou mudou um trecho de spoiler."
+                : item.IsProse && !SheetMarkup.SameSpoilerLayout(text, item.Source) ? "A IA perdeu ou mudou um trecho de spoiler."
                 : null;
             if (problem is null)
             {

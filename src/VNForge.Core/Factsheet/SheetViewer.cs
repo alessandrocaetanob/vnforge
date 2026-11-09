@@ -77,13 +77,10 @@ public sealed record GameSheetCard(
 /// Aplica a privacidade da biblioteca à ficha. O spoiler se esconde pelo nível que o VNDB marca (0 nenhum, 1 pequeno, 2 grande): sem <see cref="LibraryPrivacy.ShowSpoilers"/> só
 /// o nível 0 aparece, e com ele todos. Vale para o personagem naquele jogo, para cada traço, para a tag e para os trechos <c>[spoiler]</c> dos textos. Traço marcado como
 /// mentira (<see cref="VndbTrait.Lie"/>) só aparece com os spoilers liberados. O conteúdo adulto some pela mesma regra da Biblioteca: tags eróticas, retrato com marca sexual
-/// ou de violência e os traços do grupo <see cref="AdultTraitGroup"/>.
+/// ou de violência e os traços que o VNDB marca como sexuais (<see cref="VndbTrait.Sexual"/>).
 /// </summary>
 public static class SheetViewer
 {
-    /// <summary>O grupo de traços do VNDB para conteúdo sexual.</summary>
-    public const string AdultTraitGroup = "Sexual Content";
-
     /// <summary>O maior nível de spoiler que a privacidade deixa ver.</summary>
     public static int MaxSpoilerLevel(LibraryPrivacy privacy)
     {
@@ -125,14 +122,14 @@ public static class SheetViewer
             SheetStatusCounts.Of(texts));
     }
 
-    /// <summary>A privacidade esconde o traço: nível de spoiler acima do liberado, mentira sem os spoilers liberados, ou grupo adulto sem o conteúdo adulto liberado.</summary>
+    /// <summary>A privacidade esconde o traço: nível de spoiler acima do liberado, mentira sem os spoilers liberados, ou traço sexual sem o conteúdo adulto liberado.</summary>
     public static bool IsTraitHidden(VndbTrait trait, LibraryPrivacy privacy)
     {
         ArgumentNullException.ThrowIfNull(trait);
         ArgumentNullException.ThrowIfNull(privacy);
         return trait.Spoiler > MaxSpoilerLevel(privacy)
             || (trait.Lie && !privacy.ShowSpoilers)
-            || (!privacy.ShowAdult && string.Equals(trait.GroupName, AdultTraitGroup, StringComparison.OrdinalIgnoreCase));
+            || (trait.Sexual && !privacy.ShowAdult);
     }
 
     /// <summary>O texto que a privacidade deixa ver: a tradução quando há, senão o original; os trechos de spoiler somem sem <see cref="LibraryPrivacy.ShowSpoilers"/>.</summary>

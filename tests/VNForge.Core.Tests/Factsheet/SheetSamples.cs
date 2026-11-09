@@ -23,7 +23,7 @@ internal static class SheetSamples
 
     public static VndbTrait Fake { get; } = new("i3", "Tsundere", "i20", "Personality", 0, true);
 
-    public static VndbTrait Adult { get; } = new("i4", "Virgin", "i30", "Sexual Content", 0, false);
+    public static VndbTrait Adult { get; } = new("i104", "Virgin Sex", "i43", "Engages in (Sexual)", 0, false, Sexual: true);
 
     public static VndbVisualNovel Game(string id = Game1, string title = "Amaoto no Hakoniwa", string? description = "A rainy town. [spoiler]He dies.[/spoiler] Kenta [b]returns[/b].") =>
         VndbSamples.Game(id, title, "雨音の箱庭", description) with { Tags = [Comedy, Twist, Lewd] };

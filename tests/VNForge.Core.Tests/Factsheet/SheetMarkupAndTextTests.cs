@@ -83,6 +83,20 @@ public sealed class SheetMarkupAndTextTests
     }
 
     [Fact]
+    public void A_traducao_com_os_marcadores_na_ordem_trocada_e_recusada_porque_o_spoiler_vazaria()
+    {
+        var text = SheetText.Pending("A [spoiler]B[/spoiler] C");
+        const string swapped = "A [/spoiler]B[spoiler] C";
+
+        Assert.Equal(SheetMarkup.SpoilerMarkers(text.Source), SheetMarkup.SpoilerMarkers(swapped));
+        Assert.Throws<LibraryException>(() => text.TranslatedByAi(swapped));
+        Assert.Throws<LibraryException>(() => text.EditedByPerson(swapped));
+        Assert.False(SheetMarkup.SameSpoilerLayout(text.Source, swapped));
+        Assert.True(SheetMarkup.SameSpoilerLayout(text.Source, "A [SPOILER]B[/Spoiler] C"));
+        Assert.True(SheetMarkup.SameSpoilerLayout("A [spoiler]B", "A [spoiler]B"));
+    }
+
+    [Fact]
     public void Original_que_mudou_descarta_a_traducao_da_IA_e_marca_a_da_pessoa_como_desatualizada()
     {
         var machine = SheetText.Pending("old").TranslatedByAi("velho");

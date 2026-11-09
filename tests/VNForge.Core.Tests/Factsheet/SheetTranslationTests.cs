@@ -92,6 +92,18 @@ public sealed class SheetTranslationTests : IDisposable
     }
 
     [Fact]
+    public async Task Item_com_os_marcadores_de_spoiler_na_ordem_trocada_fica_pendente()
+    {
+        await Fetch();
+        var translator = new StubSheetTranslator(i => i.Key == "character:c1" ? "The hero. [/spoiler]He is a ghost.[spoiler]" : "PT: " + i.Source);
+
+        var result = await new SheetTranslationRunner(translator, Store).RunAsync(Game1, cancellationToken: Ct);
+
+        Assert.Equal(1, result.Failed);
+        Assert.Equal(TranslationStatus.Untranslated, Store.LoadCharacter("c1")!.Description!.Status);
+    }
+
+    [Fact]
     public async Task Item_que_a_IA_nao_devolveu_ou_perdeu_o_spoiler_fica_pendente_e_os_outros_sao_gravados()
     {
         await Fetch();
@@ -143,6 +155,25 @@ public sealed class SheetTranslationTests : IDisposable
         Assert.Equal("PT: Comedy", Store.LoadTerms().Find(SheetTermKind.Tag, "g10")!.Text.Target);
         Assert.Equal("NOVO: The hero. [spoiler]He is a ghost.[/spoiler]", Store.LoadCharacter("c1")!.Description!.Target);
         Assert.Equal(9, result.Translated);
+    }
+
+    [Fact]
+    public async Task Force_nao_sobrescreve_o_texto_da_pessoa_que_ficou_desatualizado()
+    {
+        await Fetch();
+        await new SheetTranslationRunner(new StubSheetTranslator(), Store).RunAsync(Game1, cancellationToken: Ct);
+        SheetEditor.Edit(Store, Game1, SheetField.Synopsis, "Minha sinopse. [spoiler]Ele morre.[/spoiler] Kenta volta.");
+        await Fetch(Catalog(Game(description: "A new synopsis. [spoiler]He dies.[/spoiler]")));
+        var outdated = Store.LoadGame(Game1)!.Synopsis!;
+        Assert.True(outdated.Outdated);
+        var translator = new StubSheetTranslator(i => "NOVO: " + i.Source);
+        var runner = new SheetTranslationRunner(translator, Store);
+
+        Assert.DoesNotContain(runner.Plan(Game1, force: true).Items, i => i.Key == SheetField.Synopsis.Key);
+        await runner.RunAsync(Game1, new SheetTranslationOptions { Force = true }, cancellationToken: Ct);
+
+        Assert.DoesNotContain(SheetField.Synopsis.Key, translator.Keys);
+        Assert.Equal(outdated, Store.LoadGame(Game1)!.Synopsis);
     }
 
     [Fact]

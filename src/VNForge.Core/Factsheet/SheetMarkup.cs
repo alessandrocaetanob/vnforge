@@ -52,6 +52,12 @@ public static partial class SheetMarkup
         string.IsNullOrEmpty(text) ? (0, 0) : (SpoilerOpen().Count(text), SpoilerClose().Count(text));
 
     public static bool HasSpoilers(string? text) => SpoilerMarkers(text).Open > 0;
+    /// <summary>
+    /// Os dois textos têm os marcadores de spoiler na mesma sequência (abre, fecha, abre...). Contar não basta: <c>[/spoiler]B[spoiler]</c> tem as mesmas contagens de
+    /// <c>[spoiler]B[/spoiler]</c>, mas o <see cref="StripSpoilers"/> esconderia o que vem depois e deixaria o spoiler à mostra.
+    /// </summary>
+    public static bool SameSpoilerLayout(string? left, string? right) =>
+        SpoilerMarker().Matches(left ?? string.Empty).Select(m => m.Groups[1].Length).SequenceEqual(SpoilerMarker().Matches(right ?? string.Empty).Select(m => m.Groups[1].Length));
 
     [GeneratedRegex(@"\[url=[^\]]*\](.*?)\[/url\]", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex LabeledUrl();
@@ -61,6 +67,9 @@ public static partial class SheetMarkup
 
     [GeneratedRegex(@"\[/?(?:b|i|u|s|quote|code|raw)\]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex Formatting();
+
+    [GeneratedRegex(@"\[(/?)spoiler\]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex SpoilerMarker();
 
     [GeneratedRegex(@"\[spoiler\]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex SpoilerOpen();

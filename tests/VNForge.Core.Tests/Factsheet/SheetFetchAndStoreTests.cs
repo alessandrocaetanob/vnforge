@@ -41,7 +41,7 @@ public sealed class SheetFetchAndStoreTests
         Assert.Equal(7, result.NewTerms);
         var terms = store.LoadTerms();
         Assert.Equal(["g10", "g11", "g12"], terms.All.Where(t => t.Kind == SheetTermKind.Tag).Select(t => t.Id));
-        Assert.Equal(["i1", "i2", "i3", "i4"], terms.All.Where(t => t.Kind == SheetTermKind.Trait).Select(t => t.Id));
+        Assert.Equal(["i1", "i104", "i2", "i3"], terms.All.Where(t => t.Kind == SheetTermKind.Trait).Select(t => t.Id));
         Assert.Equal("Hair", terms.Find(SheetTermKind.Trait, "i1")!.Context);
         var kenta = store.LoadCharacter("c1")!;
         Assert.Equal(new SheetAppearance(Game1, "main", 0), kenta.In(Game1));

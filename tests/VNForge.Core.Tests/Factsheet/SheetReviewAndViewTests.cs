@@ -2,6 +2,7 @@ using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
 using VNForge.Core.Tests.Projects;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 using static VNForge.Core.Tests.Factsheet.SheetSamples;
 
 namespace VNForge.Core.Tests.Factsheet;
@@ -41,6 +42,26 @@ public sealed class SheetReviewAndViewTests : IDisposable
         Assert.Equal(new SheetMarkResult(11, 0), SheetEditor.Approve(Store, Game1));
         Assert.Equal(new SheetStatusCounts(0, 0, 0, 0, 11), Card().Counts);
         Assert.Equal(new SheetMarkResult(0, 11), SheetEditor.Approve(Store, Game1));
+    }
+
+    [Fact]
+    public async Task Revisar_tudo_deixa_de_fora_o_texto_desatualizado_e_so_o_pedido_pelo_nome_o_revisa()
+    {
+        await Translated();
+        SheetEditor.Edit(Store, Game1, SheetField.Synopsis, "Minha sinopse. [spoiler]Ele morre.[/spoiler] Kenta volta.");
+        await SheetFetcher.FetchAsync(Catalog(Game(description: "A new synopsis. [spoiler]He dies.[/spoiler]")), Store, Game1, cancellationToken: Ct);
+        Assert.True(Store.LoadGame(Game1)!.Synopsis!.Outdated);
+
+        var all = SheetEditor.Review(Store, Game1);
+
+        var kept = Store.LoadGame(Game1)!.Synopsis!;
+        Assert.Equal((TranslationStatus.Translated, true), (kept.Status, kept.Outdated));
+        Assert.Equal(new SheetMarkResult(10, 1), all);
+        Assert.Equal(new SheetMarkResult(0, 11), SheetEditor.Review(Store, Game1));
+
+        SheetEditor.Review(Store, Game1, [SheetField.Synopsis]);
+
+        Assert.Equal((TranslationStatus.Reviewed, false), (Store.LoadGame(Game1)!.Synopsis!.Status, Store.LoadGame(Game1)!.Synopsis!.Outdated));
     }
 
     [Fact]
@@ -148,10 +169,23 @@ public sealed class SheetReviewAndViewTests : IDisposable
         Assert.Equal((null, true), (aoi.Image, aoi.ImageHidden));
         Assert.NotNull(hidden.Characters[0].Image);
         Assert.DoesNotContain(hidden.Tags, t => t.Category == "ero");
-        Assert.DoesNotContain(hidden.Characters[0].Traits, t => t.Group == SheetViewer.AdultTraitGroup);
+        Assert.DoesNotContain(hidden.Characters[0].Traits, t => t.Id == Adult.Id);
         Assert.NotNull(shown.Characters[1].Image);
         Assert.Contains(shown.Tags, t => t.Category == "ero");
-        Assert.Contains(shown.Characters[0].Traits, t => t.Group == SheetViewer.AdultTraitGroup);
+        Assert.Contains(shown.Characters[0].Traits, t => t.Id == Adult.Id);
+    }
+
+    [Fact]
+    public void O_traco_adulto_e_o_que_o_VNDB_marca_como_sexual_e_nao_o_nome_do_grupo()
+    {
+        var sexualInOtherGroup = new VndbTrait("i528", "Sitting Sex", "i1625", "Subject of (Sexual)", 0, false, Sexual: true);
+        var namedLikeAdultButNot = new VndbTrait("i9", "Anything", "i1", "Sexual Content", 0, false, Sexual: false);
+        var hiding = new LibraryPrivacy(ShowAdult: false);
+
+        Assert.True(SheetViewer.IsTraitHidden(sexualInOtherGroup, hiding));
+        Assert.True(SheetViewer.IsTraitHidden(Adult, hiding));
+        Assert.False(SheetViewer.IsTraitHidden(namedLikeAdultButNot, hiding));
+        Assert.False(SheetViewer.IsTraitHidden(sexualInOtherGroup, new LibraryPrivacy(ShowAdult: true)));
     }
 
     [Fact]

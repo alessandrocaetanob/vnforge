@@ -117,6 +117,8 @@ internal static class VndbWire
         public int Spoiler { get; init; }
 
         public bool Lie { get; init; }
+
+        public bool Sexual { get; init; }
     }
 
     public sealed class ReleaseRef
@@ -293,7 +295,7 @@ internal static class VndbWire
             ToCore(c.Image),
             c.Gender is { Length: > 0 } ? new VndbGender(c.Gender[0], c.Gender.Length > 1 ? c.Gender[1] : c.Gender[0]) : null,
             [.. (c.Vns ?? []).Select(v => new VndbCharacterAppearance(v.Id, v.Role, v.Spoiler, v.Release?.Id))],
-            [.. (c.Traits ?? []).Select(t => new VndbTrait(t.Id, t.Name, t.GroupId, t.GroupName, t.Spoiler, t.Lie))]);
+            [.. (c.Traits ?? []).Select(t => new VndbTrait(t.Id, t.Name, t.GroupId, t.GroupName, t.Spoiler, t.Lie, t.Sexual))]);
 
     public static VndbRelease ToCore(Release r) =>
         new(

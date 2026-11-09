@@ -74,9 +74,9 @@ public sealed record SheetText(string Source, string? Target = null, Translation
             throw new LibraryException("A tradução não pode ficar vazia.");
         }
 
-        if (SheetMarkup.SpoilerMarkers(text) != SheetMarkup.SpoilerMarkers(Source))
+        if (!SheetMarkup.SameSpoilerLayout(text, Source))
         {
-            throw new LibraryException("A tradução precisa manter os mesmos trechos [spoiler]...[/spoiler] do original.");
+            throw new LibraryException("A tradução precisa manter os mesmos trechos [spoiler]...[/spoiler] do original, na mesma ordem.");
         }
 
         return this with { Target = text, Status = status, Outdated = false };

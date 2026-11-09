@@ -36,7 +36,7 @@ internal static partial class LibraryCommand
 
     private static readonly Option<bool> SheetForceOption = new("--force")
     {
-        Description = "Traduz de novo o que a IA já traduziu e o que o VNDB mudou depois. O que a pessoa escreveu, revisou ou aprovou fica.",
+        Description = "Refaz só o que a IA já traduziu; o que você escreveu, revisou ou aprovou fica, mesmo desatualizado.",
     };
 
     private static readonly Option<bool> IncludeMachineOption = new("--include-machine")
@@ -50,7 +50,7 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateSheetFetch(cli));
         command.Subcommands.Add(CreateSheetTranslate(cli));
         command.Subcommands.Add(CreateSheetShow(cli));
-        command.Subcommands.Add(CreateSheetMark(cli, "review", "Marca como revisados os textos da ficha (sem textos, todos os traduzidos).", (store, id, fields) => SheetEditor.Review(store, id, fields), "revisados", "ainda não tinham tradução ou já estavam revisados"));
+        command.Subcommands.Add(CreateSheetMark(cli, "review", "Marca como revisados os textos da ficha (sem textos, os traduzidos que não estão desatualizados).", (store, id, fields) => SheetEditor.Review(store, id, fields), "revisados", "ainda não tinham tradução, estão desatualizados (revise pelo nome) ou já estavam revisados"));
         command.Subcommands.Add(CreateSheetMark(cli, "approve", "Marca como aprovados os textos revisados da ficha (sem textos, todos os revisados).", (store, id, fields) => SheetEditor.Approve(store, id, fields), "aprovados", "ainda não foram revisados ou já estavam aprovados"));
         command.Subcommands.Add(CreateSheetEdit(cli));
         command.Subcommands.Add(CreateSheetApply(cli));

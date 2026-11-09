@@ -55,10 +55,13 @@ public static class SheetEditor
         store.Update(s => Apply(s, visualNovelId, field, text => text.EditedByPerson(target)));
     }
 
-    /// <summary>Marca como revisados os textos pedidos, ou todos os que têm tradução ainda não revisada quando <paramref name="fields"/> é nulo.</summary>
+    /// <summary>
+    /// Marca como revisados os textos pedidos, ou todos os que têm tradução ainda não revisada quando <paramref name="fields"/> é nulo. Em lote ficam de fora os
+    /// <see cref="SheetText.Outdated"/>: revisar limpa o aviso, e o original mudou depois de a pessoa escrever. Esses só se revisam pelo nome.
+    /// </summary>
     /// <exception cref="LibraryException">Um dos textos pedidos não é da ficha ou não tem tradução.</exception>
     public static SheetMarkResult Review(SheetStore store, string visualNovelId, IReadOnlyList<SheetField>? fields = null) =>
-        Mark(store, visualNovelId, fields, text => text.Reviewed(), text => text.HasTarget && text.Status < TranslationStatus.Reviewed);
+        Mark(store, visualNovelId, fields, text => text.Reviewed(), text => text.HasTarget && !text.Outdated && text.Status < TranslationStatus.Reviewed);
 
     /// <summary>Marca como aprovados os textos pedidos, ou todos os revisados quando <paramref name="fields"/> é nulo.</summary>
     /// <exception cref="LibraryException">Um dos textos pedidos não é da ficha ou ainda não foi revisado.</exception>
