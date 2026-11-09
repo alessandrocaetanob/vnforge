@@ -17,6 +17,7 @@
     <Project Path="tests/VNForge.Core.Tests/VNForge.Core.Tests.csproj" />
     <Project Path="tests/VNForge.Engines.ConformanceKit/VNForge.Engines.ConformanceKit.csproj" />
     <Project Path="tests/VNForge.Engines.YuRis.Tests/VNForge.Engines.YuRis.Tests.csproj" />
+    <Project Path="tests/VNForge.Installer.Tests/VNForge.Installer.Tests.csproj" />
     <Project Path="tests/VNForge.Patching.Tests/VNForge.Patching.Tests.csproj" />
     <Project Path="tests/VNForge.Platform.Windows.Tests/VNForge.Platform.Windows.Tests.csproj" />
     <Project Path="tests/VNForge.Vndb.Tests/VNForge.Vndb.Tests.csproj" />

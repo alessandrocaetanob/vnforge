@@ -27,7 +27,7 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
 
     private const string CharacterFields =
         "name,original,aliases,description,gender,image.url,image.dims,image.sexual,image.violence,"
-        + "vns.id,vns.role,vns.spoiler,vns.release.id,traits.id,traits.name,traits.group_id,traits.group_name,traits.spoiler,traits.lie";
+        + "vns.id,vns.role,vns.spoiler,vns.release.id,traits.id,traits.name,traits.group_id,traits.group_name,traits.spoiler,traits.lie,traits.sexual";
 
     private const string ReleaseFields =
         "title,alttitle,languages.lang,languages.title,languages.latin,languages.mtl,languages.main,platforms,released,minage,patch,freeware,official,engine,voiced,vns.id,vns.rtype";

@@ -237,8 +237,11 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     public IReadOnlyList<TextSegment> SourceSegments { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CharsText))]
+    [NotifyPropertyChangedFor(nameof(CharsText), nameof(OffersSuggestions), nameof(ShowSuggestButton))]
     public partial string Translation { get; set; }
+
+    /// <summary>"Sugerir" e "Reescrever com um toque" só aparecem no inspetor do Editor enquanto o campo está vazio; com tradução o quadro mostra só o campo (Ctrl+Espaço segue pedindo).</summary>
+    public bool OffersSuggestions => string.IsNullOrWhiteSpace(Translation);
 
     /// <summary>
     /// O texto do campo da tradução: sem marcadores de quebra de linha e de virada de página (<see cref="TranslationFieldText"/>). Editar o campo atualiza

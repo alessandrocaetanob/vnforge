@@ -138,6 +138,12 @@ public sealed class VnfCli
     public Func<string, ClaudeEffort, IBibleProvider>? BibleProviderFactory { get; set; }
 
     /// <summary>
+    /// Cria o tradutor da ficha do jogo (<c>vnf library sheet translate</c>) para o modelo e o esforço escolhidos; os testes trocam por um falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, VNForge.Core.Factsheet.ISheetTranslator>? SheetTranslatorFactory { get; set; }
+
+    /// <summary>
     /// Cria o leitor de imagens do <c>vnf images scan</c> para o modelo escolhido; os testes trocam por um leitor falso.
     /// Padrão (<c>null</c>): Claude com visão, com a chave do ambiente ou do cofre.
     /// </summary>

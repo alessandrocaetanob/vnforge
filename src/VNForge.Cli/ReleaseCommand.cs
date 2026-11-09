@@ -45,6 +45,18 @@ internal static class ReleaseCommand
         HelpName = "arquivo",
     };
 
+    private static readonly Option<string?> CoverOption = new("--capa")
+    {
+        Description = "Imagem da capa do jogo (PNG, JPEG ou WebP, até 4 MB) que o instalador mostra. Passar o arquivo é a escolha de usá-la: o vnf não busca capa sozinho. Sem ela, o instalador desenha uma capa com o nome do jogo.",
+        HelpName = "arquivo",
+    };
+
+    private static readonly Option<string?> GameVersionOption = new("--versao-do-jogo")
+    {
+        Description = "Versão do jogo de referência, como 1.00, que a janela de versão errada do instalador cita (padrão: a versão do executável do jogo, quando ele a traz).",
+        HelpName = "versão",
+    };
+
     private static readonly Option<bool> AllowWarningsOption = new("--allow-warnings")
     {
         Description = "Lança mesmo com avisos da Conferência; erros continuam travando e saem com 2.",
@@ -58,6 +70,8 @@ internal static class ReleaseCommand
         command.Options.Add(CreditsOption);
         command.Options.Add(NameOption);
         command.Options.Add(InstallerOption);
+        command.Options.Add(CoverOption);
+        command.Options.Add(GameVersionOption);
         command.Options.Add(AllowWarningsOption);
         command.SetAction((parseResult, token) => Task.FromResult(Run(cli, parseResult, token)));
         return command;
@@ -74,13 +88,18 @@ internal static class ReleaseCommand
             parseResult.GetValue(CreditsOption),
             parseResult.GetValue(NameOption),
             Resolve(cli, parseResult.GetValue(InstallerOption)),
-            parseResult.GetValue(AllowWarningsOption));
+            parseResult.GetValue(AllowWarningsOption),
+            Resolve(cli, parseResult.GetValue(CoverOption)),
+            parseResult.GetValue(GameVersionOption));
 
-        var steps = new InlineProgress<ReleaseStep>(step =>
+        ReleaseStep? announced = null;
+        var steps = new InlineProgress<ReleaseProgress>(progress =>
         {
-            if (!json)
+            // O Core relata o mesmo passo várias vezes (detalhe, andamento do patch); a linha sai uma vez por passo.
+            if (!json && announced != progress.Step)
             {
-                output.WriteLine($"[{(int)step + 1}/6] {Label(step)}");
+                announced = progress.Step;
+                output.WriteLine($"[{(int)progress.Step + 1}/6] {Label(progress.Step)}");
             }
         });
 
@@ -121,9 +140,9 @@ internal static class ReleaseCommand
         ReleaseStep.Check => "Conferir a tradução",
         ReleaseStep.Build => "Reconstruir o build",
         ReleaseStep.Diff => "Calcular as diferenças",
-        ReleaseStep.Verify => "Aplicar numa cópia limpa e conferir byte a byte",
-        ReleaseStep.Package => "Montar o instalador",
-        _ => "Escrever leia-me, créditos e mudanças",
+        ReleaseStep.Patch => "Gravar o patch",
+        ReleaseStep.Package => "Montar o instalador e escrever leia-me, créditos e mudanças",
+        _ => "Aplicar numa cópia limpa e conferir byte a byte",
     };
 
     private static void WriteSummary(TextWriter output, ReleaseResult result)

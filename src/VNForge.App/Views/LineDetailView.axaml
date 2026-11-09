@@ -114,8 +114,9 @@
                 <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
                 <Popup x:Name="WordPopup" PlacementTarget="{Binding #OriginalBox}" Placement="BottomEdgeAlignedLeft" IsLightDismissEnabled="False"
                        PlacementConstraintAdjustment="SlideX, FlipY" VerticalOffset="6" IsOpen="{Binding ShowWordCard, Mode=OneWay}">
-                  <!-- A largura do cartão acompanha a do original (360 no quadro), entre 300 e 400, por ligação: vale com o mouse e em qualquer outro caminho que abra o cartão. -->
-                  <v:WordCardView x:Name="WordCardHost" Width="{Binding #OriginalBox.Bounds.Width, Converter={x:Static v:WordCardWidth.Clamp}}"/>
+                  <!-- O cartão acompanha o conteúdo entre 360 e 372 px (os dois quadros do .pop), e nunca passa do original: por ligação, vale com o mouse e em qualquer outro caminho que abra o cartão. -->
+                  <v:WordCardView x:Name="WordCardHost" MinWidth="{Binding #OriginalBox.Bounds.Width, Converter={x:Static v:WordCardWidth.FitMin}}"
+                                  MaxWidth="{Binding #OriginalBox.Bounds.Width, Converter={x:Static v:WordCardWidth.FitMax}}"/>
                 </Popup>
               </Panel>
             </Border>
@@ -184,14 +185,13 @@
                 </Border>
               </Grid>
               <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding SceneSummary}"/>
-              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SceneTone}" IsVisible="{Binding SceneTone, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
           </Border>
 
           <!-- Na cena: a fala anterior e a seguinte. Com o cartão da memória aberto fica recolhido, e o cabeçalho abre. -->
           <StackPanel x:Name="SceneFragment" Spacing="6" IsVisible="{Binding HasScene}">
-            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !IsCompactInspector}"/>
-            <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding IsCompactInspector}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
+            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !UsesSceneToggle}"/>
+            <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding UsesSceneToggle}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding IsSceneCollapsed}"/>
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding !IsSceneCollapsed}"/>
@@ -294,7 +294,7 @@
           </StackPanel>
 
           <StackPanel x:Name="SuggestFragment" Spacing="16">
-            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding SuggestCommand}" IsVisible="{Binding !ShowSuggestionCard}"
+            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding SuggestCommand}" IsVisible="{Binding ShowSuggestButton}"
                     ToolTip.Tip="Pede à IA uma sugestão para esta linha (Ctrl+Espaço)">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -332,7 +332,7 @@
                 <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding SuggestionError}"/>
               </Grid>
             </Border>
-            <c:RewriteBar/>
+            <c:RewriteBar IsVisible="{Binding OffersSuggestions}"/>
 
           </StackPanel>
           <StackPanel x:Name="ProblemsFragment" Spacing="16">
