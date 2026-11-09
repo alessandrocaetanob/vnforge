@@ -4,11 +4,13 @@ Gera src/VNForge.App/Assets/Icons.axaml com os ícones Fluent UI System Icons (M
 .DESCRIPTION
 O traçado (atributo d do SVG) vem do repositório oficial microsoft/fluentui-system-icons. Para usar outro ícone,
 acrescente uma linha em $Icons (chave Icon.X = pasta do ícone no repositório, nome do arquivo) e rode o script.
+$Ref é um commit fixo (o main de 30/10/2026, logo antes de o repositório redesenhar o Copy), para o Icons.axaml sair igual a cada execução.
+Para atualizar os ícones, troque o SHA, rode o script e confira o diff.
 #>
 [CmdletBinding()]
 param(
     [string]$Output = (Join-Path $PSScriptRoot '..\src\VNForge.App\Assets\Icons.axaml'),
-    [string]$Ref = 'main'
+    [string]$Ref = '64e5aa757d1b70c24a283256ddcb8269d0f58773'
 )
 
 $ErrorActionPreference = 'Stop'
