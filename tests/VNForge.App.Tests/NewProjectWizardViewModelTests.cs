@@ -245,7 +245,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         var vm = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine(true)]) { PersonalGlossary = pessoal };
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(ProjectPath());
-        await AdvanceAsync(vm, 4);
+        await AdvanceAsync(vm, 5);
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Equal("お兄ちゃん", Assert.Single(ProjectFolder.Open(ProjectPath()).LoadGlossary()).Source);
@@ -262,7 +262,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         var vm = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine(true)]) { PersonalGlossary = pessoal };
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(ProjectPath());
-        await AdvanceAsync(vm, 4);
+        await AdvanceAsync(vm, 5);
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.True(vm.HasPersonalNotice);
