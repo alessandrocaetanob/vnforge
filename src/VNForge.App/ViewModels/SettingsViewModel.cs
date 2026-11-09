@@ -397,7 +397,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Termina quando a estimativa das linhas pendentes foi calculada (ou descartada por outro projeto).</summary>
     public Task EstimateLoading { get; private set; } = Task.CompletedTask;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Aparência).</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência).</summary>
     [ObservableProperty]
     public partial int SelectedTab { get; set; }
 
@@ -679,6 +679,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshGameTitleNotice();
         RefreshSpent();
         StartEstimate(folder);
+        LoadDictionary();
     }
 
     /// <summary>
