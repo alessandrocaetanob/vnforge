@@ -227,20 +227,20 @@
               <c:ShareBar Value="{Binding BlindFraction}" AutomationProperties.Name="{Binding BlindSummary}"/>
             </StackPanel>
 
-            <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="8">
-              <Button Classes="accent" HorizontalContentAlignment="Center" Command="{Binding UseCommand}" AutomationProperties.Name="{Binding UseLabel}">
+            <Grid Grid.Row="5" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding UseCommand}" AutomationProperties.Name="{Binding UseLabel}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
                   <TextBlock Text="{Binding UseLabel}" TextWrapping="NoWrap"/>
                 </StackPanel>
               </Button>
-              <Button HorizontalContentAlignment="Center" Command="{Binding BlindStartCommand}" AutomationProperties.Name="{Binding BlindActionText}">
+              <Button Grid.Column="1" HorizontalContentAlignment="Center" Command="{Binding BlindStartCommand}" AutomationProperties.Name="{Binding BlindActionText}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Eye}"/>
                   <TextBlock Text="{Binding BlindActionText}" TextWrapping="NoWrap"/>
                 </StackPanel>
               </Button>
-            </StackPanel>
+            </Grid>
           </Grid>
         </Border>
       </Grid>
