@@ -131,6 +131,21 @@ O filtro de `library list` junta as tags suas e as do VNDB:
 
 O `--json` de `library list` traz também `filter` (`include`, `any`, `exclude`) e `filterSaved`; o de `library tag list`, `tags` (`name`, `color`, `games`) e `filter`.
 
+### Notas e capturas
+
+Cada jogo tem uma nota livre e uma lista de capturas de tela (d7, #553). Os dois ficam só neste computador.
+
+| Comando | O que faz |
+|---|---|
+| `vnf library notes <jogo> [--set texto] [--add texto] [--clear]` | Sem opção, mostra a nota. `--set` troca a nota (texto em branco apaga), `--add` acrescenta uma linha ao fim e `--clear` apaga. Com `-` no lugar do texto, lê a entrada padrão, para uma nota de várias linhas. As três opções não se combinam |
+| `vnf library capture take <jogo> [--title trecho] [--note texto]` | Captura a janela do jogo aberto (a área do jogo, sem a barra de título) e guarda o PNG com a data no nome. A janela é a de um programa que está na pasta do jogo; `--title` troca isso por um pedaço do título da janela, em qualquer programa |
+| `vnf library capture list <jogo>` | Lista as capturas, da mais antiga para a mais nova, com data, tamanho, nome do arquivo e nota. Avisa quando a imagem sumiu da pasta |
+| `vnf library capture remove <jogo> <arquivo>` | Tira a captura do índice e apaga a imagem |
+
+As notas ficam em `library-notes.json`, ao lado do `library.json`; a nota guarda a data da última mudança. Elas são do VNForge: não têm relação com as notas da lista do VNDB (`vnf library status --notes`), que são sincronizadas.
+
+As capturas ficam em `%LOCALAPPDATA%/VNForge/captures/<id do jogo>/aaaammdd-hhmmss.png` (hora local da captura; duas no mesmo segundo ganham `-2`, `-3`...), com o índice em `captures.json` na pasta `captures`. Nunca vão para a pasta do jogo nem para um projeto de tradução. `capture take` só funciona no Windows e com a janela aberta e não minimizada: um jogo em tela cheia exclusiva pode sair preto (a captura pede a imagem à janela e, se ela vier toda preta, copia da tela o mesmo retângulo, o que exige a janela à vista e sem nada por cima). O `--json` de `capture take` e de `capture list` traz `capture`/`captures` (`file`, `path`, `capturedAt`, `width`, `height`, `note`, `exists`).
+
 ### Token do VNDB
 
 O token pessoal da conta (vndb.org/u/tokens, com `listread` e, para enviar, `listwrite`) fica no cofre do Windows (DPAPI, `vndb-token.dat` na pasta de configuração) ou na variável de ambiente `VNDB_TOKEN`, que tem prioridade. O arquivo do cofre é do DPAPI e não abre fora do Windows: lá ele é ignorado, com um aviso, e vale `VNDB_TOKEN`. Nunca em arquivo do projeto ou da biblioteca, e nunca em log, mensagem ou `--json`.

@@ -161,7 +161,13 @@ public sealed class VnfCli
     /// <summary>Quem abre o jogo e acompanha o processo no <c>vnf library play</c>; os testes trocam por um falso.</summary>
     public IGameLauncher GameLauncher { get; set; } = new ProcessGameLauncher();
 
-    /// <summary>O relógio do tempo de jogo do <c>vnf library play</c>; os testes trocam por um falso.</summary>
+    /// <summary>Quem copia a imagem da janela do jogo no <c>vnf library capture take</c>; os testes trocam por um falso.</summary>
+    public IWindowCapturer WindowCapturer { get; set; } = new WindowCapturer();
+
+    /// <summary>Onde ficam as capturas de tela (imagens e índice): a pasta de dados do usuário, nunca o projeto nem a pasta do jogo. Os testes apontam para uma pasta temporária.</summary>
+    public string UserCapturesDirectory { get; set; } = GameCapturesFile.DefaultDirectory();
+
+    /// <summary>O relógio do tempo de jogo do <c>vnf library play</c> e da data das capturas; os testes trocam por um falso.</summary>
     public TimeProvider Clock { get; set; } = TimeProvider.System;
 
     /// <summary>De quanto em quanto tempo o <c>vnf library play</c> olha o processo, e o limite do trecho suspenso que ainda conta.</summary>

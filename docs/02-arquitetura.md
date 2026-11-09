@@ -32,7 +32,7 @@ vnforge/
 │  ├─ VNForge.Engines.YuRis/      # YPF, YSTB, YSCM, YSTL, patch do executável
 │  ├─ VNForge.AI/                 # provedores de IA, prompts, orquestração em lote
 │  ├─ VNForge.Vndb/               # cliente do VNDB: fila, cache em disco, catálogo falso
-│  ├─ VNForge.Platform.Windows/   # abrir o jogo e acompanhar o processo (job object); a CLI o referencia, e o app, quando a tela entrar
+│  ├─ VNForge.Platform.Windows/   # abrir o jogo e acompanhar o processo (job object) e capturar a janela do jogo; a CLI o referencia, e o app, quando a tela entrar
 │  ├─ VNForge.Cli/                # executável "vnf"
 │  └─ VNForge.App/                # Avalonia 12 (compila e testa em qualquer sistema; Mica e barra de título só no Windows)
 ├─ tests/
@@ -41,7 +41,8 @@ vnforge/
 │  ├─ VNForge.Engines.ConformanceKit/  # classes-base de teste que toda engine herda (#541); biblioteca, não roda sozinha
 │  ├─ VNForge.Engines.YuRis.Tests/
 │  ├─ VNForge.AI.Tests/           # com provedor falso, sem chamar API real
-│  └─ VNForge.Vndb.Tests/         # transporte HTTP falso, sem chamar o VNDB
+│  ├─ VNForge.Vndb.Tests/         # transporte HTTP falso, sem chamar o VNDB
+│  └─ VNForge.Platform.Windows.Tests/  # captura de uma janela criada pelo próprio teste; só roda no Windows
 ├─ docs/
 └─ samples/                       # perfis de formatação e glossários de exemplo (sem texto de jogo)
 ```
@@ -590,6 +591,17 @@ Rótulos (Jogando, Terminado, Parado, Abandonado, Desejado e os da conta), voto,
 - **Regra de conflito**: cada campo é comparado com o `Base`. Mudou de um lado só, a mudança passa para o outro. Mudou dos dois lados para valores diferentes, vence o mais recente (`ModifiedAt` contra o `lastmod` da entrada; empate fica com o VNDB) e o relatório traz um `LibrarySyncConflict` como aviso. Com `--pull` vence o VNDB e com `--push` vence o app: quem escolhe o sentido já disse de que lado está. Rótulos não entram em conflito (cada um é sim ou não) e, sem `Base`, os dois conjuntos se somam; sem `Base`, um campo vazio recebe o do outro lado. Entrada apagada no site (existia na última sincronização, `OnVndb`, e sumiu): se o estado local não foi mexido, a exclusão vem para cá; se foi, o plano marca `RemovedOnSite`, não envia nada e não a recria, a menos que `LibrarySyncOptions.RecreateRemoved` (`--recreate`, nunca com `--pull`) peça; aí vai tudo o que o app guarda do jogo, e só dos jogos com edição pendente. O sentido que só envia (`--push`, `status --push`) nunca consome a exclusão: o estado e o `OnVndb` ficam como estão, e a próxima edição cai no mesmo aviso. Só Both e Pull trazem a exclusão. O `status --push` recusa nesses casos, com a mensagem certa para haver ou não edição (`LibrarySyncItem.HasLocalEdits`). O que um sentido não aplica fica pendente. Não há pergunta por campo: a CLI pergunta uma vez, antes de enviar (`[s/N]`, pulada com `--yes`, que é obrigatório com `--json`), no `sync` e no `status --push`. Os rótulos não se excluem: pôr Terminado num jogo Jogando deixa os dois, porque o app não impõe uma regra que a API não pede, e o `status` avisa.
 - **Rótulos**: a kana diz que os ids abaixo de 10 são os pré-definidos e iguais para todos, e que 0 ("No label") e 7 ("Voted") não se gravam. Ela não lista os nomes de 1 a 6 nem fixa um teto de ids; os nomes (Playing, Finished, Stalled, Dropped, Wishlist, Blacklist) são os do site do VNDB, não conferidos na kana, e o nome devolvido em cada entrada tem prioridade. O teto de 1600 e o início dos rótulos da conta em 10 são limites do app.
 - **Limites da API** (api.vndb.org/kana, seções "HTTP Response Codes" e "Tips & Troubleshooting"): 200 pedidos a cada 5 minutos, tratados pela `VndbRequestQueue`; 401 vira o aviso de token recusado, 429 espera e repete, 5xx vira "fora do ar" e não é repetido.
+
+### Notas e capturas por jogo (`VNForge.Core.Library`, d7 #553)
+
+Esta entrega é o Core, a captura de janela no Windows e a CLI (`vnf library notes` e `capture`). O atalho de captura e a tela esperam o shell novo (#544), e o uso das capturas como referência na tradução (c10, #535) vem depois.
+
+- **Notas**: `GameNotes` guarda uma nota de texto livre por jogo (`GameNote`: `Text` com `\n`, até `GameNotes.MaxLength` = 100 000 caracteres, e `UpdatedAt`). Texto em branco apaga a nota. `GameNotesFile` grava `{ "version": 1, "games": { "<id>": { text, updatedAt } } }` em `library-notes.json`, ao lado do `library.json`, num arquivo à parte, como as tags. Não tem relação com `LibraryListFields.Notes` (as notas da lista do VNDB, do d4).
+- **Capturas**: `GameCapturesFile` guarda as imagens e o índice na pasta de dados do usuário, `%LOCALAPPDATA%/VNForge/captures` (`GameCapturesFile.DefaultDirectory`), junto do cache de imagens do VNDB e nunca no repositório (regra 1), no projeto de tradução ou na pasta do jogo (regra 2). Cada imagem é `<id do jogo>/aaaammdd-hhmmss.png`, na hora local do `TimeProvider`, e o índice `captures.json` é `{ "version": 1, "games": { "<id>": [ { file, capturedAt, width, height, note } ] } }`. A imagem é gravada primeiro e só então entra no índice; se o índice não puder ser gravado, a imagem recém-criada é apagada. O nome do arquivo e o id do jogo são validados (letras, números, `-`, `_` e `.`, terminando em `.png`), então um índice mexido à mão não aponta para fora da pasta do jogo.
+- **Arquivo**: as duas gravações passam por `AtomicFile` (`WriteAllText` e, para o PNG, `WriteAllBytes`: temporário ao lado e troca por `ProjectFileIo.Move`) e as mudanças do índice e das notas rodam sob uma trava `.lock` (`JsonStore`, que usa `FileLock`), como o `library.json`. Um arquivo ilegível ou de outra versão é recusado, não esvaziado.
+- **PNG**: `PngEncoder` (interno ao Core) grava RGB de 8 bits com filtro Sub e deflate, sem biblioteca de imagem. O alfa da origem é descartado.
+- **Captura de janela**: `IWindowCapturer.Capture(WindowTarget)` devolve um `WindowImage` (largura, altura, pixels BGRA). `WindowTarget` identifica a janela pelo `Handle` (HWND) ou por `Folder` (o programa dono da janela está nessa pasta ou dentro dela) e `TitleContains`; havendo várias, vale a maior visível, sem dona e não minimizada. A CLI usa `Folder` = pasta do jogo, ou só `TitleContains` com `--title`. `WindowCapturer`, em `VNForge.Platform.Windows`, copia a área do cliente: `PrintWindow` com `PW_CLIENTONLY | PW_RENDERFULLCONTENT` e, se a imagem vier toda preta e a janela estiver visível, `BitBlt` da tela no mesmo retângulo. A thread passa a ciente de DPI por monitor durante a captura, para o tamanho ser em pixels reais. Não foi testado com um jogo de verdade: o teste de integração (`tests/VNForge.Platform.Windows.Tests`, só roda no Windows e em sessão com área de trabalho) captura uma janela que o próprio teste cria. Jogo em tela cheia exclusiva pode sair preto nos dois caminhos.
+- **Testes**: o Core e a CLI trocam o `IWindowCapturer` por um falso (`VnfCli.WindowCapturer`) e a pasta das capturas por uma temporária (`VnfCli.UserCapturesDirectory`).
 
 ## Alternativas consideradas para a interface gráfica
 
