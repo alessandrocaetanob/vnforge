@@ -96,12 +96,7 @@ public sealed partial class UndoBatchDialogViewModel : ObservableObject
     /// </summary>
     internal static string OfBatch(string name)
     {
-        var contractions = new (string Article, string Contracted)[]
-        {
-            ("Esta ", "desta "), ("Este ", "deste "), ("Estas ", "destas "), ("Estes ", "destes "),
-            ("As ", "das "), ("Os ", "dos "), ("O ", "do "), ("A ", "da "),
-        };
-        foreach (var (article, contracted) in contractions)
+        foreach (var (article, contracted) in Contractions)
         {
             if (name.StartsWith(article, StringComparison.Ordinal) && name.Length > article.Length)
             {
@@ -111,6 +106,12 @@ public sealed partial class UndoBatchDialogViewModel : ObservableObject
 
         return "da " + name;
     }
+
+    private static readonly (string Article, string Contracted)[] Contractions =
+    [
+        ("Esta ", "desta "), ("Este ", "deste "), ("Estas ", "destas "), ("Estes ", "destes "),
+        ("As ", "das "), ("Os ", "dos "), ("O ", "do "), ("A ", "da "),
+    ];
 
     private static string Lines(int count) => count == 1 ? "1 linha" : $"{ProjectLabels.Number(count)} linhas";
 }
