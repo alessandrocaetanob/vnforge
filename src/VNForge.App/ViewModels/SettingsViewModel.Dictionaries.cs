@@ -136,7 +136,7 @@ public sealed partial class SettingsViewModel
         var row = new DictionaryRuleRow(side, index, rule, ToggleRule, SelectRule);
         if (dictionaryImpacts.TryGetValue((side, index), out var impact))
         {
-            row.LinesText = impact is null ? "—" : DictionaryRuleRow.LinesLabel(impact.Applies);
+            row.LinesText = impact is null ? "sem contagem" : DictionaryRuleRow.LinesLabel(impact.Applies);
         }
 
         return row;
@@ -164,7 +164,7 @@ public sealed partial class SettingsViewModel
 
         foreach (var row in PreRules.Concat(PostRules))
         {
-            row.LinesText = dictionaryImpacts.TryGetValue((row.Side, row.Index), out var impact) && impact is not null ? DictionaryRuleRow.LinesLabel(impact.Applies) : "—";
+            row.LinesText = dictionaryImpacts.TryGetValue((row.Side, row.Index), out var impact) && impact is not null ? DictionaryRuleRow.LinesLabel(impact.Applies) : "sem contagem";
         }
 
         SelectRule(SelectedRule ?? PostRules.FirstOrDefault() ?? PreRules.FirstOrDefault());
@@ -396,7 +396,7 @@ public sealed partial class SettingsViewModel
         var token = cancel.Token;
         if (editor.Problem is not null)
         {
-            editor.ImpactTitle = "—";
+            editor.ImpactTitle = "Sem contagem";
             editor.ImpactDetail = string.Empty;
             EditorImpactLoading = Task.CompletedTask;
             return;
@@ -422,7 +422,7 @@ public sealed partial class SettingsViewModel
             return;
         }
 
-        editor.ImpactTitle = impact is null ? "—" : $"Aplica em {DictionaryRuleRow.LinesLabel(impact.Applies)}";
+        editor.ImpactTitle = impact is null ? "sem contagem" : $"Aplica em {DictionaryRuleRow.LinesLabel(impact.Applies)}";
         editor.ImpactDetail = impact is { Blocked: > 0 }
             ? $"{DictionaryRuleRow.LinesLabel(impact.Blocked)} com este texto não mudam por causa das condições"
             : string.Empty;
