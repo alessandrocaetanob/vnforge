@@ -51,6 +51,8 @@
       <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
       <Setter Property="Padding" Value="14,12"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
     </Style>
     <!-- A faixa das abas ganha a linha de baixo em toda a largura (artboard de Ajustes); o resto do estilo vem de Themes/Controls/Segmented.axaml. -->
     <Style Selector="TabControl.tabs">
@@ -658,7 +660,7 @@
                               </Button.ContextFlyout>
                               <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="8">
                                 <Border Classes="rule-code" HorizontalAlignment="Left"><TextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding Pattern}" ToolTip.Tip="{Binding Pattern}"/></Border>
-                                <PathIcon Grid.Column="1" Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.ArrowRight}"/>
+                                <PathIcon Grid.Column="1" Width="12" Height="12" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.ArrowRight}"/>
                                 <Border Grid.Column="2" Classes="rule-code" HorizontalAlignment="Left"><TextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding With}" ToolTip.Tip="{Binding With}"/></Border>
                               </Grid>
                             </Button>
@@ -714,7 +716,7 @@
                               </Button.ContextFlyout>
                               <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="8">
                                 <Border Classes="rule-code" HorizontalAlignment="Left"><TextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding Pattern}" ToolTip.Tip="{Binding Pattern}"/></Border>
-                                <PathIcon Grid.Column="1" Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.ArrowRight}"/>
+                                <PathIcon Grid.Column="1" Width="12" Height="12" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.ArrowRight}"/>
                                 <Border Grid.Column="2" Classes="rule-code" HorizontalAlignment="Left"><TextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding With}" ToolTip.Tip="{Binding With}"/></Border>
                               </Grid>
                             </Button>
@@ -792,12 +794,12 @@
                 <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="12">
                   <StackPanel Spacing="6">
                     <TextBlock Classes="overline" Text="Trocar"/>
-                    <TextBox Background="{DynamicResource Vnf.BgInset}" Text="{Binding Editor.Pattern}" AutomationProperties.Name="Texto a trocar"/>
+                    <TextBox FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" Text="{Binding Editor.Pattern}" AutomationProperties.Name="Texto a trocar"/>
                   </StackPanel>
                   <PathIcon Grid.Column="1" Width="16" Height="16" VerticalAlignment="Bottom" Margin="0,0,0,10" Data="{StaticResource Icon.ArrowRight}"/>
                   <StackPanel Grid.Column="2" Spacing="6">
                     <TextBlock Classes="overline" Text="Por"/>
-                    <TextBox Background="{DynamicResource Vnf.BgInset}" Text="{Binding Editor.With}" AutomationProperties.Name="Texto novo"/>
+                    <TextBox FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" Text="{Binding Editor.With}" AutomationProperties.Name="Texto novo"/>
                   </StackPanel>
                 </Grid>
                 <CheckBox Content="Expressão regular" IsChecked="{Binding Editor.IsRegex}" IsVisible="{Binding Editor.ShowsRegexSwitch}"/>
@@ -812,9 +814,9 @@
                                     AutomationProperties.Name="Tipo da condição"/>
                           <ComboBox Grid.Column="1" Background="{DynamicResource Vnf.BgInset}" ItemsSource="{Binding Operators}" SelectedIndex="0" HorizontalAlignment="Stretch"
                                     AutomationProperties.Name="Verbo da condição"/>
-                          <TextBox Grid.Column="2" Background="{DynamicResource Vnf.BgInset}" Text="{Binding Value}" AutomationProperties.Name="Valor da condição"/>
+                          <TextBox Grid.Column="2" FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" Text="{Binding Value}" AutomationProperties.Name="Valor da condição"/>
                           <Button Grid.Column="3" Classes="icon subtle" Command="{Binding RemoveCommand}" AutomationProperties.Name="Tirar condição">
-                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
+                            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Dismiss}"/>
                           </Button>
                         </Grid>
                       </DataTemplate>

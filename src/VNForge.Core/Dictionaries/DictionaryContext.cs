@@ -18,21 +18,40 @@ public sealed record DictionaryLine(string Source, IReadOnlyList<string> Speaker
     {
         foreach (var condition in conditions)
         {
-            var value = condition.Value.Trim();
-            var holds = condition.Kind switch
-            {
-                DictionaryConditionKind.Speaker => Speakers.Any(s => string.Equals(s, value, StringComparison.OrdinalIgnoreCase)),
-                DictionaryConditionKind.Scene => Scenes.Any(s => string.Equals(s, value, StringComparison.OrdinalIgnoreCase)),
-                DictionaryConditionKind.SourceContains => condition.Value.Length > 0 && Source.Contains(condition.Value, StringComparison.OrdinalIgnoreCase),
-                _ => false,
-            };
-            if (!holds)
+            if (!Holds(condition))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /// <summary>As posições, em <paramref name="conditions"/>, das condições que não batem; vazio quando todas batem.</summary>
+    public IReadOnlyList<int> FailedConditions(IReadOnlyList<DictionaryCondition> conditions)
+    {
+        List<int>? failed = null;
+        for (var i = 0; i < conditions.Count; i++)
+        {
+            if (!Holds(conditions[i]))
+            {
+                (failed ??= []).Add(i);
+            }
+        }
+
+        return failed ?? [];
+    }
+
+    private bool Holds(DictionaryCondition condition)
+    {
+        var value = condition.Value.Trim();
+        return condition.Kind switch
+        {
+            DictionaryConditionKind.Speaker => Speakers.Any(s => string.Equals(s, value, StringComparison.OrdinalIgnoreCase)),
+            DictionaryConditionKind.Scene => Scenes.Any(s => string.Equals(s, value, StringComparison.OrdinalIgnoreCase)),
+            DictionaryConditionKind.SourceContains => condition.Value.Length > 0 && Source.Contains(condition.Value, StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        };
     }
 }
 

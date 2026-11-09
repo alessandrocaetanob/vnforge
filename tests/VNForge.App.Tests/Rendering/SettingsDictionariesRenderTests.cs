@@ -50,7 +50,12 @@ public sealed class SettingsDictionariesRenderTests(HeadlessFixture fixture, Dem
                 Line("cap1:000301", "Ren", "先生、あいつは大丈夫でしょうか", "Professor, será que você vai dar conta?"),
                 Line("cap1:000214", "Aoi", "君は早いね", "Você chegou cedo hoje, mas você some depois."),
             ]);
-        folder.SaveText("cap2", [Line("cap2:000302", "Ren", "先生、あいつは大丈夫でしょうか", "Professor, você sabe onde ele foi?")]);
+        folder.SaveText(
+            "cap2",
+            [
+                Line("cap2:000302", "Ren", "先生、あいつは大丈夫でしょうか", "Professor, você sabe onde ele foi?"),
+                Line("cap2:000303", "Ren", "先生が呼んでいる", "O professor disse que você deve ir."),
+            ]);
     }
 
     private static TextUnit Line(string id, string speaker, string source, string translation) =>

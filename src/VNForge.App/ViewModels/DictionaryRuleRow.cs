@@ -20,7 +20,7 @@ public sealed partial class DictionaryRuleRow : ObservableObject
         this.changed = changed;
         this.selected = selected;
         enabled = rule.Enabled;
-        ChipItems = rule.Conditions.Count == 0 ? [new RuleChip("Icon.Check", "Sempre")] : [.. rule.Conditions.Select(c => new RuleChip(ChipIcon(c), ChipText(c)))];
+        ChipItems = rule.Conditions.Count == 0 ? [new RuleChip("Icon.Check", "Sempre")] : [.. rule.Conditions.Select(c => new RuleChip(ChipIcon(c), ChipText(c, side)))];
         Chips = [.. ChipItems.Select(c => c.Text)];
     }
 
@@ -90,11 +90,12 @@ public sealed partial class DictionaryRuleRow : ObservableObject
         DeleteRequested?.Invoke(this);
     }
 
-    public static string ChipText(DictionaryCondition condition) => condition.Kind switch
+    /// <summary>No pré a condição olha um trecho do texto que a regra troca ("Trecho contém ー"); no pós ela olha o original da linha ("Original contém 先生"), como no quadro.</summary>
+    public static string ChipText(DictionaryCondition condition, DictionarySide side) => condition.Kind switch
     {
         DictionaryConditionKind.Speaker => $"Falante: {condition.Value}",
         DictionaryConditionKind.Scene => $"Cena: {condition.Value}",
-        _ => $"Original contém {condition.Value}",
+        _ => $"{(side == DictionarySide.Pre ? "Trecho" : "Original")} contém {condition.Value}",
     };
 
     public static string ChipIcon(DictionaryCondition condition) => condition.Kind switch

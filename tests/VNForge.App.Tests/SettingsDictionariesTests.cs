@@ -73,6 +73,7 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Equal("tu acha que ele vai dar conta?", vm.AppliedAfter);
         Assert.StartsWith("Linha 0214", vm.BlockedLine, StringComparison.Ordinal);
         Assert.Equal("você chegou cedo hoje.", vm.BlockedText);
+        Assert.Equal("Linha 0214 · 葵 (falante diferente: não troca)", vm.BlockedLine);
         Assert.Equal("você, Ren", vm.PreviewSubtitle);
     }
 
@@ -117,7 +118,7 @@ public sealed class SettingsDictionariesTests : IDisposable
 
         Assert.Null(editor.Problem);
         Assert.Equal("Aplica em 2 linhas", editor.ImpactTitle);
-        Assert.Contains("1 linha", editor.ImpactDetail, StringComparison.Ordinal);
+        Assert.Equal("1 linha de outro falante não muda", editor.ImpactDetail);
 
         editor.SaveCommand.Execute(null);
         await vm.DictionaryCounting;
@@ -226,6 +227,25 @@ public sealed class SettingsDictionariesTests : IDisposable
         vm.PreRules[0].EditCommand.Execute(null);
         Assert.True(vm.Editor!.ShowsRegexSwitch);
         Assert.True(vm.Editor.IsRegex);
+    }
+
+    [Fact]
+    public void O_resumo_do_que_fica_de_fora_nomeia_a_condicao_que_barrou_e_o_selo_muda_com_o_lado()
+    {
+        var conditions = new List<DictionaryCondition>
+        {
+            new(DictionaryConditionKind.Speaker, "Ren"),
+            new(DictionaryConditionKind.Scene, "Capítulo 1"),
+            new(DictionaryConditionKind.SourceContains, "先生"),
+        };
+        var unit = Line("a:000001", "蓮", "先生", "você");
+        var impact = new DictionaryImpact(1, 4, null, new DictionarySample(unit, "você", "tu", [1]), new Dictionary<int, int> { [1] = 2, [2] = 1 });
+
+        Assert.Equal("2 linhas do Ren fora do Capítulo 1 não mudam", DictionaryReasons.LeftOut(conditions, impact));
+        Assert.Equal("4 linhas com este texto não mudam por causa das condições", DictionaryReasons.LeftOut(conditions, impact with { BlockedByOne = null }));
+        Assert.Equal("falante diferente, sem o trecho", DictionaryReasons.Why(conditions, [0, 2]));
+        Assert.Equal("Trecho contém ー", DictionaryRuleRow.ChipText(new(DictionaryConditionKind.SourceContains, "ー"), DictionarySide.Pre));
+        Assert.Equal("Original contém 先生", DictionaryRuleRow.ChipText(new(DictionaryConditionKind.SourceContains, "先生"), DictionarySide.Post));
     }
 
     [Fact]

@@ -232,7 +232,7 @@ public sealed partial class SettingsViewModel
 
             if (impact.FirstBlocked is { } blocked)
             {
-                BlockedLine = $"{LineLabel(blocked.Unit, context)} (a condição não bate: não troca)";
+                BlockedLine = $"{LineLabel(blocked.Unit, context)} ({DictionaryReasons.Why(row.Rule.Conditions, blocked.Failed)}: não troca)";
                 BlockedText = blocked.Before;
             }
         }
@@ -458,9 +458,7 @@ public sealed partial class SettingsViewModel
         }
 
         editor.ImpactTitle = impact is null ? "sem contagem" : $"Aplica em {DictionaryRuleRow.LinesLabel(impact.Applies)}";
-        editor.ImpactDetail = impact is { Blocked: > 0 }
-            ? $"{DictionaryRuleRow.LinesLabel(impact.Blocked)} com este texto não mudam por causa das condições"
-            : string.Empty;
+        editor.ImpactDetail = impact is { Blocked: > 0 } ? DictionaryReasons.LeftOut(rule.Conditions, impact) : string.Empty;
     }
 
     private sealed record DictionaryData(IReadOnlyList<TextUnit> Units, DictionaryContext Context, IReadOnlyList<TextUnitKind> Kinds);

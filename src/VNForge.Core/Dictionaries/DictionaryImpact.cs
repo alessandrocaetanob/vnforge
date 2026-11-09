@@ -14,7 +14,8 @@ public enum DictionarySide
 /// <param name="Unit">A linha.</param>
 /// <param name="Before">O texto antes da regra (o original no pré, a tradução no pós).</param>
 /// <param name="After">O texto que a regra deixaria; igual a <paramref name="Before"/> não existe, porque só entra a linha que mudaria.</param>
-public sealed record DictionarySample(TextUnit Unit, string Before, string After);
+/// <param name="Failed">Nas linhas em que a condição impede a troca, as posições das condições que não bateram; nulo nas outras.</param>
+public sealed record DictionarySample(TextUnit Unit, string Before, string After, IReadOnlyList<int>? Failed = null);
 
 /// <summary>
 /// O alcance de uma regra no projeto: em quantas linhas ela troca e em quantas o padrão aparece mas a condição impede a troca, com uma
@@ -24,7 +25,8 @@ public sealed record DictionarySample(TextUnit Unit, string Before, string After
 /// <param name="Blocked">Linhas em que o padrão aparece e alguma condição não bate.</param>
 /// <param name="FirstApplied">A primeira linha em que a regra troca; nula quando não há.</param>
 /// <param name="FirstBlocked">A primeira linha em que a condição impede a troca; nula quando não há.</param>
-public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample? FirstApplied, DictionarySample? FirstBlocked)
+/// <param name="BlockedByOne">Por posição da condição, quantas linhas barradas falham só nela; nulo sem linha barrada.</param>
+public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample? FirstApplied, DictionarySample? FirstBlocked, IReadOnlyDictionary<int, int>? BlockedByOne = null)
 {
     /// <summary>Conta o alcance de <paramref name="rule"/> em <paramref name="units"/>. A regra desligada também é contada: o número diz o que ela faria.</summary>
     /// <param name="kinds">Os papéis que o build formata (<see cref="FormattingProfile.Kinds"/>). No pós só contam as linhas que o build grava (<see cref="TextUnit.NeedsRewrite"/>) desses papéis; nulo conta qualquer papel.</param>
@@ -44,10 +46,11 @@ public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample
                 continue;
             }
 
-            tally.Add(sample, rule.Conditions.Count == 0 || context.Line(unit).Matches(rule.Conditions));
+            IReadOnlyList<int> failed = rule.Conditions.Count == 0 ? [] : context.Line(unit).FailedConditions(rule.Conditions);
+            tally.Add(failed.Count == 0 ? sample : sample with { Failed = failed }, failed.Count == 0);
         }
 
-        return new DictionaryImpact(tally.Applies, tally.Blocked, tally.FirstApplied, tally.FirstBlocked);
+        return new DictionaryImpact(tally.Applies, tally.Blocked, tally.FirstApplied, tally.FirstBlocked, tally.BlockedByOne);
     }
 
     /// <summary>A troca que a regra faria na linha; nula quando a linha não entra na conta, não tem texto ou a regra não a muda.</summary>
@@ -89,6 +92,8 @@ public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample
 
         public DictionarySample? FirstBlocked { get; private set; }
 
+        public Dictionary<int, int> BlockedByOne { get; } = [];
+
         public void Add(DictionarySample sample, bool applies)
         {
             if (applies)
@@ -100,6 +105,10 @@ public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample
             {
                 Blocked++;
                 FirstBlocked ??= sample;
+                if (sample.Failed is [var only])
+                {
+                    BlockedByOne[only] = BlockedByOne.GetValueOrDefault(only) + 1;
+                }
             }
         }
     }
