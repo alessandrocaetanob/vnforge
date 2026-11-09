@@ -258,7 +258,7 @@ public sealed class GameTextbox : Control
             columnWidth,
             textHeight,
             rowHeight,
-            Flat ? frameWidth : (layout.Columns * columnWidth) + (m.PadX * 2),
+            Flat ? frameWidth : FrameWidth(layout, m, columnWidth),
             new Typeface(FontFamily),
             ink,
             Brush("Vnf.TextboxOverflow", Brushes.Salmon),
@@ -318,7 +318,8 @@ public sealed class GameTextbox : Control
         if (!p.Flat || isOverflow)
         {
             var rule = y + p.RowHeight - 0.5;
-            context.DrawLine(new Pen(Tint(isOverflow ? p.Overflow : p.Ink, isOverflow ? 0.35 : 0.13), 1, p.Dotted), new Point(m.PadX, rule), new Point(m.PadX + (layout.Columns * p.ColumnWidth), rule));
+            var ruleEnd = m.FrameColumn > 0 ? p.Width - m.PadX : m.PadX + (layout.Columns * p.ColumnWidth);
+            context.DrawLine(new Pen(Tint(isOverflow ? p.Overflow : p.Ink, isOverflow ? 0.35 : 0.13), 1, p.Dotted), new Point(m.PadX, rule), new Point(ruleEnd, rule));
         }
 
         return y + p.RowHeight;
@@ -336,10 +337,13 @@ public sealed class GameTextbox : Control
         return height;
     }
 
+    private static double FrameWidth(TextboxLayout layout, Metrics m, double columnWidth) =>
+        (layout.Columns * (m.FrameColumn > 0 ? m.FrameColumn : columnWidth)) + (m.PadX * 2);
+
     /// <summary>A caixa mede as colunas do perfil; a placa de um nome mais largo que elas estica o controle em vez de ser cortada.</summary>
     private double ContentWidth(TextboxLayout layout, Metrics m, double columnWidth)
     {
-        var box = (layout.Columns * columnWidth) + (m.PadX * 2);
+        var box = FrameWidth(layout, m, columnWidth);
         return layout.Speaker is { } speaker ? Math.Max(box, m.PlateLeft + Format(speaker, new Typeface(FontFamily), Brushes.Black, m.PlateFont).Width + (m.PlatePadX * 2) + 8) : box;
     }
 
@@ -467,15 +471,19 @@ public sealed class GameTextbox : Control
         double NextInset,
         double NextTop,
         double Pitch = 0,
-        double OverflowGap = DefaultOverflowGap)
+        double OverflowGap = DefaultOverflowGap,
+        double FrameColumn = 0)
     {
-        /// <remarks><c>Review</c> segue o quadro do modo revisão: JetBrains Mono, linhas de 36 px e 40 colunas em 626 px (o quadro usa um corpo menor, 17,6 px, sobre a mesma régua; a caixa desenha cada coluna pelo avanço do glifo e ainda não separa as duas medidas).</remarks>
+        /// <remarks>
+        /// <c>Review</c> segue o quadro do modo revisão: JetBrains Mono em 17,6 px (avanço de 10,56 px por coluna), linhas de 36 px e a caixa com 40 colunas em 626 px.
+        /// O texto fica no avanço natural do glifo e a moldura leva a régua de <see cref="FrameColumn"/> (14,35 px por coluna), então sobra espaço à direita do texto, como no quadro.
+        /// </remarks>
         public static Metrics For(GameTextboxSize size, bool flat = false) => flat ? new(13, 14, 11, 22, 14, 18, 10, 12, 10, 11, 12, -6) : size switch
         {
             GameTextboxSize.Small => new(20, 16, 24, 22, 12, 24, 12, 14, 12, 12, 12, 5),
             GameTextboxSize.Large => new(30, 32, 34, 32, 17, 28, 14, 28, 14, 13, 20, 11),
             GameTextboxSize.Stage => new(34, 40, 38, 40, 24, 34, 17, 36, 18, 17, 28, 14),
-            GameTextboxSize.Review => new(27, 26, 19, 36, 24, 28, 14, 25, 15, 14, 22, -5, 0, 5),
+            GameTextboxSize.Review => new(27, 26, 19, 36, 17.6, 28, 14, 25, 15, 14, 22, -5, 0, 5, 14.35),
             _ => new(24, 26, 28, 26, 14, 24, 12, 22, 12, 12, 20, 5),
         };
     }

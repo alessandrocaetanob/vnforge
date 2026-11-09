@@ -79,7 +79,7 @@
           <!-- Cabeçalho (quadro do #537): retrato de 64 px, o nome do falante na cor dele, o papel e o jeito de falar, e embaixo o id em mono com o tipo da linha; histórico e menu à direita.
                O selo de status fica na grade, como no quadro. -->
           <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
-            <c:Portrait Size="Lg" Image="{Binding SpeakerImage}" Seed="{Binding SpeakerName}" IsNarrator="{Binding !HasSpeaker}" VerticalAlignment="Center"/>
+            <c:Portrait Size="Lg" Image="{Binding SpeakerImage}" Seed="{Binding SpeakerName}" Tint="{Binding SpeakerColor}" IsNarrator="{Binding !HasSpeaker}" VerticalAlignment="Center"/>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
               <TextBlock Classes="title-md" Text="{Binding HeaderName}" TextTrimming="CharacterEllipsis" c:SpeakerColorTint.Color="{Binding SpeakerColor}" AutomationProperties.Name="Quem fala"/>
               <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="18" Classes="secondary header-role" Text="{Binding HeaderRoleLine}" IsVisible="{Binding HasHeaderRoleLine}" TextWrapping="Wrap"/>
@@ -212,7 +212,7 @@
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding IsSceneCollapsed}"/>
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding !IsSceneCollapsed}"/>
-                <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" Text="Na cena"/>
+                <TextBlock Grid.Column="1" Classes="body-sm secondary" FontWeight="Normal" VerticalAlignment="Center" Text="Na cena"/>
                 <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SceneCountText}"/>
               </Grid>
             </Button>

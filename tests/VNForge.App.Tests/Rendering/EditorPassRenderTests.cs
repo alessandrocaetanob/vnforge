@@ -260,6 +260,24 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Cases))]
+    public async Task Com_a_traducao_vazia_o_inspetor_mostra_Reescrever_com_um_toque_inteiro(string themeName, int width, int height)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await InWindow(themeName, width, height, Scenario.Pending, async (window, vm) =>
+        {
+            await vm.Editor.GoToLineAsync("yst00001", "yst00001:000000");
+            ScreenRenderer.Settle(window);
+
+            var inspector = window.GetVisualDescendants().OfType<LineDetailView>().First(v => v.IsEffectivelyVisible);
+            var bar = inspector.GetVisualDescendants().OfType<RewriteBar>().FirstOrDefault(b => b.IsEffectivelyVisible);
+            Assert.True(bar is not null || width < 1400, "O inspetor larga não mostra os chips de reescrever.");
+            Assert.Empty(ClippedTextHeadlessTests.FindClipped(inspector));
+            Save(window, "editor-passada-vazia", theme, width);
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Cases))]
     public async Task A_janela_Traduzir_com_IA_traz_a_caixa_da_passada_marcada_com_o_preco(string themeName, int width, int height)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;

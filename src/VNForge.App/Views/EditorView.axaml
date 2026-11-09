@@ -172,11 +172,11 @@
 
     <!-- Scripts 1* (180 a 190), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 190 · 632 · 474 (v4: a lista de cenas cede 58 px à grade); o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
+    <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="190"/>
+        <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="220"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
-        <ColumnDefinition Width="1.9*" MinWidth="320" MaxWidth="600"/>
+        <ColumnDefinition Width="1.9*" MinWidth="320" MaxWidth="384"/>
       </Grid.ColumnDefinitions>
 
       <!-- Cenas -->
