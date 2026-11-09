@@ -39,6 +39,7 @@
     <!-- Linha da tabela: o botão só desenha o fundo e o divisor de baixo (a última não tem); a escolhida para o M4 ganha accent-soft e um fio de 2 px em accent. -->
     <Style Selector="Button.evalrow">
       <Setter Property="Padding" Value="0"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="CornerRadius" Value="0"/>
@@ -163,24 +164,24 @@
                           Command="{Binding $parent[UserControl].((vm:EvalViewModel)DataContext).SelectRowCommand}" CommandParameter="{Binding}"
                           AutomationProperties.Name="{Binding Letter, StringFormat='Configuração {0}'}">
                     <Grid ColumnDefinitions="20,*,120,64,144,56,108" ColumnSpacing="8" Margin="12,10,16,10">
-                      <TextBlock Classes="body rowletter" Classes.chosen="{Binding IsChosen}" VerticalAlignment="Top" Text="{Binding Letter}"/>
+                      <TextBlock Classes="body-sm rowletter" Classes.chosen="{Binding IsChosen}" VerticalAlignment="Top" Text="{Binding Letter}"/>
                       <StackPanel Grid.Column="1" Spacing="0">
-                        <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding ModelName}"/>
+                        <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding ModelName}"/>
                         <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Detail}"/>
                         <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Note}" IsVisible="{Binding HasNote}"/>
                       </StackPanel>
                       <StackPanel Grid.Column="2" HorizontalAlignment="Right">
-                        <TextBlock Classes="body" HorizontalAlignment="Right" Text="{Binding CostText}"/>
+                        <TextBlock Classes="body-sm" HorizontalAlignment="Right" Text="{Binding CostText}"/>
                         <TextBlock Classes="caption secondary" HorizontalAlignment="Right" Text="{Binding BatchText}"/>
                       </StackPanel>
-                      <TextBlock Grid.Column="3" Classes="body" VerticalAlignment="Center" Margin="12,0,0,0" Text="{Binding TimeText}"/>
+                      <TextBlock Grid.Column="3" Classes="body-sm" VerticalAlignment="Center" Margin="12,0,0,0" Text="{Binding TimeText}"/>
                       <Grid Grid.Column="4" ColumnDefinitions="36,70" ColumnSpacing="8" VerticalAlignment="Center">
-                        <TextBlock Classes="body" FontWeight="SemiBold" HorizontalAlignment="Right" Text="{Binding ChrfText}"/>
+                        <TextBlock Classes="body-sm" FontWeight="SemiBold" HorizontalAlignment="Right" Text="{Binding ChrfText}"/>
                         <c:ShareBar Grid.Column="1" Value="{Binding ChrfShare}" Fill="{DynamicResource Vnf.SegTranslated}" VerticalAlignment="Center"
                                     AutomationProperties.Name="{Binding ChrfText, StringFormat='chrF {0}'}"/>
                       </Grid>
-                      <TextBlock Grid.Column="5" Classes="body" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding JudgeText}"/>
-                      <TextBlock Grid.Column="6" Classes="body" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Right" TextWrapping="Wrap" Text="{Binding BlindText}"/>
+                      <TextBlock Grid.Column="5" Classes="body-sm" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding JudgeText}"/>
+                      <TextBlock Grid.Column="6" Classes="body-sm" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Right" TextWrapping="Wrap" Text="{Binding BlindText}"/>
                     </Grid>
                   </Button>
                 </DataTemplate>
@@ -214,32 +215,32 @@
                   <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Lightbulb}"/>
                   <TextBlock Classes="overline" VerticalAlignment="Center" Text="Leitura da rodada"/>
                 </StackPanel>
-                <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Reading}"/>
+                <TextBlock Classes="caption" LineHeight="20" TextWrapping="Wrap" Text="{Binding Reading}"/>
               </StackPanel>
             </Border>
 
             <StackPanel Grid.Row="3" Margin="0,14,0,0" Spacing="12">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="body-sm secondary" Text="Rodada às cegas" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="{Binding BlindSummary}" VerticalAlignment="Center"/>
+                <TextBlock Classes="caption secondary" Text="Rodada às cegas" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding BlindSummary}" VerticalAlignment="Center"/>
               </Grid>
               <c:ShareBar Value="{Binding BlindFraction}" AutomationProperties.Name="{Binding BlindSummary}"/>
             </StackPanel>
 
-            <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="8">
-              <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding UseCommand}" AutomationProperties.Name="{Binding UseLabel}">
+            <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="8">
+              <Button Classes="accent" HorizontalContentAlignment="Center" Command="{Binding UseCommand}" AutomationProperties.Name="{Binding UseLabel}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
                   <TextBlock Text="{Binding UseLabel}" TextWrapping="NoWrap"/>
                 </StackPanel>
               </Button>
-              <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding BlindStartCommand}" AutomationProperties.Name="{Binding BlindActionText}">
+              <Button HorizontalContentAlignment="Center" Command="{Binding BlindStartCommand}" AutomationProperties.Name="{Binding BlindActionText}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Eye}"/>
                   <TextBlock Text="{Binding BlindActionText}" TextWrapping="NoWrap"/>
                 </StackPanel>
               </Button>
-            </Grid>
+            </StackPanel>
           </Grid>
         </Border>
       </Grid>
@@ -373,7 +374,7 @@
                         <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}" TextWrapping="Wrap"/>
                         <TextBlock Classes="caption secondary" Text="{Binding Detail}"/>
                       </StackPanel>
-                      <TextBlock Grid.Column="3" Classes="body-sm secondary" VerticalAlignment="Center" Text="{Binding CostText}"/>
+                      <TextBlock Grid.Column="3" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding CostText}"/>
                     </Grid>
                   </Border>
                 </DataTemplate>
