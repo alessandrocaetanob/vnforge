@@ -143,6 +143,24 @@ public sealed class LineMemoryTests : IDisposable
         await vm.MemoryLoading;
 
         Assert.False(vm.HasMemory);
+        Assert.True(vm.HasMemoryProblem);
+        Assert.True(vm.ShowMemoryCard);
+        Assert.Contains(Path.Combine(Config, TranslationMemory.FileName), vm.MemoryProblem);
+        Assert.Contains("não pôde ser lida", vm.MemoryProblem);
+        Assert.Contains("O arquivo não foi alterado.", vm.MemoryProblem);
+        Assert.Equal("lixo", File.ReadAllText(Path.Combine(Config, TranslationMemory.FileName)));
+    }
+
+    [Fact]
+    public async Task Arquivo_legivel_sem_parecido_nao_mostra_o_cartao_nem_aviso()
+    {
+        using var vm = Abrir(DoProjeto(new TranslationMemory(Config)));
+
+        vm.ShowMemory();
+        await vm.MemoryLoading;
+
+        Assert.False(vm.ShowMemoryCard);
+        Assert.Null(vm.MemoryProblem);
     }
 
     [Fact]
@@ -201,6 +219,7 @@ public sealed class LineMemoryTests : IDisposable
         Assert.Empty(projeto.Find(Frase));
         projeto.Record(Aprovada("a:000001", "x"));
         projeto.Sync([Aprovada("a:000001", "x")]);
+        Assert.Contains(TranslationMemory.FileName, projeto.Problem);
     }
 
     [Fact]

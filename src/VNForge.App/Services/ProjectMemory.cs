@@ -8,6 +8,9 @@ public interface IMemorySuggestions
 {
     /// <summary>As traduções aprovadas em outros projetos para o original (exata primeiro, depois as aproximadas). Vazio se a memória não pôde ser lida.</summary>
     IReadOnlyList<MemoryMatch> Find(string source);
+
+    /// <summary>Por que a memória não pôde ser lida ou gravada na última operação (com o caminho do arquivo); nulo quando tudo correu bem.</summary>
+    string? Problem { get; }
 }
 
 /// <summary>
@@ -16,15 +19,21 @@ public interface IMemorySuggestions
 public sealed class ProjectMemory(TranslationMemory memory, string projectRoot, string projectName, TimeProvider clock) : IMemorySuggestions
 {
     private readonly string key = TranslationMemory.KeyOf(projectRoot);
+    private volatile string? problem;
+
+    public string? Problem => problem;
 
     public IReadOnlyList<MemoryMatch> Find(string source)
     {
         try
         {
-            return memory.Find(source, key, excludeProjectName: projectName);
+            var found = memory.Find(source, key, excludeProjectName: projectName);
+            problem = null;
+            return found;
         }
-        catch (MemoryFileException)
+        catch (MemoryFileException e)
         {
+            problem = Describe(e);
             return [];
         }
     }
@@ -36,9 +45,10 @@ public sealed class ProjectMemory(TranslationMemory memory, string projectRoot, 
         {
             memory.Sync(key, projectName, units, clock.GetUtcNow());
         }
-        catch (MemoryFileException)
+        catch (MemoryFileException e)
         {
             // Sem a memória o projeto segue editável; a próxima abertura tenta de novo.
+            problem = Describe(e);
         }
     }
 
@@ -49,9 +59,11 @@ public sealed class ProjectMemory(TranslationMemory memory, string projectRoot, 
         {
             memory.Record(key, projectName, unit, clock.GetUtcNow());
         }
-        catch (MemoryFileException)
+        catch (MemoryFileException e)
         {
-            // Idem.
+            problem = Describe(e);
         }
     }
+
+    private static string Describe(MemoryFileException e) => $"A memória de tradução não pôde ser lida, então não há sugestões. {e.Message} O arquivo não foi alterado.";
 }

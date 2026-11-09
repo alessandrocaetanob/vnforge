@@ -26,11 +26,21 @@ public sealed partial class LineDetailViewModel
     public ObservableCollection<MemorySuggestionViewModel> MemorySuggestions { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight))]
+    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight), nameof(ShowMemoryCard))]
     public partial bool HasMemory { get; private set; }
 
     /// <summary>Altura mínima do campo da tradução: 72 px normalmente e 28 px (44 com a margem) com o cartão da memória aberto, para a caixa do jogo e o "Cabe" ficarem na tela (quadro do #537).</summary>
     public double TranslationMinHeight => HasMemory ? 28 : 72;
+
+    /// <summary>O aviso do cartão quando o arquivo da memória não pôde ser lido: diz o caminho e que nada foi alterado. Nulo quando a busca correu bem.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMemoryProblem), nameof(ShowMemoryCard))]
+    public partial string? MemoryProblem { get; private set; }
+
+    public bool HasMemoryProblem => !string.IsNullOrEmpty(MemoryProblem);
+
+    /// <summary>O cartão aparece com sugestões ou com o aviso de que a memória não pôde ser lida.</summary>
+    public bool ShowMemoryCard => HasMemory || HasMemoryProblem;
 
     /// <summary>"3 em 2 projetos": quantas sugestões o cartão mostra e de quantos projetos elas vêm.</summary>
     [ObservableProperty]
@@ -77,6 +87,7 @@ public sealed partial class LineDetailViewModel
             }
 
             ApplyMemory(found);
+            MemoryProblem = memory.Problem;
         });
     }
 

@@ -127,15 +127,17 @@
           </StackPanel>
 
           <!-- Memória de tradução (#537): o que já foi aprovado em outros projetos para esta fala ou uma parecida. "Usar" põe o texto no campo; nada grava sozinho. -->
-          <Border x:Name="MemoryFragment" Classes="memory" IsVisible="{Binding HasMemory}" AutomationProperties.Name="Memória de tradução">
+          <Border x:Name="MemoryFragment" Classes="memory" IsVisible="{Binding ShowMemoryCard}" AutomationProperties.Name="Memória de tradução">
             <StackPanel Spacing="2">
               <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                   <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Database}"/>
                   <TextBlock Classes="overline" Text="Memória de tradução"/>
                 </StackPanel>
-                <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding MemorySummary}"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding MemorySummary}" IsVisible="{Binding HasMemory}"/>
               </Grid>
+              <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding MemoryProblem}" IsVisible="{Binding HasMemoryProblem}"
+                         AutomationProperties.Name="Aviso da memória de tradução"/>
               <ItemsControl ItemsSource="{Binding MemorySuggestions}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:MemorySuggestionViewModel">
