@@ -17,10 +17,6 @@ public sealed partial class MainWindow : Window
             {
                 UpdateMicaFallback();
             }
-            else if (e.Property == ClientSizeProperty)
-            {
-                UpdateCompactHeader();
-            }
         };
         UpdateMicaFallback();
         UpdateCompactHeader();
@@ -45,12 +41,11 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// O cabeçalho completo (com a capa) só cabe onde a página sobra: o Painel, a Ficha e Jogar, em janela alta. As telas de trabalho (Editor, Conferir, Testar, Lançar, Glossário,
-    /// Bíblia e Imagens) e as janelas baixas usam o compacto, de uma linha, para ficar com a altura.
+    /// A opção C do #544: o cabeçalho completo (com a capa) na entrada do jogo (Painel, Ficha, Jogar e as outras páginas) e o compacto, de uma linha de 80 px,
+    /// só no Editor, no Conferir, no Testar e no Glossário, onde a página precisa da altura. A altura da janela não entra na conta.
     /// </summary>
     private void UpdateCompactHeader() =>
-        GameHeader.IsCompact = HeaderCompactOverride ?? (ClientSize.Height < GameHeaderView.CompactBelow || DataContext is ViewModels.MainWindowViewModel { CurrentPage: not (ViewModels.DashboardViewModel or ViewModels.GameTabPlaceholderViewModel) });
-
+        GameHeader.IsCompact = HeaderCompactOverride ?? (DataContext is ViewModels.MainWindowViewModel { CurrentPage: ViewModels.EditorViewModel or ViewModels.ConferenceViewModel or ViewModels.BuildViewModel or ViewModels.GlossaryViewModel });
     private bool? headerCompactOverride;
 
     /// <summary>Só para os testes de imagem: força o cabeçalho completo (false) ou o compacto (true) em qualquer tela, para comparar os dois lado a lado. Nulo segue a regra acima.</summary>

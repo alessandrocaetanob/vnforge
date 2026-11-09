@@ -65,9 +65,13 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
         });
     }
 
+    /// <summary>
+    /// O Painel é página de entrada, então leva o cabeçalho completo em qualquer altura de janela (opção C do #544). A 1440×900 o Painel passa 144 px
+    /// da janela (extensão 746 de 602 de área); o teste prende esse corte para ele não crescer sem ninguém ver.
+    /// </summary>
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Painel_cabe_em_1440_por_900_sem_rolar(string themeName)
+    public async Task Painel_em_1440_por_900_rola_so_o_que_o_cabecalho_completo_toma(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         await Abrir(theme, 900, (window, _) =>
@@ -75,7 +79,7 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
             var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
             var scroll = Assert.Single(view.GetVisualDescendants().OfType<ScrollViewer>());
 
-            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 0.5, $"o Painel passa da janela: {scroll.Extent.Height} de {scroll.Viewport.Height}");
+            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 144.5, $"o Painel passa mais de 144 px da janela: {scroll.Extent.Height} de {scroll.Viewport.Height}");
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("painel-v3-900", theme)));
         });
     }

@@ -137,11 +137,12 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
         });
     }
 
-    /// <summary>O que o shell tira da página: a altura do cabeçalho do jogo e a de onde a página começa (com a segunda linha), completo e compacto. O completo vale no Painel em janela alta; o compacto, nas telas de trabalho e em janela baixa. Mudar estes números muda o espaço de todas as telas do jogo.</summary>
+    /// <summary>O que o shell tira da página: a altura do cabeçalho do jogo e a de onde a página começa (com a segunda linha), completo e compacto. O completo vale em todas as páginas menos nas quatro de trabalho, em qualquer altura de janela; o compacto, no Editor, no Conferir, no Testar e no Glossário. Mudar estes números muda o espaço de todas as telas do jogo.</summary>
     [Theory]
     [InlineData(1000, false, 179, 229, NavKey.Dashboard)]
     [InlineData(1000, true, 80, 80, NavKey.Editor)]
-    [InlineData(768, true, 80, 80, NavKey.Dashboard)]
+    [InlineData(768, false, 179, 229, NavKey.Dashboard)]
+    [InlineData(768, true, 80, 80, NavKey.Glossary)]
     public async Task O_cabecalho_do_jogo_ocupa_a_altura_combinada(int height, bool compact, int expectedHeader, int expectedWithSections, NavKey page)
     {
         await Abrir(ThemeVariant.Dark, height == 768 ? 1366 : ScreenRenderer.Width, height, page, (window, _) =>
@@ -156,15 +157,15 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
     }
 
     /// <summary>
-    /// A decisão do #544 (opção C): o cabeçalho completo na entrada do jogo (Ficha, Painel, Jogar) e o compacto, de 80 px, em cada tela de trabalho. A troca
+    /// A decisão do #544 (opção C): o cabeçalho completo na entrada do jogo (Ficha, Painel, Jogar, Lançar, Bíblia e Imagens) e o compacto, de 80 px, no Editor, no Conferir, no Testar e no Glossário. A troca
     /// acontece ao entrar e ao sair, uma tela de trabalho depois da outra e voltando a cada uma das telas de entrada.
     /// </summary>
     [Theory]
     [MemberData(nameof(Themes))]
     public async Task O_cabecalho_completo_da_entrada_vira_compacto_nas_telas_de_trabalho_e_volta_ao_sair(string themeName)
     {
-        NavKey[] work = [NavKey.Editor, NavKey.Conference, NavKey.Build, NavKey.Release, NavKey.Glossary, NavKey.Bible];
-        NavKey[] entry = [NavKey.Sheet, NavKey.Dashboard, NavKey.Play];
+        NavKey[] work = [NavKey.Editor, NavKey.Conference, NavKey.Build, NavKey.Glossary];
+        NavKey[] entry = [NavKey.Sheet, NavKey.Dashboard, NavKey.Play, NavKey.Release, NavKey.Bible, NavKey.Images];
         await Abrir(ThemeOf(themeName), ScreenRenderer.Width, ScreenRenderer.Height, NavKey.Sheet, (window, vm) =>
         {
             var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
@@ -196,6 +197,30 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Sheet);
             ScreenRenderer.Settle(window);
             Assert.False(header.IsCompact);
+        });
+    }
+
+    /// <summary>Cada página do jogo no shell, a 1440×1000 nos dois temas (os PNGs <c>shell-pagina-*</c>), para comparar com o quadro do #544.</summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Cada_pagina_do_jogo_aparece_no_shell_a_1440_por_1000(string themeName)
+    {
+        (NavKey Key, string Name, bool Compact)[] pages =
+        [
+            (NavKey.Sheet, "ficha", false), (NavKey.Dashboard, "painel", false), (NavKey.Editor, "editor", true), (NavKey.Conference, "conferir", true),
+            (NavKey.Build, "testar", true), (NavKey.Release, "lancar", false), (NavKey.Glossary, "glossario", true), (NavKey.Bible, "biblia", false),
+            (NavKey.Images, "imagens", false), (NavKey.Play, "jogar", false),
+        ];
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, ScreenRenderer.Width, ScreenRenderer.Height, NavKey.Sheet, (window, vm) =>
+        {
+            var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
+            foreach (var (key, name, compact) in pages)
+            {
+                Go(vm, window, key);
+                Assert.Equal(compact, header.IsCompact);
+                ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-pagina-" + name, theme)));
+            }
         });
     }
 

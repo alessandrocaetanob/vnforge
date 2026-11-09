@@ -29,7 +29,7 @@
       <Setter Property="Grid.Row" Value="1"/>
       <Setter Property="Margin" Value="32,16,32,0"/>
     </Style>
-    <!-- Janela baixa: a segunda linha da Tradução sobe para a linha das abas, à direita. -->
+    <!-- Cabeçalho compacto: a segunda linha da Tradução sobe para a linha das abas, à direita. -->
     <Style Selector="v|GameHeaderView.compact ListBox#Sections">
       <Setter Property="Grid.Row" Value="0"/>
       <Setter Property="HorizontalAlignment" Value="Right"/>
@@ -43,7 +43,7 @@
     <Border Background="{DynamicResource Vnf.BgBase}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
       <StackPanel Margin="32,8,32,0">
 
-        <!-- Janela baixa: a volta vira um botão de seta e a capa some, para a página ficar com a altura. -->
+        <!-- Compacto (Editor, Conferir, Testar e Glossário): a volta vira um botão de seta e a capa some, para a página ficar com a altura. -->
         <Grid Name="Regular" Margin="0,4,0,12" RowDefinitions="Auto,Auto" RowSpacing="12" IsVisible="{Binding !IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
           <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding OpenLibraryCommand}"
                   AutomationProperties.Name="Voltar para a Biblioteca">
