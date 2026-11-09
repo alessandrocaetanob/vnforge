@@ -568,7 +568,7 @@ public static class PatchInstaller
 
         try
         {
-            return JsonSerializer.Deserialize<InstallManifest>(File.ReadAllBytes(path), PatchManifest.Json);
+            return JsonSerializer.Deserialize(File.ReadAllBytes(path), PatchJsonContext.Instance.InstallManifest);
         }
         catch (JsonException)
         {
@@ -581,7 +581,7 @@ public static class PatchInstaller
         var path = Path.Combine(gameDirectory, BackupFolderName, ManifestFileName);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = path + TempSuffix;
-        File.WriteAllBytes(temp, JsonSerializer.SerializeToUtf8Bytes(manifest, PatchManifest.Json));
+        File.WriteAllBytes(temp, JsonSerializer.SerializeToUtf8Bytes(manifest, PatchJsonContext.Instance.InstallManifest));
         File.Move(temp, path, overwrite: true);
     }
 

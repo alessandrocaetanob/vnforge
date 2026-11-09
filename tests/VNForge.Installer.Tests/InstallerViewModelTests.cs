@@ -403,6 +403,36 @@ public sealed class InstallerViewModelTests
     }
 
     [Fact]
+    public async Task Janela_4_cita_a_versao_do_jogo_quando_o_patch_a_guarda()
+    {
+        using var game = new SyntheticGame();
+        File.WriteAllBytes(Path.Combine(game.Game, "Game/script.ypf"), [9]);
+        using var package = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info() with { GameVersion = " 1.00 " }));
+
+        var vm = await StartedAsync(new PatchEngine(package), game.Root, folder: game.Game);
+
+        Assert.Equal(InstallerScreen.WrongVersion, vm.Screen);
+        Assert.Equal("A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir.", vm.Note);
+    }
+
+    [Fact]
+    public async Task A_capa_so_chega_ao_modelo_quando_o_patch_a_leva()
+    {
+        using var game = new SyntheticGame();
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 1, 2];
+        using var with = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info() with { Cover = png }));
+        using var without = PatchPackage.Open(game.BuildPackage());
+
+        var withCover = await StartedAsync(new PatchEngine(with), game.Game);
+        var withoutCover = await StartedAsync(new PatchEngine(without), game.Game);
+
+        Assert.True(withCover.HasCover);
+        Assert.Equal(png, withCover.CoverBytes);
+        Assert.False(withoutCover.HasCover);
+        Assert.Null(withoutCover.CoverBytes);
+    }
+
+    [Fact]
     public async Task Janela_4_com_arquivo_que_falta_e_com_mais_de_um_diferente_conta_os_outros()
     {
         using var game = new SyntheticGame();
@@ -530,6 +560,50 @@ public sealed class InstallerViewModelTests
         release.Set();
         await revert;
         Assert.Equal(InstallerScreen.Reverted, vm.Screen);
+    }
+
+    [Fact]
+    public async Task Janela_5_com_arquivo_mexido_depois_da_instalacao_avisa_que_ele_fica_como_esta()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        PatchInstaller.Install(game.Game, package, null, Ct);
+        File.WriteAllBytes(Path.Combine(game.Game, "Game/Game.exe"), [1, 2, 3]);
+
+        var vm = await StartedAsync(new PatchEngine(package), game.Root, folder: game.Game);
+
+        Assert.Equal(InstallerScreen.AlreadyInstalled, vm.Screen);
+        Assert.Equal("A tradução 1.2.0 já está instalada", vm.Title);
+        Assert.Equal(InstallerCardKind.Ok, vm.Card!.Kind);
+        Assert.Equal("2 arquivos para devolver", vm.Card.Title);
+        Assert.Contains("Game.exe fica como está: mudou depois da instalação.", vm.Card.Detail);
+        Assert.True(vm.RevertCommand.CanExecute(null));
+
+        await vm.RevertCommand.ExecuteAsync(null);
+
+        Assert.Equal(InstallerScreen.Reverted, vm.Screen);
+        Assert.Contains("Deixei Game.exe como está: mudou depois da instalação.", vm.Card!.Detail);
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(Path.Combine(game.Game, "Game/Game.exe")));
+        Assert.Equal(SyntheticGame.Sha(Path.Combine(game.Original, "Game/script.ypf")), SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf")));
+        Assert.False(File.Exists(Path.Combine(game.Game, SyntheticGame.CreatedFile)));
+    }
+
+    [Fact]
+    public async Task Janela_5_com_todos_os_arquivos_mexidos_nao_promete_devolver_nada()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        PatchInstaller.Install(game.Game, package, null, Ct);
+        foreach (var file in new[] { "Game/script.ypf", "Game/Game.exe", SyntheticGame.CreatedFile })
+        {
+            File.WriteAllBytes(Path.Combine(game.Game, file), [7]);
+        }
+
+        var vm = await StartedAsync(new PatchEngine(package), game.Root, folder: game.Game);
+
+        Assert.Equal(InstallerScreen.AlreadyInstalled, vm.Screen);
+        Assert.Equal("Nenhum arquivo para devolver", vm.Card!.Title);
+        Assert.Contains("ficam como estão: mudaram depois da instalação.", vm.Card.Detail);
     }
 
     [Fact]

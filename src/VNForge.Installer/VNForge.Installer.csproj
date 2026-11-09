@@ -14,6 +14,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <!-- Trimming no publish self-contained (arquivo único do jogador). O modo partial só corta os assemblies que se declaram trimáveis (o .NET e o Avalonia);
+       o resto (VCDiff, SharpCompress, Newtonsoft.Json, RecyclableMemoryStream e o Avalonia.DesignerSupport, que o instalador nem carrega) segue inteiro.
+       O IL2104 avisa, uma vez por assembly, que esses não são trimáveis; como o partial os deixa intactos, o aviso não aponta risco e fica de fora.
+       O código do instalador e do Patching passa limpo (JSON por source generation, bindings compilados, sem reflexão). -->
+  <PropertyGroup Condition="'$(SelfContained)' == 'true'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <NoWarn>$(NoWarn);IL2104</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />

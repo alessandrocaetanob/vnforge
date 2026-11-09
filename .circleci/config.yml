@@ -161,7 +161,7 @@ jobs:
               name="vnf-$version-$rid"
               mkdir -p "pack/$name"
               cp publish/$rid/vnf* "pack/$name/"
-              # O instalador que o `vnf release` junta ao patch: um arquivo só, com o runtime e as bibliotecas nativas do Avalonia (Skia, HarfBuzz) dentro, para rodar na máquina do jogador sem .NET (cerca de 50 MB no win-x64).
+              # O instalador que o `vnf release` junta ao patch: um arquivo só, com o runtime e as bibliotecas nativas do Avalonia (Skia, HarfBuzz) dentro, para rodar na máquina do jogador sem .NET e o trimming que o .csproj liga (cerca de 25 MB no win-x64).
               dotnet publish src/VNForge.Installer --configuration Release --runtime "$rid" --self-contained \
                 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true \
                 -p:DebugType=None -p:Version="$version" --output "publish/installer-$rid"

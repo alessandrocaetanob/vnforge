@@ -40,7 +40,19 @@ dotnet publish src/VNForge.Installer -c Release -r win-x64 --self-contained `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None
 ```
 
-Medido em 09/11/2026: 52 952 134 bytes (50,5 MB) self-contained com compressão; 36 926 040 bytes (35,2 MB) framework-dependent, que exigiria o .NET 10 na máquina do jogador. `PublishTrimmed` falha (IL2026 no JSON por reflexão do Patching), então o instalador vai sem trimming. `VNF_INSTALLER_PUBLISHED` aponta os testes de ponta a ponta para o executável publicado.
+O `.csproj` liga o trimming (`PublishTrimmed`, `TrimMode=partial`) em todo publish self-contained. Medido em 09/11/2026 no win-x64, arquivo único com compressão:
+
+| Publicação | Bytes | MB |
+| --- | --- | --- |
+| Self-contained com trimming (a que vai para o jogador) | 26 618 794 | 25,4 |
+| Self-contained sem trimming | 52 952 134 | 50,5 |
+| Framework-dependent (exigiria o .NET 10 no PC do jogador) | 36 926 040 | 35,2 |
+
+O trimming passa sem IL2026 porque o JSON do Patching é gerado na compilação (`PatchJsonContext`). Sobra só o IL2104 (um aviso por assembly não trimável: VCDiff, SharpCompress, Newtonsoft.Json, RecyclableMemoryStream e o Avalonia.DesignerSupport, que o instalador não carrega); o modo `partial` os deixa intactos, e o `.csproj` o silencia com esse motivo. `VNF_INSTALLER_PUBLISHED` aponta os testes de ponta a ponta para o executável publicado; com ele o teste também abre a janela e confere o título com o nome do jogo do patch (a prova de que o trimming não cortou nada que a janela usa).
+
+## Capa e versão do jogo
+
+O patch leva, opcionais, a capa do jogo (`vnf release --capa`, PNG, JPEG ou WebP até 4 MB) e a versão do jogo de referência (`--versao-do-jogo`, ou a do executável). A capa aparece na coluna da esquerda, em 150 por 200; sem ela vale o desenho com o nome do jogo (e uma capa que não decodifica cai nele). A janela 4 cita "a versão 1.00 do jogo" quando o patch a guarda. Patches feitos antes disso continuam abrindo.
 
 ## Testes
 

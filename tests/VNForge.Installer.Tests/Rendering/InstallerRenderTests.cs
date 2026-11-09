@@ -160,7 +160,7 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
                     "Esta não é a versão esperada",
                     "O Game.exe desta pasta é diferente",
                     "Encontrado: SHA-256 77b0…e04a. Esperado: 3f9a…c21d. Nada foi alterado.",
-                    "A tradução 1.2.0 foi feita para outra versão do jogo. Procure uma pasta com a versão certa, ou veja no leia-me qual é e onde conseguir.",
+                    "A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir.",
                     "Sair",
                     "Escolher outra pasta",
                 ],
@@ -218,6 +218,72 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
             Assert.Contains("Jogo original de volta", texts);
             Assert.Contains("4 arquivos voltaram ao original, byte a byte.", texts);
         });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Renderiza_a_capa_do_patch_no_lugar_e_no_tamanho_do_quadro(string theme)
+    {
+        var png = await fixture.Session.Dispatch(() => SolidPng(300, 400, 200, 60, 20), Ct);
+        var vm = await FolderAsync(new BoardEngine(cover: png), new FakeTimeProvider());
+
+        await RenderAsync(vm, "540-inst-capa", theme, (window, texts) =>
+        {
+            var image = window.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "CoverImage");
+            Assert.True(image.IsEffectivelyVisible);
+            Assert.Equal(new Point(20, 52), image.TranslatePoint(default, window));
+            Assert.Equal(new Size(150, 200), image.Bounds.Size);
+            Assert.Equal(1, texts.Count(t => t == "Amaoto no Hakoniwa"));
+            Assert.False(window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "CoverTitle").IsEffectivelyVisible);
+            Assert.Equal((200, 60, 20), PixelAt(window, 95, 152));
+            Assert.Equal((200, 60, 20), PixelAt(window, 25, 60));
+            Assert.NotEqual((200, 60, 20), PixelAt(window, 10, 152));
+        });
+    }
+
+    [Fact]
+    public async Task Capa_que_nao_decodifica_deixa_a_capa_desenhada_por_baixo()
+    {
+        var vm = await FolderAsync(new BoardEngine(cover: [0x89, 0x50, 0x4E, 0x47, 1, 2, 3]), new FakeTimeProvider());
+
+        await RenderAsync(vm, "540-inst-capa-ruim", "Dark", (window, _) =>
+        {
+            var image = window.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "CoverImage");
+            Assert.Null(image.Source);
+        });
+    }
+
+    private static byte[] SolidPng(int width, int height, byte red, byte green, byte blue)
+    {
+        using var bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Opaque);
+        using (var buffer = bitmap.Lock())
+        {
+            var row = new byte[buffer.RowBytes];
+            for (var x = 0; x < width; x++)
+            {
+                row[x * 4] = blue;
+                row[(x * 4) + 1] = green;
+                row[(x * 4) + 2] = red;
+                row[(x * 4) + 3] = 255;
+            }
+
+            for (var y = 0; y < height; y++)
+            {
+                System.Runtime.InteropServices.Marshal.Copy(row, 0, buffer.Address + (y * buffer.RowBytes), row.Length);
+            }
+        }
+
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, PngBitmapEncoderOptions.Default);
+        return stream.ToArray();
+    }
+
+    private static (byte R, byte G, byte B) PixelAt(Window window, int x, int y)
+    {
+        using var frame = window.CaptureRenderedFrame()!;
+        using var buffer = frame.Lock();
+        var value = System.Runtime.InteropServices.Marshal.ReadInt32(buffer.Address + (y * buffer.RowBytes) + (x * 4));
+        return buffer.Format == Avalonia.Platform.PixelFormat.Bgra8888 ? ((byte)(value >> 16), (byte)(value >> 8), (byte)value) : ((byte)value, (byte)(value >> 8), (byte)(value >> 16));
     }
 
     private static string[] EnabledButtons(Window window) =>

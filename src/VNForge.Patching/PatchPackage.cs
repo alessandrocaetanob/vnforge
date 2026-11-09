@@ -15,6 +15,9 @@ public sealed class PatchPackage : IDisposable
 
     private const int MaxManifestBytes = 16 * 1024 * 1024;
 
+    /// <summary>O maior tamanho da capa que o patch leva (a capa vai em base64 no manifesto).</summary>
+    public const int MaxCoverBytes = 4 * 1024 * 1024;
+
     private readonly Stream _stream;
 
     private PatchPackage(Stream stream, PatchManifest manifest, long payloadStart)
@@ -57,7 +60,7 @@ public sealed class PatchPackage : IDisposable
 
             var json = new byte[length];
             stream.ReadExactly(json);
-            var manifest = JsonSerializer.Deserialize<PatchManifest>(json, PatchManifest.Json)
+            var manifest = JsonSerializer.Deserialize(json, PatchJsonContext.Instance.PatchManifest)
                 ?? throw new PatchException("O patch está corrompido (manifesto vazio).");
             Validate(manifest, stream.Length - (16 + length));
             return new PatchPackage(stream, manifest, 16 + length);
@@ -77,7 +80,7 @@ public sealed class PatchPackage : IDisposable
     /// <summary>Escreve o cabeçalho, o manifesto e os deltas.</summary>
     internal static void Write(Stream output, PatchManifest manifest, Stream payload)
     {
-        var json = JsonSerializer.SerializeToUtf8Bytes(manifest, PatchManifest.Json);
+        var json = JsonSerializer.SerializeToUtf8Bytes(manifest, PatchJsonContext.Instance.PatchManifest);
         Span<byte> header = stackalloc byte[16];
         Magic.CopyTo(header);
         BinaryPrimitives.WriteUInt32LittleEndian(header[8..12], FormatVersion);
@@ -119,6 +122,11 @@ public sealed class PatchPackage : IDisposable
         if (manifest.Files is null || string.IsNullOrWhiteSpace(manifest.Version) || manifest.Files.Count == 0)
         {
             throw new PatchException("O patch está corrompido (sem arquivos).");
+        }
+
+        if (manifest.Cover is { Length: > MaxCoverBytes })
+        {
+            throw new PatchException("O patch está corrompido (capa grande demais).");
         }
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

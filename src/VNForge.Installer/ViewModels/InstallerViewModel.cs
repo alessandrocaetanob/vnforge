@@ -208,6 +208,11 @@ public sealed partial class InstallerViewModel : ObservableObject
 
     public string? GameExecutablePath { get; private set; }
 
+    /// <summary>A capa que veio no patch (PNG, JPEG ou WebP); nula quando o patch não leva capa e a janela desenha a dela.</summary>
+    public byte[]? CoverBytes => _engine?.Manifest.Cover is { Length: > 0 } cover ? cover : null;
+
+    public bool HasCover => CoverBytes is not null;
+
     /// <summary>Procura o jogo (ou usa a pasta de <c>--pasta</c>) e mostra a janela que cabe: pasta conferida, versão errada ou já instalada.</summary>
     public async Task StartAsync()
     {
@@ -412,23 +417,26 @@ public sealed partial class InstallerViewModel : ObservableObject
         switch (check.State)
         {
             case PatchCheckState.WrongVersion:
-                ShowWrongVersion(check);
+                // Um arquivo que mudou depois da nossa instalação não é "outra versão do jogo": é a janela 5, com o aviso de que ele fica como está.
+                if (check.InstalledVersion is not null && await TryPlanAsync(folder) is { Kept.Count: > 0 } changed)
+                {
+                    ShowAlreadyInstalled(changed);
+                }
+                else
+                {
+                    ShowWrongVersion(check);
+                }
+
                 break;
 
             case PatchCheckState.AlreadyInstalled:
-                PatchUninstallPlan? plan = null;
-                try
-                {
-                    plan = await Task.Run(() => _engine!.PlanUninstall(folder));
-                }
-                catch (Exception ex) when (ex is PatchException or IOException or UnauthorizedAccessException)
-                {
-                    ShowFolderError(folder, "A tradução já está nesta pasta, mas não foi este instalador que a pôs, então não há cópia dos originais para devolver.");
-                }
-
-                if (plan is not null)
+                if (await TryPlanAsync(folder) is { } plan)
                 {
                     ShowAlreadyInstalled(plan);
+                }
+                else
+                {
+                    ShowFolderError(folder, "A tradução já está nesta pasta, mas não foi este instalador que a pôs, então não há cópia dos originais para devolver.");
                 }
 
                 break;
@@ -439,6 +447,18 @@ public sealed partial class InstallerViewModel : ObservableObject
         }
 
         NotifyCommands();
+    }
+
+    private async Task<PatchUninstallPlan?> TryPlanAsync(string folder)
+    {
+        try
+        {
+            return await Task.Run(() => _engine!.PlanUninstall(folder));
+        }
+        catch (Exception ex) when (ex is PatchException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private void ShowChecking(string folder)
@@ -534,7 +554,10 @@ public sealed partial class InstallerViewModel : ObservableObject
         Title = "Esta não é a versão esperada";
         Intro = string.Empty;
         Card = card;
-        Note = $"A tradução {_engine!.Manifest.Version} foi feita para outra versão do jogo. Procure uma pasta com a versão certa, ou veja no leia-me qual é e onde conseguir.";
+        var manifest = _engine!.Manifest;
+        Note = string.IsNullOrWhiteSpace(manifest.GameVersion)
+            ? $"A tradução {manifest.Version} foi feita para outra versão do jogo. Procure uma pasta com a versão certa, ou veja no leia-me qual é e onde conseguir."
+            : $"A tradução {manifest.Version} foi feita para a versão {manifest.GameVersion.Trim()} do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir.";
         ExitCode = InstallerApp.WrongVersion;
     }
 
@@ -556,7 +579,7 @@ public sealed partial class InstallerViewModel : ObservableObject
             var detail = count == 0
                 ? "Nenhum arquivo do jogo mudou desde a instalação."
                 : $"{InstallerText.NameList(restoreNames)} {(restoreNames.Count == 1 ? "volta" : "voltam")} byte a byte.";
-            if (restoreNames.Count == 0 && removeNames.Count > 0)
+            if ((restoreNames.Count == 0 && removeNames.Count > 0) || (count == 0 && plan.Kept.Count > 0))
             {
                 detail = string.Empty;
             }
@@ -566,7 +589,13 @@ public sealed partial class InstallerViewModel : ObservableObject
                 detail = $"{detail} {InstallerText.NameList(removeNames)} {(removeNames.Count == 1 ? "sai" : "saem")} da pasta.".Trim();
             }
 
-            card = new InstallerCard(InstallerCardKind.Ok, $"{InstallerText.Files(count)} para devolver", detail);
+            if (plan.Kept.Count > 0)
+            {
+                var kept = plan.Kept.Count == 1;
+                detail = $"{detail} {InstallerText.NameList([.. plan.Kept.Select(InstallerText.FileName)])} {(kept ? "fica" : "ficam")} como {(kept ? "está" : "estão")}: {(kept ? "mudou" : "mudaram")} depois da instalação.".Trim();
+            }
+
+            card = new InstallerCard(InstallerCardKind.Ok, count == 0 ? "Nenhum arquivo para devolver" : $"{InstallerText.Files(count)} para devolver", detail);
             var when = plan.InstalledAt is { } at
                 ? $", guardados em {TimeZoneInfo.ConvertTime(at, _time.LocalTimeZone).ToString("dd/MM 'às' HH:mm", System.Globalization.CultureInfo.InvariantCulture)},"
                 : string.Empty;

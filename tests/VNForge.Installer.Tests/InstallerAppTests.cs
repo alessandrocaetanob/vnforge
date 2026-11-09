@@ -212,12 +212,45 @@ public class InstallerAppTests
             var help = Run(installer, game.Game, "--ajuda");
             Assert.Equal(0, help.ExitCode);
             Assert.Contains("--silencioso", help.Output);
+
+            if (OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("VNF_INSTALLER_PUBLISHED") is { Length: > 0 })
+            {
+                AssertWindowOpens(installer, game);
+            }
         }
         finally
         {
             if (installer.StartsWith(AppContext.BaseDirectory, StringComparison.Ordinal))
             {
                 File.Delete(installer);
+            }
+        }
+    }
+
+    /// <summary>Sem opção de console o instalador abre a janela: o processo segue vivo e a janela leva o nome do jogo do patch (o que só aparece se o XAML, os bindings e o patch embutido sobreviveram ao trimming).</summary>
+    private static void AssertWindowOpens(string installer, SyntheticGame game)
+    {
+        var info = new ProcessStartInfo(installer) { WorkingDirectory = game.Game };
+        using var process = Process.Start(info)!;
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            var title = string.Empty;
+            while (DateTime.UtcNow < deadline && !process.HasExited && !title.Contains("Jogo Sintético", StringComparison.Ordinal))
+            {
+                Thread.Sleep(250);
+                process.Refresh();
+                title = process.MainWindowTitle;
+            }
+
+            Assert.False(process.HasExited, $"o instalador fechou sozinho com o código {(process.HasExited ? process.ExitCode : 0)}");
+            Assert.Equal("Tradução PT-BR · Jogo Sintético", title);
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
             }
         }
     }

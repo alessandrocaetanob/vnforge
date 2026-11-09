@@ -7,7 +7,7 @@ namespace VNForge.Installer.Tests.Rendering;
 /// O jogo e o patch do quadro #540 (Amaoto no Hakoniwa, 1.2.0, quatro arquivos, 218 MB), sem disco: os dados que as cinco janelas do quadro mostram.
 /// A instalação para no ponto que o teste pede, para a janela "Instalando" ser vista com 63%.
 /// </summary>
-internal sealed class BoardEngine(FakeTimeProvider? time = null) : IInstallerEngine
+internal sealed class BoardEngine(FakeTimeProvider? time = null, byte[]? cover = null) : IInstallerEngine
 {
     public static readonly string Folder = OperatingSystem.IsWindows() ? @"D:\VNs\Amaoto no Hakoniwa" : "/mnt/d/VNs/Amaoto no Hakoniwa";
 
@@ -45,7 +45,9 @@ internal sealed class BoardEngine(FakeTimeProvider? time = null) : IInstallerEng
         null,
         "Equipe Chuva Mansa",
         "Leia-me",
-        [.. Paths.Select((p, i) => new PatchFileEntry(p, p == "Game.exe" ? ExpectedSha : Sha(i), OriginalSizes[i], Sha(10 + i), ResultSizes[i], 0, 1))]);
+        [.. Paths.Select((p, i) => new PatchFileEntry(p, p == "Game.exe" ? ExpectedSha : Sha(i), OriginalSizes[i], Sha(10 + i), ResultSizes[i], 0, 1))],
+        "1.00",
+        cover);
 
     private static string Sha(int seed) => $"{seed:x2}".PadRight(64, 'a');
 

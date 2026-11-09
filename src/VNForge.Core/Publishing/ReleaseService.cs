@@ -15,13 +15,17 @@ namespace VNForge.Core.Publishing;
 /// <param name="Credits">Linha de créditos (<c>Tradução: Equipe · Revisão: Hana</c>); entra no CREDITOS.txt, no leia-me e no instalador.</param>
 /// <param name="InstallerName">Nome do instalador sem a extensão; o padrão é <c>&lt;jogo&gt;-&lt;idioma&gt;-&lt;versão&gt;</c>.</param>
 /// <param name="InstallerStub">O executável do instalador (<c>vnf-instalador</c>) que recebe o patch; o padrão é o que está ao lado do <c>vnf</c>.</param>
+/// <param name="CoverPath">Imagem da capa (PNG, JPEG ou WebP, até 4 MB) que o instalador mostra; passar o arquivo é a escolha explícita de usá-la. Sem ela o instalador desenha uma capa com o nome do jogo.</param>
+/// <param name="GameVersion">Versão do jogo de referência (<c>1.00</c>); o padrão é a versão do executável do jogo, quando ele tem.</param>
 public sealed record ReleaseOptions(
     string Version,
     string? OutputDirectory = null,
     string? Credits = null,
     string? InstallerName = null,
     string? InstallerStub = null,
-    bool AllowWarnings = false);
+    bool AllowWarnings = false,
+    string? CoverPath = null,
+    string? GameVersion = null);
 
 /// <summary>Um arquivo gerado na pasta de saída.</summary>
 public sealed record ReleaseFile(string Name, long Size, string? Sha256);
@@ -96,8 +100,10 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
                 $"Não achei o executável do instalador em '{stub}'. Ele vem no pacote do vnf; num checkout, publique src/VNForge.Installer e passe o caminho em --installer.");
         }
 
+        var cover = ReadCover(options.CoverPath);
         using var projectLock = ProjectLock.Acquire(project);
         var config = project.LoadConfig();
+        var gameVersion = string.IsNullOrWhiteSpace(options.GameVersion) ? DetectGameVersion(project.Root, config) : options.GameVersion.Trim();
         var previous = LoadRecords(project).Where(r => !string.Equals(r.Version, version, StringComparison.Ordinal)).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
         var output = Path.GetFullPath(options.OutputDirectory ?? Path.Combine(project.Root, FolderName, version));
         if (IsInside(output, Path.GetFullPath(config.Game.Path, project.Root)))
@@ -143,7 +149,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
                 .Select(f => new PatchSource(f.RelativePath, f.OriginalSha256 is null ? null : f.OriginalSource, f.BuildPath))
                 .ToList();
 
-            return Package(project, config, options, version, previous, output, stub, sources, changes, snapshot, steps, cancellationToken);
+            return Package(project, config, options, version, previous, output, stub, sources, changes, snapshot, new PatchExtras(gameVersion, cover), steps, cancellationToken);
         }
         catch (PatchException ex)
         {
@@ -152,6 +158,61 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         finally
         {
             patches.ForEach(GameInjector.DiscardPatch);
+        }
+    }
+
+    /// <summary>O que o patch leva além dos arquivos: a versão do jogo de referência e a capa, ambas opcionais.</summary>
+    private sealed record PatchExtras(string? GameVersion, byte[]? Cover);
+
+    /// <summary>
+    /// Lê a capa que o jogador de <c>--capa</c> escolheu. A escolha do arquivo é o consentimento: o <c>vnf</c> não busca capa sozinho, então uma capa com
+    /// marca sexual ou de violência (as do VNDB) nunca entra sem o arquivo ter sido passado de propósito.
+    /// </summary>
+    internal static byte[]? ReadCover(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var file = Path.GetFullPath(path);
+        if (!File.Exists(file))
+        {
+            throw new VNForgeException($"Não achei a capa em '{file}'.");
+        }
+
+        var size = new FileInfo(file).Length;
+        if (size > PatchPackage.MaxCoverBytes)
+        {
+            throw new VNForgeException($"A capa tem {size / 1024} KB; o patch aceita até {PatchPackage.MaxCoverBytes / 1024} KB. Reduza a imagem.");
+        }
+
+        var bytes = File.ReadAllBytes(file);
+        var known = bytes is [0x89, 0x50, 0x4E, 0x47, ..]
+            || bytes is [0xFF, 0xD8, 0xFF, ..]
+            || (bytes.Length > 12 && bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) && bytes.AsSpan(8, 4).SequenceEqual("WEBP"u8));
+        return known ? bytes : throw new VNForgeException($"A capa '{Path.GetFileName(file)}' não é PNG, JPEG nem WebP.");
+    }
+
+    /// <summary>A versão do executável do jogo (<c>1.00</c>), quando ele a traz; vírgulas de "1, 0, 0, 0" viram pontos. Nula se não houver.</summary>
+    internal static string? DetectGameVersion(string projectRoot, ProjectConfig config)
+    {
+        try
+        {
+            var exe = Path.GetFullPath(Path.Combine(Path.GetFullPath(config.Game.Path, projectRoot), config.Game.Exe));
+            if (!File.Exists(exe))
+            {
+                return null;
+            }
+
+            var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(exe);
+            var raw = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion : info.ProductVersion;
+            var version = raw?.Replace(", ", ".", StringComparison.Ordinal).Replace(",", ".", StringComparison.Ordinal).Trim();
+            return string.IsNullOrEmpty(version) || version is "0.0.0.0" or "0.0.0" ? null : version;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
         }
     }
 
@@ -166,6 +227,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         List<PatchSource> sources,
         ChangesSinceTest changes,
         TranslationSnapshot snapshot,
+        PatchExtras extras,
         IProgress<ReleaseStep>? steps,
         CancellationToken cancellationToken)
     {
@@ -181,7 +243,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         PatchManifest manifest;
         using (var file = new FileStream(patchPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
         {
-            manifest = PatchBuilder.Build(new PatchInfo(gameName, version, previous?.Version, credits, readMe), sources, file, cancellationToken: cancellationToken);
+            manifest = PatchBuilder.Build(new PatchInfo(gameName, version, previous?.Version, credits, readMe, extras.GameVersion, extras.Cover), sources, file, cancellationToken: cancellationToken);
         }
 
         steps?.Report(ReleaseStep.Verify);
