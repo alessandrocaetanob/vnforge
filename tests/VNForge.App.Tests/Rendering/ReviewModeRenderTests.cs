@@ -592,6 +592,48 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         return shown;
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Fila_por_risco_mostra_a_ordem_o_cartao_de_risco_a_barra_e_a_lista_a_seguir(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"), withDoubt: true);
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            vm.Editor.StartRiskReview();
+            ScreenRenderer.Settle(window);
+            var review = vm.Editor.Review!;
+            Assert.True(review.IsRisk);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+
+            var order = view.FindControl<ListBox>("OrderChoice")!;
+            Assert.True(order.IsEffectivelyVisible);
+            Assert.Equal(1, order.SelectedIndex);
+            Assert.Equal(["Do começo", "O que mais precisa de você"], order.Items.OfType<ListBoxItem>().Select(i => i.Content));
+
+            var card = view.FindControl<Border>("RiskCard")!;
+            Assert.True(card.IsEffectivelyVisible);
+            Assert.StartsWith("Risco ", view.FindControl<TextBlock>("RiskScore")!.Text, StringComparison.Ordinal);
+            Assert.Contains(card.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Dúvida da IA +30");
+            Assert.True(Frame(window, card).Right <= Frame(window, view.FindControl<ScrollViewer>("Script")!).Right + 1, "o cartão cabe na coluna do roteiro");
+
+            var queue = view.FindControl<Border>("RiskQueueCard")!;
+            Assert.True(queue.IsEffectivelyVisible);
+            var stage = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            Assert.True(Frame(window, queue).Top >= stage.Bottom - 1, "a fila fica sob o palco");
+            Assert.Equal(review.RiskSummaryText, view.FindControl<TextBlock>("RiskSummary")!.Text);
+            Assert.Equal(review.UpNext.Count, view.FindControl<ItemsControl>("UpNextList")!.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("queue-row")));
+
+            var bar = view.FindControl<RiskBar>("RiskShareBar")!;
+            Assert.True(bar.Bounds.Width > 100 && bar.Bounds.Height == RiskBar.BarHeight);
+            var probe = PixelProbe.Capture(window, bar);
+            Assert.True(probe.Near((int)bar.Bounds.Width - 12, 4, Token(bar, "Vnf.StatusPendingFg"), 6), "o fim da barra é o trecho de risco baixo");
+            Salvar(window, "modo-revisao-risco", theme);
+        });
+    }
+
     private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false)
     {
         await fixture.Session.Dispatch<int>(
