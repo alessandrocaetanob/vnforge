@@ -82,6 +82,12 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
         return new GameTitleFile(path, bytes, Encoding.UTF8.GetString(bytes));
     }
 
+    public string? ReadTitleFromGame(string gameDir)
+    {
+        var path = Path.Combine(gameDir, TitleFileName);
+        return File.Exists(path) ? File.ReadAllText(path) : null;
+    }
+
     public byte[] WithTitle(GameTitleFile file, string title, ITextEncoder encoder)
     {
         _ = encoder.Encode(title);

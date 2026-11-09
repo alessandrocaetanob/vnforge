@@ -14,9 +14,9 @@ public static class VnfCommands
     /// <summary>Seções do <c>vnf --help</c>: o pipeline na ordem de uso, os comandos do projeto e as ferramentas de baixo nível.</summary>
     public static IReadOnlyList<HelpSection> Sections { get; } =
     [
-        new("Biblioteca", ["library", "vndb"]),
+        new("Biblioteca", ["library"]),
         new("Pipeline", ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore", "test"]),
-        new("Projeto", ["status", "preview", "export", "import", "glossary", "memory", "jmdict", "chars", "bible", "dict", "title", "scripts", "lines", "images", "config", "detect", "eval"]),
+        new("Projeto", ["status", "preview", "export", "import", "glossary", "memory", "jmdict", "chars", "bible", "dict", "title", "vndb", "scripts", "lines", "images", "config", "detect", "eval"]),
         new("Baixo nível", ["ypf", "ybn", "patch-exe"]),
     ];
 
@@ -24,7 +24,6 @@ public static class VnfCommands
     {
         ArgumentNullException.ThrowIfNull(cli);
         cli.Root.Subcommands.Add(LibraryCommand.Create(cli));
-        cli.Root.Subcommands.Add(VndbCommand.Create(cli));
         cli.Root.Subcommands.Add(InitCommand.Create(cli));
         cli.Root.Subcommands.Add(ExtractCommand.Create(cli));
         cli.Root.Subcommands.Add(TranslateCommand.Create(cli));
@@ -46,6 +45,7 @@ public static class VnfCommands
         cli.Root.Subcommands.Add(DictionaryCommand.Create(cli));
         cli.Root.Subcommands.Add(BibleCommand.Create(cli));
         cli.Root.Subcommands.Add(TitleCommand.Create(cli));
+        cli.Root.Subcommands.Add(VndbCommand.Create(cli));
         cli.Root.Subcommands.Add(ScriptsCommand.Create(cli));
         cli.Root.Subcommands.Add(LinesCommand.Create(cli));
         cli.Root.Subcommands.Add(ImagesCommand.Create(cli));

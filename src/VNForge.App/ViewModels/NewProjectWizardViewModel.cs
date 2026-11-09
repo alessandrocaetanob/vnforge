@@ -8,6 +8,7 @@ using VNForge.Core;
 using VNForge.Core.Engines;
 using VNForge.Core.Memory;
 using VNForge.Core.Projects;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
@@ -15,6 +16,7 @@ namespace VNForge.App.ViewModels;
 public enum WizardStep
 {
     Game,
+    Vndb,
     Names,
     Accents,
     Ai,
@@ -98,7 +100,7 @@ public sealed class ChoiceGroup
 }
 
 /// <summary>
-/// Assistente de novo projeto: pasta do jogo com detecção, idiomas e nome, acentuação e IA; no fim, oferece extrair.
+/// Assistente de novo projeto: pasta do jogo com detecção, ficha do VNDB, idiomas e nome, acentuação e IA; no fim, oferece extrair.
 /// Cria o projeto com o mesmo <see cref="ProjectInitializer"/> do <c>vnf init</c>.
 /// </summary>
 public sealed partial class NewProjectWizardViewModel : ObservableObject
@@ -122,8 +124,10 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
     /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
-    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null)
+    /// <param name="vndb">O catálogo do VNDB do passo "Ficha do VNDB"; sem ele o passo avisa que a busca não está disponível e deixa seguir.</param>
+    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null, IVndbCatalog? vndb = null)
     {
+        this.vndb = vndb;
         this.tasks = tasks;
         this.picker = picker;
         this.engines = engines;
@@ -187,7 +191,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public ObservableCollection<string> Executables { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsGameStep), nameof(IsNamesStep), nameof(IsAccentsStep), nameof(IsAiStep), nameof(IsDoneStep), nameof(StepNumber), nameof(StepTitle), nameof(StepLabel), nameof(Breadcrumb), nameof(CanGoBack), nameof(IsWizardStep), nameof(NextLabel))]
+    [NotifyPropertyChangedFor(nameof(IsGameStep), nameof(IsVndbStep), nameof(IsNamesStep), nameof(IsAccentsStep), nameof(IsAiStep), nameof(IsDoneStep), nameof(StepNumber), nameof(StepTitle), nameof(StepLabel), nameof(Breadcrumb), nameof(CanGoBack), nameof(IsWizardStep), nameof(NextLabel))]
     [NotifyCanExecuteChangedFor(nameof(NextCommand), nameof(BackCommand), nameof(GoToStepCommand))]
     public partial WizardStep Step { get; private set; }
 
@@ -233,15 +237,17 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public string ProjectDirectoryLabel => ProjectDirectory ?? "Nenhuma pasta escolhida";
 
     /// <summary>A migalha do cabeçalho: "Passo 2 de 4"; "Pronto" depois de criar o projeto.</summary>
-    public string Breadcrumb => IsWizardStep ? $"Passo {StepNumber} de 4" : "Pronto";
+    public string Breadcrumb => IsWizardStep ? $"Passo {StepNumber} de 5" : "Pronto";
 
-    public string StepLabel => $"Passo {StepNumber} de 4 · {StepTitle}";
+    public string StepLabel => $"Passo {StepNumber} de 5 · {StepTitle}";
 
     public bool HasExecutables => Executables.Count > 1;
 
     public bool HasGame => GameFolder is not null;
 
     public bool IsGameStep => Step == WizardStep.Game;
+
+    public bool IsVndbStep => Step == WizardStep.Vndb;
 
     public bool IsNamesStep => Step == WizardStep.Names;
 
@@ -260,6 +266,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public string StepTitle => Step switch
     {
         WizardStep.Game => "Pasta do jogo",
+        WizardStep.Vndb => "Ficha do VNDB",
         WizardStep.Names => "Idiomas e nome",
         WizardStep.Accents => "Acentos",
         WizardStep.Ai => "IA e gasto",
@@ -280,10 +287,11 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public async Task SetGameFolderAsync(string path)
     {
         ErrorMessage = null;
+        ResetVndb();
         IsBusy = true;
         try
         {
-            inspection = await Task.Run(() => ProjectInitializer.Inspect(path, engines));
+            inspection = await Task.Run(() => ProjectInitializer.Inspect(path, engines), CancellationToken.None);
         }
         catch (Exception e) when (IsExpected(e))
         {
@@ -369,6 +377,15 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         {
             await CreateAsync();
         }
+        else if (Step == WizardStep.Game)
+        {
+            Step = WizardStep.Vndb;
+            await EnterVndbStepAsync();
+        }
+        else if (Step == WizardStep.Vndb && Stage == VndbStage.Choosing)
+        {
+            await ConfirmVndbAsync();
+        }
         else
         {
             Step++;
@@ -379,6 +396,11 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private void Back()
     {
         ErrorMessage = null;
+        if (BackFromVndbPreview())
+        {
+            return;
+        }
+
         Step--;
     }
 
@@ -393,7 +415,11 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private bool CanGoToStep(WizardStep target) => !IsBusy && Step != WizardStep.Done && target < Step;
 
     [RelayCommand]
-    private void Cancel() => Cancelled?.Invoke(this, EventArgs.Empty);
+    private void Cancel()
+    {
+        CancelVndbRequest();
+        Cancelled?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>Fecha o assistente com o projeto pronto e abre-o no app.</summary>
     [RelayCommand]
@@ -436,7 +462,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
             if (tasks is null)
             {
-                await Task.Run(() => Run(CancellationToken.None));
+                await Task.Run(() => Run(CancellationToken.None), CancellationToken.None);
             }
             else
             {
@@ -462,6 +488,10 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
             {
                 IsExtracted = true;
                 ExtractionMessage = $"Extração concluída: {ProjectLabels.Number(result.TotalLines)} linhas em {ProjectLabels.Number(result.Scripts.Count)} scripts.";
+                if (result.VndbCharacters is { Matched: > 0 } linked)
+                {
+                    ExtractionMessage += $" {ProjectLabels.Number(linked.Matched)} personagens do VNDB casaram com os nomes do jogo.";
+                }
             }
         }
         catch (Exception e) when (IsExpected(e))
@@ -483,26 +513,41 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private bool CanGoNext() => !IsBusy && Step switch
     {
         WizardStep.Game => HasGame && SelectedExe is not null,
+        WizardStep.Vndb => CanGoNextFromVndb(),
         WizardStep.Names => !string.IsNullOrWhiteSpace(ProjectName) && ProjectDirectory is not null,
         WizardStep.Accents => true,
         WizardStep.Ai => RateError is null && LimitError is null,
         _ => false,
     };
 
-    partial void OnStepChanged(WizardStep value) => RefreshSteps();
+    partial void OnStepChanged(WizardStep value)
+    {
+        if (value == WizardStep.Vndb && Stage == VndbStage.Skipped)
+        {
+            RestoreVndbAfterSkip();
+        }
 
-    partial void OnIsBusyChanged(bool value) => GoToStepCommand.NotifyCanExecuteChanged();
+        RefreshSteps();
+    }
 
-    private static readonly string[] StepTitles = ["Pasta do jogo", "Idiomas e nome", "Acentos", "IA e gasto"];
+    partial void OnIsBusyChanged(bool value)
+    {
+        GoToStepCommand.NotifyCanExecuteChanged();
+        SkipVndbCommand.NotifyCanExecuteChanged();
+        SearchVndbCommand.NotifyCanExecuteChanged();
+    }
+
+    private static readonly string[] StepTitles = ["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"];
+        ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"];
 
     private void RefreshSteps()
     {
         string?[] results =
         [
             HasDetection ? EngineHeadline : null,
+            confirmedLink is { } linked ? linked.Title : "Sem VNDB",
             $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Title}",
             EncodingStrategies.Selected.Title,
             SelectedQualityTitle,
@@ -533,7 +578,8 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         SourceLanguages.Selected.Id,
         TargetLanguages.Selected.Id,
         EncodingStrategies.Selected.Id,
-        ProjectChoices.DefaultAi with { Model = Models.Selected.Id });
+        ProjectChoices.DefaultAi with { Model = Models.Selected.Id },
+        confirmedLink);
 
     private static string SeededNotice(int seeded)
     {
@@ -553,7 +599,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         try
         {
             var options = BuildOptions();
-            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options, PersonalGlossary));
+            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options, PersonalGlossary), CancellationToken.None);
             Created = new ProjectResultInfo(result.Config.Name, result.Folder.Root);
             PersonalNotice = result.PersonalGlossaryProblem ?? SeededNotice(result.SeededTerms);
             Step = WizardStep.Done;

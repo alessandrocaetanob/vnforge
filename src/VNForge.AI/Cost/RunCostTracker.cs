@@ -37,7 +37,8 @@ public sealed class RunCostTracker(ProjectFolder project, string model, Exchange
     public void Record() => Record(project, model, usage());
 
     /// <inheritdoc cref="Record()"/>
-    public static void Record(ProjectFolder project, string model, ClaudeUsage? usage)
+    /// <param name="priceFactor">Multiplica o preço da tabela; o lote noturno passa <see cref="ModelPricing.BatchDiscount"/>.</param>
+    public static void Record(ProjectFolder project, string model, ClaudeUsage? usage, decimal priceFactor = 1m)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (usage is not { } u)
@@ -45,7 +46,7 @@ public sealed class RunCostTracker(ProjectFolder project, string model, Exchange
             return;
         }
 
-        var dollars = DollarsFor(model, u);
+        var dollars = DollarsFor(model, u) * priceFactor;
         AiUsageLog.TryRecord(project, new AiUsageTotals(
             u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens, dollars ?? 0m, 1, dollars is null ? 1 : 0));
     }

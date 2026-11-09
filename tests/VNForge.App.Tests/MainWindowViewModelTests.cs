@@ -104,6 +104,7 @@ public class MainWindowViewModelTests
         await wizard.NextCommand.ExecuteAsync(null);
         await wizard.NextCommand.ExecuteAsync(null);
         await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
 
         wizard.FinishCommand.Execute(null);
         await vm.ProjectOpening;
@@ -124,6 +125,7 @@ public class MainWindowViewModelTests
         vm.Start.NewProjectCommand.Execute(null);
         await wizard.SetGameFolderAsync(game);
         wizard.SetProjectDirectory(Path.Combine(temp.Path, "meu-projeto"));
+        await wizard.NextCommand.ExecuteAsync(null);
         await wizard.NextCommand.ExecuteAsync(null);
         await wizard.NextCommand.ExecuteAsync(null);
         await wizard.NextCommand.ExecuteAsync(null);

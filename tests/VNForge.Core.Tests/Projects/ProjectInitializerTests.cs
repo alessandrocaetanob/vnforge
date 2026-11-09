@@ -42,6 +42,18 @@ public sealed class ProjectInitializerTests : IDisposable
     }
 
     [Fact]
+    public void ReadGameTitle_le_o_titulo_da_pasta_do_jogo_antes_de_o_projeto_existir()
+    {
+        var inspection = ProjectInitializer.Inspect(_game, [new TitledEngine()]);
+        Assert.Null(ProjectInitializer.ReadGameTitle(inspection, _game));
+
+        File.WriteAllText(Path.Combine(_game, "titulo.cfg"), "  雨音の箱庭 \n");
+
+        Assert.Equal("雨音の箱庭", ProjectInitializer.ReadGameTitle(inspection, _game));
+        Assert.False(Directory.Exists(ProjectDir()));
+    }
+
+    [Fact]
     public void Sem_versao_nem_chave_deixa_os_campos_nulos()
     {
         ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()]);
@@ -260,6 +272,29 @@ public sealed class ProjectInitializerTests : IDisposable
         Assert.Contains("claude-opus-5-5", ProjectChoices.Models);
         Assert.Equal(AiConfig.Default, ProjectChoices.DefaultAi);
         Assert.Equal("fold", ProjectChoices.DefaultEncoding);
+    }
+
+    private sealed class TitledEngine : IEngine, IGameTitleSource
+    {
+        public string Id => "titled";
+
+        public EngineDetection Detect(string gameDir) => EngineDetection.Matched("parece titled");
+
+        public IReadOnlyList<IArchiveFormat> Archives => [];
+
+        public IReadOnlyList<IScriptFormat> Scripts => [];
+
+        public IReadOnlyList<IGamePatch> Patches => [];
+
+        public GameTitleFile? ReadTitle(string unpackedDirectory) => null;
+
+        public string? ReadTitleFromGame(string gameDir)
+        {
+            var path = Path.Combine(gameDir, "titulo.cfg");
+            return File.Exists(path) ? File.ReadAllText(path) : null;
+        }
+
+        public byte[] WithTitle(GameTitleFile file, string title, VNForge.Core.Text.ITextEncoder encoder) => [];
     }
 
     private sealed class FakeEngine(EngineDetection detection, string id = "fake") : IEngine
