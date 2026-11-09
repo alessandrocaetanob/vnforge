@@ -103,6 +103,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
     private bool installerEdited;
     private bool settingDerived;
     private int loadVersion;
+    private int generationEpoch;
     private ReleaseStepRow? runningStep;
     private long runningSince;
     private string? installerPath;
@@ -190,6 +191,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
     public partial string InstallerName { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OutputError), nameof(HasOutputError))]
     public partial string OutputDirectory { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -265,12 +267,44 @@ public sealed partial class ReleaseViewModel : ObservableObject
     public bool HasVersionError => VersionError is not null;
 
     public bool CanGenerate => Project is not null && Phase == ReleasePhase.Ready && !HasQaErrors && IsValidVersion(Version)
-        && !string.IsNullOrWhiteSpace(OutputDirectory);
+        && !string.IsNullOrWhiteSpace(OutputDirectory) && !HasOutputError;
+
+    /// <summary>O aviso sob a pasta de saída quando ela é a pasta do jogo ou está dentro dela; os arquivos do lançamento nunca vão para o jogo.</summary>
+    public string? OutputError => OutputInsideGame()
+        ? "A pasta de saída não pode ser a pasta do jogo nem ficar dentro dela. Escolha outra."
+        : null;
+
+    public bool HasOutputError => OutputError is not null;
+
+    private bool OutputInsideGame()
+    {
+        if (Project is null || readiness is null || string.IsNullOrWhiteSpace(OutputDirectory) || string.IsNullOrWhiteSpace(readiness.GameFolder))
+        {
+            return false;
+        }
+
+        try
+        {
+            return ReleaseService.IsInside(ResolvedOutput(Project.Root), readiness.GameFolder);
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    private string ResolvedOutput(string projectRoot) => Path.GetFullPath(OutputDirectory.Trim(), projectRoot);
 
     partial void OnProjectChanged(ProjectSummary? value)
     {
+        // Uma geração do projeto anterior não pode mostrar o resultado dela na página do novo: cancela e invalida a época.
+        generationEpoch++;
+        CancelRunning?.Execute(null);
+        CancelRunning = null;
         loadVersion++;
         readiness = null;
+        OnPropertyChanged(nameof(OutputError));
+        OnPropertyChanged(nameof(HasOutputError));
         outputEdited = false;
         installerEdited = false;
         SetDerived(() =>
@@ -363,6 +397,8 @@ public sealed partial class ReleaseViewModel : ObservableObject
     private void Apply(ReleaseReadiness read)
     {
         readiness = read;
+        OnPropertyChanged(nameof(OutputError));
+        OnPropertyChanged(nameof(HasOutputError));
         ErrorMessage = null;
         Files.Clear();
         GameFiles.Clear();
@@ -518,7 +554,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         var version = Version.Trim();
         var options = new ReleaseOptions(
             version,
-            Path.GetFullPath(OutputDirectory.Trim()),
+            ResolvedOutput(project.Root),
             string.IsNullOrWhiteSpace(Credits) ? null : Credits.Trim(),
             InstallerBaseName(),
             AllowWarnings: false);
@@ -539,6 +575,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         ReleaseResult? result = null;
         Exception? failure = null;
         var readMe = string.Empty;
+        var epoch = generationEpoch;
         var item = tasks.Start($"Lançar a versão {version}", (reporter, ct) =>
         {
             try
@@ -549,7 +586,9 @@ public sealed partial class ReleaseViewModel : ObservableObject
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
+                // A página mostra o erro com o texto dela; a exceção sai para a barra de tarefas marcar a falha.
                 failure = e;
+                throw;
             }
 
             return Task.CompletedTask;
@@ -559,7 +598,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
 
         void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && StepOf(item.Message) is { } step)
+            if (epoch == generationEpoch && e.PropertyName == nameof(BackgroundTaskItem.Message) && item.IsRunning && StepOf(item.Message) is { } step)
             {
                 Observe(step);
             }
@@ -573,8 +612,17 @@ public sealed partial class ReleaseViewModel : ObservableObject
         finally
         {
             item.PropertyChanged -= OnChanged;
-            CancelRunning = null;
+            if (ReferenceEquals(CancelRunning, item.CancelCommand))
+            {
+                CancelRunning = null;
+            }
+
             CancelGenerationCommand.NotifyCanExecuteChanged();
+        }
+
+        if (epoch != generationEpoch)
+        {
+            return;
         }
 
         if (result is not null)

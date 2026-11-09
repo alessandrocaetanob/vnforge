@@ -109,6 +109,8 @@
                     </StackPanel>
                   </Button>
                 </Grid>
+                <TextBlock Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding OutputError}"
+                           IsVisible="{Binding HasOutputError}" AutomationProperties.Name="Pasta de saída inválida"/>
               </StackPanel>
               <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
                 <TextBlock Classes="body-strong" Text="Créditos"/>

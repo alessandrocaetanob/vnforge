@@ -100,6 +100,11 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         var config = project.LoadConfig();
         var previous = LoadRecords(project).Where(r => !string.Equals(r.Version, version, StringComparison.Ordinal)).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
         var output = Path.GetFullPath(options.OutputDirectory ?? Path.Combine(project.Root, FolderName, version));
+        if (IsInside(output, Path.GetFullPath(config.Game.Path, project.Root)))
+        {
+            throw new VNForgeException($"A pasta de saída '{output}' é a pasta do jogo ou está dentro dela. Escolha outra: os arquivos do lançamento não podem ir para o jogo.");
+        }
+
         Directory.CreateDirectory(output);
 
         steps?.Report(ReleaseStep.Check);
@@ -257,6 +262,17 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
     {
         ArgumentNullException.ThrowIfNull(config);
         return $"{SafeName(GameNameOf(config))}-{config.Languages.Target.ToUpperInvariant()}-{version}";
+    }
+
+    /// <summary>A <paramref name="folder"/> é a <paramref name="parent"/> ou fica dentro dela (os dois já como caminhos completos).</summary>
+    public static bool IsInside(string folder, string parent)
+    {
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var child = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(parent));
+        return string.Equals(child, root, comparison)
+            || child.StartsWith(root + Path.DirectorySeparatorChar, comparison)
+            || child.StartsWith(root + Path.AltDirectorySeparatorChar, comparison);
     }
 
     private static string GameNameOf(ProjectConfig config) =>

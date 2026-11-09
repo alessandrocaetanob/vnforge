@@ -737,7 +737,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Pergunta se a janela pode fechar. Com a injeção ou a restauração escrevendo no jogo, não: mostra a tela Testar com o aviso.</summary>
     public bool TryClose()
     {
-        Release.CancelIfRunning();
         if (!Build.TryCloseSafely())
         {
             SelectedNav = buildItem;
@@ -754,6 +753,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
+        // Só a janela que vai mesmo fechar cancela o lançamento em curso.
+        Release.CancelIfRunning();
         return true;
     }
 

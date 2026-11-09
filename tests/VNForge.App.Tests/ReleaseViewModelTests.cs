@@ -438,4 +438,88 @@ public sealed class ReleaseViewModelTests
         Assert.Empty(vm.Checks);
         Assert.Equal(string.Empty, vm.Version);
     }
+
+    [Fact]
+    public async Task Trocar_de_projeto_no_meio_da_geracao_nao_mostra_a_versao_do_projeto_antigo_no_novo()
+    {
+        var (vm, publisher, temp, _) = await OpenAsync();
+        using var _t = temp;
+        var notices = new List<string>();
+        vm.NoticeRaised += (_, text) => notices.Add(text);
+        using var reached = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var calls = 0;
+        publisher.Blocker = _ =>
+        {
+            if (++calls == 3)
+            {
+                reached.Set();
+                release.Wait(TimeSpan.FromMinutes(3));
+            }
+
+            return false;
+        };
+
+        var running = vm.GenerateCommand.ExecuteAsync(null);
+        await Task.Run(() => reached.Wait(TimeSpan.FromMinutes(3)), Ct);
+        vm.Project = Summary(temp.Path) with { Name = "Outro jogo", Root = temp.SubFolder("outro") };
+        release.Set();
+        await running;
+
+        Assert.Equal(ReleasePhase.Ready, vm.Phase);
+        Assert.Empty(vm.Files);
+        Assert.Empty(vm.GameFiles);
+        Assert.Equal(string.Empty, vm.ReadMeText);
+        Assert.Empty(notices);
+        Assert.All(vm.Steps, s => Assert.True(s.IsPending));
+        Assert.DoesNotContain("pronta", vm.BannerTitle, StringComparison.Ordinal);
+        Assert.False(vm.CancelGenerationCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Falha_do_core_marca_a_tarefa_da_barra_como_falha_e_a_pagina_mostra_o_erro()
+    {
+        using var temp = new TempFolder();
+        var tasks = new BackgroundTaskService();
+        var publisher = new FakePublisher { Failure = new VNForgeException("Não achei o executável do instalador.") };
+        var vm = new ReleaseViewModel(tasks, publisher, new FakeTimeProvider(), new RecordingStarter(), _ => { }) { Project = Summary(temp.Path) };
+        await vm.ReloadAsync();
+
+        await vm.GenerateCommand.ExecuteAsync(null);
+
+        Assert.True(Assert.Single(tasks.Tasks).IsFailed);
+        Assert.Equal("Não achei o executável do instalador.", vm.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("jogo", true)]
+    [InlineData("jogo/releases/1.2.0", true)]
+    [InlineData("jogo2", false)]
+    [InlineData("releases/1.2.0", false)]
+    public async Task Pasta_de_saida_nao_pode_ser_a_do_jogo_nem_ficar_dentro_dela(string output, bool refused)
+    {
+        using var temp = new TempFolder();
+        var game = Path.Combine(temp.Path, "jogo");
+        var publisher = new FakePublisher { Readiness = Ready() with { GameFolder = game } };
+        var vm = new ReleaseViewModel(new BackgroundTaskService(), publisher, new FakeTimeProvider(), new RecordingStarter(), _ => { }) { Project = Summary(temp.Path) };
+        await vm.ReloadAsync();
+
+        vm.OutputDirectory = Path.Combine(temp.Path, output);
+
+        Assert.Equal(refused, vm.HasOutputError);
+        Assert.Equal(!refused, vm.GenerateCommand.CanExecute(null));
+        Assert.Equal(refused ? "A pasta de saída não pode ser a pasta do jogo nem ficar dentro dela. Escolha outra." : null, vm.OutputError);
+    }
+
+    [Fact]
+    public async Task Pasta_de_saida_relativa_vale_a_partir_da_raiz_do_projeto()
+    {
+        var (vm, publisher, temp, _) = await OpenAsync();
+        using var _t = temp;
+        vm.OutputDirectory = Path.Combine("saida", "v1");
+
+        await vm.GenerateCommand.ExecuteAsync(null);
+
+        Assert.Equal(Path.Combine(temp.Path, "saida", "v1"), Assert.Single(publisher.Created).OutputDirectory);
+    }
 }
