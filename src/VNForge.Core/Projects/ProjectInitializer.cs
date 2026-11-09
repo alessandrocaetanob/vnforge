@@ -1,5 +1,6 @@
 using System.Globalization;
 using VNForge.Core.Engines;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Projects;
 
@@ -10,13 +11,15 @@ namespace VNForge.Core.Projects;
 /// <param name="TargetLanguage">Idioma da tradução; padrão: <c>pt-BR</c>.</param>
 /// <param name="EncodingStrategy">Estratégia de acentuação; padrão: <see cref="ProjectChoices.DefaultEncoding"/>.</param>
 /// <param name="Ai">Provedor, modelo e lote da IA; padrão: <see cref="ProjectChoices.DefaultAi"/>.</param>
+/// <param name="Vndb">O jogo do VNDB que o usuário confirmou (<see cref="VndbProjectLinker.BuildAsync"/>); vira o <c>vndb.json</c> do projeto. Nulo: o projeto nasce sem ligação.</param>
 public sealed record ProjectInitOptions(
     string? Name = null,
     string? Exe = null,
     string? SourceLanguage = null,
     string? TargetLanguage = null,
     string? EncodingStrategy = null,
-    AiConfig? Ai = null);
+    AiConfig? Ai = null,
+    VndbLink? Vndb = null);
 
 /// <summary>O que a detecção achou na pasta do jogo, sem criar nada: base do primeiro passo do assistente de novo projeto.</summary>
 /// <param name="Executables">Executáveis candidatos, sem os desinstaladores, em ordem alfabética.</param>
@@ -119,7 +122,13 @@ public static class ProjectInitializer
             new EncodingConfig(string.IsNullOrWhiteSpace(options.EncodingStrategy) ? ProjectChoices.DefaultEncoding : options.EncodingStrategy.Trim()),
             options.Ai ?? ProjectChoices.DefaultAi);
 
-        return new ProjectInitResult(ProjectFolder.Create(project, config), config, engine, detection);
+        var folder = ProjectFolder.Create(project, config);
+        if (options.Vndb is { } link)
+        {
+            folder.SaveVndbLink(link);
+        }
+
+        return new ProjectInitResult(folder, config, engine, detection);
     }
 
     private static (IEngine Engine, EngineDetection Detection) Detect(IReadOnlyList<IEngine> engines, string game)

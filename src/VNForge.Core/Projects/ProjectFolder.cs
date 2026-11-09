@@ -3,6 +3,7 @@ using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Spelling;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Projects;
 
@@ -16,6 +17,9 @@ public sealed class ProjectFolder
     public const string GlossaryFileName = "glossary.json";
 
     public const string CharactersFileName = "characters.json";
+
+    /// <summary>Nome do arquivo do jogo do VNDB ligado ao projeto.</summary>
+    public const string VndbFileName = "vndb.json";
 
     public const string AddressTermsFileName = "address-terms.json";
 
@@ -157,6 +161,18 @@ public sealed class ProjectFolder
     /// <exception cref="GlossaryFileException">Nome original vazio ou repetido; nada é gravado.</exception>
     public void SaveCharacters(IReadOnlyList<CharacterEntry> characters) =>
         WriteAtomically(CharactersPath, CharacterSerializer.Serialize(characters, CharactersPath), overwrite: true);
+
+    /// <summary><c>vndb.json</c>, o jogo do VNDB ligado ao projeto (#536). É opcional.</summary>
+    public string VndbPath => Path.Combine(Root, VndbFileName);
+
+    /// <summary>Lê o <c>vndb.json</c>; sem o arquivo, devolve nulo.</summary>
+    /// <exception cref="VndbLinkException">Arquivo fora de UTF-8, malformado ou de outra versão.</exception>
+    public VndbLink? LoadVndbLink() =>
+        File.Exists(VndbPath) ? VndbLinkSerializer.Parse(ReadGlossaryFile(VndbPath), VndbPath) : null;
+
+    /// <summary>Grava o <c>vndb.json</c> (UTF-8 sem BOM, LF); a gravação é atômica.</summary>
+    public void SaveVndbLink(VndbLink link) =>
+        WriteAtomically(VndbPath, VndbLinkSerializer.Serialize(link), overwrite: true);
 
     /// <summary><c>address-terms.json</c>, como cada personagem chama os outros (#470). É opcional.</summary>
     public string AddressTermsPath => Path.Combine(Root, AddressTermsFileName);

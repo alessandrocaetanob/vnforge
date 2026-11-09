@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VNForge.Core\VNForge.Core.csproj" />
+    <ProjectReference Include="..\..\src\VNForge.Vndb\VNForge.Vndb.csproj" />
   </ItemGroup>
 
   <ItemGroup>
