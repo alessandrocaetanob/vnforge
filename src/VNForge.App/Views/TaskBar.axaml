@@ -10,17 +10,20 @@
     <!-- Selo curto do estado da tarefa: ícone e palavra, nunca só a cor. Concluída em verde, em andamento em roxo (a cor da IA), falha em vermelho, cancelada em âmbar. -->
     <Style Selector="Border.task-state">
       <Setter Property="Height" Value="20"/>
-      <Setter Property="Padding" Value="6,0,8,0"/>
+      <Setter Property="Padding" Value="8,0"/>
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
       <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
       <Setter Property="TextElement.Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
     </Style>
     <Style Selector="Border.task-state TextBlock">
       <Setter Property="FontSize" Value="11"/>
+      <Setter Property="LineHeight" Value="18"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="Border.task-state PathIcon">
+      <Setter Property="Width" Value="14"/>
+      <Setter Property="Height" Value="14"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Data" Value="{DynamicResource Icon.Check}"/>
     </Style>
@@ -45,11 +48,36 @@
     <Style Selector="Border.task-state.warn PathIcon">
       <Setter Property="Data" Value="{DynamicResource Icon.Warning}"/>
     </Style>
+
+    <!-- ".bar2" do quadro: 8px, trilha em bg-inset e preenchimento em seg-ai (a cor da IA). -->
+    <Style Selector="ProgressBar.batch">
+      <Setter Property="MinWidth" Value="0"/>
+      <Setter Property="MinHeight" Value="8"/>
+      <Setter Property="Height" Value="8"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SegAi}"/>
+    </Style>
+    <Style Selector="ProgressBar.batch /template/ Border#PART_Indicator">
+      <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+
+    <!-- O Flyout da lista (".pop.tflyout" do quadro): 600px de largura total, respiro de 16, borda de controle, raio de 12 e a sombra do popup. -->
+    <Style Selector="FlyoutPresenter.tasks">
+      <Setter Property="MinWidth" Value="600"/>
+      <Setter Property="MaxWidth" Value="600"/>
+      <Setter Property="Padding" Value="16"/>
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    </Style>
   </UserControl.Styles>
 
-  <!-- Tarefa em segundo plano: título, progresso, custo e Cancelar, e "Tarefas (n)" com a lista. A edição continua livre enquanto ela roda. -->
+  <!-- Tarefa em segundo plano: título, progresso, custo e Cancelar, e "Tarefas (n)" com a lista. A edição continua livre enquanto ela roda.
+       Com um lote noturno em andamento o botão vira o chip do quadro (a lua e "Tradução noturna: 1 em andamento") e abre a mesma lista. -->
   <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-    <ContentControl Content="{Binding Current}">
+    <ContentControl Content="{Binding Current}" IsVisible="{Binding !CurrentIsRunningBatch}">
       <ContentControl.ContentTemplate>
         <DataTemplate x:DataType="sv:BackgroundTaskItem">
           <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
@@ -74,84 +102,118 @@
       </ContentControl.ContentTemplate>
     </ContentControl>
 
-    <Button Classes="subtle sm" Content="{Binding TasksLabel}" VerticalAlignment="Center" AutomationProperties.Name="Lista de tarefas">
+    <Button x:Name="TasksButton" Classes="subtle sm" VerticalAlignment="Center" AutomationProperties.Name="Lista de tarefas">
+      <Panel>
+        <TextBlock Text="{Binding TasksLabel}" IsVisible="{Binding !ShowsNightBatch}" VerticalAlignment="Center"/>
+        <!-- O chip do quadro não tem a caixa do botão: o ícone fica 2px depois do respiro da barra, então o respiro do botão (8) volta. -->
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="-6,0" VerticalAlignment="Center" IsVisible="{Binding ShowsNightBatch}"
+                    TextElement.Foreground="{DynamicResource Vnf.StatusAiFg}">
+          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Moon}" AutomationProperties.AccessibilityView="Raw"/>
+          <TextBlock FontSize="12" LineHeight="16" FontWeight="SemiBold" Text="{Binding NightBatchText}" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Panel>
       <Button.Flyout>
-        <Flyout Placement="TopEdgeAlignedLeft">
-          <!-- Largura fixa (cabe no MaxWidth de 456 do Flyout com o respiro dele): o Flyout mede o conteúdo sem limite à direita, e sem ela o status e o custo saíam da borda com rolagem horizontal. -->
-          <Grid Width="416" RowDefinitions="Auto,Auto" RowSpacing="8">
+        <Flyout Placement="TopEdgeAlignedLeft" FlyoutPresenterClasses="tasks" VerticalOffset="-8">
+          <StackPanel>
+            <StackPanel.ContextFlyout>
+              <!-- O quadro não desenha "Limpar concluídas": a ação continua à mão no menu de contexto da lista. -->
+              <MenuFlyout>
+                <MenuItem Header="Limpar concluídas" Command="{Binding ClearFinishedCommand}" IsEnabled="{Binding HasFinished}"/>
+              </MenuFlyout>
+            </StackPanel.ContextFlyout>
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="overline secondary" Text="Tarefas" VerticalAlignment="Center"/>
-              <Button Grid.Column="1" Classes="subtle sm" Content="Limpar concluídas" Command="{Binding ClearFinishedCommand}"
-                      IsEnabled="{Binding HasFinished}"/>
+              <TextBlock Classes="title-sm" Text="Tarefas" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="caption secondary" LineHeight="18" Text="Fechar o app não cancela o lote" VerticalAlignment="Center"
+                         IsVisible="{Binding HasBatch}"/>
             </Grid>
-            <ScrollViewer Grid.Row="1" MaxHeight="360" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer MaxHeight="520" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
               <ItemsControl ItemsSource="{Binding Entries}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:TaskEntry">
-                    <StackPanel Margin="0,0,0,2">
-                      <Grid ColumnDefinitions="28,*,Auto" MinHeight="40">
-                        <Button Classes="subtle sm" Command="{Binding ToggleExpandedCommand}" IsVisible="{Binding IsGroup}"
-                                Width="24" Height="24" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                AutomationProperties.Name="Mostrar as etapas">
-                          <Panel>
-                            <PathIcon Width="12" Height="12" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding !IsExpanded}"/>
-                            <PathIcon Width="12" Height="12" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding IsExpanded}"/>
-                          </Panel>
-                        </Button>
-                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center" Margin="0,4">
-                          <TextBlock Classes="body-sm" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Classes="caption secondary" Text="{Binding Subtitle}" TextWrapping="Wrap"/>
-                          <TextBlock Classes="caption" Text="{Binding UndoMessage}" TextWrapping="Wrap" IsVisible="{Binding HasUndoMessage}"/>
-                          <ProgressBar Classes="thin" MinWidth="0" Minimum="0" Maximum="100" Value="{Binding Percent}" Margin="0,6,0,0" IsVisible="{Binding ShowsProgress}"
-                                       AutomationProperties.Name="Andamento do lote"/>
-                          <TextBlock Classes="caption secondary" Text="{Binding Detail}" TextWrapping="Wrap" IsVisible="{Binding HasDetail}"/>
-                          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0" IsVisible="{Binding HasBatchActions}">
-                            <Button Classes="sm" Content="Verificar agora" Command="{Binding CheckNowCommand}" IsVisible="{Binding CanCheckNow}"/>
-                            <Button Classes="sm danger" Content="Cancelar lote" Command="{Binding CancelBatchCommand}" IsVisible="{Binding CanCancelBatch}"/>
-                            <Button Classes="sm" Content="{Binding ShowLinesLabel}" Command="{Binding ShowLinesCommand}" IsVisible="{Binding CanShowLines}"/>
-                          </StackPanel>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="2" Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
-                          <Border Classes="task-state" Classes.run="{Binding IsRunning}" Classes.err="{Binding IsFailed}" Classes.warn="{Binding IsCancelled}"
-                                  HorizontalAlignment="Right" AutomationProperties.Name="{Binding StateText}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                              <PathIcon Classes.spin="{Binding IsRunning}" Width="12" Height="12" AutomationProperties.AccessibilityView="Raw"/>
-                              <TextBlock Text="{Binding StateText}"/>
-                            </StackPanel>
-                          </Border>
-                          <TextBlock Classes="caption secondary" Text="{Binding CostText}" HorizontalAlignment="Right" IsVisible="{Binding ShowsCost}"/>
-                          <Button Classes="subtle sm" Content="{Binding UndoLabel}" Command="{Binding UndoCommand}" IsVisible="{Binding CanUndo}"
-                                  HorizontalAlignment="Right" AutomationProperties.Name="Desfazer esta tarefa"/>
-                        </StackPanel>
-                      </Grid>
-                      <ItemsControl ItemsSource="{Binding Steps}" Margin="28,0,0,4">
-                        <ItemsControl.IsVisible>
-                          <MultiBinding Converter="{x:Static BoolConverters.And}">
-                            <Binding Path="IsGroup"/>
-                            <Binding Path="IsExpanded"/>
-                          </MultiBinding>
-                        </ItemsControl.IsVisible>
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="sv:BackgroundTaskItem">
-                            <Grid ColumnDefinitions="*,Auto" MinHeight="24">
-                              <TextBlock Classes="caption" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                              <Border Grid.Column="1" Classes="task-state" Classes.run="{Binding IsRunning}" Classes.err="{Binding IsFailed}" Classes.warn="{Binding IsCancelled}"
-                                      Margin="12,0,0,0" HorizontalAlignment="Right" AutomationProperties.Name="{Binding StateText}">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                  <PathIcon Classes.spin="{Binding IsRunning}" Width="12" Height="12" AutomationProperties.AccessibilityView="Raw"/>
-                                  <TextBlock Text="{Binding StateText}"/>
-                                </StackPanel>
-                              </Border>
+                    <!-- ".trow" do quadro: filete em cima, 12px de respiro acima e 4px abaixo, 10px entre as linhas. -->
+                    <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0" Padding="0,12,0,4" Margin="0,10,0,0">
+                      <StackPanel>
+                        <Grid ColumnDefinitions="Auto,*">
+                          <Button Classes="subtle sm" Command="{Binding ToggleExpandedCommand}" IsVisible="{Binding IsGroup}"
+                                  Width="24" Height="24" Padding="0" Margin="0,0,4,0" VerticalAlignment="Top"
+                                  AutomationProperties.Name="Mostrar as etapas">
+                            <Panel>
+                              <PathIcon Width="12" Height="12" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding !IsExpanded}"/>
+                              <PathIcon Width="12" Height="12" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding IsExpanded}"/>
+                            </Panel>
+                          </Button>
+                          <StackPanel Grid.Column="1">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock FontSize="14" LineHeight="20" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <Border Classes="task-state" Classes.run="{Binding IsRunning}" Classes.err="{Binding IsFailed}" Classes.warn="{Binding IsCancelled}"
+                                        VerticalAlignment="Center" AutomationProperties.Name="{Binding StateText}">
+                                  <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <PathIcon Classes.spin="{Binding IsRunning}" AutomationProperties.AccessibilityView="Raw"/>
+                                    <TextBlock Text="{Binding StateText}"/>
+                                  </StackPanel>
+                                </Border>
+                              </StackPanel>
+                              <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding CostText}" VerticalAlignment="Center" IsVisible="{Binding ShowsCostBeside}"/>
                             </Grid>
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
-                    </StackPanel>
+                            <TextBlock Classes="caption secondary" LineHeight="18" Margin="0,2,0,0" Text="{Binding Subtitle}" TextWrapping="Wrap"/>
+                            <TextBlock Classes="caption" LineHeight="18" Text="{Binding UndoMessage}" TextWrapping="Wrap" IsVisible="{Binding HasUndoMessage}"/>
+                            <ProgressBar Classes="batch" Minimum="0" Maximum="100" Value="{Binding Percent}" Margin="0,8,0,0" IsVisible="{Binding ShowsProgress}"
+                                         AutomationProperties.Name="Andamento do lote"/>
+                            <TextBlock Classes="caption secondary" LineHeight="18" Margin="0,4,0,0" Text="{Binding Detail}" TextWrapping="Wrap" IsVisible="{Binding HasDetail}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                              <StackPanel.IsVisible>
+                                <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                  <Binding Path="HasBatchActions"/>
+                                  <Binding Path="CanUndo"/>
+                                </MultiBinding>
+                              </StackPanel.IsVisible>
+                              <Button Classes="sm" Command="{Binding CheckNowCommand}" IsVisible="{Binding CanCheckNow}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}" AutomationProperties.AccessibilityView="Raw"/>
+                                  <TextBlock Text="Verificar agora"/>
+                                </StackPanel>
+                              </Button>
+                              <Button Classes="sm danger" Content="Cancelar lote" Command="{Binding CancelBatchCommand}" IsVisible="{Binding CanCancelBatch}"/>
+                              <Button Classes="sm" Content="{Binding ShowLinesLabel}" Command="{Binding ShowLinesCommand}" IsVisible="{Binding CanShowLines}"/>
+                              <Button Classes="sm" Command="{Binding UndoCommand}" IsVisible="{Binding CanUndo}" AutomationProperties.Name="Desfazer esta tarefa">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}" AutomationProperties.AccessibilityView="Raw"/>
+                                  <TextBlock Text="{Binding UndoLabel}"/>
+                                </StackPanel>
+                              </Button>
+                            </StackPanel>
+                          </StackPanel>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Steps}" Margin="28,0,0,4">
+                          <ItemsControl.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                              <Binding Path="IsGroup"/>
+                              <Binding Path="IsExpanded"/>
+                            </MultiBinding>
+                          </ItemsControl.IsVisible>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="sv:BackgroundTaskItem">
+                              <Grid ColumnDefinitions="*,Auto" MinHeight="24">
+                                <TextBlock Classes="caption" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <Border Grid.Column="1" Classes="task-state" Classes.run="{Binding IsRunning}" Classes.err="{Binding IsFailed}" Classes.warn="{Binding IsCancelled}"
+                                        Margin="12,0,0,0" HorizontalAlignment="Right" AutomationProperties.Name="{Binding StateText}">
+                                  <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <PathIcon Classes.spin="{Binding IsRunning}" AutomationProperties.AccessibilityView="Raw"/>
+                                    <TextBlock Text="{Binding StateText}"/>
+                                  </StackPanel>
+                                </Border>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </ScrollViewer>
-          </Grid>
+          </StackPanel>
         </Flyout>
       </Button.Flyout>
     </Button>

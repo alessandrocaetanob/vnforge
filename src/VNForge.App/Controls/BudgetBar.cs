@@ -6,8 +6,9 @@ using Avalonia.Media;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// Barra do gasto com IA (v3.css, <c>.budget</c>): o que já foi gasto em <c>seg-ai</c>, o pedido que a pessoa está para fazer em <c>accent</c> e uma
-/// marca no limite. Quando gasto mais pedido passam do limite o controle ganha <c>:over</c> e o pedido vira aviso. Valores em reais.
+/// Barra do gasto com IA (<c>.bar2</c> do quadro): o que já foi gasto em <c>seg-ai</c> e o pedido que a pessoa está para fazer em <c>seg-translated</c>, sobre uma trilha
+/// <c>bg-inset</c> (no cartão de fundo <c>bg-inset</c> do quadro só os trechos coloridos aparecem). A régua vai até o limite, então não há marca enquanto cabe;
+/// quando gasto mais pedido passam do limite o controle ganha <c>:over</c>, o pedido vira aviso e uma marca mostra onde o limite ficou. Valores em reais.
 /// </summary>
 public sealed class BudgetBar : TemplatedControl
 {
@@ -50,15 +51,15 @@ public sealed class BudgetBar : TemplatedControl
     public bool IsOver => Limit > 0 && Spent + Ask > Limit;
 
     protected override Size MeasureOverride(Size availableSize) =>
-        new(double.IsInfinity(availableSize.Width) ? 160 : availableSize.Width, BarHeight + (MarkOverhang * 2));
+        new(double.IsInfinity(availableSize.Width) ? 160 : availableSize.Width, BarHeight);
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
         var width = Bounds.Width;
         var scale = Math.Max(Limit, Spent + Ask);
-        var track = new RoundedRect(new Rect(0, MarkOverhang, width, BarHeight), BarHeight / 2);
-        context.DrawRectangle(Brush("Vnf.SegPending"), null, track);
+        var track = new RoundedRect(new Rect(0, 0, width, BarHeight), BarHeight / 2);
+        context.DrawRectangle(Brush("Vnf.BgInset"), null, track);
         if (scale <= 0)
         {
             return;
@@ -68,14 +69,14 @@ public sealed class BudgetBar : TemplatedControl
         {
             var spent = width * Math.Clamp(Spent / scale, 0, 1);
             var ask = width * Math.Clamp(Ask / scale, 0, 1);
-            context.DrawRectangle(Brush("Vnf.SegAi"), null, new Rect(0, MarkOverhang, spent, BarHeight));
-            context.DrawRectangle(Brush(IsOver ? "Vnf.SignalWarningFg" : "Vnf.Accent"), null, new Rect(spent, MarkOverhang, ask, BarHeight));
+            context.DrawRectangle(Brush("Vnf.SegAi"), null, new Rect(0, 0, spent, BarHeight));
+            context.DrawRectangle(Brush(IsOver ? "Vnf.SignalWarningFg" : "Vnf.SegTranslated"), null, new Rect(spent, 0, ask, BarHeight));
         }
 
-        if (Limit > 0)
+        if (IsOver)
         {
             var x = Math.Round(width * Limit / scale);
-            context.DrawLine(new Pen(Brush("Vnf.TextPrimary"), 2), new Point(x, 0), new Point(x, BarHeight + (MarkOverhang * 2)));
+            context.DrawLine(new Pen(Brush("Vnf.TextPrimary"), 2), new Point(x, -MarkOverhang), new Point(x, BarHeight + MarkOverhang));
         }
     }
 

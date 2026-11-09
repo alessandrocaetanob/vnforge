@@ -66,6 +66,23 @@ public sealed partial class TaskBarViewModel : ObservableObject
     /// <summary>"Tarefas (2)": quantas linhas a lista guarda, em andamento ou terminadas.</summary>
     public string TasksLabel => $"Tarefas ({Entries.Count})";
 
+    /// <summary>Quantos lotes noturnos estão em andamento.</summary>
+    public int RunningBatchCount { get; private set; }
+
+    /// <summary>
+    /// Há lote noturno em andamento: a barra mostra o ícone da noite e "Tradução noturna: 1 em andamento" no lugar de "Tarefas (n)", e o mesmo botão abre a lista.
+    /// </summary>
+    public bool ShowsNightBatch => RunningBatchCount > 0;
+
+    /// <summary>"Tradução noturna: 1 em andamento", com o total de lotes que ainda não voltaram.</summary>
+    public string NightBatchText => $"Tradução noturna: {RunningBatchCount} em andamento";
+
+    /// <summary>A tarefa que a barra mostra com título e progresso é um lote noturno: o chip da noite já a representa, então ela não se repete.</summary>
+    public bool CurrentIsRunningBatch => Current is { IsBatch: true, IsRunning: true };
+
+    /// <summary>A lista tem lote noturno: o cabeçalho lembra que fechar o app não o cancela.</summary>
+    public bool HasBatch => Entries.Any(e => e.IsBatch);
+
     /// <summary>Há o que o "Limpar concluídas" tire da lista.</summary>
     public bool HasFinished => Service.Tasks.Any(t => !t.IsRunning);
 
@@ -95,7 +112,8 @@ public sealed partial class TaskBarViewModel : ObservableObject
 
     private void OnItemChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(BackgroundTaskItem.State))
+        // IsBatch chega depois de a tarefa entrar na lista (o lote só vira "noturno" quando a API o aceita): o chip da barra depende dela.
+        if (e.PropertyName is nameof(BackgroundTaskItem.State) or nameof(BackgroundTaskItem.IsBatch))
         {
             Refresh();
         }
@@ -109,9 +127,15 @@ public sealed partial class TaskBarViewModel : ObservableObject
     {
         var tasks = Service.Tasks;
         RunningCount = tasks.Count(t => t.IsRunning);
+        RunningBatchCount = tasks.Count(t => t is { IsBatch: true, IsRunning: true });
         Current = tasks.LastOrDefault(t => t.IsRunning) ?? tasks.LastOrDefault();
         SyncEntries(tasks);
         OnPropertyChanged(nameof(TasksLabel));
+        OnPropertyChanged(nameof(RunningBatchCount));
+        OnPropertyChanged(nameof(ShowsNightBatch));
+        OnPropertyChanged(nameof(NightBatchText));
+        OnPropertyChanged(nameof(CurrentIsRunningBatch));
+        OnPropertyChanged(nameof(HasBatch));
         OnPropertyChanged(nameof(HasFinished));
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(OthersRunningText));

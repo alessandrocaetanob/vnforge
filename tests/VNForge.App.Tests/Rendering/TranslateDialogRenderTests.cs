@@ -105,7 +105,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 // A cena aberta não tem linha pendente: o cartão fica desligado, apagado e sem escolha, e o padrão é o escopo seguinte com linhas.
                 var scopes = surface.GetVisualDescendants().OfType<RadioButton>().Where(r => r is not QualityCard).Take(3).ToList();
                 Assert.False(scopes[0].IsEffectivelyEnabled);
-                Assert.Equal(0.5, scopes[0].Opacity);
+                Assert.Equal(0.6, scopes[0].Opacity, 3);
                 Assert.NotEqual(true, scopes[0].IsChecked);
                 Assert.All(scopes.Skip(1), r => Assert.True(r.IsEffectivelyEnabled));
                 Assert.Contains("Nada para traduzir aqui", texts);

@@ -2,32 +2,28 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- QualityCard (v3.css ".qcards .opt"): o OptionCard com o preço em 20/24 bold na fonte de exibição e o tempo em letra pequena. Sem nome de modelo: a qualidade basta.
-       Marcado, a borda vira accent de 2px. -->
+  <!-- QualityCard (".opt" e ".v3-qc" do quadro): o OptionCard com o círculo de rádio na linha do título (display 15/20 bold), o preço em 17/24 bold e o tempo embaixo, em letra pequena.
+       Sem nome de modelo: a qualidade basta. Marcado, só a borda vira accent de 2px; o fundo fica o do cartão. -->
   <Style Selector="c|QualityCard">
-    <Setter Property="Padding" Value="14,12"/>
+    <Setter Property="Padding" Value="16,14"/>
     <Setter Property="HorizontalAlignment" Value="Stretch"/>
     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="PART_Card" Padding="{TemplateBinding Padding}" Background="{DynamicResource Vnf.BgLayer}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
-                BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}">
-          <StackPanel Spacing="4">
+        <Border Name="PART_Card" Padding="{TemplateBinding Padding}" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeControl}"
+                BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+          <StackPanel Spacing="6">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-              <Panel Width="16" Height="16" VerticalAlignment="Center">
-                <Ellipse Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
-                <Ellipse Name="PART_Dot" Width="8" Height="8" Fill="{DynamicResource Vnf.Accent}" IsVisible="False"/>
-              </Panel>
-              <TextBlock Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <Border Name="PART_Mark" Classes="radio-mark"/>
+              <TextBlock Grid.Column="1" Classes="title-sm" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            <WrapPanel Orientation="Horizontal" ItemSpacing="8" Margin="0,4,0,0" IsVisible="{TemplateBinding ShowPrice}">
-              <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="20" LineHeight="26" FontWeight="Bold"
-                         VerticalAlignment="Bottom"/>
-              <TextBlock Name="PART_Duration" Classes="caption secondary" Text="{TemplateBinding Duration}" VerticalAlignment="Bottom" Margin="0,0,0,2"
+            <StackPanel IsVisible="{TemplateBinding ShowPrice}">
+              <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontSize="17" LineHeight="24" FontWeight="Bold"/>
+              <TextBlock Name="PART_Duration" Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Duration}"
                          IsVisible="{TemplateBinding Duration, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            </WrapPanel>
+            </StackPanel>
             <TextBlock Name="PART_RateMark" Classes="caption secondary" Text="(cotação de exemplo)" IsVisible="{TemplateBinding ExampleRate}"/>
           </StackPanel>
         </Border>
@@ -40,10 +36,11 @@
   <Style Selector="c|QualityCard:checked /template/ Border#PART_Card">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
     <Setter Property="BorderThickness" Value="2"/>
-    <Setter Property="Padding" Value="13,11"/>
+    <Setter Property="Padding" Value="15,13"/>
   </Style>
-  <Style Selector="c|QualityCard:checked /template/ Ellipse#PART_Dot">
-    <Setter Property="IsVisible" Value="True"/>
+  <Style Selector="c|QualityCard:checked /template/ Border.radio-mark">
+    <Setter Property="BorderThickness" Value="5"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
   </Style>
   <Style Selector="c|QualityCard:focus-visible /template/ Border#PART_Card">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>

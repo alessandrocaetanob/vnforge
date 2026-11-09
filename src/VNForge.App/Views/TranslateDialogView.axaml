@@ -9,9 +9,9 @@
   <c:ScreenDialog Title="Traduzir com IA" IsOpen="{Binding IsOpen, Mode=TwoWay}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <ScrollViewer.Styles>
-        <!-- Escopo sem linha pendente: o cartão fica apagado, como o QualityCard desligado. O diálogo sobe para a camada de sobreposição, então o estilo mora dentro dele. -->
+        <!-- Escopo sem linha pendente: o cartão fica apagado (60%, como no quadro). O diálogo sobe para a camada de sobreposição, então o estilo mora dentro dele. -->
         <Style Selector="RadioButton.option:disabled">
-          <Setter Property="Opacity" Value="0.5"/>
+          <Setter Property="Opacity" Value="0.6"/>
         </Style>
       </ScrollViewer.Styles>
       <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
@@ -21,15 +21,18 @@
           <ItemsControl ItemsSource="{Binding Scopes}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <UniformGrid Columns="3"/>
+                <UniformGrid Columns="3" ColumnSpacing="12" RowSpacing="12"/>
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ScopeChoice">
-                <RadioButton Classes="option" GroupName="TranslateScope" VerticalAlignment="Stretch" VerticalContentAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                <RadioButton Classes="option marked" GroupName="TranslateScope" VerticalAlignment="Stretch" VerticalContentAlignment="Top" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                              IsEnabled="{Binding IsAvailable}" AutomationProperties.Name="{Binding Title}">
-                  <StackPanel Spacing="2">
-                    <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}"/>
+                  <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                      <Border Classes="radio-mark"/>
+                      <TextBlock Grid.Column="1" Classes="title-sm" Text="{Binding Title}" VerticalAlignment="Center"/>
+                    </Grid>
                     <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
                   </StackPanel>
                 </RadioButton>
@@ -43,12 +46,12 @@
           <ItemsControl ItemsSource="{Binding Qualities}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <UniformGrid Columns="3"/>
+                <UniformGrid Columns="3" ColumnSpacing="12" RowSpacing="12"/>
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:QualityChoice">
-                <c:QualityCard GroupName="TranslateQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
+                <c:QualityCard GroupName="TranslateQuality" VerticalAlignment="Stretch" Title="{Binding Title}" Description="{Binding Description}"
                                Price="{Binding Price}" Duration="{Binding Duration}"
                                IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
               </DataTemplate>
@@ -61,22 +64,24 @@
           <ItemsControl ItemsSource="{Binding Whens}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <UniformGrid Columns="2"/>
+                <UniformGrid Columns="2" ColumnSpacing="12" RowSpacing="12"/>
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:WhenChoice">
-                <RadioButton Classes="option" GroupName="TranslateWhen" Margin="0,0,8,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                <RadioButton Classes="option marked" GroupName="TranslateWhen" VerticalAlignment="Stretch" VerticalContentAlignment="Top"
                              IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
-                  <StackPanel Spacing="2">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                      <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
-                      <Border Grid.Column="1" Height="20" Padding="6,0,8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                  <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                      <Border Classes="radio-mark"/>
+                      <TextBlock Grid.Column="1" Classes="title-sm" Text="{Binding Title}" VerticalAlignment="Center"/>
+                      <!-- ".chipx.ai" do quadro: 24px de altura, 12/16 semibold, ícone de 14px. -->
+                      <Border Grid.Column="2" Height="24" Padding="10,0" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                               Background="{DynamicResource Vnf.StatusAiBg}" TextElement.Foreground="{DynamicResource Vnf.StatusAiFg}"
                               IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                          <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Moon}" AutomationProperties.AccessibilityView="Raw"/>
-                          <TextBlock FontSize="11" FontWeight="SemiBold" Text="{Binding Tag}" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Moon}" AutomationProperties.AccessibilityView="Raw"/>
+                          <TextBlock FontSize="12" LineHeight="16" FontWeight="SemiBold" Text="{Binding Tag}" VerticalAlignment="Center"/>
                         </StackPanel>
                       </Border>
                     </Grid>
@@ -90,17 +95,18 @@
 
         <StackPanel Spacing="8">
           <TextBlock Classes="overline" Text="Quanto custa"/>
-          <Border Classes="panel" Padding="16">
+          <!-- ".card.in" do quadro: fundo bg-inset, raio de 12, respiro de 12 por 14; a trilha da barra tem a cor do cartão, então só os trechos coloridos aparecem. -->
+          <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="title-md" Text="{Binding RequestText}" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SpentText}" VerticalAlignment="Center"/>
+                <TextBlock FontSize="16" LineHeight="24" FontWeight="SemiBold" Text="{Binding RequestText}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" LineHeight="18" Text="{Binding SpentText}" VerticalAlignment="Center"/>
               </Grid>
               <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}"
                            AutomationProperties.Name="Gasto do projeto, este pedido e o limite"/>
-              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding BatchNote}"
+              <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" Text="{Binding BatchNote}"
                          IsVisible="{Binding BatchNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"
+              <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" Text="{Binding RateNote}"
                          IsVisible="{Binding RateNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
           </Border>
@@ -176,8 +182,8 @@
 
     <c:ScreenDialog.Footer>
       <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-        <Button Content="Cancelar" Command="{Binding CancelCommand}"/>
-        <Button Classes="accent" Command="{Binding StartCommand}" AutomationProperties.Name="{Binding StartLabel}">
+        <Button Content="Cancelar" Command="{Binding CancelCommand}" VerticalAlignment="Center"/>
+        <Button Classes="accent lg" Command="{Binding StartCommand}" VerticalAlignment="Center" AutomationProperties.Name="{Binding StartLabel}">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}" IsVisible="{Binding !IsOvernight}"/>
             <TextBlock Text="{Binding StartLabel}" TextWrapping="NoWrap"/>

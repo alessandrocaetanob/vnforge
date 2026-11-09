@@ -74,6 +74,11 @@ public sealed class MainWindowNightBatchTests : IDisposable
         Assert.Equal("Tradução noturna · Esta cena", task.Title);
         Assert.True(task.IsBatch);
         Assert.True(task.IsRunning);
+        // A barra de status troca "Tarefas (n)" pelo chip do quadro, e a lista lembra que fechar o app não cancela o lote.
+        Assert.True(vm.Tasks.ShowsNightBatch);
+        Assert.Equal("Tradução noturna: 1 em andamento", vm.Tasks.NightBatchText);
+        Assert.True(vm.Tasks.CurrentIsRunningBatch);
+        Assert.True(vm.Tasks.HasBatch);
         Assert.StartsWith("Lote enviado às ", task.Message, StringComparison.Ordinal);
         Assert.Contains("2 linhas", task.Message, StringComparison.Ordinal);
         Assert.Contains("caprichada", task.Message, StringComparison.Ordinal);
@@ -95,6 +100,8 @@ public sealed class MainWindowNightBatchTests : IDisposable
         Assert.Equal(TranslationStatus.Machine, saved[0].Status);
         Assert.Equal("[PT] 原文0", saved[0].Translation);
         Assert.Equal(BackgroundTaskState.Completed, task.State);
+        Assert.False(vm.Tasks.ShowsNightBatch);
+        Assert.Equal("Tarefas (1)", vm.Tasks.TasksLabel);
         Assert.StartsWith("Chegou às ", task.Message, StringComparison.Ordinal);
         Assert.Contains("2 linhas gravadas", task.Message, StringComparison.Ordinal);
         Assert.NotNull(task.Restore);
@@ -274,7 +281,7 @@ public sealed class MainWindowNightBatchTests : IDisposable
         var asking = entry.UndoCommand.ExecuteAsync(null);
         await WaitForAsync(() => vm.UndoBatch.IsOpen);
 
-        Assert.Equal("Desfazer o lote \"Esta cena\"?", vm.UndoBatch.Title);
+        Assert.Equal("Desfazer o lote desta cena?", vm.UndoBatch.Title);
         Assert.Contains("Volta 2 linhas ao que eram antes do lote de ", vm.UndoBatch.Message, StringComparison.Ordinal);
         Assert.Equal("Desfazer 2 linhas", vm.UndoBatch.ConfirmLabel);
         vm.UndoBatch.KeepCommand.Execute(null);

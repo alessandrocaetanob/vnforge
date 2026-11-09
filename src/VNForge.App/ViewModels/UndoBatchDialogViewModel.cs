@@ -46,7 +46,7 @@ public sealed partial class UndoBatchDialogViewModel : ObservableObject
         Settle(false);
         var total = preview.Restored + preview.EditedSince;
         var when = submittedAt.ToString("dd/MM", CultureInfo.InvariantCulture);
-        Title = $"Desfazer o lote \"{batchTitle}\"?";
+        Title = $"Desfazer o lote {OfBatch(batchTitle)}?";
         var edited = preview.EditedSince == 0
             ? string.Empty
             : preview.EditedSince == 1
@@ -88,6 +88,28 @@ public sealed partial class UndoBatchDialogViewModel : ObservableObject
         var pending = answer;
         answer = null;
         pending?.TrySetResult(result);
+    }
+
+    /// <summary>
+    /// O nome do lote com a preposição, sem aspas: "Sala de aula" vira "da Sala de aula"; os escopos que já abrem com artigo contraem
+    /// ("O capítulo" vira "do capítulo", "Esta cena" vira "desta cena", "As cenas escolhidas" vira "das cenas escolhidas").
+    /// </summary>
+    internal static string OfBatch(string name)
+    {
+        var contractions = new (string Article, string Contracted)[]
+        {
+            ("Esta ", "desta "), ("Este ", "deste "), ("Estas ", "destas "), ("Estes ", "destes "),
+            ("As ", "das "), ("Os ", "dos "), ("O ", "do "), ("A ", "da "),
+        };
+        foreach (var (article, contracted) in contractions)
+        {
+            if (name.StartsWith(article, StringComparison.Ordinal) && name.Length > article.Length)
+            {
+                return contracted + name[article.Length..];
+            }
+        }
+
+        return "da " + name;
     }
 
     private static string Lines(int count) => count == 1 ? "1 linha" : $"{ProjectLabels.Number(count)} linhas";
