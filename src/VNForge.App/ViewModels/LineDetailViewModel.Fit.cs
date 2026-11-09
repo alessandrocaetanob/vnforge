@@ -20,7 +20,7 @@ public sealed partial class LineDetailViewModel
         Fit?.Cancel();
         Fit = profile is null
             ? null
-            : new FitWarningViewModel(unit, profile, Shortener, () => Translation, ApplySplit, OfferShortened, Dictionary);
+            : new FitWarningViewModel(unit, profile, Shortener, () => Translation, ApplySplit, OfferShortened, RuleDictionary);
         Fit?.Update();
     }
 

@@ -325,7 +325,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     public partial TextboxPreviewViewModel? Preview { get; private set; }
 
     /// <summary>Falante e cena para as regras do pós-dicionário com condição na prévia e no aviso de caixa cheia; nulo deixa só as regras sem condição.</summary>
-    public DictionaryContext? Dictionary { get; init; }
+    public DictionaryContext? RuleDictionary { get; init; }
 
     /// <summary>
     /// Liga a prévia da caixa de texto com a tradução que está no campo; sem perfil (nulo), tira a prévia. O mesmo perfil, as mesmas marcas da fala (#453) e os mesmos nomes da placa (#464)
@@ -338,7 +338,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Preview = profile is null ? null : new TextboxPreviewViewModel(Saved, profile, Translation, marks, naming, Dictionary);
+        Preview = profile is null ? null : new TextboxPreviewViewModel(Saved, profile, Translation, marks, naming, RuleDictionary);
         AttachFit(profile);
         NotifyFitChanged();
     }
@@ -457,6 +457,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         Flush();
         disposed = true;
         StopObservingBatch();
+        DisposeDictionary();
         CancelSuggestion();
         CancelExplanation();
         CancelRewrite();
