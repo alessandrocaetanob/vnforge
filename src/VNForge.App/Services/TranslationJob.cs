@@ -8,8 +8,10 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Services;
 
-/// <summary>O que a janela "Traduzir com IA" pediu: o escopo, a qualidade e os scripts do escopo.</summary>
-public sealed record TranslationRequest(TranslationScope Scope, TranslationQuality Quality, IReadOnlyList<string> ScriptKeys);
+/// <summary>O que a janela "Traduzir com IA" pediu: o escopo, a qualidade, os scripts do escopo, se, depois de traduzir, vem a passada de editor em cada cena (#532) e se o pedido vai pelo lote da noite.</summary>
+/// <param name="EditorPass">A passada de editor depois da tradução. Não vale no lote da noite: o resultado dele chega horas depois, e a passada lê a tradução pronta.</param>
+/// <param name="Overnight">Mandar pela Message Batches API, com metade do preço e resultado em até 24 h, em vez de traduzir agora.</param>
+public sealed record TranslationRequest(TranslationScope Scope, TranslationQuality Quality, IReadOnlyList<string> ScriptKeys, bool EditorPass = false, bool Overnight = false);
 
 /// <summary>A cotação, o limite de gasto e as chamadas em paralelo de uma execução. <paramref name="Delay"/> troca a espera entre tentativas (os testes não esperam).</summary>
 public sealed record TranslationJobSettings(ExchangeRate Rate, BudgetLimits Limits, int Concurrency, Func<TimeSpan, CancellationToken, Task>? Delay = null);
@@ -43,7 +45,6 @@ public sealed class TranslationJob(
     Func<ITranslationProvider, ClaudeUsage?>? usageOf = null,
     TimeProvider? clock = null)
 {
-    private const string ProviderName = "anthropic";
     private const string CacheFileName = "translations.json";
 
     private readonly Func<ITranslationProvider, ClaudeUsage?> usageOf = usageOf ?? (provider => (provider as ClaudeTranslationProvider)?.Usage);
@@ -96,7 +97,7 @@ public sealed class TranslationJob(
                 Delay = settings.Delay ?? new TranslationRunOptions().Delay,
             });
 
-        var origin = new TranslationOrigin(ProviderName, profile.Model, clock.GetUtcNow());
+        var origin = new TranslationOrigin(MachineTranslation.ProviderName, profile.Model, clock.GetUtcNow());
         var counters = new Counters();
         var reportedDollars = 0m;
         var gate = new object();
@@ -143,22 +144,17 @@ public sealed class TranslationJob(
 
     private static TextUnit? Apply(Counters counters, TranslationOrigin origin, TranslationResult result, TextUnit unit)
     {
-        if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
+        var written = MachineTranslation.Apply(origin, result, unit);
+        if (written is null)
         {
             counters.Refused++;
-            return null;
+        }
+        else
+        {
+            counters.Translated++;
         }
 
-        counters.Translated++;
-        return unit with
-        {
-            Translation = result.Translation,
-            Status = TranslationStatus.Machine,
-            Origin = origin,
-            PreviousSource = null,
-            Doubt = result.DoubtFor(unit),
-            AiTranslation = null,
-        };
+        return written;
     }
 
     private sealed class Counters

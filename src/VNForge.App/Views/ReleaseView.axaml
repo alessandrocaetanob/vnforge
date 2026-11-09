@@ -1,0 +1,329 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.ReleaseView"
+             x:DataType="vm:ReleaseViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="1280" Margin="24,16,24,24" Spacing="16">
+
+      <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Lançar">
+        <TextBlock Classes="caption secondary" Text="{Binding LastVersionText}" VerticalAlignment="Bottom"
+                   AutomationProperties.Name="Última versão lançada"/>
+      </c:PageHeader>
+
+      <!-- A faixa de estado: uma por fase, com os botões da fase. Uma tela, um botão de destaque (o de gerar fica na coluna da direita; na versão pronta, "Abrir a pasta"). -->
+      <c:GameStateBanner State="{Binding BannerState}" Title="{Binding BannerTitle}" Message="{Binding BannerMessage}"
+                         AutomationProperties.Name="Estado do lançamento">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Command="{Binding ShowTestCommand}" Content="Ver o Testar" Classes="subtle" IsVisible="{Binding ShowTestShortcut}"
+                  AutomationProperties.Name="Ver o Testar"/>
+          <Button Command="{Binding ShowErrorsCommand}" Content="Ver os erros" IsVisible="{Binding ShowErrorsShortcut}"
+                  AutomationProperties.Name="Ver os erros"/>
+          <Button Command="{Binding CancelGenerationCommand}" Content="Cancelar" IsVisible="{Binding IsGenerating}"
+                  AutomationProperties.Name="Cancelar"/>
+          <Button Classes="accent" Command="{Binding OpenFolderCommand}" IsVisible="{Binding IsDone}" AutomationProperties.Name="Abrir a pasta">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+              <TextBlock Text="Abrir a pasta"/>
+            </StackPanel>
+          </Button>
+          <Button Command="{Binding TestInstallerCommand}" IsVisible="{Binding IsDone}" AutomationProperties.Name="Testar o instalador">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+              <TextBlock Text="Testar o instalador"/>
+            </StackPanel>
+          </Button>
+          <Button Classes="accent" Command="{Binding ChooseGameFolderCommand}" IsVisible="{Binding IsBlocked}" AutomationProperties.Name="Escolher outra pasta">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+              <TextBlock Text="Escolher outra pasta"/>
+            </StackPanel>
+          </Button>
+          <Button Classes="subtle" Command="{Binding ToggleProblemDetailsCommand}" IsVisible="{Binding IsBlocked}" AutomationProperties.Name="Ver os detalhes">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Ver os detalhes"/>
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ChevronRight}"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:GameStateBanner>
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <SelectableTextBlock Grid.Column="1" Classes="body-sm" c:CopyMenu.Enabled="True" TextWrapping="Wrap" Text="{Binding ErrorMessage}"
+                               AutomationProperties.Name="Mensagem de erro"/>
+        </Grid>
+      </Border>
+
+      <Grid ColumnDefinitions="*,384" ColumnSpacing="20">
+
+        <StackPanel Spacing="14" MinWidth="0">
+
+          <!-- Pronto: as três conferências, o formulário da versão. -->
+          <Border Classes="panel" Padding="20,12" IsVisible="{Binding IsReady}" AutomationProperties.Name="O que já confere">
+            <ItemsControl ItemsSource="{Binding Checks}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ReleaseCheckRow">
+                  <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,20,0">
+                    <Panel Width="18" Height="18" VerticalAlignment="Center">
+                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsOk}"/>
+                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsError}"/>
+                      <Ellipse Width="16" Height="16" StrokeThickness="1.5" Stroke="{DynamicResource Vnf.TextTertiary}" IsVisible="{Binding IsPending}"/>
+                    </Panel>
+                    <TextBlock Classes="body-sm" VerticalAlignment="Center" Text="{Binding Text}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+
+          <Border Classes="panel" Padding="20,16" IsVisible="{Binding IsReady}" AutomationProperties.Name="A versão">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="20" RowSpacing="14">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="body-strong" Text="Número da versão"/>
+                <TextBox Text="{Binding Version}" AutomationProperties.Name="Número da versão"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding VersionHelp}" IsVisible="{Binding !HasVersionError}"/>
+                <TextBlock Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding VersionError}" IsVisible="{Binding HasVersionError}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Classes="body-strong" Text="Nome do instalador"/>
+                <TextBox Text="{Binding InstallerName}" AutomationProperties.Name="Nome do instalador"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Um só arquivo, sem pasta de apoio"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Spacing="4">
+                <TextBlock Classes="body-strong" Text="Pasta de saída"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Text="{Binding OutputDirectory}" AutomationProperties.Name="Pasta de saída"/>
+                  <Button Grid.Column="1" Command="{Binding ChooseFolderCommand}" AutomationProperties.Name="Escolher">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+                      <TextBlock Text="Escolher"/>
+                    </StackPanel>
+                  </Button>
+                </Grid>
+                <TextBlock Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding OutputError}"
+                           IsVisible="{Binding HasOutputError}" AutomationProperties.Name="Pasta de saída inválida"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                <TextBlock Classes="body-strong" Text="Créditos"/>
+                <TextBox Text="{Binding Credits}" PlaceholderText="Tradução: Equipe · Revisão: Hana" AutomationProperties.Name="Créditos"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Entram em CREDITOS.txt e no instalador"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <!-- Gerando: as seis etapas do Core, a atual com a barra. -->
+          <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding IsGenerating}" AutomationProperties.Name="Etapas">
+            <StackPanel>
+              <Border Classes="divider-bottom" Height="48" Padding="20,0">
+                <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Etapas"/>
+              </Border>
+              <ItemsControl ItemsSource="{Binding Steps}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ReleaseStepRow">
+                    <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="12" Margin="20,10">
+                      <Panel Width="20" Height="20" VerticalAlignment="Top">
+                        <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsDone}"/>
+                        <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.Accent}" Data="{StaticResource Icon.ArrowSync}" IsVisible="{Binding IsRunning}"/>
+                        <Ellipse Width="18" Height="18" StrokeThickness="1.5" Stroke="{DynamicResource Vnf.StrokeControl}" IsVisible="{Binding IsPending}"/>
+                      </Panel>
+                      <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Classes="body-strong" Text="{Binding Label}" IsVisible="{Binding !IsPending}"/>
+                        <TextBlock Classes="body secondary" Text="{Binding Label}" IsVisible="{Binding IsPending}"/>
+                        <ProgressBar Classes="thin" IsIndeterminate="True" ShowProgressText="False" MaxWidth="420" HorizontalAlignment="Left"
+                                     IsVisible="{Binding IsRunning}"/>
+                      </StackPanel>
+                      <TextBlock Grid.Column="2" Classes="caption secondary" Text="{Binding TimeText}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <!-- Versão pronta: os arquivos, a verificação e o que o patch muda no jogo. -->
+          <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding IsDone}" AutomationProperties.Name="Arquivos gerados">
+            <StackPanel>
+              <Border Classes="divider-bottom" Padding="20,12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="title-md" Text="Arquivos gerados"/>
+                  <SelectableTextBlock FontFamily="{DynamicResource Vnf.FontMono}" FontSize="{DynamicResource Vnf.FontSize.MonoXs}"
+                                       Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding FilesFolder}" TextTrimming="CharacterEllipsis"
+                                       AutomationProperties.Name="Pasta de saída"/>
+                </StackPanel>
+              </Border>
+              <ItemsControl ItemsSource="{Binding Files}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ReleaseFileRow">
+                    <Border Classes="divider-top" Padding="20,8">
+                      <Grid ColumnDefinitions="24,*,90,Auto" ColumnSpacing="12" MinHeight="24">
+                        <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.Accent}"
+                                  Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="mono" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}"/>
+                        <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" TextAlignment="Right" Text="{Binding SizeText}"/>
+                        <Button Grid.Column="3" Classes="sm subtle" IsVisible="{Binding HasChecksum}"
+                                Command="{Binding $parent[ItemsControl].((vm:ReleaseViewModel)DataContext).CopyChecksumCommand}" CommandParameter="{Binding}"
+                                AutomationProperties.Name="Copiar checksum">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Copy}"/>
+                            <TextBlock Text="Copiar checksum"/>
+                          </StackPanel>
+                        </Button>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" Padding="20,16" IsVisible="{Binding IsDone}" AutomationProperties.Name="Verificação">
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
+                <TextBlock Grid.Column="1" Classes="body-strong" VerticalAlignment="Center" Text="Verificação"/>
+                <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding VerificationTime}"/>
+              </Grid>
+              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding VerificationText}"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding IsDone}" AutomationProperties.Name="O que o patch muda no jogo">
+            <StackPanel>
+              <Border Classes="divider-bottom" Padding="20,12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="title-md" Text="O que o patch muda no jogo"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Só diferenças. Nenhum arquivo inteiro do jogo vai no patch."/>
+                </StackPanel>
+              </Border>
+              <Grid ColumnDefinitions="*,110,110,110" ColumnSpacing="12" Margin="20,8">
+                <TextBlock Classes="column-header" Text="Arquivo do jogo"/>
+                <TextBlock Grid.Column="1" Classes="column-header" TextAlignment="Right" Text="Original"/>
+                <TextBlock Grid.Column="2" Classes="column-header" TextAlignment="Right" Text="Patch"/>
+                <TextBlock Grid.Column="3" Classes="column-header" TextAlignment="Right" Text="Troca"/>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding GameFiles}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ReleaseGameFileRow">
+                    <Border Classes="divider-top" Padding="20,0" Height="40">
+                      <Grid ColumnDefinitions="*,110,110,110" ColumnSpacing="12">
+                        <TextBlock Classes="mono" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Path}"/>
+                        <TextBlock Grid.Column="1" Classes="mono" VerticalAlignment="Center" TextAlignment="Right" Text="{Binding OriginalText}"/>
+                        <TextBlock Grid.Column="2" Classes="mono" VerticalAlignment="Center" TextAlignment="Right" Text="{Binding PatchText}"/>
+                        <TextBlock Grid.Column="3" Classes="mono" VerticalAlignment="Center" TextAlignment="Right" Text="{Binding RatioText}"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Border Classes="divider-top" Padding="20,0" Height="40">
+                <TextBlock Classes="body-strong" VerticalAlignment="Center" Text="{Binding GameFilesTotal}"/>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <!-- Travado: o jogo da pasta não é a versão de referência. -->
+          <Border Classes="panel" Padding="20,16" BorderBrush="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding IsBlocked}" AutomationProperties.Name="Checksum diferente">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}"/>
+                <TextBlock Classes="body-strong" VerticalAlignment="Center" Text="Checksum diferente"/>
+              </StackPanel>
+              <Grid ColumnDefinitions="120,*" ColumnSpacing="16">
+                <TextBlock Classes="body-sm secondary" Text="Pasta"/>
+                <SelectableTextBlock Grid.Column="1" FontFamily="{DynamicResource Vnf.FontMono}" FontSize="{DynamicResource Vnf.FontSize.Mono}" TextWrapping="Wrap" Text="{Binding GameFolder}" AutomationProperties.Name="Pasta do jogo"/>
+              </Grid>
+              <Grid ColumnDefinitions="120,*" ColumnSpacing="16" IsVisible="{Binding ShowProblemDetails}">
+                <TextBlock Classes="body-sm secondary" Text="Detalhes"/>
+                <SelectableTextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" c:CopyMenu.Enabled="True" Text="{Binding ProblemDetails}"
+                                     AutomationProperties.Name="Detalhes do checksum"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" Padding="20,16" IsVisible="{Binding IsBlocked}" AutomationProperties.Name="O que fazer">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="body-strong" Text="O que fazer"/>
+              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                         Text="Aponte a pasta da versão original que você usou para extrair o texto. Se o jogo foi atualizado, extraia o texto de novo: o Conferir mostra o que muda."/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Spacing="14" MinWidth="0">
+
+          <Border Classes="panel" Padding="16" IsVisible="{Binding ShowReceived}" AutomationProperties.Name="O que o jogador recebe">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="title-sm" Text="O que o jogador recebe"/>
+              <ItemsControl ItemsSource="{Binding Received}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ReleaseReceivedRow">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,5">
+                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.Accent}"
+                                Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+                      <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" Text="{Binding Label}"/>
+                      <TextBlock Grid.Column="2" Classes="mono" VerticalAlignment="Center" Text="{Binding SizeText}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Border Classes="divider-top" Padding="0,8,0,0">
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ReceivedNote}"/>
+              </Border>
+              <Button Classes="accent lg" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding GenerateCommand}"
+                      AutomationProperties.Name="Gerar patch e instalador">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Box}"/>
+                  <TextBlock Text="{Binding GenerateLabel}"/>
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding ShowChanges}" AutomationProperties.Name="O que mudou desde o patch anterior">
+            <StackPanel>
+              <Border Padding="16,12,16,10">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="body-strong" Text="{Binding ChangesTitle}"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ChangesSubtitle}"/>
+                </StackPanel>
+              </Border>
+              <ItemsControl ItemsSource="{Binding Scenes}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ReleaseSceneRow">
+                    <Border Classes="divider-top" Padding="16,10">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="body-sm" Text="{Binding Title}"/>
+                        <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding Detail}"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" Padding="16" IsVisible="{Binding IsDone}" AutomationProperties.Name="LEIA-ME.txt">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="title-sm" Text="LEIA-ME.txt"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" Text="o que o jogador lê"/>
+              </Grid>
+              <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="16,14">
+                <SelectableTextBlock FontFamily="{DynamicResource Vnf.FontMono}" FontSize="{DynamicResource Vnf.FontSize.Mono}" LineHeight="20" TextWrapping="Wrap" Text="{Binding ReadMeText}" AutomationProperties.Name="Prévia do leia-me"/>
+              </Border>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

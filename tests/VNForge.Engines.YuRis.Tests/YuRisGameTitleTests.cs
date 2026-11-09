@@ -82,6 +82,34 @@ public sealed class YuRisGameTitleTests : IDisposable
     }
 
     [Fact]
+    public void ReadTitleFromGame_le_o_titulo_direto_do_pacote_sem_extrair_nada()
+    {
+        WriteGame(SyntheticYscfgBuilder.Build(Title));
+
+        Assert.Equal(Title, _engine.ReadTitleFromGame(_game));
+        Assert.False(Directory.Exists(_cache));
+    }
+
+    [Fact]
+    public void ReadTitleFromGame_de_jogo_sem_yscfg_ou_pasta_inexistente_devolve_nulo()
+    {
+        WriteGame(null);
+
+        Assert.Null(_engine.ReadTitleFromGame(_game));
+        Assert.Null(_engine.ReadTitleFromGame(Path.Combine(_root, "nao-existe")));
+    }
+
+    [Fact]
+    public void ReadTitleFromGame_com_yscfg_invalido_recusa_citando_o_arquivo()
+    {
+        WriteGame([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+        var ex = Assert.Throws<InvalidFileException>(() => _engine.ReadTitleFromGame(_game));
+
+        Assert.Contains("yscfg.ybn", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReadTitle_de_jogo_sem_yscfg_devolve_nulo()
     {
         WriteGame(null);

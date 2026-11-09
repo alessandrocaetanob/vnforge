@@ -4,6 +4,7 @@ using VNForge.Core.Logging;
 using VNForge.Core.Memory;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Cli;
 
@@ -56,6 +57,12 @@ internal static class InitCommand
             HelpName = "modelo",
         };
 
+        var vndb = new Option<string?>("--vndb")
+        {
+            Description = "Liga o projeto ao jogo do VNDB com este id (por exemplo v17; vnf vndb search mostra os ids): sinopse e personagens vêm do VNDB.",
+            HelpName = "jogo",
+        };
+
         var command = new Command("init", "Cria o projeto de tradução, detecta a engine e grava versão e chave no vnforge.json.");
         command.Arguments.Add(folder);
         command.Options.Add(game);
@@ -65,7 +72,8 @@ internal static class InitCommand
         command.Options.Add(target);
         command.Options.Add(encoding);
         command.Options.Add(model);
-        command.SetAction(parseResult => Run(
+        command.Options.Add(vndb);
+        command.SetAction((parseResult, token) => RunAsync(
             cli,
             parseResult,
             parseResult.GetRequiredValue(folder),
@@ -76,17 +84,21 @@ internal static class InitCommand
                 parseResult.GetValue(source),
                 parseResult.GetValue(target),
                 parseResult.GetValue(encoding),
-                parseResult.GetValue(model) is { } chosen ? ProjectChoices.DefaultAi with { Model = chosen } : null)));
+                parseResult.GetValue(model) is { } chosen ? ProjectChoices.DefaultAi with { Model = chosen } : null),
+            parseResult.GetValue(vndb),
+            token));
         return command;
     }
 
-    private static int Run(VnfCli cli, ParseResult parseResult, string folderArgument, string gameArgument, ProjectInitOptions options)
+    private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, string folderArgument, string gameArgument, ProjectInitOptions options, string? vndbId, CancellationToken token)
     {
+        // O jogo do VNDB vem antes de criar qualquer coisa: um id errado ou o VNDB fora do ar não deixa projeto pela metade.
+        var link = string.IsNullOrWhiteSpace(vndbId) ? null : await VndbProjectLinker.BuildAsync(cli.CreateVndbCatalog(), vndbId.Trim(), token);
         var result = ProjectInitializer.Initialize(
             Path.GetFullPath(folderArgument, cli.CurrentDirectory),
             Path.GetFullPath(gameArgument, cli.CurrentDirectory),
             KnownEngines.All,
-            options,
+            options with { Vndb = link },
             new PersonalGlossary(cli.UserConfigDirectory));
 
         var output = parseResult.InvocationConfiguration.Output;
@@ -94,7 +106,7 @@ internal static class InitCommand
         var warnings = Warnings(details.GetValueOrDefault(ProjectInitializer.WarningsDetail), result.Config.Encoding.Strategy);
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 folder = result.Folder.Root,
                 config = result.Folder.ConfigPath,
@@ -105,37 +117,44 @@ internal static class InitCommand
                 personalTerms = result.SeededTerms,
                 personalGlossaryProblem = result.PersonalGlossaryProblem,
                 warnings,
+                vndb = link is null ? null : VndbCommand.Data(link),
             }));
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Engine detectada: {result.Engine.DisplayName}{Versions(details)}");
+        await output.WriteLineAsync($"Engine detectada: {result.Engine.DisplayName}{Versions(details)}");
         if (details.TryGetValue("scriptsArchive", out var archive))
         {
-            output.WriteLine($"Arquivo de scripts: {archive}{ScriptCount(details)}");
+            await output.WriteLineAsync($"Arquivo de scripts: {archive}{ScriptCount(details)}");
         }
 
         if (details.TryGetValue(ProjectInitializer.ScriptKeyDetail, out var key))
         {
-            output.WriteLine($"Chave XOR dos scripts: {key}{KeyOrigin(details)}");
+            await output.WriteLineAsync($"Chave XOR dos scripts: {key}{KeyOrigin(details)}");
         }
 
         if (warnings is not null)
         {
-            output.WriteLine($"Aviso: {warnings}");
+            await output.WriteLineAsync($"Aviso: {warnings}");
+        }
+
+        if (link is not null)
+        {
+            await output.WriteLineAsync($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {link.Characters.Count} personagens. Eles entram em characters.json no vnf extract.");
+            await output.WriteLineAsync(VndbCredit.ShortText);
         }
 
         if (result.SeededTerms > 0)
         {
-            output.WriteLine($"Glossário pessoal: {result.SeededTerms} {(result.SeededTerms == 1 ? "termo entrou" : "termos entraram")} no glossário do projeto.");
+            await output.WriteLineAsync($"Glossário pessoal: {result.SeededTerms} {(result.SeededTerms == 1 ? "termo entrou" : "termos entraram")} no glossário do projeto.");
         }
 
         if (result.PersonalGlossaryProblem is not null)
         {
-            output.WriteLine($"Aviso: {result.PersonalGlossaryProblem}");
+            await output.WriteLineAsync($"Aviso: {result.PersonalGlossaryProblem}");
         }
 
-        output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
+        await output.WriteLineAsync($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");
         return ErrorHandler.OkExitCode;
     }
 

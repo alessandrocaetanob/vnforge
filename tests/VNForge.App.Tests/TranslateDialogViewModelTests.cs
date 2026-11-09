@@ -149,6 +149,7 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         var limit = 10m + quotes.For(TranslationQuality.Balanced).Brl + 0.01m;
 
         var vm = await OpenAsync(folder, Settings(new BudgetLimits(limit, null)));
+        vm.EditorPass = false;
 
         Assert.Equal(TranslationQuality.Careful, vm.SelectedQuality.Quality);
         Assert.True(vm.IsOverLimit);
@@ -164,6 +165,46 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         Assert.False(vm.IsOverLimit);
         Assert.True(vm.CanStart);
         Assert.False(vm.CanSwitchToFit);
+    }
+
+    [Fact]
+    public async Task A_passada_de_editor_marcada_entra_na_conta_do_limite_e_desmarcar_a_tira()
+    {
+        var folder = Project();
+        Directory.CreateDirectory(folder.CacheDirectory);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 2m, 1));
+        var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(folder.LoadAllText(), ["yst00001"]), Rate);
+        var limit = 10m + quotes.For(TranslationQuality.Careful).Brl + 0.01m;
+
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(limit, null)));
+
+        Assert.True(vm.EditorPass);
+        Assert.True(vm.IsOverLimit);
+        Assert.False(vm.CanStart);
+        Assert.Contains("passa do limite", vm.OverLimitText);
+
+        vm.EditorPass = false;
+
+        Assert.False(vm.IsOverLimit);
+        Assert.True(vm.CanStart);
+
+        vm.EditorPass = true;
+
+        Assert.True(vm.IsOverLimit);
+    }
+
+    [Fact]
+    public async Task O_aviso_de_valor_alto_tambem_conta_a_passada_de_editor()
+    {
+        var folder = Project();
+        var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(folder.LoadAllText(), ["yst00001"]), Rate);
+        var warn = quotes.For(TranslationQuality.Careful).Brl + 0.01m;
+
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(null, warn)));
+
+        Assert.True(vm.AboveWarning);
+        vm.EditorPass = false;
+        Assert.False(vm.AboveWarning);
     }
 
     [Fact]
@@ -433,5 +474,100 @@ public sealed class TranslateDialogViewModelTests : IDisposable
 
         Assert.Contains("exemplo", vm.RateNote);
         Assert.Equal(string.Empty, (await OpenAsync(Project("outro"), Settings())).RateNote);
+    }
+
+    [Fact]
+    public async Task A_janela_abre_em_Agora_e_o_lote_da_noite_so_vale_quando_a_pessoa_escolhe()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+
+        Assert.True(vm.ShowWhen);
+        Assert.False(vm.IsOvernight);
+        Assert.Equal(["Agora", "Durante a noite"], vm.Whens.Select(w => w.Title));
+        Assert.Equal("50% mais barato", vm.Whens[1].Tag);
+        Assert.Equal("Traduzir", vm.StartLabel);
+        Assert.Equal(string.Empty, vm.BatchNote);
+    }
+
+    [Fact]
+    public async Task Durante_a_noite_os_precos_sao_a_metade_e_mostram_o_que_o_pedido_custaria()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+        var now = vm.Qualities.ToDictionary(q => q.Quality, q => q.Price);
+        var request = vm.RequestBrl;
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.True(vm.IsOvernight);
+        Assert.All(vm.Qualities, q => Assert.Equal(now[q.Quality] / 2m, q.Price));
+        Assert.All(vm.Qualities, q => Assert.StartsWith("em vez de R$", q.Duration, StringComparison.Ordinal));
+        Assert.Equal(request / 2m, vm.RequestBrl);
+        Assert.Equal("Enviar o lote", vm.StartLabel);
+        Assert.Equal("O lote fica guardado por 29 dias na Anthropic. Resultado em até 24 h; o tempo real depende da fila.", vm.BatchNote);
+        Assert.StartsWith("No lote a fala anterior ainda não está traduzida: o contexto vem do original", vm.ContextText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task O_limite_de_gasto_vale_sobre_a_metade_do_preco_no_lote()
+    {
+        var folder = Project();
+        var normal = await OpenAsync(folder, Settings());
+        var careful = normal.Qualities.Single(q => q.Quality == TranslationQuality.Careful).Price;
+
+        // O limite cabe a metade do pedido caprichado, mas não o pedido inteiro.
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(careful * 0.6m, null)));
+        Assert.True(vm.IsOverLimit);
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.False(vm.IsOverLimit);
+        Assert.True(vm.CanStart);
+    }
+
+    [Fact]
+    public async Task Iniciar_na_noite_pede_o_lote_e_a_cena_de_exemplo_nao_tem_a_escolha()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+        TranslationRequest? asked = null;
+        vm.StartRequested += (_, request) => asked = request;
+        vm.SelectedWhen = vm.Whens[1];
+
+        vm.StartCommand.Execute(null);
+
+        Assert.True(asked!.Overnight);
+        Assert.False(vm.IsOpen);
+
+        var sample = await OpenAsync(Project("exemplo"), Settings() with { IsSample = true });
+        Assert.False(sample.ShowWhen);
+        Assert.False(sample.IsOvernight);
+    }
+
+    [Fact]
+    public async Task Na_noite_a_passada_de_editor_desmarca_trava_e_nao_entra_no_pedido_nem_na_conta()
+    {
+        var folder = Project();
+        var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(folder.LoadAllText(), ["yst00001"]), Rate);
+        Directory.CreateDirectory(folder.CacheDirectory);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 2m, 1));
+        var limit = 10m + quotes.For(TranslationQuality.Careful).Brl * 0.5m + 0.01m;
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(limit, null)));
+        TranslationRequest? asked = null;
+        vm.StartRequested += (_, request) => asked = request;
+        Assert.True(vm.EditorPass);
+        Assert.True(vm.IsOverLimit);
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.False(vm.EditorPass);
+        Assert.False(vm.CanChooseEditorPass);
+        Assert.False(vm.IsOverLimit);
+        vm.StartCommand.Execute(null);
+        Assert.True(asked!.Overnight);
+        Assert.False(asked.EditorPass);
+
+        vm.SelectedWhen = vm.Whens[0];
+
+        Assert.True(vm.EditorPass);
+        Assert.True(vm.CanChooseEditorPass);
     }
 }

@@ -12,6 +12,13 @@ public static class ClaudeProviderFactory
         return new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey });
     }
 
+    /// <summary>Monta o cliente da Message Batches API (tradução noturna); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Batches.IMessageBatchClient CreateBatchClient(string apiKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        return new VNForge.AI.Batches.AnthropicMessageBatchClient(new AnthropicClient { ApiKey = apiKey });
+    }
+
     /// <param name="apiKey">Chave já resolvida (ambiente ou cofre); nunca vem de arquivo do projeto.</param>
     public static ClaudeTranslationProvider Create(string apiKey, ClaudeOptions options)
     {
@@ -50,5 +57,13 @@ public static class ClaudeProviderFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
         ArgumentNullException.ThrowIfNull(options);
         return new VNForge.AI.Review.ClaudeReviewProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
+    }
+
+    /// <summary>Monta o provedor Claude da passada de editor (#532); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Review.ClaudeEditorPassProvider CreateEditorPass(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Review.ClaudeEditorPassProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
     }
 }
