@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Glossary;
 
@@ -11,6 +12,8 @@ namespace VNForge.Core.Glossary;
 /// <param name="Romaji">Nome em letras latinas (o nome do VNDB, na ordem ocidental: "Kenta Aizawa"); nulo quando não se sabe.</param>
 /// <param name="Aliases">Apelidos e outras formas de chamar o personagem, como o VNDB os lista; nulo quando não há.</param>
 /// <param name="Description">Quem é o personagem, em texto corrido e sem a marcação do VNDB; nulo quando não há.</param>
+/// <param name="VndbId">Id do personagem no VNDB (<c>c1234</c>), preenchido quando a bíblia usa os personagens do VNDB (<see cref="VndbProjectLinker.ApplyCharacters"/>); nulo quando não se sabe.</param>
+/// <param name="Image">A imagem do personagem no VNDB (endereço e marcas de conteúdo; <see cref="VndbImageCache"/> a baixa e a privacidade da Biblioteca decide se aparece); nula quando o VNDB não tem.</param>
 public sealed record CharacterEntry(
     [property: JsonRequired] string Source,
     [property: JsonRequired] string Target,
@@ -19,4 +22,6 @@ public sealed record CharacterEntry(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Color = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Romaji = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Aliases = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Description = null) : IGlossaryEntry;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Description = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? VndbId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] VndbImageRef? Image = null) : IGlossaryEntry;

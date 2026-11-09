@@ -52,13 +52,21 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
     /// <param name="editor">O Editor dono da lista de linhas e do painel de detalhe.</param>
     /// <param name="queue">As linhas a rever, na ordem em que a fonte as dá (a do script, ou a da história para um personagem).</param>
     /// <param name="source">De onde a fila veio; sem ela, a cena aberta.</param>
-    public ReviewModeViewModel(EditorViewModel editor, IReadOnlyList<ReviewItem> queue, ReviewSource? source = null)
+    /// <param name="risk">A pontuação de cada linha da fila, na mesma ordem; só na fonte <see cref="ReviewSource.Risk"/>.</param>
+    public ReviewModeViewModel(EditorViewModel editor, IReadOnlyList<ReviewItem> queue, ReviewSource? source = null, RiskReview? risk = null)
     {
         this.editor = editor ?? throw new ArgumentNullException(nameof(editor));
         this.queue = queue ?? throw new ArgumentNullException(nameof(queue));
         this.source = source ?? ReviewSource.OpenScene;
+        this.risk = risk;
+        if (risk is not null && risk.Items.Count != queue.Count)
+        {
+            throw new ArgumentException("A pontuação precisa de uma entrada por linha da fila.", nameof(risk));
+        }
+
         Blocks = [.. queue.Select((_, i) => new ReviewBlock(i + 1))];
         editor.PropertyChanged += OnEditorChanged;
+        editor.LineSaved += OnLineSaved;
         if (queue.Count == 0)
         {
             IsFinished = true;
@@ -78,7 +86,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
     /// <summary>A fila acabou: a tela mostra o resumo e a próxima cena.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsActive), nameof(FinishedTitle), nameof(FinishedText), nameof(NextSceneName), nameof(HasNextScene))]
+    [NotifyPropertyChangedFor(nameof(IsActive), nameof(FinishedTitle), nameof(FinishedText), nameof(NextSceneName), nameof(HasNextScene), nameof(ShowRisk), nameof(ShowPosition))]
     public partial bool IsFinished { get; private set; }
 
     public bool IsActive => !IsFinished;
@@ -269,6 +277,7 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         disposed = true;
         editor.PropertyChanged -= OnEditorChanged;
+        editor.LineSaved -= OnLineSaved;
     }
 
     private static string Plural(int count, string one, string many) => count == 1 ? $"1 {one}" : $"{ProjectLabels.Number(count)} {many}";
@@ -342,7 +351,9 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(Detail));
         OnPropertyChanged(nameof(SceneName));
+        OnPropertyChanged(nameof(HeaderTitle));
         NotifyLineChanged();
+        NotifyRisk();
         return true;
     }
 
@@ -372,6 +383,9 @@ public sealed partial class ReviewModeViewModel : ObservableObject, IDisposable
             editor.StopReview();
         }
     }
+
+    /// <summary>Uma gravação (outra sugestão, "reescrever", um aviso do QA que sumiu) muda os sinais da linha em exibição: o cartão de risco é refeito, sem reordenar a fila.</summary>
+    private void OnLineSaved(object? sender, LineSavedEventArgs e) => NotifyRisk();
 
     private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
     {

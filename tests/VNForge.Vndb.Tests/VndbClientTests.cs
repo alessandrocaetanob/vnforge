@@ -61,6 +61,7 @@ public class VndbClientTests
         Assert.Contains("image.url", (string?)Body(sent)["fields"]);
         Assert.Contains("length_minutes", (string?)Body(sent)["fields"]);
         Assert.Contains("description", (string?)Body(sent)["fields"]);
+        Assert.Contains(",rating,", $",{(string?)Body(sent)["fields"]},");
         Assert.Null(sent.Authorization);
         Assert.StartsWith("VNForge", sent.UserAgent);
 
@@ -76,10 +77,24 @@ public class VndbClientTests
         Assert.Equal(3, vn.Length);
         Assert.Equal(1500, vn.LengthMinutes);
         Assert.Equal(42, vn.LengthVotes);
+        Assert.Equal(78.6, vn.Rating);
+        Assert.Equal("nota 7,9", VndbRating.Label(vn.Rating));
         Assert.Equal("Uma [b]história[/b] de exemplo.", vn.Description);
         Assert.Equal(new VndbTitle("ja", "月の花", "Tsuki no Hana", true, true), vn.Titles[0]);
         Assert.Equal(new VndbImage("https://t.vndb.org/cv/00/1.jpg", "https://t.vndb.org/cv.t/00/1.jpg", 800, 1200, 0.5, 0), vn.Image);
         Assert.Equal(new VndbTag("g2", "Twist", "cont", 1.2, 2, true), vn.Tags[1]);
+    }
+
+    [Theory]
+    [InlineData("""{"more":false,"results":[{"id":"v1","title":"A","rating":null}]}""")]
+    [InlineData("""{"more":false,"results":[{"id":"v1","title":"A"}]}""")]
+    public async Task Jogo_que_ninguem_votou_vem_sem_nota(string json)
+    {
+        var found = await Client(new StubHandler(json)).SearchVisualNovelsAsync("A", ct: Ct);
+
+        var vn = Assert.Single(found);
+        Assert.Null(vn.Rating);
+        Assert.Null(VndbRating.Label(vn.Rating));
     }
 
     [Fact]

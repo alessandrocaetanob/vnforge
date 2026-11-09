@@ -34,6 +34,7 @@ public sealed class App : Application
 #endif
 
             var configDirectory = RecentProjectsFile.DefaultDirectory();
+            VndbImages.Source = VndbImages.CreateDefault(configDirectory);
             var window = new MainWindow();
             Controls.TechnicalDetails.SetMemory(window, new TechnicalDetailsMemory(configDirectory));
             var picker = new AvaloniaFolderPicker(window);

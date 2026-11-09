@@ -17,9 +17,36 @@ internal static class StatusCommand
     private const int MaxBarWidth = 60;
     private const int RowBarWidth = 20;
 
+    private static readonly Option<bool> RiskOption = new("--risk")
+    {
+        Description = "Em vez do progresso, mostra a fila \"o que mais precisa de você\": as linhas esperando revisão, do maior risco ao menor, e as horas até zerar o risco alto.",
+    };
+
+    private static readonly Option<int> TopOption = CreateTopOption();
+
+    private static Option<int> CreateTopOption()
+    {
+        var option = new Option<int>("--top")
+        {
+            Description = "Com --risk, quantas linhas da fila listar (padrão 10).",
+            HelpName = "n",
+            DefaultValueFactory = _ => RiskStatusReport.DefaultTop,
+        };
+        option.Validators.Add(result =>
+        {
+            if (result.GetValueOrDefault<int>() < 1)
+            {
+                result.AddError("--top precisa de um número a partir de 1.");
+            }
+        });
+        return option;
+    }
+
     public static Command Create(VnfCli cli)
     {
         var command = new Command("status", "Mostra o progresso da tradução: linhas por status, por arquivo e por personagem.");
+        command.Options.Add(RiskOption);
+        command.Options.Add(TopOption);
         command.SetAction(parseResult => Run(cli, parseResult, parseResult.InvocationConfiguration.Output));
         return command;
     }
@@ -27,6 +54,11 @@ internal static class StatusCommand
     private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        if (parseResult.GetValue(RiskOption))
+        {
+            return RiskStatusReport.Run(cli, project, parseResult.GetValue(TopOption), parseResult.GetValue(cli.Options.Json), output);
+        }
+
         var status = ProjectStatusReporter.Create(project);
         var scriptNames = ScriptNamesOf(project);
 
@@ -111,7 +143,7 @@ internal static class StatusCommand
     }
 
     // characters.json inválido não derruba o status: sem ele os falantes aparecem sem tradução do nome.
-    private static Dictionary<string, string> CharacterNames(ProjectFolder project)
+    internal static Dictionary<string, string> CharacterNames(ProjectFolder project)
     {
         try
         {
@@ -125,7 +157,7 @@ internal static class StatusCommand
         }
     }
 
-    private static string SpeakerLabel(string? speaker, Dictionary<string, string> names)
+    internal static string SpeakerLabel(string? speaker, Dictionary<string, string> names)
     {
         if (speaker is null)
         {

@@ -10,7 +10,7 @@ internal static class VndbSamples
           "aliases":["Tsukihana"],"olang":"ja","devstatus":0,"released":"2019-05-31",
           "languages":["en","ja"],"platforms":["win"],
           "image":{"url":"https://t.vndb.org/cv/00/1.jpg","thumbnail":"https://t.vndb.org/cv.t/00/1.jpg","dims":[800,1200],"sexual":0.5,"violence":0},
-          "length":3,"length_minutes":1500,"length_votes":42,"description":"Uma [b]história[/b] de exemplo.",
+          "length":3,"length_minutes":1500,"length_votes":42,"rating":78.6,"description":"Uma [b]história[/b] de exemplo.",
           "tags":[{"id":"g1","name":"ADV","category":"tech","rating":2.5,"spoiler":0,"lie":false},{"id":"g2","name":"Twist","category":"cont","rating":1.2,"spoiler":2,"lie":true}]
         }]}
         """;

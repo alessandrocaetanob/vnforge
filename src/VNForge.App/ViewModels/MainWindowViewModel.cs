@@ -151,6 +151,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         selectedNav = startItem;
         CurrentPage = start;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
+        Palette.PropertyChanged += OnPaletteChanged;
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
         Editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
@@ -318,6 +319,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenPalette() => Palette.Open();
+
+    /// <summary>Ctrl+R: abre a fila "o que mais precisa de você" do projeto aberto, venha de onde vier.</summary>
+    [RelayCommand]
+    private void OpenRiskReview()
+    {
+        if (CurrentProject is not null)
+        {
+            ReviewRisk();
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartPage), nameof(ShowWorkStatus), nameof(ShowKeyOk))]
@@ -938,9 +949,84 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Leva ao Editor e abre o modo revisão nas falas do personagem em todas as cenas.</summary>
-    private void ReviewSpeaker(string name) => LineNavigation = ReviewSpeakerAsync(name);
+    private int? riskHighLines;
+    private CancellationTokenSource? riskCountCancel;
 
-    private async Task ReviewSpeakerAsync(string name)
+    private void ReviewSpeaker(string name) => LineNavigation = OpenReviewAsync(ReviewSource.OfSpeaker(name));
+
+    /// <summary>
+    /// A paleta pede a lista a cada tecla e contar as linhas de risco alto pontua o projeto todo: a contagem roda uma vez por abertura, fora da thread da tela, e a
+    /// paleta é refeita quando ela chega. Fechar a paleta descarta o número, que valeria só até a próxima gravação.
+    /// </summary>
+    private void RequestRiskCount()
+    {
+        // O token é guardado antes de a contagem começar: sem dados no Editor ela volta completa na mesma pilha, refaz a paleta, e a paleta pede a contagem de novo.
+        if (riskCountCancel is not null)
+        {
+            return;
+        }
+
+        var source = riskCountCancel = new CancellationTokenSource();
+        RiskCounting = CountRiskAsync(source);
+    }
+
+    /// <summary>A contagem de linhas de risco alto da paleta em andamento, ou a última que terminou.</summary>
+    public Task? RiskCounting { get; private set; }
+
+    private async Task CountRiskAsync(CancellationTokenSource source)
+    {
+        int? high;
+        try
+        {
+            high = await Editor.CountHighRiskAsync(source.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        // Uma contagem velha (a paleta fechou, outro projeto abriu) não grava o número.
+        if (source.IsCancellationRequested || !ReferenceEquals(riskCountCancel, source))
+        {
+            return;
+        }
+
+        riskHighLines = high;
+        if (high is not null)
+        {
+            Palette.Reload();
+        }
+    }
+
+    /// <summary>Cancela a contagem da paleta, solta o token e esquece o número, que valeria só até a próxima gravação.</summary>
+    private void CancelRiskCount()
+    {
+        var source = riskCountCancel;
+        riskCountCancel = null;
+        RiskCounting = null;
+        riskHighLines = null;
+        if (source is null)
+        {
+            return;
+        }
+
+        source.Cancel();
+        source.Dispose();
+    }
+
+    partial void OnCurrentProjectChanged(ProjectSummary? value) => CancelRiskCount();
+
+    private void OnPaletteChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CommandPaletteViewModel.IsOpen) && !Palette.IsOpen)
+        {
+            CancelRiskCount();
+        }
+    }
+    /// <summary>Leva ao Editor e abre o modo revisão na fila "o que mais precisa de você", de todo o projeto.</summary>
+    private void ReviewRisk() => LineNavigation = OpenReviewAsync(ReviewSource.Risk);
+
+    private async Task OpenReviewAsync(ReviewSource source)
     {
         if (!GoTo(editorItem))
         {
@@ -959,7 +1045,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (ReferenceEquals(SelectedNav, editorItem))
         {
-            Editor.StartReviewOf(ReviewSource.OfSpeaker(name));
+            if (source.Kind == ReviewSourceKind.Risk)
+            {
+                await Editor.StartRiskReviewAsync();
+            }
+            else
+            {
+                Editor.StartReviewOf(source);
+            }
         }
     }
 
@@ -1114,6 +1207,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
             }));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
+            RequestRiskCount();
+            var riskSubtitle = riskHighLines switch
+            {
+                null => "O que mais precisa de você, no projeto todo",
+                0 => "O que mais precisa de você, nenhuma linha de risco alto",
+                1 => "O que mais precisa de você, 1 linha de risco alto",
+                { } n => $"O que mais precisa de você, {ProjectLabels.Number(n)} linhas de risco alto",
+            };
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Revisar por risco", riskSubtitle, ReviewRisk) { OnlyWhenSearching = true, Shortcut = "Ctrl+R" });
             foreach (var speaker in Editor.ReviewableSpeakers)
             {
                 var source = speaker.Source;

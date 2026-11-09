@@ -34,6 +34,7 @@ internal static class VndbSamples
         string role = "side",
         string? description = null,
         string visualNovelId = VisualNovelId,
+        VndbImage? image = null,
         params string[] aliases) =>
         new(
             id,
@@ -41,7 +42,7 @@ internal static class VndbSamples
             original,
             aliases,
             description,
-            null,
+            image,
             gender is null ? null : new VndbGender(gender, gender),
             [new VndbCharacterAppearance(visualNovelId, role, 0, null)],
             []);
