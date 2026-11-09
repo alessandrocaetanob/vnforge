@@ -7,11 +7,12 @@
              x:DataType="vm:DashboardViewModel">
 
   <UserControl.Styles>
-    <!-- A faixa das abas (Visão geral, Provas): a linha de baixo em toda a largura, como nos Ajustes, e 32 px de altura para o Painel continuar cabendo em 1440×900. -->
+    <!-- A faixa das abas (Visão geral, Provas): a linha de baixo em toda a largura, como nos Ajustes; 48 px de altura, com a sublinha de 3 px sobre a linha (a linha fica atrás das abas, na última linha de pixels da aba, e não numa borda, para a sublinha poder cobri-la; o TabControl mede 2 px a mais que as abas, por isso a margem de baixo de -4), como no quadro do banco de provas. -->
     <Style Selector="TabControl.tabs">
       <Setter Property="Template">
         <ControlTemplate>
-          <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
+          <Panel>
+            <Border Height="1" Margin="0,47,0,0" VerticalAlignment="Top" Background="{DynamicResource Vnf.StrokeSubtle}"/>
             <ItemsPresenter Name="PART_ItemsPresenter">
               <ItemsPresenter.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -19,12 +20,13 @@
                 </ItemsPanelTemplate>
               </ItemsPresenter.ItemsPanel>
             </ItemsPresenter>
-          </Border>
+          </Panel>
         </ControlTemplate>
       </Setter>
     </Style>
     <Style Selector="TabControl.tabs > TabItem">
-      <Setter Property="Height" Value="32"/>
+      <Setter Property="Height" Value="48"/>
+      <Setter Property="Margin" Value="0"/>
     </Style>
     <!-- Linha de capítulo: o botão não desenha nada além do fundo de hover; quem desenha é a ChapterRow. -->
     <Style Selector="Button.chapter">
@@ -36,7 +38,8 @@
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1280" Margin="24,16" Spacing="16" HorizontalAlignment="Stretch">
+    <!-- 4 px em cima e 12 embaixo (eram 16 e 16): a faixa das abas ficou 16 px mais alta, como no quadro, e a Visão geral ainda precisa caber em 1440×900. -->
+    <StackPanel MaxWidth="1280" Margin="24,4,24,12" Spacing="16" HorizontalAlignment="Stretch">
 
       <StackPanel IsVisible="{Binding HasProject}">
       <c:PageHeader Breadcrumb="Painel" Title="{Binding Title}" IsVisible="{Binding HasProject}">
@@ -49,7 +52,7 @@
       </c:PageHeader>
 
       <!-- As abas do Painel: o mapa do jogo e o banco de provas (#529). Onde o Painel mora no shell novo é decisão do #544. -->
-      <TabControl Classes="tabs" Margin="0,0,0,-6" SelectedIndex="{Binding SelectedTab, Mode=TwoWay}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Seções do Painel">
+      <TabControl Classes="tabs" Margin="0,0,0,-4" SelectedIndex="{Binding SelectedTab, Mode=TwoWay}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Seções do Painel">
         <TabItem Header="Visão geral"/>
         <TabItem Header="Provas"/>
       </TabControl>

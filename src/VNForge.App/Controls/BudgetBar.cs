@@ -17,10 +17,13 @@ public sealed class BudgetBar : TemplatedControl
     public static readonly StyledProperty<double> SpentProperty = AvaloniaProperty.Register<BudgetBar, double>(nameof(Spent));
     public static readonly StyledProperty<double> AskProperty = AvaloniaProperty.Register<BudgetBar, double>(nameof(Ask));
     public static readonly StyledProperty<double> LimitProperty = AvaloniaProperty.Register<BudgetBar, double>(nameof(Limit));
+    public static readonly StyledProperty<IBrush?> TrackBrushProperty = AvaloniaProperty.Register<BudgetBar, IBrush?>(nameof(TrackBrush));
+    public static readonly StyledProperty<IBrush?> AskBrushProperty = AvaloniaProperty.Register<BudgetBar, IBrush?>(nameof(AskBrush));
+    public static readonly StyledProperty<bool> ShowLimitProperty = AvaloniaProperty.Register<BudgetBar, bool>(nameof(ShowLimit), true);
 
     static BudgetBar()
     {
-        AffectsRender<BudgetBar>(SpentProperty, AskProperty, LimitProperty);
+        AffectsRender<BudgetBar>(SpentProperty, AskProperty, LimitProperty, TrackBrushProperty, AskBrushProperty, ShowLimitProperty);
         SpentProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
         AskProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
         LimitProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
@@ -46,6 +49,27 @@ public sealed class BudgetBar : TemplatedControl
         set => SetValue(LimitProperty, value);
     }
 
+    /// <summary>A cor do trilho que ainda não foi usado; nulo vale <c>seg-pending</c>. O banco de provas (#529) usa o fundo do cartão, como no quadro.</summary>
+    public IBrush? TrackBrush
+    {
+        get => GetValue(TrackBrushProperty);
+        set => SetValue(TrackBrushProperty, value);
+    }
+
+    /// <summary>A cor do pedido enquanto cabe no limite; nulo vale <c>accent</c>. O banco de provas usa <c>seg-translated</c>.</summary>
+    public IBrush? AskBrush
+    {
+        get => GetValue(AskBrushProperty);
+        set => SetValue(AskBrushProperty, value);
+    }
+
+    /// <summary>Se a marca do limite é desenhada; só o limite some, a conta do <see cref="IsOver"/> continua.</summary>
+    public bool ShowLimit
+    {
+        get => GetValue(ShowLimitProperty);
+        set => SetValue(ShowLimitProperty, value);
+    }
+
     /// <summary>Se o gasto somado ao pedido passa do limite.</summary>
     public bool IsOver => Limit > 0 && Spent + Ask > Limit;
 
@@ -58,7 +82,7 @@ public sealed class BudgetBar : TemplatedControl
         var width = Bounds.Width;
         var scale = Math.Max(Limit, Spent + Ask);
         var track = new RoundedRect(new Rect(0, MarkOverhang, width, BarHeight), BarHeight / 2);
-        context.DrawRectangle(Brush("Vnf.SegPending"), null, track);
+        context.DrawRectangle(TrackBrush ?? Brush("Vnf.SegPending"), null, track);
         if (scale <= 0)
         {
             return;
@@ -69,10 +93,10 @@ public sealed class BudgetBar : TemplatedControl
             var spent = width * Math.Clamp(Spent / scale, 0, 1);
             var ask = width * Math.Clamp(Ask / scale, 0, 1);
             context.DrawRectangle(Brush("Vnf.SegAi"), null, new Rect(0, MarkOverhang, spent, BarHeight));
-            context.DrawRectangle(Brush(IsOver ? "Vnf.SignalWarningFg" : "Vnf.Accent"), null, new Rect(spent, MarkOverhang, ask, BarHeight));
+            context.DrawRectangle(IsOver ? Brush("Vnf.SignalWarningFg") : AskBrush ?? Brush("Vnf.Accent"), null, new Rect(spent, MarkOverhang, ask, BarHeight));
         }
 
-        if (Limit > 0)
+        if (Limit > 0 && ShowLimit)
         {
             var x = Math.Round(width * Limit / scale);
             context.DrawLine(new Pen(Brush("Vnf.TextPrimary"), 2), new Point(x, 0), new Point(x, BarHeight + (MarkOverhang * 2)));
