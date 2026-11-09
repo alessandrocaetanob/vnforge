@@ -23,9 +23,6 @@ public sealed partial class LineDetailViewModel
     /// <summary>Pede ao editor outra proposta para a linha ("Outra"); sem ele o botão fica desligado. Devolve nulo quando o modelo não vê outra forma melhor.</summary>
     public Func<EditorSuggestion, CancellationToken, Task<EditorSuggestion?>>? EditorSuggestionAnother { get; set; }
 
-    /// <summary>Avisa o Editor que "Outra" trouxe uma proposta nova, para a grade e a lista de sugestões trocarem a antiga.</summary>
-    public Action<EditorSuggestion>? EditorSuggestionReplaced { get; set; }
-
     /// <summary>"Outra" está esperando a resposta do modelo.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EditorSuggestionOtherText))]
@@ -76,11 +73,14 @@ public sealed partial class LineDetailViewModel
     /// <summary>O motivo, em uma frase.</summary>
     public string EditorSuggestionReason => editorSuggestion?.Reason ?? string.Empty;
 
-    /// <summary>Troca a tradução pela proposta e grava na hora: aceitar é uma decisão da pessoa, sem espera. Se a gravação falhar, a sugestão continua e o erro aparece como em qualquer edição.</summary>
-    [RelayCommand(CanExecute = nameof(HasEditorSuggestion))]
+    /// <summary>
+    /// Troca a tradução pela proposta e grava na hora: aceitar é uma decisão da pessoa, sem espera. Se a gravação falhar, a sugestão continua e o erro aparece como em qualquer edição.
+    /// Com texto digitado e ainda não gravado o botão fica desligado: aceitar jogaria esse texto fora sem a pessoa ter decidido isso.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanAcceptEditorSuggestion))]
     private void AcceptEditorSuggestion()
     {
-        if (editorSuggestion is not { } suggestion)
+        if (editorSuggestion is not { } suggestion || translationDirty)
         {
             return;
         }
@@ -90,6 +90,19 @@ public sealed partial class LineDetailViewModel
         {
             Resolve(suggestion);
         }
+    }
+
+    private bool CanAcceptEditorSuggestion() => HasEditorSuggestion && !translationDirty;
+
+    private void SetTranslationDirty(bool dirty)
+    {
+        if (translationDirty == dirty)
+        {
+            return;
+        }
+
+        translationDirty = dirty;
+        AcceptEditorSuggestionCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Tira a sugestão sem mexer na tradução.</summary>
@@ -133,14 +146,13 @@ public sealed partial class LineDetailViewModel
 
             editorSuggestion = another;
             NotifyEditorSuggestionChanged();
-            EditorSuggestionReplaced?.Invoke(another);
         }
         catch (Exception e)
         {
             // Um pedido cancelado por Dispose não mostra erro; o resto (rede, SDK, recusa) vira uma frase.
             if (!cancellation.IsCancellationRequested)
             {
-                EditorSuggestionNote = $"Não foi possível pedir outra sugestão: {ClaudeErrorMessages.Describe(e)} A tradução não mudou.";
+                EditorSuggestionNote = $"Não foi possível pedir outra sugestão: {(e is LineSuggestionException ? e.Message : ClaudeErrorMessages.Describe(e))} A tradução não mudou.";
             }
         }
         finally

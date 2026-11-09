@@ -140,6 +140,73 @@ public sealed class EditorSuggestionTests : IDisposable
     }
 
     [Fact]
+    public async Task Ignorar_depois_que_a_passada_gravou_outra_cena_nao_apaga_as_sugestoes_dela()
+    {
+        var vm = await Abrir();
+        vm.SelectedLine = vm.Lines[2];
+
+        // A passada termina outra cena enquanto o Editor está aberto com a cópia de antes.
+        EditorSuggestionsFile.Update(ProjectFolder.Open(raiz), f => f.ReplacingScript("yst00002", [Sugestao(0, "X", "Y", EditorSuggestionKind.Fluency) with { ScriptKey = "yst00002", UnitId = "yst00002:000000" }]));
+        vm.Detail!.IgnoreEditorSuggestionCommand.Execute(null);
+
+        Assert.Equal(["yst00001:000000", "yst00001:000003", "yst00002:000000"], NoArquivo().Select(s => s.UnitId).Order());
+    }
+
+    [Fact]
+    public async Task Aceitar_com_texto_digitado_e_ainda_nao_gravado_fica_desligado_e_nao_joga_o_texto_fora()
+    {
+        var vm = await Abrir();
+        vm.SelectedLine = vm.Lines[2];
+        var detail = vm.Detail!;
+        Assert.True(detail.AcceptEditorSuggestionCommand.CanExecute(null));
+
+        detail.Translation = "Hum, pois é.\\p";
+
+        Assert.False(detail.AcceptEditorSuggestionCommand.CanExecute(null));
+        detail.AcceptEditorSuggestionCommand.Execute(null);
+        Assert.Equal("Hum, pois é.\\p", detail.Translation);
+        detail.Flush();
+        Assert.Equal("Hum, pois é.\\p", Gravada(2).Translation);
+        Assert.False(detail.HasEditorSuggestion);
+    }
+
+    [Fact]
+    public async Task Trocar_de_linha_durante_o_Outra_deixa_a_copia_em_memoria_com_a_proposta_nova()
+    {
+        var liberar = new TaskCompletionSource<EditorSuggestion?>();
+        var vm = await AbrirComOutra((s, _) => liberar.Task);
+        vm.SelectedLine = vm.Lines[0];
+        var pedido = vm.Detail!.OtherEditorSuggestionCommand.ExecuteAsync(null);
+
+        vm.SelectedLine = vm.Lines[2];
+        liberar.SetResult(vm.Lines[0].EditorSuggestion! with { Proposed = "Vocês dois, atrasados.\\p" });
+        await pedido;
+
+        Assert.Equal("Vocês dois, atrasados.\\p", vm.Lines[0].EditorSuggestion!.Proposed);
+        vm.SelectedLine = vm.Lines[0];
+        Assert.Equal("Vocês dois, atrasados.", vm.Detail!.EditorSuggestionProposed);
+        Assert.Equal("Os dois, cinco minutos atrasados.\\p", Gravada(0).Translation);
+    }
+
+    [Fact]
+    public async Task Outra_que_termina_depois_de_a_pessoa_ignorar_nao_traz_a_sugestao_de_volta()
+    {
+        var liberar = new TaskCompletionSource<EditorSuggestion?>();
+        var vm = await AbrirComOutra((s, _) => liberar.Task);
+        vm.SelectedLine = vm.Lines[0];
+        var detail = vm.Detail!;
+        var original = vm.Lines[0].EditorSuggestion!;
+        var pedido = detail.OtherEditorSuggestionCommand.ExecuteAsync(null);
+
+        detail.IgnoreEditorSuggestionCommand.Execute(null);
+        liberar.SetResult(original with { Proposed = "Nova.\\p" });
+        await pedido;
+
+        Assert.False(vm.Lines[0].HasEditorSuggestion);
+        Assert.DoesNotContain(NoArquivo(), s => s.UnitId == "yst00001:000000");
+    }
+
+    [Fact]
     public async Task Depois_de_aceitar_uma_a_posicao_das_outras_conta_so_as_que_restam()
     {
         var vm = await Abrir();

@@ -351,7 +351,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
                 var sent = Translation;
                 Saved = editor.SetTranslation(scriptKey, unit.Id, sent);
                 Status = Saved.Status;
-                translationDirty = false;
+                SetTranslationDirty(false);
                 ShowStoredTranslation(sent);
             }
 
@@ -409,7 +409,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             loading = false;
         }
 
-        translationDirty = false;
+        SetTranslationDirty(false);
         UpdateMarkers();
         Preview?.Update(string.Empty);
         Fit?.Update();
@@ -501,7 +501,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             ReopenField(value);
         }
 
-        translationDirty = true;
+        SetTranslationDirty(true);
         UpdateMarkers();
         Preview?.Update(value);
         Fit?.Update();
@@ -523,7 +523,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         }
 
         Translation = stored;
-        translationDirty = false;
+        SetTranslationDirty(false);
         timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 

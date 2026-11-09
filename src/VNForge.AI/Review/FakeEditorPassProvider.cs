@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using VNForge.AI.Translation;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -11,6 +12,8 @@ namespace VNForge.AI.Review;
 /// </summary>
 public sealed class FakeEditorPassProvider : IEditorPassProvider
 {
+    private static readonly Regex TrailingCodes = new(@"(?:\\[A-Za-z])*$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
     private readonly Func<TextUnit, EditorPassProposal?> _propose;
     private readonly ConcurrentQueue<TranslationBatch> _received = new();
 
@@ -35,7 +38,7 @@ public sealed class FakeEditorPassProvider : IEditorPassProvider
         return Task.FromResult(proposals);
     }
 
-    /// <summary>Por padrão devolve a proposta recusada com "(outra)" no fim; esta função troca a regra.</summary>
+    /// <summary>Por padrão devolve a proposta recusada com "(outra)" no fim do texto, antes dos marcadores de pausa (<c>\p</c>); esta função troca a regra.</summary>
     public Func<TextUnit, string, EditorPassProposal?>? Another { get; init; }
 
     public Task<EditorPassProposal?> AnotherAsync(TranslationBatch line, string rejected, CancellationToken ct)
@@ -49,7 +52,13 @@ public sealed class FakeEditorPassProvider : IEditorPassProvider
         var unit = line.Lines[0];
         return Task.FromResult(Another is { } rule
             ? rule(unit, rejected)
-            : new EditorPassProposal(unit.Id, EditorSuggestionKind.Fluency, rejected + " (outra)", "Outra forma de dizer."));
+            : new EditorPassProposal(unit.Id, EditorSuggestionKind.Fluency, InsertBeforeTrailingCodes(rejected, " (outra)"), "Outra forma de dizer."));
+    }
+
+    private static string InsertBeforeTrailingCodes(string text, string addition)
+    {
+        var tail = TrailingCodes.Match(text);
+        return text.Insert(tail.Index, addition);
     }
 
     private static EditorPassProposal? DoubleSpace(TextUnit unit) =>

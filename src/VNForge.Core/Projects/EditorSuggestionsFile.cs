@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -77,6 +78,8 @@ public sealed record EditorSuggestionsFile(int Version, IReadOnlyList<EditorSugg
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
+    private static readonly ConcurrentDictionary<string, object> Locks = new(StringComparer.OrdinalIgnoreCase);
+
     public static EditorSuggestionsFile Empty { get; } = new(CurrentVersion, []);
 
     public static string PathFor(ProjectFolder project)
@@ -137,6 +140,27 @@ public sealed record EditorSuggestionsFile(int Version, IReadOnlyList<EditorSugg
         finally
         {
             File.Delete(temp);
+        }
+    }
+
+    /// <summary>
+    /// Muda o arquivo sem perder o que outro gravador pôs desde a última leitura: relê o disco, aplica só <paramref name="change"/> e grava, tudo sob uma trava por arquivo. Quem
+    /// guarda uma cópia em memória (o Editor, a passada, o "Outra") grava por aqui em vez de gravar a cópia inteira. Não grava quando a mudança não muda nada.
+    /// </summary>
+    /// <returns>O arquivo como ficou.</returns>
+    public static EditorSuggestionsFile Update(ProjectFolder project, Func<EditorSuggestionsFile, EditorSuggestionsFile> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        lock (Locks.GetOrAdd(Path.GetFullPath(PathFor(project)), static _ => new object()))
+        {
+            var current = Load(project);
+            var changed = change(current);
+            if (!changed.Suggestions.SequenceEqual(current.Suggestions))
+            {
+                Save(project, changed);
+            }
+
+            return changed;
         }
     }
 

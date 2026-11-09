@@ -62,7 +62,6 @@ public sealed class EditorPassJob(
         var guard = tracker.CreateGuard(settings.Limits, _ => 0m, null);
 
         var gate = new object();
-        var file = EditorSuggestionsFile.Load(project);
         int read = 0, suggestions = 0, failed = 0, discarded = 0, finished = 0;
         var reportedDollars = 0m;
         BudgetStop? stopped = null;
@@ -101,8 +100,7 @@ public sealed class EditorPassJob(
                     {
                         if (result is not null)
                         {
-                            file = file.ReplacingScript(scene.Key, result.Suggestions);
-                            EditorSuggestionsFile.Save(project, file);
+                            EditorSuggestionsFile.Update(project, file => file.ReplacingScript(scene.Key, result.Suggestions));
                             read++;
                             suggestions += result.Suggestions.Count;
                             discarded += result.Discarded;
@@ -131,8 +129,10 @@ public sealed class EditorPassJob(
 
     /// <summary>
     /// "Outra" (#532): pede ao modelo uma proposta nova para a linha de <paramref name="rejected"/>, diferente dela, e a grava no lugar da anterior. Nula, sem mexer no arquivo,
-    /// quando o modelo não acha outra forma que valha. O gasto entra no registro do projeto como o de qualquer pedido.
+    /// quando o modelo não acha outra forma que valha ou quando a pessoa já aceitou ou ignorou a sugestão enquanto o pedido rodava. O gasto entra no registro do projeto como o de
+    /// qualquer pedido e o limite de gasto vale aqui como na passada.
     /// </summary>
+    /// <exception cref="LineSuggestionException">O gasto do projeto já chegou ao limite.</exception>
     public async Task<EditorSuggestion?> AnotherAsync(EditorSuggestion rejected, TranslationQuality quality, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(rejected);
@@ -145,15 +145,27 @@ public sealed class EditorPassJob(
         var (builder, effort) = CreateBuilder();
         var provider = providerFactory(profile.Model, effort);
         var tracker = new RunCostTracker(project, profile.Model, settings.Rate, () => usageOf(provider));
+        if (tracker.CreateGuard(settings.Limits, _ => 0m, null).LimitReached)
+        {
+            throw new LineSuggestionException("O gasto do projeto chegou ao limite definido em Ajustes. Aumente o limite para pedir outra sugestão.");
+        }
+
         try
         {
             var another = await new EditorPassRunner(provider, builder, clock).AnotherAsync(rejected.ScriptKey, units, rejected.UnitId, rejected.Proposed, ct).ConfigureAwait(false);
-            if (another is not null)
+            if (another is null)
             {
-                EditorSuggestionsFile.Save(project, EditorSuggestionsFile.Load(project).Replacing(another));
+                return null;
             }
 
-            return another;
+            // Relê o arquivo: a pessoa pode ter ignorado a sugestão ou a passada ter gravado outras cenas enquanto o pedido rodava.
+            var written = false;
+            EditorSuggestionsFile.Update(project, file =>
+            {
+                written = file.Suggestions.Any(s => string.Equals(s.ScriptKey, rejected.ScriptKey, StringComparison.Ordinal) && string.Equals(s.UnitId, rejected.UnitId, StringComparison.Ordinal));
+                return written ? file.Replacing(another) : file;
+            });
+            return written ? another : null;
         }
         finally
         {

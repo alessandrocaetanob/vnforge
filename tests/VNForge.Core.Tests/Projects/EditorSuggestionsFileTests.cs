@@ -144,6 +144,40 @@ public sealed class EditorSuggestionsFileTests : IDisposable
     }
 
     [Fact]
+    public void Update_rele_o_arquivo_aplica_so_a_mudanca_e_grava_sem_perder_o_que_outro_gravou()
+    {
+        EditorSuggestionsFile.Save(_project, EditorSuggestionsFile.Empty.ReplacingScript("y", [Suggest("y", "y:1", "A")]));
+
+        // Quem leu o arquivo antes (uma cópia velha) não pode apagar o que entrou depois.
+        var stale = EditorSuggestionsFile.Load(_project);
+        EditorSuggestionsFile.Update(_project, f => f.ReplacingScript("z", [Suggest("z", "z:1", "Z")]));
+        var result = EditorSuggestionsFile.Update(_project, f => f.Without("y", "y:1"));
+
+        Assert.Single(stale.Suggestions);
+        Assert.Equal(["z:1"], result.Suggestions.Select(s => s.UnitId));
+        Assert.Equal(["z:1"], EditorSuggestionsFile.Load(_project).Suggestions.Select(s => s.UnitId));
+    }
+
+    [Fact]
+    public async Task Update_em_paralelo_nao_perde_nenhuma_gravacao()
+    {
+        var tasks = Enumerable.Range(0, 40).Select(i => Task.Run(() =>
+            EditorSuggestionsFile.Update(_project, f => f.ReplacingScript($"s{i}", [Suggest($"s{i}", $"s{i}:1", "A")])), TestContext.Current.CancellationToken));
+
+        await Task.WhenAll(tasks);
+
+        Assert.Equal(40, EditorSuggestionsFile.Load(_project).Suggestions.Count);
+    }
+
+    [Fact]
+    public void Update_que_nao_muda_nada_nao_cria_o_arquivo()
+    {
+        EditorSuggestionsFile.Update(_project, f => f);
+
+        Assert.False(File.Exists(EditorSuggestionsFile.PathFor(_project)));
+    }
+
+    [Fact]
     public void Linha_aprovada_nao_tem_sugestao_viva()
     {
         var file = EditorSuggestionsFile.Empty.ReplacingScript("y", [Suggest("y", "y:1", "A")]);

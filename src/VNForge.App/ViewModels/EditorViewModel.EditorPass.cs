@@ -12,8 +12,11 @@ public sealed partial class EditorViewModel
     /// <summary>Lê as sugestões do editor da pasta do projeto; os testes trocam por uma na memória. O padrão lê <c>.cache/editor-suggestions.json</c>.</summary>
     public Func<string, EditorSuggestionsFile>? EditorSuggestionsReader { get; init; }
 
-    /// <summary>Grava as sugestões do editor na pasta do projeto; os testes trocam por uma na memória. O padrão grava em <c>.cache/editor-suggestions.json</c>.</summary>
-    public Action<string, EditorSuggestionsFile>? EditorSuggestionsWriter { get; init; }
+    /// <summary>
+    /// Aplica uma mudança ao arquivo de sugestões da pasta do projeto; os testes trocam por uma na memória. O padrão é <see cref="EditorSuggestionsFile.Update"/>: relê o arquivo e grava só a
+    /// mudança, para não apagar o que a passada de editor gravou enquanto o Editor estava aberto com uma cópia velha.
+    /// </summary>
+    public Action<string, Func<EditorSuggestionsFile, EditorSuggestionsFile>>? EditorSuggestionsWriter { get; init; }
 
     /// <summary>Pede ao editor outra proposta para a linha de uma sugestão ("Outra"); a janela principal o liga ao provedor. Nulo deixa o botão desligado.</summary>
     public Func<EditorSuggestion, CancellationToken, Task<EditorSuggestion?>>? EditorSuggestionAnother { get; set; }
@@ -82,18 +85,27 @@ public sealed partial class EditorViewModel
     private void ShowEditorSuggestion(LineDetailViewModel detail, LineViewModel line)
     {
         detail.EditorSuggestionResolved = suggestion => ResolveEditorSuggestion(line, suggestion);
-        detail.EditorSuggestionAnother = EditorSuggestionAnother;
-        detail.EditorSuggestionReplaced = another => ReplaceEditorSuggestion(line, another);
+        detail.EditorSuggestionAnother = EditorSuggestionAnother is null ? null : (current, ct) => AskAnotherEditorSuggestionAsync(line, current, ct);
         var live = scriptLines.Where(l => l.HasEditorSuggestion).ToList();
         var position = live.IndexOf(line);
         detail.ShowEditorSuggestion(position < 0 ? null : line.EditorSuggestion, position + 1, live.Count);
     }
 
-    /// <summary>"Outra" trouxe uma proposta nova: a grade e a lista em memória passam a tê-la (o arquivo já foi gravado por quem a pediu).</summary>
-    private void ReplaceEditorSuggestion(LineViewModel line, EditorSuggestion another)
+    /// <summary>
+    /// "Outra": pede a proposta nova e, quando ela chega, a grade e a lista em memória passam a tê-la (o arquivo já foi gravado por quem a pediu). Isso fica aqui, e não no painel, porque
+    /// a pessoa pode ter trocado de linha enquanto o modelo pensava e o painel já foi descartado. Se ela aceitou ou ignorou a sugestão nesse meio-tempo, a resposta é descartada.
+    /// </summary>
+    private async Task<EditorSuggestion?> AskAnotherEditorSuggestionAsync(LineViewModel line, EditorSuggestion current, CancellationToken ct)
     {
+        var another = await EditorSuggestionAnother!(current, ct);
+        if (another is null || line.EditorSuggestion is not { } now || !string.Equals(now.UnitId, current.UnitId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
         editorSuggestions = editorSuggestions.Replacing(another);
         line.SetEditorSuggestion(another);
+        return another;
     }
 
     /// <summary>A pessoa aceitou ou ignorou a sugestão: ela sai do arquivo e da grade.</summary>
@@ -125,13 +137,14 @@ public sealed partial class EditorViewModel
         editorSuggestions = without;
         try
         {
+            Func<EditorSuggestionsFile, EditorSuggestionsFile> remove = file => file.Without(scriptKey, unitId);
             if (EditorSuggestionsWriter is { } writer)
             {
-                writer(root, without);
+                writer(root, remove);
             }
             else
             {
-                EditorSuggestionsFile.Save(ProjectFolder.Open(root), without);
+                EditorSuggestionsFile.Update(ProjectFolder.Open(root), remove);
             }
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)

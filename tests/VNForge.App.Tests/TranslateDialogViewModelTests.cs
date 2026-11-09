@@ -149,6 +149,7 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         var limit = 10m + quotes.For(TranslationQuality.Balanced).Brl + 0.01m;
 
         var vm = await OpenAsync(folder, Settings(new BudgetLimits(limit, null)));
+        vm.EditorPass = false;
 
         Assert.Equal(TranslationQuality.Careful, vm.SelectedQuality.Quality);
         Assert.True(vm.IsOverLimit);
@@ -164,6 +165,46 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         Assert.False(vm.IsOverLimit);
         Assert.True(vm.CanStart);
         Assert.False(vm.CanSwitchToFit);
+    }
+
+    [Fact]
+    public async Task A_passada_de_editor_marcada_entra_na_conta_do_limite_e_desmarcar_a_tira()
+    {
+        var folder = Project();
+        Directory.CreateDirectory(folder.CacheDirectory);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 2m, 1));
+        var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(folder.LoadAllText(), ["yst00001"]), Rate);
+        var limit = 10m + quotes.For(TranslationQuality.Careful).Brl + 0.01m;
+
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(limit, null)));
+
+        Assert.True(vm.EditorPass);
+        Assert.True(vm.IsOverLimit);
+        Assert.False(vm.CanStart);
+        Assert.Contains("passa do limite", vm.OverLimitText);
+
+        vm.EditorPass = false;
+
+        Assert.False(vm.IsOverLimit);
+        Assert.True(vm.CanStart);
+
+        vm.EditorPass = true;
+
+        Assert.True(vm.IsOverLimit);
+    }
+
+    [Fact]
+    public async Task O_aviso_de_valor_alto_tambem_conta_a_passada_de_editor()
+    {
+        var folder = Project();
+        var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(folder.LoadAllText(), ["yst00001"]), Rate);
+        var warn = quotes.For(TranslationQuality.Careful).Brl + 0.01m;
+
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(null, warn)));
+
+        Assert.True(vm.AboveWarning);
+        vm.EditorPass = false;
+        Assert.False(vm.AboveWarning);
     }
 
     [Fact]

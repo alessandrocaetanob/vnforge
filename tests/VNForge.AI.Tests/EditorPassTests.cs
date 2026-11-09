@@ -385,25 +385,58 @@ public class EditorPassTests
         Assert.Equal("Texto (outra)", result!.Proposed);
     }
 
+    [Theory]
+    [InlineData("Texto", "Texto (outra)")]
+    [InlineData("Texto\\p", "Texto (outra)\\p")]
+    [InlineData("Texto\\n\\p", "Texto (outra)\\n\\p")]
+    [InlineData("Texto{VAR:x}\\p", "Texto{VAR:x} (outra)\\p")]
+    public async Task Outra_no_provedor_falso_poe_o_texto_antes_dos_marcadores_do_fim(string rejected, string expected)
+    {
+        var result = await new FakeEditorPassProvider().AnotherAsync(Scene(Unit("y:1", "a", "A")), rejected, TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected, result!.Proposed);
+    }
+
+    [Fact]
+    public void A_estimativa_conta_o_glossario_os_personagens_e_a_biblia_do_pedido()
+    {
+        var lines = new[] { Unit("y:1", "魔法学院に入る", "Entrar na academia de magia") };
+        var bare = new TranslationBatch(lines);
+        var rich = new TranslationBatch(lines)
+        {
+            Glossary = [.. Enumerable.Range(0, 40).Select(i => new GlossaryEntry($"用語{i}", $"termo {i}", "nota longa do glossário"))],
+            Characters = [new CharacterInfo("健太", "Kenta", "brincalhão", "male")],
+            Scenes = [new BibleScene("y") { Summary = string.Concat(Enumerable.Repeat("Os dois chegam atrasados ao portão da escola. ", 20)) }],
+            StyleGuide = string.Concat(Enumerable.Repeat("Guia de estilo do projeto. ", 30)),
+            Synopsis = "Uma cidade onde sempre chove.",
+        };
+
+        var plain = EditorPassCost.Estimate([bare], ClaudeModels.Opus);
+        var full = EditorPassCost.Estimate([rich], ClaudeModels.Opus);
+
+        Assert.True(full.Usage.Input > plain.Usage.Input + 800, $"Com contexto: {full.Usage.Input}; sem: {plain.Usage.Input}.");
+        Assert.True(full.Dollars > plain.Dollars);
+    }
+
     // ---- EditorPassCost ----
 
     [Fact]
     public void A_estimativa_cresce_com_a_cena_e_zera_sem_linhas()
     {
-        var small = EditorPassCost.Estimate([[Unit("y:1", "やあ、元気？", "Oi, tudo bem?")]], ClaudeModels.Opus);
-        var large = EditorPassCost.Estimate([[.. Enumerable.Range(1, 50).Select(i => Unit($"y:{i}", "やあ、元気？", "Oi, tudo bem?"))]], ClaudeModels.Opus);
+        var small = EditorPassCost.Estimate([Scene(Unit("y:1", "やあ、元気？", "Oi, tudo bem?"))], ClaudeModels.Opus);
+        var large = EditorPassCost.Estimate([Scene([.. Enumerable.Range(1, 50).Select(i => Unit($"y:{i}", "やあ、元気？", "Oi, tudo bem?"))])], ClaudeModels.Opus);
 
         Assert.True(small.Dollars > 0m);
         Assert.True(large.Dollars > small.Dollars);
         Assert.Equal(50, large.Lines);
-        Assert.Equal(0m, EditorPassCost.Estimate([[]], ClaudeModels.Opus).Dollars);
+        Assert.Equal(0m, EditorPassCost.Estimate([Scene()], ClaudeModels.Opus).Dollars);
     }
 
     [Fact]
     public void Linha_ainda_sem_traducao_conta_com_a_traducao_esperada_e_custa_perto_da_traduzida()
     {
-        var untranslated = EditorPassCost.Estimate([[Unit("y:1", "今日はいい天気ですね", null, TranslationStatus.Untranslated)]], ClaudeModels.Sonnet);
-        var translated = EditorPassCost.Estimate([[Unit("y:1", "今日はいい天気ですね", "Hoje está um dia bonito, não é?")]], ClaudeModels.Sonnet);
+        var untranslated = EditorPassCost.Estimate([Scene(Unit("y:1", "今日はいい天気ですね", null, TranslationStatus.Untranslated))], ClaudeModels.Sonnet);
+        var translated = EditorPassCost.Estimate([Scene(Unit("y:1", "今日はいい天気ですね", "Hoje está um dia bonito, não é?"))], ClaudeModels.Sonnet);
 
         Assert.True(untranslated.Dollars > 0m);
         Assert.InRange(untranslated.Dollars / translated.Dollars, 0.5m, 2m);

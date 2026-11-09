@@ -297,6 +297,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         Refresh();
     }
 
+    partial void OnEditorPassChanged(bool value) => Refresh();
+
     partial void OnSelectedQualityChanged(QualityChoice value)
     {
         foreach (var quality in Qualities)
@@ -383,9 +385,9 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
                 var batches = TranslationQuoter.BatchesFor(texts, keys, builder, batchSize);
                 var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
 
-                // A passada lê, depois de traduzir, as cenas que têm linha pendente: o que já estava traduzido nelas e o que vai chegar.
-                IReadOnlyList<IReadOnlyList<TextUnit>> passScenes =
-                    [.. keys.Where(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0).Select(key => (IReadOnlyList<TextUnit>)[.. texts[key].Where(u => u.HasTranslation || TranslationQuoter.IsPending(u))])];
+                // A passada lê, depois de traduzir, as cenas que têm linha pendente: o que já estava traduzido nelas e o que vai chegar, com o mesmo contexto (glossário, bíblia, guia) do pedido real.
+                IReadOnlyList<TranslationBatch> passScenes =
+                    [.. keys.Where(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0).SelectMany(key => EditorPassCost.Requests(builder, [.. texts[key].Where(u => u.HasTranslation || TranslationQuoter.IsPending(u))]))];
                 IReadOnlyDictionary<TranslationQuality, decimal> pass = QualityProfiles.All.ToDictionary(p => p.Quality, p => rate.ToBrl(EditorPassCost.Estimate(passScenes, p.Model, effort).Dollars));
                 return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes, EditorPassBrl: pass);
             });
@@ -409,8 +411,18 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         return $"{text} em {scenes} {sceneWord}";
     }
 
+    /// <summary>O que o pedido custa de fato: a tradução mais, se a pessoa a quer, a passada de editor. A cena de exemplo é grátis.</summary>
+    private decimal TotalFor(TranslationScope scope, QualityQuote quote) =>
+        settings.IsSample ? 0m : quote.Brl + PassBrl(scope, quote.Quality);
+
+    private decimal PassBrl(TranslationScope scope, TranslationQuality quality) =>
+        EditorPass && editorPassBrl.TryGetValue(scope, out var byQuality) && byQuality.TryGetValue(quality, out var brl) ? brl : 0m;
+
+    /// <summary>A qualidade mais cara que cabe no que sobra do limite, contando a passada de editor quando ela está marcada.</summary>
     private QualityQuote? FitFor(TranslationScope scope) =>
-        byScope.TryGetValue(scope, out var value) ? value.Quotes.MostCarefulThatFits(spent, settings.Limits.Limit) : null;
+        byScope.TryGetValue(scope, out var value)
+            ? value.Quotes.Qualities.OrderByDescending(q => q.Quality).FirstOrDefault(q => TranslationQuotes.Fits(TotalFor(scope, q), spent, settings.Limits.Limit))
+            : null;
 
     private void Refresh()
     {
@@ -435,12 +447,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         RefreshAmounts(request, limit);
         RefreshEditorPass();
 
-        IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(request, spent, limit);
+        // O limite e o aviso contam também a passada de editor, que é paga no mesmo projeto.
+        var total = TotalFor(SelectedScope.Scope, current.Quotes.For(SelectedQuality.Quality));
+        IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(total, spent, limit);
         var fit = IsOverLimit ? FitFor(SelectedScope.Scope) : null;
         CanSwitchToFit = fit is not null && fit.Quality != SelectedQuality.Quality;
-        SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(fit.Brl)})";
-        OverLimitText = IsOverLimit ? DescribeOverLimit(request, limit, fit) : string.Empty;
-        AboveWarning = !IsOverLimit && !settings.IsSample && settings.Limits.WarnAbove is { } warn && request > warn;
+        SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(TotalFor(SelectedScope.Scope, fit))})";
+        OverLimitText = IsOverLimit ? DescribeOverLimit(total, limit, fit) : string.Empty;
+        AboveWarning = !IsOverLimit && !settings.IsSample && settings.Limits.WarnAbove is { } warn && total > warn;
         RefreshBudgetProblem();
         RefreshNotices();
 

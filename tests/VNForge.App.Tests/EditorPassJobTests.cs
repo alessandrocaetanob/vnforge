@@ -178,6 +178,81 @@ public sealed class EditorPassJobTests : IDisposable
         Assert.Null(await job.AnotherAsync(old with { ScriptKey = "outra" }, TranslationQuality.Careful, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task Ignorar_durante_a_passada_nao_volta_na_gravacao_seguinte_e_as_cenas_do_job_ficam()
+    {
+        var folder = Folder("Oi  você");
+        folder.SaveText("yst00002", [new TextUnit("yst00002:000000", TextUnitKind.Dialogue, null, "原文", "Tudo  bem", TranslationStatus.Machine)]);
+        EditorSuggestion? ignored = null;
+        var provider = new HookedProvider(scene =>
+        {
+            // A segunda cena começa depois de a primeira ter gravado: a pessoa clica em Ignorar na sugestão da primeira.
+            if (scene.Lines[0].Id.StartsWith("yst00002:", StringComparison.Ordinal))
+            {
+                ignored = EditorSuggestionsFile.Load(folder).Suggestions.Single(s => s.ScriptKey == "yst00001");
+                EditorSuggestionsFile.Update(folder, f => f.Without(ignored.ScriptKey, ignored.UnitId));
+            }
+        });
+        var job = new EditorPassJob(folder, (_, _) => provider, new TranslationJobSettings(Rate, BudgetLimits.None, 1), null, new FakeTimeProvider(Noon));
+
+        await job.RunAsync(["yst00001", "yst00002"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
+
+        Assert.NotNull(ignored);
+        Assert.Equal(["yst00002:000000"], EditorSuggestionsFile.Load(folder).Suggestions.Select(s => s.UnitId));
+    }
+
+    [Fact]
+    public async Task Outra_nao_traz_de_volta_uma_sugestao_que_a_pessoa_ignorou_enquanto_o_pedido_rodava()
+    {
+        var folder = Folder("Oi  você");
+        var provider = new HookedProvider(_ => { });
+        var job = new EditorPassJob(folder, (_, _) => provider, new TranslationJobSettings(Rate, BudgetLimits.None, 1), null, new FakeTimeProvider(Noon));
+        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
+        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
+        provider.OnAnother = () => EditorSuggestionsFile.Update(folder, f => f.Without(old.ScriptKey, old.UnitId));
+
+        var another = await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken);
+
+        Assert.Null(another);
+        Assert.Empty(EditorSuggestionsFile.Load(folder).Suggestions);
+    }
+
+    [Fact]
+    public async Task Outra_acima_do_limite_de_gasto_recusa_com_mensagem_e_nao_chama_a_IA()
+    {
+        var folder = Folder("Oi  você");
+        var fake = new FakeEditorPassProvider();
+        await Job(folder, fake).RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
+        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 100m, 1, 0));
+        var asked = new FakeEditorPassProvider { Another = (_, _) => throw new InvalidOperationException("não devia chamar") };
+
+        var error = await Assert.ThrowsAsync<LineSuggestionException>(() =>
+            Job(folder, asked, new BudgetLimits(10m, null)).AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken));
+
+        Assert.Contains("limite", error.Message);
+        Assert.Equal([old], EditorSuggestionsFile.Load(folder).Suggestions);
+    }
+
+    private sealed class HookedProvider(Action<TranslationBatch> onScene) : IEditorPassProvider
+    {
+        private readonly FakeEditorPassProvider inner = new();
+
+        public Action? OnAnother { get; set; }
+
+        public Task<IReadOnlyList<EditorPassProposal>> ReviewSceneAsync(TranslationBatch scene, CancellationToken ct)
+        {
+            onScene(scene);
+            return inner.ReviewSceneAsync(scene, ct);
+        }
+
+        public Task<EditorPassProposal?> AnotherAsync(TranslationBatch line, string rejected, CancellationToken ct)
+        {
+            OnAnother?.Invoke();
+            return inner.AnotherAsync(line, rejected, ct);
+        }
+    }
+
     private sealed class ThrowingFor(string scriptKey, Exception error) : IEditorPassProvider
     {
         private readonly FakeEditorPassProvider inner = new();

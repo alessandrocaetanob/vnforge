@@ -78,7 +78,7 @@ public sealed partial class MainWindowViewModel
 
         if (!ApiKeyConfigured && !project.IsSample)
         {
-            throw new InvalidOperationException("Falta a chave da IA. Informe-a em Ajustes, na aba IA e gasto.");
+            throw new LineSuggestionException("Falta a chave da IA. Informe-a em Ajustes, na aba IA e gasto.");
         }
 
         return NewEditorPassJob(project, ProjectFolder.Open(project.Root)).AnotherAsync(rejected, Settings.DefaultQuality, ct);
