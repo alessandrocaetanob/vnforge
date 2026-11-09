@@ -591,6 +591,15 @@ Rótulos (Jogando, Terminado, Parado, Abandonado, Desejado e os da conta), voto,
 - **Rótulos**: a kana diz que os ids abaixo de 10 são os pré-definidos e iguais para todos, e que 0 ("No label") e 7 ("Voted") não se gravam. Ela não lista os nomes de 1 a 6 nem fixa um teto de ids; os nomes (Playing, Finished, Stalled, Dropped, Wishlist, Blacklist) são os do site do VNDB, não conferidos na kana, e o nome devolvido em cada entrada tem prioridade. O teto de 1600 e o início dos rótulos da conta em 10 são limites do app.
 - **Limites da API** (api.vndb.org/kana, seções "HTTP Response Codes" e "Tips & Troubleshooting"): 200 pedidos a cada 5 minutos, tratados pela `VndbRequestQueue`; 401 vira o aviso de token recusado, 429 espera e repete, 5xx vira "fora do ar" e não é repetido.
 
+### Original ou traduzido (`VNForge.Core.Library`, d6 #552)
+
+Mostra qual jogo da Biblioteca está com o patch do VNForge e troca entre o original e o traduzido. Esta entrega é o Core e a CLI (`vnf library state|switch`, em `03-cli.md`); a tela espera o shell novo (#544). Não há escrita nova no jogo: a troca usa a injeção com backup e a restauração que já existem (regra 2 do CLAUDE.md), e a Biblioteca não guarda estado próprio, porque o que vale está no projeto ligado ao jogo (`LibraryGame.ProjectPath`).
+
+- **`LibraryTranslationReader.Read`**: devolve um `LibraryTranslationState` com `Kind` (`Original`, `Translated`, `Unknown`), `Patch` (o `GameInGame` do `game-state.json`: tipo, quando foi gravado, pasta do backup, cena e impressão digital dos textos) e `Reason`. A regra é a da faixa de "Testar no jogo": vale o backup mais novo que ainda não foi restaurado, e o `game-state.json` só vale se não houve injeção depois dele (senão o `Patch` vem do manifesto do backup, sem a impressão digital). Sem backup vivo o jogo está `Original`, a menos que o estado cite um backup que sumiu. Só lê; não toca na pasta do jogo.
+- **Desconhecido**: sem projeto ligado, projeto que não abre, projeto cujo `game.path` é outra pasta que não a do jogo da Biblioteca (o VNForge só grava na pasta deste jogo), manifesto de backup ilegível, ou estado que cita um backup que não existe mais. Nesses casos a troca recusa com `LibraryException` e o motivo, e nada é gravado.
+- **`LibraryTranslationSwitcher`**: `ToOriginal` é `GameTester.ReturnToOriginal` (a restauração de `vnf restore`, que confere as cópias do backup e recusa se o jogo mudou depois da injeção). `ToTranslated` é `GameTester.Run` sem abrir o executável (Conferir, montar o `build/`, backup, injetar), então a tradução inteira do projeto é reconstruída e a Conferência pode travar a troca. Um jogo que só tem o teste de acentos ou uma cena recebe a tradução inteira, e o original continua o do primeiro backup. Pedir o estado em que o jogo já está não grava nada (`LibraryTranslationAction.Unchanged`).
+- **Ida e volta**: original, traduzido, original deixa os arquivos do jogo idênticos aos de antes, byte a byte; há teste no Core (`LibraryTranslationTests`, com jogo sintético) e na CLI.
+
 ## Alternativas consideradas para a interface gráfica
 
 | Opção | Por que não (por enquanto) |
