@@ -60,6 +60,7 @@ $Icons = [ordered]@{
     'Icon.EyeOff'   = @('Eye Off', 'eye_off')
     'Icon.Link'     = @('Link', 'link')
     'Icon.Filter'   = @('Filter', 'filter')
+    'Icon.Database' = @('Database', 'database')
 }
 
 $sb = [System.Text.StringBuilder]::new()
