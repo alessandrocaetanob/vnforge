@@ -61,6 +61,9 @@ public sealed class App : Application
                 EditorPassProviderFactory = (model, effort) => ClaudeProviderFactory.CreateEditorPass(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = effort }),
+                JudgeProviderFactory = model => ClaudeProviderFactory.CreateJudge(
+                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low }),
                 BibleProviderFactory = (model, effort) => ClaudeProviderFactory.CreateBible(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = effort }),
