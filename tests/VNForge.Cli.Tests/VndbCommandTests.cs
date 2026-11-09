@@ -129,6 +129,19 @@ public sealed class VndbCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Check_sem_token_repete_o_aviso_do_cofre_que_nao_abriu()
+    {
+        UseFake();
+        _cli.VndbTokens.Notice = "O arquivo vndb-token.dat é do cofre do Windows e foi ignorado.";
+
+        var result = await _cli.RunAsync(["vndb", "token", "check"], Ct);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("foi ignorado", result.Error, StringComparison.Ordinal);
+        Assert.Contains("VNDB_TOKEN", result.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Check_com_token_do_cofre_mostra_a_origem_e_as_permissoes()
     {
         UseFake();

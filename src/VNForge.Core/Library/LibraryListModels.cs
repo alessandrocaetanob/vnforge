@@ -4,7 +4,12 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Library;
 
-/// <summary>Os rótulos da lista do VNDB. Os de id abaixo de 10 são os mesmos para todo mundo (api.vndb.org/kana, seção "GET /ulist_labels"); os outros são da conta.</summary>
+/// <summary>
+/// Os rótulos da lista do VNDB. O que a kana (api.vndb.org/kana, seção "GET /ulist_labels") diz: os ids abaixo de 10 são os pré-definidos e iguais para todo mundo; os rótulos 0 ("No label") e
+/// 7 ("Voted") são virtuais e não podem ser gravados (seção "PATCH /ulist/"). O que a kana não diz: quais são os nomes dos ids de 1 a 6 e o teto de ids da conta. Os nomes abaixo
+/// (Playing, Finished, Stalled, Dropped, Wishlist, Blacklist) são os do site do VNDB, não conferidos na kana: servem de nome provisório e de atalho na linha de comando, e o nome que o VNDB
+/// devolve em cada entrada tem prioridade. O teto de 1600 é um limite do app (a kana avisa que não verifica os ids), não da API.
+/// </summary>
 public static class LibraryListLabels
 {
     public const int Playing = 1;
@@ -17,7 +22,11 @@ public static class LibraryListLabels
     /// <summary>O VNDB põe e tira sozinho com o voto; nunca entra nos rótulos que o app guarda nem nos que ele envia.</summary>
     public const int Voted = 7;
 
+    /// <summary>O maior id de rótulo que o app aceita (limite do app; a kana não fixa um).</summary>
     public const int MaxId = 1600;
+
+    /// <summary>O primeiro id de rótulo da conta: abaixo dele ficam os pré-definidos.</summary>
+    public const int FirstAccountId = 10;
 
     private sealed record Factory(int Id, string Vndb, string Portuguese, string[] Names);
 
@@ -42,7 +51,7 @@ public static class LibraryListLabels
         return Array.Find(Predefined, p => p.Id == label.Id)?.Portuguese ?? label.Label;
     }
 
-    /// <summary>Entende o nome em português ou em inglês de um rótulo de fábrica, ou o id numérico de um rótulo da conta.</summary>
+    /// <summary>Entende o nome em português ou em inglês de um rótulo pré-definido, ou o id numérico de um rótulo da conta (de <see cref="FirstAccountId"/> a <see cref="MaxId"/>).</summary>
     public static bool TryParse(string? text, out int id)
     {
         id = 0;
@@ -58,7 +67,7 @@ public static class LibraryListLabels
             return true;
         }
 
-        return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out id) && id is >= 8 and <= MaxId;
+        return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out id) && id is >= FirstAccountId and <= MaxId;
     }
 
     public static string Names => string.Join(", ", Predefined.Select(p => p.Names[0]));
@@ -157,6 +166,27 @@ public sealed record LibraryListState(string VisualNovelId, LibraryListFields Fi
     public LibraryListFields? Base { get; init; }
 
     public DateTimeOffset? SyncedAt { get; init; }
+
+    /// <summary>
+    /// A entrada existe na lista do VNDB, até onde a última sincronização viu (ela veio de lá ou o envio a criou). Se depois disso a entrada some do VNDB, foi apagada no site,
+    /// e a sincronização não a recria sem pedido.
+    /// </summary>
+    public bool OnVndb { get; init; }
+
+    /// <summary>Os dois estados dizem o mesmo (mesma hora de edição, mesmos campos, mesmo acordo), ou os dois não existem.</summary>
+    public static bool SameAs(LibraryListState? left, LibraryListState? right)
+    {
+        if (left is null || right is null)
+        {
+            return left is null && right is null;
+        }
+
+        return left.VisualNovelId == right.VisualNovelId
+            && left.ModifiedAt == right.ModifiedAt
+            && left.OnVndb == right.OnVndb
+            && left.Fields.SameAs(right.Fields)
+            && (left.Base is null ? right.Base is null : left.Base.SameAs(right.Base));
+    }
 
     /// <summary>Há mudança daqui que o VNDB ainda não tem (ou a primeira sincronização ainda não aconteceu).</summary>
     [JsonIgnore]

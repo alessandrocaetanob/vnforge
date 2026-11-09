@@ -128,7 +128,7 @@ public sealed class LibraryListCommandTests : IDisposable
     {
         var fake = Prepare();
 
-        var result = await Run("library", "status", "CLANNAD", "--label", "terminado", "--vote", "8.5", "--push");
+        var result = await Run("library", "status", "CLANNAD", "--label", "terminado", "--vote", "8.5", "--push", "--yes");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Enviado ao VNDB: rótulos, voto", result.Output, StringComparison.Ordinal);
@@ -143,11 +143,100 @@ public sealed class LibraryListCommandTests : IDisposable
     {
         Prepare(withToken: false);
 
-        var result = await Run("library", "status", "CLANNAD", "--label", "terminado", "--push");
+        var result = await Run("library", "status", "CLANNAD", "--label", "terminado", "--push", "--yes");
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("vnf vndb token set", result.Error, StringComparison.Ordinal);
         Assert.NotNull(Saved().CurrentList);
+    }
+
+    [Fact]
+    public async Task Status_com_push_pergunta_antes_e_recusar_deixa_a_edicao_gravada_sem_enviar()
+    {
+        var fake = Prepare();
+        _cli.SetInput("n\n");
+
+        var result = await Run("library", "status", "CLANNAD", "--vote", "9", "--push");
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("Nada foi enviado", result.Output, StringComparison.Ordinal);
+        Assert.False(Updated(fake));
+        Assert.Equal(90, Saved().CurrentList!.Fields.Vote);
+    }
+
+    [Fact]
+    public async Task Status_com_push_e_json_exige_yes_e_nao_grava_nada_sem_ele()
+    {
+        var fake = Prepare();
+
+        var result = await Run("library", "status", "CLANNAD", "--vote", "9", "--push", "--json");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("--yes", result.Output + result.Error, StringComparison.Ordinal);
+        Assert.Null(Saved().List);
+        Assert.Empty(fake.Calls);
+    }
+
+    [Fact]
+    public async Task Status_avisa_quando_o_jogo_fica_Jogando_e_Terminado_ao_mesmo_tempo()
+    {
+        Prepare();
+
+        var result = await Run("library", "status", "CLANNAD", "--label", "jogando", "--label", "terminado");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Aviso: o jogo está como Jogando e também como Terminado", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--unlabel jogando", result.Output, StringComparison.Ordinal);
+        Assert.Equal([1, 2], Saved().CurrentList!.Fields.Labels.Select(l => l.Id));
+    }
+
+    private void SeedDeletedOnSite()
+    {
+        var fields = new LibraryListFields { Vote = 70, Labels = [LibraryListLabels.Named(2)] };
+        var game = new LibraryGame("g1", "C:\\Jogos\\CLANNAD", null, LibraryEngine.Unknown, "CLANNAD", null, T0)
+        {
+            VndbId = "v4",
+            Confirmation = LibraryConfirmation.Manual,
+            List = new LibraryListState("v4", fields with { Vote = 95 }, T0.AddDays(3)) { Base = fields, SyncedAt = T0, OnVndb = true },
+        };
+        File.Save(new GameLibrary([game]));
+    }
+
+    [Fact]
+    public async Task Entrada_apagada_no_site_aparece_no_plano_e_o_status_push_recusa_sem_recriar()
+    {
+        var fake = Prepare();
+        SeedDeletedOnSite();
+
+        var plan = await Run("library", "sync", "--dry-run");
+        var push = await Run("library", "status", "CLANNAD", "--notes", "Ainda aqui", "--push", "--yes");
+
+        Assert.Equal(0, plan.ExitCode);
+        Assert.Contains("foi apagado da sua lista do VNDB", plan.Output, StringComparison.Ordinal);
+        Assert.Contains("--recreate", plan.Output, StringComparison.Ordinal);
+        Assert.Equal(1, push.ExitCode);
+        Assert.Contains("apagada na sua lista do VNDB", push.Error, StringComparison.Ordinal);
+        Assert.False(Updated(fake));
+        Assert.Equal("Ainda aqui", Saved().CurrentList!.Fields.Notes);
+    }
+
+    [Fact]
+    public async Task Sync_com_recreate_recria_a_entrada_apagada_e_sem_ele_nao()
+    {
+        var fake = Prepare();
+        SeedDeletedOnSite();
+
+        var without = await Run("library", "sync", "--yes");
+        var withIt = await Run("library", "sync", "--recreate", "--yes");
+        var bad = await Run("library", "sync", "--recreate", "--pull");
+
+        Assert.Equal(0, without.ExitCode);
+        Assert.Contains("não foi recriado", without.Output, StringComparison.Ordinal);
+        Assert.Equal(0, withIt.ExitCode);
+        var remote = (await fake.GetListAsync("u1", Secret, Ct)).Items.Single();
+        Assert.Equal(95, remote.Vote);
+        Assert.Contains(remote.Labels, l => l.Id == 2);
+        Assert.Equal(1, bad.ExitCode);
     }
 
     [Fact]

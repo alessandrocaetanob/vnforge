@@ -40,7 +40,11 @@ public sealed record LibrarySyncItem(
     IReadOnlyList<string> Pulled,
     IReadOnlyList<string> Pushed,
     IReadOnlyList<LibrarySyncConflict> Conflicts,
-    string? Error = null);
+    string? Error = null)
+{
+    /// <summary>A entrada existia no VNDB na última sincronização e sumiu (apagada no site).</summary>
+    public bool RemovedOnSite { get; init; }
+}
 
 public sealed record LibrarySyncOptions
 {
@@ -48,6 +52,12 @@ public sealed record LibrarySyncOptions
 
     /// <summary>Só este jogo da biblioteca (pelo id).</summary>
     public string? GameId { get; init; }
+
+    /// <summary>
+    /// Recria no VNDB a entrada que foi apagada no site e tem mudança aqui, mandando tudo o que o app guarda dela. Sem isto a entrada apagada nunca é recriada: o app não
+    /// desfaz uma exclusão feita no site sem a pessoa pedir. Não vale com <see cref="LibrarySyncDirection.Pull"/>.
+    /// </summary>
+    public bool RecreateRemoved { get; init; }
 }
 
 public sealed record LibrarySyncProgress(int Done, int Total, LibraryGame Game);
@@ -145,7 +155,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
         var remote = list.Items.ToDictionary(e => e.VisualNovelId, StringComparer.Ordinal);
         var now = _time.GetUtcNow();
-        var steps = games.Select(g => Plan(g, remote.GetValueOrDefault(g.VndbId!), options.Direction, now)).ToList();
+        var steps = games.Select(g => Plan(g, remote.GetValueOrDefault(g.VndbId!), options.Direction, options.RecreateRemoved && options.Direction != LibrarySyncDirection.Pull, now)).ToList();
         if (steps.Any(s => s.Update is not null) && !account.Permissions.Contains("listwrite"))
         {
             throw new LibraryException("O token não tem a permissão listwrite, e há mudanças para enviar. Gere outro em vndb.org/u/tokens com a escrita da lista, ou use --pull.");
@@ -156,12 +166,14 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
     }
 
     /// <summary>
-    /// Faz o que o <paramref name="plan"/> diz: envia as mudanças ao VNDB, jogo a jogo, e vai trocando o estado na <paramref name="library"/>, para que quem grava o arquivo
-    /// no fim, ou no cancelamento, não perca o que já foi feito. Um 401 ou três falhas seguidas param o resto; uma falha só deixa aquele jogo como estava.
+    /// Faz o que o <paramref name="plan"/> diz: envia as mudanças ao VNDB, jogo a jogo, e entrega cada estado novo a <paramref name="keep"/> assim que o jogo termina, para que
+    /// quem grava o arquivo (dentro de <see cref="LibraryFile.Update{T}(Func{GameLibrary, T})"/>) não segure uma biblioteca velha durante a espera pela rede e não perca o que já foi feito.
+    /// Um 401 ou três falhas seguidas param o resto; uma falha só deixa aquele jogo como estava. Veja <see cref="Keep"/> para uma <paramref name="keep"/> pronta.
     /// </summary>
-    public async Task<LibrarySyncReport> ApplyAsync(GameLibrary library, LibrarySyncPlan plan, string token, IProgress<LibrarySyncProgress>? progress = null, CancellationToken ct = default)
+    /// <param name="keep">Grava o estado novo do jogo e diz se gravou. Falso: o jogo mudou por outro lado enquanto a sincronização esperava, e o estado novo não vale.</param>
+    public async Task<LibrarySyncReport> ApplyAsync(LibrarySyncPlan plan, string token, Func<LibraryGame, LibraryListState, bool> keep, IProgress<LibrarySyncProgress>? progress = null, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(keep);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
 
@@ -209,15 +221,39 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
                 continue;
             }
 
-            if (step.NewState is not null && step.StateChanged)
+            if (step.NewState is not null && step.StateChanged && !keep(step.Item.Game, step.NewState))
             {
-                library.Replace(step.Item.Game with { List = step.NewState });
+                done.Add(step.Item with
+                {
+                    Action = LibrarySyncAction.Failed,
+                    Error = "O jogo mudou aqui enquanto a sincronização esperava o VNDB; o estado não foi atualizado" + (step.Update is null ? "." : " (o envio foi feito). Rode de novo."),
+                });
+                continue;
             }
 
             done.Add(step.Item);
         }
 
         return new LibrarySyncReport(plan.Account, done, plan.RemoteOnly, cancelled, abort);
+    }
+
+    /// <summary>
+    /// Troca o estado da lista do jogo na <paramref name="current"/> (a biblioteca recém-lida, dentro do <see cref="LibraryFile.Update{T}(Func{GameLibrary, T})"/>) mexendo só no <c>List</c>
+    /// e deixando todo o resto do jogo como está agora. Se o jogo sumiu, teve o casamento trocado ou a lista editada desde o plano, não grava e devolve falso.
+    /// </summary>
+    public static bool Keep(GameLibrary current, LibraryGame planned, LibraryListState state)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(planned);
+        ArgumentNullException.ThrowIfNull(state);
+        var now = current.Games.FirstOrDefault(g => g.Id == planned.Id);
+        if (now is null || now.VndbId != planned.VndbId || !LibraryListState.SameAs(now.CurrentList, planned.CurrentList))
+        {
+            return false;
+        }
+
+        current.Replace(now with { List = state });
+        return true;
     }
 
     private static List<LibraryGame> Selected(GameLibrary library, LibrarySyncOptions options)
@@ -238,7 +274,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
     private static string ShowNotes(object? value) => value is string { Length: > 0 } text ? (text.Length <= 40 ? text : text[..40] + "...") : "nenhuma";
 
-    private static LibrarySyncStep Plan(LibraryGame game, VndbListEntry? entry, LibrarySyncDirection direction, DateTimeOffset now)
+    private static LibrarySyncStep Plan(LibraryGame game, VndbListEntry? entry, LibrarySyncDirection direction, bool recreate, DateTimeOffset now)
     {
         var state = game.CurrentList;
         if (state is null && (entry is null || direction == LibrarySyncDirection.Push))
@@ -246,9 +282,16 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             return new LibrarySyncStep(new LibrarySyncItem(game, LibrarySyncAction.Unchanged, [], [], []), null, false, null);
         }
 
+        var removed = entry is null && state is { OnVndb: true };
+        if (removed && state!.Pending && !recreate)
+        {
+            // Apagada no site e editada aqui: recriar a entrada desfaria a exclusão, e isso só com pedido (RecreateRemoved).
+            return new LibrarySyncStep(new LibrarySyncItem(game, LibrarySyncAction.Unchanged, [], [], []) { RemovedOnSite = true }, null, false, null);
+        }
+
         var local = state?.Fields ?? LibraryListFields.Empty;
         var remote = entry is null ? LibraryListFields.Empty : LibraryListFields.From(entry);
-        var oldBase = state?.Base;
+        var oldBase = removed && recreate ? null : state?.Base;
         var hasBase = oldBase is not null;
         var baseFields = oldBase ?? LibraryListFields.Empty;
         var localNewer = (state?.ModifiedAt ?? DateTimeOffset.MinValue) > (entry?.LastModified ?? DateTimeOffset.MinValue);
@@ -289,16 +332,19 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             pushed.Insert(0, "rótulos");
         }
 
+        var update = BuildUpdate(remote, LibraryListFields.Normalize(newRemote));
         var newState = new LibraryListState(game.VndbId!, LibraryListFields.Normalize(newLocal), state?.ModifiedAt ?? entry?.LastModified ?? now)
         {
             Base = NewBase(newLocal, newRemote, baseFields),
             SyncedAt = now,
+            OnVndb = entry is not null || update is not null,
         };
         var changed = state is null
             || oldBase is null
             || !state.Fields.SameAs(newState.Fields)
             || !state.Fields.Labels.SequenceEqual(newState.Fields.Labels)
-            || !oldBase.SameAs(newState.Base);
+            || !oldBase.SameAs(newState.Base)
+            || state.OnVndb != newState.OnVndb;
         var action = (pulled.Count > 0, pushed.Count > 0) switch
         {
             (true, true) => LibrarySyncAction.Merged,
@@ -306,8 +352,8 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             (false, true) => LibrarySyncAction.Pushed,
             _ => LibrarySyncAction.Unchanged,
         };
-        var item = new LibrarySyncItem(game, action, pulled, pushed, conflicts);
-        return new LibrarySyncStep(item, newState, changed, BuildUpdate(remote, LibraryListFields.Normalize(newRemote)));
+        var item = new LibrarySyncItem(game, action, pulled, pushed, conflicts) { RemovedOnSite = removed };
+        return new LibrarySyncStep(item, newState, changed, update);
     }
 
     private static Move DecideScalar(Scalar scalar, object? l, object? r, object? b, bool hasBase, LibrarySyncDirection direction, bool localNewer, List<LibrarySyncConflict> conflicts)

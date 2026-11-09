@@ -87,6 +87,36 @@ public class VndbTokenResolverTests
         Assert.Contains("VNDB_TOKEN", erro.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Arquivo_do_Windows_copiado_para_outro_sistema_e_ignorado_com_aviso_e_a_variavel_vale()
+    {
+        using var dir = new TempDir();
+        Directory.CreateDirectory(dir.Path);
+        File.WriteAllBytes(Path.Combine(dir.Path, "vndb-token.dat"), [1, 2, 3, 4]);
+        var store = new DpapiVndbTokenStore(dir.Path, windows: false);
+
+        var semVariavel = VndbTokenResolver.Resolve(store, _ => null);
+        var comVariavel = VndbTokenResolver.Resolve(store, _ => "do-ambiente");
+
+        Assert.Null(store.Load());
+        Assert.Equal(VndbTokenSource.None, semVariavel.Source);
+        Assert.Contains("ignorado", semVariavel.Notice, StringComparison.Ordinal);
+        Assert.Contains("VNDB_TOKEN", semVariavel.Notice, StringComparison.Ordinal);
+        Assert.Equal("do-ambiente", comVariavel.Token);
+        Assert.Equal(VndbTokenSource.Environment, comVariavel.Source);
+        Assert.True(File.Exists(store.Path));
+    }
+
+    [Fact]
+    public void Sem_arquivo_ou_no_Windows_nao_ha_aviso()
+    {
+        using var dir = new TempDir();
+
+        Assert.Null(new DpapiVndbTokenStore(dir.Path, windows: false).Notice);
+        Assert.Null(new DpapiVndbTokenStore(dir.Path, windows: true).Notice);
+        Assert.Null(VndbTokenResolver.Resolve(new DpapiVndbTokenStore(dir.Path, windows: false), _ => null).Notice);
+    }
+
     private sealed class MemoryStore : IVndbTokenStore
     {
         private string? _token;

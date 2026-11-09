@@ -55,6 +55,7 @@ public sealed class LibraryListModelsTests
     [Theory]
     [InlineData("")]
     [InlineData("7")]
+    [InlineData("9")]
     [InlineData("voted")]
     [InlineData("1601")]
     [InlineData("qualquer")]

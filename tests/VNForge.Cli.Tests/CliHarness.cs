@@ -123,6 +123,8 @@ internal sealed class InMemoryVndbTokenStore : VNForge.Vndb.IVndbTokenStore
 {
     private string? _token;
 
+    public string? Notice { get; set; }
+
     public string? Load() => _token;
 
     public void Save(string token) => _token = token;

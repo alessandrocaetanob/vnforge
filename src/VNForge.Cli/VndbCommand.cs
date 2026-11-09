@@ -106,7 +106,7 @@ internal static class VndbCommand
         var resolved = cli.ResolveVndbToken();
         if (resolved.Token is null)
         {
-            throw new UsageException($"Não há token do VNDB. Defina {VndbTokenResolver.EnvironmentVariable} ou rode vnf vndb token set.");
+            throw new UsageException($"Não há token do VNDB. Defina {VndbTokenResolver.EnvironmentVariable} ou rode vnf vndb token set.{(resolved.Notice is null ? string.Empty : " " + resolved.Notice)}");
         }
 
         var account = await cli.CreateVndbUserList().GetAuthInfoAsync(resolved.Token, cancellationToken).ConfigureAwait(false);

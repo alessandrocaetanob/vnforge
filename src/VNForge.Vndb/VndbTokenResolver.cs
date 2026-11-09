@@ -11,6 +11,9 @@ public enum VndbTokenSource
 /// <summary>O token resolvido e sua origem. Nunca vai para log, <c>--json</c> nem arquivo.</summary>
 public sealed record ResolvedVndbToken(string? Token, VndbTokenSource Source)
 {
+    /// <summary>Um aviso do cofre (por exemplo, o arquivo do Windows ignorado em outro sistema) para mostrar à pessoa; nunca contém o token.</summary>
+    public string? Notice { get; init; }
+
     public override string ToString() => $"ResolvedVndbToken {{ Source = {Source} }}";
 }
 
@@ -40,7 +43,7 @@ public static class VndbTokenResolver
 
         var fromVault = store.Load();
         return string.IsNullOrWhiteSpace(fromVault)
-            ? new ResolvedVndbToken(null, VndbTokenSource.None)
+            ? new ResolvedVndbToken(null, VndbTokenSource.None) { Notice = store.Notice }
             : new ResolvedVndbToken(fromVault.Trim(), VndbTokenSource.Vault);
     }
 }

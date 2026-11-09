@@ -25,6 +25,11 @@ internal static class LibraryListCommands
         Description = "Só envia ao VNDB o que mudou aqui; não traz nada. Nos conflitos, vale o que está aqui.",
     };
 
+    private static readonly Option<bool> RecreateOption = new("--recreate")
+    {
+        Description = "Recria no VNDB a entrada que você apagou no site e que tem mudança aqui. Sem isto ela não é recriada. Não vale com --pull.",
+    };
+
     private static readonly Option<bool> DryRunOption = new("--dry-run")
     {
         Description = "Mostra o que seria trazido e enviado, sem gravar nada, nem aqui nem no VNDB.",
@@ -68,7 +73,7 @@ internal static class LibraryListCommands
 
     private static readonly Option<bool> PushNowOption = new("--push")
     {
-        Description = "Depois de gravar aqui, envia este jogo ao VNDB (precisa do token com listwrite).",
+        Description = "Depois de gravar aqui, envia este jogo ao VNDB, perguntando antes (--yes pula; com --json é obrigatório). Precisa do token com listwrite.",
     };
 
     public static Command CreateSync(VnfCli cli)
@@ -76,6 +81,7 @@ internal static class LibraryListCommands
         var command = new Command("sync", "Sincroniza rótulos, voto, datas e notas com a sua lista do VNDB, nos dois sentidos.");
         command.Options.Add(PullOption);
         command.Options.Add(PushOption);
+        command.Options.Add(RecreateOption);
         command.Options.Add(DryRunOption);
         command.SetAction((parseResult, token) => SyncAsync(cli, parseResult, token));
         return command;
@@ -152,6 +158,12 @@ internal static class LibraryListCommands
             throw new UsageException("Use --pull ou --push, não os dois: sem nenhum dos dois a sincronização anda nos dois sentidos.");
         }
 
+        var recreate = parseResult.GetValue(RecreateOption);
+        if (recreate && pull)
+        {
+            throw new UsageException("--recreate manda entradas ao VNDB e não combina com --pull.");
+        }
+
         var direction = pull ? LibrarySyncDirection.Pull : push ? LibrarySyncDirection.Push : LibrarySyncDirection.Both;
         var json = parseResult.GetValue(cli.Options.Json);
         var output = parseResult.InvocationConfiguration.Output;
@@ -160,7 +172,7 @@ internal static class LibraryListCommands
         var file = new LibraryFile(cli.UserConfigDirectory);
         var library = file.Load();
         var synchronizer = new LibraryListSynchronizer(cli.CreateVndbUserList());
-        var plan = await synchronizer.PlanAsync(library, token, new LibrarySyncOptions { Direction = direction }, cancellationToken).ConfigureAwait(false);
+        var plan = await synchronizer.PlanAsync(library, token, new LibrarySyncOptions { Direction = direction, RecreateRemoved = recreate }, cancellationToken).ConfigureAwait(false);
 
         if (dryRun)
         {
@@ -175,16 +187,7 @@ internal static class LibraryListCommands
             return ErrorHandler.CancelledExitCode;
         }
 
-        LibrarySyncReport report;
-        try
-        {
-            report = await synchronizer.ApplyAsync(library, plan, token, json ? null : new SyncLines(parseResult.InvocationConfiguration.Error), cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            file.Save(library);
-        }
-
+        var report = await synchronizer.ApplyAsync(plan, token, (game, state) => Keep(file, game, state), json ? null : new SyncLines(parseResult.InvocationConfiguration.Error), cancellationToken).ConfigureAwait(false);
         var exitCode = report.Items.Any(i => i.Action == LibrarySyncAction.Failed) || report.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         WriteResult(output, json, report, direction, dryRun: false, exitCode);
         cancellationToken.ThrowIfCancellationRequested();
@@ -195,35 +198,34 @@ internal static class LibraryListCommands
     {
         var json = parseResult.GetValue(cli.Options.Json);
         var output = parseResult.InvocationConfiguration.Output;
-        var file = new LibraryFile(cli.UserConfigDirectory);
-        var library = file.Load();
-        var game = library.Find(reference);
-        if (!game.IsConfirmed)
+        var pushNow = parseResult.GetValue(PushNowOption);
+        if (pushNow && json && !parseResult.GetValue(cli.Options.Yes))
         {
-            throw new UsageException($"'{game.Title}' não tem jogo do VNDB confirmado; confirme com vnf library match --confirm {game.Id} <vndb-id> antes de mexer na lista.");
+            throw new UsageException("Com --json não há como perguntar: confirme o envio com --yes.");
         }
 
+        var file = new LibraryFile(cli.UserConfigDirectory);
         var update = ReadUpdate(parseResult);
         var edited = update is not null;
-        if (update is not null)
+        LibraryGame game;
+        if (update is null)
         {
-            try
+            game = ConfirmedGame(file.Load(), reference);
+        }
+        else
+        {
+            game = file.Update(current =>
             {
-                var state = LibraryListState.Edit(game.CurrentList, game.VndbId!, update, TimeProvider.System.GetUtcNow());
-                game = game with { List = state };
-            }
-            catch (ArgumentException e)
-            {
-                throw new UsageException(e.Message);
-            }
-
-            library.Replace(game);
-            file.Save(library);
+                var found = ConfirmedGame(current, reference);
+                var changed = found with { List = Edit(found, update) };
+                current.Replace(changed);
+                return changed;
+            });
         }
 
         LibrarySyncItem? sent = null;
         string? sendNote = null;
-        if (parseResult.GetValue(PushNowOption))
+        if (pushNow)
         {
             if (game.CurrentList is null)
             {
@@ -232,23 +234,27 @@ internal static class LibraryListCommands
 
             var token = RequireToken(cli);
             var synchronizer = new LibraryListSynchronizer(cli.CreateVndbUserList());
-            var plan = await synchronizer.PlanAsync(library, token, new LibrarySyncOptions { Direction = LibrarySyncDirection.Push, GameId = game.Id }, cancellationToken).ConfigureAwait(false);
-            LibrarySyncReport report;
-            try
+            var plan = await synchronizer.PlanAsync(file.Load(), token, new LibrarySyncOptions { Direction = LibrarySyncDirection.Push, GameId = game.Id }, cancellationToken).ConfigureAwait(false);
+            if (plan.Items.Any(i => i.RemovedOnSite))
             {
-                report = await synchronizer.ApplyAsync(library, plan, token, null, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                file.Save(library);
+                throw new UsageException($"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e o jogo tem mudanças aqui. A edição ficou gravada, mas não foi enviada, para não recriar o que você apagou no site. Para recriar: vnf library sync --push --recreate.");
             }
 
+            if (plan.PushCount > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Enviar as mudanças de '{game.Title}' para a lista de {plan.Account.Username} no VNDB?"))
+            {
+                output.WriteLine("Operação cancelada. Nada foi enviado; a edição ficou gravada aqui.");
+                return ErrorHandler.CancelledExitCode;
+            }
+
+            var report = await synchronizer.ApplyAsync(plan, token, (planned, state) => Keep(file, planned, state), null, cancellationToken).ConfigureAwait(false);
             sent = report.Items.FirstOrDefault();
             sendNote = report.AbortReason ?? sent?.Error;
-            game = library.Find(game.Id);
+            game = file.Load().Find(game.Id);
         }
 
         var failed = sendNote is not null;
+        var exitCode = failed ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
+        var warning = edited ? LabelWarning(game) : null;
         if (json)
         {
             output.WriteLine(JsonEnvelope.Result(
@@ -257,14 +263,20 @@ internal static class LibraryListCommands
                     game = new { id = game.Id, title = game.Title, vndbId = game.VndbId },
                     list = Data(game),
                     edited,
+                    warning,
                     sent = sent is null ? null : new { action = ActionName(sent.Action), pushed = sent.Pushed, conflicts = ConflictData(sent), error = sendNote },
                 },
-                failed ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode));
-            return failed ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
+                exitCode));
+            return exitCode;
         }
 
         output.WriteLine($"{game.Title} ({game.VndbId})");
         WriteLines(output, game);
+        if (warning is not null)
+        {
+            output.WriteLine("Aviso: " + warning);
+        }
+
         if (sent is not null)
         {
             WriteSent(output, sent, sendNote);
@@ -274,7 +286,40 @@ internal static class LibraryListCommands
             output.WriteLine("Gravado só aqui. Para enviar ao VNDB: vnf library sync --push (ou repita este comando com --push).");
         }
 
-        return failed ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
+        return exitCode;
+    }
+
+    private static LibraryGame ConfirmedGame(GameLibrary library, string reference)
+    {
+        var game = library.Find(reference);
+        return game.IsConfirmed
+            ? game
+            : throw new UsageException($"'{game.Title}' não tem jogo do VNDB confirmado; confirme com vnf library match --confirm {game.Id} <vndb-id> antes de mexer na lista.");
+    }
+
+    private static LibraryListState Edit(LibraryGame game, VndbListUpdate update)
+    {
+        try
+        {
+            return LibraryListState.Edit(game.CurrentList, game.VndbId!, update, TimeProvider.System.GetUtcNow());
+        }
+        catch (ArgumentException e)
+        {
+            throw new UsageException(e.Message);
+        }
+    }
+
+    /// <summary>Grava o estado novo relendo a biblioteca sob a trava do arquivo: só o <c>List</c> do jogo muda, o resto vem do que está no arquivo agora.</summary>
+    private static bool Keep(LibraryFile file, LibraryGame planned, LibraryListState state) =>
+        file.Update(current => LibraryListSynchronizer.Keep(current, planned, state));
+
+    /// <summary>O app não tira um rótulo ao pôr outro: o jogo pode ficar Jogando e Terminado ao mesmo tempo, e a pessoa decide.</summary>
+    private static string? LabelWarning(LibraryGame game)
+    {
+        var fields = game.CurrentList?.Fields;
+        return fields is not null && fields.HasLabel(LibraryListLabels.Playing) && (fields.HasLabel(LibraryListLabels.Finished) || fields.HasLabel(LibraryListLabels.Stalled) || fields.HasLabel(LibraryListLabels.Dropped))
+            ? "o jogo está como Jogando e também como Terminado, Parado ou Abandonado. O app não tira um rótulo ao pôr outro; use --unlabel jogando se não for isso que você quer."
+            : null;
     }
 
     private static void WriteSent(TextWriter output, LibrarySyncItem sent, string? error)
@@ -357,7 +402,7 @@ internal static class LibraryListCommands
         {
             if (!LibraryListLabels.TryParse(value, out var id))
             {
-                throw new UsageException($"{option}: rótulo desconhecido '{value}'. Use um de: {LibraryListLabels.Names}, ou o id (8 a {LibraryListLabels.MaxId}) de um rótulo seu. O 'Voted' o VNDB põe sozinho com o voto.");
+                throw new UsageException($"{option}: rótulo desconhecido '{value}'. Use um de: {LibraryListLabels.Names}, ou o id ({LibraryListLabels.FirstAccountId} a {LibraryListLabels.MaxId}) de um rótulo seu. O 'Voted' o VNDB põe sozinho com o voto.");
             }
 
             if (!ids.Contains(id))
@@ -369,9 +414,12 @@ internal static class LibraryListCommands
         return ids;
     }
 
-    private static string RequireToken(VnfCli cli) =>
-        cli.ResolveVndbToken().Token
-        ?? throw new UsageException($"Não há token do VNDB. Gere um em vndb.org/u/tokens e defina {VNForge.Vndb.VndbTokenResolver.EnvironmentVariable} ou rode vnf vndb token set.");
+    private static string RequireToken(VnfCli cli)
+    {
+        var resolved = cli.ResolveVndbToken();
+        return resolved.Token
+            ?? throw new UsageException($"Não há token do VNDB. Gere um em vndb.org/u/tokens e defina {VNForge.Vndb.VndbTokenResolver.EnvironmentVariable} ou rode vnf vndb token set.{(resolved.Notice is null ? string.Empty : " " + resolved.Notice)}");
+    }
 
     private static void WriteResult(TextWriter output, bool json, LibrarySyncReport report, LibrarySyncDirection direction, bool dryRun, int exitCode = ErrorHandler.OkExitCode)
     {
@@ -395,12 +443,13 @@ internal static class LibraryListCommands
                     remoteOnly = report.RemoteOnly,
                     cancelled = report.Cancelled,
                     abortReason = report.AbortReason,
-                    items = items.Where(i => i.Action != LibrarySyncAction.Unchanged).Select(i => new
+                    items = items.Where(i => i.Action != LibrarySyncAction.Unchanged || i.RemovedOnSite).Select(i => new
                     {
                         game = i.Game.Id,
                         title = i.Game.Title,
                         vndbId = i.Game.VndbId,
                         action = ActionName(i.Action),
+                        removedOnSite = i.RemovedOnSite,
                         pulled = i.Pulled,
                         pushed = i.Pushed,
                         conflicts = ConflictData(i),
@@ -417,11 +466,17 @@ internal static class LibraryListCommands
             output.WriteLine("Sincronização cancelada. O que já foi feito ficou gravado; rode de novo para continuar.");
         }
 
-        foreach (var item in items.Where(i => i.Action != LibrarySyncAction.Unchanged))
+        foreach (var item in items.Where(i => i.Action != LibrarySyncAction.Unchanged || i.RemovedOnSite))
         {
             if (item.Action == LibrarySyncAction.Failed)
             {
                 output.WriteLine($"  Falhou: {item.Game.Title}: {item.Error}");
+                continue;
+            }
+
+            if (item.Action == LibrarySyncAction.Unchanged)
+            {
+                output.WriteLine($"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e tem mudanças aqui; não foi recriado. Para recriar: vnf library sync --recreate.");
                 continue;
             }
 
@@ -436,7 +491,7 @@ internal static class LibraryListCommands
                 parts.Add($"{(dryRun ? "enviaria" : "enviou")} {string.Join(", ", item.Pushed)}");
             }
 
-            output.WriteLine($"  {item.Game.Title}: {string.Join("; ", parts)}");
+            output.WriteLine($"  {item.Game.Title}: {string.Join("; ", parts)}{(item.RemovedOnSite ? " (a entrada foi apagada no site)" : string.Empty)}");
             foreach (var conflict in item.Conflicts)
             {
                 output.WriteLine("    Aviso: " + ConflictText(item.Game, conflict));

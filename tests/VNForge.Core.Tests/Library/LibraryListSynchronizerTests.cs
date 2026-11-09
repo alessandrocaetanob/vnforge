@@ -43,11 +43,11 @@ public sealed class LibraryListSynchronizerTests
     private static (GameLibrary Library, FakeVndbCatalog Fake) Setup(VndbListEntry? entry) =>
         (new GameLibrary([Game()]), new FakeVndbCatalog(list: entry is null ? [] : [entry]));
 
-    private static async Task<LibrarySyncReport> Sync(GameLibrary library, IVndbUserList vndb, LibrarySyncDirection direction = LibrarySyncDirection.Both, string? gameId = null)
+    private static async Task<LibrarySyncReport> Sync(GameLibrary library, IVndbUserList vndb, LibrarySyncDirection direction = LibrarySyncDirection.Both, string? gameId = null, bool recreate = false)
     {
         var synchronizer = new LibraryListSynchronizer(vndb, new FakeTimeProvider(Latest));
-        var plan = await synchronizer.PlanAsync(library, FakeVndbCatalog.ValidToken, new LibrarySyncOptions { Direction = direction, GameId = gameId }, Ct);
-        return await synchronizer.ApplyAsync(library, plan, FakeVndbCatalog.ValidToken, null, Ct);
+        var plan = await synchronizer.PlanAsync(library, FakeVndbCatalog.ValidToken, new LibrarySyncOptions { Direction = direction, GameId = gameId, RecreateRemoved = recreate }, Ct);
+        return await synchronizer.ApplyAsync(plan, FakeVndbCatalog.ValidToken, (game, state) => LibraryListSynchronizer.Keep(library, game, state), null, Ct);
     }
 
     private static async Task<VndbListEntry?> Remote(FakeVndbCatalog fake, string id = "v4") =>
@@ -63,7 +63,7 @@ public sealed class LibraryListSynchronizerTests
         };
 
     private static GameLibrary Synced(LibraryListFields fields, DateTimeOffset modified, LibraryListFields? baseFields = null) =>
-        new([Game() with { List = new LibraryListState("v4", fields, modified) { Base = baseFields ?? fields, SyncedAt = T0 } }]);
+        new([Game() with { List = new LibraryListState("v4", fields, modified) { Base = baseFields ?? fields, SyncedAt = T0, OnVndb = true } }]);
 
     private static LibraryListFields Fields(int? vote = null, string? notes = null, params int[] labels) =>
         LibraryListFields.Normalize(new LibraryListFields { Vote = vote, Notes = notes, Labels = [.. labels.Select(LibraryListLabels.Named)] });
@@ -299,8 +299,130 @@ public sealed class LibraryListSynchronizerTests
         var report = await Sync(library, fake);
 
         Assert.Equal(LibrarySyncAction.Pulled, report.Items[0].Action);
+        Assert.True(report.Items[0].RemovedOnSite);
         Assert.Null(library.Games[0].CurrentList!.Fields.Vote);
         Assert.Empty(library.Games[0].CurrentList!.Fields.Labels);
+        Assert.False(library.Games[0].CurrentList!.OnVndb);
+    }
+
+    [Theory]
+    [InlineData(LibrarySyncDirection.Both)]
+    [InlineData(LibrarySyncDirection.Push)]
+    [InlineData(LibrarySyncDirection.Pull)]
+    public async Task Entrada_apagada_no_site_com_edicao_local_nao_e_recriada_e_aparece_no_plano(LibrarySyncDirection direction)
+    {
+        var agreed = Fields(vote: 70);
+        var library = Synced(agreed with { Vote = 95 }, Latest, agreed);
+        var fake = new FakeVndbCatalog();
+
+        var report = await Sync(library, fake, direction);
+
+        var item = Assert.Single(report.Items);
+        Assert.True(item.RemovedOnSite);
+        Assert.Equal(LibrarySyncAction.Unchanged, item.Action);
+        Assert.Empty(item.Pushed);
+        Assert.DoesNotContain(fake.Calls, c => c.StartsWith("UpdateEntryAsync", StringComparison.Ordinal));
+        Assert.Empty((await fake.GetListAsync("u1", FakeVndbCatalog.ValidToken, Ct)).Items);
+        Assert.Equal(95, library.Games[0].CurrentList!.Fields.Vote);
+        Assert.True(library.Games[0].CurrentList!.Pending);
+    }
+
+    [Fact]
+    public async Task Entrada_apagada_no_site_so_e_recriada_com_o_pedido_e_com_tudo_o_que_o_app_guarda()
+    {
+        var agreed = Fields(vote: 70, notes: "Antes", 2);
+        var library = Synced(agreed with { Vote = 95 }, Latest, agreed);
+        var fake = new FakeVndbCatalog();
+
+        var report = await Sync(library, fake, recreate: true);
+
+        Assert.Equal(LibrarySyncAction.Pushed, report.Items[0].Action);
+        var remote = (await Remote(fake))!;
+        Assert.Equal(95, remote.Vote);
+        Assert.Equal("Antes", remote.Notes);
+        Assert.Contains(remote.Labels, l => l.Id == 2);
+        Assert.True(library.Games[0].CurrentList!.OnVndb);
+        Assert.False(library.Games[0].CurrentList!.Pending);
+    }
+
+    [Fact]
+    public async Task Recriar_nao_vale_com_pull()
+    {
+        var agreed = Fields(vote: 70);
+        var library = Synced(agreed with { Vote = 95 }, Latest, agreed);
+        var fake = new FakeVndbCatalog();
+
+        var report = await Sync(library, fake, LibrarySyncDirection.Pull, recreate: true);
+
+        Assert.True(report.Items[0].RemovedOnSite);
+        Assert.Equal(LibrarySyncAction.Unchanged, report.Items[0].Action);
+        Assert.DoesNotContain(fake.Calls, c => c.StartsWith("UpdateEntryAsync", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Estado_que_nunca_chegou_ao_VNDB_nao_conta_como_apagado_no_site()
+    {
+        var (library, fake) = Setup(null);
+        library.Replace(library.Games[0] with { List = LibraryListState.Edit(null, "v4", Edit(vote: 80), T0) });
+
+        var report = await Sync(library, fake);
+
+        Assert.False(report.Items[0].RemovedOnSite);
+        Assert.Equal(LibrarySyncAction.Pushed, report.Items[0].Action);
+    }
+
+    [Fact]
+    public async Task Gravar_relendo_o_arquivo_nao_perde_o_que_outro_processo_gravou_durante_a_espera()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "vnforge-sync-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var file = new LibraryFile(dir);
+            var other = new LibraryFile(dir);
+            file.Save(new GameLibrary([Game("g1", "v4"), Game("g2", "v17")]));
+            file.Update(l => l.Replace(l.Games[0] with { List = LibraryListState.Edit(null, "v4", Edit(vote: 80), T0) }));
+            var library = file.Load();
+            var fake = new FakeVndbCatalog();
+            var writing = new DuringUpdate(fake, () => other.Update(l =>
+            {
+                l.Privacy = new LibraryPrivacy(ShowAdult: true);
+                l.Replace(l.Games[1] with { Title = "Mudou fora", ProjectPath = "C:\\Projetos\\g2" });
+            }));
+            var synchronizer = new LibraryListSynchronizer(writing, new FakeTimeProvider(Latest));
+            var plan = await synchronizer.PlanAsync(library, FakeVndbCatalog.ValidToken, new LibrarySyncOptions(), Ct);
+
+            var report = await synchronizer.ApplyAsync(plan, FakeVndbCatalog.ValidToken, (game, state) => file.Update(current => LibraryListSynchronizer.Keep(current, game, state)), null, Ct);
+
+            Assert.Equal(LibrarySyncAction.Pushed, report.Items[0].Action);
+            var saved = file.Load();
+            Assert.True(saved.Privacy.ShowAdult);
+            Assert.Equal("Mudou fora", saved.Games[1].Title);
+            Assert.Equal("C:\\Projetos\\g2", saved.Games[1].ProjectPath);
+            Assert.False(saved.Games[0].CurrentList!.Pending);
+            Assert.True(saved.Games[0].CurrentList!.OnVndb);
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Jogo_editado_por_outro_lado_durante_a_espera_nao_e_sobrescrito()
+    {
+        var (library, fake) = Setup(null);
+        library.Replace(library.Games[0] with { List = LibraryListState.Edit(null, "v4", Edit(vote: 80), T0) });
+        var edited = new DuringUpdate(fake, () => library.Replace(library.Games[0] with { List = LibraryListState.Edit(library.Games[0].CurrentList, "v4", Edit(notes: "Escrita no meio"), Latest) }));
+
+        var report = await Sync(library, edited);
+
+        Assert.Equal(LibrarySyncAction.Failed, report.Items[0].Action);
+        Assert.Contains("Rode de novo", report.Items[0].Error, StringComparison.Ordinal);
+        Assert.Equal("Escrita no meio", library.Games[0].CurrentList!.Fields.Notes);
+        Assert.True(library.Games[0].CurrentList!.Pending);
     }
 
     [Fact]
@@ -423,11 +545,26 @@ public sealed class LibraryListSynchronizerTests
         var plan = await synchronizer.PlanAsync(library, FakeVndbCatalog.ValidToken, new LibrarySyncOptions(), Ct);
         var progress = new CancelAfterFirst(cancel);
 
-        var report = await synchronizer.ApplyAsync(library, plan, FakeVndbCatalog.ValidToken, progress, cancel.Token);
+        var report = await synchronizer.ApplyAsync(plan, FakeVndbCatalog.ValidToken, (game, state) => LibraryListSynchronizer.Keep(library, game, state), progress, cancel.Token);
 
         Assert.True(report.Cancelled);
         Assert.False(library.Games[0].CurrentList!.Pending);
         Assert.True(library.Games[1].CurrentList!.Pending);
+    }
+
+    private sealed class DuringUpdate(FakeVndbCatalog inner, Action during) : IVndbUserList
+    {
+        public Task<VndbAuthInfo> GetAuthInfoAsync(string token, CancellationToken ct = default) => inner.GetAuthInfoAsync(token, ct);
+
+        public Task<VndbResults<VndbListEntry>> GetListAsync(string userId, string? token = null, CancellationToken ct = default) =>
+            inner.GetListAsync(userId, token, ct);
+
+        public async Task UpdateEntryAsync(string token, string visualNovelId, VndbListUpdate update, CancellationToken ct = default)
+        {
+            await Task.Yield();
+            during();
+            await inner.UpdateEntryAsync(token, visualNovelId, update, ct).ConfigureAwait(false);
+        }
     }
 
     private sealed class CancelAfterFirst(CancellationTokenSource cancel) : IProgress<LibrarySyncProgress>

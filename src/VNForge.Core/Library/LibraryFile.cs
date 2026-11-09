@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VNForge.Core.Projects;
 
 namespace VNForge.Core.Library;
 
@@ -44,6 +45,58 @@ public sealed class LibraryFile(string directory)
         }
     }
 
+    /// <summary>
+    /// Lê a biblioteca, aplica <paramref name="change"/> e grava, com o arquivo travado: quem mudou o <c>library.json</c> no meio (outro <c>vnf</c>, o app) não perde o que gravou.
+    /// Quem tem uma operação longa (a busca no VNDB) deve chamar <c>Update</c> por resultado, e não segurar a biblioteca lida no começo até o fim.
+    /// </summary>
+    /// <exception cref="LibraryException">O arquivo está ilegível, ou outro processo o segurou por mais de <see cref="LockTimeout"/>.</exception>
+    public T Update<T>(Func<GameLibrary, T> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        using var gate = Acquire();
+        var library = Load();
+        var result = change(library);
+        Save(library);
+        return result;
+    }
+
+    /// <inheritdoc cref="Update{T}(Func{GameLibrary, T})"/>
+    public void Update(Action<GameLibrary> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        Update(library =>
+        {
+            change(library);
+            return 0;
+        });
+    }
+
+    /// <summary>Quanto <see cref="Update{T}(Func{GameLibrary, T})"/> espera outro processo soltar a trava.</summary>
+    public static TimeSpan LockTimeout { get; } = TimeSpan.FromSeconds(15);
+
+    private FileStream Acquire()
+    {
+        var lockPath = Path + ".lock";
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                if (System.Diagnostics.Stopwatch.GetElapsedTime(started) > LockTimeout)
+                {
+                    throw new LibraryException($"A biblioteca ('{Path}') está em uso por outro processo. Tente de novo em instantes.", e);
+                }
+
+                Thread.Sleep(20);
+            }
+        }
+    }
+
     /// <summary>Grava a biblioteca sem deixar o arquivo pela metade: escreve num temporário ao lado e troca.</summary>
     public void Save(GameLibrary library)
     {
@@ -53,7 +106,7 @@ public sealed class LibraryFile(string directory)
         try
         {
             File.WriteAllText(temporary, Serialize(library));
-            File.Move(temporary, Path, overwrite: true);
+            ProjectFileIo.Move(temporary, Path, overwrite: true);
         }
         finally
         {

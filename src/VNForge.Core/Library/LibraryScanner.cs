@@ -19,7 +19,7 @@ public sealed class LibraryScanner(EngineRecognizer recognizer, IGameWindowTitle
 {
     private static readonly HashSet<string> SystemFolders = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Windows", "Program Files", "Program Files (x86)", "ProgramData", "System Volume Information", "Recovery", "AppData", "node_modules",
+        "Windows", "ProgramData", "System Volume Information", "Recovery", "AppData", "node_modules",
         "WindowsApps", "WinSxS", "Documents and Settings", "PerfLogs", "MSOCache", "Config.Msi", "Boot",
     };
 
