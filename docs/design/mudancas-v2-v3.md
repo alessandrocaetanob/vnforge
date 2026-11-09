@@ -21,10 +21,12 @@ Nenhum token sai. Nada foi renomeado: manter os nomes deixa o `Tokens.axaml` com
 - **Tamanhos:** `row-height` 36px → 48px; `navrail-width` 72px → 80px; `inspector-width` 400px → 384px; `scripts-width` 190px → 220px.
 - **Raios:** `radius-sm` 4 → 8 e `radius-md` 8 → 12. Os painéis de hoje usam `radius-md` e passam a `radius-lg`.
 - **Sombra:** `shadow-flyout` no claro ganha tinta esverdeada (`rgba(20,28,26,0.16)`), no escuro continua igual.
-- **Texto:** `jp-body` de 15/24 para 19/30; `overline` de 12 para 11 px, agora em caixa alta com 0,07 em; `title-lg` de 26/38 para 24/32 (o 34/40 virou `title-xl`); `title-md` continua 17/24.
+- **Texto:** `jp-body` de 15/24 para 19/30; `overline` de 12 para 11 px, agora em caixa alta com 0,07 em; `title-lg` de 26/38 para 24/32 (o 34/40 virou `title-xl`); `title-md` continua em 17 px, e a entrelinha passou de 25 para 24.
 
 ## Cuidados na implementação
 
 - Os tokens `stage-*`, `cover-scrim` e `dialog-scrim` seguem a convenção do v2: valor com alfa em AARRGGBB, como o Avalonia lê. O design system os mostra como cor sem alfa.
+- A entrelinha do `tokens.json` é 32 em `title-lg` e 24 em `title-md`, mas o app usa 35 e 25: a Zen Kaku Gothic New pede 1,45 de altura por corpo (34,75 e 24,6) e o TextBlock do Avalonia corta as descendentes (j, p, g) abaixo disso. A exceção está em `TextScale.axaml`, em `TextAppearance.Scales` e em `TypographyTokensTests`; para tirá-la, o design precisa de uma entrelinha que caiba.
+- A escala de texto não vem do gerador: `TypographyTokensTests` compara `type.groups` do `tokens.json` com `TextScale.axaml` e com `TextAppearance.Scales`.
 - `TokensTests` compara `tokens.json` com o `Tokens.axaml` gerado: rode o gerador antes de rodar os testes.
 - Os seis ícones novos entraram em `Icons.axaml` por `tools/Update-Icons.ps1` (nomes `Library`, `ArrowLeft`, `Eye`, `EyeOff`, `Link`, `Filter`).

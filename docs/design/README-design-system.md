@@ -25,7 +25,7 @@ Sistema visual do VNForge, o aplicativo Windows que traduz visual novels, em Ava
 ## Tipografia
 
 - Só as fontes que o app já embute sob SIL OFL: **Zen Kaku Gothic New** (Medium, Bold) nos títulos, **Noto Sans** (Regular, Medium, SemiBold) na interface, **Noto Sans JP** (Regular, Medium) no texto original e **JetBrains Mono** (Regular, Medium) em ids e na caixa do jogo. Nenhuma fonte nova entra com a v3; o Noto Sans Bold continua fora, então a interface usa no máximo o peso 600.
-- Títulos em `title-xl` (34/40), `title-lg` (24/32), `title-md` (17/24) e `title-sm` (15/20), na família `display`, sempre Bold. Um `title-xl` por tela.
+- Títulos em `title-xl` (34/40), `title-lg` (24/32), `title-md` (17/24) e `title-sm` (15/20), na família `display`, sempre Bold. Um `title-xl` por tela. No app, `title-lg` usa entrelinha 35 e `title-md` 25 (o `tokens.json` diz 32 e 24): a Zen Kaku Gothic New pede 1,45 de altura por corpo e o TextBlock do Avalonia corta as descendentes abaixo disso.
 - Texto corrido em `body` (14/20); rótulo de botão em `body-strong`; linhas e listas em `body-sm`; metadados em `caption`. Cabeçalho de coluna em `column-header`; rótulo de campo em `overline` (caixa alta, 0,07 em).
 - Japonês sempre na família `jp`: `jp-body` (19/30) no inspetor, `jp-row` (13/18) na grade.
 
@@ -51,6 +51,18 @@ Sistema visual do VNForge, o aplicativo Windows que traduz visual novels, em Ava
 ## Iconografia
 
 - Fluent UI System Icons (Microsoft, MIT), estilo Regular, 20 px no trilho (22 no item do trilho), 16 px no resto. Entram na v3: Library, ArrowLeft, Eye, EyeOff, Link e Filter, pelo `tools/Update-Icons.ps1`. Sparkle = IA, Warning = aviso, Check = ok, EyeOff = escondido, Link = sem casamento, Error Circle = erro, Arrow Sync = tarefa em andamento, Arrow Undo = restaurar.
+
+## Composição e acessibilidade
+
+Regras da v2 que o v3 não substitui. Onde havia um tamanho fixo, a regra agora cita o token do v3.
+
+- Painéis lado a lado na mesma linha têm a mesma altura. No Avalonia isso é um `Grid` com colunas `*` ou fixas e o painel ocupando a célula inteira, nunca um `StackPanel` horizontal, que deixa cada painel com a altura do próprio conteúdo.
+- Cabeçalho de painel com a altura de `row-height` (48) e rodapé com a de `control-lg` (40), ancorado embaixo, para o espaço livre ficar no corpo. Na v2 os dois valores eram escritos em px; os tokens do v3 dão os mesmos 48 e 40.
+- Gap entre painéis em `space-3` e painéis-resumo com o mesmo papel (os indicadores do Painel, as tabelas por script e por personagem) dividindo a largura em partes iguais. O v3 não redefine essas duas medidas.
+- Tabelas-resumo usam linha de `row-height` (48 no v3, era 36) e a barra de `progress-height` (8, a `StatusDistribution`) numa coluna de 120 a 180 px, com o percentual em coluna própria. A barra de 4 px fica só em item de navegação (`ScriptItem`) e na barra de status; o v3 não redefine essas barras.
+- Colunas laterais do Editor (cenas e inspetor) redimensionáveis com `GridSplitter`, nos limites `scripts-width` (220, teto da lista de cenas) e `inspector-width` (384).
+- Ícone acompanha texto, exceto no botão `icon`, que exige `ToolTip` e nome acessível (`AutomationProperties.Name`). O mesmo vale para o indicador de aviso da grade e para o chip de marcador.
+- Ids de linha e de script, caminhos e log do teste em `mono` (JetBrains Mono); chips de marcador e teclas de atalho em `mono-xs`.
 
 ## Como usar nos previews
 

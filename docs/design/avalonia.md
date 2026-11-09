@@ -176,7 +176,7 @@ $env:VNFORGE_RENDER_DIR = "$PWD\artifacts\render"
 dotnet test --project tests/VNForge.App.Tests --filter-class "*ScreenRenderTests"
 ```
 
-  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` (26/38) e `title-md` resolvem para a Zen Kaku Gothic New embutida.
+  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` (24/35) e `title-md` resolvem para a Zen Kaku Gothic New embutida.
 
 ## Ícones
 
