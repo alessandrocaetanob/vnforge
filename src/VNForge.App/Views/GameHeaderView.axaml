@@ -11,8 +11,6 @@
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
         <PathIcon IsVisible="{Binding HasMenu}" Width="10" Height="10" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}"/>
-        <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"
-                 ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
       </StackPanel>
     </DataTemplate>
   </UserControl.Resources>

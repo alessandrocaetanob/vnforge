@@ -63,7 +63,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
             CancellationToken.None);
 
         Assert.InRange(scripts, 189, 191);
-        Assert.InRange(inspector, 503, 507);
+        Assert.InRange(inspector, 496, 500);
     }
 
     [Theory]

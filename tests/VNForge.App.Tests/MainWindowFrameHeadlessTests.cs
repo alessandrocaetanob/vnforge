@@ -120,7 +120,7 @@ public class MainWindowFrameHeadlessTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch(
             () =>
             {
-                vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
+                vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
                 var window = new MainWindow { Width = 1440, Height = 900, DataContext = vm };
                 try
                 {
@@ -128,11 +128,12 @@ public class MainWindowFrameHeadlessTests(HeadlessFixture fixture) : IClassFixtu
                     Settle(window);
                     var texts = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
 
-                    Assert.Contains("Buscar linhas, scripts e comandos", texts);
+                    Assert.Contains("Buscar jogos, personagens e comandos", texts);
                     Assert.Contains("Ctrl+K", texts);
                     Assert.Contains("Minha VN", texts);
                     Assert.Contains("Conferir", texts);
-                    Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "1" && t.DataContext is NavItemViewModel { Key: NavKey.Conference });
+                    // O quadro da #544 não desenha selo na seção Conferir: os erros que travam o teste ficam no Painel e no Conferir.
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "1" && t.DataContext is NavItemViewModel { Key: NavKey.Conference });
                     Assert.Contains("Glossário", texts);
                     Assert.Contains("Ajustes", texts);
                     Assert.DoesNotContain("Busca", texts);

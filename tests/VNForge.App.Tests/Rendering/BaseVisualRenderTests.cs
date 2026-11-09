@@ -200,7 +200,8 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     private static TextUnit WithWarning(TextUnit unit) => unit with { Translation = "duas  palavras" };
 
-    private async Task WithRail(ThemeVariant theme, Func<TextUnit, TextUnit>? first, Func<TextUnit, TextUnit>? second, string name, Action<Window, ListBoxItem> inspect)
+    /// <summary>A seção Conferir da segunda linha da Tradução, com o projeto no estado pedido. O quadro da #544 não desenha selo nem ponto nela.</summary>
+    private async Task WithSection(ThemeVariant theme, Func<TextUnit, TextUnit>? first, Func<TextUnit, TextUnit>? second, string name, Action<Window, ListBoxItem> inspect)
     {
         using var temp = new TempFolder();
         var vm = await Opened(temp, first, second);
@@ -212,7 +213,7 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
                 window.Show();
                 vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
                 ScreenRenderer.Settle(window);
-                var item = window.GetVisualDescendants().OfType<ListBoxItem>().Single(i => i.DataContext is NavItemViewModel { Key: NavKey.Conference });
+                var item = window.GetVisualDescendants().OfType<ListBoxItem>().Single(i => i.DataContext is NavItemViewModel { Key: NavKey.Conference } && i.IsEffectivelyVisible);
                 ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
                 inspect(window, item);
             }
@@ -225,44 +226,23 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Selo_da_secao_Conferir_mostra_so_o_numero_de_erros_e_nenhum_ponto(string themeName)
+    public async Task A_secao_Conferir_nao_mostra_selo_nem_ponto_com_erro_aviso_ou_sem_problema(string themeName)
     {
-        await WithRail(Variant(themeName), WithError, WithWarning, "base-trilho-erro", (window, item) =>
+        var theme = Variant(themeName);
+        foreach (var (first, second, name) in new (Func<TextUnit, TextUnit>?, Func<TextUnit, TextUnit>?, string)[]
         {
-            var badge = item.GetVisualDescendants().OfType<Border>().Single(b => b.CornerRadius == new CornerRadius(8));
-            Assert.True(badge.IsEffectivelyVisible);
-            Assert.Equal("1", badge.GetVisualDescendants().OfType<TextBlock>().Single().Text);
-            Assert.False(item.GetVisualDescendants().OfType<Ellipse>().Single(e => e.Name == "NoticeDot").IsEffectivelyVisible);
-            Assert.True(badge.TranslatePoint(new Point(badge.Bounds.Width, 0), item)!.Value.X <= item.Bounds.Width, "o selo saiu da secao");
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public async Task Com_so_aviso_a_secao_Conferir_mostra_um_ponto_neutro_e_nenhum_numero(string themeName)
-    {
-        await WithRail(Variant(themeName), null, WithWarning, "base-trilho-aviso", (window, item) =>
+            (WithError, WithWarning, "base-secao-erro"),
+            (null, WithWarning, "base-secao-aviso"),
+            (null, null, "base-secao-limpa"),
+        })
         {
-            var badge = item.GetVisualDescendants().OfType<Border>().Single(b => b.CornerRadius == new CornerRadius(8));
-            Assert.False(badge.IsEffectivelyVisible);
-            var dot = item.GetVisualDescendants().OfType<Ellipse>().Single(e => e.Name == "NoticeDot");
-            Assert.True(dot.IsEffectivelyVisible);
-            Assert.Equal(Token(window, "Vnf.TextSecondaryColor"), SolidColor(dot.Fill));
-
-            var probe = PixelProbe.Capture(window, dot);
-            Assert.True(probe.CountInArea(new Rect(0, 0, probe.Width, probe.Height), Token(window, "Vnf.TextSecondaryColor"), 2) > 20);
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public async Task Sem_problema_a_secao_Conferir_nao_mostra_selo_nem_ponto(string themeName)
-    {
-        await WithRail(Variant(themeName), null, null, "base-trilho-limpo", (_, item) =>
-        {
-            Assert.False(item.GetVisualDescendants().OfType<Border>().Single(b => b.CornerRadius == new CornerRadius(8)).IsEffectivelyVisible);
-            Assert.False(item.GetVisualDescendants().OfType<Ellipse>().Single(e => e.Name == "NoticeDot").IsEffectivelyVisible);
-        });
+            await WithSection(theme, first, second, name, (_, item) =>
+            {
+                Assert.DoesNotContain(item.GetVisualDescendants().OfType<Border>(), b => b.CornerRadius == new CornerRadius(8) && b.IsEffectivelyVisible);
+                Assert.DoesNotContain(item.GetVisualDescendants().OfType<Ellipse>(), e => e.IsEffectivelyVisible);
+                Assert.Equal("Conferir", item.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible).Text);
+            });
+        }
     }
 
     [Theory]
@@ -277,7 +257,7 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
 
         await OnUi(() =>
         {
-            Show(without, theme, "base-status-sem-chave", window =>
+            Show(without, theme, "base-status-sem-chave", NavKey.Editor, window =>
             {
                 var panel = window.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "KeyStatus");
                 Assert.Equal("Chave do Claude não configurada: a tradução com IA fica desligada", ToolTip.GetTip(panel));
@@ -285,7 +265,7 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.Equal(Token(window, "Vnf.SignalWarningFgColor"), SolidColor(panel.GetVisualDescendants().OfType<PathIcon>().Single(i => i.IsEffectivelyVisible).Foreground));
             });
 
-            Show(with, theme, "base-status-com-chave", window =>
+            Show(with, theme, "base-status-com-chave", NavKey.Start, window =>
             {
                 var panel = window.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "KeyStatus");
                 var visible = panel.GetVisualDescendants().OfType<PathIcon>().Single(i => i.IsEffectivelyVisible);
@@ -294,9 +274,9 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
         });
     }
 
-    private static void Show(MainWindowViewModel vm, ThemeVariant theme, string name, Action<Window> inspect)
+    private static void Show(MainWindowViewModel vm, ThemeVariant theme, string name, NavKey page, Action<Window> inspect)
     {
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == page);
         var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
         try
         {

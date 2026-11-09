@@ -240,13 +240,13 @@ public sealed partial class MainWindowViewModel
         }
 
         // O banco de provas é a segunda aba do Painel: "Provas" abre o Painel nela e "Painel" volta para a visão geral.
-        if (ReferenceEquals(section, proofsItem) || ReferenceEquals(section, dashboardItem))
+        var proofs = ReferenceEquals(section, proofsItem);
+        SelectedNav = proofs ? dashboardItem : section;
+        if (ReferenceEquals(selectedNav, dashboardItem) && (proofs || ReferenceEquals(section, dashboardItem)))
         {
-            Dashboard.SelectedTab = ReferenceEquals(section, proofsItem) ? 1 : 0;
-            section = dashboardItem;
+            Dashboard.SelectedTab = proofs ? 1 : 0;
         }
 
-        SelectedNav = section;
         OnPropertyChanged(nameof(SelectedSection));
     }
 

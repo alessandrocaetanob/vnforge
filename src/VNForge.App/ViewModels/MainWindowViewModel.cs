@@ -444,8 +444,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
 
             var wasInGame = InGame;
+            var leavingDashboard = selectedNav?.Key == NavKey.Dashboard && value.Key != NavKey.Dashboard;
             if (SetProperty(ref selectedNav, value))
             {
+                // O Painel sempre reabre na visão geral; só "Provas" do menu "Mais" o abre no banco de provas.
+                if (leavingDashboard)
+                {
+                    Dashboard.SelectedTab = 0;
+                }
+
                 if (GameTabOf(value.Key) == GameTab.Translation)
                 {
                     lastTranslationItem = value;
