@@ -9,7 +9,7 @@ public class ArchitectureTests
     private static readonly Assembly Core = typeof(IEngine).Assembly;
 
     [Fact]
-    public void Core_nao_referencia_engines_nem_ia()
+    public void Core_nao_referencia_engines_ia_nem_vndb()
     {
         var proibidas = Core.GetReferencedAssemblies()
             .Select(a => a.Name)
@@ -18,11 +18,11 @@ public class ArchitectureTests
 
         Assert.True(
             proibidas.Count == 0,
-            $"VNForge.Core não pode depender de engine nem de IA, mas referencia: {string.Join(", ", proibidas)}");
+            $"VNForge.Core não pode depender de engine, de IA nem do VNDB, mas referencia: {string.Join(", ", proibidas)}");
     }
 
     [Fact]
-    public void Csproj_do_Core_nao_tem_ProjectReference_para_engines_nem_ia()
+    public void Csproj_do_Core_nao_tem_ProjectReference_para_engines_ia_nem_vndb()
     {
         var csproj = ProcurarCsprojDoCore();
 
@@ -34,7 +34,7 @@ public class ArchitectureTests
 
         Assert.True(
             proibidas.Count == 0,
-            $"VNForge.Core.csproj não pode referenciar engine nem IA, mas tem: {string.Join(", ", proibidas)}");
+            $"VNForge.Core.csproj não pode referenciar engine, IA nem VNDB, mas tem: {string.Join(", ", proibidas)}");
     }
 
     [Fact]
@@ -55,6 +55,9 @@ public class ArchitectureTests
     [InlineData("VNForge.Engines.KiriKiri", true)]
     [InlineData("VNForge.AI", true)]
     [InlineData("VNForge.AI.OpenAI", true)]
+    [InlineData("VNForge.Vndb", true)]
+    [InlineData("VNForge.Vndb.Extras", true)]
+    [InlineData("VNForge.VndbCore", false)]
     [InlineData("VNForge.Core", false)]
     [InlineData("VNForge.AIExtras", false)]
     [InlineData("System.Runtime", false)]
@@ -68,7 +71,9 @@ public class ArchitectureTests
         nome is not null
         && (nome.StartsWith("VNForge.Engines.", StringComparison.Ordinal)
             || nome == "VNForge.AI"
-            || nome.StartsWith("VNForge.AI.", StringComparison.Ordinal));
+            || nome.StartsWith("VNForge.AI.", StringComparison.Ordinal)
+            || nome == "VNForge.Vndb"
+            || nome.StartsWith("VNForge.Vndb.", StringComparison.Ordinal));
 
     private static string ProcurarCsprojDoCore()
     {
