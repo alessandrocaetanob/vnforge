@@ -167,6 +167,22 @@ public sealed class LibraryTranslationCommandTests : IDisposable
         Assert.Equal(before, GameBytes);
     }
 
+    [Fact]
+    public async Task Backup_sem_estado_do_jogo_aparece_como_nao_registrado_e_traduzir_grava_a_traducao()
+    {
+        var game = await PrepareLinkedGame();
+        Assert.Equal(0, (await Run("library", "switch", game.Id, "--traduzido", "--yes")).ExitCode);
+        File.Delete(GameStateFile.PathFor(ProjectFolder.Open(ProjectPath)));
+
+        var state = await Run("library", "state", game.Id);
+        var json = Data(await Run("library", "state", game.Id, "--json")).GetProperty("games")[0];
+        var again = Data(await Run("library", "switch", game.Id, "--traduzido", "--yes", "--json"));
+
+        Assert.Contains("não registra o que ela gravou", state.Output, StringComparison.Ordinal);
+        Assert.Equal("unknown", json.GetProperty("patch").GetProperty("kind").GetString());
+        Assert.Equal("appliedTranslation", again.GetProperty("action").GetString());
+    }
+
     private sealed class NoStarter : Core.Projects.IGameProcessStarter
     {
         public void Start(string executablePath, string workingDirectory) => throw new InvalidOperationException("Trocar não abre o jogo.");

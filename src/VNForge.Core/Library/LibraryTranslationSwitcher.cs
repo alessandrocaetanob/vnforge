@@ -46,7 +46,7 @@ public sealed class LibraryTranslationSwitcher(GameTester tester)
 
     /// <summary>
     /// Põe a tradução inteira do projeto na pasta do jogo. Um jogo que só tem o teste de acentos ou uma cena também recebe a tradução inteira; o original continua
-    /// o do primeiro backup. Já traduzido por inteiro, não grava nada.
+    /// o do primeiro backup. Já traduzido por inteiro, não grava nada; um backup que o estado do jogo não descreve (<c>vnf patch-exe</c>) não conta como tradução inteira.
     /// </summary>
     /// <param name="steps">Recebe o passo que está começando.</param>
     /// <param name="scripts">Andamento do build, script a script.</param>
@@ -58,7 +58,7 @@ public sealed class LibraryTranslationSwitcher(GameTester tester)
         ArgumentNullException.ThrowIfNull(game);
         var project = LibraryTranslationReader.OpenProject(game);
         var before = LibraryTranslationReader.Read(game);
-        if (before.Patch is { Kind: GameTestKind.Translation, ScriptKey: null })
+        if (before is { PatchRecorded: true, Patch: { Kind: GameTestKind.Translation, ScriptKey: null } })
         {
             return new LibraryTranslationSwitch(LibraryTranslationAction.Unchanged, before, before);
         }

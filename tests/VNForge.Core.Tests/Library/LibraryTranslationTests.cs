@@ -277,6 +277,62 @@ public sealed class LibraryTranslationTests : IDisposable
         Assert.Equal(LibraryTranslationKind.Original, LibraryTranslationReader.Read(Game()).Kind);
     }
 
+    /// <summary>Uma injeção que deixa backup sem passar pelo <c>game-state.json</c>, como <c>vnf patch-exe</c> e o estado que não gravou.</summary>
+    private void InjectWithoutState()
+    {
+        Directory.CreateDirectory(_project.BuildDirectory);
+        File.WriteAllText(Path.Combine(_project.BuildDirectory, GameExe), "MZ com o nome da fonte trocado");
+        new GameInjector(_clock).Inject(GameInjector.Plan(_project));
+        Assert.False(File.Exists(GameStateFile.PathFor(_project)));
+    }
+
+    [Fact]
+    public void Backup_sem_estado_do_jogo_e_traduzido_de_tipo_desconhecido_e_traduzir_nao_pula_a_injecao()
+    {
+        InjectWithoutState();
+
+        var state = LibraryTranslationReader.Read(Game());
+
+        Assert.Equal(LibraryTranslationKind.Translated, state.Kind);
+        Assert.False(state.PatchRecorded);
+        var result = Switcher().ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(LibraryTranslationAction.AppliedTranslation, result.Action);
+        Assert.True(result.After.PatchRecorded);
+        Assert.Equal(GameTestKind.Translation, GameStateFile.Load(_project).InGame!.Kind);
+    }
+
+    [Fact]
+    public void Backup_sem_estado_do_jogo_ainda_volta_ao_original_byte_a_byte()
+    {
+        var before = Snapshot(_game);
+        InjectWithoutState();
+
+        var back = Switcher().ToOriginal(Game());
+
+        Assert.Equal(LibraryTranslationAction.ReturnedToOriginal, back.Action);
+        var after = Snapshot(_game);
+        Assert.All(before, pair => Assert.True(pair.Value.SequenceEqual(after[pair.Key]), $"'{pair.Key}' mudou."));
+    }
+
+    [Fact]
+    public void Backup_de_outra_pasta_de_jogo_deixa_o_estado_desconhecido_e_nada_e_gravado()
+    {
+        Switcher().ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken);
+        var manifestPath = Path.Combine(Assert.Single(BackupFolders()), BackupManifest.FileName);
+        var other = Path.Combine(_temp.Path, "outro-jogo");
+        File.WriteAllText(manifestPath, File.ReadAllText(manifestPath).Replace(System.Text.Json.JsonSerializer.Serialize(_game).Trim('"'), System.Text.Json.JsonSerializer.Serialize(other).Trim('"'), StringComparison.Ordinal));
+        var inGame = Snapshot(_game);
+
+        var state = LibraryTranslationReader.Read(Game());
+
+        Assert.Equal(LibraryTranslationKind.Unknown, state.Kind);
+        Assert.Contains("outra pasta", state.Reason, StringComparison.Ordinal);
+        Assert.Throws<LibraryException>(() => Switcher().ToOriginal(Game()));
+        Assert.Throws<LibraryException>(() => Switcher().ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken));
+        var after = Snapshot(_game);
+        Assert.All(inGame, pair => Assert.True(pair.Value.SequenceEqual(after[pair.Key])));
+    }
+
     private sealed class NoStarter : IGameProcessStarter
     {
         public void Start(string executablePath, string workingDirectory) => throw new InvalidOperationException("Trocar não abre o jogo.");

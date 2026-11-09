@@ -88,7 +88,7 @@ internal static partial class LibraryCommand
         // Estado desconhecido não pergunta: o switcher recusa com o motivo. Quem já está no destino não grava nada, então também não pergunta.
         var alreadyThere = toOriginal
             ? current.Kind == LibraryTranslationKind.Original
-            : current.Patch is { Kind: GameTestKind.Translation, ScriptKey: null };
+            : current is { PatchRecorded: true, Patch: { Kind: GameTestKind.Translation, ScriptKey: null } };
         if (current.Kind != LibraryTranslationKind.Unknown && !alreadyThere)
         {
             var question = toOriginal
@@ -162,7 +162,7 @@ internal static partial class LibraryCommand
         patch = state.Patch is { } patch
             ? new
             {
-                kind = patch.Kind == GameTestKind.AccentTest ? "accentTest" : "translation",
+                kind = !state.PatchRecorded ? "unknown" : patch.Kind == GameTestKind.AccentTest ? "accentTest" : "translation",
                 appliedAt = patch.AppliedAt,
                 backup = patch.BackupDirectory,
                 scene = patch.ScriptKey,
@@ -180,6 +180,11 @@ internal static partial class LibraryCommand
                 return "original";
             case LibraryTranslationKind.Translated:
                 var patch = state.Patch!;
+                if (!state.PatchRecorded)
+                {
+                    return $"traduzido (há uma injeção de {patch.AppliedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm", PortugueseBrazil)}, backup {patch.BackupDirectory}, mas o projeto não registra o que ela gravou; pode ser só o ajuste do executável. Use --traduzido para gravar a tradução inteira)";
+                }
+
                 var what = patch.Kind == GameTestKind.AccentTest
                     ? "teste de acentos"
                     : patch.ScriptKey is { } scene ? $"só a cena {scene}" : "tradução";

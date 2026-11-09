@@ -19,8 +19,9 @@ public enum LibraryTranslationKind
 /// <summary>
 /// O estado de um jogo da biblioteca. <paramref name="Patch"/> é o que está na pasta (tipo, quando foi gravado, backup, impressão digital dos textos) e só existe em
 /// <see cref="LibraryTranslationKind.Translated"/>; <paramref name="Reason"/> diz, em português, por que o estado é <see cref="LibraryTranslationKind.Unknown"/>.
+/// <paramref name="PatchRecorded"/> é falso quando há backup vivo mas o <c>game-state.json</c> não diz o que a injeção pôs (<c>vnf patch-exe</c>, estado que não gravou): então <paramref name="Patch"/> só traz a data e o backup, e o tipo não é conhecido.
 /// </summary>
-public sealed record LibraryTranslationState(LibraryTranslationKind Kind, GameInGame? Patch = null, string? Reason = null);
+public sealed record LibraryTranslationState(LibraryTranslationKind Kind, GameInGame? Patch = null, string? Reason = null, bool PatchRecorded = true);
 
 /// <summary>
 /// Lê o estado de um jogo da biblioteca no projeto ligado a ele, pelo mesmo <c>game-state.json</c> e pelos mesmos backups que a barra de "Testar no jogo" usa.
@@ -74,7 +75,7 @@ public static class LibraryTranslationReader
 
         try
         {
-            var state = StateOf(project);
+            var state = StateOf(project, game.Folder);
             opened = project;
             return state;
         }
@@ -88,7 +89,7 @@ public static class LibraryTranslationReader
     /// Mesma regra da faixa do app: vale o backup mais novo que ainda não foi restaurado, e o <c>game-state.json</c> só vale se não houve injeção depois dele.
     /// Sem backup vivo, o estado que cita um backup que sumiu deixa o jogo desconhecido; um backup já restaurado, não.
     /// </summary>
-    private static LibraryTranslationState StateOf(ProjectFolder project)
+    private static LibraryTranslationState StateOf(ProjectFolder project, string gameFolder)
     {
         var backups = GameInjector.ListBackups(project);
         var saved = GameStateFile.Load(project).InGame;
@@ -104,10 +105,16 @@ public static class LibraryTranslationReader
                 continue;
             }
 
-            var patch = saved is not null && saved.AppliedAt >= backup.Manifest.CreatedAt
-                ? saved
-                : new GameInGame(GameTestKind.Translation, backup.Manifest.CreatedAt, backup.Name, null, null);
-            return new LibraryTranslationState(LibraryTranslationKind.Translated, patch);
+            // A restauração devolve a pasta do manifesto, não a do jogo da Biblioteca: se forem diferentes, trocar mexeria em outro jogo.
+            if (!GameLibrary.IsUnder(backup.Manifest.GameDirectory, gameFolder) || !GameLibrary.IsUnder(gameFolder, backup.Manifest.GameDirectory))
+            {
+                return Unknown($"a cópia de segurança '{backup.Name}' é de outra pasta de jogo ('{backup.Manifest.GameDirectory}'), e o VNForge só troca a pasta deste jogo ('{gameFolder}').");
+            }
+
+            // Sem estado que combine com o backup (vnf patch-exe, um estado que não gravou, outra versão do arquivo) o VNForge sabe que há injeção, mas não o que ela pôs.
+            return saved is not null && saved.AppliedAt >= backup.Manifest.CreatedAt
+                ? new LibraryTranslationState(LibraryTranslationKind.Translated, saved)
+                : new LibraryTranslationState(LibraryTranslationKind.Translated, new GameInGame(GameTestKind.Translation, backup.Manifest.CreatedAt, backup.Name, null, null), PatchRecorded: false);
         }
 
         if (saved?.BackupDirectory is { } name && !backups.Any(b => string.Equals(b.Name, name, StringComparison.Ordinal)))
