@@ -89,5 +89,26 @@ public static class InstallerText
         return $"Leva cerca de {minutes.ToString(CultureInfo.InvariantCulture)} minutos.";
     }
 
+    /// <summary>A versão que o executável traz em suas propriedades (<c>1.01</c>; vírgulas de "1, 0, 1, 0" viram pontos), ou nula se o arquivo não existe ou não a diz.</summary>
+    public static string? FileVersionOf(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+            var raw = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion : info.ProductVersion;
+            var version = raw?.Replace(", ", ".", StringComparison.Ordinal).Replace(",", ".", StringComparison.Ordinal).Trim();
+            return string.IsNullOrEmpty(version) || version is "0.0.0.0" or "0.0.0" ? null : version;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
     public static string FileName(string relativePath) => relativePath[(relativePath.LastIndexOfAny(['/', '\\']) + 1)..];
 }

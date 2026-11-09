@@ -412,7 +412,23 @@ public sealed class InstallerViewModelTests
         var vm = await StartedAsync(new PatchEngine(package), game.Root, folder: game.Game);
 
         Assert.Equal(InstallerScreen.WrongVersion, vm.Screen);
-        Assert.Equal("A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir.", vm.Note);
+        Assert.Equal("A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir o patch da sua versão.", vm.Note);
+    }
+
+    [Fact]
+    public async Task Janela_4_cita_o_patch_da_versao_que_o_jogador_tem()
+    {
+        using var game = new SyntheticGame();
+        File.WriteAllBytes(Path.Combine(game.Game, "Game/script.ypf"), [9]);
+        using var package = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info() with { GameVersion = "1.00" }));
+        var vm = new InstallerViewModel(new PatchEngine(package), new FakeShell(), new InstallerStart(game.Game, game.Root, null))
+        {
+            ReadFileVersion = path => path.EndsWith("script.ypf", StringComparison.Ordinal) ? " 1.01 " : null,
+        };
+
+        await vm.StartAsync();
+
+        Assert.Equal("A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir o patch da 1.01.", vm.Note);
     }
 
     [Fact]

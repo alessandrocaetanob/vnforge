@@ -148,7 +148,12 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
     [MemberData(nameof(Themes))]
     public async Task Renderiza_a_janela_4_versao_errada(string theme)
     {
-        var vm = await StartedAtAsync(new BoardEngine { State = BoardEngine.Situation.WrongVersion }, new FakeTimeProvider());
+        var vm = new InstallerViewModel(new BoardEngine { State = BoardEngine.Situation.WrongVersion }, new NoShell(), new InstallerStart(BoardEngine.Folder, Path.GetTempPath(), null), new FakeTimeProvider())
+        {
+            // O quadro mostra o jogador com a 1.01; o arquivo sintético não traz versão.
+            ReadFileVersion = _ => "1.01",
+        };
+        await vm.StartAsync();
 
         await RenderAsync(vm, "540-inst-3", theme, (window, texts) =>
         {
@@ -160,7 +165,7 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
                     "Esta não é a versão esperada",
                     "O Game.exe desta pasta é diferente",
                     "Encontrado: SHA-256 77b0…e04a. Esperado: 3f9a…c21d. Nada foi alterado.",
-                    "A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir.",
+                    "A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir o patch da 1.01.",
                     "Sair",
                     "Escolher outra pasta",
                 ],

@@ -155,6 +155,9 @@ public sealed partial class InstallerViewModel : ObservableObject
     /// <summary>Abre o seletor de pasta do sistema e devolve a escolhida (nulo se o jogador desistiu); a janela o liga.</summary>
     public Func<Task<string?>>? PickFolder { get; set; }
 
+    /// <summary>Lê a versão que o arquivo da pasta traz (o Game.exe que não confere); a janela de versão errada a cita. Troca-se nos testes.</summary>
+    public Func<string, string?> ReadFileVersion { get; set; } = InstallerText.FileVersionOf;
+
     public event EventHandler? CloseRequested;
 
     public bool IsFolder => Screen == InstallerScreen.Folder;
@@ -555,9 +558,18 @@ public sealed partial class InstallerViewModel : ObservableObject
         Intro = string.Empty;
         Card = card;
         var manifest = _engine!.Manifest;
-        Note = string.IsNullOrWhiteSpace(manifest.GameVersion)
-            ? $"A tradução {manifest.Version} foi feita para outra versão do jogo. Procure uma pasta com a versão certa, ou veja no leia-me qual é e onde conseguir."
-            : $"A tradução {manifest.Version} foi feita para a versão {manifest.GameVersion.Trim()} do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir.";
+        if (string.IsNullOrWhiteSpace(manifest.GameVersion))
+        {
+            Note = $"A tradução {manifest.Version} foi feita para outra versão do jogo. Procure uma pasta com a versão certa, ou veja no leia-me qual é e onde conseguir.";
+        }
+        else
+        {
+            var wanted = manifest.GameVersion.Trim();
+            var found = first.Found is null ? null : ReadFileVersion(Path.Combine(FolderPath, first.Path));
+            var whose = string.IsNullOrWhiteSpace(found) || found.Trim() == wanted ? "sua versão" : found.Trim();
+            Note = $"A tradução {manifest.Version} foi feita para a versão {wanted} do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir o patch da {whose}.";
+        }
+
         ExitCode = InstallerApp.WrongVersion;
     }
 
