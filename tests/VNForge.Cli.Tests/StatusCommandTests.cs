@@ -141,9 +141,9 @@ public sealed class StatusCommandTests : IDisposable
         var result = await cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("38;2;95;191;127m", result.Output); // aprovada
-        Assert.Contains("38;2;154;127;214m", result.Output); // IA
-        Assert.Contains("38;2;58;66;80m", result.Output); // pendente
+        Assert.Contains("38;2;92;203;138m", result.Output); // aprovada
+        Assert.Contains("38;2;165;139;242m", result.Output); // IA
+        Assert.Contains("38;2;124;132;146m", result.Output); // pendente
     }
 
     [Fact]

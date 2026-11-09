@@ -32,7 +32,7 @@
 
     <StackPanel Spacing="8">
       <TextBlock Classes="overline" Text="Tipografia"/>
-      <TextBlock Classes="title-lg" Text="Título 26/38 · Zen Kaku Gothic New"/>
+      <TextBlock Classes="title-lg" Text="Título 24/35 · Zen Kaku Gothic New"/>
       <TextBlock Classes="title-md" Text="Título 17/25 · Zen Kaku Gothic New"/>
       <TextBlock Classes="body" Text="Corpo 14/20 · Noto Sans"/>
       <TextBlock Classes="body-sm" Text="Corpo pequeno 13/18"/>

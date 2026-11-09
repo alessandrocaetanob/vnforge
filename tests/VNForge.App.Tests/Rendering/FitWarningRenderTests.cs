@@ -133,7 +133,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.All(warning.GetVisualDescendants().OfType<Avalonia.Controls.Button>().Where(b => b.IsEffectivelyVisible), button => Assert.True(button.Bounds.Width > 40 && button.Bounds.Height > 16));
 
         var probe = PixelProbe.Capture(window, warning);
-        var expected = theme == ThemeVariant.Light ? Color.Parse("#FFF1D6") : Color.Parse("#3A2C10");
+        var expected = theme == ThemeVariant.Light ? Color.Parse("#F5EBDD") : Color.Parse("#433C2A");
         Assert.True(probe.Near(10, 6, expected, 6), $"o fundo do aviso é o do tema ({probe.At(10, 6)} em vez de {expected})");
     }
 

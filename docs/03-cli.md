@@ -46,7 +46,7 @@ Uma linha de JSON por documento, sempre em stdout (nada vai para stderr). `exitC
 
 ### Cor e texto simples
 
-A saída usa Spectre.Console 0.57.2 e as cores do app: aprovada `#5FBF7F`, revisada `#3E9AAE`, traduzida `#6E8FCB`, IA `#9A7FD6`, pendente `#3A4250`, aviso `#F2C46D`, erro `#F59AB2` e destaque `#8DB0EA`. Cor e animação só aparecem quando a saída vai para um terminal interativo.
+A saída usa Spectre.Console 0.57.2 e as cores do tema escuro do app (design system v3): aprovada `#5CCB8A`, revisada `#49B9CF`, traduzida `#7FA2EC`, IA `#A58BF2`, pendente `#7C8492`, aviso `#E9B04F`, erro `#F59AB2` e destaque `#4FD1B5`. Cor e animação só aparecem quando a saída vai para um terminal interativo.
 
 A saída vira texto simples, sem ANSI e sem animação, quando vale qualquer um destes:
 

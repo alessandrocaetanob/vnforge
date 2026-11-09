@@ -3,78 +3,78 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ResourceDictionary.ThemeDictionaries>
     <ResourceDictionary x:Key="Dark">
-      <Color x:Key="Vnf.BgBaseColor">#0F1115</Color>
-      <SolidColorBrush x:Key="Vnf.BgBase" Color="#0F1115"/>
-      <Color x:Key="Vnf.BgLayerColor">#15181E</Color>
-      <SolidColorBrush x:Key="Vnf.BgLayer" Color="#15181E"/>
-      <Color x:Key="Vnf.BgCardColor">#1B1F27</Color>
-      <SolidColorBrush x:Key="Vnf.BgCard" Color="#1B1F27"/>
-      <Color x:Key="Vnf.BgCardHoverColor">#232833</Color>
-      <SolidColorBrush x:Key="Vnf.BgCardHover" Color="#232833"/>
-      <Color x:Key="Vnf.BgInsetColor">#12151A</Color>
-      <SolidColorBrush x:Key="Vnf.BgInset" Color="#12151A"/>
-      <Color x:Key="Vnf.StrokeSubtleColor">#2A303B</Color>
-      <SolidColorBrush x:Key="Vnf.StrokeSubtle" Color="#2A303B"/>
-      <Color x:Key="Vnf.StrokeControlColor">#687284</Color>
-      <SolidColorBrush x:Key="Vnf.StrokeControl" Color="#687284"/>
-      <Color x:Key="Vnf.TextPrimaryColor">#E7EAF0</Color>
-      <SolidColorBrush x:Key="Vnf.TextPrimary" Color="#E7EAF0"/>
-      <Color x:Key="Vnf.TextSecondaryColor">#A7AFBD</Color>
-      <SolidColorBrush x:Key="Vnf.TextSecondary" Color="#A7AFBD"/>
-      <Color x:Key="Vnf.TextTertiaryColor">#7D8696</Color>
-      <SolidColorBrush x:Key="Vnf.TextTertiary" Color="#7D8696"/>
-      <Color x:Key="Vnf.AccentColor">#8DB0EA</Color>
-      <SolidColorBrush x:Key="Vnf.Accent" Color="#8DB0EA"/>
-      <Color x:Key="Vnf.AccentHoverColor">#A9C4F0</Color>
-      <SolidColorBrush x:Key="Vnf.AccentHover" Color="#A9C4F0"/>
-      <Color x:Key="Vnf.OnAccentColor">#0D1524</Color>
-      <SolidColorBrush x:Key="Vnf.OnAccent" Color="#0D1524"/>
-      <Color x:Key="Vnf.AccentSoftColor">#1F2C43</Color>
-      <SolidColorBrush x:Key="Vnf.AccentSoft" Color="#1F2C43"/>
-      <Color x:Key="Vnf.AccentTextColor">#AFC8F1</Color>
-      <SolidColorBrush x:Key="Vnf.AccentText" Color="#AFC8F1"/>
-      <Color x:Key="Vnf.FocusRingColor">#A9C4F0</Color>
-      <SolidColorBrush x:Key="Vnf.FocusRing" Color="#A9C4F0"/>
+      <Color x:Key="Vnf.BgBaseColor">#101312</Color>
+      <SolidColorBrush x:Key="Vnf.BgBase" Color="#101312"/>
+      <Color x:Key="Vnf.BgLayerColor">#161A19</Color>
+      <SolidColorBrush x:Key="Vnf.BgLayer" Color="#161A19"/>
+      <Color x:Key="Vnf.BgCardColor">#1E2322</Color>
+      <SolidColorBrush x:Key="Vnf.BgCard" Color="#1E2322"/>
+      <Color x:Key="Vnf.BgCardHoverColor">#272D2B</Color>
+      <SolidColorBrush x:Key="Vnf.BgCardHover" Color="#272D2B"/>
+      <Color x:Key="Vnf.BgInsetColor">#121615</Color>
+      <SolidColorBrush x:Key="Vnf.BgInset" Color="#121615"/>
+      <Color x:Key="Vnf.StrokeSubtleColor">#2B3230</Color>
+      <SolidColorBrush x:Key="Vnf.StrokeSubtle" Color="#2B3230"/>
+      <Color x:Key="Vnf.StrokeControlColor">#636F6B</Color>
+      <SolidColorBrush x:Key="Vnf.StrokeControl" Color="#636F6B"/>
+      <Color x:Key="Vnf.TextPrimaryColor">#ECF0EE</Color>
+      <SolidColorBrush x:Key="Vnf.TextPrimary" Color="#ECF0EE"/>
+      <Color x:Key="Vnf.TextSecondaryColor">#A3AEA9</Color>
+      <SolidColorBrush x:Key="Vnf.TextSecondary" Color="#A3AEA9"/>
+      <Color x:Key="Vnf.TextTertiaryColor">#84908B</Color>
+      <SolidColorBrush x:Key="Vnf.TextTertiary" Color="#84908B"/>
+      <Color x:Key="Vnf.AccentColor">#4FD1B5</Color>
+      <SolidColorBrush x:Key="Vnf.Accent" Color="#4FD1B5"/>
+      <Color x:Key="Vnf.AccentHoverColor">#7BE0C9</Color>
+      <SolidColorBrush x:Key="Vnf.AccentHover" Color="#7BE0C9"/>
+      <Color x:Key="Vnf.OnAccentColor">#06201A</Color>
+      <SolidColorBrush x:Key="Vnf.OnAccent" Color="#06201A"/>
+      <Color x:Key="Vnf.AccentSoftColor">#17352F</Color>
+      <SolidColorBrush x:Key="Vnf.AccentSoft" Color="#17352F"/>
+      <Color x:Key="Vnf.AccentTextColor">#7FE3CD</Color>
+      <SolidColorBrush x:Key="Vnf.AccentText" Color="#7FE3CD"/>
+      <Color x:Key="Vnf.FocusRingColor">#7FE3CD</Color>
+      <SolidColorBrush x:Key="Vnf.FocusRing" Color="#7FE3CD"/>
       <Color x:Key="Vnf.BrandShuColor">#E2694F</Color>
       <SolidColorBrush x:Key="Vnf.BrandShu" Color="#E2694F"/>
-      <Color x:Key="Vnf.StatusPendingBgColor">#262B35</Color>
-      <SolidColorBrush x:Key="Vnf.StatusPendingBg" Color="#262B35"/>
-      <Color x:Key="Vnf.StatusPendingFgColor">#B9C0CD</Color>
-      <SolidColorBrush x:Key="Vnf.StatusPendingFg" Color="#B9C0CD"/>
-      <Color x:Key="Vnf.StatusAiBgColor">#2C2440</Color>
-      <SolidColorBrush x:Key="Vnf.StatusAiBg" Color="#2C2440"/>
-      <Color x:Key="Vnf.StatusAiFgColor">#C9B3F5</Color>
-      <SolidColorBrush x:Key="Vnf.StatusAiFg" Color="#C9B3F5"/>
-      <Color x:Key="Vnf.StatusTranslatedBgColor">#1F2C43</Color>
-      <SolidColorBrush x:Key="Vnf.StatusTranslatedBg" Color="#1F2C43"/>
-      <Color x:Key="Vnf.StatusTranslatedFgColor">#AFC8F1</Color>
-      <SolidColorBrush x:Key="Vnf.StatusTranslatedFg" Color="#AFC8F1"/>
-      <Color x:Key="Vnf.StatusReviewedBgColor">#123238</Color>
-      <SolidColorBrush x:Key="Vnf.StatusReviewedBg" Color="#123238"/>
-      <Color x:Key="Vnf.StatusReviewedFgColor">#7FD3DF</Color>
-      <SolidColorBrush x:Key="Vnf.StatusReviewedFg" Color="#7FD3DF"/>
-      <Color x:Key="Vnf.StatusApprovedBgColor">#16331F</Color>
-      <SolidColorBrush x:Key="Vnf.StatusApprovedBg" Color="#16331F"/>
-      <Color x:Key="Vnf.StatusApprovedFgColor">#86D69B</Color>
-      <SolidColorBrush x:Key="Vnf.StatusApprovedFg" Color="#86D69B"/>
-      <Color x:Key="Vnf.SignalWarningBgColor">#3A2C10</Color>
-      <SolidColorBrush x:Key="Vnf.SignalWarningBg" Color="#3A2C10"/>
-      <Color x:Key="Vnf.SignalWarningFgColor">#F2C46D</Color>
-      <SolidColorBrush x:Key="Vnf.SignalWarningFg" Color="#F2C46D"/>
-      <Color x:Key="Vnf.SignalErrorBgColor">#3D1B26</Color>
-      <SolidColorBrush x:Key="Vnf.SignalErrorBg" Color="#3D1B26"/>
+      <Color x:Key="Vnf.StatusPendingBgColor">#2F3436</Color>
+      <SolidColorBrush x:Key="Vnf.StatusPendingBg" Color="#2F3436"/>
+      <Color x:Key="Vnf.StatusPendingFgColor">#959CA7</Color>
+      <SolidColorBrush x:Key="Vnf.StatusPendingFg" Color="#959CA7"/>
+      <Color x:Key="Vnf.StatusAiBgColor">#363647</Color>
+      <SolidColorBrush x:Key="Vnf.StatusAiBg" Color="#363647"/>
+      <Color x:Key="Vnf.StatusAiFgColor">#AC94F3</Color>
+      <SolidColorBrush x:Key="Vnf.StatusAiFg" Color="#AC94F3"/>
+      <Color x:Key="Vnf.StatusTranslatedBgColor">#2F3A46</Color>
+      <SolidColorBrush x:Key="Vnf.StatusTranslatedBg" Color="#2F3A46"/>
+      <Color x:Key="Vnf.StatusTranslatedFgColor">#7FA2EC</Color>
+      <SolidColorBrush x:Key="Vnf.StatusTranslatedFg" Color="#7FA2EC"/>
+      <Color x:Key="Vnf.StatusReviewedBgColor">#263E41</Color>
+      <SolidColorBrush x:Key="Vnf.StatusReviewedBg" Color="#263E41"/>
+      <Color x:Key="Vnf.StatusReviewedFgColor">#49B9CF</Color>
+      <SolidColorBrush x:Key="Vnf.StatusReviewedFg" Color="#49B9CF"/>
+      <Color x:Key="Vnf.StatusApprovedBgColor">#294135</Color>
+      <SolidColorBrush x:Key="Vnf.StatusApprovedBg" Color="#294135"/>
+      <Color x:Key="Vnf.StatusApprovedFgColor">#5CCB8A</Color>
+      <SolidColorBrush x:Key="Vnf.StatusApprovedFg" Color="#5CCB8A"/>
+      <Color x:Key="Vnf.SignalWarningBgColor">#433C2A</Color>
+      <SolidColorBrush x:Key="Vnf.SignalWarningBg" Color="#433C2A"/>
+      <Color x:Key="Vnf.SignalWarningFgColor">#E9B04F</Color>
+      <SolidColorBrush x:Key="Vnf.SignalWarningFg" Color="#E9B04F"/>
+      <Color x:Key="Vnf.SignalErrorBgColor">#45383C</Color>
+      <SolidColorBrush x:Key="Vnf.SignalErrorBg" Color="#45383C"/>
       <Color x:Key="Vnf.SignalErrorFgColor">#F59AB2</Color>
       <SolidColorBrush x:Key="Vnf.SignalErrorFg" Color="#F59AB2"/>
-      <Color x:Key="Vnf.SegApprovedColor">#5FBF7F</Color>
-      <SolidColorBrush x:Key="Vnf.SegApproved" Color="#5FBF7F"/>
-      <Color x:Key="Vnf.SegReviewedColor">#3E9AAE</Color>
-      <SolidColorBrush x:Key="Vnf.SegReviewed" Color="#3E9AAE"/>
-      <Color x:Key="Vnf.SegTranslatedColor">#6E8FCB</Color>
-      <SolidColorBrush x:Key="Vnf.SegTranslated" Color="#6E8FCB"/>
-      <Color x:Key="Vnf.SegAiColor">#9A7FD6</Color>
-      <SolidColorBrush x:Key="Vnf.SegAi" Color="#9A7FD6"/>
-      <Color x:Key="Vnf.SegPendingColor">#3A4250</Color>
-      <SolidColorBrush x:Key="Vnf.SegPending" Color="#3A4250"/>
+      <Color x:Key="Vnf.SegApprovedColor">#5CCB8A</Color>
+      <SolidColorBrush x:Key="Vnf.SegApproved" Color="#5CCB8A"/>
+      <Color x:Key="Vnf.SegReviewedColor">#49B9CF</Color>
+      <SolidColorBrush x:Key="Vnf.SegReviewed" Color="#49B9CF"/>
+      <Color x:Key="Vnf.SegTranslatedColor">#7FA2EC</Color>
+      <SolidColorBrush x:Key="Vnf.SegTranslated" Color="#7FA2EC"/>
+      <Color x:Key="Vnf.SegAiColor">#A58BF2</Color>
+      <SolidColorBrush x:Key="Vnf.SegAi" Color="#A58BF2"/>
+      <Color x:Key="Vnf.SegPendingColor">#7C8492</Color>
+      <SolidColorBrush x:Key="Vnf.SegPending" Color="#7C8492"/>
       <Color x:Key="Vnf.TextboxBgColor">#14161C</Color>
       <SolidColorBrush x:Key="Vnf.TextboxBg" Color="#14161C"/>
       <Color x:Key="Vnf.TextboxInkColor">#F1EEE6</Color>
@@ -93,81 +93,110 @@
       <SolidColorBrush x:Key="Vnf.StageCard" Color="#66070A12"/>
       <Color x:Key="Vnf.StageStrokeColor">#26FFFFFF</Color>
       <SolidColorBrush x:Key="Vnf.StageStroke" Color="#26FFFFFF"/>
+      <Color x:Key="Vnf.CoverChipBgColor">#0E1211</Color>
+      <SolidColorBrush x:Key="Vnf.CoverChipBg" Color="#0E1211"/>
+      <Color x:Key="Vnf.CoverChipInkColor">#FFFFFF</Color>
+      <SolidColorBrush x:Key="Vnf.CoverChipInk" Color="#FFFFFF"/>
+      <Color x:Key="Vnf.CoverChipWarnColor">#E7C37A</Color>
+      <SolidColorBrush x:Key="Vnf.CoverChipWarn" Color="#E7C37A"/>
+      <Color x:Key="Vnf.CoverVeilBgColor">#222827</Color>
+      <SolidColorBrush x:Key="Vnf.CoverVeilBg" Color="#222827"/>
+      <Color x:Key="Vnf.CoverScrimColor">#9E000000</Color>
+      <SolidColorBrush x:Key="Vnf.CoverScrim" Color="#9E000000"/>
+      <Color x:Key="Vnf.Speaker1Color">#81DABC</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker1" Color="#81DABC"/>
+      <Color x:Key="Vnf.Speaker2Color">#81AADA</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker2" Color="#81AADA"/>
+      <Color x:Key="Vnf.Speaker3Color">#DA819E</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker3" Color="#DA819E"/>
+      <Color x:Key="Vnf.Speaker4Color">#DAB381</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker4" Color="#DAB381"/>
+      <Color x:Key="Vnf.Speaker5Color">#B785DB</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker5" Color="#B785DB"/>
+      <Color x:Key="Vnf.Speaker6Color">#A6DA81</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker6" Color="#A6DA81"/>
+      <Color x:Key="Vnf.Speaker7Color">#81CBDA</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker7" Color="#81CBDA"/>
+      <Color x:Key="Vnf.Speaker8Color">#DA8881</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker8" Color="#DA8881"/>
+      <Color x:Key="Vnf.DialogScrimColor">#99000000</Color>
+      <SolidColorBrush x:Key="Vnf.DialogScrim" Color="#99000000"/>
       <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #80000000</BoxShadows>
+      <BoxShadows x:Key="Vnf.ShadowCover">0 8 20 0 #73000000</BoxShadows>
     </ResourceDictionary>
     <ResourceDictionary x:Key="Light">
-      <Color x:Key="Vnf.BgBaseColor">#ECEEF2</Color>
-      <SolidColorBrush x:Key="Vnf.BgBase" Color="#ECEEF2"/>
-      <Color x:Key="Vnf.BgLayerColor">#F4F5F8</Color>
-      <SolidColorBrush x:Key="Vnf.BgLayer" Color="#F4F5F8"/>
+      <Color x:Key="Vnf.BgBaseColor">#F1F2F0</Color>
+      <SolidColorBrush x:Key="Vnf.BgBase" Color="#F1F2F0"/>
+      <Color x:Key="Vnf.BgLayerColor">#F8F9F7</Color>
+      <SolidColorBrush x:Key="Vnf.BgLayer" Color="#F8F9F7"/>
       <Color x:Key="Vnf.BgCardColor">#FFFFFF</Color>
       <SolidColorBrush x:Key="Vnf.BgCard" Color="#FFFFFF"/>
-      <Color x:Key="Vnf.BgCardHoverColor">#F1F3F7</Color>
-      <SolidColorBrush x:Key="Vnf.BgCardHover" Color="#F1F3F7"/>
-      <Color x:Key="Vnf.BgInsetColor">#F3F5F8</Color>
-      <SolidColorBrush x:Key="Vnf.BgInset" Color="#F3F5F8"/>
-      <Color x:Key="Vnf.StrokeSubtleColor">#E1E5EB</Color>
-      <SolidColorBrush x:Key="Vnf.StrokeSubtle" Color="#E1E5EB"/>
-      <Color x:Key="Vnf.StrokeControlColor">#858E9E</Color>
-      <SolidColorBrush x:Key="Vnf.StrokeControl" Color="#858E9E"/>
-      <Color x:Key="Vnf.TextPrimaryColor">#161A22</Color>
-      <SolidColorBrush x:Key="Vnf.TextPrimary" Color="#161A22"/>
-      <Color x:Key="Vnf.TextSecondaryColor">#525B6C</Color>
-      <SolidColorBrush x:Key="Vnf.TextSecondary" Color="#525B6C"/>
-      <Color x:Key="Vnf.TextTertiaryColor">#6E7687</Color>
-      <SolidColorBrush x:Key="Vnf.TextTertiary" Color="#6E7687"/>
-      <Color x:Key="Vnf.AccentColor">#2B4C7E</Color>
-      <SolidColorBrush x:Key="Vnf.Accent" Color="#2B4C7E"/>
-      <Color x:Key="Vnf.AccentHoverColor">#1F3A63</Color>
-      <SolidColorBrush x:Key="Vnf.AccentHover" Color="#1F3A63"/>
+      <Color x:Key="Vnf.BgCardHoverColor">#EEF1EE</Color>
+      <SolidColorBrush x:Key="Vnf.BgCardHover" Color="#EEF1EE"/>
+      <Color x:Key="Vnf.BgInsetColor">#ECEEEB</Color>
+      <SolidColorBrush x:Key="Vnf.BgInset" Color="#ECEEEB"/>
+      <Color x:Key="Vnf.StrokeSubtleColor">#DDE1DD</Color>
+      <SolidColorBrush x:Key="Vnf.StrokeSubtle" Color="#DDE1DD"/>
+      <Color x:Key="Vnf.StrokeControlColor">#7F8B82</Color>
+      <SolidColorBrush x:Key="Vnf.StrokeControl" Color="#7F8B82"/>
+      <Color x:Key="Vnf.TextPrimaryColor">#161B19</Color>
+      <SolidColorBrush x:Key="Vnf.TextPrimary" Color="#161B19"/>
+      <Color x:Key="Vnf.TextSecondaryColor">#56605B</Color>
+      <SolidColorBrush x:Key="Vnf.TextSecondary" Color="#56605B"/>
+      <Color x:Key="Vnf.TextTertiaryColor">#656E69</Color>
+      <SolidColorBrush x:Key="Vnf.TextTertiary" Color="#656E69"/>
+      <Color x:Key="Vnf.AccentColor">#0B7A66</Color>
+      <SolidColorBrush x:Key="Vnf.Accent" Color="#0B7A66"/>
+      <Color x:Key="Vnf.AccentHoverColor">#086353</Color>
+      <SolidColorBrush x:Key="Vnf.AccentHover" Color="#086353"/>
       <Color x:Key="Vnf.OnAccentColor">#FFFFFF</Color>
       <SolidColorBrush x:Key="Vnf.OnAccent" Color="#FFFFFF"/>
-      <Color x:Key="Vnf.AccentSoftColor">#E3EAF5</Color>
-      <SolidColorBrush x:Key="Vnf.AccentSoft" Color="#E3EAF5"/>
-      <Color x:Key="Vnf.AccentTextColor">#24406B</Color>
-      <SolidColorBrush x:Key="Vnf.AccentText" Color="#24406B"/>
-      <Color x:Key="Vnf.FocusRingColor">#1F3A63</Color>
-      <SolidColorBrush x:Key="Vnf.FocusRing" Color="#1F3A63"/>
+      <Color x:Key="Vnf.AccentSoftColor">#D6EEE8</Color>
+      <SolidColorBrush x:Key="Vnf.AccentSoft" Color="#D6EEE8"/>
+      <Color x:Key="Vnf.AccentTextColor">#075B4C</Color>
+      <SolidColorBrush x:Key="Vnf.AccentText" Color="#075B4C"/>
+      <Color x:Key="Vnf.FocusRingColor">#075B4C</Color>
+      <SolidColorBrush x:Key="Vnf.FocusRing" Color="#075B4C"/>
       <Color x:Key="Vnf.BrandShuColor">#B8402E</Color>
       <SolidColorBrush x:Key="Vnf.BrandShu" Color="#B8402E"/>
-      <Color x:Key="Vnf.StatusPendingBgColor">#ECEEF2</Color>
-      <SolidColorBrush x:Key="Vnf.StatusPendingBg" Color="#ECEEF2"/>
-      <Color x:Key="Vnf.StatusPendingFgColor">#4A5263</Color>
-      <SolidColorBrush x:Key="Vnf.StatusPendingFg" Color="#4A5263"/>
-      <Color x:Key="Vnf.StatusAiBgColor">#EFE8FB</Color>
-      <SolidColorBrush x:Key="Vnf.StatusAiBg" Color="#EFE8FB"/>
-      <Color x:Key="Vnf.StatusAiFgColor">#5A3796</Color>
-      <SolidColorBrush x:Key="Vnf.StatusAiFg" Color="#5A3796"/>
-      <Color x:Key="Vnf.StatusTranslatedBgColor">#E3EAF5</Color>
-      <SolidColorBrush x:Key="Vnf.StatusTranslatedBg" Color="#E3EAF5"/>
-      <Color x:Key="Vnf.StatusTranslatedFgColor">#24406B</Color>
-      <SolidColorBrush x:Key="Vnf.StatusTranslatedFg" Color="#24406B"/>
-      <Color x:Key="Vnf.StatusReviewedBgColor">#DCF0F2</Color>
-      <SolidColorBrush x:Key="Vnf.StatusReviewedBg" Color="#DCF0F2"/>
-      <Color x:Key="Vnf.StatusReviewedFgColor">#135A64</Color>
-      <SolidColorBrush x:Key="Vnf.StatusReviewedFg" Color="#135A64"/>
-      <Color x:Key="Vnf.StatusApprovedBgColor">#E0F2E6</Color>
-      <SolidColorBrush x:Key="Vnf.StatusApprovedBg" Color="#E0F2E6"/>
-      <Color x:Key="Vnf.StatusApprovedFgColor">#17603C</Color>
-      <SolidColorBrush x:Key="Vnf.StatusApprovedFg" Color="#17603C"/>
-      <Color x:Key="Vnf.SignalWarningBgColor">#FFF1D6</Color>
-      <SolidColorBrush x:Key="Vnf.SignalWarningBg" Color="#FFF1D6"/>
-      <Color x:Key="Vnf.SignalWarningFgColor">#764700</Color>
-      <SolidColorBrush x:Key="Vnf.SignalWarningFg" Color="#764700"/>
-      <Color x:Key="Vnf.SignalErrorBgColor">#FBE3EA</Color>
-      <SolidColorBrush x:Key="Vnf.SignalErrorBg" Color="#FBE3EA"/>
-      <Color x:Key="Vnf.SignalErrorFgColor">#9C1F45</Color>
-      <SolidColorBrush x:Key="Vnf.SignalErrorFg" Color="#9C1F45"/>
-      <Color x:Key="Vnf.SegApprovedColor">#2E8B57</Color>
-      <SolidColorBrush x:Key="Vnf.SegApproved" Color="#2E8B57"/>
-      <Color x:Key="Vnf.SegReviewedColor">#2A8C9C</Color>
-      <SolidColorBrush x:Key="Vnf.SegReviewed" Color="#2A8C9C"/>
-      <Color x:Key="Vnf.SegTranslatedColor">#5C7FBF</Color>
-      <SolidColorBrush x:Key="Vnf.SegTranslated" Color="#5C7FBF"/>
-      <Color x:Key="Vnf.SegAiColor">#9A7FD6</Color>
-      <SolidColorBrush x:Key="Vnf.SegAi" Color="#9A7FD6"/>
-      <Color x:Key="Vnf.SegPendingColor">#C9CED8</Color>
-      <SolidColorBrush x:Key="Vnf.SegPending" Color="#C9CED8"/>
+      <Color x:Key="Vnf.StatusPendingBgColor">#EFEFF1</Color>
+      <SolidColorBrush x:Key="Vnf.StatusPendingBg" Color="#EFEFF1"/>
+      <Color x:Key="Vnf.StatusPendingFgColor">#666B74</Color>
+      <SolidColorBrush x:Key="Vnf.StatusPendingFg" Color="#666B74"/>
+      <Color x:Key="Vnf.StatusAiBgColor">#EDE8F9</Color>
+      <SolidColorBrush x:Key="Vnf.StatusAiBg" Color="#EDE8F9"/>
+      <Color x:Key="Vnf.StatusAiFgColor">#714FD3</Color>
+      <SolidColorBrush x:Key="Vnf.StatusAiFg" Color="#714FD3"/>
+      <Color x:Key="Vnf.StatusTranslatedBgColor">#E6EDFA</Color>
+      <SolidColorBrush x:Key="Vnf.StatusTranslatedBg" Color="#E6EDFA"/>
+      <Color x:Key="Vnf.StatusTranslatedFgColor">#3165D2</Color>
+      <SolidColorBrush x:Key="Vnf.StatusTranslatedFg" Color="#3165D2"/>
+      <Color x:Key="Vnf.StatusReviewedBgColor">#E0EFF3</Color>
+      <SolidColorBrush x:Key="Vnf.StatusReviewedBg" Color="#E0EFF3"/>
+      <Color x:Key="Vnf.StatusReviewedFgColor">#197588</Color>
+      <SolidColorBrush x:Key="Vnf.StatusReviewedFg" Color="#197588"/>
+      <Color x:Key="Vnf.StatusApprovedBgColor">#E2F1E9</Color>
+      <SolidColorBrush x:Key="Vnf.StatusApprovedBg" Color="#E2F1E9"/>
+      <Color x:Key="Vnf.StatusApprovedFgColor">#247A4C</Color>
+      <SolidColorBrush x:Key="Vnf.StatusApprovedFg" Color="#247A4C"/>
+      <Color x:Key="Vnf.SignalWarningBgColor">#F5EBDD</Color>
+      <SolidColorBrush x:Key="Vnf.SignalWarningBg" Color="#F5EBDD"/>
+      <Color x:Key="Vnf.SignalWarningFgColor">#965B08</Color>
+      <SolidColorBrush x:Key="Vnf.SignalWarningFg" Color="#965B08"/>
+      <Color x:Key="Vnf.SignalErrorBgColor">#F5E0E6</Color>
+      <SolidColorBrush x:Key="Vnf.SignalErrorBg" Color="#F5E0E6"/>
+      <Color x:Key="Vnf.SignalErrorFgColor">#B8244F</Color>
+      <SolidColorBrush x:Key="Vnf.SignalErrorFg" Color="#B8244F"/>
+      <Color x:Key="Vnf.SegApprovedColor">#2D9A60</Color>
+      <SolidColorBrush x:Key="Vnf.SegApproved" Color="#2D9A60"/>
+      <Color x:Key="Vnf.SegReviewedColor">#1F8FA6</Color>
+      <SolidColorBrush x:Key="Vnf.SegReviewed" Color="#1F8FA6"/>
+      <Color x:Key="Vnf.SegTranslatedColor">#4E7BD8</Color>
+      <SolidColorBrush x:Key="Vnf.SegTranslated" Color="#4E7BD8"/>
+      <Color x:Key="Vnf.SegAiColor">#7B5BD6</Color>
+      <SolidColorBrush x:Key="Vnf.SegAi" Color="#7B5BD6"/>
+      <Color x:Key="Vnf.SegPendingColor">#828791</Color>
+      <SolidColorBrush x:Key="Vnf.SegPending" Color="#828791"/>
       <Color x:Key="Vnf.TextboxBgColor">#14161C</Color>
       <SolidColorBrush x:Key="Vnf.TextboxBg" Color="#14161C"/>
       <Color x:Key="Vnf.TextboxInkColor">#F1EEE6</Color>
@@ -186,46 +215,59 @@
       <SolidColorBrush x:Key="Vnf.StageCard" Color="#66070A12"/>
       <Color x:Key="Vnf.StageStrokeColor">#26FFFFFF</Color>
       <SolidColorBrush x:Key="Vnf.StageStroke" Color="#26FFFFFF"/>
-      <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #29141C2C</BoxShadows>
+      <Color x:Key="Vnf.CoverChipBgColor">#0E1211</Color>
+      <SolidColorBrush x:Key="Vnf.CoverChipBg" Color="#0E1211"/>
+      <Color x:Key="Vnf.CoverChipInkColor">#FFFFFF</Color>
+      <SolidColorBrush x:Key="Vnf.CoverChipInk" Color="#FFFFFF"/>
+      <Color x:Key="Vnf.CoverChipWarnColor">#E7C37A</Color>
+      <SolidColorBrush x:Key="Vnf.CoverChipWarn" Color="#E7C37A"/>
+      <Color x:Key="Vnf.CoverVeilBgColor">#E4E7E4</Color>
+      <SolidColorBrush x:Key="Vnf.CoverVeilBg" Color="#E4E7E4"/>
+      <Color x:Key="Vnf.CoverScrimColor">#9E000000</Color>
+      <SolidColorBrush x:Key="Vnf.CoverScrim" Color="#9E000000"/>
+      <Color x:Key="Vnf.Speaker1Color">#22765B</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker1" Color="#22765B"/>
+      <Color x:Key="Vnf.Speaker2Color">#29588E</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker2" Color="#29588E"/>
+      <Color x:Key="Vnf.Speaker3Color">#8E294B</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker3" Color="#8E294B"/>
+      <Color x:Key="Vnf.Speaker4Color">#8A6028</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker4" Color="#8A6028"/>
+      <Color x:Key="Vnf.Speaker5Color">#64298E</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker5" Color="#64298E"/>
+      <Color x:Key="Vnf.Speaker6Color">#437221</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker6" Color="#437221"/>
+      <Color x:Key="Vnf.Speaker7Color">#246F7E</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker7" Color="#246F7E"/>
+      <Color x:Key="Vnf.Speaker8Color">#8E3229</Color>
+      <SolidColorBrush x:Key="Vnf.Speaker8" Color="#8E3229"/>
+      <Color x:Key="Vnf.DialogScrimColor">#66101A18</Color>
+      <SolidColorBrush x:Key="Vnf.DialogScrim" Color="#66101A18"/>
+      <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #29141C1A</BoxShadows>
+      <BoxShadows x:Key="Vnf.ShadowCover">0 8 20 0 #38141C1A</BoxShadows>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
   <x:Double x:Key="Vnf.ControlSm">28</x:Double>
   <x:Double x:Key="Vnf.ControlMd">32</x:Double>
   <x:Double x:Key="Vnf.ControlLg">40</x:Double>
-  <x:Double x:Key="Vnf.RowHeight">36</x:Double>
-  <x:Double x:Key="Vnf.PillHeight">20</x:Double>
-
-  <!-- Tamanhos do texto a 100%; a janela os troca pelos de TextAppearance.Build conforme o tamanho escolhido nos Ajustes. Mudou aqui, mude lá (TextAppearanceTests confere). -->
-  <x:Double x:Key="Vnf.FontSize.Body">14</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.Body">20</x:Double>
-  <x:Double x:Key="Vnf.FontSize.BodySm">13</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.BodySm">18</x:Double>
-  <x:Double x:Key="Vnf.FontSize.Caption">12</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.Caption">16</x:Double>
-  <x:Double x:Key="Vnf.FontSize.Mono">12</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.Mono">18</x:Double>
-  <x:Double x:Key="Vnf.FontSize.Pill">11</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.Pill">14</x:Double>
-  <x:Double x:Key="Vnf.FontSize.MonoXs">11</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.MonoXs">14</x:Double>
-  <x:Double x:Key="Vnf.FontSize.TitleMd">17</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.TitleMd">25</x:Double>
-  <x:Double x:Key="Vnf.FontSize.JpBody">15</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.JpBody">24</x:Double>
-  <x:Double x:Key="Vnf.FontSize.JpRow">13</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.JpRow">18</x:Double>
-  <x:Double x:Key="Vnf.FontSize.BodyLoose">14</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.BodyLoose">22</x:Double>
-  <x:Double x:Key="Vnf.FontSize.ReviewSource">18</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.ReviewSource">27</x:Double>
-  <x:Double x:Key="Vnf.FontSize.ReviewTranslation">20</x:Double>
-  <x:Double x:Key="Vnf.LineHeight.ReviewTranslation">30</x:Double>
+  <x:Double x:Key="Vnf.RowHeight">48</x:Double>
   <x:Double x:Key="Vnf.TitlebarHeight">40</x:Double>
   <x:Double x:Key="Vnf.StatusbarHeight">28</x:Double>
-  <x:Double x:Key="Vnf.NavrailWidth">72</x:Double>
-  <x:Double x:Key="Vnf.InspectorWidth">400</x:Double>
-  <x:Double x:Key="Vnf.ScriptsWidth">190</x:Double>
+  <x:Double x:Key="Vnf.NavrailWidth">80</x:Double>
+  <x:Double x:Key="Vnf.InspectorWidth">384</x:Double>
+  <x:Double x:Key="Vnf.ScriptsWidth">220</x:Double>
+  <x:Double x:Key="Vnf.DrawerWidth">396</x:Double>
+  <x:Double x:Key="Vnf.CoverCardMin">200</x:Double>
+  <x:Double x:Key="Vnf.CoverDrawerWidth">150</x:Double>
+  <x:Double x:Key="Vnf.CoverThumbWidth">44</x:Double>
+  <x:Double x:Key="Vnf.PortraitSm">28</x:Double>
+  <x:Double x:Key="Vnf.PortraitMd">56</x:Double>
+  <x:Double x:Key="Vnf.PortraitLg">64</x:Double>
+  <x:Double x:Key="Vnf.CoverStateSize">24</x:Double>
+  <x:Double x:Key="Vnf.CoverStateClearance">40</x:Double>
+  <x:Double x:Key="Vnf.TagHeight">24</x:Double>
+  <x:Double x:Key="Vnf.ProgressHeight">8</x:Double>
   <x:Double x:Key="Vnf.Space1">4</x:Double>
   <x:Double x:Key="Vnf.Space2">8</x:Double>
   <x:Double x:Key="Vnf.Space3">12</x:Double>
@@ -233,8 +275,11 @@
   <x:Double x:Key="Vnf.Space5">20</x:Double>
   <x:Double x:Key="Vnf.Space6">24</x:Double>
   <x:Double x:Key="Vnf.Space8">32</x:Double>
-  <CornerRadius x:Key="Vnf.RadiusSm">4</CornerRadius>
-  <CornerRadius x:Key="Vnf.RadiusMd">8</CornerRadius>
+  <x:Double x:Key="Vnf.Space10">40</x:Double>
+  <CornerRadius x:Key="Vnf.RadiusSm">8</CornerRadius>
+  <CornerRadius x:Key="Vnf.RadiusMd">12</CornerRadius>
+  <CornerRadius x:Key="Vnf.RadiusLg">16</CornerRadius>
+  <CornerRadius x:Key="Vnf.RadiusXl">20</CornerRadius>
   <CornerRadius x:Key="Vnf.RadiusPill">999</CornerRadius>
 
   <!-- Famílias embutidas em Assets/Fonts (todas OFL). O japonês nunca cai no fallback da família ui. -->

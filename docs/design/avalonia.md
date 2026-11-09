@@ -42,10 +42,10 @@ Cada token de cor vira um `Color` e um `SolidColorBrush` com prefixo `Vnf.`, den
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ResourceDictionary.ThemeDictionaries>
     <ResourceDictionary x:Key="Dark">
-      <Color x:Key="Vnf.BgCardColor">#1B1F27</Color>
+      <Color x:Key="Vnf.BgCardColor">#1E2322</Color>
       <SolidColorBrush x:Key="Vnf.BgCard" Color="{StaticResource Vnf.BgCardColor}"/>
-      <SolidColorBrush x:Key="Vnf.TextPrimary" Color="#E7EAF0"/>
-      <SolidColorBrush x:Key="Vnf.StatusAiBg" Color="#2C2440"/>
+      <SolidColorBrush x:Key="Vnf.TextPrimary" Color="#ECF0EE"/>
+      <SolidColorBrush x:Key="Vnf.StatusAiBg" Color="#363647"/>
       <!-- … um por token de tokens.json -->
     </ResourceDictionary>
     <ResourceDictionary x:Key="Light">
@@ -54,9 +54,9 @@ Cada token de cor vira um `Color` e um `SolidColorBrush` com prefixo `Vnf.`, den
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
-  <x:Double x:Key="Vnf.RowHeight">36</x:Double>
+  <x:Double x:Key="Vnf.RowHeight">48</x:Double>
   <x:Double x:Key="Vnf.ControlSm">28</x:Double>
-  <CornerRadius x:Key="Vnf.RadiusMd">8</CornerRadius>
+  <CornerRadius x:Key="Vnf.RadiusMd">12</CornerRadius>
   <Thickness x:Key="Vnf.PanelPadding">16</Thickness>
 </ResourceDictionary>
 ```
@@ -70,13 +70,13 @@ O Fluent cobre os controles comuns (TextBox, ComboBox, ToggleSwitch, ScrollViewe
 ```xml
 <FluentTheme DensityStyle="Normal">
   <FluentTheme.Palettes>
-    <ColorPaletteResources x:Key="Dark"  Accent="#8DB0EA" RegionColor="#15181E" ErrorText="#F59AB2"/>
-    <ColorPaletteResources x:Key="Light" Accent="#2B4C7E" RegionColor="#F4F5F8" ErrorText="#9C1F45"/>
+    <ColorPaletteResources x:Key="Dark"  Accent="#4FD1B5" RegionColor="#161A19" ErrorText="#F59AB2"/>
+    <ColorPaletteResources x:Key="Light" Accent="#0B7A66" RegionColor="#F8F9F7" ErrorText="#B8244F"/>
   </FluentTheme.Palettes>
 </FluentTheme>
 ```
 
-`Accent` fixo desliga a cor de destaque do Windows: o azul ai faz parte da identidade e os contrastes foram calculados para ele. Só `Accent` pode mudar em tempo de execução; os demais valores da paleta são lidos na inicialização.
+`Accent` fixo desliga a cor de destaque do Windows: o verde-água faz parte da identidade e os contrastes foram calculados para ele. Só `Accent` pode mudar em tempo de execução; os demais valores da paleta são lidos na inicialização.
 
 `DensityStyle="Compact"` não é usado globalmente; a densidade compacta é aplicada por classe (`sm`) só nas barras de comando e na grade.
 
@@ -104,7 +104,7 @@ Noto Sans JP completa passa de 4 MB por peso; usar só os pesos 400 e 500. Subco
   <Panel>
     <Border Background="{DynamicResource Vnf.BgBase}"
             IsVisible="{Binding !IsMicaActive}"/>   <!-- reserva -->
-    <Grid RowDefinitions="Auto,*,28" ColumnDefinitions="72,*">
+    <Grid RowDefinitions="Auto,*,28" ColumnDefinitions="80,*">
       <Border Grid.ColumnSpan="2" Height="{StaticResource Vnf.TitlebarHeight}" WindowDecorationProperties.ElementRole="TitleBar"/>
       …
 ```
@@ -176,7 +176,7 @@ $env:VNFORGE_RENDER_DIR = "$PWD\artifacts\render"
 dotnet test --project tests/VNForge.App.Tests --filter-class "*ScreenRenderTests"
 ```
 
-  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` (26/38) e `title-md` resolvem para a Zen Kaku Gothic New embutida.
+  A sessão headless usa `UseSkia()` com desenho real, então os testes de layout medem texto de verdade. O teste `FontsHeadlessTests` confere que `title-lg` (24/35) e `title-md` resolvem para a Zen Kaku Gothic New embutida.
 
 ## Ícones
 
@@ -187,3 +187,30 @@ dotnet test --project tests/VNForge.App.Tests --filter-class "*ScreenRenderTests
 - `AutomationProperties.Name` em todo botão `icon`, no indicador de aviso da grade e nos chips de marcador.
 - Ordem de tabulação: barra de título → trilho → lista de scripts → grade → inspetor.
 - `Alt+↑/↓` move a linha selecionada a partir de qualquer lugar do Editor (`KeyBinding` na `UserControl`).
+
+O design system é desenhado em HTML. O app é Avalonia 12 com FluentTheme, sem CSS. O que segue vai diferir no código.
+
+## Controles do FluentTheme que o design system não cobre
+
+Estes controles continuam com o desenho padrão do Fluent, só com as cores que o `ColorPaletteResources` herda de `accent` e das superfícies. Se um deles aparecer numa tela nova, vira componente do design system antes de a tela ser desenhada.
+
+- **Escolha:** CheckBox, RadioButton (só aparece dentro do QualityCard), ToggleSwitch, ComboBox, Slider, NumericUpDown, DatePicker.
+- **Navegação e listas:** TabControl, TreeView, Menu e ContextMenu, ListBox e ComboBoxItem fora da grade de falas, SplitView.
+- **Camadas e avisos:** ToolTip, Flyout, TeachingTip, InfoBar, NotificationCard, ScrollBar e a barra de rolagem fina.
+- **Contêineres:** Expander (só o TechnicalDetails e o ScriptGroup têm desenho), DataGrid (não é usado: a grade de falas é virtualizada à mão).
+- **Raios de controle:** `ControlCornerRadius` e `OverlayCornerRadius` do Fluent valem 4 e 8. A v3 pede 8 e 16: `App.axaml` sobrescreve os dois recursos com `Vnf.RadiusSm` e `Vnf.RadiusLg`; sem isso os controles do Fluent ficariam mais quadrados que os do design system.
+
+## O que o Avalonia desenha diferente do HTML
+
+- **Fontes:** aqui as fontes vêm do Google Fonts. No app são as embutidas (nenhuma é nova). O Noto Sans Bold não está embutido, então a interface fica no peso 600; o HTML não avisa. Skia e DirectWrite espaçam e quebram linha de um jeito um pouco diferente, e o japonês tem entrelinha própria.
+- **Proporção da capa:** o HTML usa `aspect-ratio: 3/4`. No Avalonia a capa é um controle que calcula a altura a partir da largura e corta a imagem com `UniformToFill`.
+- **Anel de seleção e de foco:** `outline` com afastamento não existe. A capa e o retrato ganham uma `Border` externa com margem.
+- **Barra de seleção da linha:** o `box-shadow inset` de 3 px vira uma `Border` de 3 px à esquerda.
+- **Borda tracejada** (tag de spoiler, ExplainCard): `Border` não tracejada; usa `Rectangle` com `StrokeDashArray`.
+- **Sombra:** o `BoxShadow` aceita deslocamento, desfoque e cor, sem espalhamento. As sombras do design system foram escritas nesse formato; o desfoque e a suavidade vão diferir um pouco.
+- **Espaçamento entre letras do overline:** 0,07 em de 11 px vira `LetterSpacing` de 0,77 px.
+- **Reticências:** `text-overflow` vira `TextTrimming="CharacterEllipsis"`.
+- **`color-mix`:** o véu atrás do diálogo no HTML mistura `bg-base` com transparência; no app é o token `dialog-scrim`.
+- **Imagens:** as capas e os retratos aqui são placeholders em SVG, com o texto vertical em japonês só no placeholder. As reais vêm do VNDB com proporções variadas, carregam pela rede e entram com fade; o quadro estático não mostra o carregamento nem a falha.
+- **Animação:** nada se move aqui. O hover (167 ms), a gaveta, o diálogo e a troca de aba (250 ms) são transições do Avalonia e só existem rodando.
+- **Densidade com dados reais:** centenas de jogos pedem rolagem virtualizada da grade de capas, que o HTML não mostra.
