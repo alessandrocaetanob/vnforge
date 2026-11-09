@@ -177,9 +177,15 @@ public sealed partial class EvalViewModel
 
         var characters = SafeCharacters(folder);
         var speaker = characters.FirstOrDefault(c => IsSame(c, sample.Speaker));
-        var shown = speaker?.Target ?? sample.Speaker;
+        if (speaker is null)
+        {
+            // Sem o cadastro não dá para saber quem, do elenco da cena, é o falante: mostrar só o nome dele evita listá-lo como destinatário.
+            return sample.Speaker;
+        }
+
+        var shown = speaker.Target;
         var others = folder.LoadBibleOrEmpty(out _).Scene(sample.ScriptKey)?.Characters
-            .Where(name => !string.Equals(name, shown, StringComparison.OrdinalIgnoreCase) && !(speaker is not null && IsSame(speaker, name)))
+            .Where(name => !string.Equals(name, shown, StringComparison.OrdinalIgnoreCase) && !IsSame(speaker, name))
             .ToList() ?? [];
         return others.Count == 0 ? shown : $"{shown} → {JoinNames(others)}";
     }

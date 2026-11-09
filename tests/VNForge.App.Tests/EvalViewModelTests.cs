@@ -380,6 +380,19 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Falante_sem_cadastro_aparece_sozinho_mesmo_com_elenco_na_biblia()
+    {
+        var project = Project();
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "美咲" })]);
+        project.SaveBible(GameBible.From([new BibleScene("yst00001") { Characters = ["Misaki", "Aizawa"] }]));
+        var vm = await RunRound(Vm(), project);
+
+        vm.BlindStartCommand.Execute(null);
+
+        Assert.Equal("美咲", vm.OriginalSpeaker);
+    }
+
+    [Fact]
     public async Task A_barra_de_chrF_da_tabela_usa_a_janela_do_relatorio()
     {
         var vm = await RunRound(Vm(), Project());
