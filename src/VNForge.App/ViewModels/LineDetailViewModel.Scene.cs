@@ -49,9 +49,6 @@ public sealed partial class LineDetailViewModel
 
     public bool HasSceneSummary => BibleSceneOfLine is not null;
 
-    /// <summary>O tom da cena, em uma linha, abaixo do resumo; vazio quando a bíblia não escreveu um.</summary>
-    public string SceneTone => BibleSceneOfLine is { Tone.Count: > 0 } scene ? string.Join(" · ", scene.Tone) : string.Empty;
-
     /// <summary>As outras linhas do projeto com o mesmo original; nulo quando o Editor não montou o índice.</summary>
     public ISameSourceLines? SameSource
     {

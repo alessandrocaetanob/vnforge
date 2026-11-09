@@ -4,6 +4,7 @@ using VNForge.App.Services;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
@@ -14,13 +15,14 @@ namespace VNForge.App.ViewModels;
 /// <param name="entry">A linha da grade.</param>
 /// <param name="speakerTarget">O nome do falante em português (<c>characters.json</c>); nulo mostra o nome original.</param>
 /// <param name="speakerColor">A cor do personagem (<c>characters.json</c> ou a da paleta); nula para quem não está cadastrado.</param>
-public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null, CharacterColor? speakerColor = null) : INotifyPropertyChanged
+/// <param name="speakerImage">A imagem do personagem no VNDB, para o retrato da grade; nula sem imagem (o retrato desenhado vale).</param>
+public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null, CharacterColor? speakerColor = null, VndbImageRef? speakerImage = null) : INotifyPropertyChanged
 {
     private static readonly string[] Changeable =
     [
         nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
         nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel), nameof(IssueTip),
-        nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerColor), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
+        nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerColor), nameof(SpeakerImage), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
         nameof(HasDoubt), nameof(DoubtTip), nameof(HasEditorSuggestion), nameof(EditorSuggestionTip),
     ];
 
@@ -39,23 +41,26 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null,
     }
 
     /// <summary>Como <see cref="Update(LineEntry)"/>, e troca o nome em português do falante (a gravação mudou o falante escolhido da linha).</summary>
-    public void Update(LineEntry updated, string? newSpeakerTarget, CharacterColor? newSpeakerColor)
+    public void Update(LineEntry updated, string? newSpeakerTarget, CharacterColor? newSpeakerColor, VndbImageRef? newSpeakerImage = null)
     {
         speakerTarget = newSpeakerTarget;
         speakerColor = newSpeakerColor;
+        speakerImage = newSpeakerImage;
         Update(updated);
     }
 
     /// <summary>O Glossário mudou o nome ou a cor do personagem: a grade passa a mostrar os novos, sem tocar na linha.</summary>
-    public void UpdateSpeaker(string? newSpeakerTarget, CharacterColor? newSpeakerColor)
+    public void UpdateSpeaker(string? newSpeakerTarget, CharacterColor? newSpeakerColor, VndbImageRef? newSpeakerImage = null)
     {
-        if (string.Equals(speakerTarget, newSpeakerTarget, StringComparison.Ordinal) && ReferenceEquals(speakerColor, newSpeakerColor))
+        if (string.Equals(speakerTarget, newSpeakerTarget, StringComparison.Ordinal) && ReferenceEquals(speakerColor, newSpeakerColor) && Equals(speakerImage, newSpeakerImage))
         {
             return;
         }
 
         speakerTarget = newSpeakerTarget;
         speakerColor = newSpeakerColor;
+        speakerImage = newSpeakerImage;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeakerImage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeakerName)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeakerLabel)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeakerColor)));
@@ -78,6 +83,9 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null,
 
     /// <summary>A cor do personagem que fala; nula na narração e quando o falante não está no Glossário.</summary>
     public CharacterColor? SpeakerColor => IsNarration ? null : speakerColor;
+
+    /// <summary>A imagem do personagem que fala no VNDB; nula na narração e sem imagem.</summary>
+    public VndbImageRef? SpeakerImage => IsNarration ? null : speakerImage;
 
     /// <summary>A linha tem o falante trocado por quem traduz (<see cref="TextUnit.ChosenSpeaker"/>): a grade a marca.</summary>
     public bool IsSpeakerChanged => Entry.Unit.ChosenSpeaker is not null;
