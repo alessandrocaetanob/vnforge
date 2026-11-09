@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VNForge.Core\VNForge.Core.csproj" />
+    <!-- Os testes da Biblioteca casam jogos com o catálogo falso do VNDB, o mesmo que a CLI e o app usam sem rede. -->
+    <ProjectReference Include="..\..\src\VNForge.Vndb\VNForge.Vndb.csproj" />
   </ItemGroup>
 
   <ItemGroup>
