@@ -232,6 +232,17 @@ Com a acentuação `cp1252` e uma engine que oferece patch de executável (o YU-
 
 Janela sobre o Editor (`ScreenDialog`, sem janela nova), aberta pelo botão **Traduzir com IA** do cabeçalho, que ficou no lugar de "Traduzir pendentes". Três perguntas numeradas: **O que traduzir** (esta cena, o capítulo ou o jogo todo, com as linhas sem tradução de cada um; com duas ou mais cenas marcadas na lista, "As cenas escolhidas (n)" ocupa o lugar de "Esta cena"), **Com que qualidade** (Rápida, Equilibrada, Caprichada, cada cartão com preço em reais e tempo) e **Quanto custa** (o valor do pedido, o gasto do projeto e a barra com a marca do limite). O botão principal é **Traduzir**; ele fica desligado quando o pedido passa do limite, até a pessoa trocar para a qualidade que cabe. Esforço, modelo exato e cotação ficam nos Ajustes. As regras de orçamento, a estimativa e o que a execução grava estão na entrada #304 de "Em aberto" e em [02-arquitetura.md](02-arquitetura.md#interface-v3-o-que-o-core-e-a-ia-ganharam).
 
+### 10. Lançar (#540)
+
+O item **Lançar** do trilho fica ao lado de Testar e abre a tela do `vnf release`: gera o patch de diferença binária, o instalador de um arquivo, o leia-me, os créditos e a lista do que mudou desde o patch anterior, com o mesmo `ReleaseService` da CLI. No visual aprovado ele é o sexto passo do segmentado da aba Tradução; enquanto o shell novo (#544) não chega, ele mora no trilho. Quatro estados:
+
+- **Pronto**: a faixa "A tradução pode virar uma versão", as três conferências (Conferir sem erros, Testado no jogo em dd/MM às HH:mm, Jogo de referência confere), o formulário (Número da versão, Nome do instalador, Pasta de saída com **Escolher**, Créditos) e, à direita, "O que o jogador recebe" com o único botão de destaque, **Gerar patch e instalador**, e "Mudou desde o patch X" (as cenas do `TranslationChanges`). A versão já vem sugerida (1.1.0 vira 1.2.0). Com erros na Conferência o botão fica desligado e a faixa oferece **Ver os erros**.
+- **Gerando**: as seis etapas na ordem do Core (Conferir a tradução, Montar o build, Calcular as diferenças e gravar o patch, Verificar numa cópia limpa, Montar o instalador, Gravar leia-me, créditos e mudanças), cada uma com o tempo, a atual com barra indeterminada. A geração é uma tarefa da barra inferior e **Cancelar** a interrompe; o Core só escreve na pasta de saída.
+- **Versão pronta**: **Abrir a pasta** e **Testar o instalador**, a lista dos arquivos gerados com **Copiar checksum** nos dois pacotes, o cartão Verificação, a tabela "O que o patch muda no jogo" (Arquivo, Original, Patch, Troca) e a prévia do LEIA-ME.txt.
+- **Jogo fora da versão de referência**: a faixa vermelha, o cartão "Checksum diferente" (a pasta e, em **Ver os detalhes**, a mensagem do Core) e "O que fazer". O botão de gerar fica desligado. **Escolher outra pasta** leva aos Ajustes, onde mora a pasta do jogo.
+
+O que o Core não entrega hoje e a tela deixa de fora: o percentual e o arquivo em curso de cada etapa, as linhas antes e depois de "Mudou desde o patch X" (só cenas e contagem), o tamanho dos arquivos antes de gerar (a tabela e os tamanhos aparecem depois) e os campos Esperado e Encontrado do checksum (a mensagem do Core traz os arquivos).
+
 ## Como fica rodando no dia a dia
 
 1. Você abre o projeto; o app lembra o último script e a última linha.
