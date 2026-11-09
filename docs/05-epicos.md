@@ -152,7 +152,7 @@ Pronto quando: **M4** atingido com a configuração escolhida pelo banco de prov
 
 ## E14 · Biblioteca de VNs
 
-O VNForge lê o drive ou a pasta das VNs do Alessandro e vira o lugar delas, ligado ao VNDB: catálogo, ficha em português (sinopse, gêneros e personagens traduzidos e revisados), jogar com tempo contado, lista do VNDB sincronizada, fila do que ainda não existe em português, troca entre original e traduzido, capturas e notas, catálogo exportável. Itens d1 a d10 do plano da v6, menos o d8 (Talvez).
+O VNForge lê o drive ou a pasta das VNs do Alessandro e vira o lugar delas, ligado ao VNDB: catálogo, ficha em português (sinopse, gêneros e personagens traduzidos e revisados), jogar com tempo contado, lista do VNDB sincronizada, fila do que ainda não existe em português, troca entre original e traduzido, capturas e notas, catálogo exportável, personagens com página própria e os jogos em que aparecem, tags próprias nos jogos. Itens d1 a d12 do plano da v6, menos o d8 (Talvez).
 
 Pronto quando: a pasta de VNs do Alessandro aparece inteira na Biblioteca, com as fichas em português.
 
