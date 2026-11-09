@@ -15,6 +15,29 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     private static ThemeVariant ThemeOf(string name) => name == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
 
+    // Dado de teste: os valores que o quadro desenha, para a comparação ser de layout e não de conteúdo.
+    private const string Credits = "Tradução: Equipe Chuva Mansa · Revisão: Hana";
+
+    /// <summary>O LEIA-ME que o Core grava (o mesmo texto de <c>ReleaseDocuments.ReadMe</c>), com as falas de exemplo do quadro.</summary>
+    private const string ReadMeText =
+        "Amaoto no Hakoniwa · Tradução para português do Brasil\r\nVersão 1.2.0 · 08/11/2026\r\n\r\n"
+        + "COMO INSTALAR\r\n1. Feche o jogo.\r\n2. Execute o instalador.\r\n3. Aponte a pasta do jogo e confirme a instalação.\r\n"
+        + "O instalador confere se o jogo é a versão certa e guarda uma cópia dos arquivos originais antes de mexer em qualquer coisa.\r\n\r\n"
+        + "COMO DESINSTALAR\r\nExecute o instalador de novo e escolha Voltar ao jogo original. Os arquivos originais voltam byte a byte e os seus saves não são tocados.\r\n\r\n"
+        + "O QUE MUDOU DESDE A 1.1.0\r\n41 linhas em 6 cenas. Veja MUDANCAS.txt.\r\n\r\n"
+        + "CRÉDITOS\r\nTradução: Equipe Chuva Mansa · Revisão: Hana\r\n\r\n"
+        + "AVISOS\r\nO instalador usa a biblioteca VCDiff (Apache 2.0) e outras bibliotecas de código aberto. Os textos das licenças estão em LICENCAS.txt e no próprio instalador (instalador --licencas).\r\n";
+
+    /// <summary>Os tempos do quadro: 0,4 s, 2,9 s e 11,6 s nos três primeiros passos, e 11,6 s na verificação.</summary>
+    private static TimeSpan DurationsOfQuadro(VNForge.Core.Publishing.ReleaseStep step) => step switch
+    {
+        VNForge.Core.Publishing.ReleaseStep.Check => TimeSpan.FromSeconds(0.4),
+        VNForge.Core.Publishing.ReleaseStep.Build => TimeSpan.FromSeconds(2.9),
+        VNForge.Core.Publishing.ReleaseStep.Diff => TimeSpan.FromSeconds(11.6),
+        VNForge.Core.Publishing.ReleaseStep.Verify => TimeSpan.FromSeconds(11.6),
+        _ => TimeSpan.FromSeconds(1),
+    };
+
     private static void Render(ReleaseViewModelTestsHost host, string screen, ThemeVariant theme, Action<Window> inspect)
     {
         var path = RenderOutput.PathFor(ScreenRenderer.FileName(screen, theme));
@@ -39,7 +62,8 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     [MemberData(nameof(Themes))]
     public async Task Renderiza_o_estado_pronto(string themeName)
     {
-        using var host = await ReleaseViewModelTestsHost.OpenAsync();
+        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro());
+        host.Vm.Credits = Credits;
 
         await fixture.Session.Dispatch(
             () =>
@@ -50,6 +74,7 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                     Assert.True(Shows(window, "A versão"));
                     Assert.True(Shows(window, "O que o jogador recebe"));
                     Assert.True(Shows(window, "O que mudou desde o patch anterior"));
+                    Assert.True(Shows(window, "O que o patch muda no jogo"));
                 });
                 return 0;
             },
@@ -60,7 +85,9 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     [MemberData(nameof(Themes))]
     public async Task Renderiza_o_estado_gerando(string themeName)
     {
-        using var host = await ReleaseViewModelTestsHost.OpenAsync();
+        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro());
+        host.Vm.Credits = Credits;
+        host.Publisher.Duration = DurationsOfQuadro;
         using var reached = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var calls = 0;
@@ -86,6 +113,8 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                     {
                         Assert.True(Shows(window, "Etapas"));
                         Assert.True(Shows(window, "Cancelar"));
+                        Assert.True(Shows(window, "O que o patch muda no jogo"));
+                        Assert.True(Shows(window, "Andamento da etapa"));
                     });
                     return 0;
                 },
@@ -102,8 +131,10 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     [MemberData(nameof(Themes))]
     public async Task Renderiza_a_versao_pronta(string themeName)
     {
-        using var host = await ReleaseViewModelTestsHost.OpenAsync();
-        host.Vm.Credits = "Tradução: Equipe Chuva Mansa · Revisão: Hana";
+        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro());
+        host.Vm.Credits = Credits;
+        host.Publisher.Duration = DurationsOfQuadro;
+        host.Publisher.ReadMe = ReadMeText;
         await host.Vm.GenerateCommand.ExecuteAsync(null);
 
         await fixture.Session.Dispatch(
@@ -124,10 +155,7 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     [MemberData(nameof(Themes))]
     public async Task Renderiza_o_jogo_fora_da_versao_de_referencia(string themeName)
     {
-        var read = ReleaseViewModelTests.Ready(
-            reference: VNForge.App.Services.ReleaseReference.Differs,
-            problem: "O jogo mudou desde a extração. Arquivos alterados: Game/Game.exe.");
-        using var host = await ReleaseViewModelTestsHost.OpenAsync(read);
+        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro(VNForge.App.Services.ReleaseReference.Differs));
 
         await fixture.Session.Dispatch(
             () =>

@@ -21,6 +21,11 @@ public enum ReleaseReference
 /// <param name="PreviousAt">Quando a versão anterior foi gerada.</param>
 /// <param name="Changes">As cenas cuja tradução mudou desde a versão anterior; <see cref="ChangesSinceTest.None"/> na primeira.</param>
 /// <param name="ReferenceProblem">A mensagem do Core quando <paramref name="Reference"/> é <see cref="ReleaseReference.Differs"/>.</param>
+/// <param name="PreviousFiles">Os arquivos do patch anterior, de onde vêm os tamanhos estimados de "O que o jogador recebe"; nulo na primeira versão.</param>
+/// <param name="PreviousGameFiles">Os arquivos do jogo que o patch anterior tocou, a estimativa de "O que o patch muda no jogo"; nulo na primeira versão e nas anteriores a este registro.</param>
+/// <param name="GameFileCount">Quantos arquivos a pasta do jogo tem; nulo quando ela não lê.</param>
+/// <param name="ChangeExamples">Uma fala mudada por cena, com o antes e o depois; vazia quando o texto da versão anterior não foi guardado.</param>
+/// <param name="ChangedFiles">Os arquivos do jogo cujo checksum não é o da extração, com o esperado e o encontrado; nulo fora de <see cref="ReleaseReference.Differs"/>.</param>
 public sealed record ReleaseReadiness(
     string GameFolder,
     string? PreviousVersion,
@@ -30,7 +35,12 @@ public sealed record ReleaseReadiness(
     DateTimeOffset? TestedAt,
     ReleaseReference Reference,
     string? ReferenceProblem,
-    ChangesSinceTest Changes);
+    ChangesSinceTest Changes,
+    IReadOnlyList<ReleaseFile>? PreviousFiles = null,
+    IReadOnlyList<ReleaseGameFile>? PreviousGameFiles = null,
+    int? GameFileCount = null,
+    IReadOnlyList<ChangeExample>? ChangeExamples = null,
+    IReadOnlyList<ChangedGameFile>? ChangedFiles = null);
 
 /// <summary>O que a tela Lançar pede ao Core. Atrás de uma interface para os testes não gerarem patch de verdade.</summary>
 public interface IReleasePublisher
@@ -43,12 +53,15 @@ public interface IReleasePublisher
     /// <exception cref="QaBlockedException">A Conferência achou erro.</exception>
     /// <exception cref="InjectionException">O jogo não é a versão de referência.</exception>
     /// <exception cref="VNForgeException">Versão inválida, instalador ausente ou verificação do patch falhou.</exception>
-    ReleaseResult Create(string projectRoot, ReleaseOptions options, IProgress<ReleaseStep>? steps, CancellationToken cancellationToken);
+    ReleaseResult Create(string projectRoot, ReleaseOptions options, IProgress<ReleaseProgress>? steps, CancellationToken cancellationToken);
 }
 
 /// <summary>O <see cref="ReleaseService"/> do <c>vnf release</c>, o mesmo que a CLI usa.</summary>
 public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? qa = null, TimeProvider? clock = null) : IReleasePublisher
 {
+    /// <summary>Quantas falas de exemplo "Mudou desde o patch" mostra: uma por cena, nas primeiras cenas.</summary>
+    public const int ExampleCount = 3;
+
     public ReleaseReadiness Inspect(string projectRoot, CancellationToken cancellationToken)
     {
         var project = ProjectFolder.Open(projectRoot);
@@ -60,11 +73,14 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
         var tested = GameStateFile.Load(project).LastTest is { Kind: GameTestKind.Translation } last ? last.At : (DateTimeOffset?)null;
         var previous = ReleaseService.LoadRecords(project).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
         var changes = ChangesSinceTest.None;
+        IReadOnlyList<ChangeExample> examples = [];
         if (previous is not null)
         {
             try
             {
-                changes = TranslationChanges.Since(new GameLastTest(previous.CreatedAt, GameTestKind.Translation, [], previous.Snapshot), project.LoadAllText());
+                var texts = project.LoadAllText();
+                changes = TranslationChanges.Since(new GameLastTest(previous.CreatedAt, GameTestKind.Translation, [], previous.Snapshot), texts);
+                examples = ReleaseTexts.Examples(ReleaseTexts.Load(project, previous.Version), texts, changes, ExampleCount);
             }
             catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
             {
@@ -73,7 +89,7 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var (reference, problem) = CheckReference(project);
+        var (reference, problem, changedFiles) = CheckReference(project);
         return new ReleaseReadiness(
             gameFolder,
             previous?.Version,
@@ -83,34 +99,51 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
             tested,
             reference,
             problem,
-            changes);
+            changes,
+            previous?.Files,
+            previous?.GameFiles,
+            CountFiles(gameFolder),
+            examples,
+            changedFiles);
+    }
+
+    private static int? CountFiles(string folder)
+    {
+        try
+        {
+            return Directory.Exists(folder) ? Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Count() : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     public string DefaultInstallerName(string projectRoot, string version) =>
         ReleaseService.DefaultInstallerName(ProjectFolder.Open(projectRoot).LoadConfig(), version);
 
-    public ReleaseResult Create(string projectRoot, ReleaseOptions options, IProgress<ReleaseStep>? steps, CancellationToken cancellationToken) =>
+    public ReleaseResult Create(string projectRoot, ReleaseOptions options, IProgress<ReleaseProgress>? steps, CancellationToken cancellationToken) =>
         new ReleaseService(engines, qa, clock).Create(ProjectFolder.Open(projectRoot), options, steps, cancellationToken);
 
-    private static (ReleaseReference Reference, string? Problem) CheckReference(ProjectFolder project)
+    private static (ReleaseReference Reference, string? Problem, IReadOnlyList<ChangedGameFile>? Changed) CheckReference(ProjectFolder project)
     {
         if (!Directory.Exists(project.BuildDirectory) || !Directory.EnumerateFileSystemEntries(project.BuildDirectory).Any())
         {
-            return (ReleaseReference.Unknown, null);
+            return (ReleaseReference.Unknown, null, null);
         }
 
         try
         {
             GameInjector.Plan(project);
-            return (ReleaseReference.Matches, null);
+            return (ReleaseReference.Matches, null, null);
         }
         catch (InjectionException e)
         {
-            return (ReleaseReference.Differs, e.Message);
+            return (ReleaseReference.Differs, e.Message, e.ChangedFiles);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
-            return (ReleaseReference.Unknown, null);
+            return (ReleaseReference.Unknown, null, null);
         }
     }
 }
