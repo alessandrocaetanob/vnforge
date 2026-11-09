@@ -167,7 +167,10 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        progressRefresh?.Cancel();
+        // A releitura anterior só lê o token, o que continua valendo depois do Dispose porque o Cancel vem antes.
+        var old = progressRefresh;
+        old?.Cancel();
+        old?.Dispose();
         var source = progressRefresh = new CancellationTokenSource();
         DashboardRefresh = RefreshProgressAsync(source.Token);
     }
