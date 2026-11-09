@@ -134,6 +134,14 @@ internal static class EvalCommand
         var tracker = new RunCostTracker(project, configs[0].Model, budget.Rate, () => null);
         var guard = tracker.CreateGuard(budget.Limits, _ => budget.Rate.ToBrl(estimate.Dollars), (question, _) =>
             Task.FromResult(ConfirmationPrompt.Confirm(parseResult, cli, $"A rodada custa cerca de {Brl(question.EstimatedCost)}, acima do valor de aviso de {Brl(question.WarnAbove)}. Continuar?")));
+        var estimateBrl = budget.Rate.ToBrl(estimate.Dollars);
+        if (budget.Limits.Limit is { } cap && estimateBrl > cap - tracker.SpentBrl())
+        {
+            throw new UsageException(
+                $"A rodada custa cerca de {Brl(estimateBrl)}, mas só restam {Brl(Math.Max(0m, cap - tracker.SpentBrl()))} do limite de gasto de {Brl(cap)}.",
+                "Rode menos configurações, use --no-judge ou aumente o limite nos Ajustes do app.");
+        }
+
         if (await guard.AuthorizeAsync(budget.Rate.ToBrl(estimate.Dollars), token).ConfigureAwait(false) is { } stop)
         {
             throw new UsageException(
@@ -141,13 +149,13 @@ internal static class EvalCommand
                 stop == BudgetStop.LimitReached ? "Aumente o limite nos Ajustes do app para rodar o banco de provas." : null);
         }
 
-        var request = BuildRequest(cli, project, configs, sample, seed, pairs, judgeModel, json ? null : new Progress<EvalProgress>(p => error.WriteLine(ProgressText(p))));
+        var request = BuildRequest(cli, project, configs, sample, seed, pairs, judgeModel, budget, json ? null : new Progress<EvalProgress>(p => error.WriteLine(ProgressText(p))));
         var round = await EvalRunner.RunAsync(request, token).ConfigureAwait(false);
         return WriteReport(output, json, round, budget.Rate);
     }
 
     private static EvalRunRequest BuildRequest(
-        VnfCli cli, ProjectFolder project, IReadOnlyList<EvalConfig> configs, int sample, int seed, int pairs, string? judgeModel, IProgress<EvalProgress>? progress)
+        VnfCli cli, ProjectFolder project, IReadOnlyList<EvalConfig> configs, int sample, int seed, int pairs, string? judgeModel, BudgetSettings budget, IProgress<EvalProgress>? progress)
     {
         string? key = null;
         string Key() => key ??= RequireApiKey(cli);
@@ -172,6 +180,8 @@ internal static class EvalCommand
             Judge = judge,
             JudgeModel = judgeModel,
             PairCount = pairs,
+            Limits = budget.Limits,
+            Rate = budget.Rate,
             Progress = progress,
         };
     }

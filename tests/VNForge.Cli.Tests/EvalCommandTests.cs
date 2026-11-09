@@ -1,6 +1,8 @@
 using System.Text.Json;
 using VNForge.AI.Claude;
+using VNForge.AI.Cost;
 using VNForge.AI.Eval;
+using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Eval;
 using VNForge.Core.Projects;
@@ -58,6 +60,38 @@ public sealed class EvalCommandTests : IDisposable
         Assert.Contains("20 linhas que faltam", result.Output);
         Assert.Contains("Sugestão para o M4: A.", result.Output);
         Assert.Equal([ClaudeModels.Sonnet, ClaudeModels.Haiku], _models);
+    }
+
+    private void WriteAppJson(string json)
+    {
+        Directory.CreateDirectory(_cli.UserConfigDirectory);
+        File.WriteAllText(Path.Combine(_cli.UserConfigDirectory, AppBudgetFile.FileName), json);
+    }
+
+    [Fact]
+    public async Task Recusa_a_rodada_cuja_estimativa_passa_do_que_resta_do_limite_e_nao_gasta_nada()
+    {
+        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 10 }""");
+        AiUsageLog.TryRecord(_project, new AiUsageTotals(0, 0, 0, 0, 1.99m, 1));
+
+        var result = await Run("--config", "opus:high:30", "--config", "opus:high:30", "--config", "opus:high:30", "--sample", "40", "--no-judge");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("só restam", result.Error + result.Output);
+        Assert.Contains("limite de gasto", result.Error + result.Output);
+        Assert.Empty(_models);
+        Assert.Null(EvalStore.LoadLatest(_project));
+    }
+
+    [Fact]
+    public async Task Com_folga_no_limite_a_rodada_segue()
+    {
+        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 500 }""");
+
+        var result = await Run("--config", "sonnet", "--sample", "10");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal([ClaudeModels.Sonnet], _models);
     }
 
     [Fact]

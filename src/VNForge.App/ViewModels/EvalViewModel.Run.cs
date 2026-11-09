@@ -201,8 +201,11 @@ public sealed partial class EvalViewModel
 
     private async Task RunCoreAsync(ProjectFolder project, IReadOnlyList<EvalConfig> chosen, bool judge, CancellationToken token)
     {
+        var context = Context();
         var request = new EvalRunRequest(project, chosen, Math.Min(DefaultSample, GoldLines), Seed, Provider)
         {
+            Limits = context.Limits,
+            Rate = context.Rate,
             Judge = judge ? JudgeProviderFactory(JudgeModel) : null,
             JudgeModel = judge ? JudgeModel : null,
             Progress = new Progress<EvalProgress>(p => RunStatus = $"Configuração {p.ConfigId} ({p.ConfigNumber} de {p.ConfigCount}): {(p.Phase == EvalPhase.Translating ? "traduzindo" : "avaliando com o juiz")}..."),
