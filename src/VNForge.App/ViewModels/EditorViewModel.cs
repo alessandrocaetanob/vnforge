@@ -5,6 +5,7 @@ using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
+using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Spelling;
@@ -136,6 +137,25 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     /// <summary>O "Entender o japonês" do inspetor; nulo deixa o botão desligado.</summary>
     public ILineExplanations? Explanations { get; init; }
+
+    /// <summary>A memória de tradução entre projetos (#537); nula nos testes que não a usam. O projeto de exemplo nunca entra nela.</summary>
+    public TranslationMemory? Memory { get; init; }
+
+    private ProjectMemory? projectMemory;
+    private Task memoryWork = Task.CompletedTask;
+
+    /// <summary>O trabalho pendente com a memória (a sincronização ao abrir o projeto e o registro de cada gravação); os testes aguardam por ele. Roda em fila, fora da thread da interface.</summary>
+    public Task MemoryIdle => memoryWork;
+
+    private void QueueMemory(Action<ProjectMemory> work)
+    {
+        if (projectMemory is not { } target)
+        {
+            return;
+        }
+
+        memoryWork = memoryWork.ContinueWith(_ => work(target), TaskScheduler.Default);
+    }
 
     public ObservableCollection<ScriptItemViewModel> Scripts { get; } = [];
 
@@ -312,6 +332,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         IsLoading = false;
         ErrorMessage = error;
         lineEditor = CreateLineEditor(loaded, root);
+        projectMemory = Memory is not null && loaded is not null && Project is { IsSample: false } summary ? new ProjectMemory(Memory, root, summary.Name, clock) : null;
         context = loadedContext;
         scriptNames = loadedNames?.Names ?? scriptNames;
         if (loadedNames?.Error is { } namesError)
@@ -321,6 +342,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         DropChangedSinceTestIfOutdated();
         Apply(loaded);
+        if (loaded is not null)
+        {
+            var approved = loaded.Scripts.SelectMany(script => loaded.LinesOf(script.Key)).Select(line => line.Unit).ToList();
+            QueueMemory(memory => memory.Sync(approved));
+        }
     }
 
     /// <summary>
@@ -668,10 +694,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
+        detail.ShowMemory();
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
     }
@@ -958,6 +985,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ErrorCount += ErrorsIn(updated.Issues) - ErrorsIn(line.Entry.Issues);
         IssueCount += updated.Issues.Count - line.Entry.Issues.Count;
         LastSavedAt = clock.GetLocalNow();
+        QueueMemory(memory => memory.Record(saved));
         var character = context.Characters.Find(saved.EffectiveSpeaker);
         line.Update(updated, character?.Target, CharacterPalette.For(character));
         if (Detail is { } open && string.Equals(open.Id, line.Id, StringComparison.Ordinal))

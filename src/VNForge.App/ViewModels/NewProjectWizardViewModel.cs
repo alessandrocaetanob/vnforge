@@ -6,6 +6,7 @@ using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Engines;
+using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
@@ -108,6 +109,16 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private readonly AppSettingsFile? appSettings;
     private readonly TimeProvider clock;
     private GameInspection? inspection;
+
+    /// <summary>O glossário pessoal (#537): os termos marcados entram no <c>glossary.json</c> do projeto novo. Nulo cria o projeto sem eles.</summary>
+    public PersonalGlossary? PersonalGlossary { get; init; }
+
+    /// <summary>Quantos termos do glossário pessoal entraram no projeto criado, ou por que não entraram; vazio quando não há glossário pessoal.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPersonalNotice))]
+    public partial string PersonalNotice { get; private set; } = string.Empty;
+
+    public bool HasPersonalNotice => PersonalNotice.Length > 0;
 
     /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
     /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
@@ -524,14 +535,27 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         EncodingStrategies.Selected.Id,
         ProjectChoices.DefaultAi with { Model = Models.Selected.Id });
 
+    private static string SeededNotice(int seeded)
+    {
+        if (seeded == 0)
+        {
+            return string.Empty;
+        }
+
+        return seeded == 1
+            ? "1 termo do glossário pessoal entrou no glossário do projeto."
+            : $"{seeded} termos do glossário pessoal entraram no glossário do projeto.";
+    }
+
     private async Task CreateAsync()
     {
         IsBusy = true;
         try
         {
             var options = BuildOptions();
-            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options));
+            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options, PersonalGlossary));
             Created = new ProjectResultInfo(result.Config.Name, result.Folder.Root);
+            PersonalNotice = result.PersonalGlossaryProblem ?? SeededNotice(result.SeededTerms);
             Step = WizardStep.Done;
             SaveBudget();
         }

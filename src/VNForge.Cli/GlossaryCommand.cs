@@ -7,7 +7,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.Cli;
 
-/// <summary><c>vnf glossary add|list</c>: os termos fixos de <c>glossary.json</c>.</summary>
+/// <summary><c>vnf glossary add|list|personal</c>: os termos fixos de <c>glossary.json</c> e o glossário pessoal.</summary>
 internal static class GlossaryCommand
 {
     public static Command Create(VnfCli cli)
@@ -15,6 +15,7 @@ internal static class GlossaryCommand
         var command = new Command("glossary", "Gerencia o glossário do projeto (glossary.json).");
         command.Subcommands.Add(CreateAdd(cli));
         command.Subcommands.Add(CreateList(cli));
+        command.Subcommands.Add(PersonalGlossaryCommand.Create(cli));
         return command;
     }
 

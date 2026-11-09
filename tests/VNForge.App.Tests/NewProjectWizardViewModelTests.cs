@@ -235,6 +235,38 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Projeto_criado_pelo_assistente_ja_tem_os_termos_do_glossario_pessoal()
+    {
+        var pessoal = new VNForge.Core.Memory.PersonalGlossary(Path.Combine(temp.Path, "config"));
+        pessoal.Upsert(new VNForge.Core.Memory.PersonalTerm("お兄ちゃん", "mano"));
+        var vm = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine(true)]) { PersonalGlossary = pessoal };
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(ProjectPath());
+        await AdvanceAsync(vm, 4);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.Equal("お兄ちゃん", Assert.Single(ProjectFolder.Open(ProjectPath()).LoadGlossary()).Source);
+        Assert.Equal("1 termo do glossário pessoal entrou no glossário do projeto.", vm.PersonalNotice);
+    }
+
+    [Fact]
+    public async Task Glossario_pessoal_ilegivel_cria_o_projeto_e_avisa_na_tela_final()
+    {
+        var pasta = Path.Combine(temp.Path, "config");
+        Directory.CreateDirectory(pasta);
+        var pessoal = new VNForge.Core.Memory.PersonalGlossary(pasta);
+        File.WriteAllText(pessoal.Path, """{"version":1,"entries":[{"target":"mano"}]}""");
+        var vm = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine(true)]) { PersonalGlossary = pessoal };
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(ProjectPath());
+        await AdvanceAsync(vm, 4);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.True(vm.HasPersonalNotice);
+        Assert.Contains("sem os termos do glossário pessoal", vm.PersonalNotice);
+    }
+
+    [Fact]
     public async Task Criar_grava_o_vnforge_json_com_as_escolhas_e_vai_para_o_passo_final()
     {
         var vm = await AtNamesStepAsync();
