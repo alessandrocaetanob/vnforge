@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Globalization;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -149,10 +150,13 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateLink(cli));
         command.Subcommands.Add(CreatePrivacy(cli));
         command.Subcommands.Add(CreateTag(cli));
+        command.Subcommands.Add(CreateSheet(cli));
         command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
         command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
         command.Subcommands.Add(CreatePlay(cli));
         command.Subcommands.Add(CreateExport(cli));
+        command.Subcommands.Add(CreateState(cli));
+        command.Subcommands.Add(CreateSwitch(cli));
         command.Subcommands.Add(CreateOption(cli));
         command.Subcommands.Add(CreateEmulator(cli));
         return command;
@@ -833,7 +837,7 @@ internal static partial class LibraryCommand
             output.WriteLine($"  Lançamento: {card.Released}");
         }
 
-        output.WriteLine($"  Duração: {LengthText(card.LengthMinutes, card.Length)}");
+        output.WriteLine($"  Duração: {LibraryLength.Text(card.LengthMinutes, card.Length)}");
         output.WriteLine($"  Capa: {(card.CoverHidden ? "escondida (conteúdo adulto; use --show-adult)" : card.CoverUrl ?? "sem capa")}");
         output.WriteLine("  Tags: " + (card.Tags.Count == 0 ? "nenhuma" : string.Join(", ", card.Tags.Take(15).Select(t => t.Name))) + (card.HiddenTags > 0 ? $" ({CliFormat.Count(card.HiddenTags, "tag escondida", "tags escondidas")}: spoiler ou conteúdo adulto)" : string.Empty));
         if (card.Synopsis is { Length: > 0 })
@@ -851,11 +855,6 @@ internal static partial class LibraryCommand
         }
 
         output.WriteLine("  " + VndbCredit.ShortText);
-    }
-
-    private static string LengthText(int? minutes, int? category)
-    {
-        return LibraryLength.Text(minutes, category);
     }
 
     private static int Link(VnfCli cli, ParseResult parseResult, string reference)

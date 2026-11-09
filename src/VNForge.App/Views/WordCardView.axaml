@@ -5,22 +5,22 @@
              x:Class="VNForge.App.Views.WordCardView"
              x:DataType="vm:LineDetailViewModel">
 
-  <!-- O cartão do dicionário offline (#538), o .pop do quadro: a palavra, a leitura e a classe; os sentidos numerados; "Mais N sentidos"; e o rodapé com a origem do
+  <!-- O cartão do dicionário offline (#538), o .pop do quadro (o cartão vive num Popup, fora da árvore da janela: a cor, a família e o corpo do texto vêm daqui): a palavra, a leitura e a classe; os sentidos numerados; "Mais N sentidos"; e o rodapé com a origem do
        dicionário e o glossário. O aviso de download, o andamento e o erro usam o mesmo cartão. -->
-  <Border Classes="word-card" AutomationProperties.Name="Dicionário offline">
+  <Border Classes="word-card" TextElement.Foreground="{DynamicResource Vnf.TextPrimary}" TextElement.FontFamily="{DynamicResource Vnf.FontUi}" TextElement.FontSize="14" AutomationProperties.Name="Dicionário offline">
     <Panel>
       <StackPanel Spacing="6" IsVisible="{Binding IsEntryCard}">
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-          <TextBlock Text="{Binding WordText}" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="24" LineHeight="32" FontWeight="Medium" VerticalAlignment="Bottom"
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Height="31">
+          <TextBlock Text="{Binding WordText}" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="24" LineHeight="28" FontWeight="Medium" VerticalAlignment="Top" Margin="0,-2,0,0"
                      AutomationProperties.Name="Palavra"/>
           <TextBlock Grid.Column="1" Text="{Binding WordReading}" IsVisible="{Binding HasWordReading}" FontFamily="{DynamicResource Vnf.FontJp}"
                      FontSize="{DynamicResource Vnf.FontSize.BodySm}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Classes="secondary" TextTrimming="CharacterEllipsis"
-                     VerticalAlignment="Bottom" Margin="0,0,0,4" AutomationProperties.Name="Leitura"/>
-          <Border Grid.Column="2" Classes="word-tag" IsVisible="{Binding HasWordTag}" VerticalAlignment="Bottom" Margin="0,0,0,4">
+                     VerticalAlignment="Bottom" Margin="0,0,0,2" AutomationProperties.Name="Leitura"/>
+          <Border Grid.Column="2" Classes="word-tag" IsVisible="{Binding HasWordTag}" VerticalAlignment="Bottom">
             <TextBlock Text="{Binding WordTag}" ToolTip.Tip="{Binding WordTag}" AutomationProperties.Name="Classe gramatical"/>
           </Border>
         </Grid>
-        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding WordNote}" IsVisible="{Binding HasWordNote}" AutomationProperties.Name="Conjugação"/>
+        <TextBlock Classes="caption secondary" Margin="0,0,0,2" TextWrapping="Wrap" Text="{Binding WordNote}" IsVisible="{Binding HasWordNote}" AutomationProperties.Name="Conjugação"/>
         <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Spacing="4">
             <ItemsControl ItemsSource="{Binding WordSenses}" AutomationProperties.Name="Sentidos">
@@ -32,13 +32,13 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:WordSenseRow">
                   <Grid ColumnDefinitions="14,*" ColumnSpacing="8">
-                    <TextBlock Classes="mono secondary" FontWeight="Bold" Text="{Binding Number}" VerticalAlignment="Top"/>
-                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Text}"/>
+                    <TextBlock Classes="caption secondary" LineHeight="18" Text="{Binding Number}" VerticalAlignment="Top"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Display}"/>
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Button Classes="word-more" Command="{Binding ExpandWordCommand}" IsVisible="{Binding HasWordMore}" AutomationProperties.Name="Ver o resto da entrada">
+            <Button Classes="word-more" Margin="0,3,0,1" Command="{Binding ExpandWordCommand}" IsVisible="{Binding HasWordMore}" AutomationProperties.Name="Ver o resto da entrada">
               <TextBlock Text="{Binding WordMore}"/>
             </Button>
             <ItemsControl ItemsSource="{Binding WordOthers}" IsVisible="{Binding HasWordOthers}" AutomationProperties.Name="Outras entradas">
@@ -60,8 +60,8 @@
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:WordSenseRow">
                           <Grid ColumnDefinitions="14,*" ColumnSpacing="8">
-                            <TextBlock Classes="mono secondary" FontWeight="Bold" Text="{Binding Number}" VerticalAlignment="Top"/>
-                            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Text}"/>
+                            <TextBlock Classes="caption secondary" LineHeight="18" Text="{Binding Number}" VerticalAlignment="Top"/>
+                            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Display}"/>
                           </Grid>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
@@ -83,7 +83,7 @@
             </Button>
             <Border Grid.Column="1" Classes="word-tag ok" IsVisible="{Binding InGlossary}" AutomationProperties.Name="Termo do glossário">
               <StackPanel Orientation="Horizontal" Spacing="6">
-                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Check}"/>
+                <PathIcon Width="12" Height="12" Margin="1" Data="{StaticResource Icon.Check}"/>
                 <TextBlock Text="{Binding GlossaryChipText}"/>
               </StackPanel>
             </Border>

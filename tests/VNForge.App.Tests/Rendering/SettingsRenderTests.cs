@@ -75,6 +75,8 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                         Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
                         Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
 
+                        Assert.Contains(VNForge.Core.Vndb.VndbCredit.Text, window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text));
+
                         if (tab == 0)
                         {
                             ConferirAbaIaEGasto(window, theme);

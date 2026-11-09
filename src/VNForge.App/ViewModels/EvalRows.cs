@@ -59,9 +59,36 @@ public sealed partial class EvalRowViewModel : ObservableObject
 
     public double Chrf { get; }
 
+    /// <summary>O comprimento da barra de chrF ao lado do número, de 0 a 1 (<see cref="EvalChrfBar"/>); quem monta a tabela preenche antes de mostrar.</summary>
+    public double ChrfShare { get; set; }
+
+    /// <summary>A última linha da tabela: sem a linha que separa da seguinte, porque o rodapé já desenha a dele.</summary>
+    public bool IsLast { get; set; }
+
     /// <summary>A linha que a pessoa marcou para o botão "Usar X no M4".</summary>
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+}
+
+/// <summary>
+/// A barra de chrF da tabela: todas as configurações da rodada na mesma janela, do degrau de 5 pontos abaixo do menor chrF ao maior arredondado para cima
+/// (47 a 61,4 vira 40 a 65). A barra mostra a ordem e a distância entre as configurações, não o chrF de 0 a 100: o número ao lado diz o valor.
+/// </summary>
+public static class EvalChrfBar
+{
+    private const double Step = 5;
+
+    public static IReadOnlyList<double> Shares(IReadOnlyList<double> chrf)
+    {
+        if (chrf.Count == 0)
+        {
+            return [];
+        }
+
+        var high = Math.Ceiling(chrf.Max() / Step) * Step;
+        var low = (Math.Floor(chrf.Min() / Step) * Step) - Step;
+        return [.. chrf.Select(value => Math.Clamp((value - low) / (high - low), 0, 1))];
+    }
 }
 
 /// <summary>Uma linha do diálogo "Rodar o banco de provas": a configuração, o custo dela na amostra e se entra na rodada.</summary>

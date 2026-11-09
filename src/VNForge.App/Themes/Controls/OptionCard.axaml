@@ -34,4 +34,17 @@
   <Style Selector="RadioButton.option:focus-visible /template/ Border#Card">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
   </Style>
+
+  <!-- Resultado da busca no VNDB (quadro da #536): respiro de 16x12, 12px entre cartões e, marcado, o fundo do cartão segue o mesmo, só a borda vira accent. -->
+  <Style Selector="RadioButton.option.candidate">
+    <Setter Property="Padding" Value="16,12"/>
+    <Setter Property="Margin" Value="0"/>
+  </Style>
+  <Style Selector="RadioButton.option.candidate:checked /template/ Border#Card">
+    <Setter Property="Padding" Value="15,11"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+  </Style>
+  <Style Selector="RadioButton.option.candidate:checked Ellipse.ring">
+    <Setter Property="Stroke" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
 </Styles>

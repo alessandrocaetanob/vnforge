@@ -206,7 +206,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         Assert.Contains("Nenhum deles, seguir sem VNDB", texts);
         Assert.Contains("Buscar por outro título", texts);
         Assert.Contains("Passo 2 de 5", texts);
-        Assert.Contains(VndbCredit.ShortText, texts);
+        Assert.DoesNotContain(VndbCredit.ShortText, texts);
         AssertPlain(texts, tempRoot);
     }
 
@@ -216,7 +216,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         Assert.Contains("Personagens que chegam", texts);
         Assert.Contains("Sinopse para a bíblia", texts);
         Assert.Contains("Aviso que some", texts);
-        Assert.Contains(VndbCredit.ShortText, texts);
+        Assert.DoesNotContain(VndbCredit.ShortText, texts);
         Assert.Contains("Amaoto no Hakoniwa, v31201", texts);
         Assert.Contains("Kenta Aizawa", texts);
         Assert.Contains("相沢 健太", texts);
@@ -228,7 +228,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
     private static void CheckGamePlain(Window window, string tempRoot)
     {
         var texts = VisibleTexts(window);
-        Assert.Contains("Feito com o motor YU-RIS", texts);
+        Assert.Contains("Feito com o motor Yu-RIS", texts);
         Assert.Contains("312 arquivos de roteiro", texts);
         AssertPlain(texts, tempRoot);
     }
