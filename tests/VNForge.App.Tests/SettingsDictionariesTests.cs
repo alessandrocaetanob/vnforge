@@ -181,6 +181,66 @@ public sealed class SettingsDictionariesTests : IDisposable
     }
 
     [Fact]
+    public async Task Cada_selo_leva_o_icone_do_tipo_da_condicao_e_Sempre_leva_o_visto()
+    {
+        var rules = new DictionaryRules(
+            [new DictionaryRule("a", "b")],
+            [new DictionaryRule("você", "tu") { Conditions = [new(DictionaryConditionKind.Speaker, "Ren"), new(DictionaryConditionKind.Scene, "Capítulo 1"), new(DictionaryConditionKind.SourceContains, "先生")] }]);
+        var (vm, _) = await Opened(rules);
+
+        Assert.Equal([new RuleChip("Icon.Check", "Sempre")], vm.PreRules[0].ChipItems);
+        Assert.Equal(
+            [new RuleChip("Icon.Person", "Falante: Ren"), new RuleChip("Icon.Board", "Cena: Capítulo 1"), new RuleChip("Icon.Search", "Original contém 先生")],
+            vm.PostRules[0].ChipItems);
+    }
+
+    [Fact]
+    public async Task O_menu_da_linha_edita_e_apaga_a_regra_da_propria_linha_sem_botoes_na_previa()
+    {
+        var (vm, folder) = await Opened(Sample());
+
+        vm.PreRules[1].EditCommand.Execute(null);
+        Assert.Same(vm.PreRules[1], vm.SelectedRule);
+        Assert.Equal("Editar regra do pré-dicionário", vm.Editor!.Title);
+        vm.CancelEditorCommand.Execute(null);
+
+        vm.PreRules[0].DeleteCommand.Execute(null);
+
+        Assert.Equal(["ありがとー"], folder.LoadFormatting().Dictionary.Pre.Select(r => r.Pattern));
+    }
+
+    [Fact]
+    public async Task O_interruptor_de_regex_so_aparece_ao_editar_uma_regra_que_ja_e_regex()
+    {
+        var rules = new DictionaryRules([new DictionaryRule("a+", "b", Regex: true), new DictionaryRule("c", "d")], []);
+        var (vm, _) = await Opened(rules);
+
+        vm.AddPreRuleCommand.Execute(null);
+        Assert.False(vm.Editor!.ShowsRegexSwitch);
+        vm.CancelEditorCommand.Execute(null);
+
+        vm.PreRules[1].EditCommand.Execute(null);
+        Assert.False(vm.Editor!.ShowsRegexSwitch);
+        vm.CancelEditorCommand.Execute(null);
+
+        vm.PreRules[0].EditCommand.Execute(null);
+        Assert.True(vm.Editor!.ShowsRegexSwitch);
+        Assert.True(vm.Editor.IsRegex);
+    }
+
+    [Fact]
+    public void O_verbo_da_condicao_acompanha_o_tipo()
+    {
+        var condition = new DictionaryConditionEditor(new DictionaryCondition(DictionaryConditionKind.Speaker, "Ren"), _ => { }, () => { });
+
+        Assert.Equal(["é"], condition.Operators);
+        condition.KindIndex = 1;
+        Assert.Equal(["está em"], condition.Operators);
+        condition.KindIndex = 2;
+        Assert.Equal(["contém"], condition.Operators);
+    }
+
+    [Fact]
     public void Sem_projeto_a_aba_fica_vazia()
     {
         var vm = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), _ => null, _ => new NoopClient());

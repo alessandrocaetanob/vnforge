@@ -4,6 +4,9 @@ using VNForge.Core.Dictionaries;
 
 namespace VNForge.App.ViewModels;
 
+/// <summary>Um selo de condição: a chave do ícone (<c>Icon.Person</c>) e o texto.</summary>
+public sealed record RuleChip(string Icon, string Text);
+
 /// <summary>Uma regra na lista do pré ou do pós-dicionário: de e para, as condições como selos e quantas linhas ela alcança.</summary>
 public sealed partial class DictionaryRuleRow : ObservableObject
 {
@@ -17,7 +20,8 @@ public sealed partial class DictionaryRuleRow : ObservableObject
         this.changed = changed;
         this.selected = selected;
         enabled = rule.Enabled;
-        Chips = rule.Conditions.Count == 0 ? ["Sempre"] : [.. rule.Conditions.Select(ChipText)];
+        ChipItems = rule.Conditions.Count == 0 ? [new RuleChip("Icon.Check", "Sempre")] : [.. rule.Conditions.Select(c => new RuleChip(ChipIcon(c), ChipText(c)))];
+        Chips = [.. ChipItems.Select(c => c.Text)];
     }
 
     private readonly Action<DictionaryRuleRow>? selected;
@@ -41,6 +45,9 @@ public sealed partial class DictionaryRuleRow : ObservableObject
     /// <summary>Os selos: "Sempre" sem condição, senão um por condição ("Falante: Ren", "Cena: Capítulo 1", "Original contém 先生").</summary>
     public IReadOnlyList<string> Chips { get; }
 
+    /// <summary>Os mesmos selos com o ícone de cada um (pessoa, cena, trecho, "Sempre" com o visto), como no quadro da #539.</summary>
+    public IReadOnlyList<RuleChip> ChipItems { get; }
+
     /// <summary>Ligada ou desligada; mudar grava o <c>formatting.json</c> na hora.</summary>
     public bool Enabled
     {
@@ -61,14 +68,40 @@ public sealed partial class DictionaryRuleRow : ObservableObject
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    /// <summary>Quem a lista chama para abrir o diálogo desta regra e para apagá-la; o menu da linha os usa (o quadro da #539 não tem botões Editar e Apagar).</summary>
+    internal Action<DictionaryRuleRow>? EditRequested { get; init; }
+
+    internal Action<DictionaryRuleRow>? DeleteRequested { get; init; }
+
     [RelayCommand]
     private void Select() => selected?.Invoke(this);
+
+    [RelayCommand]
+    private void Edit()
+    {
+        selected?.Invoke(this);
+        EditRequested?.Invoke(this);
+    }
+
+    [RelayCommand]
+    private void Delete()
+    {
+        selected?.Invoke(this);
+        DeleteRequested?.Invoke(this);
+    }
 
     public static string ChipText(DictionaryCondition condition) => condition.Kind switch
     {
         DictionaryConditionKind.Speaker => $"Falante: {condition.Value}",
         DictionaryConditionKind.Scene => $"Cena: {condition.Value}",
         _ => $"Original contém {condition.Value}",
+    };
+
+    public static string ChipIcon(DictionaryCondition condition) => condition.Kind switch
+    {
+        DictionaryConditionKind.Speaker => "Icon.Person",
+        DictionaryConditionKind.Scene => "Icon.Board",
+        _ => "Icon.Search",
     };
 
     public static string LinesLabel(int count) => count == 1 ? "1 linha" : $"{count.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"))} linhas";

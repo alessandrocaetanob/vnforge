@@ -142,7 +142,7 @@ public sealed partial class SettingsViewModel
 
     private DictionaryRuleRow NewRow(DictionarySide side, int index, DictionaryRule rule)
     {
-        var row = new DictionaryRuleRow(side, index, rule, ToggleRule, SelectRule);
+        var row = new DictionaryRuleRow(side, index, rule, ToggleRule, SelectRule) { EditRequested = _ => EditSelectedRule(), DeleteRequested = _ => DeleteSelectedRule() };
         if (dictionaryImpacts.TryGetValue((side, index), out var impact))
         {
             row.LinesText = impact is null ? "sem contagem" : DictionaryRuleRow.LinesLabel(impact.Applies);
