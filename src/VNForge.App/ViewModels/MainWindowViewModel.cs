@@ -848,9 +848,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Leva ao Editor e abre o modo revisão nas falas do personagem em todas as cenas.</summary>
-    private void ReviewSpeaker(string name) => LineNavigation = ReviewSpeakerAsync(name);
+    private void ReviewSpeaker(string name) => LineNavigation = OpenReviewAsync(ReviewSource.OfSpeaker(name));
 
-    private async Task ReviewSpeakerAsync(string name)
+    /// <summary>Leva ao Editor e abre o modo revisão na fila "o que mais precisa de você", de todo o projeto.</summary>
+    private void ReviewRisk() => LineNavigation = OpenReviewAsync(ReviewSource.Risk);
+
+    private async Task OpenReviewAsync(ReviewSource source)
     {
         if (!GoTo(editorItem))
         {
@@ -869,7 +872,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (ReferenceEquals(SelectedNav, editorItem))
         {
-            Editor.StartReviewOf(ReviewSource.OfSpeaker(name));
+            Editor.StartReviewOf(source);
         }
     }
 
@@ -1019,6 +1022,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 }
             }));
             entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
+            entries.Add(new PaletteEntry(PaletteGroup.Command, "Revisar por risco", "O que mais precisa de você, no projeto todo", ReviewRisk) { OnlyWhenSearching = true });
             foreach (var speaker in Editor.ReviewableSpeakers)
             {
                 var source = speaker.Source;

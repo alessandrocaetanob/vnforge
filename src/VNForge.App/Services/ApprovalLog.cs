@@ -16,6 +16,9 @@ public interface IApprovalLog
 
     /// <summary>Quantas linhas diferentes foram aprovadas no dia de <paramref name="now"/>, pelo fuso da pessoa.</summary>
     int ReviewedOn(DateTimeOffset now, TimeZoneInfo zone);
+
+    /// <summary>O ritmo de revisão da pessoa pelo histórico (<see cref="ReviewPace.Compute"/>); sem histórico, <see cref="ReviewPace.None"/>.</summary>
+    ReviewPace PaceOf(int linesToReview, DateTimeOffset now, TimeZoneInfo zone) => ReviewPace.None;
 }
 
 /// <summary>
@@ -143,6 +146,16 @@ public sealed class ProjectApprovalLog : IApprovalLog
             Load();
             RetryUnreadable();
             return sessions.ReviewedOn(now, zone);
+        }
+    }
+
+    public ReviewPace PaceOf(int linesToReview, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        lock (gate)
+        {
+            Load();
+            RetryUnreadable();
+            return ReviewPace.Compute(sessions, linesToReview, now, zone);
         }
     }
 

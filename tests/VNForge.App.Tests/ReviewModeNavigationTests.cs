@@ -122,6 +122,29 @@ public sealed class ReviewModeNavigationTests
     }
 
     [Fact]
+    public async Task A_paleta_oferece_revisar_por_risco_so_na_busca_e_abre_a_fila_do_projeto_inteiro()
+    {
+        using var temp = new TempFolder();
+        var (main, _) = await OpenAsync(temp);
+        main.Editor.StopReview();
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Dashboard);
+
+        main.Palette.Open();
+        Assert.DoesNotContain(main.Palette.Results, r => r.Title == "Revisar por risco");
+        main.Palette.Query = "Revisar por risco";
+        var entry = Assert.Single(main.Palette.Results, r => r.Title == "Revisar por risco");
+        Assert.Equal(PaletteGroup.Command, entry.Group);
+        main.Palette.SelectedIndex = main.Palette.Results.ToList().IndexOf(entry);
+        main.Palette.ExecuteSelected();
+        await main.LineNavigation;
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.True(main.Editor.IsReviewing);
+        Assert.True(main.Editor.Review!.IsRisk);
+        Assert.Equal(4, main.Editor.Review.Total);
+    }
+
+    [Fact]
     public async Task A_paleta_sem_texto_continua_mostrando_os_comandos_fixos_mesmo_com_varios_personagens()
     {
         using var temp = new TempFolder();

@@ -1,11 +1,15 @@
 namespace VNForge.App.ViewModels;
 
-/// <summary>De onde o modo revisão tira a fila: as linhas da cena aberta ou as falas de um personagem em todas as cenas ou as linhas com dúvida da IA da cena aberta.</summary>
+/// <summary>
+/// De onde o modo revisão tira a fila: as linhas da cena aberta, as falas de um personagem em todas as cenas, as linhas com dúvida da IA da cena aberta
+/// ou as linhas de todo o projeto na ordem do risco (<see cref="Risk"/>).
+/// </summary>
 public enum ReviewSourceKind
 {
     OpenScene,
     Speaker,
     Doubts,
+    Risk,
 }
 
 /// <summary>
@@ -44,16 +48,19 @@ public sealed record ReviewSource
     /// <summary>As linhas com dúvida da IA da cena aberta, na ordem do script, tenham ou não sido aprovadas.</summary>
     public static ReviewSource Doubts { get; } = new(ReviewSourceKind.Doubts);
 
+    /// <summary>As linhas de todo o projeto que esperam revisão, do maior risco ao menor (<c>VNForge.Core.Review.RiskQueue</c>).</summary>
+    public static ReviewSource Risk { get; } = new(ReviewSourceKind.Risk);
+
     /// <summary>A tela final oferece "a próxima cena": só na fonte da cena aberta, porque a próxima cena seguiria a regra das linhas da IA.</summary>
     public bool OffersNextScene => Kind == ReviewSourceKind.OpenScene;
 
     /// <summary>A fila passa por mais de uma cena: o modo revisão abre a cena de cada linha e não oferece "a próxima cena".</summary>
-    public bool SpansScenes => Kind == ReviewSourceKind.Speaker;
+    public bool SpansScenes => Kind is ReviewSourceKind.Speaker or ReviewSourceKind.Risk;
 
     /// <summary>A legenda no topo da tela, ou nulo quando a fonte não precisa de uma. <paramref name="name"/> é o nome para mostrar do personagem.</summary>
     public string? Caption(string name) => Kind switch
     {
-        ReviewSourceKind.OpenScene or ReviewSourceKind.Doubts => null,
+        ReviewSourceKind.OpenScene or ReviewSourceKind.Doubts or ReviewSourceKind.Risk => null,
         ReviewSourceKind.Speaker => $"Falas de {name} em todas as cenas",
         _ => throw new InvalidOperationException($"Fonte de revisão desconhecida: {Kind}."),
     };
@@ -63,6 +70,7 @@ public sealed record ReviewSource
     {
         ReviewSourceKind.OpenScene or ReviewSourceKind.Doubts => "Revisão da cena concluída",
         ReviewSourceKind.Speaker => $"Revisão das falas de {name} concluída",
+        ReviewSourceKind.Risk => "Fila por risco concluída",
         _ => throw new InvalidOperationException($"Fonte de revisão desconhecida: {Kind}."),
     };
 
@@ -72,6 +80,7 @@ public sealed record ReviewSource
         ReviewSourceKind.OpenScene => "Esta cena não tem linhas traduzidas pela IA esperando revisão.",
         ReviewSourceKind.Speaker => $"{name} não tem falas traduzidas pela IA esperando revisão.",
         ReviewSourceKind.Doubts => "Esta cena não tem linhas com dúvida da IA.",
+        ReviewSourceKind.Risk => "O projeto não tem linhas esperando revisão.",
         _ => throw new InvalidOperationException($"Fonte de revisão desconhecida: {Kind}."),
     };
 }

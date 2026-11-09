@@ -3,7 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core.Glossary;
+using VNForge.Core;
 using VNForge.Core.Projects;
+using VNForge.Core.Review;
 using VNForge.Core.Text;
 
 namespace VNForge.App.ViewModels;
@@ -49,9 +51,10 @@ public sealed partial class EditorViewModel
             return;
         }
 
-        // Gravar a edição pendente pode ter encerrado a última dúvida: a fila se monta depois, e a das dúvidas vazia não abre.
-        var queue = ReviewQueueOf(source);
-        if (source.Kind == ReviewSourceKind.Doubts && queue.Count == 0)
+        // Gravar a edição pendente pode ter encerrado a última dúvida: a fila se monta depois, e a das dúvidas ou a do risco vazia não abre.
+        var risk = source.Kind == ReviewSourceKind.Risk ? BuildRiskReview() : null;
+        var queue = risk is null ? ReviewQueueOf(source) : risk.Items;
+        if (source.Kind is ReviewSourceKind.Doubts or ReviewSourceKind.Risk && queue.Count == 0)
         {
             return;
         }
@@ -64,7 +67,42 @@ public sealed partial class EditorViewModel
 
         Review?.Dispose();
         RefreshReviewedToday();
-        Review = new ReviewModeViewModel(this, queue, source);
+        Review = new ReviewModeViewModel(this, queue, source, risk);
+    }
+
+    /// <summary>Abre o modo revisão na fila "o que mais precisa de você": todo o projeto, do maior risco ao menor. Sem linhas esperando revisão, não faz nada.</summary>
+    [RelayCommand]
+    public void StartRiskReview() => StartReviewOf(ReviewSource.Risk);
+
+    /// <summary>A fila por risco do projeto como está agora: as linhas gravadas, os avisos do QA, a passada de editor do disco e o ritmo do registro de aprovações.</summary>
+    private RiskReview? BuildRiskReview()
+    {
+        if (data is null)
+        {
+            return null;
+        }
+
+        var queue = RiskQueue.Build(data, LoadEditorSuggestions());
+        var pace = OpenApprovalLog()?.PaceOf(queue.Lines.Count, clock.GetUtcNow(), clock.LocalTimeZone) ?? ReviewPace.None;
+        return new RiskReview(queue, pace);
+    }
+
+    /// <summary>As sugestões da passada de editor (#532) em <c>.cache/editor-suggestions.json</c>; sem pasta de projeto, sem arquivo ou com ele ilegível, nenhuma.</summary>
+    private PendingEditorSuggestions LoadEditorSuggestions()
+    {
+        if (Project?.Root is not { } root)
+        {
+            return PendingEditorSuggestions.Empty;
+        }
+
+        try
+        {
+            return PendingEditorSuggestions.Load(ProjectFolder.Open(root));
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return PendingEditorSuggestions.Empty;
+        }
     }
 
     /// <summary>Os personagens que têm linhas da IA para revisar, na ordem em que aparecem na história.</summary>
@@ -120,6 +158,7 @@ public sealed partial class EditorViewModel
             ReviewSourceKind.Speaker => Scripts.SelectMany(s => data!.LinesOf(s.Key))
                 .Where(l => IsAwaitingReview(l) && CharacterBook.NameComparer.Equals(l.Unit.EffectiveSpeaker ?? string.Empty, source.Speaker!)),
             ReviewSourceKind.Doubts => entries.Where(l => l.Unit.Doubt is not null),
+            ReviewSourceKind.Risk => throw new InvalidOperationException("A fila por risco vem de BuildRiskReview."),
             _ => throw new ArgumentOutOfRangeException(nameof(source), source.Kind, "Fonte de revisão desconhecida."),
         };
 
