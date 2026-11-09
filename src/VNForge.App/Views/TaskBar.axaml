@@ -100,8 +100,16 @@
                         </Button>
                         <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center" Margin="0,4">
                           <TextBlock Classes="body-sm" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Classes="caption secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Classes="caption secondary" Text="{Binding Subtitle}" TextWrapping="Wrap"/>
                           <TextBlock Classes="caption" Text="{Binding UndoMessage}" TextWrapping="Wrap" IsVisible="{Binding HasUndoMessage}"/>
+                          <ProgressBar Classes="thin" MinWidth="0" Minimum="0" Maximum="100" Value="{Binding Percent}" Margin="0,6,0,0" IsVisible="{Binding ShowsProgress}"
+                                       AutomationProperties.Name="Andamento do lote"/>
+                          <TextBlock Classes="caption secondary" Text="{Binding Detail}" TextWrapping="Wrap" IsVisible="{Binding HasDetail}"/>
+                          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0" IsVisible="{Binding HasBatchActions}">
+                            <Button Classes="sm" Content="Verificar agora" Command="{Binding CheckNowCommand}" IsVisible="{Binding CanCheckNow}"/>
+                            <Button Classes="sm danger" Content="Cancelar lote" Command="{Binding CancelBatchCommand}" IsVisible="{Binding CanCancelBatch}"/>
+                            <Button Classes="sm" Content="{Binding ShowLinesLabel}" Command="{Binding ShowLinesCommand}" IsVisible="{Binding CanShowLines}"/>
+                          </StackPanel>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="2" Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
                           <Border Classes="task-state" Classes.run="{Binding IsRunning}" Classes.err="{Binding IsFailed}" Classes.warn="{Binding IsCancelled}"
@@ -112,7 +120,7 @@
                             </StackPanel>
                           </Border>
                           <TextBlock Classes="caption secondary" Text="{Binding CostText}" HorizontalAlignment="Right" IsVisible="{Binding ShowsCost}"/>
-                          <Button Classes="subtle sm" Content="Desfazer" Command="{Binding UndoCommand}" IsVisible="{Binding CanUndo}"
+                          <Button Classes="subtle sm" Content="{Binding UndoLabel}" Command="{Binding UndoCommand}" IsVisible="{Binding CanUndo}"
                                   HorizontalAlignment="Right" AutomationProperties.Name="Desfazer esta tarefa"/>
                         </StackPanel>
                       </Grid>

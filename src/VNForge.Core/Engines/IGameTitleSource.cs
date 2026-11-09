@@ -16,6 +16,14 @@ public interface IGameTitleSource
     GameTitleFile? ReadTitle(string unpackedDirectory);
 
     /// <summary>
+    /// O título da janela lido direto da pasta do jogo, sem extrair nada para o disco: o assistente de novo projeto o usa para buscar o jogo no VNDB antes
+    /// de o projeto existir. Só lê. O padrão é nulo, para a engine que ainda não sabe ler o título do pacote.
+    /// </summary>
+    /// <returns>O título atual; nulo quando a engine não o lê do pacote ou o jogo não tem o arquivo do título.</returns>
+    /// <exception cref="VNForgeException">O arquivo existe mas não segue o formato.</exception>
+    string? ReadTitleFromGame(string gameDir) => null;
+
+    /// <summary>
     /// Os bytes novos do arquivo do título, com o <paramref name="title"/> codificado por <paramref name="encoder"/>. Muda só o campo do título;
     /// o resto sai como em <see cref="GameTitleFile.Content"/> (regra 3 do <c>CLAUDE.md</c>).
     /// </summary>

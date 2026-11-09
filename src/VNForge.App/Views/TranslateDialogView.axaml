@@ -56,6 +56,38 @@
           </ItemsControl>
         </StackPanel>
 
+        <StackPanel Spacing="8" IsVisible="{Binding ShowWhen}">
+          <TextBlock Classes="overline" Text="Quando"/>
+          <ItemsControl ItemsSource="{Binding Whens}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="2"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:WhenChoice">
+                <RadioButton Classes="option" GroupName="TranslateWhen" Margin="0,0,8,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                             IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
+                  <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                      <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
+                      <Border Grid.Column="1" Height="20" Padding="6,0,8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                              Background="{DynamicResource Vnf.StatusAiBg}" TextElement.Foreground="{DynamicResource Vnf.StatusAiFg}"
+                              IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                          <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Moon}" AutomationProperties.AccessibilityView="Raw"/>
+                          <TextBlock FontSize="11" FontWeight="SemiBold" Text="{Binding Tag}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                      </Border>
+                    </Grid>
+                    <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Description}"/>
+                  </StackPanel>
+                </RadioButton>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
         <StackPanel Spacing="8">
           <TextBlock Classes="overline" Text="Quanto custa"/>
           <Border Classes="panel" Padding="16">
@@ -66,6 +98,8 @@
               </Grid>
               <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}"
                            AutomationProperties.Name="Gasto do projeto, este pedido e o limite"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding BatchNote}"
+                         IsVisible="{Binding BatchNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
               <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"
                          IsVisible="{Binding RateNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
@@ -129,7 +163,7 @@
         <Button Content="Cancelar" Command="{Binding CancelCommand}"/>
         <Button Classes="accent" Command="{Binding StartCommand}" AutomationProperties.Name="{Binding StartLabel}">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}" IsVisible="{Binding !IsOvernight}"/>
             <TextBlock Text="{Binding StartLabel}" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>

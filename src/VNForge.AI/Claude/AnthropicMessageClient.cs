@@ -105,7 +105,7 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
     public static bool SupportsServerFallback(string model) => model is ClaudeModels.Opus or ClaudeModels.Fable;
 
     // ApiEnum.ToString() não garante o valor do fio; o provedor compara com "refusal" e "max_tokens".
-    private static string? ToWire(ApiEnum<string, BetaStopReason>? stopReason) => stopReason?.Value() switch
+    internal static string? ToWire(ApiEnum<string, BetaStopReason>? stopReason) => stopReason?.Value() switch
     {
         BetaStopReason.Refusal => "refusal",
         BetaStopReason.MaxTokens => "max_tokens",
@@ -117,7 +117,7 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
         _ => null,
     };
 
-    private static Effort ToSdk(ClaudeEffort effort) => effort switch
+    internal static Effort ToSdk(ClaudeEffort effort) => effort switch
     {
         ClaudeEffort.Low => Effort.Low,
         ClaudeEffort.Medium => Effort.Medium,

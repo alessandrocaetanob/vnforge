@@ -74,13 +74,13 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     }
 
     [Fact]
-    public void Os_quatro_passos_usam_os_nomes_da_v3()
+    public void Os_cinco_passos_usam_os_nomes_da_v3()
     {
         var vm = Create();
 
-        Assert.Equal(["Pasta do jogo", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
+        Assert.Equal(["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
         Assert.Equal(
-            ["Escolha a pasta instalada", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
+            ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -265,7 +265,7 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Null(vm.ErrorMessage);
-        Assert.Equal("Rápida", vm.Steps[3].Subtitle);
+        Assert.Equal("Rápida", vm.Steps[4].Subtitle);
         var saved = file.Load();
         Assert.Equal(5.43m, saved.BrlPerUsd);
         Assert.Equal(new DateOnly(2026, 10, 25), saved.RateInformedOn);
@@ -472,7 +472,7 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         await vm.NextCommand.ExecuteAsync(null);
 
-        Assert.Equal("Modelo escolhido à mão", vm.Steps[3].Subtitle);
+        Assert.Equal("Modelo escolhido à mão", vm.Steps[4].Subtitle);
     }
 
     [Fact]
