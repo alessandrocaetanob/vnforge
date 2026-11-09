@@ -68,8 +68,6 @@ public static class InstallerBundle
 
     private sealed class SliceStream(Stream inner, long start, long length) : Stream
     {
-        private long _position;
-
         public override bool CanRead => true;
 
         public override bool CanSeek => true;
@@ -78,37 +76,33 @@ public static class InstallerBundle
 
         public override long Length => length;
 
-        public override long Position
-        {
-            get => _position;
-            set => _position = value;
-        }
+        public override long Position { get; set; }
 
         public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
 
         public override int Read(Span<byte> buffer)
         {
-            var wanted = (int)Math.Min(buffer.Length, Math.Max(0, length - _position));
+            var wanted = (int)Math.Min(buffer.Length, Math.Max(0, length - Position));
             if (wanted == 0)
             {
                 return 0;
             }
 
-            inner.Position = start + _position;
+            inner.Position = start + Position;
             var read = inner.Read(buffer[..wanted]);
-            _position += read;
+            Position += read;
             return read;
         }
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            _position = origin switch
+            Position = origin switch
             {
                 SeekOrigin.Begin => offset,
-                SeekOrigin.Current => _position + offset,
+                SeekOrigin.Current => Position + offset,
                 _ => length + offset,
             };
-            return _position;
+            return Position;
         }
 
         public override void Flush()

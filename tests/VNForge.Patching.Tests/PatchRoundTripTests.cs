@@ -126,7 +126,7 @@ public class PatchRoundTripTests
     public void Patch_novo_instala_por_cima_do_anterior_e_desinstalar_ainda_devolve_o_jogo_original()
     {
         using var game = new SyntheticGame();
-        using (var first = PatchPackage.Open(game.BuildPackage(game.Info("1.1.0"))))
+        using (var first = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info("1.1.0"))))
         {
             PatchInstaller.Install(game.Game, first, null, Ct);
         }
@@ -134,7 +134,7 @@ public class PatchRoundTripTests
         var script = File.ReadAllBytes(Path.Combine(game.Build, "Game/script.ypf"));
         script[500] ^= 0x33;
         File.WriteAllBytes(Path.Combine(game.Build, "Game/script.ypf"), script);
-        using var second = PatchPackage.Open(game.BuildPackage(game.Info("1.2.0", "1.1.0")));
+        using var second = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info("1.2.0", "1.1.0")));
 
         Assert.Equal(PatchCheckState.Ready, PatchInstaller.Check(game.Game, second).State);
         PatchInstaller.Install(game.Game, second, null, Ct);

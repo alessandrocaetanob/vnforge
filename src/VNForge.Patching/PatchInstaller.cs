@@ -83,10 +83,17 @@ public static class PatchInstaller
             files.Add(Classify(entry, target, found, prior, backupRoot));
         }
 
-        var state = files.Any(f => f.State is PatchFileState.Missing or PatchFileState.Different) ? PatchCheckState.WrongVersion
-            : files.All(f => f.State == PatchFileState.Patched) ? PatchCheckState.AlreadyInstalled
-            : PatchCheckState.Ready;
-        return new PatchCheck(state, files, installed?.Version);
+        return new PatchCheck(StateOf(files), files, installed?.Version);
+    }
+
+    private static PatchCheckState StateOf(List<PatchFileStatus> files)
+    {
+        if (files.Any(f => f.State is PatchFileState.Missing or PatchFileState.Different))
+        {
+            return PatchCheckState.WrongVersion;
+        }
+
+        return files.All(f => f.State == PatchFileState.Patched) ? PatchCheckState.AlreadyInstalled : PatchCheckState.Ready;
     }
 
     /// <exception cref="PatchException">A pasta não é da versão de referência (nada foi gravado), o patch está corrompido, ou a gravação falhou (o que já tinha sido trocado foi devolvido).</exception>
@@ -141,9 +148,9 @@ public static class PatchInstaller
                 entry.ResultSha256);
         }
 
-        foreach (var status in check.Files.Where(f => f.State == PatchFileState.Patched && records.ContainsKey(f.Path)))
+        foreach (var path in check.Files.Where(f => f.State == PatchFileState.Patched && records.ContainsKey(f.Path)).Select(f => f.Path))
         {
-            records[status.Path] = records[status.Path] with { InstalledSha256 = entries[status.Path].ResultSha256 };
+            records[path] = records[path] with { InstalledSha256 = entries[path].ResultSha256 };
         }
 
         // O manifesto vai antes do primeiro arquivo trocado: se a máquina cair no meio, a desinstalação já sabe o que desfazer.
@@ -268,11 +275,11 @@ public static class PatchInstaller
         }
 
         var removed = new List<string>();
-        foreach (var record in remove)
+        foreach (var path in remove.Select(record => record.Path))
         {
-            progress?.Report(new PatchProgress(PatchPhase.Restore, record.Path, restored.Count + removed.Count, total));
-            File.Delete(GamePaths.Resolve(gameDirectory, record.Path));
-            removed.Add(record.Path);
+            progress?.Report(new PatchProgress(PatchPhase.Restore, path, restored.Count + removed.Count, total));
+            File.Delete(GamePaths.Resolve(gameDirectory, path));
+            removed.Add(path);
         }
 
         WriteManifest(gameDirectory, manifest with { Installed = false });
@@ -437,7 +444,7 @@ public static class PatchInstaller
             }
             else
             {
-                undo.Add(Preserve(target, previousRoot, record.Path, current!));
+                undo.Add(Preserve(target, previousRoot, record.Path, current));
                 if (record.Existed)
                 {
                     CopyReplacing(GamePaths.Resolve(backupRoot, record.Path), target, record.OriginalSha256!);

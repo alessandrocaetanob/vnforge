@@ -7,7 +7,7 @@ public class PatchUpdateAndValidationTests
     /// <summary>Instala a 1.1.0 e deixa o build pronto para uma 1.2.0 que muda o Game.exe e o script (nesta ordem de aplicação).</summary>
     private static void InstallFirstVersionAndChangeBuild(SyntheticGame game)
     {
-        using (var first = PatchPackage.Open(game.BuildPackage(game.Info("1.1.0"))))
+        using (var first = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info("1.1.0"))))
         {
             PatchInstaller.Install(game.Game, first, null, Ct);
         }
@@ -22,7 +22,7 @@ public class PatchUpdateAndValidationTests
 
     private static PatchPackage SecondVersionWithBrokenScriptDelta(SyntheticGame game)
     {
-        var bytes = game.BuildPackage(game.Info("1.2.0", "1.1.0")).ToArray();
+        var bytes = game.BuildPackage(SyntheticGame.Info("1.2.0", "1.1.0")).ToArray();
         using (var intact = PatchPackage.Open(new MemoryStream(bytes)))
         {
             var entry = intact.Manifest.Files.Single(f => f.Path == "Game/script.ypf");
@@ -170,7 +170,7 @@ public class PatchUpdateAndValidationTests
         using var package = new MemoryStream();
 
         var before = GC.GetAllocatedBytesForCurrentThread();
-        PatchBuilder.Build(game.Info(), [new PatchSource("Game/grande.ypf", original, result)], package, cancellationToken: Ct);
+        PatchBuilder.Build(SyntheticGame.Info(), [new PatchSource("Game/grande.ypf", original, result)], package, cancellationToken: Ct);
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         // O delta tem ~6 MB (a região trocada é aleatória). O VCDiff lê o original inteiro (64 MB); o resto não pode somar outro arquivo inteiro por delta.

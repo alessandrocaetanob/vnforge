@@ -35,12 +35,9 @@ public static class PatchVerifier
 
             Directory.CreateDirectory(game);
             PatchInstaller.Install(game, package, progress, cancellationToken);
-            foreach (var source in sources)
+            if (sources.FirstOrDefault(s => GamePaths.ShaOrNull(GamePaths.Resolve(game, s.RelativePath)) != GamePaths.Sha256(s.ResultPath)) is { } different)
             {
-                if (GamePaths.ShaOrNull(GamePaths.Resolve(game, source.RelativePath)) != GamePaths.Sha256(source.ResultPath))
-                {
-                    throw new PatchException($"Verificação falhou: {source.RelativePath} aplicado não é idêntico ao do build.");
-                }
+                throw new PatchException($"Verificação falhou: {different.RelativePath} aplicado não é idêntico ao do build.");
             }
 
             var result = PatchInstaller.Uninstall(game, progress, cancellationToken);

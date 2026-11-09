@@ -237,6 +237,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
             }
             catch (JsonException)
             {
+                // Um registro corrompido não impede o lançamento: ele só some do histórico.
             }
         }
 
@@ -275,10 +276,15 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
             || child.StartsWith(root + Path.AltDirectorySeparatorChar, comparison);
     }
 
-    private static string GameNameOf(ProjectConfig config) =>
-        config.Game.Title?.Translation is { Length: > 0 } translated ? translated
-        : config.Game.Title?.Original is { Length: > 0 } original ? original
-        : config.Name;
+    private static string GameNameOf(ProjectConfig config)
+    {
+        if (config.Game.Title?.Translation is { Length: > 0 } translated)
+        {
+            return translated;
+        }
+
+        return config.Game.Title?.Original is { Length: > 0 } original ? original : config.Name;
+    }
 
     private static void WriteText(string path, string text) =>
         File.WriteAllText(path, text.ReplaceLineEndings("\r\n"), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));

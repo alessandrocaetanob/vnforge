@@ -46,7 +46,7 @@ internal sealed class SyntheticGame : IDisposable
         new(CreatedFile, null, Path.Combine(Build, CreatedFile)),
     ];
 
-    public PatchInfo Info(string version = "1.2.0", string? previous = null) =>
+    public static PatchInfo Info(string version = "1.2.0", string? previous = null) =>
         new("Jogo Sintético", version, previous, "Tradução: Equipe", "Leia-me");
 
     public MemoryStream BuildPackage(PatchInfo? info = null)
