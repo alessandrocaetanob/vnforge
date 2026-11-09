@@ -6,6 +6,18 @@
              x:Class="VNForge.App.Views.ReviewModeView"
              x:DataType="vm:ReviewModeViewModel">
 
+  <UserControl.Resources>
+    <!-- As falas vizinhas do roteiro: como o modelo de ContextLines, com o nome na cor do personagem, como no quadro. -->
+    <DataTemplate x:Key="NeighbourLine" x:DataType="c:ContextLine">
+      <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2">
+        <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="{Binding Who}" TextTrimming="CharacterEllipsis" c:SpeakerColorTint.Color="{Binding Color}"/>
+        <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Original}" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Translation}" TextWrapping="Wrap"
+                   IsVisible="{Binding Translation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <UserControl.Styles>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/LineDetail.axaml"/>
     <!-- O foco fica na tela para as teclas valerem depois de um clique: os botões não o levam embora. -->
@@ -110,6 +122,15 @@
     <Style Selector="Border.queue-row.current">
       <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
     </Style>
+    <!-- A tecla do atalho na barra de ações, como no quadro: contorno de canto quase reto e sem fundo (o círculo do tema vem do raio grande). -->
+    <Style Selector="Border.actionbar Border.kbd">
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Padding" Value="6,2"/>
+    </Style>
+    <Style Selector="Border.actionbar Button:not(.accent) Border.kbd">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
     <Style Selector="Border.actionbar">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
@@ -168,7 +189,7 @@
           <Panel IsVisible="{Binding HasPrevious}">
             <StackPanel x:Name="PreviousBlock" Classes="neighbour" Spacing="4">
               <c:OverlineText Classes="overline" Text="Fala anterior"/>
-              <c:ContextLines ItemsSource="{Binding PreviousLines}" AutomationProperties.Name="Fala anterior"/>
+              <c:ContextLines ItemsSource="{Binding PreviousLines}" ItemTemplate="{StaticResource NeighbourLine}" AutomationProperties.Name="Fala anterior"/>
             </StackPanel>
           </Panel>
 
@@ -209,8 +230,8 @@
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                 <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
-                <SelectableTextBlock Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
-                                     Text="{Binding SpeakerText}" c:SpeakerColorTint.Color="{Binding Detail.SpeakerColor}" c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
+                <SelectableTextBlock x:Name="SpeakerLine" Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
+                                     c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
               </Grid>
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="{DynamicResource Vnf.LineHeight.ReviewSource}" FontSize="{DynamicResource Vnf.FontSize.ReviewSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
               <!-- Fileira sob o original: os marcadores do fim do texto (virar a página) e "Entender o japonês", lado a lado como no quadro. -->
@@ -264,7 +285,7 @@
           <Panel IsVisible="{Binding HasNext}">
             <StackPanel x:Name="NextBlock" Classes="neighbour" Spacing="4">
               <c:OverlineText Classes="overline" Text="Fala seguinte"/>
-              <c:ContextLines ItemsSource="{Binding NextLines}" AutomationProperties.Name="Fala seguinte"/>
+              <c:ContextLines ItemsSource="{Binding NextLines}" ItemTemplate="{StaticResource NeighbourLine}" AutomationProperties.Name="Fala seguinte"/>
             </StackPanel>
           </Panel>
         </StackPanel>
@@ -279,7 +300,7 @@
               <Binding Path="Detail.HasEditorSuggestion" FallbackValue="False"/>
             </MultiBinding>
           </c:ReviewStage.FixedHeight>
-          <c:GameTextbox x:Name="StageBox" Size="Stage" Layout="{Binding Detail.Preview.Layout}" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}"
+          <c:GameTextbox x:Name="StageBox" Size="Review" FontFamily="{DynamicResource Vnf.FontMono}" Layout="{Binding Detail.Preview.Layout}" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}"
                          AutomationProperties.Name="Caixa do jogo"/>
         </c:ReviewStage>
 
@@ -437,8 +458,8 @@
           </Button>
           <Button Classes="subtle lg" Command="{Binding SkipCommand}" ToolTip.Tip="Mostra a próxima fala sem marcar esta (seta para a direita)">
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <TextBlock Text="Pular" TextWrapping="NoWrap" VerticalAlignment="Center"/>
               <PathIcon Width="14" Height="14" Data="{StaticResource Icon.ArrowRight}"/>
+              <TextBlock Text="Pular" TextWrapping="NoWrap" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
         </StackPanel>

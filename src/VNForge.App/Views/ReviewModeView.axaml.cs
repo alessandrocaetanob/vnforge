@@ -4,9 +4,11 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -36,6 +38,7 @@ public sealed partial class ReviewModeView : UserControl
         AddHandler(KeyUpEvent, OnKeyUpTunnel, RoutingStrategies.Tunnel);
         LostFocus += (_, _) => held.Clear();
         Script.LayoutUpdated += OnScriptLayoutUpdated;
+        ActualThemeVariantChanged += (_, _) => FillSpeaker();
     }
 
     /// <summary>
@@ -137,6 +140,7 @@ public sealed partial class ReviewModeView : UserControl
 
         current.PropertyChanged += OnViewModelPropertyChanged;
         FillSource();
+        FillSpeaker();
         FocusScreen();
     }
 
@@ -184,6 +188,11 @@ public sealed partial class ReviewModeView : UserControl
         if (e.PropertyName == nameof(ReviewModeViewModel.Detail))
         {
             FillSource();
+            FillSpeaker();
+        }
+        else if (e.PropertyName == nameof(ReviewModeViewModel.SpeakerText))
+        {
+            FillSpeaker();
         }
         else if (e.PropertyName == nameof(ReviewModeViewModel.Position))
         {
@@ -238,6 +247,56 @@ public sealed partial class ReviewModeView : UserControl
     }
 
     /// <summary>
+    /// Quem fala, como no quadro: o nome do jogo e a seta em cinza e o nome em português em destaque, na cor do personagem quando ele está cadastrado, seguido da voz.
+    /// O texto é montado aqui porque só uma parte dele leva a cor. O menu de copiar o nome continua valendo para o bloco todo.
+    /// </summary>
+    private void FillSpeaker()
+    {
+        SpeakerLine.Inlines?.Clear();
+        if (current?.Detail is not { } detail || SpeakerLine.Inlines is not { } inlines)
+        {
+            return;
+        }
+
+        if (detail.Speaker is null || detail.SpeakerTarget is null)
+        {
+            inlines.Add(new Run(detail.SpeakerPair));
+        }
+        else
+        {
+            inlines.Add(new Run($"{detail.Speaker} → "));
+            var name = new Run(detail.SpeakerTarget) { FontWeight = FontWeight.SemiBold };
+            if (detail.SpeakerColor is { } color)
+            {
+                name.Foreground = color.BrushFor(ActualThemeVariant);
+            }
+
+            inlines.Add(name);
+        }
+
+        if (detail.HasVoice)
+        {
+            inlines.Add(new Run($" · {detail.Voice}"));
+        }
+    }
+
+    /// <summary>O selo de virar a página do modo revisão leva um chevron contornado em vez do triângulo cheio do tema (o desenho vem do modelo do <c>MarkerChip</c>, que não se troca daqui por estilo).</summary>
+    private static void OnChipTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        if (sender is not MarkerChip chip || e.NameScope.Find<Avalonia.Controls.Shapes.Path>("PART_Triangle") is not { } triangle)
+        {
+            return;
+        }
+
+        triangle.Data = Geometry.Parse("M0.5,1 L4,4.5 L7.5,1");
+        triangle.Fill = null;
+        triangle.StrokeThickness = 1.3;
+        triangle.StrokeLineCap = PenLineCap.Round;
+        triangle.StrokeJoin = PenLineJoin.Round;
+        triangle[!Shape.StrokeProperty] = chip[!TemplatedControl.ForegroundProperty];
+    }
+
+    /// <summary>
     /// O original com os marcadores em selos. Os do fim do texto (a virada de página, quase sempre) vão para a fileira de baixo, ao lado de "Entender o japonês", como no
     /// quadro; os do meio ficam no texto, no lugar em que quebram a fala.
     /// </summary>
@@ -267,7 +326,8 @@ public sealed partial class ReviewModeView : UserControl
             }
 
             var kind = segment.Text.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control;
-            var chip = MarkerChipGenerator.CreateChip(segment.Text, kind);
+            var chip = (MarkerChip)MarkerChipGenerator.CreateChip(segment.Text, kind);
+            chip.TemplateApplied += OnChipTemplateApplied;
             if (i >= tail)
             {
                 chip.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;

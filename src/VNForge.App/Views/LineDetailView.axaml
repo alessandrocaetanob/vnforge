@@ -26,12 +26,23 @@
       <Setter Property="IsVisible" Value="False"/>
     </Style>
     <!-- Inspetor estreito (janela mínima e abas): a tecla e o ícone saem dos botões para o texto não quebrar nem ser cortado. -->
+    <!-- Nas abas (janela pequena) o cabeçalho perde o retrato e o papel: a caixa do jogo tem de continuar inteira na aba Tradução, e o papel e a voz já estão na aba Contexto. -->
+    <Style Selector=":is(UserControl).tabbed c|Portrait, :is(UserControl).tabbed TextBlock.header-role">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <!-- Com a sugestão da passada de editor aberta, "Usar sugestão" sai da linha de botões: dois cartões da IA pedindo a mesma tradução confundem (quadro do #532). Por classe, e não por IsVisible, para a regra das abas acima seguir valendo. -->
+    <!-- Com a sugestão da passada de editor aberta, o "Usar sugestão" do rodapé (quadro do #532) aceita o texto dela, como o "Aceitar" do cartão; o botão da sugestão da IA dá lugar a ele.
+         Por classe, e não por IsVisible, para a regra das abas acima seguir valendo. -->
     <Style Selector="Button.use-in-row.editor-suggestion">
       <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Button.use-in-row.editor-use">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Button.use-in-row.editor-use.editor-suggestion">
+      <Setter Property="IsVisible" Value="True"/>
     </Style>
     <Style Selector="Button.use-in-row">
       <Setter Property="Grid.Column" Value="1"/>
@@ -65,21 +76,25 @@
       <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,20">
 
-          <!-- Cabeçalho: id em mono, selo de status, tipo da linha, histórico e menu. -->
-          <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
-            <TextBlock Classes="mono secondary" Text="{Binding FullId}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            <c:StatusBadge Grid.Column="1" Status="{Binding Status}" VerticalAlignment="Center" AutomationProperties.Name="Status da linha"/>
-            <TextBlock Grid.Column="2" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding KindLabel}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-            <Button Grid.Column="3" Classes="subtle icon sm" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.History}"/>
+          <!-- Cabeçalho (quadro do #537): retrato de 64 px, o nome do falante na cor dele, o papel e o jeito de falar, e embaixo o id em mono com o tipo da linha; histórico e menu à direita.
+               O selo de status fica na grade, como no quadro. -->
+          <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+            <c:Portrait Size="Lg" Image="{Binding SpeakerImage}" Seed="{Binding SpeakerName}" Tint="{Binding SpeakerColor}" IsNarrator="{Binding !HasSpeaker}" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+              <TextBlock Classes="title-md" Text="{Binding HeaderName}" TextTrimming="CharacterEllipsis" c:SpeakerColorTint.Color="{Binding SpeakerColor}" AutomationProperties.Name="Quem fala"/>
+              <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="18" Classes="secondary header-role" Text="{Binding HeaderRoleLine}" IsVisible="{Binding HasHeaderRoleLine}" TextWrapping="Wrap"/>
+              <TextBlock Classes="mono secondary" Text="{Binding HeaderIdLine}" TextWrapping="Wrap" AutomationProperties.Name="Linha"/>
+            </StackPanel>
+            <Button Grid.Column="2" Classes="subtle icon sm" VerticalAlignment="Center" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
+              <PathIcon Width="12" Height="12" Foreground="{DynamicResource Vnf.TextSecondary}" Opacity="0.7" Data="{StaticResource Icon.History}"/>
               <Button.Flyout>
                 <Flyout Placement="BottomEdgeAlignedRight">
                   <TextBlock Classes="body-sm" MaxWidth="280" TextWrapping="Wrap" Text="{Binding HistoryText}"/>
                 </Flyout>
               </Button.Flyout>
             </Button>
-            <Button Grid.Column="4" Classes="subtle icon sm" AutomationProperties.Name="Mais ações" ToolTip.Tip="Mais ações">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.More}"/>
+            <Button Grid.Column="3" Classes="subtle icon sm" VerticalAlignment="Center" AutomationProperties.Name="Mais ações" ToolTip.Tip="Mais ações">
+              <PathIcon Width="12" Height="12" Foreground="{DynamicResource Vnf.TextSecondary}" Opacity="0.7" Data="{StaticResource Icon.More}"/>
               <Button.Flyout>
                 <MenuFlyout Placement="BottomEdgeAlignedRight">
                   <MenuItem Header="Copiar o original para a tradução" InputGesture="Ctrl+Shift+Enter" Command="{Binding CopyOriginalCommand}"/>
@@ -97,7 +112,7 @@
           <StackPanel x:Name="OriginalFragment" Spacing="6">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
               <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
-              <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding HasMemory}"
+              <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding IsCompactInspector}"
                       ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução." AutomationProperties.Name="Entender o japonês">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -124,7 +139,7 @@
 
           <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
           <StackPanel x:Name="ExplainFragment" Spacing="6">
-            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding !HasMemory}"
+            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding !IsCompactInspector}"
                     ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -163,7 +178,7 @@
                       <StackPanel Spacing="2">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                           <Border Classes="memory-pill" Classes.exact="{Binding IsExact}" VerticalAlignment="Center">
-                            <TextBlock Classes="mono" Text="{Binding PercentText}" AutomationProperties.Name="{Binding PercentText, StringFormat='Correspondência de {0}'}"/>
+                            <TextBlock Text="{Binding PercentText}" AutomationProperties.Name="{Binding PercentText, StringFormat='Correspondência de {0}'}"/>
                           </Border>
                           <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Target}" ToolTip.Tip="{Binding Target}"/>
                           <Button Grid.Column="2" Classes="sm" Content="Usar" AutomationProperties.Name="{Binding UseName}"
@@ -198,7 +213,7 @@
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding IsSceneCollapsed}"/>
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding !IsSceneCollapsed}"/>
-                <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" Text="Na cena"/>
+                <TextBlock Grid.Column="1" Classes="body-sm secondary" FontWeight="Normal" VerticalAlignment="Center" Text="Na cena"/>
                 <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SceneCountText}"/>
               </Grid>
             </Button>
@@ -222,7 +237,7 @@
             <StackPanel Spacing="6" IsVisible="{Binding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
               <!-- Sem rolagem: a caixa encolhe em proporção quando as colunas do perfil não cabem na largura do inspetor (#392). -->
               <Panel IsVisible="{Binding Preview.HasLayout}">
-                <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Left" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
+                <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Stretch" Flat="True" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
               </Panel>
               <StackPanel IsVisible="{Binding !IsCompactInspector}">
                 <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
@@ -465,7 +480,7 @@
       </Border>
     </Panel>
 
-    <Border x:Name="ActionsBar" Grid.Row="1" Classes="divider-top" Padding="0,12,0,0" Margin="0,8,0,0">
+    <Border x:Name="ActionsBar" Grid.Row="1" Padding="0,12,0,0" Margin="0,8,0,0">
       <!-- Aprovar e próxima ocupa o que sobra da linha; "Usar sugestão" tem a largura do texto. Nada quebra com o inspetor em 400 px. -->
       <Grid x:Name="ActionsFragment" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
         <Button x:Name="ApproveButton" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding ApproveAndNextCommand}"
@@ -476,6 +491,13 @@
           </StackPanel>
         </Button>
         <Button Classes="use-in-row" Classes.editor-suggestion="{Binding HasEditorSuggestion}" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button x:Name="UseEditorSuggestionButton" Classes="use-in-row editor-use" Classes.editor-suggestion="{Binding HasEditorSuggestion}" Command="{Binding AcceptEditorSuggestionCommand}"
+                ToolTip.Tip="Troca a tradução pelo texto proposto pela passada de editor">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
             <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>

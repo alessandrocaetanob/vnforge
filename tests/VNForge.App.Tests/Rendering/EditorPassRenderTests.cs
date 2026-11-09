@@ -3,6 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using VNForge.AI.Claude;
+using VNForge.AI.Cost;
+using VNForge.AI.Explain;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.App.Controls;
@@ -53,11 +56,13 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Amaoto no Hakoniwa", TranslationStatus.Translated);
         var folder = ProjectFolder.Open(root);
         folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
-        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada, provoca o Kenta"), new CharacterEntry("健太", "Kenta", CharacterGender.Male)]);
+        // As cores do quadro: Misaki em rosa e Kenta em verde.
+        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada, provoca o Kenta") { Color = "rose" }, new CharacterEntry("健太", "Kenta", CharacterGender.Male) { Color = "green" }]);
         TextUnit Line(int n, string speaker, string source, string? translation, TranslationStatus status) => new($"yst00001:{n:D6}", TextUnitKind.Dialogue, speaker, source, translation, status);
         switch (scenario)
         {
             case Scenario.Pending:
+                AiUsageLog.TryRecord(folder, new AiUsageTotals(1_500_000, 600_000, 0, 0, 26.40m, 1));
                 folder.SaveGlossary([new("魔法", "magia"), new("学校", "escola"), new("傘", "guarda-chuva"), new("先生", "professor")]);
                 folder.SaveText("yst00001",
                 [
@@ -108,7 +113,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var settings = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(config.SubFolder("ajustes")), _ => null);
-                var editor = new EditorViewModel(clock: new FixedClock(Now)) { EditorSuggestionAnother = (s, _) => Task.FromResult<EditorSuggestion?>(s) };
+                var editor = new EditorViewModel(clock: new FixedClock(Now)) { EditorSuggestionAnother = (s, _) => Task.FromResult<EditorSuggestion?>(s), Explanations = new ExplicacaoDeExemplo() };
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("chave", ApiKeySource.Vault), settings: settings) { Editor = editor };
                 var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
                 try
@@ -119,6 +124,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
                     await editor.Loading;
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
                     vm.Settings.ExchangeRateText = "5,40";
+                    vm.Settings.SpendLimitText = "300";
                     await inspect(window, vm);
                 }
                 finally
@@ -129,6 +135,16 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    private sealed class ExplicacaoDeExemplo : ILineExplanations
+    {
+        public bool IsAvailable => true;
+
+        public string PriceText => string.Empty;
+
+        public Task<LineExplanation> ExplainAsync(string projectRoot, string source, CancellationToken ct) =>
+            Task.FromResult(new LineExplanation([new ExplainedPart("今日は", "hoje")], ClaudeModels.Haiku, FromCache: false));
     }
 
     private static void Save(Window window, string name, ThemeVariant theme, int width) =>
@@ -239,6 +255,24 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.False(review.FindControl<Control>("LineChecks")!.IsEffectivelyVisible);
             Assert.DoesNotContain(review.GetVisualDescendants().OfType<RewriteBar>(), b => b.IsEffectivelyVisible);
             Save(window, "revisao-passada", theme, width);
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public async Task Com_a_traducao_vazia_o_inspetor_mostra_Reescrever_com_um_toque_inteiro(string themeName, int width, int height)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await InWindow(themeName, width, height, Scenario.Pending, async (window, vm) =>
+        {
+            await vm.Editor.GoToLineAsync("yst00001", "yst00001:000000");
+            ScreenRenderer.Settle(window);
+
+            var inspector = window.GetVisualDescendants().OfType<LineDetailView>().First(v => v.IsEffectivelyVisible);
+            var bar = inspector.GetVisualDescendants().OfType<RewriteBar>().FirstOrDefault(b => b.IsEffectivelyVisible);
+            Assert.True(bar is not null || width < 1400, "O inspetor larga não mostra os chips de reescrever.");
+            Assert.Empty(ClippedTextHeadlessTests.FindClipped(inspector));
+            Save(window, "editor-passada-vazia", theme, width);
         });
     }
 

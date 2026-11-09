@@ -86,8 +86,11 @@ public sealed class EditorInspectorRenderTests(HeadlessFixture fixture, DemoFold
         Assert.True(caixaY > campoY + campo.Bounds.Height - 1, "a caixa do jogo fica logo abaixo do campo da tradução");
         Assert.True(caixaY - (campoY + campo.Bounds.Height) < 40, "e não a mais de uma linha de distância dele");
 
+        // Com o cartão da explicação aberto o conteúdo passa da altura do inspetor e rola (o cabeçalho tem o retrato de 64 px do quadro do #537): a caixa tem de estar ao alcance da rolagem.
+        caixa.BringIntoView();
+        ScreenRenderer.Settle(window);
         var dentro = new Rect(view.TranslatePoint(default, window)!.Value, view.Bounds.Size);
-        Assert.True(dentro.Contains(new Rect(caixa.TranslatePoint(default, window)!.Value, caixa.Bounds.Size)), "a caixa cabe dentro do inspetor");
+        Assert.True(dentro.Contains(new Rect(caixa.TranslatePoint(default, window)!.Value, caixa.Bounds.Size)), $"a caixa cabe dentro do inspetor: caixa {caixa.TranslatePoint(default, window)!.Value} {caixa.Bounds.Size}, inspetor {view.TranslatePoint(default, window)!.Value} {view.Bounds.Size}");
 
         var probe = PixelProbe.Capture(window, caixa);
         var fundo = probe.At(1, 1);

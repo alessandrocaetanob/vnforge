@@ -30,7 +30,7 @@
   </Style>
   <Style Selector="Border.memory-pill > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
-    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>

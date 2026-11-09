@@ -36,8 +36,8 @@
   <x:Double x:Key="Vnf.LineHeight.JpRow">18</x:Double>
   <x:Double x:Key="Vnf.FontSize.BodyLoose">14</x:Double>
   <x:Double x:Key="Vnf.LineHeight.BodyLoose">22</x:Double>
-  <x:Double x:Key="Vnf.FontSize.ReviewSource">18</x:Double>
+  <x:Double x:Key="Vnf.FontSize.ReviewSource">19</x:Double>
   <x:Double x:Key="Vnf.LineHeight.ReviewSource">27</x:Double>
-  <x:Double x:Key="Vnf.FontSize.ReviewTranslation">20</x:Double>
+  <x:Double x:Key="Vnf.FontSize.ReviewTranslation">17</x:Double>
   <x:Double x:Key="Vnf.LineHeight.ReviewTranslation">30</x:Double>
 </ResourceDictionary>
