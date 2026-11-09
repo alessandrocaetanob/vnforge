@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VNForge.Patching\VNForge.Patching.csproj" />
+    <ProjectReference Include="..\..\src\VNForge.Installer\VNForge.Installer.csproj" />
+  </ItemGroup>
+
+</Project>
