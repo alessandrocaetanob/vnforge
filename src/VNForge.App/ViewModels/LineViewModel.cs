@@ -21,7 +21,7 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null,
         nameof(Entry), nameof(Status), nameof(StatusLabel), nameof(HasTranslation), nameof(TranslationLabel), nameof(TranslationPlain),
         nameof(HasWarning), nameof(HasError), nameof(Issue), nameof(IssueLabel), nameof(IssueTip),
         nameof(IsNarration), nameof(SpeakerLabel), nameof(SpeakerName), nameof(SpeakerColor), nameof(SpeakerOriginal), nameof(IsSpeakerChanged), nameof(SpeakerChangedTip),
-        nameof(HasDoubt), nameof(DoubtTip),
+        nameof(HasDoubt), nameof(DoubtTip), nameof(HasEditorSuggestion), nameof(EditorSuggestionTip),
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -95,6 +95,23 @@ public sealed class LineViewModel(LineEntry entry, string? speakerTarget = null,
 
     /// <summary>Dica do selo "Dúvida": o tipo e a frase da IA; nula quando a linha não tem dúvida.</summary>
     public string? DoubtTip => Entry.Unit.Doubt is { } doubt ? $"{doubt.KindLabel}: {doubt.Note}" : null;
+
+    /// <summary>O ajuste que a passada de editor (#532) propôs para a linha; nulo sem passada. Só aparece na grade enquanto vale (<see cref="HasEditorSuggestion"/>).</summary>
+    public EditorSuggestion? EditorSuggestion { get; private set; }
+
+    /// <summary>Guarda a sugestão do editor da linha, ou a tira, e avisa a grade.</summary>
+    public void SetEditorSuggestion(EditorSuggestion? suggestion)
+    {
+        EditorSuggestion = suggestion;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasEditorSuggestion)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EditorSuggestionTip)));
+    }
+
+    /// <summary>A linha tem uma sugestão do editor que ainda vale: a grade mostra o ícone Sparkle.</summary>
+    public bool HasEditorSuggestion => EditorSuggestion is { } s && s.IsLiveFor(Entry.Unit);
+
+    /// <summary>Dica do ícone Sparkle: o tipo do ajuste ("Sugestão do editor: fluidez"); nula sem sugestão.</summary>
+    public string? EditorSuggestionTip => HasEditorSuggestion ? $"Sugestão do editor: {EditorSuggestion!.KindLabel}" : null;
 
     public string Source => Entry.Unit.Source;
 

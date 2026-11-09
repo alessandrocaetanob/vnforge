@@ -444,6 +444,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         value.History = History;
         value.Search.Requests = batchRequests;
         value.LineSaved += OnLineSaved;
+        value.EditorSuggestionAnother = AnotherEditorSuggestionAsync;
         value.ChaptersChanged += OnChaptersChanged;
         value.HideEmptyScenes = Settings.HideEmptyScenes;
         value.PropertyChanged += OnEditorHideEmptyChanged;
@@ -452,6 +453,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void DetachEditor(EditorViewModel value)
     {
         value.LineSaved -= OnLineSaved;
+        value.EditorSuggestionAnother = null;
         value.ChaptersChanged -= OnChaptersChanged;
         value.PropertyChanged -= OnEditorHideEmptyChanged;
     }

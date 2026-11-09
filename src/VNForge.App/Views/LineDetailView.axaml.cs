@@ -143,7 +143,7 @@ public sealed partial class LineDetailView : UserControl
     private Control[] WideOrder =>
     [
         HeaderFragment, OriginalFragment, ExplainFragment, MemoryFragment, SceneFragment, TranslationFragment, FitFragment,
-        SameSourceFragment, SuggestFragment, ProblemsFragment, ContextFragment,
+        EditorSuggestionFragment, SameSourceFragment, SuggestFragment, ProblemsFragment, ContextFragment,
     ];
 
     /// <summary>Muda os blocos de lugar entre a coluna única e as abas; nada é recriado, então o campo de tradução guarda o texto e o cursor.</summary>
@@ -166,7 +166,7 @@ public sealed partial class LineDetailView : UserControl
         if (useTabs)
         {
             TabbedHeaderHost.Child = HeaderFragment;
-            TranslationTab.Children.AddRange([OriginalFragment, MemoryFragment, TranslationFragment, FitFragment, SameSourceFragment, ProblemsFragment]);
+            TranslationTab.Children.AddRange([OriginalFragment, MemoryFragment, TranslationFragment, FitFragment, EditorSuggestionFragment, SameSourceFragment, ProblemsFragment]);
             SuggestionTab.Children.Add(SuggestFragment);
             ContextTab.Children.AddRange([ExplainFragment, SceneFragment, ContextFragment]);
         }
