@@ -3,6 +3,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.App.ViewModels;
 using VNForge.Core.Bible;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -56,6 +57,99 @@ public sealed class BibleViewModelTests : IDisposable
         Assert.True(row.ShowCheck);
         Assert.Equal(1, vm.NamedCount);
         Assert.Equal(2, vm.NoSummaryCount);
+    }
+
+    private void SaveCastScene()
+    {
+        _project.SaveCharacters([new CharacterEntry("健太", "Kenta"), new CharacterEntry("美咲", "Misaki")]);
+        _project.SaveText("yst00001",
+        [
+            new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "健太", "一", null, TranslationStatus.Untranslated),
+            new TextUnit("yst00001:000001", TextUnitKind.Dialogue, "美咲", "二", null, TranslationStatus.Untranslated),
+            new TextUnit("yst00001:000002", TextUnitKind.Dialogue, "健太", "三", null, TranslationStatus.Untranslated),
+            new TextUnit("yst00001:000003", TextUnitKind.Narration, null, "四", null, TranslationStatus.Untranslated),
+        ]);
+    }
+
+    [Fact]
+    public void Quem_aparece_conta_quantas_vezes_cada_personagem_fala_na_cena()
+    {
+        SaveCastScene();
+        _project.SaveBible(GameBible.From([new BibleScene("yst00001") { Characters = ["Kenta", "Misaki", "Aoi"] }]));
+
+        var vm = Open();
+
+        Assert.Equal(["Kenta", "Misaki", "Aoi"], vm.SceneCharacters.Select(c => c.Name));
+        Assert.Equal(["fala 2 vezes", "fala 1", string.Empty], vm.SceneCharacters.Select(c => c.Lines));
+        Assert.NotNull(vm.SceneCharacters[0].Color);
+        Assert.Null(vm.SceneCharacters[2].Color);
+    }
+
+    [Fact]
+    public void Quem_aparece_diz_nao_fala_para_o_cadastrado_sem_falas_na_cena()
+    {
+        SaveCastScene();
+        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Characters = ["Kenta"] }]));
+        var vm = Open();
+
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+
+        Assert.Equal("não fala", vm.SceneCharacters.Single().Lines);
+    }
+
+    [Fact]
+    public void Tom_vira_um_chip_por_tom_e_o_que_cita_um_personagem_da_cena_vira_apoio()
+    {
+        SaveCastScene();
+        _project.SaveBible(GameBible.From([new BibleScene("yst00001") { Characters = ["Kenta", "Misaki"], Tone = ["cômico leve", "tenso no fim", "seco na fala de Misaki"] }]));
+
+        var vm = Open();
+
+        Assert.Equal(["cômico leve", "tenso no fim", "seco na fala de Misaki"], vm.ToneChips.Select(c => c.Text));
+        Assert.Equal([false, false, true], vm.ToneChips.Select(c => c.IsSupport));
+        Assert.True(vm.HasTone);
+    }
+
+    [Fact]
+    public void Piadas_que_voltam_lista_as_cenas_em_que_cada_uma_volta()
+    {
+        _project.SaveBible(GameBible.From(
+        [
+            new BibleScene("yst00001") { Jokes = ["o guarda-chuva de Ren", "só aqui"] },
+            new BibleScene("yst00002") { Jokes = ["O guarda-chuva de Ren"] },
+            new BibleScene("yst00010") { Jokes = ["o guarda-chuva de Ren"] },
+        ]));
+
+        var vm = Open();
+
+        Assert.Equal(["o guarda-chuva de Ren · cenas 1, 2 e 3", "só aqui"], vm.JokeChips.Select(c => c.Label));
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00010");
+        Assert.Equal(["o guarda-chuva de Ren · cenas 1, 2 e 3"], vm.JokeChips.Select(c => c.Label));
+    }
+
+    [Fact]
+    public void Relacoes_viram_um_par_por_linha_com_a_descricao_ao_lado()
+    {
+        _project.SaveBible(GameBible.From([new BibleScene("yst00001") { Relations = [new BibleRelation("Kenta e Ren", "Amigos de infância"), new BibleRelation("Misaki e Sakura", "Professora e aluna")] }]));
+
+        var vm = Open();
+
+        Assert.Equal([("Kenta e Ren", "Amigos de infância"), ("Misaki e Sakura", "Professora e aluna")], vm.RelationRows.Select(r => (r.Between, r.Note)));
+        Assert.True(vm.HasRelations);
+    }
+
+    [Fact]
+    public void Escrever_no_campo_atualiza_os_chips_e_a_lista()
+    {
+        var vm = Open();
+
+        vm.ToneText = "seco; tenso";
+        vm.JokesText = "o guarda-chuva";
+        vm.RelationsText = "Kenta e Ren: amigos\nsem dois pontos";
+
+        Assert.Equal(["seco", "tenso"], vm.ToneChips.Select(c => c.Text));
+        Assert.Equal(["o guarda-chuva"], vm.JokeChips.Select(c => c.Label));
+        Assert.Equal([("Kenta e Ren", "amigos")], vm.RelationRows.Select(r => (r.Between, r.Note)));
     }
 
     [Fact]

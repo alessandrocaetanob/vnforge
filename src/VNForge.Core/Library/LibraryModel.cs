@@ -96,6 +96,10 @@ public sealed record LibraryGame(
 
     /// <summary>O que o app guarda da lista do VNDB deste jogo (rótulos, voto, datas, notas); use <see cref="CurrentList"/> para ler.</summary>
     public LibraryListState? List { get; init; }
+
+    /// <summary>O que o VNDB tinha de tradução em português deste jogo na última conferência da fila de tradução; use <see cref="CurrentPortuguese"/> para ler.</summary>
+    public LibraryPortuguese? Portuguese { get; init; }
+
     /// <summary>O jogo só abre direito com a localidade do Windows em japonês: "Jogar" passa pelo Locale Emulator.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool RequiresJapaneseLocale { get; init; }
@@ -106,6 +110,10 @@ public sealed record LibraryGame(
     /// <summary>O estado da lista, se ele é do jogo do VNDB confirmado agora; um estado de outro jogo (a confirmação mudou) não vale.</summary>
     [JsonIgnore]
     public LibraryListState? CurrentList => List is { } state && state.VisualNovelId == VndbId ? state : null;
+
+    /// <summary>A conferência de português, se é do jogo do VNDB confirmado agora; a de outro jogo (a confirmação mudou) não vale.</summary>
+    [JsonIgnore]
+    public LibraryPortuguese? CurrentPortuguese => Portuguese is { } found && found.VisualNovelId == VndbId ? found : null;
 }
 
 /// <summary>

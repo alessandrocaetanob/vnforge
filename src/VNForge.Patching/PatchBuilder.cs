@@ -16,6 +16,11 @@ public static class PatchBuilder
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(package);
 
+        if (info.Cover is { Length: > PatchPackage.MaxCoverBytes })
+        {
+            throw new PatchException($"A capa tem {info.Cover.Length / 1024} KB; o patch aceita até {PatchPackage.MaxCoverBytes / 1024} KB.");
+        }
+
         var ordered = sources.OrderBy(s => s.RelativePath, StringComparer.Ordinal).ToList();
         if (ordered.Count == 0)
         {
@@ -59,7 +64,7 @@ public static class PatchBuilder
         }
 
         progress?.Report(new PatchProgress(PatchPhase.Diff, null, ordered.Count, ordered.Count));
-        var manifest = new PatchManifest(info.GameName, info.Version, info.PreviousVersion, info.Credits, info.ReadMe, entries);
+        var manifest = new PatchManifest(info.GameName, info.Version, info.PreviousVersion, info.Credits, info.ReadMe, entries, info.GameVersion, info.Cover);
         PatchPackage.Write(package, manifest, payload);
         return manifest;
     }

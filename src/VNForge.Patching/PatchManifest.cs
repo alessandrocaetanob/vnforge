@@ -1,6 +1,3 @@
-using System.Text.Encodings.Web;
-using System.Text.Json;
-
 namespace VNForge.Patching;
 
 /// <summary>Quem fez a versão e o que o jogador lê; entra no manifesto do patch.</summary>
@@ -9,7 +6,9 @@ namespace VNForge.Patching;
 /// <param name="PreviousVersion">Versão do patch anterior; nula na primeira.</param>
 /// <param name="Credits">Linha de créditos que o instalador mostra.</param>
 /// <param name="ReadMe">Texto do leia-me que o instalador oferece abrir.</param>
-public sealed record PatchInfo(string GameName, string Version, string? PreviousVersion, string? Credits, string? ReadMe);
+/// <param name="GameVersion">Versão do jogo de referência; entra no texto da janela de versão errada.</param>
+/// <param name="Cover">Imagem da capa, no máximo <see cref="PatchPackage.MaxCoverBytes"/> bytes.</param>
+public sealed record PatchInfo(string GameName, string Version, string? PreviousVersion, string? Credits, string? ReadMe, string? GameVersion = null, byte[]? Cover = null);
 
 /// <summary>Um arquivo que o patch muda.</summary>
 /// <param name="RelativePath">Caminho relativo à pasta do jogo, com <c>/</c>.</param>
@@ -36,18 +35,14 @@ public sealed record PatchFileEntry(
 }
 
 /// <summary>O que o instalador sabe do patch sem abrir nenhum delta.</summary>
+/// <param name="GameVersion">A versão do jogo para a qual o patch foi feito (<c>1.00</c>); nula nos patches que não a guardam, e o instalador então fala de "outra versão" sem número.</param>
+/// <param name="Cover">A capa do jogo (PNG, JPEG ou WebP) que a janela do instalador mostra; nula quando o patch não leva capa.</param>
 public sealed record PatchManifest(
     string GameName,
     string Version,
     string? PreviousVersion,
     string? Credits,
     string? ReadMe,
-    IReadOnlyList<PatchFileEntry> Files)
-{
-    internal static readonly JsonSerializerOptions Json = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        NewLine = "\n",
-    };
-}
+    IReadOnlyList<PatchFileEntry> Files,
+    string? GameVersion = null,
+    byte[]? Cover = null);
