@@ -404,7 +404,11 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private bool CanGoToStep(WizardStep target) => !IsBusy && Step != WizardStep.Done && target < Step;
 
     [RelayCommand]
-    private void Cancel() => Cancelled?.Invoke(this, EventArgs.Empty);
+    private void Cancel()
+    {
+        CancelVndbRequest();
+        Cancelled?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>Fecha o assistente com o projeto pronto e abre-o no app.</summary>
     [RelayCommand]
@@ -509,7 +513,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     {
         if (value == WizardStep.Vndb && Stage == VndbStage.Skipped)
         {
-            Stage = Candidates.Count > 0 ? VndbStage.Choosing : VndbStage.Empty;
+            RestoreVndbAfterSkip();
         }
 
         RefreshSteps();

@@ -166,7 +166,8 @@ public sealed class ProjectFolder
     public string VndbPath => Path.Combine(Root, VndbFileName);
 
     /// <summary>Lê o <c>vndb.json</c>; sem o arquivo, devolve nulo.</summary>
-    /// <exception cref="VndbLinkException">Arquivo fora de UTF-8, malformado ou de outra versão.</exception>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8 válido.</exception>
+    /// <exception cref="VndbLinkException">Arquivo malformado, com campo desconhecido ou de outra versão.</exception>
     public VndbLink? LoadVndbLink() =>
         File.Exists(VndbPath) ? VndbLinkSerializer.Parse(ReadGlossaryFile(VndbPath), VndbPath) : null;
 

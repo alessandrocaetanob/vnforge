@@ -76,6 +76,31 @@ public sealed class VndbCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task A_saida_de_texto_de_search_link_show_e_init_vndb_traz_o_credito_da_licenca()
+    {
+        var search = await _cli.RunAsync(["vndb", "search", "Hakoniwa"], Token);
+        var init = await _cli.RunAsync(["init", "projeto", "--game", _game, "--vndb", GameId], Token);
+        var show = await _cli.RunAsync(["vndb", "show", "--project", ProjectPath], Token);
+        var link = await _cli.RunAsync(["vndb", "link", GameId, "--project", ProjectPath], Token);
+
+        Assert.All([search, init, show, link], result =>
+        {
+            Assert.Equal(0, result.ExitCode);
+            Assert.Contains(VndbCredit.ShortText, result.Output, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task Search_com_json_nao_leva_o_credito_para_dentro_do_json()
+    {
+        var result = await _cli.RunAsync(["vndb", "search", "Hakoniwa", JsonFlag], Token);
+
+        using var json = JsonDocument.Parse(result.Output);
+        Assert.True(json.RootElement.GetProperty("ok").GetBoolean());
+        Assert.DoesNotContain(VndbCredit.ShortText, result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Search_com_json_entrega_os_resultados_e_se_combinam_com_a_pasta()
     {
         var result = await _cli.RunAsync(["vndb", "search", "Fan Disc", JsonFlag], Token);

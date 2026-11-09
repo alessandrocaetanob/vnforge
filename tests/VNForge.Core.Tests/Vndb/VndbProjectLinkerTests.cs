@@ -234,6 +234,50 @@ public sealed class VndbProjectLinkerTests
         Assert.False(File.Exists(project.CharactersPath));
     }
 
+    [Fact]
+    public void Extract_com_vndb_json_invalido_termina_a_extracao_e_avisa()
+    {
+        using var folder = new TempFolder();
+        var project = ProjectWithGame(folder.Path, "name|相沢健太");
+        File.WriteAllText(project.VndbPath, "{ nao e json");
+
+        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(result.VndbCharacters);
+        Assert.Contains(result.Warnings, w => w.StartsWith("Os personagens do VNDB não entraram em characters.json:", StringComparison.Ordinal) && w.Contains("vndb.json", StringComparison.Ordinal));
+        Assert.Equal(1, result.TotalLines);
+        Assert.False(File.Exists(project.CharactersPath));
+    }
+
+    [Fact]
+    public async Task Extract_com_characters_json_ilegivel_termina_a_extracao_avisa_e_nao_mexe_no_arquivo()
+    {
+        using var folder = new TempFolder();
+        var project = ProjectWithGame(folder.Path, "name|相沢健太");
+        project.SaveVndbLink(await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken));
+        File.WriteAllText(project.CharactersPath, "{ nao e json");
+
+        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(result.VndbCharacters);
+        Assert.Contains(result.Warnings, w => w.Contains("characters.json", StringComparison.Ordinal));
+        Assert.Equal("{ nao e json", File.ReadAllText(project.CharactersPath));
+    }
+
+    [Fact]
+    public async Task ApplyCharacters_com_characters_json_ilegivel_recusa_e_deixa_o_arquivo_intacto()
+    {
+        using var folder = new TempFolder();
+        var project = NewProject(folder.Path);
+        project.SaveText("yst00001", [Name(0, "相沢健太")]);
+        project.SaveVndbLink(await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken));
+        File.WriteAllText(project.CharactersPath, "{ nao e json");
+
+        Assert.Throws<GlossaryFileException>(() => VndbProjectLinker.ApplyCharacters(project));
+
+        Assert.Equal("{ nao e json", File.ReadAllText(project.CharactersPath));
+    }
+
     private static QaContext Qa(ProjectFolder project, IReadOnlyList<CharacterEntry> characters) =>
         new(project.LoadAllText(), [], characters, FormattingProfile.Default);
 }

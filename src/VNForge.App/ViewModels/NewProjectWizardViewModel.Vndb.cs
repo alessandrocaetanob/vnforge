@@ -113,7 +113,7 @@ public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<V
             link.Synopsis ?? "O VNDB não tem sinopse deste jogo.",
             link.Synopsis is not null,
             "Fica guardada no projeto, no idioma do VNDB.",
-            $"{withGender} dos {link.Characters.Count} personagens do VNDB vêm com gênero. O aviso “personagem sem gênero” não aparece para os que casarem com o jogo.");
+            $"{withGender} dos {link.Characters.Count} personagens do VNDB vêm com gênero. Para esses, o aviso “personagem sem gênero” não aparece quando casarem com o jogo; os outros seguem com o aviso.");
     }
 
     private static string GenderLabel(CharacterGender gender) => gender switch
@@ -139,6 +139,7 @@ public sealed partial class NewProjectWizardViewModel
     private readonly IVndbCatalog? vndb;
     private VndbLink? confirmedLink;
     private string? vndbSearchedFolder;
+    private CancellationTokenSource? vndbCts;
 
     /// <summary>Os resultados da busca no VNDB, o mais provável primeiro.</summary>
     public ObservableCollection<VndbCandidateItem> Candidates { get; } = [];
@@ -168,6 +169,9 @@ public sealed partial class NewProjectWizardViewModel
     [ObservableProperty]
     public partial VndbPreview? Preview { get; private set; }
 
+    /// <summary>O crédito da licença dos dados do VNDB, que a tela mostra sempre que há dado dele.</summary>
+    public static string VndbCreditText => VndbCredit.ShortText;
+
     public bool IsVndbChoosing => Stage == VndbStage.Choosing;
 
     public bool IsVndbPreview => Stage == VndbStage.Preview;
@@ -177,8 +181,8 @@ public sealed partial class NewProjectWizardViewModel
 
     public bool IsVndbBusy => Stage is VndbStage.Searching or VndbStage.Confirming;
 
-    /// <summary>"Nenhum deles, seguir sem VNDB" aparece enquanto o jogo não foi confirmado.</summary>
-    public bool CanSkipVndb => Stage is VndbStage.Choosing or VndbStage.Empty or VndbStage.Failed;
+    /// <summary>"Nenhum deles, seguir sem VNDB" aparece enquanto o jogo não foi confirmado, também com um pedido ao VNDB em andamento (o 429 do VNDB pode segurar um pedido por minutos).</summary>
+    public bool CanSkipVndb => Stage is VndbStage.Choosing or VndbStage.Empty or VndbStage.Failed or VndbStage.Searching or VndbStage.Confirming;
 
     /// <summary>O jogo do VNDB que o usuário confirmou; nulo quando seguiu sem ele.</summary>
     public VndbLink? ConfirmedVndb => confirmedLink;
@@ -187,13 +191,14 @@ public sealed partial class NewProjectWizardViewModel
     private void SkipVndb()
     {
         ErrorMessage = null;
+        CancelVndbRequest();
         confirmedLink = null;
         Preview = null;
         Stage = VndbStage.Skipped;
         Step = WizardStep.Names;
     }
 
-    private bool CanSkipVndbNow() => !IsBusy && CanSkipVndb;
+    private bool CanSkipVndbNow() => CanSkipVndb;
 
     [RelayCommand]
     private void ToggleTitleSearch()
@@ -212,7 +217,7 @@ public sealed partial class NewProjectWizardViewModel
         await RunVndbSearchAsync(SearchTitle.Trim(), "Título digitado");
     }
 
-    private bool CanSearchVndb() => !IsBusy && !string.IsNullOrWhiteSpace(SearchTitle);
+    private bool CanSearchVndb() => !string.IsNullOrWhiteSpace(SearchTitle);
 
     partial void OnStageChanged(VndbStage value) => RefreshSteps();
 
@@ -259,6 +264,7 @@ public sealed partial class NewProjectWizardViewModel
 
     private async Task RunVndbSearchAsync(string query, string source)
     {
+        CancelVndbRequest();
         VndbQuery = query;
         SearchTitle = query;
         ClearCandidates();
@@ -284,10 +290,16 @@ public sealed partial class NewProjectWizardViewModel
         VndbDetail = $"{source}: {query}.";
         Stage = VndbStage.Searching;
         IsBusy = true;
+        using var cts = vndbCts = new CancellationTokenSource();
         try
         {
             var folder = FolderNameOf(GameFolder);
-            var found = await VndbProjectLinker.FindCandidatesAsync(vndb, query, folder, SelectedExe);
+            var found = await VndbProjectLinker.FindCandidatesAsync(vndb, query, folder, SelectedExe, cancellationToken: cts.Token);
+            if (cts.IsCancellationRequested)
+            {
+                return;
+            }
+
             foreach (var candidate in found)
             {
                 var item = new VndbCandidateItem(candidate);
@@ -311,7 +323,11 @@ public sealed partial class NewProjectWizardViewModel
                 Candidates[0].IsSelected = true;
             }
         }
-        catch (VNForgeException e)
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Quem cancelou (seguir sem VNDB, Cancelar, outra busca) já cuidou do estado.
+        }
+        catch (VNForgeException e) when (!cts.IsCancellationRequested)
         {
             VndbHeadline = "O VNDB não respondeu";
             VndbDetail = $"{e.Message} Tente de novo ou siga sem o VNDB.";
@@ -319,7 +335,7 @@ public sealed partial class NewProjectWizardViewModel
         }
         finally
         {
-            IsBusy = false;
+            FinishVndbRequest(cts);
         }
     }
 
@@ -362,23 +378,74 @@ public sealed partial class NewProjectWizardViewModel
         VndbHeadline = "Trazendo os personagens";
         VndbDetail = chosen.Title;
         IsBusy = true;
+        using var cts = vndbCts = new CancellationTokenSource();
         try
         {
-            var characters = await vndb.GetCharactersAsync(chosen.Candidate.VisualNovel.Id);
+            var characters = await vndb.GetCharactersAsync(chosen.Candidate.VisualNovel.Id, cts.Token);
+            if (cts.IsCancellationRequested)
+            {
+                return;
+            }
+
             confirmedLink = VndbProjectLinker.From(chosen.Candidate.VisualNovel, characters);
             Preview = VndbPreview.From(confirmedLink);
             Stage = VndbStage.Preview;
         }
-        catch (VNForgeException e)
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Quem cancelou já cuidou do estado.
+        }
+        catch (VNForgeException e) when (!cts.IsCancellationRequested)
         {
             ErrorMessage = $"{e.Message} Tente de novo ou siga sem o VNDB.";
             Stage = VndbStage.Choosing;
-            VndbHeadline = Candidates.Count == 1 ? "Achamos 1 jogo com este título no VNDB" : $"Achamos {Candidates.Count} jogos com este título no VNDB";
+            VndbHeadline = ChoosingHeadline();
         }
         finally
         {
+            FinishVndbRequest(cts);
+        }
+    }
+
+    private string ChoosingHeadline() =>
+        Candidates.Count == 1 ? "Achamos 1 jogo com este título no VNDB" : $"Achamos {Candidates.Count} jogos com este título no VNDB";
+
+    /// <summary>Cancela o pedido ao VNDB em andamento, se houver, e solta o assistente.</summary>
+    private void CancelVndbRequest()
+    {
+        if (vndbCts is not { } running)
+        {
+            return;
+        }
+
+        vndbCts = null;
+        running.Cancel();
+        IsBusy = false;
+    }
+
+    private void FinishVndbRequest(CancellationTokenSource cts)
+    {
+        if (ReferenceEquals(vndbCts, cts))
+        {
+            vndbCts = null;
             IsBusy = false;
         }
+    }
+
+    /// <summary>Voltando ao passo depois de "seguir sem VNDB": a lista volta como estava; se o pedido foi interrompido antes de ter resultado, o passo oferece buscar de novo.</summary>
+    private void RestoreVndbAfterSkip()
+    {
+        if (Candidates.Count > 0)
+        {
+            VndbHeadline = ChoosingHeadline();
+            VndbDetail = $"Título buscado: {VndbQuery}. Confirme o certo para trazer personagens e sinopse.";
+            Stage = VndbStage.Choosing;
+            return;
+        }
+
+        VndbHeadline = "A busca foi interrompida";
+        VndbDetail = "Busque por um título ou siga sem o VNDB.";
+        Stage = VndbStage.Empty;
     }
 
     /// <summary>Volta da confirmação para a lista de resultados, sem sair do passo.</summary>
@@ -404,6 +471,7 @@ public sealed partial class NewProjectWizardViewModel
 
     private void ResetVndb()
     {
+        CancelVndbRequest();
         ClearCandidates();
         confirmedLink = null;
         vndbSearchedFolder = null;

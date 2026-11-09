@@ -137,6 +137,7 @@ internal static class InitCommand
         if (link is not null)
         {
             output.WriteLine($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {link.Characters.Count} personagens. Eles entram em characters.json no vnf extract.");
+            output.WriteLine(VndbCredit.ShortText);
         }
 
         output.WriteLine($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");

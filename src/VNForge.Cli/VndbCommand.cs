@@ -132,6 +132,7 @@ internal static class VndbCommand
         }
 
         output.WriteLine("Para ligar o projeto a um deles: vnf vndb link <id> --project <pasta>");
+        output.WriteLine(VndbCredit.ShortText);
         return ErrorHandler.OkExitCode;
     }
 
@@ -157,6 +158,8 @@ internal static class VndbCommand
             output.WriteLine("Aviso: o jogo tem mais personagens no VNDB do que o limite de leitura; os últimos ficaram de fora.");
         }
 
+        output.WriteLine(VndbCredit.ShortText);
+
         return ErrorHandler.OkExitCode;
     }
 
@@ -174,6 +177,7 @@ internal static class VndbCommand
         output.WriteLine($"Jogo: {link.Title}{(link.OriginalTitle is null ? string.Empty : $" ({link.OriginalTitle})")} · {link.VisualNovelId}");
         output.WriteLine($"Personagens no VNDB: {link.Characters.Count}");
         output.WriteLine(link.Synopsis is null ? "Sinopse: (o VNDB não tem)" : $"Sinopse: {link.Synopsis}");
+        output.WriteLine(VndbCredit.ShortText);
         return ErrorHandler.OkExitCode;
     }
 

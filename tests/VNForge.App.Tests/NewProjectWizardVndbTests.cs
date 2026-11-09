@@ -231,6 +231,126 @@ public sealed class NewProjectWizardVndbTests : IDisposable
             text => Assert.DoesNotMatch("[—–]", text));
     }
 
+    [Fact]
+    public void O_passo_traz_o_credito_da_licenca_dos_dados_do_VNDB()
+    {
+        Assert.Equal(VndbCredit.ShortText, NewProjectWizardViewModel.VndbCreditText);
+    }
+
+    [Fact]
+    public async Task O_aviso_de_genero_nao_promete_sumir_para_quem_o_VNDB_nao_tem()
+    {
+        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Contains("os outros seguem com o aviso", vm.Preview!.GenderNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Seguir_sem_VNDB_com_a_busca_em_andamento_cancela_o_pedido_e_libera_o_assistente()
+    {
+        var catalog = new BlockingCatalog();
+        var vm = Create(catalog);
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+        var next = vm.NextCommand.ExecuteAsync(null);
+        await catalog.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Equal(VndbStage.Searching, vm.Stage);
+        Assert.True(vm.SkipVndbCommand.CanExecute(null));
+        Assert.True(vm.SearchVndbCommand.CanExecute(null));
+
+        vm.SkipVndbCommand.Execute(null);
+        await next.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.True(catalog.Token.IsCancellationRequested);
+        Assert.Equal((WizardStep.Names, VndbStage.Skipped, false), (vm.Step, vm.Stage, vm.IsBusy));
+        Assert.Null(vm.BuildOptions().Vndb);
+
+        vm.BackCommand.Execute(null);
+
+        Assert.Equal((VndbStage.Empty, "A busca foi interrompida"), (vm.Stage, vm.VndbHeadline));
+    }
+
+    [Fact]
+    public async Task Cancelar_o_assistente_cancela_o_pedido_em_andamento()
+    {
+        var catalog = new BlockingCatalog();
+        var vm = Create(catalog);
+        var cancelled = false;
+        vm.Cancelled += (_, _) => cancelled = true;
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+        var next = vm.NextCommand.ExecuteAsync(null);
+        await catalog.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        vm.CancelCommand.Execute(null);
+        await next.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.True(cancelled);
+        Assert.True(catalog.Token.IsCancellationRequested);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Seguir_sem_VNDB_enquanto_traz_os_personagens_cancela_esse_pedido_tambem()
+    {
+        var catalog = new BlockingCatalog(blockCharacters: true, Vn("v1", "Amaoto no Hakoniwa", Title));
+        var vm = Create(catalog);
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+        await vm.NextCommand.ExecuteAsync(null);
+        var confirm = vm.NextCommand.ExecuteAsync(null);
+        await catalog.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Equal(VndbStage.Confirming, vm.Stage);
+
+        vm.SkipVndbCommand.Execute(null);
+        await confirm.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.True(catalog.Token.IsCancellationRequested);
+        Assert.Equal((WizardStep.Names, false), (vm.Step, vm.IsBusy));
+        Assert.Null(vm.BuildOptions().Vndb);
+
+        vm.BackCommand.Execute(null);
+
+        Assert.Equal(VndbStage.Choosing, vm.Stage);
+        Assert.Equal("Achamos 1 jogo com este título no VNDB", vm.VndbHeadline);
+    }
+
+    private sealed class BlockingCatalog(bool blockCharacters = false, params VndbVisualNovel[] games) : IVndbCatalog
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public CancellationToken Token { get; private set; }
+
+        public async Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default)
+        {
+            if (blockCharacters)
+            {
+                return games;
+            }
+
+            Token = ct;
+            Started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            return games;
+        }
+
+        public Task<VndbVisualNovel?> GetVisualNovelAsync(string id, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public async Task<VndbResults<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default)
+        {
+            Token = ct;
+            Started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            return new VndbResults<VndbCharacter>([], false);
+        }
+
+        public Task<VndbResults<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task<VndbResults<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
     private sealed class FailingCatalog : IVndbCatalog
     {
         public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default) =>
