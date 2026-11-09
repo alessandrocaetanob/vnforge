@@ -134,7 +134,7 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                         Assert.Contains("41 min", texts);
                         Assert.Contains("61,4", texts);
                         Assert.Contains("8,7", texts);
-                        Assert.Contains("Escolhida para o M4", texts);
+                        Assert.DoesNotContain("Escolhida para o M4", texts);
                         Assert.Contains("Leitura da rodada", texts.Select(t => t?.ToLowerInvariant() == "leitura da rodada" ? "Leitura da rodada" : t));
                         Assert.Contains("Usar C no M4", texts);
                         Assert.Contains("Continuar às cegas", texts);
@@ -146,6 +146,8 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                         Assert.Contains(texts, t => t is not null && t.StartsWith("C chega a 97% do chrF de A por metade do preço", StringComparison.Ordinal));
                         Assert.Contains("Jogo todo, estimado", texts);
                         Assert.Contains("Sua escolha às cegas", texts);
+                        // O cabeçalho das colunas fica em uma linha só, como no quadro.
+                        Assert.All(window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("column-header")), t => Assert.True(t.Bounds.Height <= 16.5, $"\"{t.Text}\" quebrou em {t.Bounds.Height} px"));
                         Assert.DoesNotContain(texts, t => t is not null && (t.Contains('—') || t.Contains('–')));
                     });
                     return Task.CompletedTask;
@@ -263,6 +265,14 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                         Assert.Same(overlay.GetVisualDescendants().OfType<BudgetBar>().Single().GetVisualParent(), judge.GetVisualParent());
                         Assert.Contains("Cancelar", overlay.GetVisualDescendants().OfType<Button>().Select(b => b.Content));
                         Assert.Contains(overlay.GetVisualDescendants().OfType<CheckBox>(), c => Equals(c.Content, "Juiz de IA cego, uma nota por texto") && c.IsChecked == true);
+
+                        // Medidas do quadro: botão principal de 40 px, Cancelar de 87 px e cartão de custo de 94 px.
+                        var cancel = overlay.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, "Cancelar"));
+                        var run = overlay.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("accent") && b.IsEffectivelyVisible);
+                        var costCard = Assert.IsType<Border>(judge.GetVisualParent()!.GetVisualParent());
+                        Assert.Equal(87, cancel.Bounds.Width, 1);
+                        Assert.Equal(40, run.Bounds.Height, 1);
+                        Assert.Equal(94, costCard.Bounds.Height, 1);
                     }
                     finally
                     {
