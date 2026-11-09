@@ -399,7 +399,14 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência).</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PageMaxWidth))]
     public partial int SelectedTab { get; set; }
+
+    /// <summary>Largura máxima da página: 960 nas abas de sempre e 1100 na aba Dicionários (#539), que tem o quadro aprovado nessa largura.</summary>
+    public double PageMaxWidth => SelectedTab == DictionariesTab ? 1100 : 960;
+
+    /// <summary>Índice da aba Dicionários.</summary>
+    public const int DictionariesTab = 4;
 
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }

@@ -65,7 +65,7 @@
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1100" Margin="24,16,24,32" Spacing="16">
+    <StackPanel MaxWidth="{Binding PageMaxWidth}" Margin="24,16,24,32" Spacing="16">
 
       <StackPanel Spacing="2">
         <TextBlock Classes="caption secondary" TextWrapping="Wrap"
