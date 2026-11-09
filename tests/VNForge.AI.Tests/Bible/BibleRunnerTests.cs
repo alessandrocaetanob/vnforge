@@ -249,8 +249,7 @@ public sealed class BibleRunnerTests : IDisposable
         var project = NewProject(_root);
         var seen = new List<BibleProgress>();
 
-        await new BibleRunner(new FakeBibleProvider(), NoWait()).RunAsync(project, TwoChapters(), new Progress<BibleProgress>(seen.Add), TestContext.Current.CancellationToken);
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await new BibleRunner(new FakeBibleProvider(), NoWait()).RunAsync(project, TwoChapters(), new SyncProgress<BibleProgress>(seen.Add), TestContext.Current.CancellationToken);
 
         Assert.All(seen, p => Assert.Equal(4, p.ScenesTotal));
         Assert.Equal(4, seen.Max(p => p.ScenesDone));
@@ -270,6 +269,12 @@ public sealed class BibleRunnerTests : IDisposable
         Assert.Equal("Antigo", scene.Summary);
         Assert.Equal(["leve"], project.LoadBible().Scene("yst1")!.Tone);
         Assert.Equal(["yst1"], Assert.Single(provider.SceneCalls).Keys);
+    }
+
+    // Progress<T> entrega os avisos no pool de threads; com o runner carregado, nem todos chegavam antes da asserção.
+    private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
