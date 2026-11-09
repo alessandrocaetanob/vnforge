@@ -33,7 +33,7 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     private static FakeVndbCatalog Catalog(params VndbVisualNovel[] games) =>
         new(games, [Character("c1", "Kenta Aizawa", "相沢 健太", "m"), Character("c2", "Aoi Sakura", "佐倉 葵", "f"), Character("c3", "Sem gênero", "誰某", "x")]);
 
-    private NewProjectWizardViewModel Create(IVndbCatalog? catalog, string? title = Title) =>
+    private static NewProjectWizardViewModel Create(IVndbCatalog? catalog, string? title = Title) =>
         new(new FakeFolderPicker(null), [new TitledEngine(title)], vndb: catalog);
 
     private async Task<NewProjectWizardViewModel> AtVndbStepAsync(IVndbCatalog? catalog, string? title = Title)
