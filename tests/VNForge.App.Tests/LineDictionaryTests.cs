@@ -58,7 +58,10 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.Equal("遅刻", vm.WordText);
         Assert.Equal("ちこく", vm.WordReading);
         Assert.Equal("n, vs", vm.WordTag);
-        Assert.Equal([new WordSenseRow(1, "lateness; tardiness"), new WordSenseRow(2, "being late (for work, school)")], vm.WordSenses);
+        Assert.Equal([new WordSenseRow(1, "lateness; tardiness"), new WordSenseRow(2, "being late (for work, school)", "vs")], vm.WordSenses);
+        Assert.Equal("being late (for work, school)", vm.WordSenses[1].Text);
+        Assert.Equal("lateness; tardiness", vm.WordSenses[0].Display);
+        Assert.Equal("(vs) being late (for work, school)", vm.WordSenses[1].Display);
         Assert.Equal(Em(Frase, "遅刻"), vm.WordStart);
         Assert.Equal(2, vm.WordLength);
         Assert.False(vm.HasWordMore);
@@ -107,13 +110,26 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.Equal("行く", vm.WordText);
         Assert.Equal("いく · ゆく", vm.WordReading);
         Assert.Equal("v5k-s, vi", vm.WordTag);
-        Assert.Equal("行こう é a forma volitiva de 行く", vm.WordNote);
+        Assert.Equal("行こう é a forma volitiva (\"vamos\") de 行く", vm.WordNote);
         Assert.Equal(4, vm.WordSenses.Count);
         Assert.Equal("to go; to move (towards)", vm.WordSenses[0].Text);
-        Assert.Equal("Mais 2 sentidos", vm.WordMore);
+        Assert.Equal("Mais 6 sentidos · 2 leituras", vm.WordMore);
         Assert.True(vm.HasWordMore);
         Assert.Equal(Em(original, "行こう"), vm.WordStart);
         Assert.Equal(3, vm.WordLength);
+    }
+
+    [Fact]
+    public async Task A_classe_da_palavra_so_aparece_no_sentido_em_que_ela_muda()
+    {
+        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), "行って");
+
+        vm.HoverSource(0);
+        vm.ExpandWordCommand.Execute(null);
+
+        // 行く não troca de classe entre os sentidos: nenhum leva o marcador. 行う, a outra entrada, tem um sentido só.
+        Assert.All(vm.WordSenses, row => Assert.Null(row.Pos));
+        Assert.Null(Assert.Single(vm.WordOthers).Senses[0].Pos);
     }
 
     [Fact]
@@ -122,10 +138,10 @@ public sealed class LineDictionaryTests : IDisposable
         using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), "行って");
 
         vm.HoverSource(0);
-        Assert.Equal("Mais 2 sentidos · 1 outra entrada", vm.WordMore);
+        Assert.Equal("Mais 6 sentidos · 2 leituras · 1 outra entrada", vm.WordMore);
         vm.ExpandWordCommand.Execute(null);
 
-        Assert.Equal(6, vm.WordSenses.Count);
+        Assert.Equal(10, vm.WordSenses.Count);
         Assert.False(vm.HasWordMore);
         Assert.True(vm.HasWordOthers);
         var outra = Assert.Single(vm.WordOthers);

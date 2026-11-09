@@ -49,7 +49,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.True(vm.HasGame);
         Assert.Equal("Jogo.exe", vm.SelectedExe);
         Assert.False(vm.HasExecutables);
-        Assert.Contains("Engine: YU-RIS · YPF v500", vm.DetectionLines);
+        Assert.Contains("Engine: Yu-RIS · YPF v500", vm.DetectionLines);
         Assert.Contains("Arquivo de scripts: ysbin.ypf (2 scripts)", vm.DetectionLines);
         Assert.Contains("Chave XOR dos scripts: 0xD36FAC96", vm.DetectionLines);
         Assert.True(vm.NextCommand.CanExecute(null));

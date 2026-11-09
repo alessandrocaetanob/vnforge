@@ -17,8 +17,11 @@ public enum WordCardMode
     Failed,
 }
 
-/// <summary>Um sentido numerado do cartão: "1" e "atraso, chegar tarde".</summary>
-public sealed record WordSenseRow(int Number, string Text);
+/// <summary>Um sentido numerado do cartão: "1" e "atraso, chegar tarde". <paramref name="Pos"/> é a classe da palavra quando ela muda em relação ao sentido anterior, mostrada como "(vs)" antes da glosa.</summary>
+public sealed record WordSenseRow(int Number, string Text, string? Pos = null)
+{
+    public string Display => Pos is null ? Text : $"({Pos}) {Text}";
+}
 
 /// <summary>Outra entrada para a mesma grafia (homógrafo), mostrada quando o cartão se abre inteiro.</summary>
 public sealed record WordOtherEntryRow(string Title, string Tag, IReadOnlyList<WordSenseRow> Senses);
@@ -246,7 +249,7 @@ public sealed partial class LineDetailViewModel
         WordNote = match.IsInflected ? $"{wordSurface} é a forma {JoinReasons(match.Inflection)} de {match.Word}" : null;
         IsWordExpanded = false;
         WordSenses.Clear();
-        foreach (var row in entry.Senses.Take(WordSensesShown).Select((s, i) => new WordSenseRow(i + 1, s.GlossText)))
+        foreach (var row in SenseRows(entry).Take(WordSensesShown))
         {
             WordSenses.Add(row);
         }
@@ -254,10 +257,10 @@ public sealed partial class LineDetailViewModel
         WordOthers.Clear();
         foreach (var other in match.Entries.Skip(1))
         {
-            WordOthers.Add(new WordOtherEntryRow(TitleOf(other), string.Join(", ", other.PartsOfSpeech), [.. other.Senses.Select((s, i) => new WordSenseRow(i + 1, s.GlossText))]));
+            WordOthers.Add(new WordOtherEntryRow(TitleOf(other), string.Join(", ", other.PartsOfSpeech), [.. SenseRows(other)]));
         }
 
-        WordMore = MoreText(entry.Senses.Count - WordSensesShown, WordOthers.Count);
+        WordMore = MoreText(entry.Senses.Count - WordSensesShown, entry.Readings.Count, WordOthers.Count);
         WordGlossaryTarget = (Context?.Glossary ?? []).FirstOrDefault(t => t.Source == wordSurface || t.Source == match.Word)?.Target;
     }
 
@@ -278,12 +281,30 @@ public sealed partial class LineDetailViewModel
         return reading.Length > 0 ? $"{entry.Kanji[0]} · {reading}" : entry.Kanji[0];
     }
 
-    private static string? MoreText(int hiddenSenses, int others)
+    /// <summary>Os sentidos numerados da entrada. A classe da palavra só aparece no sentido em que ela muda: o cabeçalho do cartão já traz as classes da entrada.</summary>
+    private static IEnumerable<WordSenseRow> SenseRows(JmdictEntry entry)
+    {
+        IReadOnlyList<string>? previous = null;
+        for (var i = 0; i < entry.Senses.Count; i++)
+        {
+            var sense = entry.Senses[i];
+            var changed = previous is not null && sense.PartsOfSpeech.Count > 0 && !sense.PartsOfSpeech.SequenceEqual(previous);
+            yield return new WordSenseRow(i + 1, sense.GlossText, changed ? string.Join(", ", sense.PartsOfSpeech) : null);
+            previous = sense.PartsOfSpeech;
+        }
+    }
+
+    private static string? MoreText(int hiddenSenses, int readings, int others)
     {
         var parts = new List<string>();
         if (hiddenSenses > 0)
         {
             parts.Add(hiddenSenses == 1 ? "Mais 1 sentido" : $"Mais {hiddenSenses} sentidos");
+        }
+
+        if ((hiddenSenses > 0 || others > 0) && readings > 1)
+        {
+            parts.Add($"{readings} leituras");
         }
 
         if (others > 0)
@@ -294,8 +315,14 @@ public sealed partial class LineDetailViewModel
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
 
-    private static string JoinReasons(IReadOnlyList<string> reasons) =>
-        reasons.Count == 1 ? reasons[0] : $"{string.Join(", ", reasons.Take(reasons.Count - 1))} e {reasons[^1]}";
+    /// <summary>O que cada forma quer dizer, em uma palavra, para o cartão não deixar a pessoa traduzir o nome da gramática. Só as que o quadro aprovado desenha.</summary>
+    private static readonly Dictionary<string, string> ReasonMeaning = new(StringComparer.Ordinal) { ["volitiva"] = "\"vamos\"" };
+
+    private static string JoinReasons(IReadOnlyList<string> reasons)
+    {
+        var named = reasons.Select(r => ReasonMeaning.TryGetValue(r, out var meaning) ? $"{r} ({meaning})" : r).ToList();
+        return named.Count == 1 ? named[0] : $"{string.Join(", ", named.Take(named.Count - 1))} e {named[^1]}";
+    }
 
     private void ClearWord()
     {
@@ -347,7 +374,7 @@ public sealed partial class LineDetailViewModel
         }
 
         WordSenses.Clear();
-        foreach (var row in match.Main.Senses.Select((s, i) => new WordSenseRow(i + 1, s.GlossText)))
+        foreach (var row in SenseRows(match.Main))
         {
             WordSenses.Add(row);
         }

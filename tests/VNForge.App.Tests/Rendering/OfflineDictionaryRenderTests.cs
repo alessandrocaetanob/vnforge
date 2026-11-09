@@ -106,10 +106,10 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
             $"O cartão ({origin.X:0},{origin.Y:0} {host.Bounds.Width:0}x{host.Bounds.Height:0}) sai da janela de {window.Bounds.Width:0}x{window.Bounds.Height:0}.");
         Assert.Empty(ClippedTextHeadlessTests.FindClipped(host));
 
-        // A largura é a do original no inspetor, entre 300 e 400 px, e o cartão fica dentro da coluna do inspetor: não cobre a lista de linhas.
+        // A largura fica entre 360 e 372 px (os quadros), ou até a do original quando ele é mais estreito, e o cartão fica dentro da coluna do inspetor: não cobre a lista de linhas.
         var box = inspector.FindControl<Border>("OriginalBox")!;
-        Assert.InRange(host.Bounds.Width, WordCardWidth.Min - 0.5, WordCardWidth.Max + 0.5);
-        Assert.Equal(Math.Clamp(box.Bounds.Width, WordCardWidth.Min, WordCardWidth.Max), host.Bounds.Width, 1);
+        Assert.InRange(host.Bounds.Width, Math.Min(WordCardWidth.Min, box.Bounds.Width) - 0.5, Math.Min(WordCardWidth.Max, box.Bounds.Width) + 0.5);
+
         var inspectorLeft = (inspector.TranslatePoint(default, window) ?? default).X;
         Assert.True(origin.X >= inspectorLeft - 1, $"O cartão começa em x={origin.X:0}, antes do inspetor (x={inspectorLeft:0}): cobriria a lista de linhas.");
     }

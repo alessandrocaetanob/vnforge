@@ -7,8 +7,8 @@ namespace VNForge.App.Tests;
 public class ProjectLabelsTests
 {
     [Theory]
-    [InlineData("yuris", 500, "YU-RIS · YPF v500")]
-    [InlineData("yuris", null, "YU-RIS")]
+    [InlineData("yuris", 500, "Yu-RIS · YPF v500")]
+    [InlineData("yuris", null, "Yu-RIS")]
     [InlineData("kirikiri", null, "kirikiri")]
     public void Engine(string id, int? version, string esperado) =>
         Assert.Equal(esperado, ProjectLabels.Engine(id, version));
