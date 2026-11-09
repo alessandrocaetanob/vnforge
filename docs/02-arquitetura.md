@@ -401,7 +401,8 @@ minha-vn-ptbr/
 ├─ vnforge.json            # jogo, engine, idiomas, estratégia de codificação, provedor de IA
 ├─ formatting.json         # perfil de espaçamento e quebra de linha
 ├─ glossary.json           # termos fixos
-├─ characters.json         # nomes de personagens: original → tradução, gênero, tom de fala, cor
+├─ characters.json         # nomes de personagens: original → tradução, gênero, tom de fala, cor, romaji, apelidos, descrição
+├─ vndb.json               # o jogo do VNDB ligado ao projeto: sinopse e personagens (opcional)
 ├─ address-terms.json      # quem chama quem de quê: por par de personagens, o tratamento no original e na tradução (opcional)
 ├─ ignored-words.json      # palavras que o corretor deixa de marcar no projeto (opcional)
 ├─ scripts.json            # nome legível de cada script: o que a engine leu do jogo e o que o usuário escolheu
@@ -449,7 +450,7 @@ O Core (`VNForge.Core.Projects`) lê e valida o arquivo. Comentários e vírgula
 |---|---|---|
 | `glossary.json` | `GlossaryTerm` | `source`, `target`, `notes` (opcional) |
 | `address-terms.json` | `AddressTerm` | `from` e `to` (os `source` de dois personagens), `source` (como `from` chama `to` no japonês, por exemplo `美咲ちゃん`) e `target` (como a tradução o chama, por exemplo `Misaki-chan`); a chave é o par, comparado como o `CharacterBook` compara nomes |
-| `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional), `color` (opcional: id da cor na paleta do app, como `blue` ou `rose`; sem ele o app escolhe uma pelo nome e o Glossário grava só a que a pessoa trocou) |
+| `characters.json` | `CharacterEntry` | `source`, `target`, `gender` (`unknown`, `female`, `male`, `other`; padrão `unknown`), `tone` (opcional), `color` (opcional: id da cor na paleta do app, como `blue` ou `rose`; sem ele o app escolhe uma pelo nome e o Glossário grava só a que a pessoa trocou), `romaji`, `aliases` e `description` (opcionais, vindos do VNDB, #536; o arquivo sem eles continua valendo) |
 
 O `ignored-words.json` (#511) usa o mesmo envelope, com uma entrada `{"word": "..."}` por palavra (vazia ou repetida, sem diferenciar maiúsculas, é erro). Projeto antigo não o tem: `ProjectFolder.LoadIgnoredWords` devolve lista vazia sem criar o arquivo, e `AddIgnoredWord` o cria na primeira palavra ignorada, sob a trava do projeto. O `QaContext.IgnoredWords` leva a lista à `SpellingRule`, e quem só consulta tolera o arquivo ilegível (`LoadIgnoredWordsOrEmpty`).
 
@@ -477,7 +478,7 @@ O `address-terms.json` (#470) é um arquivo à parte, com o mesmo envelope e as 
 
 ### Cliente do VNDB (`VNForge.Core.Vndb`, `VNForge.Vndb`)
 
-O d1 (#527) é a base da Biblioteca de VNs. O Core define a fronteira e os tipos; o projeto `VNForge.Vndb` a implementa pela API Kana (`api.vndb.org/kana`) e o Core nunca o referencia. Nenhum executável o referencia ainda: o app e a CLI o ligam no d2.
+O d1 (#527) é a base da Biblioteca de VNs. O Core define a fronteira e os tipos; o projeto `VNForge.Vndb` a implementa pela API Kana (`api.vndb.org/kana`) e o Core nunca o referencia. O app e a CLI o ligam no novo projeto (#536) e a Biblioteca (d2) amplia o uso.
 
 - **`IVndbCatalog`** lê o catálogo: `SearchVisualNovelsAsync` (por título, do que mais casa para o que menos, até 100), `GetVisualNovelAsync`, `GetCharactersAsync` (de um jogo), `SearchCharactersByTitleAsync` (os personagens dos jogos que casam com o título) e `GetReleasesAsync`. Os três que devolvem listas seguem as páginas de 100 até um teto (1000 personagens de um jogo, 500 na busca por título, 300 edições) e devolvem `VndbResults<T>`: `Items` e `Truncated`, verdadeiro quando o teto chegou e o VNDB ainda tinha mais. **`IVndbUserList`** cuida da conta: `GetAuthInfoAsync`, `GetListAsync` (também `VndbResults`, teto de 20 mil entradas) e `UpdateEntryAsync`. O `VndbClient` implementa as duas; o `FakeVndbCatalog` (em `src/VNForge.Vndb`, não num projeto de testes, como o `FakeTranslationProvider`: o app e a CLI o usam sem rede e os testes de todos os projetos o compartilham) implementa as duas em memória, valida a entrada como o cliente real, imita o servidor na lista (votar põe o rótulo 7 `Voted` e a data do voto; a lista sai ordenada pelo número do id) e registra as chamadas (`Calls`).
 - **Tipos**: `VndbVisualNovel` (títulos por idioma, apelidos, capa com os votos de conteúdo sexual e violento, duração em minutos, sinopse, tags com `Spoiler` e `Lie`), `VndbCharacter` (nome original, imagem, gênero visível e real, traços com grupo, e `Appearances` com jogo, papel, spoiler e edição, porque o VNDB varia papel e spoiler por edição), `VndbRelease` (idiomas com marca de tradução automática, engine, patch, classificação etária) e `VndbListEntry`. A sinopse e a descrição do personagem chegam com os códigos de formatação do VNDB (`[b]`, `[url=...]`, `[spoiler]`), sem conversão.
@@ -487,6 +488,7 @@ O d1 (#527) é a base da Biblioteca de VNs. O Core define a fronteira e os tipos
 - **Lista na API**: a documentação lê a lista por `POST /ulist` (com `user` no corpo) e grava por `PATCH /ulist/<id>`; não há `GET /ulist`. `PATCH` sempre acrescenta o jogo à lista se ele não está nela.
 - **Crédito da licença**: `VndbCredit` (`ShortText`, `Text`, `LicenseUrl`) traz o texto da Open Database License e da Database Contents License (vndb.org/d17, seção 4). Toda tela, relatório ou exportação que mostre dado do VNDB usa essas constantes.
 - **Erros**: `VndbException` (um `VNForgeException`) com mensagem em português para rede fora, 400, 401, 429 e 5xx.
+- **Ligação com o projeto (#536)**: `VndbProjectLinker` (Core) acha os candidatos (`FindCandidatesAsync`, com a evidência `FolderAndExe` ou `TitleOnly`), monta o `VndbLink` (`BuildAsync`: sinopse limpa por `VndbText.Clean`, que tira a marcação do VNDB e os trechos de spoiler, e os personagens com gênero real) e o grava em `vndb.json` (`ProjectFolder.SaveVndbLink`, `{ "version": 1, "link": {...} }`). `ApplyCharacters` casa os nomes do jogo (`GameCharacters.Names`, as unidades `name`, no YU-RIS o `ES.CHAR.NAME`) com os personagens do `vndb.json`, ignorando espaço, largura e ponto médio, por nome inteiro, parte do nome e apelido, nessa ordem; empate no mesmo nível não casa. Preenche só campos vazios de `characters.json` e não regrava quando nada muda. O `ProjectExtractor` chama isso ao terminar (`ExtractionResult.VndbCharacters`; falha vira aviso). O título para a busca vem de `IGameTitleSource.ReadTitleFromGame`, que lê o `yscfg.ybn` do pacote sem extrair (padrão nulo; o `YuRisEngine` o implementa). A sinopse fica em `vndb.json` no idioma do VNDB, para a bíblia do jogo (#530) ler.
 
 ## Alternativas consideradas para a interface gráfica
 

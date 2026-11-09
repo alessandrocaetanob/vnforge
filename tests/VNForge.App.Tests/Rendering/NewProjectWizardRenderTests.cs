@@ -11,6 +11,7 @@ using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Engines;
 using VNForge.Core.Projects;
+using VNForge.Core.Vndb;
 using Xunit.Sdk;
 
 namespace VNForge.App.Tests.Rendering;
@@ -45,7 +46,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                 using var temp = new TempFolder($"932-0xAB-{themeName}-");
                 var game = temp.SubFolder("jogo");
                 File.WriteAllText(Path.Combine(game, "Game.exe"), "MZ");
-                var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new PatchableEngine(312)], appSettings: new AppSettingsFile(temp.SubFolder("config")), clock: new FixedClock(Now));
+                var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new PatchableEngine(312)], appSettings: new AppSettingsFile(temp.SubFolder("config")), clock: new FixedClock(Now), vndb: VndbCatalog());
                 var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, newProjectWizard: () => wizard);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
@@ -60,6 +61,16 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                     CheckGamePlain(window, temp.Path);
 
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+                    await wizard.NextCommand.ExecuteAsync(null);
+                    wizard.SearchTitle = "Amaoto";
+                    await wizard.SearchVndbCommand.ExecuteAsync(null);
+                    Render(window, "novo-projeto-v3-2-vndb-escolha", theme);
+                    CheckVndbChoice(window, temp.Path);
+
+                    await wizard.NextCommand.ExecuteAsync(null);
+                    Render(window, "novo-projeto-v3-2-vndb-ficha", theme);
+                    CheckVndbPreview(window, temp.Path);
+
                     await wizard.NextCommand.ExecuteAsync(null);
                     wizard.ProjectName = "Minha VN";
                     await wizard.NextCommand.ExecuteAsync(null);
@@ -108,6 +119,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                     Assert.Contains(gameTexts, t => t.StartsWith("932", StringComparison.Ordinal));
 
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+                    await wizard.NextCommand.ExecuteAsync(null);
                     await wizard.NextCommand.ExecuteAsync(null);
                     wizard.ProjectName = "Minha VN";
                     await wizard.NextCommand.ExecuteAsync(null);
@@ -164,6 +176,51 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         AssertPlain([$"{folder} é a pasta do jogo"], folder);
         Assert.Throws<AllException>(() => AssertPlain([text, folder], folder));
         Assert.Throws<AllException>(() => AssertPlain([$"{folder} · {text}"], folder));
+    }
+
+    private static VNForge.Vndb.FakeVndbCatalog VndbCatalog()
+    {
+        var main = new VndbVisualNovel(
+            "v31201", "Amaoto no Hakoniwa", "雨音の箱庭", [], ["Amaoto jogo"], "ja", 0, "2019-05-31", ["ja"], ["win"], null, 3, 1080, 10,
+            "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou e encontra uma caixa de música que só toca quando alguém mente.", []);
+        var disc = main with { Id = "v31202", Title = "Amaoto no Hakoniwa: Fan Disc", AltTitle = "雨音の箱庭 ファンディスク", Aliases = [], Released = "2020-03-01", Length = 2, LengthMinutes = 180 };
+        VndbCharacter Character(string id, string name, string original, string? gender, string role, params string[] aliases) =>
+            new(id, name, original, aliases, null, null, gender is null ? null : new VndbGender(gender, gender), [new VndbCharacterAppearance("v31201", role, 0, null)], []);
+        return new VNForge.Vndb.FakeVndbCatalog(
+            [main, disc],
+            [
+                Character("c1", "Kenta Aizawa", "相沢 健太", "m", "main", "Ken", "Kenta-kun"),
+                Character("c2", "Aoi Sakura", "佐倉 葵", "f", "primary", "Aoi-chan"),
+                Character("c3", "Ren Hayase", "早瀬 蓮", "m", "side", "Ren"),
+                Character("c4", "Misaki Todo", "藤堂 美咲", "f", "side", "Todo-sensei"),
+                Character("c5", "Coadjuvante", "名無し", null, "appears"),
+            ]);
+    }
+
+    private static void CheckVndbChoice(Window window, string tempRoot)
+    {
+        var texts = VisibleTexts(window);
+        Assert.Contains("Achamos 2 jogos com este título no VNDB", texts);
+        Assert.Contains("Combina com a pasta e o exe", texts);
+        Assert.Contains("Só o título", texts);
+        Assert.Contains("Nenhum deles, seguir sem VNDB", texts);
+        Assert.Contains("Buscar por outro título", texts);
+        Assert.Contains("Passo 2 de 5", texts);
+        AssertPlain(texts, tempRoot);
+    }
+
+    private static void CheckVndbPreview(Window window, string tempRoot)
+    {
+        var texts = VisibleTexts(window);
+        Assert.Contains("Personagens que chegam", texts);
+        Assert.Contains("Sinopse para a bíblia", texts);
+        Assert.Contains("Aviso que some", texts);
+        Assert.Contains("Amaoto no Hakoniwa, v31201", texts);
+        Assert.Contains("Kenta Aizawa", texts);
+        Assert.Contains("相沢 健太", texts);
+        Assert.Contains("Masculino", texts);
+        Assert.Contains("Sem gênero", texts);
+        AssertPlain(texts, tempRoot);
     }
 
     private static void CheckGamePlain(Window window, string tempRoot)

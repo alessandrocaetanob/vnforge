@@ -515,7 +515,12 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         RefreshSteps();
     }
 
-    partial void OnIsBusyChanged(bool value) => GoToStepCommand.NotifyCanExecuteChanged();
+    partial void OnIsBusyChanged(bool value)
+    {
+        GoToStepCommand.NotifyCanExecuteChanged();
+        SkipVndbCommand.NotifyCanExecuteChanged();
+        SearchVndbCommand.NotifyCanExecuteChanged();
+    }
 
     private static readonly string[] StepTitles = ["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
