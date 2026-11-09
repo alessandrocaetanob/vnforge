@@ -18,13 +18,20 @@ public sealed class GameLibrary
 {
     private readonly List<LibraryGame> _games;
 
-    public GameLibrary(IEnumerable<LibraryGame>? games = null, LibraryPrivacy? privacy = null)
+    public GameLibrary(IEnumerable<LibraryGame>? games = null, LibraryPrivacy? privacy = null, string? localeEmulatorPath = null)
     {
         _games = [.. games ?? []];
         Privacy = privacy ?? new LibraryPrivacy();
+        LocaleEmulatorPath = string.IsNullOrWhiteSpace(localeEmulatorPath) ? null : localeEmulatorPath;
     }
 
     public LibraryPrivacy Privacy { get; set; }
+
+    /// <summary>
+    /// Onde está o Locale Emulator (a pasta dele ou o <c>LEProc.exe</c>), para os jogos que pedem localidade japonesa. É um ajuste do usuário, não de um jogo;
+    /// fica aqui para o app e a CLI lerem o mesmo valor. <see langword="null"/> enquanto a pessoa não informou.
+    /// </summary>
+    public string? LocaleEmulatorPath { get; set; }
 
     public IReadOnlyList<LibraryGame> Games => _games;
 

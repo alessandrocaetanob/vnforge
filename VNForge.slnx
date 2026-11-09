@@ -7,6 +7,7 @@
     <Project Path="src/VNForge.Engines.YuRis/VNForge.Engines.YuRis.csproj" />
     <Project Path="src/VNForge.Installer/VNForge.Installer.csproj" />
     <Project Path="src/VNForge.Patching/VNForge.Patching.csproj" />
+    <Project Path="src/VNForge.Platform.Windows/VNForge.Platform.Windows.csproj" />
     <Project Path="src/VNForge.Vndb/VNForge.Vndb.csproj" />
   </Folder>
   <Folder Name="/tests/">
