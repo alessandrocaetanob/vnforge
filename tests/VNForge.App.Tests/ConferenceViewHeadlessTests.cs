@@ -31,18 +31,25 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             {
                 var window = new Window { Width = 1200, Height = 800, Content = new ConferenceView { DataContext = vm } };
                 window.Show();
-                window.UpdateLayout();
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
+                try
+                {
+                    window.UpdateLayout();
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
 
-                var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Cena 1 · linha 1");
-                var center = cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
-                window.MouseDown(center, MouseButton.Left);
-                window.MouseUp(center, MouseButton.Left);
-                window.MouseDown(center, MouseButton.Left);
-                window.MouseUp(center, MouseButton.Left);
+                    var cell = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Cena 1 · linha 1");
+                    var center = cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
+                    window.MouseDown(center, MouseButton.Left);
+                    window.MouseUp(center, MouseButton.Left);
+                    window.MouseDown(center, MouseButton.Left);
+                    window.MouseUp(center, MouseButton.Left);
 
-                Assert.Equal(new LineRequest("yst00001", "yst00001:000000"), requested);
+                    Assert.Equal(new LineRequest("yst00001", "yst00001:000000"), requested);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }
@@ -99,21 +106,28 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             {
                 var window = new Window { Width = 1200, Height = 800, Content = new ConferenceView { DataContext = vm } };
                 window.Show();
-                window.UpdateLayout();
-                Dispatcher.UIThread.RunJobs();
-
-                var open = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.OpenLineCommand && b.IsEffectivelyVisible);
-                open.Focus();
-                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-                window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-                for (var i = 0; i < 10; i++)
+                try
                 {
-                    await Task.Delay(20);
+                    window.UpdateLayout();
                     Dispatcher.UIThread.RunJobs();
-                }
 
-                window.Close();
-                return 0;
+                    var open = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.OpenLineCommand && b.IsEffectivelyVisible);
+                    open.Focus();
+                    window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                    window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                    for (var i = 0; i < 10; i++)
+                    {
+                        await Task.Delay(20);
+                        Dispatcher.UIThread.RunJobs();
+                    }
+
+                    window.Close();
+                    return 0;
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
 
@@ -179,27 +193,34 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             {
                 var window = new Window { Width = 1200, Height = 800, Content = new ConferenceView { DataContext = vm } };
                 window.Show();
-                window.UpdateLayout();
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
+                try
+                {
+                    window.UpdateLayout();
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
 
-                var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains("Conferir a tradução", texts);
-                Assert.Contains("Travam o teste", texts);
-                Assert.Contains("Espaço duplo", texts);
-                Assert.Contains("Cena 1 · linha 1", texts);
-                Assert.Contains("Um clique", texts);
-                Assert.Contains("Corrigir 1 com um clique", texts);
-                Assert.Contains("Conferir de novo", texts);
-                Assert.Contains("Abrir no editor", texts);
-                Assert.Contains("Corrigir e ir para o próximo", texts);
-                Assert.Contains("Está certo assim", texts);
-                Assert.Contains("Como vai ficar", texts);
-                Assert.Contains("O que é isso", texts);
+                    var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+                    Assert.Contains("Conferir a tradução", texts);
+                    Assert.Contains("Travam o teste", texts);
+                    Assert.Contains("Espaço duplo", texts);
+                    Assert.Contains("Cena 1 · linha 1", texts);
+                    Assert.Contains("Um clique", texts);
+                    Assert.Contains("Corrigir 1 com um clique", texts);
+                    Assert.Contains("Conferir de novo", texts);
+                    Assert.Contains("Abrir no editor", texts);
+                    Assert.Contains("Corrigir e ir para o próximo", texts);
+                    Assert.Contains("Está certo assim", texts);
+                    Assert.Contains("Como vai ficar", texts);
+                    Assert.Contains("O que é isso", texts);
 
-                // O detalhe mostra a gravidade com o SeverityTag, e a primeira linha vem selecionada.
-                var tag = window.GetVisualDescendants().OfType<SeverityTag>().Single();
-                Assert.Equal(SeverityLevel.Warning, tag.Level);
+                    // O detalhe mostra a gravidade com o SeverityTag, e a primeira linha vem selecionada.
+                    var tag = window.GetVisualDescendants().OfType<SeverityTag>().Single();
+                    Assert.Equal(SeverityLevel.Warning, tag.Level);
+                }
+                finally
+                {
+                    window.Close();
+                }
             },
             CancellationToken.None);
     }

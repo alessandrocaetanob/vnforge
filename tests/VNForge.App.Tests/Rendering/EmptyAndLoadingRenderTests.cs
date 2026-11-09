@@ -48,7 +48,8 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Outra execução está gravando o mesmo PNG (no Windows, sobrescrever um arquivo aberto pode dar acesso negado): o teste já conferiu o quadro dele.
+            // Candidato à instabilidade do Editor_lendo, nunca reproduzido: duas execuções copiando o mesmo PNG ao mesmo tempo (no Windows, sobrescrever
+            // um arquivo aberto pode dar acesso negado). O teste já conferiu o quadro dele, então a publicação é descartada.
         }
     }
 
@@ -71,6 +72,7 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
     [Fact]
     public Task Painel_lendo() => OnUi(async () =>
     {
+        using var temp = new TempFolder();
         var gate = new ManualResetEventSlim();
         var dashboard = new DashboardViewModel(_ =>
         {
@@ -78,7 +80,7 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
             throw new IOException("liberado");
         })
         {
-            Project = EditorFixtures.Summary(),
+            Project = EditorFixtures.Summary(root: temp.Path),
         };
         var reload = dashboard.ReloadAsync();
         try
@@ -105,26 +107,25 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
     [Fact]
     public Task Editor_sem_linhas() => OnUi(async () =>
     {
-        var editor = new EditorViewModel(_ => EditorFixtures.Lines()) { Project = EditorFixtures.Summary() };
+        using var temp = new TempFolder();
+        var editor = new EditorViewModel(_ => EditorFixtures.Lines()) { Project = EditorFixtures.Summary(root: temp.Path) };
         await editor.Loading;
         Render(new EditorView { DataContext = editor }, "editor-vazio");
     });
 
-    // A leitura em segundo plano roda o loader preso na porta e, depois dela, o contexto e os nomes dos capítulos. O contexto vai por injeção e a pasta do
-    // projeto é uma pasta vazia da execução: com o caminho fixo de EditorFixtures.Summary, essa leitura iria ao disco da máquina, e o que existir lá
-    // (ou outra execução gravando) mudaria o resultado de um teste que só quer ver o estado "lendo".
+    // A pasta do projeto é uma pasta vazia da execução, e não o caminho fixo de EditorFixtures.Summary, para a leitura em segundo plano não depender
+    // do disco da máquina. Isso é higiene: não há evidência de que o caminho fixo causasse a instabilidade. O candidato à causa é a publicação do PNG
+    // (ver Publish), que não foi reproduzida.
     [Fact]
     public Task Editor_lendo() => OnUi(async () =>
     {
         using var temp = new TempFolder();
         using var gate = new ManualResetEventSlim();
-        var editor = new EditorViewModel(
-            _ =>
-            {
-                gate.Wait();
-                return EditorFixtures.Lines();
-            },
-            contextLoader: _ => EditorContext.Empty)
+        var editor = new EditorViewModel(_ =>
+        {
+            gate.Wait();
+            return EditorFixtures.Lines();
+        })
         {
             Project = EditorFixtures.Summary(root: temp.Path),
         };
