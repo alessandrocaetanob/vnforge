@@ -37,6 +37,8 @@ public sealed class MainWindowTranslateTests : IDisposable
         {
             TranslationProviderFactory = factory ?? ((_, _) => new FakeTranslationProvider()),
         };
+        // Estes testes são da tradução; a passada de editor (#532) tem os dela em MainWindowEditorPassTests.
+        vm.Translate.EditorPass = false;
         await start.OpenAsync(root);
         start.OpenSelectedInEditorCommand.Execute(null);
         await vm.Editor.Loading;

@@ -26,10 +26,12 @@
             </Grid>
           </Grid>
           <Panel Name="PART_Issue" Grid.Column="3">
-            <PathIcon Name="PART_Warning" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Warning}"
+            <PathIcon Name="PART_Warning" Width="16" Height="16" HorizontalAlignment="Left" IsVisible="False" Data="{DynamicResource Icon.Warning}"
                       Foreground="{DynamicResource Vnf.SignalWarningFg}" AutomationProperties.Name="{TemplateBinding IssueLabel}" ToolTip.Tip="{TemplateBinding IssueTip}"/>
-            <PathIcon Name="PART_Error" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Error}"
+            <PathIcon Name="PART_Error" Width="16" Height="16" HorizontalAlignment="Left" IsVisible="False" Data="{DynamicResource Icon.Error}"
                       Foreground="{DynamicResource Vnf.SignalErrorFg}" AutomationProperties.Name="{TemplateBinding IssueLabel}" ToolTip.Tip="{TemplateBinding IssueTip}"/>
+            <PathIcon Name="PART_Suggestion" Width="16" Height="16" HorizontalAlignment="Right" IsVisible="False" Data="{DynamicResource Icon.Sparkle}"
+                      Foreground="{DynamicResource Vnf.StatusAiFg}" ToolTip.Tip="{TemplateBinding EditorSuggestionTip}"/>
           </Panel>
         </Grid>
         </Border>
@@ -119,6 +121,9 @@
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>
   <Style Selector="c|LineRow:doubt /template/ Border#PART_Doubt">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <Style Selector="c|LineRow:suggestion /template/ PathIcon#PART_Suggestion">
     <Setter Property="IsVisible" Value="True"/>
   </Style>
   <Style Selector="c|LineRow:warning /template/ PathIcon#PART_Warning">

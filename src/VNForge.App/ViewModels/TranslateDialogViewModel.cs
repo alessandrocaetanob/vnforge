@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
+using VNForge.AI.Review;
 using VNForge.AI.Translation;
 using VNForge.App.Controls;
 using VNForge.App.Services;
@@ -57,6 +58,23 @@ public sealed partial class QualityChoice(TranslationQuality quality, string tit
     public partial bool IsSelected { get; set; }
 }
 
+/// <summary>Uma resposta à pergunta "quando": agora, com a IA respondendo enquanto a pessoa trabalha, ou durante a noite, pela Message Batches API.</summary>
+public sealed partial class WhenChoice(bool overnight, string title, string description, string? tag = null) : ObservableObject
+{
+    /// <summary>Verdadeiro para "Durante a noite".</summary>
+    public bool Overnight { get; } = overnight;
+
+    public string Title { get; } = title;
+
+    public string Description { get; } = description;
+
+    /// <summary>O selo ao lado do título ("50% mais barato"); <see langword="null"/> em "Agora".</summary>
+    public string? Tag { get; } = tag;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+}
+
 /// <summary>
 /// A janela "Traduzir com IA", sobre o Editor: o que traduzir, com que qualidade e por quanto. O preço e o tempo saem do Core
 /// (<see cref="TranslationQuoter"/>); a janela só os mostra e impede o pedido que passa do limite de gasto do projeto.
@@ -66,6 +84,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     private readonly ScopeChoice sceneChoice;
     private readonly ObservableCollection<ScopeChoice> scopes;
     private readonly Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes)> byScope = [];
+    private readonly Dictionary<TranslationScope, IReadOnlyDictionary<TranslationQuality, decimal>> editorPassBrl = [];
+    private bool editorPassBeforeNight;
     private TranslateDialogSettings settings = new(ExchangeRate.Placeholder, BudgetLimits.None, TranslationQuality.Careful, true);
     private TranslationContextSummary context = new(0, 0, 0, 0, false);
     private decimal spent;
@@ -82,8 +102,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             new(TranslationQuality.Balanced, "Equilibrada", "O meio-termo: boa para a maior parte do jogo."),
             new(TranslationQuality.Careful, "Caprichada", "A mais fiel ao tom e aos personagens."),
         ];
+        Whens =
+        [
+            new(false, "Agora", "Você acompanha as cenas chegando e pode revisar enquanto traduz."),
+            new(true, "Durante a noite", "Metade do preço. O lote volta em até 24 h e você pode fechar o app.", "50% mais barato"),
+        ];
         SelectedScope = Scopes[0];
         SelectedQuality = Qualities[^1];
+        SelectedWhen = Whens[0];
         foreach (var quality in Qualities)
         {
             quality.PropertyChanged += (_, e) =>
@@ -91,6 +117,17 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
                 if (e.PropertyName == nameof(QualityChoice.IsSelected) && quality.IsSelected)
                 {
                     SelectedQuality = quality;
+                }
+            };
+        }
+
+        foreach (var when in Whens)
+        {
+            when.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(WhenChoice.IsSelected) && when.IsSelected)
+                {
+                    SelectedWhen = when;
                 }
             };
         }
@@ -110,6 +147,9 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     public ReadOnlyCollection<QualityChoice> Qualities { get; }
 
+    /// <summary>"Agora" e "Durante a noite". A cena de exemplo traduz com a IA de demonstração e não tem lote.</summary>
+    public ReadOnlyCollection<WhenChoice> Whens { get; }
+
     /// <summary>Termina quando os números da última abertura estão na tela.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
 
@@ -124,6 +164,27 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     [ObservableProperty]
     public partial QualityChoice SelectedQuality { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOvernight))]
+    [NotifyPropertyChangedFor(nameof(CanChooseEditorPass))]
+    public partial WhenChoice SelectedWhen { get; set; }
+
+    /// <summary>A pessoa escolheu "Durante a noite": os preços são a metade e o botão envia o lote.</summary>
+    public bool IsOvernight => ShowWhen && SelectedWhen.Overnight;
+
+    /// <summary>A caixa da passada de editor pode ser mexida: no lote da noite ela fica desmarcada e travada.</summary>
+    public bool CanChooseEditorPass => !IsOvernight;
+
+    /// <summary>A linha "Quando" aparece; some na cena de exemplo.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOvernight))]
+    [NotifyPropertyChangedFor(nameof(CanChooseEditorPass))]
+    public partial bool ShowWhen { get; private set; } = true;
+
+    /// <summary>"O lote fica guardado por 29 dias na Anthropic. Resultado em até 24 h; o tempo real depende da fila." Só no pedido da noite.</summary>
+    [ObservableProperty]
+    public partial string BatchNote { get; private set; } = string.Empty;
 
     /// <summary>As linhas que o pedido traduz.</summary>
     [ObservableProperty]
@@ -144,6 +205,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string RequestText { get; private set; } = string.Empty;
+
+    /// <summary>Depois de traduzir, outro pedido lê cada cena e deixa ajustes como sugestão na linha (#532). Vem marcada: é o que o quadro propõe; a pessoa desmarca se não quer o gasto.</summary>
+    [ObservableProperty]
+    public partial bool EditorPass { get; set; } = true;
+
+    /// <summary>O preço da passada de editor, à parte do pedido ("+ R$ 3,10"); "Gratuito" na cena de exemplo.</summary>
+    [ObservableProperty]
+    public partial string EditorPassPriceText { get; private set; } = string.Empty;
 
     [ObservableProperty]
     public partial string SpentText { get; private set; } = string.Empty;
@@ -215,6 +284,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             ? sceneChoice
             : Hooked(new ScopeChoice(TranslationScope.Selection, $"As cenas escolhidas ({ProjectLabels.Number(chosen.Count)})"));
         byScope.Clear();
+        ShowWhen = !current.IsSample;
+        SelectedWhen = Whens[0];
         // Os cartões vêm de uma abertura anterior: sem isto, o que estava apagado ou resumido ali ficaria assim até a leitura terminar, ou para sempre se ela falhar.
         foreach (var scope in scopes)
         {
@@ -250,7 +321,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanStart))]
     private void Start()
     {
-        var request = new TranslationRequest(SelectedScope.Scope, SelectedQuality.Quality, byScope[SelectedScope.Scope].Keys);
+        var request = new TranslationRequest(SelectedScope.Scope, SelectedQuality.Quality, byScope[SelectedScope.Scope].Keys, EditorPass && !IsOvernight, IsOvernight);
         IsOpen = false;
         StartRequested?.Invoke(this, request);
     }
@@ -283,6 +354,30 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         foreach (var scope in Scopes)
         {
             scope.IsSelected = scope == value;
+        }
+
+        Refresh();
+    }
+
+    partial void OnEditorPassChanged(bool value) => Refresh();
+
+    partial void OnSelectedWhenChanged(WhenChoice value)
+    {
+        foreach (var when in Whens)
+        {
+            when.IsSelected = when == value;
+        }
+
+        // O lote da noite não roda a passada de editor (o resultado chega horas depois): a caixa desmarca e trava, e volta como estava ao sair do modo.
+        if (IsOvernight && EditorPass)
+        {
+            editorPassBeforeNight = true;
+            EditorPass = false;
+        }
+        else if (!IsOvernight && editorPassBeforeNight)
+        {
+            editorPassBeforeNight = false;
+            EditorPass = true;
         }
 
         Refresh();
@@ -325,9 +420,11 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         }
 
         byScope.Clear();
+        editorPassBrl.Clear();
         foreach (var (scope, value) in loaded.Scopes)
         {
             byScope[scope] = (value.Keys, value.Quotes);
+            editorPassBrl[scope] = value.EditorPassBrl;
             var choice = Scopes.Single(s => s.Scope == scope);
             choice.Lines = value.Quotes.Lines;
             choice.IsAvailable = value.Quotes.Lines > 0;
@@ -343,7 +440,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     }
 
     private sealed record ProjectRead(
-        Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes, int Scenes)> Scopes,
+        Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes, int Scenes, IReadOnlyDictionary<TranslationQuality, decimal> EditorPassBrl)> Scopes,
         decimal Spent,
         TranslationContextSummary Context);
 
@@ -372,7 +469,12 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
                 var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey, chosenKeys);
                 var batches = TranslationQuoter.BatchesFor(texts, keys, builder, batchSize);
                 var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
-                return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes);
+
+                // A passada lê, depois de traduzir, as cenas que têm linha pendente: o que já estava traduzido nelas e o que vai chegar, com o mesmo contexto (glossário, bíblia, guia) do pedido real.
+                IReadOnlyList<TranslationBatch> passScenes =
+                    [.. keys.Where(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0).SelectMany(key => EditorPassCost.Requests(builder, [.. texts[key].Where(u => u.HasTranslation || TranslationQuoter.IsPending(u))]))];
+                IReadOnlyDictionary<TranslationQuality, decimal> pass = QualityProfiles.All.ToDictionary(p => p.Quality, p => rate.ToBrl(EditorPassCost.Estimate(passScenes, p.Model, effort).Dollars));
+                return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes, EditorPassBrl: pass);
             });
         return new ProjectRead(scopes, rate.ToBrl(AiUsageLog.Load(folder).Dollars), TranslationContextSummary.Read(folder));
     }
@@ -394,8 +496,21 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         return $"{text} em {scenes} {sceneWord}";
     }
 
+    /// <summary>O que o pedido custa de fato: a tradução mais, se a pessoa a quer, a passada de editor. A cena de exemplo é grátis.</summary>
+    private decimal TotalFor(TranslationScope scope, QualityQuote quote) =>
+        settings.IsSample ? 0m : quote.Brl * PriceFactor + PassBrl(scope, quote.Quality);
+
+    private decimal PassBrl(TranslationScope scope, TranslationQuality quality) =>
+        EditorPass && !IsOvernight && editorPassBrl.TryGetValue(scope, out var byQuality) && byQuality.TryGetValue(quality, out var brl) ? brl : 0m;
+
+    /// <summary>A qualidade mais cara que cabe no que sobra do limite, contando a passada de editor quando ela está marcada.</summary>
     private QualityQuote? FitFor(TranslationScope scope) =>
-        byScope.TryGetValue(scope, out var value) ? value.Quotes.MostCarefulThatFits(spent, settings.Limits.Limit) : null;
+        byScope.TryGetValue(scope, out var value)
+            ? value.Quotes.Qualities.OrderByDescending(q => q.Quality).FirstOrDefault(q => TranslationQuotes.Fits(TotalFor(scope, q), spent, settings.Limits.Limit))
+            : null;
+
+    /// <summary>Metade do preço no lote da noite; o preço inteiro no pedido de agora.</summary>
+    private decimal PriceFactor => IsOvernight ? ModelPricing.BatchDiscount : 1m;
 
     private void Refresh()
     {
@@ -409,7 +524,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         RefreshQualities(current.Quotes);
 
         // A cena de exemplo traduz com a IA de demonstração: grátis, então não há preço nem limite de gasto a respeitar.
-        var request = settings.IsSample ? 0m : current.Quotes.For(SelectedQuality.Quality).Brl;
+        var request = settings.IsSample ? 0m : current.Quotes.For(SelectedQuality.Quality).Brl * PriceFactor;
+        BatchNote = IsOvernight ? "O lote fica guardado por 29 dias na Anthropic. Resultado em até 24 h; o tempo real depende da fila." : string.Empty;
         var limit = settings.IsSample ? null : settings.Limits.Limit;
         Lines = current.Quotes.Lines;
         NothingToTranslate = Lines == 0;
@@ -418,13 +534,16 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         SpentBrl = (double)spent;
         LimitBrl = (double)(limit ?? 0m);
         RefreshAmounts(request, limit);
+        RefreshEditorPass();
 
-        IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(request, spent, limit);
+        // O limite e o aviso contam também a passada de editor, que é paga no mesmo projeto.
+        var total = TotalFor(SelectedScope.Scope, current.Quotes.For(SelectedQuality.Quality));
+        IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(total, spent, limit);
         var fit = IsOverLimit ? FitFor(SelectedScope.Scope) : null;
         CanSwitchToFit = fit is not null && fit.Quality != SelectedQuality.Quality;
-        SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(fit.Brl)})";
-        OverLimitText = IsOverLimit ? DescribeOverLimit(request, limit, fit) : string.Empty;
-        AboveWarning = !IsOverLimit && !settings.IsSample && settings.Limits.WarnAbove is { } warn && request > warn;
+        SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(TotalFor(SelectedScope.Scope, fit))})";
+        OverLimitText = IsOverLimit ? DescribeOverLimit(total, limit, fit) : string.Empty;
+        AboveWarning = !IsOverLimit && !settings.IsSample && settings.Limits.WarnAbove is { } warn && total > warn;
         RefreshBudgetProblem();
         RefreshNotices();
 
@@ -449,13 +568,22 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         RateNote = settings.Rate.IsInformed ? string.Empty : "Cotação de exemplo: informe a sua em Ajustes para ver o valor certo.";
     }
 
+    private void RefreshEditorPass()
+    {
+        var price = editorPassBrl.TryGetValue(SelectedScope.Scope, out var byQuality) && byQuality.TryGetValue(SelectedQuality.Quality, out var brl) ? brl : 0m;
+        EditorPassPriceText = IsOvernight ? string.Empty : settings.IsSample ? "Gratuito" : $"+ {Money.BrlEstimate(price)}";
+    }
+
     private void RefreshQualities(TranslationQuotes quotes)
     {
         foreach (var quality in Qualities)
         {
             var quote = quotes.For(quality.Quality);
-            quality.Price = settings.IsSample ? 0m : quote.Brl;
-            quality.Duration = quotes.Lines == 0 ? "nenhuma linha para traduzir" : ProjectLabels.Duration(quote.Time);
+            quality.Price = settings.IsSample ? 0m : quote.Brl * PriceFactor;
+            var time = ProjectLabels.Duration(quote.Time);
+            quality.Duration = quotes.Lines == 0
+                ? "nenhuma linha para traduzir"
+                : IsOvernight ? $"em vez de {Money.BrlEstimate(quote.Brl)} · {time}" : time;
         }
     }
 
@@ -465,14 +593,17 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         BudgetProblemText = HasBudgetProblem
             ? "Não foi possível conferir o limite de gasto: o arquivo de Ajustes não pôde ser lido. Esta tradução não para num limite. Salve os Ajustes de novo para consertar, ou siga mesmo assim."
             : string.Empty;
-        StartLabel = AboveWarning || HasBudgetProblem ? "Traduzir mesmo assim" : "Traduzir";
+        var again = AboveWarning || HasBudgetProblem;
+        StartLabel = IsOvernight
+            ? again ? "Enviar o lote mesmo assim" : "Enviar o lote"
+            : again ? "Traduzir mesmo assim" : "Traduzir";
     }
 
     private void RefreshNotices()
     {
         KeyMissing = !settings.KeyConfigured;
         KeyMissingText = KeyMissing ? "Falta a chave da IA. Informe-a em Ajustes, na aba IA e gasto." : string.Empty;
-        ContextText = DescribeContext(context);
+        ContextText = IsOvernight ? DescribeBatchContext(context) : DescribeContext(context);
         HasMissingGender = context.CharactersWithoutGender > 0;
         MissingGenderText = HasMissingGender
             ? $"{DescribeMissing(context.CharactersWithoutGender)}: a IA pode errar a concordância nas falas deles."
@@ -509,6 +640,24 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         parts.Add("as falas em volta");
         var list = parts.Count == 1 ? parts[0] : $"{string.Join(", ", parts[..^1])} e {parts[^1]}";
         return $"Vai junto em cada pedido: {list}.";
+    }
+
+    /// <summary>No lote a fala anterior ainda não está traduzida: o contexto vem do original, do glossário e do resumo da cena na bíblia.</summary>
+    private static string DescribeBatchContext(TranslationContextSummary summary)
+    {
+        var parts = new List<string> { "do original" };
+        if (summary.GlossaryTerms > 0)
+        {
+            parts.Add(summary.GlossaryTerms == 1 ? "do glossário (1 termo)" : $"do glossário ({ProjectLabels.Number(summary.GlossaryTerms)} termos)");
+        }
+
+        if (summary.HasBibleScenes)
+        {
+            parts.Add("do resumo da cena na bíblia");
+        }
+
+        var list = parts.Count == 1 ? parts[0] : $"{string.Join(", ", parts[..^1])} e {parts[^1]}";
+        return $"No lote a fala anterior ainda não está traduzida: o contexto vem {list}.";
     }
 
     private static string DescribeMissing(int count) =>

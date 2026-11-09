@@ -3,6 +3,7 @@ using VNForge.Core.Engines;
 using VNForge.Core.Glossary;
 using VNForge.Core.Injection;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Projects;
 
@@ -30,6 +31,9 @@ public sealed record ExtractionResult(
 {
     /// <summary>O que aconteceu com as linhas que já estavam em <c>text/</c>; nulo quando não havia nenhuma.</summary>
     public ReextractionSummary? Reextraction { get; init; }
+
+    /// <summary>Os personagens do VNDB que a extração levou para <c>characters.json</c> (<see cref="VndbProjectLinker.ApplyCharacters"/>); nulo quando o projeto não está ligado ao VNDB.</summary>
+    public VndbApplyResult? VndbCharacters { get; init; }
 
     /// <summary>Título da janela do jogo que a extração leu; nulo quando a engine não o oferece ou o jogo não tem o arquivo do título.</summary>
     public string? GameTitle { get; init; }
@@ -137,6 +141,7 @@ public static class ProjectExtractor
             throw;
         }
 
+        var vndbCharacters = ApplyVndbCharacters(project, warnings);
         var byKind = Enum.GetValues<TextUnitKind>().ToDictionary(kind => kind, _ => 0);
         foreach (var unit in extracted.SelectMany(s => s.Units))
         {
@@ -153,7 +158,30 @@ public static class ProjectExtractor
         {
             Reextraction = existing.Count > 0 ? plan.Summary : null,
             GameTitle = gameTitle,
+            VndbCharacters = vndbCharacters,
         };
+    }
+
+    /// <summary>
+    /// Leva os personagens do <c>vndb.json</c> para o <c>characters.json</c> com os nomes que a extração acabou de achar. Uma falha aqui não desfaz a extração,
+    /// que já gravou o texto: vira aviso.
+    /// </summary>
+    private static VndbApplyResult? ApplyVndbCharacters(ProjectFolder project, List<string> warnings)
+    {
+        if (!File.Exists(project.VndbPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return VndbProjectLinker.ApplyCharacters(project);
+        }
+        catch (VNForgeException ex)
+        {
+            warnings.Add($"Os personagens do VNDB não entraram em characters.json: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>A engine do projeto oferece o título da janela do jogo (<see cref="IGameTitleSource"/>), então <see cref="RefreshGameTitle"/> tem o que ler.</summary>
