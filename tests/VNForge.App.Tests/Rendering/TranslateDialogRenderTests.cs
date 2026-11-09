@@ -95,6 +95,11 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 Assert.Equal(5, surface.GetVisualDescendants().OfType<RadioButton>().Count(r => r is not QualityCard));
                 var bar = Assert.Single(surface.GetVisualDescendants().OfType<BudgetBar>());
                 Assert.True(bar.Ask > 0 && bar.Limit > 0 && !bar.IsOver);
+                // A barra do quadro (.bar2) vai até o limite: dentro dele não há marca, e a trilha tem o fundo do cartão "Quanto custa".
+                Assert.True(bar.IsInset);
+                Assert.True(window.TryFindResource("Vnf.TextPrimary", theme, out var markBrush));
+                var markColor = ((ISolidColorBrush)markBrush!).Color;
+                Assert.Equal(0, PixelProbe.Capture(window, bar).CountInArea(new Rect(0, 0, bar.Bounds.Width, bar.Bounds.Height), markColor, 24));
                 Assert.Empty(window.OwnedWindows);
                 Assert.Same(window, TopLevel.GetTopLevel(surface));
 
@@ -147,7 +152,10 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 Assert.True(vm.Translate.IsOverLimit);
                 Assert.True(vm.Translate.CanSwitchToFit);
                 var surface = Surface(window);
-                Assert.True(Assert.Single(surface.GetVisualDescendants().OfType<BudgetBar>()).IsOver);
+                var overBar = Assert.Single(surface.GetVisualDescendants().OfType<BudgetBar>());
+                Assert.True(overBar.IsOver);
+                Assert.True(window.TryFindResource("Vnf.TextPrimary", theme, out var overMarkBrush));
+                Assert.True(PixelProbe.Capture(window, overBar).CountInArea(new Rect(0, 0, overBar.Bounds.Width, overBar.Bounds.Height), ((ISolidColorBrush)overMarkBrush!).Color, 24) >= BudgetBar.BarHeight, "marca do limite acima dele");
                 var start = surface.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Translate.StartCommand);
                 Assert.False(start.IsEffectivelyEnabled);
                 Assert.Contains(surface.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Translate.SwitchToFitCommand && b.IsEffectivelyVisible);

@@ -102,7 +102,7 @@
                 <TextBlock FontSize="16" LineHeight="24" FontWeight="SemiBold" Text="{Binding RequestText}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Classes="caption secondary" LineHeight="18" Text="{Binding SpentText}" VerticalAlignment="Center"/>
               </Grid>
-              <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}"
+              <c:BudgetBar IsInset="True" Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}"
                            AutomationProperties.Name="Gasto do projeto, este pedido e o limite"/>
               <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" Text="{Binding BatchNote}"
                          IsVisible="{Binding BatchNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
