@@ -102,6 +102,9 @@ public sealed class VnfCli
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
 
+    /// <summary>Cria o cliente HTTP do download do dicionário (<c>vnf dict install</c>); os testes trocam por um que responde com um arquivo inventado.</summary>
+    public Func<HttpClient> HttpClientFactory { get; set; } = () => new HttpClient();
+
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();
 
