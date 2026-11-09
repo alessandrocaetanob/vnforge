@@ -1,3 +1,5 @@
+using VNForge.Core.Dictionaries;
+using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -18,6 +20,9 @@ public sealed class TranslationBatchBuilder(
     int maxNextLines = TranslationBatchBuilder.DefaultContextLines,
     IReadOnlyList<AddressTerm>? addressTerms = null)
 {
+    /// <summary>O pré-dicionário do projeto, que normaliza o original de todas as linhas do lote; nulo não normaliza nada.</summary>
+    public PreDictionary? Pre { get; init; }
+
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
     public const int DefaultContextLines = AiConfig.DefaultContextLines;
 
@@ -32,15 +37,33 @@ public sealed class TranslationBatchBuilder(
     private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
     private readonly StyleConfig _style = style ?? StyleConfig.Default;
     private readonly AddressBook _addressing = new(addressTerms ?? []);
+    /// <summary>A bíblia do jogo (#530): o resumo da cena de cada linha e a sinopse entram no pedido. Sem ela (ou nula) o lote é o de antes.</summary>
+    public GameBible Bible { get; init => field = value ?? GameBible.Empty; } = GameBible.Empty;
+
+    /// <summary>
+    /// No lote noturno a fala anterior ainda não está traduzida: com isto ligado, o contexto anterior vem do original de qualquer fala com texto, e não só das que já têm tradução.
+    /// O resumo da cena da bíblia segue junto em <see cref="Bible"/>.
+    /// </summary>
+    public bool PreviousFromSource { get; init; }
 
     /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
     /// só as que já têm tradução, no máximo as últimas <c>maxPreviousLines</c>. <paramref name="next"/> são as linhas que vêm depois do lote;
     /// entram as primeiras <c>maxNextLines</c> com texto, no original, porque ainda não foram traduzidas.
     /// </summary>
+    /// <remarks>
+    /// O pré-dicionário normaliza o <see cref="TextUnit.Source"/> de todas as linhas do lote, das de contexto também, antes do resto: é esse texto que a IA lê,
+    /// que casa com o glossário e que entra na chave do cache (<see cref="Cost.TranslationCache.KeyFor"/>). Mudar uma regra do pré pede nova tradução das linhas
+    /// que ela muda; as demais mantêm a chave, salvo quando a troca faz o lote casar outro termo do glossário (os termos casados entram na chave do lote).
+    /// </remarks>
     public TranslationBatch Build(IReadOnlyList<TextUnit> lines, IReadOnlyList<TextUnit>? previous = null, IReadOnlyList<TextUnit>? next = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
+
+        var pre = Pre ?? PreDictionary.None;
+        lines = pre.Apply(lines);
+        previous = previous is null ? null : pre.Apply(previous);
+        next = next is null ? null : pre.Apply(next);
 
         var matchedGlossary = _glossary
             .Where(t => t.Source.Trim().Length > 0 && lines.Any(l => l.Source.Contains(t.Source.Trim(), StringComparison.Ordinal)))
@@ -69,7 +92,7 @@ public sealed class TranslationBatchBuilder(
             .ToList();
 
         var context = (previous ?? [])
-            .Where(u => u.HasTranslation)
+            .Where(u => PreviousFromSource ? !string.IsNullOrWhiteSpace(u.Source) : u.HasTranslation)
             .TakeLast(MaxPreviousLines)
             .ToList();
 
@@ -78,8 +101,19 @@ public sealed class TranslationBatchBuilder(
             .Take(MaxNextLines)
             .ToList();
 
+        // A chave do script é a parte do id antes dos dois-pontos ("yst00012:000478"). Cena sem nada escrito na bíblia não leva seção.
+        var scenes = lines
+            .Select(l => ScriptKeyOf(l.Id))
+            .Distinct(StringComparer.Ordinal)
+            .Select(Bible.Scene)
+            .OfType<BibleScene>()
+            .Where(s => s.Summary.Length > 0 || s.Tone.Count > 0 || s.Jokes.Count > 0 || s.Relations.Count > 0)
+            .ToList();
+
         return new TranslationBatch(lines)
         {
+            Scenes = scenes,
+            Synopsis = Bible.Synopsis,
             Glossary = matchedGlossary,
             Characters = matchedCharacters,
             Addressing = addressing,
@@ -90,6 +124,8 @@ public sealed class TranslationBatchBuilder(
             Style = _style,
         };
     }
+
+    private static string ScriptKeyOf(string unitId) => unitId.Contains(':', StringComparison.Ordinal) ? unitId[..unitId.IndexOf(':', StringComparison.Ordinal)] : unitId;
 
     private string NameInTranslation(string name) =>
         _characters.Find(name) is { Target: { } target } && !string.IsNullOrWhiteSpace(target) ? target.Trim() : name.Trim();

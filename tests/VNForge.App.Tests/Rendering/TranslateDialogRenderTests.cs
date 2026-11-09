@@ -92,7 +92,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
 
                 var surface = Surface(window);
                 Assert.Equal(3, surface.GetVisualDescendants().OfType<QualityCard>().Count());
-                Assert.Equal(3, surface.GetVisualDescendants().OfType<RadioButton>().Count(r => r is not QualityCard));
+                Assert.Equal(5, surface.GetVisualDescendants().OfType<RadioButton>().Count(r => r is not QualityCard));
                 var bar = Assert.Single(surface.GetVisualDescendants().OfType<BudgetBar>());
                 Assert.True(bar.Ask > 0 && bar.Limit > 0 && !bar.IsOver);
                 Assert.Empty(window.OwnedWindows);
@@ -103,7 +103,7 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 Assert.DoesNotContain(texts, t => t is "Haiku" or "Sonnet" or "Opus");
 
                 // A cena aberta não tem linha pendente: o cartão fica desligado, apagado e sem escolha, e o padrão é o escopo seguinte com linhas.
-                var scopes = surface.GetVisualDescendants().OfType<RadioButton>().Where(r => r is not QualityCard).ToList();
+                var scopes = surface.GetVisualDescendants().OfType<RadioButton>().Where(r => r is not QualityCard).Take(3).ToList();
                 Assert.False(scopes[0].IsEffectivelyEnabled);
                 Assert.Equal(0.5, scopes[0].Opacity);
                 Assert.NotEqual(true, scopes[0].IsChecked);
@@ -157,6 +157,40 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 vm.Translate.SwitchToFitCommand.Execute(null);
                 ScreenRenderer.Settle(window);
                 Assert.True(start.IsEffectivelyEnabled);
+            },
+            theme);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Renderiza_o_pedido_da_noite_com_metade_do_preco_e_o_botao_Enviar_o_lote(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await OnUi(
+            async (vm, window) =>
+            {
+                await OpenDialogAsync(vm, window);
+                vm.Translate.SelectedScope = vm.Translate.Scopes.Single(s => s.Scope == TranslationScope.Game);
+                vm.Translate.SelectedQuality = vm.Translate.Qualities.Single(q => q.Quality == TranslationQuality.Careful);
+                var now = vm.Translate.Qualities.Single(q => q.Quality == TranslationQuality.Careful).Price;
+                vm.Translate.SelectedWhen = vm.Translate.Whens.Single(w => w.Overnight);
+                ScreenRenderer.Settle(window);
+
+                var surface = Surface(window);
+                var texts = surface.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+                Assert.Contains("Quando", texts);
+                Assert.Contains("Durante a noite", texts);
+                Assert.Contains("50% mais barato", texts);
+                Assert.Contains("Enviar o lote", texts);
+                Assert.Contains(texts, t => t is not null && t.StartsWith("O lote fica guardado por 29 dias", StringComparison.Ordinal));
+                Assert.Contains(texts, t => t is not null && t.StartsWith("No lote a fala anterior ainda não está traduzida", StringComparison.Ordinal));
+                Assert.Equal(now / 2m, vm.Translate.Qualities.Single(q => q.Quality == TranslationQuality.Careful).Price);
+                Assert.StartsWith("em vez de ", vm.Translate.Qualities.Single(q => q.Quality == TranslationQuality.Careful).Duration, StringComparison.Ordinal);
+                Assert.Equal(5, surface.GetVisualDescendants().OfType<RadioButton>().Count(r => r is not QualityCard));
+                var start = surface.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Translate.StartCommand);
+                Assert.True(start.IsEffectivelyEnabled);
+
+                Save(window, "traduzir-com-ia-durante-a-noite", theme);
             },
             theme);
     }

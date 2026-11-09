@@ -18,6 +18,10 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
         get { lock (_usageLock) return _usage; }
     }
 
+    /// <summary>O pedido de um lote, sem enviá-lo: o lote noturno o manda pela Message Batches API em vez de <see cref="IClaudeMessageClient.CompleteAsync"/>.</summary>
+    public static ClaudeRequest BuildRequest<T>(ClaudeOptions options, ClaudeBatchSpec<T> spec, TranslationBatch batch) =>
+        new(options.Model, options.Effort, options.MaxTokens, spec.BuildSystem(batch), spec.BuildUser(batch), spec.Schema, spec.BuildBatchContext(batch));
+
     public Task<IReadOnlyList<T>> RunAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
@@ -27,7 +31,7 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
 
     private async Task<IReadOnlyList<T>> OnceAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)
     {
-        var request = new ClaudeRequest(options.Model, options.Effort, options.MaxTokens, spec.BuildSystem(batch), spec.BuildUser(batch), spec.Schema, spec.BuildBatchContext(batch));
+        var request = BuildRequest(options, spec, batch);
         var reply = await client.CompleteAsync(request, ct).ConfigureAwait(false);
 
         if (reply.Usage is { } usage)

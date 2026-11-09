@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Biblioteca de classes-base de teste, não um projeto de teste: o tests/Directory.Build.props a faria Exe com o executor do xUnit,
+       e um executor sem nenhum teste sai com erro no `dotnet test`. Quem roda os testes é o projeto de cada engine, que herda do kit. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Remove="xunit.v3.mtp-v2" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VNForge.Core\VNForge.Core.csproj" />
+  </ItemGroup>
+
+</Project>

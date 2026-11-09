@@ -89,6 +89,11 @@ public sealed partial class TaskEntry : ObservableObject
             }
 
             var message = Steps[0].Message;
+            if (IsBatch && message.Length > 0)
+            {
+                return message;
+            }
+
             return string.IsNullOrEmpty(message) ? TimeText : $"{TimeText} · {message}";
         }
     }
@@ -100,6 +105,37 @@ public sealed partial class TaskEntry : ObservableObject
 
     /// <summary>A tarefa em lote deixou um ponto de restauração que ainda não foi usado: a linha mostra "Desfazer".</summary>
     public bool CanUndo => !IsGroup && Steps[0] is { Restore: not null, IsUndone: false, IsRunning: false };
+
+    public bool IsBatch => !IsGroup && Steps[0].IsBatch;
+
+    /// <summary>A linha de andamento do lote ("1.951 de 3.147 linhas prontas · verificado há 2 min"); só enquanto roda.</summary>
+    public string Detail => !IsGroup && Steps[0].IsRunning ? Steps[0].Detail : string.Empty;
+
+    public bool HasDetail => Detail.Length > 0;
+
+    public double Percent => Steps[0].Percent;
+
+    public bool ShowsProgress => IsBatch && Steps[0].IsRunning;
+
+    public IRelayCommand? CheckNowCommand => !IsGroup && Steps[0].IsRunning ? Steps[0].CheckNowCommand : null;
+
+    public bool CanCheckNow => CheckNowCommand is not null;
+
+    /// <summary>"Cancelar lote" na linha do lote em andamento.</summary>
+    public bool CanCancelBatch => IsBatch && Steps[0].IsRunning;
+
+    public IRelayCommand CancelBatchCommand => Steps[0].CancelCommand;
+
+    public IRelayCommand? ShowLinesCommand => !IsGroup && !Steps[0].IsRunning ? Steps[0].ShowLinesCommand : null;
+
+    public bool CanShowLines => ShowLinesCommand is not null;
+
+    public bool HasBatchActions => CanCheckNow || CanCancelBatch || CanShowLines;
+
+    public string ShowLinesLabel => Steps[0].ShowLinesLabel;
+
+    /// <summary>O texto do botão de desfazer: "Desfazer lote" no lote noturno, "Desfazer" nas demais.</summary>
+    public string UndoLabel => IsBatch ? "Desfazer lote" : "Desfazer";
 
     /// <summary>O que o "Desfazer" fez (quantas linhas voltaram e quantas ficaram por terem sido editadas depois); vazio antes de usar.</summary>
     public string UndoMessage => Steps[0].UndoMessage;

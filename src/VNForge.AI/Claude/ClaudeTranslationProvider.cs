@@ -36,8 +36,22 @@ public sealed partial class ClaudeTranslationProvider(IClaudeMessageClient clien
     /// </summary>
     public Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
     {
-        return _caller.RunAsync(batch, new ClaudeBatchSpec<TranslationResult>(Schema, "traduzir", BuildSystem, BatchContext, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true)), ct);
+        return _caller.RunAsync(batch, Spec, ct);
     }
+
+    private static ClaudeBatchSpec<TranslationResult> Spec { get; } =
+        new(Schema, "traduzir", BuildSystem, BatchContext, BuildUser, Parse, line => new TranslationResult(line.Id, string.Empty, Refused: true));
+
+    /// <summary>O pedido que <see cref="TranslateAsync"/> faria para o lote, para o lote noturno enviá-lo pela Message Batches API.</summary>
+    internal static ClaudeRequest BuildRequest(TranslationBatch batch, ClaudeOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        ArgumentNullException.ThrowIfNull(options);
+        return ClaudeBatchCaller.BuildRequest(options, Spec, batch);
+    }
+
+    /// <summary>Lê o texto que a API devolveu para o pedido de <see cref="BuildRequest"/>; lança <see cref="ClaudeResponseException"/> quando não bate com os ids do lote.</summary>
+    internal static IReadOnlyList<TranslationResult> ParseReply(string text, TranslationBatch batch) => Parse(text, batch);
 
     /// <summary>O bloco do sistema que muda a cada lote (glossário e personagens). Fica depois do ponto de cache, para o bloco estável continuar igual de um lote para outro.</summary>
     private static string BatchContext(TranslationBatch batch) =>

@@ -4,10 +4,13 @@ using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Spectre.Console;
+using VNForge.AI.Bible;
 using VNForge.AI.Claude;
+using VNForge.AI.Eval;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
+using VNForge.Core.Images;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -97,10 +100,37 @@ public sealed class VnfCli
     public Func<string, ClaudeEffort, ITranslationProvider>? TranslationProviderFactory { get; set; }
 
     /// <summary>
+    /// Cria o cliente da Message Batches API do <c>vnf translate --batch</c>; os testes trocam por um cliente falso.
+    /// Padrão (<c>null</c>): o SDK com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<VNForge.AI.Batches.IMessageBatchClient>? MessageBatchClientFactory { get; set; }
+
+    /// <summary>
     /// Cria o provedor de revisão do <c>vnf review</c> para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
+
+    /// <summary>Cria o cliente HTTP do download do dicionário (<c>vnf jmdict install</c>); os testes trocam por um que responde com um arquivo inventado.</summary>
+    public Func<HttpClient> HttpClientFactory { get; set; } = () => new HttpClient();
+
+    /// <summary>
+    /// Cria o juiz de IA do <c>vnf eval</c> para o modelo e o esforço escolhidos; os testes trocam por um juiz falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, IJudgeProvider>? JudgeProviderFactory { get; set; }
+
+    /// <summary>
+    /// Cria o provedor da bíblia do jogo (<c>vnf bible generate</c>) para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, IBibleProvider>? BibleProviderFactory { get; set; }
+
+    /// <summary>
+    /// Cria o leitor de imagens do <c>vnf images scan</c> para o modelo escolhido; os testes trocam por um leitor falso.
+    /// Padrão (<c>null</c>): Claude com visão, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, IImageTextReader>? ImageTextReaderFactory { get; set; }
 
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();

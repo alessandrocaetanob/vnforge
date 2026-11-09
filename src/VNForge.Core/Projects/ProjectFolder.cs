@@ -1,6 +1,8 @@
 using System.Text;
+using VNForge.Core.Bible;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
+using VNForge.Core.Images;
 using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 
@@ -19,9 +21,15 @@ public sealed class ProjectFolder
 
     public const string AddressTermsFileName = "address-terms.json";
 
+    public const string ImageInventoryFileName = "images.json";
+
+    public const string ImageEditsFileName = "image-edits.json";
+
     public const string IgnoredWordsFileName = "ignored-words.json";
 
     public const string ScriptNamesFileName = "scripts.json";
+
+    public const string BibleFileName = "bible.json";
 
     private const string InvalidUtf8Reason = "o arquivo não está em UTF-8 válido.";
 
@@ -189,6 +197,48 @@ public sealed class ProjectFolder
     public void SaveAddressTerms(IReadOnlyList<AddressTerm> terms) =>
         WriteAtomically(AddressTermsPath, AddressTermSerializer.Serialize(terms, AddressTermsPath), overwrite: true);
 
+    /// <summary><c>images.json</c>, o inventário das imagens do jogo com o texto que o modelo leu nelas (#534). É opcional.</summary>
+    public string ImageInventoryPath => Path.Combine(Root, ImageInventoryFileName);
+
+    /// <summary>Lê o <c>images.json</c>; sem o arquivo (o <c>vnf images scan</c> nunca rodou), devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<ImageTextEntry> LoadImageInventory() =>
+        File.Exists(ImageInventoryPath) ? ImageInventorySerializer.Parse(ReadGlossaryFile(ImageInventoryPath), ImageInventoryPath) : [];
+
+    /// <summary>Grava o <c>images.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Entrada inválida ou o mesmo lugar duas vezes; nada é gravado.</exception>
+    public void SaveImageInventory(IReadOnlyList<ImageTextEntry> entries) =>
+        WriteAtomically(ImageInventoryPath, ImageInventorySerializer.Serialize(entries, ImageInventoryPath), overwrite: true);
+
+    /// <summary><c>image-edits.json</c>, as edições de imagem do editor (#535). É opcional.</summary>
+    public string ImageEditsPath => Path.Combine(Root, ImageEditsFileName);
+
+    /// <summary><c>images/</c>, onde ficam as imagens já editadas que o build grava nos pacotes (#535).</summary>
+    public string EditedImagesDirectory => Path.Combine(Root, "images");
+
+    /// <summary>
+    /// Onde fica a imagem pronta da edição de <paramref name="path"/> no <paramref name="archive"/>: <c>images/img.ypf/bg/portao.png</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException">O caminho sai de <c>images/</c> (<c>..</c> ou caminho absoluto).</exception>
+    public string EditedImagePath(string archive, string path)
+    {
+        var full = Path.GetFullPath(Path.Combine(EditedImagesDirectory, archive.Replace('/', Path.DirectorySeparatorChar), path.Replace('/', Path.DirectorySeparatorChar)));
+        var root = Path.GetFullPath(EditedImagesDirectory) + Path.DirectorySeparatorChar;
+        return full.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+            ? full
+            : throw new ArgumentException($"O caminho '{archive}/{path}' sai da pasta de imagens editadas.", nameof(path));
+    }
+
+    /// <summary>Lê o <c>image-edits.json</c>; sem o arquivo, devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<ImageEdit> LoadImageEdits() =>
+        File.Exists(ImageEditsPath) ? ImageEditSerializer.Parse(ReadGlossaryFile(ImageEditsPath), ImageEditsPath) : [];
+
+    /// <summary>Grava o <c>image-edits.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Edição inválida ou a mesma imagem duas vezes; nada é gravado.</exception>
+    public void SaveImageEdits(IReadOnlyList<ImageEdit> edits) =>
+        WriteAtomically(ImageEditsPath, ImageEditSerializer.Serialize(edits, ImageEditsPath), overwrite: true);
+
     /// <summary><c>ignored-words.json</c>, as palavras que o corretor deixa de marcar no projeto (#511). É opcional.</summary>
     public string IgnoredWordsPath => Path.Combine(Root, IgnoredWordsFileName);
 
@@ -250,10 +300,112 @@ public sealed class ProjectFolder
     /// <summary><c>scripts.json</c>, os nomes legíveis dos scripts (o que a engine leu do jogo e o que o usuário escolheu). É opcional.</summary>
     public string ScriptNamesPath => Path.Combine(Root, ScriptNamesFileName);
 
-    /// <summary>Lê o <c>scripts.json</c>; sem o arquivo, devolve <see cref="ScriptNames.Empty"/>.</summary>
+    /// <summary>
+    /// Lê o <c>scripts.json</c>; sem o arquivo, devolve <see cref="ScriptNames.Empty"/>. Os nomes que a bíblia deu às cenas (<c>bible.json</c>) valem entre o nome do
+    /// usuário e o da engine; uma bíblia ilegível é ignorada, porque o nome da cena não pode travar a abertura do projeto.
+    /// </summary>
     /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
-    public ScriptNames LoadScriptNames() =>
-        File.Exists(ScriptNamesPath) ? ScriptNamesSerializer.Parse(ReadGlossaryFile(ScriptNamesPath), ScriptNamesPath) : ScriptNames.Empty;
+    public ScriptNames LoadScriptNames()
+    {
+        var stored = File.Exists(ScriptNamesPath) ? ScriptNamesSerializer.Parse(ReadGlossaryFile(ScriptNamesPath), ScriptNamesPath) : ScriptNames.Empty;
+        return File.Exists(BiblePath) ? stored.WithSuggested(LoadBibleOrEmpty(out _).SceneNames()) : stored;
+    }
+
+    /// <summary><c>bible.json</c>, a bíblia do jogo: o que a IA entendeu de cada cena (#530). É opcional.</summary>
+    public string BiblePath => Path.Combine(Root, BibleFileName);
+
+    /// <summary><c>.cache/bible-anterior.json</c>, a bíblia de antes da última geração, para "Voltar à última geração".</summary>
+    public string PreviousBiblePath => Path.Combine(CacheDirectory, "bible-anterior.json");
+
+    /// <summary>Lê o <c>bible.json</c>; sem o arquivo, devolve <see cref="GameBible.Empty"/>.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public GameBible LoadBible() =>
+        File.Exists(BiblePath) ? BibleSerializer.Parse(ReadGlossaryFile(BiblePath), BiblePath) : GameBible.Empty;
+
+    /// <summary>
+    /// Lê o <c>bible.json</c> para quem só consulta (pedido de tradução, nome de cena): um arquivo ilegível não derruba nada, devolve a bíblia vazia e o motivo em
+    /// <paramref name="problem"/> (nulo quando está tudo certo).
+    /// </summary>
+    public GameBible LoadBibleOrEmpty(out string? problem)
+    {
+        try
+        {
+            problem = null;
+            return LoadBible();
+        }
+        catch (GlossaryFileException e)
+        {
+            problem = $"O {BibleFileName} está inválido e foi ignorado: {e.Reason}";
+            return GameBible.Empty;
+        }
+    }
+
+    /// <summary>Grava o <c>bible.json</c> (UTF-8 sem BOM, LF); a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Cena sem chave, repetida ou com campo repetido; nada é gravado.</exception>
+    public void SaveBible(GameBible bible) =>
+        WriteAtomically(BiblePath, BibleSerializer.Serialize(bible, BiblePath), overwrite: true);
+
+    /// <summary>
+    /// Lê o <c>bible.json</c>, aplica <paramref name="change"/> e grava o resultado, tudo sob a trava do projeto (<see cref="ProjectTextLock"/>): a edição de uma
+    /// cena e a geração em andamento não perdem uma à outra. Não grava quando nada mudou.
+    /// </summary>
+    /// <exception cref="GlossaryFileException">O <c>bible.json</c> atual é inválido; nada é gravado.</exception>
+    public GameBible UpdateBible(Func<GameBible, GameBible> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        lock (ProjectTextLock.For(this))
+        {
+            var current = LoadBible();
+            var updated = change(current);
+            if (!File.Exists(BiblePath) || BibleSerializer.Serialize(updated) != BibleSerializer.Serialize(current))
+            {
+                SaveBible(updated);
+            }
+
+            return updated;
+        }
+    }
+
+    /// <summary>Guarda o <c>bible.json</c> de agora em <see cref="PreviousBiblePath"/>, antes de uma geração. Sem bíblia, apaga a anterior: não há a que voltar.</summary>
+    public void KeepPreviousBible()
+    {
+        lock (ProjectTextLock.For(this))
+        {
+            Directory.CreateDirectory(CacheDirectory);
+            if (File.Exists(BiblePath))
+            {
+                File.Copy(BiblePath, PreviousBiblePath, overwrite: true);
+            }
+            else
+            {
+                File.Delete(PreviousBiblePath);
+            }
+        }
+    }
+
+    /// <summary>Há uma bíblia anterior a que voltar.</summary>
+    public bool HasPreviousBible => File.Exists(PreviousBiblePath);
+
+    /// <summary>
+    /// Troca o <c>bible.json</c> pelo de antes da última geração; o de agora vira o "anterior", e voltar de novo desfaz a volta.
+    /// Devolve falso, sem tocar em nada, quando não há bíblia anterior.
+    /// </summary>
+    /// <exception cref="GlossaryFileException">A bíblia anterior é inválida; nada é trocado.</exception>
+    public bool RestorePreviousBible()
+    {
+        lock (ProjectTextLock.For(this))
+        {
+            if (!HasPreviousBible)
+            {
+                return false;
+            }
+
+            var previous = BibleSerializer.Parse(ReadGlossaryFile(PreviousBiblePath), PreviousBiblePath);
+            KeepPreviousBible();
+            SaveBible(previous);
+            return true;
+        }
+    }
 
     /// <summary>Grava o <c>scripts.json</c> (UTF-8 sem BOM, LF), ordenado pela chave; a gravação é atômica.</summary>
     public void SaveScriptNames(ScriptNames names) =>

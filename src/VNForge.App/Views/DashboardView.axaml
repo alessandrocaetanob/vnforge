@@ -7,6 +7,25 @@
              x:DataType="vm:DashboardViewModel">
 
   <UserControl.Styles>
+    <!-- A faixa das abas (Visão geral, Provas): a linha de baixo em toda a largura, como nos Ajustes, e 32 px de altura para o Painel continuar cabendo em 1440×900. -->
+    <Style Selector="TabControl.tabs">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
+            <ItemsPresenter Name="PART_ItemsPresenter">
+              <ItemsPresenter.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel/>
+                </ItemsPanelTemplate>
+              </ItemsPresenter.ItemsPanel>
+            </ItemsPresenter>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="TabControl.tabs > TabItem">
+      <Setter Property="Height" Value="32"/>
+    </Style>
     <!-- Linha de capítulo: o botão não desenha nada além do fundo de hover; quem desenha é a ChapterRow. -->
     <Style Selector="Button.chapter">
       <Setter Property="Padding" Value="0"/>
@@ -19,6 +38,15 @@
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel MaxWidth="1280" Margin="32,10,32,4" Spacing="12" HorizontalAlignment="Stretch">
 
+      <StackPanel IsVisible="{Binding HasProject}">
+
+      <!-- As abas do Painel: o mapa do jogo e o banco de provas (#529). O Painel é a primeira seção da aba Tradução do jogo (#544). -->
+      <TabControl Classes="tabs" Margin="0,0,0,-6" SelectedIndex="{Binding SelectedTab, Mode=TwoWay}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Seções do Painel">
+        <TabItem Header="Visão geral"/>
+        <TabItem Header="Provas"/>
+      </TabControl>
+      </StackPanel>
+
       <!-- Sem projeto (ou projeto sem texto): o selo 訳, uma frase e a ação. -->
       <c:EmptyState IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
                     ActionText="{Binding EmptyActionText}" ActionCommand="{Binding OpenStartCommand}"/>
@@ -30,6 +58,7 @@
         </Grid>
       </Border>
 
+      <StackPanel Spacing="16" IsVisible="{Binding ShowOverview}">
       <c:PipelineStepper ItemsSource="{Binding Steps}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Etapas da tradução"/>
 
       <Grid x:Name="Body" ColumnDefinitions="*,440" RowDefinitions="Auto" ColumnSpacing="20" RowSpacing="16" IsVisible="{Binding !ShowEmptyState}">
@@ -147,6 +176,12 @@
           </Border>
         </StackPanel>
       </Grid>
+
+      </StackPanel>
+
+      <StackPanel IsVisible="{Binding ShowEvalTab}">
+        <v:EvalView DataContext="{Binding Eval}"/>
+      </StackPanel>
 
     </StackPanel>
   </ScrollViewer>

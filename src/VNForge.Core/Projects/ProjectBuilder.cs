@@ -1,7 +1,9 @@
 using System.Text;
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
+using VNForge.Core.Images;
 using VNForge.Core.Injection;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -131,7 +133,8 @@ public static class ProjectBuilder
         var fingerprint = BuildState.FingerprintTexts(loaded, BuildState.EncoderKey(encoder), project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
-        var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
+        var dictionary = DictionaryContext.For(project, profile);
+        var texts = ApplyFormatting(profile, loaded, gameKeys, warnings, dictionary);
         var report = EncodingReporter.Create(texts.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), encoder);
         if (report.HasBlocking)
         {
@@ -152,7 +155,7 @@ public static class ProjectBuilder
             warnings.Add(ignoredProblem);
         }
 
-        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = ignoredWords });
+        var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = ignoredWords, Dictionary = dictionary });
         if (qaReport.Blocks(allowWarnings))
         {
             throw new QaBlockedException(qaReport, allowWarnings);
@@ -168,7 +171,8 @@ public static class ProjectBuilder
             state[GameTitleKey] = new BuildStateScript(BuildState.HashTitle(title.Script.Original, BuildState.EncoderKey(encoder), title.Text), Identical: false, 0);
         }
 
-        if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
+        var imageFingerprint = ImageBuild.Fingerprint(project);
+        if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project) && (previous.ImageFingerprint ?? string.Empty) == imageFingerprint)
         {
             warnings.AddRange(previous.Warnings);
             if (previous.TextFingerprint != fingerprint)
@@ -184,12 +188,16 @@ public static class ProjectBuilder
         try
         {
             Directory.CreateDirectory(staging);
-            var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, GameInjector.CreateOriginalResolver(project, gameDirectory), cancellationToken);
+            var originalOf = GameInjector.CreateOriginalResolver(project, gameDirectory);
+            var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, originalOf, cancellationToken);
+            var images = ImageBuild.Apply(project, gameDirectory, engine.Archives, staging, originalOf, cancellationToken);
+            var archives = MergeImageArchives(packed.Archives, images.Archives);
             warnings.AddRange(packed.Warnings);
+            warnings.AddRange(images.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            new BuildState(BuildState.CurrentVersion, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings], fingerprint).TrySave(project);
-            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused, GameTitle = title?.Text };
+            new BuildState(BuildState.CurrentVersion, state, [.. archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings, .. images.Warnings], fingerprint, imageFingerprint).TrySave(project);
+            return new BuildResult(gameDirectory, project.BuildDirectory, archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused, GameTitle = title?.Text };
         }
         catch
         {
@@ -252,7 +260,8 @@ public static class ProjectBuilder
 
         var config = project.LoadConfig();
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? config.Encoding.Strategy, config.Style.SpeakerDelimiter);
-        return EncodingReporter.Create(ApplyFormatting(project.LoadFormatting(), project.LoadAllText(), null, []), encoder);
+        var profile = project.LoadFormatting();
+        return EncodingReporter.Create(ApplyFormatting(profile, project.LoadAllText(), null, [], DictionaryContext.For(project, profile)), encoder);
     }
 
     /// <summary>
@@ -265,7 +274,8 @@ public static class ProjectBuilder
         FormattingProfile profile,
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         HashSet<string>? keys,
-        List<string> warnings)
+        List<string> warnings,
+        DictionaryContext dictionary)
     {
         var pipeline = FormattingPipeline.Create(profile);
         if (pipeline.Stages.Count == 0)
@@ -278,7 +288,7 @@ public static class ProjectBuilder
         {
             formatted[key] = keys is not null && !keys.Contains(key)
                 ? units
-                : [.. units.Select(unit => FormatUnit(pipeline, profile, unit, warnings))];
+                : [.. units.Select(unit => FormatUnit(pipeline, profile, unit, warnings, dictionary))];
         }
 
         return formatted;
@@ -339,7 +349,7 @@ public static class ProjectBuilder
         return unit.ChosenSpeaker is not null ? unit with { ChosenSpeaker = written } : unit with { Speaker = written };
     }
 
-    private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings)
+    private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings, DictionaryContext dictionary)
     {
         if (!unit.NeedsRewrite || !profile.Kinds.Contains(unit.Kind))
         {
@@ -348,7 +358,7 @@ public static class ProjectBuilder
 
         try
         {
-            var result = pipeline.Format(unit.Translation ?? string.Empty);
+            var result = pipeline.Format(unit.Translation ?? string.Empty, dictionary.Line(unit));
             warnings.AddRange(result.Warnings.Select(w => $"{unit.Id}: {w}"));
             return unit with { Translation = result.Text };
         }
@@ -456,6 +466,31 @@ public static class ProjectBuilder
         }
 
         return BuildState.ReadScript(project, key, saved) is { } cached ? (saved, cached) : null;
+    }
+
+    /// <summary>Soma as imagens trocadas ao pacote que o passo dos scripts já gravou, ou acrescenta o pacote que só tem imagens.</summary>
+    private static IReadOnlyList<RepackedArchive> MergeImageArchives(IReadOnlyList<RepackedArchive> scripts, IReadOnlyList<RepackedArchive> images)
+    {
+        if (images.Count == 0)
+        {
+            return scripts;
+        }
+
+        var merged = scripts.ToList();
+        foreach (var image in images)
+        {
+            var at = merged.FindIndex(a => string.Equals(a.GamePath, image.GamePath, StringComparison.OrdinalIgnoreCase));
+            if (at < 0)
+            {
+                merged.Add(image);
+            }
+            else
+            {
+                merged[at] = merged[at] with { ReplacedFiles = merged[at].ReplacedFiles + image.ReplacedFiles };
+            }
+        }
+
+        return merged;
     }
 
     private static bool SameScripts(BuildState previous, Dictionary<string, BuildStateScript> current) =>

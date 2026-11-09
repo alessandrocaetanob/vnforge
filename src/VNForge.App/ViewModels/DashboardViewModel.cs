@@ -121,6 +121,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         this.clock = clock ?? TimeProvider.System;
         this.renamer = renamer ?? ((root, group, name) => ScriptGroupEditor.RenameGroup(ProjectFolder.Open(root), group, name));
         SinceTest.OpenRequested += (_, key) => NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Editor, key, ChangedSinceTest: true));
+        Eval.Context = () => Context();
+        Eval.SettingsRequested += (_, _) => NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Settings));
     }
 
     /// <summary>Disparado depois de o renomear da linha gravar o <c>scripts.json</c>: o Editor relê os nomes dos capítulos.</summary>
@@ -342,6 +344,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         loaded = true;
         IsLoading = false;
         OnPropertyChanged(nameof(ShowEmptyState));
+        ResetEval();
     }
 
     [RelayCommand]
@@ -595,6 +598,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         GameActionText = TestInGame;
         SinceTest.Clear();
         OnPropertyChanged(nameof(HasNextStep));
+        ResetEval();
     }
 
     /// <summary>O projeto mostrado é a cena de exemplo: sem jogo, sem chave e sem gasto, então esses avisos e o passo de testar no jogo não valem.</summary>

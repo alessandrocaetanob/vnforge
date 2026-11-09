@@ -25,7 +25,8 @@ internal sealed record BuildState(
     Dictionary<string, BuildStateScript> Scripts,
     List<BuildStateArchive> Archives,
     List<string> Warnings,
-    string? TextFingerprint = null)
+    string? TextFingerprint = null,
+    string? ImageFingerprint = null)
 {
     internal const int CurrentVersion = 1;
 

@@ -1,3 +1,5 @@
+using VNForge.Core.Dictionaries;
+
 namespace VNForge.Core.Formatting;
 
 /// <summary>
@@ -6,6 +8,9 @@ namespace VNForge.Core.Formatting;
 /// </summary>
 public enum FormattingPhase
 {
+    /// <summary>O pós-dicionário: troca no texto traduzido, só quando a condição da regra bate com a linha.</summary>
+    PostDictionary,
+
     /// <summary>Substituições do usuário que rodam antes das regras do perfil (E4.5).</summary>
     UserRulesBefore,
 
@@ -32,6 +37,9 @@ public enum FormattingPhase
 public sealed class FormattingContext
 {
     private readonly List<string> _warnings = [];
+
+    /// <summary>A linha que está sendo formatada, para as regras com condição (falante, cena, trecho do original); nula quando quem formata não tem linha.</summary>
+    public DictionaryLine? Line { get; init; }
 
     public IReadOnlyList<string> Warnings => _warnings;
 

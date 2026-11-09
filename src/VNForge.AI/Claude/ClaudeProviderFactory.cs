@@ -12,12 +12,43 @@ public static class ClaudeProviderFactory
         return new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey });
     }
 
+    /// <summary>Monta o cliente da Message Batches API (tradução noturna); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Batches.IMessageBatchClient CreateBatchClient(string apiKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        return new VNForge.AI.Batches.AnthropicMessageBatchClient(new AnthropicClient { ApiKey = apiKey });
+    }
+
     /// <param name="apiKey">Chave já resolvida (ambiente ou cofre); nunca vem de arquivo do projeto.</param>
     public static ClaudeTranslationProvider Create(string apiKey, ClaudeOptions options)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
         ArgumentNullException.ThrowIfNull(options);
         return new ClaudeTranslationProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
+    }
+
+    /// <summary>Monta o juiz de IA do banco de provas; mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Eval.ClaudeJudgeProvider CreateJudge(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Eval.ClaudeJudgeProvider(CreateClient(apiKey), options);
+    }
+
+    /// <summary>Monta o provedor Claude da bíblia do jogo (<c>vnf bible generate</c>); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Bible.ClaudeBibleProvider CreateBible(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Bible.ClaudeBibleProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
+    }
+
+    /// <summary>Monta o leitor de imagens do <c>vnf images scan</c>; mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Images.ClaudeImageTextReader CreateImageReader(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Images.ClaudeImageTextReader(CreateClient(apiKey), options);
     }
 
     /// <summary>Monta o provedor Claude da revisão (<c>vnf review</c>); mesmas regras de <see cref="Create"/>.</summary>

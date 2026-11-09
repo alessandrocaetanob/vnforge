@@ -6,6 +6,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
+using VNForge.Core.Dictionaries;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
@@ -20,9 +21,8 @@ namespace VNForge.Cli;
 /// <c>vnf translate</c>: traduz com IA as linhas pendentes de <c>text/*.json</c>, em lotes, e grava cada lote assim que volta
 /// (<c>status: machine</c> e <c>origin</c>), para uma queda ou um cancelamento não perder o que já foi pago.
 /// </summary>
-internal static class TranslateCommand
+internal static partial class TranslateCommand
 {
-    private const string ProviderName = "anthropic";
     private const string StyleGuideFileName = "style.md";
     private const string CacheFileName = "translations.json";
 
@@ -38,6 +38,7 @@ internal static class TranslateCommand
     {
         var command = new Command("translate", "Traduz com IA as linhas pendentes de text/*.json e grava o resultado como 'machine'.");
         Common.AddTo(command, StatusOption);
+        AddBatchOptions(command);
         command.SetAction((parseResult, token) => RunAsync(cli, parseResult, token));
         return command;
     }
@@ -58,9 +59,19 @@ internal static class TranslateCommand
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: project.LoadAddressTerms());
+            addressTerms: project.LoadAddressTerms())
+        {
+            Pre = PreDictionary.For(project),
+            Bible = ReadBible(project, error),
+            PreviousFromSource = parseResult.GetValue(BatchOption),
+        };
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
+
+        if (WantsBatch(parseResult))
+        {
+            return await RunBatchAsync(cli, parseResult, output, error, json, project, settings, filter, limit, statuses, selection, builder, cache, token).ConfigureAwait(false);
+        }
 
         if (parseResult.GetValue(Common.DryRun))
         {
@@ -101,7 +112,7 @@ internal static class TranslateCommand
         {
             lock (gate)
             {
-                var origin = new TranslationOrigin(ProviderName, settings.Model, DateTimeOffset.UtcNow);
+                var origin = new TranslationOrigin(MachineTranslation.ProviderName, settings.Model, DateTimeOffset.UtcNow);
                 var saved = selection.ApplyAndSave(project, results, (result, unit) => Apply(summary, origin, result, unit));
                 summary.Skipped += saved.Skipped;
                 summary.Handled += results.Count;
@@ -166,22 +177,17 @@ internal static class TranslateCommand
     /// <summary>Grava a tradução na linha como <c>machine</c>; devolve <c>null</c> para a linha recusada ou vazia, que fica como estava.</summary>
     private static TextUnit? Apply(RunSummary summary, TranslationOrigin origin, TranslationResult result, TextUnit unit)
     {
-        if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
+        var written = MachineTranslation.Apply(origin, result, unit);
+        if (written is null)
         {
             summary.Refused.Add(result.Id);
-            return null;
+        }
+        else
+        {
+            summary.Translated++;
         }
 
-        summary.Translated++;
-        return unit with
-        {
-            Translation = result.Translation,
-            Status = TranslationStatus.Machine,
-            Origin = origin,
-            PreviousSource = null,
-            Doubt = result.DoubtFor(unit),
-            AiTranslation = null,
-        };
+        return written;
     }
 
     private static int WriteDryRun(
@@ -190,10 +196,15 @@ internal static class TranslateCommand
         AiRunSettings settings,
         LineSelection selection,
         TranslationBatchBuilder builder,
-        TranslationCache cache)
+        TranslationCache cache,
+        bool batch = false)
     {
         var batches = selection.Pending.Chunk(settings.BatchSize).Select(chunk => selection.BuildBatch(builder, chunk));
         var estimate = CostEstimator.EstimateBatches(batches, settings.Model, cache, settings.Effort);
+        if (batch)
+        {
+            estimate = estimate with { Dollars = estimate.Dollars * ModelPricing.BatchDiscount };
+        }
 
         if (json)
         {
@@ -213,6 +224,11 @@ internal static class TranslateCommand
 
         output.WriteLine($"Estimativa ({settings.Model}): {Count(estimate.Lines, "linha", "linhas")} para a API, {Number(estimate.CachedLines)} já no cache.");
         WriteEstimateTail(output, estimate.Usage, estimate.Dollars, "vnf translate");
+        if (batch)
+        {
+            output.WriteLine("Pela Message Batches API (--batch) o custo é a metade; o resultado volta em até 24 h.");
+        }
+
         return ErrorHandler.OkExitCode;
     }
 
@@ -268,7 +284,7 @@ internal static class TranslateCommand
     }
 
     /// <summary>O orçamento do <c>app.json</c>. Arquivo ilegível avisa no erro padrão e só segue com <c>--yes</c>: ele pode esconder um limite que a pessoa pôs.</summary>
-    private static BudgetSettings ReadBudget(ParseResult parseResult, VnfCli cli, TextWriter error)
+    internal static BudgetSettings ReadBudget(ParseResult parseResult, VnfCli cli, TextWriter error)
     {
         var reading = AppBudgetFile.Load(cli.UserConfigDirectory);
         if (reading.Problem is not { } problem)
@@ -297,6 +313,18 @@ internal static class TranslateCommand
                 output.WriteLine("O pedido não foi confirmado: nenhuma linha foi enviada à IA.");
                 break;
         }
+    }
+
+    /// <summary>A bíblia do jogo para o pedido; uma bíblia ilegível não trava a tradução, só avisa que o resumo das cenas não vai junto.</summary>
+    internal static VNForge.Core.Bible.GameBible ReadBible(ProjectFolder project, TextWriter error)
+    {
+        var bible = project.LoadBibleOrEmpty(out var problem);
+        if (problem is not null)
+        {
+            error.WriteLine($"Aviso: {problem} O resumo das cenas não vai junto dos pedidos.");
+        }
+
+        return bible;
     }
 
     private static ClaudeTranslationProvider CreateClaudeProvider(VnfCli cli, AiRunSettings settings)
