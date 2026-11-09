@@ -70,6 +70,19 @@ public class PreDictionaryTests
     }
 
     [Fact]
+    public void Chave_do_cache_leva_a_janela_de_contexto_e_o_original_normalizado()
+    {
+        var rule = new DictionaryRule("ぼ、ぼく", "ぼく");
+        var line = Unit("a:1", "ぼ、ぼく、行く");
+        string KeyWith(int before, params DictionaryRule[] pre) =>
+            Key(new TranslationBatchBuilder(NoTerms, NoCast, maxPreviousLines: before, preDictionary: new PreDictionary(pre)), line);
+
+        Assert.NotEqual(KeyWith(2, rule), KeyWith(4, rule));
+        Assert.NotEqual(KeyWith(4), KeyWith(4, rule));
+        Assert.Equal(KeyWith(4, rule), KeyWith(4, rule));
+    }
+
+    [Fact]
     public void Chave_do_cache_das_linhas_que_a_regra_nao_toca_continua_a_mesma()
     {
         var untouched = Unit("a:1", "おはよう");
