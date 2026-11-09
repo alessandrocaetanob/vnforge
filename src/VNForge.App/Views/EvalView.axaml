@@ -1,0 +1,342 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.EvalView"
+             x:DataType="vm:EvalViewModel">
+
+  <UserControl.Styles>
+    <!-- Os "chips" da faixa de cima: conjunto ouro, amostra e número de configurações. -->
+    <Style Selector="Border.chip">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+      <Setter Property="Padding" Value="10,4"/>
+    </Style>
+    <!-- O selo "Escolhida para o M4". -->
+    <Style Selector="Border.badge">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="8,2"/>
+    </Style>
+    <!-- Linha da tabela: o botão só desenha o fundo; a escolhida para o M4 ganha accent-soft. -->
+    <Style Selector="Button.evalrow">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.evalrow.chosen /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+    </Style>
+    <Style Selector="Button.evalrow.picked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <StackPanel Spacing="16">
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Grid>
+      </Border>
+
+      <Border Classes="infobar" IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Check}"/>
+          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Message}"/>
+        </Grid>
+      </Border>
+
+      <c:Skeleton Rows="4" IsVisible="{Binding IsLoading}" AutomationProperties.Name="Carregando as provas"/>
+
+      <c:EmptyState IsVisible="{Binding ShowNoGold}" Message="{Binding NoGoldText}"/>
+
+      <!-- A faixa de cima: o conjunto ouro, a amostra, as configurações e as duas formas de rodar. -->
+      <Grid x:Name="Strip" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding ShowStrip}"
+            AutomationProperties.Name="Banco de provas">
+        <Border Classes="chip">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="body-sm secondary" Text="Conjunto ouro"/>
+            <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding GoldText}"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1" Classes="chip">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="body-sm secondary" Text="Amostra"/>
+            <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding SampleText}"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Classes="chip">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="body-sm secondary" Text="Configurações"/>
+            <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding ConfigCount}"/>
+          </StackPanel>
+        </Border>
+        <TextBlock Grid.Column="3" Classes="body-sm secondary" VerticalAlignment="Center" Text="{Binding RunStatus}" TextTrimming="CharacterEllipsis"
+                   IsVisible="{Binding IsRunning}"/>
+        <Button Grid.Column="4" Content="Cancelar a rodada" Command="{Binding CancelRunCommand}" IsVisible="{Binding IsRunning}"/>
+        <Button Grid.Column="4" Classes="accent" Command="{Binding RunOpenCommand}" IsVisible="{Binding !IsRunning}" AutomationProperties.Name="Rodar provas">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="Rodar provas"/>
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="5" Command="{Binding CopyTerminalCommandCommand}" ToolTip.Tip="Copia o comando para o terminal" AutomationProperties.Name="Rodar no terminal">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Rodar no terminal"/>
+            <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Classes="mono-xs" Text="{Binding TerminalCommand}"/></Border>
+          </StackPanel>
+        </Button>
+      </Grid>
+
+      <Border Classes="panel" Padding="24" IsVisible="{Binding ShowNoRound}">
+        <StackPanel Spacing="12" HorizontalAlignment="Left">
+          <TextBlock Classes="title-md" Text="Nenhuma rodada ainda"/>
+          <TextBlock Classes="body" TextWrapping="Wrap" MaxWidth="560" Text="{Binding NoRoundText}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- O relatório da rodada: a tabela à esquerda; o gráfico, a leitura e a rodada às cegas à direita. -->
+      <Grid x:Name="Body" ColumnDefinitions="*,380" ColumnSpacing="20" RowSpacing="16" IsVisible="{Binding ShowReport}">
+        <Border Classes="panel" Padding="20" VerticalAlignment="Top">
+          <StackPanel Spacing="12">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="title-md" Text="{Binding RoundTitle}"/>
+              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding RoundSubtitle}"/>
+            </StackPanel>
+
+            <Grid ColumnDefinitions="36,3*,2*,1.2*,1.6*,1.2*,2*,150" ColumnSpacing="8" Margin="8,0">
+              <TextBlock Grid.Column="1" Classes="overline" Text="Configuração"/>
+              <TextBlock Grid.Column="2" Classes="overline" Text="Jogo todo, estimado" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="3" Classes="overline" Text="Tempo"/>
+              <TextBlock Grid.Column="4" Classes="overline" Text="chrF contra a aprovada" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="5" Classes="overline" Text="Juiz de IA" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="6" Classes="overline" Text="Sua escolha às cegas" TextWrapping="Wrap"/>
+            </Grid>
+            <Border Classes="divider-bottom"/>
+
+            <ItemsControl ItemsSource="{Binding Rows}" AutomationProperties.Name="Configurações da rodada">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EvalRowViewModel">
+                  <Button Classes="subtle evalrow" Classes.chosen="{Binding IsChosen}" Classes.picked="{Binding IsSelected}"
+                          Command="{Binding $parent[UserControl].((vm:EvalViewModel)DataContext).SelectRowCommand}" CommandParameter="{Binding}"
+                          AutomationProperties.Name="{Binding Letter, StringFormat='Configuração {0}'}">
+                    <Grid ColumnDefinitions="36,3*,2*,1.2*,1.6*,1.2*,2*,150" ColumnSpacing="8" Margin="8,10">
+                      <Border Width="24" Height="24" CornerRadius="12" VerticalAlignment="Top" Background="{DynamicResource Vnf.BgInset}"
+                              BorderBrush="{DynamicResource Vnf.StrokeControl}" BorderThickness="1">
+                        <TextBlock Classes="body-sm" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Letter}"/>
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding ModelName}"/>
+                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Note}" IsVisible="{Binding HasNote}"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" Spacing="2">
+                        <TextBlock Classes="body" Text="{Binding CostText}"/>
+                        <TextBlock Classes="caption secondary" Text="{Binding BatchText}"/>
+                      </StackPanel>
+                      <TextBlock Grid.Column="3" Classes="body" Text="{Binding TimeText}"/>
+                      <TextBlock Grid.Column="4" Classes="body" Text="{Binding ChrfText}"/>
+                      <TextBlock Grid.Column="5" Classes="body" Text="{Binding JudgeText}"/>
+                      <TextBlock Grid.Column="6" Classes="body" TextWrapping="Wrap" Text="{Binding BlindText}"/>
+                      <Border Grid.Column="7" Classes="badge" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding IsChosen}">
+                        <TextBlock Classes="caption" FontWeight="SemiBold" Text="Escolhida para o M4"/>
+                      </Border>
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Classes="divider-bottom"/>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="chrF: quanto a tradução se parece com a aprovada, de 0 a 100"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Juiz de IA: nota de 0 a 10, sem saber qual configuração gerou o texto"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A similaridade sozinha engana: por isso a rodada às cegas existe."/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Footnote}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <StackPanel x:Name="Side" Grid.Column="1" Spacing="16" VerticalAlignment="Top">
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="overline" Text="Custo e qualidade"/>
+              <c:EvalChart ItemsSource="{Binding Points}" Height="220" AutomationProperties.Name="Gráfico de custo do jogo todo contra chrF, um ponto por configuração"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="overline" Text="Leitura da rodada"/>
+              <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Reading}"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="title-sm" Text="Rodada às cegas" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding BlindSummary}" VerticalAlignment="Center"/>
+              </Grid>
+              <ProgressBar Minimum="0" Maximum="1" Value="{Binding BlindFraction}" Height="6" AutomationProperties.Name="{Binding BlindSummary}"/>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding UseCommand}"
+                        Content="{Binding UseLabel}" AutomationProperties.Name="{Binding UseLabel}"/>
+                <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding BlindStartCommand}"
+                        Content="{Binding BlindActionText}" AutomationProperties.Name="{Binding BlindActionText}"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+
+      <!-- A rodada às cegas: o original e dois textos de configurações escondidas. A resposta só aparece no relatório. -->
+      <StackPanel Spacing="16" IsVisible="{Binding IsBlind}" AutomationProperties.Name="Rodada às cegas">
+        <Grid ColumnDefinitions="*,240" ColumnSpacing="24">
+          <StackPanel Spacing="2" VerticalAlignment="Center">
+            <TextBlock Classes="title-md" Text="Rodada às cegas"/>
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap">
+              <Run Text="{Binding PairTitle}"/><Run Text=" · "/><Run Text="{Binding BlindSubtitle}"/>
+            </TextBlock>
+          </StackPanel>
+          <ProgressBar Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PairFraction}" Height="6" VerticalAlignment="Center" AutomationProperties.Name="{Binding PairTitle}"/>
+        </Grid>
+
+        <Border Classes="panel" Padding="20">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="overline" Text="{Binding OriginalMeta}"/>
+              <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding OriginalSpeaker}"/>
+            </Grid>
+            <TextBlock Classes="jp-body" FontSize="22" TextWrapping="Wrap" Text="{Binding OriginalText}"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding OriginalContext}"
+                       IsVisible="{Binding OriginalContext, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </Border>
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+          <Border Classes="panel" Padding="20">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="title-sm" Text="Texto A"/>
+                <Border Grid.Column="1" Classes="chip"><TextBlock Classes="caption secondary" Text="configuração escondida"/></Border>
+              </Grid>
+              <TextBlock Classes="body" FontSize="16" TextWrapping="Wrap" MinHeight="64" Text="{Binding TextA}"/>
+              <TextBlock Classes="caption secondary" Text="{Binding FitA}" IsVisible="{Binding FitA, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+              <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="A é melhor" Command="{Binding ChooseFirstCommand}"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="1" Classes="panel" Padding="20">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="title-sm" Text="Texto B"/>
+                <Border Grid.Column="1" Classes="chip"><TextBlock Classes="caption secondary" Text="configuração escondida"/></Border>
+              </Grid>
+              <TextBlock Classes="body" FontSize="16" TextWrapping="Wrap" MinHeight="64" Text="{Binding TextB}"/>
+              <TextBlock Classes="caption secondary" Text="{Binding FitB}" IsVisible="{Binding FitB, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+              <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="B é melhor" Command="{Binding ChooseSecondCommand}"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+          <Button Content="Empate" Command="{Binding ChooseTieCommand}"/>
+          <Button Content="Nenhum dos dois" Command="{Binding ChooseNeitherCommand}"/>
+          <Button Classes="subtle" Content="Pular par" Command="{Binding SkipPairCommand}"/>
+          <Button Classes="link" Content="Voltar ao relatório" Command="{Binding BlindBackCommand}"/>
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Rodar o banco de provas: o custo aparece antes de rodar, com o que já foi gasto no projeto, como na janela Traduzir com IA. -->
+    <c:ScreenDialog Title="Rodar o banco de provas" IsOpen="{Binding IsRunOpen, Mode=TwoWay}">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" AutomationProperties.Name="Rodar o banco de provas">
+          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding RunIntro}"/>
+
+          <c:Skeleton Rows="5" IsVisible="{Binding IsEstimating}" AutomationProperties.Name="Estimando o custo"/>
+
+          <ItemsControl ItemsSource="{Binding RunItems}" AutomationProperties.Name="Configurações a rodar">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:EvalRunItemViewModel">
+                <Grid ColumnDefinitions="Auto,28,*,Auto" ColumnSpacing="8" Margin="0,6">
+                  <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center" AutomationProperties.Name="{Binding Letter, StringFormat='Rodar a configuração {0}'}"/>
+                  <TextBlock Grid.Column="1" Classes="body" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Letter}"/>
+                  <StackPanel Grid.Column="2" Spacing="2">
+                    <TextBlock Classes="body" Text="{Binding Title}" TextWrapping="Wrap"/>
+                    <TextBlock Classes="caption secondary" Text="{Binding Detail}"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="3" Classes="body-sm secondary" VerticalAlignment="Center" Text="{Binding CostText}"/>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <Border Classes="panel" Padding="16">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="title-md" Text="{Binding RunCostText}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding RunSpentText}" VerticalAlignment="Center"/>
+              </Grid>
+              <c:BudgetBar Spent="{Binding SpentBrl}" Ask="{Binding AskBrl}" Limit="{Binding LimitBrl}"
+                           AutomationProperties.Name="Gasto do projeto, este pedido e o limite"/>
+            </StackPanel>
+          </Border>
+
+          <CheckBox IsChecked="{Binding UseJudge, Mode=TwoWay}" Content="Juiz de IA cego, uma nota por texto" AutomationProperties.Name="Juiz de IA cego, uma nota por texto"/>
+
+          <Border Classes="infobar error" IsVisible="{Binding RunError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding RunError}"/>
+            </Grid>
+          </Border>
+          <Border Classes="infobar warning" IsVisible="{Binding IsOverLimit}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding OverLimitText}"/>
+            </Grid>
+          </Border>
+          <Border Classes="infobar warning" IsVisible="{Binding AboveWarning}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
+              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap"
+                         Text="Este pedido custa mais que o valor de aviso que você definiu em Ajustes. Confira o valor antes de seguir."/>
+            </Grid>
+          </Border>
+          <Border Classes="infobar error" IsVisible="{Binding KeyMissing}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+              <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+              <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding KeyMissingText}"/>
+              <Button Grid.Column="2" Classes="sm" Command="{Binding OpenSettingsCommand}" Content="Abrir Ajustes" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+
+          <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ConfigHint}"/>
+        </StackPanel>
+      </ScrollViewer>
+
+      <c:ScreenDialog.Footer>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Content="Cancelar" Command="{Binding CloseRunDialogCommand}"/>
+          <Button Classes="accent" Command="{Binding StartRunCommand}" AutomationProperties.Name="{Binding RunLabel}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+              <TextBlock Text="{Binding RunLabel}" TextWrapping="NoWrap"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
+  </Panel>
+</UserControl>

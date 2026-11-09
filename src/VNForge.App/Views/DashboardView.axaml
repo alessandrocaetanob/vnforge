@@ -39,6 +39,13 @@
         </Grid>
       </Border>
 
+      <!-- As abas do Painel: o mapa do jogo e o banco de provas (#529). Onde o Painel mora no shell novo é decisão do #544. -->
+      <TabControl Classes="tabs" SelectedIndex="{Binding SelectedTab, Mode=TwoWay}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Seções do Painel">
+        <TabItem Header="Visão geral"/>
+        <TabItem Header="Provas"/>
+      </TabControl>
+
+      <StackPanel Spacing="16" IsVisible="{Binding ShowOverview}">
       <c:PipelineStepper ItemsSource="{Binding Steps}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Etapas da tradução"/>
 
       <Grid x:Name="Body" ColumnDefinitions="*,440" RowDefinitions="Auto" ColumnSpacing="20" RowSpacing="16" IsVisible="{Binding !ShowEmptyState}">
@@ -156,6 +163,12 @@
           </Border>
         </StackPanel>
       </Grid>
+
+      </StackPanel>
+
+      <StackPanel IsVisible="{Binding ShowEvalTab}">
+        <v:EvalView DataContext="{Binding Eval}"/>
+      </StackPanel>
 
     </StackPanel>
   </ScrollViewer>

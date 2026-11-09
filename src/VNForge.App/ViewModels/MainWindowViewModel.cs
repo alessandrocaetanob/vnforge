@@ -148,6 +148,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         start.ProjectOpened += (_, summary) => SetProject(summary);
         start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
         Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured);
+        Dashboard.Eval.TranslationProviderFactory = (model, effort) => TranslationProviderFactory(model, effort);
+        Dashboard.Eval.JudgeProviderFactory = model => JudgeProviderFactory(model);
         start.Detail.Context = Dashboard.Context;
         start.GameFolderChosen += (_, folder) => ShowWizard(newProjectWizard, folder);
         start.NextStepRequested += (_, request) => OpenFromDashboard(request);
