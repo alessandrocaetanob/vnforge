@@ -8,7 +8,7 @@ namespace VNForge.Core.Vndb;
 /// <summary>O que <see cref="VndbProjectLinker.ApplyCharacters"/> fez em <c>characters.json</c>.</summary>
 /// <param name="Matched">Nomes do jogo (<c>ES.CHAR.NAME</c>) que casaram com um personagem do VNDB.</param>
 /// <param name="Added">Personagens que não estavam em <c>characters.json</c> e entraram.</param>
-/// <param name="Filled">Personagens que já estavam e ganharam algum campo que faltava (gênero, romaji, apelidos ou descrição).</param>
+/// <param name="Filled">Personagens que já estavam e ganharam algum campo que faltava (gênero, romaji, apelidos, descrição, id do VNDB ou imagem).</param>
 public sealed record VndbApplyResult(int Matched, int Added, int Filled)
 {
     public static VndbApplyResult None { get; } = new(0, 0, 0);
@@ -83,7 +83,7 @@ public static class VndbProjectLinker
 
     /// <summary>
     /// Casa os nomes do jogo (<see cref="GameCharacters.Names"/>, as chamadas de <c>ES.CHAR.NAME</c>) com os personagens de <c>vndb.json</c> e leva para
-    /// <c>characters.json</c> gênero, romaji, apelidos e descrição. O que o usuário já escreveu fica: só campos vazios são preenchidos. Sem <c>vndb.json</c> ou
+    /// <c>characters.json</c> gênero, romaji, apelidos, descrição, id do VNDB e imagem. O que o usuário já escreveu fica: só campos vazios são preenchidos. Sem <c>vndb.json</c> ou
     /// sem texto extraído não faz nada.
     /// </summary>
     /// <exception cref="VndbLinkException"><c>vndb.json</c> inválido.</exception>
@@ -116,6 +116,8 @@ public static class VndbProjectLinker
                 Romaji = current.Romaji ?? vndb.Name,
                 Aliases = current.Aliases is { Count: > 0 } || vndb.Aliases.Count == 0 ? current.Aliases : vndb.Aliases,
                 Description = current.Description ?? vndb.Description,
+                VndbId = current.VndbId ?? vndb.Id,
+                Image = current.Image ?? vndb.Image,
             };
             if (index < 0)
             {
@@ -188,7 +190,8 @@ public static class VndbProjectLinker
             [.. c.Aliases.Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a.Trim())],
             GenderOf(c.Gender),
             VndbText.Clean(c.Description),
-            RoleOf(c, visualNovelId));
+            RoleOf(c, visualNovelId),
+            VndbImageRef.Portrait(c.Image));
 
     private static readonly string[] Roles = ["main", "primary", "side", "appears"];
 
@@ -220,6 +223,7 @@ public static class VndbProjectLinker
 
     private static bool SameFields(CharacterEntry a, CharacterEntry b) =>
         a.Gender == b.Gender && a.Romaji == b.Romaji && a.Description == b.Description
+        && a.VndbId == b.VndbId && a.Image == b.Image
         && (a.Aliases ?? []).SequenceEqual(b.Aliases ?? [], StringComparer.Ordinal);
 
     private static bool MatchesLocal(VndbVisualNovel vn, List<string> local)
