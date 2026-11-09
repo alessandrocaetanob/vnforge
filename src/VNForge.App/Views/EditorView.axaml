@@ -14,7 +14,7 @@
 
   <UserControl.Resources>
     <!-- Três linhas de texto, a última mais curta: a densidade Roteiro da grade (#460). Mesma grade de 20 px dos ícones do app. -->
-    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14ZM0 0L0 0M20 20L20 20</StreamGeometry>
   </UserControl.Resources>
 
   <UserControl.Styles>
