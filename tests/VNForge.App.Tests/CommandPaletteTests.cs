@@ -247,4 +247,37 @@ public class CommandPaletteTests
         Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
         Assert.Equal("yst00001", vm.Editor.SelectedScript?.Key);
     }
+
+    [Fact]
+    public async Task Refazer_a_lista_de_outra_thread_nao_apaga_o_resultado_de_uma_busca_feita_depois()
+    {
+        // A contagem de risco refaz a paleta (Reload) quando termina; sem contexto de sincronização, como nos testes, ela termina numa thread do pool.
+        // Aqui o Reload lê o texto vazio e para dentro da lista de entradas, a busca acontece e só então o Reload grava: o último a gravar deve ter lido o texto de agora.
+        var token = TestContext.Current.CancellationToken;
+        var calls = 0;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var palette = new CommandPaletteViewModel(
+            () =>
+            {
+                if (Interlocked.Increment(ref calls) == 2)
+                {
+                    entered.Set();
+                    release.Wait(token);
+                }
+
+                return [new PaletteEntry(PaletteGroup.Command, "Revisar por risco", "", () => { }) { OnlyWhenSearching = true }];
+            },
+            (_, _) => []);
+        palette.Open();
+
+        var reload = Task.Run(() => palette.Reload(), token);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), token));
+        var search = Task.Run(() => palette.Query = "Revisar por risco", token);
+        await Task.WhenAny(search, Task.Delay(300, token));
+        release.Set();
+        await Task.WhenAll(reload, search);
+
+        Assert.Contains(palette.Results, r => r.Title == "Revisar por risco");
+    }
 }

@@ -10,6 +10,7 @@ namespace VNForge.Core.Vndb;
 /// <param name="Gender">O gênero real do personagem (o que concorda na tradução), ou <see cref="CharacterGender.Unknown"/> quando o VNDB não diz.</param>
 /// <param name="Description">Descrição sem a marcação do VNDB, ou nula.</param>
 /// <param name="Role"><c>main</c>, <c>primary</c>, <c>side</c> ou <c>appears</c>: o maior papel dele neste jogo.</param>
+/// <param name="Image">A imagem do personagem no VNDB, ou nula quando ele não tem; <c>vndb.json</c> de antes dela abre com nulo.</param>
 public sealed record VndbLinkedCharacter(
     string Id,
     string Name,
@@ -17,7 +18,8 @@ public sealed record VndbLinkedCharacter(
     IReadOnlyList<string> Aliases,
     CharacterGender Gender,
     string? Description,
-    string Role);
+    string Role,
+    VndbImageRef? Image = null);
 
 /// <summary>
 /// O jogo do VNDB que o usuário confirmou para o projeto, gravado em <c>vndb.json</c>. Guarda a sinopse, que a bíblia do jogo lê, e todos os personagens do VNDB;

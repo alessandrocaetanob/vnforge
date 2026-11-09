@@ -592,7 +592,91 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         return shown;
     }
 
-    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false)
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Fila_por_risco_mostra_o_titulo_a_ordem_o_cartao_de_risco_a_barra_sob_o_palco_e_a_lista_a_seguir(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = CreateRiskProject(temp.SubFolder("projeto"));
+
+        await Abrir(root, theme, (window, vm) =>
+        {
+            var review = vm.Editor.Review!;
+            Assert.True(review.IsRisk);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
+
+            Assert.Equal("Fila por risco", view.FindControl<TextBlock>("SceneTitle")!.Text);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible), t => t.Text?.StartsWith("Linha 1 de", StringComparison.Ordinal) == true);
+
+            var order = view.FindControl<ListBox>("OrderChoice")!;
+            Assert.True(order.IsEffectivelyVisible);
+            Assert.Equal(1, order.SelectedIndex);
+            Assert.Equal(["Do começo", "O que mais precisa de você"], order.Items.OfType<ListBoxItem>().Select(i => i.Content));
+
+            var card = view.FindControl<Border>("RiskCard")!;
+            Assert.True(card.IsEffectivelyVisible);
+            Assert.StartsWith("Risco ", view.FindControl<TextBlock>("RiskScore")!.Text, StringComparison.Ordinal);
+            Assert.Equal("Alto", Assert.Single(card.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("pill") && b.Classes.Contains("high")).GetVisualDescendants().OfType<TextBlock>().Single().Text);
+            var chipTexts = card.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Contains("Dúvida da IA +30", chipTexts);
+            Assert.Contains("Soa estranho +20", chipTexts);
+            Assert.Contains("Sugestão do editor +10", chipTexts);
+            Assert.Contains(card.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Classes.Contains("pill") && b.Classes.Contains("error"));
+            Assert.Equal(2, card.GetVisualDescendants().OfType<PathIcon>().Count(i => i.IsEffectivelyVisible));
+            Assert.True(Frame(window, card).Right <= Frame(window, view.FindControl<ScrollViewer>("Script")!).Right + 1, "o cartão cabe na coluna do roteiro");
+
+            var stage = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
+            var bar = view.FindControl<RiskBar>("RiskShareBar")!;
+            var share = view.FindControl<StackPanel>("RiskShareBlock")!;
+            var queue = view.FindControl<Border>("RiskQueueCard")!;
+            Assert.True(share.IsEffectivelyVisible && queue.IsEffectivelyVisible);
+
+            // A coluna do palco, como no quadro: o palco de 270 px na largura toda, a barra com a legenda e a tabela da fila, nesta ordem e nada mais.
+            var body = Frame(window, view.FindControl<Grid>("Body")!);
+            Assert.InRange(stage.Height, 269, 271);
+            Assert.True(stage.Width > body.Width * 0.58, $"o palco ocupa a largura da coluna ({stage.Width} de {body.Width})");
+            Assert.True(Frame(window, share).Top >= stage.Bottom - 1, "a barra e a legenda ficam sob o palco");
+            Assert.True(Frame(window, queue).Top >= Frame(window, share).Bottom - 1, "a tabela da fila vem depois da barra");
+            Assert.DoesNotContain(queue.GetVisualDescendants(), d => ReferenceEquals(d, bar));
+            Assert.DoesNotContain(queue.GetVisualDescendants().OfType<Legend>(), _ => true);
+            Assert.DoesNotContain(view.FindControl<ScrollViewer>("Script")!.GetVisualDescendants(), d => ReferenceEquals(d, queue));
+            var checks = view.FindControl<StackPanel>("LineChecks")!;
+            Assert.False(checks.IsEffectivelyVisible, "'Cabe', 'Reescrever com um toque' e o aviso de dúvida ficam de fora");
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<RewriteBar>(), b => b.IsEffectivelyVisible);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Classes.Contains("infobar"));
+
+            // Na coluna do roteiro, o cartão de risco vem antes do original e da tradução.
+            Assert.True(Frame(window, card).Bottom <= Frame(window, view.FindControl<Border>("TranslationCard")!).Top);
+
+            var below = view.FindControl<ScrollViewer>("BelowStage")!;
+            var viewport = Frame(window, below);
+            Assert.True(below.Extent.Height <= below.Viewport.Height + 1, $"a coluna do palco cabe sem rolar ({below.Extent.Height} > {below.Viewport.Height})");
+            var rows = queue.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("queue-row")).ToList();
+            Assert.Equal(5, rows.Count);
+            Assert.All(rows, r => Assert.True(Frame(window, r).Top >= viewport.Top - 1 && Frame(window, r).Bottom <= viewport.Bottom + 1, $"as 5 linhas da fila cabem sem rolar ({Frame(window, r)} em {viewport})"));
+
+            var summary = view.FindControl<TextBlock>("RiskSummary")!.Text;
+            Assert.Matches(@"^2 linhas de risco alto · faltam cerca de \d+ min no seu ritmo de \d+ linhas por hora$", summary);
+            Assert.Equal(review.UpNext.Count, view.FindControl<ItemsControl>("UpNextList")!.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("queue-row")));
+            Assert.Equal(5, review.UpNext.Count);
+
+            Assert.True(bar.Bounds.Width > 100 && bar.Bounds.Height == RiskBar.BarHeight);
+            var probe = PixelProbe.Capture(window, bar);
+            Assert.True(probe.Near(4, 4, Token(bar, "Vnf.SignalErrorFg"), 6), "o começo da barra é o trecho de risco alto");
+            Assert.True(probe.Near((int)bar.Bounds.Width - 12, 4, Token(bar, "Vnf.StatusPendingFg"), 6), "o fim da barra é o trecho de risco baixo");
+            Salvar(window, "modo-revisao-risco", theme);
+
+            // A segunda da fila é do Kenta, que não tem gênero: o aviso é do modo normal e não aparece na coluna do palco, que no quadro é só palco, barra e fila.
+            review.SkipCommand.Execute(null);
+            ScreenRenderer.Settle(window);
+            Assert.True(review.GenderMissing);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Este personagem não tem gênero definido");
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == review.DefineGenderCommand);
+        }, risk: true);
+    }
+
+    private async Task Abrir(string root, ThemeVariant theme, Action<MainWindow, MainWindowViewModel> verificar, int width = ScreenRenderer.Width, int height = ScreenRenderer.Height, bool animations = false, bool risk = false)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
@@ -615,6 +699,11 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
                     entry.Command!.Execute(null);
                     ScreenRenderer.Settle(window);
                     Assert.True(vm.Editor.IsReviewing);
+                    if (risk)
+                    {
+                        await vm.Editor.StartRiskReviewAsync();
+                        ScreenRenderer.Settle(window);
+                    }
 
                     verificar(window, vm);
                 }
@@ -685,6 +774,38 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             ]);
         folder.SaveText("yst00002", [Line("yst00002", 1, "美咲", @"「そう」\p", @"Isso.\p")]);
         return folder.Root;
+    }
+
+    /// <summary>
+    /// Um jogo com linhas de risco alto e médio, como no quadro: a primeira soma dúvida da IA, "soa estranho", erro do QA (falta o marcador de página) e sugestão do editor;
+    /// há um ritmo de revisão em <c>.cache/sessions.json</c> (60 aprovações em meia hora, 120 por hora) para a frase das horas aparecer.
+    /// </summary>
+    private static string CreateRiskProject(string parent)
+    {
+        var root = CreateProject(parent);
+        var folder = ProjectFolder.Open(root);
+        var duvida = new TranslationDoubt(DoubtKind.Tone, "Ela fala sério ou em tom de brincadeira?");
+        folder.SaveText(
+            "yst00001",
+            [
+                (Line("yst00001", 1, "美咲", @"「平気平気！　ほら、行こう！」\p", "Tranquilo! Vamos, anda!") with { Doubt = duvida }).WithOdd(true),
+                Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p") with { Doubt = duvida },
+                Line("yst00001", 3, "美咲", @"「うん」\p", @"Aham.\p"),
+                Line("yst00001", 4, "健太", @"「そう」\p", "Pode deixar comigo.") with { Doubt = duvida },
+                Line("yst00001", 5, "美咲", @"「うん」\p", @"Aham.\p", TranslationStatus.Approved),
+            ]);
+        folder.SaveText("yst00002", [Line("yst00002", 1, "美咲", @"「そう」\p", @"Isso.\p"), Line("yst00002", 2, "健太", @"「ねえ」\p", @"Ei.\p").WithOdd(true)]);
+        Directory.CreateDirectory(folder.CacheDirectory);
+        File.WriteAllText(
+            Path.Combine(folder.CacheDirectory, "editor-suggestions.json"),
+            System.Text.Json.JsonSerializer.Serialize(
+                new { version = 1, suggestions = new[] { new { scriptKey = "yst00001", unitId = "yst00001:000001", kind = "voice", @base = "Tranquilo! Vamos, anda!", proposed = "Fica tranquilo, vamos!", reason = "voz", at = DateTimeOffset.UnixEpoch } } },
+                System.Text.Json.JsonSerializerOptions.Web));
+        var start = DateTimeOffset.UtcNow.AddHours(-1);
+        SessionsFile.Save(
+            folder,
+            Enumerable.Range(0, 60).Aggregate(SessionsFile.Empty, (file, i) => file.With(new ApprovalRecord("yst99999", $"yst99999:{i:D6}", start.AddSeconds(i * 30)))));
+        return root;
     }
 
     private static TextUnit Line(string script, int number, string speaker, string source, string translation, TranslationStatus status = TranslationStatus.Machine) =>

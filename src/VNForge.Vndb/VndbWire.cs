@@ -97,6 +97,8 @@ internal static class VndbWire
 
         public int LengthVotes { get; init; }
 
+        public double? Rating { get; init; }
+
         public string? Description { get; init; }
 
         public List<Tag>? Tags { get; init; }
@@ -278,7 +280,8 @@ internal static class VndbWire
             vn.LengthMinutes,
             vn.LengthVotes,
             vn.Description,
-            [.. (vn.Tags ?? []).Select(t => new VndbTag(t.Id, t.Name, t.Category, t.Rating, t.Spoiler, t.Lie))]);
+            [.. (vn.Tags ?? []).Select(t => new VndbTag(t.Id, t.Name, t.Category, t.Rating, t.Spoiler, t.Lie))],
+            vn.Rating);
 
     public static VndbCharacter ToCore(Character c) =>
         new(

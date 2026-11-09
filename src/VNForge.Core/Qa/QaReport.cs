@@ -39,5 +39,6 @@ public sealed record QaReport(IReadOnlyList<QaIssue> Issues, IReadOnlyList<QaIss
 
     private static bool IsUntranslated(QaIssue issue) => issue.RuleId == UntranslatedQaRule.RuleId;
 
-    private static bool IsStyleAdvice(QaIssue issue) => issue.RuleId is HonorificsRule.RuleId or GenderRule.RuleId or SpellingRule.RuleId or AddressTermRule.RuleId;
+    /// <summary>A ocorrência é uma sugestão de estilo (<see cref="StyleAdviceCount"/>), não um aviso que trava o build.</summary>
+    public static bool IsStyleAdvice(QaIssue issue) => issue.RuleId is HonorificsRule.RuleId or GenderRule.RuleId or SpellingRule.RuleId or AddressTermRule.RuleId;
 }
