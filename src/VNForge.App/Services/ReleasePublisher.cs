@@ -26,6 +26,8 @@ public enum ReleaseReference
 /// <param name="GameFileCount">Quantos arquivos a pasta do jogo tem; nulo quando ela não lê.</param>
 /// <param name="ChangeExamples">Uma fala mudada por cena, com o antes e o depois; vazia quando o texto da versão anterior não foi guardado.</param>
 /// <param name="ChangedFiles">Os arquivos do jogo cujo checksum não é o da extração, com o esperado e o encontrado; nulo fora de <see cref="ReleaseReference.Differs"/>.</param>
+/// <param name="GameVersion">A versão do jogo que a pasta tem, para o cartão de checksum; nula quando o Core não a lê.</param>
+/// <param name="ReferenceVersion">A versão do jogo de onde o texto foi extraído; nula quando o projeto não a guarda.</param>
 public sealed record ReleaseReadiness(
     string GameFolder,
     string? PreviousVersion,
@@ -40,7 +42,9 @@ public sealed record ReleaseReadiness(
     IReadOnlyList<ReleaseGameFile>? PreviousGameFiles = null,
     int? GameFileCount = null,
     IReadOnlyList<ChangeExample>? ChangeExamples = null,
-    IReadOnlyList<ChangedGameFile>? ChangedFiles = null);
+    IReadOnlyList<ChangedGameFile>? ChangedFiles = null,
+    string? GameVersion = null,
+    string? ReferenceVersion = null);
 
 /// <summary>O que a tela Lançar pede ao Core. Atrás de uma interface para os testes não gerarem patch de verdade.</summary>
 public interface IReleasePublisher

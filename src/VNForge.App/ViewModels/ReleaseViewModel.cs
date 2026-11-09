@@ -297,6 +297,14 @@ public sealed partial class ReleaseViewModel : ObservableObject
     [ObservableProperty]
     public partial string GameFolder { get; private set; } = string.Empty;
 
+    /// <summary>A pasta do jogo com a versão encontrada nela ("D:\VNs\Amaoto (versão 1.01)"), quando se sabe qual é.</summary>
+    [ObservableProperty]
+    public partial string GameFolderLabel { get; private set; } = string.Empty;
+
+    /// <summary>O "O que fazer" do cartão de checksum, com a versão de referência entre parênteses quando se sabe qual é.</summary>
+    [ObservableProperty]
+    public partial string WhatToDoText { get; private set; } = string.Empty;
+
     [ObservableProperty]
     public partial string ProblemDetails { get; private set; } = string.Empty;
 
@@ -485,6 +493,10 @@ public sealed partial class ReleaseViewModel : ObservableObject
         SetReceived(null);
         HasQaErrors = read.QaErrors > 0;
         GameFolder = read.GameFolder;
+        GameFolderLabel = read.GameVersion is { Length: > 0 } found ? $"{read.GameFolder} (versão {found})" : read.GameFolder;
+        WhatToDoText = "Aponte a pasta da versão original que você usou para extrair o texto"
+            + (read.ReferenceVersion is { Length: > 0 } reference ? $" ({reference})" : string.Empty)
+            + ". Se o jogo foi atualizado, extraia o texto de novo: o Conferir mostra o que muda.";
         LastVersionText = read.PreviousVersion is null ? string.Empty : $"Última versão: {read.PreviousVersion} · {DateText(read.PreviousAt)}";
         VersionHelp = read.PreviousVersion is null ? "Primeira versão do patch" : $"Patch anterior: {read.PreviousVersion}, de {DateText(read.PreviousAt)}";
         ShowChangesOf(read);
@@ -578,7 +590,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         var examples = read.ChangeExamples ?? [];
         foreach (var example in examples)
         {
-            ChangeExamples.Add(new ReleaseChangeRow($"Cena {example.SceneNumber} · linha {example.LineNumber}", example.Before, example.After));
+            ChangeExamples.Add(new ReleaseChangeRow($"{example.SceneName ?? $"Cena {example.SceneNumber}"} · linha {example.LineNumber}", example.Before, example.After));
         }
 
         var shownScenes = examples.Select(e => e.SceneNumber).ToHashSet();

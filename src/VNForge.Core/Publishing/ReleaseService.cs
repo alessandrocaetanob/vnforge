@@ -382,18 +382,25 @@ internal sealed class ReleaseDocuments(string gameName, string version, string? 
         text.AppendLine("COMO INSTALAR");
         text.AppendLine("1. Feche o jogo.");
         text.AppendLine("2. Execute o instalador.");
-        text.AppendLine("3. Aponte a pasta do jogo e confirme a instalação.");
-        text.AppendLine("O instalador confere se o jogo é a versão certa e guarda uma cópia dos arquivos originais antes de mexer em qualquer coisa.").AppendLine();
+        text.AppendLine("3. Aponte a pasta do jogo e clique em Instalar.").AppendLine();
         text.AppendLine("COMO DESINSTALAR");
-        text.AppendLine("Execute o instalador de novo e escolha Voltar ao jogo original. Os arquivos originais voltam byte a byte e os seus saves não são tocados.").AppendLine();
+        text.AppendLine("Execute o instalador de novo e escolha");
+        text.AppendLine("Voltar ao jogo original.").AppendLine();
         text.AppendLine(previousVersion is null ? "O QUE HÁ NESTA VERSÃO" : $"O QUE MUDOU DESDE A {previousVersion}");
         text.AppendLine(Summary()).AppendLine();
         if (credits is not null)
         {
-            text.AppendLine("CRÉDITOS").AppendLine(credits);
+            // Os créditos vêm numa linha só ("Tradução: Equipe · Revisão: Hana"); no LEIA-ME cada papel ocupa a sua.
+            text.AppendLine("CRÉDITOS");
+            foreach (var role in credits.Split(" · ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                text.AppendLine(role);
+            }
+
+            text.AppendLine();
         }
 
-        text.AppendLine().AppendLine("AVISOS").Append("O instalador usa a biblioteca VCDiff (Apache 2.0) e outras bibliotecas de código aberto. Os textos das licenças estão em LICENCAS.txt e no próprio instalador (instalador --licencas).");
+        text.AppendLine("AVISOS").Append("O instalador usa a biblioteca VCDiff (Apache 2.0) e outras bibliotecas de código aberto. Os textos das licenças estão em LICENCAS.txt e no próprio instalador (instalador --licencas).");
         return text.ToString().TrimEnd() + "\n";
     }
 

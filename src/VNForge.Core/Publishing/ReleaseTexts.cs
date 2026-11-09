@@ -10,7 +10,8 @@ namespace VNForge.Core.Publishing;
 /// <param name="LineNumber">A posição da fala na cena, a partir de 1, contando todas as falas na ordem do arquivo.</param>
 /// <param name="Before">O texto que foi no patch anterior; nulo quando a fala não tinha tradução lá.</param>
 /// <param name="After">O texto de agora, com o falante na frente quando há.</param>
-public sealed record ChangeExample(int SceneNumber, int LineNumber, string? Before, string After);
+/// <param name="SceneName">O nome da cena quando se conhece; a tela mostra "Cena N" quando nulo.</param>
+public sealed record ChangeExample(int SceneNumber, int LineNumber, string? Before, string After, string? SceneName = null);
 
 /// <summary>
 /// O texto das traduções que cada versão levou, em <c>releases/texts/&lt;versão&gt;.json</c>: o retrato de <see cref="ReleaseRecord.Snapshot"/> só guarda hashes,

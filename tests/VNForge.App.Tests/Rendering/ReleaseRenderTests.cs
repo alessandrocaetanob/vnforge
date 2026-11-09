@@ -21,11 +21,10 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     /// <summary>O LEIA-ME que o Core grava (o mesmo texto de <c>ReleaseDocuments.ReadMe</c>), com as falas de exemplo do quadro.</summary>
     private const string ReadMeText =
         "Amaoto no Hakoniwa · Tradução para português do Brasil\r\nVersão 1.2.0 · 08/11/2026\r\n\r\n"
-        + "COMO INSTALAR\r\n1. Feche o jogo.\r\n2. Execute o instalador.\r\n3. Aponte a pasta do jogo e confirme a instalação.\r\n"
-        + "O instalador confere se o jogo é a versão certa e guarda uma cópia dos arquivos originais antes de mexer em qualquer coisa.\r\n\r\n"
-        + "COMO DESINSTALAR\r\nExecute o instalador de novo e escolha Voltar ao jogo original. Os arquivos originais voltam byte a byte e os seus saves não são tocados.\r\n\r\n"
+        + "COMO INSTALAR\r\n1. Feche o jogo.\r\n2. Execute o instalador.\r\n3. Aponte a pasta do jogo e clique em Instalar.\r\n\r\n"
+        + "COMO DESINSTALAR\r\nExecute o instalador de novo e escolha\r\nVoltar ao jogo original.\r\n\r\n"
         + "O QUE MUDOU DESDE A 1.1.0\r\n41 linhas em 6 cenas. Veja MUDANCAS.txt.\r\n\r\n"
-        + "CRÉDITOS\r\nTradução: Equipe Chuva Mansa · Revisão: Hana\r\n\r\n"
+        + "CRÉDITOS\r\nTradução: Equipe Chuva Mansa\r\nRevisão: Hana\r\n\r\n"
         + "AVISOS\r\nO instalador usa a biblioteca VCDiff (Apache 2.0) e outras bibliotecas de código aberto. Os textos das licenças estão em LICENCAS.txt e no próprio instalador (instalador --licencas).\r\n";
 
     /// <summary>Os tempos do quadro: 0,4 s, 2,9 s e 11,6 s nos três primeiros passos, e 11,6 s na verificação.</summary>
@@ -38,13 +37,16 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
         _ => TimeSpan.FromSeconds(1),
     };
 
-    private static void Render(ReleaseViewModelTestsHost host, string screen, ThemeVariant theme, Action<Window> inspect)
+    /// <summary>A pasta de saída que o quadro mostra; a real do teste é temporária, então o texto entra só na exibição.</summary>
+    private const string QuadroOutput = @"H:\Releases\Amaoto no Hakoniwa\1.2.0";
+
+    private static void Render(ReleaseViewModelTestsHost host, string screen, ThemeVariant theme, Action<Window> inspect, Action<Window>? prepare = null)
     {
         var path = RenderOutput.PathFor(ScreenRenderer.FileName(screen, theme));
         var view = new ReleaseView { DataContext = host.Vm };
         try
         {
-            ScreenRenderer.Render(view, theme, path, inspect: inspect);
+            ScreenRenderer.Render(view, theme, path, inspect: inspect, prepare: prepare);
         }
         finally
         {
@@ -62,8 +64,9 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     [MemberData(nameof(Themes))]
     public async Task Renderiza_o_estado_pronto(string themeName)
     {
-        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro());
+        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro(), ReleaseViewModelTests.QuadroCounts);
         host.Vm.Credits = Credits;
+        host.Vm.OutputDirectory = QuadroOutput;
 
         await fixture.Session.Dispatch(
             () =>
@@ -85,7 +88,7 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     [MemberData(nameof(Themes))]
     public async Task Renderiza_o_estado_gerando(string themeName)
     {
-        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro());
+        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro(), ReleaseViewModelTests.QuadroCounts);
         host.Vm.Credits = Credits;
         host.Publisher.Duration = DurationsOfQuadro;
         using var reached = new ManualResetEventSlim();
@@ -131,7 +134,7 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     [MemberData(nameof(Themes))]
     public async Task Renderiza_a_versao_pronta(string themeName)
     {
-        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro());
+        using var host = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro(), ReleaseViewModelTests.QuadroCounts);
         host.Vm.Credits = Credits;
         host.Publisher.Duration = DurationsOfQuadro;
         host.Publisher.ReadMe = ReadMeText;
@@ -145,7 +148,10 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                     Assert.True(Shows(window, "Arquivos gerados"));
                     Assert.True(Shows(window, "Verificação"));
                     Assert.True(Shows(window, "LEIA-ME.txt"));
-                });
+                },
+                prepare: window => window.GetVisualDescendants().OfType<SelectableTextBlock>()
+                    .Single(t => t.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Pasta de saída")
+                    .Text = QuadroOutput + @"\");
                 return 0;
             },
             TestContext.Current.CancellationToken);
@@ -187,9 +193,9 @@ internal sealed class ReleaseViewModelTestsHost : IDisposable
 
     public ReleaseViewModelTests.FakePublisher Publisher { get; }
 
-    public static async Task<ReleaseViewModelTestsHost> OpenAsync(VNForge.App.Services.ReleaseReadiness? readiness = null)
+    public static async Task<ReleaseViewModelTestsHost> OpenAsync(VNForge.App.Services.ReleaseReadiness? readiness = null, VNForge.Core.Projects.StatusCounts? counts = null)
     {
-        var (vm, publisher, temp, _) = await ReleaseViewModelTests.OpenAsync(readiness);
+        var (vm, publisher, temp, _) = await ReleaseViewModelTests.OpenAsync(readiness, counts);
         return new ReleaseViewModelTestsHost(vm, publisher, temp);
     }
 
