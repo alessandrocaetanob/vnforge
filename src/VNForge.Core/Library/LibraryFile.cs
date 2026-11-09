@@ -24,6 +24,15 @@ public sealed class LibraryFile(string directory)
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
+    private readonly Action<int> _wait = Thread.Sleep;
+
+    /// <summary>Como o construtor público, com a espera entre as tentativas de trocar o arquivo na mão de quem chama (os testes soltam o arquivo nela, sem depender do relógio).</summary>
+    internal LibraryFile(string directory, Action<int> wait)
+        : this(directory)
+    {
+        _wait = wait;
+    }
+
     public string Path { get; } = System.IO.Path.Combine(directory, FileName);
 
     /// <summary>A biblioteca do arquivo; vazia quando o arquivo não existe.</summary>
@@ -106,7 +115,7 @@ public sealed class LibraryFile(string directory)
         try
         {
             File.WriteAllText(temporary, Serialize(library));
-            ProjectFileIo.Move(temporary, Path, overwrite: true);
+            ProjectFileIo.Move(temporary, Path, overwrite: true, _wait);
         }
         finally
         {

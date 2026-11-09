@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
+             xmlns:v="using:VNForge.App.Views"
              x:Class="VNForge.App.Views.ReviewModeView"
              x:DataType="vm:ReviewModeViewModel">
 
@@ -159,6 +160,9 @@
                          IsVisible="{Binding Detail.SuggestionError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
           </Border>
+
+          <!-- A sugestão da passada de editor (#532), logo abaixo da tradução e antes da fala seguinte: a pessoa decide sem sair do fluxo "Está boa, Corrigir". -->
+          <v:EditorSuggestionCardView x:Name="EditorSuggestion" DataContext="{Binding Detail}" IsReview="True"/>
 
           <!-- A fala seguinte é a que cede quando o roteiro não cabe (ReviewModeView.axaml.cs): a anterior diz a quem a linha responde e fica sempre. -->
           <Panel IsVisible="{Binding HasNext}">

@@ -29,6 +29,10 @@
     <Style Selector=":is(UserControl).compact Border.kbd, :is(UserControl).compact PathIcon.compact-hide">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
+    <!-- Com a sugestão da passada de editor aberta, "Usar sugestão" sai da linha de botões: dois cartões da IA pedindo a mesma tradução confundem (quadro do #532). Por classe, e não por IsVisible, para a regra das abas acima seguir valendo. -->
+    <Style Selector="Button.use-in-row.editor-suggestion">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
     <Style Selector="Button.use-in-row">
       <Setter Property="Grid.Column" Value="1"/>
       <Setter Property="Margin" Value="8,0,0,0"/>
@@ -186,8 +190,8 @@
 
           <!-- Na cena: a fala anterior e a seguinte. Com o cartão da memória aberto fica recolhido, e o cabeçalho abre. -->
           <StackPanel x:Name="SceneFragment" Spacing="6" IsVisible="{Binding HasScene}">
-            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !HasMemory}"/>
-            <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding HasMemory}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
+            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !IsCompactInspector}"/>
+            <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding IsCompactInspector}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding IsSceneCollapsed}"/>
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding !IsSceneCollapsed}"/>
@@ -202,7 +206,7 @@
           <StackPanel x:Name="TranslationFragment" Spacing="6">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Classes="overline" Text="Tradução"/>
-              <TextBlock Grid.Column="1" Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding HasMemory}"/>
+              <TextBlock Grid.Column="1" Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding IsCompactInspector}"/>
             </Grid>
             <Border Classes="field">
               <Panel>
@@ -217,7 +221,7 @@
               <Panel IsVisible="{Binding Preview.HasLayout}">
                 <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Left" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
               </Panel>
-              <StackPanel IsVisible="{Binding !HasMemory}">
+              <StackPanel IsVisible="{Binding !IsCompactInspector}">
                 <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
                   <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
                   <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
@@ -235,7 +239,7 @@
               </StackPanel>
             </StackPanel>
             <WrapPanel ItemSpacing="12" LineSpacing="2" AutomationProperties.Name="Medidas da tradução">
-              <StackPanel IsVisible="{Binding HasMemory}">
+              <StackPanel IsVisible="{Binding IsCompactInspector}">
                 <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
                   <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
                   <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
@@ -246,7 +250,7 @@
                   <TextBlock Classes="meta secondary" Text="{Binding FitText}"/>
                 </StackPanel>
               </StackPanel>
-              <TextBlock Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding !HasMemory}"/>
+              <TextBlock Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding !IsCompactInspector}"/>
               <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding MarkerStateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding MarkersMatch}" Data="{StaticResource Icon.Check}" IsVisible="{Binding MarkersMatch}"/>
                 <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding !MarkersMatch}"/>
@@ -260,10 +264,13 @@
                         SplitCommand="{Binding Fit.SplitCommand}" ShortenCommand="{Binding Fit.ShortenCommand}" ShowShorten="{Binding Fit.HasShortener}"
                         ErrorText="{Binding Fit.Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
 
+          <!-- A sugestão da passada de editor (#532), logo abaixo do campo da tradução: nada grava até "Aceitar". -->
+          <v:EditorSuggestionCardView x:Name="EditorSuggestionFragment"/>
+
           <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
           <StackPanel x:Name="SameSourceFragment" Spacing="6" IsVisible="{Binding HasSameSource}">
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}" IsVisible="{Binding !HasMemory}"/>
-            <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}" IsVisible="{Binding !HasMemory}"
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}" IsVisible="{Binding !IsCompactInspector}"/>
+            <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}" IsVisible="{Binding !IsCompactInspector}"
                     ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
               <TextBlock Text="Usar em todos"/>
             </Button>
@@ -468,7 +475,7 @@
             <Border Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+Enter"/></Border>
           </StackPanel>
         </Button>
-        <Button Classes="use-in-row" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
+        <Button Classes="use-in-row" Classes.editor-suggestion="{Binding HasEditorSuggestion}" Command="{Binding AcceptSuggestionCommand}" ToolTip.Tip="Troca a tradução pela sugestão da IA">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Classes="compact-hide" Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
             <TextBlock Text="Usar sugestão" TextWrapping="NoWrap" VerticalAlignment="Center"/>

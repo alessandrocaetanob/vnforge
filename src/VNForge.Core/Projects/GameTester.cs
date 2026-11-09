@@ -194,11 +194,14 @@ public sealed class GameTester(
     /// o jogo mostra os acentos trocados. É o mesmo <see cref="GameInjector.PlanPatch"/> de <c>vnf patch-exe</c>; não grava nada no jogo.
     /// </summary>
     /// <exception cref="GamePatchRefusedException">Um patch foi recusado (zero ou mais de uma ocorrência do nome da fonte, por exemplo).</exception>
-    private List<PatchPlan> PlanExecutablePatches(ProjectFolder project)
+    private List<PatchPlan> PlanExecutablePatches(ProjectFolder project) => PlanExecutablePatches(project, _engines);
+
+    /// <summary>O mesmo plano para quem não tem um <see cref="GameTester"/> (o lançamento de <c>vnf release</c>).</summary>
+    internal static List<PatchPlan> PlanExecutablePatches(ProjectFolder project, IReadOnlyList<IEngine> engines)
     {
         var config = project.LoadConfig();
         if (!string.Equals(config.Encoding.Strategy, "cp1252", StringComparison.Ordinal)
-            || _engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal)) is not IGamePatchProvider provider)
+            || engines.FirstOrDefault(e => string.Equals(e.Id, config.Engine.Id, StringComparison.Ordinal)) is not IGamePatchProvider provider)
         {
             return [];
         }
@@ -230,7 +233,7 @@ public sealed class GameTester(
     /// Junta os arquivos dos patches ao plano do build para o backup e a gravação saírem numa injeção só: um backup, um manifesto e o hash de cada arquivo
     /// conferido. Um patch que o jogo já tem não traz arquivo, e então nada muda.
     /// </summary>
-    private static InjectionPlan WithPatches(InjectionPlan build, List<PatchPlan> patches) =>
+    internal static InjectionPlan WithPatches(InjectionPlan build, List<PatchPlan> patches) =>
         patches.Count == 0
             ? build
             : build with

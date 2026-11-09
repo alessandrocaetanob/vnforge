@@ -33,6 +33,7 @@ public static class CommandExamples
         ["run"] = ["vnf run"],
         ["restore"] = ["vnf restore"],
         ["test"] = ["vnf test", "vnf test --accent-test", "vnf test --only-script yst00012"],
+        ["release"] = ["vnf release 1.0.0", @"vnf release 1.1.0 --out-dir D:\Releases\MinhaVN"],
         ["status"] = ["vnf status"],
         ["preview"] = ["vnf preview yst00012:000034"],
         ["export"] = ["vnf export --output revisao.xlsx"],
