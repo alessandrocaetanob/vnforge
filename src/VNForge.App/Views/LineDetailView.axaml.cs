@@ -34,7 +34,14 @@ public sealed partial class LineDetailView : UserControl
     private const int TranslationTabIndex = 0;
     private const int SuggestionTabIndex = 1;
 
+    private static readonly TimeSpan WordCloseDelay = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>A largura do cartão do dicionário acompanha a do original (360 no quadro), entre estes limites.</summary>
+    private const double WordCardMinWidth = 300;
+    private const double WordCardMaxWidth = 400;
+
     private readonly DispatcherTimer ageTimer;
+    private readonly DispatcherTimer wordCloseTimer;
     private readonly SpellingUnderlineRenderer spelling = new();
     private LineDetailViewModel? current;
     private bool syncing;
@@ -64,6 +71,34 @@ public sealed partial class LineDetailView : UserControl
         // O "há 2 min" do cartão da IA envelhece sozinho enquanto a linha fica aberta.
         ageTimer = new DispatcherTimer { Interval = AgeRefresh };
         ageTimer.Tick += (_, _) => current?.RefreshSuggestionAge();
+
+        // Dicionário offline (#538): o mouse sobre o original abre a entrada; sair do original e do cartão fecha depois de um instante, para dar tempo de chegar ao cartão.
+        wordCloseTimer = new DispatcherTimer { Interval = WordCloseDelay };
+        wordCloseTimer.Tick += (_, _) =>
+        {
+            wordCloseTimer.Stop();
+            current?.CloseWordCard();
+        };
+        SourceText.PointerMoved += OnSourcePointerMoved;
+        SourceText.PointerExited += (_, _) => wordCloseTimer.Start();
+        WordCardHost.PointerEntered += (_, _) => wordCloseTimer.Stop();
+        WordCardHost.PointerExited += (_, _) => wordCloseTimer.Start();
+    }
+
+    private void OnSourcePointerMoved(object? sender, PointerEventArgs e)
+    {
+        wordCloseTimer.Stop();
+        if (current is null)
+        {
+            return;
+        }
+
+        var hit = SourceText.TextLayout.HitTestPoint(e.GetPosition(SourceText));
+        if (hit.IsInside)
+        {
+            WordPopup.Width = Math.Clamp(OriginalBox.Bounds.Width, WordCardMinWidth, WordCardMaxWidth);
+            current.HoverSource(hit.TextPosition);
+        }
     }
 
     public static bool GetUseTabs(Control control) => control.GetValue(UseTabsProperty);
@@ -245,6 +280,7 @@ public sealed partial class LineDetailView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         ageTimer.Stop();
+        wordCloseTimer.Stop();
         current?.Flush();
         base.OnDetachedFromVisualTree(e);
     }
