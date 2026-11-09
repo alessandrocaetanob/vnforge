@@ -628,7 +628,7 @@
 
         <!-- Dicionários (#539): o pré normaliza o original antes da IA; o pós troca no texto traduzido, só quando a condição bate. -->
         <TabItem Header="Dicionários">
-          <Grid Margin="0,16,0,0" ColumnDefinitions="*,340" ColumnSpacing="16" IsEnabled="{Binding HasProject}">
+          <Grid Margin="0,22,0,0" ColumnDefinitions="*,340" ColumnSpacing="16" IsEnabled="{Binding HasProject}">
             <StackPanel Spacing="16" VerticalAlignment="Top">
 
               <Border Classes="panel" ClipToBounds="True" CornerRadius="{DynamicResource Vnf.RadiusLg}">
@@ -809,7 +809,7 @@
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:DictionaryConditionEditor">
-                        <Grid ColumnDefinitions="164,110,*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="140,110,*,Auto" ColumnSpacing="8">
                           <ComboBox Background="{DynamicResource Vnf.BgInset}" ItemsSource="{x:Static vm:DictionaryConditionEditor.KindLabels}" SelectedIndex="{Binding KindIndex}" HorizontalAlignment="Stretch"
                                     AutomationProperties.Name="Tipo da condição"/>
                           <ComboBox Grid.Column="1" Background="{DynamicResource Vnf.BgInset}" ItemsSource="{Binding Operators}" SelectedIndex="0" HorizontalAlignment="Stretch"
