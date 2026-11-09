@@ -120,18 +120,24 @@ public sealed class TranslationMemory(string directory)
     public MemorySyncResult SyncProject(ProjectFolder project, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(project);
-        var key = ProjectKeyOf(project);
-        var name = project.LoadConfig().Name;
-        var approved = project.LoadAllText().Values
-            .SelectMany(units => units)
-            .Select(unit => ToEntry(key, name, unit, now))
+        return Sync(ProjectKeyOf(project), project.LoadConfig().Name, project.LoadAllText().Values.SelectMany(units => units), now);
+    }
+
+    /// <summary>Como <see cref="SyncProject"/>, para quem já leu as linhas do projeto (o Editor): <paramref name="units"/> são todas as linhas dele.</summary>
+    /// <exception cref="MemoryFileException">O arquivo da memória não pôde ser lido ou gravado.</exception>
+    public MemorySyncResult Sync(string projectKey, string projectName, IEnumerable<TextUnit> units, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectKey);
+        ArgumentNullException.ThrowIfNull(units);
+        var approved = units
+            .Select(unit => ToEntry(projectKey, projectName, unit, now))
             .OfType<MemoryEntry>()
             .ToList();
 
         lock (gate)
         {
             var all = file.Load();
-            var before = all.Where(e => KeyComparer.Equals(e.ProjectKey, key)).ToDictionary(e => e.UnitId, StringComparer.Ordinal);
+            var before = all.Where(e => KeyComparer.Equals(e.ProjectKey, projectKey)).ToDictionary(e => e.UnitId, StringComparer.Ordinal);
             int added = 0, updated = 0;
             var merged = new List<MemoryEntry>(approved.Count);
             foreach (var entry in approved)
@@ -148,15 +154,15 @@ public sealed class TranslationMemory(string directory)
                 }
                 else
                 {
-                    merged.Add(old with { ProjectName = name });
-                    updated += old.ProjectName == name ? 0 : 1;
+                    merged.Add(old with { ProjectName = projectName });
+                    updated += old.ProjectName == projectName ? 0 : 1;
                 }
             }
 
             var removed = before.Count;
             if (added + updated + removed > 0)
             {
-                Persist(all.Where(e => !KeyComparer.Equals(e.ProjectKey, key)).Concat(merged).ToList());
+                Persist(all.Where(e => !KeyComparer.Equals(e.ProjectKey, projectKey)).Concat(merged).ToList());
             }
 
             return new MemorySyncResult(added, updated, removed, merged.Count);
@@ -175,6 +181,13 @@ public sealed class TranslationMemory(string directory)
         var entry = ToEntry(projectKey, projectName, unit, now);
         lock (gate)
         {
+            // O Editor chama a cada gravação, e quase todas não mexem na memória: a cópia em memória responde sem reler o arquivo.
+            var known = Current().Entries.FirstOrDefault(i => KeyComparer.Equals(i.Entry.ProjectKey, projectKey) && string.Equals(i.Entry.UnitId, unit.Id, StringComparison.Ordinal))?.Entry;
+            if (entry is null ? known is null : known is not null && known.Source == entry.Source && known.Target == entry.Target)
+            {
+                return false;
+            }
+
             var all = file.Load();
             var index = all.FindIndex(e => KeyComparer.Equals(e.ProjectKey, projectKey) && string.Equals(e.UnitId, unit.Id, StringComparison.Ordinal));
             if (entry is null)

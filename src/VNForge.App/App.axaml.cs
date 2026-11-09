@@ -6,6 +6,7 @@ using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 using VNForge.Engines.YuRis;
 
@@ -47,6 +48,7 @@ public sealed class App : Application
             {
                 Editor = new EditorViewModel(suggester: suggester, layoutMemory: new EditorLayoutMemory(configDirectory))
                 {
+                    Memory = new TranslationMemory(configDirectory),
                     Explanations = LineExplanations.ForUser(configDirectory, () => settings.Rate),
                     SuggestionPrice = unit => LineSuggester.PriceText(unit, LineSuggester.ReadModel(configDirectory), settings.Rate),
                 },

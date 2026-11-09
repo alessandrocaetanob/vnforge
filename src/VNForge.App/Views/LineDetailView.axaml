@@ -119,10 +119,50 @@
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding ExplainNotice}" IsVisible="{Binding HasExplainNotice}"/>
           </StackPanel>
 
-          <!-- Na cena: a fala anterior e a seguinte. -->
+          <!-- Memória de tradução (#537): o que já foi aprovado em outros projetos para esta fala ou uma parecida. "Usar" põe o texto no campo; nada grava sozinho. -->
+          <Border x:Name="MemoryFragment" Classes="memory" IsVisible="{Binding HasMemory}" AutomationProperties.Name="Memória de tradução">
+            <StackPanel Spacing="2">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Book}"/>
+                  <TextBlock Classes="overline" Text="Memória de tradução"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding MemorySummary}"/>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding MemorySuggestions}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MemorySuggestionViewModel">
+                    <Border Classes="memory-item">
+                      <StackPanel Spacing="2">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                          <Border Classes="memory-pill" Classes.exact="{Binding IsExact}" VerticalAlignment="Center">
+                            <TextBlock Classes="mono" Text="{Binding PercentText}" AutomationProperties.Name="{Binding PercentText, StringFormat='Correspondência de {0}'}"/>
+                          </Border>
+                          <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Target}" ToolTip.Tip="{Binding Target}"/>
+                          <Button Grid.Column="2" Classes="sm" Content="Usar" AutomationProperties.Name="{Binding UseName}"
+                                  Command="{Binding $parent[UserControl].((vm:LineDetailViewModel)DataContext).UseMemoryCommand}" CommandParameter="{Binding}"/>
+                        </Grid>
+                        <TextBlock Classes="caption secondary" TextTrimming="CharacterEllipsis" Text="{Binding Origin}"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <!-- Na cena: a fala anterior e a seguinte. Com o cartão da memória aberto fica recolhido, e o cabeçalho abre. -->
           <StackPanel x:Name="SceneFragment" Spacing="6" IsVisible="{Binding HasScene}">
-            <TextBlock Classes="overline" Text="Na cena"/>
-            <c:ContextLines x:Name="SceneLines" ItemsSource="{Binding Scene}" AutomationProperties.Name="Na cena"/>
+            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !HasMemory}"/>
+            <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding HasMemory}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding IsSceneCollapsed}"/>
+                <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding !IsSceneCollapsed}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" Text="Na cena"/>
+                <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding SceneCountText}"/>
+              </Grid>
+            </Button>
+            <c:ContextLines x:Name="SceneLines" ItemsSource="{Binding Scene}" IsVisible="{Binding !IsSceneCollapsed}" AutomationProperties.Name="Na cena"/>
           </StackPanel>
 
           <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
