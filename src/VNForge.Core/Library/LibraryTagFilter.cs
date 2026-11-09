@@ -121,8 +121,8 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
     /// </summary>
     internal LibraryTagFilter Renamed(string from, string to, List<string> notices)
     {
-        var include = Rewrite(Include, from, term => term with { Name = to });
-        var exclude = Rewrite(Exclude, from, term => term with { Name = to });
+        var include = Rewrite(Include, from, term => term with { Name = to }, out _);
+        var exclude = Rewrite(Exclude, from, term => term with { Name = to }, out _);
         var conflicts = include.Where(t => OwnNamed(t, to)).ToList();
         if (conflicts.Count > 0 && exclude.Any(t => OwnNamed(t, to)))
         {
@@ -139,21 +139,11 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
     /// </summary>
     internal LibraryTagFilter Without(string name, bool vndbStillMatches, List<string> notices)
     {
-        var converted = new List<LibraryTagTerm>();
-        LibraryTagTerm? Keep(LibraryTagTerm term)
-        {
-            if (term.Scope != LibraryTagScope.Any || !vndbStillMatches)
-            {
-                return null;
-            }
+        LibraryTagTerm? Keep(LibraryTagTerm term) =>
+            term.Scope == LibraryTagScope.Any && vndbStillMatches ? term with { Scope = LibraryTagScope.Vndb } : null;
 
-            var vndbTerm = term with { Scope = LibraryTagScope.Vndb };
-            converted.Add(vndbTerm);
-            return vndbTerm;
-        }
-
-        var include = Rewrite(Include, name, Keep);
-        var exclude = Rewrite(Exclude, name, Keep);
+        var include = Rewrite(Include, name, Keep, out var convertedInclude);
+        var exclude = Rewrite(Exclude, name, Keep, out var convertedExclude);
         if ((Include.Count > 0 && include.Count == 0) || (!IsEmpty && include.Count + exclude.Count == 0))
         {
             notices.Add($"O filtro salvo foi apagado: ele dependia da tag '{name}'.");
@@ -166,7 +156,7 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
             notices.Add($"O filtro salvo perdeu {(lost == 1 ? "um termo" : $"{lost} termos")} que apontava para a tag '{name}'.");
         }
 
-        if (converted.Count > 0)
+        if (convertedInclude + convertedExclude > 0)
         {
             notices.Add($"No filtro salvo, '{name}' agora vale só para a tag do VNDB com esse nome.");
         }
@@ -216,10 +206,11 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
     private static List<string> Terms(IEnumerable<string>? texts) =>
         [.. (texts ?? []).Select(t => LibraryTagTerm.Parse(t).ToString()).Distinct(StringComparer.Ordinal)];
 
-    /// <summary>Aplica <paramref name="map"/> aos termos de tag própria chamados <paramref name="name"/> (nulo tira o termo); os demais ficam como estão.</summary>
-    private static List<string> Rewrite(IReadOnlyList<string> terms, string name, Func<LibraryTagTerm, LibraryTagTerm?> map)
+    /// <summary>Aplica <paramref name="map"/> aos termos de tag própria chamados <paramref name="name"/> (nulo tira o termo); os demais ficam como estão. <paramref name="mapped"/> conta os termos que <paramref name="map"/> manteve.</summary>
+    private static List<string> Rewrite(IReadOnlyList<string> terms, string name, Func<LibraryTagTerm, LibraryTagTerm?> map, out int mapped)
     {
         var result = new List<string>();
+        mapped = 0;
         foreach (var text in terms)
         {
             var term = LibraryTagTerm.Parse(text);
@@ -227,9 +218,10 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
             {
                 result.Add(text);
             }
-            else if (map(term) is { } mapped)
+            else if (map(term) is { } replacement)
             {
-                result.Add(mapped.ToString());
+                mapped++;
+                result.Add(replacement.ToString());
             }
         }
 
