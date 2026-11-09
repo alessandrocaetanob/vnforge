@@ -46,9 +46,10 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(source, destination, overwrite: true);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Outra execução está gravando o mesmo PNG: o teste já conferiu o quadro dele.
+            // Candidato à instabilidade do Editor_lendo, nunca reproduzido: duas execuções copiando o mesmo PNG ao mesmo tempo (no Windows, sobrescrever
+            // um arquivo aberto pode dar acesso negado). O teste já conferiu o quadro dele, então a publicação é descartada.
         }
     }
 
@@ -71,6 +72,7 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
     [Fact]
     public Task Painel_lendo() => OnUi(async () =>
     {
+        using var temp = new TempFolder();
         var gate = new ManualResetEventSlim();
         var dashboard = new DashboardViewModel(_ =>
         {
@@ -78,7 +80,7 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
             throw new IOException("liberado");
         })
         {
-            Project = EditorFixtures.Summary(),
+            Project = EditorFixtures.Summary(root: temp.Path),
         };
         var reload = dashboard.ReloadAsync();
         try
@@ -105,25 +107,31 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
     [Fact]
     public Task Editor_sem_linhas() => OnUi(async () =>
     {
-        var editor = new EditorViewModel(_ => EditorFixtures.Lines()) { Project = EditorFixtures.Summary() };
+        using var temp = new TempFolder();
+        var editor = new EditorViewModel(_ => EditorFixtures.Lines()) { Project = EditorFixtures.Summary(root: temp.Path) };
         await editor.Loading;
         Render(new EditorView { DataContext = editor }, "editor-vazio");
     });
 
+    // A pasta do projeto é uma pasta vazia da execução, e não o caminho fixo de EditorFixtures.Summary, para a leitura em segundo plano não depender
+    // do disco da máquina. Isso é higiene: não há evidência de que o caminho fixo causasse a instabilidade. O candidato à causa é a publicação do PNG
+    // (ver Publish), que não foi reproduzida.
     [Fact]
     public Task Editor_lendo() => OnUi(async () =>
     {
-        var gate = new ManualResetEventSlim();
+        using var temp = new TempFolder();
+        using var gate = new ManualResetEventSlim();
         var editor = new EditorViewModel(_ =>
         {
             gate.Wait();
             return EditorFixtures.Lines();
         })
         {
-            Project = EditorFixtures.Summary(),
+            Project = EditorFixtures.Summary(root: temp.Path),
         };
         try
         {
+            Assert.True(editor.IsLoading);
             Render(new EditorView { DataContext = editor }, "editor-lendo");
         }
         finally
