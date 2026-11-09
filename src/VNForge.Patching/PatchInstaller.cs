@@ -47,6 +47,14 @@ public sealed record PatchInstallResult(IReadOnlyList<string> Written, string Ba
 /// <param name="Kept">Arquivos que mudaram depois da instalação: a desinstalação os deixa em paz.</param>
 public sealed record PatchUninstallResult(IReadOnlyList<string> Restored, IReadOnlyList<string> Removed, IReadOnlyList<string> Kept);
 
+/// <param name="Version">A versão do patch que está instalada.</param>
+/// <param name="Restore">Arquivos que voltam ao original, a partir da cópia em <see cref="PatchInstaller.BackupFolderName"/>.</param>
+/// <param name="Remove">Arquivos que o patch criou e a desinstalação apaga.</param>
+/// <param name="Kept">Arquivos que mudaram depois da instalação: ficam como estão.</param>
+/// <param name="BrokenBackups">Arquivos cuja cópia do original sumiu ou não confere; com algum, a desinstalação não grava nada.</param>
+/// <param name="InstalledAt">Quando a instalação gravou o manifesto pela última vez; nulo se o arquivo sumiu.</param>
+public sealed record PatchUninstallPlan(string Version, IReadOnlyList<string> Restore, IReadOnlyList<string> Remove, IReadOnlyList<string> Kept, IReadOnlyList<string> BrokenBackups, DateTimeOffset? InstalledAt);
+
 /// <summary>
 /// Aplica e desfaz o patch na pasta do jogo. Só toca um jogo cujos arquivos têm o SHA-256 da versão de referência; guarda os originais em
 /// <see cref="BackupFolderName"/> e confere a cópia antes de gravar qualquer coisa (regra 2 do CLAUDE.md); grava cada arquivo num temporário e só então o
@@ -211,16 +219,60 @@ public static class PatchInstaller
     public static PatchUninstallResult Uninstall(string gameDirectory, IProgress<PatchProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
-        var manifest = ReadManifest(gameDirectory);
-        if (manifest is not { Installed: true })
+        var manifest = ReadInstalled(gameDirectory);
+        var backupRoot = Path.Combine(gameDirectory, BackupFolderName);
+        var (restore, remove, kept, broken) = ClassifyForUninstall(gameDirectory, manifest, backupRoot);
+        if (broken.Count > 0)
         {
-            throw new PatchException("Não achei uma tradução instalada por este instalador nesta pasta.");
+            throw new PatchException($"A cópia do original de {broken[0]} em '{BackupFolderName}' sumiu ou não confere. Nada foi alterado; reinstale o jogo.");
         }
 
-        var backupRoot = Path.Combine(gameDirectory, BackupFolderName);
+        var total = restore.Count + remove.Count;
+        var restored = new List<string>();
+        foreach (var record in restore)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new PatchProgress(PatchPhase.Restore, record.Path, restored.Count, total));
+            CopyReplacing(GamePaths.Resolve(backupRoot, record.Path), GamePaths.Resolve(gameDirectory, record.Path), record.OriginalSha256!);
+            restored.Add(record.Path);
+        }
+
+        var removed = new List<string>();
+        foreach (var path in remove.Select(record => record.Path))
+        {
+            progress?.Report(new PatchProgress(PatchPhase.Restore, path, restored.Count + removed.Count, total));
+            File.Delete(GamePaths.Resolve(gameDirectory, path));
+            removed.Add(path);
+        }
+
+        WriteManifest(gameDirectory, manifest with { Installed = false });
+        progress?.Report(new PatchProgress(PatchPhase.Restore, null, total, total));
+        return new PatchUninstallResult(restored, removed, kept);
+    }
+
+    /// <summary>O que <see cref="Uninstall"/> faria agora, sem gravar nada: o que volta ao original, o que o patch criou, o que mudou depois e as cópias que não conferem.</summary>
+    /// <exception cref="PatchException">Não há instalação nesta pasta.</exception>
+    public static PatchUninstallPlan PlanUninstall(string gameDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
+        var manifest = ReadInstalled(gameDirectory);
+        var (restore, remove, kept, broken) = ClassifyForUninstall(gameDirectory, manifest, Path.Combine(gameDirectory, BackupFolderName));
+        var manifestFile = Path.Combine(gameDirectory, BackupFolderName, ManifestFileName);
+        DateTimeOffset? installedAt = File.Exists(manifestFile) ? new DateTimeOffset(File.GetLastWriteTimeUtc(manifestFile), TimeSpan.Zero) : null;
+        return new PatchUninstallPlan(manifest.Version, restore.ConvertAll(r => r.Path), remove.ConvertAll(r => r.Path), kept, broken, installedAt);
+    }
+
+    private static InstallManifest ReadInstalled(string gameDirectory) =>
+        ReadManifest(gameDirectory) is { Installed: true } manifest
+            ? manifest
+            : throw new PatchException("Não achei uma tradução instalada por este instalador nesta pasta.");
+
+    private static (List<InstallRecord> Restore, List<InstallRecord> Remove, List<string> Kept, List<string> Broken) ClassifyForUninstall(string gameDirectory, InstallManifest manifest, string backupRoot)
+    {
         var restore = new List<InstallRecord>();
         var remove = new List<InstallRecord>();
         var kept = new List<string>();
+        var broken = new List<string>();
         foreach (var record in manifest.Files)
         {
             var target = GamePaths.Resolve(gameDirectory, record.Path);
@@ -255,36 +307,17 @@ public static class PatchInstaller
                 continue;
             }
 
-            var backup = GamePaths.Resolve(backupRoot, record.Path);
-            if (GamePaths.ShaOrNull(backup) != record.OriginalSha256)
+            if (GamePaths.ShaOrNull(GamePaths.Resolve(backupRoot, record.Path)) == record.OriginalSha256)
             {
-                throw new PatchException($"A cópia do original de {record.Path} em '{BackupFolderName}' sumiu ou não confere. Nada foi alterado; reinstale o jogo.");
+                restore.Add(record);
             }
-
-            restore.Add(record);
+            else
+            {
+                broken.Add(record.Path);
+            }
         }
 
-        var total = restore.Count + remove.Count;
-        var restored = new List<string>();
-        foreach (var record in restore)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(new PatchProgress(PatchPhase.Restore, record.Path, restored.Count, total));
-            CopyReplacing(GamePaths.Resolve(backupRoot, record.Path), GamePaths.Resolve(gameDirectory, record.Path), record.OriginalSha256!);
-            restored.Add(record.Path);
-        }
-
-        var removed = new List<string>();
-        foreach (var path in remove.Select(record => record.Path))
-        {
-            progress?.Report(new PatchProgress(PatchPhase.Restore, path, restored.Count + removed.Count, total));
-            File.Delete(GamePaths.Resolve(gameDirectory, path));
-            removed.Add(path);
-        }
-
-        WriteManifest(gameDirectory, manifest with { Installed = false });
-        progress?.Report(new PatchProgress(PatchPhase.Restore, null, total, total));
-        return new PatchUninstallResult(restored, removed, kept);
+        return (restore, remove, kept, broken);
     }
 
     /// <summary>A versão instalada nesta pasta, se houver uma instalação nossa.</summary>

@@ -1,0 +1,78 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- O .v3-btn do quadro pesa 600. Desligado, o botão comum vira o "dis" do quadro: texto terciário, borda subtle e sem fundo. -->
+  <Style Selector="Button">
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+  </Style>
+
+  <!-- O .v3-btn.subtle do quadro tem texto text-secondary e passa a text-primary com o mouse em cima. -->
+  <Style Selector="Button.subtle">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="Button.subtle /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="Button.subtle:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+  </Style>
+
+  <!-- Botões da barra de título (44 por 32, como o .wc do quadro): sem borda e sem raio; fechar fica vermelho com o mouse em cima. -->
+  <Style Selector="Button.caption-button">
+    <Setter Property="Width" Value="44"/>
+    <Setter Property="Height" Value="32"/>
+    <Setter Property="MinHeight" Value="32"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="0"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button.caption-button /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="CornerRadius" Value="0"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="Button.caption-button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="Button.caption-button.close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/>
+  </Style>
+
+  <!-- O cartão do quadro (.ck): borda stroke-subtle, fundo bg-card, raio md; com erro, a borda vira signal-error-fg. -->
+  <Style Selector="Border.ck">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    <Setter Property="Padding" Value="14,12"/>
+  </Style>
+  <Style Selector="Border.ck.bad">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+  </Style>
+
+  <!-- O .x-bar do quadro: 8 de altura, raio 4, trilho bg-inset e enchimento accent. -->
+  <Style Selector="ProgressBar.install">
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Height" Value="{DynamicResource Vnf.ProgressHeight}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="CornerRadius" Value="4"/>
+  </Style>
+  <Style Selector="ProgressBar.install /template/ Border#PART_Indicator">
+    <Setter Property="CornerRadius" Value="0"/>
+  </Style>
+  <Style Selector="ProgressBar.install /template/ Border#PART_Track">
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="ClipToBounds" Value="True"/>
+  </Style>
+</Styles>
