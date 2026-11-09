@@ -3,8 +3,9 @@ using VNForge.Patching;
 namespace VNForge.Installer;
 
 /// <summary>
-/// O instalador de console: confere a versão do jogo, guarda os originais, aplica o patch e desinstala. Os textos e a ordem seguem o quadro #540
-/// (pasta, conferência, instalação, concluído, versão errada, já instalada); a janela de 720×480 do quadro é a referência visual, esta é a mesma sequência em texto.
+/// O modo de console do instalador, para automação e testes de ponta a ponta: <c>--silencioso</c> instala ou desinstala sem perguntar,
+/// <c>--ajuda</c> e <c>--licencas</c> só escrevem. O jogador comum não passa por aqui: sem essas opções o instalador abre as janelas
+/// (<see cref="ViewModels.InstallerViewModel"/>). A ordem e os textos das etapas seguem as das janelas.
 /// </summary>
 public static class InstallerApp
 {
@@ -13,36 +14,49 @@ public static class InstallerApp
     public const int WrongVersion = 3;
     public const int Cancelled = 4;
 
+    public const string HelpText =
+        """
+        Uso: instalador [--pasta <pasta do jogo>] [--desinstalar] [--silencioso] [--licencas]
+          Sem --silencioso, o instalador abre a janela; --pasta já deixa a pasta escolhida.
+          --pasta         pasta onde o jogo está instalado
+          --silencioso    instala (ou, com --desinstalar, volta ao jogo original) sem janela e sem perguntas, e escreve o andamento
+          --desinstalar   volta ao jogo original (só com --silencioso)
+          --licencas      mostra as licenças das bibliotecas que o instalador usa
+        Códigos de saída: 0 feito, 2 falhou, 3 o jogo não é da versão esperada, 4 cancelado.
+        """;
 
     /// <param name="package">O patch embutido no executável; nulo num instalador vazio.</param>
     /// <param name="currentDirectory">Onde o jogador abriu o instalador; é a primeira pasta tentada.</param>
     /// <param name="executableDirectory">Pasta do instalador; é a segunda tentativa, depois a pasta acima dela.</param>
-    public static int Run(string[] args, TextReader input, TextWriter output, PatchPackage? package, string currentDirectory, string? executableDirectory = null)
+    public static int Run(InstallerArguments arguments, TextWriter output, PatchPackage? package, string currentDirectory, string? executableDirectory = null)
     {
-        if (args.Contains("--ajuda") || args.Contains("-h") || args.Contains("-?"))
+        ArgumentNullException.ThrowIfNull(arguments);
+        if (arguments.Help)
         {
-            output.WriteLine("Uso: instalador [--pasta <pasta do jogo>] [--desinstalar] [--silencioso]");
-            output.WriteLine("  --pasta         pasta onde o jogo está instalado (sem isso, o instalador procura e pergunta)");
-            output.WriteLine("  --desinstalar   volta ao jogo original");
-            output.WriteLine("  --silencioso    não faz perguntas");
-            output.WriteLine("  --licencas      mostra as licenças das bibliotecas que o instalador usa");
+            output.WriteLine(HelpText);
             return Ok;
         }
 
-        if (args.Contains("--licencas"))
+        if (arguments.Licenses)
         {
             output.WriteLine(ThirdPartyLicenses.Text);
             return Ok;
         }
 
-        if (package is null)
+        if (arguments.Error is not null)
         {
-            output.WriteLine("Este instalador está vazio: não achei o patch dentro dele. Baixe o instalador de novo.");
+            output.WriteLine(arguments.Error);
             return Failed;
         }
 
-        var silent = args.Contains("--silencioso");
-        var manifest = package.Manifest;
+        if (package is null)
+        {
+            output.WriteLine(EmptyInstallerText);
+            return Failed;
+        }
+
+        var engine = new PatchEngine(package);
+        var manifest = engine.Manifest;
         output.WriteLine($"{manifest.GameName} · Tradução para português do Brasil");
         output.WriteLine($"Versão {manifest.Version}");
         if (!string.IsNullOrWhiteSpace(manifest.Credits))
@@ -53,15 +67,8 @@ public static class InstallerApp
         output.WriteLine();
         try
         {
-            var folder = ChooseFolder(args, input, output, package, silent, currentDirectory, executableDirectory);
-            if (folder is null)
-            {
-                return Cancelled;
-            }
-
-            return args.Contains("--desinstalar")
-                ? Uninstall(folder, input, output, silent)
-                : InstallOrOffer(folder, input, output, package, silent);
+            var folder = ChooseFolder(arguments, output, engine, currentDirectory, executableDirectory);
+            return arguments.Uninstall ? Uninstall(engine, folder, output) : Install(engine, folder, output);
         }
         catch (PatchException ex)
         {
@@ -70,11 +77,14 @@ public static class InstallerApp
         }
     }
 
-    private static int InstallOrOffer(string folder, TextReader input, TextWriter output, PatchPackage package, bool silent)
+    /// <summary>O texto de quem abre um instalador que não tem patch dentro.</summary>
+    public const string EmptyInstallerText = "Este instalador está vazio: não achei o patch dentro dele. Baixe o instalador de novo.";
+
+    private static int Install(IInstallerEngine engine, string folder, TextWriter output)
     {
-        var manifest = package.Manifest;
+        var manifest = engine.Manifest;
         output.WriteLine("[1/4] Conferir a versão do jogo");
-        var check = PatchInstaller.Check(folder, package);
+        var check = engine.Check(folder);
         switch (check.State)
         {
             case PatchCheckState.WrongVersion:
@@ -84,46 +94,28 @@ public static class InstallerApp
 
             case PatchCheckState.AlreadyInstalled:
                 output.WriteLine($"A tradução {manifest.Version} já está instalada.");
-                output.WriteLine("Voltar ao jogo original apaga a tradução do jogo e não mexe nos seus saves.");
-                return !silent && Ask(input, output, "Voltar ao jogo original?", defaultYes: false) ? Uninstall(folder, input, output, silent: true) : Ok;
+                output.WriteLine("Para voltar ao jogo original, use --desinstalar --silencioso.");
+                return Ok;
         }
 
         output.WriteLine($"Jogo conferido: {check.Files.Count} arquivo(s) para alterar.");
-        if (!silent && !Ask(input, output, "Antes de mexer no jogo, o instalador guarda uma cópia dos arquivos originais. Instalar?", defaultYes: true))
-        {
-            output.WriteLine("Nada foi alterado.");
-            return Cancelled;
-        }
-
-        var result = PatchInstaller.Install(folder, package, new PhaseWriter(output));
+        var result = engine.Install(folder, new PhaseWriter(output), CancellationToken.None);
         output.WriteLine();
         output.WriteLine("Tradução instalada. Abra o jogo normalmente.");
         output.WriteLine($"{result.Written.Count} arquivo(s) alterado(s). Os originais estão guardados em {result.BackupDirectory}.");
         output.WriteLine("Para voltar ao jogo original, execute este instalador de novo e escolha Voltar ao jogo original.");
-        if (!silent && !string.IsNullOrWhiteSpace(manifest.ReadMe) && Ask(input, output, "Ler o leia-me?", defaultYes: false))
-        {
-            output.WriteLine();
-            output.WriteLine(manifest.ReadMe);
-        }
-
         return Ok;
     }
 
-    private static int Uninstall(string folder, TextReader input, TextWriter output, bool silent)
+    private static int Uninstall(IInstallerEngine engine, string folder, TextWriter output)
     {
-        if (PatchInstaller.InstalledVersion(folder) is not { } version)
+        if (PatchInstaller.InstalledVersion(folder) is null)
         {
             output.WriteLine("Não achei uma tradução instalada por este instalador nesta pasta.");
             return Failed;
         }
 
-        if (!silent && !Ask(input, output, $"Voltar ao jogo original (tira a tradução {version})?", defaultYes: false))
-        {
-            output.WriteLine("Nada foi alterado.");
-            return Cancelled;
-        }
-
-        var result = PatchInstaller.Uninstall(folder, new PhaseWriter(output));
+        var result = engine.Uninstall(folder, new PhaseWriter(output), CancellationToken.None);
         output.WriteLine($"{result.Restored.Count + result.Removed.Count} arquivo(s) voltaram ao original, byte a byte.");
         foreach (var kept in result.Kept)
         {
@@ -133,37 +125,20 @@ public static class InstallerApp
         return Ok;
     }
 
-    private static string? ChooseFolder(string[] args, TextReader input, TextWriter output, PatchPackage package, bool silent, string currentDirectory, string? executableDirectory)
+    private static string ChooseFolder(InstallerArguments arguments, TextWriter output, IInstallerEngine engine, string currentDirectory, string? executableDirectory)
     {
-        var index = Array.IndexOf(args, "--pasta");
-        if (index >= 0)
+        if (arguments.Folder is not null)
         {
-            return index + 1 < args.Length ? Path.GetFullPath(args[index + 1], currentDirectory) : throw new PatchException("--pasta precisa de um caminho.");
+            return Path.GetFullPath(arguments.Folder, currentDirectory);
         }
 
-        var guess = new[] { currentDirectory, executableDirectory, executableDirectory is null ? null : Path.GetDirectoryName(executableDirectory) }
-            .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
-            .FirstOrDefault(d => PatchInstaller.Check(d!, package).State != PatchCheckState.WrongVersion);
-        if (guess is not null && (silent || Ask(input, output, $"Pasta do jogo: {guess}\nUsar esta pasta?", defaultYes: true)))
+        if (GameFolderLocator.Find(engine, GameFolderLocator.Candidates(currentDirectory, executableDirectory)) is { } found)
         {
-            return guess;
+            output.WriteLine($"Pasta do jogo: {found.Folder}");
+            return found.Folder;
         }
 
-        if (silent)
-        {
-            throw new PatchException("Não achei a pasta do jogo. Use --pasta <pasta do jogo>.");
-        }
-
-        output.Write("Escolha a pasta onde o jogo está instalado: ");
-        var typed = input.ReadLine()?.Trim().Trim('"');
-        return string.IsNullOrEmpty(typed) ? null : Path.GetFullPath(typed, currentDirectory);
-    }
-
-    private static bool Ask(TextReader input, TextWriter output, string question, bool defaultYes)
-    {
-        output.Write($"{question} [{(defaultYes ? "S/n" : "s/N")}] ");
-        var answer = input.ReadLine()?.Trim();
-        return string.IsNullOrEmpty(answer) ? defaultYes : answer.StartsWith('s') || answer.StartsWith('S') || answer.StartsWith('y') || answer.StartsWith('Y');
+        throw new PatchException("Não achei a pasta do jogo. Use --pasta <pasta do jogo>.");
     }
 
     private sealed class PhaseWriter(TextWriter output) : IProgress<PatchProgress>

@@ -160,6 +160,50 @@ public class PatchRoundTripTests
     }
 
     [Fact]
+    public void O_plano_da_desinstalacao_diz_o_que_volta_sem_mexer_em_nada()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        PatchInstaller.Install(game.Game, package, null, Ct);
+        var before = SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf"));
+
+        var plan = PatchInstaller.PlanUninstall(game.Game);
+
+        Assert.Equal(["Game/Game.exe", "Game/script.ypf"], plan.Restore.Order(StringComparer.Ordinal));
+        Assert.Equal([SyntheticGame.CreatedFile], plan.Remove);
+        Assert.Empty(plan.Kept);
+        Assert.Empty(plan.BrokenBackups);
+        Assert.Equal("1.2.0", plan.Version);
+        Assert.True(plan.InstalledAt is not null && plan.InstalledAt > DateTimeOffset.UtcNow.AddMinutes(-5));
+        Assert.Equal(before, SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf")));
+    }
+
+    [Fact]
+    public void O_plano_da_desinstalacao_acusa_a_copia_que_sumiu_e_o_arquivo_mexido()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        PatchInstaller.Install(game.Game, package, null, Ct);
+        File.Delete(Path.Combine(game.Game, PatchInstaller.BackupFolderName, "Game/script.ypf"));
+        File.WriteAllBytes(Path.Combine(game.Game, "Game/Game.exe"), [1, 2, 3]);
+
+        var plan = PatchInstaller.PlanUninstall(game.Game);
+
+        Assert.Equal(["Game/script.ypf"], plan.BrokenBackups);
+        Assert.Equal(["Game/Game.exe"], plan.Kept);
+        var ex = Assert.Throws<PatchException>(() => PatchInstaller.Uninstall(game.Game, null, Ct));
+        Assert.Contains("Game/script.ypf", ex.Message);
+    }
+
+    [Fact]
+    public void O_plano_da_desinstalacao_sem_instalacao_e_recusado()
+    {
+        using var game = new SyntheticGame();
+
+        Assert.Throws<PatchException>(() => PatchInstaller.PlanUninstall(game.Game));
+    }
+
+    [Fact]
     public void Pacote_que_nao_e_um_patch_e_recusado()
     {
         Assert.Throws<PatchException>(() => PatchPackage.Open(new MemoryStream(new byte[64])));
