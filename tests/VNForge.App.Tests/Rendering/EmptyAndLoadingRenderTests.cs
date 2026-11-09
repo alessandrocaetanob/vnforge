@@ -46,9 +46,9 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(source, destination, overwrite: true);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Outra execução está gravando o mesmo PNG: o teste já conferiu o quadro dele.
+            // Outra execução está gravando o mesmo PNG (no Windows, sobrescrever um arquivo aberto pode dar acesso negado): o teste já conferiu o quadro dele.
         }
     }
 
@@ -110,20 +110,27 @@ public sealed class EmptyAndLoadingRenderTests(HeadlessFixture fixture) : IClass
         Render(new EditorView { DataContext = editor }, "editor-vazio");
     });
 
+    // A leitura em segundo plano roda o loader preso na porta e, depois dela, o contexto e os nomes dos capítulos. O contexto vai por injeção e a pasta do
+    // projeto é uma pasta vazia da execução: com o caminho fixo de EditorFixtures.Summary, essa leitura iria ao disco da máquina, e o que existir lá
+    // (ou outra execução gravando) mudaria o resultado de um teste que só quer ver o estado "lendo".
     [Fact]
     public Task Editor_lendo() => OnUi(async () =>
     {
-        var gate = new ManualResetEventSlim();
-        var editor = new EditorViewModel(_ =>
+        using var temp = new TempFolder();
+        using var gate = new ManualResetEventSlim();
+        var editor = new EditorViewModel(
+            _ =>
+            {
+                gate.Wait();
+                return EditorFixtures.Lines();
+            },
+            contextLoader: _ => EditorContext.Empty)
         {
-            gate.Wait();
-            return EditorFixtures.Lines();
-        })
-        {
-            Project = EditorFixtures.Summary(),
+            Project = EditorFixtures.Summary(root: temp.Path),
         };
         try
         {
+            Assert.True(editor.IsLoading);
             Render(new EditorView { DataContext = editor }, "editor-lendo");
         }
         finally
