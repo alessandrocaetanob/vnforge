@@ -44,7 +44,7 @@ public sealed class App : Application
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
             var suggester = LineSuggester.ForUser(configDirectory);
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
-                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings))
+                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings) { PersonalGlossary = new PersonalGlossary(configDirectory) })
             {
                 Editor = new EditorViewModel(suggester: suggester, layoutMemory: new EditorLayoutMemory(configDirectory))
                 {

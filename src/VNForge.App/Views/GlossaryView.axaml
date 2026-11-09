@@ -432,7 +432,7 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:PersonalTermRow">
                         <Grid ColumnDefinitions="140,*,1.2*,90,150" ColumnSpacing="12" Margin="16,0" MinHeight="44">
-                          <TextBlock Classes="jp-body" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Source}"/>
+                          <TextBlock Classes="jp-body" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Source}"/>
                           <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Target}"/>
                           <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Notes}" ToolTip.Tip="{Binding Notes}"/>
                           <TextBlock Grid.Column="3" Classes="body-sm" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding ProjectsText}"/>
@@ -483,7 +483,7 @@
                         <DataTemplate x:DataType="vm:KeepCandidateRow">
                           <Border Classes="divider-top" Padding="0,8">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                              <TextBlock Classes="jp-body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Label}" ToolTip.Tip="{Binding Label}"/>
+                              <TextBlock Classes="jp-body" FontSize="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Label}" ToolTip.Tip="{Binding Label}"/>
                               <Button Grid.Column="1" Classes="sm" Content="Guardar" AutomationProperties.Name="{Binding Label, StringFormat='Guardar {0} no glossário pessoal'}"
                                       Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Personal.KeepCommand}" CommandParameter="{Binding}"/>
                             </Grid>

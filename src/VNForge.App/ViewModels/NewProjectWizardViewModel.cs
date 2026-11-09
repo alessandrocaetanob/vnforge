@@ -6,6 +6,7 @@ using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Engines;
+using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
@@ -111,6 +112,9 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
     /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
+    /// <summary>O glossário pessoal (#537): os termos marcados entram no <c>glossary.json</c> do projeto novo. Nulo cria o projeto sem eles.</summary>
+    public PersonalGlossary? PersonalGlossary { get; init; }
+
     public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null)
     {
         this.tasks = tasks;
@@ -530,7 +534,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         try
         {
             var options = BuildOptions();
-            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options));
+            var result = await Task.Run(() => ProjectInitializer.Initialize(ProjectDirectory!, GameFolder!, engines, options, PersonalGlossary));
             Created = new ProjectResultInfo(result.Config.Name, result.Folder.Root);
             Step = WizardStep.Done;
             SaveBudget();
