@@ -2,6 +2,7 @@ using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
+using VNForge.Core.Images;
 using VNForge.Core.Injection;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -168,7 +169,8 @@ public static class ProjectBuilder
             state[GameTitleKey] = new BuildStateScript(BuildState.HashTitle(title.Script.Original, BuildState.EncoderKey(encoder), title.Text), Identical: false, 0);
         }
 
-        if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project))
+        var imageFingerprint = ImageBuild.Fingerprint(project);
+        if (previous is not null && built.Count == 0 && SameScripts(previous, state) && previous.ArchivesIntact(project) && (previous.ImageFingerprint ?? string.Empty) == imageFingerprint)
         {
             warnings.AddRange(previous.Warnings);
             if (previous.TextFingerprint != fingerprint)
@@ -184,12 +186,16 @@ public static class ProjectBuilder
         try
         {
             Directory.CreateDirectory(staging);
-            var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, GameInjector.CreateOriginalResolver(project, gameDirectory), cancellationToken);
+            var originalOf = GameInjector.CreateOriginalResolver(project, gameDirectory);
+            var packed = repacker.Repack(gameDirectory, project.GameCacheDirectory, rebuilt, staging, originalOf, cancellationToken);
+            var images = ImageBuild.Apply(project, gameDirectory, engine.Archives, staging, originalOf, cancellationToken);
+            var archives = MergeImageArchives(packed.Archives, images.Archives);
             warnings.AddRange(packed.Warnings);
+            warnings.AddRange(images.Warnings);
             cancellationToken.ThrowIfCancellationRequested();
             Swap(staging, project.BuildDirectory);
-            new BuildState(BuildState.CurrentVersion, state, [.. packed.Archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings], fingerprint).TrySave(project);
-            return new BuildResult(gameDirectory, project.BuildDirectory, packed.Archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused, GameTitle = title?.Text };
+            new BuildState(BuildState.CurrentVersion, state, [.. archives.Select(a => new BuildStateArchive(a.GamePath, a.ReplacedFiles, ArchiveLength(project, a.GamePath)))], [.. packed.Warnings, .. images.Warnings], fingerprint, imageFingerprint).TrySave(project);
+            return new BuildResult(gameDirectory, project.BuildDirectory, archives, game.Scripts.Count, built, warnings, report, qaReport) { ReusedScripts = reused, GameTitle = title?.Text };
         }
         catch
         {
@@ -456,6 +462,31 @@ public static class ProjectBuilder
         }
 
         return BuildState.ReadScript(project, key, saved) is { } cached ? (saved, cached) : null;
+    }
+
+    /// <summary>Soma as imagens trocadas ao pacote que o passo dos scripts já gravou, ou acrescenta o pacote que só tem imagens.</summary>
+    private static IReadOnlyList<RepackedArchive> MergeImageArchives(IReadOnlyList<RepackedArchive> scripts, IReadOnlyList<RepackedArchive> images)
+    {
+        if (images.Count == 0)
+        {
+            return scripts;
+        }
+
+        var merged = scripts.ToList();
+        foreach (var image in images)
+        {
+            var at = merged.FindIndex(a => string.Equals(a.GamePath, image.GamePath, StringComparison.OrdinalIgnoreCase));
+            if (at < 0)
+            {
+                merged.Add(image);
+            }
+            else
+            {
+                merged[at] = merged[at] with { ReplacedFiles = merged[at].ReplacedFiles + image.ReplacedFiles };
+            }
+        }
+
+        return merged;
     }
 
     private static bool SameScripts(BuildState previous, Dictionary<string, BuildStateScript> current) =>

@@ -47,6 +47,9 @@
     <DataTemplate DataType="vm:BibleViewModel">
       <views:BibleView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:ImagesViewModel">
+      <views:ImagesView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:BuildViewModel">
       <views:BuildView/>
     </DataTemplate>

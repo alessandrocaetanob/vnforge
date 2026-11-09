@@ -1,0 +1,279 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             x:Class="VNForge.App.Views.ImagesView"
+             x:DataType="vm:ImagesViewModel">
+
+  <UserControl.Styles>
+    <!-- A faixa de miniaturas (decisão 1 do quadro): 120×68, estado num ponto no canto, a imagem em edição com contorno accent de 3px. -->
+    <Style Selector="ListBox.thumbs">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="3,4,11,4"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.thumbs > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.thumbs > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem Border.thumb">
+      <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem:pointerover Border.thumb">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    </Style>
+    <Style Selector="ListBox.thumbs > ListBoxItem:selected Border.thumb">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <StackPanel MaxWidth="1440" Margin="24,16,24,24" Spacing="14">
+
+        <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Imagens com texto">
+          <Button Classes="accent" Command="{Binding RewriteCommand}" IsEnabled="{Binding CanRewrite}" AutomationProperties.Name="Gerar o build com as imagens">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Box}"/>
+              <TextBlock Text="Gerar o build com as imagens"/>
+            </StackPanel>
+          </Button>
+        </c:PageHeader>
+
+        <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+            <SelectableTextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}" AutomationProperties.Name="Mensagem de erro"/>
+          </Grid>
+        </Border>
+
+        <c:EmptyState IsVisible="{Binding IsEmpty}"
+                      Message="O inventário das imagens com texto está vazio. Rode vnf images scan na pasta do projeto e abra esta página de novo."/>
+
+        <StackPanel Spacing="12" IsVisible="{Binding !IsEmpty}">
+          <ItemsControl ItemsSource="{Binding Chips}" AutomationProperties.Name="Filtros das imagens">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ImageFilterChipViewModel">
+                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}" Margin="0,0,6,0"
+                              Click="OnChipClick"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <ListBox Classes="thumbs" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="92" AutomationProperties.Name="Imagens do inventário">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel Orientation="Horizontal"/>
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ImageItemViewModel">
+                <Panel Width="120" Height="68" ToolTip.Tip="{Binding Caption}">
+                  <Border Classes="thumb" BorderThickness="3" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
+                    <Image Source="{Binding ThumbnailPng, Converter={x:Static c:PngBytesConverter.Instance}}" Stretch="UniformToFill"/>
+                  </Border>
+                  <Border Width="14" Height="14" CornerRadius="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                          Background="{DynamicResource Vnf.BgLayer}" Padding="2">
+                    <Panel>
+                      <Ellipse Fill="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding IsMarkedState}"/>
+                      <Ellipse Fill="{DynamicResource Vnf.Accent}" IsVisible="{Binding IsDraftState}"/>
+                      <Ellipse Fill="{DynamicResource Vnf.StatusPendingFg}" IsVisible="{Binding IsPendingState}"/>
+                    </Panel>
+                  </Border>
+                </Panel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasImage}">
+            <Button Classes="subtle" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Desfazer">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
+                <TextBlock Text="Desfazer"/>
+              </StackPanel>
+            </Button>
+            <TextBlock Grid.Column="1" Classes="caption secondary mono-xs" HorizontalAlignment="Right" VerticalAlignment="Center"
+                       Text="{Binding SelectedItem.Caption}"/>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,340" ColumnSpacing="14" IsVisible="{Binding HasImage}">
+            <StackPanel Spacing="14">
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                <Border Classes="panel" Padding="12">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Classes="title-sm" Text="Original"/>
+                      <TextBlock Grid.Column="1" Classes="caption secondary" Text="arraste sobre a imagem para marcar a área"/>
+                    </Grid>
+                    <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+                      <Grid x:Name="OriginalSurface" Width="{Binding PixelWidth}" Height="{Binding PixelHeight}" Background="Transparent" Cursor="Cross"
+                            AutomationProperties.Name="Imagem original">
+                        <Image Source="{Binding OriginalPng, Converter={x:Static c:PngBytesConverter.Instance}}" Stretch="Fill"/>
+                        <Canvas IsHitTestVisible="False">
+                          <Rectangle Canvas.Left="{Binding RegionX}" Canvas.Top="{Binding RegionY}" Width="{Binding RegionWidth}" Height="{Binding RegionHeight}"
+                                     Stroke="{DynamicResource Vnf.Accent}" StrokeThickness="2" StrokeDashArray="6,4"/>
+                        </Canvas>
+                      </Grid>
+                    </Viewbox>
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="panel" Padding="12">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Classes="title-sm" Text="Traduzida"/>
+                      <TextBlock Grid.Column="1" Classes="caption secondary" Text="prévia lado a lado"/>
+                    </Grid>
+                    <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+                      <Image Width="{Binding PixelWidth}" Height="{Binding PixelHeight}" Stretch="Fill" AutomationProperties.Name="Imagem traduzida"
+                             Source="{Binding PreviewPng, Converter={x:Static c:PngBytesConverter.Instance}}"/>
+                    </Viewbox>
+                  </StackPanel>
+                </Border>
+              </Grid>
+
+              <Border Classes="panel" Padding="16,14">
+                <StackPanel Spacing="10">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="title-sm" Text="O que muda no build"/>
+                    <Border Grid.Column="1" Background="{DynamicResource Vnf.AccentSoft}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="8,2">
+                      <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.AccentText}" Text="{Binding MarkedText}"/>
+                    </Border>
+                  </Grid>
+                  <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                    <TextBlock Classes="caption secondary" Text="Área apagada"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErasedText}"/>
+                    <TextBlock Grid.Row="1" Classes="caption secondary" Text="Texto novo"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding NewTextSummary}"/>
+                    <TextBlock Grid.Row="2" Classes="caption secondary" Text="No pacote"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="mono-xs" TextWrapping="Wrap" Text="{Binding PackageText}"/>
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <Border Grid.Column="1" Classes="panel" Padding="16" VerticalAlignment="Top" IsEnabled="{Binding IsEditable}">
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="6" IsVisible="{Binding SelectedItem.HasText}">
+                  <TextBlock Classes="overline" Text="Lido pela IA · Haiku com visão"/>
+                  <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Padding="10,8">
+                    <SelectableTextBlock Classes="jp-body" TextWrapping="Wrap" Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
+                  </Border>
+                </StackPanel>
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="overline" Text="Texto na imagem"/>
+                  <TextBox Text="{Binding Text}" AcceptsReturn="True" AutomationProperties.Name="Texto da tradução na imagem"/>
+                </StackPanel>
+                <Grid ColumnDefinitions="*,86" ColumnSpacing="10">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="overline" Text="Fonte"/>
+                    <ComboBox ItemsSource="{Binding FontChoices}" SelectedItem="{Binding Font}" HorizontalAlignment="Stretch" AutomationProperties.Name="Fonte do texto"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="6">
+                    <TextBlock Classes="overline" Text="Tamanho"/>
+                    <TextBox Text="{Binding FontSize}" AutomationProperties.Name="Tamanho da fonte em pixels"/>
+                  </StackPanel>
+                </Grid>
+                <CheckBox IsChecked="{Binding IsBold}" Content="Negrito"/>
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="overline" Text="Cor do texto"/>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                      <Ellipse Width="24" Height="24" Fill="{Binding TextColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
+                      <TextBox Grid.Column="1" Text="{Binding TextColor}" AutomationProperties.Name="Cor do texto"/>
+                    </Grid>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="6">
+                    <CheckBox IsChecked="{Binding HasOutline}" Content="Contorno"/>
+                    <TextBox Text="{Binding OutlineColor}" IsEnabled="{Binding HasOutline}" AutomationProperties.Name="Cor do contorno"/>
+                  </StackPanel>
+                </Grid>
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="overline" Text="Apagar a área"/>
+                  <ListBox Classes="seg" ItemsSource="{Binding EraseChoices}" SelectedItem="{Binding SelectedEraseChoice}" AutomationProperties.Name="Como apagar a área"/>
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding UsesSolidErase}">
+                    <Ellipse Width="24" Height="24" Fill="{Binding EraseColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
+                    <TextBox Grid.Column="1" Text="{Binding EraseColor}" AutomationProperties.Name="Cor lisa da área apagada"/>
+                  </Grid>
+                </StackPanel>
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="overline" Text="Área, em pixels da imagem"/>
+                  <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+                    <TextBox Text="{Binding RegionX}" AutomationProperties.Name="Posição horizontal da área" ToolTip.Tip="Esquerda"/>
+                    <TextBox Grid.Column="1" Text="{Binding RegionY}" AutomationProperties.Name="Posição vertical da área" ToolTip.Tip="Topo"/>
+                    <TextBox Grid.Column="2" Text="{Binding RegionWidth}" AutomationProperties.Name="Largura da área" ToolTip.Tip="Largura"/>
+                    <TextBox Grid.Column="3" Text="{Binding RegionHeight}" AutomationProperties.Name="Altura da área" ToolTip.Tip="Altura"/>
+                  </Grid>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding FitsRegion}"/>
+                  <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}" Data="{StaticResource Icon.Warning}" IsVisible="{Binding !FitsRegion}"/>
+                  <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding FitText}" AutomationProperties.Name="Se o texto cabe na área"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="accent" Command="{Binding MarkCommand}" AutomationProperties.Name="Marcar para o build">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
+                      <TextBlock Text="Marcar para o build"/>
+                    </StackPanel>
+                  </Button>
+                  <Button Command="{Binding UnmarkCommand}" IsVisible="{Binding IsMarked}" Content="Tirar do build" AutomationProperties.Name="Tirar do build"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+
+    <c:ScreenDialog Title="{Binding ConfirmationTitle}" IsOpen="{Binding IsConfirming, Mode=OneWay}" CloseCommand="{Binding CancelRewriteCommand}">
+      <StackPanel Spacing="12" MinWidth="520">
+        <TextBlock Classes="body" TextWrapping="Wrap"
+                   Text="O build grava só as imagens que você alterou, nos pacotes de build/. O resto de cada pacote não muda: a reescrita é a mínima, e o teste de ida e volta confere o que ficou igual. O jogo só muda quando você injeta, e a injeção faz a cópia de segurança antes."/>
+        <ItemsControl ItemsSource="{Binding ConfirmationFiles}" AutomationProperties.Name="Imagens que entram no build">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:RewriteFile">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                <TextBlock Classes="mono" Text="{Binding Path}"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding Detail}"/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ItemsControl ItemsSource="{Binding ConfirmationFacts}" AutomationProperties.Name="Resumo do build">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ResultFact">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                <TextBlock Classes="body-sm" Text="{Binding Label}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" FontWeight="SemiBold" Text="{Binding Value}"/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+      <c:ScreenDialog.Footer>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Content="Cancelar" Command="{Binding CancelRewriteCommand}"/>
+          <Button Classes="accent lg" Content="Gerar o build" Command="{Binding ConfirmRewriteCommand}" AutomationProperties.Name="Gerar o build"/>
+        </StackPanel>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
+  </Grid>
+</UserControl>
