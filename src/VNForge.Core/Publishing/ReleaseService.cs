@@ -231,9 +231,20 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         steps?.Report(new ReleaseProgress(ReleaseStep.Verify));
         PatchVerification verification;
         var workDirectory = Path.Combine(project.CacheDirectory, "release-check", Guid.NewGuid().ToString("N"));
-        using (var package = PatchPackage.Open(new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read)))
+        try
         {
+            using var package = PatchPackage.Open(new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
             verification = PatchVerifier.Verify(package, sources, workDirectory, cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // O instalador e os textos já estão na pasta (o quadro monta antes de verificar): sem verificação, nada disso pode parecer uma versão pronta.
+            foreach (var unverified in new[] { installerPath, Path.Combine(output, "LEIA-ME.txt"), Path.Combine(output, "CREDITOS.txt"), Path.Combine(output, "MUDANCAS.txt"), Path.Combine(output, ThirdPartyLicenses.FileName) })
+            {
+                TryDelete(unverified);
+            }
+
+            throw;
         }
 
         var files = new[] { installerPath, patchPath }
@@ -243,8 +254,8 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         var gameFiles = manifest.Files
             .Select(f => new ReleaseGameFile(f.Path, f.OriginalSize, f.Length, f.ResultSize, f.Created))
             .ToList();
-        SaveRecord(project, new ReleaseRecord(version, _clock.GetUtcNow(), snapshot, files, gameFiles));
         ReleaseTexts.Save(project, version, texts);
+        SaveRecord(project, new ReleaseRecord(version, _clock.GetUtcNow(), snapshot, files, gameFiles));
         return new ReleaseResult(version, previous?.Version, output, files, gameFiles, verification, changes);
     }
 
@@ -329,6 +340,18 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(stream));
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Limpeza do que sobrou de uma verificação que falhou: o erro que importa é o da verificação.
+        }
     }
 
     private sealed class FileProgress(Action<PatchProgress> handler) : IProgress<PatchProgress>
