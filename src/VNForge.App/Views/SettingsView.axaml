@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
+             xmlns:vndb="using:VNForge.Core.Vndb"
              x:Class="VNForge.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
@@ -869,6 +870,9 @@
           </StackPanel>
         </TabItem>
       </TabControl>
+
+      <!-- O crédito da licença dos dados do VNDB (ODbL) fica num lugar fixo, em qualquer aba. -->
+      <TextBlock Classes="caption secondary" TextWrapping="Wrap" Margin="0,16,0,0" Text="{x:Static vndb:VndbCredit.Text}"/>
     </StackPanel>
   </ScrollViewer>
 </UserControl>
