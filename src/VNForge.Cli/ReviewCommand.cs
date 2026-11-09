@@ -62,11 +62,14 @@ internal static class ReviewCommand
         var selection = LineSelection.Build(project.LoadAllText(), ScriptFilter(filter), limit, u => statuses.Contains(u.Status) && u.HasTranslation);
         var pending = selection.Pending;
 
+        var config = project.LoadConfig();
         var builder = new TranslationBatchBuilder(
             project.LoadGlossary(),
             new CharacterBook(project.LoadCharacters()),
             TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName)),
-            style: project.LoadConfig().Style,
+            style: config.Style,
+            maxPreviousLines: config.Ai.ContextBefore,
+            maxNextLines: config.Ai.ContextAfter,
             addressTerms: project.LoadAddressTerms());
 
         if (parseResult.GetValue(Common.DryRun))

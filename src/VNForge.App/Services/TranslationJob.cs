@@ -71,6 +71,8 @@ public sealed class TranslationJob(
             new CharacterBook(project.LoadCharacters()),
             TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, TranslationContextSummary.StyleGuideFileName)),
             style: projectConfig.Style,
+            maxPreviousLines: config.ContextBefore,
+            maxNextLines: config.ContextAfter,
             addressTerms: project.LoadAddressTerms());
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
