@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Bible;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
+using VNForge.App.Controls;
 using VNForge.Core;
 using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
@@ -41,6 +42,9 @@ public sealed record BibleSceneRow(string Key, int Number, string Name, bool Has
     private string EmptyMark => HasSummary ? string.Empty : "vazio";
 
     public bool ShowCheck => HasSummary && !IsEdited;
+
+    /// <summary>"vazio" na lista: a cena ainda sem resumo e que a pessoa não editou.</summary>
+    public bool ShowEmptyMark => !HasSummary && !IsEdited;
 }
 
 /// <summary>Onde a cena aberta está na linha do tempo: os marcos de antes já passaram, o do capítulo dela é o atual.</summary>
@@ -61,8 +65,20 @@ public sealed record BibleTimelineRow(string Title, string Note, BibleTimelineSt
     public bool IsUpcoming => State == BibleTimelineState.Upcoming;
 }
 
-/// <summary>Um personagem que aparece na cena, como o chip de "Quem aparece" o mostra: o nome da bíblia e a imagem do VNDB, quando <c>characters.json</c> a tem.</summary>
-public sealed record BibleCharacterChip(string Name, VndbImageRef? Image);
+/// <summary>
+/// Um personagem que aparece na cena, como o chip de "Quem aparece" o mostra: o nome da bíblia, a imagem do VNDB e a cor do cadastro, quando <c>characters.json</c> os tem,
+/// e a conta das falas dele na cena ("fala 6 vezes"; vazia quando o personagem não está no Glossário e a conta não se sabe).
+/// </summary>
+public sealed record BibleCharacterChip(string Name, VndbImageRef? Image, CharacterColor? Color = null, string Lines = "");
+
+/// <summary>Um tom da cena como chip. O que cita um personagem da cena ("seco na fala de Misaki") é só apoio e sai sem o destaque dos tons da cena.</summary>
+public sealed record BibleToneChip(string Text, bool IsSupport)
+{
+    public bool IsMain => !IsSupport;
+}
+
+/// <summary>Uma piada que volta, com as cenas em que volta: "o guarda-chuva de Ren · cenas 1, 13 e 21".</summary>
+public sealed record BibleJokeChip(string Label);
 
 /// <summary>Onde uma cena fica no jogo: o capítulo e as linhas dela, contadas desde a primeira do jogo.</summary>
 internal sealed record SceneLocation(string Chapter, int? ChapterNumber, int FirstLine, int LastLine);
@@ -82,6 +98,7 @@ public sealed partial class BibleViewModel : ObservableObject
     private decimal plannedBrl;
     private IReadOnlyList<CharacterEntry> projectCharacters = [];
     private Dictionary<string, SceneLocation> locations = new(StringComparer.Ordinal);
+    private IReadOnlyList<string> sceneSpeakers = [];
     private CancellationTokenSource? run;
 
     /// <summary>Monta o provedor da IA para (modelo, esforço); nulo quando falta a chave. A cena de exemplo usa o provedor de demonstração.</summary>
@@ -99,6 +116,21 @@ public sealed partial class BibleViewModel : ObservableObject
     public ObservableCollection<BibleCharacterChip> SceneCharacters { get; } = [];
 
     public bool HasSceneCharacters => SceneCharacters.Count > 0;
+
+    /// <summary>Os tons da cena, um chip por tom; acompanha o campo "Tom".</summary>
+    public ObservableCollection<BibleToneChip> ToneChips { get; } = [];
+
+    public bool HasTone => ToneChips.Count > 0;
+
+    /// <summary>As piadas que voltam, cada uma com as cenas em que volta; acompanha o campo "Piadas que voltam".</summary>
+    public ObservableCollection<BibleJokeChip> JokeChips { get; } = [];
+
+    public bool HasJokes => JokeChips.Count > 0;
+
+    /// <summary>Os pares de personagens da cena e a descrição de cada um, um por linha; acompanha o campo "Relações".</summary>
+    public ObservableCollection<BibleRelation> RelationRows { get; } = [];
+
+    public bool HasRelations => RelationRows.Count > 0;
 
     public bool HasProject => project is not null;
 
@@ -330,7 +362,8 @@ public sealed partial class BibleViewModel : ObservableObject
 
     /// <summary>
     /// Refaz os chips a partir dos nomes do campo. O nome da bíblia casa com o <c>characters.json</c> pelo original, pela tradução ou pelo romaji, sem distinguir
-    /// maiúsculas; sem par o chip fica sem imagem e mostra o marcador.
+    /// maiúsculas; sem par o chip fica sem imagem e mostra o marcador. A conta das falas vem das linhas da cena: o primeiro chip a diz por extenso
+    /// ("fala 6 vezes") e os outros só com o número ("fala 9").
     /// </summary>
     private void RefreshSceneCharacters(IEnumerable<string> names)
     {
@@ -338,10 +371,86 @@ public sealed partial class BibleViewModel : ObservableObject
         foreach (var name in names)
         {
             var entry = projectCharacters.FirstOrDefault(c => IsSameName(c, name));
-            SceneCharacters.Add(new BibleCharacterChip(name, entry?.Image));
+            SceneCharacters.Add(new BibleCharacterChip(name, entry?.Image, CharacterPalette.For(entry), SpokenText(entry, name, SceneCharacters.Count == 0)));
         }
 
         OnPropertyChanged(nameof(HasSceneCharacters));
+        RefreshTone(SplitList(ToneText));
+    }
+
+    private string SpokenText(CharacterEntry? entry, string name, bool first)
+    {
+        var spoken = sceneSpeakers.Count(speaker => entry is not null ? IsSameName(entry, speaker) : string.Equals(speaker, name, StringComparison.OrdinalIgnoreCase));
+        if (spoken == 0)
+        {
+            return entry is null ? string.Empty : "não fala";
+        }
+
+        return first ? string.Create(BibleText.PtBr, $"fala {spoken} {BibleText.Plural(spoken, "vez", "vezes")}") : string.Create(BibleText.PtBr, $"fala {spoken}");
+    }
+
+    /// <summary>Um tom por chip; o que cita pelo nome um personagem da cena vira apoio.</summary>
+    private void RefreshTone(IEnumerable<string> tones)
+    {
+        ToneChips.Clear();
+        foreach (var tone in tones)
+        {
+            ToneChips.Add(new BibleToneChip(tone, SceneCharacters.Any(c => tone.Contains(c.Name, StringComparison.CurrentCultureIgnoreCase))));
+        }
+
+        OnPropertyChanged(nameof(HasTone));
+    }
+
+    /// <summary>Cada piada com as cenas em que ela volta (a da cena aberta entre elas), achadas pelo texto da piada sem distinguir maiúsculas.</summary>
+    private void RefreshJokes(IEnumerable<string> jokes)
+    {
+        JokeChips.Clear();
+        foreach (var joke in jokes)
+        {
+            var numbers = allRows
+                .Where(r => r.Key == SelectedRow?.Key || bible.Scene(r.Key) is { } scene && scene.Jokes.Any(j => string.Equals(j.Trim(), joke, StringComparison.CurrentCultureIgnoreCase)))
+                .Select(r => r.Number)
+                .ToList();
+            JokeChips.Add(new BibleJokeChip(numbers.Count > 1 ? $"{joke} · cenas {JoinScenes(numbers)}" : joke));
+        }
+
+        OnPropertyChanged(nameof(HasJokes));
+    }
+
+    /// <summary>"1", "1 e 13" e "1, 13 e 21".</summary>
+    private static string JoinScenes(IReadOnlyList<int> numbers)
+    {
+        var text = numbers.Select(n => n.ToString(BibleText.PtBr)).ToList();
+        return text.Count == 1 ? text[0] : $"{string.Join(", ", text.Take(text.Count - 1))} e {text[^1]}";
+    }
+
+    private void RefreshRelations(IEnumerable<BibleRelation> relations)
+    {
+        RelationRows.Clear();
+        foreach (var relation in relations.Where(r => r.Between.Trim().Length > 0))
+        {
+            RelationRows.Add(new BibleRelation(relation.Between.Trim(), relation.Note.Trim()));
+        }
+
+        OnPropertyChanged(nameof(HasRelations));
+    }
+
+    /// <summary>Quem fala em cada linha da cena, para a conta de falas dos chips; sem o arquivo da cena a conta fica vazia.</summary>
+    private IReadOnlyList<string> LoadSceneSpeakers(string? key)
+    {
+        if (key is null || project is not { } current)
+        {
+            return [];
+        }
+
+        try
+        {
+            return [.. ProjectFolder.Open(current.Root).LoadText(key).Select(u => u.EffectiveSpeaker).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!)];
+        }
+        catch (VNForgeException)
+        {
+            return [];
+        }
     }
 
     private static bool IsSameName(CharacterEntry entry, string name) =>
@@ -410,11 +519,14 @@ public sealed partial class BibleViewModel : ObservableObject
         var scene = SelectedRow is { } row ? bible.Scene(row.Key) : null;
         NameText = scene?.Name ?? string.Empty;
         SummaryText = scene?.Summary ?? string.Empty;
+        sceneSpeakers = LoadSceneSpeakers(SelectedRow?.Key);
         CharactersText = string.Join("; ", scene?.Characters ?? []);
-        RefreshSceneCharacters(scene?.Characters ?? []);
         ToneText = string.Join("; ", scene?.Tone ?? []);
         JokesText = string.Join("; ", scene?.Jokes ?? []);
         RelationsText = string.Join('\n', (scene?.Relations ?? []).Select(r => $"{r.Between}: {r.Note}"));
+        RefreshSceneCharacters(scene?.Characters ?? []);
+        RefreshJokes(scene?.Jokes ?? []);
+        RefreshRelations(scene?.Relations ?? []);
         OwnerOfName = Owner(scene, BibleField.Name);
         OwnerOfSummary = Owner(scene, BibleField.Summary);
         OwnerOfCharacters = Owner(scene, BibleField.Characters);
@@ -494,11 +606,35 @@ public sealed partial class BibleViewModel : ObservableObject
         Edit(BibleField.Characters, s => s.EditCharacters(SplitList(value)));
     }
 
-    partial void OnToneTextChanged(string value) => Edit(BibleField.Tone, s => s.EditTone(SplitList(value)));
+    partial void OnToneTextChanged(string value)
+    {
+        if (!loadingScene)
+        {
+            RefreshTone(SplitList(value));
+        }
 
-    partial void OnJokesTextChanged(string value) => Edit(BibleField.Jokes, s => s.EditJokes(SplitList(value)));
+        Edit(BibleField.Tone, s => s.EditTone(SplitList(value)));
+    }
 
-    partial void OnRelationsTextChanged(string value) => Edit(BibleField.Relations, s => s.EditRelations(ParseRelations(value)));
+    partial void OnJokesTextChanged(string value)
+    {
+        if (!loadingScene)
+        {
+            RefreshJokes(SplitList(value));
+        }
+
+        Edit(BibleField.Jokes, s => s.EditJokes(SplitList(value)));
+    }
+
+    partial void OnRelationsTextChanged(string value)
+    {
+        if (!loadingScene)
+        {
+            RefreshRelations(ParseRelations(value));
+        }
+
+        Edit(BibleField.Relations, s => s.EditRelations(ParseRelations(value)));
+    }
 
     partial void OnSynopsisTextChanged(string value)
     {
