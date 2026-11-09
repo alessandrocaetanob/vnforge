@@ -11,7 +11,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|privacy|status|sync|play|option|emulator|tag</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// <c>vnf library scan|match|list|link|privacy|status|sync|play|option|emulator|tag|export</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
 /// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde e filtra por tag,
 /// <c>play</c> abre o jogo e conta o tempo (<c>playtime.json</c>, ao lado). Os subcomandos de <c>play</c> ficam em <c>LibraryCommand.Play.cs</c>.
 /// <c>tag</c> cuida das tags do usuário (<c>library-tags.json</c>, ao lado).
@@ -152,6 +152,7 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
         command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
         command.Subcommands.Add(CreatePlay(cli));
+        command.Subcommands.Add(CreateExport(cli));
         command.Subcommands.Add(CreateOption(cli));
         command.Subcommands.Add(CreateEmulator(cli));
         return command;
@@ -854,20 +855,7 @@ internal static partial class LibraryCommand
 
     private static string LengthText(int? minutes, int? category)
     {
-        if (minutes is { } m)
-        {
-            return m >= 60 ? $"cerca de {(m / 60.0).ToString("0", PortugueseBrazil)} h" : $"{m} min";
-        }
-
-        return category switch
-        {
-            1 => "muito curta (menos de 2 h)",
-            2 => "curta (2 a 10 h)",
-            3 => "média (10 a 30 h)",
-            4 => "longa (30 a 50 h)",
-            5 => "muito longa (mais de 50 h)",
-            _ => "sem votos",
-        };
+        return LibraryLength.Text(minutes, category);
     }
 
     private static int Link(VnfCli cli, ParseResult parseResult, string reference)

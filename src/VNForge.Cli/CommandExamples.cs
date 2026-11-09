@@ -16,6 +16,7 @@ public static class CommandExamples
         ["library scan"] = [@"vnf library scan D:\Jogos", @"vnf library scan E:\ --depth 4 --unknown"],
         ["library match"] = ["vnf library match", "vnf library match --auto", "vnf library match --confirm CLANNAD v4"],
         ["library list"] = ["vnf library list --state pending", "vnf library list --recent", "vnf library list CLANNAD --show-spoilers", "vnf library list --tag favorito --tag vndb:drama --not rejogar", "vnf library list --tag favorito --tag rejogar --any --save"],
+        ["library export"] = ["vnf library export", @"vnf library export --output D:\Site\catalogo.html --force", "vnf library export --with-notes"],
         ["library play"] = ["vnf library play CLANNAD", "vnf library play CLANNAD --locale ja"],
         ["library option"] = ["vnf library option CLANNAD", "vnf library option CLANNAD --japanese-locale sim"],
         ["library emulator"] = [@"vnf library emulator C:\Programas\LocaleEmulator", "vnf library emulator --clear"],

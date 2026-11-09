@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Library;
 
@@ -48,7 +49,8 @@ public sealed record LibraryTag(string Id, string Name, string Category, double 
 
 /// <summary>
 /// O que a Biblioteca mostra do jogo do VNDB: capa, sinopse, duração e tags. A sinopse vem com os códigos do VNDB (<c>[spoiler]</c>) sem converter;
-/// quem mostra passa por <see cref="LibraryVisibility"/>. <paramref name="Adult"/> marca capa ou tags de conteúdo adulto.
+/// quem mostra passa por <see cref="LibraryVisibility"/>. <paramref name="Adult"/> marca capa ou tags de conteúdo adulto. <paramref name="Rating"/> é a nota do VNDB
+/// (de 10 a 100, <see cref="VndbRating.Label"/> a escreve), nula quando ninguém votou ou o jogo foi confirmado antes de a Biblioteca guardá-la.
 /// </summary>
 public sealed record LibraryVndbInfo(
     string Title,
@@ -60,7 +62,8 @@ public sealed record LibraryVndbInfo(
     int? LengthMinutes,
     int LengthVotes,
     IReadOnlyList<LibraryTag> Tags,
-    bool Adult);
+    bool Adult,
+    double? Rating = null);
 
 /// <summary>
 /// Um jogo da biblioteca. <paramref name="Id"/> é estável (vem da pasta), <paramref name="Exe"/> é relativo à pasta, <paramref name="Title"/> é o nome para mostrar
