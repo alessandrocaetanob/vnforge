@@ -44,6 +44,9 @@ public sealed record LibrarySyncItem(
 {
     /// <summary>A entrada existia no VNDB na última sincronização e sumiu (apagada no site).</summary>
     public bool RemovedOnSite { get; init; }
+
+    /// <summary>O jogo tem mudança daqui que o VNDB ainda não recebeu (antes desta sincronização).</summary>
+    public bool HasLocalEdits { get; init; }
 }
 
 public sealed record LibrarySyncOptions
@@ -55,7 +58,8 @@ public sealed record LibrarySyncOptions
 
     /// <summary>
     /// Recria no VNDB a entrada que foi apagada no site e tem mudança aqui, mandando tudo o que o app guarda dela. Sem isto a entrada apagada nunca é recriada: o app não
-    /// desfaz uma exclusão feita no site sem a pessoa pedir. Não vale com <see cref="LibrarySyncDirection.Pull"/>.
+    /// desfaz uma exclusão feita no site sem a pessoa pedir. Só vale para quem tem edição pendente; sem edição a exclusão segue a regra normal (o sentido que traz a consome,
+    /// o que só envia a deixa como está). Não vale com <see cref="LibrarySyncDirection.Pull"/>.
     /// </summary>
     public bool RecreateRemoved { get; init; }
 }
@@ -283,15 +287,17 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         }
 
         var removed = entry is null && state is { OnVndb: true };
-        if (removed && state!.Pending && !recreate)
+        var recreating = removed && state!.Pending && recreate;
+        if (removed && !recreating && (state!.Pending || direction == LibrarySyncDirection.Push))
         {
-            // Apagada no site e editada aqui: recriar a entrada desfaria a exclusão, e isso só com pedido (RecreateRemoved).
-            return new LibrarySyncStep(new LibrarySyncItem(game, LibrarySyncAction.Unchanged, [], [], []) { RemovedOnSite = true }, null, false, null);
+            // Apagada no site. Com edição aqui, recriar a entrada desfaria a exclusão e só acontece com pedido (RecreateRemoved, e só para quem tem edição).
+            // Sem edição, quem traz a exclusão é o sentido que traz (Both ou Pull): o envio nunca a consome, e o estado fica como está para a próxima edição cair neste mesmo aviso.
+            return new LibrarySyncStep(new LibrarySyncItem(game, LibrarySyncAction.Unchanged, [], [], []) { RemovedOnSite = true, HasLocalEdits = state.Pending }, null, false, null);
         }
 
         var local = state?.Fields ?? LibraryListFields.Empty;
         var remote = entry is null ? LibraryListFields.Empty : LibraryListFields.From(entry);
-        var oldBase = removed && recreate ? null : state?.Base;
+        var oldBase = recreating ? null : state?.Base;
         var hasBase = oldBase is not null;
         var baseFields = oldBase ?? LibraryListFields.Empty;
         var localNewer = (state?.ModifiedAt ?? DateTimeOffset.MinValue) > (entry?.LastModified ?? DateTimeOffset.MinValue);
@@ -352,7 +358,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             (false, true) => LibrarySyncAction.Pushed,
             _ => LibrarySyncAction.Unchanged,
         };
-        var item = new LibrarySyncItem(game, action, pulled, pushed, conflicts) { RemovedOnSite = removed };
+        var item = new LibrarySyncItem(game, action, pulled, pushed, conflicts) { RemovedOnSite = removed, HasLocalEdits = state?.Pending ?? false };
         return new LibrarySyncStep(item, newState, changed, update);
     }
 

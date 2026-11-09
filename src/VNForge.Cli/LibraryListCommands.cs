@@ -27,7 +27,7 @@ internal static class LibraryListCommands
 
     private static readonly Option<bool> RecreateOption = new("--recreate")
     {
-        Description = "Recria no VNDB a entrada que você apagou no site e que tem mudança aqui. Sem isto ela não é recriada. Não vale com --pull.",
+        Description = "Recria no VNDB a entrada que você apagou no site e que tem mudança aqui; sem mudança aqui ela não é recriada. Sem esta opção nenhuma é recriada. Não vale com --pull.",
     };
 
     private static readonly Option<bool> DryRunOption = new("--dry-run")
@@ -235,9 +235,11 @@ internal static class LibraryListCommands
             var token = RequireToken(cli);
             var synchronizer = new LibraryListSynchronizer(cli.CreateVndbUserList());
             var plan = await synchronizer.PlanAsync(file.Load(), token, new LibrarySyncOptions { Direction = LibrarySyncDirection.Push, GameId = game.Id }, cancellationToken).ConfigureAwait(false);
-            if (plan.Items.Any(i => i.RemovedOnSite))
+            if (plan.Items.FirstOrDefault(i => i.RemovedOnSite) is { } removed)
             {
-                throw new UsageException($"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e o jogo tem mudanças aqui. A edição ficou gravada, mas não foi enviada, para não recriar o que você apagou no site. Para recriar: vnf library sync --push --recreate.");
+                throw new UsageException(removed.HasLocalEdits
+                    ? $"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e o jogo tem mudanças aqui. A edição ficou gravada, mas não foi enviada, para não recriar o que você apagou no site. Para recriar: vnf library sync --push --recreate."
+                    : $"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e não há mudança aqui para enviar. Para trazer a exclusão para a biblioteca: vnf library sync.");
             }
 
             if (plan.PushCount > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Enviar as mudanças de '{game.Title}' para a lista de {plan.Account.Username} no VNDB?"))
@@ -476,7 +478,9 @@ internal static class LibraryListCommands
 
             if (item.Action == LibrarySyncAction.Unchanged)
             {
-                output.WriteLine($"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e tem mudanças aqui; não foi recriado. Para recriar: vnf library sync --recreate.");
+                output.WriteLine(item.HasLocalEdits
+                    ? $"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e tem mudanças aqui; não foi recriado. Para recriar: vnf library sync --recreate."
+                    : $"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e não há mudança aqui; --push não traz a exclusão. Para trazê-la: vnf library sync.");
                 continue;
             }
 

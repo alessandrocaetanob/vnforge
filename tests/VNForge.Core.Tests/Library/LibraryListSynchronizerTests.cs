@@ -346,6 +346,77 @@ public sealed class LibraryListSynchronizerTests
     }
 
     [Fact]
+    public async Task Push_depois_da_exclusao_no_site_nao_a_consome_e_a_edicao_seguinte_avisa_em_vez_de_recriar()
+    {
+        var fields = Fields(vote: 70, notes: null, 2);
+        var library = Synced(fields, T0, fields);
+        var fake = new FakeVndbCatalog();
+
+        var pushed = await Sync(library, fake, LibrarySyncDirection.Push);
+
+        Assert.True(pushed.Items[0].RemovedOnSite);
+        Assert.False(pushed.Items[0].HasLocalEdits);
+        Assert.Equal(LibrarySyncAction.Unchanged, pushed.Items[0].Action);
+        Assert.True(library.Games[0].CurrentList!.OnVndb);
+        Assert.Equal(70, library.Games[0].CurrentList!.Fields.Vote);
+
+        library.Replace(library.Games[0] with { List = LibraryListState.Edit(library.Games[0].CurrentList, "v4", Edit(vote: 95), Later) });
+        var both = await Sync(library, fake);
+
+        Assert.True(both.Items[0].RemovedOnSite);
+        Assert.True(both.Items[0].HasLocalEdits);
+        Assert.Equal(LibrarySyncAction.Unchanged, both.Items[0].Action);
+        Assert.DoesNotContain(fake.Calls, c => c.StartsWith("UpdateEntryAsync", StringComparison.Ordinal));
+        Assert.Empty((await fake.GetListAsync("u1", FakeVndbCatalog.ValidToken, Ct)).Items);
+        Assert.Equal(95, library.Games[0].CurrentList!.Fields.Vote);
+    }
+
+    [Theory]
+    [InlineData(LibrarySyncDirection.Both)]
+    [InlineData(LibrarySyncDirection.Push)]
+    public async Task Recriar_sem_edicao_local_nao_recria_e_so_o_sentido_que_traz_consome_a_exclusao(LibrarySyncDirection direction)
+    {
+        var fields = Fields(vote: 70, notes: null, 2);
+        var library = Synced(fields, T0, fields);
+        var fake = new FakeVndbCatalog();
+
+        var report = await Sync(library, fake, direction, recreate: true);
+
+        Assert.True(report.Items[0].RemovedOnSite);
+        Assert.DoesNotContain(fake.Calls, c => c.StartsWith("UpdateEntryAsync", StringComparison.Ordinal));
+        Assert.Empty((await fake.GetListAsync("u1", FakeVndbCatalog.ValidToken, Ct)).Items);
+        var state = library.Games[0].CurrentList!;
+        if (direction == LibrarySyncDirection.Both)
+        {
+            Assert.Equal(LibrarySyncAction.Pulled, report.Items[0].Action);
+            Assert.Null(state.Fields.Vote);
+            Assert.False(state.OnVndb);
+        }
+        else
+        {
+            Assert.Equal(LibrarySyncAction.Unchanged, report.Items[0].Action);
+            Assert.Equal(70, state.Fields.Vote);
+            Assert.True(state.OnVndb);
+        }
+    }
+
+    [Fact]
+    public async Task Recriar_com_dois_jogos_apagados_recria_so_o_que_tem_edicao()
+    {
+        var fields = Fields(vote: 70);
+        var edited = Game("g1", "v4") with { List = new LibraryListState("v4", fields with { Vote = 95 }, Later) { Base = fields, SyncedAt = T0, OnVndb = true } };
+        var untouched = Game("g2", "v17") with { List = new LibraryListState("v17", fields, T0) { Base = fields, SyncedAt = T0, OnVndb = true } };
+        var library = new GameLibrary([edited, untouched]);
+        var fake = new FakeVndbCatalog();
+
+        var report = await Sync(library, fake, recreate: true);
+
+        Assert.Equal([LibrarySyncAction.Pushed, LibrarySyncAction.Pulled], report.Items.Select(i => i.Action));
+        Assert.Equal(["v4"], (await fake.GetListAsync("u1", FakeVndbCatalog.ValidToken, Ct)).Items.Select(e => e.VisualNovelId));
+        Assert.Null(library.Games[1].CurrentList!.Fields.Vote);
+    }
+
+    [Fact]
     public async Task Recriar_nao_vale_com_pull()
     {
         var agreed = Fields(vote: 70);

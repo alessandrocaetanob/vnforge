@@ -190,14 +190,14 @@ public sealed class LibraryListCommandTests : IDisposable
         Assert.Equal([1, 2], Saved().CurrentList!.Fields.Labels.Select(l => l.Id));
     }
 
-    private void SeedDeletedOnSite()
+    private void SeedDeletedOnSite(bool edited = true)
     {
         var fields = new LibraryListFields { Vote = 70, Labels = [LibraryListLabels.Named(2)] };
         var game = new LibraryGame("g1", "C:\\Jogos\\CLANNAD", null, LibraryEngine.Unknown, "CLANNAD", null, T0)
         {
             VndbId = "v4",
             Confirmation = LibraryConfirmation.Manual,
-            List = new LibraryListState("v4", fields with { Vote = 95 }, T0.AddDays(3)) { Base = fields, SyncedAt = T0, OnVndb = true },
+            List = new LibraryListState("v4", edited ? fields with { Vote = 95 } : fields, T0.AddDays(3)) { Base = fields, SyncedAt = T0, OnVndb = true },
         };
         File.Save(new GameLibrary([game]));
     }
@@ -218,6 +218,28 @@ public sealed class LibraryListCommandTests : IDisposable
         Assert.Contains("apagada na sua lista do VNDB", push.Error, StringComparison.Ordinal);
         Assert.False(Updated(fake));
         Assert.Equal("Ainda aqui", Saved().CurrentList!.Fields.Notes);
+    }
+
+    [Fact]
+    public async Task Status_push_sem_edicao_e_com_a_entrada_apagada_diz_a_verdade_e_manda_trazer_a_exclusao()
+    {
+        var fake = Prepare();
+        SeedDeletedOnSite(edited: false);
+
+        var push = await Run("library", "status", "CLANNAD", "--push", "--yes");
+        var syncPush = await Run("library", "sync", "--push", "--yes");
+
+        Assert.Equal(1, push.ExitCode);
+        Assert.Contains("foi apagada na sua lista do VNDB", push.Error, StringComparison.Ordinal);
+        Assert.Contains("não há mudança aqui", push.Error, StringComparison.Ordinal);
+        Assert.Contains("vnf library sync", push.Error, StringComparison.Ordinal);
+        Assert.DoesNotContain("--recreate", push.Error, StringComparison.Ordinal);
+        Assert.DoesNotContain("edição ficou gravada", push.Error, StringComparison.Ordinal);
+        Assert.Equal(0, syncPush.ExitCode);
+        Assert.Contains("--push não traz a exclusão", syncPush.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("--recreate", syncPush.Output, StringComparison.Ordinal);
+        Assert.False(Updated(fake));
+        Assert.True(Saved().CurrentList!.OnVndb);
     }
 
     [Fact]
