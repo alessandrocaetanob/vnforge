@@ -52,6 +52,12 @@ $Icons = [ordered]@{
     'Icon.Split'    = @('Split Horizontal', 'split_horizontal')
     'Icon.Play'     = @('Play', 'play')
     'Icon.Undo'     = @('Arrow Undo', 'arrow_undo')
+    'Icon.Library'  = @('Library', 'library')
+    'Icon.ArrowLeft' = @('Arrow Left', 'arrow_left')
+    'Icon.Eye'      = @('Eye', 'eye')
+    'Icon.EyeOff'   = @('Eye Off', 'eye_off')
+    'Icon.Link'     = @('Link', 'link')
+    'Icon.Filter'   = @('Filter', 'filter')
 }
 
 $sb = [System.Text.StringBuilder]::new()
