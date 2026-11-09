@@ -9,6 +9,12 @@
     <Setter Property="Padding" Value="12,10"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
   </Style>
+  <!-- ".banner2" do quadro v6: raio lg, sem borda, respiro de 12 por 16. Quem usa põe o ícone em 20 e o texto no corpo de 14. -->
+  <Style Selector="Border.infobar.banner">
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="16,12"/>
+  </Style>
   <Style Selector="Border.infobar PathIcon">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
   </Style>

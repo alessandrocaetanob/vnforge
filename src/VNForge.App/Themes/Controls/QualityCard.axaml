@@ -15,7 +15,7 @@
           <StackPanel Spacing="6">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <Border Name="PART_Mark" Classes="radio-mark"/>
-              <TextBlock Grid.Column="1" Classes="title-sm" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="title-sm" LineHeight="20" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
