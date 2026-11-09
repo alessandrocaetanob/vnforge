@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Bible;
 using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
@@ -13,6 +14,43 @@ public sealed partial class LineDetailViewModel
     public IReadOnlyList<ContextLine> Scene { get; init; } = [];
 
     public bool HasScene => Scene.Count > 0;
+
+    private BibleScene? bibleScene;
+    private bool bibleSceneRead;
+
+    /// <summary>A cena da linha na bíblia do jogo (<c>bible.json</c>), a que o resumo do cartão "Resumo da cena" vem; nula sem bíblia, sem resumo ou com o arquivo ilegível.</summary>
+    private BibleScene? BibleSceneOfLine
+    {
+        get
+        {
+            if (!bibleSceneRead)
+            {
+                bibleSceneRead = true;
+                bibleScene = ReadBibleScene();
+            }
+
+            return bibleScene;
+        }
+    }
+
+    private BibleScene? ReadBibleScene()
+    {
+        if (ProjectRoot is not { } root || !Directory.Exists(root))
+        {
+            return null;
+        }
+
+        var scene = ProjectFolder.Open(root).LoadBibleOrEmpty(out _).Scene(ScriptKey);
+        return scene is { Summary.Length: > 0 } ? scene : null;
+    }
+
+    /// <summary>O resumo da cena que entra em cada pedido de tradução das linhas dela; vazio quando a bíblia não tem.</summary>
+    public string SceneSummary => BibleSceneOfLine?.Summary ?? string.Empty;
+
+    public bool HasSceneSummary => BibleSceneOfLine is not null;
+
+    /// <summary>O tom da cena, em uma linha, abaixo do resumo; vazio quando a bíblia não escreveu um.</summary>
+    public string SceneTone => BibleSceneOfLine is { Tone.Count: > 0 } scene ? string.Join(" · ", scene.Tone) : string.Empty;
 
     /// <summary>As outras linhas do projeto com o mesmo original; nulo quando o Editor não montou o índice.</summary>
     public ISameSourceLines? SameSource

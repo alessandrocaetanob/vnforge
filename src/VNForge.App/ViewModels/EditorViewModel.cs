@@ -141,6 +141,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <summary>A memória de tradução entre projetos (#537); nula nos testes que não a usam. O projeto de exemplo nunca entra nela.</summary>
     public TranslationMemory? Memory { get; init; }
 
+    /// <summary>O dicionário offline do inspetor (#538); nulo nos testes que não o usam. Um só para todas as linhas.</summary>
+    public OfflineDictionary? Dictionary { get; init; }
+
+    /// <summary>Disparado por "Adicionar ao glossário" no cartão do dicionário: a janela abre o Glossário com o termo, como está no original, numa linha nova.</summary>
+    public event EventHandler<string>? GlossaryTermRequested;
+
     private ProjectMemory? projectMemory;
     private Task memoryWork = Task.CompletedTask;
 
@@ -694,8 +700,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, Dictionary = Dictionary, GlossaryTermStarter = term => GlossaryTermRequested?.Invoke(this, term), ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, Dictionary = Dictionary, GlossaryTermStarter = term => GlossaryTermRequested?.Invoke(this, term), ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
         detail.ShowMemory();

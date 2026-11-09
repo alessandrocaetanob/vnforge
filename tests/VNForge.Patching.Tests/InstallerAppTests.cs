@@ -104,7 +104,7 @@ public class InstallerAppTests
         }
         else
         {
-            foreach (var file in Directory.GetFiles(AppContext.BaseDirectory, "*").Where(f => Path.GetFileName(f) is "VNForge.Patching.dll" or "VCDiff.dll" or "SharpCompress.dll" or "Newtonsoft.Json.dll" or "Microsoft.IO.RecyclableMemoryStream.dll" || Path.GetFileName(f).StartsWith("vnf-instalador.", StringComparison.Ordinal)))
+            foreach (var file in Directory.GetFiles(AppContext.BaseDirectory, "*").Where(f => Path.GetFileName(f) is "VNForge.Patching.dll" or "VCDiff.dll" or "SharpCompress.dll" or "Newtonsoft.Json.dll" or "Microsoft.IO.RecyclableMemoryStream.dll" || Path.GetFileName(f) == Path.GetFileName(stub) || Path.GetFileName(f).StartsWith("vnf-instalador.", StringComparison.Ordinal)))
             {
                 File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
             }
@@ -117,6 +117,11 @@ public class InstallerAppTests
         }
 
         File.Move(Path.Combine(folder, "tmp.bin"), installer, overwrite: true);
+        if (!OperatingSystem.IsWindows())
+        {
+            // O tmp.bin nasce sem o bit de execução; o Move o põe no lugar do apphost.
+            File.SetUnixFileMode(installer, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        }
 
         var install = Run(installer, game.Game, "--pasta", game.Game, "--silencioso");
         Assert.Equal(0, install.ExitCode);

@@ -437,6 +437,31 @@ public sealed partial class GlossaryViewModel : ObservableObject
         return row;
     }
 
+    /// <summary>
+    /// Abre a aba Termos com <paramref name="source"/>, o termo como está no original, numa linha nova no alto da tabela para a pessoa só escrever a tradução. Se o termo já está
+    /// cadastrado devolve a linha dele em vez de duplicar. Nulo quando a tabela está fechada para edição.
+    /// </summary>
+    public GlossaryTermRow? RegisterTerm(string source)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        if (!CanEdit)
+        {
+            return null;
+        }
+
+        SelectedTab = GlossaryTab.Terms;
+        ClearSearch();
+        var existing = Terms.FirstOrDefault(t => string.Equals(t.Source.Trim(), source.Trim(), StringComparison.Ordinal));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var row = Watch(new GlossaryTermRow(source), MarkTermsDirty);
+        Terms.Insert(0, row);
+        return row;
+    }
+
     // A linha nova é vazia e a busca a esconderia.
     private void ClearSearch() => Search = string.Empty;
 

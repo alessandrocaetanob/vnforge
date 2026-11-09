@@ -50,6 +50,91 @@
     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
   </Style>
 
+  <!-- Dicionário offline (#538): o cartão da palavra sob o mouse, o .pop do quadro (bg-card, borda de controle, raio md, sombra de flyout). -->
+  <Style Selector="Border.word-card">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    <Setter Property="BoxShadow" Value="{DynamicResource Vnf.ShadowFlyout}"/>
+    <Setter Property="Padding" Value="14,12"/>
+  </Style>
+  <Style Selector="Border.word-footer">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    <Setter Property="Padding" Value="0,8,0,0"/>
+    <Setter Property="Margin" Value="0,2,0,0"/>
+  </Style>
+  <Style Selector="Border.word-tag">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.PillHeight}"/>
+  </Style>
+  <Style Selector="Border.word-tag TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
+    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    <Setter Property="MaxWidth" Value="150"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.word-tag.ok">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="Border.word-tag.ok TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="MaxWidth" Value="170"/>
+  </Style>
+  <Style Selector="Border.word-tag.ok PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button.word-more">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+  <!-- A origem do dicionário no rodapé e no aviso: texto secundário que é link para a licença; sublinha ao passar o mouse. -->
+  <Style Selector="Button.word-source">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+  <Style Selector="Button.word-source /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Padding" Value="0"/>
+  </Style>
+  <Style Selector="Button.word-source TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
+  </Style>
+  <Style Selector="Button.word-source:pointerover TextBlock">
+    <Setter Property="TextDecorations" Value="Underline"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <Style Selector="Button.word-more /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Padding" Value="0"/>
+  </Style>
+  <Style Selector="Button.word-more TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
+  </Style>
+
   <!-- TranslationField (docs/design/components/TranslationField): borda de 1px em volta do campo e a de 2px em accent embaixo, sempre,
        porque é o campo ativo da tela. -->
   <Style Selector="Border.field">

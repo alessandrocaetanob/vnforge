@@ -22,6 +22,7 @@ public enum NavKey
     Glossary,
     Build,
     Release,
+    Bible,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -65,6 +66,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferir", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false) { IsVisible = false };
+    private readonly NavItemViewModel bibleItem = new(NavKey.Bible, "Bíblia", "Icon.Bookmark", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel releaseItem = new(NavKey.Release, "Lançar", "Icon.Open", isEnabled: false);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
@@ -93,6 +95,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Glossary.Rate = () => Settings.Rate;
+        Bible.Rate = () => Settings.Rate;
+        Bible.Limits = () => Settings.Budget;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
         History = new BatchHistory(TaskService);
         History.Undone += (_, undone) => OnBatchUndone(undone);
@@ -111,14 +115,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
-        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, settingsItem];
-        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem];
+        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, settingsItem];
+        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem];
         BottomNav = [settingsItem];
         selectedNav = startItem;
         CurrentPage = start;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
         Editor.PropertyChanged += OnEditorChanged;
         Editor.CheckRequested += OnEditorCheckRequested;
+        Editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
         Editor.TranslateRequested += OnEditorTranslateRequested;
         HookTranslateDialog();
@@ -158,6 +163,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         start.Detail.Context = Dashboard.Context;
         start.GameFolderChosen += (_, folder) => ShowWizard(newProjectWizard, folder);
         start.NextStepRequested += (_, request) => OpenFromDashboard(request);
+        Bible.EditorRequested += (_, key) =>
+        {
+            SelectedNav = editorItem;
+            LineNavigation = ShowScriptAsync(key);
+        };
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         Dashboard.ChaptersRenamed += (_, _) => _ = Editor.RefreshChaptersAsync();
@@ -210,12 +220,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
             DetachEditor(editor);
             editor.PropertyChanged -= OnEditorChanged;
             editor.CheckRequested -= OnEditorCheckRequested;
+            editor.GlossaryTermRequested -= OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested -= OnEditorDefineGenderRequested;
             editor.TranslateRequested -= OnEditorTranslateRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
             editor.CheckRequested += OnEditorCheckRequested;
+            editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested += OnEditorDefineGenderRequested;
             editor.TranslateRequested += OnEditorTranslateRequested;
         }
@@ -224,6 +236,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    /// <summary>A página Bíblia (#530).</summary>
+    public BibleViewModel Bible { get; } = new();
 
     public BuildViewModel Build { get; }
 
@@ -378,6 +393,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Conference => Conference,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
+                    NavKey.Bible => Bible,
                     NavKey.Build => Build,
                     NavKey.Release => Release,
                     _ => Start,
@@ -784,6 +800,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Build.Project = summary;
         Release.Project = summary;
         Conference.Project = summary;
+        Bible.Open(summary);
         History.LoadPersisted(summary.Root);
         editorStale = false;
         dashboardItem.IsEnabled = true;
@@ -793,6 +810,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         buildItem.IsEnabled = true;
         releaseItem.IsEnabled = true;
         glossaryItem.IsVisible = true;
+        bibleItem.IsEnabled = true;
+        bibleItem.IsVisible = true;
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));
         ProjectLoading = Task.WhenAll(Editor.Loading, Glossary.Loading, Settings.EstimateLoading);
@@ -813,6 +832,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
+
+    /// <summary>"Adicionar ao glossário" no cartão do dicionário: Glossário > Termos com a palavra como está no original, pronta para a tradução.</summary>
+    private void OnEditorGlossaryTermRequested(object? sender, string term)
+    {
+        Glossary.RegisterTerm(term);
+        SelectedNav = glossaryItem;
+    }
 
     /// <summary>"Cadastrar personagem" no erro do falante: Glossário > Personagens com o nome como está no texto, pronto para a tradução.</summary>
     private void OpenCharacterInGlossary(string name)

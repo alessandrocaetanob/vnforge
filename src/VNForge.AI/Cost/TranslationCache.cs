@@ -44,6 +44,15 @@ public sealed class TranslationCache
             sb.Append('\u001e').Append(a.From).Append('>').Append(a.To).Append('|').Append(a.Source).Append('=').Append(a.Target);
         if (batch.Window != ContextWindow.Default)
             sb.Append('\u001e').Append("janela:").Append(batch.Window.Before).Append('/').Append(batch.Window.After);
+
+        // O resumo da cena entra no pedido do lote inteiro, então editá-lo (ou gerar a bíblia) invalida todas as linhas do lote, não só as da cena editada.
+        // A sinopse, que vale para o jogo inteiro, fica de fora. Sem bíblia o lote não tem cenas e a chave é a de antes dela.
+        foreach (var scene in batch.Scenes)
+        {
+            sb.Append('\u001e').Append(scene.Key).Append('|').Append(scene.Summary).Append('|').Append(string.Join(';', scene.Tone)).Append('|').Append(string.Join(';', scene.Jokes))
+                .Append('|').Append(string.Join(';', scene.Relations.Select(r => $"{r.Between}={r.Note}")));
+        }
+
         return sb.ToString();
     }
 
