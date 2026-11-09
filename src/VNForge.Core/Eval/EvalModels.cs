@@ -53,7 +53,8 @@ public sealed record EvalConfig(string Id, string Model, string Effort, int Cont
 /// <summary>Uma linha do conjunto ouro: o original e a tradução que a pessoa aprovou, com as falas ao redor para a rodada às cegas.</summary>
 /// <param name="Before">A fala anterior, com a tradução aprovada (<c>Kenta, "Ehehe..."</c>); vazia no começo do script.</param>
 /// <param name="After">A fala seguinte, no original; vazia no fim do script.</param>
-public sealed record GoldLine(string Id, string ScriptKey, string? Speaker, string Source, string Reference, string Before = "", string After = "");
+/// <param name="Position">A posição da linha no script; -1 quando não se sabe. Duas linhas só formam um trecho seguido se as posições forem vizinhas.</param>
+public sealed record GoldLine(string Id, string ScriptKey, string? Speaker, string Source, string Reference, string Before = "", string After = "", int Position = -1);
 
 /// <summary>O resultado de uma linha numa configuração.</summary>
 /// <param name="Refused">O modelo recusou a linha ou o lote dela falhou; a tradução fica vazia e o chrF vale 0.</param>

@@ -34,13 +34,13 @@ public static class EvalEstimator
     {
         ArgumentNullException.ThrowIfNull(configs);
         EvalRunner.Validate(configs, hasBible: true);
-        var set = EvalSampleSet.Load(project, sampleSize, seed);
+        var set = EvalSampleSet.Load(project, sampleSize, seed, batchSize);
         var judgeDollars = judgeModel is null ? 0m : JudgeDollars(set, judgeModel, batchSize);
         var estimates = configs
             .Select(config =>
             {
                 var effort = ClaudeEffortText.ParseOrDefault(config.Effort);
-                var batches = set.Chunks(batchSize).Select(chunk => set.BuildBatch(config, chunk));
+                var batches = set.Blocks.Select(block => set.BuildBatch(config, block));
                 return new EvalConfigEstimate(config, CostEstimator.EstimateBatches(batches, config.Model, null, effort), judgeDollars);
             })
             .ToList();
@@ -49,7 +49,7 @@ public static class EvalEstimator
 
     private static decimal JudgeDollars(EvalSampleSet set, string judgeModel, int batchSize)
     {
-        var batches = (int)Math.Ceiling(set.Sample.Count / (double)batchSize);
+        var batches = set.Blocks.Sum(b => (int)Math.Ceiling(b.Count / (double)batchSize));
         var input = set.Sample.Sum(g => CostEstimator.Tokens(g.Source) + CostEstimator.Tokens(g.Reference) + JudgeLineOverhead) + (long)batches * JudgeSystemTokens;
         var output = (long)set.Sample.Count * JudgeOutputPerLine;
         return ModelPricing.For(judgeModel).Cost(new TokenUsage(input, output));

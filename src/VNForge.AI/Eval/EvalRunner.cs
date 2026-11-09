@@ -47,6 +47,12 @@ public sealed record EvalRunRequest(
     /// </summary>
     public Func<TranslationBatch, TranslationBatch>? ApplyBible { get; init; }
 
+    /// <summary>O limite de gasto do projeto, em reais. A rodada para no meio, sem começar lote novo, quando o gasto (o que o projeto já gastou mais o desta rodada) chega nele.</summary>
+    public BudgetLimits Limits { get; init; } = BudgetLimits.None;
+
+    /// <summary>A cotação que converte o preço da tabela em reais para o <see cref="Limits"/>.</summary>
+    public ExchangeRate Rate { get; init; } = ExchangeRate.Placeholder;
+
     public TimeProvider Clock { get; init; } = TimeProvider.System;
 
     public IProgress<EvalProgress>? Progress { get; init; }
@@ -68,13 +74,14 @@ public static class EvalRunner
             throw new EvalException("O juiz de IA precisa de um modelo para o preço.");
         }
 
-        var set = EvalSampleSet.Load(request.Project, request.SampleSize, request.Seed);
+        var set = EvalSampleSet.Load(request.Project, request.SampleSize, request.Seed, request.RunOptions.BatchSize);
         var reference = set.Sample.ToDictionary(g => g.Id, g => g.Reference, StringComparer.Ordinal);
+        var spend = new Spend(request.Rate.ToBrl(AiUsageLog.Load(request.Project).Dollars));
         var reports = new List<EvalConfigReport>();
         for (var i = 0; i < request.Configs.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
-            reports.Add(await RunConfigAsync(request, set, reference, request.Configs[i], i, ct).ConfigureAwait(false));
+            reports.Add(await RunConfigAsync(request, set, reference, request.Configs[i], i, spend, ct).ConfigureAwait(false));
         }
 
         var at = request.Clock.GetUtcNow();
@@ -134,37 +141,63 @@ public static class EvalRunner
     }
 
     private static async Task<EvalConfigReport> RunConfigAsync(
-        EvalRunRequest request, EvalSampleSet set, Dictionary<string, string> reference, EvalConfig config, int index, CancellationToken ct)
+        EvalRunRequest request, EvalSampleSet set, Dictionary<string, string> reference, EvalConfig config, int index, Spend spend, CancellationToken ct)
     {
         void Report(EvalPhase phase) => request.Progress?.Report(new EvalProgress(index + 1, request.Configs.Count, config.Id, phase));
 
         var provider = request.Providers(config);
+        var effort = ClaudeEffortText.ParseOrDefault(config.Effort);
         var translations = new Dictionary<string, TranslationResult>(StringComparer.Ordinal);
-        var options = request.RunOptions with { Budget = null };
-        var runner = new TranslationRunner(new ValidatingTranslationProvider(provider.Translator), options);
         TranslationBatch BuildBatch(IReadOnlyList<TextUnit> lines)
         {
             var batch = set.BuildBatch(config, lines);
             return config.WithBible ? request.ApplyBible!(batch) : batch;
         }
 
+        decimal Spent() => spend.Total + request.Rate.ToBrl(RunCostTracker.DollarsFor(config.Model, provider.Usage()) ?? 0m);
+
+        // O mesmo guarda do app: não começa lote que passaria do limite e, com os lotes em andamento reservados, o limite vale mesmo com chamadas em paralelo.
+        var guard = new BudgetGuard(
+            new BudgetLimits(request.Limits.Limit, null),
+            Spent,
+            lines => request.Rate.ToBrl(CostEstimator.EstimateBatch(BuildBatch(lines), config.Model, effort).Dollars));
+        var runner = new TranslationRunner(new ValidatingTranslationProvider(provider.Translator), request.RunOptions with { Budget = guard });
+        var gate = new Lock();
+        var failures = new List<TranslationBatchFailure>();
+        Exception? callbackError = null;
+        BudgetStop? stop = null;
+
         Report(EvalPhase.Translating);
         var started = request.Clock.GetTimestamp();
-        TranslationRunResult run;
         try
         {
-            run = await runner.RunAsync(
-                set.Lines,
-                BuildBatch,
-                results =>
+            await Parallel.ForEachAsync(
+                set.Blocks,
+                new ParallelOptions { MaxDegreeOfParallelism = request.RunOptions.MaxConcurrency, CancellationToken = ct },
+                async (block, token) =>
                 {
-                    foreach (var result in results)
+                    var run = await runner.RunAsync(
+                        block,
+                        BuildBatch,
+                        results =>
+                        {
+                            lock (gate)
+                            {
+                                foreach (var result in results)
+                                {
+                                    translations[result.Id] = result;
+                                }
+                            }
+                        },
+                        null,
+                        token).ConfigureAwait(false);
+                    lock (gate)
                     {
-                        translations[result.Id] = result;
+                        failures.AddRange(run.Failures);
+                        callbackError ??= run.CallbackError;
+                        stop ??= run.BudgetStop;
                     }
-                },
-                null,
-                ct).ConfigureAwait(false);
+                }).ConfigureAwait(false);
         }
         finally
         {
@@ -173,8 +206,14 @@ public static class EvalRunner
 
         var seconds = request.Clock.GetElapsedTime(started).TotalSeconds;
         ct.ThrowIfCancellationRequested();
-        var error = run.CallbackError?.Message ?? run.Failures.FirstOrDefault()?.Error.Message;
+        var configDollars = RunCostTracker.DollarsFor(config.Model, provider.Usage()) ?? 0m;
+        spend.Add(request.Rate.ToBrl(configDollars));
+        if (stop is not null || (request.Limits.Limit is { } cap && spend.Total >= cap))
+        {
+            throw new EvalException(StoppedText(request, config));
+        }
 
+        var error = callbackError?.Message ?? failures.FirstOrDefault()?.Error.Message;
         var judged = new Dictionary<string, double>(StringComparer.Ordinal);
         decimal judgeDollars = 0m;
         if (request.Judge is { } judge)
@@ -183,6 +222,7 @@ public static class EvalRunner
             var (scores, dollars, judgeError) = await JudgeAsync(request, judge, set, translations, ct).ConfigureAwait(false);
             judged = scores;
             judgeDollars = dollars;
+            spend.Add(request.Rate.ToBrl(dollars));
             error ??= judgeError;
         }
 
@@ -204,11 +244,15 @@ public static class EvalRunner
             usage?.OutputTokens ?? 0,
             usage?.CacheReadInputTokens ?? 0,
             usage?.CacheCreationInputTokens ?? 0,
-            RunCostTracker.DollarsFor(config.Model, usage) ?? 0m,
+            configDollars,
             judgeDollars,
             seconds,
-            error);
+            error,
+            Chrf.Corpus(lines.Select(l => ((string?)reference[l.LineId], (string?)l.Translation))));
     }
+
+    private static string StoppedText(EvalRunRequest request, EvalConfig config) =>
+        $"A rodada parou na configuração {config.Id} porque o gasto do projeto chegou ao limite de {EvalText.Brl(request.Limits.Limit ?? 0m)}. O que já foi gasto ficou no gasto do projeto, mas a rodada não foi gravada; aumente o limite nos Ajustes do app ou rode menos configurações.";
 
     private static async Task<(Dictionary<string, double> Scores, decimal Dollars, string? Error)> JudgeAsync(
         EvalRunRequest request, IJudgeProvider judge, EvalSampleSet set, Dictionary<string, TranslationResult> translations, CancellationToken ct)
@@ -235,11 +279,13 @@ public static class EvalRunner
         {
             error = $"O juiz de IA falhou: {ex.Message}";
         }
+        finally
+        {
+            // Cancelar no meio do juiz não pode perder o que ele já gastou.
+            RunCostTracker.Record(request.Project, request.JudgeModel!, Delta(before, judge.Usage));
+        }
 
-        var after = judge.Usage;
-        var delta = Delta(before, after);
-        RunCostTracker.Record(request.Project, request.JudgeModel!, delta);
-        return (scores, RunCostTracker.DollarsFor(request.JudgeModel!, delta) ?? 0m, error);
+        return (scores, RunCostTracker.DollarsFor(request.JudgeModel!, Delta(before, judge.Usage)) ?? 0m, error);
     }
 
     private static ClaudeUsage? Delta(ClaudeUsage? before, ClaudeUsage? after) => (before, after) switch
@@ -248,4 +294,22 @@ public static class EvalRunner
         (null, var b) => b,
         var (a, b) => new ClaudeUsage(b.InputTokens - a.InputTokens, b.OutputTokens - a.OutputTokens, b.CacheReadInputTokens - a.CacheReadInputTokens, b.CacheCreationInputTokens - a.CacheCreationInputTokens),
     };
+
+    /// <summary>O gasto da rodada em reais: o que o projeto já tinha gasto ao começar mais o das configurações e do juiz que já acabaram.</summary>
+    private sealed class Spend(decimal baseline)
+    {
+        private readonly Lock _gate = new();
+        private decimal _finished;
+
+        public decimal Total
+        {
+            get { lock (_gate) return baseline + _finished; }
+        }
+
+        public void Add(decimal brl)
+        {
+            lock (_gate)
+                _finished += brl;
+        }
+    }
 }

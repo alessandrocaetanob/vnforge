@@ -39,7 +39,7 @@ public sealed class EvalRunnerTests : IDisposable
         Assert.Equal(20, round.GoldLines);
         Assert.Equal(20, round.RemainingLines);
         Assert.Equal(20, round.Sample.Count);
-        Assert.Equal(EvalProject.GoldIndexes.Select(EvalProject.Id), round.Reports[0].Lines.Select(l => l.LineId));
+        Assert.Equal(_project.GoldIndexes.Select(EvalProject.Id), round.Reports[0].Lines.Select(l => l.LineId));
         Assert.Equal(round.Reports[0].Lines.Select(l => l.LineId), round.Reports[1].Lines.Select(l => l.LineId));
         Assert.Equal(100.0, round.Reports[0].MeanChrf, 6);
         Assert.InRange(round.Reports[1].MeanChrf, 0, 60);
@@ -229,6 +229,124 @@ public sealed class EvalRunnerTests : IDisposable
         await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), bad), TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet, Sonnet), TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect())), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Cada_lote_e_um_trecho_de_linhas_seguidas_e_a_linha_do_meio_tem_a_janela_de_contexto_real()
+    {
+        using var project = new EvalProject(goldCount: 100);
+        var provider = EvalProject.Perfect();
+        var request = new EvalRunRequest(project.Folder, [Sonnet], 100, 3, Same(provider)) { RunOptions = Quick };
+
+        await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        var batches = provider.ReceivedBatches.OrderBy(b => b.Lines[0].Id, StringComparer.Ordinal).ToList();
+        Assert.Equal([30, 30, 30, 10], batches.Select(b => b.Lines.Count));
+        Assert.All(batches, b => Assert.Equal(
+            Enumerable.Range(Index(b.Lines[0]), b.Lines.Count).Select(EvalProject.Id),
+            b.Lines.Select(l => l.Id)));
+        var second = batches[1];
+        Assert.Contains(EvalProject.Id(49), second.Lines.Select(l => l.Id));
+        Assert.Contains(EvalProject.Id(50), second.Lines.Select(l => l.Id));
+        Assert.Contains(EvalProject.Id(51), second.Lines.Select(l => l.Id));
+        Assert.Equal(["Tradução 33", "Tradução 34"], second.PreviousLines.Select(l => l.Translation));
+        Assert.Equal(["原文65", "原文66"], second.NextLines.Take(2).Select(l => l.Source));
+    }
+
+    [Fact]
+    public async Task Linhas_aprovadas_separadas_por_outras_nao_formam_um_trecho()
+    {
+        using var project = new EvalProject(spaced: true);
+        var provider = EvalProject.Perfect();
+        var request = new EvalRunRequest(project.Folder, [Sonnet], 100, 3, Same(provider)) { RunOptions = Quick };
+
+        await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(20, provider.ReceivedBatches.Count);
+        Assert.All(provider.ReceivedBatches, b => Assert.Single(b.Lines));
+    }
+
+    [Fact]
+    public async Task O_chrf_do_relatorio_e_o_do_conjunto()
+    {
+        var provider = new FakeTranslationProvider(unit => $"[PT] {unit.Source}");
+
+        var round = await EvalRunner.RunAsync(Request(Same(provider), Sonnet), TestContext.Current.CancellationToken);
+
+        var expected = Chrf.Corpus(_project.GoldIndexes.Select(i => ((string?)$"Tradução {i}", (string?)$"[PT] 原文{i}")));
+        var report = round.Reports[0];
+        Assert.Equal(expected, report.CorpusChrf!.Value, 9);
+        Assert.Equal(expected, report.MeanChrf, 9);
+    }
+
+    [Fact]
+    public async Task Para_no_meio_quando_o_gasto_passa_do_limite_e_nao_grava_a_rodada()
+    {
+        using var project = new EvalProject(goldCount: 100);
+        var provider = new MeteredProvider();
+        var request = new EvalRunRequest(project.Folder, [Sonnet], 100, 3, _ => new EvalProvider(provider, provider.Usage))
+        {
+            RunOptions = Quick with { MaxConcurrency = 1 },
+            Rate = new ExchangeRate(5m),
+            Limits = new BudgetLimits(15m, null),
+        };
+
+        var error = await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(request, TestContext.Current.CancellationToken));
+
+        Assert.Contains("limite", error.Message);
+        Assert.Equal(2, provider.Calls);
+        Assert.Equal(4m, AiUsageLog.Load(project.Folder).Dollars);
+        Assert.Null(EvalStore.LoadLatest(project.Folder));
+    }
+
+    [Fact]
+    public async Task Sem_limite_a_rodada_nao_para_por_gasto()
+    {
+        using var project = new EvalProject(goldCount: 100);
+        var provider = new MeteredProvider();
+        var request = new EvalRunRequest(project.Folder, [Sonnet], 100, 3, _ => new EvalProvider(provider, provider.Usage)) { RunOptions = Quick };
+
+        await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(4, provider.Calls);
+    }
+
+    [Fact]
+    public async Task Cancelar_no_juiz_nao_perde_o_que_ele_ja_gastou()
+    {
+        using var project = new EvalProject(goldCount: 100);
+        using var cts = new CancellationTokenSource();
+        var judge = new FakeJudgeProvider(_ =>
+        {
+            cts.Cancel();
+            return 7;
+        }) { UsagePerCall = new ClaudeUsage(500_000, 0, 0, 0) };
+        var request = new EvalRunRequest(project.Folder, [Sonnet], 100, 3, Same(EvalProject.Perfect())) { RunOptions = Quick, Judge = judge, JudgeModel = ClaudeModels.Haiku };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => EvalRunner.RunAsync(request, cts.Token));
+
+        Assert.Equal(0.05m, AiUsageLog.Load(project.Folder).Dollars);
+        Assert.Null(EvalStore.LoadLatest(project.Folder));
+    }
+
+    private static int Index(VNForge.Core.Text.TextUnit unit) => int.Parse(unit.Id[(unit.Id.IndexOf(':', StringComparison.Ordinal) + 1)..], System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Um provedor que gasta 1 milhão de tokens de entrada por chamada, para a rodada ver o gasto crescer.</summary>
+    private sealed class MeteredProvider : ITranslationProvider
+    {
+        private readonly FakeTranslationProvider _inner = EvalProject.Perfect();
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public ClaudeUsage? Usage() => new(Calls * 1_000_000L, 0, 0, 0);
+
+        public async Task<IReadOnlyList<TranslationResult>> TranslateAsync(TranslationBatch batch, CancellationToken ct)
+        {
+            var results = await _inner.TranslateAsync(batch, ct).ConfigureAwait(false);
+            Interlocked.Increment(ref _calls);
+            return results;
+        }
     }
 
     private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>

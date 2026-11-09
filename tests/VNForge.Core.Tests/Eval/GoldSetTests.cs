@@ -92,6 +92,25 @@ public sealed class GoldSetTests
     }
 
     [Fact]
+    public void Uma_linha_nao_aprovada_no_meio_abre_outro_trecho()
+    {
+        var texts = new Dictionary<string, IReadOnlyList<TextUnit>>
+        {
+            ["s1"] =
+            [
+                Unit("s1:1", TranslationStatus.Approved, "一", "Um"),
+                Unit("s1:2", TranslationStatus.Approved, "二", "Dois"),
+                Unit("s1:3", TranslationStatus.Machine, "三", "Três"),
+                Unit("s1:4", TranslationStatus.Approved, "四", "Quatro"),
+            ],
+        };
+
+        var blocks = GoldSet.SampleBlocks(GoldSet.From(texts), 100, 1, 10);
+
+        Assert.Equal([["s1:1", "s1:2"], ["s1:4"]], blocks.Select(b => b.Select(l => l.Id).ToArray()));
+    }
+
+    [Fact]
     public void O_sorteio_de_trechos_fecha_o_total_corta_o_ultimo_e_repete_com_a_mesma_semente()
     {
         var gold = Lines("a", 1, 200);

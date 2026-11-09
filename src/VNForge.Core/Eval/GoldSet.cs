@@ -25,7 +25,7 @@ public static class GoldSet
                     continue;
                 }
 
-                gold.Add(new GoldLine(unit.Id, key, unit.Speaker, unit.Source, unit.Translation, Neighbor(units, i - 1), Neighbor(units, i + 1)));
+                gold.Add(new GoldLine(unit.Id, key, unit.Speaker, unit.Source, unit.Translation, Neighbor(units, i - 1), Neighbor(units, i + 1), i));
             }
         }
 
@@ -61,7 +61,7 @@ public static class GoldSet
     }
 
     /// <summary>
-    /// Sorteia trechos em vez de linhas soltas: cada trecho tem até <paramref name="blockSize"/> linhas aprovadas seguidas do mesmo script, e cada trecho vira um lote com o
+    /// Sorteia trechos em vez de linhas soltas: cada trecho tem até <paramref name="blockSize"/> linhas aprovadas coladas uma na outra no mesmo script (uma linha não aprovada no meio abre outro trecho), e cada trecho vira um lote com o
     /// contexto que o <c>vnf translate</c> daria a ele (as linhas do lote entre si e as falas de antes e de depois). Os trechos saem na ordem original, com as linhas em ordem.
     /// Sorteia trechos inteiros até chegar a <paramref name="count"/> linhas; o último é cortado para o total bater. Com <paramref name="count"/> maior que o conjunto, devolve tudo.
     /// </summary>
@@ -73,7 +73,7 @@ public static class GoldSet
         var blocks = new List<List<GoldLine>>();
         foreach (var line in gold)
         {
-            if (blocks.Count == 0 || blocks[^1].Count >= blockSize || blocks[^1][0].ScriptKey != line.ScriptKey)
+            if (blocks.Count == 0 || blocks[^1].Count >= blockSize || blocks[^1][0].ScriptKey != line.ScriptKey || IsGap(blocks[^1][^1], line))
             {
                 blocks.Add([]);
             }
@@ -102,6 +102,9 @@ public static class GoldSet
 
         return [.. chosen.OrderBy(c => c.Index).Select(c => (IReadOnlyList<GoldLine>)c.Lines)];
     }
+
+    private static bool IsGap(GoldLine previous, GoldLine next) =>
+        previous.Position >= 0 && next.Position >= 0 && next.Position != previous.Position + 1;
 
     private static string Neighbor(IReadOnlyList<TextUnit> units, int index)
     {

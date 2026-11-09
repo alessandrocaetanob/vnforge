@@ -7,7 +7,7 @@ using VNForge.Core.Text;
 namespace VNForge.AI.Eval;
 
 /// <summary>
-/// As linhas sorteadas de uma rodada e a montagem dos lotes de cada configuração. Lê o projeto uma vez e nunca o grava. As linhas vão ao provedor sem a tradução
+/// As linhas sorteadas de uma rodada, em trechos seguidos, e a montagem dos lotes de cada configuração. Lê o projeto uma vez e nunca o grava. As linhas vão ao provedor sem a tradução
 /// aprovada (só o original, o falante e o tipo), e o contexto é o que o <c>vnf translate</c> daria à mesma linha: as falas anteriores já traduzidas e as seguintes no original.
 /// </summary>
 internal sealed class EvalSampleSet
@@ -22,10 +22,10 @@ internal sealed class EvalSampleSet
     private readonly IReadOnlyList<AddressTerm> _addressTerms;
     private readonly StyleConfig _style;
 
-    private EvalSampleSet(ProjectFolder project, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, IReadOnlyList<GoldLine> sample, int goldLines)
+    private EvalSampleSet(ProjectFolder project, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts, IReadOnlyList<IReadOnlyList<GoldLine>> blocks, int goldLines)
     {
         _texts = texts;
-        Sample = sample;
+        Sample = [.. blocks.SelectMany(b => b)];
         GoldLines = goldLines;
         RemainingLines = GoldSet.RemainingLines(texts);
         foreach (var (key, units) in texts)
@@ -41,7 +41,8 @@ internal sealed class EvalSampleSet
         _styleGuide = TranslationBatchBuilder.ReadStyleGuide(Path.Combine(project.Root, StyleGuideFileName));
         _addressTerms = project.LoadAddressTerms();
         _style = project.LoadConfig().Style;
-        Lines = [.. sample.Select(g => Original(_texts[_where[g.Id].Key][_where[g.Id].Index]))];
+        Blocks = [.. blocks.Select(b => (IReadOnlyList<TextUnit>)[.. b.Select(g => Original(_texts[_where[g.Id].Key][_where[g.Id].Index]))])];
+        Lines = [.. Blocks.SelectMany(b => b)];
     }
 
     public IReadOnlyList<GoldLine> Sample { get; }
@@ -49,12 +50,19 @@ internal sealed class EvalSampleSet
     /// <summary>As linhas da amostra como o provedor as recebe: sem tradução.</summary>
     public IReadOnlyList<TextUnit> Lines { get; }
 
+    /// <summary>
+    /// Os lotes da amostra: cada um é um trecho de linhas aprovadas seguidas do mesmo script, como o <c>vnf translate</c> monta os seus. Cada linha tem assim a janela
+    /// de contexto real: as do próprio lote entre si, e as falas de antes e de depois nas pontas.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<TextUnit>> Blocks { get; }
+
     public int GoldLines { get; }
 
     public int RemainingLines { get; }
 
     /// <exception cref="EvalException">O projeto não tem linha aprovada.</exception>
-    public static EvalSampleSet Load(ProjectFolder project, int sampleSize, int seed)
+    /// <param name="blockSize">Linhas por lote; é o tamanho de lote da rodada.</param>
+    public static EvalSampleSet Load(ProjectFolder project, int sampleSize, int seed, int blockSize)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (sampleSize < 1)
@@ -66,10 +74,8 @@ internal sealed class EvalSampleSet
         var gold = GoldSet.From(texts);
         return gold.Count == 0
             ? throw new EvalException("O projeto ainda não tem linhas aprovadas: o banco de provas compara as traduções com as que você aprovou. Aprove algumas linhas no Editor e rode de novo.")
-            : new EvalSampleSet(project, texts, GoldSet.Sample(gold, sampleSize, seed), gold.Count);
+            : new EvalSampleSet(project, texts, GoldSet.SampleBlocks(gold, sampleSize, seed, blockSize), gold.Count);
     }
-
-    public IEnumerable<IReadOnlyList<TextUnit>> Chunks(int batchSize) => Lines.Chunk(batchSize).Select(c => (IReadOnlyList<TextUnit>)c);
 
     public TranslationBatch BuildBatch(EvalConfig config, IReadOnlyList<TextUnit> lines)
     {
