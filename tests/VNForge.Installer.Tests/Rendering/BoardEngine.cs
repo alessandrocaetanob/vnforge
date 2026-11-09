@@ -17,6 +17,8 @@ internal sealed class BoardEngine(FakeTimeProvider? time = null, byte[]? cover =
 
     private const long Mib = 1024 * 1024;
 
+    private static readonly byte[] BoardCover = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Rendering", "Assets", "capa-quadro.png"));
+
     private static readonly string[] Paths = ["script.ypf", "Game.exe", "font.ypf", "system.ypf"];
 
     private static readonly long[] OriginalSizes = [150 * Mib, 30 * Mib, 20 * Mib, 18 * Mib];
@@ -47,7 +49,7 @@ internal sealed class BoardEngine(FakeTimeProvider? time = null, byte[]? cover =
         "Leia-me",
         [.. Paths.Select((p, i) => new PatchFileEntry(p, p == "Game.exe" ? ExpectedSha : Sha(i), OriginalSizes[i], Sha(10 + i), ResultSizes[i], 0, 1))],
         "1.00",
-        cover);
+        cover ?? BoardCover);
 
     private static string Sha(int seed) => $"{seed:x2}".PadRight(64, 'a');
 

@@ -80,13 +80,13 @@
           <Button Classes="accent" Content="Instalar" Command="{Binding InstallCommand}" IsVisible="{Binding IsFolder}" IsDefault="True"/>
           <Button Classes="accent" Command="{Binding OpenGameCommand}" IsVisible="{Binding ShowOpenGame}" IsDefault="True">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+              <Viewbox Width="16" Height="16"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.Play}" Stroke="{DynamicResource Vnf.OnAccent}"/></Canvas></Viewbox>
               <TextBlock Text="Abrir o jogo"/>
             </StackPanel>
           </Button>
           <Button Classes="accent" Command="{Binding BrowseCommand}" IsVisible="{Binding IsWrongVersion}" IsDefault="True">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+              <Viewbox Width="16" Height="16"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.Folder}" Stroke="{DynamicResource Vnf.OnAccent}"/></Canvas></Viewbox>
               <TextBlock Text="Escolher outra pasta"/>
             </StackPanel>
           </Button>
@@ -128,10 +128,11 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:InstallStepViewModel">
                 <Grid ColumnDefinitions="Auto,*,Auto" Height="23">
-                  <Panel Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0">
-                    <PathIcon Width="18" Height="18" Data="{StaticResource Icon.Check}" Foreground="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding IsDone}"/>
-                    <PathIcon Width="18" Height="18" Data="{StaticResource Icon.ArrowSync}" Foreground="{DynamicResource Vnf.AccentText}" IsVisible="{Binding IsRunning}"/>
-                    <Ellipse Width="14" Height="14" StrokeThickness="1.5" Stroke="{DynamicResource Vnf.TextTertiary}" IsVisible="{Binding IsPending}"/>
+                  <!-- No quadro o ícone fica na base da linha (svg em linha, sobre a linha de base do texto), 2,5 acima do centro. -->
+                  <Panel Width="18" Height="18" VerticalAlignment="Top" Margin="0,0,10,0">
+                    <Viewbox Width="18" Height="18" IsVisible="{Binding IsDone}"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.CheckCircle}" Stroke="{DynamicResource Vnf.StatusApprovedFg}"/></Canvas></Viewbox>
+                    <Viewbox Width="18" Height="18" IsVisible="{Binding IsRunning}"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.Refresh}" Stroke="{DynamicResource Vnf.AccentText}"/></Canvas></Viewbox>
+                    <Viewbox Width="18" Height="18" IsVisible="{Binding IsPending}"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.Circle}" Stroke="{DynamicResource Vnf.TextTertiary}"/></Canvas></Viewbox>
                   </Panel>
                   <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" Classes.pending="{Binding IsPending}">
                     <TextBlock.Styles>
@@ -150,13 +151,14 @@
           <Border Classes="ck" Classes.bad="{Binding CardIsError}" IsVisible="{Binding HasCard}">
             <Grid ColumnDefinitions="Auto,*">
               <Panel Width="20" Height="20" VerticalAlignment="Top" Margin="0,0,12,0">
-                <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Check}" Foreground="{DynamicResource Vnf.TextSecondary}" IsVisible="{Binding CardIsOk}"/>
-                <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.TextSecondary}" IsVisible="{Binding CardIsError}"/>
-                <PathIcon Width="20" Height="20" Data="{StaticResource Icon.ArrowSync}" Foreground="{DynamicResource Vnf.AccentText}" IsVisible="{Binding CardIsWorking}"/>
+                <Viewbox Width="20" Height="20" IsVisible="{Binding CardIsOk}"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.CheckCircle}" Stroke="{DynamicResource Vnf.TextSecondary}"/></Canvas></Viewbox>
+                <Viewbox Width="20" Height="20" IsVisible="{Binding CardIsError}"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.ErrorCircle}" Stroke="{DynamicResource Vnf.TextSecondary}"/></Canvas></Viewbox>
+                <Viewbox Width="20" Height="20" IsVisible="{Binding CardIsWorking}"><Canvas Width="20" Height="20"><Path Classes="qi" Data="{StaticResource Quadro.Refresh}" Stroke="{DynamicResource Vnf.AccentText}"/></Canvas></Viewbox>
               </Panel>
               <StackPanel Grid.Column="1">
                 <TextBlock Text="{Binding CardTitle}" Classes="body-strong" TextWrapping="Wrap"/>
-                <TextBlock Text="{Binding CardDetail}" Classes="caption secondary" FontSize="12" LineHeight="18" TextWrapping="Wrap"/>
+                <!-- O span de 12/18 do quadro mora numa linha de 20 (a da div), então cada linha do detalhe ocupa 20. -->
+                <TextBlock Text="{Binding CardDetail}" Classes="caption secondary" FontSize="12" LineHeight="20" TextWrapping="Wrap"/>
               </StackPanel>
             </Grid>
           </Border>

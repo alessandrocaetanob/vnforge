@@ -1,6 +1,23 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+  <Styles.Resources>
+    <!-- Os ícones de traço do quadro (viewBox 20, traço 1,6, pontas redondas), desenhados como o quadro os desenha: o Fluent Regular é mais fino e tem outro formato. -->
+    <StreamGeometry x:Key="Quadro.CheckCircle">M2.5,10 A7.5,7.5 0 1 0 17.5,10 A7.5,7.5 0 1 0 2.5,10 Z M6.5,10.3 l2.4,2.4 l4.6,-5</StreamGeometry>
+    <StreamGeometry x:Key="Quadro.ErrorCircle">M2.5,10 A7.5,7.5 0 1 0 17.5,10 A7.5,7.5 0 1 0 2.5,10 Z M10,6 v5 M10,13.5 v0.1</StreamGeometry>
+    <StreamGeometry x:Key="Quadro.Circle">M2.5,10 A7.5,7.5 0 1 0 17.5,10 A7.5,7.5 0 1 0 2.5,10 Z</StreamGeometry>
+    <StreamGeometry x:Key="Quadro.Refresh">M16,8 A6.5,6.5 0 0 0 4.5,6 M4,12 a6.5,6.5 0 0 0 11.5,2 M4,3.5 V6.5 h3 M16,16.5 V13.5 h-3</StreamGeometry>
+    <StreamGeometry x:Key="Quadro.Folder">M2.5,5.5 a1,1 0 0 1 1,-1 h4 l1.5,1.8 h7.5 a1,1 0 0 1 1,1 V15 a1,1 0 0 1 -1,1 h-13 a1,1 0 0 1 -1,-1 z</StreamGeometry>
+    <StreamGeometry x:Key="Quadro.Play">M6,4 l10,6 l-10,6 z</StreamGeometry>
+  </Styles.Resources>
+
+  <Style Selector="Path.qi">
+    <Setter Property="StrokeThickness" Value="1.6"/>
+    <Setter Property="StrokeLineCap" Value="Round"/>
+    <Setter Property="StrokeJoin" Value="Round"/>
+  </Style>
+
+
   <!-- O .v3-btn do quadro pesa 600. Desligado, o botão comum vira o "dis" do quadro: texto terciário, borda subtle e sem fundo. -->
   <Style Selector="Button">
     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -9,6 +26,14 @@
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+  </Style>
+
+  <!-- O .v3-btn do quadro tem 16 de respiro dos lados e o .sm tem 12 (space-4 e space-3 do design system); o tema do app usa 12 e 8. -->
+  <Style Selector="Button:not(.caption-button)">
+    <Setter Property="Padding" Value="16,0"/>
+  </Style>
+  <Style Selector="Button.sm">
+    <Setter Property="Padding" Value="12,0"/>
   </Style>
 
   <!-- O .v3-btn do quadro: fundo bg-card e borda stroke-control; o Fluent pinta o botão comum de cinza. Accent e subtle têm os seus. -->

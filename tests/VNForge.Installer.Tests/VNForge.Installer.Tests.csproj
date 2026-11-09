@@ -15,4 +15,9 @@
     <Compile Include="..\VNForge.Patching.Tests\SyntheticGame.cs" Link="SyntheticGame.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- A arte da capa do quadro #540 (150 por 200), recortada da captura do quadro: o instalador a mostra como o patch a levaria. -->
+    <None Include="Rendering\Assets\capa-quadro.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
