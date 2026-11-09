@@ -25,6 +25,7 @@ public sealed class Portrait : VndbImageControl
 {
     public static readonly StyledProperty<PortraitSize> SizeProperty = AvaloniaProperty.Register<Portrait, PortraitSize>(nameof(Size), PortraitSize.Sm);
     public static readonly StyledProperty<bool> IsNarratorProperty = AvaloniaProperty.Register<Portrait, bool>(nameof(IsNarrator));
+    public static readonly StyledProperty<CharacterColor?> TintProperty = AvaloniaProperty.Register<Portrait, CharacterColor?>(nameof(Tint));
 
     private const double Artboard = 64;
 
@@ -36,7 +37,7 @@ public sealed class Portrait : VndbImageControl
 
     static Portrait()
     {
-        AffectsRender<Portrait>(IsNarratorProperty);
+        AffectsRender<Portrait>(IsNarratorProperty, TintProperty);
         AffectsMeasure<Portrait>(SizeProperty);
         AffectsRender<Portrait>(SizeProperty);
     }
@@ -52,6 +53,13 @@ public sealed class Portrait : VndbImageControl
     {
         get => GetValue(IsNarratorProperty);
         set => SetValue(IsNarratorProperty, value);
+    }
+
+    /// <summary>A cor do personagem: o busto desenhado leva o matiz dela, como o nome dele; sem cor, o matiz sai do <see cref="VndbImageControl.Seed"/>.</summary>
+    public CharacterColor? Tint
+    {
+        get => GetValue(TintProperty);
+        set => SetValue(TintProperty, value);
     }
 
     protected override string DefaultAutomationName => IsNarrator ? "Narração" : Seed is { Length: > 0 } name ? $"Retrato de {name}" : "Retrato";
@@ -103,7 +111,7 @@ public sealed class Portrait : VndbImageControl
 
     private void DrawBust(DrawingContext context, Rect rect)
     {
-        var hue = HueOf(Seed);
+        var hue = Tint is { } tint ? tint.Light.ToHsl().H : HueOf(Seed);
         var gradient = new LinearGradientBrush
         {
             StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),

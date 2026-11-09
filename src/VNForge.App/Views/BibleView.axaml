@@ -45,6 +45,12 @@
       <Setter Property="BorderThickness" Value="1.5"/>
     </Style>
     <!-- Editando o resumo, o quadro tira o botão de reescrever com a IA da linha do título. -->
+    <!-- O brilho que reescreve com a IA é um aceno discreto no quadro: 12 px em cinza secundário. -->
+    <Style Selector="Button.rewrite PathIcon">
+      <Setter Property="Width" Value="12"/>
+      <Setter Property="Height" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
     <Style Selector="Border.fieldcard.summary:focus-within Button.rewrite">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
@@ -66,6 +72,12 @@
     <Style Selector="TextBox.input">
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
     </Style>
+    <!-- A classe title-md do tema é de TextBlock: o nome da cena a repete no TextBox (17 px semibold, fonte de título). -->
+    <Style Selector="TextBox.title-md">
+      <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+      <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.TitleMd}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
     <Style Selector="TextBox.input /template/ Border#PART_BorderElement, TextBox.input:pointerover /template/ Border#PART_BorderElement, TextBox.input:focus /template/ Border#PART_BorderElement">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
@@ -80,7 +92,7 @@
     <!-- Chip de tom e de piada (.chipx): 24 px, contorno discreto; o tom da cena ganha o accent-soft. -->
     <Style Selector="Border.chip">
       <Setter Property="MinHeight" Value="24"/>
-      <Setter Property="Padding" Value="10,4"/>
+      <Setter Property="Padding" Value="10,3"/>
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
       <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
@@ -175,13 +187,17 @@
     <Style Selector="Button.game:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.game:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector="Ellipse.passed">
-      <Setter Property="Fill" Value="{DynamicResource Vnf.SegApproved}"/>
-      <Setter Property="Stroke" Value="Transparent"/>
+    <Style Selector="Ellipse.dot">
+      <Setter Property="Stroke" Value="{DynamicResource Vnf.StrokeControl}"/>
+      <Setter Property="StrokeThickness" Value="1.5"/>
     </Style>
-    <Style Selector="Ellipse.current">
+    <Style Selector="Ellipse.dot.passed">
+      <Setter Property="Fill" Value="{DynamicResource Vnf.SegApproved}"/>
+      <Setter Property="StrokeThickness" Value="0"/>
+    </Style>
+    <Style Selector="Ellipse.dot.current">
       <Setter Property="Fill" Value="{DynamicResource Vnf.Accent}"/>
-      <Setter Property="Stroke" Value="Transparent"/>
+      <Setter Property="StrokeThickness" Value="0"/>
     </Style>
   </UserControl.Styles>
 
@@ -222,7 +238,7 @@
       </StackPanel>
 
       <!-- Colunas flexíveis como as do Editor, para a página caber sem rolar de lado entre 960 e 1140 px. -->
-      <Grid Grid.Row="1" ColumnSpacing="12">
+      <Grid Grid.Row="1" ColumnSpacing="32">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="1*" MinWidth="200" MaxWidth="260"/>
           <ColumnDefinition Width="2.4*" MinWidth="320"/>
@@ -275,7 +291,7 @@
 
         <!-- A cena selecionada: um cartão por campo, cada um da IA ou seu. Tom, piadas, relações e quem aparece se leem como chips e lista; um clique abre a caixa de texto. -->
         <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Spacing="12" Margin="0,0,8,0" IsVisible="{Binding HasScene}">
+          <StackPanel Spacing="12" IsVisible="{Binding HasScene}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
               <StackPanel Spacing="4">
                 <TextBlock Name="SceneHeaderText" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SceneHeader}"/>
@@ -335,7 +351,7 @@
                         <DataTemplate x:DataType="vm:BibleCharacterChip">
                           <Border Padding="4,3,12,3" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.BgInset}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                              <c:Portrait Size="Sm" Image="{Binding Image}" Seed="{Binding Name}" VerticalAlignment="Center"/>
+                              <c:Portrait Size="Sm" Image="{Binding Image}" Seed="{Binding Name}" Tint="{Binding Color}" VerticalAlignment="Center"/>
                               <TextBlock Classes="body-strong" VerticalAlignment="Center" c:SpeakerColorTint.Color="{Binding Color}" Text="{Binding Name}"/>
                               <TextBlock Classes="caption secondary" VerticalAlignment="Center" LineHeight="18" Text="{Binding Lines}" IsVisible="{Binding Lines, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                             </StackPanel>
@@ -420,9 +436,14 @@
                 <Panel Name="RelationsField" Classes="inline" Classes.empty="{Binding !HasRelations}">
                   <Border Classes="show" Background="Transparent" Focusable="True" Cursor="IBeam" ToolTip.Tip="Clique para editar" AutomationProperties.Name="Relações">
                     <ItemsControl ItemsSource="{Binding RelationRows}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Spacing="4"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="bible:BibleRelation">
-                          <Grid ColumnDefinitions="150,*" ColumnSpacing="14" Margin="0,0,0,4">
+                          <Grid ColumnDefinitions="150,*" ColumnSpacing="14">
                             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Between}"/>
                             <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Note}"/>
                           </Grid>
@@ -455,10 +476,9 @@
                   <ItemsControl ItemsSource="{Binding Timeline}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:BibleTimelineRow">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,0,0,10">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,0,0,12">
                           <!-- Ponto do marco: cheio de verde se já passou, de destaque se é o capítulo da cena aberta, só contorno se vem depois. -->
-                          <Ellipse Width="10" Height="10" VerticalAlignment="Top" Margin="0,5,0,0" StrokeThickness="1.5"
-                                   Stroke="{DynamicResource Vnf.StrokeControl}"
+                          <Ellipse Classes="dot" Width="10" Height="10" VerticalAlignment="Top" Margin="0,5,0,0"
                                    Classes.passed="{Binding IsPassed}" Classes.current="{Binding IsCurrent}"/>
                           <StackPanel Grid.Column="1">
                             <TextBlock Classes="body-sm" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Title}"/>
@@ -513,7 +533,7 @@
 
     <!-- Gerar a bíblia do jogo: o preço aparece antes de rodar, e os campos que você editou ficam preservados. -->
     <c:ScreenDialog Title="Gerar a bíblia do jogo" IsOpen="{Binding IsGenerateOpen, Mode=TwoWay}">
-      <StackPanel Spacing="12" Width="600">
+      <StackPanel Spacing="12">
         <TextBlock Classes="body" TextWrapping="Wrap" Text="A IA lê o roteiro um capítulo por vez e escreve, por cena, o resumo, quem aparece, as relações, o tom e as piadas que voltam. Para o jogo, escreve a sinopse e a linha do tempo."/>
         <Border Classes="panel" Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
           <StackPanel Spacing="8">

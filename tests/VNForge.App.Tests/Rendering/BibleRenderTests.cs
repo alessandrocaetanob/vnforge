@@ -36,7 +36,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated, TranslationStatus.Untranslated);
         var folder = ProjectFolder.Open(root);
         folder.SaveText("yst00002", [new TextUnit("yst00002:000000", TextUnitKind.Dialogue, "美咲", "ただいま", null, TranslationStatus.Untranslated)]);
-        folder.SaveCharacters([new CharacterEntry("健太", "Kenta"), new CharacterEntry("美咲", "Misaki"), new CharacterEntry("蓮", "Ren"), new CharacterEntry("葵", "Aoi")]);
+        // As cores do quadro: Kenta verde, Misaki rosa, Ren laranja e Aoi azul.
+        folder.SaveCharacters([new CharacterEntry("健太", "Kenta", Color: "green"), new CharacterEntry("美咲", "Misaki", Color: "rose"), new CharacterEntry("蓮", "Ren", Color: "orange"), new CharacterEntry("葵", "Aoi", Color: "blue")]);
         folder.SaveText("yst00001", SceneLines(("健太", 6), ("美咲", 9), ("蓮", 4), ("葵", 2)));
         folder.SaveBible(GameBible.From([new BibleScene("yst00001") { Summary = "Versão anterior." }]));
         folder.KeepPreviousBible();
@@ -59,7 +60,7 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             Timeline = [new BibleTimelineEntry("Prólogo", "A chuva e a mudança de cidade"), new BibleTimelineEntry("Parte 1", "Um semestre começa molhado"), new BibleTimelineEntry("Capítulo 2", "O festival e o caderno perdido")],
             Generation = new BibleGeneration(Now, "claude-opus-5-5", 2, 1, 1.8m),
         });
-        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 25m, 1));
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 0.8m, 1));
         return root;
     }
 
@@ -82,7 +83,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
                 using var project = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(CreateProject(project)), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start) { BibleProviderFactory = (_, _) => new FakeBibleProvider() };
-                vm.Bible.Limits = () => new BudgetLimits(300m, null);
+                // Teto baixo para o pedido de R$ 0,43 aparecer na barra de custo depois do já gasto, como o trecho azul do quadro.
+                vm.Bible.Limits = () => new BudgetLimits(14.5m, null);
                 var window = new MainWindow { Width = width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
@@ -164,6 +166,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
 
             // O estado do quadro: o resumo em edição, com a borda de destaque e sem o botão de reescrever na linha dele.
             summary.Focus();
+            // O quadro foi capturado entre duas piscadas: sem o cursor, só a borda de destaque marca o campo.
+            summary.CaretBrush = Avalonia.Media.Brushes.Transparent;
             ScreenRenderer.Settle(window);
             var summaryCard = view.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("summary"));
             Assert.Equal(1.5, summaryCard.BorderThickness.Left);
