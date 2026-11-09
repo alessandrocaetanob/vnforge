@@ -54,9 +54,9 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
 
             var sections = Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Classes.Contains("sections"));
             Assert.True(sections.IsEffectivelyVisible);
-            Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Bíblia", "Imagens"], sections.GetVisualDescendants().OfType<ListBoxItem>().Select(i => ((NavItemViewModel)i.DataContext!).Label));
+            Assert.Equal(["Painel", "Editor", "Revisão", "Conferir", "Testar", "Lançar", "Glossário", "Bíblia", "Imagens"], sections.GetVisualDescendants().OfType<ListBoxItem>().Select(i => ((NavItemViewModel)i.DataContext!).Label));
             var shown = sections.GetVisualDescendants().OfType<ListBoxItem>().Where(i => i.IsEffectivelyVisible).Select(i => ((NavItemViewModel)i.DataContext!).Label).ToList();
-            Assert.Equal(vm.CurrentProject!.IsSample ? ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Bíblia"] : ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Glossário", "Bíblia", "Imagens"], shown);
+            Assert.Equal(vm.CurrentProject!.IsSample ? ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Lançar", "Glossário", "Bíblia"] : ["Painel", "Editor", "Revisão", "Conferir", "Testar", "Lançar", "Glossário", "Bíblia", "Imagens"], shown);
             Assert.Equal("Painel", ((NavItemViewModel)sections.SelectedItem!).Label);
 
             var texts = header.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
@@ -163,7 +163,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
     [MemberData(nameof(Themes))]
     public async Task O_cabecalho_completo_da_entrada_vira_compacto_nas_telas_de_trabalho_e_volta_ao_sair(string themeName)
     {
-        NavKey[] work = [NavKey.Editor, NavKey.Conference, NavKey.Build, NavKey.Glossary, NavKey.Bible];
+        NavKey[] work = [NavKey.Editor, NavKey.Conference, NavKey.Build, NavKey.Release, NavKey.Glossary, NavKey.Bible];
         NavKey[] entry = [NavKey.Sheet, NavKey.Dashboard, NavKey.Play];
         await Abrir(ThemeOf(themeName), ScreenRenderer.Width, ScreenRenderer.Height, NavKey.Sheet, (window, vm) =>
         {

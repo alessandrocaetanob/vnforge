@@ -22,6 +22,7 @@ public enum NavKey
     Glossary,
     Images,
     Build,
+    Release,
     Bible,
 
     /// <summary>A aba Ficha do jogo.</summary>
@@ -78,6 +79,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel bibleItem = new(NavKey.Bible, "Bíblia", "Icon.Bookmark", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel imagesItem = new(NavKey.Images, "Imagens", "Icon.Image", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
+    private readonly NavItemViewModel releaseItem = new(NavKey.Release, "Lançar", "Icon.Open", isEnabled: false);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
     private readonly NavItemViewModel sheetItem = new(NavKey.Sheet, "Ficha", "Icon.Book", isEnabled: false);
     private readonly NavItemViewModel playItem = new(NavKey.Play, "Jogar", "Icon.Play", isEnabled: false);
@@ -119,6 +121,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.History = History;
         Tasks = new TaskBarViewModel(TaskService, history: History);
         Build = new BuildViewModel(TaskService);
+        Release = new ReleaseViewModel(TaskService, openFolder: this.openFolder);
         Build.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(BuildViewModel.GameStatusText))
@@ -129,10 +132,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Biblioteca", "Icon.Library", isEnabled: true);
-        Nav = [startItem, sheetItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, bibleItem, imagesItem, playItem, settingsItem];
+        Nav = [startItem, sheetItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem, playItem, settingsItem];
         TopNav = [startItem];
         BottomNav = [settingsItem];
-        Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, bibleItem, imagesItem];
+        Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
         Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
@@ -175,6 +178,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.CharacterRegistrationRequested += (_, name) => OpenCharacterInGlossary(name);
         Build.LineRequested += (_, request) => OpenLineInEditor(request);
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
+        Release.TestRequested += (_, _) => SelectedNav = buildItem;
+        Release.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;
+        Release.GameFolderRequested += (_, _) => SelectedNav = settingsItem;
+        Release.NoticeRaised += (_, text) => Toasts.Show(text, ToastKind.Success, key: "release");
         Build.SinceTest.OpenRequested += (_, key) =>
         {
             SelectedNav = editorItem;
@@ -269,6 +276,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ImagesViewModel Images { get; } = new();
 
     public BuildViewModel Build { get; }
+
+    /// <summary>A tela Lançar: gera o patch, o instalador e os textos para quem vai jogar (<c>vnf release</c>).</summary>
+    public ReleaseViewModel Release { get; }
 
     public ConferenceViewModel Conference { get; } = new();
 
@@ -435,6 +445,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Bible => Bible,
                     NavKey.Images => Images,
                     NavKey.Build => Build,
+                    NavKey.Release => Release,
                     _ => Start,
                 };
                 if (value.Key == NavKey.Dashboard)
@@ -457,6 +468,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Name);
                     _ = Build.ReloadAsync();
                 }
+                else if (value.Key == NavKey.Release)
+                {
+                    _ = Release.ReloadAsync();
+                }
 
                 OnPropertyChanged(nameof(BoxLimitsText));
                 OnPropertyChanged(nameof(StatusNote));
@@ -475,8 +490,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        // As páginas que leem os textos do disco (Conferência, Painel, Início e Testar) precisam da edição pendente já gravada.
-        return target is not (NavKey.Conference or NavKey.Dashboard or NavKey.Start or NavKey.Build) || Editor.Detail?.Flush() != false;
+        // As páginas que leem os textos do disco (Conferência, Painel, Início, Testar e Lançar) precisam da edição pendente já gravada.
+        return target is not (NavKey.Conference or NavKey.Dashboard or NavKey.Start or NavKey.Build or NavKey.Release) || Editor.Detail?.Flush() != false;
     }
 
     private void AttachEditor(EditorViewModel value)
@@ -484,6 +499,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         value.History = History;
         value.Search.Requests = batchRequests;
         value.LineSaved += OnLineSaved;
+        value.EditorSuggestionAnother = AnotherEditorSuggestionAsync;
         value.ChaptersChanged += OnChaptersChanged;
         value.HideEmptyScenes = Settings.HideEmptyScenes;
         value.PropertyChanged += OnEditorHideEmptyChanged;
@@ -492,6 +508,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void DetachEditor(EditorViewModel value)
     {
         value.LineSaved -= OnLineSaved;
+        value.EditorSuggestionAnother = null;
         value.ChaptersChanged -= OnChaptersChanged;
         value.PropertyChanged -= OnEditorHideEmptyChanged;
     }
@@ -799,6 +816,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
+        // Só a janela que vai mesmo fechar cancela o lançamento em curso.
+        Release.CancelIfRunning();
         return true;
     }
 
@@ -849,6 +868,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         Build.Project = summary;
+        Release.Project = summary;
         Images.Project = summary;
         Conference.Project = summary;
         Bible.Open(summary);
@@ -863,6 +883,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         conferenceItem.IsEnabled = true;
         glossaryItem.IsEnabled = true;
         buildItem.IsEnabled = true;
+        releaseItem.IsEnabled = true;
         glossaryItem.IsVisible = true;
         bibleItem.IsEnabled = true;
         bibleItem.IsVisible = true;

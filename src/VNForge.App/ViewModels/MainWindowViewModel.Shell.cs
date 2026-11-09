@@ -55,7 +55,7 @@ public sealed partial class MainWindowViewModel
 
     public IReadOnlyList<GameTabItem> GameTabs => Tabs;
 
-    /// <summary>A segunda linha da aba Tradução: Painel, Editor, Revisão, Conferir, Testar, Glossário, Bíblia e Imagens (as duas últimas só aparecem com projeto aberto, e Imagens não aparece no projeto de exemplo).</summary>
+    /// <summary>A segunda linha da aba Tradução: Painel, Editor, Revisão, Conferir, Testar, Lançar, Glossário, Bíblia e Imagens (as duas últimas só aparecem com projeto aberto, e Imagens não aparece no projeto de exemplo).</summary>
     public IReadOnlyList<NavItemViewModel> Sections { get; }
 
     public GameTabPlaceholderViewModel Sheet { get; }
@@ -227,7 +227,7 @@ public sealed partial class MainWindowViewModel
     {
         NavKey.Sheet => GameTab.Sheet,
         NavKey.Play => GameTab.Play,
-        NavKey.Dashboard or NavKey.Editor or NavKey.Conference or NavKey.Build or NavKey.Glossary or NavKey.Bible or NavKey.Images => GameTab.Translation,
+        NavKey.Dashboard or NavKey.Editor or NavKey.Conference or NavKey.Build or NavKey.Release or NavKey.Glossary or NavKey.Bible or NavKey.Images => GameTab.Translation,
         _ => null,
     };
 

@@ -80,7 +80,7 @@ public static class TranslationResponseValidator
         return new(valid, problems);
     }
 
-    private static string? DescribeMarkerDifference(string source, string translation)
+    internal static string? DescribeMarkerDifference(string source, string translation)
     {
         var expected = Count(Markers(source));
         var actual = Count(Markers(translation));

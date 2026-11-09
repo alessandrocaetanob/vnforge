@@ -56,6 +56,9 @@
     <DataTemplate DataType="vm:GameTabPlaceholderViewModel">
       <views:GameTabPlaceholderView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:ReleaseViewModel">
+      <views:ReleaseView/>
+    </DataTemplate>
   </Application.DataTemplates>
 
   <Application.Styles>
