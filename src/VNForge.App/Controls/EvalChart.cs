@@ -17,7 +17,7 @@ public sealed class EvalChart : Control
 
     private const double Left = 40;
     private const double Right = 12;
-    private const double Top = 10;
+    private const double Top = 24;
     private const double Bottom = 40;
     private const double Radius = 10;
     private const double AxisFontSize = 11;
@@ -65,7 +65,7 @@ public sealed class EvalChart : Control
         }
 
         Text(context, "Custo do jogo todo (R$)", muted, new Point(plot.Left + (plot.Width / 2), plot.Bottom + 22), center: true);
-        Text(context, "chrF", muted, new Point(plot.Left - 6, plot.Top - 10), right: true);
+        Text(context, "chrF", muted, new Point(4, 0));
 
         var accent = Brush("Vnf.Accent", Brushes.SeaGreen);
         var other = Brush("Vnf.SegAi", Brushes.SteelBlue);

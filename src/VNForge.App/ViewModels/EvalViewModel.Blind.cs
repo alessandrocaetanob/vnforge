@@ -41,6 +41,11 @@ public sealed partial class EvalViewModel
     [ObservableProperty]
     public partial string FitB { get; private set; } = string.Empty;
 
+    /// <summary><c>Par 7 de 12 · você escolhe sem saber qual configuração gerou cada texto</c>.</summary>
+    public string PairHeadline => $"{PairTitle} · {BlindSubtitle}";
+
+    partial void OnPairTitleChanged(string value) => OnPropertyChanged(nameof(PairHeadline));
+
     public string BlindSubtitle => "você escolhe sem saber qual configuração gerou cada texto";
 
     /// <summary>Os pares respondidos sobre o total, de 0 a 1, na barra de cima da rodada às cegas.</summary>
@@ -104,9 +109,13 @@ public sealed partial class EvalViewModel
         }
 
         IsBlind = false;
-        Message = round.PairsDone == round.Pairs.Count
-            ? "A rodada às cegas acabou. A coluna \"Sua escolha às cegas\" mostra o resultado."
-            : $"Sobraram {round.Pairs.Count - round.PairsDone} pares que você pulou. A coluna \"Sua escolha às cegas\" mostra o resultado até aqui.";
+        var skipped = round.Pairs.Count - round.PairsDone;
+        Message = skipped switch
+        {
+            0 => "A rodada às cegas acabou. A coluna \"Sua escolha às cegas\" mostra o resultado.",
+            1 => "Sobrou 1 par que você pulou. A coluna \"Sua escolha às cegas\" mostra o resultado até aqui.",
+            _ => $"Sobraram {skipped} pares que você pulou. A coluna \"Sua escolha às cegas\" mostra o resultado até aqui.",
+        };
         Apply();
     }
 

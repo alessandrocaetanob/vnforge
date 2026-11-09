@@ -205,9 +205,7 @@
         <Grid ColumnDefinitions="*,240" ColumnSpacing="24">
           <StackPanel Spacing="2" VerticalAlignment="Center">
             <TextBlock Classes="title-md" Text="Rodada às cegas"/>
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap">
-              <Run Text="{Binding PairTitle}"/><Run Text=" · "/><Run Text="{Binding BlindSubtitle}"/>
-            </TextBlock>
+            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding PairHeadline}"/>
           </StackPanel>
           <ProgressBar Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PairFraction}" Height="6" VerticalAlignment="Center" AutomationProperties.Name="{Binding PairTitle}"/>
         </Grid>
