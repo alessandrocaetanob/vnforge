@@ -7,8 +7,8 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Services;
 
-/// <summary>O que a janela "Traduzir com IA" pediu: o escopo, a qualidade e os scripts do escopo.</summary>
-public sealed record TranslationRequest(TranslationScope Scope, TranslationQuality Quality, IReadOnlyList<string> ScriptKeys);
+/// <summary>O que a janela "Traduzir com IA" pediu: o escopo, a qualidade, os scripts do escopo e se, depois de traduzir, vem a passada de editor em cada cena (#532).</summary>
+public sealed record TranslationRequest(TranslationScope Scope, TranslationQuality Quality, IReadOnlyList<string> ScriptKeys, bool EditorPass = false);
 
 /// <summary>A cotação, o limite de gasto e as chamadas em paralelo de uma execução. <paramref name="Delay"/> troca a espera entre tentativas (os testes não esperam).</summary>
 public sealed record TranslationJobSettings(ExchangeRate Rate, BudgetLimits Limits, int Concurrency, Func<TimeSpan, CancellationToken, Task>? Delay = null);

@@ -260,6 +260,9 @@
                         SplitCommand="{Binding Fit.SplitCommand}" ShortenCommand="{Binding Fit.ShortenCommand}" ShowShorten="{Binding Fit.HasShortener}"
                         ErrorText="{Binding Fit.Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
 
+          <!-- A sugestão da passada de editor (#532), logo abaixo do campo da tradução: nada grava até "Aceitar". -->
+          <v:EditorSuggestionCardView x:Name="EditorSuggestionFragment"/>
+
           <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
           <StackPanel x:Name="SameSourceFragment" Spacing="6" IsVisible="{Binding HasSameSource}">
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}" IsVisible="{Binding !HasMemory}"/>

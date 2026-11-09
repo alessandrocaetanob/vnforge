@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
+using VNForge.AI.Review;
 using VNForge.AI.Translation;
 using VNForge.App.Controls;
 using VNForge.App.Services;
@@ -65,6 +66,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     private readonly ScopeChoice sceneChoice;
     private readonly ObservableCollection<ScopeChoice> scopes;
     private readonly Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes)> byScope = [];
+    private readonly Dictionary<TranslationScope, IReadOnlyDictionary<TranslationQuality, decimal>> editorPassBrl = [];
     private TranslateDialogSettings settings = new(ExchangeRate.Placeholder, BudgetLimits.None, TranslationQuality.Careful, true);
     private TranslationContextSummary context = new(0, 0, 0, 0, false);
     private decimal spent;
@@ -143,6 +145,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string RequestText { get; private set; } = string.Empty;
+
+    /// <summary>Depois de traduzir, outro pedido lê cada cena e deixa ajustes como sugestão na linha (#532). Vem marcada: é o que o quadro propõe; a pessoa desmarca se não quer o gasto.</summary>
+    [ObservableProperty]
+    public partial bool EditorPass { get; set; } = true;
+
+    /// <summary>O preço da passada de editor, à parte do pedido ("+ R$ 3,10"); "Gratuito" na cena de exemplo.</summary>
+    [ObservableProperty]
+    public partial string EditorPassPriceText { get; private set; } = string.Empty;
 
     [ObservableProperty]
     public partial string SpentText { get; private set; } = string.Empty;
@@ -249,7 +259,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanStart))]
     private void Start()
     {
-        var request = new TranslationRequest(SelectedScope.Scope, SelectedQuality.Quality, byScope[SelectedScope.Scope].Keys);
+        var request = new TranslationRequest(SelectedScope.Scope, SelectedQuality.Quality, byScope[SelectedScope.Scope].Keys, EditorPass);
         IsOpen = false;
         StartRequested?.Invoke(this, request);
     }
@@ -324,9 +334,11 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         }
 
         byScope.Clear();
+        editorPassBrl.Clear();
         foreach (var (scope, value) in loaded.Scopes)
         {
             byScope[scope] = (value.Keys, value.Quotes);
+            editorPassBrl[scope] = value.EditorPassBrl;
             var choice = Scopes.Single(s => s.Scope == scope);
             choice.Lines = value.Quotes.Lines;
             choice.IsAvailable = value.Quotes.Lines > 0;
@@ -342,7 +354,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     }
 
     private sealed record ProjectRead(
-        Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes, int Scenes)> Scopes,
+        Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes, int Scenes, IReadOnlyDictionary<TranslationQuality, decimal> EditorPassBrl)> Scopes,
         decimal Spent,
         TranslationContextSummary Context);
 
@@ -370,7 +382,12 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
                 var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey, chosenKeys);
                 var batches = TranslationQuoter.BatchesFor(texts, keys, builder, batchSize);
                 var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
-                return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes);
+
+                // A passada lê, depois de traduzir, as cenas que têm linha pendente: o que já estava traduzido nelas e o que vai chegar.
+                IReadOnlyList<IReadOnlyList<TextUnit>> passScenes =
+                    [.. keys.Where(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0).Select(key => (IReadOnlyList<TextUnit>)[.. texts[key].Where(u => u.HasTranslation || TranslationQuoter.IsPending(u))])];
+                IReadOnlyDictionary<TranslationQuality, decimal> pass = QualityProfiles.All.ToDictionary(p => p.Quality, p => rate.ToBrl(EditorPassCost.Estimate(passScenes, p.Model, effort).Dollars));
+                return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes, EditorPassBrl: pass);
             });
         return new ProjectRead(scopes, rate.ToBrl(AiUsageLog.Load(folder).Dollars), TranslationContextSummary.Read(folder));
     }
@@ -416,6 +433,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         SpentBrl = (double)spent;
         LimitBrl = (double)(limit ?? 0m);
         RefreshAmounts(request, limit);
+        RefreshEditorPass();
 
         IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(request, spent, limit);
         var fit = IsOverLimit ? FitFor(SelectedScope.Scope) : null;
@@ -445,6 +463,12 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             ? $"Já gasto no projeto: {Money.BrlEstimate(spent)} de {Money.Brl(cap)}"
             : $"Já gasto no projeto: {Money.BrlEstimate(spent)}";
         RateNote = settings.Rate.IsInformed ? string.Empty : "Cotação de exemplo: informe a sua em Ajustes para ver o valor certo.";
+    }
+
+    private void RefreshEditorPass()
+    {
+        var price = editorPassBrl.TryGetValue(SelectedScope.Scope, out var byQuality) && byQuality.TryGetValue(SelectedQuality.Quality, out var brl) ? brl : 0m;
+        EditorPassPriceText = settings.IsSample ? "Gratuito" : $"+ {Money.BrlEstimate(price)}";
     }
 
     private void RefreshQualities(TranslationQuotes quotes)

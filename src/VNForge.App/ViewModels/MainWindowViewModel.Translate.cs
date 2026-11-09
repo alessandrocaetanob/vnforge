@@ -81,9 +81,11 @@ public sealed partial class MainWindowViewModel
         }
 
         ProjectFolder folder;
+        IReadOnlyList<string> editorPassScenes;
         try
         {
             folder = ProjectFolder.Open(project.Root);
+            editorPassScenes = ScenesToEdit(folder, request);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -140,6 +142,12 @@ public sealed partial class MainWindowViewModel
         // O estado da tarefa chega por post depois do Completion: o que decide o aviso é o que a própria tarefa guardou.
         ShowTranslationOutcome(canceled, failure, result);
         await RefreshSummaryPageAsync();
+
+        // A passada só faz sentido sobre o que acabou de chegar, e o limite de gasto vale para o conjunto: parado nele, a passada não começa.
+        if (request.EditorPass && !canceled && failure is null && result is { Translated: > 0, Stopped: null } && editorPassScenes.Count > 0)
+        {
+            await RunEditorPassAsync(project, folder, request, editorPassScenes);
+        }
     }
 
     /// <summary>

@@ -45,6 +45,8 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<string?> IssueTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(IssueTip));
     public static readonly StyledProperty<bool> HasDoubtProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(HasDoubt));
     public static readonly StyledProperty<string?> DoubtTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(DoubtTip));
+    public static readonly StyledProperty<bool> HasEditorSuggestionProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(HasEditorSuggestion));
+    public static readonly StyledProperty<string?> EditorSuggestionTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(EditorSuggestionTip));
 
     public static readonly DirectProperty<LineRow, string> NumberTextProperty =
         AvaloniaProperty.RegisterDirect<LineRow, string>(nameof(NumberText), o => o.NumberText);
@@ -163,6 +165,20 @@ public sealed class LineRow : TemplatedControl
         set => SetValue(DoubtTipProperty, value);
     }
 
+    /// <summary>A passada de editor (#532) propôs um ajuste para a linha: o ícone Sparkle aparece ao lado do aviso do QA.</summary>
+    public bool HasEditorSuggestion
+    {
+        get => GetValue(HasEditorSuggestionProperty);
+        set => SetValue(HasEditorSuggestionProperty, value);
+    }
+
+    /// <summary>Dica do ícone da sugestão do editor: o tipo do ajuste.</summary>
+    public string? EditorSuggestionTip
+    {
+        get => GetValue(EditorSuggestionTipProperty);
+        set => SetValue(EditorSuggestionTipProperty, value);
+    }
+
     /// <summary>O número da linha em mono, com zeros à esquerda (<c>0038</c>).</summary>
     public string NumberText
     {
@@ -215,7 +231,7 @@ public sealed class LineRow : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == NumberProperty || change.Property == SpeakerProperty || change.Property == SpeakerOriginalProperty || change.Property == SpeakerColorProperty || change.Property == TranslationProperty
-            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty || change.Property == HasDoubtProperty || change.Property == DoubtTipProperty)
+            || change.Property == IssueProperty || change.Property == StatusProperty || change.Property == SpeakerChangedProperty || change.Property == IsScriptProperty || change.Property == HasDoubtProperty || change.Property == DoubtTipProperty || change.Property == HasEditorSuggestionProperty)
         {
             Apply();
         }
@@ -244,6 +260,7 @@ public sealed class LineRow : TemplatedControl
         PseudoClasses.Set(":warning", Issue == LineIssue.Warning);
         PseudoClasses.Set(":error", Issue == LineIssue.Error);
         PseudoClasses.Set(":doubt", HasDoubt);
+        PseudoClasses.Set(":suggestion", HasEditorSuggestion);
         ApplyAutomation();
     }
 
@@ -265,7 +282,8 @@ public sealed class LineRow : TemplatedControl
     private void ApplyAutomation()
     {
         var name = SpeakerChanged ? $"Linha {NumberText}, falante trocado" : $"Linha {NumberText}";
-        AutomationProperties.SetName(this, HasDoubt ? $"{name}, dúvida da IA" : name);
+        name = HasDoubt ? $"{name}, dúvida da IA" : name;
+        AutomationProperties.SetName(this, HasEditorSuggestion ? $"{name}, sugestão do editor" : name);
         AutomationProperties.SetHelpText(this, HasDoubt ? DoubtTip : null);
     }
 }

@@ -22,7 +22,19 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
     {
         ArgumentNullException.ThrowIfNull(batch);
         ct.ThrowIfCancellationRequested();
-        return ClaudePromptParts.WithRefusalFallback(batch, b => OnceAsync(b, spec, ct), spec.Refused);
+        var refused = spec.Refused ?? throw new InvalidOperationException("Este pedido não tem resultado para a linha recusada; use RunOnceAsync.");
+        return ClaudePromptParts.WithRefusalFallback(batch, b => OnceAsync(b, spec, ct), refused);
+    }
+
+    /// <summary>
+    /// Uma chamada só para o lote inteiro, sem refazer linha a linha numa recusa: serve ao pedido que só faz sentido com o lote todo (a passada de editor lê a cena
+    /// inteira). A recusa sobe como <see cref="ClaudeRefusalException"/>.
+    /// </summary>
+    public Task<IReadOnlyList<T>> RunOnceAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        ct.ThrowIfCancellationRequested();
+        return batch.Lines.Count == 0 ? Task.FromResult<IReadOnlyList<T>>([]) : OnceAsync(batch, spec, ct);
     }
 
     private async Task<IReadOnlyList<T>> OnceAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)
@@ -46,7 +58,7 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
 /// <summary>O que muda de um provedor para outro: prompt, schema, leitura da resposta e o resultado de uma linha recusada.</summary>
 /// <param name="Verb">O que o modelo recusa fazer, no infinitivo ("traduzir"); entra na mensagem de recusa.</param>
 /// <param name="Parse">Lê a resposta e confere os ids do lote.</param>
-/// <param name="Refused">O resultado de uma linha que o modelo recusou sozinha.</param>
+/// <param name="Refused">O resultado de uma linha que o modelo recusou sozinha; nulo no pedido que não refaz linha a linha (<see cref="ClaudeBatchCaller.RunOnceAsync{T}"/>).</param>
 /// <param name="TruncatedMessage">A mensagem quando a resposta é cortada por limite de tokens; nulo usa a do lote.</param>
 internal sealed record ClaudeBatchSpec<T>(
     string Schema,
@@ -55,5 +67,5 @@ internal sealed record ClaudeBatchSpec<T>(
     Func<TranslationBatch, string> BuildBatchContext,
     Func<TranslationBatch, string> BuildUser,
     Func<string, TranslationBatch, IReadOnlyList<T>> Parse,
-    Func<TextUnit, T> Refused,
+    Func<TextUnit, T>? Refused,
     string? TruncatedMessage = null);

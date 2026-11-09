@@ -111,6 +111,20 @@
           </Grid>
         </Border>
 
+        <!-- A passada de editor (#532): marcada, com o preço à parte do pedido. Nada é gravado sozinho. -->
+        <Border x:Name="EditorPassCard" Classes="panel" Padding="16" IsVisible="{Binding !NothingToTranslate}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <CheckBox x:Name="EditorPassCheck" IsChecked="{Binding EditorPass}" AutomationProperties.Name="Depois, uma passada de editor em cada cena">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="body" FontWeight="SemiBold" TextWrapping="Wrap" Text="Depois, uma passada de editor em cada cena"/>
+                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
+                           Text="Outro pedido lê a cena traduzida inteira e deixa ajustes de fluidez, voz e consistência como sugestão na linha. Nada é gravado sozinho."/>
+              </StackPanel>
+            </CheckBox>
+            <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Top" Text="{Binding EditorPassPriceText}" AutomationProperties.Name="Preço da passada de editor"/>
+          </Grid>
+        </Border>
+
         <Border Classes="infobar error" IsVisible="{Binding KeyMissing}">
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
             <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>

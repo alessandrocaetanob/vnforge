@@ -43,4 +43,12 @@ public static class ClaudeProviderFactory
         ArgumentNullException.ThrowIfNull(options);
         return new VNForge.AI.Review.ClaudeReviewProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
     }
+
+    /// <summary>Monta o provedor Claude da passada de editor (#532); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Review.ClaudeEditorPassProvider CreateEditorPass(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Review.ClaudeEditorPassProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
+    }
 }

@@ -705,6 +705,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
         detail.ShowMemory();
+        ShowEditorSuggestion(detail, line);
         detail.SavedChanged += saved => OnUnitSaved(line, saved);
         return detail;
     }
@@ -994,6 +995,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         QueueMemory(memory => memory.Record(saved));
         var character = context.Characters.Find(saved.EffectiveSpeaker);
         line.Update(updated, character?.Target, CharacterPalette.For(character));
+        PruneEditorSuggestion(updated.ScriptKey, saved);
         if (Detail is { } open && string.Equals(open.Id, line.Id, StringComparison.Ordinal))
         {
             open.ShowIssues(updated.Issues);
@@ -1130,6 +1132,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         try
         {
             data = loaded;
+            LoadEditorSuggestions();
             speakerCounts = null;
             ErrorCount = loaded is null ? 0 : CountErrors(loaded);
             IssueCount = loaded is null ? 0 : CountIssues(loaded);
@@ -1168,6 +1171,8 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
             var character = context.Characters.Find(entries[i].Unit.EffectiveSpeaker);
             scriptLines[i] = new LineViewModel(entries[i], character?.Target, CharacterPalette.For(character));
         }
+
+        ApplyEditorSuggestions();
 
         applying = true;
         try
