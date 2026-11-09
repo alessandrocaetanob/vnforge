@@ -111,7 +111,7 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
                             var right = previews.Max(p => p.TranslatePoint(new Avalonia.Point(0, 0), window)!.Value.X);
                             Assert.True(right - left > 400, "Original e traduzida ficam lado a lado, não uma sobre a outra.");
                             Assert.True(strip.Bounds.Height >= 68);
-                            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text?.StartsWith("Cabe na área", StringComparison.Ordinal) == true);
+                            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text?.StartsWith("Cabe na placa", StringComparison.Ordinal) == true);
                             Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "O que muda no build");
                         });
                 }
@@ -143,8 +143,8 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
                             Assert.True(vm.IsConfirming);
                             var texts = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
                             Assert.Contains("portao.png", texts);
-                            Assert.Contains(texts, t => t?.Contains("injeção faz a cópia de segurança", StringComparison.Ordinal) == true);
-                            Assert.DoesNotContain(texts, t => t?.StartsWith("Cópia de segurança antes de gravar", StringComparison.Ordinal) == true);
+                            Assert.Contains(texts, t => t == "Cópia de segurança antes de gravar");
+                            Assert.Contains(texts, t => t == "Regravar 1 imagem no PAK?");
                         });
                 }
 

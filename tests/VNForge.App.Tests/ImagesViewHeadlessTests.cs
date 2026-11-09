@@ -63,7 +63,7 @@ public class ImagesViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
                 Assert.All(images, i => Assert.Equal((320, 180), (((Bitmap)i.Source!).PixelSize.Width, ((Bitmap)i.Source!).PixelSize.Height)));
 
                 await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Marcar para o build").Command!).ExecuteAsync(null);
-                await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Gerar o build com as imagens").Command!).ExecuteAsync(null);
+                await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Regravar as imagens no pacote").Command!).ExecuteAsync(null);
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
