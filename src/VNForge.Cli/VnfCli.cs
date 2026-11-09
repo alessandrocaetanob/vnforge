@@ -8,6 +8,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
+using VNForge.Core.Images;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -103,6 +104,12 @@ public sealed class VnfCli
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
+
+    /// <summary>
+    /// Cria o leitor de imagens do <c>vnf images scan</c> para o modelo escolhido; os testes trocam por um leitor falso.
+    /// Padrão (<c>null</c>): Claude com visão, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, IImageTextReader>? ImageTextReaderFactory { get; set; }
 
     /// <summary>
     /// Cria o catálogo do VNDB do <c>vnf vndb</c> e do <c>vnf init --vndb</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.

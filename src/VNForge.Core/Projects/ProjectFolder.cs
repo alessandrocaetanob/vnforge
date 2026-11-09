@@ -1,6 +1,7 @@
 using System.Text;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
+using VNForge.Core.Images;
 using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 using VNForge.Core.Vndb;
@@ -22,6 +23,8 @@ public sealed class ProjectFolder
     public const string VndbFileName = "vndb.json";
 
     public const string AddressTermsFileName = "address-terms.json";
+
+    public const string ImageInventoryFileName = "images.json";
 
     public const string IgnoredWordsFileName = "ignored-words.json";
 
@@ -205,6 +208,19 @@ public sealed class ProjectFolder
     /// <exception cref="GlossaryFileException">Par vazio ou repetido; nada é gravado.</exception>
     public void SaveAddressTerms(IReadOnlyList<AddressTerm> terms) =>
         WriteAtomically(AddressTermsPath, AddressTermSerializer.Serialize(terms, AddressTermsPath), overwrite: true);
+
+    /// <summary><c>images.json</c>, o inventário das imagens do jogo com o texto que o modelo leu nelas (#534). É opcional.</summary>
+    public string ImageInventoryPath => Path.Combine(Root, ImageInventoryFileName);
+
+    /// <summary>Lê o <c>images.json</c>; sem o arquivo (o <c>vnf images scan</c> nunca rodou), devolve uma lista vazia.</summary>
+    /// <exception cref="GlossaryFileException">Arquivo fora de UTF-8, malformado ou com valor inválido.</exception>
+    public IReadOnlyList<ImageTextEntry> LoadImageInventory() =>
+        File.Exists(ImageInventoryPath) ? ImageInventorySerializer.Parse(ReadGlossaryFile(ImageInventoryPath), ImageInventoryPath) : [];
+
+    /// <summary>Grava o <c>images.json</c> (UTF-8 sem BOM, LF), na ordem recebida; a gravação é atômica.</summary>
+    /// <exception cref="GlossaryFileException">Entrada inválida ou o mesmo lugar duas vezes; nada é gravado.</exception>
+    public void SaveImageInventory(IReadOnlyList<ImageTextEntry> entries) =>
+        WriteAtomically(ImageInventoryPath, ImageInventorySerializer.Serialize(entries, ImageInventoryPath), overwrite: true);
 
     /// <summary><c>ignored-words.json</c>, as palavras que o corretor deixa de marcar no projeto (#511). É opcional.</summary>
     public string IgnoredWordsPath => Path.Combine(Root, IgnoredWordsFileName);

@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using VNForge.Core.Logging;
+using VNForge.Core.Memory;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
@@ -97,7 +98,8 @@ internal static class InitCommand
             Path.GetFullPath(folderArgument, cli.CurrentDirectory),
             Path.GetFullPath(gameArgument, cli.CurrentDirectory),
             KnownEngines.All,
-            options with { Vndb = link });
+            options with { Vndb = link },
+            new PersonalGlossary(cli.UserConfigDirectory));
 
         var output = parseResult.InvocationConfiguration.Output;
         var details = result.Detection.Details;
@@ -112,6 +114,8 @@ internal static class InitCommand
                 version = result.Config.Engine.Version,
                 scriptKey = result.Config.Engine.ScriptKey,
                 summary = result.Detection.Summary,
+                personalTerms = result.SeededTerms,
+                personalGlossaryProblem = result.PersonalGlossaryProblem,
                 warnings,
                 vndb = link is null ? null : VndbCommand.Data(link),
             }));
@@ -138,6 +142,16 @@ internal static class InitCommand
         {
             await output.WriteLineAsync($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {link.Characters.Count} personagens. Eles entram em characters.json no vnf extract.");
             await output.WriteLineAsync(VndbCredit.ShortText);
+        }
+
+        if (result.SeededTerms > 0)
+        {
+            await output.WriteLineAsync($"Glossário pessoal: {result.SeededTerms} {(result.SeededTerms == 1 ? "termo entrou" : "termos entraram")} no glossário do projeto.");
+        }
+
+        if (result.PersonalGlossaryProblem is not null)
+        {
+            await output.WriteLineAsync($"Aviso: {result.PersonalGlossaryProblem}");
         }
 
         await output.WriteLineAsync($"Projeto criado em {folderArgument.TrimEnd('/', '\\')}{Path.DirectorySeparatorChar}");

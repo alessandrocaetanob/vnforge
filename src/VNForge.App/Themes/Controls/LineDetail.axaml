@@ -9,6 +9,47 @@
     <Setter Property="Padding" Value="10,8"/>
   </Style>
 
+  <!-- Memória de tradução (#537): cartão rebaixado como o do Original, com o percentual em selo (aprovado quando exato, IA quando aproximado). -->
+  <Style Selector="Border.memory">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Padding" Value="14,10"/>
+  </Style>
+  <Style Selector="Border.memory-item">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    <Setter Property="Padding" Value="0,7"/>
+  </Style>
+  <Style Selector="Border.memory-pill">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.PillHeight}"/>
+  </Style>
+  <Style Selector="Border.memory-pill > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.memory-pill.exact">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+  </Style>
+  <Style Selector="Border.memory-pill.exact > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+  </Style>
+  <Style Selector="Button.memory-scene">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+  </Style>
+
   <!-- TranslationField (docs/design/components/TranslationField): borda de 1px em volta do campo e a de 2px em accent embaixo, sempre,
        porque é o campo ativo da tela. -->
   <Style Selector="Border.field">

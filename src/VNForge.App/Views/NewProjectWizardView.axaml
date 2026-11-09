@@ -374,6 +374,7 @@
             <StackPanel Grid.Column="1">
               <TextBlock Classes="body-strong" Text="Projeto criado."/>
               <TextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding CreatedSummary}"/>
+              <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding PersonalNotice}" IsVisible="{Binding HasPersonalNotice}"/>
             </StackPanel>
           </Grid>
         </Border>
