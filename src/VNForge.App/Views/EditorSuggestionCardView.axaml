@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:v="using:VNForge.App.Views"
+             x:Class="VNForge.App.Views.EditorSuggestionCardView"
+             x:DataType="vm:LineDetailViewModel">
+  <!-- A sugestão da passada de editor (#532): cor da IA (status-ai-*), a tradução de hoje riscada e a proposta em verde, o motivo em uma frase e "Aceitar" / "Ignorar".
+       No Modo revisão (IsReview) o título leva o tipo, a etiqueta diz "n de N na cena" e o texto mostra só a proposta, com as palavras que mudaram marcadas. -->
+  <UserControl.Styles>
+    <Style Selector="v|EditorSuggestionCardView:review TextBlock.editor-only">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="v|EditorSuggestionCardView:not(:review) TextBlock.review-only">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+  </UserControl.Styles>
+  <Border x:Name="Card" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StatusAiFg}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12"
+          IsVisible="{Binding HasEditorSuggestion, FallbackValue=False}" AutomationProperties.Name="Passada de editor">
+    <StackPanel Spacing="8">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <PathIcon Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.Sparkle}" Foreground="{DynamicResource Vnf.StatusAiFg}"/>
+          <TextBlock Classes="caption editor-only" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionTitle}"/>
+          <TextBlock Classes="caption review-only" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionReviewTitle}"/>
+        </StackPanel>
+        <Border Grid.Column="1" MinHeight="{DynamicResource Vnf.PillHeight}" Padding="8,0" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusAiBg}">
+          <Panel>
+            <TextBlock Classes="editor-only" FontSize="{DynamicResource Vnf.FontSize.Pill}" LineHeight="{DynamicResource Vnf.LineHeight.Pill}" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionChip}"/>
+            <TextBlock Classes="review-only" FontSize="{DynamicResource Vnf.FontSize.Pill}" LineHeight="{DynamicResource Vnf.LineHeight.Pill}" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionReviewChip}"/>
+          </Panel>
+        </Border>
+      </Grid>
+      <TextBlock x:Name="EditorBody" Classes="editor-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.Body}" LineHeight="{DynamicResource Vnf.LineHeight.Body}"
+                 c:SuggestionText.ShowRemoved="True" c:SuggestionText.Current="{Binding EditorSuggestionCurrent}" c:SuggestionText.Proposed="{Binding EditorSuggestionProposed}"
+                 AutomationProperties.Name="Texto proposto pelo editor"/>
+      <TextBlock x:Name="ReviewBody" Classes="review-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.BodyLoose}" LineHeight="{DynamicResource Vnf.LineHeight.BodyLoose}"
+                 c:SuggestionText.Current="{Binding EditorSuggestionCurrent}" c:SuggestionText.Proposed="{Binding EditorSuggestionProposed}"
+                 AutomationProperties.Name="Texto proposto pelo editor"/>
+      <TextBlock x:Name="Reason" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding EditorSuggestionReason}" AutomationProperties.Name="Motivo do ajuste"/>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="AcceptButton" Classes="accent sm" Command="{Binding AcceptEditorSuggestionCommand}" ToolTip.Tip="Troca a tradução pelo texto proposto">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Check}"/>
+            <TextBlock Text="Aceitar" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button x:Name="IgnoreButton" Classes="sm" Command="{Binding IgnoreEditorSuggestionCommand}" ToolTip.Tip="Mantém a tradução como está e tira a sugestão">
+          <TextBlock Text="Ignorar" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+        </Button>
+        <Button x:Name="OtherButton" Classes="sm" Command="{Binding OtherEditorSuggestionCommand}" ToolTip.Tip="Pede ao editor outra forma de dizer esta linha">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+            <TextBlock Text="{Binding EditorSuggestionOtherText}" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+      <TextBlock x:Name="Note" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding EditorSuggestionNote}" IsVisible="{Binding HasEditorSuggestionNote}"/>
+    </StackPanel>
+  </Border>
+</UserControl>

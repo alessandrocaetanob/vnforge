@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="VNForge.Patching.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="VCDiff" />
+    <!-- Dependência do VCDiff 5.0.0 na 0.46.3, que tem o aviso GHSA-6c8g-7p36-r338 (zip slip em WriteToDirectory, corrigido na 0.48.0). O patch nunca chama essa API; a versão fica fixada aqui para o build não carregar o aviso. -->
+    <PackageReference Include="SharpCompress" />
+  </ItemGroup>
+
+  <!-- Os textos de licença das bibliotecas que o instalador leva dentro (Apache-2.0 e MIT): o instalador os mostra em licencas (opcao do instalador) e o vnf release os grava em LICENCAS.txt. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\licenses\INSTALADOR-LICENCAS.txt" LogicalName="VNForge.Patching.Licenses.txt" />
+  </ItemGroup>
+
+</Project>

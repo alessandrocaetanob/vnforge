@@ -161,6 +161,11 @@ jobs:
               name="vnf-$version-$rid"
               mkdir -p "pack/$name"
               cp publish/$rid/vnf* "pack/$name/"
+              # O instalador que o `vnf release` junta ao patch: um arquivo só, com o runtime dentro, para rodar na máquina do jogador sem .NET.
+              dotnet publish src/VNForge.Installer --configuration Release --runtime "$rid" --self-contained \
+                -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
+                -p:DebugType=None -p:Version="$version" --output "publish/installer-$rid"
+              cp publish/installer-$rid/vnf-instalador* "pack/$name/"
               cp README.md "pack/$name/"
               cp -r "publish/$rid/licenses" "pack/$name/"
               if [ "$rid" = win-x64 ]; then

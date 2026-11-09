@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- O instalador que o jogador roda. `vnf release` junta este executável com o .vnfpatch num arquivo só (ver docs/03-cli.md). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>vnf-instalador</AssemblyName>
+    <RootNamespace>VNForge.Installer</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VNForge.Patching\VNForge.Patching.csproj" />
+  </ItemGroup>
+
+</Project>

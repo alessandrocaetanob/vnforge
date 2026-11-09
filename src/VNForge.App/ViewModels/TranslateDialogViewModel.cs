@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
+using VNForge.AI.Review;
 using VNForge.AI.Translation;
 using VNForge.App.Controls;
 using VNForge.App.Services;
@@ -83,6 +84,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     private readonly ScopeChoice sceneChoice;
     private readonly ObservableCollection<ScopeChoice> scopes;
     private readonly Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes)> byScope = [];
+    private readonly Dictionary<TranslationScope, IReadOnlyDictionary<TranslationQuality, decimal>> editorPassBrl = [];
+    private bool editorPassBeforeNight;
     private TranslateDialogSettings settings = new(ExchangeRate.Placeholder, BudgetLimits.None, TranslationQuality.Careful, true);
     private TranslationContextSummary context = new(0, 0, 0, 0, false);
     private decimal spent;
@@ -164,14 +167,19 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOvernight))]
+    [NotifyPropertyChangedFor(nameof(CanChooseEditorPass))]
     public partial WhenChoice SelectedWhen { get; set; }
 
     /// <summary>A pessoa escolheu "Durante a noite": os preços são a metade e o botão envia o lote.</summary>
     public bool IsOvernight => ShowWhen && SelectedWhen.Overnight;
 
+    /// <summary>A caixa da passada de editor pode ser mexida: no lote da noite ela fica desmarcada e travada.</summary>
+    public bool CanChooseEditorPass => !IsOvernight;
+
     /// <summary>A linha "Quando" aparece; some na cena de exemplo.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOvernight))]
+    [NotifyPropertyChangedFor(nameof(CanChooseEditorPass))]
     public partial bool ShowWhen { get; private set; } = true;
 
     /// <summary>"O lote fica guardado por 29 dias na Anthropic. Resultado em até 24 h; o tempo real depende da fila." Só no pedido da noite.</summary>
@@ -197,6 +205,14 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string RequestText { get; private set; } = string.Empty;
+
+    /// <summary>Depois de traduzir, outro pedido lê cada cena e deixa ajustes como sugestão na linha (#532). Vem marcada: é o que o quadro propõe; a pessoa desmarca se não quer o gasto.</summary>
+    [ObservableProperty]
+    public partial bool EditorPass { get; set; } = true;
+
+    /// <summary>O preço da passada de editor, à parte do pedido ("+ R$ 3,10"); "Gratuito" na cena de exemplo.</summary>
+    [ObservableProperty]
+    public partial string EditorPassPriceText { get; private set; } = string.Empty;
 
     [ObservableProperty]
     public partial string SpentText { get; private set; } = string.Empty;
@@ -305,7 +321,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanStart))]
     private void Start()
     {
-        var request = new TranslationRequest(SelectedScope.Scope, SelectedQuality.Quality, byScope[SelectedScope.Scope].Keys, IsOvernight);
+        var request = new TranslationRequest(SelectedScope.Scope, SelectedQuality.Quality, byScope[SelectedScope.Scope].Keys, EditorPass && !IsOvernight, IsOvernight);
         IsOpen = false;
         StartRequested?.Invoke(this, request);
     }
@@ -343,11 +359,25 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         Refresh();
     }
 
+    partial void OnEditorPassChanged(bool value) => Refresh();
+
     partial void OnSelectedWhenChanged(WhenChoice value)
     {
         foreach (var when in Whens)
         {
             when.IsSelected = when == value;
+        }
+
+        // O lote da noite não roda a passada de editor (o resultado chega horas depois): a caixa desmarca e trava, e volta como estava ao sair do modo.
+        if (IsOvernight && EditorPass)
+        {
+            editorPassBeforeNight = true;
+            EditorPass = false;
+        }
+        else if (!IsOvernight && editorPassBeforeNight)
+        {
+            editorPassBeforeNight = false;
+            EditorPass = true;
         }
 
         Refresh();
@@ -390,9 +420,11 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         }
 
         byScope.Clear();
+        editorPassBrl.Clear();
         foreach (var (scope, value) in loaded.Scopes)
         {
             byScope[scope] = (value.Keys, value.Quotes);
+            editorPassBrl[scope] = value.EditorPassBrl;
             var choice = Scopes.Single(s => s.Scope == scope);
             choice.Lines = value.Quotes.Lines;
             choice.IsAvailable = value.Quotes.Lines > 0;
@@ -408,7 +440,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
     }
 
     private sealed record ProjectRead(
-        Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes, int Scenes)> Scopes,
+        Dictionary<TranslationScope, (IReadOnlyList<string> Keys, TranslationQuotes Quotes, int Scenes, IReadOnlyDictionary<TranslationQuality, decimal> EditorPassBrl)> Scopes,
         decimal Spent,
         TranslationContextSummary Context);
 
@@ -437,7 +469,12 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
                 var keys = TranslationQuoter.KeysFor(scope, texts.Keys, sceneKey, chosenKeys);
                 var batches = TranslationQuoter.BatchesFor(texts, keys, builder, batchSize);
                 var scenes = keys.Count(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0);
-                return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes);
+
+                // A passada lê, depois de traduzir, as cenas que têm linha pendente: o que já estava traduzido nelas e o que vai chegar, com o mesmo contexto (glossário, bíblia, guia) do pedido real.
+                IReadOnlyList<TranslationBatch> passScenes =
+                    [.. keys.Where(key => TranslationQuoter.PendingLines(texts, [key]).Count > 0).SelectMany(key => EditorPassCost.Requests(builder, [.. texts[key].Where(u => u.HasTranslation || TranslationQuoter.IsPending(u))]))];
+                IReadOnlyDictionary<TranslationQuality, decimal> pass = QualityProfiles.All.ToDictionary(p => p.Quality, p => rate.ToBrl(EditorPassCost.Estimate(passScenes, p.Model, effort).Dollars));
+                return (Keys: keys, Quotes: TranslationQuoter.Quote(batches, rate, effort), Scenes: scenes, EditorPassBrl: pass);
             });
         return new ProjectRead(scopes, rate.ToBrl(AiUsageLog.Load(folder).Dollars), TranslationContextSummary.Read(folder));
     }
@@ -459,8 +496,18 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         return $"{text} em {scenes} {sceneWord}";
     }
 
+    /// <summary>O que o pedido custa de fato: a tradução mais, se a pessoa a quer, a passada de editor. A cena de exemplo é grátis.</summary>
+    private decimal TotalFor(TranslationScope scope, QualityQuote quote) =>
+        settings.IsSample ? 0m : quote.Brl * PriceFactor + PassBrl(scope, quote.Quality);
+
+    private decimal PassBrl(TranslationScope scope, TranslationQuality quality) =>
+        EditorPass && !IsOvernight && editorPassBrl.TryGetValue(scope, out var byQuality) && byQuality.TryGetValue(quality, out var brl) ? brl : 0m;
+
+    /// <summary>A qualidade mais cara que cabe no que sobra do limite, contando a passada de editor quando ela está marcada.</summary>
     private QualityQuote? FitFor(TranslationScope scope) =>
-        byScope.TryGetValue(scope, out var value) ? value.Quotes.MostCarefulThatFits(spent, settings.Limits.Limit, PriceFactor) : null;
+        byScope.TryGetValue(scope, out var value)
+            ? value.Quotes.Qualities.OrderByDescending(q => q.Quality).FirstOrDefault(q => TranslationQuotes.Fits(TotalFor(scope, q), spent, settings.Limits.Limit))
+            : null;
 
     /// <summary>Metade do preço no lote da noite; o preço inteiro no pedido de agora.</summary>
     private decimal PriceFactor => IsOvernight ? ModelPricing.BatchDiscount : 1m;
@@ -487,13 +534,16 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
         SpentBrl = (double)spent;
         LimitBrl = (double)(limit ?? 0m);
         RefreshAmounts(request, limit);
+        RefreshEditorPass();
 
-        IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(request, spent, limit);
+        // O limite e o aviso contam também a passada de editor, que é paga no mesmo projeto.
+        var total = TotalFor(SelectedScope.Scope, current.Quotes.For(SelectedQuality.Quality));
+        IsOverLimit = !settings.IsSample && !TranslationQuotes.Fits(total, spent, limit);
         var fit = IsOverLimit ? FitFor(SelectedScope.Scope) : null;
         CanSwitchToFit = fit is not null && fit.Quality != SelectedQuality.Quality;
-        SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(fit.Brl * PriceFactor)})";
-        OverLimitText = IsOverLimit ? DescribeOverLimit(request, limit, fit) : string.Empty;
-        AboveWarning = !IsOverLimit && !settings.IsSample && settings.Limits.WarnAbove is { } warn && request > warn;
+        SwitchToFitText = fit is null ? string.Empty : $"Usar a qualidade {Qualities.Single(q => q.Quality == fit.Quality).Title} ({Money.BrlEstimate(TotalFor(SelectedScope.Scope, fit))})";
+        OverLimitText = IsOverLimit ? DescribeOverLimit(total, limit, fit) : string.Empty;
+        AboveWarning = !IsOverLimit && !settings.IsSample && settings.Limits.WarnAbove is { } warn && total > warn;
         RefreshBudgetProblem();
         RefreshNotices();
 
@@ -516,6 +566,12 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             ? $"Já gasto no projeto: {Money.BrlEstimate(spent)} de {Money.Brl(cap)}"
             : $"Já gasto no projeto: {Money.BrlEstimate(spent)}";
         RateNote = settings.Rate.IsInformed ? string.Empty : "Cotação de exemplo: informe a sua em Ajustes para ver o valor certo.";
+    }
+
+    private void RefreshEditorPass()
+    {
+        var price = editorPassBrl.TryGetValue(SelectedScope.Scope, out var byQuality) && byQuality.TryGetValue(SelectedQuality.Quality, out var brl) ? brl : 0m;
+        EditorPassPriceText = IsOvernight ? string.Empty : settings.IsSample ? "Gratuito" : $"+ {Money.BrlEstimate(price)}";
     }
 
     private void RefreshQualities(TranslationQuotes quotes)

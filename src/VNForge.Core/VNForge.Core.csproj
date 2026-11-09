@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\VNForge.Patching\VNForge.Patching.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="VNForge.Core.Tests" />
   </ItemGroup>
 
