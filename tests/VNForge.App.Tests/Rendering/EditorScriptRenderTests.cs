@@ -142,7 +142,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
             var traducao = Translation(linha);
             Assert.Equal(RowPadding + nome.Bounds.Height + Gap + original.Bounds.Height + Gap + traducao.Bounds.Height, linha.Bounds.Height, Tolerance);
             Assert.InRange(linha.Bounds.Height, 72 - Tolerance, 108 + Tolerance);
-            Assert.True(linha.Bounds.Height > alturaColunas, "a linha do Roteiro empilha o par e é mais alta que a das colunas");
+            Assert.True(linha.Bounds.Height >= alturaColunas * 1.5 - Tolerance, "a linha do Roteiro empilha nome, original e tradução: tem pelo menos 1,5 vez a da coluna");
 
             Assert.True(Top(nome, window) < Top(original, window), "o nome é o rótulo acima do par");
             Assert.True(Top(original, window) + original.Bounds.Height <= Top(traducao, window) + Tolerance, "o original fica em cima da tradução");
