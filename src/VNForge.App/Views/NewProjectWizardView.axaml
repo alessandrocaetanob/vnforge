@@ -278,7 +278,7 @@
             <Border Classes="panel" Padding="16" AutomationProperties.Name="Aviso que some">
               <StackPanel Spacing="8">
                 <TextBlock Classes="title-md" FontSize="16" LineHeight="22" Text="Aviso que some"/>
-                <TextBlock Margin="0,4,0,0" Classes="body-sm secondary" FontSize="14" LineHeight="20" TextWrapping="Wrap" Text="{Binding Preview.GenderNote}"/>
+                <TextBlock Margin="0,4,0,0" Classes="body-sm secondary" FontSize="12" LineHeight="20" TextWrapping="Wrap" Text="{Binding Preview.GenderNote}"/>
               </StackPanel>
             </Border>
           </StackPanel>

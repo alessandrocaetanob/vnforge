@@ -255,8 +255,10 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Character("c1", "Aizawa Kenta", "相沢 健太", "m", "main", 0, "Ken", "Kenta-kun"),
                 Character("c2", "Sakura Aoi", "佐倉 葵", "f", "primary", 0, "Aoi-chan"),
                 Character("c3", "Hayase Ren", "早瀬 蓮", "m", "side", 0, "Ren"),
-                Character("c4", "Todo Misaki", "藤堂 美咲", "f", "side", 0, "Todo-sensei"),
+                Character("c4", "Tōdō Misaki", "藤堂 美咲", "f", "side", 0, "Tōdō-sensei"),
                 Character("c5", "Coadjuvante", "名無し", null, "appears"),
+                Character("c6", "Kimura Sora", "木村 空", "m", "appears"),
+                Character("c7", "Ono Hana", "小野 花", "f", "appears"),
             ]);
     }
 
@@ -278,7 +280,7 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                     appSettings: new AppSettingsFile(temp.SubFolder("config")),
                     clock: new FixedClock(Now),
                     vndb: Catalog(),
-                    gameCharacterNames: (_, _, _) => ["相沢 健太", "佐倉 葵", "早瀬 蓮", "藤堂 美咲", "名無し 08"],
+                    gameCharacterNames: (_, _, _) => ["相沢 健太", "佐倉 葵", "早瀬 蓮", "藤堂 美咲", "Coadjuvante 08"],
                     translatedSynopsis: _ => "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou e encontra uma caixa de música que só toca quando alguém mente.");
                 var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, newProjectWizard: () => wizard);
@@ -307,7 +309,7 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.All(portraits, p => Assert.Equal((28.0, 28.0), (p.Bounds.Width, p.Bounds.Height)));
                     Assert.Equal(4, portraits.Count(p => p.HasImage));
                     var texts = VisibleTexts(window);
-                    Assert.Contains("5 do VNDB, 4 casados com os nomes do jogo (ES.CHAR.NAME)", texts);
+                    Assert.Contains("7 do VNDB, 4 casados com os nomes do jogo (ES.CHAR.NAME)", texts);
                     Assert.Contains("O aviso “5 personagens sem gênero” cai para 1, o da personagem que o VNDB não tem.", texts);
                     Assert.Equal(["ES.CHAR.NAME 1", "ES.CHAR.NAME 2", "ES.CHAR.NAME 3", "ES.CHAR.NAME 4", "sem par no VNDB"], texts.Where(t => t.StartsWith("ES.CHAR.NAME", StringComparison.Ordinal) || t == "sem par no VNDB"));
                     Assert.DoesNotContain("Papel", texts);
