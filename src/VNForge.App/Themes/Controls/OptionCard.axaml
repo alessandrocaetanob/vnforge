@@ -44,4 +44,7 @@
     <Setter Property="Padding" Value="15,11"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
   </Style>
+  <Style Selector="RadioButton.option.candidate:checked Ellipse.ring">
+    <Setter Property="Stroke" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
 </Styles>

@@ -252,10 +252,10 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
         return new FakeVndbCatalog(
             [main, disc],
             [
-                Character("c1", "Kenta Aizawa", "相沢 健太", "m", "main", 0, "Ken", "Kenta-kun"),
-                Character("c2", "Aoi Sakura", "佐倉 葵", "f", "primary", 0, "Aoi-chan"),
-                Character("c3", "Ren Hayase", "早瀬 蓮", "m", "side", 0, "Ren"),
-                Character("c4", "Misaki Todo", "藤堂 美咲", "f", "side", 0, "Todo-sensei"),
+                Character("c1", "Aizawa Kenta", "相沢 健太", "m", "main", 0, "Ken", "Kenta-kun"),
+                Character("c2", "Sakura Aoi", "佐倉 葵", "f", "primary", 0, "Aoi-chan"),
+                Character("c3", "Hayase Ren", "早瀬 蓮", "m", "side", 0, "Ren"),
+                Character("c4", "Todo Misaki", "藤堂 美咲", "f", "side", 0, "Todo-sensei"),
                 Character("c5", "Coadjuvante", "名無し", null, "appears"),
             ]);
     }
@@ -296,8 +296,8 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                     var covers = window.GetVisualDescendants().OfType<Cover>().Where(c => c.IsEffectivelyVisible).ToList();
                     Assert.Equal(2, covers.Count);
                     Assert.All(covers, c => Assert.Equal((72.0, 96.0), (c.Bounds.Width, c.Bounds.Height)));
-                    Assert.Contains("2019 · Média · 18 h · YU-RIS · nota 7,9", VisibleTexts(window));
-                    Assert.Contains("2020 · Curta · 3 h · YU-RIS · nota 7,2", VisibleTexts(window));
+                    Assert.Contains("2019 · Média · 18 h · Yu-RIS · nota 7,9", VisibleTexts(window));
+                    Assert.Contains("2020 · Curta · 3 h · Yu-RIS · nota 7,2", VisibleTexts(window));
                     Snapshot(window, "vndb-imagens-resultado", theme);
 
                     await wizard.NextCommand.ExecuteAsync(null);

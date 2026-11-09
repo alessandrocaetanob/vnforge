@@ -50,14 +50,14 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         await vm.SetGameFolderAsync(game);
 
-        Assert.Equal("Feito com o motor YU-RIS", vm.EngineHeadline);
+        Assert.Equal("Feito com o motor Yu-RIS", vm.EngineHeadline);
         Assert.Equal(
             [("Texto para traduzir", "2 arquivos de roteiro"), ("Cópia de segurança", "Feita antes de qualquer mudança no jogo")],
             vm.FoundFacts.Select(f => (f.Label, f.Value)));
         Assert.Equal(
             [("Arquivo de scripts", "ysbin.ypf · 2 scripts"), ("Chave XOR dos scripts", "0xD36FAC96"), ("Página de código", "932 (Shift-JIS)")],
             vm.DetectionFacts.Select(f => (f.Label, f.Value)));
-        Assert.Equal("YU-RIS · YPF v500", vm.EngineTitle);
+        Assert.Equal("Yu-RIS · YPF v500", vm.EngineTitle);
 
         var plain = vm.FoundFacts.SelectMany(f => new[] { f.Label, f.Value }).Append(vm.EngineHeadline).Append(vm.Steps[0].Subtitle);
         Assert.All(plain, text => Assert.DoesNotMatch("YPF|XOR|932|0x|ysbin|Shift", text));

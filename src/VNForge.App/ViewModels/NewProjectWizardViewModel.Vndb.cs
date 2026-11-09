@@ -103,9 +103,10 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate, string? e
 
 /// <summary>
 /// Uma linha da tabela "Personagens que chegam". <paramref name="InGame"/> é onde o nome aparece no jogo ("ES.CHAR.NAME 3") ou "sem par no VNDB";
-/// vazio quando o assistente não conseguiu ler os nomes do jogo.
+/// vazio quando o assistente não conseguiu ler os nomes do jogo. <paramref name="Display"/> é o nome em destaque (latino, na ordem ocidental);
+/// <paramref name="Original"/> vai pequeno abaixo dele, quando <paramref name="HasOriginal"/>.
 /// </summary>
-public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string InGame);
+public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string InGame, string Display, bool HasOriginal);
 
 /// <summary>O que o jogo confirmado traz ao projeto: personagens e sinopse.</summary>
 public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<VndbCharacterRow> Characters, string Synopsis, bool HasSynopsis, string SynopsisNote, string GenderNote, bool IsSynopsisTranslated = false)
@@ -157,7 +158,7 @@ public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<V
             }
             else
             {
-                unpaired.Add(new VndbCharacterRow(name, null, name, string.Empty, string.Empty, GenderLabel(CharacterGender.Unknown), false, NoPair));
+                unpaired.Add(new VndbCharacterRow(name, null, name, string.Empty, string.Empty, GenderLabel(CharacterGender.Unknown), false, NoPair, name, false));
             }
         }
 
@@ -189,12 +190,23 @@ public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<V
     private static VndbCharacterRow Row(VndbLinkedCharacter c, string inGame) => new(
         c.Name,
         c.Image,
-        c.Original ?? "Sem escrita original",
+        c.Original ?? string.Empty,
         c.Name,
         c.Aliases.Count == 0 ? string.Empty : string.Join(", ", c.Aliases),
         GenderLabel(c.Gender),
         c.Gender != CharacterGender.Unknown,
-        inGame);
+        inGame,
+        WesternOrder(c.Name, c.Original),
+        c.Original is not null);
+
+    /// <summary>O VNDB escreve o romaji de nome japonês com a família primeiro ("Aizawa Kenta"); a coluna em destaque o traz na ordem ocidental ("Kenta Aizawa"). Só troca nome de duas palavras com kanji no original: nome estrangeiro, em katakana, já vem na ordem ocidental.</summary>
+    private static string WesternOrder(string name, string? original)
+    {
+        var words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length == 2 && original is not null && original.Any(IsKanji) ? $"{words[1]} {words[0]}" : name;
+    }
+
+    private static bool IsKanji(char c) => c is >= '\u3400' and <= '\u9FFF';
 
     private static string GenderLabel(CharacterGender gender) => gender switch
     {

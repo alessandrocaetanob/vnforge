@@ -99,15 +99,17 @@
     <Setter Property="IsVisible" Value="True"/>
   </Style>
 
-  <!-- Variante do assistente de novo projeto (quadro da #536): círculos de 20px sem número, o concluído só com o contorno e o ✓ em accent,
+  <!-- Variante do assistente de novo projeto (quadro da #536): anéis de 18px sem número e de traço fino, o concluído de 20px só com o contorno e o ✓ em accent,
        sublinhado de 3px na etapa atual e cantos de 16px no conjunto. -->
   <Style Selector="c|PipelineStepper.wizard c|PipelineStepItem /template/ Border#PART_Root">
     <Setter Property="ClipToBounds" Value="True"/>
   </Style>
   <Style Selector="c|PipelineStepper.wizard c|PipelineStepItem /template/ Border#PART_Circle">
-    <Setter Property="Width" Value="20"/>
-    <Setter Property="Height" Value="20"/>
-    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="Width" Value="18"/>
+    <Setter Property="Height" Value="18"/>
+    <Setter Property="CornerRadius" Value="9"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Margin" Value="0,0,1,0"/>
   </Style>
   <Style Selector="c|PipelineStepper.wizard c|PipelineStepItem /template/ TextBlock">
     <Setter Property="LineHeight" Value="20"/>
@@ -119,6 +121,10 @@
     <Setter Property="IsVisible" Value="False"/>
   </Style>
   <Style Selector="c|PipelineStepper.wizard c|PipelineStepItem:done /template/ Border#PART_Circle">
+    <Setter Property="Width" Value="20"/>
+    <Setter Property="Height" Value="20"/>
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="Margin" Value="0,0,4,0"/>
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
   </Style>

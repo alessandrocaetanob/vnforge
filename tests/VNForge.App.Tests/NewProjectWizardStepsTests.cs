@@ -62,8 +62,8 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         await vm.SetGameFolderAsync(game);
 
         Assert.True(vm.HasDetection);
-        Assert.Equal("YU-RIS · YPF v500", vm.EngineTitle);
-        Assert.Equal("YU-RIS", vm.Steps[0].Subtitle);
+        Assert.Equal("Yu-RIS · YPF v500", vm.EngineTitle);
+        Assert.Equal("Yu-RIS", vm.Steps[0].Subtitle);
         Assert.Equal(
             [("Arquivo de scripts", "ysbin.ypf · 2 scripts"), ("Chave XOR dos scripts", "0xD36FAC96"), ("Página de código", "932 (Shift-JIS)")],
             vm.DetectionFacts.Select(f => (f.Label, f.Value)));
@@ -89,7 +89,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         Assert.Equal([PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Active, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
         Assert.Equal("Japonês → Português do Brasil", vm.Steps[2].Subtitle);
         Assert.Equal("Sem VNDB", vm.Steps[1].Subtitle);
-        Assert.Equal("YU-RIS", vm.Steps[0].Subtitle);
+        Assert.Equal("Yu-RIS", vm.Steps[0].Subtitle);
     }
 
     [Fact]

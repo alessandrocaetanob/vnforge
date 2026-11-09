@@ -61,7 +61,7 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Equal(["Amaoto no Hakoniwa", "Amaoto no Hakoniwa: Fan Disc"], vm.Candidates.Select(c => c.Title));
         Assert.Equal(["Combina com a pasta e o exe", "Combina com a pasta e o exe"], vm.Candidates.Select(c => c.EvidenceLabel));
         Assert.True(vm.Candidates[0].IsSelected);
-        Assert.Equal("2019 · Média · 18 h · YU-RIS", vm.Candidates[0].Details);
+        Assert.Equal("2019 · Média · 18 h · Yu-RIS", vm.Candidates[0].Details);
     }
 
     [Fact]
@@ -118,6 +118,22 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Equal(["ES.CHAR.NAME 1", "ES.CHAR.NAME 3", "sem par no VNDB"], preview.Characters.Select(c => c.InGame));
         Assert.Equal(["Masculino", "Feminino", "Sem gênero"], preview.Characters.Select(c => c.Gender));
         Assert.Equal("O aviso “3 personagens sem gênero” cai para 1, o da personagem que o VNDB não tem.", preview.GenderNote);
+    }
+
+    [Fact]
+    public async Task O_nome_em_destaque_vem_na_ordem_ocidental_e_o_original_fica_abaixo_so_quando_existe()
+    {
+        var catalog = new FakeVndbCatalog(
+            [Vn("v1", "Amaoto no Hakoniwa", Title)],
+            [Character("c1", "Aizawa Kenta", "相沢 健太", "m"), Character("c2", "John Smith", "ジョン・スミス", "m"), Character("c3", "Sakura", "桜", "f")]);
+        var vm = await AtVndbStepAsync(catalog);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        var rows = vm.Preview!.Characters;
+        Assert.Equal(["Kenta Aizawa", "John Smith", "Sakura"], rows.Select(c => c.Display));
+        Assert.Equal(["Aizawa Kenta", "John Smith", "Sakura"], rows.Select(c => c.Romaji));
+        Assert.All(rows, c => Assert.True(c.HasOriginal));
     }
 
     [Fact]

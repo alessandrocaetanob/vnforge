@@ -228,7 +228,7 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
     private static void CheckGamePlain(Window window, string tempRoot)
     {
         var texts = VisibleTexts(window);
-        Assert.Contains("Feito com o motor YU-RIS", texts);
+        Assert.Contains("Feito com o motor Yu-RIS", texts);
         Assert.Contains("312 arquivos de roteiro", texts);
         AssertPlain(texts, tempRoot);
     }

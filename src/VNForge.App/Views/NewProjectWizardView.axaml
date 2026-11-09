@@ -20,10 +20,28 @@
     </DataTemplate>
   </UserControl.Resources>
 
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1100" Margin="24,29,24,32" Spacing="20">
+  <UserControl.Styles>
+    <Style Selector="StackPanel.wizard-nav Button">
+      <Setter Property="Padding" Value="17.3,0"/>
+    </Style>
+    <Style Selector="StackPanel.wizard-nav Button.accent">
+      <Setter Property="Padding" Value="16,0,17,0"/>
+    </Style>
+    <Style Selector="StackPanel.vndb-exits Button.subtle">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+  </UserControl.Styles>
 
-      <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="Novo projeto"/>
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="1100" Margin="24,27,24,32" Spacing="20">
+
+      <!-- O título do assistente é maior que o do PageHeader (quadro da #536); a migalha e o título seguem o mesmo desenho. -->
+      <StackPanel>
+        <TextBlock Classes="caption secondary" Text="{Binding Breadcrumb}" TextTrimming="CharacterEllipsis"
+                   IsVisible="{Binding Breadcrumb, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        <TextBlock Classes="title-lg" FontSize="29.5" LineHeight="40" Text="Novo projeto" TextTrimming="CharacterEllipsis"/>
+      </StackPanel>
 
       <c:PipelineStepper Classes="wizard" ItemsSource="{Binding Steps}" IsVisible="{Binding IsWizardStep}" AutomationProperties.Name="Passos do assistente"/>
 
@@ -144,10 +162,12 @@
                   <RadioButton Classes="option candidate" GroupName="VndbCandidates" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
                     <Grid ColumnDefinitions="18,72,*,Auto" ColumnSpacing="12">
                       <Panel Width="18" Height="18" VerticalAlignment="Top" Margin="0,4,0,0" IsHitTestVisible="False">
-                        <Ellipse Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1.5"/>
+                        <Ellipse Classes="ring" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1.5"/>
                         <Ellipse Width="8" Height="8" Fill="{DynamicResource Vnf.Accent}" IsVisible="{Binding IsSelected}"/>
                       </Panel>
-                      <c:Cover Grid.Column="1" Width="72" Image="{Binding Cover}" Seed="{Binding Title}" VerticalAlignment="Top"/>
+                      <Border Grid.Column="1" Width="72" Height="96" VerticalAlignment="Top" CornerRadius="12" ClipToBounds="True" BoxShadow="{DynamicResource Vnf.ShadowCover}">
+                        <c:Cover Width="72" Image="{Binding Cover}" Seed="{Binding Title}"/>
+                      </Border>
                       <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Top" MinWidth="0">
                         <TextBlock Classes="title-md" TextWrapping="Wrap" Text="{Binding Title}"/>
                         <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}"/>
@@ -155,11 +175,11 @@
                       </StackPanel>
                       <Border Grid.Column="3" VerticalAlignment="Top" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                               Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding MatchesFolder}">
-                        <TextBlock Classes="caption" FontSize="11" LineHeight="18" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding EvidenceLabel}"/>
+                        <TextBlock Classes="caption" FontSize="11" LineHeight="18" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding EvidenceLabel}"/>
                       </Border>
                       <Border Grid.Column="3" VerticalAlignment="Top" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                               Background="{DynamicResource Vnf.StatusPendingBg}" IsVisible="{Binding !MatchesFolder}">
-                        <TextBlock Classes="caption" FontSize="11" LineHeight="18" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.StatusPendingFg}" Text="{Binding EvidenceLabel}"/>
+                        <TextBlock Classes="caption" FontSize="11" LineHeight="18" Foreground="{DynamicResource Vnf.StatusPendingFg}" Text="{Binding EvidenceLabel}"/>
                       </Border>
                     </Grid>
                   </RadioButton>
@@ -167,11 +187,11 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanSkipVndb}">
+            <StackPanel Classes="vndb-exits" Orientation="Horizontal" Spacing="17" Margin="4,0,0,0" IsVisible="{Binding CanSkipVndb}">
               <Button Classes="subtle" Command="{Binding SkipVndbCommand}" Content="Nenhum deles, seguir sem VNDB"/>
               <Button Classes="subtle" Command="{Binding ToggleTitleSearchCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Search}"/>
                   <TextBlock Text="Buscar por outro título"/>
                 </StackPanel>
               </Button>
@@ -187,23 +207,23 @@
         <Grid ColumnDefinitions="*,340" ColumnSpacing="16" IsVisible="{Binding IsVndbPreview}">
           <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Personagens que chegam">
             <StackPanel>
-              <Border Classes="divider-bottom" Padding="16">
+              <Border Padding="16">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                   <StackPanel>
                     <TextBlock Classes="title-md" FontSize="16" LineHeight="22" Text="Personagens que chegam"/>
                     <TextBlock Classes="body-sm secondary" LineHeight="20" TextWrapping="Wrap" Text="{Binding Preview.CountText}"/>
                   </StackPanel>
-                  <Border Grid.Column="1" VerticalAlignment="Top" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusApprovedBg}">
-                    <TextBlock Classes="caption" FontSize="11" LineHeight="18" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Preview.Label}"/>
+                  <Border Grid.Column="1" VerticalAlignment="Center" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusApprovedBg}">
+                    <TextBlock Classes="caption" FontSize="11" LineHeight="18" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Preview.Label}"/>
                   </Border>
                 </Grid>
               </Border>
               <Grid ColumnDefinitions="44,1.4*,1.2*,1.2*,100,1.1*" ColumnSpacing="12" Margin="16,0" Height="38">
-                <TextBlock Grid.Column="1" Classes="overline" VerticalAlignment="Center" Text="Nome original"/>
-                <TextBlock Grid.Column="2" Classes="overline" VerticalAlignment="Center" Text="Romaji"/>
-                <TextBlock Grid.Column="3" Classes="overline" VerticalAlignment="Center" Text="Apelidos"/>
-                <TextBlock Grid.Column="4" Classes="overline" VerticalAlignment="Center" Text="Gênero"/>
-                <TextBlock Grid.Column="5" Classes="overline" VerticalAlignment="Center" Text="No jogo"/>
+                <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="Nome original"/>
+                <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" Text="Romaji"/>
+                <TextBlock Grid.Column="3" Classes="caption secondary" VerticalAlignment="Center" Text="Apelidos"/>
+                <TextBlock Grid.Column="4" Classes="caption secondary" VerticalAlignment="Center" Text="Gênero"/>
+                <TextBlock Grid.Column="5" Classes="caption secondary" VerticalAlignment="Center" Text="No jogo"/>
               </Grid>
               <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding Preview.Characters}">
@@ -212,16 +232,19 @@
                       <Border Classes="divider-top" Padding="16,6" MinHeight="50">
                         <Grid VerticalAlignment="Center" ColumnDefinitions="44,1.4*,1.2*,1.2*,100,1.1*" ColumnSpacing="12">
                           <c:Portrait Size="Sm" Image="{Binding Image}" Seed="{Binding Seed}" VerticalAlignment="Center"/>
-                          <TextBlock Grid.Column="1" Classes="body-strong" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Original}"/>
+                          <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+                            <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="{Binding Display}"/>
+                            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Original}" IsVisible="{Binding HasOriginal}"/>
+                          </StackPanel>
                           <TextBlock Grid.Column="2" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Romaji}"/>
                           <TextBlock Grid.Column="3" Classes="secondary" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Aliases}"/>
                           <Border Grid.Column="4" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                                   Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding HasGender}">
-                            <TextBlock Classes="caption" FontSize="11" LineHeight="18" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Gender}"/>
+                            <TextBlock Classes="caption" FontSize="11" LineHeight="18" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="{Binding Gender}"/>
                           </Border>
                           <Border Grid.Column="4" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                                   Background="{DynamicResource Vnf.SignalWarningBg}" IsVisible="{Binding !HasGender}">
-                            <TextBlock Classes="caption" FontSize="11" LineHeight="18" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Gender}"/>
+                            <TextBlock Classes="caption" FontSize="11" LineHeight="18" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Gender}"/>
                           </Border>
                           <TextBlock Grid.Column="5" Classes="mono-xs" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding InGame}"/>
                         </Grid>
@@ -236,7 +259,7 @@
             <Border Classes="panel" Padding="16" AutomationProperties.Name="Sinopse para a bíblia">
               <StackPanel Spacing="8">
                 <TextBlock Classes="title-md" FontSize="16" LineHeight="22" Text="Sinopse para a bíblia"/>
-                <TextBlock MaxLines="3" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Text="{Binding Preview.Synopsis}"/>
+                <TextBlock Margin="0,4,0,0" FontSize="14.4" LineHeight="20" MaxLines="3" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Text="{Binding Preview.Synopsis}"/>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Preview.SynopsisNote}">
                   <TextBlock.IsVisible>
                     <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -245,9 +268,9 @@
                     </MultiBinding>
                   </TextBlock.IsVisible>
                 </TextBlock>
-                <Border HorizontalAlignment="Left" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusAiBg}"
+                <Border Margin="0,5,0,0" HorizontalAlignment="Left" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusAiBg}"
                         IsVisible="{Binding Preview.IsSynopsisTranslated}">
-                  <TextBlock Classes="caption" FontSize="11" LineHeight="18" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.StatusAiFg}"
+                  <TextBlock Classes="caption" FontSize="11" LineHeight="18" Foreground="{DynamicResource Vnf.StatusAiFg}"
                              Text="Traduzida pela IA, você revisa depois"/>
                 </Border>
               </StackPanel>
@@ -255,7 +278,7 @@
             <Border Classes="panel" Padding="16" AutomationProperties.Name="Aviso que some">
               <StackPanel Spacing="8">
                 <TextBlock Classes="title-md" FontSize="16" LineHeight="22" Text="Aviso que some"/>
-                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Preview.GenderNote}"/>
+                <TextBlock Margin="0,4,0,0" Classes="body-sm secondary" FontSize="14" LineHeight="20" TextWrapping="Wrap" Text="{Binding Preview.GenderNote}"/>
               </StackPanel>
             </Border>
           </StackPanel>
@@ -417,9 +440,9 @@
         </Border>
       </StackPanel>
 
-      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" IsVisible="{Binding IsWizardStep}">
+      <StackPanel Classes="wizard-nav" Orientation="Horizontal" Spacing="7" HorizontalAlignment="Right" IsVisible="{Binding IsWizardStep}">
         <Button Command="{Binding BackCommand}" Content="Voltar"/>
-        <Button Classes="accent" Command="{Binding NextCommand}" Content="{Binding NextLabel}"/>
+        <Button Classes="accent" FontWeight="Bold" Command="{Binding NextCommand}" Content="{Binding NextLabel}"/>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>
