@@ -31,6 +31,28 @@ internal static class DialogProbe
 
         var close = card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Close");
         Assert.Equal(showsClose, close.IsEffectivelyVisible);
+
+        // O quadro: borda de 1 px mais padding de 24 em todos os lados, título no canto de cima e à esquerda, X de 28 px no canto de cima e à direita.
+        const double inset = 25;
+        var title = card.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("title-md"));
+        var titleOrigin = title.TranslatePoint(default, card)!.Value;
+        Assert.True(Math.Abs(titleOrigin.X - inset) <= Tolerance, $"Título a {titleOrigin.X:0.#} px da esquerda; o quadro pede {inset}.");
+        Assert.True(titleOrigin.Y >= inset - Tolerance && titleOrigin.Y <= inset + 4, $"Título a {titleOrigin.Y:0.#} px do alto; o quadro pede {inset}.");
+        if (showsClose)
+        {
+            var closeOrigin = close.TranslatePoint(default, card)!.Value;
+            Assert.True(Math.Abs(close.Bounds.Width - 28) <= Tolerance, $"X com {close.Bounds.Width:0.#} px; o quadro pede 28.");
+            Assert.True(Math.Abs(closeOrigin.Y - inset) <= Tolerance, $"X a {closeOrigin.Y:0.#} px do alto; o quadro pede {inset}.");
+            Assert.True(Math.Abs(card.Bounds.Width - closeOrigin.X - close.Bounds.Width - inset) <= Tolerance, "X fora dos 25 px da direita.");
+        }
+
+        var footer = card.GetVisualDescendants().OfType<Border>().SingleOrDefault(b => b.Name == "PART_Footer");
+        if (footer is { IsEffectivelyVisible: true })
+        {
+            var footerOrigin = footer.TranslatePoint(default, card)!.Value;
+            Assert.True(Math.Abs(card.Bounds.Width - footerOrigin.X - footer.Bounds.Width - inset) <= Tolerance, "Rodapé fora dos 25 px da direita.");
+            Assert.True(Math.Abs(card.Bounds.Height - footerOrigin.Y - footer.Bounds.Height - inset) <= Tolerance, "Rodapé fora dos 25 px de baixo.");
+        }
         Assert.DoesNotContain(card.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("divider-top"));
     }
 }

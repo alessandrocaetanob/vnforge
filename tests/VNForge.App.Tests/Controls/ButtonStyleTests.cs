@@ -54,6 +54,40 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
         },
     };
 
+    [Theory]
+    [InlineData("", 16, 32)]
+    [InlineData("sm", 12, 28)]
+    [InlineData("lg", 16, 40)]
+    public async Task Botao_tem_o_padding_e_a_altura_do_quadro(string classes, double padding, double height)
+    {
+        await OnUi(window =>
+        {
+            var button = new Button { Content = "Cancelar" };
+            foreach (var name in classes.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                button.Classes.Add(name);
+            }
+
+            Show(window, button);
+
+            Assert.Equal(padding, button.Padding.Left);
+            Assert.Equal(padding, button.Padding.Right);
+            Assert.Equal(height, button.Bounds.Height);
+        });
+    }
+
+    [Fact]
+    public async Task Botao_de_icone_pequeno_tem_28_px()
+    {
+        await OnUi(window =>
+        {
+            var button = new Button { Content = "x", Classes = { "icon", "sm", "subtle" } };
+            Show(window, button);
+
+            Assert.Equal(28, button.Bounds.Width);
+        });
+    }
+
     [Fact]
     public async Task Rotulo_do_botao_contornado_e_semibold()
     {
