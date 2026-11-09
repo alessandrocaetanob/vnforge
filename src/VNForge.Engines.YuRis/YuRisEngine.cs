@@ -124,6 +124,61 @@ public sealed class YuRisEngine : IEngine, IGameUnpacker, IGameRepacker, IGamePa
     }
 
     /// <summary>
+    /// Lê o título da janela do <c>yscfg.ybn</c> dentro dos pacotes <c>.ypf</c> da pasta do jogo, sem descompactar nada: abre o índice de cada pacote, lê só essa
+    /// entrada e devolve o título do primeiro pacote que a tem. Pacote ilegível é pulado; pasta sem o arquivo devolve nulo.
+    /// </summary>
+    /// <exception cref="InvalidFileException">O <c>yscfg.ybn</c> não segue o formato.</exception>
+    public string? ReadTitleFromGame(string gameDir)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
+        var root = Path.GetFullPath(gameDir);
+        if (!Directory.Exists(root))
+        {
+            return null;
+        }
+
+        var format = new YpfArchiveFormat();
+        foreach (var file in YuRisDetector.FindYpfFiles(root, []))
+        {
+            byte[]? content = null;
+            string entryPath = string.Empty;
+            try
+            {
+                using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                if (!format.CanOpen(stream))
+                {
+                    continue;
+                }
+
+                using var archive = format.Open(stream);
+                var entry = archive.Entries.FirstOrDefault(e => YuRisDetector.FileNameOf(e).Equals(YuRisUnpacker.ConfigFile, StringComparison.OrdinalIgnoreCase));
+                if (entry is not null)
+                {
+                    using var memory = new MemoryStream();
+                    using (var source = archive.OpenEntry(entry))
+                    {
+                        source.CopyTo(memory);
+                    }
+
+                    content = memory.ToArray();
+                    entryPath = entry.Path;
+                }
+            }
+            catch (Exception ex) when (YuRisDetector.IsReadFailure(ex))
+            {
+                // Pacote que não abre não impede de achar o título em outro.
+            }
+
+            if (content is not null)
+            {
+                return YscfgReader.Read(content, entryPath).Title;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// O <c>yscfg.ybn</c> com o título trocado, codificado por <paramref name="encoder"/>; o cabeçalho e a configuração saem como estavam.
     /// </summary>
     /// <exception cref="InvalidFileException"><paramref name="file"/> não segue o formato.</exception>

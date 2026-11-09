@@ -67,27 +67,33 @@ public sealed class ReplacementStage : TextRunStage
     {
         foreach (var rule in _rules)
         {
-            if (rule.Regex is null)
-            {
-                run = run.Replace(rule.Replacement.Pattern, rule.Replacement.With, StringComparison.Ordinal);
-                continue;
-            }
-
-            try
-            {
-                run = rule.Regex.Replace(run, rule.Replacement.With);
-            }
-            catch (RegexMatchTimeoutException)
-            {
-                throw new FormattingException(
-                    $"formatting.json, {rule.Path}: a expressão regular passou de {RegexTimeout.TotalSeconds:0} s num trecho de texto; simplifique o padrão.");
-            }
+            run = Replace(run, rule.Replacement, rule.Regex, rule.Path);
         }
 
         return run;
     }
 
-    private static string? TryCompile(Replacement replacement, out Regex? regex)
+    /// <summary>Aplica uma substituição a um trecho de texto comum; <paramref name="regex"/> é o padrão já compilado, ou nulo para o literal.</summary>
+    /// <exception cref="FormattingException">A expressão regular passou do tempo limite.</exception>
+    internal static string Replace(string run, Replacement replacement, Regex? regex, string path)
+    {
+        if (regex is null)
+        {
+            return run.Replace(replacement.Pattern, replacement.With, StringComparison.Ordinal);
+        }
+
+        try
+        {
+            return regex.Replace(run, replacement.With);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            throw new FormattingException(
+                $"formatting.json, {path}: a expressão regular passou de {RegexTimeout.TotalSeconds:0} s num trecho de texto; simplifique o padrão.");
+        }
+    }
+
+    internal static string? TryCompile(Replacement replacement, out Regex? regex)
     {
         regex = null;
         if (string.IsNullOrEmpty(replacement.Pattern))

@@ -45,7 +45,7 @@ public sealed class App : Application
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
             var suggester = LineSuggester.ForUser(configDirectory);
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
-                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings) { PersonalGlossary = new PersonalGlossary(configDirectory) })
+                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings, vndb: VNForge.Vndb.VndbClient.Create(Path.Combine(configDirectory, "vndb-cache"))) { PersonalGlossary = new PersonalGlossary(configDirectory) })
             {
                 Editor = new EditorViewModel(suggester: suggester, layoutMemory: new EditorLayoutMemory(configDirectory))
                 {
@@ -58,6 +58,8 @@ public sealed class App : Application
                 TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = effort }),
+                MessageBatchClientFactory = () => ClaudeProviderFactory.CreateBatchClient(
+                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA.")),
                 JudgeProviderFactory = model => ClaudeProviderFactory.CreateJudge(
                     ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                     new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low }),

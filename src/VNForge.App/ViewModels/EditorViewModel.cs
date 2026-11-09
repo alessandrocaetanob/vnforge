@@ -1,3 +1,5 @@
+using VNForge.Core.Dictionaries;
+using VNForge.Core.Glossary;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -693,15 +695,15 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         }
 
         var shortener = Shortener ?? suggester as ILineShortener;
-        ILineSuggester lineSuggester = Project is { IsSample: true } ? SampleLineSuggester.Instance : suggester;
+        ILineSuggester lineSuggester = Project is { IsSample: true } ? SampleLineSuggester.Instance : PreDictionarySuggester.For(suggester, Project?.Root);
 
         var unit = savedUnits.GetValueOrDefault(line.Id) ?? line.Entry.Unit;
         var lineContext = context.For(unit.EffectiveSpeaker, unit.Source);
         var scene = SceneAround(line);
         var sameSource = new SameSourceBinding(this, line);
         var detail = postToUi is null
-            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, Dictionary = Dictionary, GlossaryTermStarter = term => GlossaryTermRequested?.Invoke(this, term), ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
-            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, Dictionary = Dictionary, GlossaryTermStarter = term => GlossaryTermRequested?.Invoke(this, term), ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
+            ? new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, RuleDictionary = CurrentDictionary(), SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, Dictionary = Dictionary, GlossaryTermStarter = term => GlossaryTermRequested?.Invoke(this, term), ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) }
+            : new LineDetailViewModel(unit, line.Entry.ScriptKey, lineEditor, this, clock, postToUi) { Suggester = lineSuggester, Shortener = shortener, Context = lineContext, ContextForSpeaker = speaker => context.For(speaker, unit.Source), Characters = context.Characters.Entries, RuleDictionary = CurrentDictionary(), SpellWords = context.SpellWords(), WordIgnored = () => _ = RecheckAsync(), Scene = scene, SameSource = sameSource, Consistency = sameSource, Explanations = Explanations, Memory = projectMemory, Dictionary = Dictionary, GlossaryTermStarter = term => GlossaryTermRequested?.Invoke(this, term), ProjectRoot = Project?.Root, SpeakerReviewStarter = speaker => StartReviewOf(ReviewSource.OfSpeaker(speaker)) };
         detail.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
         detail.ShowIssues(line.Entry.Issues);
         detail.ShowMemory();
@@ -1058,6 +1060,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// sem mudança no arquivo, a prévia fica como está.
     /// </summary>
     public void RefreshPreview() => Detail?.AttachPreview(CurrentProfile(), CurrentSpeakerMarks(), CurrentSpeakerNaming());
+
+    /// <summary>Falante e cena das linhas do projeto para o pós-dicionário com condição; nulo quando nenhuma regra do pós tem condição.</summary>
+    private DictionaryContext? CurrentDictionary() =>
+        CurrentProfile() is { } profile && profile.Dictionary.Post.Any(rule => rule.Enabled && rule.Conditions.Count > 0)
+            ? new DictionaryContext(scriptNames, new CharacterBook(context.Characters.Entries))
+            : null;
 
     /// <summary>O perfil do projeto, relido só quando o arquivo muda (<see cref="FormattingProfileCache"/>). Sem perfil legível, o painel fica sem prévia.</summary>
     private FormattingProfile? CurrentProfile() => Project is { } project ? profiles.Get(project.Root) : null;

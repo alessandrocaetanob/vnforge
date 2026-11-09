@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -19,6 +20,9 @@ public sealed class TranslationBatchBuilder(
     int maxNextLines = TranslationBatchBuilder.DefaultContextLines,
     IReadOnlyList<AddressTerm>? addressTerms = null)
 {
+    /// <summary>O pré-dicionário do projeto, que normaliza o original de todas as linhas do lote; nulo não normaliza nada.</summary>
+    public PreDictionary? Pre { get; init; }
+
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
     public const int DefaultContextLines = AiConfig.DefaultContextLines;
 
@@ -37,13 +41,29 @@ public sealed class TranslationBatchBuilder(
     public GameBible Bible { get; init => field = value ?? GameBible.Empty; } = GameBible.Empty;
 
     /// <summary>
+    /// No lote noturno a fala anterior ainda não está traduzida: com isto ligado, o contexto anterior vem do original de qualquer fala com texto, e não só das que já têm tradução.
+    /// O resumo da cena da bíblia segue junto em <see cref="Bible"/>.
+    /// </summary>
+    public bool PreviousFromSource { get; init; }
+
+    /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
     /// só as que já têm tradução, no máximo as últimas <c>maxPreviousLines</c>. <paramref name="next"/> são as linhas que vêm depois do lote;
     /// entram as primeiras <c>maxNextLines</c> com texto, no original, porque ainda não foram traduzidas.
     /// </summary>
+    /// <remarks>
+    /// O pré-dicionário normaliza o <see cref="TextUnit.Source"/> de todas as linhas do lote, das de contexto também, antes do resto: é esse texto que a IA lê,
+    /// que casa com o glossário e que entra na chave do cache (<see cref="Cost.TranslationCache.KeyFor"/>). Mudar uma regra do pré pede nova tradução das linhas
+    /// que ela muda; as demais mantêm a chave, salvo quando a troca faz o lote casar outro termo do glossário (os termos casados entram na chave do lote).
+    /// </remarks>
     public TranslationBatch Build(IReadOnlyList<TextUnit> lines, IReadOnlyList<TextUnit>? previous = null, IReadOnlyList<TextUnit>? next = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
+
+        var pre = Pre ?? PreDictionary.None;
+        lines = pre.Apply(lines);
+        previous = previous is null ? null : pre.Apply(previous);
+        next = next is null ? null : pre.Apply(next);
 
         var matchedGlossary = _glossary
             .Where(t => t.Source.Trim().Length > 0 && lines.Any(l => l.Source.Contains(t.Source.Trim(), StringComparison.Ordinal)))
@@ -72,7 +92,7 @@ public sealed class TranslationBatchBuilder(
             .ToList();
 
         var context = (previous ?? [])
-            .Where(u => u.HasTranslation)
+            .Where(u => PreviousFromSource ? !string.IsNullOrWhiteSpace(u.Source) : u.HasTranslation)
             .TakeLast(MaxPreviousLines)
             .ToList();
 

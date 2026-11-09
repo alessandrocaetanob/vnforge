@@ -176,5 +176,6 @@
     <v:ShortcutMapView/>
     <v:CommandPaletteView DataContext="{Binding Palette}"/>
     <v:TranslateDialogView DataContext="{Binding Translate}"/>
+    <v:UndoBatchDialogView DataContext="{Binding UndoBatch}"/>
   </Panel>
 </Window>

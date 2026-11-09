@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Formatting;
@@ -118,6 +119,9 @@ public sealed record FormattingProfile(IReadOnlyList<TextUnitKind> Kinds, WrapRu
 
     /// <summary>Substituições do usuário, antes e depois das regras do perfil (E4.5). Padrão: nenhuma.</summary>
     public ReplacementRules Replacements { get; init; } = ReplacementRules.None;
+
+    /// <summary>Pré e pós-dicionário com condição (#539). Padrão: nenhuma regra.</summary>
+    public DictionaryRules Dictionary { get; init; } = DictionaryRules.None;
 
     /// <summary>Unicode NFC, espaços invisíveis e NBSP (E4.2).</summary>
     public NormalizationRule Normalization { get; init; } = new();

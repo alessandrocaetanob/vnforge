@@ -39,8 +39,9 @@ public sealed record TranslationQuotes(int Lines, IReadOnlyList<QualityQuote> Qu
     public static bool Fits(decimal request, decimal spent, decimal? limit) => limit is not { } cap || spent + request <= cap;
 
     /// <summary>A qualidade mais cara que ainda cabe no que sobra do limite; <see langword="null"/> quando nem a Rápida cabe.</summary>
-    public QualityQuote? MostCarefulThatFits(decimal spent, decimal? limit) =>
-        Qualities.OrderByDescending(q => q.Quality).FirstOrDefault(q => Fits(q.Brl, spent, limit));
+    /// <param name="priceFactor">Multiplica o preço de cada qualidade; o lote noturno passa <see cref="ModelPricing.BatchDiscount"/>.</param>
+    public QualityQuote? MostCarefulThatFits(decimal spent, decimal? limit, decimal priceFactor = 1m) =>
+        Qualities.OrderByDescending(q => q.Quality).FirstOrDefault(q => Fits(q.Brl * priceFactor, spent, limit));
 }
 
 /// <summary>

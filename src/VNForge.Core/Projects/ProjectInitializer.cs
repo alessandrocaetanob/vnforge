@@ -1,6 +1,7 @@
 using System.Globalization;
 using VNForge.Core.Engines;
 using VNForge.Core.Memory;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Projects;
 
@@ -11,13 +12,15 @@ namespace VNForge.Core.Projects;
 /// <param name="TargetLanguage">Idioma da tradução; padrão: <c>pt-BR</c>.</param>
 /// <param name="EncodingStrategy">Estratégia de acentuação; padrão: <see cref="ProjectChoices.DefaultEncoding"/>.</param>
 /// <param name="Ai">Provedor, modelo e lote da IA; padrão: <see cref="ProjectChoices.DefaultAi"/>.</param>
+/// <param name="Vndb">O jogo do VNDB que o usuário confirmou (<see cref="VndbProjectLinker.BuildAsync"/>); vira o <c>vndb.json</c> do projeto. Nulo: o projeto nasce sem ligação.</param>
 public sealed record ProjectInitOptions(
     string? Name = null,
     string? Exe = null,
     string? SourceLanguage = null,
     string? TargetLanguage = null,
     string? EncodingStrategy = null,
-    AiConfig? Ai = null);
+    AiConfig? Ai = null,
+    VndbLink? Vndb = null);
 
 /// <summary>O que a detecção achou na pasta do jogo, sem criar nada: base do primeiro passo do assistente de novo projeto.</summary>
 /// <param name="Executables">Executáveis candidatos, sem os desinstaladores, em ordem alfabética.</param>
@@ -83,6 +86,19 @@ public static class ProjectInitializer
         return new GameInspection(engine, detection, ListExecutables(game));
     }
 
+    /// <summary>
+    /// O título da janela do jogo (no YU-RIS, o do <c>yscfg.ybn</c>), lido direto da pasta do jogo antes de o projeto existir, para buscar o jogo no VNDB.
+    /// Nulo quando a engine não lê o título do pacote ou o jogo não traz o arquivo; um título só de espaços também é nulo.
+    /// </summary>
+    /// <exception cref="VNForgeException">O arquivo do título existe mas não segue o formato.</exception>
+    public static string? ReadGameTitle(GameInspection inspection, string gameDir)
+    {
+        ArgumentNullException.ThrowIfNull(inspection);
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDir);
+        var title = (inspection.Engine as IGameTitleSource)?.ReadTitleFromGame(Path.GetFullPath(gameDir));
+        return string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+    }
+
     /// <summary>Cria o projeto em <paramref name="projectDir"/> para o jogo de <paramref name="gameDir"/>.</summary>
     /// <exception cref="ProjectConfigException">A pasta já tem um <c>vnforge.json</c>; nada é sobrescrito.</exception>
     /// <exception cref="ProjectInitException">Jogo inexistente, projeto dentro da pasta do jogo, engine não reconhecida ou executável não resolvido; nada é criado.</exception>
@@ -129,6 +145,11 @@ public static class ProjectInitializer
             options.Ai ?? ProjectChoices.DefaultAi);
 
         var folder = ProjectFolder.Create(project, config);
+        if (options.Vndb is { } link)
+        {
+            folder.SaveVndbLink(link);
+        }
+
         var (seeded, problem) = SeedPersonalTerms(folder, personalGlossary);
         return new ProjectInitResult(folder, config, engine, detection) { SeededTerms = seeded, PersonalGlossaryProblem = problem };
     }

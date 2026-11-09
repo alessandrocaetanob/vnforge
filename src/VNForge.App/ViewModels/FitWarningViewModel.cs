@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Claude;
@@ -26,6 +27,7 @@ public sealed partial class FitWarningViewModel : ObservableObject
     private readonly Func<string, Task> applySplit;
     private readonly Func<string, Task> applyShortened;
     private CancellationTokenSource? cancellation;
+    private readonly DictionaryContext? dictionary;
 
     /// <param name="unit">A linha; o papel dela decide se o build a formata.</param>
     /// <param name="profile">Perfil de formatação do projeto (a caixa do jogo).</param>
@@ -39,8 +41,10 @@ public sealed partial class FitWarningViewModel : ObservableObject
         ILineShortener? shortener,
         Func<string> translation,
         Func<string, Task> applySplit,
-        Func<string, Task> applyShortened)
+        Func<string, Task> applyShortened,
+        DictionaryContext? dictionary = null)
     {
+        this.dictionary = dictionary;
         this.unit = unit ?? throw new ArgumentNullException(nameof(unit));
         this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
         this.shortener = shortener;
@@ -112,7 +116,7 @@ public sealed partial class FitWarningViewModel : ObservableObject
     {
         try
         {
-            var split = PageSplitter.Split(profile, unit, translation());
+            var split = PageSplitter.Split(profile, unit, translation(), dictionary);
             if (split.Changed)
             {
                 await applySplit(split.Text);
@@ -180,8 +184,8 @@ public sealed partial class FitWarningViewModel : ObservableObject
 
         try
         {
-            var over = LinePreviewer.Create(profile, unit, text).Boxes.Max(box => box.Count) - maxLines;
-            return over > 0 ? new Fit(over, maxLines, PageSplitter.Split(profile, unit, text)) : null;
+            var over = LinePreviewer.Create(profile, unit, text, default, dictionary).Boxes.Max(box => box.Count) - maxLines;
+            return over > 0 ? new Fit(over, maxLines, PageSplitter.Split(profile, unit, text, dictionary)) : null;
         }
         catch (VNForgeException)
         {
