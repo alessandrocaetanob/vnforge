@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Spectre.Console;
+using VNForge.AI.Bible;
 using VNForge.AI.Claude;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
@@ -101,6 +102,12 @@ public sealed class VnfCli
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
+
+    /// <summary>
+    /// Cria o provedor da bíblia do jogo (<c>vnf bible generate</c>) para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, IBibleProvider>? BibleProviderFactory { get; set; }
 
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();
