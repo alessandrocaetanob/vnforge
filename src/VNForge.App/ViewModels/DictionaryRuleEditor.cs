@@ -34,6 +34,7 @@ public sealed partial class DictionaryConditionEditor : ObservableObject
         {
             if (SetProperty(ref kindIndex, Math.Clamp(value, 0, Kinds.Length - 1)))
             {
+                OnPropertyChanged(nameof(Operators));
                 OnPropertyChanged(nameof(OperatorLabel));
                 changed();
             }
@@ -59,6 +60,9 @@ public sealed partial class DictionaryConditionEditor : ObservableObject
         DictionaryConditionKind.Scene => "está em",
         _ => "contém",
     };
+
+    /// <summary>A lista do seletor do verbo: um item só, o do tipo escolhido (o quadro desenha o verbo numa caixa com seta, em três colunas).</summary>
+    public IReadOnlyList<string> Operators => [OperatorLabel];
 
     public DictionaryCondition ToCondition() => new(Kinds[KindIndex], Value.Trim());
 
@@ -124,6 +128,12 @@ public sealed partial class DictionaryRuleEditor : ObservableObject
             }
         }
     }
+
+    /// <summary>
+    /// O quadro da #539 não desenha o interruptor "Expressão regular": ele só aparece ao editar uma regra que já é regex (vinda do <c>formatting.json</c>),
+    /// para o diálogo não apagar o modo dela. A regra nova nasce sem regex.
+    /// </summary>
+    public bool ShowsRegexSwitch => Original?.Regex == true;
 
     public bool IsRegex
     {

@@ -24,14 +24,18 @@ internal static class SyntheticDictionary
         <JMdict>
         <entry><ent_seq>1</ent_seq><k_ele><keb>遅刻</keb><ke_pri>news1</ke_pri></k_ele><r_ele><reb>ちこく</reb></r_ele>
         <sense><pos>&n;</pos><pos>&vs;</pos><gloss>lateness</gloss><gloss>tardiness</gloss></sense>
-        <sense><gloss>being late (for work, school)</gloss></sense></entry>
+        <sense><pos>&vs;</pos><gloss>being late (for work, school)</gloss></sense></entry>
         <entry><ent_seq>2</ent_seq><k_ele><keb>行く</keb><ke_pri>ichi1</ke_pri></k_ele><k_ele><keb>往く</keb></k_ele><r_ele><reb>いく</reb></r_ele><r_ele><reb>ゆく</reb></r_ele>
         <sense><pos>&v5k-s;</pos><pos>&vi;</pos><gloss>to go</gloss><gloss>to move (towards)</gloss></sense>
         <sense><gloss>to proceed</gloss></sense>
         <sense><gloss>to head towards</gloss></sense>
         <sense><gloss>to pass through</gloss></sense>
         <sense><gloss>to get along</gloss></sense>
-        <sense><gloss>to die</gloss></sense></entry>
+        <sense><gloss>to die</gloss></sense>
+        <sense><gloss>to walk</gloss></sense>
+        <sense><gloss>to travel</gloss></sense>
+        <sense><gloss>to leave</gloss></sense>
+        <sense><gloss>to flow</gloss></sense></entry>
         <entry><ent_seq>3</ent_seq><k_ele><keb>行う</keb></k_ele><r_ele><reb>おこなう</reb></r_ele><sense><pos>&v5u;</pos><pos>&vt;</pos><gloss>to perform</gloss></sense></entry>
         <entry><ent_seq>4</ent_seq><k_ele><keb>二人</keb><ke_pri>news1</ke_pri></k_ele><r_ele><reb>ふたり</reb></r_ele><sense><pos>&n;</pos><gloss>two people</gloss></sense></entry>
         <entry><ent_seq>5</ent_seq><k_ele><keb>五分</keb></k_ele><r_ele><reb>ごふん</reb></r_ele><sense><pos>&n;</pos><gloss>five minutes</gloss></sense></entry>
