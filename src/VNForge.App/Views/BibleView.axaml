@@ -557,7 +557,7 @@
               <TextBlock FontSize="16" LineHeight="24" FontWeight="SemiBold" Text="{Binding EstimateText}"/>
               <TextBlock Grid.Column="1" Classes="caption secondary" LineHeight="18" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding SpentText}"/>
             </Grid>
-            <c:ShareBar Name="CostBar" Spent="{Binding SpentFraction}" Ask="{Binding EstimateFraction}" AutomationProperties.Name="Quanto do orçamento o projeto já gastou e este pedido usa"/>
+            <c:SpendBar Name="CostBar" Spent="{Binding SpentFraction}" Ask="{Binding EstimateFraction}" AutomationProperties.Name="Quanto do orçamento o projeto já gastou e este pedido usa"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Cada capítulo cabe inteiro no contexto de 1M. Depois da primeira leitura, o cache de prompt cobra 5% da entrada nas leituras seguintes do mesmo capítulo."/>
           </StackPanel>
         </Border>
